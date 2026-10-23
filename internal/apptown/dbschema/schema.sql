@@ -1318,6 +1318,10 @@ CREATE TABLE IF NOT EXISTS releases (
   deployment_id UUID, -- §2.8: where
   generation     BIGINT NOT NULL DEFAULT 0,   -- the deployment's generation this release is
   artifact_hash  TEXT NOT NULL DEFAULT '',    -- the rendered artifact's hash
+  -- shipped: AppTown released it. observed-after-restore: after AppTown was
+  -- restored, the provider was found running something else, recorded as
+  -- what runs and never as something AppTown shipped (external_ref names it).
+  origin TEXT NOT NULL DEFAULT 'shipped' CONSTRAINT release_origin CHECK (origin IN ('shipped', 'observed-after-restore')),
   UNIQUE(project_id, number)
 );
 CREATE TABLE IF NOT EXISTS release_changes (
@@ -1374,6 +1378,11 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- deployments_host_key); for one made before and not yet moved, the
   -- prefix its names were made with, so its data is found where it is.
   host_prefix TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_host_prefix CHECK (host_prefix IN ('', 'apptown-', 'forge-')),
+  -- After AppTown was restored, an App Platform or Portainer deployment is
+  -- not acted on until its provider says what it runs: unconfirmed until
+  -- then, gone when the provider has no such app. A built-in deployment is
+  -- filling until the rebuild that puts its data back has ended. '' otherwise.
+  restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling')),
   UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
@@ -1795,6 +1804,17 @@ CREATE TABLE IF NOT EXISTS restored_copy_tickets (
   expires_at      TIMESTAMPTZ NOT NULL,
   redeemed_at     TIMESTAMPTZ,
   check_operation UUID
+);
+-- A built-in deployment restored with AppTown: its rebuild fills its data
+-- from the set the archive holds (none: the backup took no set, and detail
+-- says why), before anything of the app starts. waiting until that rebuild
+-- ends, then filled or failed (detail says why).
+CREATE TABLE IF NOT EXISTS restore_fills (
+  deployment_id UUID PRIMARY KEY REFERENCES deployments(id) ON DELETE CASCADE,
+  backup_id UUID,
+  state TEXT NOT NULL DEFAULT 'waiting' CONSTRAINT restore_fill_state CHECK (state IN ('waiting', 'filled', 'failed')),
+  detail TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL
 );
 
 -- Source: internal/apptown/scm/schema.sql

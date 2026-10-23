@@ -82,9 +82,10 @@ func TestObserveAsksPortainerWhetherEachStacksAppRuns(t *testing.T) {
 				t.Errorf("the list asked %s", r.URL.RawQuery)
 			}
 			_, _ = w.Write([]byte(`[
-				{"State":"running","Labels":{"com.docker.compose.project":"apptown-snake","com.docker.compose.service":"app"}},
-				{"State":"exited","Labels":{"com.docker.compose.project":"apptown-racer","com.docker.compose.service":"app"}},
-				{"State":"running","Labels":{"com.docker.compose.project":"apptown-racer","com.docker.compose.service":"postgres"}}]`))
+				{"State":"exited","Image":"reg/snake@sha256:old","Labels":{"com.docker.compose.project":"apptown-snake","com.docker.compose.service":"app"}},
+				{"State":"running","Image":"reg/snake@sha256:new","Labels":{"com.docker.compose.project":"apptown-snake","com.docker.compose.service":"app"}},
+				{"State":"exited","Image":"reg/racer@sha256:r","Labels":{"com.docker.compose.project":"apptown-racer","com.docker.compose.service":"app"}},
+				{"State":"running","Image":"postgres:16","Labels":{"com.docker.compose.project":"apptown-racer","com.docker.compose.service":"postgres"}}]`))
 		default:
 			w.WriteHeader(404)
 		}
@@ -108,6 +109,13 @@ func TestObserveAsksPortainerWhetherEachStacksAppRuns(t *testing.T) {
 	}
 	if got[0].Generation != 4 || got[0].URL != "https://apptown-snake" || got[4].Generation != 0 {
 		t.Errorf("observations: %+v", got)
+	}
+	// What runs is the running app container's image; a stopped one still
+	// names its image; a stack with no app container names none (gone).
+	for i, want := range []string{"reg/snake@sha256:new", "reg/racer@sha256:r", ""} {
+		if got[i].Running != want {
+			t.Errorf("placement %d runs %q, want %q", i, got[i].Running, want)
+		}
 	}
 	if lists != 1 {
 		t.Errorf("Portainer was asked for its containers %d times for one target", lists)

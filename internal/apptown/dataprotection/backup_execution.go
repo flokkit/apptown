@@ -154,9 +154,18 @@ func (s *Service) TakeBackup(ctx context.Context, projectID ids.ID, deploymentNa
 // AppTown's disk only while it uploads; without one it stays on AppTown's
 // disk (design/subsystems/deployment.md, "Backups and restore").
 func (s *Service) takeSet(ctx context.Context, dk docker.Scope, projectID ids.ID, slug, deploymentName string, plan []backupPlanItem, trigger, actor string) (*Backup, error) {
+	return s.takeSetWhere(ctx, dk, projectID, slug, deploymentName, plan, trigger, actor, false)
+}
+
+// takeSetWhere is takeSet, kept on AppTown's disk whatever store is
+// attached when onDisk: a whole-AppTown backup's archive holds the files.
+func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID ids.ID, slug, deploymentName string, plan []backupPlanItem, trigger, actor string, onDisk bool) (*Backup, error) {
 	store, err := s.Store(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("reading the backup store: %w", err)
+	}
+	if onDisk {
+		store = nil
 	}
 	var c *s3bucket.Client
 	if store != nil {
@@ -408,6 +417,11 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	if err != nil {
 		return nil, err
 	}
+	// Not into a deployment a restore of AppTown holds: its records may be
+	// stale, or its own data is still to come back.
+	if err := dep.HeldAfterRestore(); err != nil {
+		return nil, err
+	}
 	rec.record(ctx, "from", b.Deployment)
 	// The restore holds its deployment until it ends: a take-down (a
 	// deletion's too) is refused meanwhile, and one under way refuses
@@ -616,7 +630,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 // restoreStopped, in a throwaway container of its image on its volumes
 // while it is stopped, after which it is started again. Then the need's
 // verify, if declared, runs in it with the copy on stdin.
-func (s *Service) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope, m restoreMove, path string) RestoredItem {
+func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope, m restoreMove, path string) RestoredItem {
 	it, p := m.item, m.into
 	// What the copy does not hold is the set's to say; a set from before
 	// copies carried it says what the destination's kind declares.

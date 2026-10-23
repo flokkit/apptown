@@ -606,6 +606,12 @@ func (d *Driver) observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 		o.Rollout, o.Health = "active", "healthy"
 	case got.App.ActiveDeployment != nil:
 		o.Rollout, o.Health = "failed", "unhealthy"
+	default:
+		// The app is there with nothing deployed yet: not absent.
+		o.Rollout = "pending"
+	}
+	if got.App.ActiveDeployment != nil {
+		o.Running = got.App.ActiveDeployment.ID
 	}
 	return o, nil
 }

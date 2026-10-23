@@ -79,6 +79,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		Recoverers:   map[string]workflow.Runner{workflowexec.ScriptKind: commands.RecoverScript, workflowexec.AgentKind: a.agents.RecoverAgent, workflowexec.ReviewKind: a.agents.RecoverAgent},
 		Chats:        holderPresenceFor(a),
 		Report:       selfErrorsFor(a).Workflow,
+		Hold:         a.newWork.Wait,
 		Slots:        a.capacity.Waiting,
 		Git:          (workflow.GitWorkspace{DataDir: a.cfg.dataDir}),
 		Repositories: &a.repositories,

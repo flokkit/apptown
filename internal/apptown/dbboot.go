@@ -308,3 +308,31 @@ func PrepareDataLayout(dataDir string) error {
 	}
 	return os.WriteFile(path, []byte(strconv.Itoa(DataLayoutVersion)+"\n"), 0o644)
 }
+
+// BuiltinDatabase is the built-in database of the AppTown whose data
+// directory is DataDir, on Docker, as a whole-AppTown backup and restore
+// use it (instancebackup.BuiltinDatabase).
+type BuiltinDatabase struct {
+	DataDir string
+	Docker  docker.Scope
+}
+
+// Names is what db.env says the container and the database are.
+func (b BuiltinDatabase) Names() (container, database string, ok bool) {
+	n, ok := readBuiltinDBNames(b.DataDir)
+	return n.Container, n.Database, ok
+}
+
+// Dump writes a whole gzipped dump of the database at path, or nothing.
+func (b BuiltinDatabase) Dump(ctx context.Context, path string) error {
+	n, ok := readBuiltinDBNames(b.DataDir)
+	if !ok {
+		return errors.New("db.env names no built-in database container, volume or database")
+	}
+	return dumpBuiltinDatabase(ctx, b.Docker, n, path)
+}
+
+// Ensure starts or makes the database and answers its URL.
+func (b BuiltinDatabase) Ensure(ctx context.Context) (string, error) {
+	return EnsureBuiltinDB(ctx, b.DataDir)
+}

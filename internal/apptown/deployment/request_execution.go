@@ -84,7 +84,12 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err != nil {
 		return fail(err)
 	}
-	running, err := s.runningBundle(ctx, dep)
+	// Before any preparation: App Platform's needs and rendering reach the
+	// provider before an attempt is admitted.
+	if err := dep.HeldAfterRestore(); err != nil {
+		return fail(err)
+	}
+	running, err := s.handBundle(ctx, dep)
 	if err != nil {
 		return fail(err)
 	}

@@ -115,6 +115,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         <span className="row" style={{ gap: 6 }}>
           <RuntimeStatus observation={e} />
           {e.readiness && e.readiness !== 'reconciled' && <span className={`chip ${readinessChip(e.readiness)}`}>{e.readiness}</span>}
+          {e.restoreCheck && <span className={`chip ${e.restoreCheck === 'gone' ? 'fail' : 'running'}`} title={restoreCheckWords(e.restoreCheck)}>{restoreCheckChip(e.restoreCheck)}</span>}
         </span>
       </div>
       <div className="small">
@@ -141,6 +142,19 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
       {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
       {e.generation ? <DiagnosticsLines slug={slug} name={e.name} /> : null}
       {(e.target?.kind === 'do-app' || e.target?.kind === 'docker-host') && <ProtectionLines slug={slug} name={e.name} />}
+      {e.restoreCheck && <div className="small">{restoreCheckWords(e.restoreCheck)}</div>}
+      {e.dataAfterRestore && (
+        <div className="small">
+          {e.dataAfterRestore.state === 'waiting' && <>Its data from {PRODUCT}'s backup goes back in when it is rebuilt, before the app starts.</>}
+          {e.dataAfterRestore.state === 'filled' && <>Its data came back from {PRODUCT}'s backup{e.dataAfterRestore.set ? <> (set {e.dataAfterRestore.set})</> : null} before the app started.</>}
+          {e.dataAfterRestore.state === 'failed' && (
+            <span className="error">
+              Its data did not come back from {PRODUCT}'s backup: {e.dataAfterRestore.detail}.
+              {e.dataAfterRestore.set ? <> Once it runs, restore set {e.dataAfterRestore.set} from its backups.</> : null}
+            </span>
+          )}
+        </div>
+      )}
       {e.readiness === 'uncertain' && (
         <div className="small">
           {PRODUCT} does not know whether this deployment stands: its last attempt was cut off, or its
@@ -514,4 +528,21 @@ export function ShareLine({ share }: { share?: DeploymentResources['share'] }) {
         : share.lowDisk && <span className="chip failed" style={{ marginLeft: 6 }} title="less than a tenth of the host's disk is free">host disk low</span>}
     </div>
   )
+}
+
+// What holds a deployment after AppTown was restored, as a chip and as a
+// sentence.
+function restoreCheckChip(check: string): string {
+  return check === 'unconfirmed' ? 'not yet confirmed since restore' : check === 'gone' ? 'gone since restore' : 'waiting for its data'
+}
+
+function restoreCheckWords(check: string): string {
+  switch (check) {
+    case 'unconfirmed':
+      return `${PRODUCT} was restored from a backup and has not yet read what this deployment's provider runs; nothing acts on it until it has.`
+    case 'gone':
+      return `${PRODUCT} was restored from a backup and the provider no longer has this app. Take it down, or release it again once ${PRODUCT} can rebuild it.`
+    default:
+      return `${PRODUCT} was restored from a backup; this deployment is rebuilt with its data before anything else runs it.`
+  }
 }

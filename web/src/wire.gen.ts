@@ -529,6 +529,8 @@ export type DeploymentView = {
   changeId?: string | null
   needs?: DeploymentNeedView[]
   aiModels?: string[]
+  restoreCheck?: string
+  dataAfterRestore?: RestoreFill | null
 }
 
 export type DevComposition = {
@@ -1162,6 +1164,7 @@ export type ReleaseListed = {
   deploymentId?: string | null
   generation?: number
   artifactHash?: string
+  origin: string
   changes: ReleaseChangeTitle[]
   serving: boolean
   observed?: string
@@ -2401,6 +2404,13 @@ export type DeploymentNeedView = {
   status: string
 }
 
+export type RestoreFill = {
+  set?: string | null
+  state: string
+  detail?: string
+  updatedAt: string
+}
+
 export type DevStaticBuild = {
   part: string
   context: string
@@ -3155,6 +3165,7 @@ export type Release = {
   deploymentId?: string | null
   generation?: number
   artifactHash?: string
+  origin: string
 }
 
 export type ReleaseChange = {

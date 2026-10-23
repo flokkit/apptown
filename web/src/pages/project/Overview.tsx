@@ -260,7 +260,7 @@ export function OverviewTab({ slug }: { slug: string }) {
                     try {
                       await openAfter(async () => (await post<ReleasePreviewStarted>(`/projects/${slug}/releases/${r.number}/preview`, {})).url)
                     } catch { nav(`/projects/${slug}/releases/${r.number}`) }
-                  }}>▶ #{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}</span></button>
+                  }}>▶ #{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></button>
               ))}
             </span>
             {live && (live.changes ?? []).length > 0 && (

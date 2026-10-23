@@ -203,7 +203,7 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 	if bundle.ProjectID != in.ProjectID {
 		return AcceptedRelease{}, ErrBundleMissing
 	}
-	running, err := s.runningBundle(ctx, dep)
+	running, err := s.handBundle(ctx, dep)
 	if err != nil {
 		return AcceptedRelease{}, err
 	}
@@ -261,7 +261,7 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		if err != nil {
 			return err
 		}
-		running, err := s.runningBundle(ctx, current)
+		running, err := s.handBundle(ctx, current)
 		if err != nil {
 			return err
 		}

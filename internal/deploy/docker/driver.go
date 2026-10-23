@@ -39,6 +39,10 @@ type Driver struct {
 	// to its names by key in this release's attempt, before its boot starts
 	// anything (move.go). REMOVE-AFTER resource move.
 	Move *Move
+	// Fill, when set, puts the deployment's data back in this boot, after
+	// its needs and before anything of the app starts (BootRequest.Fill):
+	// a rebuild after AppTown was restored.
+	Fill func(network string) error
 }
 
 // Booter runs the one boot sequence for a request and reports the port
@@ -103,7 +107,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		Log:  logf,
 		Name: name, Names: names.Prefix(), StackID: names.Stack(), Slug: slug, Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
-		Identity: &id, Services: SourceServices(art), Revision: source.Revision, move: move,
+		Identity: &id, Services: SourceServices(art), Revision: source.Revision, move: move, Fill: d.Fill,
 	}
 	if d.Owner != nil {
 		req.Record = func(o deploy.Owned) error { return d.Owner.Created(ctx, o) }

@@ -3,32 +3,167 @@ AppTown shows that AppTown's own address there. -->
 
 # AppTown's own backups
 
+A whole AppTown is backed up with one command and restored with another:
+
+```sh
+apptownd backup [-store] <archive>   # on the AppTown's host, while it runs
+apptownd restore <archive>           # on a new host, before AppTown starts there
+```
+
+Give each the same flags and `APPTOWN_*` settings `apptownd` runs with, at
+least `-data` (the data directory). Put the flags first, then the command.
+In a container install, run them in the container (`docker exec`).
+
+Both need the built-in database. An AppTown on `-db-url` keeps its database
+elsewhere: back that database up yourself, as "By hand" below says.
+
+## Backing up
+
+`apptownd backup /root/apptown-2026-10-23.backup` asks the AppTown running
+on that data directory to write one archive. It does this, in order:
+
+1. **Each app on AppTown's own Docker host is backed up with its app
+   stopped.** Every part of the app stops, its data is copied, and the parts
+   start again. Its services (a database, say) keep running, because the copy
+   is taken through them. One app stops at a time, for as long as its copy
+   takes. This copy is an ordinary deployment backup, kept with that
+   deployment's other backups.
+2. **AppTown holds new work for a moment.** No new job or step starts while
+   the database is dumped and the data directory is copied. Work already
+   running carries on.
+3. **The archive is written.** It holds the database dump, the data
+   directory without `pgdata` (the database's own files, which the dump
+   replaces) and `cache`, and a manifest that lists what is inside.
+4. With `-store`, the archive is also copied to the backup store that
+   deployment backups use (Settings, Backup store). The store takes one
+   object of up to 5 GB.
+
+The command prints what it did. It fails, with the reason, if an app's
+data could not be copied whole. The archive is still written in that
+case, and the manifest names that app.
+
+**One moment.** The dump is taken before the files are copied, and nothing
+new starts in between, so every file the database names is in the archive.
+Work that was already running can leave a file newer than the dump. A
+restored AppTown treats that work as interrupted, as it would after any
+stop. Each app's data is from its own copy in step 1, a little earlier than
+the dump.
+
+**The passphrase.** Every archive is encrypted. It holds every secret
+AppTown has: the built-in secret store and its key, connector and model
+keys, target credentials, the SSH keys of attached hosts, and the key step
+credentials are made with. The command asks for a passphrase on the
+terminal, or reads it from the file named in
+`APPTOWN_BACKUP_PASSPHRASE_FILE`. It must be at least 12 characters.
+Without it the archive cannot be restored, by AppTown or anyone else. Keep
+the passphrase somewhere other than the archive. The archive is standard
+[age](https://age-encryption.org) encryption around a `tar.gz`, so
+`age -d archive | tar tz` lists it without AppTown.
+
+**An external secret store** such as Infisical keeps its own values. The
+archive holds AppTown's connection to it, not the values. The manifest and
+the command's output say so when one is set up.
+
+**Copies off the host.** An archive on the AppTown's own disk is lost with
+that disk. Use `-store`, or copy it somewhere else.
+
+## Restoring
+
+On a host with Docker and no AppTown:
+
+```sh
+apptownd -data /srv/apptown/data restore /root/apptown-2026-10-23.backup
+```
+
+1. It refuses a host that already has an AppTown: a data directory that is
+   not empty, AppTown's database container, or any container AppTown made.
+2. It unpacks the archive into the data directory and checks that the key
+   files and the dump are exactly what the manifest says.
+3. It makes the built-in database and loads the dump. It counts each table's
+   rows on the way in and compares them with the loaded database.
+4. It opens the database as `-verify-only` would, bringing it up to this
+   build (a newer build than the one that took the archive is fine; an older
+   one is refused).
+5. It records what the restored AppTown does when it first starts (below)
+   and stops.
+
+Then start AppTown normally, with the same flags. Start it once with
+`-verify-only` first if you want to look before anything runs. The restored
+AppTown has the same id as the one backed up: run only one of them.
+
+If a restore fails part way, remove the data directory and the database
+container (`apptown-db`) and start again.
+
+**What the first start does.**
+
+- **Apps on AppTown's own Docker host** are rebuilt from their last release,
+  and their data goes back in during that rebuild: after their services
+  start and before any part of the app starts. Nothing of the app runs on
+  empty data. Until the rebuild ends, nothing else can deploy them. An app
+  whose copy in the archive is incomplete, or missing, is not started; its
+  card on the Deployments page says why. An app whose last release did not
+  record how to rebuild it is named by the restore: release it again, then
+  restore its copy from its backups. A failure with one app does not stop
+  the others.
+- **App Platform and Portainer deployments** stay where they are. AppTown
+  checks each one with its provider before it acts on it:
+  - The provider runs what AppTown last recorded: nothing changes.
+  - The provider runs something else (it was released to after the backup):
+    AppTown records it as a release marked "observed after restore". It is
+    not a release AppTown shipped. You can deploy the release AppTown last
+    shipped there again.
+  - The provider cannot be reached: the card says "not yet confirmed since
+    restore", and AppTown asks again every minute. Until then nothing
+    releases, restores into or takes down that deployment, including work
+    that was waiting when the backup was taken.
+  - The app is gone from the provider: the card says "gone since restore".
+    You can take it down. Rebuilding it from its record is not available
+    yet.
+- **Deployments on attached Docker hosts and bucket websites** are not
+  checked: they keep running as they are.
+
+## Moving AppTown to another host
+
+Back up on the old host, restore on the new one, then stop `apptownd` on
+the old host before you start it on the new one: both have the same id and
+the same credentials. Apps on the old host's Docker keep running and
+writing until you stop them. Anything they write after their copy in the
+backup is not on the new host. Keep the old host until the new one passes
+your checks.
+
+## The nightly database dump
+
 When AppTown uses its built-in database, it dumps it every night at 02:00
 (by the host's clock) into `<data directory>/backups/apptown-<date>.sql.gz`
 and keeps the newest 14. Each dump, or failure, is in the audit log
-(`db.backup`, `db.backup-failed`). With `-db-url` there is no nightly dump:
-back up that database yourself.
+(`db.backup`, `db.backup-failed`). With `-db-url` there is no nightly dump.
 
-The dump is the database only. The rest of AppTown itself is in the data
-directory: deployment backup sets under `backups/`, project repositories and change folders under `workspaces/`,
-the built-in secrets store `secrets.env`, `db.env` (the built-in database's
-password), `instance-id`, the key step credentials are made with
-(`runtime-token-key`), the SSH keys of attached hosts, and `layout`, the
-version of the directory's own layout (a build refuses a directory written by
-a newer one, by name, rather than misread it). Back that
-directory up as well, for example with the host's file-system snapshots.
-The live data of deployments on the built-in Docker host is not in it: it is
-in Docker volumes, covered by [Deployment backups](deployment-backups.md).
+The nightly dump is the database only. A whole backup is the archive above.
 
 **AppTown's own id.** Every AppTown has a UUID, the instance setting
 `forge.id`, written once at its first start and never changed. It names this
-AppTown in its backup sets. It is in
-the database, so an AppTown restored from a dump keeps it; a copy restored
-alongside the original has the same id, so run only one of them.
+AppTown in its backups. It is in the database, so a restored AppTown keeps
+it.
+
+## By hand
+
+These steps are for an AppTown on `-db-url`, and for loading one nightly
+dump.
+
+**What the data directory holds.** Deployment backups under `backups/`,
+project repositories and change folders under `workspaces/`, the built-in
+secret store `secrets.env`, `db.env` (the built-in database's password),
+`instance-id`, the key step credentials are made with (`runtime-token-key`),
+the SSH keys of attached hosts, and `layout`, the version of the directory's
+own layout (a build refuses a directory written by a newer one, by name).
 
 **Restoring the database.** This replaces the current database. If it is
-still readable, back it up first ([Upgrading](upgrading.md), step 2). Stop `apptownd`, then, with
-`<db>` being the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made before 1.0, which keeps that name. `<name>` is the database at the end of `APPTOWN_DB_URL` in the same file: `apptown`, or `forge` on an install made before 1.0:
+still readable, back it up first ([Upgrading](upgrading.md),
+step 2). Stop `apptownd`, then, with `<db>` being the built-in database's
+container, which `db.env` in the data directory names
+(`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made
+before 1.0. `<name>` is the database at the end of `APPTOWN_DB_URL` in the
+same file: `apptown`, or `forge` on an install made before 1.0:
 
 ```sh
 docker exec <db> dropdb -U postgres <name>
@@ -41,115 +176,38 @@ through the normal startup, which upgrades the database and the data
 directory to this build, then serves reads only, with no recovery, scheduler
 or workers. It is not a dry run of an upgrade. Then restart without it.
 
-**Moving an AppTown to another host.** Stop `apptownd` and its database container, copy the
-whole data directory (with the built-in database, its files in `pgdata`
-come with it), and start `apptownd` on the new host with the same settings,
-first with `-verify-only`.
+**An AppTown on `-db-url`.** Back up that database with its own tools, and
+the data directory with it, taken at the same moment (a file-system
+snapshot of the data directory taken with the dump is the reliable way).
+The data directory holds every secret as files, and the database holds the
+built-in secret store's key: protect both as you would the secrets.
 
-That moves AppTown itself, not the data of deployments on its built-in
-Docker host. Their data volumes, and their services' volumes (such as a
-Postgres need), are Docker volumes outside the data directory, and the apps
-keep running and writing on the old host after `apptownd` stops. On its first
-normal start the new host rebuilds those deployments with empty volumes.
-Copied backup sets are not restored by themselves.
+## Rehearsing a recovery
 
-So, before stopping `apptownd` on the old host, for each such deployment:
+`scripts/apptown-recovery-rehearsal.sh` backs up an AppTown with `apptownd
+backup`, restores the archive onto a spare host with `apptownd restore`, and
+checks the result: the key files match, reads through the API match (with a
+CLI token made before the backup), and an app chosen for the check was
+rebuilt with its data and answers the same query as on the source. Backing
+up writes on the source: each app on its own host stops for its copy.
 
-1. **Stop every application part, and keep it stopped.** On the host, a
-   deployment's containers are named from its key, which AppTown's
-   Infrastructure page shows with each container's project and deployment
-   (`docker ps --filter label=apptown.project=<project>` lists them too):
-   the public part is `apptown-dep-<key>`, and every other part and every
-   need is `apptown-svc-dep-<key>-<name>`, where `<name>` is the part's name
-   under `app:` or the need's name under `needs:` in `.apptown/app.yaml`. `docker stop` the public part and each
-   other part (a background worker writes too). Leave the need containers
-   running: their copies are taken inside them.
-2. **Back up now.** The set is written under the data directory, so it
-   moves with it.
-3. **After the move,** once the new host has rebuilt the deployment,
-   **Restore** the set. Restore stops every application part the running
-   release names, puts the data back and starts them again; a part that will
-   not stop refuses the restore before anything is written, and one that is
-   not there is named as not started.
+Rehearsed by the maintainers on a small AppTown (one project, an app with a
+Postgres need holding marker rows) onto a fresh host: the backup held new
+work for about a second; the restore, its read-only check and the rebuild of
+the app with its data took 74 seconds, and the rows came back unchanged.
 
-What each need's copy carries over, and what it leaves out, is in
-[Services and data](services-and-data.md); the `dataDir` volume of
-the public part is copied whole and put back.
-
-Keep the old host until each restore has succeeded. Deployments on
-attached Docker hosts, Portainer, App Platform and bucket websites stay
-where they are.
-
-**Recovering the whole AppTown on a replacement host.** A whole-AppTown backup is
-the database dump and the data directory taken at one moment: a file-system
-snapshot of the data directory taken with the dump is the reliable way. What
-you must arrange yourself:
-
-- **Copies off the host.** The nightly dump sits on the same disk as the
-  database; keep snapshots or copies somewhere else.
-- **The data directory, whole.** It holds AppTown's keys as files:
-  `runtime-token-key` (step credentials), `secrets.env` (the built-in secret
-  store and connector credentials), `db.env`, `instance-id`, and `ssh/` (keys
-  for attached hosts). The built-in secret store's own key is in the database,
-  so the dump and the data directory together hold every secret: protect them
-  as you would the secrets.
-- **The images a fresh host lacks before anything else starts:** the built-in
-  database's `postgres:16-alpine`, and the agent image.
-- **Keep the old host** until the new one passes your checks.
-
-The recovery point is the last snapshot and dump. The procedure, with a
-replacement host that is cut off from the outside world for a rehearsal, is
-`scripts/apptown-recovery-rehearsal.sh`; `scripts/apptown-restore-check.py` checks the
-result through the API with a CLI token made before the backup. Its steps:
-dump the database with `scripts/apptown-db-backup.sh`, copy the data directory
-without `pgdata` and `cache`, install the same `apptownd` build, start once with
-`-verify-only` to make the built-in database, load the dump (the commands under
-"Restoring the database" above), check the key files came across unchanged,
-check read-only with `-verify-only`, then start normally.
-The rehearsal checks this invocation's full target lock before cleanup effects
-and again before releasing it. An unreadable or different lock refuses cleanup;
-failed lock release is a failed rehearsal, even if resource cleanup already
-lifted the network cut. Inspect the target before reusing it after cleanup fails.
-
-Rehearsed by the maintainers from a production AppTown (28
-projects, a 2.5 GB data directory) onto a spare host, three passing runs: 5 to 6 minutes to an AppTown
-serving reads, and a static site rebuilt from its recorded release and
-answering 77 to 83 seconds after the normal start (6¼ to 7½ minutes in all).
-Copying the data directory took 3½ to 4½ of those minutes (relayed over SSH
-through the operator's machine; a direct copy or a restored snapshot is
-faster); loading the dump took 16 seconds (it is plain SQL, loaded by one
-`psql`). The key files, credentials, the change history,
-the evidence, approvals, reports and usage of 80 changes, and the recorded
-main of 27 repositories came across unchanged; the one project with no
-recorded main on the source is named as unverified, not counted.
-
-**What comes back by itself on a normal start.** Deployments on the built-in
-Docker host are stood up again from what each one's last release recorded, not
-from the old host's images: a static site with no network, a source build if
-the new host can reach the package registries the build uses, a digest bundle
-by pulling it. A deployment whose last release recorded no rebuild inputs cannot be
-rebuilt from its record: release it again before you need to, which records
-them. A deployment fed by landing takes by hand only the bundle it is known to
-run, and only while it is settled (no deploy under way), so this changes
-nothing a landing would have chosen: find the bundle of the release that put it
-there (`GET /api/v1/projects/<slug>/releases`, the newest release to that
-deployment, its `bundleId`) and `POST
-/api/v1/projects/<slug>/deployments/<name>/deploy` with `{"bundleId": <that
-bundle>}`. Any other bundle, even one at the same revision, is refused: landing
-deploys it.
-Deployments on attached hosts, Portainer, App Platform and
-bucket websites stay where they are. Their data comes back through deployment
-backups ([Deployment backups](deployment-backups.md)), not by itself.
-
-**A rehearsal is cut off from the outside.** A restored AppTown holds the
+**The spare host is cut off from the outside.** A restored AppTown holds the
 credentials of everything it manages: upstream Git, cloud accounts, attached
-hosts, model providers. As soon as it starts normally it reconciles
-deployments and fires schedules. The rehearsal script cuts the replacement
-host off before AppTown starts (an nftables table allowing only loopback,
-DNS, Docker's own networks and one registry, and `/etc/hosts` entries for the
-names that share that registry's address). The cut is selective: DNS, Docker's own
-networks and that registry stay reachable, and reaching the registry is not
-read-only. When the rehearsal ends it stops AppTown and removes every
-container, network and volume created since it started (it knows them from
-what Docker held before), and lifts the cut only once none remain. It refuses
-a target that already holds an AppTown's containers.
+hosts, model providers. As soon as it starts normally it fires schedules and
+checks its deployments. The script cuts the spare host off before AppTown
+starts (an nftables table allowing only loopback, DNS, Docker's own networks
+and one registry, and `/etc/hosts` entries for the names that share that
+registry's address). DNS, Docker's own networks and that registry stay
+reachable, and reaching the registry is not read-only. When the rehearsal
+ends it stops AppTown and removes every container, network and volume
+created since it started (it knows them from what Docker held before), and
+lifts the cut only once none remain. The lock it takes on the spare host
+must still be its own before it cleans up and before it releases it: an
+unreadable or different lock refuses cleanup, and a failed release is a
+failed rehearsal, even if the cut was already lifted. Inspect the host
+before using it again after a failed cleanup.

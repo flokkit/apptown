@@ -62,6 +62,9 @@ type Deployment struct {
 	// from with its first release; StartedFrom is when that was done.
 	StartFrom   ids.ID     `json:"startFrom,omitzero"`
 	StartedFrom stamp.Time `json:"startedFrom,omitzero"`
+	// RestoreCheck holds it after a whole-AppTown restore (restore_check.go);
+	// "" when nothing does.
+	RestoreCheck RestoreCheck `json:"restoreCheck,omitempty"`
 }
 
 // Placement is the record as a driver is handed it.
@@ -185,6 +188,7 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		UpdatedAt:          r.UpdatedAt.UTC().Format(time.RFC3339Nano),
 		StartFrom:          r.StartFromBackup,
 		StartedFrom:        stamp.Time{NullTime: r.StartedFromAt},
+		RestoreCheck:       RestoreCheck(r.RestoreCheck),
 	}
 	if err := e.Kind.Scan(r.Kind); err != nil {
 		return nil, err

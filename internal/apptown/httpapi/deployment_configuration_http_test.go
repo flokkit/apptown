@@ -79,7 +79,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	}
 	deployments := NewDeployments(a.service, a.data, a.projects)
 	targets := NewTargets(a.service, a.shared.Hosts, a.shared.Providers, a.projects, a.identity, nil, nil, a.db, nil)
-	listing := NewDeploymentListing(a.projects, a.service, t.TempDir())
+	listing := NewDeploymentListing(a.projects, a.service, t.TempDir(), nil)
 	projectValues := map[string]string{"slug": "game"}
 	createPath := "/api/v1/projects/game/deployments"
 	body := `{"name":"prod","target":"cloud","audience":"public","data":"production"}`

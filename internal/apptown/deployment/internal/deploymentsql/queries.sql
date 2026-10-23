@@ -415,3 +415,24 @@ DELETE FROM deployment_limit_events WHERE at < $1;
 
 -- name: ReleasedGeneration :one
 SELECT id, number FROM releases WHERE project_id = $1 AND deployment_id = $2 AND generation = $3 AND state = $4;
+
+-- After a whole-AppTown restore (restore_check.go).
+-- name: HoldStandingAfterRestore :many
+UPDATE deployments d SET restore_check=sqlc.arg(held), updated_at=sqlc.arg(updated_at)
+FROM targets t WHERE t.id=d.target_id AND d.kind=sqlc.arg(standing) AND t.kind=ANY(sqlc.arg(kinds)::text[])
+RETURNING d.id, d.project_id, d.name;
+
+-- name: DeploymentsHeldAfterRestore :many
+SELECT id FROM deployments WHERE restore_check=sqlc.arg(held) ORDER BY id;
+
+-- name: SettleRestoreCheck :execrows
+UPDATE deployments SET restore_check=sqlc.arg(next), updated_at=sqlc.arg(updated_at)
+WHERE id=sqlc.arg(id) AND restore_check=sqlc.arg(current);
+
+-- What the provider runs becomes the record (the driver's change to the
+-- handle, deploy.RunningRecord): the release that put it there is not
+-- known, so neither is its revision.
+-- name: AdoptAfterRestore :execrows
+UPDATE deployments SET handle_json=handle_json || sqlc.arg(handle_patch)::jsonb,
+  release_sha='', restore_check=sqlc.arg(next), updated_at=sqlc.arg(updated_at)
+WHERE id=sqlc.arg(id) AND restore_check=sqlc.arg(current);

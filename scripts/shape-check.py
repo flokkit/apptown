@@ -38,7 +38,7 @@ APP = MOD + "apptown"     # the App, the composition root; AppTown's subsystems 
 DOMAIN = APP + "/"
 # Libraries sit at internal/<x>: they know nothing of AppTown and could be lifted into another
 # program. A library may not import the App or anything under it.
-LIBRARIES = {"access", "check", "clock", "console", "database", "dbtest", "deploy", "diskspace", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "localtls", "stamp", "trust", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
+LIBRARIES = {"access", "backuparchive", "check", "clock", "console", "database", "dbtest", "deploy", "diskspace", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "localtls", "stamp", "trust", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
 
 # A kernel is a subsystem every other subsystem may import, and which may import
 # only leaves, libraries and kernels. access is no longer one: the rule and its
@@ -53,7 +53,7 @@ SUBSYSTEMS = ["identity", "project", "integration", "wow", "adoption", "deployme
               "console", "conformance", "model", "secret", "scm", "adrs", "complaint",
               "dependency", "usage", "agentenv", "tasks"]
 FACADES = ["changeconsole", "remediation", "projectlifecycle", "modelcall", "conversation", "workflowexec",
-           "verification", "maintenance", "workcommands", "inference", "changeadds", "evals"]
+           "verification", "maintenance", "workcommands", "inference", "changeadds", "evals", "instancebackup"]
 # jobs is the queue the daemon builds once with every subsystem's handlers bound: a
 # cross-cutting facility, not a subsystem.
 LEAVES = {"database", "audit", "enum", "fault", "gitexec", "localtls", "stamp", "trust", "strs", "wiregen", "schema", "execution", "dbtest", "dbschema", "appcontract", "jobs",
@@ -96,6 +96,7 @@ ALLOWED = {
     "changeadds":       {"adoption", "secret", "workflow"},
     "evals":            {"adoption", "complaint", "conformance", "project", "projectlifecycle", "scm", "usage",
                          "verification", "workflow", "wow"},
+    "instancebackup":   {"dataprotection", "deployment", "secret", "version"},
 }
 
 def top(pkg):

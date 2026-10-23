@@ -42,6 +42,10 @@ type Release struct {
 	DeploymentID ids.ID `json:"deploymentId,omitzero"`
 	Generation   int64  `json:"generation,omitempty"`
 	ArtifactHash string `json:"artifactHash,omitempty"`
+	// Origin is shipped, or observed-after-restore: found running on the
+	// provider after AppTown was restored, which AppTown did not ship
+	// (restore_check.go).
+	Origin string `json:"origin"`
 }
 
 // At is when the release happened: when it was released, else when it was cut.
@@ -88,6 +92,7 @@ func releaseRecord(r deploymentsql.Release, err error) (*Release, error) {
 		DeploymentID: r.DeploymentID,
 		Generation:   r.Generation,
 		ArtifactHash: r.ArtifactHash,
+		Origin:       r.Origin,
 	}
 	if err := v.State.Scan(r.State); err != nil {
 		return nil, err

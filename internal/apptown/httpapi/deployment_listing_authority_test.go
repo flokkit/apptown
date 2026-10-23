@@ -42,7 +42,7 @@ func TestDeploymentListingChecksInternalAuthorityAndHTTPUnknown(t *testing.T) {
 	if err := a.identity.SaveUser(context.Background(), identity.AccountChange{Username: "outsider", Disabled: &disabledOutsider}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
-	h := NewDeploymentListing(a.projects, a.service, t.TempDir())
+	h := NewDeploymentListing(a.projects, a.service, t.TempDir(), nil)
 	path := "/api/v1/projects/game/deployments"
 	values := map[string]string{"slug": "game"}
 	if w := deploymentRequest(h.Deployments, "outsider", http.MethodGet, path, values); (w.Code != 403 && w.Code != 401) || driver.calls != 0 {

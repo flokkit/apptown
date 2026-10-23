@@ -105,6 +105,10 @@ func SelectRemovalIn(ctx context.Context, tx *database.Tx, projectID ids.ID, nam
 	if dep.Kind == Restored {
 		return nil, ErrRestoredCopyDoor
 	}
+	// Not from records a restore has not yet confirmed against the provider.
+	if err := dep.TakeDownHeldAfterRestore(); err != nil {
+		return nil, err
+	}
 	busy, err := q.HasOpenAttempt(ctx, deploymentsql.HasOpenAttemptParams{DeploymentID: dep.ID, RunningState: AttemptRunning.String(), UncertainState: AttemptUncertain.String()})
 	if err != nil {
 		return nil, err

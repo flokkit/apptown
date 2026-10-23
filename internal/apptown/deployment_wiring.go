@@ -4,6 +4,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
@@ -52,6 +53,19 @@ func dataProtectionDependencies(a *App) dataprotection.Dependencies {
 		Operations: a.operations, Applied: a.inventory.Invalidate,
 		RestoredCopies: dataprotection.RestoredCopyDependencies{GateImage: a.cfg.restoreGateImage, AppTown: a.cfg.publicOrigin(),
 			Secrets: releaseSecrets{secrets: a.Secrets}}}
+}
+
+// instanceBackupDependencies are what a whole-AppTown backup and the
+// record of a restore run on: the built-in database (none on -db-url),
+// data protection, Deployment's records, secrets and the hold of new work.
+func instanceBackupDependencies(a *App) instancebackup.Dependencies {
+	deps := instancebackup.Dependencies{DB: a.DB, DataDir: a.cfg.dataDir, Protection: a.DataProtection, Deployment: a.Deployment,
+		Deployments: a.Deployment.Deployments, Targets: a.targets, BuiltInTarget: a.hosts.BuiltInTarget(), Secrets: a.Secrets,
+		NewWork: &a.newWork, Now: a.cfg.clock.Now}
+	if a.cfg.usingBuiltinDB {
+		deps.Database = BuiltinDatabase{DataDir: a.cfg.dataDir, Docker: a.docker}
+	}
+	return deps
 }
 
 // hostSettings are this AppTown's Docker settings, which Deployment and

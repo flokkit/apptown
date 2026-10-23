@@ -320,6 +320,36 @@ observed the same way. Settlement is the usual one, with its release receipts;
 the ledger records `deployment.checked-again` with who pressed it and what was
 observed. Missing evidence is still not retry authority.
 
+## After a whole-AppTown restore
+
+`apptownd restore` ([AppTown's own backups](../../stock/docs/guides/apptown-backups.md))
+leaves a hold on deployments whose records may no longer match what runs
+(`deployments.restore_check`, `restore_check.go`):
+
+- `unconfirmed`: a standing App Platform or Portainer deployment whose
+  provider has not been read since. A minute job (`restore-check`) asks the
+  driver's own observation, which now also names what runs
+  (`deploy.Observation.Running`: App Platform's active deployment, the
+  Portainer app container's image). The recorded one confirms it; another
+  is adopted as a release with origin `observed-after-restore` (never
+  `shipped`; App Platform's handle takes the running deployment, the
+  revision becomes unknown); no app makes it `gone`; an unreadable provider
+  or an open attempt leaves it held.
+- `gone`: no app at the provider. A person takes it down.
+- `filling`: a built-in deployment whose rebuild puts its data back. The
+  rebuild's Docker boot runs data protection's fill after the needs and
+  before any init step, part or the public app (`BootRequest.Fill`,
+  `RestoreFiller`); only a whole set fills, and a partial or missing one
+  fails the boot with nothing of the app started. The rebuild job settles
+  the fill and lifts the hold however the rebuild ends.
+
+A held deployment admits no attempt (`Outcomes.Admit` refuses it, except a
+`filling` deployment's rebuild), no release (`CreateReleaseIn`, and
+`ExecuteRelease` before any preparation, for releases queued before the
+backup), no data restore and, while `unconfirmed`, no take-down. After an
+adoption, the bundle of the release AppTown last shipped there may be
+deployed by hand, also on a landing-fed deployment (`handBundle`).
+
 ## Releasing over data AppTown cannot copy
 
 A release can change the data a deployment holds (a migration, code that

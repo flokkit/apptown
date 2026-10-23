@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"os"
 	"path/filepath"
 	"strings"
@@ -241,6 +242,108 @@ func TestLandingContractDecisionUsesSelectedCommit(t *testing.T) {
 			}
 			if n := deploymentsMatching(t, a, func(d deployment.ProjectDeployment) bool { return d.ObservedGeneration == 1 }); n != count {
 				t.Fatalf("%d deployments at generation 1, want %d", n, count)
+			}
+		})
+	}
+}
+
+// A built-in deployment restored with AppTown is rebuilt by the first
+// start, and its data goes back in that rebuild before anything of its app
+// starts. A whole set fills it and the app comes up; a partial set, or
+// none, starts nothing of the app and says why; either way the hold is
+// lifted, so the deployment is never left waiting on a rebuild that has
+// ended.
+//
+// Kills: a partial set reported filled with the app started on part of its
+// data; a fill skipped by the rebuild; a hold left after the rebuild ended.
+func TestARestoredDeploymentIsRebuiltWithItsDataBeforeItsAppStarts(t *testing.T) {
+	for _, scenario := range []string{"whole", "partial", "missing"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			a, f := bootWorld(t)
+			runID, stepID := deployRun(t, a)
+			run, err := workflow.ReadRunIn(context.Background(), a.DB, runID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+			// The app keeps its files in its data volume and needs nothing
+			// else, so the fake daemon has no database to answer for.
+			if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(strings.Split(bootFixtureYAML, "needs:")[0]), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if out, err := gitexec.Run(t.Context(), ws, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qam", "no needs"); err != nil {
+				t.Fatalf("%v: %s", err, out)
+			}
+			if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
+				t.Fatal(err)
+			}
+			a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+			ctx := t.Context()
+			dep, err := a.Deployment.Deployments.ByName(ctx, idstest.N(1), "main")
+			if err != nil || dep.ObservedGeneration != 1 {
+				t.Fatalf("initial deployment %+v %v", dep, err)
+			}
+			// The set the archive held: whole (nothing failed), partial (its
+			// database's copy failed), or none at all.
+			var set ids.ID
+			if scenario != "missing" {
+				b := &dataprotection.Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: "2026-10-23T00:00:00Z", Trigger: dataprotection.TriggerAppTownBackup,
+					Path: t.TempDir(), Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk}
+				if scenario == "partial" {
+					b.Status = dataprotection.BackupPartial
+					b.Items = []dataprotection.BackupItem{{Kind: "need", Name: "postgres", File: "postgres.dump", Error: "pg_dump: connection refused"}}
+				}
+				if set, err = dataprotection.NewBackups(a.DB).Record(ctx, b, "test"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := a.DataProtection.RecordFill(ctx, dep.ID, set, "the backup could not stop its app", true); err != nil {
+				t.Fatal(err)
+			}
+			if err := a.deployments.HoldForFill(ctx, []ids.ID{dep.ID}); err != nil {
+				t.Fatal(err)
+			}
+			// A fresh host: the app's container is not there.
+			names := mainNames(t, a)
+			if _, err := f.Run(ctx, "", docker.Command{Args: []string{"rm", "-f", names.App()}}); err != nil {
+				t.Fatal(err)
+			}
+			f.reset()
+			if _, err := deploymentJobsForTest(a).Rebuild(ctx, "p/main", map[string]any{"deployment": dep.ID, "generation": 1}); err != nil && scenario == "whole" {
+				t.Fatalf("the rebuild with a whole set: %v", err)
+			}
+			started := false
+			for _, call := range f.matching("run ") {
+				if containerNameOf(call) == names.App() {
+					started = true
+				}
+			}
+			fills, err := a.DataProtection.FillsOf(ctx, []ids.ID{dep.ID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fill := fills[dep.ID]
+			after, err := a.Deployment.Deployments.ByID(ctx, dep.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if after.RestoreCheck != "" {
+				t.Fatalf("the hold outlived the rebuild: %q", after.RestoreCheck)
+			}
+			switch scenario {
+			case "whole":
+				if !started || fill.State != dataprotection.FillFilled {
+					t.Fatalf("a whole set: app started %v, fill %+v", started, fill)
+				}
+			default:
+				if started {
+					t.Fatalf("the app started without its data:\n%s", strings.Join(f.joined(), "\n"))
+				}
+				want := map[string]string{"partial": "connection refused", "missing": "could not stop its app"}[scenario]
+				if fill.State != dataprotection.FillFailed || !strings.Contains(fill.Detail, want) {
+					t.Fatalf("fill %+v, want failed naming %q", fill, want)
+				}
 			}
 		})
 	}
