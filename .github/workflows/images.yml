@@ -96,8 +96,6 @@ jobs:
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           provenance: mode=max
           sbom: true
-          cache-from: type=gha,scope=${{ matrix.image.name }}-${{ matrix.platform.slug }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}-${{ matrix.platform.slug }}
       - env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: mkdir -p digests && touch "digests/${DIGEST#sha256:}"
@@ -185,9 +183,11 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci --no-audit --no-fund && npm run build
         working-directory: web
+      # No Go cache: a cache saved on a tag's ref is that tag's alone.
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false
       - run: sh scripts/release-archives.sh "${TAG#v}" "$GITHUB_SHA" dist
       - if: env.PUBLIC == 'true'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2

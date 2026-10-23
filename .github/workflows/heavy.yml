@@ -95,6 +95,10 @@ jobs:
         with:
           name: web-dist
           path: web/dist/
+      # The tests' images (deploy/ci-heavy/test-images.txt), before the
+      # tests: a registry error fails this step, not a test.
+      - name: pull test images
+        run: sh scripts/ci-heavy.sh pull
       - name: go test (${{ matrix.name }})
         run: eval "sh scripts/ci-heavy.sh test ${{ matrix.args }}"
       - if: always()
@@ -109,8 +113,31 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: web-dist
           path: web/dist/
+      # Go's module and build caches: restored by prefix from main's, saved
+      # only on main (as in ci.yml), so each holds one cache; ci.yml's
+      # checks job saves the modules.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gomod
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gobuild
+        with:
+          path: ~/.cache/go-build
+          key: go-build-race-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-build-race-${{ runner.os }}-
+      - name: pull test images
+        run: sh scripts/ci-heavy.sh pull
       - run: make check-race
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: ${{ steps.gobuild.outputs.cache-primary-key }}

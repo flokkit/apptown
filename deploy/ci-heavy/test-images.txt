@@ -1,0 +1,48 @@
+# The images the heavy tiers' tests start (.github/workflows/heavy.yml),
+# pulled before the tests by `scripts/ci-heavy.sh pull`, so a registry
+# error fails that step and not whichever test asked first. One reference
+# per line, written exactly as the code names it: the tag or digest stays
+# where the code sets it (a Go constant, stock/, a test), and this list
+# repeats it. A test that starts a new image, or a changed tag, adds its line
+# here; nothing checks that, and a missing line only means that image is
+# pulled by its test, as before.
+#
+# Not here: the bases of the images ci-heavy.sh builds before the tests
+# (deploy/ci-heavy, deploy/apptown-agent), pinned in their Dockerfiles, and
+# what a private Docker daemon inside a test pulls for itself.
+
+# Test PostgreSQL (internal/dbtest) and the stock dependencies
+# (stock/dependencies) the integration tests start.
+postgres:16-alpine
+redis:7-alpine
+mariadb:11.4.13
+versity/versitygw:v1.8.0
+python:3.13.16-alpine3.24
+
+# Images AppTown runs: diskspace.DFImage, check.ShImage,
+# docker.StaticServerImage, agentenv.DindImage, and the scanners the
+# integration tests run (stock/scanners.yaml).
+busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+alpine/git:v2.47.2
+caddy:2-alpine
+docker:27-dind
+aquasec/trivy:0.66.0
+zricethezav/gitleaks:v8.30.0
+
+# The seeds the integration tests build (stock/seeds).
+node:24-slim
+composer:2.10.3@sha256:af98f42dfff7c68ba8d53c2164fd9fde1087b7d449514baa38c418b1f6bc4bac
+php:8.3.35-apache-bookworm@sha256:b79a53c3fb1dd4b9f350a8d99d84951512b6c21044e61bbecfee8af030b3722e
+
+# The tests' own images.
+busybox:1.37
+busybox:latest
+alpine:3
+docker:27-cli
+registry:2
+curlimages/curl:8.22.0
+python:3.13-slim-trixie
+debian:bookworm-slim
+eclipse-temurin:21-jdk
+node:22-slim
+portainer/portainer-ce:2.27.9

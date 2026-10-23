@@ -57,8 +57,13 @@ func needWorld(t *testing.T, need string) (*both, ids.ID, map[string]string) {
 	if err != nil || len(services) != 1 {
 		t.Fatalf("the stock %s: %v %v", need, services, err)
 	}
-	if out, err := dockertest.CombinedOutput("pull", services[0].Image); err != nil {
-		t.Fatalf("the stock %s image %s cannot be pulled: %v %s", need, services[0].Image, err, out)
+	// Pulled only when missing: CI pulls the heavy tiers' images before the
+	// tests (deploy/ci-heavy/test-images.txt), and a test that pulls again
+	// fails on a registry error.
+	if _, err := dockertest.CombinedOutput("image", "inspect", services[0].Image); err != nil {
+		if out, err := dockertest.CombinedOutput("pull", services[0].Image); err != nil {
+			t.Fatalf("the stock %s image %s cannot be pulled: %v %s", need, services[0].Image, err, out)
+		}
 	}
 	containerOf := map[string]string{}
 	for _, name := range []string{"main", "fresh"} {

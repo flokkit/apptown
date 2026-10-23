@@ -19,8 +19,12 @@ repository's collaborators ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
 The repository is public, so standard runners cost nothing.
 
-**`ci.yml`** runs on every pull request, a documentation-only one too, and by
-hand. A newer run cancels an older one on the same ref. Jobs:
+**`ci.yml`** runs on every pull request, a documentation-only one too, on
+every push to `main`, and by hand. A pull request's newer run cancels its
+older one; main's runs, and runs by hand, are each kept. The pull request's
+run already tested what `main` becomes; main runs it again so that each
+landed commit has its own result and so that main writes the caches every
+pull request restores. Jobs:
 
 - `web`: npm ci, the guides' checks (`make check-docs`, which renders
   links with the Docs page's Markdown library from `web/`), typecheck, Vite
@@ -58,6 +62,20 @@ hand. A newer run cancels an older one on the same ref. Jobs:
   or skipped job fails it. It is the one required check, so its `needs:`
   list names every job, and a job added to `ci.yml` is added there too.
 
+**Caches.** GitHub keeps 10 GB of Actions caches per repository and evicts
+the least recently used beyond that. A cache saved on a pull request's ref
+can be restored only by that pull request, and one saved on a tag only by
+that tag; one saved on `main` is restored by every run. So only `main`
+saves, and every run restores by prefix: Go's modules (`go-mod-*`, saved by
+`checks`), one Go build cache per job (`go-build-<job>-*`: `checks`, each
+`test` part and `race`, since each compiles different packages or flags),
+and the analyzers `make tools` installs (`go-tools-*`). The Go keys change
+with `go.mod` and `go.sum`; the superseded cache goes unused and is evicted
+or expires after seven days. setup-node's npm cache, keyed by the lockfile,
+is the one exception: a pull request that changes the lockfile saves its own
+copy. Release builds (`images.yml`) use no Actions cache, since a tag's
+cache could serve only that tag.
+
 **`heavy.yml`** runs the Docker integration tier, the journeys, the opt-in
 browser, pi and inference_docker tests (each must pass; a skip fails the
 job) and the race detector ([testing](../architecture/testing.md)). It runs
@@ -65,7 +83,14 @@ on every pull request to `main`, once for each commit pushed to it (a newer
 commit's run cancels the older one), on every push to `main`, so each
 merged commit gets its own result, and by hand on any branch or tag. No
 label changes what runs: the repository's `heavy` label has no effect, and
-is deleted. It is not
+is deleted. Each job first pulls the images its tests start, listed in
+`deploy/ci-heavy/test-images.txt` (`scripts/ci-heavy.sh pull`, three
+attempts each), so a registry error while fetching them fails that step,
+naming the image, and not a test. A test that starts a new image adds it to
+the list. Tests can still reach a registry: AppTown's own deliberate pulls
+(a selected image, an image preview, a Portainer stack), BuildKit resolving
+a Dockerfile's FROM tag, and private Docker daemons inside a test pulling
+their own images; a registry outage there still fails that test. It is not
 required for merging: a red run on `main` is fixed by the next change. The heavy tiers take from a few minutes (journeys) to about
 an hour (integration, at its limit).
 
