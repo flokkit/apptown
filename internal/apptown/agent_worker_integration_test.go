@@ -266,10 +266,28 @@ func (w *agentWorkerWorld) execute(t *testing.T, a *App) {
 // work, as the daemon does.
 func (w *agentWorkerWorld) restart(t *testing.T) *App {
 	t.Helper()
+	return w.restartDispatching(t, true)
+}
+
+// restartForRetry is restart with the new App's dispatch stopped before it
+// resumes recorded work, so a stage whose steps all passed stays open for
+// the retry the test asks for next. A restart that dispatches advances that
+// stage (its run is a restart candidate), and stopping dispatch only
+// afterwards races that advance.
+func (w *agentWorkerWorld) restartForRetry(t *testing.T) *App {
+	t.Helper()
+	return w.restartDispatching(t, false)
+}
+
+func (w *agentWorkerWorld) restartDispatching(t *testing.T, dispatching bool) *App {
+	t.Helper()
 	b := newApp(t, w.a.DB, w.cfg)
 	b.tasks.Poll, b.tasks.Patience = 100*time.Millisecond, 2*time.Second
 	b.agents = agentExecutionFor(b, localTripwire{t})
 	rebuildWork(t, b, func(*workflow.Dependencies) {})
+	if !dispatching {
+		b.Work.Stop()
+	}
 	if err := b.RecoverInterruptedWork(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -765,8 +783,7 @@ say "turn: $PI_PROMPT"`})
 		t.Fatalf("the second transcript does not continue the first:\n%s\n---\n%s", firstRaw, secondRaw)
 	}
 
-	b := w.restart(t)
-	b.Work.Stop()
+	b := w.restartForRetry(t)
 	if _, err := b.Work.RetryStep(asPerson("alice"), workflow.RetryCommand{StepID: w.step.ID, Mode: workflow.RetryContinue, Feedback: "third note"}); err != nil {
 		t.Fatal(err)
 	}
@@ -909,8 +926,7 @@ func TestReviewS5OldRunContinuesItsFolderTranscriptOnWorker(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "2026-10-01T00-00-00-000Z_"+receipt.Session+".jsonl"), raw, 0600); err != nil {
 		t.Fatal(err)
 	}
-	b := w.restart(t)
-	b.Work.Stop()
+	b := w.restartForRetry(t)
 	if imported, got := w.transcript(t, 1); imported.Digest != receipt.Digest || string(got) != string(raw) {
 		t.Fatalf("the import recorded %+v", imported)
 	}

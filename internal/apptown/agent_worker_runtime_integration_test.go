@@ -240,8 +240,7 @@ func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T)
 		t.Fatalf("the invocation's usage: %+v %v %v", spent, found, err)
 	}
 
-	b := w.restart(t)
-	b.Work.Stop()
+	b := w.restartForRetry(t)
 	gateway = b.InferenceHandler()
 	if _, err := b.Work.RetryStep(asPerson("alice"), workflow.RetryCommand{StepID: w.step.ID, Mode: workflow.RetryContinue, Feedback: "one more"}); err != nil {
 		t.Fatal(err)
