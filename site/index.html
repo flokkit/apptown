@@ -6,15 +6,20 @@
 <title>AppTown</title>
 <meta name="description" content="AppTown gives your team, household or clients a ready-made place to build small web apps with AI coding agents, in the browser or from a desktop agent via MCP. You run it yourself.">
 <style>
-  :root { --bg: #fbfaf7; --fg: #1d1d1b; --muted: #6b6a66; --line: #e4e1da; --code: #f1efe9; }
+  :root { --bg: #fbfaf7; --fg: #1d1d1b; --muted: #6b6a66; --line: #e4e1da; --code: #f1efe9; --link: #1f5fbf; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #1b1a18; --fg: #ecebe6; --muted: #a3a19a; --line: #34322e; --code: #26241f; }
+    :root { --bg: #1b1a18; --fg: #ecebe6; --muted: #a3a19a; --line: #34322e; --code: #26241f; --link: #8ab4f8; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 17px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
   main { max-width: 640px; margin: 0 auto; padding: 72px 16px; }
   h1 { font-size: 40px; margin: 0 0 4px; letter-spacing: -0.01em; }
   .tag { font-size: 20px; color: var(--muted); margin: 0 0 32px; }
   p { margin: 0 0 16px; }
+  a { color: var(--link); }
+  h2 { font-size: 20px; margin: 32px 0 8px; }
+  pre { background: var(--code); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; margin: 0 0 16px; overflow-x: auto; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  @media (max-width: 480px) { pre { font-size: 12px; padding: 12px; } }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
   .soon { border-top: 1px solid var(--line); padding-top: 20px; margin-top: 32px; color: var(--muted); }
   footer { margin-top: 48px; font-size: 14px; color: var(--muted); }
 </style>
@@ -24,7 +29,16 @@
   <h1>AppTown</h1>
   <p>AppTown gives your team, household or clients a ready-made place to build small web apps with AI coding agents, in the browser or from a desktop agent via MCP. Each app follows a way of working you choose and is checked and deployed the same way, so looking after many apps doesn't mean looking after many different setups.</p>
   <p>You run AppTown yourself, on your own computer or server. <a href="/tour/">Take the tour</a>.</p>
-  <p class="soon">1.0 release candidate. The <a href="https://github.com/flokkit/apptown#readme">README</a> has the trial and server install steps. Open source, <a href="https://github.com/flokkit/apptown/blob/main/LICENSE">Apache-2.0</a>.</p>
+  <h2>Try it on your computer</h2>
+  <p>On an Apple Silicon Mac with Docker Desktop, or Linux with Docker Engine:</p>
+  <pre><code>curl -fsSL https://apptown.dev/try | sh</code></pre>
+  <h2>Run it on a server</h2>
+  <p>On one Linux server with Docker (Compose 2.23 or later) and a domain name:</p>
+  <pre><code>curl -fsSLO https://apptown.dev/compose.yaml
+echo APPTOWN_DOMAIN=apptown.example.com &gt; .env
+docker compose up -d</code></pre>
+  <p>First point the domain and its <code>*.preview.</code> and <code>*.main.</code> names at the server, and open ports 80 and 443. One server suits a small team that trusts everyone who writes projects. <a href="https://github.com/flokkit/apptown/blob/main/stock/docs/guides/running-apptown.md#2-one-server">Running AppTown</a> has the details.</p>
+  <p class="soon">1.0 release candidate. The <a href="https://github.com/flokkit/apptown#readme">README</a> says more about both. Open source, <a href="https://github.com/flokkit/apptown/blob/main/LICENSE">Apache-2.0</a>.</p>
   <footer>AppTown is made by Flokkit.</footer>
 </main>
 </body>
