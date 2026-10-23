@@ -2,8 +2,10 @@ package maintenance
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,19 +25,30 @@ func TestImageSweepRequiresAValidExpiredAge(t *testing.T) {
 		"apptown-conform:missing",
 		"apptown-conform:recent\t" + now.Add(-20*time.Hour).In(time.FixedZone("PST", -8*60*60)).Format("2006-01-02 15:04:05 -0700 MST"),
 		"apptown-conform:old\t" + now.Add(-48*time.Hour).UTC().Format("2006-01-02 15:04:05 -0700 MST"),
+		// Made two days ago, rebuilt from cache an hour ago: the rebuild
+		// keeps the old creation time, and the tag says it is new.
+		"apptown-conform:rebuilt\t" + now.Add(-48*time.Hour).UTC().Format("2006-01-02 15:04:05 -0700 MST"),
+		"apptown-conform:retagged-long-ago\t" + now.Add(-72*time.Hour).UTC().Format("2006-01-02 15:04:05 -0700 MST"),
 	}
+	tagged := map[string]time.Time{"apptown-conform:rebuilt": now.Add(-time.Hour), "apptown-conform:retagged-long-ago": now.Add(-48 * time.Hour)}
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		if len(args) > 1 && args[0] == "image" && args[1] == "ls" {
 			return []byte(strings.Join(rows, "\n")), nil, true
 		}
+		if len(args) > 1 && args[0] == "image" && args[1] == "inspect" {
+			// Docker's zero time for an image it never tagged here.
+			at, _ := json.Marshal(tagged[args[len(args)-1]])
+			return append(at, '\n'), nil, true
+		}
 		return nil, nil, false
 	})
 	a := &Reaper{docker: docker.Scope{Client: daemon}}
-	if got := a.Images(context.Background(), false); len(got) != 1 || got[0] != "apptown-conform:old" {
-		t.Fatalf("age selection: %v", got)
+	got := a.Images(context.Background(), false)
+	slices.Sort(got)
+	if want := []string{"apptown-conform:old", "apptown-conform:retagged-long-ago"}; !slices.Equal(got, want) {
+		t.Fatalf("age selection: %v, want %v", got, want)
 	}
-	removed := daemon.Matching("rmi ")
-	if len(removed) != 1 || strings.Join(removed[0], " ") != "rmi apptown-conform:old" {
+	if removed := daemon.Matching("rmi "); len(removed) != 2 {
 		t.Fatalf("removed images: %v", removed)
 	}
 }

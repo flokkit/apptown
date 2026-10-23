@@ -279,7 +279,7 @@ func folderReady(ctx context.Context, dk *docker.Scope, stepID ids.ID, ws, own s
 		return err
 	}
 	for _, name := range names {
-		if out, err := dk.Run(ctx, "rm", "-f", name); err != nil {
+		if out, err := dk.Run(ctx, "rm", "-f", "-v", name); err != nil {
 			log.Printf("step %d: removing %s, left writing its folder: %v: %s", stepID, name, err, out)
 		}
 	}

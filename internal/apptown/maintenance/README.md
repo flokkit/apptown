@@ -18,7 +18,10 @@ It cannot reach App or unrelated application operations.
   that no longer exists (a deleted project's run) is finished, and its build
   images are reaped; one whose record cannot be read is retained. A change's
   preview's build images are Preview's (kept thirty days after the last
-  look). Removal never forces, so an image a container uses stays, quietly.
+  look). A conformance image's age runs from the later of its creation and
+  the last time Docker tagged it: a rebuild from cache keeps the old creation
+  time, and the tag says when it was built or reused. Removal never forces,
+  so an image a container uses stays, quietly.
 - `Workspaces` checks recorded closure and saved conversation ownership, preserves
   transcripts, then removes the workspace after its grace period. Preservation
   failure leaves the source for a later sweep.

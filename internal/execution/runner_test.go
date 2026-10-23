@@ -228,7 +228,7 @@ exit 1
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range []string{dir + ":/work:ro", "VALUE=two words", "literal $(command)", "--entrypoint\n\n", "rm\n-f\nowned-test\n"} {
+			for _, want := range []string{dir + ":/work:ro", "VALUE=two words", "literal $(command)", "--entrypoint\n\n", "rm\n-f\n-v\nowned-test\n"} {
 				if !strings.Contains(string(calls), want) {
 					t.Errorf("missing %q in arguments: %s", want, calls)
 				}

@@ -3,6 +3,7 @@ package maintenance
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"log"
@@ -39,7 +40,8 @@ type ownerRecord[S any] struct {
 }
 
 // reapImageDecision says whether one image is reapable, given its owner's
-// record. Pure, so it is tested without a daemon. An owner that no longer
+// record. created is when the image was last made or tagged here (see
+// Images). Pure, so it is tested without a daemon. An owner that no longer
 // exists is finished: a deleted project's images were otherwise kept
 // forever. An image a container still uses is not removed whatever this
 // says: the removal does not force.
@@ -64,12 +66,30 @@ func reapImageDecision(ref string, created, now time.Time, runStatus func(ids.ID
 			return false, ""
 		}
 		return true, "its run " + st.State.String()
-	case strings.HasPrefix(ref, "apptown-conform:") || strings.HasPrefix(ref, "forge-conform:"):
+	case conformImage(ref):
 		if !created.IsZero() && now.Sub(created) > conformImageTTL {
 			return true, "conformance image older than a day; rebuilt from the commit on demand"
 		}
 	}
 	return false, ""
+}
+
+func conformImage(ref string) bool {
+	return strings.HasPrefix(ref, "apptown-conform:") || strings.HasPrefix(ref, "forge-conform:")
+}
+
+// lastTagged is when Docker last tagged ref: a build, a rebuild from cache
+// or a reuse that tags it again. Zero when Docker cannot say.
+func (r *Reaper) lastTagged(ctx context.Context, ref string) time.Time {
+	out, err := r.docker.Run(ctx, "image", "inspect", "--format", "{{json .Metadata.LastTagTime}}", ref)
+	if err != nil {
+		return time.Time{}
+	}
+	var t time.Time
+	if json.Unmarshal(out, &t) != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 // runBuildPrefix is the run-preview build-image prefix name carries,
@@ -142,7 +162,15 @@ func (r *Reaper) Images(ctx context.Context, logOnly bool) []string {
 				created = t
 			}
 		}
-		// The daemon stamped the image's creation on the machine's clock.
+		// A rebuild from cache keeps the image's old creation time, so a
+		// conformance image built minutes ago can look a day old. The last
+		// time Docker tagged it says when it was last built or reused.
+		if conformImage(f[0]) {
+			if tagged := r.lastTagged(ctx, f[0]); tagged.After(created) {
+				created = tagged
+			}
+		}
+		// The daemon stamped the image's creation and tag on the machine's clock.
 		ok, why := reapImageDecision(f[0], created, clock.System().UTC(), runStatus)
 		if !ok {
 			continue

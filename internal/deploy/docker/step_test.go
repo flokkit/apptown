@@ -115,7 +115,7 @@ func TestAStepWithoutStreamsIsAJob(t *testing.T) {
 		t.Fatalf("a value is in the job's arguments: %s", joined)
 	}
 	cmds := j.Commands()
-	if last := cmds[len(cmds)-1]; strings.Join(last, " ") != "rm -f job-1" {
+	if last := cmds[len(cmds)-1]; strings.Join(last, " ") != "rm -f -v job-1" {
 		t.Fatalf("the job is not removed: %v", last)
 	}
 }

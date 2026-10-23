@@ -115,9 +115,10 @@ func runServiceContainersWith(ctx context.Context, dk Scope, id, network string,
 		}
 		args = append(args, healthArgs(svc.Health)...)
 		// A need gets a disposable folder where it keeps its data: an
-		// anonymous volume, which --rm (or the removal's -v) takes with the
-		// container. Only throwaway needs come here: a standing need's named
-		// volume is mounted by EnsureStandingServices.
+		// anonymous volume, which the stack's removal (rm -f -v) deletes
+		// with the container. --rm does not: a container removed with rm -f
+		// keeps its anonymous volumes. Only throwaway needs come here: a
+		// standing need's named volume is mounted by EnsureStandingServices.
 		if svc.Data != "" {
 			args = append(args, "-v", svc.Data)
 		}

@@ -286,6 +286,11 @@ func TestALocalTaskKeepsItsFilesUntilItIsReleased(t *testing.T) {
 	if err := d.Release(context.Background(), TaskRef{Key: spec.Key}); err != nil {
 		t.Fatal(err)
 	}
+	// The task's container goes with its anonymous volumes (its image may
+	// declare one).
+	if recorded, _ := os.ReadFile(calls); !strings.Contains(string(recorded), "rm -f -v "+d.target(TaskRef{Key: spec.Key})+"\n") {
+		t.Fatalf("the task was not removed with its anonymous volumes:\n%s", recorded)
+	}
 	if _, err := os.Stat(folder); !os.IsNotExist(err) {
 		t.Fatal("the task's files outlived it")
 	}

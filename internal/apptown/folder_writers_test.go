@@ -992,8 +992,8 @@ func TestAWriterWhoseStepIsGoneIsRemovedOrRefusesTheAttempt(t *testing.T) {
 				t.Fatal(err)
 			}
 			switch {
-			case removable && (calls != 1 || d.has("orphan-writer")):
-				t.Fatalf("the leftover was not removed before the agent ran: calls=%d left=%v", calls, d.has("orphan-writer"))
+			case removable && (calls != 1 || d.has("orphan-writer") || !d.removedWithVolumes("orphan-writer")):
+				t.Fatalf("the leftover was not removed, with its anonymous volumes, before the agent ran: calls=%d left=%v removals=%v", calls, d.has("orphan-writer"), d.removals)
 			case !removable && (calls != 0 || got.Status != workflow.StatusError || !d.has("orphan-writer")):
 				t.Fatalf("an agent started beside a leftover it could not remove: calls=%d status=%s", calls, got.Status)
 			}
@@ -1030,8 +1030,8 @@ func TestAWriterWithNoStepIsRemovedBeforeAnAttempt(t *testing.T) {
 				t.Fatal(err)
 			}
 			if removable {
-				if calls != 1 || d.has("no-step-label") {
-					t.Fatalf("removable: calls=%d survives=%v", calls, d.has("no-step-label"))
+				if calls != 1 || d.has("no-step-label") || !d.removedWithVolumes("no-step-label") {
+					t.Fatalf("removable: calls=%d survives=%v removals=%v", calls, d.has("no-step-label"), d.removals)
 				}
 			} else {
 				if calls != 0 || !d.has("no-step-label") {
@@ -1351,6 +1351,7 @@ type survivingContainers struct {
 	mu        sync.Mutex
 	live      map[string][]string // name → labels
 	removable bool
+	removals  []string // each rm, as given
 }
 
 func newSurvivingContainers() *survivingContainers {
@@ -1369,6 +1370,19 @@ func (d *survivingContainers) allowRemoval() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.removable = true
+}
+
+// removedWithVolumes says every removal took the container's anonymous
+// volumes (rm -f -v): a leftover writer is throwaway.
+func (d *survivingContainers) removedWithVolumes(name string) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, rm := range d.removals {
+		if rm != "rm -f -v "+name {
+			return false
+		}
+	}
+	return len(d.removals) > 0
 }
 
 func (d *survivingContainers) has(name string) bool {
@@ -1436,6 +1450,7 @@ func (d *survivingContainers) Run(_ context.Context, _ string, req docker.Comman
 		}
 		return []byte(strings.Join(lines, "\n")), nil
 	case args[0] == "rm":
+		d.removals = append(d.removals, strings.Join(args, " "))
 		if !d.removable {
 			return []byte("daemon did not answer"), errors.New("exit status 1")
 		}

@@ -426,7 +426,7 @@ func (d DockerTasks) Stop(ctx context.Context, ref TaskRef) error {
 }
 
 func (d DockerTasks) Release(ctx context.Context, ref TaskRef) error {
-	out, err := d.run(ctx, "rm", "-f", d.target(ref))
+	out, err := d.run(ctx, "rm", "-f", "-v", d.target(ref))
 	if err != nil && !noSuchContainer(out) {
 		return dockerFailure("removing task "+d.target(ref), err, out)
 	}
