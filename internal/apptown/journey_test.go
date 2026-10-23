@@ -49,6 +49,27 @@ type jHarness struct {
 	srv *httptest.Server
 }
 
+// removeMainAppAtCleanup removes the app container of the project's main
+// deployment when the test ends, by the name AppTown gave it (the
+// deployment's key), read from its record then: the deployment exists only
+// once the journey has deployed.
+func (h *jHarness) removeMainAppAtCleanup(slug string) {
+	h.t.Cleanup(func() {
+		ctx := context.Background()
+		p, err := h.app.Projects.BySlug(ctx, slug)
+		if err != nil {
+			return
+		}
+		dep, err := h.app.Deployment.Deployments.ByName(ctx, p.ID, "main")
+		if err != nil {
+			return
+		}
+		if names, err := dep.HostNames(slug); err == nil {
+			_ = dockertest.Run("rm", "-f", names.App())
+		}
+	})
+}
+
 func newJourney(t *testing.T, configs ...Config) *jHarness {
 	t.Helper()
 	if err := dockertest.Run("info"); err != nil {
@@ -378,8 +399,7 @@ func TestJourneyKidStory(t *testing.T) {
 	h := newJourney(t)
 	slug := fmt.Sprintf("kid-%d", os.Getpid())
 	h.newProject(slug, journeyQuickChange)
-	container := "apptown-env-" + slug + "-main"
-	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", container) })
+	h.removeMainAppAtCleanup(slug)
 
 	page := `<!doctype html><html><body><h1>the cat is blue</h1><script>console.log("hi")</script></body></html>`
 	sentence := staticSiteTask("make the cat blue", page)
@@ -862,7 +882,7 @@ func (u *jUser) mustCall(method, path string, body any, out any) {
 func TestJourneyMultiplayer(t *testing.T) {
 	h := newJourney(t, Config{AuthMode: "internal"})
 	slug := fmt.Sprintf("multi-%d", os.Getpid())
-	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "apptown-env-"+slug+"-main") })
+	h.removeMainAppAtCleanup(slug)
 
 	boss := h.signup(nil, "boss", "boss-password")
 	ana := h.signup(boss, "ana", "ana-password")
@@ -948,7 +968,7 @@ func TestJourneyStackMigration(t *testing.T) {
 	h := newJourney(t)
 	h.app.Ways.SyncStockWorkflows(t.Context())
 	slug := fmt.Sprintf("mig-%d", os.Getpid())
-	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "apptown-env-"+slug+"-main") })
+	h.removeMainAppAtCleanup(slug)
 
 	// The working lane is customized (the journey shape) as the library's
 	// newest version before either pack pins it.
