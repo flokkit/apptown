@@ -55,6 +55,11 @@ func TestReleasePreflightUsesCommittedDeclaration(t *testing.T) {
 	if _, err := releaseGit(t.Context(), repo, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qm", "selected game"); err != nil {
 		t.Fatal(err)
 	}
+	selected, err := releaseGit(t.Context(), repo, "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	publishedBundleFixture(t, db, id, selected, map[string]string{"web": "registry.example/team/app@sha256:" + strings.Repeat("a", 64)})
 	if err := os.WriteFile(path, []byte(declaration), 0600); err != nil {
 		t.Fatal(err)
 	}

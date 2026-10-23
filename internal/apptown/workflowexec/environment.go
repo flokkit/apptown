@@ -52,8 +52,8 @@ func (a *Executor) agentEnv(ctx context.Context, run *workflow.Run, step *workfl
 		// Implementation agents get what the APP containers get from the
 		// project's attached integrations (the errors DSN, the feedback key,
 		// the telemetry endpoint — values that ship to browsers and app
-		// containers anyway, never the registry token, which the daemon
-		// holds). Without them an agent cannot fire the test hook it was told
+		// containers anyway, never the registry token: no step's Docker is
+		// logged in to a registry). Without them an agent cannot fire the test hook it was told
 		// to fire.
 		env = append(env, a.integrations.Environment(ctx, run.ProjectID)...)
 	}
@@ -126,11 +126,7 @@ func (a *Executor) startAgentSandbox(ctx context.Context, run *workflow.Run, ste
 		recordEvent(ctx, a.db, step.RunID, "services.started", map[string]any{"step": step.Name, "services": svcNames}, a.now())
 	}
 	if k.useDind {
-		reg, err := a.stepRegistry(ctx, run.ProjectID)
-		if err != nil {
-			return env, "", cleanup, err
-		}
-		dindEnv, dindNet, dindCleanup, derr := a.workshop.StartStep(ctx, step.ID, ws, network, piharness.DockerConfigDir, reg)
+		dindEnv, dindNet, dindCleanup, derr := a.workshop.StartStep(ctx, step.ID, ws, network, piharness.DockerConfigDir)
 		if derr != nil {
 			// The workshop is a convenience, not a receipt — degrade honestly
 			// rather than failing the step.

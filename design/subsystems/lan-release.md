@@ -1,13 +1,20 @@
 # Intranet releases
 
-The intranet path is a Deployment operation using the configured Portainer target
-and registry. It packages selected source, records release progress, renders the
-stack and delegates provider execution. It is not a separate approval system or
-permission to ship unrecorded chat state.
+The intranet path is a Deployment operation using the configured Portainer target.
+It ships the project's latest bundle, which the landing that made it published
+to the project's container registry by digest; it builds nothing. A latest
+bundle of image IDs, or none, is refused with the same next action as a release
+to Portainer by name: attach a container registry to the project, then land a
+change. It records release progress, renders the stack and delegates provider
+execution. It is not a separate approval system or permission to ship
+unrecorded chat state.
 
 Target and registry credentials are resolved through configured integrations and
 secrets. Runtime consumers receive their declared values; provider credentials
-are for the operation that needs them. Target-specific domains, volumes and
+are for the operation that needs them. The app's public service is given the
+project's attached integrations' values as a Docker host gives them, under its
+own environment and secrets, and a static public part its browser values
+(`APPTOWN_BROWSER_ENV`); other parts and init steps are given neither. Target-specific domains, volumes and
 networking are rendered by the Portainer/Docker implementation.
 
 The Portainer environment is `apptownd -portainer-environment` (default `local`),
@@ -33,6 +40,5 @@ progress and successful settlement must not be conflated. Use the common
 ## Implementation references
 
 - [internal/apptown/deployment/intranet_release.go](../../internal/apptown/deployment/intranet_release.go)
-- [internal/apptown/deployment/release_packaging.go](../../internal/apptown/deployment/release_packaging.go)
 - [internal/apptown/deployment/providers.go](../../internal/apptown/deployment/providers.go)
 - [internal/apptown/deployment/intranet_release_test.go](../../internal/apptown/deployment/intranet_release_test.go)

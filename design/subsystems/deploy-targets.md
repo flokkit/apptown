@@ -86,7 +86,7 @@ capabilities (`StockCapabilities`), and fails if a cell here differs.
 | Object storage (s3) | yes, a local store: its bucket made before the app starts, a key for it alone | yes, a local store, as on a Docker host | yes, a Spaces bucket of its own and a key for it alone | refused: static-only |
 | Another need with a local emulator (redis) | yes, a local emulator | yes, a local emulator | refused: cannot provide it as a managed service | refused: static-only |
 | A data directory | yes, a named volume | yes, a named volume | refused: no persistent volumes | refused: static-only |
-| A static site given browser values by an integration | yes, as /_apptown/env.js | refused: cannot deliver browser values yet | refused: cannot deliver browser values yet | yes, published as /_apptown/env.js |
+| A static site given browser values by an integration | yes, as /_apptown/env.js | yes, as /_apptown/env.js | refused: cannot deliver browser values yet | yes, published as /_apptown/env.js |
 | Secrets | each part's environment | each part's environment | each component's environment | none: a site has no runtime |
 | Declared resources | exact: each part's container gets its memory (swap included) and cpus | exact: each part's service gets mem_limit, memswap_limit and cpus | rounded up to the cheapest current instance size that covers each part; one no size covers is refused before any effect | none: a site has no runtime |
 | A need's declared resources | exact on the need's service; a standing need takes a new size in place, or is remade on its volume when a limit is lifted | exact: the need's service gets mem_limit, memswap_limit and cpus | refused: the managed Postgres is made at the integration's database size | refused: static-only |
@@ -163,7 +163,7 @@ everything in it must be a plain folder or file (`docker.ConfineStaticExport`;
 a link is refused wherever it points), and that folder is packed into the
 same self-serving image (`docker.PackStaticBuild`). A Docker host does this
 for a change's preview (`StartAppContainer`) and a standing deployment
-(`PrepareImages`), the intranet release on its own scope, and the worker's
+(`PrepareImages`), and the worker's
 release task inside the task, with the same check in its shell. The export
 runs on the selected daemon's own builder, for its own platform: every
 build of a project's source on a daemon (`docker.Scope.Build`, which

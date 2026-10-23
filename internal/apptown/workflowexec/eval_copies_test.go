@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/execution"
@@ -27,15 +26,6 @@ func TestACopysAgentStepIsGivenNoInstanceStepValue(t *testing.T) {
 		t.Fatalf("the canary reaches an ordinary project's worker step: %v", req.spec.Env)
 	}
 	run, step := f.call.run, f.call.step
-	if _, err := f.exec.integrations.Bindings.Upsert(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry.example"}`, false); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.exec.integrations.Attachments.Attach(t.Context(), run.ProjectID, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/agents","username":"robot","token":"registry-canary"}`, integration.Entered, "test", nil); err != nil {
-		t.Fatal(err)
-	}
-	if reg, err := f.exec.stepRegistry(t.Context(), run.ProjectID); err != nil || reg == nil {
-		t.Fatalf("an ordinary project's private Docker is logged in to its registry: %+v %v", reg, err)
-	}
 	env, _, err := f.exec.agentEnv(t.Context(), run, step, &agentConfig{}, t.TempDir(), "fake/model", agentKnobs{executor: execution.Local})
 	if err != nil || !carriesCanary(env) {
 		t.Fatalf("the canary reaches an ordinary project's local step: %v %v", env, err)
@@ -43,9 +33,6 @@ func TestACopysAgentStepIsGivenNoInstanceStepValue(t *testing.T) {
 
 	f = agentOnWorkerFixtureFor(t, project.EvalCopy, nil)
 	run, step = f.call.run, f.call.step
-	if _, err := f.exec.integrations.Bindings.Upsert(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry.example"}`, false); err != nil {
-		t.Fatal(err)
-	}
 	if req := f.build(t); carriesCanary(req.spec.Env) {
 		t.Fatalf("a copy's worker step was given the canary: %v", req.spec.Env)
 	}
@@ -53,15 +40,8 @@ func TestACopysAgentStepIsGivenNoInstanceStepValue(t *testing.T) {
 	if err != nil || carriesCanary(env) {
 		t.Fatalf("a copy's local step was given the canary: %v %v", env, err)
 	}
-	// A copy can hold no attachment, so the guard is witnessed where it
-	// decides: a project whose purpose cannot be read is given nothing and
-	// the step is refused.
-	if reg, err := f.exec.stepRegistry(t.Context(), run.ProjectID); err != nil || reg != nil {
-		t.Fatalf("a copy's private Docker is logged in to a registry: %+v %v", reg, err)
-	}
-	if reg, err := f.exec.stepRegistry(t.Context(), idstest.N(999999)); err == nil || reg != nil {
-		t.Fatalf("an unreadable project's registry: %+v %v", reg, err)
-	}
+	// A project whose purpose cannot be read is given nothing and the step
+	// is refused.
 	if env, err := f.exec.stepEnv(t.Context(), idstest.N(999999)); err == nil || env != nil {
 		t.Fatalf("an unreadable project's step values: %v %v", env, err)
 	}

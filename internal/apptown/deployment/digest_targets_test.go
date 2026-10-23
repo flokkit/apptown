@@ -569,3 +569,41 @@ func TestAnIntranetReleaseAnswersOnTheTargetsDomain(t *testing.T) {
 		t.Fatalf("a refused release reached Portainer: %d stacks", len(p.stacks))
 	}
 }
+
+// An intranet release ships only a release the landing published to the
+// project's registry. With no bundle, or a latest bundle of image IDs, it
+// is refused before a number is made, with the same next action as a
+// release to Portainer by name, and AppTown builds, pushes and logs in to
+// nothing: there is one build path, the landing's.
+//
+// Kills: the intranet release building and pushing the branch head itself
+// when the latest landing published nothing.
+func TestAnIntranetReleaseOfAnUnpublishedLandingIsRefusedWithoutABuild(t *testing.T) {
+	t.Parallel()
+	p := newPromotionTargets(t, false)
+	proj, err := p.projects.ByID(context.Background(), p.project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refused := func(what string) {
+		t.Helper()
+		before, err := p.s.Releases.ForProject(context.Background(), p.project, 50)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, code, err := p.s.ReleaseLAN(t.Context(), &proj, "boss", LANReleaseRequest{}); code != 422 || !errors.Is(err, ErrReleaseRefused) ||
+			!strings.Contains(err.Error(), "intranet pulls every image from the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change") {
+			t.Fatalf("%s: %d %v", what, code, err)
+		}
+		if after, err := p.s.Releases.ForProject(context.Background(), p.project, 50); err != nil || len(after) != len(before) {
+			t.Fatalf("%s: a refused release made one: %d before, %d after (%v)", what, len(before), len(after), err)
+		}
+	}
+	refused("no bundle")
+	cutBundleFixture(t, p.db, p.project, p.revision, BundleOrigin{})
+	refused("a bundle of image IDs")
+	p.expectAppTownDockerIdle(t)
+	if _, n := p.lastStack(t); n != 0 {
+		t.Fatal("Portainer was given a stack")
+	}
+}

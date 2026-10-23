@@ -26,9 +26,7 @@ export function NewReleasePage({ slug }: { slug: string }) {
   if (!plan) return <ReadStatus q={planQ} what="the release plan" />
   const blocker =
     !plan.configured ? plan.configError ?? 'the intranet is not set up yet' :
-    plan.contract === 'none' ? 'nothing runnable has landed yet — the app has no runtime contract on main' :
-    plan.contract === 'invalid' ? plan.contractError ?? 'the runtime contract is invalid' :
-    plan.contract === 'from-source' ? 'this app needs packaging into a container before the intranet can run it — open the chat and ask the helper to do it' :
+    !plan.published ? "The intranet pulls every image from the project's container registry, and the latest landing was not published there. Attach a container registry to the project, then land a change." :
     !plan.head ? 'nothing has landed yet' : ''
 
   return (
@@ -72,15 +70,7 @@ export function NewReleasePage({ slug }: { slug: string }) {
           </div>
         )}
         {blocker
-          ? <>
-              <div className="error" style={{ marginTop: 12 }}>{blocker}</div>
-              {plan?.contract === 'from-source' && (
-                <div style={{ marginTop: 8 }}>
-                  <Link to={`/projects/${slug}/console`}><button>Open the chat →</button></Link>
-                  <span className="muted small" style={{ marginLeft: 8 }}>say: “package this app so it can go on the intranet”</span>
-                </div>
-              )}
-            </>
+          ? <div className="error" style={{ marginTop: 12 }}>{blocker}</div>
           : (
             <button className="primary btn-door" disabled={busy} onClick={fire} style={{ marginTop: 12 }}>
               {busy ? 'Releasing…' : '🏢 Release it'}

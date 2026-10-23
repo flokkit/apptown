@@ -128,7 +128,7 @@ you cannot push through it. Staying current is a pull; it never risks the
 gates.
 
 A workflow's agent steps don't need to. Before each agent step of a
-change's run on a worker, AppTown merges `main` into the change itself
+change's run, AppTown merges `main` into the change itself
 when the branch is behind it and the merge has no conflicts: an ordinary
 merge commit, "Merge main into <branch>", made by AppTown and shown in
 the change's history. When the merge would conflict, AppTown leaves the

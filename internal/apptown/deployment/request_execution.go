@@ -108,6 +108,13 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err := s.providers.RefusesBundle(ctx, bundle, t); err != nil {
 		return fail(err)
 	}
+	if d, err := s.providers.Driver(ctx, t, dep); err != nil {
+		return fail(err)
+	} else if r, ok := d.(releaseRefuser); ok {
+		if err := r.refusesRelease(bundle); err != nil {
+			return fail(err)
+		}
+	}
 	project, err := s.release.Sources.Project(ctx, rel.ProjectID)
 	if err != nil {
 		return fail(err)
@@ -195,10 +202,11 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 			req.Secrets = registeredSecrets{inner: req.Secrets, env: registered}
 			req.SecretNames = append(req.SecretNames, slices.Sorted(maps.Keys(registered))...)
 		}
-		// Only a Docker host gives an app with a runtime its attached
-		// integrations' values; a static site is given them as browser
-		// values where it can be at all (RefusesBrowserValues).
-		if !StaticOnly(req.Source.Contract) {
+		// A Docker host and a driver that says so (integrationsGiver) give
+		// an app with a runtime its attached integrations' values; a static
+		// site is given them as browser values where it can be at all
+		// (RefusesBrowserValues).
+		if _, gives := d.(integrationsGiver); !gives && !StaticOnly(req.Source.Contract) {
 			s.noteUndeliveredIntegrations(ctx, rel.ID, rel.ProjectID, t)
 		}
 	}
@@ -227,7 +235,8 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 
 // noteUndeliveredIntegrations says in the release's record which values
 // the project's attached integrations (error reporting, sign-in, telemetry)
-// give an app on a Docker host and this target does not deliver yet:
+// give an app on a Docker host or Portainer and this target does not
+// deliver yet:
 // integrations are not needs, the app runs without them, and that is said
 // rather than left silent. Only names are written.
 func (s *Service) noteUndeliveredIntegrations(ctx context.Context, release, projectID ids.ID, t *Target) {

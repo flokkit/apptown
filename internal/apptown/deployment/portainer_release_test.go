@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,11 +10,13 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"gopkg.in/yaml.v3"
 )
 
 // portainerNeedsSpec generates a secret every part is given, so the stack
@@ -338,5 +341,104 @@ func TestTheIntranetDoorNamesTheDoorForARegisteredNeed(t *testing.T) {
 	}
 	if _, code, err := p.s.ReleaseLAN(t.Context(), &proj, "boss", LANReleaseRequest{}); code != 422 || err == nil || !strings.Contains(err.Error(), "this app needs llm") || !strings.Contains(err.Error(), "release it with apptown release p lan") {
 		t.Fatalf("the intranet door: %d %v", code, err)
+	}
+}
+
+// A Portainer stack gives the app the project's integration values as a
+// Docker host does, through either door: the public part gets them in its
+// environment, and a static public part also gets them as its browser
+// values; other parts and init steps get neither. The release log names
+// the values, never their contents, and no longer says Portainer does not
+// deliver them.
+//
+// Kills: a stack without the integration values (each door); values given
+// to every service; a static site's page given nothing; a refusal of a
+// static site whose page is given values.
+func TestAPortainerStackGivesTheAppItsIntegrationValues(t *testing.T) {
+	t.Parallel()
+	p := newPromotionTargets(t, false)
+	const url, key = "https://feedback.example/in", "feedback-key-canary"
+	if err := p.s.env.integrations.Attachments.Attach(t.Context(), p.project, "feedback", "", `{"appKey":"`+key+`","url":"`+url+`"}`, integration.Entered, "test", nil); err != nil {
+		t.Fatal(err)
+	}
+	b := p.land(t)
+	type service struct {
+		Environment map[string]string `yaml:"environment"`
+	}
+	check := func(door string, rel *Release, err error) {
+		t.Helper()
+		events, _ := p.s.Releases.Events(context.Background(), rel.ID)
+		if err != nil || rel.State != Released {
+			t.Fatalf("%s: %v %v %+v", door, rel.State, err, events)
+		}
+		compose, _ := p.lastStack(t)
+		var stack struct {
+			Services map[string]service `yaml:"services"`
+		}
+		if err := yaml.Unmarshal([]byte(compose), &stack); err != nil {
+			t.Fatal(err)
+		}
+		app := stack.Services["app"].Environment
+		if app["FEEDBACK_URL"] != url || app["FEEDBACK_APP_KEY"] != key {
+			t.Errorf("%s: the app is not given the feedback values: %v", door, app)
+		}
+		var browser map[string]string
+		if err := json.Unmarshal([]byte(app[appcontract.BrowserEnvVar]), &browser); err != nil || browser["FEEDBACK_URL"] != url || browser["FEEDBACK_APP_KEY"] != key {
+			t.Errorf("%s: the static site's page is not given its values: %q %v", door, app[appcontract.BrowserEnvVar], err)
+		}
+		for name, s := range stack.Services {
+			if name == "app" {
+				continue
+			}
+			for k := range s.Environment {
+				if k == "FEEDBACK_URL" || k == "FEEDBACK_APP_KEY" || k == appcontract.BrowserEnvVar {
+					t.Errorf("%s: %s is given %s", door, name, k)
+				}
+			}
+		}
+		named := false
+		for _, e := range events {
+			if strings.Contains(e.Text, key) {
+				t.Errorf("%s: the log carries a value: %s", door, e.Text)
+			}
+			if strings.Contains(e.Text, "does not deliver") {
+				t.Errorf("%s: the log says the values are not delivered: %s", door, e.Text)
+			}
+			named = named || strings.Contains(e.Text, "integration values (FEEDBACK_APP_KEY, FEEDBACK_URL)")
+		}
+		if !named {
+			t.Errorf("%s: the log does not name the values given: %+v", door, events)
+		}
+	}
+	rel := p.releaseLAN(t)
+	check("the intranet release", rel, nil)
+	rel, err := p.releaseByName(t, "lan", b)
+	check("the release by name", rel, err)
+}
+
+// A release by name to Portainer of a bundle that was not published is
+// refused when it is asked for, on an AppTown with local Docker too, with
+// the intranet door's next action: no numbered release is made, so nothing
+// is prepared for it (no secret generated, no need registered).
+//
+// Kills: the refusal left to the driver's render, after the release was
+// numbered and prepared.
+func TestANamedPortainerReleaseOfAnUnpublishedBundleIsRefusedWhenAsked(t *testing.T) {
+	t.Parallel()
+	p := newPromotionTargets(t, false)
+	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"}); err != nil {
+		t.Fatal(err)
+	}
+	byID := cutBundleFixture(t, p.db, p.project, p.revision, BundleOrigin{})
+	before, err := p.s.Releases.ForProject(context.Background(), p.project, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = p.s.RequestRelease(context.Background(), DeploySelection{ProjectID: p.project, DeploymentName: "lan", BundleID: byID})
+	if !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "this release was not published there. Attach a container registry to the project, then land a change") {
+		t.Fatalf("an unpublished bundle released by name: %v", err)
+	}
+	if after, err := p.s.Releases.ForProject(context.Background(), p.project, 50); err != nil || len(after) != len(before) {
+		t.Fatalf("a refused release was numbered: %d before, %d after (%v)", len(before), len(after), err)
 	}
 }

@@ -1,6 +1,7 @@
 package deploy
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -273,4 +274,41 @@ func last(s []string) string {
 		return ""
 	}
 	return s[len(s)-1]
+}
+
+// partSecrets gives each consumer its own secrets.
+type partSecrets map[string]map[string]string
+
+func (s partSecrets) EnvFor(consumer string) map[string]string { return s[consumer] }
+
+// The app service's environment is built as a Docker host builds the
+// public part's: the integration values, the part's environment over them,
+// its secrets over that, and AppTown's own values last. Only the public
+// part is given the integration values.
+func TestAnIntranetAppIsGivenIntegrationValuesUnderItsOwn(t *testing.T) {
+	t.Parallel()
+	st := IntranetStack{Prefix: "forge-", Base: "app", Hosts: []string{"app.apps.example.com"}, Domain: "apps.example.com",
+		Image: "reg/app@sha256:x", Port: 8080, PublicPart: "web", DataDir: "/data", Origins: "https://*.apps.example.com",
+		Integrations: map[string]string{"FEEDBACK_URL": "integration", "SENTRY_DSN": "integration", "IMAGE_REPO": "integration", "DATA_DIR": "integration"},
+		Env:          map[string]string{"SENTRY_DSN": "contract", "IMAGE_REPO": "contract"},
+		Secrets:      partSecrets{"web": {"IMAGE_REPO": "secret"}},
+		BrowserEnv:   `{"FEEDBACK_URL":"integration"}`,
+		Parts:        []appcontract.Part{{Name: "worker", Image: "reg/app@sha256:x"}}}
+	var stack struct {
+		Services map[string]struct {
+			Environment map[string]string `yaml:"environment"`
+		}
+	}
+	out := IntranetCompose(st)
+	if err := yaml.Unmarshal([]byte(out), &stack); err != nil {
+		t.Fatalf("the stack is not one Compose accepts: %v\n%s", err, out)
+	}
+	want := map[string]string{"FEEDBACK_URL": "integration", "SENTRY_DSN": "contract", "IMAGE_REPO": "secret", "DATA_DIR": "/data",
+		"APPTOWN_ORIGINS": "https://*.apps.example.com", appcontract.BrowserEnvVar: `{"FEEDBACK_URL":"integration"}`}
+	if got := stack.Services["app"].Environment; !maps.Equal(got, want) {
+		t.Errorf("the app's environment: %v, want %v\n%s", got, want, out)
+	}
+	if got := stack.Services["worker"].Environment; len(got) != 0 {
+		t.Errorf("another part is given %v", got)
+	}
 }

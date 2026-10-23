@@ -143,9 +143,9 @@ func (a *Executor) composeSteering(ctx context.Context, run *workflow.Run, cfg *
 	if delegation != "" {
 		steer.WriteString(delegation + "\n")
 	}
-	// A change's step on a worker is given main by AppTown (main_merge.go),
-	// so its agent is told not to catch up itself.
-	if at == workerSteering && !run.ChangeID.IsZero() {
+	// A change's step is given main by AppTown (main_merge.go), so its
+	// agent is told not to catch up itself.
+	if !run.ChangeID.IsZero() {
 		if spec, err := run.Definition(); err == nil && spec.Role != "landing" {
 			steer.WriteString(mainMergeBrief)
 		}
@@ -160,18 +160,6 @@ func (a *Executor) composeSteering(ctx context.Context, run *workflow.Run, cfg *
 	}
 	if k.useDind {
 		steer.WriteString(agentenv.DockerInstructions)
-		// A worker is sent no registry credential: its daemon is logged in
-		// nowhere.
-		if ri, _ := a.stepRegistry(ctx, run.ProjectID); ri != nil && at != workerSteering {
-			steer.WriteString("The org container registry is attached and your daemon is already\n" +
-				"logged in. This project's images live at $IMAGE_REPO (set in your\n" +
-				"environment, host $REGISTRY):\n\n" +
-				"    docker build -t $IMAGE_REPO:<tag> .\n" +
-				"    docker push $IMAGE_REPO:<tag>\n\n" +
-				"A pushed image is the preferred unit of release: set image: on the\n" +
-				"app part in .apptown/app.yaml to the pushed ref and deploys run that\n" +
-				"exact image.\n\n")
-		}
 	}
 	st := steeringFile{GuidanceHash: guidanceHash, Skills: map[string]int{}, Resources: map[string]int{}}
 	if receipt != nil {

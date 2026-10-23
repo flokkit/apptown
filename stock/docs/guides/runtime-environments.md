@@ -188,10 +188,10 @@ The permissions follow the task, independently of which CLIs are installed:
   that prefix removed. Chats do not receive this namespace automatically.
   SCM access is an explicit step configuration. Chats can receive a scoped,
   read-only main-branch Git remote; it does not grant push access.
-- Eligible implementation steps receive the project's integration environment
-  and, when a registry is bound, staged Docker registry authentication.
-  Change-console DinD does not add registry push credentials or app integration
-  secrets. Installing `glab` or Docker does not itself authorize either service.
+- Eligible implementation steps receive the project's integration environment.
+  No step's or chat's private Docker is logged in to a registry: AppTown builds
+  and publishes release images when a change lands. Change-console DinD does
+  not add app integration secrets either. Installing `glab` or Docker does not itself authorize either service.
 
 Use only the credentials actually granted. Do not dump the environment or
 credential files to diagnose availability; probe the specific tool or service.

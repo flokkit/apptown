@@ -33,25 +33,38 @@ type portainerRelease struct {
 	dep       *Deployment
 }
 
-// releaseRefuser is a driver that refuses a release to its deployment, asked
-// before a numbered release is made.
+// releaseRefuser is a driver that refuses a release of bundle to its
+// deployment, asked before a numbered release is made and again before
+// a release is prepared.
 type releaseRefuser interface {
-	refusesRelease() error
+	refusesRelease(bundle *ReleaseBundle) error
 }
 
-func (d *portainerRelease) refusesRelease() error {
+// integrationsGiver is a driver that gives the app its project's attached
+// integrations' values itself, as a Docker host does.
+type integrationsGiver interface {
+	givesIntegrations()
+}
+
+// givesIntegrations: the stack carries them (Environment.portainerStack).
+func (d *portainerRelease) givesIntegrations() {}
+
+func (d *portainerRelease) refusesRelease(bundle *ReleaseBundle) error {
 	if tier := portainerTier(d.target); d.dep.Name != tier {
 		return refused("a project has one deployment on %s, %s, because its stack and volumes are named for the project; release that one", d.target.Name, tier)
+	}
+	if bundle == nil || !bundle.ByDigest() {
+		return notPublished(d.target.Name)
 	}
 	return nil
 }
 
 func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src deploy.Source, _ deploy.NeedBindings, secrets deploy.ConsumerSecrets, logf deploy.Logf) (deploy.Artifact, error) {
-	if err := d.refusesRelease(); err != nil {
-		return deploy.Artifact{}, err
+	if tier := portainerTier(d.target); d.dep.Name != tier {
+		return deploy.Artifact{}, refused("a project has one deployment on %s, %s, because its stack and volumes are named for the project; release that one", d.target.Name, tier)
 	}
 	if !src.Published {
-		return deploy.Artifact{}, refused("%s pulls every image from the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change", d.target.Name)
+		return deploy.Artifact{}, notPublished(d.target.Name)
 	}
 	cfg, err := d.Config(d.TargetID)
 	if err != nil {
@@ -82,7 +95,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	}
 	prefix, base := portainer.StackNames(d.dep.ID, d.dep.HostPrefix, src.Slug)
 	compose, err := d.providers.env.portainerStack(ctx, portainerStackOf{Base: base, Prefix: prefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: src.Contract, Revision: src.Revision,
-		Images: stackImages{Parts: src.Images, Init: src.Init}, Secrets: secrets, Deployment: d.dep.ID}, logf)
+		Images: stackImages{Parts: src.Images, Init: src.Init}, Secrets: secrets, Project: d.dep.ProjectID, Deployment: d.dep.ID}, logf)
 	if err != nil {
 		return deploy.Artifact{}, err
 	}
@@ -108,6 +121,15 @@ func (d *portainerRelease) Reconcile(ctx context.Context, pl deploy.Placement, g
 }
 
 var _ deploy.Renderer = (*portainerRelease)(nil)
+
+// notPublished refuses a release to the Portainer target named target whose
+// images are not in the project's container registry by digest: Portainer
+// pulls every image from there, and only a landing builds and publishes
+// them. Both doors to Portainer, a deployment released by name and the
+// intranet release, say it in these words.
+func notPublished(target string) error {
+	return refused("%s pulls every image from the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change", target)
+}
 
 // givesSecrets is whether any part or init step of c is given a secret.
 func givesSecrets(secrets deploy.ConsumerSecrets, c *appcontract.Contract) bool {

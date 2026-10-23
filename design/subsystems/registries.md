@@ -79,10 +79,12 @@ of the release image. AppTown never deletes from the project's own registry; its
 retention decides how long a release can be redeployed. Without a worker, a
 landing's deploy builds on the Docker host. When the project has a container
 registry, AppTown saves each image the host booted and publishes it as above,
-so the bundle is by digest. With no registry attached it records image IDs. An intranet release (`apptown release`) of a landing without published
-digests, with or without a worker as long as AppTown has local Docker, builds
-a build or static contract on AppTown's Docker and pushes to the project's container registry, attaching
-one first if needed (`deployment/intranet_release.go`). See
+so the bundle is by digest. With no registry attached it records image IDs.
+Portainer and a bucket website take only a bundle by digest, through either
+door to Portainer (`apptown release <project>` or a deployment released by
+name): a bundle of image IDs is refused with "Attach a container registry to
+the project, then land a change". Nothing is built at release. An agent
+step's private Docker is logged in to no registry, with or without a worker. See
 [deployment targets](deploy-targets.md#where-a-release-comes-from) and
 [workers](../operations/workers.md#releases-built-on-the-worker).
 

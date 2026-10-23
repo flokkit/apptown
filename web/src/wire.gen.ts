@@ -1174,9 +1174,8 @@ export type ReleasePlan = {
   deployment: string
   configError?: string
   url?: string
+  published: boolean
   head?: ReleaseHead | null
-  contract: string
-  contractError?: string
   lastRelease?: LastRelease | null
   changesSinceLast: ShippedChange[]
 }

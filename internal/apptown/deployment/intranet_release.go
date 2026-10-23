@@ -3,25 +3,25 @@ package deployment
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
-	"github.com/flokkit/apptown/internal/gitexec"
-	"github.com/flokkit/apptown/internal/strs"
 )
 
 const IntranetTargetName = "intranet"
@@ -79,46 +79,36 @@ type LANReleaseRequest struct {
 // work runs in the background, logging events as it goes. The permalink is
 // live from the first moment and the caller navigates straight to it.
 //
-// What ships is the project's latest bundle when it was published to the
-// project's registry (built on the worker): every part and init step runs
-// its image by digest. An AppTown whose landings publish nothing builds the
-// branch head's public image here and pushes it, as before; an AppTown with no
-// local Docker cannot, and refuses.
+// What ships is the project's latest bundle, published to the project's
+// registry by the landing that made it: every part and init step runs its
+// image by digest. A latest bundle that was not published is refused, as a
+// release to a Portainer deployment by name is: nothing is built here.
 func (s *Service) ReleaseLAN(ctx context.Context, p *project.Project, who string, in LANReleaseRequest) (*LANReleaseStarted, int, error) {
 	bundle, err := s.Bundles.Latest(ctx, p.ID)
 	if err != nil {
 		return nil, 500, err
 	}
-	if bundle != nil && !bundle.ByDigest() {
-		bundle = nil
-	}
 	return s.releaseLANOf(ctx, p, who, bundle, in)
 }
 
-// releaseLANOf is an intranet release of bundle (nil: the branch head,
-// built here): ReleaseLAN's latest, or the bundle the intranet already runs
-// when an operator's override redeploys it.
+// releaseLANOf is an intranet release of bundle: ReleaseLAN's latest, or
+// the bundle the intranet already runs when an operator's override
+// redeploys it. A bundle that is missing or not published is refused.
 func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who string, bundle *ReleaseBundle, in LANReleaseRequest) (*LANReleaseStarted, int, error) {
-	var err error
-	if bundle == nil && s.hosts.settings.NoLocalDocker {
-		return nil, 422, refused("an intranet release from an AppTown with no local Docker ships a release published to the project's registry, and the latest landing published none; land the change again")
-	}
 	cfg, err := s.IntranetConfig(ctx)
 	if err != nil {
 		return nil, 422, err
+	}
+	if bundle == nil || !bundle.ByDigest() {
+		return nil, 422, notPublished(IntranetTargetName)
 	}
 	if p.DefaultBranch == "" {
 		return nil, 422, fmt.Errorf("project is not repo-backed: nothing has landed to release")
 	}
 	repo := filepath.Join(s.hosts.settings.DataDir, "workspaces", "project-"+p.Slug)
-	var head string
-	if bundle != nil {
-		head = bundle.ContractRevision
-	} else if head, err = releaseGit(ctx, repo, "rev-parse", "HEAD"); err != nil {
-		return nil, 422, fmt.Errorf("the project repository has no commits yet")
-	}
-	// Validate the selected commit, including build paths, before minting a
-	// release. Uncommitted changes must not change what this release admits.
+	head := bundle.ContractRevision
+	// Validate the selected commit before minting a release. Uncommitted
+	// changes must not change what this release admits.
 	selected, cleanup, err := docker.PrepareSource(ctx, repo, head, p.Slug, nil)
 	defer cleanup()
 	if errors.Is(err, docker.ErrNoContract) {
@@ -129,12 +119,6 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	}
 
 	c := selected.Source.Contract
-	if why, err := s.env.RefusesBrowserValues(ctx, KindPortainer, p.ID, c); err != nil {
-		return nil, 500, err
-	} else if why != "" {
-		return nil, 422, refusal(why)
-	}
-
 	// An intranet release is a stack Portainer keeps, with no record of
 	// what AppTown made for it: nothing would revoke a key given to it.
 	if needs, err := s.env.registeredNeeds(ctx, c); err != nil {
@@ -144,13 +128,6 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	}
 	if _, err := s.env.ResolveDockerStack(ctx, c, nil, nil); err != nil {
 		return nil, 422, err // an unknown need fails at the door, before a number is minted
-	}
-	if bundle == nil && c.PublicPart().Image == "" {
-		_, _, cleanup, err := releaseBuildFiles(selected.Source.Workspace, c)
-		cleanup()
-		if err != nil {
-			return nil, 422, err
-		}
 	}
 	var vanity string
 	rec, err := project.ByIDIn(ctx, s.db, p.ID)
@@ -171,24 +148,16 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	if err != nil {
 		return nil, 500, fmt.Errorf("reading the intranet target: %w", err)
 	}
-	var bundleID ids.ID
-	if bundle != nil {
-		bundleID = bundle.ID
-	}
-	refused, accepted, err := s.uncopiedData(ctx, lanEnv, intranet, bundleID, in.AcceptUncopiedData, who)
+	refused, accepted, err := s.uncopiedData(ctx, lanEnv, intranet, bundle.ID, in.AcceptUncopiedData, who)
 	if err != nil {
 		return nil, 500, err
 	}
 	if refused != "" {
 		return nil, 422, refusal(refused)
 	}
-	draft := ReleaseDraft{Source: ReleaseFromBranch, ProjectID: p.ID, DeploymentID: lanEnv.ID,
+	draft := ReleaseDraft{Source: ReleaseFromBundle, BundleID: bundle.ID, ProjectID: p.ID, DeploymentID: lanEnv.ID,
 		Deployment: cfg.ReleaseDeployment, Revision: head, Actor: who, Notes: url}
-	description := fmt.Sprintf("started by %s — shipping %s as of %s", who, p.DefaultBranch, releaseShort(head))
-	if bundle != nil {
-		draft.Source, draft.BundleID = ReleaseFromBundle, bundle.ID
-		description = fmt.Sprintf("started by %s — shipping bundle %d (%s as of %s)", who, bundle.ID, p.DefaultBranch, releaseShort(head))
-	}
+	description := fmt.Sprintf("started by %s — shipping bundle %d (%s as of %s)", who, bundle.ID, p.DefaultBranch, releaseShort(head))
 	r, err := s.Releases.Start(ctx, draft, description+accepted)
 	if err != nil {
 		if errors.Is(err, ErrReleaseInFlight) {
@@ -224,7 +193,7 @@ type LANReleaseStarted struct {
 	State  ReleaseState `json:"state"`
 }
 
-// runLANRelease is the background half: stage, build/verify, push, deploy —
+// runLANRelease is the background half: stage, check the platform, deploy —
 // each step logged with its timestamp. Any failure marks the release failed
 // with the log showing exactly where it died; a failed release is a numbered
 // record, not a vanished toast.
@@ -278,83 +247,15 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 		return
 	}
 	platform, asked := portainer.EndpointPlatform(ctx, cfg, endpointID)
-	if bundle != nil {
-		if err := refusesPlatform(bundle, "the intranet", platform, asked); err != nil {
-			fail("%v", err)
-			return
-		}
-	} else if asked != nil {
-		fail("%v", asked)
+	if err := refusesPlatform(bundle, "the intranet", platform, asked); err != nil {
+		fail("%v", err)
 		return
 	}
 	s.relLog(relID, "the intranet's machines run %s", platform)
-
-	var imageRef string
-	switch {
-	case bundle != nil:
-		// A published release: every image by the digest its registry
-		// answered, built for the endpoint's platform.
-		imageRef = bundle.Parts[c.PublicPart().Name]
-		s.relLog(relID, "shipping bundle %d by digest: %s", bundle.ID, imageRef)
-	case c.PublicPart().Image != "":
-		// Image contract: the pushed bytes that passed the boot gate ARE the
-		// release. No rebuild — but refuse a platform mismatch with a plain
-		// sentence instead of shipping a crash loop.
-		if ri := s.env.integrations.RegistryFor(ctx, p.ID); ri != nil {
-			docker.LoginRegistry(ctx, s.hosts.settings.Scope, ri.Host, ri.Username, ri.Token, c.PublicPart().Image)
-		}
-		if out, merr := s.hosts.settings.Scope.Run(ctx, "manifest", "inspect", c.PublicPart().Image); merr == nil &&
-			!strings.Contains(string(out), `"architecture": "`+strings.TrimPrefix(platform, "linux/")+`"`) {
-			fail("the contract image was not built for %s — rebuild it for that platform (docker buildx --platform %s)", platform, platform)
-			return
-		}
-		imageRef = c.PublicPart().Image
-		s.relLog(relID, "shipping the contract image as-is: %s", imageRef)
-	case c.PublicPart().Build != "" || c.PublicPart().Static != "" || c.PublicPart().StaticBuild != nil:
-		contextDir, dockerfile, cleanup, err := releaseBuildFiles(staged, c)
-		if err != nil {
-			fail("packaging the declared source: %v", err)
-			return
-		}
-		defer cleanup()
-		if sb := c.PublicPart().StaticBuild; sb != nil {
-			s.relLog(relID, "building the static site")
-			site, done, err := docker.ExportStaticBuild(ctx, s.hosts.settings.Scope, contextDir, *sb)
-			if err != nil {
-				fail("building the static site: %s", strs.Truncate(err.Error(), 400))
-				return
-			}
-			defer done()
-			contextDir = site
-		}
-		ri := s.ensureReleaseRegistry(ctx, p, relID, who)
-		if ri == nil {
-			fail("attach the container-registry integration first — the LAN pulls images from the registry")
-			return
-		}
-		tag := fmt.Sprintf("%s:r%d", ri.Repo, number)
-		s.relLog(relID, "building the release image %s from the app's Dockerfile (%s)", tag, platform)
-		if out, err := s.hosts.settings.Scope.Build(ctx, "-t", tag, "-f", dockerfile, "--platform", platform, contextDir); err != nil {
-			fail("building the release image: %s", strs.Truncate(string(out), 400))
-			return
-		}
-		if ri := s.env.integrations.RegistryFor(ctx, p.ID); ri != nil {
-			docker.LoginRegistry(ctx, s.hosts.settings.Scope, ri.Host, ri.Username, ri.Token, tag)
-		}
-		s.relLog(relID, "pushing to the registry")
-		if out, err := s.hosts.settings.Scope.Run(ctx, "push", tag); err != nil {
-			fail("pushing to the registry: %s", strs.Truncate(string(out), 300))
-			return
-		}
-		imageRef = tag
-		if d := s.hosts.settings.Scope.ImageDigest(ctx, tag); d != "" {
-			imageRef = d
-		}
-		s.relLog(relID, "pushed — the exact bytes are %s", imageRef)
-	default:
-		fail("this app declares no supported release source")
-		return
-	}
+	// A published release: every image by the digest its registry
+	// answered, built for the endpoint's platform.
+	imageRef := bundle.Parts[c.PublicPart().Name]
+	s.relLog(relID, "shipping bundle %d by digest: %s", bundle.ID, imageRef)
 
 	// The pull credential is PLATFORM-OWNED: a group deploy token behind a
 	// Portainer registry entry, both managed by the platform's operators.
@@ -381,20 +282,14 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 		}
 		s.relLog(relID, "delivering the app's secrets (%s) as stack environment — Portainer keeps a copy with the stack definition", strings.Join(names, ", "))
 	}
-	images := stackImages{Public: imageRef}
-	if bundle != nil {
-		images = stackImages{Parts: bundle.Parts, Init: bundle.Init}
-	}
 	logf := func(format string, args ...any) { s.relLog(relID, format, args...) }
-	compose, err := s.env.portainerStack(ctx, portainerStackOf{Base: stackBase, Prefix: stackPrefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: c, Revision: head, Images: images, Secrets: secrets, Deployment: dep.ID}, logf)
+	compose, err := s.env.portainerStack(ctx, portainerStackOf{Base: stackBase, Prefix: stackPrefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: c, Revision: head,
+		Images: stackImages{Parts: bundle.Parts, Init: bundle.Init}, Secrets: secrets, Project: p.ID, Deployment: dep.ID}, logf)
 	if err != nil {
 		fail("%v", err)
 		return
 	}
-	inputs := Inputs{ReleaseID: relID, Revision: strings.TrimSpace(head), ImageDigest: imageRef, ArtifactHash: deploy.ConfigHash(strings.TrimSpace(compose)), Applied: applied}
-	if bundle != nil {
-		inputs.BundleID = bundle.ID
-	}
+	inputs := Inputs{ReleaseID: relID, Revision: strings.TrimSpace(head), ImageDigest: imageRef, ArtifactHash: deploy.ConfigHash(strings.TrimSpace(compose)), Applied: applied, BundleID: bundle.ID}
 	result, err := (Runner{Store: store, Applied: s.applied}).Run(ctx,
 		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("release-%d", relID), Inputs: inputs},
 		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
@@ -442,11 +337,9 @@ func portainerAddress(slug, appsDomain, releaseDomain string) (hosts []string, u
 }
 
 // stackImages is what a Portainer stack runs: a published bundle's part
-// and init images by digest, or, for an intranet release that built the
-// branch head here, the one public image.
+// and init images by digest.
 type stackImages struct {
 	Parts, Init map[string]string
-	Public      string
 }
 
 // portainerStackOf is everything a Portainer deployment's stack is made of.
@@ -461,6 +354,8 @@ type portainerStackOf struct {
 	Revision string
 	Images   stackImages
 	Secrets  deploy.ConsumerSecrets
+	// Project is whose attached integrations' values the app is given.
+	Project ids.ID
 	// Deployment is whose generated need credentials the stack carries.
 	Deployment ids.ID
 }
@@ -482,20 +377,20 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 	if err != nil {
 		return "", err
 	}
-	var plan *appcontract.Plan
-	image := in.Images.Public
-	if in.Images.Parts != nil {
-		plan, err = bundleApp(rs.Plan, in.Images)
-		image = in.Images.Parts[c.PublicPart().Name]
-	} else {
-		plan, err = deploy.PreparedReleaseApp(rs.Plan, image)
-	}
+	plan, err := bundleApp(rs.Plan, in.Images)
 	if err != nil {
 		return "", err
 	}
-	st := deploy.IntranetStack{Base: in.Base, Prefix: in.Prefix, Hosts: in.Hosts, Domain: in.Domain, Image: image, Command: plan.PublicPart().Command, Resources: plan.PublicPart().Resources, Port: c.PublicPart().Port,
-		Env: plan.PublicPart().Env, DataDir: plan.PublicPart().DataDir, Origins: e.PublicOrigins(ctx), Init: plan.Init, Needs: docker.IntranetNeeds(rs.Needs),
+	given, browser, err := e.integrationValues(ctx, in.Project, c)
+	if err != nil {
+		return "", err
+	}
+	st := deploy.IntranetStack{Base: in.Base, Prefix: in.Prefix, Hosts: in.Hosts, Domain: in.Domain, Image: in.Images.Parts[c.PublicPart().Name], Command: plan.PublicPart().Command, Resources: plan.PublicPart().Resources, Port: c.PublicPart().Port,
+		Env: plan.PublicPart().Env, Integrations: given, BrowserEnv: browser, DataDir: plan.PublicPart().DataDir, Origins: e.PublicOrigins(ctx), Init: plan.Init, Needs: docker.IntranetNeeds(rs.Needs),
 		Secrets: in.Secrets, PublicPart: c.PublicPart().Name, Release: c.PublicRelease(strings.TrimSpace(in.Revision))}
+	if len(given) > 0 {
+		logf("giving the app the project's integration values (%s) as stack environment — Portainer keeps a copy with the stack definition", strings.Join(slices.Sorted(maps.Keys(given)), ", "))
+	}
 	for _, part := range plan.Parts {
 		if !part.Public {
 			st.Parts = append(st.Parts, part)
@@ -518,6 +413,37 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 		logf("init step %q runs to completion before the app starts", it.Name)
 	}
 	return deploy.IntranetCompose(st), nil
+}
+
+// integrationValues is what a Docker host gives c's public part from the
+// project's attached integrations (docker.Host.StartAppContainer): their
+// values, and for a static public part its browser values as JSON ("{}"
+// for none; "" for a server app, which is not given them). The browser
+// values are read strictly: a failed read fails the release, as it fails a
+// Docker host's boot.
+func (e *Environment) integrationValues(ctx context.Context, projectID ids.ID, c *appcontract.Contract) (map[string]string, string, error) {
+	static := c.PublicPart().IsStatic()
+	if e.integrations == nil {
+		if static {
+			return nil, "{}", nil
+		}
+		return nil, "", nil
+	}
+	given := map[string]string{}
+	for _, kv := range e.integrations.Environment(ctx, projectID) {
+		if k, v, ok := strings.Cut(kv, "="); ok {
+			given[k] = v
+		}
+	}
+	if !static {
+		return given, "", nil
+	}
+	values, err := e.integrations.BrowserEnvironment(ctx, projectID)
+	if err != nil {
+		return nil, "", fmt.Errorf("reading the values a browser may be given: %w", err)
+	}
+	raw, err := json.Marshal(values)
+	return given, string(raw), err
 }
 
 // bundleApp is plan with every part and init step running its image from a
@@ -569,21 +495,6 @@ func (s *Service) intranetDeployment(ctx context.Context, projectID ids.ID, cfg 
 	return dep, nil
 }
 
-// ensureReleaseRegistry: the registry the LAN pulls from, provisioning
-// one (deploy token + GitLab project) when the project has none yet.
-func (s *Service) ensureReleaseRegistry(ctx context.Context, p *project.Project, relID ids.ID, who string) *integration.Registry {
-	ri := s.env.integrations.RegistryFor(ctx, p.ID)
-	if ri == nil {
-		s.relLog(relID, "no registry attached yet — provisioning one (deploy token + GitLab project if needed)")
-		if _, _, perr := s.env.integrations.ProvisionRegistry(ctx, p, "", who); perr != nil {
-			s.relLog(relID, "registry provisioning failed: %v", perr)
-			return nil
-		}
-		ri = s.env.integrations.RegistryFor(ctx, p.ID)
-	}
-	return ri
-}
-
 func releaseShort(s string) string {
 	if len(s) > 12 {
 		return s[:12]
@@ -599,8 +510,4 @@ func releaseProject(ctx context.Context, db database.Queryer, id ids.ID) project
 		log.Printf("read failed: %v", err)
 	}
 	return p
-}
-
-func releaseGit(ctx context.Context, repo string, args ...string) (string, error) {
-	return gitexec.Run(ctx, repo, args...)
 }

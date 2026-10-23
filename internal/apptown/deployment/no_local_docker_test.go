@@ -473,8 +473,8 @@ func TestNoLocalDockerRefusesOtherTargetsBeforeAnyBuild(t *testing.T) {
 	want := map[string]string{
 		"other":  "this release's images live only on remote",
 		"local":  "this AppTown has no local Docker; attach a Docker host",
-		"lan":    "needs this release's images in the project's registry",
-		"cloud":  "needs this release's images in the project's registry",
+		"lan":    "needs this release's images in the project's container registry, and this release was not published there. Attach a container registry",
+		"cloud":  "needs this release's images in the project's container registry, and this release was not published there. Attach a container registry",
 		"remote": "",
 	}
 	landing := map[string]string{"local": want["local"], "lan": "a landing deploys to a Docker host", "cloud": "a landing deploys to a Docker host"}
@@ -523,17 +523,6 @@ func TestNoLocalDockerRefusesOtherTargetsBeforeAnyBuild(t *testing.T) {
 	// either (Preview's TestInTheNoLocalDockerModeOnlyPublishedReleasesArePreviewed).
 	if err := s.ExecuteRelease(context.Background(), queued.ID); err != nil {
 		t.Fatal(err)
-	}
-	w.daemon.ResetCommands()
-	p, err := project.New(w.db, nil).ByID(context.Background(), w.project)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, code, err := s.ReleaseLAN(t.Context(), &p, "alice", LANReleaseRequest{}); code != 422 || !errors.Is(err, ErrReleaseRefused) {
-		t.Fatalf("an intranet release: %d %v", code, err)
-	}
-	if commands := w.daemon.Commands(); len(commands) != 0 {
-		t.Fatalf("a refused release reached a daemon: %v", commands)
 	}
 }
 

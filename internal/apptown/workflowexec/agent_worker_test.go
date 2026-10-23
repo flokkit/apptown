@@ -901,8 +901,8 @@ func TestAnAgentOnAppTownIsSteeredToTheFolder(t *testing.T) {
 	if strings.Contains(st.Text, "/apptown/in") || strings.Contains(st.Text, "/apptown/state") {
 		t.Error("an agent on AppTown is steered to a worker's paths")
 	}
-	if strings.Contains(st.Text, "AppTown merges it into this change") {
-		t.Error("an agent on AppTown, which is given no merge of main, is told it is")
+	if !strings.Contains(st.Text, "AppTown merges it into this change") {
+		t.Error("an agent on AppTown, which is given main as on a worker, is not told so")
 	}
 	if body, err := os.ReadFile(filepath.Join(ws, ".apptown", "resources", "res--notes.md")); err != nil || string(body) != "resource body" {
 		t.Errorf("the resource in the folder: %q %v", body, err)
