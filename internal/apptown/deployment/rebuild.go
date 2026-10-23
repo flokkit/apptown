@@ -140,6 +140,18 @@ func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan
 	if err != nil {
 		return RebuildResult{}, err
 	}
+	if dep.RestoreCheck == RestoreFilling {
+		// The rebuild after AppTown was restored puts the data back before
+		// anything of the app starts.
+		// A fill that cannot be set up is not retried: the job settles it.
+		dd, ok := d.(*docker.Driver)
+		if !ok || s.filler == nil {
+			return RebuildResult{}, fmt.Errorf("%w: %s waits for its data, and this AppTown cannot fill it", ErrReleaseRefused, dep.Name)
+		}
+		if dd.Fill, err = s.filler.Fill(ctx, dep, t); err != nil {
+			return RebuildResult{}, fmt.Errorf("%w: %v", ErrReleaseRefused, err)
+		}
+	}
 	running, err := s.providers.Running(ctx, d, dep)
 	if err != nil {
 		return RebuildResult{}, err

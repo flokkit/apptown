@@ -22,7 +22,7 @@ procedures.
 | Keep projects in a public gitlab.com group, with attributed merge requests | [An AppTown on a public gitlab.com group](gitlab-com.md) |
 | Add deployment targets (Docker host, Portainer, App Platform, bucket website) | [Deployment targets](../../stock/docs/guides/deployment-targets.md), [Deploy targets](../subsystems/deploy-targets.md) |
 | Diagnose deployments, uncertainty and stale dashboard observations | [Deployment runtime](../subsystems/deployment.md) |
-| Back up and restore AppTown's own database; move an AppTown to another host | [AppTown's own backups](../../stock/docs/guides/apptown-backups.md) |
+| Back up and restore a whole AppTown (`apptownd backup`, `apptownd restore`); move an AppTown to another host | [AppTown's own backups](../../stock/docs/guides/apptown-backups.md) |
 | Deployment backups, take-down and final backups | [Deployment backups](../../stock/docs/guides/deployment-backups.md), [Deployment runtime](../subsystems/deployment.md) |
 | Upgrade an AppTown | [Upgrading](../../stock/docs/guides/upgrading.md) |
 | Move a deployment made before 1.0 to its names by key | [Deployment runtime](../subsystems/deployment.md) (Names on a host) |

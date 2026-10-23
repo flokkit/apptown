@@ -153,7 +153,7 @@ func appRoutes(a *App) []routeSpec {
 		setupStatus = httpapi.NewSetupStatus(&a.setup, a.modelSelection, a.authModeName() == "open" && a.cfg.listenAddr != "" && !loopbackAddr(a.cfg.listenAddr))
 		infrastructure = httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Volume, deployment.IntranetTargetName, a.cfg.clock.Now)
 		disks = httpapi.NewDisks(a.disks)
-		deploymentListing = httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir)
+		deploymentListing = httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir, a.DataProtection.FillsOf)
 		targets = httpapi.NewTargets(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.Access, a.Integrations, a.Dependencies, a.DB, a.cfg.clock.Now)
 		backups = httpapi.NewBackups(a.Projects, a.DataProtection, a.cfg.dataDir)
 		dataProtection = httpapi.NewDataProtection(a.Projects, a.DataProtection)

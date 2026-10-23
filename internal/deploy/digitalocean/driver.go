@@ -265,3 +265,17 @@ func (d *Driver) FindMade(ctx context.Context, p deploy.Placement) (Made, error)
 	}
 	return out, nil
 }
+
+var _ deploy.RunningRecord = (*Driver)(nil)
+
+// RecordedRunning is the platform deployment AppTown recorded selecting
+// (deploy.RunningRecord): the handle's, which a teardown also checks.
+func (d *Driver) RecordedRunning(p deploy.Placement, _ string) string {
+	id, _ := p.Handle["deploymentId"].(string)
+	return id
+}
+
+// AdoptRunning makes the running platform deployment the recorded one.
+func (d *Driver) AdoptRunning(running string) map[string]any {
+	return map[string]any{"deploymentId": running}
+}

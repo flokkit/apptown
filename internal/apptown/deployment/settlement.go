@@ -90,6 +90,14 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 		}
 		return at, false, nil
 	}
+	// After a restore nothing runs a held deployment, whichever way it was
+	// asked for, queued before the backup or since; the one exception is the
+	// rebuild that puts a filling one's data back.
+	if !(in.Inputs.Rebuild && dep.RestoreCheck == RestoreFilling) {
+		if err := dep.HeldAfterRestore(); err != nil {
+			return Attempt{}, false, err
+		}
+	}
 	nextGeneration, admitted, err := dep.Admit(in.BaseGeneration)
 	if err != nil {
 		return Attempt{}, false, err

@@ -83,7 +83,7 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
         work=root/'work';work.mkdir()
         source=SCRIPT.read_text()
         cleanup=source[source.index('end_rehearsal() {'):source.index('\n# owned')]
-        finish=source[source.index('owned=""'):source.index('\nstep "capture')]
+        finish=source[source.index('owned="" locked=""'):source.index('\ntrap finish EXIT')]+'\ntrap finish EXIT'
         program='set -euo pipefail\n'+f'tgt=fixture\nlock={shlex.quote(expected)}\nwork={shlex.quote(str(work))}\n'+cleanup+'\n'+finish+f'\nowned=1\nexit {original_status}\n'
         env={**os.environ,'PATH':str(bindir)+os.pathsep+os.environ['PATH'],'FIXTURE_ROOT':str(root),**faults}
         # Allow the child hang guard to report failure and the EXIT trap to finish.
@@ -163,7 +163,7 @@ class RecoveryNeedsItsDestination(unittest.TestCase):
                 p=bindir/name;p.write_text('#!/bin/sh\necho "$0" >> '+shlex.quote(str(calls))+'\nexit 99\n');p.chmod(0o755)
             env={k:v for k,v in os.environ.items() if k!='REGISTRY'}
             env['PATH']=str(bindir)+os.pathsep+env['PATH']
-            result=subprocess.run(['bash',str(SCRIPT),'src','/data','tgt','app/prod'],text=True,capture_output=True,env=env,timeout=30)
+            result=subprocess.run(['bash',str(SCRIPT),'all','src','/data','app/prod','tgt'],text=True,capture_output=True,env=env,timeout=30)
             self.assertEqual(result.returncode,2,result.stderr)
             self.assertIn('REGISTRY is not set',result.stderr)
             self.assertIn('Environment: REGISTRY (required',result.stderr)
@@ -200,12 +200,34 @@ class RecoveryUsesTheSourcesOwnDatabase(unittest.TestCase):
     def test_every_dump_restore_and_query_uses_that_database(self):
         source = SCRIPT.read_text()
         self.assertNotRegex(source, r'-d forge\b|postgres forge\b')
-        self.assertEqual(len(re.findall(r'-d \$dbname|-d "\$name"|postgres "\$dbname"|-U postgres "\$name"', source)), 7)
+        self.assertEqual(len(re.findall(r'-d \$dbname|-d "\$name"|postgres "\$dbname"|-U postgres "\$name"', source)), 3)
 
     def test_a_db_env_naming_no_database_stops_it(self):
         r = self.names('APPTOWN_DB_CONTAINER=apptown-db\n')
         self.assertNotEqual(r.returncode, 0)
         self.assertIn('names no built-in database container and database', r.stderr)
+
+
+class RecoveryPreservesTheDataQuery(unittest.TestCase):
+    def test_sql_survives_ssh_command_joining(self):
+        source = SCRIPT.read_text()
+        query = source[source.index('query() {'):source.index('\nkeys=')]
+        for sql in ('SELECT 1', 'SELECT count(*) FROM widgets'):
+            with self.subTest(sql=sql), tempfile.TemporaryDirectory() as tmp:
+                bindir = Path(tmp)
+                docker = bindir / 'docker'
+                docker.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\"\n")
+                docker.chmod(0o755)
+                # Like OpenSSH, join command arguments before the remote shell.
+                program = ('ssh() { shift; /bin/sh -c "$*"; }\n'
+                           + 'DATA_QUERY=' + shlex.quote(sql) + '\n'
+                           + query + '\nquery fixture postgres\n')
+                env = {**os.environ, 'PATH': str(bindir) + os.pathsep + os.environ['PATH']}
+                r = subprocess.run(['bash', '-s'], input=program, text=True,
+                                   capture_output=True, env=env, timeout=30)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual(r.stdout.splitlines()[-1], sql,
+                                 'docker exec received a different SQL query')
 
 
 if __name__=='__main__':unittest.main()

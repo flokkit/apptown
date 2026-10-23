@@ -238,6 +238,24 @@ func (q *Queries) InsertDeploymentInputs(ctx context.Context, arg InsertDeployme
 	return result.RowsAffected()
 }
 
+const latestReleasedRef = `-- name: LatestReleasedRef :one
+SELECT external_ref FROM releases WHERE deployment_id=$1 AND state=$2
+ORDER BY number DESC LIMIT 1
+`
+
+type LatestReleasedRefParams struct {
+	DeploymentID ids.ID
+	Released     string
+}
+
+// What the newest released release on a deployment says runs there.
+func (q *Queries) LatestReleasedRef(ctx context.Context, arg LatestReleasedRefParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, latestReleasedRef, arg.DeploymentID, arg.Released)
+	var external_ref string
+	err := row.Scan(&external_ref)
+	return external_ref, err
+}
+
 const linkReleaseChanges = `-- name: LinkReleaseChanges :one
 WITH selected AS MATERIALIZED (
   SELECT c.id FROM changes c WHERE c.project_id=$1 AND c.state='shipped' AND
@@ -305,6 +323,84 @@ func (q *Queries) LockReleaseProject(ctx context.Context, id ids.ID) (ids.ID, er
 	row := q.db.QueryRowContext(ctx, lockReleaseProject, id)
 	err := row.Scan(&id)
 	return id, err
+}
+
+const newestReleasedOrigin = `-- name: NewestReleasedOrigin :one
+SELECT origin FROM releases WHERE deployment_id=$1 AND state=$2
+ORDER BY number DESC LIMIT 1
+`
+
+type NewestReleasedOriginParams struct {
+	DeploymentID ids.ID
+	Released     string
+}
+
+func (q *Queries) NewestReleasedOrigin(ctx context.Context, arg NewestReleasedOriginParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, newestReleasedOrigin, arg.DeploymentID, arg.Released)
+	var origin string
+	err := row.Scan(&origin)
+	return origin, err
+}
+
+const newestShippedBundle = `-- name: NewestShippedBundle :one
+SELECT bundle_id FROM releases WHERE deployment_id=$1 AND state=$2
+  AND origin=$3 AND bundle_id IS NOT NULL
+ORDER BY number DESC LIMIT 1
+`
+
+type NewestShippedBundleParams struct {
+	DeploymentID ids.ID
+	Released     string
+	Shipped      string
+}
+
+func (q *Queries) NewestShippedBundle(ctx context.Context, arg NewestShippedBundleParams) (ids.ID, error) {
+	row := q.db.QueryRowContext(ctx, newestShippedBundle, arg.DeploymentID, arg.Released, arg.Shipped)
+	var bundle_id ids.ID
+	err := row.Scan(&bundle_id)
+	return bundle_id, err
+}
+
+const recordObservedRelease = `-- name: RecordObservedRelease :one
+INSERT INTO releases(id, project_id, number, state, deployment, deployment_id, generation, external_ref, notes, created_at, released_at, origin)
+VALUES ($1, $2,
+  (SELECT COALESCE(MAX(r.number),0)+1 FROM releases r WHERE r.project_id=$2),
+  $3, $4, $5, $6, $7, $8,
+  $9::timestamptz, $9::timestamptz, $10)
+RETURNING number
+`
+
+type RecordObservedReleaseParams struct {
+	ID           ids.ID
+	ProjectID    ids.ID
+	State        string
+	Deployment   string
+	DeploymentID ids.ID
+	Generation   int64
+	ExternalRef  string
+	Notes        string
+	At           time.Time
+	Origin       string
+}
+
+// A release found running after AppTown was restored, which AppTown did
+// not ship: no bundle, run or approver, released when observed.
+func (q *Queries) RecordObservedRelease(ctx context.Context, arg RecordObservedReleaseParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, recordObservedRelease,
+		arg.ID,
+		arg.ProjectID,
+		arg.State,
+		arg.Deployment,
+		arg.DeploymentID,
+		arg.Generation,
+		arg.ExternalRef,
+		arg.Notes,
+		arg.At,
+		arg.Origin,
+	)
+	var number int64
+	err := row.Scan(&number)
+	return number, err
 }
 
 const releaseDeploymentID = `-- name: ReleaseDeploymentID :one

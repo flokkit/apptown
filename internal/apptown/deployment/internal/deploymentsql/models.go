@@ -38,6 +38,7 @@ type Deployment struct {
 	StartFromBackup    ids.ID
 	StartedFromAt      sql.NullTime
 	HostPrefix         string
+	RestoreCheck       string
 }
 
 type DeploymentAttempt struct {
@@ -145,6 +146,7 @@ type Release struct {
 	DeploymentID ids.ID
 	Generation   int64
 	ArtifactHash string
+	Origin       string
 }
 
 type ReleaseBundle struct {

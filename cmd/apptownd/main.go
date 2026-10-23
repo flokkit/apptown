@@ -21,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown"
+	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/stock"
@@ -143,6 +144,38 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	// The process's context before the daemon serves (and for the
+	// one-shots and the commands): no signal is handled yet, so Ctrl-C ends
+	// the process.
+	ctx := context.Background()
+	cmd, err := parseCommand(flag.Args())
+	if err != nil {
+		log.Fatal(err)
+	}
+	// A backup is the running AppTown's: this process only asks it.
+	if cmd.name == "backup" {
+		if err := runBackup(ctx, dataDir, cmd); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	// A restore unpacks the archive before anything reads or writes the
+	// data directory, then goes on as a verify-only start does and stops
+	// once AppTown is built (finishRestore, below).
+	var restored *instancebackup.Manifest
+	if cmd.name == "restore" {
+		switch {
+		case o.dbURL != "":
+			log.Fatal("restore makes the built-in database; it cannot run with -db-url (restore that database yourself, as the guide says)")
+		case o.noLocalDocker:
+			log.Fatal("restore makes the built-in database on this host's Docker; it cannot run with -no-local-docker")
+		case o.resetPassword != "":
+			log.Fatal("restore cannot run with -reset-password")
+		}
+		if restored, err = restoreStep(ctx, dataDir, cmd); err != nil {
+			log.Fatalf("restore: %v", err)
+		}
+	}
 	mainTLS, chatTLS, err := localTLS(o.localTLS, o.publicHost, o.addr, dataDir, o.tierDomains)
 	if err != nil {
 		log.Fatal(err)
@@ -187,9 +220,6 @@ func main() {
 	if err := apptown.OpenExposure(o.authMode, o.addr, o.consoleAddr, o.openOnNetwork); err != nil {
 		log.Fatal(err)
 	}
-	if flag.NArg() != 0 {
-		log.Fatalf("unexpected argument %q", flag.Arg(0))
-	}
 	if o.resetPassword != "" && o.verifyOnly {
 		log.Fatal("-reset-password changes an account; it cannot run with -verify-only")
 	}
@@ -201,9 +231,6 @@ func main() {
 	if err := apptown.PrepareDataLayout(dataDir); err != nil {
 		log.Fatalf("data directory: %v", err)
 	}
-	// The process's context before the daemon serves (and for the
-	// one-shots): no signal is handled yet, so Ctrl-C ends the process.
-	ctx := context.Background()
 	// The built-in database comes up BEFORE the unmigrated check, so the
 	// refusal below can name a database that is already there to move into.
 	if o.dbURL == "" {
@@ -231,6 +258,12 @@ func main() {
 		log.Fatal(err)
 	}
 	defer apptown.BridgeLogs(app)()
+	if restored != nil {
+		if err := finishRestore(ctx, app, restored); err != nil {
+			log.Fatalf("restore: %v", err)
+		}
+		return
+	}
 	if o.resetPassword != "" {
 		// Stdout carries only the password, so it can go straight to a file.
 		password, err := app.Access.ResetPassword(ctx, o.resetPassword)
@@ -337,6 +370,8 @@ func main() {
 				{"worker previews", daemonLoop(app.Preview.RunWorkerPreviewReconciliation)},
 				{"ended previews' keys", daemonLoop(app.Preview.RunPreviewKeyRelease)},
 				{"scheduler", daemonLoop(app.RunScheduler)},
+				// `apptownd backup` asks the running AppTown through it.
+				{"control socket", app.Backups.ServeControl},
 			},
 		}
 		if o.inferenceAddr != "" {

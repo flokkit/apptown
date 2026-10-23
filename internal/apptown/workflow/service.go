@@ -94,6 +94,7 @@ type Dependencies struct {
 	Recoverers   map[string]Runner                                                     // kinds whose recorded work a restarted daemon adopts
 	Chats        Presence                                                              // whether a chat holding a change has ended
 	Report       func(error)                                                           // dispatch failures
+	Hold         func(context.Context) error                                           // waits while AppTown holds new work; nil never holds
 	Slots        SlotWait
 	Git          Git
 	Repositories *scm.RepositoryLocks
@@ -244,6 +245,6 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 			}
 		}
 	}
-	s.dispatcher = newDispatcher(db, dispatcherConfig{Life: life, Runners: runners, Recoverers: recoverers, Stages: dispatchStages{s}, Report: deps.Report, Now: s.clocked.clock})
+	s.dispatcher = newDispatcher(db, dispatcherConfig{Life: life, Runners: runners, Recoverers: recoverers, Stages: dispatchStages{s}, Report: deps.Report, Now: s.clocked.clock, Hold: deps.Hold})
 	return s
 }

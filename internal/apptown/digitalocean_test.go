@@ -175,7 +175,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if r := byName["registry/forge-test"]; r.Record != "recorded" {
 		t.Fatalf("the registry is the target's own: %+v", r)
 	}
-	w = tgReq(httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir).Deployments, "GET", "/api/v1/projects/expense/deployments", "", map[string]string{"slug": "expense"})
+	w = tgReq(httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir, a.DataProtection.FillsOf).Deployments, "GET", "/api/v1/projects/expense/deployments", "", map[string]string{"slug": "expense"})
 	if !strings.Contains(w.Body.String(), `"needs":[{"need":"postgres","name":"apptown-db-`+deploy.HostKey(env.ID)+`"`) {
 		t.Fatalf("the environment says what backs it: %s", w.Body.String())
 	}

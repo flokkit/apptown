@@ -47,6 +47,7 @@ type Service struct {
 	diagnosed          diagnosed           // the last part facts a diagnostics read saw (diagnostics.go)
 	ops                *operations.Service // the ledger, read for a take-down holding a deployment
 	starter            CopyStarter         // data protection's fill of a deployment started from a copy
+	filler             RestoreFiller       // data protection's fill of a rebuild after AppTown was restored
 	copyCheck          DataCopyCheck       // whether AppTown can copy what a deployment holds now
 	// now is AppTown's clock: every time a rule stores and later judges
 	// (observations' age among them) is written and read by it, so a test
@@ -94,6 +95,9 @@ type Dependencies struct {
 	// CopyStarter is data protection's side of starting a deployment from a
 	// copy; nil refuses every start from a copy.
 	CopyStarter CopyStarter
+	// RestoreFiller is data protection's fill of a built-in deployment's
+	// rebuild after AppTown was restored (restore_check.go).
+	RestoreFiller RestoreFiller
 	// CopyCheck says whether AppTown can copy the data a deployment holds
 	// now, which a release asks before it is admitted; nil asks nothing.
 	CopyCheck DataCopyCheck
@@ -149,6 +153,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		Retained:           NewRetained(db),
 		ops:                deps.Operations,
 		starter:            deps.CopyStarter,
+		filler:             deps.RestoreFiller,
 		copyCheck:          deps.CopyCheck,
 		Reconciliations:    NewReconciliations(db),
 		Needs:              NewNeedStore(db, nil),

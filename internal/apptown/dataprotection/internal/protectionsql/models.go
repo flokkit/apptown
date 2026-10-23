@@ -70,6 +70,14 @@ type RehearsalPlace struct {
 	ClearedAt   sql.NullTime
 }
 
+type RestoreFill struct {
+	DeploymentID ids.ID
+	BackupID     ids.ID
+	State        string
+	Detail       string
+	UpdatedAt    time.Time
+}
+
 type RestoreRehearsal struct {
 	ID               ids.ID
 	ProjectID        ids.ID

@@ -312,8 +312,10 @@ const (
 // placement whose handle names no stack is unknown, unless nothing was ever
 // released there. A failed look is an error for every placement: it is
 // never read as stopped. It reports the recorded generation: Portainer's
-// stacks carry no AppTown identity, so this says whether the app runs, not
-// which release.
+// stacks carry no AppTown identity, so this says whether the app runs, and
+// (Running) the image its app container was made from, not which release.
+// A stopped app container still names its image; a stack with none names
+// nothing.
 func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]deploy.Observation, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -335,7 +337,7 @@ func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]d
 	if err != nil {
 		return nil, err
 	}
-	running, err := appContainers(ctx, cfg, endpointID)
+	apps, err := appContainers(ctx, cfg, endpointID)
 	if err != nil {
 		return nil, err
 	}
@@ -344,20 +346,30 @@ func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]d
 		if stack == "" {
 			continue
 		}
-		if running[strings.ToLower(stack)] {
+		app := apps[strings.ToLower(stack)]
+		if app.running {
 			out[i].Rollout, out[i].Health = "active", "healthy"
 		} else {
 			out[i].Rollout, out[i].Health = "absent", "unhealthy"
 		}
+		out[i].Running = app.image
 	}
 	return out, nil
 }
 
+// stackApp is what a Compose project's app containers say: whether one
+// runs, and the image of the running one (or of a stopped one when none
+// runs).
+type stackApp struct {
+	running bool
+	image   string
+}
+
 // appContainers lists the environment's app containers, stopped ones too,
-// and says per Compose project (lower case) whether one of them runs. A
-// project with only stopped app containers is false; one with none is
-// missing, which reads the same.
-func appContainers(ctx context.Context, cfg *Target, endpointID int64) (map[string]bool, error) {
+// and says per Compose project (lower case) whether one of them runs and
+// from which image. A project with only stopped app containers does not
+// run; one with none is missing, and names no image.
+func appContainers(ctx context.Context, cfg *Target, endpointID int64) (map[string]stackApp, error) {
 	filters := url.QueryEscape(`{"label":["` + composeService + `=app"]}`)
 	code, raw, err := JSON(ctx, cfg, "GET", fmt.Sprintf("/api/endpoints/%d/docker/containers/json?all=1&filters=%s", endpointID, filters), nil)
 	if err != nil {
@@ -368,6 +380,7 @@ func appContainers(ctx context.Context, cfg *Target, endpointID int64) (map[stri
 	}
 	var containers []struct {
 		State  string            `json:"State"`
+		Image  string            `json:"Image"`
 		Labels map[string]string `json:"Labels"`
 	}
 	if err := json.Unmarshal(raw, &containers); err != nil {
@@ -376,15 +389,20 @@ func appContainers(ctx context.Context, cfg *Target, endpointID int64) (map[stri
 	if containers == nil {
 		return nil, fmt.Errorf("Portainer's environment %q answered no container list", cfg.EnvName)
 	}
-	running := map[string]bool{}
+	apps := map[string]stackApp{}
 	for _, c := range containers {
 		if c.Labels[composeService] != "app" || c.Labels[composeProject] == "" {
 			continue
 		}
 		project := strings.ToLower(c.Labels[composeProject])
-		running[project] = running[project] || c.State == "running"
+		app, runs := apps[project], c.State == "running"
+		if runs || (!app.running && app.image == "") {
+			app.image = c.Image
+		}
+		app.running = app.running || runs
+		apps[project] = app
 	}
-	return running, nil
+	return apps, nil
 }
 
 // Teardown deletes the stack AppTown recorded creating for the
@@ -667,3 +685,14 @@ func EndpointCapacity(ctx context.Context, cfg *Target, endpointID int64) (memor
 	}
 	return v.MemTotal, v.NCPU, nil
 }
+
+// RecordedRunning is the image the newest released release ran
+// (deploy.RunningRecord): a stack carries no AppTown identity, so the
+// release's record is the one to hold its app container's image to.
+func (d *Driver) RecordedRunning(_ deploy.Placement, released string) string { return released }
+
+// AdoptRunning changes nothing of the handle: the adopted release records
+// the image.
+func (d *Driver) AdoptRunning(string) map[string]any { return nil }
+
+var _ deploy.RunningRecord = (*Driver)(nil)

@@ -62,6 +62,7 @@ type NeedSummary struct {
 }
 type Summary struct {
 	DeploymentPolicy DeploymentPolicy
+	ID               ids.ID
 	Name             string
 	Kind             Kind
 	URL              string
@@ -80,6 +81,8 @@ type Summary struct {
 	// OpenRouter says of them is read on its own (Service.AIModels).
 	AIModelsKeys []string
 	Observation  RuntimeObservation
+	// RestoreCheck holds it after AppTown was restored ("" when nothing does).
+	RestoreCheck RestoreCheck
 }
 
 type listingRecord struct {
@@ -202,7 +205,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 			}
 		}
 		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{
-			DeploymentPolicy: e.UpdatePolicy(), Name: e.Name, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
+			DeploymentPolicy: e.UpdatePolicy(), ID: e.ID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,
 		}}

@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/preview"
 
 	"github.com/flokkit/apptown/internal/apptown/tasks"
@@ -64,6 +65,12 @@ import (
 // receive this object. workflow_wiring.go supplies the advancement engine's
 // operations. Database schema and migrations belong to dbschema.
 type App struct {
+	// newWork holds new jobs and steps for a whole-AppTown backup's brief
+	// pause (instancebackup).
+	newWork instancebackup.Hold
+	// Backups takes whole-AppTown backups and records what a restored
+	// AppTown does on its first start.
+	Backups *instancebackup.Service
 	// life is the App's lifetime: background work runs under it, and
 	// ShutdownBackground ends it.
 	life             context.Context
@@ -302,9 +309,11 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	deploymentDeps.Operations = a.operations
 	deploymentDeps.CopyStarter = starter
 	deploymentDeps.CopyCheck = starter
+	deploymentDeps.RestoreFiller = starter
 	a.Deployment = deployment.New(ctx, db, deploymentDeps)
 	a.vhostRules.deployments = a.Deployment.Deployments // standing hostnames route by its records
 	a.DataProtection = dataprotection.New(starter, dataProtectionDependencies(a))
+	a.Backups = instancebackup.New(instanceBackupDependencies(a))
 	a.Preview = preview.New(db, previewDependencies(a, changes))
 	a.deletion = projectDeletionFor(a)
 	a.agents = agentExecutionFor(a, agentenv.NewModelProcess(projectProcesses(a), a.providers, cfg.inferenceURL != "", cfg.clock.Now))
@@ -331,7 +340,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if cfg.worker != nil {
 		a.disks.Worker = *cfg.worker
 	}
-	a.jobs, err = jobs.New(jobs.Options{Tracer: a.telemetry.tracer}, db.Pool(), apptownJobKinds(a), jobReporter{}, apptownJobSchedules()...)
+	a.jobs, err = jobs.New(jobs.Options{Tracer: a.telemetry.tracer, Hold: a.newWork.Wait}, db.Pool(), apptownJobKinds(a), jobReporter{}, apptownJobSchedules()...)
 	if err != nil {
 		return nil, fmt.Errorf("constructing job queue: %w", err)
 	}

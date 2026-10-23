@@ -10,6 +10,7 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 // The server's shapes, generated from its Go types (wire.gen.ts).
 export type { ReleasePlan } from '../../wire.gen'
 import type { ReleaseBundleView, ReleaseDetail, ReleasePlan, ReleasePreviewStarted } from '../../wire.gen'
+import { PRODUCT } from '../../brand'
 
 export function NewReleasePage({ slug }: { slug: string }) {
   const nav = useNavigate()
@@ -111,6 +112,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
           {r.state === 'releasing' && <span className="chip running">releasing</span>}
           {r.state === 'failed' && <span className="chip fail">failed</span>}
           {data.isLive && <span className="chip pass">current release</span>}
+          {r.origin === 'observed-after-restore' && <span className="chip overridden" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>observed after restore</span>}
         </div>
         <div style={{ margin: '10px 0' }}>
           {r.state === 'releasing'
@@ -121,6 +123,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
           {r.deployment && r.state !== 'releasing' && (r.state === 'failed' || data.isLive) && (
             <> <Link to={`/projects/${slug}/settings/deployments#diagnostics-${r.deployment}`}>Diagnostics of {r.deployment}</Link></>
           )}
+          {r.origin === 'observed-after-restore' && r.notes && <> {r.notes}. Deploying the release {PRODUCT} last shipped here puts that back.</>}
           {r.state === 'released' && r.notes && r.notes.startsWith('http') && (
             <> Open it at <a href={r.notes} target="_blank" rel="noreferrer"><strong>{r.notes}</strong></a></>
           )}

@@ -85,3 +85,27 @@ SELECT (SELECT COUNT(*) FROM selected) AS selected_count, (SELECT COUNT(*) FROM 
 
 -- name: AppliedByRelease :one
 SELECT applied FROM deployment_attempt_inputs WHERE release_id = $1;
+
+-- What the newest released release on a deployment says runs there.
+-- name: LatestReleasedRef :one
+SELECT external_ref FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(released)
+ORDER BY number DESC LIMIT 1;
+
+-- A release found running after AppTown was restored, which AppTown did
+-- not ship: no bundle, run or approver, released when observed.
+-- name: RecordObservedRelease :one
+INSERT INTO releases(id, project_id, number, state, deployment, deployment_id, generation, external_ref, notes, created_at, released_at, origin)
+VALUES (sqlc.arg(id), sqlc.arg(project_id),
+  (SELECT COALESCE(MAX(r.number),0)+1 FROM releases r WHERE r.project_id=sqlc.arg(project_id)),
+  sqlc.arg(state), sqlc.arg(deployment), sqlc.arg(deployment_id), sqlc.arg(generation), sqlc.arg(external_ref), sqlc.arg(notes),
+  sqlc.arg(at)::timestamptz, sqlc.arg(at)::timestamptz, sqlc.arg(origin))
+RETURNING number;
+
+-- name: NewestReleasedOrigin :one
+SELECT origin FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(released)
+ORDER BY number DESC LIMIT 1;
+
+-- name: NewestShippedBundle :one
+SELECT bundle_id FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(released)
+  AND origin=sqlc.arg(shipped) AND bundle_id IS NOT NULL
+ORDER BY number DESC LIMIT 1;

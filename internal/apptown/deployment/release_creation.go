@@ -125,6 +125,9 @@ func CreateReleaseIn(ctx context.Context, tx *database.Tx, d ReleaseDraft) (Numb
 	if err := takeDownHeldIn(ctx, tx, d.ProjectID, deploymentID); err != nil {
 		return NumberedRelease{}, err
 	}
+	if err := heldAfterRestoreIn(ctx, tx, deploymentID); err != nil {
+		return NumberedRelease{}, err
+	}
 	q := releasesql.New(tx.SQL())
 	r, err := q.CreateRelease(ctx, releasesql.CreateReleaseParams{ID: ids.New(d.At),
 		FromWorkflow: d.Source == ReleaseFromWorkflow, FromBranch: d.Source == ReleaseFromBranch,

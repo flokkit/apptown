@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/lib/pq"
 )
 
 const backupByID = `-- name: BackupByID :one
@@ -1186,6 +1187,32 @@ func (q *Queries) RecordRehearsalPlace(ctx context.Context, arg RecordRehearsalP
 	return err
 }
 
+const recordRestoreFill = `-- name: RecordRestoreFill :exec
+INSERT INTO restore_fills(deployment_id, backup_id, state, detail, updated_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (deployment_id) DO UPDATE SET backup_id=EXCLUDED.backup_id, state=EXCLUDED.state, detail=EXCLUDED.detail, updated_at=EXCLUDED.updated_at
+`
+
+type RecordRestoreFillParams struct {
+	DeploymentID ids.ID
+	BackupID     ids.ID
+	State        string
+	Detail       string
+	UpdatedAt    time.Time
+}
+
+// A whole-AppTown restore's fills (restore_fill.go).
+func (q *Queries) RecordRestoreFill(ctx context.Context, arg RecordRestoreFillParams) error {
+	_, err := q.db.ExecContext(ctx, recordRestoreFill,
+		arg.DeploymentID,
+		arg.BackupID,
+		arg.State,
+		arg.Detail,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const recordRestoredCopyCheck = `-- name: RecordRestoredCopyCheck :execrows
 UPDATE restored_copies SET outcome=$1, failed_step=$2, facts_json=$3, checked_at=$4::timestamptz
   WHERE id=$5
@@ -1274,6 +1301,28 @@ func (q *Queries) RehearsalPlaceOf(ctx context.Context, operationID ids.ID) (Reh
 	return i, err
 }
 
+const relocateDiskSets = `-- name: RelocateDiskSets :execrows
+UPDATE backups SET path=$1::text || substr(path, length($2::text) + 1)
+WHERE store=$3 AND left(path, length($2::text)) = $2::text
+`
+
+type RelocateDiskSetsParams struct {
+	ToRoot   string
+	FromRoot string
+	Disk     string
+}
+
+// Sets kept on AppTown's disk, moved with the data directory to another
+// path: each recorded path under the old backups directory becomes the
+// same path under the new one.
+func (q *Queries) RelocateDiskSets(ctx context.Context, arg RelocateDiskSetsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, relocateDiskSets, arg.ToRoot, arg.FromRoot, arg.Disk)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const removeOrphanBackupRecords = `-- name: RemoveOrphanBackupRecords :execrows
 DELETE FROM backups b WHERE b.status = $1 AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.id = b.project_id)
 `
@@ -1301,6 +1350,56 @@ func (q *Queries) RemovePurgedBackups(ctx context.Context, arg RemovePurgedBacku
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const restoreFillOf = `-- name: RestoreFillOf :one
+SELECT deployment_id, backup_id, state, detail, updated_at FROM restore_fills WHERE deployment_id=$1
+`
+
+func (q *Queries) RestoreFillOf(ctx context.Context, deploymentID ids.ID) (RestoreFill, error) {
+	row := q.db.QueryRowContext(ctx, restoreFillOf, deploymentID)
+	var i RestoreFill
+	err := row.Scan(
+		&i.DeploymentID,
+		&i.BackupID,
+		&i.State,
+		&i.Detail,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const restoreFillsOf = `-- name: RestoreFillsOf :many
+SELECT deployment_id, backup_id, state, detail, updated_at FROM restore_fills WHERE deployment_id=ANY($1::uuid[])
+`
+
+func (q *Queries) RestoreFillsOf(ctx context.Context, deploymentIds []ids.ID) ([]RestoreFill, error) {
+	rows, err := q.db.QueryContext(ctx, restoreFillsOf, pq.Array(deploymentIds))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RestoreFill
+	for rows.Next() {
+		var i RestoreFill
+		if err := rows.Scan(
+			&i.DeploymentID,
+			&i.BackupID,
+			&i.State,
+			&i.Detail,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const restoredCopiesOf = `-- name: RestoredCopiesOf :many
@@ -1558,6 +1657,33 @@ func (q *Queries) SetsOnDisk(ctx context.Context, arg SetsOnDiskParams) ([]Backu
 		return nil, err
 	}
 	return items, nil
+}
+
+const settleRestoreFill = `-- name: SettleRestoreFill :execrows
+UPDATE restore_fills SET state=$1, detail=$2, updated_at=$3
+WHERE deployment_id=$4 AND state=$5
+`
+
+type SettleRestoreFillParams struct {
+	State        string
+	Detail       string
+	UpdatedAt    time.Time
+	DeploymentID ids.ID
+	Waiting      string
+}
+
+func (q *Queries) SettleRestoreFill(ctx context.Context, arg SettleRestoreFillParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, settleRestoreFill,
+		arg.State,
+		arg.Detail,
+		arg.UpdatedAt,
+		arg.DeploymentID,
+		arg.Waiting,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const standingRestoredCopies = `-- name: StandingRestoredCopies :one

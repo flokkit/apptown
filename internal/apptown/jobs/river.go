@@ -329,8 +329,12 @@ func UnfinishedKeysIn(ctx context.Context, tx *sql.Tx, operation string) ([]stri
 }
 
 func middleware(opts Options) []rivertype.Middleware {
-	if opts.Tracer == nil {
-		return nil
+	var out []rivertype.Middleware
+	if opts.Hold != nil {
+		out = append(out, &jobHold{hold: opts.Hold})
 	}
-	return []rivertype.Middleware{&jobSpans{tracer: opts.Tracer}}
+	if opts.Tracer != nil {
+		out = append(out, &jobSpans{tracer: opts.Tracer})
+	}
+	return out
 }

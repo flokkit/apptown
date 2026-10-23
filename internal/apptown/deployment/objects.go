@@ -105,6 +105,7 @@ func (e *Deployment) Admit(base *int64) (generation int64, readiness Readiness, 
 	if base != nil && e.DesiredGeneration != *base {
 		return 0, 0, errors.New("deployment generation changed since this rebuild was queued")
 	}
+
 	readiness, err = e.Readiness.Admitted()
 	if err != nil {
 		return 0, 0, err

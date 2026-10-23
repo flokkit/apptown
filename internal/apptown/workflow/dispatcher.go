@@ -40,6 +40,7 @@ type dispatcher struct {
 	note    func(ids.ID, string, dispatchNotice) error
 	refused func(ids.ID) bool // the run's latest event is a system refusal (repeat_notices.go)
 	report  func(error)
+	hold    func(context.Context) error // nil never holds
 	mu      sync.Mutex
 	active  map[ids.ID]bool
 	again   map[ids.ID]DispatchPlan
@@ -263,6 +264,16 @@ func (d *dispatcher) executeStep(runID ids.ID, step ReadyStep, halted string) (f
 	if d.isStopped() {
 		return false, false
 	}
+	// New work waits while AppTown holds it; a stop ends the wait, and the
+	// step is left for the next start, as any stop leaves it.
+	if d.hold != nil {
+		if err := d.hold(d.life); err != nil {
+			return false, false
+		}
+		if d.isStopped() {
+			return false, false
+		}
+	}
 	state, err := d.records.State(d.life, runID, step.ID)
 	if err != nil {
 		d.report(fmt.Errorf("run %d step %d: reading dispatch state: %w", runID, step.ID, err))
@@ -381,6 +392,9 @@ type dispatcherConfig struct {
 	Stages     dispatchStageHooks
 	Report     func(error)
 	Now        func() time.Time // AppTown's clock; nil is the real one
+	// Hold waits before a step starts while AppTown holds new work (a
+	// whole-AppTown backup's brief pause); nil never holds.
+	Hold func(context.Context) error
 }
 
 // newDispatcher owns its records and freezes the runner registry. Plans describe
@@ -389,7 +403,7 @@ func newDispatcher(db *database.DB, runtime dispatcherConfig) *dispatcher {
 	runners := maps.Clone(runtime.Runners)
 	records := newDispatchPlans(db, slices.Sorted(maps.Keys(runners)))
 	records.clock = runtime.Now
-	d := &dispatcher{life: runtime.Life, records: records, runners: runners, recover: maps.Clone(runtime.Recoverers), report: runtime.Report}
+	d := &dispatcher{life: runtime.Life, records: records, runners: runners, recover: maps.Clone(runtime.Recoverers), report: runtime.Report, hold: runtime.Hold}
 	if d.report == nil {
 		d.report = func(error) {}
 	}

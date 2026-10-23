@@ -12,9 +12,26 @@ import (
 )
 
 // Options is what a queue may be given beyond its kinds: a tracer, so each
-// job's execution is a span named by its operation. Nil means no spans.
+// job's execution is a span named by its operation (nil: no spans), and a
+// hold, which a job waits on before its work starts while AppTown holds new
+// work (a whole-AppTown backup's brief pause; nil: never held).
 type Options struct {
 	Tracer trace.Tracer
+	Hold   func(context.Context) error
+}
+
+// jobHold is River worker middleware: a job's work waits while new work is
+// held. Its context ending first ends the job as interrupted, never run.
+type jobHold struct {
+	river.MiddlewareDefaults
+	hold func(context.Context) error
+}
+
+func (m *jobHold) Work(ctx context.Context, _ *rivertype.JobRow, doInner func(context.Context) error) error {
+	if err := m.hold(ctx); err != nil {
+		return err
+	}
+	return doInner(ctx)
 }
 
 // jobSpans is River worker middleware: one span per job execution, named by

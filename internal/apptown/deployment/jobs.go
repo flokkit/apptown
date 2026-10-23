@@ -66,12 +66,15 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 	}
 	plan, err := w.Service.PrepareRebuild(ctx, dep, selected.Deployment, selected.Generation)
 	if errors.Is(err, ErrRebuildUnselected) || errors.Is(err, ErrReleaseRefused) {
+		w.Service.settleFill(ctx, dep, "not rebuilt: "+err.Error())
 		return nil, jobs.Permanent(err)
 	}
 	if err != nil {
+		w.settleUnlessStopping(ctx, dep, err)
 		return nil, err
 	}
 	if plan.Skipped != "" {
+		w.Service.settleFill(ctx, dep, "not rebuilt: "+plan.Skipped)
 		out := map[string]any{"skipped": plan.Skipped}
 		if !plan.Attempt.IsZero() {
 			out["attempt"], out["outcome"] = plan.Attempt, plan.Outcome
@@ -85,6 +88,7 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+		w.Service.settleFill(ctx, dep, "not rebuilt: its recorded source could not be restored: "+err.Error())
 		return nil, jobs.Permanent(err)
 	}
 	defer cleanup()
@@ -93,15 +97,38 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 		w.Reporter.Report("deployment-rebuild", "deployments/"+slug+"/"+name, result.ProviderErr.Error(), map[string]string{"project": slug, "deployment": name}, "")
 	}
 	if errors.Is(err, ErrRebuildUnselected) || errors.Is(err, ErrReleaseRefused) {
+		w.Service.settleFill(ctx, dep, "not rebuilt: "+err.Error())
 		return nil, jobs.Permanent(err)
 	}
 	if err != nil {
+		w.settleUnlessStopping(ctx, dep, err)
 		return nil, err
+	}
+	switch {
+	case result.Skipped != "":
+		w.Service.settleFill(ctx, dep, "not rebuilt: "+result.Skipped)
+	case result.Outcome == Applied:
+		w.Service.settleFill(ctx, dep, "")
+	default:
+		why := "the rebuild ended " + string(result.Outcome)
+		if result.ProviderErr != nil {
+			why += ": " + result.ProviderErr.Error()
+		}
+		w.Service.settleFill(ctx, dep, why)
 	}
 	if result.Skipped != "" {
 		return map[string]any{"skipped": result.Skipped}, nil
 	}
 	return map[string]any{"url": result.URL, "attempt": result.Attempt, "outcome": result.Outcome}, nil
+}
+
+// settleUnlessStopping settles a filling deployment's fill after a rebuild
+// error: a rebuild has one attempt, so the error ends it. AppTown stopping
+// is not an end: the next start's rebuild fills it.
+func (w JobWorker) settleUnlessStopping(ctx context.Context, dep *Deployment, err error) {
+	if ctx.Err() == nil {
+		w.Service.settleFill(ctx, dep, "not rebuilt: "+err.Error())
+	}
 }
 
 func (w JobWorker) Release(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
@@ -122,4 +149,10 @@ func (w JobWorker) Recover(ctx context.Context, key string, _ map[string]any) (m
 	}
 	result, err := w.Service.Recover(ctx, id)
 	return map[string]any{"attempt": result.Attempt, "outcome": result.Outcome, "reason": result.Reason}, err
+}
+
+// CheckAfterRestore is the minute's check of deployments held after a
+// restore (restore_check.go): nothing to do once none is.
+func (w JobWorker) CheckAfterRestore(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
+	return map[string]any{}, w.Service.CheckAfterRestore(ctx)
 }

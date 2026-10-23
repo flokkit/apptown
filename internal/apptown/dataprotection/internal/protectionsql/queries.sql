@@ -180,3 +180,26 @@ ORDER BY b.id;
 
 -- name: RemoveOrphanBackupRecords :execrows
 DELETE FROM backups b WHERE b.status = sqlc.arg(pruned_state) AND NOT EXISTS (SELECT 1 FROM projects p WHERE p.id = b.project_id);
+
+-- A whole-AppTown restore's fills (restore_fill.go).
+-- name: RecordRestoreFill :exec
+INSERT INTO restore_fills(deployment_id, backup_id, state, detail, updated_at)
+VALUES (sqlc.arg(deployment_id), sqlc.narg(backup_id), sqlc.arg(state), sqlc.arg(detail), sqlc.arg(updated_at))
+ON CONFLICT (deployment_id) DO UPDATE SET backup_id=EXCLUDED.backup_id, state=EXCLUDED.state, detail=EXCLUDED.detail, updated_at=EXCLUDED.updated_at;
+
+-- name: RestoreFillOf :one
+SELECT * FROM restore_fills WHERE deployment_id=sqlc.arg(deployment_id);
+
+-- name: RestoreFillsOf :many
+SELECT * FROM restore_fills WHERE deployment_id=ANY(sqlc.arg(deployment_ids)::uuid[]);
+
+-- name: SettleRestoreFill :execrows
+UPDATE restore_fills SET state=sqlc.arg(state), detail=sqlc.arg(detail), updated_at=sqlc.arg(updated_at)
+WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(waiting);
+
+-- Sets kept on AppTown's disk, moved with the data directory to another
+-- path: each recorded path under the old backups directory becomes the
+-- same path under the new one.
+-- name: RelocateDiskSets :execrows
+UPDATE backups SET path=sqlc.arg(to_root)::text || substr(path, length(sqlc.arg(from_root)::text) + 1)
+WHERE store=sqlc.arg(disk) AND left(path, length(sqlc.arg(from_root)::text)) = sqlc.arg(from_root)::text;

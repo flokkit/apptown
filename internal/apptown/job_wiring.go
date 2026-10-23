@@ -38,6 +38,10 @@ func jobReceipt(receipt map[string]any, err error) (map[string]any, error) {
 	return receipt, err
 }
 
+// restoreCheckJob checks deployments held after a restore against their
+// providers (deployment.Service.CheckAfterRestore).
+const restoreCheckJob = "restore-check"
+
 func apptownJobKinds(a *App) map[string]jobs.Kind {
 	followups := workflowFollowUps(a)
 	deployments := deployment.JobWorker{Service: a.Deployment, Projects: a.Projects, DataDir: a.cfg.dataDir, Reporter: selfErrorsFor(a)}
@@ -54,7 +58,11 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 		"backup":               {Run: jobErrors(data.Backup)},
 		"inventory":            {Run: jobErrors(inventory.Run)},
 		"rebuild":              {Run: jobErrors(deployments.Rebuild), Timeout: 20 * time.Minute},
-		"backup-sweep":         {Run: jobErrors(data.Sweep)},
+		// After AppTown was restored, its App Platform and Portainer
+		// deployments are checked against their providers each minute
+		// until none is left unconfirmed.
+		restoreCheckJob: {Run: jobErrors(deployments.CheckAfterRestore)},
+		"backup-sweep":  {Run: jobErrors(data.Sweep)},
 		// Restored copies of production whose time is up are taken down
 		// within minutes of it, not at the next daily sweep.
 		dataprotection.RestoredCopySweepJob: {Run: jobErrors(data.RestoredCopySweep)},
@@ -101,6 +109,7 @@ var jobBudgets = map[string]int{
 	"backup":                            1,
 	"inventory":                         2,
 	"rebuild":                           1,
+	restoreCheckJob:                     1,
 	"backup-sweep":                      1,
 	dataprotection.RestoredCopySweepJob: 1,
 	operations.Job:                      1,
@@ -202,7 +211,8 @@ func apptownJobSchedules() []jobs.Schedule {
 	var schedules []jobs.Schedule
 	for _, spec := range []struct{ operation, cron, key string }{{"db-backup", "0 2 * * *", ""}, {"backup-sweep", "0 3 * * *", ""}, {dataprotection.RestoredCopySweepJob, "*/5 * * * *", ""},
 		{projectlifecycle.DeletionPassJob, "*/5 * * * *", ""}, {projectlifecycle.PurgePassJob, "0 4 * * *", ""},
-		{remediation.PassJob, "* * * * *", passScheduledKey}, {evals.PassJob, "* * * * *", passScheduledKey}} {
+		{remediation.PassJob, "* * * * *", passScheduledKey}, {evals.PassJob, "* * * * *", passScheduledKey},
+		{restoreCheckJob, "* * * * *", passScheduledKey}} {
 		when, err := schema.ParseCron(spec.cron)
 		if err != nil {
 			panic(err)

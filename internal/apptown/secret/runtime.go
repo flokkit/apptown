@@ -152,3 +152,14 @@ func (a *Service) record(ctx context.Context, who string, projectID ids.ID, kind
 		log.Printf("best-effort secret receipt failed: %v", err)
 	}
 }
+
+// ExternalStore names the external secret store this AppTown reads values
+// from (Infisical's address and project), "" when it reads none: its
+// values stay there, and a backup of AppTown holds only the connection.
+func (a *Service) ExternalStore() (url, project string) {
+	c := infisicalConfig(a.fileSecrets())
+	if !c.Configured() {
+		return "", ""
+	}
+	return c.URL, c.ProjectID
+}

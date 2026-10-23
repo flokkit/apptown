@@ -4,9 +4,13 @@ package dbschema
 
 import (
 	"context"
+	"database/sql"
 	_ "embed"
 	"fmt"
 	"log"
+	"strings"
+
+	"github.com/lib/pq"
 
 	"github.com/flokkit/apptown/internal/database"
 )
@@ -190,6 +194,19 @@ WHERE jsonb_typeof(v.spec_json->'policies') = 'array'
 	{n: 165, note: "the backlog is removed: a change left proposed is abandoned, with no closure time or reason since neither is known", stmts: []string{
 		`UPDATE changes SET state = 'abandoned' WHERE state = 'proposed'`,
 	}},
+	// A whole-AppTown restore: what it leaves for the restored AppTown to
+	// do. Every existing release was shipped, and no deployment is held.
+	{n: 166, note: "a whole-AppTown restore: releases say whether AppTown shipped them, deployments whether their provider was checked since, and built-in deployments' fills", stmts: []string{
+		`ALTER TABLE releases ADD COLUMN origin TEXT NOT NULL DEFAULT 'shipped' CONSTRAINT release_origin CHECK (origin IN ('shipped', 'observed-after-restore'))`,
+		`ALTER TABLE deployments ADD COLUMN restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling'))`,
+		`CREATE TABLE restore_fills (
+  deployment_id UUID PRIMARY KEY REFERENCES deployments(id) ON DELETE CASCADE,
+  backup_id UUID,
+  state TEXT NOT NULL DEFAULT 'waiting' CONSTRAINT restore_fill_state CHECK (state IN ('waiting', 'filled', 'failed')),
+  detail TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL
+)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.
@@ -301,4 +318,36 @@ func Open(ctx context.Context, url string) (*database.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+// Latest is the schema version this build migrates a database to.
+func Latest() int { return latestSchemaVersion() }
+
+// Version is the schema version a database is at.
+func Version(db *database.DB) (int, error) { return schemaVersion(db) }
+
+// Queryer is what reads a database outside AppTown's own handle (a restore
+// reads the database it just loaded, before AppTown opens it).
+type Queryer interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+// PublicTables is how many tables the database's public schema holds: none
+// in one a restore may load into.
+func PublicTables(ctx context.Context, q Queryer) (int, error) {
+	var n int
+	err := q.QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&n)
+	return n, err
+}
+
+// RowsIn is how many rows a table holds, named as a plain dump names it
+// (schema.table, either part quoted or not).
+func RowsIn(ctx context.Context, q Queryer, table string) (int64, error) {
+	schema, name, ok := strings.Cut(table, ".")
+	if !ok {
+		schema, name = "public", table
+	}
+	var n int64
+	err := q.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+pq.QuoteIdentifier(strings.Trim(schema, `"`))+"."+pq.QuoteIdentifier(strings.Trim(name, `"`))).Scan(&n)
+	return n, err
 }

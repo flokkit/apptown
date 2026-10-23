@@ -391,3 +391,38 @@ func TestDispatcherReportsPanicsAndDrainsWithoutAdvancing(t *testing.T) {
 		}
 	}
 }
+
+// While AppTown holds new work (a backup's moment), the dispatcher starts
+// no step; released, the step runs.
+//
+// Kills: a step started while a backup dumps the database and copies its
+// files.
+func TestDispatcherStartsNoStepWhileNewWorkIsHeld(t *testing.T) {
+	t.Parallel()
+	q, run, step := dispatchFixture(t)
+	release := make(chan struct{})
+	ran := make(chan struct{}, 1)
+	hold := func(ctx context.Context) error {
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	d := newDispatcher(q.db, dispatcherConfig{Life: context.Background(), Runners: map[string]func(ids.ID){"script": func(ids.ID) { ran <- struct{}{} }},
+		Report: func(err error) { t.Error(err) }, Hold: hold})
+	d.Dispatch(DispatchPlan{RunID: run.ID, Steps: []ReadyStep{{ID: step, Type: "script", Name: "accept"}}}, false)
+	select {
+	case <-ran:
+		t.Fatal("a step started while new work was held")
+	case <-time.After(100 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case <-ran:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the step did not start once new work was released")
+	}
+	d.Stop()
+}

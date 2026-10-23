@@ -108,6 +108,13 @@ type BootRequest struct {
 	// own network, its needs filled before any init step, and only the
 	// public part (Sealed). nil boots as before.
 	Sealed *Sealed
+	// Fill puts a deployment's data back after its needs are up and before
+	// any init step, part or the public app runs, on the stack's network
+	// ("" when it has none), so nothing of the app writes into, or answers
+	// from, the new and empty data first: a rebuild after AppTown was
+	// restored. A failing fill ends the boot (PhaseFill) with nothing of the
+	// app started. nil fills nothing.
+	Fill func(network string) error
 	// move moves a standing deployment made before its names were by key to
 	// them before anything starts (move.go); nil boots as usual. Name,
 	// Names and StackID are the new names.
@@ -185,7 +192,7 @@ const (
 	PhaseSecrets = "secrets" // a declared secret nothing provides, or a broken declaration
 	PhaseConfig  = "config"  // the values a browser may be given could not be read
 	PhaseNeeds   = "needs"   // the stack did not start
-	PhaseFill    = "fill"    // a sealed boot's needs could not be filled from the copy
+	PhaseFill    = "fill"    // the needs (or the app's data) could not be filled from the copy
 	PhaseParts   = "parts"   // init containers or non-public parts
 	PhaseApp     = "app"     // the public app container did not start
 	PhaseProbe   = "probe"   // it started but never answered (LogTail has its last words)
@@ -490,6 +497,12 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 			}
 		}
 		plan = plan.PublicOnly()
+	}
+	if t.Fill != nil {
+		t.logf("Putting the deployment's data back before the app starts")
+		if err := t.Fill(network); err != nil {
+			return res, &BootError{Phase: PhaseFill, Err: err}
+		}
 	}
 
 	// needs are up → init containers run to completion (migrations) → the

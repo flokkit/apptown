@@ -514,11 +514,14 @@ and the guide says to use Infisical for anything that matters
 ([secrets](../../stock/docs/guides/secrets.md); [integration
 runtime](../subsystems/integration-runtime.md)). Need credentials are derived
 from the same key ([services and data](../../stock/docs/guides/services-and-data.md)).
-Open: AppTown's nightly dumps and its data directory (which holds
-`secrets.env`, `runtime-token-key` and attached hosts' SSH keys) are not
-encrypted by AppTown, and protecting them is left to the operator
-([AppTown's own backups](../../stock/docs/guides/apptown-backups.md)); no guide describes invalidating sessions or tokens restored
-from a backup.
+A whole-AppTown archive (`apptownd backup`) is always encrypted with a
+passphrase (age), so a copy off the host or in the backup store does not
+expose its secrets without the passphrase. Open: AppTown's nightly dumps
+and its data directory on the host (which holds `secrets.env`,
+`runtime-token-key` and attached hosts' SSH keys) are not encrypted by
+AppTown, and protecting them, and the archive's passphrase, is left to the
+operator ([AppTown's own backups](../../stock/docs/guides/apptown-backups.md));
+no guide describes invalidating sessions or tokens restored from a backup.
 
 **Attack and impact.** A leaked DB dump, backup or machine identity exposes
 application secrets and the ability to AppTown grants/history. A restored backup

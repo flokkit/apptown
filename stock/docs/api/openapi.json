@@ -1532,6 +1532,9 @@
           "releaseSha": {
             "type": "string"
           },
+          "restoreCheck": {
+            "type": "string"
+          },
           "startFrom": {
             "format": "uuid",
             "type": [
@@ -1714,6 +1717,16 @@
           "data": {
             "type": "string"
           },
+          "dataAfterRestore": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RestoreFill"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "deploymentPolicy": {
             "type": "string"
           },
@@ -1765,6 +1778,9 @@
               "string",
               "null"
             ]
+          },
+          "restoreCheck": {
+            "type": "string"
           },
           "running": {
             "anyOf": [
@@ -2810,6 +2826,9 @@
           "number": {
             "type": "integer"
           },
+          "origin": {
+            "type": "string"
+          },
           "projectId": {
             "format": "uuid",
             "type": [
@@ -2845,7 +2864,8 @@
           "number",
           "state",
           "deployment",
-          "createdAt"
+          "createdAt",
+          "origin"
         ],
         "type": "object"
       },
@@ -3114,6 +3134,32 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "RestoreFill": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "set": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "updatedAt"
+        ],
         "type": "object"
       },
       "Run": {

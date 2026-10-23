@@ -151,3 +151,14 @@ CREATE TABLE IF NOT EXISTS restored_copy_tickets (
   redeemed_at     TIMESTAMPTZ,
   check_operation UUID
 );
+-- A built-in deployment restored with AppTown: its rebuild fills its data
+-- from the set the archive holds (none: the backup took no set, and detail
+-- says why), before anything of the app starts. waiting until that rebuild
+-- ends, then filled or failed (detail says why).
+CREATE TABLE IF NOT EXISTS restore_fills (
+  deployment_id UUID PRIMARY KEY REFERENCES deployments(id) ON DELETE CASCADE,
+  backup_id UUID,
+  state TEXT NOT NULL DEFAULT 'waiting' CONSTRAINT restore_fill_state CHECK (state IN ('waiting', 'filled', 'failed')),
+  detail TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL
+);

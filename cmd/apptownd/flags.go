@@ -27,8 +27,9 @@ func bindEnv(fs *flag.FlagSet, getenv func(string) string) error {
 
 func daemonUsage() {
 	out := flag.CommandLine.Output()
-	fmt.Fprintf(out, "usage: apptownd [flags]\n\n")
+	fmt.Fprintf(out, "usage: apptownd [flags] [backup [-store] <archive> | restore <archive>]\n\n")
 	flag.PrintDefaults()
+	fmt.Fprint(out, commandsUsage)
 	fmt.Fprintf(out, `
 Every flag can also be set in the environment as APPTOWN_ plus its name in
 capitals with - as _ (for example -db-url is APPTOWN_DB_URL and -tier-domain is

@@ -39,6 +39,15 @@ cannot see work it once ran on its own Docker, so the switch into it is a
 procedure the operator follows before the first start in the mode; see
 [workers](../operations/workers.md#switching-an-apptown-to-no-local-docker).
 
+In normal mode the daemon also serves its control socket,
+`<data>/apptownd.sock` (mode 0600), through which `apptownd backup` asks the
+running AppTown for a whole-AppTown backup (`internal/apptown/instancebackup/control.go`).
+Whoever can open it can already read the data directory and every secret in
+it, so it grants no authority of its own. A socket that cannot be made is
+logged and the daemon runs on without it. `apptownd restore` is a one-shot
+that runs before the restored AppTown's first start; it ends after the
+verify-only startup.
+
 A bind failure closes listeners already opened. A running listener or required
 worker-loop failure stops the daemon. Verify-only mode serves its HTTP lifecycle
 without background tasks.
