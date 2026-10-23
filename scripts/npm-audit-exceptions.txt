@@ -1,0 +1,5 @@
+# High or critical npm advisories that scripts/npm-audit-check.py lets pass,
+# one per line: the advisory's GHSA id, the date the exception was taken
+# (YYYY-MM-DD) and why. Only for an advisory with no fixed version to take:
+# otherwise take the fix. The check fails on a malformed line and on a line
+# for an advisory no audited lockfile reports any more.

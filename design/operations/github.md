@@ -22,8 +22,18 @@ The repository is public, so standard runners cost nothing.
 **`ci.yml`** runs on every pull request, a documentation-only one too, and by
 hand. A newer run cancels an older one on the same ref. Jobs:
 
-- `web`: npm ci, typecheck, Vite build, lint and unit tests; it passes
-  `web/dist` to the Go jobs, since Go embeds it.
+- `web`: npm ci, typecheck, Vite build, lint and unit tests, and the npm
+  audit (`make check-npm-audit`, `scripts/npm-audit-check.py`): a high or
+  critical advisory in what `web/` ships (dev dependencies left out) or in
+  any starter seed's lockfile (dev dependencies included, since every new
+  project starts from them) fails the job, unless
+  `scripts/npm-audit-exceptions.txt` lists it with the date and the reason,
+  which is only for an advisory with no fixed version. The audit asks the
+  registry's advisory service, so it runs here and not in the offline
+  `make check`; when npm cannot get a report the job fails. An advisory
+  published against an unchanged lockfile fails the next pull request,
+  whatever it changes: take the fixed version. It passes `web/dist` to the
+  Go jobs, since Go embeds it.
 - `checks`: gofmt and generated code, schema ownership, vet, staticcheck,
   the lint rules and their fixtures, the shape rules and the scripts' tests,
   exec, sqlnow, reachability, the heavy runner's test, the tool and base
