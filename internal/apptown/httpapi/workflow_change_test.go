@@ -48,7 +48,7 @@ func TestChangeCreationRecordsExplicitChatNamingIntent(t *testing.T) {
 			t.Fatalf("chat naming intent: %v %v", applied, err)
 		}
 	}
-	for _, body := range []string{`{"title":"invalid","titleFromChat":true,"propose":true}`, `{"title":"invalid","titleFromChat":true,"workflow":"test"}`} {
+	for _, body := range []string{`{"title":"invalid","titleFromChat":true,"workflow":"test"}`} {
 		response := call(body)
 		if response.Code != 400 {
 			t.Fatalf("invalid naming HTTP %d: %s", response.Code, response.Body.String())

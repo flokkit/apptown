@@ -51,7 +51,7 @@ type LandingRequested struct {
 type ChangeDetail struct {
 	Change      ChangeRef   `json:"change" doc:"the change"`
 	Title       string      `json:"title" doc:"its title"`
-	State       string      `json:"state" doc:"proposed, in_progress, landing, shipped or abandoned"`
+	State       string      `json:"state" doc:"in_progress, landing, shipped or abandoned"`
 	ClosedAs    string      `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; absent otherwise"`
 	StateDetail string      `json:"stateDetail" doc:"AppTown's sentence for where it is"`
 	Branch      string      `json:"branch" doc:"its branch, empty before its first run"`
@@ -89,7 +89,7 @@ type ChangeList struct {
 type ChangeRow struct {
 	Change ChangeRef `json:"change" doc:"the change"`
 	Title  string    `json:"title" doc:"its title"`
-	State  string    `json:"state" doc:"its board column: proposed, in_progress, landing, shipped or abandoned"`
+	State  string    `json:"state" doc:"its board column: in_progress, landing, shipped or abandoned"`
 	// ClosedAs is how a closed change was closed, when that is more than
 	// its state (workflow.Change.ClosedAs).
 	ClosedAs string `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; absent otherwise"`

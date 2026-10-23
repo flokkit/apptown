@@ -359,11 +359,8 @@ func cmdShow(args []string) error {
 			fmt.Printf("  %s %s %s\n", c.SHA, c.Subject, dim(c.When))
 		}
 	}
-	switch ch.State {
-	case "in_progress":
+	if ch.State == "in_progress" {
 		fmt.Printf("\n%s apptown follow %d · apptown preview %d · apptown land %d · apptown invoke -c %d -w <workflow>\n", dim("next:"), ch.ID, ch.ID, ch.ID, ch.ID)
-	case "proposed":
-		fmt.Printf("\n%s apptown invoke -c %d -w <workflow>\n", dim("next:"), ch.ID)
 	}
 	return nil
 }

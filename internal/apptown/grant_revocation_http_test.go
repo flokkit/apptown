@@ -33,7 +33,7 @@ func TestGrantRevocationHTTPRemovesOnlySelectedAuthority(t *testing.T) {
 		t.Fatalf("grant: %d %s (%v)", w.Code, w.Body.String(), err)
 	}
 	create := func(slug string) int {
-		return authzCall(h, "kid", "POST", "/api/v1/projects/"+slug+"/changes", `{"title":"a contribution","propose":true}`).Code
+		return authzCall(h, "kid", "POST", "/api/v1/projects/"+slug+"/changes", `{"title":"a contribution"}`).Code
 	}
 	if got := create("game"); got != 201 {
 		t.Fatalf("granted contributor could not create: %d", got)

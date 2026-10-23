@@ -8,21 +8,20 @@ import (
 
 func TestChangeLifecycleActs(t *testing.T) {
 	t.Parallel()
-	states := []ChangeState{ChangeProposed, ChangeInProgress, ChangeLanding, ChangeShipped, ChangeAbandoned}
+	states := []ChangeState{ChangeInProgress, ChangeLanding, ChangeShipped, ChangeAbandoned}
 	// Each row is a business act; zero marks refusal. This table also protects
 	// cancellation's no-op semantics and terminal Changes from accidental reopening.
 	cases := []struct {
 		act  ChangeAction
-		next [5]ChangeState
+		next [4]ChangeState
 	}{
-		{StartChange, [5]ChangeState{ChangeInProgress, ChangeInProgress, 0, 0, 0}},
-		{AttachChangeRun, [5]ChangeState{0, ChangeInProgress, ChangeLanding, 0, 0}},
-		{LandChange, [5]ChangeState{0, ChangeLanding, ChangeLanding, 0, 0}},
-		{ResumeChange, [5]ChangeState{0, ChangeInProgress, ChangeInProgress, 0, 0}},
-		{CancelChangeLanding, [5]ChangeState{ChangeProposed, ChangeInProgress, ChangeInProgress, ChangeShipped, ChangeAbandoned}},
-		{ShipChange, [5]ChangeState{0, ChangeShipped, ChangeShipped, 0, 0}},
-		{AbandonChange, [5]ChangeState{ChangeAbandoned, ChangeAbandoned, ChangeAbandoned, 0, 0}},
-		{255, [5]ChangeState{}},
+		{AttachChangeRun, [4]ChangeState{ChangeInProgress, ChangeLanding, 0, 0}},
+		{LandChange, [4]ChangeState{ChangeLanding, ChangeLanding, 0, 0}},
+		{ResumeChange, [4]ChangeState{ChangeInProgress, ChangeInProgress, 0, 0}},
+		{CancelChangeLanding, [4]ChangeState{ChangeInProgress, ChangeInProgress, ChangeShipped, ChangeAbandoned}},
+		{ShipChange, [4]ChangeState{ChangeShipped, ChangeShipped, 0, 0}},
+		{AbandonChange, [4]ChangeState{ChangeAbandoned, ChangeAbandoned, 0, 0}},
+		{255, [4]ChangeState{}},
 	}
 	for _, tc := range cases {
 		for i, from := range states {
@@ -49,7 +48,7 @@ func TestChangeStateEncodingAndAbsence(t *testing.T) {
 	for _, tc := range []struct {
 		state ChangeState
 		text  string
-	}{{ChangeProposed, "proposed"}, {ChangeInProgress, "in_progress"}, {ChangeLanding, "landing"}, {ChangeShipped, "shipped"}, {ChangeAbandoned, "abandoned"}} {
+	}{{ChangeInProgress, "in_progress"}, {ChangeLanding, "landing"}, {ChangeShipped, "shipped"}, {ChangeAbandoned, "abandoned"}} {
 		data, err := json.Marshal(tc.state)
 		if err != nil || string(data) != `"`+tc.text+`"` {
 			t.Fatalf("wire state %s: %s %v", tc.state, data, err)
@@ -66,13 +65,13 @@ func TestChangeStateEncodingAndAbsence(t *testing.T) {
 			t.Fatalf("stored bytes: %s %v", got, err)
 		}
 	}
-	for _, raw := range []string{`""`, `"running"`, `"SHIPPED"`, `" in_progress "`, `null`, `3`, `{}`} {
+	for _, raw := range []string{`""`, `"proposed"`, `"running"`, `"SHIPPED"`, `" in_progress "`, `null`, `3`, `{}`} {
 		got := ChangeShipped
 		if err := json.Unmarshal([]byte(raw), &got); err == nil || got != ChangeShipped {
 			t.Fatalf("invalid wire state %s changed record: %s %v", raw, got, err)
 		}
 	}
-	for _, v := range []any{nil, 1, "running", []byte("")} {
+	for _, v := range []any{nil, 1, "running", "proposed", []byte("")} {
 		got := ChangeShipped
 		if err := got.Scan(v); !errors.Is(err, errChangeState) || got != ChangeShipped {
 			t.Fatalf("invalid stored %v: %s %v", v, got, err)

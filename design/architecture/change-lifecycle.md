@@ -5,16 +5,18 @@ For ownership and commands, start with [Workflow](../subsystems/workflow-domain.
 Work owns a Change's lifecycle through `ChangeState` and one private
 `transitionChangeIn` transaction participant.
 
-A Change is proposed, in progress, landing, shipped or abandoned. Stored and incoming state decoding is strict; zero represents
+A Change is in progress, landing, shipped or abandoned. It is opened in
+progress: AppTown has no backlog, so an idea for later belongs in the team's
+ticket tracker. Stored and incoming state decoding is strict; zero represents
 no valid state. Missing observations are tracked separately. Queries, Change
 projections, remediation facts and cleanup predicates use the typed state.
 Workflow roles, derived activity and ADR states are different concepts.
 
-Commands name acts: start, attach work, land, resume work, cancel landing, ship or
-abandon. Start accepts a proposed or already in-progress Change. Active Changes
-can attach work, land or resume; shipping and abandonment are terminal. Cancelling
-a landing run moves a landing Change back to in progress and otherwise preserves
-its state, including closure. A proposed or closed Change cannot newly ship.
+Commands name acts: attach work, land, resume work, cancel landing, ship or
+abandon. Active Changes can attach work, land or resume; shipping and
+abandonment are terminal. Cancelling a landing run moves a landing Change back
+to in progress and otherwise preserves its state, including closure. A closed
+Change cannot newly ship.
 Repeated completion uses Work's run guard and explicit follow-up retry path; it
 does not rewrite an already-shipped Change.
 

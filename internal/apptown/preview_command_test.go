@@ -74,7 +74,7 @@ func TestPreviewCommandChecksCurrentAuthorityAndTransports(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ch, err := a.Work.Create(a.asAppTown(ctx, projectID, "test"), workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "Checked preview", Propose: true})
+	ch, err := a.Work.Create(a.asAppTown(ctx, projectID, "test"), workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "Checked preview"})
 	if err != nil {
 		t.Fatal(err)
 	}

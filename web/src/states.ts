@@ -7,7 +7,7 @@ import type { ChangeState, Doing, RunStatus } from './api'
 // neutral. Replaces the three chip maps that used to disagree.
 const TONE: Record<ChangeState | RunStatus | Doing, string> = {
   // change states
-  proposed: '', in_progress: 'running', landing: 'pending', shipped: 'pass', abandoned: '',
+  in_progress: 'running', landing: 'pending', shipped: 'pass', abandoned: '',
   // run statuses
   running: 'running', done: 'pass',
   // what a running run is doing

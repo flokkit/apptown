@@ -102,9 +102,6 @@ exit 0
 		defineWorkflows(t, a, prepared)
 		a.lifecycle.SelectLane(ctx, projectID, "work", true, "fixture")
 		ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "folder runs"})
-		if err == nil {
-			ch, err = a.Work.Begin(ctx, ch.ID)
-		}
 		if err != nil {
 			t.Fatal(err)
 		}

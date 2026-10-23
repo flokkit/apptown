@@ -146,9 +146,6 @@ func TestAbandoningAChangeRevokesOnlyItsTickets(t *testing.T) {
 	a, root := abandonmentScenario(t, "landing", nil)
 	ctx := a.asAppTown(context.Background(), root.ProjectID, "fixture")
 	other, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: root.ProjectID, Type: "feature", Title: "Other"})
-	if err == nil {
-		other, err = a.Work.Begin(ctx, other.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

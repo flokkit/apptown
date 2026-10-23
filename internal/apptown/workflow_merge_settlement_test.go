@@ -37,9 +37,6 @@ func mergeSettlementFixture(t *testing.T) (*App, workflow.MergeSource) {
 	a.lifecycle.SelectLane(t.Context(), projectID, "land", true, "fixture")
 	ctx := a.asAppTown(context.Background(), projectID, "fixture")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "work to land"})
-	if err == nil {
-		ch, err = a.Work.Begin(ctx, ch.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,9 +226,6 @@ func TestAScriptStepPublishesItsCommit(t *testing.T) {
 	a.lifecycle.SelectLane(t.Context(), projectID, "work", true, "fixture")
 	ctx := a.asAppTown(context.Background(), projectID, "fixture")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "scripted"})
-	if err == nil {
-		ch, err = a.Work.Begin(ctx, ch.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

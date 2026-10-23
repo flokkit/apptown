@@ -952,7 +952,6 @@ func TestEveryWorkDoorRefusesAProjectThatIsNotActive(t *testing.T) {
 		active       int
 	}{
 		{"POST", "/api/v1/projects/game/changes", func(*App) string { return `{"type":"feature","title":"more"}` }, 201},
-		{"POST", "/api/v1/changes/{change}/start", func(*App) string { return "" }, 200},
 		{"PATCH", "/api/v1/projects/game", func(a *App) string { return fmt.Sprintf(`{"name":"Renamed","expectedRevision":%d}`, revision(a)) }, 200},
 	}
 	// Each state has one AppTown: a refused door changes nothing, so every

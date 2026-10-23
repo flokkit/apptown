@@ -410,7 +410,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/transcript/{chat}/pictures/{name}", chatHistory.ProjectPicture, access.CapEvidenceRead, "project-slug"),
 		requireRoute("POST /api/v1/changes/{id}/runs", changes.StartChangeRun, access.CapChangeInvokeLane, "change"),
 		requireRoute("POST /api/v1/changes/{id}/sendback", changes.SendBack, access.CapChangeSendBack, "change"),
-		requireRoute("POST /api/v1/changes/{id}/start", changes.StartChange, access.CapChangeInvokeLane, "change"),
 		requireRoute("POST /api/v1/changes/{id}/attachments", attachments.UploadAttachment, access.CapChangeAttach, "change"),
 		requireRoute("GET /api/v1/changes/{id}/attachments", attachments.ListAttachments, access.CapChangeRead, "change"),
 		requireRoute("GET /api/v1/changes/{id}/attachments/{name}", attachments.GetAttachment, access.CapChangeRead, "change"),

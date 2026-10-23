@@ -58,12 +58,8 @@ func TestRunAdvanceJudgesItsStage(t *testing.T) {
 
 func TestChangeApplyRefusesWrongActs(t *testing.T) {
 	t.Parallel()
-	change := ChangeLifecycle{ID: idstest.N(3), ProjectID: idstest.N(1), State: ChangeProposed}
+	started := ChangeLifecycle{ID: idstest.N(3), ProjectID: idstest.N(1), State: ChangeInProgress, Branch: "apptown/change-3"}
 
-	started, err := change.Apply(ChangeMove{Action: StartChange, NameBranch: true})
-	if err != nil || started.State != ChangeInProgress || started.Branch != "apptown/change-"+idstest.N(3).String() {
-		t.Fatalf("start names the branch: %+v err=%v", started, err)
-	}
 	if _, err := started.Apply(ChangeMove{Action: LandChange}); err == nil {
 		t.Fatal("landing needs the run doing the landing")
 	}
@@ -71,7 +67,7 @@ func TestChangeApplyRefusesWrongActs(t *testing.T) {
 	if err != nil || shipped.State != ChangeShipped {
 		t.Fatalf("ship: %+v err=%v", shipped, err)
 	}
-	if _, err := shipped.Apply(ChangeMove{Action: StartChange}); !errors.Is(err, ErrChangeTransition) {
+	if _, err := shipped.Apply(ChangeMove{Action: ResumeChange, RunID: idstest.N(42)}); !errors.Is(err, ErrChangeTransition) {
 		t.Fatalf("shipped work never reopens: %v", err)
 	}
 	landing, err := started.Apply(ChangeMove{Action: LandChange, RunID: idstest.N(42)})
@@ -86,8 +82,8 @@ func TestChangeApplyRefusesWrongActs(t *testing.T) {
 	if err != nil || same != cancelled {
 		t.Fatalf("nothing to cancel is not an error: %+v err=%v", same, err)
 	}
-	if _, err := landing.Apply(ChangeMove{Action: StartChange, RunID: idstest.N(42)}); err == nil {
-		t.Fatal("start cannot attach a run")
+	if _, err := landing.Apply(ChangeMove{Action: ShipChange, RunID: idstest.N(42)}); err == nil {
+		t.Fatal("shipping cannot attach a run")
 	}
 }
 

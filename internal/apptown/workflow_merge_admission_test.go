@@ -40,9 +40,6 @@ func mergeAdmissionFixture(t *testing.T, required ...string) (*App, workflow.Mer
 	a.lifecycle.SelectLane(t.Context(), projectID, "land", true, "fixture")
 	ctx := asPerson("reviewer")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "work to land"})
-	if err == nil {
-		ch, err = a.Work.Begin(ctx, ch.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

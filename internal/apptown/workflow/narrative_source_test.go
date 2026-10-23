@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -30,6 +31,18 @@ func narrativeRun(t *testing.T, db *database.DB, ch *Change, name string, steps 
 	return run
 }
 
+// nameBranchForTest names the branch of a change opened before its project
+// had a repository. Creation names a branch only when the project has one,
+// and no operation names it later, so the test writes it with the owner's
+// own query.
+func nameBranchForTest(t *testing.T, db *database.DB, ch *Change) {
+	t.Helper()
+	n, err := workflowsql.New(db.SQL()).SetChangeBranch(context.Background(), workflowsql.SetChangeBranchParams{Branch: fmt.Sprintf("apptown/change-%d", ch.ID), ID: ch.ID, ProjectID: ch.ProjectID})
+	if err != nil || n != 1 {
+		t.Fatalf("naming the branch: %d %v", n, err)
+	}
+}
+
 func TestNarrativePublicationRefusesChangedSource(t *testing.T) {
 	t.Parallel()
 	for _, changed := range []string{"body", "state", "run", "branch", "base", "repository"} {
@@ -46,9 +59,7 @@ func TestNarrativePublicationRefusesChangedSource(t *testing.T) {
 					t.Fatal(err)
 				}
 				if changed == "base" {
-					if _, err := (changeStore{owner.db, clocked{}}).start(ctx, ch.ProjectID, ch.ID, "test"); err != nil {
-						t.Fatal(err)
-					}
+					nameBranchForTest(t, owner.db, ch)
 				}
 				source, err = owner.Source(ctx, ch.ID)
 				if err != nil {
@@ -64,7 +75,7 @@ func TestNarrativePublicationRefusesChangedSource(t *testing.T) {
 			case "run":
 				narrativeRun(t, owner.db, ch, "new work")
 			case "branch":
-				_, err = (changeStore{owner.db, clocked{}}).start(ctx, ch.ProjectID, ch.ID, "test")
+				nameBranchForTest(t, owner.db, ch)
 			case "base":
 				var before changeWorkspaceSource
 				before, err = readChangeWorkspace(ctx, owner.db, ChangeRef{ID: ch.ID, ProjectID: ch.ProjectID})

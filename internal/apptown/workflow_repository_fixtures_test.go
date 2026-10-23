@@ -35,9 +35,6 @@ func engineChange(t *testing.T, a *App, p *project.Project) *workflow.Change {
 	t.Helper()
 	ctx := a.asAppTown(context.Background(), p.ID, "test")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: p.ID, Type: "feature", Title: "t"})
-	if err == nil {
-		ch, err = a.Work.Begin(ctx, ch.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

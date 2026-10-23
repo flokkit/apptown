@@ -4,7 +4,7 @@ Workflow owns Change state and run/step lifecycle. A Change records a unit of
 repository work; a run executes a pinned workflow definition. A Change can have
 several runs over its lifetime.
 
-The main Change states are proposed, in progress, landing, shipped and abandoned.
+The main Change states are in progress, landing, shipped and abandoned.
 A state change must go through the owning operation. Finding an existing record
 does not grant permission to complete, retry or approve it.
 

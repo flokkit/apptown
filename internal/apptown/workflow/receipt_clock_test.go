@@ -36,7 +36,7 @@ func sameSecond(t *testing.T, what string, record, receipt time.Time) {
 // A Change operation takes one reading of AppTown's clock for what it
 // stores and for its receipt. On a clock that moves on a second at every
 // reading, a receipt stamped by a separate reading says a later second
-// than the record it describes: an uplift's opening, a Change's start, a
+// than the record it describes: an uplift's opening, a
 // send-back's continued run and a Change's abandonment.
 func TestAChangesReceiptCarriesItsRecordsTime(t *testing.T) {
 	t.Parallel()
@@ -50,19 +50,6 @@ func TestAChangesReceiptCarriesItsRecordsTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	sameSecond(t, "an uplift", stamp.Parse(ch.CreatedAt).Time, receiptTime(t, c.db, "wow.uplift.opened"))
-
-	draft, err := database.Transact(ctx, c.db, func(tx *database.Tx) (CreatedChange, error) {
-		return CreateChangeIn(ctx, tx, ChangeDraft{ProjectID: in.ProjectID, Title: "A change"}, "alice", start)
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	clk := clocktest.NewStepping(start, time.Second)
-	reading := clk.Next()
-	if _, err := (changeStore{c.db, clocked{clk.Now}}).start(ctx, in.ProjectID, draft.Change.ID, "alice"); err != nil {
-		t.Fatal(err)
-	}
-	sameSecond(t, "a Change's start", reading, receiptTime(t, c.db, "change.started"))
 
 	s, source, _ := completedSendBackFixture(t)
 	s.clocked = clocked{clocktest.NewStepping(start, time.Second).Now}

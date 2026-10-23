@@ -155,18 +155,3 @@ func TestChatTitleRequiresCurrentScopeAndCancellation(t *testing.T) {
 		})
 	}
 }
-
-func TestChangeCreationRejectsConflictingTitleIntent(t *testing.T) {
-	t.Parallel()
-	db := testDB(t)
-	project := changeTestProject(t, db, "changes")
-	ch, err := NewCreator(db, nil).Create(context.Background(), ChangeDraft{ProjectID: project, Title: "bad", Propose: true, TitleFromChat: true}, "alice")
-	if err == nil || ch != nil {
-		t.Fatalf("invalid initial title intent accepted: %+v %v", ch, err)
-	}
-	rows, err := readChangeList(context.Background(), db, project, ChangeList{})
-	if err != nil || len(rows) != 0 {
-		t.Fatalf("rejected creation persisted: %+v %v", rows, err)
-	}
-	changeReceipts(t, db, "change.created", 0)
-}

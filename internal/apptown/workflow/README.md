@@ -20,7 +20,7 @@ required receipts still commit in one project-locked transaction.
 
 | What you want to understand | Entry point | Implementation to read next |
 |---|---|---|
-| Create or begin a Change | `Service.Create`, `Service.Begin` in [change_service.go](change_service.go) | [change_creation.go](change_creation.go), [change_transition.go](change_transition.go) |
+| Create a Change | `Service.Create` in [change_service.go](change_service.go) | [change_creation.go](change_creation.go); a failed workspace is prepared again by `Service.PrepareWorkspace` in [workspaces.go](workspaces.go) |
 | Start a Run | `Service.StartRun` in [run_service.go](run_service.go) | [starter.go](starter.go), [run_start_store.go](run_start_store.go) |
 | Run one Step | `Service.ExecuteStep` in [execution.go](execution.go) | [step_attempt.go](step_attempt.go), [step_outcome.go](step_outcome.go) |
 | Approve or override | `Service.Approve`, `Service.Override` in [decisions.go](decisions.go) | [decision_store.go](decision_store.go), [approval.go](approval.go) |

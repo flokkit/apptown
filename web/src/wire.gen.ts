@@ -3702,7 +3702,7 @@ export type IntegrationWire = {
   title: string
 }
 
-export type ChangeState = "proposed" | "in_progress" | "landing" | "shipped" | "abandoned"
+export type ChangeState = "in_progress" | "landing" | "shipped" | "abandoned"
 
 export type CatalogParam = {
   name: string

@@ -167,7 +167,7 @@ func (s *Service) OpenChangeBranches(ctx context.Context, project ids.ID) (map[i
 	if _, err := s.require(ctx, operationPermission{Action: actionListChanges, ProjectID: project}); err != nil {
 		return nil, err
 	}
-	rows, err := workflowsql.New(s.db.SQL()).OpenChangeBranches(ctx, workflowsql.OpenChangeBranchesParams{ProjectID: project, Proposed: ChangeProposed.String(), InProgress: ChangeInProgress.String(), Landing: ChangeLanding.String()})
+	rows, err := workflowsql.New(s.db.SQL()).OpenChangeBranches(ctx, workflowsql.OpenChangeBranchesParams{ProjectID: project, InProgress: ChangeInProgress.String(), Landing: ChangeLanding.String()})
 	if err != nil {
 		return nil, err
 	}

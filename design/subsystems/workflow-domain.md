@@ -2,15 +2,15 @@
 
 ## The model
 
-A Change is proposed work and its repository identity. A Run executes a pinned
+A Change is a unit of work and its repository identity. A Run executes a pinned
 workflow definition for that work or a standalone purpose. A Stage materializes
 its declared steps and gates. A Step is a persistent unit of execution or decision;
 an attempt identifies one admitted execution of it. Retrying a step does not give
 an old runner authority over the new attempt.
 
 Workflow owns `ChangeState`, `RunState` and `StepState`. Their zero values are
-invalid; parse/string/transition operations live beside them. A Change can be
-proposed, in progress, landing, shipped or abandoned. A Run is running, done or
+invalid; parse/string/transition operations live beside them. A Change is in
+progress, landing, shipped or abandoned. A Run is running, done or
 abandoned. Step outcomes are a different vocabulary. Do not infer these rules
 from free-form activity text, a UI label or a deployment state. Stored words
 decode strictly: an unknown word is an error, never read as a default, terminal

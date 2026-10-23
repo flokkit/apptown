@@ -63,11 +63,7 @@ func TestRemediationTitleCannotChangeAcceptance(t *testing.T) {
 
 func completeEvidenceRelease(t *testing.T, a *App, ctx context.Context, changeID ids.ID) *workflow.Run {
 	t.Helper()
-	change, err := a.Work.Begin(ctx, changeID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: change.ID, Workflow: "land"})
+	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: changeID, Workflow: "land"})
 	if !errors.Is(err, workflow.ErrDispatchStopped) {
 		t.Fatal(err)
 	}

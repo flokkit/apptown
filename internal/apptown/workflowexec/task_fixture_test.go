@@ -317,9 +317,6 @@ func (f *taskAppTown) startChangeRun(t *testing.T, name string, starter context.
 func (f *taskAppTown) beginChange(t *testing.T) *workflow.Change {
 	t.Helper()
 	ch, err := f.work.Create(f.ctx, workflow.ChangeDraft{ProjectID: f.projectID, Type: "feature", Title: "fake tasks"})
-	if err == nil {
-		ch, err = f.work.Begin(f.ctx, ch.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

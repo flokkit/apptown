@@ -7,15 +7,13 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
-	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 )
 
 type ChangeMove struct {
-	Action     ChangeAction
-	RunID      ids.ID // attach, land or resume; zero preserves the current association
-	NameBranch bool   // start only, from the locked project's repository configuration
+	Action ChangeAction
+	RunID  ids.ID // attach, land or resume; zero preserves the current association
 }
 type ChangeLifecycle struct {
 	ID, ProjectID, RunID ids.ID
@@ -63,36 +61,4 @@ func TransitionChangeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, 
 type changeStore struct {
 	db *database.DB
 	clocked
-}
-
-// Promotion, branch naming and the required receipt commit before any workspace
-// effect. Repeating start while in progress is allowed; terminal work never reopens.
-func (s changeStore) start(ctx context.Context, projectID ids.ID, id ids.ID, who string) (*Change, error) {
-	now := s.now()
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = tx.Rollback() }()
-	project, err := workflowsql.New(tx.SQL()).ProjectForUpdate(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-	if err := refuseUnlessActive(ctx, tx, projectID); err != nil {
-		return nil, err
-	}
-	if _, err := TransitionChangeIn(ctx, tx, projectID, id, ChangeMove{Action: StartChange, NameBranch: project.DefaultBranch != ""}, now); err != nil {
-		return nil, err
-	}
-	if err := audit.At(now).RecordIn(ctx, tx, who, projectID, "change.started", fmt.Sprintf("change %d", id), nil); err != nil {
-		return nil, err
-	}
-	change, err := readChange(ctx, tx, id)
-	if err != nil {
-		return nil, err
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	return change, nil
 }

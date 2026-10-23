@@ -37,9 +37,6 @@ func taskRecoveryFixture(t *testing.T, script string) (*App, *workflow.Step, str
 	a.lifecycle.SelectLane(t.Context(), projectID, "work", true, "fixture")
 	ctx := a.asAppTown(context.Background(), projectID, "fixture")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "task recovery"})
-	if err == nil {
-		ch, err = a.Work.Begin(ctx, ch.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

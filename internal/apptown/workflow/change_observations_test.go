@@ -138,7 +138,7 @@ func TestSupersessionEligibilityKeepsProjectAndChangeLocks(t *testing.T) {
 
 func TestSupersessionEligibilityChecksLifecycleAndScope(t *testing.T) {
 	t.Parallel()
-	for _, state := range []ChangeState{ChangeProposed, ChangeInProgress, ChangeLanding, ChangeShipped, ChangeAbandoned} {
+	for _, state := range []ChangeState{ChangeInProgress, ChangeLanding, ChangeShipped, ChangeAbandoned} {
 		t.Run(state.String(), func(t *testing.T) {
 			t.Parallel()
 			q, run, _ := activityFixture(t)

@@ -66,21 +66,6 @@ func (h Changes) StartChangeRun(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleStartChange: POST /api/v1/changes/{id}/start — promote a proposed
-// Change: branch + worktree, in_progress.
-func (h Changes) StartChange(w http.ResponseWriter, r *http.Request) {
-	ch, _, ok := ChangeAndProject(h.db, w, r)
-	if !ok {
-		return
-	}
-	out, err := h.work.Begin(r.Context(), ch.ID)
-	if err != nil {
-		WriteFaultOr(w, err, 409)
-		return
-	}
-	WriteJSON(w, 200, ChangeEnvelope{Change: *out})
-}
-
 // handleAbandonChange: POST /api/v1/changes/{id}/abandon — close the Change
 // without landing: abandon in-flight runs, drop the worktree, keep the
 // branch for forensics.
@@ -176,7 +161,7 @@ func (h Changes) Board(w http.ResponseWriter, r *http.Request) {
 		byState[it.State] = append(byState[it.State], it)
 	}
 	cols := []BoardColumn{}
-	for _, st := range []workflow.ChangeState{workflow.ChangeProposed, workflow.ChangeInProgress, workflow.ChangeLanding, workflow.ChangeShipped, workflow.ChangeAbandoned} {
+	for _, st := range []workflow.ChangeState{workflow.ChangeInProgress, workflow.ChangeLanding, workflow.ChangeShipped, workflow.ChangeAbandoned} {
 		items := byState[st]
 		c := BoardColumn{State: st, Total: len(items), Items: items}
 		if c.Items == nil {

@@ -1,7 +1,7 @@
 # Change title ownership
 
 Work owns the Change title's words and editorial ownership. This is separate from
-whether a Change is proposed, active, shipped or abandoned. `changeTitleOwner` has
+whether a Change is active, shipped or abandoned. `changeTitleOwner` has
 three strict states, stored in one `title_ownership` column:
 
 | Ownership | Meaning | Permitted automation |
@@ -25,7 +25,7 @@ together. The participant reads a fresh scoped row, applies the decision, writes
 with the observed ownership/words guard and checks the affected row count.
 
 New chat creation sends `titleFromChat: true`; the intent is persisted with the
-Change before workspace effects. Workflow/backlog creation cannot request that
+Change before workspace effects. Workflow creation cannot request that
 intent. Other creation paths use human ownership. Title wording has no operational
 meaning: a person can deliberately choose `Chat change (…)` without handing over
 ownership, and an awaiting chat can have any placeholder text.

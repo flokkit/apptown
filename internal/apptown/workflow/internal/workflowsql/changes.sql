@@ -146,7 +146,7 @@ JOIN changes c ON c.id=($1::uuid[])[idx.n] AND c.project_id=($2::uuid[])[idx.n];
 WITH change_counts AS (
  SELECT c.project_id,COUNT(*)::bigint AS changes,
  COUNT(*) FILTER(WHERE current.status=sqlc.arg(running_status)::text)::bigint AS active_items,
- COUNT(*) FILTER(WHERE c.state IN (sqlc.arg(proposed_state)::text,sqlc.arg(in_progress_state)::text,sqlc.arg(landing_state)::text))::bigint AS open_changes,
+ COUNT(*) FILTER(WHERE c.state IN (sqlc.arg(in_progress_state)::text,sqlc.arg(landing_state)::text))::bigint AS open_changes,
  COUNT(*) FILTER(WHERE c.type='uplift' AND c.state=sqlc.arg(in_progress_state)::text)::bigint AS open_uplifts
  FROM changes c LEFT JOIN runs current ON current.id=c.run_id AND current.project_id=c.project_id
  WHERE c.project_id=ANY(sqlc.arg(project_ids)::uuid[]) GROUP BY c.project_id
@@ -194,5 +194,5 @@ SELECT id FROM changes WHERE project_id=sqlc.arg(project_id) AND branch=sqlc.arg
 -- The recorded branches of a project's changes that are not finished.
 -- name: OpenChangeBranches :many
 SELECT c.number, c.branch FROM changes c
-WHERE c.project_id = sqlc.arg(project_id) AND c.branch <> '' AND c.state IN (sqlc.arg(proposed), sqlc.arg(in_progress), sqlc.arg(landing))
+WHERE c.project_id = sqlc.arg(project_id) AND c.branch <> '' AND c.state IN (sqlc.arg(in_progress), sqlc.arg(landing))
 ORDER BY c.number;

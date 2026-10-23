@@ -84,7 +84,7 @@ func TestProjectOpenCountsUseTheChangeLifecycle(t *testing.T) {
 	t.Parallel()
 	q, run, _ := activityFixture(t)
 	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
-	for _, state := range []ChangeState{ChangeProposed, ChangeInProgress, ChangeLanding, ChangeShipped, ChangeAbandoned} {
+	for _, state := range []ChangeState{ChangeInProgress, ChangeLanding, ChangeShipped, ChangeAbandoned} {
 		transitionScopeChange(t, q.db, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, State: state.String()})
 		got, err := s.ProjectActivity(context.Background(), run.ProjectID)
 		want := 1

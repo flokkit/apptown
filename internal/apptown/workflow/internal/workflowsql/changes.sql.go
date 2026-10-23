@@ -603,13 +603,12 @@ func (q *Queries) NameChangeWorkspaceBranch(ctx context.Context, arg NameChangeW
 
 const openChangeBranches = `-- name: OpenChangeBranches :many
 SELECT c.number, c.branch FROM changes c
-WHERE c.project_id = $1 AND c.branch <> '' AND c.state IN ($2, $3, $4)
+WHERE c.project_id = $1 AND c.branch <> '' AND c.state IN ($2, $3)
 ORDER BY c.number
 `
 
 type OpenChangeBranchesParams struct {
 	ProjectID  ids.ID
-	Proposed   string
 	InProgress string
 	Landing    string
 }
@@ -621,12 +620,7 @@ type OpenChangeBranchesRow struct {
 
 // The recorded branches of a project's changes that are not finished.
 func (q *Queries) OpenChangeBranches(ctx context.Context, arg OpenChangeBranchesParams) ([]OpenChangeBranchesRow, error) {
-	rows, err := q.db.QueryContext(ctx, openChangeBranches,
-		arg.ProjectID,
-		arg.Proposed,
-		arg.InProgress,
-		arg.Landing,
-	)
+	rows, err := q.db.QueryContext(ctx, openChangeBranches, arg.ProjectID, arg.InProgress, arg.Landing)
 	if err != nil {
 		return nil, err
 	}
@@ -741,12 +735,12 @@ const projectActivityReport = `-- name: ProjectActivityReport :many
 WITH change_counts AS (
  SELECT c.project_id,COUNT(*)::bigint AS changes,
  COUNT(*) FILTER(WHERE current.status=$2::text)::bigint AS active_items,
- COUNT(*) FILTER(WHERE c.state IN ($3::text,$4::text,$5::text))::bigint AS open_changes,
- COUNT(*) FILTER(WHERE c.type='uplift' AND c.state=$4::text)::bigint AS open_uplifts
+ COUNT(*) FILTER(WHERE c.state IN ($3::text,$4::text))::bigint AS open_changes,
+ COUNT(*) FILTER(WHERE c.type='uplift' AND c.state=$3::text)::bigint AS open_uplifts
  FROM changes c LEFT JOIN runs current ON current.id=c.run_id AND current.project_id=c.project_id
  WHERE c.project_id=ANY($1::uuid[]) GROUP BY c.project_id
 ), run_counts AS (
- SELECT project_id,COUNT(*) FILTER(WHERE status=$6::text AND parent_run_id IS NULL)::bigint AS done_runs,
+ SELECT project_id,COUNT(*) FILTER(WHERE status=$5::text AND parent_run_id IS NULL)::bigint AS done_runs,
  COUNT(*) FILTER(WHERE status=$2::text)::bigint AS running_runs,MAX(updated_at) AS last_run_at
  FROM runs WHERE project_id=ANY($1::uuid[]) GROUP BY project_id
 )
@@ -761,7 +755,6 @@ WHERE p.id=ANY($1::uuid[])
 type ProjectActivityReportParams struct {
 	ProjectIds      []ids.ID
 	RunningStatus   string
-	ProposedState   string
 	InProgressState string
 	LandingState    string
 	DoneStatus      string
@@ -783,7 +776,6 @@ func (q *Queries) ProjectActivityReport(ctx context.Context, arg ProjectActivity
 	rows, err := q.db.QueryContext(ctx, projectActivityReport,
 		pq.Array(arg.ProjectIds),
 		arg.RunningStatus,
-		arg.ProposedState,
 		arg.InProgressState,
 		arg.LandingState,
 		arg.DoneStatus,

@@ -79,13 +79,10 @@ func (run *Run) Decides(step *Step) error {
 
 // --- Change ----------------------------------------------------------------------------
 
-// Apply moves the change by the act, or refuses: the state machine, what a
-// run attachment needs, and the branch a started change is named on. The
-// caller checks that a named run is the change's own root work.
+// Apply moves the change by the act, or refuses: the state machine and what
+// a run attachment needs. The caller checks that a named run is the change's
+// own root work.
 func (c ChangeLifecycle) Apply(move ChangeMove) (ChangeLifecycle, error) {
-	if move.NameBranch && move.Action != StartChange {
-		return c, fmt.Errorf("invalid Change transition command")
-	}
 	switch move.Action {
 	case AttachChangeRun, LandChange, ResumeChange:
 		if move.RunID.IsZero() {
@@ -107,9 +104,6 @@ func (c ChangeLifecycle) Apply(move ChangeMove) (ChangeLifecycle, error) {
 	out.State = next
 	if !move.RunID.IsZero() {
 		out.RunID = move.RunID
-	}
-	if move.NameBranch && out.Branch == "" {
-		out.Branch = fmt.Sprintf("apptown/change-%d", c.ID)
 	}
 	return out, nil
 }

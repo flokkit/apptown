@@ -76,14 +76,11 @@ func TestChangeCreationRequiresAllRecordsBeforeWorkspace(t *testing.T) {
 
 func TestChangeCreationKeepsTypedAcceptanceAttributionAndCommittedIdentity(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{"workspace", "workspace failure", "read failure", "backlog", "no repository", "chat"} {
+	for _, mode := range []string{"workspace", "workspace failure", "read failure", "no repository", "chat"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 			c, draft := creationFixture(t)
 			draft.Acceptance = &Acceptance{TargetDigest: "pinned", Checks: []AcceptanceCheck{{Block: "design", Check: "works", Version: 9007199254740993, Title: "Acceptance words", Expects: "usable"}}}
-			if mode == "backlog" {
-				draft.Propose = true
-			}
 			if mode == "chat" {
 				draft.TitleFromChat = true
 			}
@@ -136,9 +133,6 @@ func TestChangeCreationKeepsTypedAcceptanceAttributionAndCommittedIdentity(t *te
 				t.Fatalf("acceptance lost exact data: %s %v", ch.AcceptanceJSON, err)
 			}
 			expectedState, expectedOwner := ChangeInProgress, titleHuman
-			if mode == "backlog" {
-				expectedState = ChangeProposed
-			}
 			if mode == "chat" {
 				expectedOwner = titleAwaitingChat
 			}
@@ -147,7 +141,7 @@ func TestChangeCreationKeepsTypedAcceptanceAttributionAndCommittedIdentity(t *te
 			if err := owner.Scan(stored.TitleOwnership); err != nil || stored.State != expectedState.String() || owner != expectedOwner {
 				t.Fatalf("stored change: %s %s %v", stored.State, stored.TitleOwnership, err)
 			}
-			noWorkspace := mode == "backlog" || mode == "no repository"
+			noWorkspace := mode == "no repository"
 			if noWorkspace && (calls != 0 || ch.Branch != "") || !noWorkspace && (calls != 1 || ch.Branch != fmt.Sprintf("apptown/change-%d", ch.ID)) {
 				t.Fatalf("workspace eligibility: %+v calls %d", ch, calls)
 			}
@@ -237,7 +231,7 @@ func TestChangeCreationReadsCurrentProjectFactsAndCancelsLockWait(t *testing.T) 
 func TestChangeCreationRejectsInvalidCommandsBeforeAnyRecord(t *testing.T) {
 	t.Parallel()
 	c, draft := creationFixture(t)
-	for _, mutate := range []func(*ChangeDraft){func(d *ChangeDraft) { d.ProjectID = ids.Nil }, func(d *ChangeDraft) { d.Title = " \n " }, func(d *ChangeDraft) { d.Propose = true; d.TitleFromChat = true }} {
+	for _, mutate := range []func(*ChangeDraft){func(d *ChangeDraft) { d.ProjectID = ids.Nil }, func(d *ChangeDraft) { d.Title = " \n " }} {
 		invalid := draft
 		mutate(&invalid)
 		if ch, err := c.Create(context.Background(), invalid, "alice"); ch != nil || err == nil {
