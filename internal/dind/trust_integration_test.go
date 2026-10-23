@@ -38,32 +38,35 @@ func TestIntegrationAPrivateDaemonAndItsBuilderTrustATLSRegistry(t *testing.T) {
 	}
 	id := strings.ToLower(ids.New(time.Now()).String())
 
-	// The registry, on this machine, over TLS from the company's authority.
-	certs := t.TempDir()
-	certPEM, keyPEM, _ := company.Server(t)
-	for name, body := range map[string][]byte{"cert.pem": certPEM, "key.pem": keyPEM} {
-		if err := os.WriteFile(filepath.Join(certs, name), body, 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	registry := "apptown-trust-registry-" + id
-	t.Cleanup(func() { _, _ = dk.Run(ctx, "rm", "-f", registry) })
-	must("run", "-d", "--name", registry, "-p", "5000", "-v", certs+":/certs:ro",
-		"-e", "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/cert.pem", "-e", "REGISTRY_HTTP_TLS_KEY=/certs/key.pem", "registry:2")
-	hostPort := must("port", registry, "5000/tcp")
-	at := "host.docker.internal:" + hostPort[strings.LastIndex(hostPort, ":")+1:]
-
-	// The private daemon and its builder, as an owner makes them.
+	// The private daemon's network, which the registry joins: the daemon
+	// and its builder (network=host, in the daemon's namespace) reach it by
+	// its container name, with no port published on the host.
 	network, name := "apptown-trust-net-"+id, "apptown-trust-dind-"+id
 	must("network", "create", network)
 	t.Cleanup(func() { _, _ = dk.Run(ctx, "network", "rm", network) })
+
+	// The registry, over TLS from the company's authority.
+	registry := "apptown-trust-registry-" + id
+	certs := t.TempDir()
+	certPEM, keyPEM, _ := company.Server(t, registry)
+	for file, body := range map[string][]byte{"cert.pem": certPEM, "key.pem": keyPEM} {
+		if err := os.WriteFile(filepath.Join(certs, file), body, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() { _, _ = dk.Run(ctx, "rm", "-f", registry) })
+	must("run", "-d", "--name", registry, "--network", network, "-v", certs+":/certs:ro",
+		"-e", "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/cert.pem", "-e", "REGISTRY_HTTP_TLS_KEY=/certs/key.pem", "registry:2")
+	at := registry + ":5000"
+
+	// The private daemon and its builder, as an owner makes them.
 	t.Cleanup(func() { _, _ = dk.Run(ctx, "rm", "-f", "-v", name) })
 	config := t.TempDir()
 	if err := os.WriteFile(filepath.Join(config, "buildkitd.toml"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	daemon := dind.Daemon{Name: name, Network: network, Image: "docker:27-dind", OwnerLabel: "apptown.test", Owner: id,
-		Args: []string{"--add-host", "host.docker.internal:host-gateway", "-v", config + ":/forge-dind:ro"}}
+		Args: []string{"-v", config + ":/forge-dind:ro"}}
 	if err := daemon.Create(ctx, dk.Run); err != nil {
 		t.Fatal(err)
 	}

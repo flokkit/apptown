@@ -67,9 +67,9 @@ func (a *Authority) Bundle(t testing.TB) trust.Bundle {
 }
 
 // Server is a certificate and key the authority signs for localhost,
-// host.docker.internal (how a container reaches this machine) and
-// 127.0.0.1, as PEM.
-func (a *Authority) Server(t testing.TB) (certPEM, keyPEM []byte, cert tls.Certificate) {
+// host.docker.internal (how a container reaches this machine), 127.0.0.1
+// and names (a container's name on a test's network), as PEM.
+func (a *Authority) Server(t testing.TB, names ...string) (certPEM, keyPEM []byte, cert tls.Certificate) {
 	t.Helper()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -77,7 +77,7 @@ func (a *Authority) Server(t testing.TB) (certPEM, keyPEM []byte, cert tls.Certi
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano()), Subject: pkix.Name{CommonName: "localhost"},
-		DNSNames: []string{"localhost", "host.docker.internal"}, IPAddresses: []net.IP{net.IPv4(127, 0, 0, 1)},
+		DNSNames: append([]string{"localhost", "host.docker.internal"}, names...), IPAddresses: []net.IP{net.IPv4(127, 0, 0, 1)},
 		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(24 * time.Hour),
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}

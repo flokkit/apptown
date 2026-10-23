@@ -13,10 +13,15 @@ import (
 	"github.com/flokkit/apptown/internal/poll"
 )
 
+// A database still initialising its first data folder is waited for, not
+// rejected, and passes the startup gate once healthy. Half a CPU: the bare
+// image's first start then takes seconds; at a tenth of one its temporary
+// setup server alone took a minute on an idle machine, so the test ran at
+// half its bound and failed whenever the runner was busy.
 func TestIntegrationAFreshDatabaseGetsItsStartupBound(t *testing.T) {
 	dk := Scope{Client: CLI{Binary: "docker"}}
 	stack := fmt.Sprintf("review-slice2-health-%d", time.Now().UnixNano())
-	svc := deploy.ServiceSpec{Name: "mariadb", Image: "mariadb:11.4.13", Health: "healthcheck.sh --connect --innodb_initialized", Command: []string{"--innodb-buffer-pool-size=64M", "--max-connections=20", "--performance-schema=OFF"}, Env: map[string]string{"MARIADB_DATABASE": "app", "MARIADB_USER": "app", "MARIADB_PASSWORD": "app", "MARIADB_RANDOM_ROOT_PASSWORD": "1", "MARIADB_ROOT_HOST": "localhost"}, Resources: appcontract.Resources{CPUs: 0.1, MemoryBytes: 268435456}}
+	svc := deploy.ServiceSpec{Name: "mariadb", Image: "mariadb:11.4.13", Health: "healthcheck.sh --connect --innodb_initialized", Command: []string{"--innodb-buffer-pool-size=64M", "--max-connections=20", "--performance-schema=OFF"}, Env: map[string]string{"MARIADB_DATABASE": "app", "MARIADB_USER": "app", "MARIADB_PASSWORD": "app", "MARIADB_RANDOM_ROOT_PASSWORD": "1", "MARIADB_ROOT_HOST": "localhost"}, Resources: appcontract.Resources{CPUs: 0.5, MemoryBytes: 268435456}}
 	cname := Current.Service(stack, svc.Name)
 	t.Cleanup(func() {
 		_, _ = dk.Run(context.Background(), "rm", "-fv", cname)
@@ -24,6 +29,13 @@ func TestIntegrationAFreshDatabaseGetsItsStartupBound(t *testing.T) {
 	})
 	if _, err := EnsureStandingServices(t.Context(), dk, stack, []deploy.ServiceSpec{svc}, "production", Ownership{}); err != nil {
 		t.Fatal(err)
+	}
+	// Docker is given the gate's bound as the check's start period, so a
+	// check that fails while the database initialises is not yet a verdict:
+	// with a shorter one Docker would call a slow first start unhealthy and
+	// the gate would end on it, which this fast start no longer shows.
+	if got := dk.Text(t.Context(), "inspect", "-f", "{{.Config.Healthcheck.StartPeriod}}", cname); got != healthBound.String() {
+		t.Fatalf("the health check's start period is %q, not the gate's bound %s", got, healthBound)
 	}
 	start := time.Now()
 	_, gateErr := waitStackHealthy(t.Context(), dk, Current, []deploy.ServiceSpec{svc}, stack)
