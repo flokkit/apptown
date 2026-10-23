@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -392,5 +393,82 @@ func TestAPlatformDeploymentIsObservedByItsLatestSample(t *testing.T) {
 		if o := s.ObserveContainer(context.Background(), d); o.State != tc.state || o.Reason != tc.reason {
 			t.Fatalf("after a %q sample: %+v", tc.rollout, o)
 		}
+	}
+}
+
+// fleetInventory observes a whole target's deployments in one look.
+type fleetInventory struct {
+	look    func()
+	observe func([]deploy.Placement) ([]deploy.Observation, error)
+}
+
+func (f fleetInventory) Inventory(context.Context) ([]deploy.Resource, error) { return nil, nil }
+func (f fleetInventory) ObserveAll(_ context.Context, ps []deploy.Placement) ([]deploy.Observation, error) {
+	f.look()
+	return f.observe(ps)
+}
+
+// A target whose inventory can observe its whole fleet is asked once per
+// sweep, not once per deployment, and each deployment gets its own state.
+// A failed look leaves every deployment on it unknown, never stopped: the
+// last state is kept as last known, with the time it was seen.
+func TestASweepAsksAFleetTargetOnceForAllItsDeployments(t *testing.T) {
+	t.Parallel()
+	var driverCalls atomic.Int32
+	s, _, envs, projectID := listingFixture(t, 3, func(context.Context, deploy.Placement) (deploy.Observation, error) {
+		driverCalls.Add(1)
+		return deploy.Observation{}, errors.New("the driver was asked")
+	})
+	second, err := s.Targets.Put(context.Background(), &Target{Name: "cloud-2", Kind: KindDOApp, Origin: OriginAttached, Status: TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Targets.Offer(context.Background(), second, "*", OfferCaps{}, "setup"); err != nil {
+		t.Fatal(err)
+	}
+	envs = append(envs, configureForTest(t, s, ConfigureDeployment{ProjectID: projectID, Name: "app-3", Target: "cloud-2"}))
+	var mu sync.Mutex
+	looks := map[string]int{}
+	failing := false
+	s.providers.inventories = map[string]InventoryFactory{KindDOApp: func(target *Target) (deploy.Inventorier, error) {
+		return fleetInventory{look: func() { mu.Lock(); looks[target.Name]++; mu.Unlock() }, observe: func(ps []deploy.Placement) ([]deploy.Observation, error) {
+			if failing {
+				return nil, errors.New("the provider did not answer")
+			}
+			out := make([]deploy.Observation, len(ps))
+			for i, p := range ps {
+				out[i] = deploy.Observation{Generation: p.Generation, Rollout: map[string]string{"app-0": "active", "app-1": "absent", "app-2": "unknown", "app-3": "active"}[p.Name]}
+			}
+			return out, nil
+		}}, nil
+	}}
+	if err := s.ObserveRuntime(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.List(context.Background(), projectID)
+	if err != nil || len(got) != len(envs) {
+		t.Fatalf("listing: %+v %v", got, err)
+	}
+	for i, want := range []RuntimeState{RuntimeRunning, RuntimeStopped, RuntimeUnknown, RuntimeRunning} {
+		if got[i].Observation.State != want || got[i].Observation.Stale {
+			t.Errorf("%s: %+v, want %s", got[i].Name, got[i].Observation, want)
+		}
+	}
+	if looks["cloud"] != 1 || looks["cloud-2"] != 1 || driverCalls.Load() != 0 {
+		t.Fatalf("looks per target %v, driver asked %d times", looks, driverCalls.Load())
+	}
+	seen := got[0].Observation.ObservedAt
+	failing = true
+	if err := s.ObserveRuntime(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = s.List(context.Background(), projectID)
+	for _, r := range got {
+		if r.Observation.Err == nil || !r.Observation.Stale {
+			t.Errorf("%s after a failed look: %+v", r.Name, r.Observation)
+		}
+	}
+	if o := got[0].Observation; o.State != RuntimeRunning || !o.ObservedAt.Equal(seen) {
+		t.Errorf("the last known state was not kept with when it was seen: %+v", o)
 	}
 }

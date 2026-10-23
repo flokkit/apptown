@@ -99,7 +99,7 @@ export function homeStatus({ needsYou, running, deployments }: {
 }): string {
   const parts: string[] = []
   if (needsYou === null) parts.push('could not read what needs you')
-  else if (needsYou > 0) parts.push(`${needsYou} ${needsYou === 1 ? 'change needs' : 'changes need'} you`)
+  else if (needsYou > 0) parts.push(`${needsYou} needs you`)
   if (running > 0) parts.push(`${running} running`)
   if (needsYou === 0 && running === 0) parts.unshift('All quiet')
   // An app is live when one of its deployments was seen running on the
@@ -120,8 +120,10 @@ export function homeStatus({ needsYou, running, deployments }: {
 
 // homeSections splits the active runs and pending approvals into what
 // needs a person (approvals, blocked runs) and what is running. needsYouCount
-// counts changes, not steps: two approvals on one change are one change.
-export function homeSections<A extends { changeId: string | null }>(active: RunRow[], approvals: A[]) {
+// is everything under "Needs you", the heading and the sentence alike: each
+// change once (two approvals on one change are one change), and each ended
+// operation that waits on the person.
+export function homeSections<A extends { changeId: string | null }>(active: RunRow[], approvals: A[], ended: unknown[] = []) {
   const happening = active.filter((r) => r.state !== 'waiting on you' && r.state !== 'blocked')
   const blocked = active.filter((r) => r.state === 'blocked')
   // A change has one card: a working run's (possibly stale) approval waits
@@ -132,7 +134,7 @@ export function homeSections<A extends { changeId: string | null }>(active: RunR
   const needsYouCount = new Set([
     ...waiting.map((a) => `c${a.changeId}`),
     ...blocked.map((r) => r.changeId ? `c${r.changeId}` : `r${r.runId}`),
-  ]).size
+  ]).size + ended.length
   return { happening, blocked, waiting, needsYouCount }
 }
 
@@ -155,10 +157,10 @@ export default function Dashboard() {
   // A blocked run is not running: it waits for a person to fix, send back,
   // override or abandon it, so it is listed under "Needs you" with the
   // approvals, and counted there.
-  const { happening, blocked, waiting, needsYouCount } = homeSections(act.active, dash?.pendingApprovals ?? [])
-  // A copy, check or take-down you asked for that has ended waits here until
-  // you have looked at it.
+  // A copy, check or take-down you asked for that failed, or whose outcome
+  // is not known, waits here until you put it away. A success needs nobody.
   const ended = dash?.endedOperations ?? []
+  const { happening, blocked, waiting, needsYouCount } = homeSections(act.active, dash?.pendingApprovals ?? [], ended)
 
   // The page leads with one sentence about the situation, then only the
   // sections that have something in them. With no projects yet it says
@@ -190,7 +192,7 @@ export default function Dashboard() {
 
       {!dash && <ReadStatus q={dashQ} what="what needs you" />}
       {(waiting.length > 0 || blocked.length > 0 || ended.length > 0) && <>
-        <h2 style={{ marginTop: 8 }}>Needs you ({needsYouCount + ended.length})</h2>
+        <h2 style={{ marginTop: 8 }}>Needs you ({needsYouCount})</h2>
         {ended.map((op) => <EndedOperation key={op.id} op={op} />)}
         <ActiveRunList runs={blocked} showProject />
         {waiting.map((a) => (

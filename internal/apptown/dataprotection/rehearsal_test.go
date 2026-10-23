@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -407,6 +408,12 @@ func TestARehearsalRunsTheReleaseOnACopyWithNoAddressAndTakesItDown(t *testing.T
 	}
 	if w.host.filled != "orders: 41, 42" {
 		t.Fatalf("the new postgres holds %q, not the copy", w.host.filled)
+	}
+	// The sentence a person reads first names the backup by when it was
+	// taken and says what the app answered, in words; the set's ID and the
+	// raw status codes are in the steps and the record.
+	if !regexp.MustCompile(`^Release \d+ started from the backup taken \d{1,2} [A-Z][a-z]{2} \d\d:\d\d UTC on rehearse-1 and answered its health check, its home page and 2 data checks\.$`).MatchString(op.Detail) {
+		t.Errorf("the rehearsal says: %s", op.Detail)
 	}
 	run := w.appRun(op.ID)
 	joined := strings.Join(run, " ")

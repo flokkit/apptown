@@ -65,8 +65,10 @@ SELECT * FROM operations WHERE subject=sqlc.arg(subject) AND state IN ('queued',
 SELECT * FROM operations WHERE subject=sqlc.arg(subject) AND kind=sqlc.arg(kind) AND state NOT IN ('queued','running')
   ORDER BY id DESC LIMIT 1;
 
+-- What waits on the person who asked: an operation that failed, or whose
+-- outcome is not known. A success or a cancellation needs nobody.
 -- name: EndedFor :many
-SELECT * FROM operations WHERE (asked_by_principal = sqlc.narg(asked_by_principal) OR (asked_by_principal IS NULL AND asked_by=sqlc.arg(asked_by))) AND state NOT IN ('queued','running') AND dismissed_at IS NULL
+SELECT * FROM operations WHERE (asked_by_principal = sqlc.narg(asked_by_principal) OR (asked_by_principal IS NULL AND asked_by=sqlc.arg(asked_by))) AND state IN ('failed','unknown') AND dismissed_at IS NULL
   ORDER BY id DESC LIMIT 50;
 
 -- name: DismissOperation :execrows

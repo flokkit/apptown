@@ -122,7 +122,7 @@ func (s *Service) observedOnPlatform(ctx context.Context, d *Deployment) Contain
 			return ContainerObservation{State: ContainerUnknown, Reason: "its last observation is out of date"}
 		}
 		// Fresh, but the platform did not say running or stopped (a
-		// rollout in progress, or a target that cannot tell, Portainer).
+		// rollout in progress).
 		return ContainerObservation{State: ContainerUnknown, Reason: "its platform does not say whether it runs"}
 	}
 	return unknown

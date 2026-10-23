@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"sort"
 	"sync"
@@ -100,19 +101,22 @@ func (s *Service) ObserveRuntime(ctx context.Context) error {
 	var workers sync.WaitGroup
 	// Independent pools ensure a slow cloud provider cannot use Docker capacity.
 	for _, dockerHost := range []bool{true, false} {
-		jobs := make(chan int, len(records))
-		for i, r := range records {
-			if (r.target != nil && r.target.Kind == KindDockerHost) == dockerHost {
-				jobs <- i
-			}
+		groups := s.observationGroups(records, dockerHost)
+		jobs := make(chan observationGroup, len(groups))
+		for _, g := range groups {
+			jobs <- g
 		}
 		close(jobs)
 		for range min(4, len(jobs)) {
 			workers.Add(1)
 			go func() {
 				defer workers.Done()
-				for i := range jobs {
-					values[i] = s.observeRuntime(ctx, records[i])
+				for g := range jobs {
+					if g.fleet == nil {
+						values[g.at[0]] = s.observeRuntime(ctx, records[g.at[0]])
+						continue
+					}
+					s.observeFleet(ctx, g, records, values)
 				}
 			}()
 		}
@@ -158,22 +162,48 @@ func (s *Service) ObserveRuntime(ctx context.Context) error {
 	}
 	return nil
 }
+
+// observationGroup is one job of a sweep: the records at these indexes,
+// observed together by fleet with one look at their target, or a single
+// record observed through its driver when fleet is nil.
+type observationGroup struct {
+	at    []int
+	fleet deploy.FleetObserver
+}
+
+// observationGroups are a pool's jobs: the records on a target whose
+// inventory can observe its whole fleet are one job per target; every
+// other record is a job of its own.
+func (s *Service) observationGroups(records []listingRecord, dockerHost bool) []observationGroup {
+	var out []observationGroup
+	byTarget := map[ids.ID]int{}
+	for i, r := range records {
+		if (r.target != nil && r.target.Kind == KindDockerHost) != dockerHost {
+			continue
+		}
+		if r.target != nil {
+			if g, ok := byTarget[r.target.ID]; ok {
+				out[g].at = append(out[g].at, i)
+				continue
+			}
+			if inv, err := s.providers.TargetInventory(r.target); err == nil {
+				if fleet, ok := inv.(deploy.FleetObserver); ok {
+					byTarget[r.target.ID] = len(out)
+					out = append(out, observationGroup{at: []int{i}, fleet: fleet})
+					continue
+				}
+			}
+		}
+		out = append(out, observationGroup{at: []int{i}})
+	}
+	return out
+}
+
 func (s *Service) observeRuntime(ctx context.Context, r listingRecord) RuntimeObservation {
-	now := s.now()
-	v := RuntimeObservation{}
 	ctx, cancel := context.WithTimeout(ctx, s.observationTimeout)
 	defer cancel()
-	if err := ctx.Err(); err != nil {
-		v.Err = err
-		return v
-	}
-	v.AttemptedAt = now
-	if r.target == nil {
-		v.Err = errors.New("deployment has no target")
-		return v
-	}
-	if r.deployment.DesiredGeneration != r.deployment.ObservedGeneration {
-		v.Err = errors.New("deployment replacement is in progress")
+	v, ok := s.observable(ctx, r)
+	if !ok {
 		return v
 	}
 	driver, err := s.providers.Driver(ctx, r.target, r.deployment)
@@ -182,6 +212,65 @@ func (s *Service) observeRuntime(ctx context.Context, r listingRecord) RuntimeOb
 		return v
 	}
 	observed, err := driver.Observe(ctx, r.deployment.Placement())
+	return s.observed(ctx, v, r, observed, err)
+}
+
+// observeFleet observes a target's records with one look, writing each
+// record's observation at its index. A failed look is every record's error.
+func (s *Service) observeFleet(ctx context.Context, g observationGroup, records []listingRecord, values []RuntimeObservation) {
+	ctx, cancel := context.WithTimeout(ctx, s.observationTimeout)
+	defer cancel()
+	var asked []int
+	var placements []deploy.Placement
+	for _, i := range g.at {
+		v, ok := s.observable(ctx, records[i])
+		values[i] = v
+		if ok {
+			asked = append(asked, i)
+			placements = append(placements, records[i].deployment.Placement())
+		}
+	}
+	if len(asked) == 0 {
+		return
+	}
+	observed, err := g.fleet.ObserveAll(ctx, placements)
+	if err == nil && len(observed) != len(placements) {
+		err = fmt.Errorf("the provider answered %d observations for %d deployments", len(observed), len(placements))
+	}
+	for n, i := range asked {
+		var o deploy.Observation
+		if err == nil {
+			o = observed[n]
+		}
+		values[i] = s.observed(ctx, values[i], records[i], o, err)
+	}
+}
+
+// observable starts a record's observation: when it was attempted, and
+// whether the provider may be asked at all. A record with no target, or
+// whose replacement is in progress, is not asked, so a new workload never
+// inherits the old one's state.
+func (s *Service) observable(ctx context.Context, r listingRecord) (RuntimeObservation, bool) {
+	v := RuntimeObservation{}
+	if err := ctx.Err(); err != nil {
+		v.Err = err
+		return v, false
+	}
+	v.AttemptedAt = s.now()
+	if r.target == nil {
+		v.Err = errors.New("deployment has no target")
+		return v, false
+	}
+	if r.deployment.DesiredGeneration != r.deployment.ObservedGeneration {
+		v.Err = errors.New("deployment replacement is in progress")
+		return v, false
+	}
+	return v, true
+}
+
+// observed finishes a record's observation from the provider's answer: an
+// error, a cut-off look or another generation's answer is not a state.
+func (s *Service) observed(ctx context.Context, v RuntimeObservation, r listingRecord, observed deploy.Observation, err error) RuntimeObservation {
 	if ctx.Err() != nil {
 		err = ctx.Err()
 	}

@@ -59,19 +59,66 @@ func TestEndpointByName(t *testing.T) {
 	}
 }
 
-// What AppTown knows about an intranet deployment is what it recorded:
-// never released is absent; a past release cannot prove current
-// liveness; a stack AppTown did not record creating is its Portainer
-// owner's to take down.
-func TestObserveDoesNotInferLivenessFromTheRecord(t *testing.T) {
-	d := &Driver{TargetID: idstest.N(2)}
-	obs, err := d.Observe(context.Background(), deploy.Placement{Handle: map[string]any{}})
-	if err != nil || obs.Rollout != "absent" || obs.Health != "unknown" {
-		t.Fatalf("never released: %+v %v", obs, err)
+// Portainer says whether each stack's app container runs: one list of the
+// environment's app containers answers every deployment on the target.
+// Running is active; stopped or missing is absent (stopped); a handle with
+// no stack is unknown unless nothing was released; a failed list is an
+// error, never stopped. A stack AppTown did not record creating is its
+// Portainer owner's to take down.
+func TestObserveAsksPortainerWhetherEachStacksAppRuns(t *testing.T) {
+	var lists int
+	failing := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/endpoints":
+			_, _ = w.Write([]byte(`[{"Id":3,"Name":"lan"}]`))
+		case "/api/endpoints/3/docker/containers/json":
+			lists++
+			if failing {
+				w.WriteHeader(502)
+				return
+			}
+			if r.URL.Query().Get("all") != "1" || !strings.Contains(r.URL.Query().Get("filters"), "com.docker.compose.service=app") {
+				t.Errorf("the list asked %s", r.URL.RawQuery)
+			}
+			_, _ = w.Write([]byte(`[
+				{"State":"running","Labels":{"com.docker.compose.project":"apptown-snake","com.docker.compose.service":"app"}},
+				{"State":"exited","Labels":{"com.docker.compose.project":"apptown-racer","com.docker.compose.service":"app"}},
+				{"State":"running","Labels":{"com.docker.compose.project":"apptown-racer","com.docker.compose.service":"postgres"}}]`))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer server.Close()
+	cfg := &Target{PortainerURL: server.URL, PortainerKey: "k", EnvName: "lan"}
+	inv := Inventory{Config: func() (*Target, error) { return cfg, nil }}
+	placed := func(stack string) deploy.Placement {
+		return deploy.Placement{Generation: 4, URL: "https://" + stack, Handle: map[string]any{"stack": stack}}
 	}
-	obs, err = d.Observe(context.Background(), deploy.Placement{Generation: 4, URL: "https://app", Handle: map[string]any{"stack": "app"}})
-	if err != nil || obs.Rollout != "unknown" || obs.Generation != 4 || obs.URL != "https://app" {
-		t.Fatalf("released: %+v %v", obs, err)
+	ps := []deploy.Placement{placed("apptown-snake"), placed("apptown-racer"), placed("apptown-gone"),
+		{Generation: 4, URL: "https://old", Handle: map[string]any{}}, {Handle: map[string]any{}}}
+	got, err := inv.ObserveAll(context.Background(), ps)
+	if err != nil || len(got) != len(ps) {
+		t.Fatalf("observing: %+v %v", got, err)
+	}
+	for i, want := range []string{"active", "absent", "absent", "unknown", "absent"} {
+		if got[i].Rollout != want {
+			t.Errorf("placement %d: %s, want %s", i, got[i].Rollout, want)
+		}
+	}
+	if got[0].Generation != 4 || got[0].URL != "https://apptown-snake" || got[4].Generation != 0 {
+		t.Errorf("observations: %+v", got)
+	}
+	if lists != 1 {
+		t.Errorf("Portainer was asked for its containers %d times for one target", lists)
+	}
+	d := &Driver{TargetID: idstest.N(2), Config: func(ids.ID) (*Target, error) { return cfg, nil }}
+	if o, err := d.Observe(context.Background(), placed("apptown-snake")); err != nil || o.Rollout != "active" {
+		t.Fatalf("one deployment: %+v %v", o, err)
+	}
+	failing = true
+	if got, err := inv.ObserveAll(context.Background(), ps); err == nil {
+		t.Fatalf("a failed list was read as %+v", got)
 	}
 	if _, err := d.Teardown(context.Background(), deploy.Placement{Generation: 4}, 4, deploy.TakeDown{}); err == nil || !strings.Contains(err.Error(), "did not record creating") {
 		t.Fatalf("a stack AppTown did not make was taken down: %v", err)

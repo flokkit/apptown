@@ -283,16 +283,108 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		URL: p.URL, Handle: p.Handle, Log: logf, Owner: d.Owner}).Execute(ctx, generation, checkpoint)
 }
 
+// Observe asks Portainer whether the deployment's stack's app container
+// runs (observeStacks).
 func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observation, error) {
-	// No live lookup is available here. Preserve the recorded address without
-	// turning a past release into a claim that the app is running now.
-	if err := ctx.Err(); err != nil {
+	cfg, err := d.Config(d.TargetID)
+	if err != nil {
 		return deploy.Observation{}, err
 	}
-	if p.Generation == 0 && p.URL == "" {
-		return deploy.Observation{Rollout: "absent", Health: "unknown"}, nil
+	out, err := observeStacks(ctx, cfg, []deploy.Placement{p})
+	if err != nil {
+		return deploy.Observation{}, err
 	}
-	return deploy.Observation{Generation: p.Generation, Rollout: "unknown", Health: "unknown", URL: p.URL}, nil
+	return out[0], nil
+}
+
+// appLabels are the Compose labels on a stack's app container: Portainer
+// runs each stack as the Compose project of its name, and AppTown's stacks
+// name the app's service "app" (deploy.IntranetCompose).
+const (
+	composeProject = "com.docker.compose.project"
+	composeService = "com.docker.compose.service"
+)
+
+// observeStacks says, for each placement, whether its stack's app container
+// runs, from one list of the environment's app containers through
+// Portainer's Docker proxy. Running is "active"; a container that exists
+// and does not run, or none at all, is "absent", as on a Docker host. A
+// placement whose handle names no stack is unknown, unless nothing was ever
+// released there. A failed look is an error for every placement: it is
+// never read as stopped. It reports the recorded generation: Portainer's
+// stacks carry no AppTown identity, so this says whether the app runs, not
+// which release.
+func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]deploy.Observation, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]deploy.Observation, len(ps))
+	var asked bool
+	for i, p := range ps {
+		out[i] = deploy.Observation{Generation: p.Generation, Rollout: "unknown", Health: "unknown", URL: p.URL}
+		if stack, _ := p.Handle["stack"].(string); stack != "" {
+			asked = true
+		} else if p.Generation == 0 && p.URL == "" {
+			out[i] = deploy.Observation{Rollout: "absent", Health: "unknown"}
+		}
+	}
+	if !asked {
+		return out, nil
+	}
+	endpointID, err := EndpointID(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	running, err := appContainers(ctx, cfg, endpointID)
+	if err != nil {
+		return nil, err
+	}
+	for i, p := range ps {
+		stack, _ := p.Handle["stack"].(string)
+		if stack == "" {
+			continue
+		}
+		if running[strings.ToLower(stack)] {
+			out[i].Rollout, out[i].Health = "active", "healthy"
+		} else {
+			out[i].Rollout, out[i].Health = "absent", "unhealthy"
+		}
+	}
+	return out, nil
+}
+
+// appContainers lists the environment's app containers, stopped ones too,
+// and says per Compose project (lower case) whether one of them runs. A
+// project with only stopped app containers is false; one with none is
+// missing, which reads the same.
+func appContainers(ctx context.Context, cfg *Target, endpointID int64) (map[string]bool, error) {
+	filters := url.QueryEscape(`{"label":["` + composeService + `=app"]}`)
+	code, raw, err := JSON(ctx, cfg, "GET", fmt.Sprintf("/api/endpoints/%d/docker/containers/json?all=1&filters=%s", endpointID, filters), nil)
+	if err != nil {
+		return nil, fmt.Errorf("listing the app containers in Portainer's environment %q: %w", cfg.EnvName, err)
+	}
+	if code != 200 {
+		return nil, fmt.Errorf("listing the app containers in Portainer's environment %q: HTTP %d", cfg.EnvName, code)
+	}
+	var containers []struct {
+		State  string            `json:"State"`
+		Labels map[string]string `json:"Labels"`
+	}
+	if err := json.Unmarshal(raw, &containers); err != nil {
+		return nil, fmt.Errorf("reading the app containers in Portainer's environment %q: %w", cfg.EnvName, err)
+	}
+	if containers == nil {
+		return nil, fmt.Errorf("Portainer's environment %q answered no container list", cfg.EnvName)
+	}
+	running := map[string]bool{}
+	for _, c := range containers {
+		if c.Labels[composeService] != "app" || c.Labels[composeProject] == "" {
+			continue
+		}
+		project := strings.ToLower(c.Labels[composeProject])
+		running[project] = running[project] || c.State == "running"
+	}
+	return running, nil
 }
 
 // Teardown deletes the stack AppTown recorded creating for the
@@ -539,9 +631,20 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	return res, nil
 }
 
+// ObserveAll observes every listed deployment on the target with one list
+// of its app containers (observeStacks).
+func (i Inventory) ObserveAll(ctx context.Context, ps []deploy.Placement) ([]deploy.Observation, error) {
+	cfg, err := i.Config()
+	if err != nil {
+		return nil, err
+	}
+	return observeStacks(ctx, cfg, ps)
+}
+
 // The driver implements the contract it is registered under.
 var (
-	_ deploy.Driver = (*Driver)(nil)
+	_ deploy.Driver        = (*Driver)(nil)
+	_ deploy.FleetObserver = Inventory{}
 )
 
 // EndpointCapacity is what the endpoint's Docker says it can give

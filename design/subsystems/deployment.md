@@ -1038,6 +1038,14 @@ have up to four workers. Provider calls have five-second deadlines, the sampling
 phase a ten-second budget, and identity revalidation up to five seconds. Oldest
 or unattempted placements go first. These deadlines require operations that observe cancellation.
 
+A target whose inventory can observe its whole fleet (`deploy.FleetObserver`)
+is one job per sweep, not one per deployment. Portainer is one: one list of
+the environment's app containers, through its Docker proxy, says for each
+stack whether its `app` container runs. Running is running; a stopped or
+missing app container is stopped; a failed list is unknown for every
+deployment on the target. It says whether the app runs, not which
+generation: Portainer stacks carry no AppTown identity labels.
+
 Samples are stale after 45 seconds or a refresh error. A failed refresh may retain
 stale last-known state. Missing data or an in-flight replacement is unknown,
 not stopped. Routing and live commands perform their own checks.

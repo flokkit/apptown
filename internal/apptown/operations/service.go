@@ -573,8 +573,9 @@ func (s *Service) Dismiss(ctx context.Context, id ids.ID, who string) error {
 	return nil
 }
 
-// EndedFor is what has ended of the operations a person asked for and not
-// yet put away: what waits on them.
+// EndedFor is the operations a person asked for that ended failed or
+// unknown and that they have not put away: what waits on them. A success or
+// a cancellation needs nobody, so it is not here; its own page shows it.
 func (s *Service) EndedFor(ctx context.Context, who string) ([]Operation, error) {
 	person, err := identity.ActorIn(ctx, s.db, who)
 	if err != nil {

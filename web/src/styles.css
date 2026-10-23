@@ -786,6 +786,10 @@ a.int-name:hover { color: var(--accent-hover); }
 .dash-head > a { margin-bottom: 12px; }
 .dash-projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 10px; }
 .dash-projects .card { margin-bottom: 0; min-width: 0; }
+/* A deployment's address and badge stay inside the card at any length: the
+   badge moves under the name and its words wrap, so nothing is cut off. */
+.dash-projects .dash-app { max-width: 100%; min-width: 0; }
+.dash-projects .chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; vertical-align: middle; }
 
 /* Cards in a row are one height, their footers on one line. */
 .conn-grid.even { align-items: stretch; }
@@ -1166,7 +1170,7 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 }
 @media (max-width: 800px), (pointer: coarse) {
   .topbar-logo { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; }
-  a.dash-app { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+  a.dash-app { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 44px; }
 }
 @media (max-width: 800px) {
   .int-pagehead { flex-direction: column; align-items: stretch; gap: 12px; }

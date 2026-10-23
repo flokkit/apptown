@@ -81,7 +81,7 @@ func (q *Queries) DismissOperation(ctx context.Context, arg DismissOperationPara
 }
 
 const endedFor = `-- name: EndedFor :many
-SELECT id, number, kind, project_id, subject, holds, asked_by, asked_by_principal, authority, input, state, steps, result, detail, cancel_requested, job_id, created_at, started_at, touched_at, finished_at, dismissed_at FROM operations WHERE (asked_by_principal = $1 OR (asked_by_principal IS NULL AND asked_by=$2)) AND state NOT IN ('queued','running') AND dismissed_at IS NULL
+SELECT id, number, kind, project_id, subject, holds, asked_by, asked_by_principal, authority, input, state, steps, result, detail, cancel_requested, job_id, created_at, started_at, touched_at, finished_at, dismissed_at FROM operations WHERE (asked_by_principal = $1 OR (asked_by_principal IS NULL AND asked_by=$2)) AND state IN ('failed','unknown') AND dismissed_at IS NULL
   ORDER BY id DESC LIMIT 50
 `
 
@@ -90,6 +90,8 @@ type EndedForParams struct {
 	AskedBy          string
 }
 
+// What waits on the person who asked: an operation that failed, or whose
+// outcome is not known. A success or a cancellation needs nobody.
 func (q *Queries) EndedFor(ctx context.Context, arg EndedForParams) ([]Operation, error) {
 	rows, err := q.db.QueryContext(ctx, endedFor, arg.AskedByPrincipal, arg.AskedBy)
 	if err != nil {
