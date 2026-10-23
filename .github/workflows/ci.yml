@@ -52,6 +52,9 @@ jobs:
         working-directory: web
       - run: npm test
         working-directory: web
+      # The registry's advisory service, for web/ and the starter seeds:
+      # high or critical fails, and so does a report npm could not get.
+      - run: make check-npm-audit
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: web-dist

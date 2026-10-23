@@ -1,4 +1,4 @@
-.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-npm-scripts check-docs check-public check-ci-heavy tour
+.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-npm-scripts check-npm-audit check-docs check-public check-ci-heavy tour
 
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
@@ -122,6 +122,12 @@ check-pins:             ## the tools the apptown runs for projects have one vers
 check-npm-scripts:      ## no dependency's install script runs in AppTown's own npm installs: web/.npmrc, web/install-scripts.txt
 	python3 scripts/npm-scripts-check_test.py
 	python3 scripts/npm-scripts-check.py
+
+# Asks the registry's advisory service, so CI runs it (ci.yml's web job) and
+# make check, which needs no network, does not.
+check-npm-audit:        ## no unexcused high or critical npm advisory in web/ (without dev) or a starter seed (with dev): scripts/npm-audit-exceptions.txt
+	python3 scripts/npm-audit-check_test.py
+	python3 scripts/npm-audit-check.py
 
 check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; shipped guides' and release notes' links work on GitHub and the Docs page; the tour is complete; the names people see only lose their old spelling (names-check)
 	python3 scripts/docs-current_test.py
