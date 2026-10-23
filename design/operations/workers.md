@@ -259,6 +259,13 @@ observation says whether Docker killed it at its memory limit, so an AppTown
 speaking 2 never hears a worker that cannot say (which would read such a
 kill as an ordinary exit); a worker serves 1 and 2.
 
+Behind a company's TLS-inspecting proxy, give the worker the company
+authority's certificate as a PEM file: `-trust-deployments` for its
+connections to registries (the reachability check before a chat opens), and
+`-trust-apptown` for its other connections. They are read as AppTown's
+flags of the same names are (Setting up a server); the worker calls no model
+provider, so it has no `-trust-inference`.
+
 ### The tool cache
 
 Every script, agent, review and tests step, and every chat, installs the

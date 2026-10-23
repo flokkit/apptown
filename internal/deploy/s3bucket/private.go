@@ -12,6 +12,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Private objects: what a backup store holds. Unlike the website's
@@ -46,7 +48,8 @@ var streaming = &http.Client{Transport: transport}
 // under a request whenever anything calls CloseIdleConnections on it (every
 // httptest.Server.Close does), and the request fails with "connection
 // broken" though the store never answered.
-var transport = http.DefaultTransport.(*http.Transport).Clone()
+// It trusts the AppTown use (internal/trust): the store is a provider API.
+var transport = trust.Lazy(trust.AppTown)
 
 // PutPrivate writes a small object, private.
 func (c *Client) PutPrivate(ctx context.Context, bucket, key, contentType string, body []byte) error {

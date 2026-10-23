@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 type inferenceDiscovery struct {
@@ -75,7 +76,7 @@ func fetchModels(p *inferenceProvider) ([]string, error) {
 		return nil, err
 	}
 	p.authorize(req.Header)
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport := trust.Transport(trust.Inference)
 	transport.Proxy = nil
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}

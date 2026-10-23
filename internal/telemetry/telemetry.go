@@ -5,6 +5,7 @@ package telemetry
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
@@ -24,6 +25,9 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc/credentials"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Config names where to export and what the exporting process is.
@@ -80,17 +84,28 @@ func Start(ctx context.Context, cfg Config) (*Providers, error) {
 		return nil, err
 	}
 
+	// The collector is one of AppTown's own connections: it trusts the
+	// AppTown use (internal/trust). The exporters keep transports of their
+	// own, so the roots are given to each; nil keeps their default.
+	var roots *tls.Config
+	if pool := trust.Current().Pool(trust.AppTown); pool != nil {
+		roots = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	}
 	var traceExporter sdktrace.SpanExporter
 	if proto == "grpc" {
 		opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(cfg.Endpoint), otlptracegrpc.WithHeaders(cfg.Headers)}
 		if cfg.Insecure {
 			opts = append(opts, otlptracegrpc.WithInsecure())
+		} else if roots != nil {
+			opts = append(opts, otlptracegrpc.WithTLSCredentials(credentials.NewTLS(roots)))
 		}
 		traceExporter, err = otlptracegrpc.New(ctx, opts...)
 	} else {
 		opts := []otlptracehttp.Option{otlptracehttp.WithEndpoint(cfg.Endpoint), otlptracehttp.WithHeaders(cfg.Headers)}
 		if cfg.Insecure {
 			opts = append(opts, otlptracehttp.WithInsecure())
+		} else if roots != nil {
+			opts = append(opts, otlptracehttp.WithTLSClientConfig(roots))
 		}
 		traceExporter, err = otlptracehttp.New(ctx, opts...)
 	}
@@ -105,6 +120,9 @@ func Start(ctx context.Context, cfg Config) (*Providers, error) {
 		if cfg.Insecure {
 			mopts = append(mopts, otlpmetricgrpc.WithInsecure())
 			lopts = append(lopts, otlploggrpc.WithInsecure())
+		} else if roots != nil {
+			mopts = append(mopts, otlpmetricgrpc.WithTLSCredentials(credentials.NewTLS(roots)))
+			lopts = append(lopts, otlploggrpc.WithTLSCredentials(credentials.NewTLS(roots)))
 		}
 		if metricExporter, err = otlpmetricgrpc.New(ctx, mopts...); err != nil {
 			return nil, fmt.Errorf("telemetry: metric exporter: %w", err)
@@ -118,6 +136,9 @@ func Start(ctx context.Context, cfg Config) (*Providers, error) {
 		if cfg.Insecure {
 			mopts = append(mopts, otlpmetrichttp.WithInsecure())
 			lopts = append(lopts, otlploghttp.WithInsecure())
+		} else if roots != nil {
+			mopts = append(mopts, otlpmetrichttp.WithTLSClientConfig(roots))
+			lopts = append(lopts, otlploghttp.WithTLSClientConfig(roots))
 		}
 		if metricExporter, err = otlpmetrichttp.New(ctx, mopts...); err != nil {
 			return nil, fmt.Errorf("telemetry: metric exporter: %w", err)

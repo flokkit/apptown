@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Config is the provider's binding config: references and settings,
@@ -33,7 +35,8 @@ type Client struct {
 // apiTransport is the API client's pool of connections, one nothing else in
 // the process closes: http.DefaultTransport's are closed by anything that
 // calls CloseIdleConnections on it, every httptest.Server.Close among them.
-var apiTransport = http.DefaultTransport.(*http.Transport).Clone()
+// It trusts the AppTown use (internal/trust).
+var apiTransport = trust.Lazy(trust.AppTown)
 
 // NewClient talks to the API with a token resolved at use time: the token
 // lives in the secrets store, never in a row. An empty base selects the public API.

@@ -26,6 +26,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/oci"
 	"github.com/flokkit/apptown/internal/strs"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Root is where a self-serving static image keeps its site.
@@ -237,6 +238,10 @@ func Answer(ctx context.Context, address string) (status int, body string, err e
 	return fetch(ctx, strings.TrimRight(address, "/")+appcontract.ReleasePath, 0)
 }
 
+// witnessClient asks a published site for its marker: a deployment address,
+// so it trusts the deployments use (internal/trust).
+var witnessClient = &http.Client{Transport: trust.Lazy(trust.Deployments)}
+
 func fetch(ctx context.Context, url string, try int) (int, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
@@ -245,7 +250,7 @@ func fetch(ctx context.Context, url string, try int) (int, string, error) {
 		return 0, "", err
 	}
 	req.Header.Set("Cache-Control", "no-cache")
-	res, err := http.DefaultClient.Do(req)
+	res, err := witnessClient.Do(req)
 	if err != nil {
 		return 0, "", err
 	}

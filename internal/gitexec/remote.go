@@ -59,7 +59,7 @@ func remoteCommand(ctx context.Context, dir string, r Remote, args []string) (*e
 	if dir != "" {
 		cmd.Dir = dir
 	}
-	cmd.Env = append(cmd.Env, "GIT_TERMINAL_PROMPT=0")
+	cmd.Env = append(append(cmd.Env, "GIT_TERMINAL_PROMPT=0"), trustEnv()...)
 	if r.Password != "" {
 		helper := filepath.Join(envValue(cmd.Env, "HOME"), "askpass")
 		if err := os.WriteFile(helper, []byte(askpass), 0o700); err != nil {

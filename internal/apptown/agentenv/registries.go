@@ -13,6 +13,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Package registries & mirrors (design/subsystems/registries.md): one binding = ONE
@@ -410,7 +411,9 @@ func ProbeRegistry(format, url string) integration.Health {
 		return integration.Health{OK: false, Detail: "url is required"}
 	}
 	probe := strings.TrimSuffix(url, "/") + ad.testPath
-	client := &http.Client{Timeout: 20 * time.Second}
+	// A registry: the deployments use (internal/trust).
+	client := &http.Client{Timeout: 20 * time.Second, Transport: trust.Transport(trust.Deployments)}
+	defer client.CloseIdleConnections()
 	try := func(method string) (int, error) {
 		req, err := http.NewRequest(method, probe, nil)
 		if err != nil {

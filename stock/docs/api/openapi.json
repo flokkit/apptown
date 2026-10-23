@@ -1914,6 +1914,14 @@
         ],
         "type": "object"
       },
+      "MemoryDefault": {
+        "properties": {
+          "memory": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "NextAct": {
         "properties": {
           "act": {
@@ -2197,6 +2205,241 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "PackDrop": {
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "item",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "PackPolicy": {
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          },
+          "with": {
+            "additionalProperties": {},
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "rule",
+          "with"
+        ],
+        "type": "object"
+      },
+      "PackSpec": {
+        "properties": {
+          "clears": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "drops": {
+            "items": {
+              "$ref": "#/components/schemas/PackDrop"
+            },
+            "type": "array"
+          },
+          "extensions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "guidance": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "includes": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "boolean"
+          },
+          "policies": {
+            "items": {
+              "$ref": "#/components/schemas/PackPolicy"
+            },
+            "type": "array"
+          },
+          "replaces": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "requires": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/MemoryDefault"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceSpec"
+            },
+            "type": "array"
+          },
+          "starter": {
+            "type": "string"
+          },
+          "toolchain": {
+            "type": "string"
+          },
+          "workflows": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "guidance",
+          "workflows",
+          "policies"
+        ],
+        "type": "object"
+      },
+      "PackView": {
+        "properties": {
+          "apiVersion": {
+            "type": "string"
+          },
+          "clears": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "declaration": {
+            "$ref": "#/components/schemas/PackSpec"
+          },
+          "description": {
+            "type": "string"
+          },
+          "drops": {
+            "items": {
+              "$ref": "#/components/schemas/PackDrop"
+            },
+            "type": "array"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "extensions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "generatedBytes": {
+            "type": "integer"
+          },
+          "guidance": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "guidanceBytes": {
+            "type": "integer"
+          },
+          "includes": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "boolean"
+          },
+          "policies": {
+            "items": {
+              "$ref": "#/components/schemas/PackPolicy"
+            },
+            "type": "array"
+          },
+          "replaces": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "requires": {
+            "items": {
+              "$ref": "#/components/schemas/packRequirement"
+            },
+            "type": "array"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/MemoryDefault"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ServiceSpec"
+            },
+            "type": "array"
+          },
+          "starter": {
+            "type": "string"
+          },
+          "staticStarter": {
+            "type": "boolean"
+          },
+          "toolchain": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "workflows": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "guidance",
+          "workflows",
+          "policies",
+          "origin",
+          "enabled",
+          "requires",
+          "guidanceBytes",
+          "generatedBytes",
+          "declaration"
+        ],
         "type": "object"
       },
       "Placement": {
@@ -2862,6 +3105,17 @@
         },
         "type": "object"
       },
+      "Resources": {
+        "properties": {
+          "cpus": {
+            "type": "number"
+          },
+          "memoryBytes": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
       "Run": {
         "properties": {
           "adoptionId": {
@@ -3103,6 +3357,64 @@
           "name",
           "required",
           "bound"
+        ],
+        "type": "object"
+      },
+      "ServiceSpec": {
+        "properties": {
+          "command": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "configAtStart": {
+            "type": "boolean"
+          },
+          "credentials": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "type": "string"
+          },
+          "entrypoint": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "env": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "health": {
+            "type": "string"
+          },
+          "image": {
+            "type": "string"
+          },
+          "keepsImage": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/Resources"
+          }
+        },
+        "required": [
+          "name",
+          "image",
+          "env"
         ],
         "type": "object"
       },
@@ -3409,6 +3721,27 @@
           "deployment",
           "state",
           "serving"
+        ],
+        "type": "object"
+      },
+      "packRequirement": {
+        "properties": {
+          "binding": {
+            "type": "string"
+          },
+          "bound": {
+            "type": "boolean"
+          },
+          "capability": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "capability",
+          "bound"
         ],
         "type": "object"
       }
@@ -7217,8 +7550,18 @@
       "get": {
         "operationId": "getPacks",
         "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PackView"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
           },
           "default": {
             "$ref": "#/components/responses/Refusal"
@@ -7231,7 +7574,8 @@
           "contract": "packs.Packs: shared published pack library",
           "kind": "public"
         },
-        "x-apptown-stability": "experimental"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       },
       "post": {
         "operationId": "postPacks",

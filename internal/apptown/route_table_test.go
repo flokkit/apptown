@@ -483,6 +483,7 @@ var cliOperations = map[string]described{
 	"GET /api/v1/scm/namespaces":                             {status: 200, response: httpapi.RemoteNamespaces{}},
 	"POST /api/v1/projects/{slug}/toolchain":                 {request: httpapi.ToolchainChoice{}, status: 200, response: httpapi.ToolchainWritten{}},
 	"POST /api/v1/projects/{slug}/pack":                      {request: httpapi.PackChoice{}, status: 200, response: projectlifecycle.PackApplied{}},
+	"GET /api/v1/packs":                                      {status: 200, response: []httpapi.PackView{}},
 	"GET /api/v1/projects/{slug}/secrets":                    {status: 200, response: httpapi.ProjectSecrets{}},
 	"GET /api/v1/projects/{slug}/board":                      {status: 200, response: httpapi.ChangeBoard{}},
 	"POST /api/v1/projects/{slug}/changes":                   {request: httpapi.ChangeRequest{}, status: 201, response: httpapi.CreatedChange{}},

@@ -39,6 +39,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 var (
@@ -108,12 +110,16 @@ func platformOf(osName, arch, variant string) (string, error) {
 	return p, nil
 }
 
+// registryTransport is the registries' pool: they trust the deployments
+// use (internal/trust).
+var registryTransport = trust.Lazy(trust.Deployments)
+
 func options(ctx context.Context, c Credential) []remote.Option {
 	auth := authn.Anonymous
 	if c.Username != "" || c.Password != "" {
 		auth = &authn.Basic{Username: c.Username, Password: c.Password}
 	}
-	return []remote.Option{remote.WithContext(ctx), remote.WithAuth(auth)}
+	return []remote.Option{remote.WithContext(ctx), remote.WithAuth(auth), remote.WithTransport(registryTransport)}
 }
 
 func repositoryOf(s string) (name.Repository, error) {

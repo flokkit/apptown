@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/oci"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Driver is the App Platform target: renderer, reconciler and the
@@ -100,7 +101,8 @@ func NewDriver(deps Dependencies, options Options) *Driver {
 	if options.Dial == nil {
 		options.Dial = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext
 	}
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// The app's own front door: the deployments use (internal/trust).
+	transport := trust.Transport(trust.Deployments)
 	transport.DialContext = options.Dial
 	frontDoor := &http.Client{Timeout: 15 * time.Second, Transport: transport}
 	options.Now = clock.Or(options.Now)

@@ -29,6 +29,7 @@ import (
 	"github.com/flokkit/apptown/internal/clock"
 
 	"github.com/flokkit/apptown/internal/apptown/usage"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Gateway owns transport and admission. Authentication, bindings and
@@ -87,7 +88,7 @@ func ParseConfig(runtimeURL string, cidrs []string) ([]netip.Prefix, error) {
 // New binds current workload authority, private providers and durable accounting.
 // The request transport never captures the application composition root.
 func New(networks []netip.Prefix, identities Identity, catalog *Catalog, requests *usage.Requests) *Gateway {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport := trust.Transport(trust.Inference)
 	transport.Proxy = nil
 	transport.ResponseHeaderTimeout = 2 * time.Minute
 	accounting := receipts{requests: requests}

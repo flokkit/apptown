@@ -31,6 +31,7 @@ import (
 	"github.com/flokkit/apptown/internal/console/pi"
 	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/worker"
 )
 
@@ -53,6 +54,8 @@ func main() {
 		servicePIDs   = flag.Int64("service-pids", execution.DefaultServiceLimits.PIDs, "processes for each service run beside a check or a task")
 		exclusive     = flag.Bool("exclusive", false, "declare that this machine is the installation's alone: nothing else runs on it. Recorded in the worker's profile with every private-Docker attempt; it is not measured")
 		checkMetadata = flag.Bool("check-metadata", false, "say whether a container on this host reaches the cloud metadata service ("+metadataAddress+"), then exit; the install blocks it")
+		trustDeploy   = flag.String("trust-deployments", "", "a PEM file of extra certificate authorities the worker's connections to registries trust, beside the system's (a company's TLS-inspecting proxy)")
+		trustAppTown  = flag.String("trust-apptown", "", "a PEM file of extra certificate authorities the worker's other connections trust, beside the system's")
 		showVersion   = flag.Bool("version", false, "print this build's version and AppTown protocols it serves, and exit")
 	)
 	flag.Parse()
@@ -102,6 +105,18 @@ func main() {
 	if err := os.MkdirAll(*state, 0o700); err != nil {
 		log.Fatal(err)
 	}
+	// Before anything makes a connection: every client trusts its use's
+	// bundle from here on (internal/trust). The worker calls no model
+	// provider, so it has no inference bundle.
+	bundles, err := trust.Read(map[trust.Use]string{trust.Deployments: *trustDeploy, trust.AppTown: *trustAppTown})
+	if err != nil {
+		log.Fatal(err)
+	}
+	trusted, err := trust.New(filepath.Join(*state, "trust"), bundles)
+	if err != nil {
+		log.Fatal(err)
+	}
+	trust.Install(trusted)
 	// One download cache for the toolchains projects declare, shared by
 	// every container here (worker/tool_cache.go). Removing what is in it
 	// is safe while nothing runs; mise fetches again.

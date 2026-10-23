@@ -1472,3 +1472,38 @@ func TestExecutingCountsARunningOperation(t *testing.T) {
 		}
 	}
 }
+
+// A project made without a pack has only the platform's workflows, so
+// apptown new names the step that gives it a way of working, with the packs
+// offered here, and no command that asks for a change (quick, build), which
+// would be refused.
+func TestNewWithoutAPackNamesThePackStepNotAChange(t *testing.T) {
+	for name, tc := range map[string]struct {
+		packs, want string
+	}{
+		"offered": {`[{"name":"apptown","platform":true,"enabled":true},{"name":"go-small","enabled":true},{"name":"rails","enabled":false},{"name":"html-game","enabled":true}]`, "offered here: go-small, html-game"},
+		"unread":  {"", "Packs page"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fakeAppTown(t, func(_, path string) (int, string) {
+				switch path {
+				case "/projects":
+					return 200, `{"slug":"shop"}`
+				case "/projects/shop/repo":
+					return 200, `{"defaultBranch":"main"}`
+				case "/packs":
+					if tc.packs == "" {
+						return 500, `{"error":"down"}`
+					}
+					return 200, tc.packs
+				}
+				return 404, `{"error":"no"}`
+			})
+			out, err := run(t, "new", "shop")
+			if err != nil || !strings.Contains(out, "apptown pack -p shop <pack>") || !strings.Contains(out, tc.want) ||
+				strings.Contains(out, "apptown quick") || strings.Contains(out, "apptown build") || strings.Contains(out, "rails") {
+				t.Fatalf("new without a pack: %v\n%s", err, out)
+			}
+		})
+	}
+}

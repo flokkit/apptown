@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"io"
 	"net"
@@ -25,7 +27,9 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/localtls"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 )
@@ -573,6 +577,46 @@ func TestTheWorkerSaysWhichRegistriesItCanReach(t *testing.T) {
 	}
 	if len(got) != 3 || !got[0].Reachable || got[1].Reachable || got[1].Error == "" || got[2].Reachable {
 		t.Fatalf("reach: %+v", got)
+	}
+}
+
+// A registry behind a company's TLS-inspecting proxy answers with a
+// certificate its CA signed: the worker's reachability check trusts the
+// deployments bundle it was started with, so the registry counts as
+// reachable, and without that bundle it does not.
+//
+// Not parallel: it installs the process's trust.
+func TestTheWorkerReachesARegistryItsDeploymentsBundleTrusts(t *testing.T) {
+	ctx := context.Background()
+	c := startRemoteChats(t, consoletest.Static{})
+	ca, err := localtls.Load(t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusUnauthorized) })}
+	go registry.Serve(tls.NewListener(listener, ca.TLSConfig()))
+	t.Cleanup(func() { registry.Close() })
+	url := "https://localhost:" + strings.TrimPrefix(listener.Addr().String(), "127.0.0.1:") + "/v2/"
+
+	if got, err := c.client.Reach(ctx, []string{url}); err != nil || len(got) != 1 || got[0].Reachable {
+		t.Fatalf("without the bundle the registry's certificate was trusted: %+v %v", got, err)
+	}
+	b, err := trust.Parse(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: ca.Certificate().Raw}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := trust.New(t.TempDir(), map[trust.Use]trust.Bundle{trust.Deployments: b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	trust.Install(set)
+	t.Cleanup(func() { trust.Install(nil) })
+	if got, err := c.client.Reach(ctx, []string{url}); err != nil || len(got) != 1 || !got[0].Reachable {
+		t.Fatalf("with the deployments bundle: %+v %v", got, err)
 	}
 }
 

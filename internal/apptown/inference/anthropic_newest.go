@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // AnthropicBase is Anthropic's API address, as a built-in anthropic binding
@@ -28,7 +30,7 @@ func AnthropicNewest(ctx context.Context, base, key, family string) (string, err
 	p.authorize(req.Header)
 	req.Header.Set("Anthropic-Version", "2023-06-01")
 	// Its own pool, no proxy and no redirects: the key goes to base only.
-	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport := trust.Transport(trust.Inference)
 	transport.Proxy = nil
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
