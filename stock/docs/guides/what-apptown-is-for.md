@@ -33,10 +33,10 @@ several, one for its Python web apps and one for its static sites, say.
 Changing how a team works is a change to that data, not to AppTown.
 
 Apps describe how they run in one small file, `.apptown/app.yaml`
-([the app contract](/docs/guides/contract-reference)). AppTown runs them on a
+([the app contract](contract-reference.md)). AppTown runs them on a
 Docker host, in a Portainer environment, on DigitalOcean App Platform or as a
 bucket website, and gives each app the databases and storage it declares,
-backed up ([Previews and deployments](/docs/guides/container-lifecycle) says
+backed up ([Previews and deployments](container-lifecycle.md) says
 what each target gets).
 
 ## Who it is for
@@ -53,7 +53,7 @@ image, which you can take elsewhere.
 
 ## Read next
 
-- [Start here](/docs/guides/quickstart): make a first change.
-- [How AppTown works](/docs/guides/architecture): the pieces and how a change
+- [Start here](quickstart.md): make a first change.
+- [How AppTown works](architecture.md): the pieces and how a change
   moves.
-- [What 1.0 promises](/docs/guides/compatibility).
+- [What 1.0 promises](compatibility.md).

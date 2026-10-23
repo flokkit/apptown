@@ -15,7 +15,7 @@ your repo.
 
 This page is about package mirrors. The container registry that holds a
 project's release images is separate; see
-[Previews and deployments](/docs/guides/container-lifecycle).
+[Previews and deployments](../guides/container-lifecycle.md).
 
 ## What you get
 

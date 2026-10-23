@@ -2,7 +2,7 @@
 
 What an app must do to run on AppTown, and what AppTown does in return. It
 applies on every deployment target unless a sentence names one. This page is
-what 1.x keeps stable ([What 1.0 promises](/docs/guides/compatibility)).
+what 1.x keeps stable ([What 1.0 promises](compatibility.md)).
 Workflows, checks and approvals are not part of it; they have their own
 guides.
 
@@ -11,8 +11,8 @@ guides.
 | File | What it is for |
 | --- | --- |
 | `.apptown/app.yaml` | how the app runs: its parts, its needs, its startup steps |
-| `secretspec.toml` | the secrets each part needs ([Secrets](/docs/guides/secrets)) |
-| `mise.toml`, `.mise.toml` or `.config/mise/config.toml` | the development tools a chat or step installs ([Project toolchains](/docs/guides/toolchains)) |
+| `secretspec.toml` | the secrets each part needs ([Secrets](secrets.md)) |
+| `mise.toml`, `.mise.toml` or `.config/mise/config.toml` | the development tools a chat or step installs ([Project toolchains](toolchains.md)) |
 | a `Dockerfile` in each build context | how a `build` part's image is made |
 | `.agents/skills/` | skills the project gives AppTown's agents |
 
@@ -95,7 +95,7 @@ needs:
   and `resources`; any other is refused. The words `kind`, `prefix` and `as`
   are kept for naming two needs of one kind later.
   What each need gives the app is in
-  [What each need gives the app](/docs/guides/services-and-data).
+  [What each need gives the app](services-and-data.md).
 - **`secrets`** chooses the `secretspec.toml` declaration (`spec`, a file
   inside the project, written relative) and how values are
   generated and delivered. Delivery is by environment variable; `file`
@@ -221,7 +221,7 @@ needs:
 ```
 
 - `<need>` is a need the app declares, and `<VARIABLE>` one of the
-  variables that need gives ([Services and data](/docs/guides/services-and-data)).
+  variables that need gives ([Services and data](services-and-data.md)).
   Anything else is refused: any other `${needs.`, or a need the app does
   not declare, when the contract is read; a variable the need does not give,
   before a deploy.
@@ -385,7 +385,7 @@ app serves under it is error reporting's test hook, `/_apptown/boom`.
 
 An app whose only part is one public `static` part, with no `init` and no
 `needs`, can also be deployed to a bucket website
-([Previews and deployments](/docs/guides/container-lifecycle)).
+([Previews and deployments](container-lifecycle.md)).
 
 ## Resources and profiles
 
@@ -491,15 +491,15 @@ check, a rehearsal reads "passed: booted and ready; no data check
 declared". In a rehearsal only the public part starts, on a network of its
 own, with no published port and no address. Software on the host it runs
 on can still reach it: that is a host kept for rehearsals, or the app's own
-host when none is kept (see [Deployment backups](/docs/guides/deployment-backups),
+host when none is kept (see [Deployment backups](deployment-backups.md),
 "Where restore rehearsals run"). `APPTOWN_ORIGINS` holds the source
 deployment's address, so the app accepts requests made as if to it. Which secrets a rehearsal gets is
-in [Secrets](/docs/guides/secrets).
+in [Secrets](secrets.md).
 
 ## On your own computer
 
 `apptown dev` runs the same contract on your machine: the needs, with their
 variables written to `.apptown/dev.env`, or the whole app in containers. See
-[Running your app while you work](/docs/guides/how-apps-run). It is useful
+[Running your app while you work](how-apps-run.md). It is useful
 evidence; the preview and the deploy still boot the app from its contract
 on their own.

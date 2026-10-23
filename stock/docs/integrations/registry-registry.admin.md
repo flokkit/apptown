@@ -53,7 +53,7 @@ public upstreams — a build that can't reach a mirror falls back to the
 real registry rather than failing. (Enforced egress containment is a
 separate concern, not a per-binding flag.) A step that declares
 `docker: true` gets a private Docker daemon ([runtime
-environments](/docs/guides/runtime-environments)); that daemon pulls
+environments](../guides/runtime-environments.md)); that daemon pulls
 Docker Hub images through the `docker-hub` binding when one exists. The
 mirror wiring needs no configuration in a repository or workflow; the
 daemon itself is the workflow's choice.

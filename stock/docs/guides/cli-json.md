@@ -3,7 +3,7 @@
 The core-loop commands (`new`, `fix`, `quick`, `plan`, `build`, `land`,
 `show`, `changes`, `wait`, `approve`, `release`, `complain` and `version`)
 take `--json`. A script reads these fields; they are stable through 1.x, as
-[What 1.0 promises](/docs/guides/compatibility) says. A field may be added;
+[What 1.0 promises](compatibility.md) says. A field may be added;
 none is renamed or removed. A field whose values are listed below (a
 `state`, an `outcome`) may gain values: treat one you do not know as "look at
 the change", never as success.

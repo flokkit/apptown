@@ -7,9 +7,12 @@ How a Flokkit release is made, in order. The release script is
 1. **The upgrade test.** On the candidate commit, run `make upgrade-test`.
    Every earlier release's frozen AppTown (`internal/apptown/testdata/upgrade`)
    must upgrade to it and keep its records.
-2. **The notes.** Write `releases/v<version>.md` and commit it. It says what
-   the release is for, then has two sections the compatibility guide
-   promises:
+2. **The notes.** Write `releases/v<version>.md` and commit it. The file is
+   also the GitHub Release's text, where a relative link does not resolve,
+   so it links a repository file by its full address,
+   `https://github.com/flokkit/apptown/blob/main/<path>` (`make check-docs`
+   holds this). It says what the release is for, then has two sections the
+   compatibility guide promises:
    - `## HTTP API changes`: each route or response shape that changed since
      the previous release. The HTTP API is experimental, so it may change
      in a 1.x release, but never silently.

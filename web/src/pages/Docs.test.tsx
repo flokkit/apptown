@@ -23,14 +23,14 @@ const index: DocsIndex = {
 let where = ''
 function Where() { where = useLocation().pathname; return null }
 
-async function render(answer: (url: string) => Response) {
+async function render(answer: (url: string) => Response, start = '/docs') {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => answer(url)))
   const el = document.createElement('div')
   const root = createRoot(el)
   await act(async () => {
     root.render(
       <QueryClientProvider client={newQueryClient()}>
-        <MemoryRouter initialEntries={['/docs']}>
+        <MemoryRouter initialEntries={[start]}>
           <Routes>
             <Route path="/docs" element={<><DocsPage /><Where /></>} />
             <Route path="/docs/:section/:slug" element={<><DocsPage /><Where /></>} />
@@ -60,6 +60,26 @@ describe('the docs page', () => {
     expect(labels).toEqual(['Start here', 'How AppTown works', 'Integrations'])
     await vi.waitFor(() => expect(el.querySelector('.md-doc')?.textContent).toContain('Install AppTown.'))
     act(() => root.unmount())
+  })
+
+  // A shipped doc links another by its file, for GitHub; the page opens
+  // that doc's route instead, from a guide and from either integration tab.
+  it('points links to shipped docs at their routes', async () => {
+    const guide = '[a](split-install.md) [b](../integrations/llm-openrouter.admin.md) [c](https://example.com/x.md)'
+    const integ = { admin: '[d](../guides/secrets.md)', developer: '[e](model-pi.developer.md)' }
+    const hrefs = (el: HTMLElement) => [...el.querySelectorAll('.md-doc a')].map((a) => a.getAttribute('href'))
+    const answer = (url: string) => url.endsWith('/docs') ? json(index)
+      : url.endsWith('/docs/guides/quickstart') ? json({ slug: 'quickstart', content: guide })
+      : url.endsWith('/integrations/docs/llm/openrouter') ? json(integ)
+      : json({ error: 'no' }, 404)
+    const g = await render(answer, '/docs/guides/quickstart')
+    await vi.waitFor(() => expect(hrefs(g.el)).toEqual(['/docs/guides/split-install', '/docs/llm/openrouter', 'https://example.com/x.md']))
+    act(() => g.root.unmount())
+    const i = await render(answer, '/docs/llm/openrouter')
+    await vi.waitFor(() => expect(hrefs(i.el)).toEqual(['/docs/model/pi']))
+    act(() => i.el.querySelectorAll<HTMLButtonElement>('.tabs .tab')[1].click())
+    await vi.waitFor(() => expect(hrefs(i.el)).toEqual(['/docs/guides/secrets']))
+    act(() => i.root.unmount())
   })
 
   // A failed first read says so; it is not shown as an empty list.

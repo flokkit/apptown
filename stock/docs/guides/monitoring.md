@@ -9,7 +9,7 @@
   receiver. A Grafana dashboard for them is in the repository at
   `stock/observability/apptown-dashboard.json`, with a README on loading it.
 - **Errors.** Attach the `apptown` project to the error tracker and AppTown reports its own errors there; see the [error
-  reporting](/docs/errors/glitchtip) Admin tab.
+  reporting](../integrations/errors-glitchtip.admin.md) Admin tab.
 - **Complaints** collects what got in agents' way.
 
 ## Integrations
@@ -17,8 +17,8 @@
 Each integration's page under **Integrations** has an Admin tab here in the
 Docs:
 
-- [Model providers and slots](/docs/model/pi): which models agents use, per job.
-- [AI models](/docs/llm/openrouter): model access for the apps you deploy.
-- [Package registries and mirrors](/docs/registry/registry), and the container registries releases are published to.
-- [Error reporting](/docs/errors/glitchtip).
-- [Scanners](/docs/scanner/tool).
+- [Model providers and slots](../integrations/model-pi.admin.md): which models agents use, per job.
+- [AI models](../integrations/llm-openrouter.admin.md): model access for the apps you deploy.
+- [Package registries and mirrors](../integrations/registry-registry.admin.md), and the container registries releases are published to.
+- [Error reporting](../integrations/errors-glitchtip.admin.md).
+- [Scanners](../integrations/scanner-tool.admin.md).

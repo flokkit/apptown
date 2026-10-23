@@ -2,8 +2,8 @@
 
 What a deployment's backups copy, when they run, how long sets are kept and
 how a restore works is in
-[Previews and deployments](/docs/guides/container-lifecycle); how each need
-is copied is in [Services and data](/docs/guides/services-and-data). This
+[Previews and deployments](container-lifecycle.md); how each need
+is copied is in [Services and data](services-and-data.md). This
 section is the operator's part: where the sets are kept, and what to set up
 for App Platform.
 
@@ -42,7 +42,7 @@ CPU, memory and disk while it runs: it holds the backup once as a file and
 once loaded into its own database, so a host that is nearly full can run out
 of disk. The rehearsal's line on the Data protection page says "not kept for
 rehearsals" when it ran on such a host. What a rehearsal can still do
-outside is in [Secrets](/docs/guides/secrets), "Restore rehearsals".
+outside is in [Secrets](secrets.md), "Restore rehearsals".
 
 **App Platform databases go to a backup store, off AppTown's host.** Two
 settings turn this on:

@@ -87,7 +87,7 @@ change works in its folder; the others are told who has it and wait.
 
 A chat is not private to the person who opened it. Anyone who can read the
 project can look at it; acting on it needs the right to work on the change.
-[What chats and steps can use](/docs/guides/runtime-environments)
+[What chats and steps can use](runtime-environments.md)
 says what each can do.
 
 **Work travels as commits.** The helper commits what's ready, as a developer

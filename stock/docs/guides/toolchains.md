@@ -74,7 +74,7 @@ needed build arguments or environment explicitly. Mirror routing is not an
 enforced network allowlist. A refused download needs diagnosis; it does not by
 itself prove an intentional security restriction.
 
-[What chats and steps can use](/docs/guides/runtime-environments) explains
+[What chats and steps can use](runtime-environments.md) explains
 tools, private Docker, credentials and retention. The
-[contract reference](/docs/guides/contract-reference) explains how to package
+[contract reference](contract-reference.md) explains how to package
 the application independently of a warm agent session.

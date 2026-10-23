@@ -124,12 +124,12 @@ catalogue changes.
 
 How MariaDB is copied and restored, and what its copy leaves out (routines,
 events, accounts and grants), is in
-[Services and data](/docs/guides/services-and-data).
+[Services and data](services-and-data.md).
 
 AppTown's copies of the database and of the bucket are separate copies,
 not a coordinated multi-store recovery point. Before a change that may
 rewrite data incompatibly, stop writes and make and test copies of every affected
 store under an operator's recovery procedure. A previous container image may not
 understand the new schema or changed objects. A deploy does not put data back
-if the new release fails ([Previews and deployments](/docs/guides/container-lifecycle)),
+if the new release fails ([Previews and deployments](container-lifecycle.md)),
 and this pack adds no rollback of its own.

@@ -39,7 +39,7 @@
    set `APPTOWN_VERSION` in `.env` to the new version (or download the new
    `compose.yaml`), then `docker compose pull && docker compose up -d`: the
    image brings its own agent image's name. Otherwise, unpack the new release over
-   `/opt/apptown` ([downloading a release](/docs/guides/server-setup)) and set `APPTOWN_AGENT_IMAGE` to the new release's agent
+   `/opt/apptown` ([downloading a release](server-setup.md)) and set `APPTOWN_AGENT_IMAGE` to the new release's agent
    image (`ghcr.io/flokkit/apptown-agent:<version>`); AppTown pulls it when
    it starts. Workers build their own agent image from the recipe in the
    release. Install the worker first, then start `apptownd`. The new
@@ -47,14 +47,14 @@
    starts, including with `-verify-only`. (A source build rebuilds with `make
    build` and its own agent image: the repository's `CONTRIBUTING.md`.)
 4. **Switching to no local Docker** at the same time: follow
-   [Split install](/docs/guides/split-install), "Switching to no local
+   [Split install](split-install.md), "Switching to no local
    Docker", before the first start with `-no-local-docker`.
 
 ## Rolling back
 
 The way back is the two copies from step 2: stop `apptownd`, load the dump
 (the commands under "Restoring the database" in [AppTown's own
-backups](/docs/guides/apptown-backups)), replace the data directory's
+backups](apptown-backups.md)), replace the data directory's
 contents except `pgdata` with the copy, and start the previous release. That
 discards everything since the copies: the new build's database and layout
 upgrades and any work done on it. The new build's first write is where work

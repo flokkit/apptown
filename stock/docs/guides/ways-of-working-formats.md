@@ -117,7 +117,7 @@ matter, or beside `name` when created or edited through the API), which covers
 the block and its checks; leaving it out means the same. Its checks are a JSON array; each check has a `name`, an
 `expects` sentence, a `severity` (`note`, `low`, `medium`, `high`) and one
 evaluator: `sh` (a script), `llm` (a rubric), `runtime` (a probe of the running
-app) or `tool` (a scanner binding). The [conformance guide](/docs/guides/conformance) says
+app) or `tool` (a scanner binding). The [conformance guide](conformance.md) says
 what each evaluator proves.
 
 An `sh` check is a script run with `sh -c` in a container, with the

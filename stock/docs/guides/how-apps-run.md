@@ -11,7 +11,7 @@ A **need** (a database, a cache, object storage, AI models) is always
 provided for you and its connection variables are set (`DATABASE_URL`,
 `PG*`, `REDIS_URL`, `AWS_*`): a local container while you work, a service
 of the deployment's own once deployed. The variables are listed in
-[Services and data](/docs/guides/services-and-data). What changes is how
+[Services and data](services-and-data.md). What changes is how
 the app itself runs:
 
 | | The app runs as | When |
@@ -50,7 +50,7 @@ Reach services by the host their variables give, never a hard-coded
 ## In containers: the preview and the deploy
 
 At a **preview** (**Try it**, `apptown preview`) and a **deploy**, AppTown
-builds the app from its [contract](/docs/guides/contract-reference) and
+builds the app from its [contract](contract-reference.md) and
 boots it cold. Nothing from your working session carries over: no stray
 variable, no process you left running, no file you did not commit. "It
 worked as I worked" and "it boots cold" are different claims; the preview
@@ -67,7 +67,7 @@ needs a closer look, a change chat or a step that asks for it gets its own
 Docker daemon (`DOCKER_HOST` is set): build images, start containers,
 `exec` into them, read their logs. Who gets one, how to reach its ports, and
 what survives are in
-[What chats and steps can use](/docs/guides/runtime-environments). Without
+[What chats and steps can use](runtime-environments.md). Without
 one, a preview still builds and boots the app on its own: on the worker
 when AppTown has one, otherwise on AppTown's host.
 

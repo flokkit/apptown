@@ -82,7 +82,7 @@ checks on every project on an earlier version (or `apptown whatif <pack>
 <version>`) and shows, project by project, what would newly fail and what
 it could not assess, without changing anyone's standing. A project that
 then adopts the version is reviewed against it automatically. See [Packs, versions and
-what-if](/docs/guides/packs-and-what-if).
+what-if](packs-and-what-if.md).
 
 ## Two kinds of check
 

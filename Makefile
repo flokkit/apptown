@@ -123,9 +123,11 @@ check-npm-scripts:      ## no dependency's install script runs in AppTown's own 
 	python3 scripts/npm-scripts-check_test.py
 	python3 scripts/npm-scripts-check.py
 
-check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; the tour is complete; the names people see only lose their old spelling (names-check)
+check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; shipped guides' and release notes' links work on GitHub and the Docs page; the tour is complete; the names people see only lose their old spelling (names-check)
 	python3 scripts/docs-current_test.py
 	python3 scripts/docs-current.py
+	python3 scripts/docs-links_test.py
+	python3 scripts/docs-links.py
 	python3 scripts/tour_test.py
 	python3 scripts/tour-check.py
 	python3 scripts/names-check_test.py

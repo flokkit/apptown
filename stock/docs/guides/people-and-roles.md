@@ -42,6 +42,6 @@ Accounts are on the **People** page.
   settings: `apptownd -reset-password <username>` prints a new password for
   that existing account, ends its sessions, and exits without serving.
 
-[Connect a coding agent or the CLI](/docs/guides/connect-a-coding-agent)
+[Connect a coding agent or the CLI](connect-a-coding-agent.md)
 covers tokens from a developer's side, and the
-[glossary](/docs/guides/glossary) defines the roles' terms.
+[glossary](glossary.md) defines the roles' terms.

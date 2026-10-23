@@ -37,7 +37,7 @@ if it already exists), reads its DSN, and stores it as the attachment's
 resource. From then on the app's public part receives
 `SENTRY_DSN` on a Docker host and on Portainer, in previews and
 deployments; App Platform releases do not deliver it and
-record that they did not ([the app contract](/docs/guides/contract-reference)
+record that they did not ([the app contract](../guides/contract-reference.md)
 says where each value arrives). The agents of implementation steps receive
 them too, so they can fire the test hook; agent steering
 gains a generated "error reporting attached" section. Detaching stops

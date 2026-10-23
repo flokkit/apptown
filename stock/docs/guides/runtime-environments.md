@@ -4,7 +4,7 @@ AppTown gives its helpers a workspace, development tools and access to the
 services their task needs. The provision differs between a project chat, a
 change chat and a workflow step. This guide describes the helper's
 environment; `.apptown/app.yaml` describes how the application itself runs
-([contract reference](/docs/guides/contract-reference)).
+([contract reference](contract-reference.md)).
 
 ## Which environment am I in?
 
@@ -29,7 +29,7 @@ or after its current turn.
 Without a worker, all of this runs on AppTown's own host, in containers on
 its Docker: chats, agent steps, checks, previews and script steps. A script
 step runs on the host itself only when the operator started AppTown with
-`-host-scripts` ([Split install](/docs/guides/split-install), where
+`-host-scripts` ([Split install](split-install.md), where
 workers and `-host-scripts` are described);
 otherwise `executor: local` is refused.
 
@@ -96,7 +96,7 @@ own toolchain in its `mise.toml`. The image has no Go: a Go project declares its
 Go in `mise.toml`, and gopls uses that Go. A custom step image can provide a different
 inventory. Every agent container has the `apptown` command line for Linux,
 which AppTown mounts from its own install ([Setting up a
-server](/docs/guides/server-setup) says where it comes from); without it the helper has no `apptown`, and
+server](server-setup.md) says where it comes from); without it the helper has no `apptown`, and
 AppTown's log says so.
 
 Pin the tools the project needs in `mise.toml` (or `.mise.toml`). AppTown
@@ -165,7 +165,7 @@ application and its needs as a preview (on the worker when AppTown has
 one, otherwise on AppTown's host), or start development services using
 its private Docker. `apptown dev` uses that private Docker to bring up the
 declared needs and write their connection settings; see
-[How apps run](/docs/guides/how-apps-run). Docker agent steps receive explicitly configured sidecar
+[How apps run](how-apps-run.md). Docker agent steps receive explicitly configured sidecar
 services; steps with `needs: true` also request the app contract's needs as
 emulators. Other executors do not automatically provide those Docker services.
 
@@ -220,4 +220,4 @@ rather than assuming that an earlier process, image or service still exists.
 Keep the application's durable recipe in its Dockerfile, toolchain declaration
 and app contract. Previews and deployments must work from those inputs
 independently of the helper's warm session; their lifetimes are in
-[Previews and deployments](/docs/guides/container-lifecycle).
+[Previews and deployments](container-lifecycle.md).

@@ -4,10 +4,10 @@ AppTown shows that AppTown's own address there. -->
 # Setting up a server
 
 This page has the detail behind the one-server install in [Running
-AppTown](/docs/guides/running-apptown): what the machine needs, model access,
+AppTown](running-apptown.md): what the machine needs, model access,
 sign-in, the public address, running under systemd instead of the compose
 file, and putting your own proxy in front. A [split
-install](/docs/guides/split-install) starts with the same steps, with the
+install](split-install.md) starts with the same steps, with the
 differences given in each.
 
 ## What one server protects
@@ -23,7 +23,7 @@ trying AppTown on real work, or running a few internal apps.
 Each agent, step and preview runs in its own container with CPU, memory
 and process limits. Disk is not limited per container, so one piece of
 work can still fill the machine's disk (Disk space in
-[Deployment targets](/docs/guides/deployment-targets)). Apps are
+[Deployment targets](deployment-targets.md)). Apps are
 published on the machine's loopback address only. None of that protects
 AppTown's records from a project's code. On Linux those containers run as
 root and can reach the network, and a container is not a strong sandbox.
@@ -32,7 +32,7 @@ its secrets file and its keys.
 
 A production install then adds deployment targets, sign-in, backups and
 upgrades (each has its guide, listed in [Running
-AppTown](/docs/guides/running-apptown)).
+AppTown](running-apptown.md)).
 
 ## The compose file
 
@@ -120,7 +120,7 @@ The archive holds `bin/apptownd`, `bin/apptown`,
 `bin/apptown-worker`, `bin/apptown-linux` (the CLI AppTown gives its
 containers), `deploy/apptown-agent` (the agent image's recipe), example
 systemd units in `deploy/systemd` and `scripts/apptown-db-backup.sh` (the
-checked backup [upgrading](/docs/guides/upgrading) runs). The unit runs `apptownd` in `/opt/apptown`,
+checked backup [upgrading](upgrading.md) runs). The unit runs `apptownd` in `/opt/apptown`,
 where it finds `bin/apptown-linux`; without it, chats and steps run without
 the `apptown` CLI (`-console-cli` names another path).
 
@@ -198,7 +198,7 @@ Open AppTown's address. A fresh AppTown asks for an Anthropic or
 OpenRouter key. Saving it writes `<data directory>/secrets.env` (mode 0600)
 and selects a default model. Saving a key does not test it: try a short chat
 first. Model choice per job is on the [model providers and
-slots](/docs/model/pi) integration's Admin tab.
+slots](../integrations/model-pi.admin.md) integration's Admin tab.
 
 AppTown signs people in by default: `-auth internal` is AppTown's own
 accounts and passwords (`-admins` names accounts to make administrators), and

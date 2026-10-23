@@ -21,7 +21,7 @@ The next release goes there; AppTown does not need a restart.
 
 A project's deployments are made on the project's **Settings → Deployments**.
 What each kind runs, and what a deployment owns and deletes when taken
-down, is in [Previews and deployments](/docs/guides/container-lifecycle).
+down, is in [Previews and deployments](container-lifecycle.md).
 
 **How full a target is** is on its page, under Capacity:
 - **A Docker host** shows stacked bars, with the same numbers in a table

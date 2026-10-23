@@ -25,7 +25,7 @@ answers from the same records the web pages show.
 
 The MCP tools are experimental in 1.0: a 1.x release may change their names,
 arguments and answers, and its release notes say what changed (see
-[What 1.0 promises](/docs/guides/compatibility)). For scripts, use the
+[What 1.0 promises](compatibility.md)). For scripts, use the
 `apptown` command line.
 
 The agent can also **do governed work in your name**: open a Change,
@@ -125,7 +125,7 @@ Twelve tools that read:
 | `get_project_guidance` | the adopted ways of working as one text, at the pinned versions AppTown's own agents are steered by. Offered and strongly recommended before writing code; never pushed into the agent's context, so the agent decides when to read it (the size is shown first) |
 | `get_application_contract` | the project's committed `.apptown/app.yaml` — how the app runs |
 | `list_changes` | a project's Changes, newest first, optionally only one state |
-| `get_change` | one Change with its current run, every step's status, and what it is waiting on and on whom; while a person's approval of a commit waits, what that commit adds (see [How changes reach main](/docs/guides/changes-and-main)) |
+| `get_change` | one Change with its current run, every step's status, and what it is waiting on and on whom; while a person's approval of a commit waits, what that commit adds (see [How changes reach main](changes-and-main.md)) |
 | `get_change_diff` | the Change's whole diff as text |
 | `get_change_evidence` | what the run recorded step by step, and the artifacts it produced |
 | `get_run` | one run with its steps |
@@ -187,7 +187,7 @@ checked, never taken on trust.
 
 The `apptown` CLI talks to the same AppTown over its API. It is
 `bin/apptown` in the release archive for your computer
-([downloading a release](/docs/guides/server-setup)). It needs AppTown's
+([downloading a release](server-setup.md)). It needs AppTown's
 address and a **command-line token**, which acts as you, with everything
 you yourself may do: it carries your role as it is when the token is made.
 An admin makes one, on **People → API tokens** or with:
