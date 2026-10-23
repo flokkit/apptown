@@ -51,25 +51,33 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	if b != nil && s.PreviewsOnWorker() {
 		return s.bootReleaseOnWorker(ctx, selected.ProjectID, p.Slug, label, stackID, staged, committed, b, tree.Revision)
 	}
-	// A look at a release is a preview: it runs under the preview profile.
-	c, applied, err := s.env.Profiled(ctx, p.ID, "preview", staged, committed)
-	if err != nil {
-		return ReleaseResult{}, err
-	}
-	c, _, err = s.env.DefaultMemory(ctx, p.ID, c, applied)
-	if err != nil {
-		return ReleaseResult{}, err
-	}
 	// Held while it boots: the release of ended previews' keys leaves a
 	// booting preview alone.
 	defer s.holdPreview(name)()
-	if port, _ := docker.ContainerHostPort(ctx, s.hosts.Local(), name, 0); port > 0 {
+	// A look at a release is a preview: it is prepared as one, under the
+	// preview profile, and identified by what it boots and the prepared
+	// values, as on the worker. A running look is kept only as that
+	// identity: one booted with other values (a secret or attachment
+	// changed since) is replaced.
+	prepared, err := s.preparePreview(ctx, p.ID, p.Slug, name, staged, committed, nil)
+	if err != nil {
+		return ReleaseResult{}, err
+	}
+	what := selected.Image
+	if b != nil {
+		what = fmt.Sprintf("bundle-%d", b.ID)
+	}
+	incarnation := what + "+" + prepared.Public().Digest()
+	if port, _ := docker.ContainerHostPort(ctx, s.hosts.Local(), name, 0); port > 0 && s.servedIncarnation(ctx, name) == incarnation {
 		return ReleaseResult{Result: Result{URL: s.env.RoutesFor(ctx, selected.ProjectID).PreviewURL(label, port), HostPort: port, Revision: tree.Revision}, Reused: true}, nil
 	}
 	// Asked of this machine's daemon, which runs this look whatever runs
 	// other previews, before the earlier look is removed: a part larger
 	// than it refuses with nothing changed.
-	if err := docker.AdmitResources(ctx, s.hosts.Local(), c); err != nil {
+	if err := docker.AdmitResources(ctx, s.hosts.Local(), prepared.Contract); err != nil {
+		return ReleaseResult{}, err
+	}
+	if prepared, err = s.withPreviewKeys(ctx, p.ID, name, prepared); err != nil {
 		return ReleaseResult{}, err
 	}
 	// Every look starts with disposable data, including retries after a failed
@@ -78,13 +86,13 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 		return ReleaseResult{}, fmt.Errorf("removing what an earlier look at this version left: %w", err)
 	}
 	req := docker.BootRequest{Name: name, StackID: stackID, Workspace: staged,
-		Slug: p.Slug, Deployment: "preview", Docker: s.hosts.Local(), Probe: 90 * time.Second}
+		Slug: p.Slug, Deployment: "preview", Docker: s.hosts.Local(), Probe: 90 * time.Second, Incarnation: incarnation, Scratch: s.hosts.BootScratch()}
 	if b != nil {
 		req.Recorded = &docker.RecordedImages{Parts: b.Parts, Init: b.Init, Login: s.env.BundleLogin(ctx, selected.ProjectID, b), Scratch: s.hosts.BootScratch()}
 	} else {
 		req.ReleaseImage = selected.Image
 	}
-	res, err := s.env.Host(p.ID, s.env.NeedCredentials(deployment.PreviewNeedScope(name)), func(string) deployment.KeyOwner { return s.previewKeys(p.ID, name) }).Boot(ctx, req, c)
+	res, err := s.env.PreparedHost(prepared).Boot(ctx, req, prepared.Contract)
 	if err != nil {
 		if rerr := docker.RemovePreview(context.WithoutCancel(ctx), s.hosts.Local(), name, stackID); rerr != nil {
 			log.Printf("%s: removing a look that did not start: %v", name, rerr)

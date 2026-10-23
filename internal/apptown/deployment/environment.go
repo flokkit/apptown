@@ -2,6 +2,9 @@ package deployment
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -200,7 +203,49 @@ func (e *Environment) PrepareBoot(ctx context.Context, projectID ids.ID, slug, d
 	if err != nil {
 		return docker.Prepared{}, err
 	}
-	return docker.PrepareBoot(ctx, e.hostDependencies(projectID, creds, nil), login, slug, deployment, ws, c)
+	p, err := docker.PrepareBoot(ctx, e.hostDependencies(projectID, creds, nil), login, slug, deployment, ws, c)
+	if err != nil {
+		return p, err
+	}
+	// Not a BootError: a store that cannot give the key is AppTown's
+	// failure, not the app's.
+	if p.SecretsFingerprint, err = e.secretsFingerprint(ctx, p.Secrets, p.Env); err != nil {
+		return docker.Prepared{}, fmt.Errorf("identifying the app's secrets: %w", err)
+	}
+	return p, nil
+}
+
+// secretsFingerprint identifies the secret values a boot delivers per
+// consumer and the integrations' environment, which may hold secrets and has
+// no version, without revealing them: an HMAC of both, canonically encoded,
+// under a key derived from the built-in store's (secret.Vault.Derived). The
+// same values give the same fingerprint at every preparation, and a reader
+// of the fingerprint cannot test guesses of the values against it. Empty
+// when there is nothing to identify, and without a store, which only tests
+// run without.
+func (e *Environment) secretsFingerprint(ctx context.Context, secrets map[string]map[string]string, env []string) (string, error) {
+	empty := len(env) == 0
+	for _, values := range secrets {
+		empty = empty && len(values) == 0
+	}
+	if empty || e.secrets == nil || e.secrets.Vault == nil {
+		return "", nil
+	}
+	key, err := e.secrets.Vault.Derived(ctx, "preview-identity", "secret-values")
+	if err != nil {
+		return "", err
+	}
+	// Maps marshal with sorted keys; the environment is sorted as a copy.
+	body, err := json.Marshal(struct {
+		Secrets map[string]map[string]string `json:"secrets"`
+		Env     []string                     `json:"env"`
+	}{secrets, slices.Sorted(slices.Values(env))})
+	if err != nil {
+		return "", err
+	}
+	mac := hmac.New(sha256.New, []byte(key))
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil)), nil
 }
 
 // WithRegistered gives a prepared boot the values its registered needs

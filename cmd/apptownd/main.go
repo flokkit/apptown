@@ -77,7 +77,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.agentImage, "agent-image", "apptown-agent", "docker image for containerized steps")
 	fs.StringVar(&o.dbURL, "db-url", "", "Postgres URL for AppTown's own database (env APPTOWN_DB_URL; empty = the built-in container on this host)")
 	fs.BoolVar(&o.gitImportPrivate, "git-import-allow-private", false, "let a project that starts from an https repository fetch from private, loopback and link-local addresses (an internal GitLab); by default only public addresses are fetched")
-	fs.Int64Var(&o.bundleMaxBytes, "import-bundle-max-bytes", projectlifecycle.DefaultBundleMaxBytes, "the largest Git bundle a project that starts from existing code may upload")
+	fs.Int64Var(&o.bundleMaxBytes, "import-bundle-max-bytes", projectlifecycle.DefaultBundleMaxBytes, "the largest Git bundle a project that starts from existing code may upload, and the largest push to AppTown's Git address")
 	fs.BoolVar(&o.privateDocker, "private-docker", false, "admit agent steps that declare private Docker (docker: true) on the worker: the operator's opt-in; every such attempt records whether the worker's measured profile is qualified (Running AppTown: Workers and running without local Docker)")
 	fs.BoolVar(&o.noPrivateDocker, "no-private-docker", false, "refuse agent steps that declare private Docker (docker: true), and give change consoles none")
 	fs.BoolVar(&o.localTLS, "local-tls", false, "serve -addr over HTTPS from a certificate authority AppTown makes in <data>/local-tls, which vouches only for localhost names; plain HTTP there is sent to https. For the desktop trial: a server has its own TLS in front. Needs an https:// -public-host")

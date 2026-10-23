@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -78,7 +79,7 @@ func cmdCheck(args []string) error {
 		if ref := os.Getenv("APPTOWN_SCRATCH_REF"); ref != "" {
 			if err := sendScratch(head, ref); err != nil {
 				// AppTown may have the commit anyway; if not, it says so.
-				fmt.Println(yellow("  could not send this commit to AppTown for checking: " + err.Error()))
+				fmt.Println(yellow("  could not send this commit to AppTown, so AppTown can check it only if it already has it: " + err.Error()))
 			}
 		}
 	}
@@ -231,6 +232,15 @@ func theirGit(ctx context.Context, dir string, env []string, args ...string) (st
 	return strings.TrimSpace(string(out)), err
 }
 
+// sendFailure says why sending a commit failed. Git names only the HTTP
+// status of AppTown's refusal, so a refusal by size is put in words.
+func sendFailure(err error, out string) error {
+	if strings.Contains(out, "HTTP 413") {
+		return errors.New("the commit is larger than this AppTown accepts. An administrator sets the limit with -import-bundle-max-bytes")
+	}
+	return fmt.Errorf("%v: %s", err, strings.TrimSpace(out))
+}
+
 // sendScratch pushes commit to ref, the step's scratch ref, on AppTown's
 // Git endpoint ($APPTOWN_URL/git/$APPTOWN_PROJECT), with the step's token as a
 // header git sends to that URL only: never in the URL or the arguments.
@@ -260,7 +270,7 @@ func sendScratch(commit, ref string) error {
 	}
 	return interruptible(ctx, func(ctx context.Context) error {
 		if out, err := theirGit(ctx, cwd, env, "push", "--quiet", "--force", "--no-verify", remote, commit+":"+ref); err != nil {
-			return fmt.Errorf("%v: %s", err, out)
+			return sendFailure(err, out)
 		}
 		return nil
 	})

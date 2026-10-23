@@ -18,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
@@ -281,5 +282,71 @@ func TestAPublishedReleasePreviewSelectsItsNeedSizeOnce(t *testing.T) {
 	prepared := w.prepared[0]
 	if len(prepared.Needs) != 1 || prepared.Needs[0].Resources.MemoryBytes != 128<<20 || !strings.Contains(strings.Join(prepared.Needs[0].Command, " "), "--innodb-buffer-pool-size=32M") {
 		t.Fatalf("release preview lost its selected size: %+v", prepared.Needs)
+	}
+}
+
+// A release preview on this machine is kept only as the identity it was
+// booted with: what it boots (its bundle, or its recorded image) and the
+// prepared values. The same values hand back the running look; a secret
+// set to another value since replaces it with a look stamped with the new
+// identity. Before, any running look was handed back.
+func TestALocalReleasePreviewIsReplacedWhenItsSecretChanges(t *testing.T) {
+	t.Parallel()
+	wd := newWorld(t, "", "")
+	s := wd.service(Dependencies{})
+	repo := filepath.Join(wd.dir, "workspaces", "project-p")
+	writePreviewBootFixture(t, repo)
+	if err := os.WriteFile(filepath.Join(repo, secret.SpecFile), []byte("[project]\nname = \"p\"\nrevision = \"1.0\"\n\n[profiles.default]\nGREETING = { description = \"what the app says\" }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commit := gitCommitAll(t, repo, "release fixture")
+	bundleID, err := s.bundles.Cut(t.Context(), wd.projectID, commit, map[string]string{"web": "sha256:built", "worker": "sha256:built"}, map[string]string{"migrate": "sha256:built"}, []byte(resolvedStackFixture), deployment.BundleOrigin{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := s.bundles.ByID(t.Context(), bundleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scope := secret.Scope("p", "preview", "")
+	set := func(value string) {
+		t.Helper()
+		if err := wd.secrets.Vault.Delete(t.Context(), scope, "GREETING"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := wd.secrets.Vault.Put(t.Context(), scope, "GREETING", value, "test"); err != nil {
+			t.Fatal(err)
+		}
+		if err := wd.secrets.Bindings.Put(t.Context(), wd.projectID, secret.Binding{Deployment: "preview", Name: "GREETING", Store: secret.StoreInternal, Ref: scope, Version: "1", UpdatedBy: "test"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, release := range []Release{
+		{ProjectID: wd.projectID, Number: 1, SourceRevision: commit, Bundle: bundle},
+		{ProjectID: wd.projectID, Number: 2, SourceRevision: commit, Image: "reg.example/app:1"},
+	} {
+		name := docker.PreviewLabelName(docker.ReleasePreviewLabel("p", release.Number))
+		boot := func() ReleaseResult {
+			t.Helper()
+			wd.client.ResetCommands()
+			out, err := releaseBoots{service: s}.BootReleasePreview(t.Context(), release)
+			if err != nil {
+				t.Fatalf("release %d: %v", release.Number, err)
+			}
+			return out
+		}
+		set("hello")
+		if out := boot(); out.Reused || len(wd.client.Matching("run -d --name "+name)) != 1 {
+			t.Fatalf("release %d: the first look did not boot: %+v", release.Number, out)
+		}
+		if out := boot(); !out.Reused || len(wd.client.Matching("run ")) != 0 {
+			t.Fatalf("release %d: the same values did not hand back the running look: %+v %v", release.Number, out, wd.client.Matching("run "))
+		}
+		set("goodbye")
+		out := boot()
+		runs := wd.client.Matching("run -d --name " + name)
+		if out.Reused || len(runs) != 1 || len(wd.client.Matching("rm -f -v "+name)) == 0 || !strings.Contains(strings.Join(runs[0], " "), "GREETING=goodbye") {
+			t.Fatalf("release %d: a changed secret kept the running look: %+v %v", release.Number, out, wd.client.Commands())
+		}
 	}
 }

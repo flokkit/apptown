@@ -481,7 +481,11 @@ worker and no preview domain refuses previews, with that reason.
   configuration, in the preview's folder, while the boot runs.
 - **Reuse.** The worker keeps a preview that is running the same
   incarnation (tree and prepared values) and whose boot completed.
-  Anything else is removed first, wholly.
+  Anything else is removed first, wholly. The prepared values include each
+  secret's name, store and version, and a keyed fingerprint of the secret
+  and integration values, never the values. So a preview whose secret or
+  integration value changed is booted again. A release preview on
+  AppTown's Docker is kept by the same rule.
 - **Lifetime.** Every boot, on the worker or here, has a lifetime of 30
   minutes, and every command it runs ends with it.
 

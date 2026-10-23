@@ -56,12 +56,12 @@ func (upProbe) Check(context.Context, Scope, string, string, time.Duration, Rend
 
 // liveDeps are resolvers as an AppTown has them: secrets per consumer, a needs
 // catalog, the integrations' environment and browser values, and routes.
-type liveSecrets struct{}
+type liveSecrets struct{ version string }
 
-func (liveSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract) (Delivery, error) {
+func (s liveSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract) (Delivery, error) {
 	return Delivery{Env: func(consumer string) map[string]string {
-		return map[string]string{"SECRET_FOR": consumer}
-	}, Receipts: []SecretReceipt{{Name: "SECRET_FOR"}}, Profile: "default"}, nil
+		return map[string]string{"SECRET_FOR": "value-for-" + consumer}
+	}, Receipts: []SecretReceipt{{Name: "SECRET_FOR", Store: "builtin", Version: s.version, Consumers: []string{"web"}}}, Profile: "default"}, nil
 }
 
 // liveNeeds fulfils only the needs a contract declares: PostgreSQL, with
@@ -127,7 +127,7 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, consumer := range []string{"web", "worker", "init-migrate"} {
-		if prepared.Secrets[consumer]["SECRET_FOR"] != consumer {
+		if prepared.Secrets[consumer]["SECRET_FOR"] != "value-for-"+consumer {
 			t.Fatalf("secrets for %s: %v", consumer, prepared.Secrets)
 		}
 	}
@@ -155,7 +155,7 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 		t.Fatalf("a prepared boot differs from a live one:\nlive:\n%s\nprepared:\n%s", strings.Join(liveCalls, "\n"), strings.Join(preparedCalls, "\n"))
 	}
 	public, _ := jsonOf(prepared.Public())
-	for _, secret := range []string{"SECRET_FOR", "ERRORS_DSN", "secret-token"} {
+	for _, secret := range []string{"value-for-", "ERRORS_DSN", "secret-token"} {
 		if strings.Contains(public, secret) {
 			t.Fatalf("the public part holds %q: %s", secret, public)
 		}
@@ -163,7 +163,9 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 }
 
 // The identity's digest follows the public values: an attachment's browser
-// value changing without the source changing is a new incarnation.
+// value, a secret binding's version or the fingerprint of the secret values
+// changing without the source changing is a new incarnation, so
+// a running preview is not kept with the old values.
 func TestTheDigestFollowsThePublicValues(t *testing.T) {
 	t.Parallel()
 	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: .\n    public: true\n"))
@@ -182,6 +184,25 @@ func TestTheDigestFollowsThePublicValues(t *testing.T) {
 	}
 	if a, b := prepare(`{"DSN":"a"}`), prepare(`{"DSN":"b"}`); a == b {
 		t.Fatal("a browser value changed and the digest did not")
+	}
+	withSecrets := func(version string) Prepared {
+		p, err := PrepareBoot(t.Context(), Dependencies{Secrets: liveSecrets{version}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	v1, v2 := withSecrets("1"), withSecrets("2")
+	if v1.Public().Digest() != withSecrets("1").Public().Digest() {
+		t.Fatal("the same secret version gave two digests")
+	}
+	if v1.Public().Digest() == v2.Public().Digest() {
+		t.Fatal("a secret binding's version changed and the digest did not")
+	}
+	other := v1
+	other.SecretsFingerprint = "another"
+	if v1.Public().Digest() == other.Public().Digest() {
+		t.Fatal("the secrets' fingerprint changed and the digest did not")
 	}
 }
 

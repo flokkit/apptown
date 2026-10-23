@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -38,9 +40,9 @@ type scratchWorld struct {
 	plane          *httptest.Server
 }
 
-func newScratchWorld(t *testing.T) *scratchWorld {
+func newScratchWorld(t *testing.T, configs ...Config) *scratchWorld {
 	t.Helper()
-	a, _ := internalApp(t)
+	a, _ := internalApp(t, configs...)
 	_, ctx, ch := changeScenarioIn(t, a, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "implement", Uses: "agent/pi"}, {Name: "other", Uses: "agent/pi"}}}}})
 	p := a.projectByID(ctx, ch.ProjectID)
 	if err := a.lifecycle.InitializeRepository(ctx, p, "main", ""); err != nil {
@@ -108,6 +110,52 @@ func (w *scratchWorld) scratchRef(step ids.ID) string {
 func (w *scratchWorld) push(token string, args ...string) (string, error) {
 	header := "http." + w.remote + ".extraHeader=Authorization: Bearer " + token
 	return gitexec.Run(context.Background(), w.work, append([]string{"-c", header, "push", "--force", w.remote}, args...)...)
+}
+
+// largeCommit commits n bytes that do not compress in the agent's
+// repository: git sends a push of it larger than its http.postBuffer (1 MiB)
+// with chunked transfer encoding.
+func (w *scratchWorld) largeCommit(t *testing.T, n int) string {
+	t.Helper()
+	blob := make([]byte, n)
+	if _, err := rand.Read(blob); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(w.work, "image.bin"), blob, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gittest.Run(t, w.work, "add", "image.bin")
+	gittest.Run(t, w.work, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "a large asset")
+	return gittest.Run(t, w.work, "rev-parse", "HEAD")
+}
+
+// A push larger than git's 1 MiB post buffer, which git sends chunked,
+// reaches the scratch ref like a small one (the CGI host alone refuses a
+// chunked body with 400); one larger than the operator's upload limit is
+// refused with 413 and moves nothing. Ticket pushes take the same path.
+func TestALargePushIsTakenWithinTheUploadLimit(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	w := newScratchWorld(t)
+	own := w.scratchRef(w.first)
+	commit := w.largeCommit(t, 3<<20)
+	if out, err := w.push(w.token(w.first), commit+":"+own); err != nil {
+		t.Fatalf("a 3 MiB push to the scratch ref: %v %s", err, out)
+	}
+	if got := gitexec.HubRef(ctx, w.hub, own); got != commit {
+		t.Fatalf("the scratch ref holds %q, want %s", got, commit)
+	}
+
+	small := newScratchWorld(t, Config{Seeding: projectlifecycle.Seeding{BundleMaxBytes: 2 << 20}})
+	own = small.scratchRef(small.first)
+	commit = small.largeCommit(t, 3<<20)
+	out, err := small.push(small.token(small.first), commit+":"+own)
+	if err == nil || !strings.Contains(out, "413") {
+		t.Fatalf("a push over the upload limit: %v %s", err, out)
+	}
+	if got := gitexec.HubRef(ctx, small.hub, own); got != "" {
+		t.Fatalf("a refused push moved the scratch ref to %s", got)
+	}
 }
 
 // A step attempt's runtime token writes exactly one ref: its own scratch

@@ -3,10 +3,12 @@ package apptown
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/cgi"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -221,6 +223,11 @@ func (a *App) handleGitHTTP(w http.ResponseWriter, r *http.Request) {
 	// project-<slug> under GIT_PROJECT_ROOT.
 	r2 := r.Clone(r.Context())
 	r2.URL.Path = "/git/" + slug + "/" + repoName + "/" + gitpath
+	release, ok := withKnownLength(w, r2, filepath.Join(a.cfg.dataDir, "spool"), a.cfg.seeding.BundleLimit())
+	if !ok {
+		return
+	}
+	defer release()
 	h.ServeHTTP(w, r2)
 
 	if ticket != nil && isPush && r.Method == http.MethodPost {
@@ -233,6 +240,53 @@ func (a *App) handleGitHTTP(w http.ResponseWriter, r *http.Request) {
 			spendPushedTicket(r.Context(), a.Access, a.DB, audit.At(a.cfg.clock.Now()), p.ID, ticket, before, after)
 		}
 	}
+}
+
+// withKnownLength gives r a body of known length, within limit, the largest
+// Git data a client may upload (-import-bundle-max-bytes). Go's CGI host
+// refuses a chunked body, and git sends any push or fetch request larger
+// than its http.postBuffer (1 MiB by default) chunked, so such a body is
+// first copied to a file in spool. release removes it; ok
+// false means the answer has been written.
+func withKnownLength(w http.ResponseWriter, r *http.Request, spool string, limit int64) (release func(), ok bool) {
+	tooLarge := func() (func(), bool) {
+		http.Error(w, fmt.Sprintf("git: this push is larger than AppTown accepts (%d bytes; the operator sets -import-bundle-max-bytes)", limit), http.StatusRequestEntityTooLarge)
+		return nil, false
+	}
+	if r.ContentLength > limit {
+		return tooLarge()
+	}
+	if r.ContentLength >= 0 && len(r.TransferEncoding) == 0 {
+		return func() {}, true
+	}
+	if err := os.MkdirAll(spool, 0o700); err != nil {
+		http.Error(w, "git: could not hold the request: "+err.Error(), http.StatusInternalServerError)
+		return nil, false
+	}
+	f, err := os.CreateTemp(spool, "git-body-*")
+	if err != nil {
+		http.Error(w, "git: could not hold the request: "+err.Error(), http.StatusInternalServerError)
+		return nil, false
+	}
+	release = func() {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+	}
+	n, err := io.Copy(f, io.LimitReader(r.Body, limit+1))
+	if err == nil {
+		_, err = f.Seek(0, io.SeekStart)
+	}
+	if err != nil {
+		release()
+		http.Error(w, "git: the request could not be received: "+err.Error(), http.StatusBadRequest)
+		return nil, false
+	}
+	if n > limit {
+		release()
+		return tooLarge()
+	}
+	r.Body, r.ContentLength, r.TransferEncoding = f, n, nil
+	return release, true
 }
 
 // spendPushedTicket marks a landed push's ticket spent, with its ledger

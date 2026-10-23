@@ -30,7 +30,8 @@ An incremental bundle is refused, because it needs history it does not
 carry. So is a damaged one. A refused bundle leaves no repository behind.
 
 The largest bundle AppTown accepts is set by the operator with
-`-import-bundle-max-bytes`. The default is 2 GiB.
+`-import-bundle-max-bytes`. The default is 2 GiB. The same limit applies to
+each push to AppTown's Git address; a larger push is refused with HTTP 413.
 
 ## From an https repository
 
