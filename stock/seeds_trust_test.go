@@ -12,8 +12,10 @@ import (
 // the extra certificates AppTown gives it (internal/trust): each RUN that
 // downloads mounts the build secret and runs it first, and each starter's
 // runtime command that runs the app in an image with a shell runs
-// APPTOWN_TRUST first. The caddy file servers and distroless go-small run no
-// shell (container-image guidance).
+// APPTOWN_TRUST first. A starter whose app runs with no shell (distroless
+// go-small) takes the extras its build wrote into /etc/ssl/certs instead, in
+// a line the certificates' checksum (APPTOWN_TRUST_SUM) keeps out of the cache.
+// The caddy file servers call nothing out (container-image guidance).
 func TestShippedDockerfilesTakeTheExtraCertificates(t *testing.T) {
 	t.Parallel()
 	const mount = `RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; `
@@ -42,9 +44,14 @@ func TestShippedDockerfilesTakeTheExtraCertificates(t *testing.T) {
 			if strings.HasPrefix(line, "RUN ") && fetches.MatchString(line) && !strings.HasPrefix(line, mount) {
 				t.Errorf("%s: a RUN that downloads without the certificates: %s", p, line)
 			}
-			if strings.HasPrefix(line, "CMD ") && strings.HasPrefix(p, "seeds/") && !strings.Contains(line, "caddy") && line != `CMD ["/app"]` &&
-				!strings.HasPrefix(line, `CMD ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; `) {
-				t.Errorf("%s: the app's command does not run the certificates first: %s", p, line)
+			if strings.HasPrefix(line, "CMD ") && strings.HasPrefix(p, "seeds/") && !strings.Contains(line, "caddy") {
+				if line == `CMD ["/app"]` {
+					if !strings.Contains(body, "\nCOPY --from=build /trust/ /etc/ssl/certs/\n") || !strings.Contains(body, "\nARG APPTOWN_TRUST_SUM\n") {
+						t.Errorf("%s: the app runs with no shell and its image does not take the extras its build wrote, rebuilt when they change", p)
+					}
+				} else if !strings.HasPrefix(line, `CMD ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; `) {
+					t.Errorf("%s: the app's command does not run the certificates first: %s", p, line)
+				}
 			}
 		}
 	}

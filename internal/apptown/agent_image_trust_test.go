@@ -27,7 +27,8 @@ func TestTheAgentImageBuildIsGivenTheExtraCertificates(t *testing.T) {
 	if err := fetchAgentImage(context.Background(), docker.Scope{Client: client}, "apptown-agent", "/ctx", false, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if len(client.calls) != 1 || client.calls[0] != "build --secret id=apptown-trust,env=APPTOWN_TRUST -t apptown-agent /ctx" {
+	if len(client.calls) != 1 || client.calls[0] != "build "+strings.Join(trust.BuildArgs(true), " ")+" -t apptown-agent /ctx" ||
+		!strings.Contains(client.calls[0], "--secret id=apptown-trust,env=APPTOWN_TRUST ") {
 		t.Fatalf("calls %q", client.calls)
 	}
 }

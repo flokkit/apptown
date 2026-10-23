@@ -76,7 +76,7 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 	}
 	// Each build is given the extra certificates as its secret, from the
 	// task's own variable (internal/trust).
-	secret := " ${APPTOWN_TRUST:+--secret id=apptown-trust,env=APPTOWN_TRUST} "
+	secret := " ${APPTOWN_TRUST:+--secret id=apptown-trust,env=APPTOWN_TRUST --build-arg APPTOWN_TRUST_SUM} "
 	exportLine := at("'docker' 'buildx' 'build' '--provenance=false' '--sbom=false' '--target' 'out' '--output' 'type=local,dest=" + export + "'" + secret + "'/work/web'")
 	check := at("[ ! -L '" + export + "/app' ]")
 	pack := at("'docker' 'buildx' 'build' '--platform' 'linux/arm64'")

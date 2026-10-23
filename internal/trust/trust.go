@@ -24,6 +24,7 @@ package trust
 import (
 	_ "embed"
 
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
@@ -214,6 +215,9 @@ const (
 	// SecretID is the build secret a build is given the script as; a RUN
 	// line mounts it at /run/secrets/apptown-trust.
 	SecretID = "apptown-trust"
+	// SumArg is the build argument a build is given the script's SHA-256 in
+	// (BuildArgs).
+	SumArg = "APPTOWN_TRUST_SUM"
 	// Run runs the script in a shell; with no script it does nothing.
 	Run = `eval "${APPTOWN_TRUST:-}"`
 )
@@ -320,14 +324,21 @@ func ContainerArgs(here bool) []string {
 }
 
 // BuildArgs are the docker build arguments that give a build the script as
-// the secret SecretID, by name as ContainerArgs does; none when it is empty.
-// A Dockerfile's RUN line that mounts the secret finds no file without them
-// and runs on, so the secret is never a required input.
+// the secret SecretID, by name as ContainerArgs does, and its SHA-256 as the
+// build argument SumArg; none when it is empty. A Dockerfile's RUN line that
+// mounts the secret finds no file without them and runs on, so the secret is
+// never a required input.
+//
+// A secret's content is not part of a build's cache key, so a RUN that writes
+// the certificates into the image (an image with no shell to run the script)
+// would keep what an earlier build cached. Such a stage declares ARG SumArg
+// before that line, which makes the line build again when they change.
 func BuildArgs(here bool) []string {
-	if Current().Script(here) == "" {
+	sc := Current().Script(here)
+	if sc == "" {
 		return nil
 	}
-	return []string{"--secret", "id=" + SecretID + ",env=" + EnvVar}
+	return []string{"--secret", "id=" + SecretID + ",env=" + EnvVar, "--build-arg", SumArg + "=" + fmt.Sprintf("%x", sha256.Sum256([]byte(sc)))}
 }
 
 // Transport is a transport of its own (its own connection pool), on

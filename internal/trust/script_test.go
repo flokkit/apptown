@@ -2,6 +2,8 @@ package trust_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -56,7 +58,8 @@ func TestTheScriptIsTheInstallerWithTheDeploymentsBundle(t *testing.T) {
 }
 
 // Installed, the script is this process's APPTOWN_TRUST, and a container or
-// build is given it by that name; with nothing to trust no argument is
+// build is given it by that name (a build also its SHA-256, which a Dockerfile
+// can make a cache key of); with nothing to trust no argument is
 // passed and an inherited value is removed.
 // Not parallel: it installs the process's trust.
 func TestTheScriptIsPassedByName(t *testing.T) {
@@ -72,14 +75,16 @@ func TestTheScriptIsPassedByName(t *testing.T) {
 	if !slices.Equal(trust.ContainerArgs(true), []string{"-e", trust.EnvVar}) || trust.ContainerArgs(false) != nil {
 		t.Fatalf("container arguments %v, elsewhere %v", trust.ContainerArgs(true), trust.ContainerArgs(false))
 	}
-	if !slices.Equal(trust.BuildArgs(true), []string{"--secret", "id=apptown-trust,env=APPTOWN_TRUST"}) || trust.BuildArgs(false) != nil {
+	sum := fmt.Sprintf("APPTOWN_TRUST_SUM=%x", sha256.Sum256([]byte(set.Script(true))))
+	if !slices.Equal(trust.BuildArgs(true), []string{"--secret", "id=apptown-trust,env=APPTOWN_TRUST", "--build-arg", sum}) || trust.BuildArgs(false) != nil {
 		t.Fatalf("build arguments %v, elsewhere %v", trust.BuildArgs(true), trust.BuildArgs(false))
 	}
 }
 
 // Run in a shell that stops at the first error or unset variable, the
 // script never stops it, sets the variables to the roots it found plus the
-// extras, and run again changes nothing.
+// extras (APPTOWN_TRUST_CERTS to the extras alone), and run again changes
+// nothing.
 func TestTheScriptNeverStopsTheShellAndRunsAgainUnchanged(t *testing.T) {
 	t.Parallel()
 	company := trusttest.New(t, "Company CA")
@@ -88,7 +93,7 @@ func TestTheScriptNeverStopsTheShellAndRunsAgainUnchanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	tmp := t.TempDir()
-	show := `echo "SSL=$SSL_CERT_FILE REQ=$REQUESTS_CA_BUNDLE GIT=$GIT_SSL_CAINFO NODE=$NODE_EXTRA_CA_CERTS"`
+	show := `echo "SSL=$SSL_CERT_FILE REQ=$REQUESTS_CA_BUNDLE GIT=$GIT_SSL_CAINFO NODE=$NODE_EXTRA_CA_CERTS CERTS=$APPTOWN_TRUST_CERTS"`
 	out := execution.Runner{}.Run(context.Background(), execution.Local, execution.Request{
 		Workspace: tmp,
 		Timeout:   time.Minute,
@@ -114,12 +119,17 @@ func TestTheScriptNeverStopsTheShellAndRunsAgainUnchanged(t *testing.T) {
 	}
 	dir := matches[0]
 	roots := filepath.Join(dir, "roots.pem")
-	if want := "SSL=" + roots + " REQ=" + roots + " GIT=" + roots + " NODE=" + filepath.Join(dir, "extras.pem"); shown[0] != want {
+	extras := filepath.Join(dir, "extras.pem")
+	if want := "SSL=" + roots + " REQ=" + roots + " GIT=" + roots + " NODE=" + extras + " CERTS=" + extras; shown[0] != want {
 		t.Fatalf("variables %q, want %q", shown[0], want)
 	}
 	body, err := os.ReadFile(roots)
 	pemText := strings.TrimSpace(string(company.PEM()))
 	if err != nil || strings.Count(string(body), pemText) != 1 {
 		t.Fatalf("the roots file must hold the extra authority once: %v", err)
+	}
+	alone, err := os.ReadFile(extras)
+	if err != nil || strings.TrimSpace(string(alone)) != pemText {
+		t.Fatalf("APPTOWN_TRUST_CERTS must hold the extra authority alone: %v\n%s", err, alone)
 	}
 }

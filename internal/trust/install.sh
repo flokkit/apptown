@@ -6,7 +6,9 @@
 #   eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"
 # adds the authorities to what this shell's programs trust, beside the
 # image's own roots, never instead of them. It never stops the shell that
-# runs it: what it cannot do it says on stderr and skips. Running it again is
+# runs it: what it cannot do it says on stderr and skips. APPTOWN_TRUST_CERTS
+# then names a file of the extra certificates alone (in a build, until the
+# RUN line's shell exits). Running it again is
 # cheap and does only what is not done yet (a JVM installed since).
 #
 # The script reaches App Platform as an environment value, which the
@@ -83,6 +85,10 @@ _apptown_trust() {
 		fi
 		export "$_at_v=$_at_out"
 	done
+	# The extras alone, for a build whose final image has no shell to run
+	# this script: it copies the file into that image where its TLS library
+	# reads extra roots (the go-small starter's Dockerfile).
+	export APPTOWN_TRUST_CERTS="$_at_dir/extras.pem"
 	# Node adds this file to its own roots.
 	case $NODE_EXTRA_CA_CERTS in
 	"$_at_dir"/*) ;;
