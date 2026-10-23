@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime/pprof"
 	"slices"
 	"strings"
 	"sync"
@@ -753,7 +754,11 @@ func TestASourceReadFailureLeavesAWriterPending(t *testing.T) {
 	}
 }
 
-// Fresh waiters must recheck admission after either resource wait.
+// Fresh waiters must recheck admission after either resource wait. The
+// incoming step is witnessed at its wait (the model scheduler's queue when
+// the holder has the only slot, the folder's lock otherwise) before its run
+// is abandoned; a quiet interval would not show it had even reached
+// admission.
 func TestAWaiterWhoseRunStoppedDoesNotLaunch(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"script", "agent/pi", "agent/review"} {
@@ -764,6 +769,9 @@ func TestAWaiterWhoseRunStoppedDoesNotLaunch(t *testing.T) {
 					schema.Step{Name: "agent", Uses: "agent/pi", With: map[string]any{"prompt": "hold the folder", "executor": "local"}},
 					schema.Step{Name: "incoming", Uses: kind, With: map[string]any{"prompt": "waiting", "executor": "local"}})
 				ctx := context.Background()
+				// Waits whose length is not the guarantee: setup, the
+				// witness and the joins include real Git and SQL work.
+				bound := polltest.HangGuard(t)
 				snap, err := a.Work.Snapshot(a.asEngine(ctx), script.RunID, workflow.DetailView)
 				if err != nil {
 					t.Fatal(err)
@@ -776,12 +784,8 @@ func TestAWaiterWhoseRunStoppedDoesNotLaunch(t *testing.T) {
 				a.capacity = models.NewScheduler(nil, capacity)
 				calls := 0
 				entered, release := make(chan struct{}), make(chan struct{})
-				released := false
-				defer func() {
-					if !released {
-						close(release)
-					}
-				}()
+				var releaseOnce sync.Once
+				let := func() { releaseOnce.Do(func() { close(release) }) }
 				installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome {
 					calls++
 					if calls > 1 {
@@ -791,39 +795,43 @@ func TestAWaiterWhoseRunStoppedDoesNotLaunch(t *testing.T) {
 					<-release
 					return ExecOutcome{Output: piSays("done")}
 				})
-				agentDone := make(chan error, 1)
-				go func() { agentDone <- a.Work.ExecuteStep(a.asEngine(ctx), agent.ID) }()
+				// Every exit lets the holder go and joins both steps before
+				// the fixture's cleanup removes their database and folder.
+				var running sync.WaitGroup
+				defer func() { let(); running.Wait() }()
+				var agentErr, scriptErr error
+				running.Add(1)
+				go func() { defer running.Done(); agentErr = a.Work.ExecuteStep(a.asEngine(ctx), agent.ID) }()
 				select {
 				case <-entered:
-				case <-time.After(5 * time.Second):
+				case <-time.After(bound):
 					t.Fatal("agent did not enter")
 				}
-				scriptDone := make(chan error, 1)
-				go func() { scriptDone <- a.Work.ExecuteStep(a.asEngine(ctx), script.ID) }()
-				// Prove the capacity wait when the holder occupies the only slot:
-				// once the step is witnessed waiting, a look shows it has not
-				// returned. Without that witness, a bounded negative
-				// observation, as in the existing folder-wait regression.
-				// Source inspection establishes where the mutex is acquired;
-				// returning here would mean it did not wait.
+				scriptDone := make(chan struct{})
+				running.Add(1)
+				label := pprof.Labels("folder-waiter", script.ID.String())
+				go pprof.Do(ctx, label, func(ctx context.Context) {
+					defer running.Done()
+					defer close(scriptDone)
+					scriptErr = a.Work.ExecuteStep(a.asEngine(ctx), script.ID)
+				})
+				wait, waiting := "the folder", func() bool { return inFolderLock("folder-waiter", script.ID.String()) }
 				if kind != "script" && capacity == 1 {
-					if !poll.Until(context.Background(), 5*time.Second, 10*time.Millisecond, func() bool {
+					wait, waiting = "capacity", func() bool {
 						_, _, waiting := a.capacity.Waiting(script.ID)
 						return waiting
-					}) {
-						t.Fatal("incoming agent never waited for capacity")
 					}
+				}
+				returned := func() bool {
 					select {
-					case err := <-scriptDone:
-						t.Fatalf("incoming step returned while it waited for capacity: %v", err)
+					case <-scriptDone:
+						return true
 					default:
+						return false
 					}
-				} else {
-					select {
-					case err := <-scriptDone:
-						t.Fatalf("incoming step returned while folder was held: %v", err)
-					case <-time.After(300 * time.Millisecond):
-					}
+				}
+				if !poll.Until(ctx, bound, 10*time.Millisecond, func() bool { return returned() || waiting() }) || returned() {
+					t.Fatalf("the incoming step did not wait for %s (returned: %v)", wait, returned())
 				}
 				if step, err := workflow.ReadStepIn(ctx, a.DB, script.ID); err != nil || step.Status == workflow.StatusRunning {
 					t.Fatalf("the incoming step claimed while another step held the folder: %+v %v", step, err)
@@ -838,28 +846,38 @@ func TestAWaiterWhoseRunStoppedDoesNotLaunch(t *testing.T) {
 				if err != nil || run.Status == workflow.RunRunning {
 					t.Fatalf("abandon did not commit: %+v %v", run, err)
 				}
-				close(release)
-				released = true
-				for _, done := range []chan error{agentDone, scriptDone} {
-					select {
-					case err := <-done:
-						if err != nil {
-							t.Fatal(err)
-						}
-					case <-time.After(5 * time.Second):
-						t.Fatal("writer did not finish")
-					}
+				let()
+				running.Wait()
+				if agentErr != nil || scriptErr != nil {
+					t.Fatalf("the writers: agent %v, incoming %v", agentErr, scriptErr)
 				}
 				if n := fake.Starts(taskKeyOf(script)); n != 0 {
 					t.Fatalf("abandoned script started %d time(s) after acquiring the folder lock", n)
 				}
-
 				if calls != 1 {
 					t.Fatalf("stopped %s launched after waiting: %d model calls", kind, calls)
 				}
 			})
 		}
 	}
+}
+
+// inFolderLock reports whether a goroutine labelled key=value is inside
+// gitexec.LockFolder. While another step holds that folder, such a
+// goroutine waits for it and claims its step only afterwards: the witness
+// that a step reached the folder's wait, which a quiet interval cannot give.
+func inFolderLock(key, value string) bool {
+	var profile strings.Builder
+	if err := pprof.Lookup("goroutine").WriteTo(&profile, 1); err != nil {
+		return false
+	}
+	want := fmt.Sprintf("%q:%q", key, value)
+	for _, stack := range strings.Split(profile.String(), "\n\n") {
+		if strings.Contains(stack, "# labels: ") && strings.Contains(stack, want) && strings.Contains(stack, "gitexec.LockFolder") {
+			return true
+		}
+	}
+	return false
 }
 
 type unstoppableTasks struct {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/internal/poll/polltest"
 )
 
 func TestDockerCLISelectionStreamsAndCancellation(t *testing.T) {
@@ -70,10 +71,7 @@ func TestNoDockerCommandInheritsABuilderFromAppTownsEnvironment(t *testing.T) {
 	// seconds: the fixture's first start waits for the operating system's
 	// first-run check of a new file (macOS scans it), which under a busy
 	// suite took longer.
-	bound := 10 * time.Minute
-	if deadline, ok := t.Deadline(); ok {
-		bound = time.Until(deadline) * 9 / 10
-	}
+	bound := polltest.HangGuard(t)
 	for name, req := range map[string]Command{
 		"a command":             {Args: []string{"build", "."}},
 		"a streamed command":    {Args: []string{"build", "."}, Stdout: &bytes.Buffer{}},

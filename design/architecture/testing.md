@@ -160,7 +160,9 @@ service, never a mock.
   Desktop on a Mac hides this by giving such files the developer's
   ownership. The opt-in job fails unless each of its three tests passed: a
   skip there is a failure (`CI_HEAVY_REQUIRE` in `scripts/ci-heavy.sh`,
-  held by `make check-ci-heavy`). The race job runs `make check-race` as
+  held by `make check-ci-heavy`). It runs one package at a time: Chromium
+  is on the host network, and a container started beside it adds a host
+  interface, which aborts a page load in flight. The race job runs `make check-race` as
   the runner's ordinary user, since root opens files whatever their mode and
   the permission-refusal tests would fail.
 - `make check-sql` and `make check-vuln` exist for ignored database writes
@@ -184,7 +186,8 @@ service, never a mock.
   waits for the system's first-run check of the new file, which under a busy
   suite can take over ten seconds. A wait that includes such a start ends
   on the event it waits for (or on the work finishing without it), bounded
-  by the test binary's deadline, not a few seconds of wall clock.
+  by the test binary's deadline (`polltest.HangGuard`), not a few seconds
+  of wall clock.
 - **A script a test runs is written with `execfile.Write`.** With
   `os.WriteFile`, a fork in a parallel test can inherit the open write
   descriptor, and Linux then refuses to run the file ("text file busy",

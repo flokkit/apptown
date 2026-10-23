@@ -16,12 +16,16 @@ import (
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executiontest"
+	"github.com/flokkit/apptown/internal/poll/polltest"
 )
 
 // A real name conflict followed by a failed observation does not establish
 // which request owns the container. Preserve the unanswered classification.
 func TestIntegrationAnUnansweredAdoptionCheckIsUnobservable(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// A hang guard only: making the first task (its disk admission starts
+	// a container) is setup, and its time is not what this test checks.
+	// A ten-second bound killed that disk read on a loaded runner (23 Oct).
+	ctx, cancel := context.WithTimeout(context.Background(), polltest.HangGuard(t))
 	defer cancel()
 	binary, err := exec.LookPath("docker")
 	if err != nil {

@@ -79,8 +79,11 @@ jobs:
             require: ""
           # The test image carries Playwright's Chromium and the pinned Pi.
           # A skip is not evidence: the job fails unless each test passed.
+          # One package at a time (-p 1): Chromium runs on the host network,
+          # and a container the console test starts adds a host interface,
+          # which aborts a navigation in flight (ERR_NETWORK_CHANGED).
           - name: opt-in-tiers
-            args: -tags=browser,pi,inference_docker ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -count=1 -timeout 20m -v
+            args: -tags=browser,pi,inference_docker -p 1 ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -count=1 -timeout 20m -v
             require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary
     name: ${{ matrix.name }}
     env:

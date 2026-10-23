@@ -553,10 +553,19 @@ echo done`
 	// hog's memory is returned (the Docker VM's log shows a second "Memory
 	// cgroup out of memory" victim, sh, in the same cgroup): then the shell
 	// says nothing and the exec itself ends with 137. Either is the budget
-	// killing the work.
-	hog, hogErr := exec.Command("docker", "exec", service, "sh", "-c", "head -c 1500m /dev/zero | tail > /dev/null; echo exit $?").CombinedOutput()
+	// killing the work. The hog's shell makes itself and what it starts the
+	// kernel's first choice of victim: the service's init or sleep, chosen
+	// once (CI, 22 Oct), ended the service, and the test's next exec found
+	// it not running.
+	hog, hogErr := exec.Command("docker", "exec", service, "sh", "-c", "echo 1000 > /proc/self/oom_score_adj || { echo 'oom_score_adj refused'; exit 3; }; head -c 1500m /dev/zero | tail > /dev/null; echo exit $?").CombinedOutput()
+	if strings.Contains(string(hog), "oom_score_adj refused") {
+		t.Fatalf("the hog could not make itself the victim: %s", hog)
+	}
 	var hogExit *exec.ExitError
 	hogKilled := strings.Contains(string(hog), "exit 137") || (errors.As(hogErr, &hogExit) && hogExit.ExitCode() == 137)
+	if running := inspect(t, "{{.State.Running}}", service); running != "true" {
+		t.Fatalf("the service did not survive its hog: %s", inspect(t, "running={{.State.Running}} exit={{.State.ExitCode}} oomKilled={{.State.OOMKilled}} error={{.State.Error}}", service))
+	}
 	if out, err := exec.Command("docker", "exec", "-d", service, "sh", "-c", spinners).CombinedOutput(); err != nil {
 		t.Fatal(err, string(out))
 	}
