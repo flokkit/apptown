@@ -19,6 +19,11 @@ node_modules/
 *.swp
 presso*
 /apptown-worker
+# What `go build` writes when run inside a command's folder.
+/cmd/apptown/apptown
+/cmd/apptownd/apptownd
+/cmd/apptown-gate/apptown-gate
+/cmd/apptown-worker/apptown-worker
 
 # The maintainers' private repository, checked out here (CLAUDE.md).
 /private/
