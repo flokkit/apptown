@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 """The tour's shape (site/tour), cheap enough for every gate: every stop in
-tour.yaml has an id, a title, a caption and a path; both its shots exist
-and are exactly 2880x1800 (1440x900 at device scale 2); no shot belongs to
-no stop; and index.html shows exactly the stops, in order. Whether the shots
-are current is the release script's question (scripts/tour-stamp.py)."""
+tour.yaml has an id, a title, a caption and a path, and index.html shows
+exactly the stops, in order.
+
+  python3 scripts/tour-check.py           the shape (make check-docs)
+  python3 scripts/tour-check.py --shots   also the screenshots: both of each
+                                          stop's exist and are exactly
+                                          2880x1800 (1440x900 at device
+                                          scale 2), and none belongs to no
+                                          stop (make tour, site/publish.sh)
+
+The screenshots are not in the tree: the release workflow makes them (make
+tour), so the gate's check leaves them alone."""
 import os
 import re
 import struct
@@ -63,7 +71,7 @@ def png_size(path):
     return struct.unpack(">II", head[16:24])
 
 
-def problems(tour):
+def problems(tour, shots):
     out = []
     try:
         listed, bad = stops(open(os.path.join(tour, "tour.yaml")).read())
@@ -81,6 +89,8 @@ def problems(tour):
         if sid in ids:
             out.append(f"stop {sid}: listed twice")
         ids.append(sid)
+        if not shots:
+            continue
         for theme in ("light", "dark"):
             png = os.path.join(tour, f"{sid}-{theme}.png")
             if not os.path.exists(png):
@@ -88,7 +98,7 @@ def problems(tour):
             elif png_size(png) != (WIDTH, HEIGHT):
                 out.append(f"{sid}-{theme}.png is {png_size(png)}, not {WIDTH}x{HEIGHT}")
     wanted = {f"{i}-{t}.png" for i in ids for t in ("light", "dark")}
-    for name in sorted(os.listdir(tour)):
+    for name in sorted(os.listdir(tour)) if shots else []:
         if name.endswith(".png") and name not in wanted:
             out.append(f"{name} belongs to no stop")
     try:
@@ -101,13 +111,16 @@ def problems(tour):
     return out
 
 
-def main():
+def main(argv):
+    if argv[1:] not in ([], ["--shots"]):
+        print("usage: tour-check.py [--shots]", file=sys.stderr)
+        return 2
     root = os.environ.get("TOUR_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    found = problems(os.path.join(root, "site", "tour"))
+    found = problems(os.path.join(root, "site", "tour"), argv[1:] == ["--shots"])
     for p in found:
         print("tour: " + p, file=sys.stderr)
     return 1 if found else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv))

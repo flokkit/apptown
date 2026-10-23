@@ -1,4 +1,4 @@
-"""scripts/tour-check.py and scripts/tour-stamp.py, on throwaway trees."""
+"""scripts/tour-check.py, on throwaway trees."""
 import os
 import struct
 import subprocess
@@ -44,10 +44,6 @@ class TourTest(unittest.TestCase):
                 png(os.path.join(self.tour, f"{sid}-{t}.png"), 2880, 1800)
         with open(os.path.join(self.tour, "index.html"), "w") as f:
             f.write('<section id="home"></section><section id="people"></section>')
-        for d in ("web/src", "internal", "web/dist"):
-            os.makedirs(os.path.join(self.root, d))
-        with open(os.path.join(self.root, "web/src/App.tsx"), "w") as f:
-            f.write("app")
         self.env = dict(os.environ, TOUR_ROOT=self.root)
 
     def run_script(self, *args):
@@ -55,22 +51,35 @@ class TourTest(unittest.TestCase):
                               capture_output=True, text=True)
 
     # A complete tour passes; each way it can be wrong fails, naming the problem.
+    # The shots are looked at only with --shots: the tree has none.
     def test_the_check_names_each_way_a_tour_is_incomplete(self):
-        self.assertEqual(self.run_script("tour-check.py").returncode, 0)
+        self.assertEqual(self.run_script("tour-check.py", "--shots").returncode, 0)
         cases = {
-            "no people-dark.png": lambda: os.remove(os.path.join(self.tour, "people-dark.png")),
-            "not 2880x1800": lambda: png(os.path.join(self.tour, "home-light.png"), 1440, 900),
-            "belongs to no stop": lambda: png(os.path.join(self.tour, "old-light.png"), 2880, 1800),
-            "index.html shows": lambda: open(os.path.join(self.tour, "index.html"), "w").write('<section id="home"></section>'),
-            "no caption": lambda: open(os.path.join(self.tour, "tour.yaml"), "w").write(TOUR.replace("    caption: Who can do what.\n", "")),
+            "no people-dark.png": (True, lambda: os.remove(os.path.join(self.tour, "people-dark.png"))),
+            "not 2880x1800": (True, lambda: png(os.path.join(self.tour, "home-light.png"), 1440, 900)),
+            "belongs to no stop": (True, lambda: png(os.path.join(self.tour, "old-light.png"), 2880, 1800)),
+            "index.html shows": (False, lambda: open(os.path.join(self.tour, "index.html"), "w").write('<section id="home"></section>')),
+            "no caption": (False, lambda: open(os.path.join(self.tour, "tour.yaml"), "w").write(TOUR.replace("    caption: Who can do what.\n", ""))),
         }
-        for want, breakit in cases.items():
+        for want, (shots_only, breakit) in cases.items():
             with self.subTest(want=want):
                 self.setUp()
                 breakit()
-                r = self.run_script("tour-check.py")
+                r = self.run_script("tour-check.py", "--shots")
                 self.assertEqual(r.returncode, 1, r.stderr)
                 self.assertIn(want, r.stderr)
+                r = self.run_script("tour-check.py")
+                self.assertEqual(r.returncode, 0 if shots_only else 1, r.stderr)
+
+    def test_the_gate_passes_a_tree_without_shots(self):
+        for name in os.listdir(self.tour):
+            if name.endswith(".png"):
+                os.remove(os.path.join(self.tour, name))
+        r = self.run_script("tour-check.py")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        r = self.run_script("tour-check.py", "--shots")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("no home-light.png", r.stderr)
 
     def test_the_gate_rejects_malformed_yaml(self):
         # An ordinary caption edit leaves an unquoted colon-space. The
@@ -102,24 +111,6 @@ class TourTest(unittest.TestCase):
                                  "    title: First title\n    title: Home\n"))
         r = self.run_script("tour-check.py")
         self.assertNotEqual(r.returncode, 0, "duplicate YAML key passed the gate")
-
-    # The stamp is current after write; a change, addition or removal in an
-    # input makes it stale; the tour's own outputs and web/dist do not.
-    def test_the_stamp_goes_stale_with_its_inputs_only(self):
-        self.assertEqual(self.run_script("tour-stamp.py", "check").returncode, 1)  # no stamp yet
-        self.assertEqual(self.run_script("tour-stamp.py", "write").returncode, 0)
-        self.assertEqual(self.run_script("tour-stamp.py", "check").returncode, 0)
-        png(os.path.join(self.tour, "home-light.png"), 2880, 1800)
-        open(os.path.join(self.root, "web/dist/x.js"), "w").write("built")
-        self.assertEqual(self.run_script("tour-stamp.py", "check").returncode, 0)
-        for change in (lambda: open(os.path.join(self.root, "web/src/App.tsx"), "w").write("changed"),
-                       lambda: open(os.path.join(self.root, "internal/new.go"), "w").write("package x"),
-                       lambda: open(os.path.join(self.tour, "tour.yaml"), "a").write("\n")):
-            self.run_script("tour-stamp.py", "write")
-            change()
-            r = self.run_script("tour-stamp.py", "check")
-            self.assertEqual(r.returncode, 1)
-            self.assertIn("run make tour", r.stderr)
 
 
 if __name__ == "__main__":

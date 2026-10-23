@@ -34,6 +34,16 @@ RUN set -e; plugins=/usr/local/lib/docker/cli-plugins; mkdir -p "$plugins" \
     && chmod 755 "$plugins/docker-buildx" "$plugins/docker-compose" \
     && docker --version && docker buildx version && docker compose version && node --version && go version
 
+# oxipng: make tour compresses the tour's screenshots with it when it is on
+# PATH (the release's tour job runs make tour in this image).
+ARG OXIPNG_VERSION=10.2.1
+ARG OXIPNG_SHA256=1813750ef592c5350ca79c88f98b2c0876d05c826dc7156245256d4255c1ad17
+RUN set -e; dir="oxipng-${OXIPNG_VERSION}-x86_64-unknown-linux-musl" \
+    && curl -fsSL -o /tmp/oxipng.tgz "https://github.com/shssoichiro/oxipng/releases/download/v${OXIPNG_VERSION}/${dir}.tar.gz" \
+    && echo "${OXIPNG_SHA256}  /tmp/oxipng.tgz" | sha256sum -c - \
+    && tar -xzf /tmp/oxipng.tgz -C /usr/local/bin --strip-components=1 "${dir}/oxipng" && rm /tmp/oxipng.tgz \
+    && oxipng --version
+
 # The opt-in tiers' prerequisites (the opt-in-tiers job): Playwright with its
 # Chromium and the libraries Chromium needs, and the Pi the agent image pins
 # (ci-heavy.sh passes PI_VERSION from deploy/apptown-agent/Dockerfile). The

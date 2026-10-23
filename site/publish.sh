@@ -17,6 +17,14 @@ version=${1:?usage: sh site/publish.sh <version>}
 : "${SITE_DISTRIBUTION:=E1XMP2SIAVI7FR}"
 here=$(cd "$(dirname "$0")" && pwd)
 
+# The tour's screenshots are not in the tree: the release workflow makes
+# them (make tour) and puts them in site/tour before this runs. A tour
+# without them is not published.
+if ! TOUR_ROOT="$here/.." python3 "$here/../scripts/tour-check.py" --shots; then
+	echo "publish: the tour is incomplete; run make tour first" >&2
+	exit 1
+fi
+
 out=$(mktemp -d)
 trap 'rm -rf "$out"' EXIT
 cp "$here/index.html" "$out/index.html"
@@ -36,7 +44,7 @@ aws s3 cp "$out/try.sh" "s3://$SITE_BUCKET/try.sh" \
 	--content-type 'text/plain; charset=utf-8' --cache-control 'max-age=300'
 aws s3 cp "$out/compose.yaml" "s3://$SITE_BUCKET/compose.yaml" \
 	--content-type 'text/yaml; charset=utf-8' --cache-control 'max-age=300'
-# The tour (make tour; committed), as it is.
+# The tour: its page and the screenshots make tour wrote.
 aws s3 cp "$here/tour/index.html" "s3://$SITE_BUCKET/tour/index.html" \
 	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
 # cp, not sync: sync lists the bucket first, and the publish role may only

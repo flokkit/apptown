@@ -1,7 +1,10 @@
 #!/bin/sh
 # The heavy tiers' jobs in .github/workflows/heavy.yml (integration, journeys,
-# opt-in-tiers, race; design/architecture/testing.md):
+# opt-in-tiers, race; design/architecture/testing.md), and the release's UI
+# tour (images.yml's tour job):
 #   ci-heavy.sh test <go test arguments...>
+#   ci-heavy.sh tour           make tour, with site/tour and web/dist left in
+#                              the checkout, owned by the caller
 #   ci-heavy.sh cleanup        (the job's last step; also run on exit)
 # CI_HEAVY_ID names the job (unique on the Docker host).
 # With CI_HEAVY_REQUIRE set to test names, the job fails unless go test's
@@ -30,11 +33,12 @@ cleanup)
 	cleanup
 	exit 0
 	;;
-test)
+test | tour)
+	mode=$1
 	shift
 	;;
 *)
-	echo "usage: $0 test <go test arguments...> | cleanup" >&2
+	echo "usage: $0 test <go test arguments...> | tour | cleanup" >&2
 	exit 2
 	;;
 esac
@@ -42,7 +46,8 @@ esac
 # The agent image the tests run steps in (built from this checkout, so a
 # change to deploy/apptown-agent is what is tested), and the test image.
 # A runner's Docker layer cache, where it has one, keeps both between jobs.
-docker build -q -t apptown-agent deploy/apptown-agent
+# The tour runs no step container, so it builds no agent image.
+[ "$mode" = tour ] || docker build -q -t apptown-agent deploy/apptown-agent
 docker build -q -t apptown-ci-heavy \
 	--build-arg PI_VERSION="$(sed -n 's/^ARG PI_VERSION=//p' deploy/apptown-agent/Dockerfile)" \
 	- <deploy/ci-heavy/Dockerfile
@@ -52,6 +57,19 @@ trap cleanup EXIT
 trap 'exit 143' TERM INT
 # Host networking: the tests reach the containers they start on the host's
 # loopback ports, and the harness's test PostgreSQL the same way.
+if [ "$mode" = tour ]; then
+	# make tour builds web/ and writes site/tour, so the checkout is mounted
+	# read-write here; what it wrote is handed back to the caller, so no
+	# root-owned file is left in the checkout.
+	docker run --rm --name "$name" --init --network host \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		-v "$PWD:$PWD" -w "$PWD" \
+		-v "$tmp:$tmp" -e TMPDIR="$tmp" \
+		-v apptown-ci-gomod:/root/go/pkg/mod -v apptown-ci-gocache:/root/.cache/go-build \
+		-e GOFLAGS="${GOFLAGS:-}" -e OWNER="$(id -u):$(id -g)" \
+		apptown-ci-heavy sh -c 'status=0; make tour || status=$?; chown -R "$OWNER" web/node_modules web/dist site/tour 2>/dev/null; exit $status'
+	exit
+fi
 status=0
 { docker run --rm --name "$name" --init --network host \
 	-v /var/run/docker.sock:/var/run/docker.sock \

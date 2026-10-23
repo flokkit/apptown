@@ -7,9 +7,12 @@ import pty
 import shutil
 import subprocess
 import tempfile
+import re
 import select
+import struct
 import time
 import unittest
+import zlib
 
 ROOT = Path(os.environ.get('SITE_TRY_ROOT', Path(__file__).resolve().parents[1]))
 SHELLS = ['/bin/sh', '/bin/dash']
@@ -236,7 +239,27 @@ class TryScript(unittest.TestCase):
                 self.assertNotEqual(status, 0, out)
                 self.assertNotIn(DONE, out)
 
+    def site_with_tour(self):
+        """A copy of the tree publish.sh reads, with a fake screenshot for
+        each stop: the shots are not in the tree (the release workflow makes
+        them)."""
+        repo = self.base / 'repo'
+        for rel in ('site/publish.sh', 'site/index.html', 'site/try.sh', 'site/tour/index.html',
+                    'site/tour/tour.yaml', 'scripts/tour-check.py', 'deploy/one-server/compose.yaml'):
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(ROOT / rel, repo / rel)
+        ids = re.findall(r'<section id="([^"]+)">', (ROOT / 'site/tour/index.html').read_text())
+        def chunk(kind, data):
+            return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data) & 0xffffffff)
+        shot = (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 2880, 1800, 8, 0, 0, 0, 0))
+                + chunk(b'IDAT', zlib.compress(b'\x00')) + chunk(b'IEND', b''))
+        for sid in ids:
+            for theme in ('light', 'dark'):
+                (repo / 'site/tour' / f'{sid}-{theme}.png').write_bytes(shot)
+        return repo, ids
+
     def test_publish_substitution_metadata_and_invalidation(self):
+        repo, ids = self.site_with_tour()
         self.stub('aws', '''#!/bin/sh
 printf '%s\\n' "$*" >> "$CALLS"
 if [ "$1 $2" = 's3 cp' ]; then
@@ -250,7 +273,7 @@ fi
         self.env.update(SITE_BUCKET='review-bucket', SITE_DISTRIBUTION='review-distribution', PUBLISHED=str(self.base))
         for shell in SHELLS:
             with self.subTest(shell=shell):
-                result = subprocess.run([shell, str(ROOT / 'site/publish.sh'), '1.2.3-rc.1'], env=self.env,
+                result = subprocess.run([shell, str(repo / 'site/publish.sh'), '1.2.3-rc.1'], env=self.env,
                                         capture_output=True, text=True, timeout=10)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 published = (self.base / 'try.sh').read_text()
@@ -270,11 +293,27 @@ fi
                 self.assertEqual((self.base / 'tour' / 'index.html').read_bytes(), (ROOT / 'site/tour/index.html').read_bytes())
                 # Only writes: the publish role may not list the bucket, so no
                 # sync (it lists first) and no ls.
-                self.assertIn('s3 cp ' + str(ROOT / 'site/tour') + '/ s3://', calls)
+                self.assertIn('s3 cp ' + str(repo / 'site/tour') + '/ s3://', calls)
                 self.assertIn('--recursive', calls)
                 self.assertNotIn('s3 sync', calls)
                 self.assertNotIn('s3 ls', calls)
                 self.assertIn('--content-type image/png', calls)
+                self.assertEqual(len(list((self.base / 'tour').glob('*.png'))), 2 * len(ids))
+
+    # A tour missing a screenshot is not published: nothing is uploaded.
+    def test_publish_refuses_a_tour_without_its_shots(self):
+        repo, ids = self.site_with_tour()
+        (repo / 'site/tour' / f'{ids[0]}-dark.png').unlink()
+        self.stub('aws', '#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\n')
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                result = subprocess.run([shell, str(repo / 'site/publish.sh'), '1.2.3-rc.1'], env=self.env,
+                                        capture_output=True, text=True, timeout=10)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f'no {ids[0]}-dark.png', result.stderr)
+                self.assertIn('run make tour first', result.stderr)
+                calls = self.base / 'calls'
+                self.assertNotIn('s3 ', calls.read_text() if calls.exists() else '')
 
 
     def trust_calls(self):

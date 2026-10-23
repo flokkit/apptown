@@ -103,10 +103,16 @@ GHCR packages start private, also for a public repository. For anonymous
 pulls, make each package public in its package settings on GitHub. A
 failed run can be retried by re-running the tag's workflow.
 
-After every image is merged, the `site` job publishes apptown.dev
-(`site/publish.sh <version>`): the landing page and the `try` script, which
-starts the version just published. A test tag (`-test.N`) skips it, so the
-public install command never names a test build. The job signs in to AWS with
+After every image is merged, the `tour` job makes the UI tour from the tag's
+source: `make tour` in the ci-heavy image (`scripts/ci-heavy.sh tour`). Its
+screenshots and page are the run's `tour` artifact, kept 30 days. The `site`
+job needs it: it downloads the artifact into `site/tour` and publishes
+apptown.dev (`site/publish.sh <version>`): the landing page, the tour, and
+the `try` script, which starts the version just published. A failed tour
+publishes nothing, and `publish.sh` refuses a tour without every screenshot.
+A test tag (`-test.N`) runs the tour and skips the site, so the public
+install command never names a test build; its artifact is how to look at a
+release's tour beforehand. The job signs in to AWS with
 GitHub's OIDC token as `apptown-site-publisher`, a role that may only write the
 site bucket and invalidate its distribution. The role trusts one thing: a job
 in this repository's `apptown.dev` environment, which only `v*` tags may
@@ -117,7 +123,7 @@ one given its name. No AWS key is stored in GitHub. Once the repository is publi
 tag ruleset limits creating and moving `v*` tags to admins. The role, the bucket and the
 distribution are made by `tf/products/apptown/site` in the maintainers'
 infrastructure repository. A maintainer with AWS credentials can still publish
-by hand with the same script.
+by hand with the same script, after `make tour`.
 
 ## The images
 
