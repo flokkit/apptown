@@ -35,6 +35,7 @@ import (
 	"github.com/flokkit/apptown/internal/gate"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/stamp"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Restored copies (design/subsystems/deployment.md, "Restored copies"). A rehearsal
@@ -639,6 +640,10 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	return strings.TrimRight(res.Observed.URL, "/"), c, "", nil
 }
 
+// gateTransport is the gate checks' pool: a restored copy is a deployment
+// address, so it trusts the deployments use (internal/trust).
+var gateTransport = trust.Lazy(trust.Deployments)
+
 // gateClient asks through the gate: it follows no redirect (a redirect's
 // status is the answer, and the secret is never sent on to another
 // address) and reads no body.
@@ -646,7 +651,7 @@ func (s *Service) gateClient() *http.Client {
 	if s.restored.HTTP != nil {
 		return s.restored.HTTP
 	}
-	return &http.Client{Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return &http.Client{Transport: gateTransport, Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 }
 
 // askThroughGate runs the rehearsal's checks against the copy through its

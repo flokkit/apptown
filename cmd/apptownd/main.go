@@ -22,6 +22,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown"
 	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -67,6 +68,7 @@ type daemonFlags struct {
 	tierDomains                                      []string
 	gitImportPrivate                                 bool
 	bundleMaxBytes                                   int64
+	trustInference, trustDeployments, trustAppTown   string
 }
 
 func defineFlags(fs *flag.FlagSet) *daemonFlags {
@@ -81,6 +83,9 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.BoolVar(&o.privateDocker, "private-docker", false, "admit agent steps that declare private Docker (docker: true) on the worker: the operator's opt-in; every such attempt records whether the worker's measured profile is qualified (Running AppTown: Workers and running without local Docker)")
 	fs.BoolVar(&o.noPrivateDocker, "no-private-docker", false, "refuse agent steps that declare private Docker (docker: true), and give change consoles none")
 	fs.BoolVar(&o.localTLS, "local-tls", false, "serve -addr over HTTPS from a certificate authority AppTown makes in <data>/local-tls, which vouches only for localhost names; plain HTTP there is sent to https. For the desktop trial: a server has its own TLS in front. Needs an https:// -public-host")
+	fs.StringVar(&o.trustInference, "trust-inference", "", "a PEM file of extra certificate authorities model-provider connections trust, beside the system's (a company's TLS-inspecting proxy)")
+	fs.StringVar(&o.trustDeployments, "trust-deployments", "", "a PEM file of extra certificate authorities AppTown's connections to its apps' preview and deployment addresses and to registries trust, beside the system's (with -local-tls, AppTown's own authority is added)")
+	fs.StringVar(&o.trustAppTown, "trust-apptown", "", "a PEM file of extra certificate authorities AppTown's other connections trust, beside the system's: Git hosts, integration providers, cloud provider APIs")
 	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url) (Running AppTown: Workers and running without local Docker)")
 	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names apptown-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
 	fs.BoolVar(&o.reap, "reap", false, "remove what AppTown made and nothing uses any more (step, service and chat containers, previews nobody looks at, images, caches, folders) instead of only logging it; set it only when this Docker is used by this AppTown alone: the sweep does not ask other AppTowns what they still use")
@@ -140,6 +145,11 @@ func main() {
 	}
 	mainTLS, chatTLS, err := localTLS(o.localTLS, o.publicHost, o.addr, dataDir, o.tierDomains)
 	if err != nil {
+		log.Fatal(err)
+	}
+	// Before anything makes a connection: every client trusts its use's
+	// bundle from here on.
+	if err := installTrust(dataDir, map[trust.Use]string{trust.Inference: o.trustInference, trust.Deployments: o.trustDeployments, trust.AppTown: o.trustAppTown}, chatTLS); err != nil {
 		log.Fatal(err)
 	}
 	if o.taskCPUs <= 0 || o.taskMemoryMiB <= 0 || o.taskPIDs <= 0 || o.chatCPUs <= 0 || o.chatMemoryMiB <= 0 || o.chatPIDs <= 0 {

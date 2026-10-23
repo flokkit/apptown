@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // DefaultBase is OpenRouter's API root. Apps call models under it; the
@@ -36,6 +38,10 @@ func ValidReset(r string) bool {
 	}
 	return false
 }
+
+// keysTransport is the key API's pool: model-provider traffic, so it
+// trusts the inference use (internal/trust).
+var keysTransport = trust.Lazy(trust.Inference)
 
 // Client calls the key management API with a provisioning key.
 type Client struct {
@@ -126,7 +132,7 @@ func (c *Client) do(ctx context.Context, op, method, path string, body any, out 
 	req.Header.Set("Content-Type", "application/json")
 	h := c.HTTP
 	if h == nil {
-		h = &http.Client{Timeout: 20 * time.Second}
+		h = &http.Client{Timeout: 20 * time.Second, Transport: keysTransport}
 	}
 	resp, err := h.Do(req)
 	if err != nil {

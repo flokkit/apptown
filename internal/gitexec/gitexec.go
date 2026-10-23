@@ -35,6 +35,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // waitDelay bounds how long a canceled git's pipes may stay open, so a child
@@ -63,7 +65,19 @@ func Environ(extra ...string) []string {
 		}
 	}
 	env = append(env, RepositoryConfigOnly...)
+	env = append(env, trustEnv()...)
 	return append(env, extra...)
+}
+
+// trustEnv points git at the AppTown use's trust (internal/trust): the
+// system's roots and the extra certificates as one file, which git over
+// HTTPS reads in place of its own (GIT_SSL_CAINFO is the one variable git
+// reads whichever TLS library it was built with). Nothing without extras.
+func trustEnv() []string {
+	if f := trust.Current().GitFile(); f != "" {
+		return []string{"GIT_SSL_CAINFO=" + f}
+	}
+	return nil
 }
 
 // RepositoryConfigOnly are the variables that keep git to the repository's

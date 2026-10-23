@@ -274,3 +274,30 @@ one, a proxy that can get certificates on demand can ask AppTown first:
 AppTown's own names and 404 for any other, and only to a caller on the same
 machine. Keep `/tls/ask` off the public address, as the compose file's
 Caddy does.
+
+## Behind a company's TLS-inspecting proxy
+
+Some networks re-sign every outgoing HTTPS connection with a company
+certificate authority. AppTown then needs that authority's certificate as
+well as the system's. Give it as a PEM file to each kind of connection that
+needs it. Each flag is read on its own, so the same file can be given to all
+three:
+
+| Flag (or variable) | Connections that trust it |
+| --- | --- |
+| `-trust-inference` (`APPTOWN_TRUST_INFERENCE`) | model providers |
+| `-trust-deployments` (`APPTOWN_TRUST_DEPLOYMENTS`) | apps' preview and deployment addresses (the runtime checks), and container registries |
+| `-trust-apptown` (`APPTOWN_TRUST_APPTOWN`) | everything else AppTown calls: Git hosts, integration providers, cloud provider APIs |
+
+The system's own roots stay trusted. A file that is missing or holds no
+certificate stops AppTown at start, naming the flag. With `-trust-apptown`,
+git is given the system's roots and the file together, so the system must
+keep its roots in one file (as Linux distributions and macOS do).
+
+With `-local-tls`, AppTown's own local certificate authority is added to the
+deployments certificates only.
+
+These flags cover AppTown's own connections. The containers AppTown starts
+(agent, check and build steps, previews and deployed apps) are not given
+these certificates. A host's Docker trusts what that host's system or
+`/etc/docker/certs.d` trusts.

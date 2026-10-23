@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Before a chat opens on the worker, AppTown asks whether the worker can
@@ -63,7 +65,10 @@ func try(ctx context.Context, raw string) (bool, string) {
 		return false, err.Error()
 	}
 	// Redirects are not followed: an answer from the address is enough.
-	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	// A registry: the deployments use (internal/trust).
+	transport := trust.Transport(trust.Deployments)
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	resp, err := client.Do(req)
 	if err != nil {
 		return false, err.Error()

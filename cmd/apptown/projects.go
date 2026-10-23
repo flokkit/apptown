@@ -210,7 +210,7 @@ func cmdNew(args []string) error {
 	fs := newFlags("new")
 	name := fs.String("name", "", "display name (default: slug)")
 	ns := fs.String("ns", "", "namespace (display grouping on the Projects page)")
-	pack := fs.String("pack", "", "pack to apply (e.g. java-spring, go-small)")
+	pack := fs.String("pack", "", "pack to apply (e.g. java-spring, go-small); without one the project has no way of working until apptown pack applies one")
 	toolchain := fs.String("toolchain", "", "stock toolchain to declare in mise.toml (java, go, node, python, rust)")
 	remote := fs.Bool("remote", false, "create + push a GitLab remote in the first available namespace")
 	branch := fs.String("branch", "", "default branch (a new repository: main; --from: the source's own default)")
@@ -312,12 +312,18 @@ func cmdNew(args []string) error {
 	if *from != "" {
 		printDeclaredSecrets(slug)
 	}
-	var setup struct {
-		NeedsModel bool `json:"needsModel"`
+	if *pack == "" {
+		// Only the platform's workflows are adopted: no change can be asked
+		// for until a way of working is applied.
+		fmt.Printf("\n%s\n", noPackHint(slug, offeredPacks()))
+	} else {
+		var setup struct {
+			NeedsModel bool `json:"needsModel"`
+		}
+		// Unread, the hint is today's: the model work most AppTowns can do.
+		_ = api.get("/setup", &setup)
+		fmt.Printf("\n%s\n", firstChangeHint(slug, setup.NeedsModel))
 	}
-	// Unread, the hint is today's: the model work most AppTowns can do.
-	_ = api.get("/setup", &setup)
-	fmt.Printf("\n%s\n", firstChangeHint(slug, setup.NeedsModel))
 	if *asJSON {
 		return printJSON(ProjectCreated{ID: proj.ID, Slug: proj.Slug, Name: proj.Name})
 	}
@@ -810,6 +816,41 @@ func cmdSchedules(args []string) error {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Source.Workflow, s.Cron, next, last)
 	}
 	return w.Flush()
+}
+
+// offeredPacks names the packs a project can apply here: enabled, not the
+// platform's own. Nil when they could not be read, which is not "none".
+func offeredPacks() []string {
+	var packs []struct {
+		Name     string `json:"name"`
+		Platform bool   `json:"platform"`
+		Enabled  bool   `json:"enabled"`
+	}
+	if err := api.get("/packs", &packs); err != nil {
+		return nil
+	}
+	names := []string{}
+	for _, p := range packs {
+		if p.Enabled && !p.Platform {
+			names = append(names, p.Name)
+		}
+	}
+	return names
+}
+
+// noPackHint is the next step after apptown new without a pack: the
+// project has only the platform's workflows, so asking for a change (quick,
+// build) cannot work until a way of working is applied. offered nil means
+// the list could not be read.
+func noPackHint(slug string, offered []string) string {
+	hint := fmt.Sprintf("%[1]s has no way of working yet, so it cannot take changes. Apply one: apptown pack -p %[1]s <pack>", slug)
+	switch {
+	case offered == nil:
+		return hint + "\n(the packs this AppTown offers are on its Packs page)"
+	case len(offered) == 0:
+		return hint + "\n(this AppTown offers no packs yet: an administrator turns them on under Ways of working)"
+	}
+	return hint + "\noffered here: " + strings.Join(offered, ", ")
 }
 
 // firstChangeHint is the next step after apptown new that works on this

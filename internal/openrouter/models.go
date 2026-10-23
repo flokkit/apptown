@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // modelsHTTP reads the public model list on a pool of its own.
-var modelsHTTP = &http.Client{Transport: http.DefaultTransport.(*http.Transport).Clone()}
+var modelsHTTP = &http.Client{Transport: trust.Lazy(trust.Inference)}
 
 // AliasTarget is the model a "~" alias names in OpenRouter's public model
 // list at base+"/models" (for "~anthropic/claude-sonnet-latest", today

@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // The front page: what a visitor who opens the app gets. A readiness path
@@ -37,7 +39,10 @@ const pageRedirects = 5
 // http.DefaultTransport is closed under the probe whenever anything calls
 // CloseIdleConnections on it (every httptest.Server.Close does), and the
 // probe read that as an app that gave no answer.
-var ProbeTransport http.RoundTripper = http.DefaultTransport.(*http.Transport).Clone()
+// It trusts the deployments use (internal/trust): a preview's or a
+// deployment's address may be signed by a company's proxy or by a desktop
+// trial's own authority.
+var ProbeTransport http.RoundTripper = trust.Lazy(trust.Deployments)
 
 var pageClient = &http.Client{
 	Transport:     ProbeTransport,
