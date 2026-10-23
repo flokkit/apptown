@@ -1,7 +1,7 @@
 # Change creation and initiator attribution
 
 Work admission in `internal/workflow` accepts one typed `ChangeDraft`: project, descriptive
-fields, opening/backlog intent, optional first-chat naming and typed pinned
+fields, optional first-chat naming and typed pinned
 acceptance. It does not accept an arbitrary lifecycle or title ownership state.
 HTTP and MCP capability guards live in composition; worker creation is
 explicitly system-owned. This is not a public, independently authorized Work API.
@@ -19,9 +19,10 @@ remediation records `apptown-system`, not the worker's output or an invented hum
 Initiator queries read the first creation receipt.
 
 The small creator value has one workspace effect. It invokes that effect only after
-creation and attribution commit; backlog and repository-free Changes need no such
-effect. A preparation failure returns the same committed Change and an error naming
-its ID. The caller can explicitly start that Change again. A post-preparation read
+creation and attribution commit; repository-free Changes need no such effect. A
+preparation failure returns the same committed Change and an error naming its ID.
+The next chat or contribution that opens the Change prepares its workspace again
+(`Service.PrepareWorkspace`). A post-preparation read
 failure likewise retains its committed identity. There is no automatic recreation,
 replay queue or hidden recovery loop. The [checked workspace operation](workspace-preparation.md) owns Git, guarded base
 publication and attachment synchronization, outside the creation transaction.

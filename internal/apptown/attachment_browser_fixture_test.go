@@ -10,14 +10,11 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// att_seedChange creates a project and begins a real Change, returning its id.
+// att_seedChange creates a project and a real Change, returning its id.
 func att_seedChange(t *testing.T, a *App) ids.ID {
 	t.Helper()
 	projectID := createReadTestProject(t, a, "p")
 	id := createReadTestChange(t, a, projectID, "attachment fixture")
-	if _, err := a.Work.Begin(asPerson("bls"), id); err != nil {
-		t.Fatal(err)
-	}
 	return id
 }
 

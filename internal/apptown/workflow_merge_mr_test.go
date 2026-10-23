@@ -372,9 +372,6 @@ func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 	a.lifecycle.SelectLane(t.Context(), projectID, "land", true, "fixture")
 	ctx := asPerson("opener@corp.example")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "Export CSV", Body: "/merge\n@all please"})
-	if err == nil {
-		ch, err = a.Work.Begin(ctx, ch.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

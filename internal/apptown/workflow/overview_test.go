@@ -19,7 +19,7 @@ func TestWorkHistoryUsesOneRootAggregateAndProjectFence(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	projectID := workflowTestProject(t, db, "completion", "Completion", "")
-	changeID := insertChangeForTest(t, db, workflowsql.InsertChangeParams{ID: ids.New(time.Now()), CreatedAt: time.Now(), ProjectID: projectID, Type: "feature", Title: "A change", State: ChangeProposed.String()})
+	changeID := insertChangeForTest(t, db, workflowsql.InsertChangeParams{ID: ids.New(time.Now()), CreatedAt: time.Now(), ProjectID: projectID, Type: "feature", Title: "A change", State: ChangeInProgress.String()})
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	run := insertStoredRun(t, db, workflowsql.InsertRunParams{ID: ids.New(start), ProjectID: projectID, ChangeID: changeID, WorkflowName: "test", WorkflowVersion: 1, Kind: "pipeline", Status: RunDone.String(), CurrentStage: "finish", CreatedAt: start, UpdatedAt: start.Add(30 * time.Second), DefinitionJson: []byte(`{"kind":"pipeline","role":"working","stages":[{"name":"finish"}]}`)})
 	q := queries{db: db}

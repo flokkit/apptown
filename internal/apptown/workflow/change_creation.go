@@ -21,7 +21,7 @@ import (
 type ChangeDraft struct {
 	ProjectID                      ids.ID
 	Type, Title, Body, ExternalRef string
-	Propose, TitleFromChat         bool
+	TitleFromChat                  bool
 	Acceptance                     *Acceptance
 }
 
@@ -57,7 +57,7 @@ func (c Creator) CreateWith(ctx context.Context, in ChangeDraft, who string, joi
 
 func (c Creator) prepareCreated(ctx context.Context, created CreatedChange) (*Change, error) {
 	ch := created.Change
-	if ch.State == ChangeProposed || ch.Branch == "" {
+	if ch.Branch == "" {
 		return ch, nil
 	}
 	if c.prepare == nil {
@@ -93,7 +93,7 @@ func (s changeStore) create(ctx context.Context, in ChangeDraft, who string, joi
 // preparing a workspace. Other admission opens its own transaction above.
 // at is AppTown's time the Change is made.
 func CreateChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who string, at time.Time) (CreatedChange, error) {
-	if in.ProjectID.IsZero() || strings.TrimSpace(in.Title) == "" || strings.TrimSpace(who) == "" || in.Propose && in.TitleFromChat {
+	if in.ProjectID.IsZero() || strings.TrimSpace(in.Title) == "" || strings.TrimSpace(who) == "" {
 		return CreatedChange{}, fmt.Errorf("invalid Change creation request")
 	}
 	if in.Type == "" {
@@ -119,16 +119,13 @@ type changeOrigin struct {
 }
 
 func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who string, created CreatedChange, origin changeOrigin, at time.Time) (CreatedChange, error) {
-	if in.ProjectID.IsZero() || strings.TrimSpace(in.Title) == "" || strings.TrimSpace(who) == "" || in.Propose && in.TitleFromChat {
+	if in.ProjectID.IsZero() || strings.TrimSpace(in.Title) == "" || strings.TrimSpace(who) == "" {
 		return CreatedChange{}, fmt.Errorf("invalid Change creation request")
 	}
 	if in.Type == "" {
 		in.Type = "feature"
 	}
 	state, owner := ChangeInProgress, titleHuman
-	if in.Propose {
-		state = ChangeProposed
-	}
 	if in.TitleFromChat {
 		owner = titleAwaitingChat
 	}
@@ -160,7 +157,7 @@ func insertChangeIn(ctx context.Context, tx *database.Tx, in ChangeDraft, who st
 		return CreatedChange{}, err
 	}
 	id := row.ID
-	if origin.autoBranch && !in.Propose && created.DefaultBranch != "" {
+	if origin.autoBranch && created.DefaultBranch != "" {
 		n, err := workflowsql.New(tx.SQL()).SetChangeBranch(ctx, workflowsql.SetChangeBranchParams{Branch: fmt.Sprintf("apptown/change-%d", id), ID: id, ProjectID: in.ProjectID})
 		if err != nil {
 			return CreatedChange{}, err

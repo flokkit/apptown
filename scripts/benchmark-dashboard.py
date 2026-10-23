@@ -39,7 +39,7 @@ try:
     ANALYZE;
     """)
     src=''.join(p.read_text() for p in sorted((root/'internal/apptown/workflow/internal/workflowsql').glob('*.sql')))
-    vals={'running_status':"'running'",'done_status':"'done'",'proposed_state':"'proposed'",'in_progress_state':"'in_progress'",'landing_state':"'landing'",'running':"'running'",'pending':"'pending'",'needs_human':"'needs_human'",'row_limit':'6'}
+    vals={'running_status':"'running'",'done_status':"'done'",'in_progress_state':"'in_progress'",'landing_state':"'landing'",'running':"'running'",'pending':"'pending'",'needs_human':"'needs_human'",'row_limit':'6'}
     for name in ['ProjectActivityReport','DashboardActiveRuns','RecentProjectIDs']:
         query=src.split('-- name: '+name+' :many\n')[1].split(';')[0]
         params=list(dict.fromkeys(re.findall(r'sqlc.arg\((\w+)\)',query)))

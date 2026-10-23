@@ -18,9 +18,6 @@ func tv_ov_seed(t *testing.T) (*App, ids.ID) {
 	pid := createReadTestProject(t, a, "overview")
 	begin := func(title string) ids.ID {
 		id := createReadTestChange(t, a, pid, title)
-		if _, err := a.Work.Begin(asPerson("bls"), id); err != nil {
-			t.Fatal(err)
-		}
 		return id
 	}
 	approval := schema.Stage{Name: "work", Steps: []schema.Step{{Name: "accept", Uses: "approval", With: map[string]any{"approvers": []any{"bls"}, "means": "the work is ready"}}}}

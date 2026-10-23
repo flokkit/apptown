@@ -187,6 +187,9 @@ WHERE jsonb_typeof(items_json) = 'array' AND EXISTS (
 WHERE jsonb_typeof(v.spec_json->'policies') = 'array'
   AND EXISTS (SELECT 1 FROM jsonb_array_elements(v.spec_json->'policies') x WHERE COALESCE(x->>'rule', '') = '')`,
 	}},
+	{n: 165, note: "the backlog is removed: a change left proposed is abandoned, with no closure time or reason since neither is known", stmts: []string{
+		`UPDATE changes SET state = 'abandoned' WHERE state = 'proposed'`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

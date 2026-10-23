@@ -25,7 +25,7 @@ func TestWorkAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 	owner := access.Principal{Kind: "user", Name: "owner", Via: "token"}
 	service := a.Work
 	readers := []func(context.Context, ids.ID) (*Change, error){service.Change, NewChanges(a.DB, a.Authorizer, nil).Change}
-	ch, err := service.Create(stepVerifiedContext(ctx, owner), ChangeDraft{ProjectID: a.ProjectID, Title: "owned proposal", Propose: true})
+	ch, err := service.Create(stepVerifiedContext(ctx, owner), ChangeDraft{ProjectID: a.ProjectID, Title: "owned change"})
 	if err != nil {
 		t.Fatal(err)
 	}

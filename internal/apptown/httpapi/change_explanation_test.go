@@ -11,23 +11,20 @@ import (
 
 func TestChangeDetailExplainsDraftsAndRecordedAbandonment(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []string{"ordinary", "chat", "proposal", "closed draft", "closed run", "stopped run"} {
+	for _, kind := range []string{"ordinary", "chat", "closed draft", "closed run", "stopped run"} {
 		t.Run(kind, func(t *testing.T) {
 			t.Parallel()
 			withRun := kind == "closed run" || kind == "stopped run"
 			f := newWorkflowHTTPFixture(t, withRun)
 			id := f.ChangeID
-			if kind == "chat" || kind == "proposal" {
-				ch, err := f.Work.Create(f.Context, workflow.ChangeDraft{ProjectID: f.ProjectID, Title: "another draft", TitleFromChat: kind == "chat", Propose: kind == "proposal"})
+			if kind == "chat" {
+				ch, err := f.Work.Create(f.Context, workflow.ChangeDraft{ProjectID: f.ProjectID, Title: "another draft", TitleFromChat: true})
 				if err != nil {
 					t.Fatal(err)
 				}
 				id = ch.ID
 			}
 			want, state := "No workflow has started yet.", ""
-			if kind == "proposal" {
-				want = ""
-			}
 			if kind == "closed draft" || withRun {
 				want, state = "duplicate of #297; original invoke never started", "abandoned"
 				stop := workflow.StopWork{ChangeID: id, Reason: want}

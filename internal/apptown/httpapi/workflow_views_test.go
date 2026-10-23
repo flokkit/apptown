@@ -73,18 +73,12 @@ func TestHandleBoardColumnsAndCap(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := f.Work.Begin(f.Context, change.ID); err != nil {
-			t.Fatal(err)
-		}
 		if err := f.DB.InTx(context.Background(), func(tx *database.Tx) error {
 			_, err := workflow.TransitionChangeIn(f.Context, tx, f.ProjectID, change.ID, workflow.ChangeMove{Action: workflow.ShipChange}, time.Now())
 			return err
 		}); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if _, err := f.Work.Create(f.Context, workflow.ChangeDraft{ProjectID: f.ProjectID, Title: "p", Propose: true}); err != nil {
-		t.Fatal(err)
 	}
 	r := httptest.NewRequest("GET", "/api/v1/projects/shop/board", nil).WithContext(f.Context)
 	r.SetPathValue("slug", "shop")
@@ -109,7 +103,7 @@ func TestHandleBoardColumnsAndCap(t *testing.T) {
 		cols[c.State] = struct{ total, shown int }{c.Total, len(c.Items)}
 		order = append(order, c.State)
 	}
-	want := []string{"proposed", "in_progress", "landing", "shipped", "abandoned"}
+	want := []string{"in_progress", "landing", "shipped", "abandoned"}
 	if len(order) != len(want) {
 		t.Fatalf("column count/order: %v", order)
 	}
@@ -118,7 +112,7 @@ func TestHandleBoardColumnsAndCap(t *testing.T) {
 			t.Fatalf("column order: %v", order)
 		}
 	}
-	if cols["shipped"].total != 11 || cols["shipped"].shown != 8 || cols["proposed"].total != 1 || cols["proposed"].shown != 1 || cols["in_progress"].total != 1 || cols["in_progress"].shown != 1 || cols["landing"].shown != 0 {
+	if cols["shipped"].total != 11 || cols["shipped"].shown != 8 || cols["in_progress"].total != 1 || cols["in_progress"].shown != 1 || cols["landing"].shown != 0 {
 		t.Fatalf("column totals/caps: %+v", cols)
 	}
 }

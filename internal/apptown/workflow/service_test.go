@@ -48,10 +48,10 @@ func TestWorkServiceRequiresAuthorityBeforeAccess(t *testing.T) {
 			func() error { _, e := s.Snapshot(context.Background(), idstest.N(1), DetailView); return e }, func() error { _, e := s.Artifact(context.Background(), idstest.N(1)); return e },
 			func() error { _, e := s.Runs(context.Background(), RunQuery{}); return e }, func() error { _, e := s.Activities(context.Background(), []ids.ID{idstest.N(1)}); return e },
 			func() error {
-				_, e := s.Create(context.Background(), ChangeDraft{ProjectID: idstest.N(1), Title: "cannot enter", Propose: true})
+				_, e := s.Create(context.Background(), ChangeDraft{ProjectID: idstest.N(1), Title: "cannot enter"})
 				return e
 			},
-			func() error { _, e := s.Edit(context.Background(), ChangeEdit{ID: idstest.N(1)}); return e }, func() error { _, e := s.Begin(context.Background(), idstest.N(1)); return e },
+			func() error { _, e := s.Edit(context.Background(), ChangeEdit{ID: idstest.N(1)}); return e },
 			func() error {
 				_, e := s.Import(context.Background(), ImportBranch{ProjectID: idstest.N(1), Branch: "main"})
 				return e
@@ -178,7 +178,7 @@ func TestWorkCommandsUseCurrentAuthorityAndVerifiedReceiptActor(t *testing.T) {
 		}
 		return "verified-person", nil
 	}), Runtime{})
-	created, err := s.Create(ctx, ChangeDraft{ProjectID: root.ProjectID, Title: "from command", Propose: true})
+	created, err := s.Create(ctx, ChangeDraft{ProjectID: root.ProjectID, Title: "from command"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestWorkCommandsUseCurrentAuthorityAndVerifiedReceiptActor(t *testing.T) {
 		t.Fatal("command scope replaced stored scope")
 	}
 	allowed = false
-	if ch, err := s.Create(ctx, ChangeDraft{ProjectID: root.ProjectID, Title: "revoked", Propose: true}); ch != nil || err == nil {
+	if ch, err := s.Create(ctx, ChangeDraft{ProjectID: root.ProjectID, Title: "revoked"}); ch != nil || err == nil {
 		t.Fatalf("revoked create: %+v %v", ch, err)
 	}
 	if ch, err := s.Edit(ctx, ChangeEdit{ID: created.ID, Title: &title, ExpectedRevision: revision(1)}); ch != nil || err == nil {

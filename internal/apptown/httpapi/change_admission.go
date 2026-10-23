@@ -30,8 +30,8 @@ func (h ChangeAdmission) CreateChange(w http.ResponseWriter, r *http.Request) {
 	if !RequireProjectMember(h.access, h.authMode, w, r, p.ID, p.Slug) {
 		return
 	}
-	jsonCommand(w, r, jsonBody{}, func(in ChangeRequest) {
-		if in.TitleFromChat && (in.Propose || in.Workflow != "") {
+	jsonCommand(w, r, jsonBody{strict: true}, func(in ChangeRequest) {
+		if in.TitleFromChat && in.Workflow != "" {
 			WriteError(w, 400, "first-message naming requires a chat Change without a workflow")
 			return
 		}
@@ -45,8 +45,8 @@ func (h ChangeAdmission) CreateChange(w http.ResponseWriter, r *http.Request) {
 		var err error
 		var item *workflow.Change
 		var run *workflow.Run
-		if in.Propose || in.Workflow == "" {
-			item, err = h.work.Create(r.Context(), workflow.ChangeDraft{ProjectID: p.ID, Type: in.Type, Title: in.Title, Body: in.Body, ExternalRef: in.ExternalRef, Propose: in.Propose, TitleFromChat: in.TitleFromChat})
+		if in.Workflow == "" {
+			item, err = h.work.Create(r.Context(), workflow.ChangeDraft{ProjectID: p.ID, Type: in.Type, Title: in.Title, Body: in.Body, ExternalRef: in.ExternalRef, TitleFromChat: in.TitleFromChat})
 		} else {
 			item, run, err = h.work.CreateAndRun(r.Context(), workflow.InvokeChange{Change: workflow.ChangeDraft{ProjectID: p.ID, Type: in.Type, Title: in.Title, Body: in.Body}, Workflow: in.Workflow})
 		}
@@ -117,6 +117,5 @@ type ChangeRequest struct {
 	Workflow      string `json:"workflow"`
 	Intent        string `json:"intent"`
 	ExternalRef   string `json:"externalRef"`
-	Propose       bool   `json:"propose"`
 	TitleFromChat bool   `json:"titleFromChat"`
 }

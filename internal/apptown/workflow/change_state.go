@@ -12,13 +12,12 @@ import (
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
-// ChangeState is the lifecycle of a proposed or active unit of work. Zero is
+// ChangeState is the lifecycle of a unit of work, from when someone starts it. Zero is
 // invalid; a missing observation must be represented separately. The workflow package owns this model and its legal acts.
 type ChangeState uint8
 
 const (
-	ChangeProposed ChangeState = iota + 1
-	ChangeInProgress
+	ChangeInProgress ChangeState = iota + 1
 	ChangeLanding
 	ChangeShipped
 	ChangeAbandoned
@@ -26,7 +25,7 @@ const (
 
 // changeStateCodec spells each ChangeState in storage and JSON.
 var changeStateCodec = enum.Set[ChangeState]{
-	Names:     []string{"proposed", "in_progress", "landing", "shipped", "abandoned"},
+	Names:     []string{"in_progress", "landing", "shipped", "abandoned"},
 	Invalid:   "invalid-change-state",
 	Err:       errChangeState,
 	ScanLabel: "database value",
@@ -45,8 +44,7 @@ func (s ChangeState) CanRun() bool { return s == ChangeInProgress || s == Change
 type ChangeAction uint8
 
 const (
-	StartChange ChangeAction = iota + 1
-	AttachChangeRun
+	AttachChangeRun ChangeAction = iota + 1
 	LandChange
 	ResumeChange
 	CancelChangeLanding
@@ -62,10 +60,6 @@ func (s ChangeState) Transition(act ChangeAction) (ChangeState, error) {
 		return 0, err
 	}
 	switch act {
-	case StartChange:
-		if s == ChangeProposed || s == ChangeInProgress {
-			return ChangeInProgress, nil
-		}
 	case AttachChangeRun:
 		if s.CanRun() {
 			return s, nil

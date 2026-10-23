@@ -37,8 +37,8 @@ const preparedChangeReadTimeout = 5 * time.Second
 // CreateAndRun composes governed Change creation and Run admission.
 // Nothing is committed unless both identities and the first stage are admitted.
 func (s *Service) CreateAndRun(ctx context.Context, in InvokeChange) (*Change, *Run, error) {
-	if in.Change.Propose || in.Change.TitleFromChat {
-		return nil, nil, fmt.Errorf("an invocation needs an active Change, not a proposal or chat draft")
+	if in.Change.TitleFromChat {
+		return nil, nil, fmt.Errorf("an invocation needs an active Change, not a chat draft")
 	}
 	if _, err := s.requireActor(ctx, operationPermission{Action: actionCreateChange, ProjectID: in.Change.ProjectID}); err != nil {
 		return nil, nil, err

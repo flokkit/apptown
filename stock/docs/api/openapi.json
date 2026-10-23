@@ -902,9 +902,6 @@
           "intent": {
             "type": "string"
           },
-          "propose": {
-            "type": "boolean"
-          },
           "title": {
             "type": "string"
           },
@@ -979,7 +976,6 @@
       },
       "ChangeState": {
         "enum": [
-          "proposed",
           "in_progress",
           "landing",
           "shipped",
@@ -4808,38 +4804,6 @@
         ],
         "x-apptown-access": {
           "capability": "change:send-back",
-          "kind": "capability",
-          "scope": "change"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/changes/{id}/start": {
-      "post": {
-        "operationId": "postChangesIdStart",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "changes"
-        ],
-        "x-apptown-access": {
-          "capability": "change:invoke-lane",
           "kind": "capability",
           "scope": "change"
         },

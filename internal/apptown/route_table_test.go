@@ -984,3 +984,35 @@ func firstLine(e ast.Expr) string {
 	first, _, _ := strings.Cut(strings.TrimSpace(b.String()), "\n")
 	return first
 }
+
+// AppTown has no backlog: a change is opened when someone starts work on
+// it. A request from before the backlog was removed, asking for a proposed
+// change, is refused rather than opening an in-progress change the caller
+// did not ask for, and there is no start for a change that is already open.
+//
+// Kills: change creation that ignores an unknown "propose" field, or a
+// start route left behind.
+func TestTheBacklogIsGone(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	testAdministrator(t, a, "bls")
+	pid := createReadTestProject(t, a, "shop")
+	opened := func() int {
+		t.Helper()
+		list, err := a.Work.Changes(asPerson("bls"), pid, workflow.ChangeList{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(list)
+	}
+	if w := authzCall(a.Handler(), "bls", "POST", "/api/v1/projects/shop/changes", `{"type":"feature","title":"Show prices in euros"}`); w.Code != 201 || opened() != 1 {
+		t.Fatalf("an ordinary change: %d %s", w.Code, w.Body.String())
+	}
+	if w := authzCall(a.Handler(), "bls", "POST", "/api/v1/projects/shop/changes", `{"type":"feature","title":"An idea for later","propose":true}`); w.Code != 400 || opened() != 1 {
+		t.Fatalf("a backlog request: %d %s, %d changes", w.Code, w.Body.String(), opened())
+	}
+	id := createReadTestChange(t, a, pid, "Open work")
+	if w := authzCall(a.Handler(), "bls", "POST", fmt.Sprintf("/api/v1/changes/%s/start", id), ""); w.Code != 404 {
+		t.Fatalf("starting an open change: %d %s", w.Code, w.Body.String())
+	}
+}

@@ -37,7 +37,7 @@ export function StatePanel({ view, onChange, reading, workTab }: {
   // A live chat on this change is where its work happens while no run
   // goes; the project's chat list says whether its agent has the turn. An
   // unread or failed list claims nothing.
-  const open = view.change.state === 'in_progress' || view.change.state === 'proposed'
+  const open = view.change.state === 'in_progress'
   const chats = useGet<ConsoleSessionList>(open ? `/projects/${view.projectSlug}/console` : null, { poll: 5000 })
   const live = chats.refreshFailed ? undefined
     : chats.data?.sessions.find((x) => x.changeId === view.change.id && x.state !== 'dead' && !!x.turn)
@@ -216,7 +216,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
           {view.editing > 0 && <span className="muted small">{view.editing} file{view.editing === 1 ? '' : 's'} being edited</span>}
         </div>
       )
-      quiet = ch.state === 'in_progress' || ch.state === 'proposed' ? (
+      quiet = ch.state === 'in_progress' ? (
         <>
           {next.primary === 'land' ? chatLink(false) : offered(view.next, 'land') && <button className="subtle" disabled={busy} onClick={() => act(() => post(`/changes/${ch.id}/land`, {}))}>Check and land</button>}
           <RunWorkflow view={view} onRun={(name) => act(() => post(`/changes/${ch.id}/runs`, { workflow: name }))} />

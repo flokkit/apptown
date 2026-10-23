@@ -36,10 +36,6 @@ func TestConsolePreviewReportsBuildFailureAfterLongProgressLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ch, err = a.Work.Begin(ctx, ch.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
 	project, change := p.ID, ch.ID
 	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(change)
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {

@@ -60,9 +60,6 @@ func workflowAttachmentRequest(f workflowHTTPFixture, dataDir string, method str
 func TestAttachmentUploadListGetDelete(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, false)
-	if _, err := f.Work.Begin(f.Context, f.ChangeID); err != nil {
-		t.Fatal(err)
-	}
 	dataDir := t.TempDir()
 	body := []byte("id,name\n1,forge\n")
 	w := workflowAttachmentRequest(f, dataDir, "POST", f.ChangeID, "data.csv", body)
@@ -123,14 +120,8 @@ func TestAttachmentUploadListGetDelete(t *testing.T) {
 func TestAttachmentUploadGuards(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, false)
-	if _, err := f.Work.Begin(f.Context, f.ChangeID); err != nil {
-		t.Fatal(err)
-	}
 	shipped, err := f.Work.Create(f.Context, workflow.ChangeDraft{ProjectID: f.ProjectID, Title: "shipped"})
 	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := f.Work.Begin(f.Context, shipped.ID); err != nil {
 		t.Fatal(err)
 	}
 	if err := f.DB.InTx(context.Background(), func(tx *database.Tx) error {

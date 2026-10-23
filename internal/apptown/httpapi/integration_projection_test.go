@@ -38,7 +38,7 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 		projectIDs = append(projectIDs, httpTestProject(t, db, spec.slug, spec.name))
 	}
 	for i, title := range []string{"Own change", "Private other change"} {
-		ch, err := work.Create(ctx, workflow.ChangeDraft{ProjectID: projectIDs[i], Type: "change", Title: title, Propose: true})
+		ch, err := work.Create(ctx, workflow.ChangeDraft{ProjectID: projectIDs[i], Type: "change", Title: title})
 		if err != nil {
 			t.Fatalf("projection fixture change: %+v %v", ch, err)
 		}

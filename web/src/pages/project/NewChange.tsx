@@ -7,9 +7,9 @@ import { START_OPTIONS } from '../../startOptions'
 import type { CreatedChange } from '../../wire.gen'
 
 // New change is THE entry point to the dev loop (design/subsystems/dev-loop.md): title
-// + For + optional ref, then either start now (branch + worktree, off to the
-// cockpit) or add to the backlog as proposed. A workflow is optional — work
-// needs a place to happen before it needs a workflow.
+// + For + optional ref, then start it (branch + worktree, off to the
+// cockpit). A workflow is optional — work needs a place to happen before it
+// needs a workflow. Ideas for later belong in the team's ticket tracker.
 export function NewChangeButton({ slug, external }: { slug: string; external?: { open: boolean; onClose: () => void } }) {
   const nav = useNavigate()
   const [openState, setOpenState] = useState(false)
@@ -23,14 +23,14 @@ export function NewChangeButton({ slug, external }: { slug: string; external?: {
   const workflows = loadedWorkflows ?? []
   const { run, busy, err, setErr } = useAction()
 
-  const create = async (propose: boolean) => {
+  const create = async () => {
     if (!title.trim()) { setErr('title required'); return }
     const r = await run(() => post<CreatedChange>(`/projects/${slug}/changes`, {
-      title, body, externalRef: ref, workflow: propose ? '' : wf, propose,
+      title, body, externalRef: ref, workflow: wf,
     }))
     if (!r) return
     setOpen(false); setTitle(''); setBody(''); setRef(''); setWf('')
-    if (!propose) nav(`/changes/${r.change.id}`)
+    nav(`/changes/${r.change.id}`)
   }
 
   return (
@@ -73,10 +73,9 @@ export function NewChangeButton({ slug, external }: { slug: string; external?: {
               </label>
             </div>
             <div className="row" style={{ marginTop: 14 }}>
-              <button className="primary" disabled={busy} onClick={() => create(false)}>
+              <button className="primary" disabled={busy} onClick={() => create()}>
                 {busy ? '…' : wf ? `Start · ${START_OPTIONS.find((l) => l.wf === wf)?.label ?? wf}` : 'Start change'}
               </button>
-              <button disabled={busy} onClick={() => create(true)} title="Record the idea as proposed; no branch until someone starts it.">Add to backlog</button>
               {err && <span className="error">{err}</span>}
             </div>
           </div>

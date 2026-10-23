@@ -55,17 +55,6 @@ func (s *Service) Edit(ctx context.Context, in ChangeEdit) (*Change, error) {
 	in.ProjectID = project
 	return (changeStore{s.db, s.clocked}).edit(ctx, in, who.Receipt)
 }
-func (s *Service) Begin(ctx context.Context, id ids.ID) (*Change, error) {
-	project, who, err := s.changeScope(ctx, id, actionBeginChange)
-	if err != nil {
-		return nil, err
-	}
-	ch, err := (changeStore{s.db, s.clocked}).start(ctx, project, id, who.Receipt)
-	if err != nil {
-		return nil, err
-	}
-	return s.creator.prepareCreated(ctx, CreatedChange{Change: ch})
-}
 func (s *Service) Import(ctx context.Context, in ImportBranch) (*Change, error) {
 	who, err := s.require(ctx, operationPermission{Action: actionImportChange, ProjectID: in.ProjectID})
 	if err != nil {

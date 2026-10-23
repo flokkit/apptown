@@ -25,7 +25,7 @@ type workReads struct {
 func NewWorkReads(deps WorkReadsDependencies) []Tool {
 	h := workReads{scope: deps.Scope, work: deps.Work, db: deps.DB, contributions: deps.Contributions}
 	return []Tool{{Name: "list_changes",
-		order: 4, Description: "Returns the project's Changes, newest first, optionally only those in one state (proposed, in_progress, landing, shipped, abandoned).", InputSchema: schemaObject(map[string]any{"slug": slugArg, "state": schemaString("Only Changes in this state: proposed, in_progress, landing, shipped or abandoned. Omit for all.")}, "slug"), command: ownerCommand("work_reads.listChanges", h.listChanges)}, {Name: "get_change",
+		order: 4, Description: "Returns the project's Changes, newest first, optionally only those in one state (in_progress, landing, shipped, abandoned).", InputSchema: schemaObject(map[string]any{"slug": slugArg, "state": schemaString("Only Changes in this state: in_progress, landing, shipped or abandoned. Omit for all.")}, "slug"), command: ownerCommand("work_reads.listChanges", h.listChanges)}, {Name: "get_change",
 		order: 5, Description: "Returns one Change with its current run (steps and their status), every run it has had, and what it is waiting on and on whom. When a person's approval of a commit is waiting, waiting.adds is what that commit brings into the app (secrets, services, app parts, and ways of working for an uplift), read from its declarations; addsError says why it could not be read.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("work_reads.getChange", h.getChange)},
 		{
 			Name:        "get_change_diff",

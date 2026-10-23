@@ -91,9 +91,6 @@ func scriptTaskFixtureIn(t *testing.T, a *App, with map[string]any, more ...sche
 	a.lifecycle.SelectLane(t.Context(), projectID, "work", true, "fixture")
 	ctx := a.asAppTown(context.Background(), projectID, "fixture")
 	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "fake tasks"})
-	if err == nil {
-		ch, err = a.Work.Begin(ctx, ch.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}

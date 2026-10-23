@@ -10,7 +10,7 @@ import (
 
 func TestChangeCompletionCannotShipInactiveOrClosedWork(t *testing.T) {
 	t.Parallel()
-	for _, state := range []workflow.ChangeState{workflow.ChangeProposed, workflow.ChangeShipped, workflow.ChangeAbandoned} {
+	for _, state := range []workflow.ChangeState{workflow.ChangeShipped, workflow.ChangeAbandoned} {
 		t.Run(state.String(), func(t *testing.T) {
 			t.Parallel()
 			spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish"}}}

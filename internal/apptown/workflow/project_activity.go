@@ -37,7 +37,7 @@ func readProjectActivity(ctx context.Context, q database.Queryer, projects []ids
 	}
 	rows, err := workflowsql.New(q.SQL()).ProjectActivityReport(ctx, workflowsql.ProjectActivityReportParams{
 		ProjectIds: projects, RunningStatus: RunRunning.String(), DoneStatus: RunDone.String(),
-		ProposedState: ChangeProposed.String(), InProgressState: ChangeInProgress.String(), LandingState: ChangeLanding.String(),
+		InProgressState: ChangeInProgress.String(), LandingState: ChangeLanding.String(),
 	})
 	if err != nil {
 		return nil, err

@@ -78,9 +78,6 @@ func agentWorkerChange(t *testing.T, a *App, steps []schema.Step, files map[stri
 	a.Work.Stop()
 	ctx := asPerson("alice")
 	change, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: p.ID, Title: "agent work"})
-	if err == nil {
-		change, err = a.Work.Begin(ctx, change.ID)
-	}
 	if err != nil {
 		t.Fatal(err)
 	}
