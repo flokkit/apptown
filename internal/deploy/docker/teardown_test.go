@@ -75,7 +75,7 @@ func TestFailedServicesStartRemovesAnEarlierAttemptsContainerBeforeTheNetwork(t 
 	removedEarlier, removedNetwork := -1, -1
 	for i, args := range daemon.Commands() {
 		switch strings.Join(args, " ") {
-		case "rm -f left-by-earlier-attempt":
+		case "rm -f -v left-by-earlier-attempt":
 			removedEarlier = i
 		case "network rm apptown-net-817":
 			removedNetwork = i

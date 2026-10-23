@@ -26,6 +26,21 @@ that cannot get one fails at `network create`. A network without AppTown's
 labels is never selected. Do not clear networks with `docker network prune`:
 it would also take a stopped deployment's network.
 
+A throwaway container's image may declare an anonymous volume: the shell
+checks' image declares `/git`, a database image its data folder, an app image
+whatever its Dockerfile declares. `--rm` does not delete that volume when the
+container is removed with `rm -f`. So when its work ends, a throwaway
+container (a check, a test, a task, an agent, a step's service, a job) is
+removed with its anonymous volumes (`docker rm -f -v`), and the reaper
+removes leftovers the same way. Named volumes are never deleted this way. One
+case still leaves a volume: before a service or init container starts, a
+container of the same name left from an earlier attempt is replaced without
+`-v`.
+
+A standing deployment's containers are removed without `-v`: one made before
+its data moved to named volumes may still hold its data in an anonymous one.
+For the same reason, do not clear volumes with `docker volume prune`.
+
 One AppTown owns one Docker daemon. The labels name a class and an owner but not
 AppTown, and step IDs are numbered per AppTown, so two AppTown installations sharing a daemon
 would each read the other's resources as their own and judge them against the

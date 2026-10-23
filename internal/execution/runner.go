@@ -232,7 +232,8 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 	}
 	if backend == Docker && started {
 		// The container outlives its client (no --rm): an exit is read for
-		// how it happened, then the container is removed. Cleanup gets its own
+		// how it happened, then the container is removed with its anonymous
+		// volumes (the shell checks' image declares /git). Cleanup gets its own
 		// bounded lifetime after the caller's context expires; canceling the
 		// client does not establish that the owned workload stopped.
 		cleanupCtx, cancelCleanup := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
@@ -258,7 +259,7 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 				out.CleanupErr = fmt.Errorf("reading how container %s ended: %v: %s", req.Name, err, strings.TrimSpace(string(answer)))
 			}
 		}
-		cleanup := exec.CommandContext(cleanupCtx, r.dockerBinary(), "rm", "-f", req.Name)
+		cleanup := exec.CommandContext(cleanupCtx, r.dockerBinary(), "rm", "-f", "-v", req.Name)
 		configureCancellation(cleanup)
 		log, cleanupErr := cleanup.CombinedOutput()
 		cancelCleanup()

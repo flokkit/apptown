@@ -301,9 +301,10 @@ func (dk Scope) ReapStack(ctx context.Context, stackID string) {
 
 // RemoveStack is ReapStack for a caller that must know it worked: a failed
 // listing or removal is returned, so a cleanup cannot record a stack removed
-// while its services still run.
+// while its services still run. Its containers are throwaway and go with
+// their anonymous volumes; a named volume stays.
 func (dk Scope) RemoveStack(ctx context.Context, stackID string) error {
-	return dk.removeStack(ctx, stackID, dk.Remove)
+	return dk.removeStack(ctx, stackID, dk.RemoveWithVolumes)
 }
 
 // RemoveWithVolumes removes a container with its anonymous volumes, for a
@@ -387,7 +388,7 @@ func imageInUse(out []byte) bool {
 }
 
 // RemoveDisposableStack is RemoveStack for a disposable stack (a
-// preview's): its containers go with their anonymous volumes.
+// preview's): each container's named data volume goes too.
 func (dk Scope) RemoveDisposableStack(ctx context.Context, stackID string) error {
 	return dk.removeStack(ctx, stackID, dk.RemoveDisposable)
 }
@@ -436,8 +437,10 @@ func loopbackURL(port int) string {
 // folder's writers can be listed without knowing who started them.
 const WritesLabel = dockerlabel.Writes
 
-// RemoveLabelled removes every container carrying all of labels (key=value)
-// and returns those Docker still lists afterwards. A daemon that cannot be
+// RemoveLabelled removes every container carrying all of labels (key=value),
+// with its anonymous volumes, and returns those Docker still lists
+// afterwards. Only throwaway containers (a step's agents, a folder's
+// writers) are removed this way. A daemon that cannot be
 // asked is an error: it confirms nothing.
 func (dk Scope) RemoveLabelled(ctx context.Context, labels ...string) ([]string, error) {
 	list := func() ([]string, error) {
@@ -456,7 +459,7 @@ func (dk Scope) RemoveLabelled(ctx context.Context, labels ...string) ([]string,
 		return names, err
 	}
 	for _, name := range names {
-		if out, err := dk.Command(ctx, Command{Args: []string{"rm", "-f", name}}); err != nil {
+		if out, err := dk.Command(ctx, Command{Args: []string{"rm", "-f", "-v", name}}); err != nil {
 			log.Printf("removing container %s: %v: %s", name, err, strings.TrimSpace(string(out)))
 		}
 	}

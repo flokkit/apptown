@@ -320,9 +320,11 @@ func TestReaperKeepsLongRunningExecutionResources(t *testing.T) {
 	if len(removed) != 3 {
 		t.Fatalf("removed: %v", removed)
 	}
+	// By its immutable ID, and with its anonymous volumes: these classes
+	// are throwaway.
 	for i, call := range removed {
-		if call != fmt.Sprintf("rm -f old-id-%d", i) {
-			t.Fatalf("removed by reusable name: %v", removed)
+		if call != fmt.Sprintf("rm -f -v old-id-%d", i) {
+			t.Fatalf("removed by reusable name or without its anonymous volumes: %v", removed)
 		}
 	}
 }

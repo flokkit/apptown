@@ -101,7 +101,7 @@ func (r *Reaper) Containers(ctx context.Context, logOnly bool) []string {
 			continue
 		}
 		log.Printf("reaper: reaping %s (class=%s)", name, class)
-		r.docker.Remove(ctx, identity)
+		r.docker.RemoveWithVolumes(ctx, identity)
 	}
 
 	reaped = append(reaped, r.executionNetworks(ctx, logOnly)...)

@@ -136,7 +136,7 @@ func (dk Scope) runJob(ctx context.Context, s Step) ([]byte, error) {
 		id = id[i+1:] // a pull's progress comes first
 	}
 	defer func() {
-		_, _ = dk.Run(context.WithoutCancel(ctx), "rm", "-f", id)
+		_, _ = dk.Run(context.WithoutCancel(ctx), "rm", "-f", "-v", id)
 	}()
 	if s.Stdin != nil {
 		dir, err := os.MkdirTemp("", "apptown-job-")

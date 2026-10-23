@@ -64,7 +64,7 @@ func TestStepInterruptStopsTheStepsContainers(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), fmt.Sprintf("apptown-review-%d-63865", stepID)) {
 		t.Fatalf("interrupt: %d %s", w.Code, w.Body.String())
 	}
-	if idx := f.indexOf("rm -f apptown-review-"); idx < 0 {
+	if idx := f.indexOf("rm -f -v apptown-review-"); idx < 0 {
 		t.Fatalf("the container was not removed: %v", f.joined())
 	}
 	snap, err := a.Work.Snapshot(asPerson("bls"), runID, workflow.DetailView)
