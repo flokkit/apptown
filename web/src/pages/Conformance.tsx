@@ -104,7 +104,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
                   {s.high ? ` (${s.high} high)` : ''}
                   {' · '}<strong style={{ color: s.flagged ? 'var(--warn)' : 'var(--text)' }}>{s.flagged}</strong> AI flag{s.flagged === 1 ? '' : 's'} to look at
                   {' · '}{s.byStanding['conforms-so-far'] ?? 0} app{(s.byStanding['conforms-so-far'] ?? 0) === 1 ? '' : 's'} not fully judged
-                  {' · '}{s.byStanding['review-broken'] ? <span style={{ color: 'var(--bad)' }}>{s.byStanding['review-broken']} with a broken check · </span> : null}
+                  {' · '}{s.byStanding['review-broken'] ? <span style={{ color: 'var(--bad)' }}>{s.byStanding['review-broken']} with a check that couldn't run · </span> : null}
                   {s.checks} checks
                 </div>
               )}

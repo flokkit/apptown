@@ -160,7 +160,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
       <HistoryStrip slug={slug} />
       <FixedSection slug={slug} />
       <LaneSection {...sectionProps} lane="findings" title="Findings" hint="the app does not meet these" />
-      <LaneSection {...sectionProps} lane="broken" title="Check errored" hint="the evaluator failed, not the app" />
+      <LaneSection {...sectionProps} lane="broken" title="Couldn't run" hint="the check itself failed to run; the app is not judged" />
       <LaneSection {...sectionProps} lane="flagged" title="Flagged by AI review" hint="a rubric judged this; confirm before it counts" />
       <LaneSection {...sectionProps} lane="excepted" title="Excepted" hint="fails, but accepted on the record" />
       <LaneSection {...sectionProps} lane="unassessed" title="Not yet judged" collapsed />

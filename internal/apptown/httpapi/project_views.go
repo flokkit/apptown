@@ -234,8 +234,8 @@ type ProjectRow struct {
 	Toolchain   []string   `json:"toolchain"`
 	ProdRunning *bool      `json:"prodRunning"`
 	// Deployed says the project has a main (or prod) deployment for the
-	// runtime observation to describe. False is "not deployed yet", which
-	// a page must not show as an unknown or a stopped app.
+	// runtime observation to describe. False: nothing is deployed, so a
+	// page shows no runtime state, never an unknown or a stopped app.
 	Deployed bool `json:"deployed"`
 	RuntimeObservationView
 }

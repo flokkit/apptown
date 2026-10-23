@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChangeState, Doing, Release, RunStatus, post } from '../api'
 import { chipFor, changeStateLabel } from '../states'
 import { useAction } from '../data'
-import { fmtDuration, fmtWhen } from '../format'
+import { count, fmtDuration, fmtWhen } from '../format'
 import type { ProjectOverviewView } from '../wire.gen'
 
 // Shared presentation pieces for run activity and change history, used by
@@ -100,7 +100,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(e.when)}</td>
             {showProject && <td className="muted small">{e.c.project}</td>}
             <td className="stack-lead"><Link className="tap-open" to={`/changes/${e.c.changeId}`}><span className="muted small">#{e.c.changeNumber}</span> {e.c.title}</Link></td>
-            <td className="muted small"><span title={e.c.workflows || undefined}>{e.c.completedRuns === undefined ? `${e.c.runs} runs` : `${e.c.completedRuns} completed runs`}{e.c.completedRuns !== undefined && e.c.runs > e.c.completedRuns && ` · ${e.c.runs - e.c.completedRuns} unfinished`}</span></td>
+            <td className="muted small"><span title={e.c.workflows || undefined}>{e.c.completedRuns === undefined ? count(e.c.runs, 'run') : count(e.c.completedRuns, 'completed run')}{e.c.completedRuns !== undefined && e.c.runs > e.c.completedRuns && ` · ${e.c.runs - e.c.completedRuns} unfinished`}</span></td>
             <td><span className={`chip ${e.c.state === 'shipped' ? 'pass' : ''}`}>{changeStateLabel(e.c.state, e.c.merged, e.c.closedAs)}</span></td>
             <td className="muted small" data-label="took">{fmtDuration(e.c.tookS)}</td>
           </tr>

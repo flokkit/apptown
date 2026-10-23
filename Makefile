@@ -165,6 +165,7 @@ check-lint-test:        ## the lint rules and their count check, on fixtures
 check-shape:            ## the architecture's shape rules against scripts/shape-baseline.json
 	python3 scripts/shape-check_test.py
 	python3 scripts/codebase-shape_test.py
+	python3 scripts/shape-report_test.py
 	python3 scripts/release_test.py
 	python3 scripts/third_party_notices_test.py
 	python3 scripts/stranger_install_test.py

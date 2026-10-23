@@ -114,9 +114,12 @@ func h(a *App) {
         self.assertEqual(row["door_calls"], 1)
 
     def test_doors_with_an_actor_string(self):
-        self.w("internal/apptown/access/service.go", """package access
-func (s *Service) Revoke(id int64, by string) error { return nil }
-func (s *Service) internalHelper(by string) {}
+        # A subsystem the report reads, by the shared list, so a package that
+        # stops being a subsystem does not leave this fixture where no one looks.
+        sub = shape.SUBSYSTEMS[0]
+        self.w(shape.pkg_dir(sub) + "/service.go", f"""package {sub}
+func (s *Service) Revoke(id int64, by string) error {{ return nil }}
+func (s *Service) internalHelper(by string) {{}}
 """)
         sigs = {it["signature"] for it in shape.doors_with_an_actor_string()}
         self.assertTrue(any("Revoke" in s for s in sigs))

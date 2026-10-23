@@ -33,6 +33,13 @@ scanners:
     report: .apptown/sbom.cdx.json
     network: false
     artifactKind: sbom   # evidence of what shipped, not findings
+  # Both trivy scanners keep their scan cache in memory. The project's
+  # cache volume is shared, and trivy's on-disk scan cache admits one process
+  # at a time: the licence scan, started beside the vulnerability scan, gave
+  # up after five seconds with "cache may be in use by another process" and
+  # errored the landing. The vulnerability database stays on the volume, and
+  # trivy holds it the same way: two vulnerability scans at once in one
+  # project (two landings, or a review beside a landing) can still error.
   # Reports every severity: AppTown judges a SARIF finding by its CVSS
   # score, which can be high where trivy's label (the vendor's rating) says
   # MEDIUM, so a --severity filter would hide findings the gate fails on.
@@ -42,7 +49,8 @@ scanners:
     description: Finds known vulnerabilities in the built container image, which is what runs (Aqua trivy)
     image: aquasec/trivy:0.66.0
     command: ["image", "--input", "${IMAGE_TAR}", "--format", "sarif", "--output", "/work/.apptown/trivy.sarif",
-              "--exit-code", "1", "--ignore-unfixed", "--severity", "CRITICAL,HIGH,MEDIUM,LOW", "--scanners", "vuln", "--quiet"]
+              "--exit-code", "1", "--ignore-unfixed", "--severity", "CRITICAL,HIGH,MEDIUM,LOW", "--scanners", "vuln", "--quiet",
+              "--cache-backend", "memory"]
     report: .apptown/trivy.sarif
     network: true   # vulnerability database download
     format: sarif
@@ -61,7 +69,7 @@ scanners:
     description: Checks the licences of the app's installed packages (trivy). AGPL, SSPL and non-commercial licences are findings; other copyleft licences are allowed because the app is run, not distributed
     image: aquasec/trivy:0.66.0
     command: ["image", "--input", "${IMAGE_TAR}", "--scanners", "license", "--pkg-types", "library", "--format", "sarif", "--output", "/work/.apptown/trivy-license.sarif",
-              "--exit-code", "1", "--severity", "CRITICAL", "--quiet"]
+              "--exit-code", "1", "--severity", "CRITICAL", "--quiet", "--cache-backend", "memory"]
     report: .apptown/trivy-license.sarif
     network: false
     format: sarif

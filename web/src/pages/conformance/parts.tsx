@@ -45,7 +45,7 @@ export const LANE_COLOR: Record<string, string> = {
 }
 export const LANE_LABEL: Record<string, string> = {
   conforms: 'conform', excepted: 'excepted', flagged: 'flagged by AI review', findings: 'findings',
-  unassessed: 'not yet judged', broken: 'check errored', na: 'not applicable in a review',
+  unassessed: 'not yet judged', broken: "couldn't run", na: 'not applicable in a review',
 }
 
 export const ITEM: Record<string, { label: string; tone: string }> = {

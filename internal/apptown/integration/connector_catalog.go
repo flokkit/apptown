@@ -59,7 +59,7 @@ func ConnectorCatalog() []ConnectorSpec {
 					Description: "Filesystem vulnerability and misconfiguration scanning.",
 					Config: map[string]any{
 						"description": "vuln/misconfig scanning via trivy", "image": "aquasec/trivy:0.66.0",
-						"command": "fs --scanners vuln,misconfig --format sarif --output /work/.apptown/trivy.sarif /work",
+						"command": "fs --scanners vuln,misconfig --cache-backend memory --format sarif --output /work/.apptown/trivy.sarif /work",
 						"report":  ".apptown/trivy.sarif", "format": "sarif", "kind": "vuln", "network": true,
 					}},
 				{Name: "osv", Title: "osv-scanner", Icon: "osv", Suggest: "osv-custom",

@@ -469,7 +469,9 @@ tbody tr:hover td { background: var(--hover); }
 .tabs a.tab:hover { text-decoration: none; color: var(--text); }
 .tabs a.tab.active { color: var(--text); font-weight: var(--fw-strong); border-bottom-color: var(--accent); }
 
-.error { color: var(--bad); font-size: 14px; padding: 8px 0; }
+/* An error line. Not a chip whose state is error: that keeps the chip's
+   size, in line with the chips beside it. */
+.error:not(.chip) { color: var(--bad); font-size: 14px; padding: 8px 0; }
 /* A line in a log that went partly wrong: a step skipped, the rest fine. */
 .warn-line { color: var(--warn); background: var(--warn-bg); border-left: 3px solid var(--warn-mark); padding: 2px 8px; margin: 2px 0; }
 
