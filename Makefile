@@ -146,13 +146,14 @@ check-docs:             ## current guides state the current rule: no dated names
 
 # The UI tour (site/tour): a small example team's AppTown, photographed in
 # both themes by Playwright (APPTOWN_PLAYWRIGHT_MODULE, default the nightly
-# tier's install: private/scripts/nightly-tiers.sh prepare). Local only, not CI; run
-# it and commit site/tour before tagging a release (release.sh checks).
-tour: web                ## the UI tour's screenshots and page, from site/tour/tour.yaml; commit site/tour before a release
+# tier's install: private/scripts/nightly-tiers.sh prepare). The release
+# workflow runs it in the ci-heavy image and publishes the shots with the
+# site (images.yml's tour job); locally it is a preview, and the shots are
+# not committed (.gitignore).
+tour: web                ## the UI tour's screenshots and page, from site/tour/tour.yaml (a local preview; the release workflow makes the published ones)
 	go test -tags browser ./internal/apptown -run '^TestTour$$' -count=1
 	@if command -v oxipng >/dev/null 2>&1; then oxipng -q -o 4 --strip safe site/tour/*.png; else echo "tour: oxipng not on PATH; the shots are not compressed (brew install oxipng)"; fi
-	python3 scripts/tour-stamp.py write
-	python3 scripts/tour-check.py
+	python3 scripts/tour-check.py --shots
 
 check-migrations:       ## a released migration keeps its number and statements: the lock only grows from origin/main's
 	sh scripts/migrations-append-only.sh

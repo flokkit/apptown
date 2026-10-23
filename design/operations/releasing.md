@@ -26,27 +26,19 @@ How a Flokkit release is made, in order. The release script is
    cannot check the rest: whether every change is named, and whether a
    removal was announced a minor release before. That is the person
    releasing's job.
-3. **The tour.** Run `make tour` and commit `site/tour`: the UI tour's
-   screenshots, made from a small example team's AppTown (`site/tour/tour.yaml`
-   lists the stops). It needs Playwright with Chromium
-   (the version `deploy/ci-heavy/Dockerfile` pins, named by
-   `APPTOWN_PLAYWRIGHT_MODULE`), and
-   compresses the shots when `oxipng` is installed. Look at the shots before
-   committing them.
-4. **The tag.** `git tag -a v<version>` on that commit, once it is on
-   `main` (the notes and the tour land by their pull requests first), and
+3. **The tag.** `git tag -a v<version>` on that commit, once it is on
+   `main` (the notes land by their pull request first), and
    push the tag. Its images and archives are built only when a `heavy.yml`
    run on that commit passed on its first attempt ([GitHub](github.md)); a
    run that passed only on a re-run does not count. Wait for main's run
    before pushing the tag. When it failed, fix the cause in a new commit,
    or, when the failure was not the code's, start a new run by hand on the
    commit (not a re-run).
-5. **The build.** `sh scripts/release.sh <version>` from a clean checkout at
-   the tag. It refuses to build when the tour is older than the sources it
-   shows (`site/tour/stamp.json`), checks the notes, runs the upgrade test again and writes the
+4. **The build.** `sh scripts/release.sh <version>` from a clean checkout at
+   the tag. It checks the notes, runs the upgrade test again and writes the
    archives, `SHA256SUMS` and `RELEASE-NOTES.md` (the notes and the build's
    facts) under `dist/release/v<version>/`.
-6. **Freeze the release's AppTown** for the releases after it, at the tag, and
+5. **Freeze the release's AppTown** for the releases after it, at the tag, and
    land the result on main by its own pull request:
    `go test ./internal/apptown -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>`.
    Before publishing, `sh scripts/stranger-install.sh <archive>` installs the
@@ -57,9 +49,22 @@ How a Flokkit release is made, in order. The release script is
    exact UUID from its JSON response; failed admission or an invalid identity
    fails the check before previewing. Its disposable host installs its own
    JSON parser.
-7. **Publish** the archives. This is a separate step: where they go is
+6. **Publish** the archives. This is a separate step: where they go is
    decided per release. The site, apptown.dev with its tour, is published by
-   the release workflow's `site` job (design/operations/github.md).
+   the release workflow (design/operations/github.md): its `tour` job runs
+   `make tour` on the tag's source, and its `site` job publishes the site
+   with those screenshots, with no further approval. The screenshots are not
+   committed.
+
+   To look at the tour before a release, push a test tag (`-test.N`): the
+   `tour` job runs and the site is left alone; the run's `tour` artifact
+   holds the screenshots and the page (open `index.html` from the
+   downloaded archive). `make tour` makes the same pictures locally, as a
+   preview, with Playwright and Chromium (the version
+   `deploy/ci-heavy/Dockerfile` pins, named by `APPTOWN_PLAYWRIGHT_MODULE`).
+   After a release, the published tour is at apptown.dev/tour/ and the run
+   keeps its artifact for 30 days. A wrong picture is fixed on `main` and
+   goes out with the next release.
 
 ## While a release candidate runs in production
 

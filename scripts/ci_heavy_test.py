@@ -15,6 +15,7 @@ SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ci-heavy.sh")
 DOCKER_STUB = """#!/bin/sh
 case "$1" in
 run) case "$*" in *busybox*) exit 0 ;; esac
+	[ -z "${STUB_CALLS:-}" ] || printf '%s\n' "$*" >>"$STUB_CALLS"
 	printf '%s' "$STUB_OUTPUT"
 	exit "${STUB_STATUS:-0}" ;;
 esac
@@ -34,7 +35,7 @@ class RequiredTests(unittest.TestCase):
         self.path = bindir + os.pathsep + os.environ["PATH"]
         self.job = 0
 
-    def run_job(self, output, status=0, require="TestA TestB"):
+    def run_job(self, output, status=0, require="TestA TestB", mode="test"):
         self.job += 1
         job = f"citest{os.getpid()}-{self.job}"
         # The stub's cleanup removes nothing; the job's folder is the test's to remove.
@@ -43,7 +44,9 @@ class RequiredTests(unittest.TestCase):
                "STUB_OUTPUT": output, "STUB_STATUS": str(status)}
         if require is not None:
             env["CI_HEAVY_REQUIRE"] = require
-        return subprocess.run(["sh", SCRIPT, "test", "./..."], env=env, capture_output=True, text=True,
+        env["STUB_CALLS"] = os.path.join(self.dir.name, "calls")
+        args = ["test", "./..."] if mode == "test" else [mode]
+        return subprocess.run(["sh", SCRIPT] + args, env=env, capture_output=True, text=True,
                               cwd=os.path.dirname(os.path.dirname(SCRIPT)))
 
     def test_every_required_test_passing_passes(self):
@@ -71,6 +74,19 @@ class RequiredTests(unittest.TestCase):
         self.assertEqual(r.returncode, 3)
         r = self.run_job("--- PASS: TestA (0.01s)\n--- FAIL: TestB (0.01s)\nFAIL\n", status=1)
         self.assertEqual(r.returncode, 1)
+
+    # The release's tour job: make tour runs with the checkout writable (it
+    # writes web/dist and site/tour), and a failed tour fails the job.
+    def test_the_tour_runs_make_tour_writable_and_keeps_its_status(self):
+        r = self.run_job("", status=2, require=None, mode="tour")
+        self.assertEqual(r.returncode, 2, r.stderr)
+        r = self.run_job("", status=0, require=None, mode="tour")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(os.path.join(self.dir.name, "calls")) as f:
+            call = f.read()
+        self.assertIn("make tour", call)
+        root = os.path.dirname(os.path.dirname(SCRIPT))
+        self.assertIn(f"-v {root}:{root} ", call)
 
 
 if __name__ == "__main__":
