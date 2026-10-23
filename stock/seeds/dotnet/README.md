@@ -1,6 +1,6 @@
 # This project
 
-An ASP.NET Core web service on .NET 9: the app in `App/`, its tests in
+An ASP.NET Core web service on .NET 10: the app in `App/`, its tests in
 `App.Tests/`.
 
 ## Run

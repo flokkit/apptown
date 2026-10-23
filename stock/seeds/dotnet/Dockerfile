@@ -5,7 +5,7 @@
 # with --init.
 # Each RUN that downloads mounts the extra certificates AppTown gives a build
 # (the secret apptown-trust) and runs them first; without them it runs as is.
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY App/ App/
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; dotnet publish App/App.csproj -c Release -o /out
@@ -13,7 +13,7 @@ RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 
 # The runtime stage takes the distribution's security updates at build
 # time. The aspnet image already has an unprivileged user named `app`;
 # switch to it rather than creating another.
-FROM mcr.microsoft.com/dotnet/aspnet:9.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*

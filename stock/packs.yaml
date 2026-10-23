@@ -214,7 +214,7 @@ packs:
   - name: dotnet
     resources: {memory: 128M}
     description: >-
-      Experimental: not yet run in production by the maintainers for two weeks, and its SDK download is not mirrored. ASP.NET Core on .NET 9: minimal APIs, EF Core on Postgres, one
+      Experimental: not yet run in production by the maintainers for two weeks, and its SDK download is not mirrored. ASP.NET Core on .NET 10: minimal APIs, EF Core on Postgres, one
       published app. Starts from the SDK's own templates on the first change.
       Toolchain pinned in mise.toml; packages are fetched through the
       package registries AppTown is set up with.
