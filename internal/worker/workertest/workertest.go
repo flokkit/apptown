@@ -37,6 +37,26 @@ import (
 // Installation is the installation a test worker serves.
 const Installation = "inst-1"
 
+// LoadedBusybox is the name an inner daemon knows the pinned busybox
+// (diskspace.DFImage) by once a test has loaded it there: a save by digest
+// carries no tag, and a daemon cannot match a digest to an image it loaded
+// rather than pulled. Nothing can pull this name, so an inner daemon that
+// was not given the image fails instead of fetching another.
+const LoadedBusybox = "pinned.invalid/busybox:1.37"
+
+// LoadedImage is the image a docker load's output names: the tag it
+// loaded, or the ID of an image it loaded untagged; "" when it names none.
+func LoadedImage(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		for _, prefix := range []string{"Loaded image ID: ", "Loaded image: "} {
+			if name, ok := strings.CutPrefix(strings.TrimSpace(line), prefix); ok {
+				return name
+			}
+		}
+	}
+	return ""
+}
+
 // CA issues the certificates one test's worker and clients present.
 type CA struct {
 	cert *x509.Certificate
@@ -213,9 +233,10 @@ func buildWorker(t *testing.T, binary string, env ...string) {
 }
 
 // StartInContainer builds apptown-worker for Linux and runs it in a new
-// docker:27-dind container, with busybox:latest loaded from this machine's
-// Docker. The container is removed when the test ends. It needs a local
-// Docker that can run privileged containers.
+// docker:27-dind container, with the pinned busybox loaded from this
+// machine's Docker as LoadedBusybox, the task image of its tests. The
+// container is removed when the test ends. It needs a local Docker that can
+// run privileged containers.
 func StartInContainer(t *testing.T, ca *CA) *Container {
 	t.Helper()
 	dir := t.TempDir()
@@ -236,7 +257,7 @@ func StartInContainer(t *testing.T, ca *CA) *Container {
 		runDocker(t, "cp", here, name+":"+in)
 	}
 	// The task image comes from this machine's Docker, not a registry.
-	w.Load("busybox:latest")
+	w.LoadAs(diskspace.DFImage, LoadedBusybox)
 	port := runDocker(t, "port", name, "8443/tcp")
 	w.URL = "https://" + port[strings.LastIndex(port, "\n")+1:]
 	w.start()
@@ -376,9 +397,30 @@ func (w *Container) awaitListening(exited func() bool, log func() string) error 
 // worker on this machine has it already.
 func (w *Container) Load(image string) {
 	w.t.Helper()
+	if !w.host {
+		w.load(image)
+	}
+}
+
+// LoadAs copies an image from this machine's Docker into the worker's, by
+// name: for an image named by digest, which loads untagged. A worker on
+// this machine is not given it.
+func (w *Container) LoadAs(image, name string) {
+	w.t.Helper()
 	if w.host {
 		return
 	}
+	loaded := LoadedImage(w.load(image))
+	if loaded == "" {
+		w.t.Fatalf("loading %s into the worker's daemon named no image", image)
+	}
+	runDocker(w.t, "exec", w.container, "docker", "tag", loaded, name)
+}
+
+// load streams image from this machine's Docker into the worker
+// container's and answers docker load's output.
+func (w *Container) load(image string) string {
+	w.t.Helper()
 	// docker save streams into docker load; a load that ends early closes
 	// the pipe, so the save cannot block on it.
 	ctx := context.Background()
@@ -400,6 +442,7 @@ func (w *Container) Load(image string) {
 	if err := <-saved; err != nil {
 		w.t.Fatal(err)
 	}
+	return string(out)
 }
 
 // Docker runs a docker command against the worker's own daemon.

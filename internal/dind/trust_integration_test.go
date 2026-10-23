@@ -13,6 +13,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dind"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/trust/trusttest"
@@ -56,7 +57,7 @@ func TestIntegrationAPrivateDaemonAndItsBuilderTrustATLSRegistry(t *testing.T) {
 	}
 	t.Cleanup(func() { _, _ = dk.Run(ctx, "rm", "-f", registry) })
 	must("run", "-d", "--name", registry, "--network", network, "-v", certs+":/certs:ro",
-		"-e", "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/cert.pem", "-e", "REGISTRY_HTTP_TLS_KEY=/certs/key.pem", "registry:2")
+		"-e", "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/cert.pem", "-e", "REGISTRY_HTTP_TLS_KEY=/certs/key.pem", "registry:2.8.3")
 	at := registry + ":5000"
 
 	// The private daemon and its builder, as an owner makes them.
@@ -78,11 +79,12 @@ func TestIntegrationAPrivateDaemonAndItsBuilderTrustATLSRegistry(t *testing.T) {
 		return string(out), err
 	}
 
-	// An image in the daemon, pushed to the registry and pulled back.
+	// An image in the daemon, pushed to the registry and pulled back: the
+	// pinned busybox, which loads untagged (it is named by digest).
 	saved := filepath.Join(t.TempDir(), "busybox.tar")
-	must("save", "-o", saved, "busybox:latest")
+	must("save", "-o", saved, diskspace.DFImage)
 	must("cp", saved, name+":/busybox.tar")
-	if out, err := inner("docker load -i /busybox.tar && docker tag busybox:latest " + at + "/busybox:t && docker push " + at + "/busybox:t && docker rmi " + at + "/busybox:t && docker pull " + at + "/busybox:t"); err != nil {
+	if out, err := inner(`loaded=$(docker load -q -i /busybox.tar | sed -n 's/^Loaded image[^:]*: //p') && docker tag "$loaded" ` + at + "/busybox:t && docker push " + at + "/busybox:t && docker rmi " + at + "/busybox:t && docker pull " + at + "/busybox:t"); err != nil {
 		t.Fatalf("the private daemon does not trust the registry: %v\n%s", err, out)
 	}
 

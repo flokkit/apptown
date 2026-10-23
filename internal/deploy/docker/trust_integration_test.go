@@ -66,10 +66,13 @@ func TestIntegrationABuildTrustsTheExtraCertificatesThroughItsSecret(t *testing.
 	const secret = `RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; `
 	// Debian 12's apt reads only its own setting or the system store
 	// (GnuTLS), not the variables: the installer's apt setting is what
-	// makes it trust the repository. Python reads SSL_CERT_FILE.
-	dockerfile := "FROM python:3.13-slim-trixie AS fetch\n" +
+	// makes it trust the repository. Python reads SSL_CERT_FILE. Both
+	// images are ones the tests pull anyway: the stock S3 client's Python,
+	// and the PHP starter's Debian 12.
+	const debian12 = "php:8.3.35-apache-bookworm@sha256:b79a53c3fb1dd4b9f350a8d99d84951512b6c21044e61bbecfee8af030b3722e"
+	dockerfile := "FROM python:3.13.16-alpine3.24 AS fetch\n" +
 		secret + `python3 -c 'import urllib.request; urllib.request.urlopen("` + server + `")' && touch /fetched` + "\n" +
-		"FROM debian:bookworm-slim\nCOPY --from=fetch /fetched /fetched\n" +
+		"FROM " + debian12 + "\nCOPY --from=fetch /fetched /fetched\n" +
 		secret + `rm -f /etc/apt/sources.list.d/* /etc/apt/sources.list && echo "deb [trusted=yes] ` + apt + ` test main" > /etc/apt/sources.list.d/test.list && ` +
 		// apt only warns about a source it could not fetch: the index's
 		// fetch is what says it trusted the server.
@@ -78,7 +81,7 @@ func TestIntegrationABuildTrustsTheExtraCertificatesThroughItsSecret(t *testing.
 	if _, out, err := build(dockerfile); err == nil {
 		t.Fatalf("the build reached the company's servers with nothing configured:\n%s", out)
 	}
-	if _, out, err := build("FROM debian:bookworm-slim\n" + secret + "true\n"); err != nil {
+	if _, out, err := build("FROM " + debian12 + "\n" + secret + "true\n"); err != nil {
 		t.Fatalf("the secret's mount is a required input with nothing configured: %v\n%s", err, out)
 	}
 

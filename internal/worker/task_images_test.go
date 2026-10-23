@@ -26,7 +26,7 @@ func imageHub(t *testing.T) (hub, base string) {
 	t.Helper()
 	hub = t.TempDir()
 	files := map[string]string{
-		"Dockerfile":   "FROM busybox:1.37\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
+		"Dockerfile":   "FROM " + diskspace.DFImage + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
 		"greeting.txt": "hello from a release build\n",
 	}
 	for name, body := range files {

@@ -12,8 +12,15 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/poll"
 )
+
+// taggedImage is what the inventory test runs: an image with a tag, which
+// docker image ls lists, so the inventory confirms it. The pinned busybox is
+// pulled by digest alone, and Docker's containerd image store lists an image
+// with no tag only with -a.
+const taggedImage = "caddy:2-alpine"
 
 // On a real daemon: a standing deployment's services record their
 // containers, the network the boot made and each need's named data volume;
@@ -41,8 +48,8 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 	var owned []deploy.Owned
 	own := Ownership{Record: func(o deploy.Owned) error { owned = append(owned, o); return nil }, Needs: map[string]string{"store": "/data"}}
 	svcs := []deploy.ServiceSpec{
-		{Name: "store", Image: "alpine:3", Command: []string{"sh", "-c", "echo kept > /data/f && sleep 3600"}},
-		{Name: "worker", Image: "alpine:3", Command: []string{"sleep", "3600"}},
+		{Name: "store", Image: taggedImage, Command: []string{"sh", "-c", "echo kept > /data/f && sleep 3600"}},
+		{Name: "worker", Image: taggedImage, Command: []string{"sleep", "3600"}},
 	}
 	if _, err := EnsureStandingServices(context.Background(), dk, stack, svcs, "synthetic", own); err != nil {
 		t.Fatal(err)
@@ -55,7 +62,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 	}
 	for _, want := range []struct{ kind, name string }{
 		{"container", Current.Service(stack, "store")}, {"container", Current.Service(stack, "worker")},
-		{"network", Current.Network(stack)}, {"volume", Current.NeedVolume(stack, "store")}, {"image", "alpine:3"},
+		{"network", Current.Network(stack)}, {"volume", Current.NeedVolume(stack, "store")}, {"image", taggedImage},
 	} {
 		found := false
 		for _, r := range resources {
@@ -93,7 +100,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 	if !dk.OK(context.Background(), "volume", "inspect", Current.NeedVolume(stack, "store")) || len(out.Left) != 1 || !out.Left[0].Data {
 		t.Fatalf("the need's data was not kept without a backup: %+v", out)
 	}
-	check, err := exec.Command("docker", "run", "--rm", "-v", Current.NeedVolume(stack, "store")+":/data", "alpine:3", "cat", "/data/f").CombinedOutput()
+	check, err := exec.Command("docker", "run", "--rm", "-v", Current.NeedVolume(stack, "store")+":/data", diskspace.DFImage, "cat", "/data/f").CombinedOutput()
 	if err != nil || strings.TrimSpace(string(check)) != "kept" {
 		t.Fatalf("the kept volume lost its data: %v %s", err, check)
 	}
@@ -129,7 +136,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 func TestIntegrationTakeDownKeepsAContainersUnrecordedAnonymousVolume(t *testing.T) {
 	dk := Scope{Client: CLI{Binary: "docker"}}
 	name := fmt.Sprintf("itown-anon-%d", time.Now().UnixNano()%1_000_000)
-	id := runDetached(t, "run", "-d", "--name", name, "-v", "/unrecorded", "alpine:3", "sleep", "3600")
+	id := runDetached(t, "run", "-d", "--name", name, "-v", "/unrecorded", diskspace.DFImage, "sleep", "3600")
 	vol := strings.TrimSpace(dk.Text(context.Background(), "inspect", "-f", `{{range .Mounts}}{{.Name}}{{end}}`, id))
 	t.Cleanup(func() {
 		_ = exec.Command("docker", "rm", "-f", id).Run()
@@ -161,7 +168,7 @@ func TestIntegrationAStandingContainersLogIsRotated(t *testing.T) {
 	}
 	cleanup()
 	t.Cleanup(cleanup)
-	svcs := []deploy.ServiceSpec{{Name: "chatty", Image: "alpine:3", Command: []string{"sh", "-c",
+	svcs := []deploy.ServiceSpec{{Name: "chatty", Image: diskspace.DFImage, Command: []string{"sh", "-c",
 		"head -c 47185920 /dev/zero | tr '\\0' x | fold -w 65536; echo; echo done; sleep 3600"}}}
 	if _, err := EnsureStandingServices(context.Background(), dk, stack, svcs, "synthetic", Ownership{}); err != nil {
 		t.Fatal(err)

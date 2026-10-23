@@ -36,15 +36,9 @@ mcr.microsoft.com/dotnet/aspnet:10.0
 composer:2.10.3@sha256:af98f42dfff7c68ba8d53c2164fd9fde1087b7d449514baa38c418b1f6bc4bac
 php:8.3.35-apache-bookworm@sha256:b79a53c3fb1dd4b9f350a8d99d84951512b6c21044e61bbecfee8af030b3722e
 
-# The tests' own images.
-busybox:1.37
-busybox:latest
-alpine:3
-docker:27-cli
-registry:2
+# The tests' own images. Tests that need busybox run diskspace.DFImage
+# above; Debian 12 is the PHP seed's image, Python the stock S3 client's.
+registry:2.8.3
 curlimages/curl:8.22.0
-python:3.13-slim-trixie
-debian:bookworm-slim
-eclipse-temurin:21-jdk
-node:22-slim
+eclipse-temurin:21.0.12.1_1-jdk
 portainer/portainer-ce:2.27.9
