@@ -137,7 +137,6 @@ ALLOWED = [
     ("host-name", r"^internal/apptown/maintenance/images\.go$", r"forge-conform:", "an older release's conformance images are still swept"),
     ("host-name", r"^internal/deploy/portainer/portainer\.go$", r"forge-env applied", "the platform's own Portainer environment name, not one AppTown makes"),
     ("host-name", r"^scripts/apptown-recovery-rehearsal\.sh$", r"forge-db", "live's built-in database, made before 1.0"),
-    ("host-name", r"^stock/docs/guides/(apptown-backups|upgrading|server-setup)\.md$|^design/operations/README\.md$", r"forge-db", "says an install made before 1.0 keeps its database's name"),
 ]
 
 

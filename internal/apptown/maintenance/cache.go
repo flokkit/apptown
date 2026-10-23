@@ -58,16 +58,11 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 	if r.docker.Absent() {
 		return nil // no local Docker, nothing of it to reap
 	}
-	// Under every prefix a host may carry: an older release's cache
-	// volumes are swept by the same rule until they are gone.
-	var volumes []string
-	for _, p := range docker.Prefixes {
-		pre := string(p) + "cache"
-		volumes = append(volumes, pre)
-		for _, v := range r.docker.Lines(ctx, "volume", "ls", "--format", "{{.Name}}", "--filter", "name="+pre+"-") {
-			if strings.HasPrefix(v, pre+"-") && !strings.HasPrefix(v, pre+"-console-") {
-				volumes = append(volumes, v)
-			}
+	pre := string(docker.Current) + "cache"
+	volumes := []string{pre}
+	for _, v := range r.docker.Lines(ctx, "volume", "ls", "--format", "{{.Name}}", "--filter", "name="+pre+"-") {
+		if strings.HasPrefix(v, pre+"-") && !strings.HasPrefix(v, pre+"-console-") {
+			volumes = append(volumes, v)
 		}
 	}
 	runStatus := func(id ids.ID) workflow.RunState {

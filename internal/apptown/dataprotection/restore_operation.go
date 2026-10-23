@@ -39,36 +39,35 @@ var ErrRestoreSetNotStopped = fault.New(fault.Conflict, "a restore that has star
 // restorable is what a restore of a set into a deployment needs before
 // anything changes, asked at the door and again by the operation: an
 // active project, a restorable set of the project's that is not a managed
-// database's copy, and a standing deployment. It returns the set, the
-// deployment and the project's slug.
-func (s *Service) restorable(ctx context.Context, projectID ids.ID, name string, backupID ids.ID) (*Backup, *deployment.Deployment, string, error) {
+// database's copy, and a standing deployment. It returns the set and the
+// deployment.
+func (s *Service) restorable(ctx context.Context, projectID ids.ID, name string, backupID ids.ID) (*Backup, *deployment.Deployment, error) {
 	if err := project.RefuseUnlessActive(ctx, s.db, projectID); err != nil {
-		return nil, nil, "", err
+		return nil, nil, err
 	}
 	b, err := s.backups.InProject(ctx, projectID, backupID)
 	if err != nil {
-		return nil, nil, "", fault.New(fault.NotFound, fmt.Sprintf("no backup %d in this project", backupID))
+		return nil, nil, fault.New(fault.NotFound, fmt.Sprintf("no backup %d in this project", backupID))
 	}
 	if err := b.Status.Restorable(); err != nil {
-		return nil, nil, "", fmt.Errorf("backup %d: %w", backupID, err)
+		return nil, nil, fmt.Errorf("backup %d: %w", backupID, err)
 	}
 	// A managed database's copy is only ever filled into a new place: a
 	// new deployment starts from it. A Docker host's set is restored in
 	// place wherever it is kept.
 	for _, it := range b.Items {
 		if it.Instance != "" {
-			return nil, nil, "", fmt.Errorf("%w: set %d is a copy of a managed database; start a new deployment from it instead", ErrRestoreMismatch, backupID)
+			return nil, nil, fmt.Errorf("%w: set %d is a copy of a managed database; start a new deployment from it instead", ErrRestoreMismatch, backupID)
 		}
 	}
-	p, err := project.ByIDIn(ctx, s.db, projectID)
-	if err != nil {
-		return nil, nil, "", fault.New(fault.NotFound, "no such project")
+	if _, err := project.ByIDIn(ctx, s.db, projectID); err != nil {
+		return nil, nil, fault.New(fault.NotFound, "no such project")
 	}
 	dep, err := s.deployments.ByName(ctx, projectID, name)
 	if err != nil || !dep.Standing() {
-		return nil, nil, "", fault.New(fault.NotFound, fmt.Sprintf("no standing deployment named %q", name))
+		return nil, nil, fault.New(fault.NotFound, fmt.Sprintf("no standing deployment named %q", name))
 	}
-	return b, dep, p.Slug, nil
+	return b, dep, nil
 }
 
 // RequestRestore starts a restore of a set over a standing deployment, as
@@ -83,7 +82,7 @@ func (s *Service) RequestRestore(ctx context.Context, projectID ids.ID, name str
 	if err != nil {
 		return nil, err
 	}
-	b, dep, _, err := s.restorable(ctx, projectID, name, backupID)
+	b, dep, err := s.restorable(ctx, projectID, name, backupID)
 	if err != nil {
 		return nil, err
 	}

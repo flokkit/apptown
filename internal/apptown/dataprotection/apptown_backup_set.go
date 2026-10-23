@@ -70,7 +70,7 @@ func (s *Service) TakeStoppedSet(ctx context.Context, dep *deployment.Deployment
 	}
 	// The writers: what the deployment's list records, and the public part
 	// and every other part its release names, as a restore stops them.
-	names, err := dep.HostNames(p.Slug)
+	names, err := dep.HostNames()
 	if err != nil {
 		return nil, err
 	}

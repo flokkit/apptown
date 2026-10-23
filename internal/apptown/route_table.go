@@ -328,7 +328,6 @@ func appRoutes(a *App) []routeSpec {
 		ownerRoute("POST /api/v1/projects/{slug}/deployments", deployments.CreateDeployment, "deployments.CreateDeployment"),
 		ownerRoute("DELETE /api/v1/projects/{slug}/deployments/{name}", deployments.DeleteDeployment, "deployments.DeleteDeployment"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/deploy", deployments.DeployDeployment, "deployments.DeployDeployment"),
-		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/move-names", deployments.MoveNames, "deployments.MoveNames"),
 		requireRoute("POST /api/v1/projects/{slug}/deployments/{name}/check", deployments.CheckAgain, access.CapDeploymentOperate, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/deployments/{name}/ai-models", deployments.AIModels, access.CapDeploymentRead, "project-slug"),
 		ownerRoute("GET /api/v1/projects/{slug}/deployments/{name}/resources", deployments.DeploymentResources, "deployments.DeploymentResources"),

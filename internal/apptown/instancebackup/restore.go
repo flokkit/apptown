@@ -171,8 +171,7 @@ func unpack(src io.Reader, passphrase, dataDir, dump string, say func(string)) (
 // refuseExistingAppTown refuses a data directory that is not empty, and
 // the containers of an AppTown already on this Docker, by name: its
 // built-in database (labelled with its installation) and its deployments'
-// containers (labelled with the deployment they run), under the labels an install
-// made before 1.0 has too.
+// containers (labelled with the deployment they run).
 func refuseExistingAppTown(ctx context.Context, dk docker.Scope, dataDir string) error {
 	if entries, err := os.ReadDir(dataDir); err == nil && len(entries) > 0 {
 		return fmt.Errorf("%s is not empty: a restore goes into a new data directory on a host with no AppTown", dataDir)
@@ -181,7 +180,7 @@ func refuseExistingAppTown(ctx context.Context, dk docker.Scope, dataDir string)
 	}
 	// An AppTown's built-in database carries its installation, and its
 	// deployments' containers the deployment they run.
-	for _, key := range []string{dockerlabel.Instance, dockerlabel.Before1(dockerlabel.Instance), dockerlabel.Deployment, dockerlabel.Before1(dockerlabel.Deployment)} {
+	for _, key := range []string{dockerlabel.Instance, dockerlabel.Deployment} {
 		found, err := dk.List(ctx, "ps", "-a", "--filter", "label="+key, "--format", "{{.Names}}")
 		if err != nil {
 			return fmt.Errorf("asking Docker whether an AppTown is here: %w", err)

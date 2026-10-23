@@ -28,7 +28,7 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 	body := []byte(`{"version":1,"revision":"abc"}`)
 	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 		Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c}}
-	place := deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "main"}
+	place := deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}
 	const generation = 2
 
 	// The ways in: each runs the release as it happens and keeps the

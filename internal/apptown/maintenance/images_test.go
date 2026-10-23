@@ -171,9 +171,6 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 		switch {
 		case strings.HasPrefix(line, "volume ls") && strings.Contains(line, "name=apptown-cache-"):
 			return []byte("apptown-cache-game\napptown-cache-console-c1\napptown-cache-shop\n"), nil, true
-		case strings.HasPrefix(line, "volume ls") && strings.Contains(line, "name=forge-cache-"):
-			// What a release before 1.0 left: swept by the same rule.
-			return []byte("forge-cache-old\nforge-cache-console-c0\n"), nil, true
 		case strings.HasSuffix(line, "ls /apptown-cache/mise/ws"):
 			for _, a := range args {
 				if strings.HasSuffix(a, ":/apptown-cache") {
@@ -186,7 +183,7 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 	})
 	r := &Reaper{docker: docker.Scope{Client: daemon}}
 	r.Cache(t.Context(), true)
-	if strings.Join(listed, ",") != "apptown-cache,apptown-cache-game,apptown-cache-shop,forge-cache,forge-cache-old" {
+	if strings.Join(listed, ",") != "apptown-cache,apptown-cache-game,apptown-cache-shop" {
 		t.Fatalf("swept %v", listed)
 	}
 }

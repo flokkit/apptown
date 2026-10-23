@@ -56,11 +56,11 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	names, err := cloudDep.HostNames(p.Slug)
-	if err != nil || !names.ByKeyNow() {
-		t.Fatalf("a deployment made now is named by its key: %v %v", names, err)
+	names, err := cloudDep.HostNames()
+	if err != nil {
+		t.Fatal(err)
 	}
-	stack := portainer.StackName(portainer.StackNames(lanDep.ID, lanDep.HostPrefix, p.Slug))
+	stack := portainer.StackName(portainer.StackNames(lanDep.ID))
 	res := []deploy.Resource{
 		{Kind: "container", Name: names.Service("postgres"), Record: "unrecorded", Owner: names.Stack()},
 		{Kind: "volume", Name: stack + "_apptown-data-x", Record: "unrecorded", Stack: stack},
@@ -82,12 +82,12 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 }
 
 // A leftover is attributed by its owner label to the deployment whose stack
-// it names: dep-<key> for one named by its key, and, while live and the
-// demo move, env-<slug>-<name> for one still on the names it was made with.
-// An owner no deployment has is left unattributed, never guessed.
+// it names (dep-<key>). An owner no deployment has, including one a
+// deployment made before 1.0 carried (env-<slug>-<name>), is left
+// unattributed, never guessed.
 //
 // Kills: an owner label matched by its shape rather than by a deployment's
-// recorded names; the legacy reader dropped before the move.
+// recorded names.
 func TestALeftoverIsAttributedToTheDeploymentItsOwnerLabelNames(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
@@ -107,7 +107,7 @@ func TestALeftoverIsAttributedToTheDeploymentItsOwnerLabelNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	names, err := dep.HostNames("shop")
+	names, err := dep.HostNames()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,13 +125,15 @@ func TestALeftoverIsAttributedToTheDeploymentItsOwnerLabelNames(t *testing.T) {
 	if len(out) != 4 {
 		t.Fatalf("every leftover is shown: %+v", out)
 	}
-	for i := range 3 {
+	for i := range 2 {
 		if r := out[i].Retained; r == nil || r.Project != "shop" || r.Deployment != "eu-main" {
 			t.Errorf("%s (owner %s) is not attributed to shop/eu-main: %+v", out[i].Name, out[i].Owner, r)
 		}
 	}
-	if out[3].Retained != nil {
-		t.Errorf("an owner no deployment has is attributed: %+v", out[3].Retained)
+	for _, r := range out[2:] {
+		if r.Retained != nil {
+			t.Errorf("an owner no deployment has (%s) is attributed: %+v", r.Owner, r.Retained)
+		}
 	}
 }
 

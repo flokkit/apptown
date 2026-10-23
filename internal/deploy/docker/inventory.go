@@ -29,25 +29,20 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	// predate the labels: a service made before labelling would read as
 	// missing under a label filter. AppTown's own database is asked for
 	// by its name too.
-	// Under every prefix a host may carry: a deployment made before 1.0
-	// keeps its forge- names until it is moved. A deployment's app is
-	// dep-<key> (env-<slug>-<name> before its move).
+	// A deployment's app is dep-<key>.
 	// One listing for all of them: Docker ORs repeated name filters, and
 	// each listing is an ssh round trip to an attached host, so a listing
 	// per name ran past the read's deadline on a small, busy host.
 	args := []string{"ps", "-a"}
-	for _, p := range Prefixes {
-		for _, kind := range []string{keyStackPrefix, beforeStackPrefix, "svc-", "preview-", "init-"} {
-			args = append(args, "--filter", "name=^"+string(p)+kind)
-		}
+	for _, kind := range []string{keyStackPrefix, "svc-", "preview-", "init-"} {
+		args = append(args, "--filter", "name=^"+string(Current)+kind)
 	}
 	for _, name := range i.Also {
 		args = append(args, "--filter", "name=^"+name+"$")
 	}
-	// The labels say who made a thing (apptown.owner, or forge.owner on
-	// a thing made before 1.0 not yet moved) and which compose stack it
-	// belongs to; the page attributes leftovers by them.
-	args = append(args, "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}\t"+labelEither(dockerlabel.Owner)+"\t{{.Label \"com.docker.compose.project\"}}")
+	// The labels say who made a thing (apptown.owner) and which compose
+	// stack it belongs to; the page attributes leftovers by them.
+	args = append(args, "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}\t"+ownerLabel+"\t{{.Label \"com.docker.compose.project\"}}")
 	out, err := dk.Run(ctx, args...)
 	if err != nil {
 		// The error itself too: an ssh that failed before docker said
@@ -86,12 +81,9 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	for _, list := range []struct{ kind, filter string }{{"volume", ""}, {"network", "net-"}} {
 		args := []string{list.kind, "ls"}
 		if list.filter != "" {
-			// Docker ORs repeated name filters: every prefix a host may carry.
-			for _, p := range Prefixes {
-				args = append(args, "--filter", "name="+string(p)+list.filter)
-			}
+			args = append(args, "--filter", "name="+string(Current)+list.filter)
 		}
-		args = append(args, "--format", "{{.Name}}\t"+labelEither(dockerlabel.Owner)+"\t{{.Label \"com.docker.compose.project\"}}")
+		args = append(args, "--format", "{{.Name}}\t"+ownerLabel+"\t{{.Label \"com.docker.compose.project\"}}")
 		out, err := dk.Run(ctx, args...)
 		if err != nil {
 			return nil, fmt.Errorf("listing %ss: %w: %s", list.kind, err, strings.TrimSpace(string(out)))
@@ -149,3 +141,6 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	}
 	return res, nil
 }
+
+// ownerLabel is a `docker ps` or `ls` format reading who made a thing.
+var ownerLabel = `{{.Label "` + dockerlabel.Owner + `"}}`

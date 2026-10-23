@@ -400,45 +400,28 @@ func TestTLSAskAllowsOnlyNamesAppTownsRecordsBound(t *testing.T) {
 }
 
 // A main hostname reaches the container the project's main deployment
-// records serving from, under the names it was made with: one made before
-// 1.0 (forge-env-…) right after the upgrade, before any release, and one
-// made now (apptown-env-…). The name is never computed from the Host.
+// records serving from. The name is never computed from the Host.
 func TestAMainHostnameReachesTheContainerItsDeploymentRecords(t *testing.T) {
 	t.Parallel()
 	a := testApp(t, Config{TierDomains: []string{"main=main.example.com"}})
-	a.SeedTargets(t.Context())
-	target, err := a.Deployment.Targets.ByName(t.Context(), deployment.BuiltInTargetName)
-	if err != nil {
-		t.Fatal(err)
-	}
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "served") }))
 	defer backend.Close()
 	var port int
 	fmt.Sscanf(backend.URL[strings.LastIndex(backend.URL, ":")+1:], "%d", &port)
-	h := a.Handler()
-	for slug, container := range map[string]string{"oldshop": "forge-env-oldshop-main", "newshop": "apptown-env-newshop-main"} {
-		p := engineProject(t, a, slug)
-		dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "main", target.ID, deployment.Attributes{}.WithDefaults())
-		if err != nil {
-			t.Fatal(err)
-		}
-		// sql-guarantee: a deployment made before 1.0 is a migrated row (host_prefix forge-) serving from its forge- container; no operation makes a row of that age now.
-		if _, err := a.DB.Exec(`UPDATE deployments SET host_prefix = $1, container = $2 WHERE id = $3`, strings.TrimSuffix(container, "env-"+slug+"-main"), container, dep.ID); err != nil {
-			t.Fatal(err)
-		}
-		a.vhostMu.Lock()
-		if a.vhostCache == nil {
-			a.vhostCache = map[string]vhostEntry{}
-		}
-		a.vhostCache[container] = vhostEntry{port: port, at: time.Now()}
-		a.vhostMu.Unlock()
-		req := httptest.NewRequest("GET", "/", nil)
-		req.Host = slug + ".main.example.com"
-		w := httptest.NewRecorder()
-		h.ServeHTTP(w, req)
-		if w.Code != 200 || w.Body.String() != "served" {
-			t.Fatalf("%s did not reach %s: %d %q", req.Host, container, w.Code, w.Body.String())
-		}
+	const container = "apptown-dep-recorded"
+	recordServing(t, a, engineProject(t, a, "shop").ID, container)
+	a.vhostMu.Lock()
+	if a.vhostCache == nil {
+		a.vhostCache = map[string]vhostEntry{}
+	}
+	a.vhostCache[container] = vhostEntry{port: port, at: time.Now()}
+	a.vhostMu.Unlock()
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Host = "shop.main.example.com"
+	w := httptest.NewRecorder()
+	a.Handler().ServeHTTP(w, req)
+	if w.Code != 200 || w.Body.String() != "served" {
+		t.Fatalf("%s did not reach %s: %d %q", req.Host, container, w.Code, w.Body.String())
 	}
 }
 

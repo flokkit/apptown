@@ -136,7 +136,7 @@ func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testin
 	}
 	// The stack and its volumes are named by the deployment, as the
 	// Portainer release names them.
-	prefix, base := portainer.StackNames(dep.ID, dep.HostPrefix, slug)
+	prefix, base := portainer.StackNames(dep.ID)
 	stack := portainer.StackName(prefix, base)
 	t.Cleanup(func() {
 		_ = dockertest.Run("rm", "-f", stack+"-app-1", stack+"-worker-1", stack+"-postgres-1", stack+"-s3-1", stack+"-init-migrate-1")

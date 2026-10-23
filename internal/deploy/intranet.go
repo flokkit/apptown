@@ -38,9 +38,7 @@ type ConsumerSecrets interface {
 // IntranetStack is everything the stack file says.
 type IntranetStack struct {
 	// Prefix and Base begin the stack's name, router and volume keys
-	// (portainer.StackNames): apptown- and dep-<key>, or, for a stack made
-	// before its names were by key and not yet moved, its recorded prefix
-	// and its project's slug.
+	// (portainer.StackNames): apptown- and dep-<key>.
 	Prefix string
 	Base   string
 	Hosts  []string

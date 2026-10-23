@@ -139,7 +139,7 @@ up. Docker Desktop on a Mac gives such files your ownership instead.
 
 The data directory is `./_data` unless `-data` names another. With no
 `-db-url`, AppTown starts its own PostgreSQL container, `apptown-db` (`db.env`
-records its name; an install made before 1.0 keeps `forge-db`), with its
+records its name), with its
 files under `<data directory>/pgdata`. That container belongs to one
 installation: for a second AppTown on the same machine, give it a separate
 PostgreSQL database with `-db-url`; changing only `-data` is refused.

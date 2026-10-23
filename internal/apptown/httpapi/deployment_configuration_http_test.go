@@ -181,17 +181,6 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if w.Code != 409 {
 		t.Fatalf("landing-fed refusal: %d %s", w.Code, w.Body.String())
 	}
-	// The move door asks the same authority, and moves only a deployment
-	// still on the names it was made with.
-	movePath := "/api/v1/projects/game/deployments/main/move-names"
-	denied = deploymentRequest(deployments.MoveNames, "outsider", http.MethodPost, movePath, map[string]string{"slug": "game", "name": "main"})
-	if denied.Code != 403 {
-		t.Fatalf("outsider reached the move: %d %s", denied.Code, denied.Body.String())
-	}
-	w = deploymentRequest(deployments.MoveNames, "owner", http.MethodPost, movePath, map[string]string{"slug": "game", "name": "main"})
-	if w.Code != 422 || !strings.Contains(w.Body.String(), "already named by its key") {
-		t.Fatalf("a deployment named by its key was moved: %d %s", w.Code, w.Body.String())
-	}
 	w = deploymentRequest(listing.Deployments, "owner", http.MethodGet, createPath, projectValues)
 	var list []map[string]any
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &list) != nil || len(list) != 2 {

@@ -190,13 +190,10 @@ func executionOwnerFinished(ctx context.Context, db database.Queryer, owner stri
 			id = leadingID(strings.TrimPrefix(owner, "pv"))
 			preview = true
 		} else {
-		owners:
-			for _, p := range docker.Prefixes {
-				for _, kind := range []string{"step-", "tests-", "review-", "scan-", "conform-", "dind-step-"} {
-					if prefix := string(p) + kind; strings.HasPrefix(owner, prefix) {
-						id = leadingID(strings.TrimPrefix(owner, prefix))
-						break owners
-					}
+			for _, kind := range []string{"step-", "tests-", "review-", "scan-", "conform-", "dind-step-"} {
+				if prefix := string(docker.Current) + kind; strings.HasPrefix(owner, prefix) {
+					id = leadingID(strings.TrimPrefix(owner, prefix))
+					break
 				}
 			}
 		}

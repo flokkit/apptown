@@ -18,15 +18,15 @@ func TestANeedDockerCallsUnhealthyIsAKnownFailure(t *testing.T) {
 	daemon := func(status string) Scope {
 		return Scope{Client: &fakeClient{reply: func(Command) ([]byte, error) { return []byte(status), nil }}}
 	}
-	if _, err := waitStackHealthy(context.Background(), daemon("unhealthy"), Current, svcs, "s"); err == nil || !deploy.IsTerminal(err) {
+	if _, err := waitStackHealthy(context.Background(), daemon("unhealthy"), svcs, "s"); err == nil || !deploy.IsTerminal(err) {
 		t.Fatalf("an unhealthy need is not a known failure: %v", err)
 	}
-	if _, err := waitStackHealthy(context.Background(), daemon("healthy"), Current, svcs, "s"); err != nil {
+	if _, err := waitStackHealthy(context.Background(), daemon("healthy"), svcs, "s"); err != nil {
 		t.Fatalf("a healthy need failed the wait: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := waitStackHealthy(ctx, daemon("starting"), Current, svcs, "s"); err == nil || deploy.IsTerminal(err) {
+	if _, err := waitStackHealthy(ctx, daemon("starting"), svcs, "s"); err == nil || deploy.IsTerminal(err) {
 		t.Fatalf("a wait ended by its caller claims a known outcome: %v", err)
 	}
 }
@@ -42,7 +42,7 @@ func TestANeedThatIsNotRunningIsSaidSoNotUnhealthy(t *testing.T) {
 		}
 		return []byte("unhealthy"), nil
 	}}}
-	_, err := waitStackHealthy(context.Background(), dk, Current, svcs, "s")
+	_, err := waitStackHealthy(context.Background(), dk, svcs, "s")
 	if err == nil || !deploy.IsTerminal(err) || !strings.Contains(err.Error(), "not running") || strings.Contains(err.Error(), "after it started") {
 		t.Fatalf("a stopped need: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestANeedDockerIsRestartingIsNotJudgedUnhealthy(t *testing.T) {
 				}
 				return []byte("healthy"), nil
 			}}}
-			if _, err := waitStackHealthy(context.Background(), dk, Current, svcs, "s"); err != nil || asked != 2 {
+			if _, err := waitStackHealthy(context.Background(), dk, svcs, "s"); err != nil || asked != 2 {
 				t.Fatalf("a need Docker was restarting, then healthy (asked %d times): %v", asked, err)
 			}
 		})

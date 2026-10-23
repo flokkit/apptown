@@ -160,7 +160,7 @@ func TestDriverRefusesAnythingButPreparedSource(t *testing.T) {
 		{Kind: "docker-source", Body: []byte(`{}`), Hash: "stale"},
 		{Kind: "docker-source", Body: []byte(`{}`), Hash: deploy.ConfigHash(`{}`)}, // no source
 	} {
-		_, err := d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(1), Label: "1", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+		_, err := d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(1), Label: "1", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 		if !deploy.IsTerminal(err) {
 			t.Fatalf("%s: %v", art.Kind, err)
 		}
@@ -220,7 +220,7 @@ func TestTeardownUsesVerifiedContainerIDAndPropagatesFailures(t *testing.T) {
 			}
 			d := Driver{Scope: func(context.Context) (Scope, error) { return Scope{Client: f}, nil }}
 			owned := []deploy.Owned{{Kind: "network", ID: "apptown-net-env-shop-main"}}
-			_, err := d.Teardown(ctx, deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Generation: 3, Container: "reusable-name"}, 3, deploy.TakeDown{Owned: owned})
+			_, err := d.Teardown(ctx, deploy.Placement{ID: idstest.N(7), Label: "7", Generation: 3, Container: "reusable-name"}, 3, deploy.TakeDown{Owned: owned})
 			removes := scenario == "success" || scenario == "failed-release"
 			if (err == nil) != removes {
 				t.Fatalf("teardown: %v", err)
@@ -258,7 +258,7 @@ func TestObserveDistinguishesUnavailableFromStopped(t *testing.T) {
 				cancel()
 			}
 			d := Driver{Scope: func(context.Context) (Scope, error) { return Scope{Client: client}, nil }}
-			got, err := d.Observe(ctx, deploy.Placement{HostPrefix: "apptown-", Container: "app", Generation: 3})
+			got, err := d.Observe(ctx, deploy.Placement{Container: "app", Generation: 3})
 			if scenario == "unavailable" || scenario == "cancelled" {
 				if err == nil {
 					t.Fatal("failed observation became stopped")
@@ -285,7 +285,7 @@ func TestObserveDistinguishesUnavailableFromStopped(t *testing.T) {
 func TestAFailedBootIsAKnownFailure(t *testing.T) {
 	t.Parallel()
 	phases := map[string]bool{"": false}
-	for _, p := range []string{PhaseResolve, PhaseMove, PhaseSecrets, PhaseConfig, PhaseNeeds, PhaseFill, PhaseParts, PhaseApp, PhaseProbe, PhasePage} {
+	for _, p := range []string{PhaseResolve, PhaseSecrets, PhaseConfig, PhaseNeeds, PhaseFill, PhaseParts, PhaseApp, PhaseProbe, PhasePage} {
 		phases[p] = true
 	}
 	for phase, terminal := range phases {
@@ -302,7 +302,7 @@ func TestAFailedBootIsAKnownFailure(t *testing.T) {
 			body := []byte(`{"version":1,"revision":"abc"}`)
 			art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 				Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c}}
-			_, err = d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+			_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 			if err == nil || deploy.IsTerminal(err) != terminal {
 				t.Fatalf("terminal=%v, got %v (terminal=%v)", terminal, err, deploy.IsTerminal(err))
 			}
@@ -362,7 +362,7 @@ func TestDriverBootsTheImagesItsSourceNames(t *testing.T) {
 			URL: func(_, _ string, port int) string { return fmt.Sprint(port) }, AfterRelease: func(deploy.Placement) {}}
 		art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 			Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c, Images: images, Init: map[string]string{}}}
-		if _, err := d.Reconcile(context.Background(), deploy.Placement{HostPrefix: "apptown-", ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil }); err != nil {
+		if _, err := d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil }); err != nil {
 			t.Fatal(err)
 		}
 		if (boot.req.Recorded != nil) != (images != nil) || (images != nil && boot.req.Recorded.Parts["game"] != "sha256:game") {
@@ -385,7 +385,7 @@ func TestARecordedBootWithAMissingImageChangesNothing(t *testing.T) {
 		}
 		return nil, nil
 	}}
-	_, err = NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true, Names: Current,
+	_, err = NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}}).Boot(context.Background(), BootRequest{Name: ByKey(idstest.N(7)).App(), StackID: ByKey(idstest.N(7)).Stack(), Workspace: t.TempDir(), Docker: Scope{Client: fake}, Persistent: true,
 		Identity: &deploy.DockerIdentity{Deployment: "7", Generation: 2}, Recorded: &RecordedImages{Parts: map[string]string{"game": "sha256:gone"}}}, c)
 	if !errors.Is(err, ErrRecordedImageMissing) || !AsBootError(err).BeforeEffects() {
 		t.Fatalf("a missing recorded image: %v", err)

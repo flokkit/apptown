@@ -103,11 +103,11 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 	if err != nil {
 		return fail(err)
 	}
-	names, err := dep.HostNames(p.Slug)
+	names, err := dep.HostNames()
 	if err != nil {
 		return fail(err)
 	}
-	request := docker.BootRequest{Docker: dk, Name: names.App(), Names: names.Prefix(), StackID: names.Stack(), Workspace: in.Source.Workspace, Slug: p.Slug, Deployment: dep.Name, DataClass: in.DataClass, HostPort: in.HostPort, Persistent: true, Services: in.Services, Probe: 90 * time.Second, PageCheck: true, Revision: in.Source.Revision}
+	request := docker.BootRequest{Docker: dk, Name: names.App(), StackID: names.Stack(), Workspace: in.Source.Workspace, Slug: p.Slug, Deployment: dep.Name, DataClass: in.DataClass, HostPort: in.HostPort, Persistent: true, Services: in.Services, Probe: 90 * time.Second, PageCheck: true, Revision: in.Source.Revision}
 	owner := s.Deployments.OwnerOf(dep)
 	request.Log = in.Log
 	request.Record = func(o deploy.Owned) error { return owner.Created(ctx, o) }

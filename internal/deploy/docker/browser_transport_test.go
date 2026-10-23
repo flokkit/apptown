@@ -98,7 +98,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 					{Name: "web", Public: true, Static: ".", Port: 8080},
 					{Name: "worker", Image: "worker:1"},
 				}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
-				req := BootRequest{Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true, Names: Current}
+				req := BootRequest{Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true}
 				if releaseImage == "" {
 					req.Identity = &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}
 				} else {

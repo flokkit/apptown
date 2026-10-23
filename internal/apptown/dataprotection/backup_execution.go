@@ -413,7 +413,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		return nil, err
 	}
 	defer files.Close()
-	b, dep, slug, err := s.restorable(ctx, projectID, deploymentName, backupID)
+	b, dep, err := s.restorable(ctx, projectID, deploymentName, backupID)
 	if err != nil {
 		return nil, err
 	}
@@ -496,7 +496,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		return nil, fmt.Errorf("the safety set %d is %s (%s); nothing was restored", safety.ID, safety.Status, strings.Join(missing, "; "))
 	}
 	rec.end(ctx, fmt.Sprintf("set %d", safety.ID))
-	names, err := dep.HostNames(slug)
+	names, err := dep.HostNames()
 	if err != nil {
 		return nil, fmt.Errorf("naming %s on its host: %w; nothing was restored", deploymentName, err)
 	}

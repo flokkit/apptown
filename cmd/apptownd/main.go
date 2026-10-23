@@ -17,7 +17,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown"
@@ -281,15 +280,6 @@ func main() {
 		log.Printf("WARNING: docker unavailable; model agents cannot run until Docker is available")
 	}
 
-	// What an AppTown before 1.0 left on this machine's Docker that is
-	// disposable goes before any work is recovered, a folder's
-	// writers checked or a chat started (docker.SweepBefore1); one that
-	// cannot be removed stops the start. REMOVE-AFTER resource move.
-	if !o.verifyOnly && !o.noLocalDocker {
-		if err := docker.SweepBefore1(ctx, docker.Scope{Client: docker.CLI{}}); err != nil {
-			log.Fatal(err)
-		}
-	}
 	if o.verifyOnly {
 		// The verification startup (design/subsystems/postgres-migration.md §3.7):
 		// reads only, nothing recovered, resumed or scheduled, so the old

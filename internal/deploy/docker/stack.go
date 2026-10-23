@@ -98,7 +98,7 @@ func runServiceContainers(ctx context.Context, dk Scope, id, network string, svc
 
 func runServiceContainersWith(ctx context.Context, dk Scope, id, network string, svcs []deploy.ServiceSpec, opts serviceRunOptions, own Ownership) error {
 	for _, svc := range svcs {
-		cname := own.names().Service(id, svc.Name)
+		cname := Current.Service(id, svc.Name)
 		dk.Remove(ctx, cname)
 		args := []string{"run", "-d", "--init", "--name", cname,
 			"--network", network, "--network-alias", svc.Name}
@@ -144,7 +144,7 @@ func runServiceContainersWith(ctx context.Context, dk Scope, id, network string,
 // (waitStackHealthy); if none declare health it falls back to the
 // historical readiness grace.
 func waitStackReady(ctx context.Context, dk Scope, svcs []deploy.ServiceSpec, id string) error {
-	declared, err := waitStackHealthy(ctx, dk, Current, svcs, id)
+	declared, err := waitStackHealthy(ctx, dk, svcs, id)
 	if err != nil || declared {
 		return err
 	}
@@ -176,14 +176,14 @@ func healthArgs(cmd string) []string {
 // it, before any init step or part starts: its health check is what says
 // it is ready for the app (an s3 store's bucket and account are made), so
 // carrying on would start the app against something not ready.
-func waitStackHealthy(ctx context.Context, dk Scope, names Prefix, svcs []deploy.ServiceSpec, id string) (bool, error) {
+func waitStackHealthy(ctx context.Context, dk Scope, svcs []deploy.ServiceSpec, id string) (bool, error) {
 	declared := false
 	for _, svc := range svcs {
 		if svc.Health == "" {
 			continue
 		}
 		declared = true
-		cname := names.Service(id, svc.Name)
+		cname := Current.Service(id, svc.Name)
 		status := ""
 		// Bounded by its timeout, and by the boot's lifetime when it has one.
 		// Docker's own verdict, unhealthy (its retries spent), ends the wait.
@@ -236,15 +236,15 @@ func waitStackHealthy(ctx context.Context, dk Scope, names Prefix, svcs []deploy
 // PreparePreviewBuilds builds each explicit build context once. Different
 // contexts cannot silently share the public image. Only the private plan
 // receives tags.
-func PreparePreviewBuilds(ctx context.Context, dk Scope, names Prefix, ws, name string, c *appcontract.Plan) error {
+func PreparePreviewBuilds(ctx context.Context, dk Scope, ws, name string, c *appcontract.Plan) error {
 	built := map[string]string{}
 	prepare := func(build, part string) (string, error) {
 		if image := built[build]; image != "" {
 			return image, nil
 		}
-		tag := names.BuildTag(name)
+		tag := Current.BuildTag(name)
 		if len(built) > 0 {
-			tag = names.BuildTag(name + "-" + part)
+			tag = Current.BuildTag(name + "-" + part)
 		}
 		buildDir, cleanup, err := StagedBuildContext(ctx, ws, build)
 		if err != nil {
@@ -317,13 +317,13 @@ func nonPublicPartServices(c *appcontract.Plan, secrets Delivery) []deploy.Servi
 // runInitContainers runs each init container to completion on the app network,
 // in order, BEFORE the app parts start. A non-zero exit fails the boot loudly
 // with the init's output (a failed migration must stop the app coming up).
-func runInitContainers(ctx context.Context, dk Scope, names Prefix, id, network string, c *appcontract.Plan, secrets Delivery) error {
+func runInitContainers(ctx context.Context, dk Scope, id, network string, c *appcontract.Plan, secrets Delivery) error {
 	for _, it := range c.Init {
 		img := it.Image
 		if img == "" {
 			return fmt.Errorf("init %q has no image to run", it.Name)
 		}
-		cname := names.Init(id, it.Name)
+		cname := Current.Init(id, it.Name)
 		dk.Remove(ctx, cname)
 		args := []string{"run", "--rm", "--init", "--name", cname, "--network", network}
 		args = append(args, dk.Labels("step", id)...)
@@ -363,15 +363,15 @@ func bringUpParts(ctx context.Context, dk Scope, id, name, ws, network string, c
 		return c, network, nil // single-part, no init: nothing new to do
 	}
 	if network == "" {
-		network = own.names().Network(id)
+		network = Current.Network(id)
 		if err := ensureNetwork(ctx, dk, network, own); err != nil {
 			return nil, "", err
 		}
 	}
-	if err := PreparePreviewBuilds(ctx, dk, own.names(), ws, name, c); err != nil {
+	if err := PreparePreviewBuilds(ctx, dk, ws, name, c); err != nil {
 		return nil, "", err
 	}
-	if err := runInitContainers(ctx, dk, own.names(), id, network, c, secrets); err != nil {
+	if err := runInitContainers(ctx, dk, id, network, c, secrets); err != nil {
 		return nil, "", err
 	}
 	if extra := nonPublicPartServices(c, secrets); len(extra) > 0 {
@@ -465,12 +465,12 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 	if len(svcs) == 0 {
 		return "", nil
 	}
-	network := own.names().Network(stackID)
+	network := Current.Network(stackID)
 	if err := ensureNetwork(ctx, dk, network, own); err != nil {
 		return network, err
 	}
 	for _, svc := range svcs {
-		cname := own.names().Service(stackID, svc.Name)
+		cname := Current.Service(stackID, svc.Name)
 		// Absent and unreadable are different answers: a service that could
 		// not be asked about is not made again under its own name.
 		there, err := dk.Exists(ctx, "inspect", cname)
@@ -523,7 +523,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			// A need keeps its data in a named volume of the deployment's,
 			// so take-down knows it, backs it up and deletes it.
 			if path != "" {
-				vol := own.names().NeedVolume(stackID, svc.Name)
+				vol := Current.NeedVolume(stackID, svc.Name)
 				if err := ensureVolume(ctx, dk, vol, stackID, svc.Name, own); err != nil {
 					return network, err
 				}
@@ -740,7 +740,7 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 		return fmt.Errorf("the standing %s service was created with other parameters than the contract declares now (%s); this deployment holds %s, so AppTown will not replace it — retire the deployment's services under Deployments to recreate them from the contract",
 			svc.Name, strings.Join(drift, ", "), class)
 	}
-	vol := own.names().NeedVolume(stackID, svc.Name)
+	vol := Current.NeedVolume(stackID, svc.Name)
 	_, isNeed := own.Needs[svc.Name]
 	if isNeed && !own.recorded("volume", vol) {
 		// Only a volume the deployment recorded creating is its to

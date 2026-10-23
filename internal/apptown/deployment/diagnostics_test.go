@@ -355,9 +355,9 @@ func TestALimitEventIsAttributedToItsGeneration(t *testing.T) {
 	t.Parallel()
 	dep, settled := idstest.N(1), time.Date(2026, 10, 16, 1, 0, 0, 0, time.UTC)
 	o := containerOwners{exact: map[string]partOf{"apptown-env-shop-main": {deployment: dep, part: "web"}},
-		services: map[string]ids.ID{docker.BeforeKey(docker.Current, "shop", "main").Service(""): dep},
+		services: map[string]ids.ID{docker.Current.Service("env-shop-main", ""): dep},
 		settled:  map[ids.ID]settledAs{dep: {label: "01a1", generation: 5, since: settled, until: settled.Add(time.Hour)}}}
-	worker := docker.BeforeKey(docker.Current, "shop", "main").Service("worker")
+	worker := docker.Current.Service("env-shop-main", "worker")
 	got := limitEventsOf([]docker.ContainerEvent{
 		{Container: "apptown-env-shop-main", Action: "oom", At: settled.Add(-time.Minute), Deployment: "01a1", Generation: "4"},
 		{Container: worker, Action: "oom", At: settled.Add(time.Minute)},

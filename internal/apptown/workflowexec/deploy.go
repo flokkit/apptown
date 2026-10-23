@@ -129,7 +129,7 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": "naming the deployment: " + err.Error()})
 		return
 	}
-	names, err := env.HostNames(slug)
+	names, err := env.HostNames()
 	if err != nil {
 		finish(workflow.StatusError, map[string]any{"reason": "naming the deployment: " + err.Error()})
 		return

@@ -10,12 +10,7 @@ import (
 func StackName(prefix, base string) string { return prefix + base }
 
 // StackNames are what a deployment's stack and its volume keys on Portainer
-// begin with: apptown- and dep-<key> for a deployment named by its key, or,
-// for one made before its names were by key and not yet moved, its
-// recorded prefix and its project's slug (REMOVE-AFTER resource move).
-func StackNames(id ids.ID, recordedPrefix, slug string) (prefix, base string) {
-	if recordedPrefix == "" {
-		return "apptown-", "dep-" + deploy.HostKey(id)
-	}
-	return recordedPrefix, slug
+// begin with: apptown- and dep-<key>.
+func StackNames(id ids.ID) (prefix, base string) {
+	return "apptown-", "dep-" + deploy.HostKey(id)
 }

@@ -38,7 +38,7 @@ func TestIntegrationAFreshDatabaseGetsItsStartupBound(t *testing.T) {
 		t.Fatalf("the health check's start period is %q, not the gate's bound %s", got, healthBound)
 	}
 	start := time.Now()
-	_, gateErr := waitStackHealthy(t.Context(), dk, Current, []deploy.ServiceSpec{svc}, stack)
+	_, gateErr := waitStackHealthy(t.Context(), dk, []deploy.ServiceSpec{svc}, stack)
 	t.Logf("startup gate after %s: %v", time.Since(start), gateErr)
 	healthy := poll.Until(t.Context(), healthBound, time.Second, func() bool {
 		return dk.Text(t.Context(), "inspect", "-f", "{{.State.Health.Status}}", cname) == "healthy"
@@ -69,7 +69,7 @@ func TestIntegrationANeedThatRestartsWhileItStartsGetsItsStartupBound(t *testing
 	if _, err := EnsureStandingServices(t.Context(), dk, stack, []deploy.ServiceSpec{svc}, "production", Ownership{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := waitStackHealthy(t.Context(), dk, Current, []deploy.ServiceSpec{svc}, stack); err != nil {
+	if _, err := waitStackHealthy(t.Context(), dk, []deploy.ServiceSpec{svc}, stack); err != nil {
 		t.Fatalf("a need that restarted while it started was rejected: %v", err)
 	}
 	if restarts := dk.Text(t.Context(), "inspect", "-f", "{{.RestartCount}}", cname); restarts != "5" {

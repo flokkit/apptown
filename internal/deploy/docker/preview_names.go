@@ -50,15 +50,10 @@ func ReleaseStackID(slug string, number int64) string {
 	return fmt.Sprintf("%s%s-%d", relStackPrefix, slug, number)
 }
 
-// previewLabel is the inverse of PreviewLabelName, under any prefix: the
-// start-up sweep removes what an older release named.
+// previewLabel is the inverse of PreviewLabelName.
 func previewLabel(name string) (string, bool) {
-	for _, p := range Prefixes {
-		if rest, ok := strings.CutPrefix(name, string(p)+"preview-"); ok && rest != "" {
-			return rest, true
-		}
-	}
-	return "", false
+	rest, ok := strings.CutPrefix(name, string(Current)+"preview-")
+	return rest, ok && rest != ""
 }
 
 // workPreviewLabel is a change's or a run's preview label.

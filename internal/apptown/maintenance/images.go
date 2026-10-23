@@ -92,13 +92,11 @@ func (r *Reaper) lastTagged(ctx context.Context, ref string) time.Time {
 	return t
 }
 
-// runBuildPrefix is the run-preview build-image prefix name carries,
-// under any prefix a host may carry ("" when none).
+// runBuildPrefix is the run-preview build-image prefix name carries ("" when
+// none).
 func runBuildPrefix(name string) string {
-	for _, p := range docker.Prefixes {
-		if pre := string(p) + "preview-build-" + string(p) + "preview-run-"; strings.HasPrefix(name, pre) {
-			return pre
-		}
+	if pre := string(docker.Current) + "preview-build-" + string(docker.Current) + "preview-run-"; strings.HasPrefix(name, pre) {
+		return pre
 	}
 	return ""
 }

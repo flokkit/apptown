@@ -165,21 +165,6 @@ func TestKeysAreOneCaseAndDistinct(t *testing.T) {
 	}
 }
 
-// A thing made before 1.0 carries forge.<name>; the readers that must still
-// recognise it ask Before1 for that key, and only for a key AppTown has.
-//
-// Kills: a Before1 that answers the new key, or that loses the word
-// environment the deployment key had.
-func TestBefore1IsTheKeyThingsMadeBefore1Carry(t *testing.T) {
-	want := map[string]string{Class: "forge.class", Owner: "forge.owner", Instance: "forge.instance",
-		Deployment: "forge.environment", Generation: "forge.generation", ConsoleDind: "forge.console.dind"}
-	for k, w := range want {
-		if got := Before1(k); got != w {
-			t.Errorf("Before1(%s) = %s, want %s", k, got, w)
-		}
-	}
-}
-
 // The informational labels are for people: nothing outside this package
 // names Project or DeploymentName, so nothing can read them for identity,
 // ownership or removal; they are only written, through Informational.

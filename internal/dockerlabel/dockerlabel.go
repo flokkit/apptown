@@ -9,8 +9,6 @@
 // and are not listed here.
 package dockerlabel
 
-import "strings"
-
 // The keys AppTown writes when it makes something, and reads to find it.
 const (
 	Class       = "apptown.class"       // what kind of thing it is (see the Class values)
@@ -83,18 +81,3 @@ var Keys = []string{
 
 // ImageKeys are the keys the agent image's build writes.
 var ImageKeys = []string{PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion}
-
-// Before1 is the key a label had before 1.0 (forge.<name>, and
-// forge.environment for Deployment). Things made before 1.0 still carry
-// those keys until they are moved to their new names
-// (design/subsystems/deployment.md, "Names on a host"); only the readers
-// that must recognise them meanwhile ask for this.
-//
-// REMOVE-AFTER resource move: with every deployment on live and the demo
-// moved, nothing carries these keys.
-func Before1(key string) string {
-	if key == Deployment {
-		return "forge.environment"
-	}
-	return "forge." + strings.TrimPrefix(key, "apptown.")
-}

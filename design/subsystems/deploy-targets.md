@@ -126,8 +126,7 @@ witnessed outcomes):
 
 A target's inventory compares recorded resource claims with a complete scoped
 Docker observation: AppTown-named containers, application (`apptown-data-`) and need
-(`apptown-need-`) volumes, AppTown networks (named by the deployment's key, or under `forge-` for a
-deployment made before 1.0 that has not been moved), and recorded image references. Immutable
+(`apptown-need-`) volumes, AppTown networks (named by the deployment's key), and recorded image references. Immutable
 repository/digest references require an exact alias from Docker; local-build tags
 are observed separately and cannot confirm a digest. Unclaimed host images are
 not listed as orphan cleanup candidates. The page adds no image/network removal

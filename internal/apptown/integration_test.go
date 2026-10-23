@@ -278,7 +278,7 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 		t.Fatal("no environment row recorded")
 	}
 	// The app's container is named by the deployment, as AppTown names it.
-	names, err := environment.HostNames(slug)
+	names, err := environment.HostNames()
 	if err != nil {
 		t.Fatal(err)
 	}

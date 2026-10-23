@@ -20,19 +20,19 @@ func inventoryFixture(t *testing.T, fail string) ([]deploy.Resource, error) {
 		}
 		switch {
 		case strings.HasPrefix(line, "ps -a"):
-			if strings.Contains(line, "name=^apptown-env-") {
-				return []byte("apptown-env-shop-main\tUp 1 hour\tapp\tenv-shop-main\t\n"), nil
+			if strings.Contains(line, "name=^apptown-dep-") {
+				return []byte("apptown-dep-k1\tUp 1 hour\tapp\tdep-k1\t\n"), nil
 			}
 		case strings.HasPrefix(line, "volume ls"):
 			if strings.Contains(line, "--filter") {
 				t.Errorf("volumes are listed whole: an approved older volume has no AppTown prefix: %s", line)
 			}
-			return []byte("apptown-data-shop\tenv-shop-main\t\napptown-need-shop\tenv-shop-main\t\n0a1b2c\t\t\n"), nil
+			return []byte("apptown-data-shop\tdep-k1\t\napptown-need-shop\tdep-k1\t\n0a1b2c\t\t\n"), nil
 		case strings.HasPrefix(line, "network ls"):
 			if !strings.Contains(line, "name=apptown-net-") {
 				t.Errorf("network listing must be scoped: %s", line)
 			}
-			return []byte("apptown-net-env-shop-main\tenv-shop-main\t\n"), nil
+			return []byte("apptown-net-dep-k1\tdep-k1\t\n"), nil
 		case strings.HasPrefix(line, "image ls"):
 			return []byte("reg/shop\tlatest\tsha256:aaa\nreg/shop\told\tsha256:bbb\nreg/shop\talias\tsha256:aaa\napptown-preview-build-shop\tlatest\t<none>\n<none>\t<none>\t<none>\n"), nil
 		}
@@ -57,7 +57,7 @@ func TestInventoryConfirmsNeedVolumesNetworksAndExactImageReferences(t *testing.
 	for _, r := range out {
 		got = append(got, r.Kind+":"+r.Name)
 	}
-	for _, want := range []string{"container:apptown-env-shop-main", "volume:apptown-data-shop", "volume:apptown-need-shop", "volume:0a1b2c", "network:apptown-net-env-shop-main", "image:reg/shop@sha256:aaa", "image:reg/shop@sha256:bbb", "image:apptown-preview-build-shop:latest",
+	for _, want := range []string{"container:apptown-dep-k1", "volume:apptown-data-shop", "volume:apptown-need-shop", "volume:0a1b2c", "network:apptown-net-dep-k1", "image:reg/shop@sha256:aaa", "image:reg/shop@sha256:bbb", "image:apptown-preview-build-shop:latest",
 		// The local build as it is recorded: bare, Docker's implicit latest.
 		"image:" + Current.BuildTag("shop")} {
 		if !slices.Contains(got, want) {
@@ -70,7 +70,7 @@ func TestInventoryConfirmsNeedVolumesNetworksAndExactImageReferences(t *testing.
 			t.Errorf("confirm-only marking wrong: %+v", r)
 		}
 		if (r.Kind == "volume" || r.Kind == "network") && r.Name != "0a1b2c" {
-			if r.Owner != "env-shop-main" {
+			if r.Owner != "dep-k1" {
 				t.Errorf("lost attribution: %+v", r)
 			}
 		}
@@ -112,11 +112,12 @@ func TestInventoryEmptyHostIsAnAnswer(t *testing.T) {
 func TestInventoryListsContainersOnceWithEveryName(t *testing.T) {
 	t.Parallel()
 	host := []string{
-		"apptown-dep-k1-app", "apptown-env-shop-main", "apptown-svc-shop-db", "apptown-preview-shop-7", "apptown-init-shop",
-		"forge-dep-k2-app", "forge-env-old-main", "forge-svc-old-db", "forge-preview-old-3", "forge-init-old",
+		"apptown-dep-k1-app", "apptown-svc-shop-db", "apptown-preview-shop-7", "apptown-init-shop",
 		"apptown-postgres",
-		// Not AppTown's: a prefix mid-name, a longer name than the one asked for, another kind.
+		// Not AppTown's: a prefix mid-name, a longer name than the one asked for, another kind,
+		// and the names things had before 1.0.
 		"my-apptown-dep-k1", "apptown-postgres-2", "apptown-other",
+		"apptown-env-shop-main", "forge-dep-k2-app", "forge-env-old-main", "forge-svc-old-db", "forge-preview-old-3", "forge-init-old",
 	}
 	psCalls := 0
 	client := &fakeClient{reply: func(req Command) ([]byte, error) {
@@ -156,7 +157,7 @@ func TestInventoryListsContainersOnceWithEveryName(t *testing.T) {
 		}
 	}
 	slices.Sort(got)
-	want := slices.Clone(host[:11])
+	want := slices.Clone(host[:5])
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
 		t.Errorf("containers %v, want %v", got, want)

@@ -40,7 +40,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 	dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
 	c := &appcontract.Part{Build: ".", Port: 8080, DataDir: "/data"}
-	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: ws, Persistent: true, Names: Current}, c, "", nil)
+	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: ws, Persistent: true}, c, "", nil)
 	if err != nil || port != 40001 {
 		t.Fatalf("start on the attached host: port=%d err=%v calls=%v", port, err, client.calls)
 	}
@@ -99,7 +99,7 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost(tc.host, "192.0.2.10", "")
-			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-site-main", Slug: "site", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
+			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-site-main", Slug: "site", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -135,7 +135,7 @@ func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", tc.domain)
-			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: t.TempDir(), Persistent: true, Names: Current},
+			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil); err != nil {
 				t.Fatal(err)
 			}
@@ -196,7 +196,7 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 		client := &remoteAppClient{}
 		dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
 		name := ByKey(keyed(byte(len(started) + 1))).App()
-		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Slug: "bkproof", Deployment: deployment, Workspace: t.TempDir(), Persistent: true, Names: Current},
+		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Slug: "bkproof", Deployment: deployment, Workspace: t.TempDir(), Persistent: true},
 			&appcontract.Part{Image: "example/bkproof:1", Port: 8080}, "", nil); err != nil {
 			t.Fatal(err)
 		}

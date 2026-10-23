@@ -265,7 +265,7 @@ func (c *HealthController) crashLooping(ctx context.Context, e Watched, dk Scope
 // next deploy replaces it. The deployment shows as stopped; the ledger says why.
 func (c *HealthController) hold(ctx context.Context, e Watched, dk Scope, ph *partHealth, seen int) {
 	rt, err := Inspect(ctx, dk, e.Container)
-	if err != nil || rt.ID == "" || deploy.IdentityLabels(rt.Labels)[dockerlabel.Deployment] != string(e.Identity.Deployment) || deploy.IdentityLabels(rt.Labels)[dockerlabel.Generation] != strconv.FormatInt(e.Identity.Generation, 10) {
+	if err != nil || rt.ID == "" || rt.Labels[dockerlabel.Deployment] != string(e.Identity.Deployment) || rt.Labels[dockerlabel.Generation] != strconv.FormatInt(e.Identity.Generation, 10) {
 		log.Printf("health controller: %s/%s crash-loop hold skipped: its recorded container identity could not be witnessed: %v", e.Slug, e.Name, err)
 		return
 	}

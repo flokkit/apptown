@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -144,15 +143,11 @@ func (s *Service) readNeeds(ctx context.Context, w *ReleaseWitness, dep *deploym
 		return err
 	}
 	w.dk = dk
-	p, err := project.ByIDIn(ctx, s.db, dep.ProjectID)
-	if err != nil {
-		return fmt.Errorf("reading the project: %v", err)
-	}
 	c, err := s.releaseContract(ctx, dep)
 	if err != nil {
 		return err
 	}
-	names, err := dep.HostNames(p.Slug)
+	names, err := dep.HostNames()
 	if err != nil {
 		return err
 	}

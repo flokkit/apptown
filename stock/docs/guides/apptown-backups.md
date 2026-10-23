@@ -161,8 +161,7 @@ own layout (a build refuses a directory written by a newer one, by name).
 still readable, back it up first ([Upgrading](upgrading.md),
 step 2). Stop `apptownd`, then, with `<db>` being the built-in database's
 container, which `db.env` in the data directory names
-(`APPTOWN_DB_CONTAINER`): `apptown-db`, or `forge-db` on an install made
-before 1.0. `<name>` is the database at the end of `APPTOWN_DB_URL` in the
+(`APPTOWN_DB_CONTAINER`): `apptown-db`. `<name>` is the database at the end of `APPTOWN_DB_URL` in the
 same file: `apptown`, or `forge` on an install made before 1.0:
 
 ```sh

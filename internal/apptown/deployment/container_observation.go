@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"strconv"
 	"strings"
@@ -88,7 +87,7 @@ func (s *Service) ServedRevision(ctx context.Context, d *Deployment) ServedRevis
 		return ServedRevision{ContainerID: rt.ID, Reason: "its container is not running"}
 	}
 	want := strconv.FormatInt(d.ObservedGeneration, 10)
-	if carried := deploy.IdentityLabels(rt.Labels); carried[dockerlabel.Deployment] != string(d.Label()) || carried[dockerlabel.Generation] != want {
+	if carried := rt.Labels; carried[dockerlabel.Deployment] != string(d.Label()) || carried[dockerlabel.Generation] != want {
 		return ServedRevision{ContainerID: rt.ID, Reason: fmt.Sprintf("the running container is not the generation %s the deployment recorded", want)}
 	}
 	return ServedRevision{Commit: d.ReleaseSHA, ContainerID: rt.ID}

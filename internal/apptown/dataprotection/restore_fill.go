@@ -136,7 +136,7 @@ func (s *core) fill(ctx context.Context, dep *deployment.Deployment, t *deployme
 	if err != nil {
 		return err
 	}
-	names, err := dep.HostNames(p.Slug)
+	names, err := dep.HostNames()
 	if err != nil {
 		return err
 	}

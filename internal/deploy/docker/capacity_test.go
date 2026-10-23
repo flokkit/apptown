@@ -442,7 +442,7 @@ func TestANeedWhoseDataFolderCannotBeReadStopsTheBoot(t *testing.T) {
 		t.Fatalf("resolving with an unreadable data folder: %v", err)
 	}
 	f := &fakeClient{}
-	_, err = NewHost(Dependencies{Needs: unreadableData{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-env-shop-main", StackID: "env-shop-main", Workspace: t.TempDir(), Persistent: true, Names: Current}, c)
+	_, err = NewHost(Dependencies{Needs: unreadableData{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-env-shop-main", StackID: "env-shop-main", Workspace: t.TempDir(), Persistent: true}, c)
 	if err == nil {
 		t.Fatal("a boot went on without knowing where its database keeps its data")
 	}

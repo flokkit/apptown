@@ -154,11 +154,11 @@ func (s *core) releaseContract(ctx context.Context, dep *deployment.Deployment) 
 // by volume and each asked of the host. named says whether either source
 // names data. An error is a host that could not be asked.
 func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *deployment.Deployment, owned []deploy.Owned, c *appcontract.Contract) ([]backupPlanItem, bool, error) {
-	hostNames, err := dep.HostNames(slug)
+	hostNames, err := dep.HostNames()
 	if err != nil {
 		return nil, false, err
 	}
-	names, stackID := hostNames.Prefix(), hostNames.Stack()
+	stackID := hostNames.Stack()
 	named := false
 	type want struct {
 		need   string // "" is the app's own data
@@ -186,7 +186,7 @@ func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *
 				// It names what the host answered for: its volume, else its
 				// container, else nothing is there.
 				named = true
-				it, there, herr := unreadNeed(ctx, dk, names, stackID, need, unresolvedNeed(need, err))
+				it, there, herr := unreadNeed(ctx, dk, stackID, need, unresolvedNeed(need, err))
 				if herr != nil {
 					return nil, named, herr
 				}
@@ -199,7 +199,7 @@ func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *
 				continue
 			}
 			named = true
-			wants = append(wants, want{need: need, volume: names.NeedVolume(stackID, need)})
+			wants = append(wants, want{need: need, volume: docker.Current.NeedVolume(stackID, need)})
 		}
 	}
 
@@ -234,7 +234,7 @@ func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *
 			// an anonymous volume of its service container: its real
 			// identity is read from the mount, so a list entry for it is
 			// never planned twice.
-			it, held, err := s.anonymousNeed(ctx, dk, names, stackID, w.need)
+			it, held, err := s.anonymousNeed(ctx, dk, stackID, w.need)
 			if err != nil {
 				return nil, named, err
 			}
@@ -249,7 +249,7 @@ func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *
 			add(it)
 			continue
 		}
-		it, why, err := s.needCopy(ctx, dk, needCandidates(owned, names, stackID, w.need), deploy.Owned{Kind: "volume", ID: w.volume, Data: true, Need: w.need})
+		it, why, err := s.needCopy(ctx, dk, needCandidates(owned, stackID, w.need), deploy.Owned{Kind: "volume", ID: w.volume, Data: true, Need: w.need})
 		if err != nil {
 			return nil, named, err
 		}
@@ -284,8 +284,8 @@ func oneFileEach(items []backupPlanItem) error {
 // holds it: an item for its named volume when that is there, else for its
 // service container when that is there (Volume ""), else none. An item's
 // Volume is always one the host answered for.
-func unreadNeed(ctx context.Context, dk docker.Scope, names docker.Prefix, stackID, need, why string) (backupPlanItem, bool, error) {
-	vol := names.NeedVolume(stackID, need)
+func unreadNeed(ctx context.Context, dk docker.Scope, stackID, need, why string) (backupPlanItem, bool, error) {
+	vol := docker.Current.NeedVolume(stackID, need)
 	there, err := dk.Exists(ctx, "volume", "inspect", vol)
 	if err != nil {
 		return backupPlanItem{}, false, fmt.Errorf("not known whether the data volume %s is there: %v", vol, err)
@@ -293,7 +293,7 @@ func unreadNeed(ctx context.Context, dk docker.Scope, names docker.Prefix, stack
 	if there {
 		return backupPlanItem{Kind: "need", Name: need, Volume: vol, File: vol + ".unread", Unresolved: why}, true, nil
 	}
-	svc := names.Service(stackID, need)
+	svc := docker.Current.Service(stackID, need)
 	if there, err = dk.Exists(ctx, "inspect", svc); err != nil {
 		return backupPlanItem{}, false, fmt.Errorf("not known whether %s is there: %v", svc, err)
 	}
@@ -317,8 +317,8 @@ func volumeFile(it backupPlanItem) backupPlanItem {
 
 // needCandidates are the containers that may hold a need's data: the need
 // containers on the list and the running release's service container.
-func needCandidates(owned []deploy.Owned, names docker.Prefix, stackID, need string) []deploy.Owned {
-	svc := names.Service(stackID, need)
+func needCandidates(owned []deploy.Owned, stackID, need string) []deploy.Owned {
+	svc := docker.Current.Service(stackID, need)
 	out := []deploy.Owned{}
 	for _, o := range owned {
 		if o.Kind == "container" && o.Need == need {
@@ -337,8 +337,8 @@ func needCandidates(owned []deploy.Owned, names docker.Prefix, stackID, need str
 // service container, if there, copied where it runs and bound to the
 // volume it mounts at the kind's data path. Neither container nor volume
 // holds nothing.
-func (s *core) anonymousNeed(ctx context.Context, dk docker.Scope, names docker.Prefix, stackID, need string) (backupPlanItem, bool, error) {
-	svc := names.Service(stackID, need)
+func (s *core) anonymousNeed(ctx context.Context, dk docker.Scope, stackID, need string) (backupPlanItem, bool, error) {
+	svc := docker.Current.Service(stackID, need)
 	there, err := dk.Exists(ctx, "inspect", svc)
 	if err != nil {
 		return backupPlanItem{}, false, fmt.Errorf("not known whether %s is there: %v", svc, err)
