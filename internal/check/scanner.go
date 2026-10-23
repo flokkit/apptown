@@ -1,5 +1,7 @@
 package check
 
+import "github.com/flokkit/apptown/internal/execution"
+
 // A Scanner is a maintained tool a way of working can carry: a container, a
 // command, and what to do with what it leaves behind. Reading the catalogue
 // these come from, and binding one to an instance, is the caller's.
@@ -40,6 +42,11 @@ type Scanner struct {
 	// It keeps a way-of-working-specific tool (a Django linter) from firing
 	// fleet-wide the way a universal scanner (gitleaks) does.
 	Manual bool `yaml:"manual" json:"manual"`
+	// NoEntrypoint clears the image's entrypoint, so Command (and
+	// HistoryCommand) is the whole command: a networked scanner whose image starts its program directly
+	// runs the extra certificates' script first (internal/trust) with
+	// ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", <program>, ...].
+	NoEntrypoint bool `yaml:"noEntrypoint" json:"noEntrypoint"`
 }
 
 // Looks says what the scanner looks at, with "source" as the default.
@@ -50,4 +57,17 @@ func (s Scanner) Looks() string {
 	default:
 		return "source"
 	}
+}
+
+// Request is the scanner's run over workspace with argv (its Command, or
+// HistoryCommand, its variables filled in): its image, with its entrypoint
+// cleared when it says so, the network only when it needs it, and the scan
+// timeout. Every place that runs a scanner starts from it, so what the
+// manifest says reaches the container the same way everywhere.
+func (s Scanner) Request(workspace string, argv []string) execution.Request {
+	network := "none"
+	if s.Network {
+		network = "" // Docker's default: egress
+	}
+	return execution.Request{Workspace: workspace, Argv: argv, Image: s.Image, Network: network, NoEntrypoint: s.NoEntrypoint, Timeout: ScanTimeout}
 }

@@ -84,14 +84,9 @@ func (s *Scanners) RunImageScans(ctx context.Context, projectID ids.ID, src, sha
 		if m.Report != "" {
 			_ = os.Remove(filepath.Join(src, m.Report))
 		}
-		network := "none"
-		if m.Network {
-			network = ""
-		}
-		answer := readScan(s.exec.Run(ctx, execution.Request{
-			Workspace: src, Argv: argv, Image: m.Image, Network: network, Timeout: check.ScanTimeout,
-			Name: execution.UniqueName(namePrefix + "-scan-" + sc.Name), Report: m.Report, ExportImage: ref,
-		}), m, sc.Name)
+		req := m.Request(src, argv)
+		req.Name, req.Report, req.ExportImage = execution.UniqueName(namePrefix+"-scan-"+sc.Name), m.Report, ref
+		answer := readScan(s.exec.Run(ctx, req), m, sc.Name)
 		// The image is saved into the tree only if no file is there: the
 		// next image scanner's base and head scans save theirs to the same
 		// path.
@@ -231,16 +226,9 @@ func (s *Scanners) baseImageFingerprints(ctx context.Context, projectID ids.ID, 
 	if m.Report != "" {
 		_ = os.Remove(filepath.Join(scanSrc, m.Report))
 	}
-	network := "none"
-	if m.Network {
-		network = ""
-	}
-	answer := readScan(s.exec.Run(ctx, execution.Request{
-		Workspace: scanSrc, Argv: argv, Image: m.Image, Network: network, Timeout: check.ScanTimeout,
-		Name:        execution.UniqueName(name + "-base"),
-		Report:      m.Report,
-		ExportImage: imgID,
-	}), m, binding)
+	req := m.Request(scanSrc, argv)
+	req.Name, req.Report, req.ExportImage = execution.UniqueName(name+"-base"), m.Report, imgID
+	answer := readScan(s.exec.Run(ctx, req), m, binding)
 	if m.Report != "" {
 		_ = os.Remove(filepath.Join(scanSrc, m.Report)) // the real scan writes its own
 	}

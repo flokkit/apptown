@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // A report names pages on the preview only: a path, never another host, a
@@ -70,9 +71,14 @@ func TestScreenshotsAskTheExecutorForTheDriverWithPagesAsArguments(t *testing.T)
 		t.Fatal(err)
 	}
 
-	trial := &LocalAuthority{CACert: []byte("-----BEGIN CERTIFICATE-----\n"), Prelude: "trust " + LocalCAPath}
+	// The extra certificates first, Chromium's store included
+	// (internal/trust); no certificate check is turned off.
+	if !strings.HasPrefix(got.Argv[2], trust.Run+"\n") || strings.Contains(got.Argv[2], "ignore-certificate") {
+		t.Fatalf("the capture does not run the extra certificates first: %q", got.Argv[2])
+	}
+	trial := &LocalAuthority{Prelude: "reach-apptown"}
 	NewScreenshots(Executor{Run: run, AgentImage: "agent:1"}, trial).Take(context.Background(), "https://change-1.preview.localhost:7777/", nil)
-	if len(got.Files) != 2 || got.Files[1].Path != LocalCAPath || !strings.HasPrefix(got.Argv[2], "trust "+LocalCAPath+"\n") || strings.Contains(got.Argv[2], "ignore-certificate") {
+	if len(got.Files) != 1 || !strings.HasPrefix(got.Argv[2], trust.Run+"\nreach-apptown\n") {
 		t.Fatalf("the trial's authority: files %+v script %q", got.Files, got.Argv[2])
 	}
 }

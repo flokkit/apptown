@@ -69,9 +69,13 @@ type IntranetStack struct {
 	// (appcontract.Contract.PublicRelease), APPTOWN_RELEASE, which its file
 	// server answers at ReleasePath; "" when the public part is not static.
 	Release string
-	Needs   []IntranetNeed
-	Init    []appcontract.InitContainer
-	Parts   []appcontract.Part // non-public app parts only
+	// Trust is the installer with the extra certificates the app's own
+	// containers are given (internal/trust: APPTOWN_TRUST, which they run);
+	// "" for none.
+	Trust string
+	Needs []IntranetNeed
+	Init  []appcontract.InitContainer
+	Parts []appcontract.Part // non-public app parts only
 }
 
 // IntranetCompose renders the stack file. Label conventions follow the
@@ -172,7 +176,11 @@ func IntranetCompose(st IntranetStack) string {
 	b.WriteString("    restart: unless-stopped\n")
 	writeResources(st.Resources)
 	writeCommand(st.Command)
-	writeEnv(appcontract.MergeEnv(st.Integrations, appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart))), [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release}, [2]string{appcontract.BrowserEnvVar, st.BrowserEnv})
+	appTrust := st.Trust
+	if st.BrowserEnv != "" {
+		appTrust = "" // a static site's file server calls nothing
+	}
+	writeEnv(appcontract.MergeEnv(st.Integrations, appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart))), [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release}, [2]string{appcontract.BrowserEnvVar, st.BrowserEnv}, [2]string{appcontract.TrustEnvVar, appTrust})
 	if st.DataDir != "" {
 		b.WriteString("    volumes:\n")
 		fmt.Fprintf(&b, "      - %s:%s\n", st.dataVolume(st.Base), ComposeLiteral(st.DataDir))
@@ -233,7 +241,7 @@ func IntranetCompose(st IntranetStack) string {
 		fmt.Fprintf(&b, "    image: %s\n", ComposeLiteral(img))
 		b.WriteString("    restart: \"no\"\n")
 		writeCommand(it.Command)
-		writeEnv(appcontract.MergeEnv(it.Env, st.Secrets.EnvFor("init-"+it.Name)))
+		writeEnv(appcontract.MergeEnv(it.Env, st.Secrets.EnvFor("init-"+it.Name)), [2]string{appcontract.TrustEnvVar, st.Trust})
 		writeDepends(needsReady())
 	}
 
@@ -249,7 +257,7 @@ func IntranetCompose(st IntranetStack) string {
 		if p.Port != 0 {
 			env["PORT"] = fmt.Sprintf("%d", p.Port)
 		}
-		writeEnv(env)
+		writeEnv(env, [2]string{appcontract.TrustEnvVar, st.Trust})
 		writeHealth(p.Health)
 		if p.DataDir != "" {
 			vol := st.dataVolume(st.Base + "-" + p.Name)

@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/strs"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // --- the renderer ---------------------------------------------------------------------------
@@ -250,6 +251,11 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		if p.IsStatic() && src.Revision != "" {
 			wiring[appcontract.ReleaseEnvVar] = appcontract.ReleaseIdentity(p.Name, src.Revision)
 		}
+		// The extra certificates the app's own command runs (internal/trust);
+		// a static part's file server calls nothing.
+		if script := trust.Current().Script(false); script != "" && !p.IsStatic() {
+			wiring[appcontract.TrustEnvVar] = script
+		}
 		envs, err := envsFor(p.Name, p.Env, wiring)
 		if err != nil {
 			return deploy.Artifact{}, err
@@ -285,7 +291,11 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		if err != nil {
 			return deploy.Artifact{}, err
 		}
-		envs, err := envsFor("init-"+s.Name, s.Env, nil)
+		var wiring map[string]string
+		if script := trust.Current().Script(false); script != "" {
+			wiring = map[string]string{appcontract.TrustEnvVar: script}
+		}
+		envs, err := envsFor("init-"+s.Name, s.Env, wiring)
 		if err != nil {
 			return deploy.Artifact{}, err
 		}
@@ -384,7 +394,7 @@ func gatedRenderable(g *deploy.Gate, c *appcontract.Contract) error {
 // alone; its health check is TCP only, so no anonymous request ever
 // reaches the app behind it.
 func gateComponent(img doImage, size string, g *deploy.Gate, upstream string, port int) Component {
-	return Component{Name: GateComponent, Image: img, InstanceSizeSlug: size, InstanceCount: 1, HTTPPort: deploy.GatePort,
+	c := Component{Name: GateComponent, Image: img, InstanceSizeSlug: size, InstanceCount: 1, HTTPPort: deploy.GatePort,
 		HealthCheck: &doHealthCheck{Port: deploy.GatePort, InitialDelaySeconds: 2, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 6},
 		Envs: []doEnv{
 			{Key: deploy.GateEnvAppTown, Value: g.AppTown, Scope: "RUN_TIME", Type: "GENERAL"},
@@ -393,4 +403,10 @@ func gateComponent(img doImage, size string, g *deploy.Gate, upstream string, po
 			{Key: deploy.GateEnvSecret, Value: g.Secret, Scope: "RUN_TIME", Type: "SECRET"},
 			{Key: deploy.GateEnvUpstream, Value: fmt.Sprintf("http://%s:%d", upstream, port), Scope: "RUN_TIME", Type: "GENERAL"},
 		}}
+	// The gate redeems tickets with AppTown over HTTPS: it reads the extra
+	// certificates out of the same script (internal/gate).
+	if script := trust.Current().Script(false); script != "" {
+		c.Envs = append(c.Envs, doEnv{Key: trust.EnvVar, Value: script, Scope: "RUN_TIME", Type: "GENERAL"})
+	}
+	return c
 }

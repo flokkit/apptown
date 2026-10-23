@@ -1,6 +1,10 @@
 package appcontract
 
-import "maps"
+import (
+	"maps"
+
+	"github.com/flokkit/apptown/internal/trust"
+)
 
 // Contract is the canonical declaration parsed from .apptown/app.yaml. Callers
 // retain it as source intent and use Prepare for mutable execution inputs.
@@ -107,11 +111,16 @@ const BrowserEnvVar = "APPTOWN_BROWSER_ENV"
 // AppTown sets it.
 const ReleaseEnvVar = "APPTOWN_RELEASE"
 
+// TrustEnvVar carries the extra certificate authorities an app's own
+// containers trust, as the script that installs them (internal/trust),
+// which the app's image runs at start. AppTown sets it.
+const TrustEnvVar = trust.EnvVar
+
 // AppTownSetEnv are the environment names AppTown alone sets on a part. An
 // app that set one would win over AppTown's value on one target and lose on
 // another, so the contract refuses it in a part's or a profile's
 // environment (the contract reference, "The environment an app gets").
-var AppTownSetEnv = []string{"PORT", "APPTOWN_ORIGINS", "DATA_DIR", ReleaseEnvVar, BrowserEnvVar}
+var AppTownSetEnv = []string{"PORT", "APPTOWN_ORIGINS", "DATA_DIR", ReleaseEnvVar, BrowserEnvVar, TrustEnvVar}
 
 // setsAppTownEnv names the first of AppTownSetEnv that env sets, or "".
 func setsAppTownEnv(env environment) string {

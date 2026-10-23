@@ -18,6 +18,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/strs"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Client is the command transport consumed by a daemon scope. One client
@@ -72,6 +73,13 @@ func (c CLI) Run(ctx context.Context, host string, req Command) ([]byte, error) 
 	args := req.Args
 	if host != "" {
 		args = append([]string{"--host", host}, args...)
+		// A container or build on another machine is given the extra
+		// certificates without this machine's local authority
+		// (trust.ContainerArgs, BuildArgs pass the variable by name).
+		req.Env = append(append([]string{}, req.Env...), trust.EnvVar+"="+trust.Current().Script(false))
+	} else if sc := trust.Current().Script(true); sc != "" {
+		// Said here too: a bounded command runs without the inherited one.
+		req.Env = append(append([]string{}, req.Env...), trust.EnvVar+"="+sc)
 	}
 	if req.Timeout > 0 {
 		if req.Stdin != nil || req.Stdout != nil || req.Stderr != nil {

@@ -2,6 +2,7 @@ package verification
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -65,5 +66,25 @@ func TestStoppedScannerDiscoveryIsNotAPass(t *testing.T) {
 	results, findings, errs := f.Scanners.RunSourceScans(stopped, t.TempDir(), "test", "", "")
 	if errs == 0 || len(results) != 1 || results[0].Verdict != workflow.VerdictError || len(findings) != 0 {
 		t.Fatalf("scans after their caller stopped: errors %d, results %+v, findings %d; want one errored result", errs, results, len(findings))
+	}
+}
+
+// A scanner whose manifest clears its image's entrypoint (so its command can
+// trust the extra certificates first, internal/trust) runs with it cleared,
+// its command whole.
+func TestAScannerThatClearsItsEntrypointRunsItsCommandWhole(t *testing.T) {
+	t.Parallel()
+	f := newScannerOwnerFixture(t)
+	command := []string{"sh", "-c", `eval "${APPTOWN_TRUST:-}"; exec "$@"`, "sh", "semgrep", "/work"}
+	f.bind(t, "semgrep", map[string]any{
+		"image": "semgrep/semgrep:test", "command": command, "noEntrypoint": true,
+		"report": ".apptown/semgrep.sarif", "network": true, "format": "sarif", "kind": "sast", "target": "source",
+	})
+	f.Effects.report = scannerSARIF(0)
+	f.Scanners.RunSourceScans(context.Background(), t.TempDir(), "test", "", "")
+	f.Effects.mu.Lock()
+	defer f.Effects.mu.Unlock()
+	if len(f.Effects.requests) != 1 || !f.Effects.requests[0].NoEntrypoint || !slices.Equal(f.Effects.requests[0].Argv, command) || f.Effects.requests[0].Network != "" {
+		t.Fatalf("requests %+v", f.Effects.requests)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -87,8 +88,11 @@ func New(cfg Config, opts Options) http.Handler {
 		sessions: map[string]session{},
 	}
 	if g.client == nil {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &tls.Config{RootCAs: cfg.Roots, MinVersion: tls.VersionTLS12}
 		g.client = &http.Client{
-			Timeout: redeemTimeout,
+			Transport: transport,
+			Timeout:   redeemTimeout,
 			CheckRedirect: func(*http.Request, []*http.Request) error {
 				return http.ErrUseLastResponse
 			},

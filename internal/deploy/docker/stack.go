@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/strs"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Labels tags a spawned container so the reaper (design/subsystems/container-lifecycle.md)
@@ -112,6 +113,9 @@ func runServiceContainersWith(ctx context.Context, dk Scope, id, network string,
 		args = append(args, execution.LogFlags()...)
 		for k, v := range svc.Env {
 			args = append(args, "-e", k+"="+v)
+		}
+		if svc.AppPart {
+			args = append(args, trust.ContainerArgs(!dk.Remote())...)
 		}
 		args = append(args, healthArgs(svc.Health)...)
 		// A need gets a disposable folder where it keeps its data: an
@@ -287,7 +291,7 @@ func nonPublicPartServices(c *appcontract.Plan, secrets Delivery) []deploy.Servi
 		if p.Public {
 			continue
 		}
-		spec := deploy.ServiceSpec{Name: p.Name, Command: p.Command, Health: p.Health, Env: map[string]string{}, Resources: p.Resources}
+		spec := deploy.ServiceSpec{Name: p.Name, Command: p.Command, Health: p.Health, Env: map[string]string{}, Resources: p.Resources, AppPart: true}
 		for k, v := range p.Env {
 			spec.Env[k] = v
 		}
@@ -332,6 +336,7 @@ func runInitContainers(ctx context.Context, dk Scope, names Prefix, id, network 
 		for k, v := range secrets.EnvFor("init-" + it.Name) {
 			args = append(args, "-e", k+"="+v)
 		}
+		args = append(args, trust.ContainerArgs(!dk.Remote())...)
 		args = append(args, img)
 		args = append(args, it.Command...)
 		if out, err := dk.Run(ctx, args...); err != nil {

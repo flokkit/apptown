@@ -41,7 +41,7 @@ func TestGitLabProvisioningTrustsOnlyTheAppTownUse(t *testing.T) {
 	var appCalled, depCalled atomic.Bool
 	appURL, app := signed(&appCalled)
 	depURL, dep := signed(&depCalled)
-	set, err := trust.New(t.TempDir(), map[trust.Use]trust.Bundle{trust.AppTown: app, trust.Deployments: dep})
+	set, err := trust.New(t.TempDir(), map[trust.Use]trust.Bundle{trust.AppTown: app, trust.Deployments: dep}, trust.Bundle{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,6 +18,8 @@
 package gate
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"net"
@@ -38,7 +40,17 @@ type Config struct {
 	Secret string
 	// AppTown is AppTown's public origin, where tickets are redeemed.
 	AppTown *url.URL
+	// Roots are the certificate authorities the gate trusts AppTown's
+	// origin by: the system's, and the extra ones in APPTOWN_TRUST, which
+	// is the script other containers run to install them
+	// (internal/trust); the gate has no shell, so it reads the
+	// certificates out of it. nil is the system's alone.
+	Roots *x509.CertPool
 }
+
+// TrustEnv is the variable the extra certificates arrive in, as every
+// container AppTown starts is given them (internal/trust.EnvVar).
+const TrustEnv = "APPTOWN_TRUST"
 
 // DefaultListen is the address used when GATE_LISTEN is not set.
 const DefaultListen = ":8080"
@@ -71,6 +83,14 @@ func ConfigFromEnv(getenv func(string) string) (Config, error) {
 		problems = append(problems, fmt.Errorf("GATE_APPTOWN: %w", err))
 	}
 	cfg.AppTown = origin
+
+	if script := getenv(TrustEnv); script != "" {
+		roots, err := extraRoots(script)
+		if err != nil {
+			problems = append(problems, fmt.Errorf("%s: %w", TrustEnv, err))
+		}
+		cfg.Roots = roots
+	}
 
 	if len(problems) > 0 {
 		return Config{}, errors.Join(problems...)
@@ -149,4 +169,36 @@ func isLoopbackHost(host string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+// extraRoots are the system's roots and every certificate in script, which
+// holds them as PEM among its shell lines (pem.Decode skips the rest). One
+// with no certificate is an error: a gate that silently trusted nothing
+// extra would refuse AppTown's answers with a TLS error nobody could place.
+func extraRoots(script string) (*x509.CertPool, error) {
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		pool = x509.NewCertPool()
+	}
+	n := 0
+	for rest := []byte(script); ; {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("a certificate does not parse: %w", err)
+		}
+		pool.AddCert(cert)
+		n++
+	}
+	if n == 0 {
+		return nil, errors.New("holds no certificate")
+	}
+	return pool, nil
 }

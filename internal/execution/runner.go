@@ -12,11 +12,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 const (
@@ -223,7 +225,7 @@ func (r Runner) Run(ctx context.Context, backend string, req Request) (out Outco
 		// Without the GIT_* variables AppTown inherited (gitexec.Environ):
 		// git run here, by AppTown or by a command it runs, names its own
 		// repository.
-		cmd.Env = gitexec.Environ(req.Env...)
+		cmd.Env = append(withoutTrustScript(gitexec.Environ()), req.Env...)
 	}
 	output, err, started := stream(cmd, req.OnLine)
 	out = classified(output, err, ctx, started)
@@ -371,6 +373,10 @@ func dockerArgs(req Request) []string {
 	for _, env := range req.Env {
 		args = append(args, "-e", env)
 	}
+	// The extra certificate authorities this machine's containers trust
+	// (internal/trust), by name from this process's environment; the
+	// container's own command runs the script (trust.Run).
+	args = append(args, trust.ContainerArgs(true)...)
 	if req.NoEntrypoint {
 		args = append(args, "--entrypoint", "")
 	}
@@ -496,4 +502,13 @@ func (r Runner) exportImage(ctx context.Context, workspace, image string) error 
 		return fmt.Errorf("%w: %s", err, strings.TrimSpace(stderr.String()))
 	}
 	return nil
+}
+
+// withoutTrustScript drops the containers' certificate script (trust.EnvVar)
+// this process inherited from a process run on this machine itself: run
+// here, as AppTown's own user, it would add the certificates to this
+// machine's own store. A request that names it (a Docker client's command)
+// passes it on.
+func withoutTrustScript(env []string) []string {
+	return slices.DeleteFunc(env, func(kv string) bool { return strings.HasPrefix(kv, trust.EnvVar+"=") })
 }

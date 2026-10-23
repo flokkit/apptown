@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/trust"
 	"io"
 	"os"
 	"os/exec"
@@ -137,7 +138,9 @@ func PrepareImage(ctx context.Context, docker DockerCLI, req ImageRequest) Image
 		if err != nil || !fi.IsDir() {
 			return ImageAnswer{Err: fmt.Sprintf("the build context %s is not a folder in the tree: %v", req.Context, err)}
 		}
-		if out, err := docker(ctx, nil, "build", "--label", CheckLabel, "-t", req.Tag, filepath.Join(req.Tree, req.Context)); err != nil {
+		// The extra certificates as the build's secret (internal/trust).
+		build := append(append([]string{"build"}, trust.BuildArgs(true)...), "--label", CheckLabel, "-t", req.Tag, filepath.Join(req.Tree, req.Context))
+		if out, err := docker(ctx, nil, build...); err != nil {
 			return ImageAnswer{Err: fmt.Sprintf("building the app image: %v: %s", err, bounded(out))}
 		}
 		if a, found, err := inspectImage(ctx, docker, req.Tag); found && err == nil {

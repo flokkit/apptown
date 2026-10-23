@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 const scriptTimeout = 10 * time.Minute
@@ -189,14 +190,7 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 		// tree, never in it.
 		amb = agentenv.AmbientFor(integration.RegistryBindingsIn(ctx, a.db), ws)
 		env = append(env, amb.Env...)
-		if agentenv.DeclaresToolchain(ws) {
-			// Implicit toolchain: install what the repo declares, expose via
-			// shims, record what resolved for the receipt. Install failure
-			// fails the step loudly (exit 97).
-			runCmd = `export PATH="$MISE_DATA_DIR/shims:$PATH"; ` +
-				`mise install -y -q || { echo "apptown: mise install failed" >&2; exit 97; }; ` +
-				`mise ls --current --json > /work/.apptown/mise-resolved.json 2>/dev/null; ` + cfg.Run
-		}
+		runCmd = containerScript(cfg.Run, agentenv.DeclaresToolchain(ws))
 	}
 	return scriptPlan{cache: agentenv.CacheVolume(ctx), cfg: cfg, executor: executor, timeout: timeout, ambient: amb, ws: ws, candidate: candidate.Candidate, cleanup: cleanup,
 		repository: source.Repository(a.cfg.DataDir), request: execution.Request{
@@ -404,4 +398,19 @@ func (a *Commands) writersGone(ctx context.Context, step *workflow.Step, ws, own
 		return nil
 	}
 	return folderReady(ctx, a.docker, step.ID, ws, own)
+}
+
+// containerScript is a script step's command in its container. The extra
+// certificates come first (internal/trust), so a toolchain install trusts
+// them too. With a declared toolchain (mise.toml) it is installed, exposed
+// through its shims and what resolved recorded for the receipt; a failed
+// install fails the step loudly (exit 97); the certificates run again after
+// it, for what it installed (a JVM's own store).
+func containerScript(run string, toolchain bool) string {
+	if toolchain {
+		run = `export PATH="$MISE_DATA_DIR/shims:$PATH"; ` +
+			`mise install -y -q || { echo "apptown: mise install failed" >&2; exit 97; }; ` +
+			`mise ls --current --json > /work/.apptown/mise-resolved.json 2>/dev/null; ` + trust.Run + `; ` + run
+	}
+	return trust.Run + "; " + run
 }

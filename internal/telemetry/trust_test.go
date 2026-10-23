@@ -47,7 +47,7 @@ func exportAll(t *testing.T, cfg telemetry.Config) error {
 // install makes b the process's trust for use u alone.
 func install(t *testing.T, u trust.Use, b trust.Bundle) {
 	t.Helper()
-	set, err := trust.New(t.TempDir(), map[trust.Use]trust.Bundle{u: b})
+	set, err := trust.New(t.TempDir(), map[trust.Use]trust.Bundle{u: b}, trust.Bundle{})
 	if err != nil {
 		t.Fatal(err)
 	}

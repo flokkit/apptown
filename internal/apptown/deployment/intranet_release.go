@@ -22,6 +22,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 const IntranetTargetName = "intranet"
@@ -392,7 +393,10 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 	}
 	st := deploy.IntranetStack{Base: in.Base, Prefix: in.Prefix, Hosts: in.Hosts, Domain: in.Domain, Image: in.Images.Parts[c.PublicPart().Name], Command: plan.PublicPart().Command, Resources: plan.PublicPart().Resources, Port: c.PublicPart().Port,
 		Env: plan.PublicPart().Env, Integrations: given, BrowserEnv: browser, DataDir: plan.PublicPart().DataDir, Origins: e.PublicOrigins(ctx), Init: plan.Init, Needs: docker.IntranetNeeds(rs.Needs),
-		Secrets: in.Secrets, PublicPart: c.PublicPart().Name, Release: c.PublicRelease(strings.TrimSpace(in.Revision))}
+		Secrets: in.Secrets, PublicPart: c.PublicPart().Name, Release: c.PublicRelease(strings.TrimSpace(in.Revision)),
+		// Portainer's machines are not this one: the extra certificates
+		// without this machine's local authority.
+		Trust: trust.Current().Script(false)}
 	if len(given) > 0 {
 		logf("giving the app the project's integration values (%s) as stack environment — Portainer keeps a copy with the stack definition", strings.Join(slices.Sorted(maps.Keys(given)), ", "))
 	}

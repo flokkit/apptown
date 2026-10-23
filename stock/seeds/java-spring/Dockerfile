@@ -3,10 +3,12 @@
 # guidance). Maven comes from the build image — this pack declares its
 # toolchain in mise.toml and vendors NO wrapper scripts, so the recipe must
 # not expect ./mvnw or ./gradlew in the tree.
+# Each RUN that downloads mounts the extra certificates AppTown gives a build
+# (the secret apptown-trust) and runs them first; without them it runs as is.
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /src
 COPY . .
-RUN mvn -q package -DskipTests
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; mvn -q package -DskipTests
 
 # The runtime stage takes the distribution's security updates at build
 # time, so a known fixed CVE in the base (libssl) does not fail the image
@@ -15,7 +17,7 @@ RUN mvn -q package -DskipTests
 # whose base image carries /usr/bin/pebble, a Go binary no package owns, so
 # apt-get upgrade cannot fix the Go CVEs the image scan finds in it.
 FROM eclipse-temurin:21-jre-noble
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --no-create-home app
 COPY --from=build /src/target/*.jar /app.jar
 USER app
@@ -39,4 +41,6 @@ EXPOSE 8080
 # variable as spring.threads.virtual.enabled).
 ENV MALLOC_ARENA_MAX=2
 ENV SPRING_THREADS_VIRTUAL_ENABLED=true
-CMD ["java", "-XX:MaxRAMPercentage=30", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1", "-XX:ReservedCodeCacheSize=32m", "-Xss512k", "-jar", "/app.jar"]
+# The command first trusts the extra certificates AppTown gives the
+# running app (APPTOWN_TRUST; nothing without it), then runs the app.
+CMD ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "java", "-XX:MaxRAMPercentage=30", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1", "-XX:ReservedCodeCacheSize=32m", "-Xss512k", "-jar", "/app.jar"]

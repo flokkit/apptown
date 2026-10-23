@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 type landingDeploymentFailure struct {
@@ -94,7 +95,7 @@ func cleanTreeBuilds(ctx context.Context, staged string, checks CompileCheck, am
 	outcome := checks.Run(ctx, execution.Request{
 		Workspace: staged,
 		Argv: []string{"sh", "-c",
-			"mise trust -q 2>/dev/null; mise install -y -q 2>&1 || { echo '" + cleanBuildNoInstall + "'; exit 1; }; " +
+			trust.Run + "; mise trust -q 2>/dev/null; mise install -y -q 2>&1 || { echo '" + cleanBuildNoInstall + "'; exit 1; }; " +
 				`export PATH="$MISE_DATA_DIR/shims:$PATH"; ` +
 				"command -v go >/dev/null || { echo '" + cleanBuildNoGo + "'; exit 1; }; go build ./... 2>&1"},
 		Env:     amb.Env,

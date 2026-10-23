@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/flagenv"
 )
 
 // Every flag reads its APPTOWN_ environment variable, the names apptownd has
@@ -17,7 +19,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 		"inference-url": "APPTOWN_INFERENCE_URL", "inference-networks": "APPTOWN_INFERENCE_NETWORKS",
 		"otlp-endpoint": "APPTOWN_OTLP_ENDPOINT", "otlp-protocol": "APPTOWN_OTLP_PROTOCOL", "reap": "APPTOWN_REAP",
 	} {
-		if got := envName(flagName); got != env {
+		if got := flagenv.Name(flagName); got != env {
 			t.Fatalf("%s reads %s, want %s", flagName, got, env)
 		}
 	}
@@ -40,7 +42,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 		case "tier-domain":
 			v = "preview=p.example,main=m.example"
 		}
-		env[envName(f.Name)] = v
+		env[flagenv.Name(f.Name)] = v
 	})
 	if err := fs.Parse([]string{"-addr", ":9999"}); err != nil {
 		t.Fatal(err)
@@ -49,7 +51,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	fs.VisitAll(func(f *flag.Flag) {
-		want := env[envName(f.Name)]
+		want := env[flagenv.Name(f.Name)]
 		switch f.Name {
 		case "addr":
 			want = ":9999" // the command line wins
@@ -57,7 +59,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			return // checked below
 		}
 		if f.Value.String() != want {
-			t.Fatalf("%s: %q, want %q from %s", f.Name, f.Value.String(), want, envName(f.Name))
+			t.Fatalf("%s: %q, want %q from %s", f.Name, f.Value.String(), want, flagenv.Name(f.Name))
 		}
 	})
 	if count < 25 || o.taskPIDs != 512 || !o.verifyOnly || !o.apptownConfig("/data").Reap || strings.Join(o.tierDomains, " ") != "preview=p.example main=m.example" {

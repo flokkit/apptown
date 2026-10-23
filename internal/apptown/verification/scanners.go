@@ -302,15 +302,9 @@ func (s *Scanners) baseScanFingerprints(ctx context.Context, repo, baseSHA strin
 			}
 		}
 	}
-	network := "none"
-	if m.Network {
-		network = ""
-	}
-	answer := readScan(s.evaluator.judge(ctx).Run(execution.Request{
-		Workspace: src, Argv: m.Command, Image: m.Image, Network: network, Timeout: check.ScanTimeout,
-		Name:   execution.UniqueName(fmt.Sprintf("%s-base-%s", namePrefix, binding)),
-		Report: m.Report,
-	}), m, binding)
+	req := m.Request(src, m.Command)
+	req.Name, req.Report = execution.UniqueName(fmt.Sprintf("%s-base-%s", namePrefix, binding)), m.Report
+	answer := readScan(s.evaluator.judge(ctx).Run(req), m, binding)
 	if answer.failure != "" {
 		b.Note = "scanning the base commit failed (" + strs.Truncate(answer.failure, 160) + ") — every finding is treated as introduced"
 		return b
@@ -367,16 +361,9 @@ func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefi
 
 			// never trust a stale report
 		}
-		network := "none"
-		if m.Network {
-			network = ""
-		}
-		outcome := s.evaluator.judge(ctx).Run(execution.Request{
-			Workspace: scanSrc, Argv: m.Command, Image: m.Image,
-			Network: network, Timeout: check.ScanTimeout,
-			Name:   execution.UniqueName(fmt.Sprintf("%s-scan-%s", namePrefix, sc.Name)),
-			Report: m.Report,
-		})
+		req := m.Request(scanSrc, m.Command)
+		req.Name, req.Report = execution.UniqueName(fmt.Sprintf("%s-scan-%s", namePrefix, sc.Name)), m.Report
+		outcome := s.evaluator.judge(ctx).Run(req)
 		res.DurationMs = new(s.now().Sub(start).Milliseconds())
 		answer := readScan(outcome, m, sc.Name)
 		exitCode := answer.exit

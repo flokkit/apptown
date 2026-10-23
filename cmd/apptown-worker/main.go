@@ -31,6 +31,7 @@ import (
 	"github.com/flokkit/apptown/internal/console/pi"
 	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/flagenv"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/worker"
 )
@@ -54,11 +55,20 @@ func main() {
 		servicePIDs   = flag.Int64("service-pids", execution.DefaultServiceLimits.PIDs, "processes for each service run beside a check or a task")
 		exclusive     = flag.Bool("exclusive", false, "declare that this machine is the installation's alone: nothing else runs on it. Recorded in the worker's profile with every private-Docker attempt; it is not measured")
 		checkMetadata = flag.Bool("check-metadata", false, "say whether a container on this host reaches the cloud metadata service ("+metadataAddress+"), then exit; the install blocks it")
-		trustDeploy   = flag.String("trust-deployments", "", "a PEM file of extra certificate authorities the worker's connections to registries trust, beside the system's (a company's TLS-inspecting proxy)")
+		trustDeploy   = flag.String("trust-deployments", "", "a PEM file of extra certificate authorities the worker's connections to registries trust, and every container and build it starts, beside the system's (a company's TLS-inspecting proxy)")
 		trustAppTown  = flag.String("trust-apptown", "", "a PEM file of extra certificate authorities the worker's other connections trust, beside the system's")
 		showVersion   = flag.Bool("version", false, "print this build's version and AppTown protocols it serves, and exit")
 	)
+	flag.Usage = func() {
+		out := flag.CommandLine.Output()
+		fmt.Fprintf(out, "usage: apptown-worker [flags]\n\n")
+		flag.PrintDefaults()
+		fmt.Fprintf(out, "\nEvery flag but -version and -check-metadata can also be set in the environment\nas APPTOWN_ plus its name in capitals with - as _ (for example -trust-deployments\nis APPTOWN_TRUST_DEPLOYMENTS). A flag on the command line wins.\n")
+	}
 	flag.Parse()
+	if err := flagenv.Bind(flag.CommandLine, os.Getenv, "version", "check-metadata"); err != nil {
+		log.Fatal(err)
+	}
 	// The worker process's context: it runs until the process is killed.
 	ctx := context.Background()
 	if *showVersion {
@@ -112,7 +122,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	trusted, err := trust.New(filepath.Join(*state, "trust"), bundles)
+	trusted, err := trust.New(filepath.Join(*state, "trust"), bundles, trust.Bundle{})
 	if err != nil {
 		log.Fatal(err)
 	}
