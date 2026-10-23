@@ -229,7 +229,7 @@ func screenshotsAuthority(t *console.LocalTLS) *verification.LocalAuthority {
 	if t == nil {
 		return nil
 	}
-	return &verification.LocalAuthority{CACert: t.CACert, Prelude: console.LocalTLSPreludeAt(verification.LocalCAPath, *t)}
+	return &verification.LocalAuthority{Prelude: console.LocalTLSPrelude(*t)}
 }
 
 // releaseData hands a landing data protection's copy and witness around its

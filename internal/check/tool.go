@@ -100,22 +100,11 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, mode Mode, nameP
 	if s.Report != "" {
 		_ = os.Remove(filepath.Join(src.Tree, s.Report)) // never trust a stale report
 	}
-	network := "none"
-	if s.Network {
-		network = ""
-	}
 	// A declared report is collected, and required, whatever its format;
 	// only a format says how to read findings from it.
 	structured := s.Format != "" && s.Report != ""
-	req := execution.Request{
-		Workspace: src.Tree,
-		Argv:      s.Command,
-		Image:     s.Image,
-		Network:   network,
-		Timeout:   ScanTimeout,
-		Name:      execution.UniqueName(namePrefix + "-tool"),
-		Report:    s.Report,
-	}
+	req := s.Request(src.Tree, s.Command)
+	req.Name, req.Report = execution.UniqueName(namePrefix+"-tool"), s.Report
 	outcome := j.Run(req)
 	ev := Evaluation{Declared: d, Mode: mode}
 	if outcome.Termination == execution.TimedOut {

@@ -5,10 +5,12 @@
 # exists, and every real layout has one.
 # The runtime image is distroless's nonroot variant: no shell, no package
 # manager, and the app runs as an unprivileged user.
+# Each RUN that downloads mounts the extra certificates AppTown gives a build
+# (the secret apptown-trust) and runs them first; without them it runs as is.
 FROM golang:1.27 AS build
 WORKDIR /src
 COPY . .
-RUN CGO_ENABLED=0 go build -o /app .
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; CGO_ENABLED=0 go build -o /app .
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /app /app

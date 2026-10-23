@@ -2831,6 +2831,7 @@ export type ServiceSpec = {
   configAtStart?: boolean
   keepsImage?: boolean
   health?: string
+  appPart?: boolean
   port?: number
   resources?: Resources
   data?: string

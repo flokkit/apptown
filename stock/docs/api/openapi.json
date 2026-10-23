@@ -3362,6 +3362,9 @@
       },
       "ServiceSpec": {
         "properties": {
+          "appPart": {
+            "type": "boolean"
+          },
           "command": {
             "items": {
               "type": "string"

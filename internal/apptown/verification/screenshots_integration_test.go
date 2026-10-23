@@ -17,6 +17,8 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/localtls"
+	"github.com/flokkit/apptown/internal/trust"
+	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
 
 // The real browser in the agent image, on this machine's Docker: what is
@@ -33,7 +35,7 @@ func shotsAgentImage() string {
 func localShots(tls *console.LocalTLS) *Screenshots {
 	var local *LocalAuthority
 	if tls != nil {
-		local = &LocalAuthority{CACert: tls.CACert, Prelude: console.LocalTLSPreludeAt(LocalCAPath, *tls)}
+		local = &LocalAuthority{Prelude: console.LocalTLSPrelude(*tls)}
 	}
 	return NewScreenshots(Executor{Run: LocalChecks(execution.Runner{}, nil), Local: true, AgentImage: shotsAgentImage()}, local)
 }
@@ -112,7 +114,9 @@ func TestIntegrationScreenshotsStayOnThePreview(t *testing.T) {
 }
 
 // On an AppTown with its own authority, the capture trusts that authority
-// as a chat does, and nothing else: no certificate check is turned off.
+// as a chat does (it is the local part of the extra certificates), and
+// nothing else: no certificate check is turned off.
+// Not parallel: it installs the process's trust.
 func TestIntegrationScreenshotsTrustTheLocalAuthorityOnly(t *testing.T) {
 	dir := t.TempDir()
 	ca, err := localtls.Load(dir, nil)
@@ -123,6 +127,11 @@ func TestIntegrationScreenshotsTrustTheLocalAuthorityOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	local, err := trust.Parse(caPEM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trusttest.Install(t, trust.Bundle{}, local)
 	port := listen(t, page("<h1>Trial</h1>"), ca.TLSConfig())
 	trial := &console.LocalTLS{CACert: caPEM, Port: port, Target: fmt.Sprintf("host.docker.internal:%d", port)}
 	c := localShots(trial).Take(context.Background(), fmt.Sprintf("https://change-1.preview.localhost:%d/", port), nil)
@@ -143,5 +152,22 @@ func TestIntegrationScreenshotsTrustTheLocalAuthorityOnly(t *testing.T) {
 	c = localShots(trial).Take(context.Background(), fmt.Sprintf("https://host.docker.internal:%d/", l.Addr().(*net.TCPAddr).Port), nil)
 	if len(c.Shots) != 0 || !strings.Contains(c.Unavailable, "ERR_CERT") {
 		t.Fatalf("an untrusted certificate was accepted: %d shots, unavailable %q", len(c.Shots), c.Unavailable)
+	}
+}
+
+// Behind a company's TLS-inspecting proxy, with no local HTTPS: the capture
+// trusts the deployments authority through Chromium's own store, and only
+// once it is configured.
+// Not parallel: it installs the process's trust.
+func TestIntegrationScreenshotsTrustTheDeploymentsAuthority(t *testing.T) {
+	company := trusttest.New(t, "Company Inspecting CA")
+	port := company.Serve(t, page("<h1>Behind the proxy</h1>"))
+	at := fmt.Sprintf("https://host.docker.internal:%d/", port)
+	if c := localShots(nil).Take(context.Background(), at, nil); len(c.Shots) != 0 || !strings.Contains(c.Unavailable, "ERR_CERT") {
+		t.Fatalf("without the authority configured: %d shots, unavailable %q", len(c.Shots), c.Unavailable)
+	}
+	trusttest.Install(t, company.Bundle(t), trust.Bundle{})
+	if c := localShots(nil).Take(context.Background(), at, nil); c.Unavailable != "" || len(c.Shots) != 2 {
+		t.Fatalf("with the deployments authority: %d shots, unavailable %q, missing %v", len(c.Shots), c.Unavailable, c.Missing)
 	}
 }

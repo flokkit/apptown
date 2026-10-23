@@ -221,10 +221,6 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	if cfg.TimeoutMinutes > 0 {
 		timeout = time.Duration(cfg.TimeoutMinutes) * time.Minute
 	}
-	network := "none"
-	if m.Network {
-		network = "" // docker default (egress)
-	}
 	// A landing's history scan reads every commit the landing adds, from
 	// the project's repository, mounted read-only.
 	var history *execution.History
@@ -255,17 +251,10 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		evidence["historyCommits"] = strings.TrimSpace(count)
 	}
 	start := a.now()
-	outcome := a.exec.Run(task.Context(), execution.Request{
-		Workspace:   scanSrc,
-		Argv:        argv,
-		History:     history,
-		Report:      m.Report,
-		ExportImage: exportImage,
-		Image:       m.Image,
-		Network:     network,
-		Timeout:     timeout,
-		Name:        execution.UniqueName(fmt.Sprintf("apptown-scan-%d", stepID)),
-	})
+	req := m.Request(scanSrc, argv)
+	req.History, req.Report, req.ExportImage, req.Timeout = history, m.Report, exportImage, timeout
+	req.Name = execution.UniqueName(fmt.Sprintf("apptown-scan-%d", stepID))
+	outcome := a.exec.Run(task.Context(), req)
 	evidence["durationMs"] = a.now().Sub(start).Milliseconds()
 
 	answer := readScan(outcome, m, binding)

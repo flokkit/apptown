@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // First-run setup: a fresh AppTown must not be
@@ -155,7 +156,9 @@ func (s *setupState) fetch(ctx context.Context, dk docker.Scope, image, buildCon
 // fetchAgentImage pulls the agent image (pull) or builds it from the
 // build context, writing Docker's output to out when it is given.
 func fetchAgentImage(ctx context.Context, dk docker.Scope, image, buildContext string, pull bool, out io.Writer) error {
-	req := docker.Command{Args: []string{"build", "-t", image, buildContext}}
+	// The extra certificates as the build's secret: its RUN lines download
+	// (internal/trust, deploy/apptown-agent/Dockerfile).
+	req := docker.Command{Args: append(append([]string{"build"}, trust.BuildArgs(!dk.Remote())...), "-t", image, buildContext)}
 	what := "build"
 	if pull {
 		req, what = docker.Command{Args: []string{"pull", image}}, "pull of "+image

@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/oci"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Release builds on the worker (design/operations/workers.md, "Releases
@@ -281,6 +282,10 @@ func (a *Shipping) publicationWatch() time.Duration {
 // of it); image-only declarations are not built, but copied by AppTown.
 func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform string) (string, []execution.File, []execution.ImageResult, error) {
 	lines := []string{"set -e"}
+	// The extra certificates this machine's containers trust reach each
+	// build as its secret (internal/trust), from the task's own variable:
+	// the worker's, never this machine's. None when it has none.
+	buildSecret := ` ${` + trust.EnvVar + `:+--secret id=` + trust.SecretID + `,env=` + trust.EnvVar + `} `
 	var files []execution.File
 	var images []execution.ImageResult
 	quote := func(args []string) string {
@@ -320,8 +325,8 @@ func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform stri
 			if img.StaticBuild.Target != "" {
 				args = append(args, "--target", img.StaticBuild.Target)
 			}
-			args = append(args, "--output", "type=local,dest="+export, context)
-			lines = append(lines, quote(args), staticExportCheck(export, img.StaticBuild.Output))
+			args = append(args, "--output", "type=local,dest="+export)
+			lines = append(lines, quote(args)+buildSecret+shellQuote(context), staticExportCheck(export, img.StaticBuild.Output))
 			context = path.Join(export, img.StaticBuild.Output)
 		}
 		out := path.Join(releaseImagesOut, img.Name)
@@ -334,8 +339,7 @@ func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform stri
 			args = append(args, "-f", dockerfile)
 			files = append(files, execution.File{Path: dockerfile, Content: []byte(img.Dockerfile()), Mode: 0o644})
 		}
-		args = append(args, context)
-		lines = append(lines, quote(args))
+		lines = append(lines, quote(args)+buildSecret+shellQuote(context))
 		images = append(images, execution.ImageResult{Name: img.Name, Path: out, Max: releaseImageMax})
 	}
 	if err := execution.ValidImages(images); err != nil {

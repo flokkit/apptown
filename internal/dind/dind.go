@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Run runs one docker command and answers its combined output; a failed
@@ -96,8 +98,44 @@ func (d Daemon) Create(ctx context.Context, run Run) error {
 		// the fresh namespace read as the old one still running: containerd
 		// refused to start and the owner's Docker never came back.
 		"--tmpfs", "/run"}, d.Args...)
-	_, err := run(ctx, append(append(args, d.Image, "--tls=false"), d.Options...)...)
+	_, err := run(ctx, append(args, Start(d.Image, append([]string{"--tls=false"}, d.Options...)...)...)...)
 	return err
+}
+
+// Start is the end of a private daemon's docker run arguments: the image,
+// started so that it first trusts the extra certificates this machine's
+// containers are given (internal/trust), then runs the image's own
+// entrypoint with the daemon's flags. It runs as root, so they join its
+// system store, which dockerd reads for its pulls.
+func Start(image string, daemonFlags ...string) []string {
+	args := append(trust.ContainerArgs(true), "--entrypoint", "sh", image, "-c", trust.Run+`; exec dockerd-entrypoint.sh "$@"`, "sh")
+	return append(args, daemonFlags...)
+}
+
+// BuilderContainer is the container the buildx builder apptown runs in,
+// inside the private daemon (driver docker-container, its one node).
+const BuilderContainer = "buildx_buildkit_apptown0"
+
+// TrustBuilder gives the builder apptown, just created in the private daemon
+// name, the extra certificates: buildkit pulls base images itself, with its
+// own container's roots. It starts the builder, runs the script in its
+// container (as root, into its system store) and restarts it, so buildkit
+// reads them, before any build. Nothing when there is no script.
+func TrustBuilder(ctx context.Context, run Run, name, clientDir string) error {
+	if len(trust.ContainerArgs(true)) == 0 {
+		return nil
+	}
+	inner := []string{"exec", "-e", "DOCKER_HOST=tcp://dind:2375", "-e", "DOCKER_CONFIG=" + clientDir, name, "docker"}
+	for _, step := range [][]string{
+		{"buildx", "inspect", "--bootstrap", "apptown"},
+		{"exec", "-e", trust.EnvVar, BuilderContainer, "sh", "-c", trust.Run},
+		{"restart", BuilderContainer},
+	} {
+		if out, err := run(ctx, append(append([]string{}, inner...), step...)...); err != nil {
+			return fmt.Errorf("giving the private Docker builder the extra certificates (%s): %w: %s", strings.Join(step[:2], " "), err, strings.TrimSpace(string(out)))
+		}
+	}
+	return nil
 }
 
 // Ready waits, at most 40 seconds, until the daemon answers.
@@ -137,7 +175,7 @@ func Builder(ctx context.Context, run Run, name, clientDir, config string) error
 		"--config", config, "--use", "tcp://dind:2375")...); err != nil {
 		return fmt.Errorf("preparing private Docker builder: %w", err)
 	}
-	return nil
+	return TrustBuilder(ctx, run, name, clientDir)
 }
 
 // State reads whether an owner's container exists and runs. One with

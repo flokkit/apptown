@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/strs"
 	"github.com/flokkit/apptown/internal/testreport"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // The tests gate (design/the-change.md: boundaries are where invariants
@@ -375,8 +376,8 @@ const toolchainUnavailableMark = "apptown: the toolchain this project declares c
 // toolchain's, not the tests': the script says so and exits
 // toolchainUnavailableExit.
 func testsScript(command string) string {
-	return `mise trust -q 2>/dev/null; forge_toolchain=ok; ` +
-		`if mise install -y -q; then export PATH="$MISE_DATA_DIR/shims:$PATH"; else forge_toolchain=failed; echo "apptown: mise install failed (continuing with image toolchains)" >&2; fi; ` +
+	return trust.Run + `; mise trust -q 2>/dev/null; forge_toolchain=ok; ` +
+		`if mise install -y -q; then export PATH="$MISE_DATA_DIR/shims:$PATH"; ` + trust.Run + `; else forge_toolchain=failed; echo "apptown: mise install failed (continuing with image toolchains)" >&2; fi; ` +
 		`(` + command + `) 2>&1; rc=$?; ` +
 		// A command that wrote no report leaves an empty one, so "no report"
 		// reads the same from a worker as from here (a missing file's error

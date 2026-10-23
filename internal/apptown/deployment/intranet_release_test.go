@@ -23,10 +23,15 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
 
+// The stack also gives the app the extra certificates for elsewhere (the
+// company's, never this machine's local authority).
+// Not parallel: it installs the process's trust.
 func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
-	t.Parallel()
+	company, local := trusttest.New(t, "Company CA"), trusttest.New(t, "Local CA")
+	trusttest.Install(t, company.Bundle(t), local.Bundle(t))
 	db := testDB(t)
 	dir := t.TempDir()
 	pid, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
@@ -128,6 +133,9 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 			logs = append(logs, e.Text)
 		}
 		t.Fatalf("release staged a different revision: %s; log: %s", compose, strings.Join(logs, "\n"))
+	}
+	if !strings.Contains(compose, "APPTOWN_TRUST") || !strings.Contains(compose, strings.Split(string(company.PEM()), "\n")[1]) || strings.Contains(compose, strings.Split(string(local.PEM()), "\n")[1]) {
+		t.Fatalf("the stack does not give the app the company's certificate alone:\n%s", compose)
 	}
 	if r := storedRelease(t, db, p.ID, cut.ID); r.State != Released || r.CommitSHA != selected {
 		t.Fatalf("LAN release: %s at %q, want released at %q", r.State, r.CommitSHA, selected)

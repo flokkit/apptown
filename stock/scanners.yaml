@@ -6,7 +6,10 @@ scanners:
   - name: osv
     description: Finds known vulnerabilities in the app's dependencies (Google osv-scanner)
     image: ghcr.io/google/osv-scanner:v2.2.4
-    command: ["scan", "--format", "json", "--output", "/work/.apptown/osv-report.json", "-r", "/work"]
+    # The extra certificates first (internal/trust), then the image's own
+    # program, which is its entrypoint, so that is cleared.
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "/osv-scanner", "scan", "--format", "json", "--output", "/work/.apptown/osv-report.json", "-r", "/work"]
+    noEntrypoint: true
     report: .apptown/osv-report.json
     network: true   # queries the OSV API
     format: osv
@@ -48,9 +51,10 @@ scanners:
   - name: trivy
     description: Finds known vulnerabilities in the built container image, which is what runs (Aqua trivy)
     image: aquasec/trivy:0.66.0
-    command: ["image", "--input", "${IMAGE_TAR}", "--format", "sarif", "--output", "/work/.apptown/trivy.sarif",
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "trivy", "image", "--input", "${IMAGE_TAR}", "--format", "sarif", "--output", "/work/.apptown/trivy.sarif",
               "--exit-code", "1", "--ignore-unfixed", "--severity", "CRITICAL,HIGH,MEDIUM,LOW", "--scanners", "vuln", "--quiet",
               "--cache-backend", "memory"]
+    noEntrypoint: true
     report: .apptown/trivy.sarif
     network: true   # vulnerability database download
     format: sarif
@@ -83,7 +87,7 @@ scanners:
   - name: semgrep-django
     description: Finds security problems in Django and Python code (semgrep, community Django and Python rules)
     image: semgrep/semgrep:1.99.0
-    command: ["semgrep", "--config", "p/django", "--config", "p/python",
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "semgrep", "--config", "p/django", "--config", "p/python",
               "--sarif", "--output", "/work/.apptown/semgrep.sarif", "--quiet",
               "--metrics=off", "--disable-version-check", "/work"]
     report: .apptown/semgrep.sarif
@@ -138,14 +142,14 @@ scanners:
     # (downloaded into the shared module cache), so a module on a newer Go
     # than the image is judged, not refused (N37; four projects read
     # "go.mod requires go >= 1.26.7 (running go 1.25.14)", 2026-09-08).
-    command: ["sh", "-c", "cd /work && { [ -f go.mod ] || { echo 'no go.mod'; exit 0; }; }; export GOTOOLCHAIN=auto; out=$(go mod tidy -diff 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'go.mod and go.sum are not tidy — run go mod tidy and commit the result:'; echo \"$out\" | head -40; exit 1"]
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd /work && { [ -f go.mod ] || { echo 'no go.mod'; exit 0; }; }; export GOTOOLCHAIN=auto; out=$(go mod tidy -diff 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'go.mod and go.sum are not tidy — run go mod tidy and commit the result:'; echo \"$out\" | head -40; exit 1"]
     network: true   # module downloads
     target: source
     manual: true
   - name: npm-lock-check
     description: Checks that package.json and package-lock.json agree in every package directory (npm ci --dry-run; lang/selection/node-fullstack, typescript-for-web)
     image: node:24-alpine
-    command: ["sh", "-c", "cd /work && bad=0; for f in $(find . -maxdepth 3 -name package.json -not -path '*/node_modules/*'); do d=$(dirname \"$f\"); [ -f \"$d/package-lock.json\" ] || { echo \"$d: no package-lock.json — commit the lockfile (npm install, then git add package-lock.json)\"; bad=1; continue; }; out=$(cd \"$d\" && npm ci --dry-run --ignore-scripts --no-audit --no-fund 2>&1); [ $? -eq 0 ] || { echo \"$d: package.json and package-lock.json disagree — run npm install and commit the lockfile\"; echo \"$out\" | grep -i 'error' | head -6; bad=1; }; done; exit $bad"]
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd /work && bad=0; for f in $(find . -maxdepth 3 -name package.json -not -path '*/node_modules/*'); do d=$(dirname \"$f\"); [ -f \"$d/package-lock.json\" ] || { echo \"$d: no package-lock.json — commit the lockfile (npm install, then git add package-lock.json)\"; bad=1; continue; }; out=$(cd \"$d\" && npm ci --dry-run --ignore-scripts --no-audit --no-fund 2>&1); [ $? -eq 0 ] || { echo \"$d: package.json and package-lock.json disagree — run npm install and commit the lockfile\"; echo \"$out\" | grep -i 'error' | head -6; bad=1; }; done; exit $bad"]
     network: true   # npm resolves against the registry when the lock is stale
     target: source
     manual: true
@@ -157,21 +161,21 @@ scanners:
   - name: npm-build
     description: Installs the locked dependencies and runs the project's build script (npm run build); the build must succeed
     image: node:24-alpine
-    command: ["sh", "-c", "cd /work && { [ -f package.json ] || { echo 'no package.json: nothing to build'; exit 0; }; }; [ -f package-lock.json ] || { echo 'no package-lock.json: commit the lockfile (npm install, then git add package-lock.json)'; exit 1; }; out=$(npm ci --no-audit --no-fund 2>&1) || { echo 'npm ci failed, so nothing was built:'; echo \"$out\" | tail -20; exit 2; }; npm pkg get scripts.build | grep -q '\"' || { echo 'package.json declares no build script; add one (for example \"build\": \"tsc --noEmit && vite build\")'; exit 1; }; out=$(NO_COLOR=1 npm run build 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'npm run build failed:'; echo \"$out\" | tail -40; exit 1"]
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd /work && { [ -f package.json ] || { echo 'no package.json: nothing to build'; exit 0; }; }; [ -f package-lock.json ] || { echo 'no package-lock.json: commit the lockfile (npm install, then git add package-lock.json)'; exit 1; }; out=$(npm ci --no-audit --no-fund 2>&1) || { echo 'npm ci failed, so nothing was built:'; echo \"$out\" | tail -20; exit 2; }; npm pkg get scripts.build | grep -q '\"' || { echo 'package.json declares no build script; add one (for example \"build\": \"tsc --noEmit && vite build\")'; exit 1; }; out=$(NO_COLOR=1 npm run build 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'npm run build failed:'; echo \"$out\" | tail -40; exit 1"]
     network: true   # npm ci downloads the locked packages
     target: source
     manual: true
   - name: npm-test
     description: Installs the locked dependencies and runs the project's tests (npm test); every test must pass
     image: node:24-alpine
-    command: ["sh", "-c", "cd /work && { [ -f package.json ] || { echo 'no package.json: no tests to run'; exit 0; }; }; [ -f package-lock.json ] || { echo 'no package-lock.json: commit the lockfile (npm install, then git add package-lock.json)'; exit 1; }; out=$(npm ci --no-audit --no-fund 2>&1) || { echo 'npm ci failed, so no test ran:'; echo \"$out\" | tail -20; exit 2; }; npm pkg get scripts.test | grep -q '\"' || { echo 'package.json declares no test script; add one (for example \"test\": \"vitest run\")'; exit 1; }; out=$(CI=1 NO_COLOR=1 npm test 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'npm test failed:'; echo \"$out\" | tail -40; exit 1"]
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd /work && { [ -f package.json ] || { echo 'no package.json: no tests to run'; exit 0; }; }; [ -f package-lock.json ] || { echo 'no package-lock.json: commit the lockfile (npm install, then git add package-lock.json)'; exit 1; }; out=$(npm ci --no-audit --no-fund 2>&1) || { echo 'npm ci failed, so no test ran:'; echo \"$out\" | tail -20; exit 2; }; npm pkg get scripts.test | grep -q '\"' || { echo 'package.json declares no test script; add one (for example \"test\": \"vitest run\")'; exit 1; }; out=$(CI=1 NO_COLOR=1 npm test 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'npm test failed:'; echo \"$out\" | tail -40; exit 1"]
     network: true   # npm ci downloads the locked packages
     target: source
     manual: true
   - name: uv-lock-check
     description: Checks that pyproject.toml and uv.lock agree (uv lock --check; lang/selection/django-fullstack)
     image: ghcr.io/astral-sh/uv:0.13.0-python3.12-alpine
-    command: ["sh", "-c", "cd /work && { [ -f pyproject.toml ] || { echo 'no pyproject.toml'; exit 0; }; }; if [ -f poetry.lock ]; then echo 'poetry.lock present: not judged by this check'; exit 0; fi; [ -f uv.lock ] || { echo 'pyproject.toml has no uv.lock — commit the lockfile (uv lock)'; exit 1; }; out=$(uv lock --check 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'pyproject.toml and uv.lock disagree — run uv lock and commit the result'; echo \"$out\" | tail -3; exit 1"]
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd /work && { [ -f pyproject.toml ] || { echo 'no pyproject.toml'; exit 0; }; }; if [ -f poetry.lock ]; then echo 'poetry.lock present: not judged by this check'; exit 0; fi; [ -f uv.lock ] || { echo 'pyproject.toml has no uv.lock — commit the lockfile (uv lock)'; exit 1; }; out=$(uv lock --check 2>&1); e=$?; [ $e -eq 0 ] && exit 0; echo 'pyproject.toml and uv.lock disagree — run uv lock and commit the result'; echo \"$out\" | tail -3; exit 1"]
     network: true   # resolution needs the index when the lock is stale
     target: source
     manual: true
@@ -200,7 +204,7 @@ scanners:
   - name: go-vet
     description: Runs go vet over the committed Go code to find likely mistakes (lang/go/formatting)
     image: golang:1.27.0-alpine
-    command: ["sh", "-c", "cd /work && out=$(GOTOOLCHAIN=auto GOFLAGS=-mod=mod go vet ./... 2>&1) || { echo \"$out\" | tail -40; exit 1; }"]
+    command: ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; cd /work && out=$(GOTOOLCHAIN=auto GOFLAGS=-mod=mod go vet ./... 2>&1) || { echo \"$out\" | tail -40; exit 1; }"]
     network: true   # module downloads
     target: source
     manual: true

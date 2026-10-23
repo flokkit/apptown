@@ -22,6 +22,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/strs"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // stagedBuildContext stages tracked worktree edits without ignored or untracked
@@ -266,6 +267,11 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		if t.release != "" {
 			args = append(args, "-e", appcontract.ReleaseEnvVar+"="+t.release)
 		}
+	}
+	// The extra certificates the app's own command runs (internal/trust):
+	// the static file server calls nothing.
+	if c.Static == "" {
+		args = append(args, trust.ContainerArgs(!dk.Remote())...)
 	}
 	if c.Static != "" {
 		args = append(args, h.staticServer())

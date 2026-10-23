@@ -26,18 +26,18 @@ func installTrust(dataDir string, paths map[trust.Use]string, local *console.Loc
 // loadTrust reads the bundles. Under -local-tls AppTown's own authority
 // joins the deployments use only: previews and deployments are its
 // addresses; model providers and AppTown's other connections never answer
-// with it.
+// with it. It signs only this machine's addresses, so only containers on
+// this machine are given it (trust.New's local).
 func loadTrust(dataDir string, paths map[trust.Use]string, local *console.LocalTLS) (*trust.Set, error) {
 	bundles, err := trust.Read(paths)
 	if err != nil {
 		return nil, err
 	}
+	var ca trust.Bundle
 	if local != nil {
-		ca, err := trust.Parse(local.CACert)
-		if err != nil {
+		if ca, err = trust.Parse(local.CACert); err != nil {
 			return nil, fmt.Errorf("-local-tls: %w", err)
 		}
-		bundles[trust.Deployments] = bundles[trust.Deployments].With(ca)
 	}
-	return trust.New(filepath.Join(dataDir, trustDir), bundles)
+	return trust.New(filepath.Join(dataDir, trustDir), bundles, ca)
 }

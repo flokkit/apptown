@@ -74,10 +74,13 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 		t.Fatalf("no line %q in:\n%s", prefix, script)
 		return -1
 	}
-	exportLine := at("'docker' 'buildx' 'build' '--provenance=false' '--sbom=false' '--target' 'out' '--output' 'type=local,dest=" + export + "' '/work/web'")
+	// Each build is given the extra certificates as its secret, from the
+	// task's own variable (internal/trust).
+	secret := " ${APPTOWN_TRUST:+--secret id=apptown-trust,env=APPTOWN_TRUST} "
+	exportLine := at("'docker' 'buildx' 'build' '--provenance=false' '--sbom=false' '--target' 'out' '--output' 'type=local,dest=" + export + "'" + secret + "'/work/web'")
 	check := at("[ ! -L '" + export + "/app' ]")
 	pack := at("'docker' 'buildx' 'build' '--platform' 'linux/arm64'")
-	if !(exportLine < check && check < pack) || !strings.HasSuffix(lines[pack], "'-f' '/forge/release/part-site.Dockerfile' '"+export+"/app/dist'") {
+	if !(exportLine < check && check < pack) || !strings.HasSuffix(lines[pack], "'-f' '/forge/release/part-site.Dockerfile'"+secret+"'"+export+"/app/dist'") {
 		t.Fatalf("export, check, then pack:\n%s", script)
 	}
 	if strings.Contains(lines[exportLine], "--platform") || strings.Contains(script, "--builder") {

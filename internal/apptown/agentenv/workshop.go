@@ -173,7 +173,7 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	//    unless --tls=false is explicit — so say it; the listener lives on a
 	//    private network anyway.
 	args = append(args, "-e", "ZFS_MODULE_TIMEOUT=0")
-	args = append(args, DindImage, "--tls=false")
+	args = append(args, dind.Start(DindImage, "--tls=false")...)
 	// Name resolution for the containers the nested daemon runs (a plain
 	// `docker build`, `docker compose build`, a rehearsal container): dind's
 	// own resolv.conf points at Docker's embedded DNS (127.0.0.11), which
@@ -236,6 +236,8 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 		// Non-fatal: plain docker builds still work; the agent just lacks
 		// the preconfigured builder.
 		w.progress.Append(stepID, "buildx builder not provisioned: "+strs.Truncate(string(out), 120))
+	} else if err := dind.TrustBuilder(ctx, w.docker.Run, name, filepath.Join("/work", clientConfigDir)); err != nil {
+		w.progress.Append(stepID, strs.Truncate(err.Error(), 200))
 	}
 
 	return []string{"DOCKER_HOST=tcp://dind:2375"}, network, cleanup, nil

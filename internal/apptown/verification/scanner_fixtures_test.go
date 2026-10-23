@@ -36,9 +36,10 @@ type scannerEffects struct {
 	report string
 	answer string
 
-	mu     sync.Mutex
-	images []string
-	models []string
+	mu       sync.Mutex
+	images   []string
+	models   []string
+	requests []execution.Request
 }
 
 func (e *scannerEffects) ran(image string) bool {
@@ -57,6 +58,7 @@ func (e *scannerEffects) Run(ctx context.Context, req execution.Request) executi
 	e.t.Helper()
 	e.mu.Lock()
 	e.images = append(e.images, req.Image)
+	e.requests = append(e.requests, req)
 	e.mu.Unlock()
 	dst := filepath.Join(req.Workspace, ".apptown", "semgrep.sarif")
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {

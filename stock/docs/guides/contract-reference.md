@@ -71,9 +71,12 @@ needs:
   `sh -c "<string>"`: an image with a string `command` needs `/bin/sh`. On a
   Docker host and on Portainer a list's arguments are kept as written; App
   Platform takes a command as one line, its arguments joined by spaces, so
-  an argument holding a space is not kept there.
+  an argument holding a space is not kept there. A `command` replaces the
+  image's `CMD`, including its run of `APPTOWN_TRUST`, so a command that
+  calls out behind a TLS-inspecting proxy runs `eval "${APPTOWN_TRUST:-}"`
+  first.
 - **`environment`** may not set `PORT`, `APPTOWN_ORIGINS`, `DATA_DIR`,
-  `APPTOWN_RELEASE` or `APPTOWN_BROWSER_ENV`: AppTown sets them (see "The
+  `APPTOWN_RELEASE`, `APPTOWN_BROWSER_ENV` or `APPTOWN_TRUST`: AppTown sets them (see "The
   environment an app gets"), and an app's own value would win on one target
   and lose on another. Names starting `APPTOWN_` are AppTown's, in parts,
   init steps, profiles and secrets: a variable AppTown adds later takes one.
@@ -189,6 +192,7 @@ scope names. AppTown adds a few values of its own, which differ by target:
 | `PORT` | every part that has a port | other parts that declare a port; not the public part | not set by AppTown |
 | `APPTOWN_ORIGINS` | public part: the address patterns browsers use, as wildcards (`https://*.apps.example.com`) | public part, the same | public part: the app's own address |
 | `DATA_DIR` | public part, when it has a `dataDir`, set last | public part, the same | — (no `dataDir`) |
+| `APPTOWN_TRUST` | every part and init step but a static site's, when the server is given extra certificate authorities: a script the start command runs (`eval "${APPTOWN_TRUST:-}"`) to trust them | the same | the same |
 | attached integrations: `SENTRY_DSN` (error reporting); `FEEDBACK_URL` and `FEEDBACK_APP_KEY` (customer feedback, Experimental) | public part | public part, the same | not delivered; the release records it |
 | order of precedence | secrets over connections over the part's own `environment` | the same | the same, then the needs' credentials over the part's secrets |
 

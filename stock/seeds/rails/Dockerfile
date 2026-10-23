@@ -9,15 +9,17 @@
 # Ruby's own default gems cannot be replaced in place: a ruby whose bundled
 # resolv had a fixed CVE (3.3) is left for the minor that ships the fix
 # (3.4), not patched around.
+# Each RUN that downloads mounts the extra certificates AppTown gives a build
+# (the secret apptown-trust) and runs them first; without them it runs as is.
 FROM ruby:3.4-slim AS build
-RUN apt-get update \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apt-get update \
     && apt-get install -y --no-install-recommends \
       build-essential libpq-dev libyaml-dev git \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV RAILS_ENV=production BUNDLE_WITHOUT=development:test
 COPY Gemfile Gemfile.lock ./
-RUN bundle install && rm -rf /usr/local/bundle/cache
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; bundle install && rm -rf /usr/local/bundle/cache
 COPY . .
 RUN SECRET_KEY_BASE_DUMMY=1 bundle exec rake assets:precompile
 
@@ -25,7 +27,7 @@ RUN SECRET_KEY_BASE_DUMMY=1 bundle exec rake assets:precompile
 # time, so a fixed CVE in the base does not fail the image scan. The app
 # writes only its runtime folders; everything else stays root's.
 FROM ruby:3.4-slim
-RUN apt-get update && apt-get upgrade -y \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends libpq5 libyaml-0-2 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --uid 10001 --create-home app
@@ -36,4 +38,6 @@ COPY --from=build /app /app
 RUN mkdir -p db log storage tmp && chown -R app:app db log storage tmp
 USER app
 EXPOSE 8080
-CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
+# The command first trusts the extra certificates AppTown gives the
+# running app (APPTOWN_TRUST; nothing without it), then runs the app.
+CMD ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "bundle", "exec", "puma", "-C", "config/puma.rb"]

@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/dind"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 const (
@@ -49,11 +50,9 @@ func (r *Runtime) provision(in console.Launch) error {
 	if in.Model != "" {
 		piCmd += " --model '" + strings.ReplaceAll(in.Model, "'", "") + "'"
 	}
+	// The toolchain prelude runs the extra certificates first (trust.Run).
 	prelude := console.ToolchainPrelude + "\n"
 	if t := r.cfg.LocalTLS; t != nil {
-		if err := os.WriteFile(filepath.Join(in.Dir, console.LocalCAFile), t.CACert, 0o644); err != nil {
-			return err
-		}
 		prelude += console.LocalTLSPrelude(*t) + "\n"
 	}
 	if err := os.WriteFile(filepath.Join(in.Dir, "run-pi.sh"), []byte("#!/bin/sh\ncd "+console.WorkMount+"\n"+prelude+piCmd+"\n"), 0o755); err != nil {
@@ -103,6 +102,9 @@ func (r *Runtime) provision(in console.Launch) error {
 	for _, kv := range in.Env {
 		args = append(args, "-e", kv)
 	}
+	// The extra certificates this machine's containers trust, which the
+	// toolchain prelude runs (internal/trust).
+	args = append(args, trust.ContainerArgs(true)...)
 	for _, m := range r.mounts(in) {
 		args = append(args, "-v", m)
 	}

@@ -261,10 +261,15 @@ kill as an ordinary exit); a worker serves 1 and 2.
 
 Behind a company's TLS-inspecting proxy, give the worker the company
 authority's certificate as a PEM file: `-trust-deployments` for its
-connections to registries (the reachability check before a chat opens), and
-`-trust-apptown` for its other connections. They are read as AppTown's
-flags of the same names are (Setting up a server); the worker calls no model
-provider, so it has no `-trust-inference`.
+connections to registries (the reachability check before a chat opens) and
+for every container and build it starts (its tasks, checks, chats, previews,
+private daemons and its agent-image build), and `-trust-apptown` for its
+other connections. They are read as AppTown's flags of the same names are
+(Setting up a server); the worker calls no model provider, so it has no
+`-trust-inference`. A worker's containers trust the worker's certificates,
+never AppTown's. Every worker flag can also be set as APPTOWN_ plus its name
+in capitals with `-` as `_` (`APPTOWN_TRUST_DEPLOYMENTS`); the command line
+wins.
 
 ### The tool cache
 

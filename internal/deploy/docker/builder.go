@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Build runs `docker build args...` on dk's daemon, with that daemon's own
@@ -27,6 +29,10 @@ func (dk Scope) Build(ctx context.Context, args ...string) ([]byte, error) {
 	if builder != "" {
 		args = append([]string{"--builder", builder}, args...)
 	}
+	// The extra certificates, as the secret a Dockerfile's RUN lines may
+	// mount (internal/trust). It needs BuildKit, so a Docker without buildx
+	// cannot take it, and refuses the build saying so.
+	args = append(trust.BuildArgs(!dk.Remote()), args...)
 	return dk.Run(ctx, append([]string{"build"}, args...)...)
 }
 

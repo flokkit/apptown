@@ -15,6 +15,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/strs"
+	"github.com/flokkit/apptown/internal/trust"
 )
 
 // Screenshots are AppTown's pictures of the preview a run's boot step
@@ -27,23 +28,19 @@ import (
 type Screenshots struct {
 	executor Executor
 	// local, on an AppTown serving itself from its own authority (the
-	// desktop trial), is how a container reaches and trusts it.
+	// desktop trial), is how a container reaches it.
 	local *LocalAuthority
 }
 
-// LocalAuthority is an AppTown's own certificate authority as a capture
-// needs it: its certificate (never its key), presented at LocalCAPath, and
-// the shell prelude that trusts it there and leads the container's
+// LocalAuthority is how a capture reaches an AppTown serving itself from its
+// own certificate authority: the shell prelude that leads the container's
 // loopback to AppTown, the one a change chat's container runs
-// (console.LocalTLSPreludeAt, given LocalCAPath).
+// (console.LocalTLSPrelude). The authority itself is trusted as every
+// container's extra certificates are (internal/trust), Chromium's store
+// included.
 type LocalAuthority struct {
-	CACert  []byte
 	Prelude string
 }
-
-// LocalCAPath is where a capture's container holds the local authority's
-// certificate.
-const LocalCAPath = shotsDir + "/local-ca.pem"
 
 // NewScreenshots takes pictures through the check executor; local is the
 // AppTown's own authority, nil when it has none.
@@ -138,9 +135,10 @@ func NamedPages(report string) (pages, ignored []string) {
 // when there is one, then the driver, with every page an argument of its
 // own, never part of the script.
 func (s *Screenshots) shotsCommand() string {
-	cmd := ""
+	// The extra certificates first, Chromium's store included.
+	cmd := trust.Run + "\n"
 	if s.local != nil {
-		cmd = s.local.Prelude + "\n"
+		cmd += s.local.Prelude + "\n"
 	}
 	return cmd + `exec node ` + shotsDir + `/shoot.mjs "$@"`
 }
@@ -165,9 +163,6 @@ func (s *Screenshots) request(tree string, base *url.URL, wants []want) executio
 		argv = append(argv, w.name, fmt.Sprint(w.view.Width), fmt.Sprint(w.view.Height), phone, strings.TrimSuffix(page.String(), "/")+w.path)
 	}
 	files := []execution.File{{Path: shotsDir + "/shoot.mjs", Content: shootScript, Mode: 0o444}}
-	if s.local != nil {
-		files = append(files, execution.File{Path: LocalCAPath, Content: s.local.CACert, Mode: 0o444})
-	}
 	return execution.Request{
 		Workspace: tree, Image: s.executor.AgentImage, Argv: argv, NoEntrypoint: true,
 		Timeout: shotsTimeout, Report: shotsReport, Files: files,

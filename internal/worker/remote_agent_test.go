@@ -609,7 +609,7 @@ func TestTheWorkerReachesARegistryItsDeploymentsBundleTrusts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	set, err := trust.New(t.TempDir(), map[trust.Use]trust.Bundle{trust.Deployments: b})
+	set, err := trust.New(t.TempDir(), map[trust.Use]trust.Bundle{trust.Deployments: b}, trust.Bundle{})
 	if err != nil {
 		t.Fatal(err)
 	}

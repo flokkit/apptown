@@ -72,7 +72,7 @@ func TestInstalledTrustReachesEachUsesClientsAndNoOther(t *testing.T) {
 	depURL, dep := signed(t)
 	infURL, inf := signed(t)
 	early := Lazy(Deployments) // a package's transport, made before Install
-	set, err := New(t.TempDir(), map[Use]Bundle{AppTown: app, Deployments: dep, Inference: inf})
+	set, err := New(t.TempDir(), map[Use]Bundle{AppTown: app, Deployments: dep, Inference: inf}, Bundle{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestInstalledTrustReachesEachUsesClientsAndNoOther(t *testing.T) {
 	}
 	// A use with no bundle of its own trusts the system's roots alone, not
 	// the AppTown use's that the default transport now carries.
-	only, err := New(t.TempDir(), map[Use]Bundle{AppTown: app})
+	only, err := New(t.TempDir(), map[Use]Bundle{AppTown: app}, Bundle{})
 	if err != nil {
 		t.Fatal(err)
 	}

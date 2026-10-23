@@ -30,6 +30,10 @@ type ServiceSpec struct {
 	// Health is a shell healthcheck command (exit 0 = healthy). When set, the
 	// runtime applies it as docker --health-cmd and can gate startup on it.
 	Health string `json:"health,omitempty"`
+	// AppPart says the service is one of the app's own parts, not a need's:
+	// it is given the extra certificates the app's containers trust
+	// (internal/trust); a database or cache beside it calls out to nothing.
+	AppPart bool `json:"appPart,omitempty"`
 	// Public/host-port handling is caller-driven; these mark a non-public app
 	// part started on the stack (Port for its PORT env, not a host mapping).
 	Port int `json:"port,omitempty"`

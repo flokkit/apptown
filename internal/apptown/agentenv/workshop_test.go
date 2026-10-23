@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dind"
 	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
@@ -18,6 +19,8 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/progress"
+	"github.com/flokkit/apptown/internal/trust"
+	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
 
 var databaseSuite = dbtest.NewSuite(dbschema.Open)
@@ -186,5 +189,31 @@ func TestAStepsPrivateDockerIsBoundedAndSharesOnlyItsProjectsCache(t *testing.T)
 	}
 	if client.ran(" forge-cache:/apptown-cache") {
 		t.Fatal("the private Docker mounts the shared cache")
+	}
+}
+
+// A step's private Docker starts through the extra certificates, and the
+// builder made in it is given them before its first build (dind.Start,
+// dind.TrustBuilder).
+// Not parallel: it installs the process's trust.
+func TestAStepsPrivateDockerAndItsBuilderAreGivenTheExtraCertificates(t *testing.T) {
+	trusttest.Install(t, trusttest.New(t, "Company CA").Bundle(t), trust.Bundle{})
+	client := &workshopClient{preload: make(chan struct{})}
+	scope := docker.Scope{Client: client}
+	integrations := integration.NewService(databaseSuite.New(t), integration.Dependencies{})
+	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", nil)
+	ws := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	_, _, cleanup, err := workshop.StartStep(t.Context(), idstest.N(93), ws, "", ".apptown/home/.docker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cleanup()
+	<-client.preload
+	if !client.ran("-e "+trust.EnvVar+" --entrypoint sh "+DindImage+" -c "+trust.Run) ||
+		!client.ran("docker exec -e "+trust.EnvVar+" "+dind.BuilderContainer) || !client.ran("docker restart "+dind.BuilderContainer) {
+		t.Fatalf("calls:\n%s", strings.Join(client.calls, "\n"))
 	}
 }

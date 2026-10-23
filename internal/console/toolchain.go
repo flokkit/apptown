@@ -1,5 +1,7 @@
 package console
 
+import "github.com/flokkit/apptown/internal/trust"
+
 // The toolchain prelude is shared by every agent session: a workflow's agent
 // step (ToolchainArgs) and a chat's runtime (ToolchainPrelude), on the
 // AppTown's Docker or on a worker. One place, so no launcher can leave it out:
@@ -28,10 +30,12 @@ func ToolchainArgs(argv []string) []string { return toolchainArgs("/work", "/tmp
 // scratch a directory nothing of which outlives the container.
 func toolchainPrelude(work, scratch string) string {
 	log, failed := scratch+"/forge-toolchain-install.log", scratch+"/forge-toolchain-install-failed"
-	return `rm -f ` + failed + `; cd ` + work + ` 2>/dev/null && [ -f mise.toml -o -f .mise.toml ] && { mise trust -q >/dev/null 2>&1; ` +
+	// The extra certificates (trust.Run) before mise's downloads, and again
+	// after them for what mise installed (a JVM's own store).
+	return trust.Run + `; rm -f ` + failed + `; cd ` + work + ` 2>/dev/null && [ -f mise.toml -o -f .mise.toml ] && { mise trust -q >/dev/null 2>&1; ` +
 		`if ! mise install -y -q >` + log + ` 2>&1; then : >` + failed + `; ` +
 		`echo "apptown: the toolchain this project declares (mise.toml) did not install; its tools may be missing. The installer said (` + log + `):" >&2; ` +
-		`tail -n 20 ` + log + ` >&2; fi; mise reshim >/dev/null 2>&1; }; true`
+		`tail -n 20 ` + log + ` >&2; fi; mise reshim >/dev/null 2>&1; ` + trust.Run + `; }; true`
 }
 
 // toolchainInstallNote is what an agent is told, after its prompt, when the

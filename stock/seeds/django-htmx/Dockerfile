@@ -9,14 +9,16 @@
 # and its known vulnerabilities would fail the image scan on every landing.
 # The build stage carries libpq5 too: collectstatic loads the settings, and
 # a Postgres DATABASES makes Django import psycopg, which needs libpq.
+# Each RUN that downloads mounts the extra certificates AppTown gives a build
+# (the secret apptown-trust) and runs them first; without them it runs as is.
 FROM python:3.12-slim AS build
-RUN apt-get update \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apt-get update \
     && apt-get install -y --no-install-recommends libpq5 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-RUN pip install --no-cache-dir uv
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; uv sync --frozen --no-dev
 COPY . .
 # Static files (the admin's included) are collected here; whitenoise serves
 # them and STATIC_ROOT names the folder. The build has none of the app's
@@ -32,7 +34,7 @@ RUN DJANGO_SECRET_KEY=collectstatic-at-build-only .venv/bin/python manage.py col
 # unprivileged user that owns /app (a SQLite database, if one is used, is
 # created there) and has a home (gunicorn keeps its control socket there).
 FROM python:3.12-slim
-RUN apt-get update && apt-get upgrade -y \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends libpq5 \
     && rm -rf /var/lib/apt/lists/* \
     && python -m pip uninstall -y pip \
@@ -45,4 +47,6 @@ USER app
 EXPOSE 8080
 # Start: bring the schema up, then serve with gunicorn (Django's runserver
 # is a development server). $PORT when the platform sets one.
-CMD ["sh", "-c", "python manage.py migrate --noinput && exec gunicorn app.wsgi --bind 0.0.0.0:${PORT:-8080}"]
+# The command first trusts the extra certificates AppTown gives the
+# running app (APPTOWN_TRUST; nothing without it), then runs the app.
+CMD ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; python manage.py migrate --noinput && exec gunicorn app.wsgi --bind 0.0.0.0:${PORT:-8080}"]

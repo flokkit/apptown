@@ -16,9 +16,12 @@
 # into the image: neither the Go toolchain nor the module and build caches
 # `go install` leaves behind ship. At run time gopls uses the project's own
 # go, from its mise.toml. CGO off, so the binary depends on no libc.
+# Each RUN that downloads mounts the extra certificates AppTown gives a build
+# (the secret apptown-trust; internal/trust) and runs them first, so a
+# build behind a TLS-inspecting proxy can fetch; without them it runs as is.
 FROM golang:1.27.0-bookworm@sha256:ded31c68586d2e49e760acc2e65a884b23d032e9bbbed0ae0c55abd3fcaf4452 AS gopls
 ARG GOPLS_VERSION=v0.23.0
-RUN CGO_ENABLED=0 GOBIN=/out go install golang.org/x/tools/gopls@${GOPLS_VERSION} && /out/gopls version
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; CGO_ENABLED=0 GOBIN=/out go install golang.org/x/tools/gopls@${GOPLS_VERSION} && /out/gopls version
 
 FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 
@@ -28,7 +31,7 @@ FROM node:24-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7
 # and pkg-config to find them. A Rails app's bundle stopped at pg without
 # them (sweep, 2026-10-02). Toolchains themselves come precompiled through
 # mise, so no interpreter is compiled here.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; apt-get update && apt-get install -y --no-install-recommends \
       git curl ca-certificates ripgrep fd-find jq file \
       python3 python3-venv build-essential pkg-config \
       libpq-dev libyaml-dev libffi-dev libssl-dev zlib1g-dev \
@@ -47,7 +50,7 @@ RUN printf '#!/bin/sh\nset -e\ncase "$(dpkg --print-architecture)" in amd64) s=$
 ARG UV_VERSION=0.13.0
 ARG UV_SHA256_AMD64=1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154
 ARG UV_SHA256_ARM64=3ccfb6af6e242433eb552f7d9676abd5412c6595c497e990d9c8cb7b5bd4d2c3
-RUN case "$(dpkg --print-architecture)" in amd64) t=x86_64;; arm64) t=aarch64;; esac \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; case "$(dpkg --print-architecture)" in amd64) t=x86_64;; arm64) t=aarch64;; esac \
     && curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${t}-unknown-linux-gnu.tar.gz" -o /tmp/uv.tgz \
     && sha "$UV_SHA256_AMD64" "$UV_SHA256_ARM64" /tmp/uv.tgz \
     && tar -xzf /tmp/uv.tgz -C /usr/local/bin --strip-components=1 && rm /tmp/uv.tgz && uv --version
@@ -61,7 +64,7 @@ ARG MISE_VERSION=v2026.8.12
 ARG MISE_MIRROR=https://github.com
 ARG MISE_SHA256_AMD64=f2092b1e67f0abc8803d3be120dd2bc5b656dd99680ba3159f710e149da10d05
 ARG MISE_SHA256_ARM64=071e2d16905360fa04762422a2a889692bb3a4d30f27650de50bc1ac0564840b
-RUN arch=$(dpkg --print-architecture) && case "$arch" in amd64) m=x64;; arm64) m=arm64;; *) echo "unsupported arch $arch" && exit 1;; esac \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) && case "$arch" in amd64) m=x64;; arm64) m=arm64;; *) echo "unsupported arch $arch" && exit 1;; esac \
     && curl -fsSL "${MISE_MIRROR}/jdx/mise/releases/download/${MISE_VERSION}/mise-${MISE_VERSION}-linux-${m}" -o /usr/local/bin/mise \
     && sha "$MISE_SHA256_AMD64" "$MISE_SHA256_ARM64" /usr/local/bin/mise \
     && chmod +x /usr/local/bin/mise && mise --version
@@ -72,7 +75,7 @@ RUN arch=$(dpkg --print-architecture) && case "$arch" in amd64) m=x64;; arm64) m
 ARG HIVEMIND_VERSION=1.1.0
 ARG HIVEMIND_SHA256_AMD64=809ca1c5fedbbfca8fdfb3a4b9bb9c41868b046f35f85a3e893ccf2583a3921a
 ARG HIVEMIND_SHA256_ARM64=e4e0b7809bc5a24a61500e11695aa754fc681f19d5d7ba4aeb5f5f1556d69360
-RUN arch=$(dpkg --print-architecture) \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) \
     && curl -fsSL "https://github.com/DarthSim/hivemind/releases/download/v${HIVEMIND_VERSION}/hivemind-v${HIVEMIND_VERSION}-linux-${arch}.gz" -o /tmp/hivemind.gz \
     && sha "$HIVEMIND_SHA256_AMD64" "$HIVEMIND_SHA256_ARM64" /tmp/hivemind.gz \
     && gunzip -c /tmp/hivemind.gz > /usr/local/bin/hivemind && rm /tmp/hivemind.gz \
@@ -85,7 +88,7 @@ ARG GLAB_VERSION=1.55.0
 ARG GITLAB_MIRROR=https://gitlab.com
 ARG GLAB_SHA256_AMD64=ae3feac2aa1034a585e4a24787970dacd30f07906cdc75af8911c32d158b44e8
 ARG GLAB_SHA256_ARM64=36c7368617111148dd34e5cd86ffa11665f76101e4ba396db943f8d17ceaa989
-RUN arch=$(dpkg --print-architecture) \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) \
     && curl -fsSL "${GITLAB_MIRROR}/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.deb" -o /tmp/glab.deb \
     && sha "$GLAB_SHA256_AMD64" "$GLAB_SHA256_ARM64" /tmp/glab.deb \
     && dpkg -i /tmp/glab.deb && rm /tmp/glab.deb && glab --version
@@ -105,7 +108,7 @@ ARG BUILDX_SHA256_AMD64=32ed111e941e385c2fb8261eba06a4056915718fd606f8278834ac19
 ARG BUILDX_SHA256_ARM64=138b587399b27bb61945a36d67866177b85dea1155101a2be63c7ab715f18a2e
 ARG COMPOSE_SHA256_AMD64=c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b
 ARG COMPOSE_SHA256_ARM64=ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e
-RUN arch=$(dpkg --print-architecture) && case "$arch" in amd64) d=x86_64;; arm64) d=aarch64;; *) echo "unsupported arch $arch" && exit 1;; esac \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) && case "$arch" in amd64) d=x86_64;; arm64) d=aarch64;; *) echo "unsupported arch $arch" && exit 1;; esac \
     && curl -fsSL "https://download.docker.com/linux/static/stable/${d}/docker-${DOCKER_VERSION}.tgz" -o /tmp/docker.tgz \
     && sha "$DOCKER_SHA256_AMD64" "$DOCKER_SHA256_ARM64" /tmp/docker.tgz \
     && tar -xzf /tmp/docker.tgz -C /tmp && rm /tmp/docker.tgz \
@@ -135,7 +138,7 @@ COPY --from=gopls /out/gopls /usr/local/bin/gopls
 # (--ignore-scripts here, npm_config_ignore_scripts for pi install, which
 # runs npm); none of these tools needs one. A project's own npm installs in
 # the running container are not affected.
-RUN npm install -g --ignore-scripts @biomejs/biome@${BIOME_VERSION} \
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm install -g --ignore-scripts @biomejs/biome@${BIOME_VERSION} \
     && UV_TOOL_BIN_DIR=/usr/local/bin uv tool install ruff==${RUFF_VERSION} \
     && npm cache clean --force && rm -rf /root/.cache/uv \
     && biome --version && ruff --version && gopls version
@@ -143,7 +146,7 @@ LABEL apptown.lsp.servers=biome,ruff,gopls
 
 # pi itself
 ARG PI_VERSION=0.84.3
-RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
 # Runtime version surfaces in step evidence via this label (receipts).
 LABEL apptown.pi.version=${PI_VERSION}
 
@@ -153,7 +156,7 @@ LABEL apptown.pi.version=${PI_VERSION}
 # settings, so session start never touches the network. The label is how
 # apptownd learns the pinned version (and receipts record it).
 ARG PI_SUBAGENTS_VERSION=0.61.0
-RUN npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:pi-subagents@${PI_SUBAGENTS_VERSION}
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:pi-subagents@${PI_SUBAGENTS_VERSION}
 # UPSTREAM PATCH (pi-subagents 0.61.0, complaint #7): child model verification
 # compares the alias we pin (claude-haiku-4-5) against the dated id the
 # provider reports (claude-haiku-4-5-20251001) and fails the run. The package
@@ -182,7 +185,7 @@ LABEL apptown.pi-subagents.version=${PI_SUBAGENTS_VERSION}
 # gains npm:@narumitw/pi-lsp. Off by default — trust:never means a repo can't
 # enable it, only a blessed pack/setting can.
 ARG PI_LSP_VERSION=0.49.6
-RUN npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:@narumitw/pi-lsp@${PI_LSP_VERSION}
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:@narumitw/pi-lsp@${PI_LSP_VERSION}
 LABEL apptown.pi-lsp.version=${PI_LSP_VERSION}
 
 WORKDIR /work

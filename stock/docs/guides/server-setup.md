@@ -286,7 +286,7 @@ three:
 | Flag (or variable) | Connections that trust it |
 | --- | --- |
 | `-trust-inference` (`APPTOWN_TRUST_INFERENCE`) | model providers |
-| `-trust-deployments` (`APPTOWN_TRUST_DEPLOYMENTS`) | apps' preview and deployment addresses (the runtime checks), and container registries |
+| `-trust-deployments` (`APPTOWN_TRUST_DEPLOYMENTS`) | apps' preview and deployment addresses (the runtime checks), container registries, and every container and build AppTown starts (below) |
 | `-trust-apptown` (`APPTOWN_TRUST_APPTOWN`) | everything else AppTown calls: Git hosts, integration providers, cloud provider APIs |
 
 The system's own roots stay trusted. A file that is missing or holds no
@@ -295,9 +295,55 @@ git is given the system's roots and the file together, so the system must
 keep its roots in one file (as Linux distributions and macOS do).
 
 With `-local-tls`, AppTown's own local certificate authority is added to the
-deployments certificates only.
+deployments certificates only, and given only to containers on this
+machine: it vouches for nothing else.
 
-These flags cover AppTown's own connections. The containers AppTown starts
-(agent, check and build steps, previews and deployed apps) are not given
-these certificates. A host's Docker trusts what that host's system or
-`/etc/docker/certs.d` trusts.
+### The containers and builds AppTown starts
+
+The deployments certificates also go to what AppTown starts, as one script,
+`APPTOWN_TRUST`, that adds them beside the image's own roots:
+
+- Agent, script, tests and check steps, chats and screenshots run it before
+  their command, and again after installing the toolchain the project
+  declares, so a JVM that `mise` installs trusts them too.
+- The private Docker daemons of steps, chats and release builds, and the
+  builder inside them, trust them for their own pulls.
+- Every image AppTown builds (previews, releases, check images, the agent
+  image) is given them as the build secret `apptown-trust`. A Dockerfile uses
+  it in each `RUN` that downloads:
+
+  ```dockerfile
+  RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm ci
+  ```
+
+  A `RUN` that runs as a user other than root adds `,mode=0444` to the
+  mount, so it can read it. Building with the secret needs buildx (Docker's
+  builder since version 23); a Docker without it refuses such a build.
+- Deployed apps and previews, on Docker hosts, Portainer and App Platform,
+  are given the variable, and the app's start command runs it:
+
+  ```dockerfile
+  CMD ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "node", "server.js"]
+  ```
+
+  A `command:` in `.apptown/app.yaml` replaces `CMD`, so it runs the line
+  itself if the app calls out.
+
+The shipped starter Dockerfiles do both. With nothing configured the script
+does nothing, so a Dockerfile written this way builds and runs anywhere.
+Running it sets `SSL_CERT_FILE` and the other variables programs read (each
+to the image's own roots plus the extras), apt's setting, a copy of Java's
+store named in `JAVA_TOOL_OPTIONS`, and Chromium's store; as root, outside a
+build, it also adds them to the system store.
+
+What it cannot reach:
+
+- An app image with no shell (distroless, `scratch`), such as the go-small
+  starter's runtime, cannot run the script; it trusts only its own roots.
+- A host's own Docker daemon pulls images with what that host trusts. Give
+  it the authority once: copy the certificate to
+  `/etc/docker/certs.d/<registry host>/ca.crt` for each registry (or into the
+  host's system store and restart Docker).
+- The access gate in front of a restored copy on App Platform reads the
+  certificates from the same variable; rebuild its image (`make gate-image`)
+  to get that.

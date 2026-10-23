@@ -17,6 +17,8 @@ import (
 	"github.com/flokkit/apptown/internal/execfile"
 
 	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/trust"
+	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
 
 // fakeDocker is the daemon as the runtime sees it through docker commands:
@@ -659,31 +661,49 @@ func TestAppTownsChatsShareAppTownCache(t *testing.T) {
 	}
 }
 
-// On an AppTown with its own local HTTPS, a chat gets the authority's
-// certificate (never its key) in /console and a launcher that trusts it and
-// reaches AppTown before pi starts; on any other AppTown it gets neither.
-func TestAChatOnALocalTLSForgeTrustsTheAuthority(t *testing.T) {
-	r, in, _ := fixture(t)
+// A chat is given the extra certificates this machine's containers trust
+// (internal/trust) and its launcher runs them before pi; with none it is
+// given nothing. On an AppTown with its own local HTTPS the launcher also
+// reaches AppTown before pi starts; the authority itself comes with the
+// extra certificates, never as a file of its own.
+// Not parallel: it installs the process's trust.
+func TestAChatIsGivenTheExtraCertificatesAndRunsThem(t *testing.T) {
+	r, in, f := fixture(t)
+	created := func() string {
+		for _, args := range f.calls {
+			if args[0] == "create" {
+				return strings.Join(args, " ")
+			}
+		}
+		t.Fatal("no chat container was created")
+		return ""
+	}
 	if err := r.provision(in); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(in.Dir, console.LocalCAFile)); err == nil {
-		t.Fatal("a chat on an AppTown without local HTTPS got a certificate")
-	}
-	if run, _ := os.ReadFile(filepath.Join(in.Dir, "run-pi.sh")); strings.Contains(string(run), console.LocalCAFile) {
-		t.Fatalf("a chat on an AppTown without local HTTPS got the prelude: %s", run)
+	if strings.Contains(created(), "-e "+trust.EnvVar) {
+		t.Fatalf("a chat was given extra certificates with none configured: %s", created())
 	}
 
+	trusttest.Install(t, trusttest.New(t, "Test Extra CA").Bundle(t), trust.Bundle{})
+	f.calls = nil
 	tls := &console.LocalTLS{CACert: []byte("THE-CA-CERT"), Port: 7777, Target: "host.docker.internal:7777"}
 	r.cfg.LocalTLS = tls
 	if err := r.provision(in); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := os.ReadFile(filepath.Join(in.Dir, console.LocalCAFile)); string(got) != "THE-CA-CERT" {
-		t.Fatalf("staged certificate %q", got)
+	if !strings.Contains(created(), "-e "+trust.EnvVar+" ") {
+		t.Fatalf("the chat's container is not given the extra certificates: %s", created())
 	}
 	run, _ := os.ReadFile(filepath.Join(in.Dir, "run-pi.sh"))
-	if at := strings.Index(string(run), console.LocalTLSPrelude(*tls)); at < 0 || at > strings.Index(string(run), "exec pi ") {
+	pi := strings.Index(string(run), "exec pi ")
+	if at := strings.Index(string(run), trust.Run); at < 0 || at > pi {
+		t.Fatalf("the launcher does not run the extra certificates before pi: %s", run)
+	}
+	if at := strings.Index(string(run), console.LocalTLSPrelude(*tls)); at < 0 || at > pi {
 		t.Fatalf("the launcher does not run the local HTTPS prelude before pi: %s", run)
+	}
+	if _, err := os.Stat(filepath.Join(in.Dir, "local-ca.pem")); err == nil {
+		t.Fatal("the local authority was staged as a file of its own")
 	}
 }

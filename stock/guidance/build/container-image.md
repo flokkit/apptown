@@ -57,6 +57,24 @@ newer tag; a project kept fresh by an automated digest updater says so in a
 comment beside the final `FROM`. A language library is fixed by raising its
 version in the app's manifest.
 
+**Extra certificate authorities.** Behind a company's TLS-inspecting proxy,
+AppTown gives a build the authorities it must trust as the build secret
+`apptown-trust`, and the running app as the variable `APPTOWN_TRUST`. Each is
+a script that adds them beside the image's own roots; with nothing
+configured it does nothing, so the Dockerfile builds and runs the same
+anywhere. Every `RUN` that downloads (a package manager, `curl`) mounts the
+secret and runs it first, and the final command runs the variable first:
+
+```dockerfile
+RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm ci
+CMD ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", "node", "server.js"]
+```
+
+A `RUN` as a user other than root adds `,mode=0444` to the mount. A
+`command:` in `.apptown/app.yaml` replaces `CMD` and runs the line itself if
+the app calls out. A final stage with no shell (distroless, `scratch`)
+cannot run it.
+
 **A finding that cannot be fixed** (no fixed release, or not applicable) is
 recorded as an exception by a person on the project's Security tab. Report it
 and the fix it needs; never record the exception yourself or work around the
