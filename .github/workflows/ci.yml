@@ -8,17 +8,24 @@
 # container (internal/dbtest), as for a local `make check`.
 name: ci
 
-# Main changes only through merged pull requests that are up to date with it
-# (the ruleset's strict rule), so the pull request's run has tested exactly
-# what main becomes; a push run would test it twice. Every pull request runs
-# every job, a documentation-only one too, so ci-ok always reports.
+# Every pull request runs every job, a documentation-only one too, so ci-ok
+# always reports. Main changes only through merged pull requests that are
+# up to date with it (the ruleset's strict rule), so the pull request's run
+# has tested what main becomes; main runs again anyway, because only main's
+# caches can be restored by every pull request (a cache saved on a pull
+# request is that pull request's alone), and each landed commit then has its
+# own result.
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
+# A pull request's newer run replaces its older one. Main's runs, and runs
+# by hand, are each kept.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -76,12 +83,27 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: web-dist
           path: web/dist/
+      # Go's module and build caches: restored by prefix from main's, saved
+      # only on main (see the top of this file), so each holds one cache.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gomod
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gobuild
+        with:
+          path: ~/.cache/go-build
+          key: go-build-checks-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-build-checks-${{ runner.os }}-
       # The analyzers the Makefile pins, by the Makefile's hash.
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: tools
         with:
           path: ~/go/bin
@@ -96,6 +118,21 @@ jobs:
           check-shape check-exec check-sqlnow check-reachability
           check-ci-heavy check-pins check-npm-scripts check-build-artifacts check-vuln
       - run: make check-gate
+      - if: github.ref == 'refs/heads/main' && steps.tools.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/bin
+          key: ${{ steps.tools.outputs.cache-primary-key }}
+      - if: github.ref == 'refs/heads/main' && steps.gomod.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ steps.gomod.outputs.cache-primary-key }}
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: ${{ steps.gobuild.outputs.cache-primary-key }}
 
   # The Go unit tests, partitioned: the root package's two halves (as the
   # gate splits it), the rest of internal/apptown, and everything else.
@@ -112,10 +149,25 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          cache: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: web-dist
           path: web/dist/
+      # Go's module and build caches: restored by prefix from main's, saved
+      # only on main (see the top of this file), so each holds one cache.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gomod
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gobuild
+        with:
+          path: ~/.cache/go-build
+          key: go-build-test-${{ matrix.part }}-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-build-test-${{ matrix.part }}-${{ runner.os }}-
       - name: go test (${{ matrix.part }})
         run: |
           root=github.com/flokkit/apptown/internal/apptown
@@ -125,6 +177,11 @@ jobs:
           subsystems) go list ./internal/apptown/... | grep -vx "$root" | xargs go test -count=1 ;;
           rest) go list ./... | grep -vE "^$root(/|\$)" | xargs go test -count=1 ;;
           esac
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: ${{ steps.gobuild.outputs.cache-primary-key }}
 
   # The public gate (scripts/public-check.py): HEAD's tree has no private
   # path or maintainers' root file, names none of their home-lab hosts, and

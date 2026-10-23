@@ -131,7 +131,7 @@ service, never a mock.
   remedy is to leave the game or take it out of full screen. CI's Linux jobs
   have no such band and skip the check.
 - CI is GitHub Actions. `.github/workflows/ci.yml` runs on every pull
-  request, documentation-only ones too, and its `ci-ok` job is the check
+  request, documentation-only ones too, and on every push to `main`; its `ci-ok` job is the check
   `main` requires: it passes only when every other job succeeded. `web` runs
   make check's web stages (`npm ci`, `tsc --noEmit`, the Vite build, lint
   and vitest) and keeps the build; `checks` runs make check's checker stages
@@ -148,7 +148,11 @@ service, never a mock.
   result does not block merging; the next change fixes it first. A release
   tag's images and archives are built only for a commit with a run that
   passed on its first attempt (`images.yml`, `heavy-evidence`). The
-  integration, journey and opt-in jobs run `scripts/ci-heavy.sh`: it builds
+  heavy jobs first pull the images their tests start
+  (`deploy/ci-heavy/test-images.txt`), so a registry error while fetching
+  them fails that step and not a test; AppTown's deliberate pulls, BuildKit
+  resolving FROM tags and private daemons inside tests still reach a
+  registry during the tests. The integration, journey and opt-in jobs run `scripts/ci-heavy.sh`: it builds
   the `apptown-agent` image from the checkout and the test image (`deploy/ci-heavy`: Go, Node,
   the pinned Docker CLI, Playwright's Chromium and the Pi the agent image
   pins), then runs `go test` in it as root, on the runner's network and

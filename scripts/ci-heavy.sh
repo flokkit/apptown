@@ -6,10 +6,15 @@
 #   ci-heavy.sh tour           make tour, with site/tour and web/dist left in
 #                              the checkout, owned by the caller
 #   ci-heavy.sh cleanup        (the job's last step; also run on exit)
+#   ci-heavy.sh pull           pull every image deploy/ci-heavy/test-images.txt
+#                              lists (the step before the tests)
 # CI_HEAVY_ID names the job (unique on the Docker host).
 # With CI_HEAVY_REQUIRE set to test names, the job fails unless go test's
 # verbose output shows each of them passing: a skipped test, a renamed one
 # ("no tests to run") or a missing prerequisite is not evidence.
+# The tests' images are pulled before them by the pull step
+# (deploy/ci-heavy/test-images.txt), so a registry error fails that step and
+# not a test.
 # The tests run as root in the apptown-ci-heavy image (deploy/ci-heavy)
 # beside the host's daemon: the containers AppTown starts run as root and
 # write into the folders it bind-mounts, and only root can remove what they
@@ -18,6 +23,32 @@
 # are mounted at the same path inside; the checkout read-only, so nothing
 # root-owned is left in it.
 set -eu
+images=deploy/ci-heavy/test-images.txt
+
+# The list's references, without comments or blank lines.
+listed() {
+	sed -e 's/#.*//' -e 's/[[:space:]]//g' "$images" | grep -v '^$'
+}
+
+if [ "${1:-}" = pull ]; then
+	failed=
+	for ref in $(listed); do
+		n=1
+		until docker pull -q "$ref" >/dev/null; do
+			if [ "$n" -ge 3 ]; then
+				echo "::error::could not pull $ref (3 attempts); the heavy tests need it ($images)"
+				failed=1
+				break
+			fi
+			n=$((n + 1))
+			sleep "${CI_HEAVY_PULL_PAUSE:-10}"
+		done
+	done
+	[ -z "$failed" ] || exit 1
+	echo "ci-heavy: pulled $(listed | wc -l | tr -d ' ') images"
+	exit 0
+fi
+
 name=apptown-ci-${CI_HEAVY_ID:?CI_HEAVY_ID names the job}
 tmp=/tmp/$name
 
@@ -38,7 +69,7 @@ test | tour)
 	shift
 	;;
 *)
-	echo "usage: $0 test <go test arguments...> | tour | cleanup" >&2
+	echo "usage: $0 test <go test arguments...> | tour | cleanup | pull" >&2
 	exit 2
 	;;
 esac

@@ -58,7 +58,6 @@ func TestIntegrationStockImageScansDoNotWaitOnAnotherScansCache(t *testing.T) {
 
 	// The other scan: a process holding the lock trivy takes on its scan
 	// cache, as a scan of a large image does for as long as it reads it.
-	run("pull", "-q", check.ShImage)
 	holder := run("run", "-d", "--rm", "--entrypoint", "sh", "-v", volume+":/apptown-cache", check.ShImage, "-c",
 		"mkdir -p /apptown-cache/trivy/fanal && flock -x /apptown-cache/trivy/fanal/fanal.db sh -c 'echo held; sleep 600'")
 	t.Cleanup(func() { _, _ = cli.Run(context.Background(), "", docker.Command{Args: []string{"rm", "-f", holder}}) })
