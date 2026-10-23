@@ -62,9 +62,10 @@ SURFACES = {
 # Files that are history or this check itself: never counted. The upgrade
 # fixtures and the rc5 catalogue copies are earlier releases' frozen state
 # (internal/apptown/boot_test.go, the dependency upgrade tests): they keep the
-# names those releases wrote.
+# names those releases wrote. RC6's notes record the rename itself, so they
+# name every old name beside its new one.
 SKIP = re.compile(
-    r"^(web/dist/|.*node_modules/|releases/v1\.0\.0-rc\.[1-5]\.md$"
+    r"^(web/dist/|.*node_modules/|releases/v1\.0\.0-rc\.[1-6]\.md$"
     r"|internal/apptown/testdata/upgrade/|internal/apptown/dependency/testdata/rc5/"
     r"|scripts/names-check\.py$|scripts/names-check_test\.py$|scripts/names-baseline\.json$)"
 )
