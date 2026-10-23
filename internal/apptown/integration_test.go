@@ -233,9 +233,6 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	if _, err := gitexec.Run(t.Context(), repo, "commit", "-m", "app"); err != nil {
 		t.Fatal(err)
 	}
-	envContainer := fmt.Sprintf("apptown-env-%s-main", slug)
-	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", envContainer) })
-
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "itest-deploy", Version: 1}, Spec: schema.Spec{
 		Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "boot", Steps: []schema.Step{{Name: "deploy", Uses: "deploy"}}}},
 	}})
@@ -280,6 +277,13 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	if err != nil {
 		t.Fatal("no environment row recorded")
 	}
+	// The app's container is named by the deployment, as AppTown names it.
+	names, err := environment.HostNames(slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envContainer := names.App()
+	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", envContainer) })
 	hostPort := environment.HostPort
 	if !strings.Contains(mustGET(t, fmt.Sprintf("http://127.0.0.1:%d/", hostPort)), "deployed and standing") {
 		t.Fatal("environment does not serve the app")
@@ -291,6 +295,11 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	stageAll(repo)
 	if _, err := gitexec.Run(ctx, repo, "commit", "-m", "advance checkout after deployment"); err != nil {
 		t.Fatal(err)
+	}
+	// docker rm -f succeeds on a name that is not there, so the kill first
+	// sees the container it kills.
+	if err := dockertest.Run("inspect", envContainer); err != nil {
+		t.Fatalf("the deployed container %s is not there to kill: %v", envContainer, err)
 	}
 	if err := dockertest.Run("rm", "-f", envContainer); err != nil {
 		t.Fatal(err)
