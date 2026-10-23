@@ -1,5 +1,6 @@
 // Package polltest is poll's converse for tests: the check that something
-// does not happen for a while. It lives apart from poll because nothing the
+// does not happen for a while, and the bound for a wait whose length is not
+// what a test checks. It lives apart from poll because nothing the
 // apptown runs asks it (the reachability gate holds poll to what apptownd
 // reaches).
 package polltest
@@ -25,4 +26,18 @@ func Holds(ctx context.Context, d time.Duration, cond func() bool) bool {
 // every 50 ms.
 func interval(d time.Duration) time.Duration {
 	return max(min(d/20, 50*time.Millisecond), time.Millisecond)
+}
+
+// HangGuard bounds a wait whose length is not what the test checks: the
+// test binary's remaining time, less a tenth to report the failure (ten
+// minutes when the binary has no deadline). A test's guarantee is the
+// event it waits for; a few seconds of wall clock is not a guarantee, and on
+// a loaded machine an ordinary Docker or Git call (or the first start of a
+// freshly written executable, which macOS scans) can take longer.
+func HangGuard(t interface{ Deadline() (time.Time, bool) }) time.Duration {
+	deadline, ok := t.Deadline()
+	if !ok {
+		return 10 * time.Minute
+	}
+	return time.Until(deadline) * 9 / 10
 }

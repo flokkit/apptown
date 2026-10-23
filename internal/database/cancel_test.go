@@ -95,3 +95,80 @@ func TestACancelledQueryLeavesNoErrorForTheNextOne(t *testing.T) {
 		t.Fatalf("the next query on a context nobody cancelled: %d %v", one, err)
 	}
 }
+
+// writeCutByCancel is a connection whose next write, once armed, sends one
+// byte and then waits until a cancellation's deadline is set on the
+// connection before sending the rest, which the deadline then stops: a
+// statement written slowly (as on a loaded machine) when its caller
+// cancels. One byte already sent means pgx cannot retry the write on
+// another connection.
+type writeCutByCancel struct {
+	net.Conn
+	armed    *atomic.Bool
+	started  chan struct{} // closed once the first byte is sent
+	deadline chan struct{}
+	once     *atomic.Bool
+}
+
+func (c writeCutByCancel) Write(p []byte) (int, error) {
+	if len(p) < 2 || !c.armed.CompareAndSwap(true, false) {
+		return c.Conn.Write(p)
+	}
+	n, err := c.Conn.Write(p[:1])
+	if err != nil {
+		return n, err
+	}
+	close(c.started)
+	select {
+	case <-c.deadline:
+	case <-time.After(10 * time.Second): // a hang guard
+		return n, errors.New("the cancellation set no deadline")
+	}
+	m, err := c.Conn.Write(p[1:])
+	return n + m, err
+}
+
+func (c writeCutByCancel) SetDeadline(t time.Time) error {
+	err := c.Conn.SetDeadline(t)
+	if !t.IsZero() && c.once.CompareAndSwap(false, true) {
+		close(c.deadline)
+	}
+	return err
+}
+
+// A statement whose write the caller's cancellation cuts short fails with
+// the cancellation, not with the network timeout the cancellation caused:
+// pgx turns a deadline into the context's error when it reads, but not when
+// it writes. (22 Oct: a cancelled preview request returned "write failed:
+// write tcp ...: i/o timeout" where its caller looked for context.Canceled.)
+func TestACancelledWriteFailsWithTheCancellation(t *testing.T) {
+	t.Parallel()
+	var armed, once atomic.Bool
+	started, deadline := make(chan struct{}), make(chan struct{})
+	db := suite.NewWith(t, func(c net.Conn) net.Conn {
+		return writeCutByCancel{c, &armed, started, deadline, &once}
+	})
+	db.Pool().SetMaxOpenConns(1)
+	// The connection is open and idle before the statement is armed.
+	if err := db.Ping(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	armed.Store(true)
+	go func() {
+		// Cancelled while the statement is being written: the armed write
+		// has sent its first byte and waits for the cancellation.
+		<-started
+		cancel()
+	}()
+	var one int
+	err := db.SQL().QueryRowContext(ctx, "SELECT 1").Scan(&one)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("a statement its caller cancelled while it was written: %v", err)
+	}
+	var ne net.Error
+	if !errors.As(err, &ne) || !ne.Timeout() {
+		t.Fatalf("the network's own words are lost: %v", err)
+	}
+}

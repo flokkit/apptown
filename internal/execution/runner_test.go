@@ -21,22 +21,8 @@ import (
 	"github.com/flokkit/apptown/internal/execfile"
 
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/poll/polltest"
 )
-
-// hangGuard bounds a run whose duration is not what the test checks: by the
-// test binary's own deadline, less a tenth to report the failure. The first
-// start of a freshly written fake executable waits for the operating system's
-// first-run check of a new file (macOS scans it), which under a busy suite
-// took more than ten seconds; a fixed ten-second bound failed these tests for
-// that alone, with "signal: killed" on the fake's first call.
-func hangGuard(t *testing.T) time.Duration {
-	t.Helper()
-	deadline, ok := t.Deadline()
-	if !ok {
-		return 10 * time.Minute
-	}
-	return time.Until(deadline) * 9 / 10
-}
 
 func shell(command string) Request {
 	return Request{Argv: []string{"sh", "-c", command}, Timeout: 5 * time.Second}
@@ -213,7 +199,7 @@ exit 1
 			// former one-second deadline race.
 			req := Request{Workspace: dir, WorkspaceRO: true, Argv: []string{"echo", "literal $(command)"},
 				Env: []string{"VALUE=two words"}, Image: "pinned:v1", Name: "owned-test", Network: "none",
-				NoEntrypoint: true, Labels: []string{"owner=example"}, Timeout: hangGuard(t),
+				NoEntrypoint: true, Labels: []string{"owner=example"}, Timeout: polltest.HangGuard(t),
 				OnLine: func(line string) {
 					if line == "started" {
 						started = true

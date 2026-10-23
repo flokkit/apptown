@@ -88,23 +88,28 @@ func TestStagedBuildContextSelectsSourceInCopiedFolder(t *testing.T) {
 	if err := os.Mkdir(origin, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	run := func(dir, name string, args ...string) {
-		c := exec.Command(name, args...)
-		c.Dir = dir
+	// Git through gittest, whose maintenance ends with the command: a
+	// detached "maintenance run --auto" after the commit held
+	// objects/maintenance.lock while cp copied the repository (CI, 23 Oct).
+	git := func(args ...string) {
+		c := gittest.Command(args...)
+		c.Dir = origin
 		c.Env = append(c.Env, "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
 		if out, err := c.CombinedOutput(); err != nil {
-			t.Fatalf("%s %v: %v: %s", name, args, err, out)
+			t.Fatalf("git %v: %v: %s", args, err, out)
 		}
 	}
 	if err := os.WriteFile(filepath.Join(origin, "Dockerfile"), []byte("FROM scratch\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	run(origin, "git", "init", "-q")
-	run(origin, "git", "add", "Dockerfile")
-	run(origin, "git", "commit", "-qm", "seed")
+	git("init", "-q")
+	git("add", "Dockerfile")
+	git("commit", "-qm", "seed")
 	copyOf := func() string {
 		dst := filepath.Join(t.TempDir(), "copy")
-		run(origin, "cp", "-a", origin, dst)
+		if out, err := exec.Command("cp", "-a", origin, dst).CombinedOutput(); err != nil {
+			t.Fatalf("copying the repository: %v: %s", err, out)
+		}
 		return dst
 	}
 	read := func(ws string) string {

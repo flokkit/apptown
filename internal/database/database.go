@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -73,8 +74,15 @@ func openRaw(url string, dial pgconn.DialFunc) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	if dial != nil {
-		cfg.DialFunc = dial
+	if dial == nil {
+		dial = cfg.DialFunc
+	}
+	cfg.DialFunc = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		conn, err := dial(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+		return &cancellable{Conn: conn}, nil
 	}
 	cfg.BuildContextWatcherHandler = markCancels
 	// Moments come back in UTC: AppTown
@@ -113,21 +121,99 @@ const cancelledKey = "apptown.cancelled"
 
 // cancelMarker is pgx's default handling of a cancelled context (a deadline
 // on the connection that interrupts its read), which also marks the
-// connection for a ping before its next use.
+// connection for a ping before its next use, and tells the connection
+// which cancellation set its deadline.
 type cancelMarker struct {
 	*pgconn.DeadlineContextWatcherHandler
 	cancelled *atomic.Bool
+	conn      *cancellable
 }
 
 func (h cancelMarker) HandleCancel(ctx context.Context) {
 	h.cancelled.Store(true)
+	if h.conn != nil {
+		cause := ctx.Err()
+		h.conn.cause.Store(&cause)
+	}
 	h.DeadlineContextWatcherHandler.HandleCancel(ctx)
+}
+
+func (h cancelMarker) HandleUnwatchAfterCancel() {
+	h.DeadlineContextWatcherHandler.HandleUnwatchAfterCancel()
+	if h.conn != nil {
+		h.conn.cause.Store(nil)
+	}
 }
 
 func markCancels(pc *pgconn.PgConn) ctxwatch.Handler {
 	cancelled := new(atomic.Bool)
 	pc.CustomData()[cancelledKey] = cancelled
-	return cancelMarker{&pgconn.DeadlineContextWatcherHandler{Conn: pc.Conn()}, cancelled}
+	return cancelMarker{&pgconn.DeadlineContextWatcherHandler{Conn: pc.Conn()}, cancelled, beneath(pc.Conn())}
+}
+
+// cancellable is a connection that knows when its deadline is a caller's
+// cancellation. pgx stops a cancelled statement by setting a deadline on
+// the connection, and turns the timeout that follows into the context's
+// error when it reads, but not when it writes: a statement whose write the
+// cancellation cut short failed with "write failed: ... i/o timeout", which
+// no caller can tell from a network fault. Here a read or write that times
+// out while a cancellation's deadline is set fails with an error that is
+// both the context's error and the network's.
+type cancellable struct {
+	net.Conn
+	cause atomic.Pointer[error]
+}
+
+func (c *cancellable) Read(p []byte) (int, error) {
+	n, err := c.Conn.Read(p)
+	return n, c.explain(err)
+}
+
+func (c *cancellable) Write(p []byte) (int, error) {
+	n, err := c.Conn.Write(p)
+	return n, c.explain(err)
+}
+
+func (c *cancellable) explain(err error) error {
+	var ne net.Error
+	if err == nil || !errors.As(err, &ne) || !ne.Timeout() {
+		return err
+	}
+	if cause := c.cause.Load(); cause != nil && *cause != nil {
+		return &cancelledIO{cause: *cause, err: err, net: ne}
+	}
+	return err
+}
+
+// cancelledIO is a read or write a cancellation's deadline stopped: it is
+// the cancellation (errors.Is context.Canceled or DeadlineExceeded) and
+// still the network's timeout, a net.Error as before (pgx and TLS look for
+// one).
+type cancelledIO struct {
+	cause, err error
+	net        net.Error // err, or what it wraps
+}
+
+func (e *cancelledIO) Error() string   { return e.cause.Error() + ": " + e.err.Error() }
+func (e *cancelledIO) Unwrap() []error { return []error{e.cause, e.err} }
+func (e *cancelledIO) Timeout() bool   { return e.net.Timeout() }
+
+// Temporary: a cancelled statement is not one to try again.
+func (e *cancelledIO) Temporary() bool { return false }
+
+// beneath finds the cancellable under pgx's connection, which may be TLS
+// over it.
+func beneath(conn net.Conn) *cancellable {
+	for {
+		switch c := conn.(type) {
+		case *cancellable:
+			return c
+		case interface{ NetConn() net.Conn }:
+			conn = c.NetConn()
+		default:
+			return nil
+		}
+	}
 }
 
 // pingAfterCancel pings a connection that was cancelled since its last use,

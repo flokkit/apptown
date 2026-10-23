@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/execfile"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/poll/polltest"
 )
 
 // A run's services are a precondition, never a guess: a service that does
@@ -42,7 +43,7 @@ exit 0
 		t.Fatal(err)
 	}
 	svc := []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16-alpine"}}
-	req := Request{Argv: []string{"make", "test"}, Image: "agent:test", Name: "tests-1", Timeout: hangGuard(t), Services: svc}
+	req := Request{Argv: []string{"make", "test"}, Image: "agent:test", Name: "tests-1", Timeout: polltest.HangGuard(t), Services: svc}
 	out := (Runner{DockerBinary: fake}).Run(context.Background(), Docker, req)
 	if out.Termination != LaunchFailed || out.RunErr == nil || !strings.Contains(out.RunErr.Error(), "the service postgres: it exited 1: starting / chdir /data: no such file or directory") {
 		t.Fatalf("a run whose service never became ready: %+v", out)
@@ -97,7 +98,7 @@ exit 0
 	if err := execfile.Write(fake, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	req := Request{Argv: []string{"make", "test"}, Image: "agent:test", Name: "tests-1", Timeout: hangGuard(t),
+	req := Request{Argv: []string{"make", "test"}, Image: "agent:test", Name: "tests-1", Timeout: polltest.HangGuard(t),
 		Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16-alpine"}, {Name: "s3", Image: "versity/versitygw:v1.8.0", Data: "/data", Entrypoint: []string{"/bin/sh", "-c"}, Command: []string{"start"}}}}
 	serviceRuns := func(r Runner) []string {
 		t.Helper()
@@ -179,7 +180,7 @@ exit 0
 			if err := execfile.Write(fake, []byte(script), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			req := Request{Argv: []string{"make", "test"}, Image: "agent:test", Name: "tests-1", Timeout: hangGuard(t),
+			req := Request{Argv: []string{"make", "test"}, Image: "agent:test", Name: "tests-1", Timeout: polltest.HangGuard(t),
 				Services: []deploy.ServiceSpec{{Name: "postgres", Image: "postgres:16-alpine"}}}
 			out := (Runner{DockerBinary: fake}).Run(context.Background(), Docker, req)
 			if out.Termination != Exited || (out.CleanupErr == nil) != tc.wantClean {
