@@ -209,10 +209,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make check-sql
 
-  # The one required check (the main ruleset): it passes only when every job
-  # above succeeded, so a job added or renamed here cannot drop out of what
-  # a merge needs. It runs even when a job failed or was skipped, and then
-  # fails: skipped is not passed.
+  # A required check (the main ruleset, beside heavy.yml's heavy-ok): it
+  # passes only when every job above succeeded, so a job added or renamed
+  # here cannot drop out of what a merge needs. It runs even when a job
+  # failed or was skipped, and then fails: skipped is not passed.
   ci-ok:
     if: always()
     needs: [web, checks, test, public, sql-writes]

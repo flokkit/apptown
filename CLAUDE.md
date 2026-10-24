@@ -150,8 +150,9 @@ requirements (and the maintainers' position documents) establish intent. When th
 silently changing the promise.
 
 Changes land on `main` as one pull request per change, squash-merged after
-the required `ci-ok` check passes. The pull request's title and description
-are the public record: they say what changed and why, not how the work went.
+the required `ci-ok` and `heavy-ok` checks pass. The pull request's title and
+description are the public record: they say what changed and why, not how the
+work went.
 The maintainers plan and independently review changes in a separate private
 repository, checked out at `private/` and ignored here; when it is present,
 its working rules apply as well: @private/CLAUDE.md
