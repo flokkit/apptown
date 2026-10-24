@@ -22,23 +22,36 @@ func recordingDocker(t *testing.T) (binary, calls string) {
 	dir := t.TempDir()
 	calls = filepath.Join(dir, "calls")
 	binary = filepath.Join(dir, "docker")
-	// A run's own inspection says it was not killed. The disk read answers
-	// what dir/df holds, fails while dir/unread exists, records a probe
-	// container and prints nothing on stdout while dir/silent exists, fails
-	// before recording one while dir/uncreated exists, and otherwise
-	// answers a disk with room; a task inspected is
+	// A run's own inspection says it was not killed. The disk read's
+	// container leaves in its result file what dir/df holds, cannot be
+	// created while dir/unread exists, leaves df's stdout empty with a
+	// notice on its stderr (and a log with a line on each stream) while
+	// dir/silent exists, is refused by the daemon with a reason while
+	// dir/uncreated exists, and otherwise leaves a disk with room; its
+	// calls are not recorded. A task inspected is
 	// one already created while dir/exists exists, cannot be asked about
 	// while dir/offline exists, and is absent otherwise.
 	script := `#!/bin/sh
 [ "$1" = inspect ] && [ "$2" != --type ] && { echo false; exit 0; }
 [ "$1" = inspect ] && { [ -f "` + dir + `/exists" ] && { echo "c1 created 0 false"; exit 0; }; [ -f "` + dir + `/offline" ] && exit 1; echo "Error: No such object: $4"; exit 1; }
 [ "$1" = info ] && { echo /var/lib/docker; exit 0; }
-case "$*" in *" df -Pk /d")
+case "$*" in
+"ps -a --filter label=apptown.class=disk-probe "*) exit 0;;
+"create --name apptown-disk-probe-"*)
   [ -f "` + dir + `/unread" ] && exit 125
-  [ -f "` + dir + `/silent" ] && { [ "$2" = --cidfile ] && printf probe-c1 > "$3"; echo "a notice on stderr" >&2; exit 0; }
   [ -f "` + dir + `/uncreated" ] && { echo "docker: Error response from daemon: no space for the probe" >&2; exit 125; }
-  [ -f "` + dir + `/df" ] && { cat "` + dir + `/df"; exit 0; }
-  printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10%% /d\n'; exit 0;;
+  echo probe-c1; exit 0;;
+"start apptown-disk-probe-"*|"rm -f -v apptown-disk-probe-"*) exit 0;;
+"wait apptown-disk-probe-"*) echo 0; exit 0;;
+"cp apptown-disk-probe-"*)
+  mkdir -p "$3/probe" && echo 0 > "$3/probe/df.rc"
+  if [ -f "` + dir + `/silent" ]; then : > "$3/probe/df.out"; echo "a notice on stderr" > "$3/probe/df.err"
+  elif [ -f "` + dir + `/df" ]; then cp "` + dir + `/df" "$3/probe/df.out"; : > "$3/probe/df.err"
+  else printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10%% /d\n' > "$3/probe/df.out"; : > "$3/probe/df.err"; fi
+  exit 0;;
+"logs apptown-disk-probe-"*)
+  [ -f "` + dir + `/silent" ] && { echo "log out"; echo "log err" >&2; exit 0; }
+  exit 0;;
 esac
 echo "$@" >> "` + calls + `"
 prev=""
@@ -57,12 +70,11 @@ exit 0
 }
 
 // A disk read that gives no usable answer refuses the task, and the
-// refusal says what the docker call showed: its exit code, stdout and
-// stderr apart, how long it took, and the probe container it recorded (or
-// that it recorded none), so an occurrence can be diagnosed from it alone.
+// refusal says what Docker showed, with the probe container's stdout and
+// stderr apart, so an occurrence can be diagnosed from it alone.
 //
 // Kills: the probe's evidence dropped from the refusal; stdout and stderr
-// combined again; a missing container ID reported as no container made.
+// combined again.
 func TestADiskReadWithNoAnswerSaysWhatTheProbeShowed(t *testing.T) {
 	t.Parallel()
 	binary, calls := recordingDocker(t)
@@ -73,8 +85,8 @@ func TestADiskReadWithNoAnswerSaysWhatTheProbeShowed(t *testing.T) {
 		flag string
 		want []string
 	}{
-		{"silent", []string{`df answered ""`, "docker exited 0 after ", `stdout ""`, `stderr "a notice on stderr"`, "probe container probe-c1: removed"}},
-		{"uncreated", []string{"docker exited 125 after ", `stdout ""`, `stderr "docker: Error response from daemon: no space for the probe"`, "no probe container ID recorded"}},
+		{"silent", []string{`df answered ""`, "probe container apptown-disk-probe-", `df.out "", df.err "a notice on stderr", df.rc "0"`, `its log: stdout "log out", stderr "log err"`}},
+		{"uncreated", []string{"creating the probe container apptown-disk-probe-", "exit status 125", `stdout ""`, `stderr "docker: Error response from daemon: no space for the probe"`}},
 	} {
 		flag := filepath.Join(dir, tc.flag)
 		if err := os.WriteFile(flag, nil, 0o644); err != nil {

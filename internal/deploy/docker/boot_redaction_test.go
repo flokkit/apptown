@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 )
 
 // credentialNeed is a catalog whose Postgres was given a generated
@@ -76,7 +77,7 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 					return []byte("healthy\n"), nil
 				case len(req.Args) > 0 && req.Args[0] == "port":
 					return []byte("127.0.0.1:" + port + "\n"), nil
-				case len(req.Args) > 0 && req.Args[0] == "logs":
+				case len(req.Args) > 0 && req.Args[0] == "logs" && diskspacetest.Step(req.Args) == "":
 					return []byte(tc.logs), nil
 				case len(req.Args) > 0 && req.Args[0] == "image":
 					return []byte("\n"), nil

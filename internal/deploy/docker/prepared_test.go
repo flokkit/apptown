@@ -314,13 +314,16 @@ func jsonOf(v any) (string, error) {
 // from maps, in no fixed order.
 func normalised(calls []string) string {
 	created := regexp.MustCompile(`forge\.created=\S+`)
+	// A disk read names its container afresh each time and stamps its
+	// deadline from the clock.
+	probe := regexp.MustCompile(`apptown-disk-probe-[0-9a-f]+|apptown\.deadline=\d+`)
 	config := regexp.MustCompile(`^--config \S+ `)
 	var out []string
 	for _, call := range calls {
 		if call == "context show" {
 			continue // a prepared boot asks, for its own configuration
 		}
-		words := strings.Fields(created.ReplaceAllString(config.ReplaceAllString(call, ""), "apptown.created"))
+		words := strings.Fields(probe.ReplaceAllString(created.ReplaceAllString(config.ReplaceAllString(call, ""), "apptown.created"), "disk-probe"))
 		sort.Strings(words)
 		out = append(out, strings.Join(words, " "))
 	}
