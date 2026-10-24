@@ -14,6 +14,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/runtimeimages"
+	"github.com/flokkit/apptown/stock"
 )
 
 func testApp(t *testing.T, configs ...Config) *App {
@@ -80,6 +82,9 @@ func constructApp(t *testing.T, db *database.DB, cfg Config) *App {
 	t.Helper()
 	if cfg.DockerClient == nil {
 		cfg.DockerClient = defaultTestDocker()
+	}
+	if cfg.Stock.FS == nil {
+		cfg.Stock = testStock(t)
 	}
 	if cfg.SSHConfigPath == "" {
 		// Each AppTown writes its attached hosts' stanzas into its own file,
@@ -264,4 +269,16 @@ type guardRecorder []string
 func (*guardRecorder) Helper() {}
 func (g *guardRecorder) Errorf(format string, args ...any) {
 	*g = append(*g, fmt.Sprintf(format, args...))
+}
+
+// testStock is the stock a test AppTown starts with: stock/ as the
+// repository holds it (tests may read stock directly), as a release's
+// shipped update files would give it.
+func testStock(t testing.TB) Stock {
+	t.Helper()
+	tools, err := runtimeimages.Parse(stock.ToolVersions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return Stock{FS: stock.FS, Name: "test", Tools: tools}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // Host is the built-in Docker host (architecture.md §5.6, §11): the one
@@ -27,7 +28,7 @@ type Dependencies struct {
 	Integrations Contributions
 	Routes       Routes
 	Probe        Prober // nil is the default probe
-	StaticServer string // the file server image for static parts; "" is caddy:2-alpine
+	StaticServer string // the file server image for static parts; "" is runtimeimages.StaticServer()
 	ChownImage   string // an image with chown, for handing a volume to the app's user; "" skips it
 }
 
@@ -96,7 +97,7 @@ func (h *Host) staticServer() string {
 	if h.deps.StaticServer != "" {
 		return h.deps.StaticServer
 	}
-	return "caddy:2-alpine"
+	return runtimeimages.StaticServer()
 }
 func (h *Host) chownImage() string { return h.deps.ChownImage }
 func (h *Host) login(ctx context.Context, dk Scope, image string) {

@@ -31,6 +31,8 @@ import (
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/runtimeimages"
+	"github.com/flokkit/apptown/internal/stockupdate/stockupdatetest"
 	"github.com/flokkit/apptown/internal/worker"
 )
 
@@ -38,7 +40,7 @@ import (
 const Installation = "inst-1"
 
 // LoadedBusybox is the name an inner daemon knows the pinned busybox
-// (diskspace.DFImage) by once a test has loaded it there: a save by digest
+// (runtimeimages.DF()) by once a test has loaded it there: a save by digest
 // carries no tag, and a daemon cannot match a digest to an image it loaded
 // rather than pulled. Nothing can pull this name, so an inner daemon that
 // was not given the image fails instead of fetching another.
@@ -233,7 +235,8 @@ func buildWorker(t *testing.T, binary string, env ...string) {
 }
 
 // StartInContainer builds apptown-worker for Linux and runs it in a new
-// docker:27-dind container, with the pinned busybox loaded from this
+// private Docker image's container (runtimeimages.PrivateDocker), with the
+// update files a release ships beside its binary, and the pinned busybox loaded from this
 // machine's Docker as LoadedBusybox, the task image of its tests. The
 // container is removed when the test ends. It needs a local Docker that can
 // run privileged containers.
@@ -246,18 +249,21 @@ func StartInContainer(t *testing.T, ca *CA) *Container {
 	name := fmt.Sprintf("apptown-worker-it-%d", time.Now().UnixNano())
 	// ZFS_MODULE_TIMEOUT=0, as for the product's private daemons: on a ZFS
 	// host containerd's zfs probe otherwise outlasts dockerd's wait for it.
-	runDocker(t, "run", "-d", "--privileged", "--name", name, "-e", "ZFS_MODULE_TIMEOUT=0", "-p", "127.0.0.1::8443", "docker:27-dind")
+	runDocker(t, "run", "-d", "--privileged", "--name", name, "-e", "ZFS_MODULE_TIMEOUT=0", "-p", "127.0.0.1::8443", runtimeimages.PrivateDocker())
 	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", "-v", name) })
 	if !poll.Until(context.Background(), 90*time.Second, time.Second, func() bool { return dockertest.Run("exec", name, "docker", "info") == nil }) {
 		t.Fatal("the worker's Docker daemon never started")
 	}
 	w := &Container{t: t, container: name}
-	runDocker(t, "exec", name, "mkdir", "-p", "/certs")
+	runDocker(t, "exec", name, "mkdir", "-p", "/certs", "/share/apptown")
+	// /apptown-worker finds them at /share/apptown/updates, beside its
+	// folder, as a release's binary does.
+	runDocker(t, "cp", stockupdatetest.Dir(t), name+":/share/apptown/updates")
 	for in, here := range map[string]string{"/apptown-worker": binary, "/certs/ca.pem": caFile, "/certs/worker.pem": certFile, "/certs/worker-key.pem": keyFile} {
 		runDocker(t, "cp", here, name+":"+in)
 	}
 	// The task image comes from this machine's Docker, not a registry.
-	w.LoadAs(diskspace.DFImage, LoadedBusybox)
+	w.LoadAs(runtimeimages.DF(), LoadedBusybox)
 	port := runDocker(t, "port", name, "8443/tcp")
 	w.URL = "https://" + port[strings.LastIndex(port, "\n")+1:]
 	w.start()
@@ -284,7 +290,7 @@ func StartOnHost(t *testing.T, ca *CA, args ...string) *Container {
 	listener.Close()
 	w := &Container{t: t, host: true, binary: binary, URL: "https://" + addr, log: filepath.Join(dir, "worker.log"),
 		args: append([]string{"-installation", Installation, "-state", filepath.Join(dir, "state"), "-listen", addr,
-			"-cert", certFile, "-key", keyFile, "-client-ca", caFile, "-agent-context", ""}, args...)}
+			"-cert", certFile, "-key", keyFile, "-client-ca", caFile, "-agent-context", "", "-shipped", stockupdatetest.Dir(t)}, args...)}
 	t.Cleanup(w.stopProcess)
 	w.start()
 	return w

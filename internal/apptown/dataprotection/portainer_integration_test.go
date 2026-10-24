@@ -16,14 +16,13 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/secret"
-	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -123,7 +122,7 @@ func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testin
 	if _, _, err := catalog.SyncStock(ctx, stock.FS, "dependencies"); err != nil {
 		t.Fatal(err)
 	}
-	s := assembled(db, testRuntime{Scope: docker.Scope{Client: docker.CLI{Binary: "docker"}}, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: check.ShImage, BuiltInTarget: "local"},
+	s := assembled(db, testRuntime{Scope: docker.Scope{Client: docker.CLI{Binary: "docker"}}, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: runtimeimages.Sh(), BuiltInTarget: "local"},
 		deployment.Dependencies{Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
 	// The take-down is a person's act: alice may.
 	s.authority = &grants{who: "alice", deny: map[string]bool{}}
@@ -157,16 +156,16 @@ func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testin
 	contract, err := appcontract.Parse([]byte(`app:
   web:
     public: true
-    image: ` + diskspace.DFImage + `
+    image: ` + runtimeimages.DF() + `
     command: ["sh", "-c", "trap 'exit 0' TERM; while true; do sleep 1; done"]
     ports: ["8080"]
     dataDir: /data
   worker:
-    image: ` + diskspace.DFImage + `
+    image: ` + runtimeimages.DF() + `
     command: ["sh", "-c", "trap 'exit 0' TERM; while true; do sleep 1; done"]
 init:
   - name: migrate
-    image: ` + diskspace.DFImage + `
+    image: ` + runtimeimages.DF() + `
     command: ["true"]
 needs:
   postgres: {}
@@ -189,7 +188,7 @@ needs:
 		t.Fatal(err)
 	}
 	src := deploy.Source{Slug: slug, Revision: "0123456789abcdef", Contract: contract, Published: true, Platform: platform,
-		Images: map[string]string{"web": diskspace.DFImage, "worker": diskspace.DFImage}, Init: map[string]string{"migrate": diskspace.DFImage}}
+		Images: map[string]string{"web": runtimeimages.DF(), "worker": runtimeimages.DF()}, Init: map[string]string{"migrate": runtimeimages.DF()}}
 	art, err := d.(deploy.Renderer).Render(ctx, dep.Placement(), src, nil, noStackSecrets{}, t.Logf)
 	if err != nil {
 		t.Fatal(err)

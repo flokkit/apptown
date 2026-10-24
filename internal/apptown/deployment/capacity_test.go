@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // sizedNeedYAML is the world's app with a Postgres it sizes, and a
@@ -375,7 +376,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 				return []byte("cannot connect"), fmt.Errorf("exit 1"), true
 			}
 			return []byte("apptown-env-p-prod\t100MiB / 512MiB\napptown-svc-env-p-prod-postgres\t30MiB / 8GiB\ntraefik\t20MiB / 256MiB\nodd\t1MiB / 8GiB\n"), nil, true
-		case len(args) > 0 && args[0] == "run" && slices.Contains(args, docker.DiskImage):
+		case len(args) > 0 && args[0] == "run" && slices.Contains(args, runtimeimages.DF()):
 			dfRuns++
 			return []byte("Filesystem 1024-blocks Used Available Capacity Mounted on\nrpool/docker 1000000 950000 50000 95% /d\n"), nil, true
 		}

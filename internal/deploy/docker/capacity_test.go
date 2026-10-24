@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // needCatalog fulfils postgres as a service and llm as a key that runs
@@ -392,7 +393,7 @@ func TestABootIsRefusedOnADaemonShortOfDisk(t *testing.T) {
 		{"at the floor", df(100*gib, 5*gib), ""},
 	} {
 		f := &fakeClient{reply: func(req Command) ([]byte, error) {
-			if req.Args[0] == "run" && slices.Contains(req.Args, DiskImage) {
+			if req.Args[0] == "run" && slices.Contains(req.Args, runtimeimages.DF()) {
 				return tc.disk()
 			}
 			if req.Args[0] == "port" {

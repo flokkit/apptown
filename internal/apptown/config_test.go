@@ -36,7 +36,7 @@ func TestConstructionHasNoDatabaseOrFilesystemEffects(t *testing.T) {
 	restore := db.FailNextStatement(" ")
 	defer restore()
 	dir := filepath.Join(t.TempDir(), "not-created")
-	a, err := New(context.Background(), db, Config{DataDir: dir, AuthMode: "internal"})
+	a, err := New(context.Background(), db, Config{DataDir: dir, AuthMode: "internal", Stock: testStock(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,14 +174,14 @@ func TestRuntimeTokenKeyIsAStartupStepThatRefusesAnUnreadableKey(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, identity.RuntimeTokenKeyFile), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	a, err := New(context.Background(), db, Config{DataDir: dir})
+	a, err := New(context.Background(), db, Config{DataDir: dir, Stock: testStock(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := a.RecoverInterruptedWork(t.Context()); err == nil {
 		t.Fatal("started with a key it cannot read")
 	}
-	fresh, err := New(context.Background(), db, Config{DataDir: t.TempDir()})
+	fresh, err := New(context.Background(), db, Config{DataDir: t.TempDir(), Stock: testStock(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

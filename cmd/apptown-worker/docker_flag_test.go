@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/internal/runtimeimages"
+	"github.com/flokkit/apptown/internal/stockupdate/stockupdatetest"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
@@ -20,7 +22,10 @@ import (
 
 // The public -docker option must select the binary for a chat's saves too.
 // The chosen fake returns Docker's exit 3 (nothing new); PATH deliberately
-// contains no default docker. This uses the production worker executable.
+// contains no default docker. This uses the production worker executable,
+// started as a release starts it: its tool versions from the update files
+// shipped beside it (-shipped), and no -dind-image, so its private Docker
+// image is the one those tool versions name.
 func TestAWorkerChatSaveUsesTheConfiguredDocker(t *testing.T) {
 	dir := t.TempDir()
 	binary := filepath.Join(dir, "apptown-worker")
@@ -30,7 +35,8 @@ func TestAWorkerChatSaveUsesTheConfiguredDocker(t *testing.T) {
 		t.Fatalf("build: %v %s", build.RunErr, build.Output)
 	}
 	fake := filepath.Join(dir, "chosen-docker")
-	script := "#!/bin/sh\ncase \"$1\" in\ninspect) echo 'Error: No such object: absent'; exit 1;;\nrm|ps|network|volume) exit 0;;\nrun) exit 3;;\n*) echo unexpected >&2; exit 1;;\nesac\n"
+	calls := filepath.Join(dir, "calls")
+	script := "#!/bin/sh\necho \"$*\" >> " + calls + "\ncase \"$1\" in\ninspect) echo 'Error: No such object: absent'; exit 1;;\nrm|ps|network|volume) exit 0;;\nrun) exit 3;;\n*) echo unexpected >&2; exit 1;;\nesac\n"
 	if err := execfile.Write(fake, []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +49,7 @@ func TestAWorkerChatSaveUsesTheConfiguredDocker(t *testing.T) {
 	address := listener.Addr().String()
 	listener.Close()
 	state := filepath.Join(dir, "state")
-	cmd := exec.Command(binary, "-listen", address, "-installation", workertest.Installation, "-state", state, "-cert", cert, "-key", key, "-client-ca", caFile, "-agent-context=", "-docker", fake)
+	cmd := exec.Command(binary, "-listen", address, "-installation", workertest.Installation, "-state", state, "-cert", cert, "-key", key, "-client-ca", caFile, "-agent-context=", "-docker", fake, "-shipped", stockupdatetest.Dir(t))
 	for _, entry := range os.Environ() {
 		if !strings.HasPrefix(entry, "PATH=") {
 			cmd.Env = append(cmd.Env, entry)
@@ -78,5 +84,14 @@ func TestAWorkerChatSaveUsesTheConfiguredDocker(t *testing.T) {
 	tip, err := client.Save(ctx, id, strings.Repeat("a", 40), "", filepath.Join(dir, "save.bundle"))
 	if err != nil || tip != "" {
 		t.Fatalf("save bypassed the configured Docker binary: tip=%q err=%v", tip, err)
+	}
+	// The worker measured its private Docker image at start: the shipped
+	// tool versions' one, by digest.
+	called, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "image inspect --format {{.Id}} " + runtimeimages.PrivateDocker(); !strings.Contains(string(called), want) {
+		t.Fatalf("the worker did not take its private Docker image from its shipped tool versions (want a call %q):\n%s", want, called)
 	}
 }

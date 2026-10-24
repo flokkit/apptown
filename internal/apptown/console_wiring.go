@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/changeconsole"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 
@@ -35,7 +35,7 @@ func (a *App) consoleDependencies(agent console.Agent, remote *worker.RemoteAgen
 				return scope.Command(ctx, docker.Command{Args: args})
 			},
 			Image:  func() string { return image },
-			Dind:   pi.DindConfig{Image: agentenv.DindImage},
+			Dind:   pi.DindConfig{Image: runtimeimages.PrivateDocker()},
 			Limits: &pi.Limits{CPUs: a.cfg.chatLimits.CPUs, MemoryBytes: a.cfg.chatLimits.MemoryBytes, PIDs: a.cfg.chatLimits.PIDs},
 			// Each chat's own cache, as on a worker: no chat shares a
 			// writable package cache with another project's work.

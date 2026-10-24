@@ -15,7 +15,7 @@ func NewAPIDescription(files fs.FS) APIDescription { return APIDescription{files
 
 // Serve: GET /api/v1/openapi.json — the same document for every caller.
 func (h APIDescription) Serve(w http.ResponseWriter, _ *http.Request) {
-	doc, err := fs.ReadFile(h.files, "docs/api/openapi.json")
+	doc, err := fs.ReadFile(h.files, "api/openapi.json")
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "this build carries no API description: %v", err)
 		return

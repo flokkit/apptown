@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/console"
@@ -138,6 +140,20 @@ type Config struct {
 	// isolated: script steps run only on the worker, never on AppTown's own
 	// host.
 	Worker *WorkerConfig
+	// Stock is what this AppTown's release shipped with: the ways-of-working
+	// update's content and name, and the tool versions list
+	// (share/apptown/updates/, read by apptownd at start). Required.
+	Stock Stock
+}
+
+// Stock is the release's stock, as read from its shipped update files.
+type Stock struct {
+	// FS is the ways-of-working update's content.
+	FS fs.FS
+	// Name is that update's name: the AppTown version that built it.
+	Name string
+	// Tools is the shipped tool versions list.
+	Tools *runtimeimages.List
 }
 
 // WorkerConfig reaches a apptown-worker: its address, the installation's
@@ -174,6 +190,7 @@ func (w WorkerConfig) client() (*execution.WorkerTasks, error) {
 }
 
 type configuration struct {
+	stock                                          Stock
 	verifyOnly, usingBuiltinDB                     bool
 	seeding                                        projectlifecycle.Seeding
 	noPrivateDocker, privateDocker, noLocalDocker  bool
@@ -275,7 +292,7 @@ func (c Config) prepare() (configuration, error) {
 		}
 		worker.Now = clock.Now
 	}
-	return configuration{clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
+	return configuration{stock: c.Stock, clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
 		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, reap: c.Reap,
 		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits), hostScripts: c.HostScripts,

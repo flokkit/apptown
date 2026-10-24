@@ -672,6 +672,7 @@ type packHistory struct {
 		IncludedPack    string
 		IncludedVersion int64
 		Note            string
+		CameFrom        string
 	}
 }
 
@@ -703,6 +704,9 @@ func printPackHistory(h packHistory) {
 		}
 		if v.IncludedPack != "" {
 			line += fmt.Sprintf(", includes %s v%d", v.IncludedPack, v.IncludedVersion)
+		}
+		if v.CameFrom != "" {
+			line += " (" + v.CameFrom + ")"
 		}
 		fmt.Println(line)
 		if v.Note != "" && v.Note != "published contents" {

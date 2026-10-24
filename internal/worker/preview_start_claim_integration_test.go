@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 )
@@ -37,7 +38,7 @@ func TestIntegrationAStartClaimRemovesABootAdmittedBeforeIt(t *testing.T) {
 	// Another preview on the same Docker: AppTown package's preview tests
 	// run beside this one in CI. The claim this test makes must leave it.
 	other := "apptown-preview-other-" + suffix
-	if out, err := dockertest.CombinedOutput("create", "--name", other, "--label", dockerlabel.Class+"=preview", docker.StaticServerImage); err != nil {
+	if out, err := dockertest.CombinedOutput("create", "--name", other, "--label", dockerlabel.Class+"=preview", runtimeimages.StaticServer()); err != nil {
 		t.Fatalf("creating another preview: %v: %s", err, out)
 	}
 	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", other) })

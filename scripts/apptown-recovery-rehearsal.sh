@@ -11,7 +11,8 @@
 # backup writes on the source: `apptownd backup` takes a set of each built-in
 # deployment's data with its app stopped for its copy, and holds new work for
 # the dump. It copies the archive (encrypted with a passphrase made for the
-# run), the passphrase, the source's apptownd, the key files' digests and
+# run), the passphrase, the source's apptownd and the update files it reads
+# its stock from (share/apptown/updates beside its bin/), the key files' digests and
 # what the source answers (restore-check.py capture; DATA_QUERY) into <out
 # dir>, and removes the archive from the source.
 #
@@ -132,6 +133,9 @@ do_backup() { # do_backup <source ssh> <source data dir> <slug/deployment> <out 
 	ssh "$src" "APPTOWN_BACKUP_PASSPHRASE_FILE=/root/.apptown-rehearsal-pass-$$ $srcbin -data '$srcdata' backup $remote; s=\$?; rm -f /root/.apptown-rehearsal-pass-$$; exit \$s"
 	ssh "$src" cat "$remote" > "$out/apptown.backup"
 	ssh "$src" cat "$srcbin" > "$out/apptownd"
+	# The stock and tool versions that apptownd reads at start, shipped
+	# beside its bin/ folder.
+	ssh "$src" tar -C "$(dirname "$(dirname "$srcbin")")/share/apptown" -cf - updates > "$out/updates.tar"
 	ssh "$src" rm -f "$remote"
 	ls -l "$out/apptown.backup"
 }
@@ -229,9 +233,10 @@ EOF
 	ssh "$tgt" "umask 077; cat > /opt/forge-restore/apptown.backup" < "$out/apptown.backup"
 	ssh "$tgt" "umask 077; cat > /opt/forge-restore/passphrase" < "$out/passphrase"
 	ssh "$tgt" "cat > /opt/forge-restore/apptownd && chmod 755 /opt/forge-restore/apptownd" < "$out/apptownd"
+	ssh "$tgt" "rm -rf /opt/forge-restore/updates && tar -C /opt/forge-restore -xf -" < "$out/updates.tar"
 
 	step "apptownd restore: refuse an AppTown already there, unpack, check the key files, load the dump"
-	ssh "$tgt" "APPTOWN_BACKUP_PASSPHRASE_FILE=/opt/forge-restore/passphrase /opt/forge-restore/apptownd -data '$tdata' -addr 0.0.0.0:$port -console-addr 127.0.0.1:$((port + 1)) -auth internal -public-host $turl restore /opt/forge-restore/apptown.backup < /dev/null"
+	ssh "$tgt" "APPTOWN_BACKUP_PASSPHRASE_FILE=/opt/forge-restore/passphrase /opt/forge-restore/apptownd -shipped /opt/forge-restore/updates -data '$tdata' -addr 0.0.0.0:$port -console-addr 127.0.0.1:$((port + 1)) -auth internal -public-host $turl restore /opt/forge-restore/apptown.backup < /dev/null"
 
 	step "the key and secret files came across unchanged (names only; no contents)"
 	# Each side hashes the files; only the comparison leaves this machine's
@@ -254,7 +259,7 @@ EOF
 
 	start() { # start <flags…>: apptownd on the target, its pid in /opt/forge-restore/pid
 		# stdin from /dev/null, or AppTown holds the ssh session open.
-		ssh "$tgt" "cd /opt/forge-restore; nohup /opt/forge-restore/apptownd -data '$tdata' -addr 0.0.0.0:$port -console-addr 127.0.0.1:$((port + 1)) -auth internal -public-host $turl $* < /dev/null > apptownd.log 2>&1 & echo \$! > /opt/forge-restore/pid"
+		ssh "$tgt" "cd /opt/forge-restore; nohup /opt/forge-restore/apptownd -shipped /opt/forge-restore/updates -data '$tdata' -addr 0.0.0.0:$port -console-addr 127.0.0.1:$((port + 1)) -auth internal -public-host $turl $* < /dev/null > apptownd.log 2>&1 & echo \$! > /opt/forge-restore/pid"
 		for _ in $(seq 1 120); do curl -s -o /dev/null "$turl/" && return 0; sleep 2; done
 		echo "apptownd did not start; its log:" >&2; ssh "$tgt" tail -20 /opt/forge-restore/apptownd.log >&2; exit 1
 	}

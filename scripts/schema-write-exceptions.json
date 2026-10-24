@@ -78,7 +78,7 @@
       "file": "internal/apptown/dbschema/schema.go",
       "declaration": "applyMigration",
       "text": "q",
-      "declaration_hash": "b9f5807283cd6e2535a7d4551d003e9aeee8125d8f8c042e686a95534e207ea5",
+      "declaration_hash": "8188df70641d0f8258ccbff465eda4fc0f24dde45ed7eb0ac1f631a827560d51",
       "tables": [],
       "reason": "Executes statements from the central checked numbered migration list."
     },

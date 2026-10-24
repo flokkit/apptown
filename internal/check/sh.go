@@ -6,6 +6,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -13,12 +14,12 @@ import (
 // read-only tree, no network. Exit 0 conformant, 1 findings, anything else
 // the check errored (recorded, never silently dropped).
 
-// ShImage is the pinned image every sh check runs in: alpine with git,
-// because the reference for "what does this repository ignore" is git's own
-// matcher (repo/no-build-artifacts asks it of the committed tree) and a tree
-// question is a shell question. The image's ENTRYPOINT is git;
-// runs clear it (NoEntrypoint) so `sh -c` is the command.
-const ShImage = "alpine/git:v2.47.2"
+// Every sh check runs in runtimeimages.Sh(), alpine with git (the build's
+// tool versions name it by digest), because the reference for "what does
+// this repository ignore" is git's own matcher (repo/no-build-artifacts asks
+// it of the committed tree) and a tree question is a shell question. The
+// image's ENTRYPOINT is git; runs clear it (NoEntrypoint) so `sh -c` is the
+// command.
 
 // ShTimeout bounds one check's script.
 const ShTimeout = 60 * time.Second
@@ -44,7 +45,7 @@ func (j *Judge) evaluateSh(d Declared, src Source, mode Mode, namePrefix string)
 		Workspace:    src.Tree,
 		WorkspaceRO:  true,
 		Argv:         []string{"sh", "-c", d.Sh},
-		Image:        ShImage,
+		Image:        runtimeimages.Sh(),
 		NoEntrypoint: true,
 		Network:      "none",
 		Timeout:      ShTimeout,

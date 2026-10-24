@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 func TestStaleEndpointIsRecognised(t *testing.T) {
@@ -42,12 +42,12 @@ func TestParseImageUser(t *testing.T) {
 func TestHandVolumeToImageUserRunsChownForNumericUser(t *testing.T) {
 	t.Parallel()
 	first := &fakeClient{out: "10001\n"}
-	HandVolumeToImageUser(context.Background(), Scope{Client: first}, "apptown-data-x", "app:1", check.ShImage)
+	HandVolumeToImageUser(context.Background(), Scope{Client: first}, "apptown-data-x", "app:1", runtimeimages.Sh())
 	if len(first.args) != 2 || first.args[1][0] != "run" || !strings.Contains(strings.Join(first.args[1], " "), "chown -R 10001:10001 /mnt") {
 		t.Fatalf("expected an inspect then a chown, got %v", first.args)
 	}
 	second := &fakeClient{out: "\n"}
-	HandVolumeToImageUser(context.Background(), Scope{Client: second}, "apptown-data-x", "app:1", check.ShImage)
+	HandVolumeToImageUser(context.Background(), Scope{Client: second}, "apptown-data-x", "app:1", runtimeimages.Sh())
 	if len(second.args) != 1 {
 		t.Fatalf("no USER: inspect only, got %v", second.args)
 	}

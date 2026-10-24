@@ -11,7 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/stock"
+	"github.com/flokkit/apptown/stock/docs"
 )
 
 type DocIntegration struct{ Capability, Provider, Title string }
@@ -45,7 +45,7 @@ func docLinks(origin string) DocLinks {
 
 // handleListDocs: GET /api/v1/docs
 func (h Docs) ListDocs(w http.ResponseWriter, r *http.Request) {
-	guidesFS, err := fs.Sub(stock.FS, "docs/guides")
+	guidesFS, err := fs.Sub(docs.FS, "guides")
 	if err != nil {
 		WriteError(w, 500, "guides: %v", err)
 		return
@@ -57,7 +57,7 @@ func (h Docs) ListDocs(w http.ResponseWriter, r *http.Request) {
 	}
 	integs := []DocIntegrationEntry{}
 	for _, c := range h.integrations {
-		if _, err := stock.FS.ReadFile("docs/integrations/" + c.Capability + "-" + c.Provider + ".admin.md"); err == nil {
+		if _, err := docs.FS.ReadFile("integrations/" + c.Capability + "-" + c.Provider + ".admin.md"); err == nil {
 			integs = append(integs, DocIntegrationEntry(c))
 		}
 	}
@@ -156,7 +156,7 @@ func (h Docs) GuideDoc(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 400, "bad slug")
 		return
 	}
-	b, err := stock.FS.ReadFile("docs/guides/" + slug + ".md")
+	b, err := docs.FS.ReadFile("guides/" + slug + ".md")
 	if err != nil {
 		WriteError(w, 404, "no guide %s", slug)
 		return

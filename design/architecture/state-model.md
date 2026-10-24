@@ -248,7 +248,7 @@ There are no bindings from state paths to required workflows. What governs:
 ### 7.1 System workflows: AppTown's own pack
 
 Workflows carry an **origin** (`stock/…` or
-`lib/…`), stock entries ship inside the binary and are synced into the
+`lib/…`), stock entries ship in the release's ways-of-working update and are synced into the
 library at boot with a versioned receipt when they change, a customised
 copy is a clone plus a binding rather than an edit, and the run records
 what ran. `metadata.system: true` marks the workflows nobody picks —

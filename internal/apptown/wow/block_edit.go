@@ -105,7 +105,7 @@ func (s *Service) EditBlock(ctx context.Context, id ids.ID, patch BlockPatch, ac
 func bumpBlockIn(ctx context.Context, tx *database.Tx, r wowsql.GuidanceBlock, body, checks, who string, at time.Time) error {
 	q := wowsql.New(tx.SQL())
 	next := r.LatestVersion + 1
-	if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(at.UTC()), BlockID: r.ID, Version: next, Body: body, Checks: []byte(checks), At: at.UTC()}); err != nil {
+	if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(at.UTC()), BlockID: r.ID, Version: next, Body: body, Checks: []byte(checks), At: at.UTC(), CameFrom: CameFromHere}); err != nil {
 		return err
 	}
 	if err := oneEdit(q.AdvanceBlockVersion(ctx, wowsql.AdvanceBlockVersionParams{ID: r.ID, Version: next, At: at.UTC()})); err != nil {

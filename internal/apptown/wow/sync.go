@@ -7,7 +7,7 @@ import (
 )
 
 // Stock sync: five kinds of thing
-// ship inside the binary (workflows, guidance blocks, packs, policies,
+// ship in the release's ways-of-working update (workflows, guidance blocks, packs, policies,
 // integration seeds) and one procedure puts each into the store at boot.
 // The contract:
 //

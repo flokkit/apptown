@@ -15,9 +15,9 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -56,7 +56,7 @@ func TestIntegrationEveryEmulatorThatKeepsDataStartsBesideATestRun(t *testing.T)
 				// The command reaches the emulator on its port, so the test
 				// witnesses it serving, not merely running at one poll.
 				Argv:  []string{"sh", "-c", fmt.Sprintf("for i in $(seq 1 60); do nc -w 1 %s %d </dev/null && exit 0; sleep 1; done; exit 1", local.Name, local.Port)},
-				Image: diskspace.DFImage, Network: "none",
+				Image: runtimeimages.DF(), Network: "none",
 				Name:     execution.UniqueName("forge-test-data-" + local.Name),
 				Timeout:  4 * time.Minute,
 				Services: []deploy.ServiceSpec{local.Spec()},

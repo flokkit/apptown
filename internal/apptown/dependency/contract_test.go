@@ -11,6 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/stock"
+	stockdocs "github.com/flokkit/apptown/stock/docs"
 )
 
 // Every stock kind states its contract with the app (provides), and what
@@ -153,7 +154,7 @@ func sortedKeys(m map[string]string) []string {
 // need provides is named in the need's row, and nothing else is.
 func TestTheGuidesContractTableIsTheCatalogues(t *testing.T) {
 	t.Parallel()
-	raw, err := fs.ReadFile(stock.FS, "docs/guides/services-and-data.md")
+	raw, err := fs.ReadFile(stockdocs.FS, "guides/services-and-data.md")
 	if err != nil {
 		t.Fatal(err)
 	}

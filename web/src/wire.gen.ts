@@ -892,6 +892,7 @@ export type PackView = {
   workflows: string[]
   policies: PackPolicy[]
   toolchain?: string
+  tools?: Record<string, string>
   services?: ServiceSpec[]
   extensions?: string[]
   includes?: string
@@ -2576,6 +2577,7 @@ export type Block = {
 export type BlockVersion = {
   version: number
   createdAt: string
+  cameFrom: string
 }
 
 export type BlockUse = {
@@ -2807,6 +2809,7 @@ export type PackSpec = {
   workflows: string[]
   policies: PackPolicy[]
   toolchain?: string
+  tools?: Record<string, string>
   services?: ServiceSpec[]
   extensions?: string[]
   requires?: string[]
@@ -2822,6 +2825,7 @@ export type Publication = {
   includedPack?: string
   includedVersion?: number
   note: string
+  cameFrom: string
   at: string
 }
 

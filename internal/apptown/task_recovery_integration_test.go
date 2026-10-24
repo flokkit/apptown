@@ -14,9 +14,9 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // taskRecoveryFixture admits one Docker script step on a repository-backed
@@ -32,7 +32,7 @@ func taskRecoveryFixture(t *testing.T, script string) (*App, *workflow.Step, str
 		t.Fatal(err)
 	}
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{
-		{Name: "build", Steps: []schema.Step{{Name: "make", Uses: "script", With: map[string]any{"run": "echo run >> /work/runs.txt; " + script, "executor": "docker", "image": diskspace.DFImage}}}},
+		{Name: "build", Steps: []schema.Step{{Name: "make", Uses: "script", With: map[string]any{"run": "echo run >> /work/runs.txt; " + script, "executor": "docker", "image": runtimeimages.DF()}}}},
 	}}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "work", Version: 1}, Spec: spec})
 	a.lifecycle.SelectLane(t.Context(), projectID, "work", true, "fixture")

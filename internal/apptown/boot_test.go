@@ -701,7 +701,19 @@ func upgradeReads(t *testing.T, a *App, s upgradeSubjects) map[string]any {
 	}
 	if s.Pack != "" {
 		pack := get("/api/v1/packs/" + s.Pack)
-		reads["pack"] = map[string]any{"pack": pick(pack, "name", "description", "origin", "declaration", "recommended", "latest"), "versions": pack["versions"]}
+		// Where each version came from is recorded from schema 168 on: a
+		// release before it had no such field, and the upgrade labels the
+		// team's own pack as authored here. The rest reads as it did.
+		versions, _ := pack["versions"].([]any)
+		for _, v := range versions {
+			if m, ok := v.(map[string]any); ok {
+				if m["cameFrom"] != "authored here" {
+					t.Errorf("after the upgrade, %s v%v came from %v, not authored here", s.Pack, m["version"], m["cameFrom"])
+				}
+				delete(m, "cameFrom")
+			}
+		}
+		reads["pack"] = map[string]any{"pack": pick(pack, "name", "description", "origin", "declaration", "recommended", "latest"), "versions": versions}
 	}
 	return reads
 }

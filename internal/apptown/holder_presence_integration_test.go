@@ -13,7 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
-	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // Against the real Docker daemon: a container left labelled as writing a
@@ -24,7 +24,7 @@ func TestIntegrationTakingAChangeRemovesWhatStillWritesItsFolder(t *testing.T) {
 	w.a.docker.Client = docker.CLI{} // the real daemon
 	rebuildRoutes(w.a)               // the routes read the App's Docker
 	name := fmt.Sprintf("forge-folder-writer-%d-%d", os.Getpid(), w.change.ID)
-	out, err := dockertest.CombinedOutput("run", "-d", "--rm", "--name", name, "--label", docker.WritesLabel+"="+w.folder, diskspace.DFImage, "sleep", "300")
+	out, err := dockertest.CombinedOutput("run", "-d", "--rm", "--name", name, "--label", docker.WritesLabel+"="+w.folder, runtimeimages.DF(), "sleep", "300")
 	if err != nil {
 		t.Fatalf("starting a leftover writer: %v: %s", err, out)
 	}

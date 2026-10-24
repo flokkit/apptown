@@ -37,7 +37,7 @@ func newOwnerFixtureOn(t *testing.T, syncStock bool, now func() time.Time) owner
 	t.Helper()
 	db := databaseSuite.New(t)
 	ids := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
-	ways := wow.New(db, wow.Dependencies{Stock: stock.FS})
+	ways := wow.New(db, wow.Dependencies{Stock: stock.FS, ToolLines: stock.Tools()})
 	if syncStock {
 		ways.SyncStock(t.Context())
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/version"
 )
 
 // schemaSQL creates a fresh PostgreSQL database atomically. Existing databases
@@ -230,6 +231,26 @@ END $$`,
 		"ALTER TABLE deployments DROP COLUMN host_prefix",
 		"ALTER TABLE release_requests DROP COLUMN move_names",
 	}},
+	// Every published workflow, block and pack version says where it came
+	// from. Stock published before this record was by some earlier build,
+	// which was never recorded: it is labelled "AppTown before <the build
+	// running this migration>" (applyMigration sets migration.build), which is
+	// all that is known. Versions authored on the instance are "authored
+	// here". Adoptions and receipts are not touched.
+	{n: 168, note: "each published workflow, block and pack version records where it came from", stmts: []string{
+		"ALTER TABLE lib_workflow_versions ADD COLUMN came_from TEXT NOT NULL DEFAULT ''",
+		`UPDATE lib_workflow_versions v SET came_from = CASE WHEN l.origin = 'stock' THEN 'AppTown before ' || current_setting('migration.build') ELSE 'authored here' END FROM lib_workflows l WHERE l.id = v.lib_id`,
+		"ALTER TABLE lib_workflow_versions ALTER COLUMN came_from DROP DEFAULT",
+		"ALTER TABLE lib_workflow_versions ADD CONSTRAINT lib_workflow_version_came_from CHECK (came_from <> '')",
+		"ALTER TABLE guidance_block_versions ADD COLUMN came_from TEXT NOT NULL DEFAULT ''",
+		`UPDATE guidance_block_versions v SET came_from = CASE WHEN l.origin = 'stock' THEN 'AppTown before ' || current_setting('migration.build') ELSE 'authored here' END FROM guidance_blocks l WHERE l.id = v.block_id`,
+		"ALTER TABLE guidance_block_versions ALTER COLUMN came_from DROP DEFAULT",
+		"ALTER TABLE guidance_block_versions ADD CONSTRAINT guidance_block_version_came_from CHECK (came_from <> '')",
+		"ALTER TABLE pack_versions ADD COLUMN came_from TEXT NOT NULL DEFAULT ''",
+		`UPDATE pack_versions v SET came_from = CASE WHEN l.origin = 'stock' THEN 'AppTown before ' || current_setting('migration.build') ELSE 'authored here' END FROM packs l WHERE l.id = v.pack_id`,
+		"ALTER TABLE pack_versions ALTER COLUMN came_from DROP DEFAULT",
+		"ALTER TABLE pack_versions ADD CONSTRAINT pack_version_came_from CHECK (came_from <> '')",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.
@@ -314,6 +335,12 @@ func applyMigrations(ctx context.Context, db *database.DB, list []migration) (ap
 // applyMigration commits application DDL, data and version together.
 func applyMigration(ctx context.Context, db *database.DB, m migration) error {
 	return db.InTx(ctx, func(tx *database.Tx) error {
+		// The build running the migration, for statements that record it
+		// (current_setting('migration.build')): the numbered SQL stays fixed
+		// while naming the binary that applied it. Local to the transaction.
+		if _, err := tx.Exec(`SELECT set_config('migration.build', ?, true)`, version.String()); err != nil {
+			return err
+		}
 		for _, q := range m.stmts {
 			if _, err := tx.Exec(q); err != nil {
 				return err

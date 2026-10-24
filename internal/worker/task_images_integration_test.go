@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/oci"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -60,7 +60,7 @@ ln -s /etc /apptown/state/out/linked
 head -c 2048 /dev/zero > /apptown/state/out/big/index.json
 exit 3
 `
-	spec := execution.TaskSpec{Key: namespace + "-build", Image: diskspace.DFImage, Argv: []string{"sh", "-c", script},
+	spec := execution.TaskSpec{Key: namespace + "-build", Image: runtimeimages.DF(), Argv: []string{"sh", "-c", script},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: base},
 		Images: []execution.ImageResult{

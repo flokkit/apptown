@@ -29,12 +29,12 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -991,7 +991,7 @@ func tourChecks(t *testing.T, a *App) {
 	t.Helper()
 	installCheckEffects(t, a, checkOverrides{
 		run: func(req ExecRequest) ExecOutcome {
-			if req.Image != check.ShImage {
+			if req.Image != runtimeimages.Sh() {
 				refusal := "the tour has no Docker to run " + req.Image
 				return ExecOutcome{Output: []byte(refusal), RunErr: errors.New(refusal)}
 			}

@@ -17,7 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
-	"github.com/flokkit/apptown/stock"
+	stockdocs "github.com/flokkit/apptown/stock/docs"
 )
 
 // appRoutes is the single declaration of HTTP patterns, handlers and route
@@ -162,8 +162,8 @@ func appRoutes(a *App) []routeSpec {
 		changePreviewState = httpapi.NewChangePreviewState(a.DB, changePreviewViewsFor(a))
 		changeNarratives = httpapi.NewChangeNarratives(a.Work, a.Projects, a.Access, a.narratives, a.authModeName())
 		projectAdoption = httpapi.NewProjectAdoption(a.Projects, a.Adoption, a.Ways, a.DB)
-		integrationDocuments = httpapi.NewIntegrationDocuments(stock.FS)
-		apiDescription = httpapi.NewAPIDescription(stock.FS)
+		integrationDocuments = httpapi.NewIntegrationDocuments(stockdocs.FS)
+		apiDescription = httpapi.NewAPIDescription(stockdocs.FS)
 		stepInterruption = httpapi.NewStepInterruption(a.Work, &a.docker, a.tasks)
 		administratorNetworks = httpapi.NewAdministratorNetworks(a.Access, a.cfg.proxies)
 		changeDetail = httpapi.NewChangeDetail(a.Work, a.ADRs, a.Deployment, a.DB, a.Usage.Ledger, a.cfg.dataDir)
