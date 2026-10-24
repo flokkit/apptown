@@ -80,6 +80,10 @@ export function ModelSlotsPanel() {
       <StaleNote q={slotsQ} />
       {!modelsQ.data && <ReadStatus q={modelsQ} what="the model catalogue" className="small" />}
       <StaleNote q={modelsQ} />
+      {/* A binding whose models could not be listed is said, never shown as offering none. */}
+      {(modelsQ.data?.unlisted ?? []).map((u) => (
+        <div key={u.binding} className="error small">Not every model of {u.binding} is listed: {u.error}</div>
+      ))}
       {actErr && <div className="error">{actErr}</div>}
       <table className="kv" style={{ width: '100%' }}>
         <thead>

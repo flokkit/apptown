@@ -22,6 +22,19 @@ type inferenceProvider struct {
 	models                  map[string]map[string]any
 	patterns                []string
 	metadata                map[string]any
+	// discoveryErr is why the provider's live model list could not be read;
+	// nil when it was, or when the binding is not discoverable.
+	discoveryErr error
+}
+
+// refusal is why the provider does not allow model: the binding does not
+// enable it, and when the live list could not be read, that it is unknown
+// whether the provider offers it.
+func (p *inferenceProvider) refusal(model string) error {
+	if p.discoveryErr != nil {
+		return fmt.Errorf("the model %q is not declared in the %q model binding, and the provider's model list could not be read: %v", model, p.name, p.discoveryErr)
+	}
+	return fmt.Errorf("the model %q is not enabled in the %q model binding", model, p.name)
 }
 
 var inferenceProviderName = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)

@@ -16,9 +16,11 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	consolepi "github.com/flokkit/apptown/internal/console/pi"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
@@ -70,6 +72,12 @@ func TestIntegrationAgentEnvironmentConsoleLaunch(t *testing.T) {
 	// (inference.Identity.admitAccount): the console's actor has an account,
 	// as every person who opens a chat does.
 	testAccounts(t, a.DB, "fixture")
+	// The chat's project exists: its model is resolved against its profile.
+	if _, err := database.Transact(context.Background(), a.DB, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{ID: idstest.N(1), Slug: "smoke", Name: "Smoke"})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	// A chat opened through the product records its opener's principal

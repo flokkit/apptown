@@ -14,9 +14,12 @@ type ConsoleEnder interface {
 	EndBy(context.Context, string) error
 }
 
+// ConsoleEnd answers 404 only for a chat its owner says does not exist: the
+// page takes 404 as "already gone" and opens a fresh chat, so any other
+// failure keeps its own status (500 when unclassified).
 func (h ConsoleEnd) ConsoleEnd(w http.ResponseWriter, r *http.Request) {
 	if err := h.end.EndBy(r.Context(), r.PathValue("sid")); err != nil {
-		WriteFaultOr(w, err, 404)
+		WriteFault(w, err)
 		return
 	}
 	WriteJSON(w, 200, Done{OK: true})

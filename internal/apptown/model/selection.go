@@ -2,11 +2,10 @@ package model
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/ids"
-	"log"
+	"fmt"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // NoModelRefusal is why model work is not started when its model resolves
@@ -25,20 +24,25 @@ func NewSelection(slots *Slots) Selection {
 	return Selection{slots: slots}
 }
 
-func (s Selection) profile(ctx context.Context, projectID ids.ID) string {
+func (s Selection) profile(ctx context.Context, projectID ids.ID) (string, error) {
 	if projectID.IsZero() {
-		return StandardProfile
+		return StandardProfile, nil
 	}
 	p, err := project.ByIDIn(ctx, s.slots.db, projectID)
-	if _, err := database.Lookup(err); err != nil {
-		log.Printf("read failed: %v", err)
+	if err != nil {
+		return "", fmt.Errorf("reading the project's model profile: %w", err)
 	}
-	return ProfileOf(p.ModelProfile)
+	return ProfileOf(p.ModelProfile), nil
 }
 
 // Resolve selects against the project's current profile and current slot mappings.
-// A missing or unreadable project uses the standard profile; read errors are logged.
-// The returned values have the same meaning and fallback rules as [Slots.Resolve].
-func (s Selection) Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string) {
-	return s.slots.Resolve(ctx, projectID, s.profile(ctx, projectID), requested)
+// A zero project id selects the standard profile. A failed or missing project
+// read is an error, as is any failed slot read ([Slots.Resolve]); the returned
+// values otherwise have the meaning and fallback rules of [Slots.Resolve].
+func (s Selection) Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string, err error) {
+	proj, err := s.profile(ctx, projectID)
+	if err != nil {
+		return "", "", "", err
+	}
+	return s.slots.Resolve(ctx, projectID, proj, requested)
 }

@@ -20,11 +20,16 @@ func TestUnpinnedChatFollowsTheSlot(t *testing.T) {
 		t.Fatal(err)
 	}
 	born := &console.Session{Meta: console.Meta{Model: "anthropic/claude-opus-5"}}
-	if got := env.chatModelFor(t.Context(), born); got != "openrouter/openai/gpt-5.6-luna" {
+	if got, err := env.chatModelFor(t.Context(), born); err != nil || got != "openrouter/openai/gpt-5.6-luna" {
 		t.Fatalf("an unpinned chat should follow the slot, got %q", got)
 	}
 	pinned := &console.Session{Meta: console.Meta{Model: "anthropic/claude-opus-5", ModelPinned: true}}
-	if got := env.chatModelFor(t.Context(), pinned); got != "anthropic/claude-opus-5" {
+	if got, err := env.chatModelFor(t.Context(), pinned); err != nil || got != "anthropic/claude-opus-5" {
 		t.Fatalf("a pinned chat keeps its model, got %q", got)
+	}
+	// An unread slot is an error, not the model the chat was born with.
+	defer db.FailNextStatement("FROM model_slots")()
+	if got, err := env.chatModelFor(t.Context(), born); err == nil {
+		t.Fatalf("an unread chat slot answered %q", got)
 	}
 }

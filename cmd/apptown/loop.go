@@ -295,17 +295,23 @@ func printShipped(name, slug string, landingRun ids.ID) {
 		Number int
 		State  string
 	}
+	// What could not be read is said on the line, never left out as if
+	// there were no release or deployment.
 	relLine := ""
-	var relList []release
-	var relObj struct{ Releases []release }
-	if api.get("/projects/"+slug+"/releases", &relList) == nil && len(relList) > 0 {
-		relLine = fmt.Sprintf(" · release #%d", relList[0].Number)
-	} else if api.get("/projects/"+slug+"/releases", &relObj) == nil && len(relObj.Releases) > 0 {
-		relLine = fmt.Sprintf(" · release #%d", relObj.Releases[0].Number)
+	var releases []release
+	if err := api.get("/projects/"+slug+"/releases", &releases); err != nil {
+		relLine = " · its release could not be read: " + err.Error()
+	} else if len(releases) > 0 {
+		relLine = fmt.Sprintf(" · release #%d", releases[0].Number)
 	}
 	var deps []shippedDeployment
-	_ = api.get("/projects/"+slug+"/deployments", &deps)
-	fmt.Printf("%s change %s shipped%s%s\n", green("⚑"), name, relLine, deploymentsLine(deps, landingRun))
+	depLine := ""
+	if err := api.get("/projects/"+slug+"/deployments", &deps); err != nil {
+		depLine = " · its deployments could not be read: " + err.Error()
+	} else {
+		depLine = deploymentsLine(deps, landingRun)
+	}
+	fmt.Printf("%s change %s shipped%s%s\n", green("⚑"), name, relLine, depLine)
 }
 
 // deploymentsLine names the deployments the landing released to (all the

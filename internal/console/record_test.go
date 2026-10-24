@@ -142,8 +142,8 @@ func TestTheRecordReaderReadsOnlyTheChatsOwnFiles(t *testing.T) {
 		}
 	}
 	tr := &Transcript{Dir: dir}
-	files := tr.SessionFiles()
-	if len(files) != 1 || !strings.HasSuffix(files[0], "2026-05-15T09-00-00.jsonl") {
+	files, err := tr.SessionFiles()
+	if err != nil || len(files) != 1 || !strings.HasSuffix(files[0], "2026-05-15T09-00-00.jsonl") {
 		t.Fatalf("record files: %v", files)
 	}
 	msgs := tr.Messages()
@@ -201,8 +201,25 @@ func TestOneSessionsRecordIsReadConcurrently(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			_ = s.Activity()
-			_ = s.Records()
+			_, _ = s.Records()
 		}()
 	}
 	wg.Wait()
+}
+
+// A record folder that cannot be read is an error, never "no records": usage
+// accounting reads this list, and a chat's records are removed after it.
+// A folder that does not exist holds none.
+func TestAnUnreadableRecordFolderIsNotNoRecords(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if files, err := (&Transcript{Dir: dir}).SessionFiles(); err != nil || len(files) != 0 {
+		t.Fatalf("no folder: %v %v", files, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "sessions"), []byte("not a folder"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if files, err := (&Transcript{Dir: dir}).SessionFiles(); err == nil {
+		t.Fatalf("an unreadable folder listed %v", files)
+	}
 }

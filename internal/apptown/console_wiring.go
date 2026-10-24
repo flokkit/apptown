@@ -65,10 +65,16 @@ func (a *App) consoleDependencies(agent console.Agent, remote *worker.RemoteAgen
 			return err == nil && conversation.OnWorkerRecord(meta), err
 		}}
 	}
+	ledger := a.Usage.Ledger
 	return console.Dependencies{
 		Agent:       agent,
 		Environment: conversation.NewEnvironment(a.DB, conversation.EnvironmentDependencies{Projects: a.Projects, Models: a.modelSelection, Bindings: a.Integrations.Bindings, Instructions: a.steering, Home: piHomeFor(a), CLI: a.cli, Credentials: a.providers, Identity: a.Access, Now: a.cfg.clock.Now}, conversation.EnvironmentConfig{DataDir: a.cfg.dataDir, APIURL: a.cfg.consoleAPIURL, InferenceEnabled: a.cfg.inferenceURL != "", NoPrivateDocker: a.cfg.noPrivateDocker}),
-		Config:      console.Config{DataDir: a.cfg.dataDir, NoDind: a.cfg.noPrivateDocker, Mirror: a.workshop.Mirror, Now: a.cfg.clock.Now},
+		// An end records the chat's spend from its last record before the
+		// record is archived or removed.
+		Settle: func(ctx context.Context, s *console.Session) error {
+			return conversation.HarvestUsage(ctx, ledger, s)
+		},
+		Config: console.Config{DataDir: a.cfg.dataDir, NoDind: a.cfg.noPrivateDocker, Mirror: a.workshop.Mirror, Now: a.cfg.clock.Now},
 	}
 }
 
@@ -157,15 +163,19 @@ func (a *App) StopConsoles(ctx context.Context) {
 
 // HarvestAllConsoleUsage sweeps every session (the round, and startup).
 func (a *App) HarvestAllConsoleUsage(ctx context.Context) {
+	// A failed harvest leaves its cursor where it was: the next round reads
+	// the same spend again.
 	for _, s := range a.Console.List(ctx, console.Match{}) {
-		conversation.HarvestUsage(ctx, a.Usage.Ledger, s)
+		if err := conversation.HarvestUsage(ctx, a.Usage.Ledger, s); err != nil {
+			log.Printf("chat usage: %v", err)
+		}
 	}
 }
 
 // changeConsoleFor is assembly only; the returned owner retains no App.
 func changeConsoleFor(a *App) *changeconsole.Service {
 	return changeconsole.New(a.chatSaves, changeconsole.Dependencies{DB: a.DB, Sessions: a.Console, Chats: chatsFor(a), Previews: a.Preview,
-		Usage: a.Usage.Ledger, Narratives: a.narratives, Folders: a.preparation, DataDir: a.cfg.dataDir, Stop: a.consoleStop, Engine: a.asEngine(a.life)})
+		Narratives: a.narratives, Folders: a.preparation, DataDir: a.cfg.dataDir, Stop: a.consoleStop, Engine: a.asEngine(a.life)})
 }
 
 // chatsFor is who may look at and act on a chat, with the checked authority.

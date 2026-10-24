@@ -286,11 +286,17 @@ func (a *RemoteAgent) Remove(ctx context.Context, id string) error {
 //
 // It succeeds only once the worker shows nothing of the chat; a worker that
 // cannot be reached, or a last save not confirmed, leaves the chat unended,
-// and its end is asked again.
+// and its end is asked again. A session the worker has marked removed is
+// past its last save and last copy (the mark is the removal's first step),
+// so an end asked again (after a removal that did not finish, or after
+// AppTown could not settle the chat) only asks for the removal again.
 func (a *RemoteAgent) End(ctx context.Context, id string) error {
 	a.init()
 	a.stopCopying(id)
-	if _, err := a.Sessions.Stop(ctx, id); err != nil && !errors.Is(err, ErrNoSession) && !errors.Is(err, ErrSessionRemoved) {
+	if _, err := a.Sessions.Stop(ctx, id); errors.Is(err, ErrSessionRemoved) {
+		_, err := a.Sessions.Remove(ctx, id)
+		return err
+	} else if err != nil && !errors.Is(err, ErrNoSession) {
 		return fmt.Errorf("stopping the chat before its last save: %w", err)
 	}
 	if a.Ending != nil {

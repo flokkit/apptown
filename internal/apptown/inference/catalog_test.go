@@ -83,8 +83,8 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Go(func() {
-			if entries, err := catalog.Models(context.Background()); err != nil || len(entries) != 2 {
-				t.Errorf("models: %+v %v", entries, err)
+			if entries, unlisted, err := catalog.Models(context.Background()); err != nil || len(entries) != 2 || len(unlisted) != 0 {
+				t.Errorf("models: %+v %v %v", entries, unlisted, err)
 			}
 		})
 	}
@@ -97,7 +97,7 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 		t.Fatalf("concurrent readers made %d probes", got)
 	}
 	save("provider/second")
-	entries, err := catalog.Models(context.Background())
+	entries, _, err := catalog.Models(context.Background())
 	if err != nil || len(entries) != 2 || entries[0] != (ModelEntry{Pattern: "provider/second", Binding: "provider", Source: "default"}) || entries[1].Pattern != "provider/live" || entries[1].Source != "live" {
 		t.Fatalf("a saved change shows at once: %+v %v", entries, err)
 	}
@@ -106,7 +106,7 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	clockMu.Lock()
 	at = at.Add(2 * time.Minute)
 	clockMu.Unlock()
-	if _, err := catalog.Models(context.Background()); err != nil || probes.Load() != 2 {
+	if _, _, err := catalog.Models(context.Background()); err != nil || probes.Load() != 2 {
 		t.Fatalf("a list kept past its minute on AppTown's clock: probes %d, %v", probes.Load(), err)
 	}
 	ids, err := catalog.Discover(context.Background(), "unsaved", map[string]any{"baseUrl": server.URL, "providerDef": map[string]any{"apiKey": "provider-key"}})
@@ -115,5 +115,53 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 	}
 	if _, err := catalog.Discover(context.Background(), "unsaved", map[string]any{"baseUrl": server.URL, "api": "anthropic-messages"}); !errors.Is(err, ErrNoEndpoint) {
 		t.Fatalf("a provider with no model list: %v", err)
+	}
+}
+
+// A provider whose list cannot be read is unknown, not current and not empty:
+// after one good answer a failing provider lists no live models, the picker
+// names the binding with why, and the gateway's refusal of the once-listed
+// model says the list could not be read. A first failure is named the same.
+//
+// Kills: reusing the earlier ids under a new time; a failed list read as an
+// empty one.
+func TestAnUnreadModelListIsNotACurrentOne(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	var down atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if down.Load() {
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":"live"}]}`))
+	}))
+	defer server.Close()
+	raw, _ := json.Marshal(map[string]any{"baseUrl": server.URL, "providerDef": map[string]any{"apiKey": "provider-key"}})
+	if _, err := integration.New(db).Save(context.Background(), "provider", "model", "provider", string(raw), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
+	at := time.Now()
+	catalog.Now = func() time.Time { return at }
+	if entries, unlisted, err := catalog.Models(t.Context()); err != nil || len(entries) != 1 || entries[0].Pattern != "provider/live" || len(unlisted) != 0 {
+		t.Fatalf("the list answers: %+v %+v %v", entries, unlisted, err)
+	}
+	down.Store(true)
+	at = at.Add(2 * time.Minute)
+	entries, unlisted, err := catalog.Models(t.Context())
+	if err != nil || len(entries) != 0 || len(unlisted) != 1 || unlisted[0].Binding != "provider" || !strings.Contains(unlisted[0].Error, "503") {
+		t.Fatalf("a failed refresh: %+v %+v %v", entries, unlisted, err)
+	}
+	ps, err := catalog.providers(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := ps["provider"]; p.allows("live") || !strings.Contains(p.refusal("live").Error(), "could not be read") {
+		t.Fatalf("the gateway after a failed refresh: allows %v, %v", p.allows("live"), p.refusal("live"))
+	}
+	first := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
+	if entries, unlisted, err := first.Models(t.Context()); err != nil || len(entries) != 0 || len(unlisted) != 1 {
+		t.Fatalf("a first failure: %+v %+v %v", entries, unlisted, err)
 	}
 }

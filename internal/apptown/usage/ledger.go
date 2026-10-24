@@ -75,22 +75,25 @@ func (l *Ledger) now() time.Time { return clock.Or(l.Now)() }
 // was sent, an answer with no usage, tokens with no price); such an
 // observation is recorded even at zero, so unknown spend is never read as
 // nothing spent. The caller supplies trusted attribution and owns
-// deduplication: repeated calls append repeated rows. Cursor updates are
-// separate writes.
+// deduplication: repeated calls append repeated rows. What is read from a
+// transcript is recorded with its cursor by [Ledger.RecordHarvest].
 // Spend already incurred is recorded though ctx ends.
 func (l *Ledger) Record(ctx context.Context, e Entry, u Totals, incomplete string) error {
+	return l.recordIn(context.WithoutCancel(ctx), l.db, e, u, incomplete)
+}
+
+func (l *Ledger) recordIn(ctx context.Context, q database.Queryer, e Entry, u Totals, incomplete string) error {
 	if u.Total == 0 && u.CostMicros == 0 && incomplete == "" {
 		return nil
 	}
-	ctx = context.WithoutCancel(ctx)
 	spender := e.Who
 	if spender.Name == "" {
 		var err error
-		if spender, err = identity.ActorIn(ctx, l.db, e.Actor); err != nil {
+		if spender, err = identity.ActorIn(ctx, q, e.Actor); err != nil {
 			return err
 		}
 	}
-	return usagesql.New(l.db.SQL()).RecordUsage(ctx, usagesql.RecordUsageParams{ID: ids.New(l.now().UTC()),
+	return usagesql.New(q.SQL()).RecordUsage(ctx, usagesql.RecordUsageParams{ID: ids.New(l.now().UTC()),
 		At: l.now().UTC(), Kind: e.Kind, ProjectID: e.ProjectID, RunID: e.RunID, RootRunID: e.RootRunID, StepID: e.StepID,
 		WorkflowName: e.WorkflowName, WorkflowVersion: e.WorkflowVersion, SessionID: e.SessionID, Actor: e.Actor, ActorPrincipal: spender.Principal, ActorVia: spender.Via, Provider: e.Provider, Model: e.Model,
 		Input: u.Input, Output: u.Output, CacheRead: u.CacheRead, CacheWrite: u.CacheWrite, Total: u.Total, CostMicros: u.CostMicros,
@@ -155,10 +158,26 @@ func (l *Ledger) Cursor(ctx context.Context, path string) (int64, error) {
 	return r.ByteOffset, err
 }
 
-// SetCursor replaces the byte offset for a transcript path. It does not enforce
-// monotonic progress or commit atomically with [Ledger.Record].
-func (l *Ledger) SetCursor(ctx context.Context, path string, offset int64) error {
-	return usagesql.New(l.db.SQL()).SetCursor(context.WithoutCancel(ctx), usagesql.SetCursorParams{Path: path, ByteOffset: offset})
+// Harvested is one observation read from a transcript.
+type Harvested struct {
+	Entry  Entry
+	Totals Totals
+}
+
+// RecordHarvest records what was read from a transcript and moves its cursor
+// to offset, in one transaction: the cursor advances only past spend that was
+// stored, and a failed cursor write stores none of it. Spend already
+// incurred is recorded though ctx ends.
+func (l *Ledger) RecordHarvest(ctx context.Context, path string, offset int64, rows []Harvested) error {
+	ctx = context.WithoutCancel(ctx)
+	return l.db.InTx(ctx, func(tx *database.Tx) error {
+		for _, r := range rows {
+			if err := l.recordIn(ctx, tx, r.Entry, r.Totals, ""); err != nil {
+				return err
+			}
+		}
+		return usagesql.New(tx.SQL()).SetCursor(ctx, usagesql.SetCursorParams{Path: path, ByteOffset: offset})
+	})
 }
 
 // RunTotal sums the spending of the run trees rooted at rootRunIDs: one

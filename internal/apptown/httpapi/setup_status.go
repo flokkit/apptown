@@ -21,7 +21,12 @@ func NewSetupStatus(image AgentImageState, selection ModelSelection, openNonLoop
 func (h SetupStatus) Setup(w http.ResponseWriter, r *http.Request) {
 	img, buildErr := h.image.ImageState()
 
-	pattern, _, _ := h.selection.Resolve(r.Context(), ids.Nil, "")
+	// A model setup that cannot be read is not "needs a model".
+	pattern, _, _, err := h.selection.Resolve(r.Context(), ids.Nil, "")
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	WriteJSON(w, 200, SetupState{
 		NeedsModel:      pattern == "",
 		AgentImage:      img,
@@ -32,7 +37,7 @@ func (h SetupStatus) Setup(w http.ResponseWriter, r *http.Request) {
 
 type AgentImageState interface{ ImageState() (state, detail string) }
 type ModelSelection interface {
-	Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string)
+	Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string, err error)
 }
 
 // SetupState is what first-run setup still needs.

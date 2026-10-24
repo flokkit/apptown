@@ -13,8 +13,9 @@
 // the project's profile, then the standard profile. It repeats that lookup for
 // fallback slots before using the configured instance default. Its returned slot
 // and profile identify the chosen mapping for caller-owned execution evidence.
-// Read failures can fall back to defaults; resolution is not a configuration
-// health check. Changing mappings affects later resolutions, not old receipts.
+// Only an absent mapping passes the lookup on; a failed read is returned as an
+// error, never answered with a less specific mapping or "no model". Changing
+// mappings affects later resolutions, not old receipts.
 //
 // [Slots.Set] commits a mapping change and its audit receipt together. These APIs
 // do not authorize a caller; the application adapter must check permission first.
@@ -25,8 +26,9 @@
 // [Scheduler.Acquire] reserves capacity for a binding and returns a release
 // function. Callers release once after execution. [BindingCapacity] reads the
 // current integration configuration: an explicit positive concurrency wins;
-// custom endpoints otherwise get one slot and hosted providers eight. Unknown
-// bindings use the scheduler's configured fallback.
+// custom endpoints otherwise get one slot and hosted providers eight. A pattern
+// no binding names uses the scheduler's configured default; a capacity that
+// cannot be read refuses the acquisition.
 //
 // Capacity controls concurrent execution, not monetary spending. Waiting is not
 // cancellable or guaranteed FIFO. Resizing creates a new pool without draining

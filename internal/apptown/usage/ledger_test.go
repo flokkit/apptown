@@ -55,10 +55,10 @@ func TestLedgerRecordsRollsUpAndKeepsCursors(t *testing.T) {
 	if off, err := l.Cursor(context.Background(), "/x.jsonl"); err != nil || off != 0 {
 		t.Fatalf("a file never read starts at zero: %d %v", off, err)
 	}
-	if err := l.SetCursor(context.Background(), "/x.jsonl", 512); err != nil {
+	if err := l.RecordHarvest(context.Background(), "/x.jsonl", 512, nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := l.SetCursor(context.Background(), "/x.jsonl", 1024); err != nil {
+	if err := l.RecordHarvest(context.Background(), "/x.jsonl", 1024, nil); err != nil {
 		t.Fatal(err)
 	}
 	if off, _ := l.Cursor(context.Background(), "/x.jsonl"); off != 1024 {
@@ -183,5 +183,45 @@ func TestLedgerRecordsUnknownSpendAsIncomplete(t *testing.T) {
 	rep, err := l.Summary(context.Background(), 30, idstest.N(1), "")
 	if err != nil || rep.Totals.Incomplete != 2 || rep.Totals.Total != 15 || rep.Totals.CostMicros != 40 {
 		t.Fatalf("unknown spend kept and counted, priced spend with no tokens kept: %+v %v", rep.Totals, err)
+	}
+}
+
+// A harvest's rows and its cursor are one write: a failed row or a failed
+// cursor move leaves neither, so the next harvest reads the same spend and
+// records it once.
+func TestAHarvestAdvancesItsCursorOnlyWithItsRows(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	l := New(db)
+	pid, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "h", Name: "H"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var u Totals
+	u.Add(10, 5, 0, 0, 15, 0)
+	rows := []Harvested{{Entry: Entry{Kind: "console", ProjectID: pid, SessionID: "s1", Actor: "alice", Provider: "local", Model: "n"}, Totals: u}}
+	for _, fragment := range []string{"INSERT INTO token_usage", "INSERT INTO usage_cursors"} {
+		restore := db.FailNextStatement(fragment)
+		if err := l.RecordHarvest(t.Context(), "/h.jsonl", 100, rows); err == nil {
+			t.Fatalf("a failed %q harvested", fragment)
+		}
+		restore()
+		if off, err := l.Cursor(t.Context(), "/h.jsonl"); err != nil || off != 0 {
+			t.Fatalf("after a failed %q the cursor is %d (%v)", fragment, off, err)
+		}
+		if got, err := l.ProjectsTotal(t.Context(), db, pid); err != nil || got.Total != 0 {
+			t.Fatalf("after a failed %q the ledger holds %v (%v)", fragment, got, err)
+		}
+	}
+	if err := l.RecordHarvest(t.Context(), "/h.jsonl", 100, rows); err != nil {
+		t.Fatal(err)
+	}
+	if off, err := l.Cursor(t.Context(), "/h.jsonl"); err != nil || off != 100 {
+		t.Fatalf("cursor %d (%v)", off, err)
+	}
+	if got, err := l.ProjectsTotal(t.Context(), db, pid); err != nil || got.Total != 15 {
+		t.Fatalf("ledger %v (%v)", got, err)
 	}
 }

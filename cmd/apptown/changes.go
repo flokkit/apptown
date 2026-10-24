@@ -892,7 +892,9 @@ func sendBack(changeID ids.ID, note string, yes, noFollow bool) error {
 	if err != nil {
 		return err
 	}
-	_ = json.Unmarshal(raw, &out)
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return fmt.Errorf("change %s was sent back, but AppTown's answer could not be read: %w", changeID, err)
+	}
 	// No rework run: no agent works on the change, and it is back in
 	// progress for its person.
 	if out.RunID.IsZero() {
@@ -900,7 +902,12 @@ func sendBack(changeID ids.ID, note string, yes, noFollow bool) error {
 			ProjectSlug string
 			Change      struct{ Number int64 }
 		}
-		_ = api.get(fmt.Sprintf("/changes/%s", changeID), &view)
+		// The change's name is only for the sentence: unread, the change is
+		// named by its id and the read's failure is said.
+		if err := api.get(fmt.Sprintf("/changes/%s", changeID), &view); err != nil {
+			fmt.Println(sentBackToPerson(changeID.String()))
+			return fmt.Errorf("change %s was sent back, but reading it afterwards failed: %w", changeID, err)
+		}
 		fmt.Println(sentBackToPerson(changeName(view.ProjectSlug, view.Change.Number, changeID)))
 		return nil
 	}
@@ -995,7 +1002,9 @@ func cmdRecheck(args []string) error {
 		ProjectSlug string
 		Change      struct{ Number int64 }
 	}
-	_ = api.get(fmt.Sprintf("/changes/%s", id), &view)
+	if err := api.get(fmt.Sprintf("/changes/%s", id), &view); err != nil {
+		return err
+	}
 	name := changeName(view.ProjectSlug, view.Change.Number, id)
 	if err := api.post(fmt.Sprintf("/changes/%s/recheck", id), map[string]any{}, &out); err != nil {
 		return err
@@ -1055,7 +1064,9 @@ func cmdLand(args []string) error {
 		ProjectSlug string
 		Change      struct{ Number int64 }
 	}
-	_ = api.get(fmt.Sprintf("/changes/%s", id), &view)
+	if err := api.get(fmt.Sprintf("/changes/%s", id), &view); err != nil {
+		return err
+	}
 	name := changeName(view.ProjectSlug, view.Change.Number, id)
 	progress := io.Writer(os.Stdout)
 	if *asJSON {

@@ -95,7 +95,11 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 	// An unpinned session follows the project's chat slot: the model it was
 	// born with is not a promise, the slot is.
 	model := s.Model
-	if want := e.chatModelFor(ctx, s); want != "" && want != model {
+	want, err := e.chatModelFor(ctx, s)
+	if err != nil {
+		return console.Provision{}, err
+	}
+	if want != "" && want != model {
 		audit.At(clock.Or(e.clock)()).BestEffort(ctx, e.db, s.Actor, Of(s).ProjectID, "console.model-followed", s.ID, map[string]any{"from": model, "to": want})
 		model = want
 	}
@@ -185,17 +189,15 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 }
 
 // chatModelFor is the model a session should run on now: its own when the
-// person pinned one, else the project's chat slot (falling back to the
-// instance default) as resolved at this moment.
-func (e *Environment) chatModelFor(ctx context.Context, s *console.Session) string {
+// person pinned one, else the project's chat slot (whose chain ends at the
+// default slot) as resolved at this moment. A failed resolution is an error,
+// never the model the session was born with.
+func (e *Environment) chatModelFor(ctx context.Context, s *console.Session) (string, error) {
 	if s.ModelPinned {
-		return s.Model
+		return s.Model, nil
 	}
-	m, _, _ := e.models.Resolve(ctx, Of(s).ProjectID, "chat")
-	if m == "" {
-		m, _, _ = e.models.Resolve(ctx, ids.Nil, "")
-	}
-	return m
+	m, _, _, err := e.models.Resolve(ctx, Of(s).ProjectID, "chat")
+	return m, err
 }
 
 // gitRemote is the environment of the project's read-only fetch endpoint:

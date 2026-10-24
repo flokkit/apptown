@@ -71,7 +71,10 @@ echo credentials in them. Clients receive the upstream error status.
 A binding's nonempty curated model list is an admission allowlist. Otherwise
 its declared models and configured default `*` pattern are allowed. Custom
 OpenAI-compatible endpoints retain cached live model discovery, with declared
-metadata taking precedence. Pi's fuzzy `~` selectors are not authorization
+metadata taking precedence. A list that cannot be read adds nothing for that
+minute: no earlier answer is reused, the model picker names the binding as not
+fully listed, and a model the binding does not declare is refused as unknown
+(the list could not be read), not as disabled. Pi's fuzzy `~` selectors are not authorization
 patterns: curate concrete IDs for those bindings. Built-in metadata remains in
 Pi; supplying an override does not itself authorize all built-in models.
 

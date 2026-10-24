@@ -27,7 +27,13 @@ import (
 type Dependencies struct {
 	Agent       Agent       // the runtime the agent runs in
 	Environment Environment // the provision for a launch (model, env, mounts); nil runs sessions as opened
-	Config      Config
+	// Settle is what an end does with the session's last record before the
+	// session is archived or removed (the opener's accounting of it). It runs
+	// after the agent's runtime has ended, so the runtime's last record is
+	// in; an error keeps the session registered and its record in place. Nil
+	// settles nothing.
+	Settle func(ctx context.Context, s *Session) error
+	Config Config
 }
 
 // Config is the console's own settings.
@@ -55,10 +61,11 @@ var (
 // Service owns the sessions: their records on disk, the registry in memory,
 // and every operation on one. Built once.
 type Service struct {
-	agent Agent
-	env   Environment
-	cfg   Config
-	now   func() time.Time
+	agent  Agent
+	env    Environment
+	settle func(context.Context, *Session) error
+	cfg    Config
+	now    func() time.Time
 
 	mu       sync.Mutex
 	sessions map[string]*Session
@@ -68,7 +75,7 @@ type Service struct {
 }
 
 func New(deps Dependencies) *Service {
-	return &Service{agent: deps.Agent, env: deps.Environment, cfg: deps.Config, now: clock.Or(deps.Config.Now),
+	return &Service{agent: deps.Agent, env: deps.Environment, settle: deps.Settle, cfg: deps.Config, now: clock.Or(deps.Config.Now),
 		sessions: map[string]*Session{}, blocked: map[string]bool{}, opening: map[string]int{}, pending: map[string]int{}}
 }
 
@@ -522,6 +529,17 @@ func (s *Service) End(ctx context.Context, id string) (Ended, error) {
 		sess.ending = false
 		s.mu.Unlock()
 		return Ended{}, fmt.Errorf("removing chat %s's agent: %w; the chat stays until it is removed", sess.ID, err)
+	}
+	// Settled after the runtime's end (its last record is in) and before the
+	// record is archived or removed: a chat whose settling failed keeps its
+	// registration and its record, and is ended again.
+	if s.settle != nil {
+		if err := s.settle(ctx, sess); err != nil {
+			s.mu.Lock()
+			sess.ending = false
+			s.mu.Unlock()
+			return Ended{}, fmt.Errorf("chat %s ended its agent, but settling it failed: %w; it stays until it is ended again", sess.ID, err)
+		}
 	}
 	// The record becomes the archive: recovery no longer sees a live
 	// session, the transcript still finds the conversation. Until it has,
