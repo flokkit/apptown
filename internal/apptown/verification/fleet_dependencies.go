@@ -59,6 +59,9 @@ func (f Fleet) judgeChecklist(ctx context.Context, call modelcall.Call, items []
 	if len(items) == 0 {
 		return nil, nil, nil
 	}
-	call.Model, _, _ = f.selection.Resolve(ctx, call.ProjectID, "fast")
+	var err error
+	if call.Model, _, _, err = f.selection.Resolve(ctx, call.ProjectID, "fast"); err != nil {
+		return nil, nil, err
+	}
 	return f.evaluator.Checklist(ctx, call, items, diff)
 }

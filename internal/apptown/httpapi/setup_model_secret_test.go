@@ -23,8 +23,8 @@ func TestSetupModelWritesSecrets(t *testing.T) {
 	secrets := secret.NewService(db, secret.Config{DataDir: dir})
 	models := model.New(db)
 	h := NewSetupModel(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), models, db, nil)
-	h.anthropicBase = "http://127.0.0.1:1" // no test reaches Anthropic
-	req := httptest.NewRequest("POST", "/api/v1/setup/model", strings.NewReader(`{"provider":"anthropic","key":"sk-ant-test-123"}`))
+	h.anthropicBase = "http://127.0.0.1:1" // no test reaches Anthropic: the model is named
+	req := httptest.NewRequest("POST", "/api/v1/setup/model", strings.NewReader(`{"provider":"anthropic","key":"sk-ant-test-123","model":"anthropic/claude-sonnet-9"}`))
 	req = req.WithContext(access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true}))
 	w := httptest.NewRecorder()
 	h.SetupModel(w, req)
@@ -42,13 +42,13 @@ func TestSetupModelWritesSecrets(t *testing.T) {
 	if fi, _ := os.Stat(envPath); fi.Mode().Perm() != 0o600 {
 		t.Fatalf("secrets.env must be 0600, is %v", fi.Mode().Perm())
 	}
-	if slot, _, _ := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); slot == "" {
+	if slot, _, _, err := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); err != nil || slot == "" {
 		t.Fatal("a default model slot should exist after setup")
 	}
 	// Replacing the key changes the credential in use: the request is on the
 	// record before the file changes, and the outcome after.
 	again := func(key string) int {
-		r := httptest.NewRequest("POST", "/api/v1/setup/model", strings.NewReader(`{"provider":"anthropic","key":"`+key+`"}`))
+		r := httptest.NewRequest("POST", "/api/v1/setup/model", strings.NewReader(`{"provider":"anthropic","key":"`+key+`","model":"anthropic/claude-sonnet-9"}`))
 		w := httptest.NewRecorder()
 		h.SetupModel(w, r.WithContext(req.Context()))
 		return w.Code
@@ -97,9 +97,10 @@ func TestSetupModelWritesSecrets(t *testing.T) {
 // latest-Sonnet alias names in its model list at setup, as a concrete id the
 // inference gateway admits (it refuses "~" selectors), never a fixed version
 // that goes stale (the desktop trial, 20 Oct 2026, got claude-sonnet-4.5).
-// When the list cannot be read it falls back to a fixed current id.
+// When the list cannot be read setup fails, saving nothing: no version is
+// invented.
 //
-// Kills: a fixed default, the alias itself stored, or no fallback.
+// Kills: a fixed default, the alias itself stored, or an invented version.
 func TestSetupModelDefaultsOpenRouterToWhereItsLatestSonnetPoints(t *testing.T) {
 	t.Parallel()
 	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -112,12 +113,13 @@ func TestSetupModelDefaultsOpenRouterToWhereItsLatestSonnetPoints(t *testing.T) 
 	t.Cleanup(catalog.Close)
 	for name, c := range map[string]struct{ url, want string }{
 		"the list answers":        {catalog.URL, "openrouter/anthropic/claude-sonnet-9"},
-		"the list cannot be read": {catalog.URL + "/missing", openRouterFallback},
+		"the list cannot be read": {catalog.URL + "/missing", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			db := databaseSuite.New(t)
-			secrets := secret.NewService(db, secret.Config{DataDir: t.TempDir()})
+			dir := t.TempDir()
+			secrets := secret.NewService(db, secret.Config{DataDir: dir})
 			models := model.New(db)
 			h := NewSetupModel(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), models, db, nil)
 			h.openRouterBase = c.url
@@ -125,11 +127,16 @@ func TestSetupModelDefaultsOpenRouterToWhereItsLatestSonnetPoints(t *testing.T) 
 			req = req.WithContext(access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true}))
 			w := httptest.NewRecorder()
 			h.SetupModel(w, req)
-			if w.Code != 200 {
-				t.Fatalf("setup: %d %s", w.Code, w.Body.String())
+			if want := map[bool]int{true: 200, false: 502}[c.want != ""]; w.Code != want {
+				t.Fatalf("setup: %d %s, want %d", w.Code, w.Body.String(), want)
 			}
-			if slot, _, _ := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); slot != c.want {
-				t.Fatalf("the default model is %q, want %q", slot, c.want)
+			if slot, _, _, err := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); err != nil || slot != c.want {
+				t.Fatalf("the default model is %q (%v), want %q", slot, err, c.want)
+			}
+			if c.want == "" {
+				if _, err := os.Stat(filepath.Join(dir, "secrets.env")); !os.IsNotExist(err) {
+					t.Fatalf("a failed setup saved the key: %v", err)
+				}
 			}
 		})
 	}
@@ -139,10 +146,11 @@ func TestSetupModelDefaultsOpenRouterToWhereItsLatestSonnetPoints(t *testing.T) 
 // Anthropic's own list, asked with that key: Anthropic has no "latest"
 // alias, and the old default anthropic/claude-sonnet-latest named no model
 // (every chat failed). Anthropic lists newest first, so the first Sonnet is
-// taken. When the list cannot be read it falls back to a fixed current id.
+// taken. When the list cannot be read (a wrong key, say) setup fails, saving
+// nothing: no version is invented.
 //
-// Kills: the old fixed default; taking a later Sonnet than the first; no
-// fallback; the key not sent.
+// Kills: the old fixed default; taking a later Sonnet than the first; an
+// invented version; the key not sent.
 func TestSetupModelDefaultsAnthropicToItsNewestListedSonnet(t *testing.T) {
 	t.Parallel()
 	list := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -155,12 +163,13 @@ func TestSetupModelDefaultsAnthropicToItsNewestListedSonnet(t *testing.T) {
 	t.Cleanup(list.Close)
 	for name, c := range map[string]struct{ url, want string }{
 		"the list answers":        {list.URL, "anthropic/claude-sonnet-9"},
-		"the list cannot be read": {list.URL + "/missing", anthropicFallback},
+		"the list cannot be read": {list.URL + "/missing", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			db := databaseSuite.New(t)
-			secrets := secret.NewService(db, secret.Config{DataDir: t.TempDir()})
+			dir := t.TempDir()
+			secrets := secret.NewService(db, secret.Config{DataDir: dir})
 			models := model.New(db)
 			h := NewSetupModel(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), models, db, nil)
 			h.anthropicBase = c.url
@@ -168,12 +177,41 @@ func TestSetupModelDefaultsAnthropicToItsNewestListedSonnet(t *testing.T) {
 			req = req.WithContext(access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true}))
 			w := httptest.NewRecorder()
 			h.SetupModel(w, req)
-			if w.Code != 200 {
-				t.Fatalf("setup: %d %s", w.Code, w.Body.String())
+			if want := map[bool]int{true: 200, false: 502}[c.want != ""]; w.Code != want {
+				t.Fatalf("setup: %d %s, want %d", w.Code, w.Body.String(), want)
 			}
-			if slot, _, _ := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); slot != c.want {
-				t.Fatalf("the default model is %q, want %q", slot, c.want)
+			if slot, _, _, err := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); err != nil || slot != c.want {
+				t.Fatalf("the default model is %q (%v), want %q", slot, err, c.want)
+			}
+			if c.want == "" {
+				if _, err := os.Stat(filepath.Join(dir, "secrets.env")); !os.IsNotExist(err) {
+					t.Fatalf("a failed setup saved the key: %v", err)
+				}
 			}
 		})
+	}
+}
+
+// A provider binding that could not be recorded is not a configured model:
+// setup answers the failure, says the key was saved, and leaves the default
+// slot as it was.
+//
+// Kills: logging the binding failure and answering OK.
+func TestSetupModelFailsWhenItsBindingIsNotRecorded(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	secrets := secret.NewService(db, secret.Config{DataDir: t.TempDir()})
+	models := model.New(db)
+	h := NewSetupModel(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), models, db, nil)
+	req := httptest.NewRequest("POST", "/api/v1/setup/model", strings.NewReader(`{"provider":"anthropic","key":"sk-ant-test-123","model":"anthropic/claude-sonnet-9"}`))
+	req = req.WithContext(access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "session"}, Verified: true}))
+	defer db.FailNextStatement("INSERT INTO integrations")()
+	w := httptest.NewRecorder()
+	h.SetupModel(w, req)
+	if w.Code != 500 || !strings.Contains(w.Body.String(), "key was saved") {
+		t.Fatalf("setup: %d %s", w.Code, w.Body.String())
+	}
+	if slot, _, _, err := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); err != nil || slot != "" {
+		t.Fatalf("the default model is %q (%v), want none", slot, err)
 	}
 }

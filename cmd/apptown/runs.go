@@ -753,7 +753,9 @@ func cmdDecide(args []string, decision string) error {
 		return err
 	}
 	var s struct{ Name, Status string }
-	_ = json.Unmarshal(raw, &s)
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return fmt.Errorf("the %s was recorded, but AppTown's answer could not be read: %w", decision, err)
+	}
 	if *asJSON {
 		step, _ := ids.Parse(args[0])
 		return printJSON(Decided{Step: step, Decision: decision, Status: s.Status})
@@ -774,7 +776,9 @@ func cmdRunStep(args []string) error {
 		return err
 	}
 	var s struct{ Name, Status string }
-	_ = json.Unmarshal(raw, &s)
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return fmt.Errorf("the step was started, but AppTown's answer could not be read: %w", err)
+	}
 	if s.Name != "" {
 		fmt.Printf("%s → %s\n", s.Name, s.Status)
 	} else {

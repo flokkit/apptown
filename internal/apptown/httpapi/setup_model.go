@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -40,41 +39,32 @@ func NewSetupModel(secrets *secret.Service, integrations *integration.Service, m
 // A first OpenRouter key's default model is the one OpenRouter's
 // latest-Sonnet alias names when the key is set up: its public model list
 // gives the alias's target. The alias itself cannot be the default, because
-// the inference gateway admits no "~" selector. openRouterFallback is used
-// only when the list cannot be read, and is replaced at the next setup; a
-// fixed version as the only default (claude-sonnet-4.5) went stale.
-const (
-	openRouterSonnetAlias = "~anthropic/claude-sonnet-latest"
-	openRouterFallback    = "openrouter/anthropic/claude-sonnet-5.5"
-)
+// the inference gateway admits no "~" selector. A first Anthropic key's
+// default model is the newest Sonnet in Anthropic's own model list, asked
+// with that key (Anthropic has no "latest" alias). The provider's list is
+// the one source: when it cannot be read, setup fails and names why, rather
+// than choosing a version AppTown keeps itself (a fixed default went stale
+// and broke every chat).
+const openRouterSonnetAlias = "~anthropic/claude-sonnet-latest"
 
-// A first Anthropic key's default model is the newest Sonnet in Anthropic's
-// own model list, asked with that key. Anthropic has no "latest" alias: the
-// earlier default, anthropic/claude-sonnet-latest, named no model and every
-// chat failed. anthropicFallback is used only when the list cannot be read,
-// and is replaced at the next setup.
-const anthropicFallback = "anthropic/claude-sonnet-5-5"
-
-// anthropicSonnet is "anthropic/" and the newest Sonnet Anthropic lists for
-// key, or anthropicFallback when its list cannot say.
-func (h SetupModel) anthropicSonnet(ctx context.Context, key string) string {
+// anthropicSonnet is "anthropic/" and the newest Sonnet Anthropic lists for key.
+func (h SetupModel) anthropicSonnet(ctx context.Context, key string) (string, error) {
 	id, err := inference.AnthropicNewest(ctx, h.anthropicBase, key, "claude-sonnet-")
 	if err != nil {
-		return anthropicFallback
+		return "", err
 	}
-	return "anthropic/" + id
+	return "anthropic/" + id, nil
 }
 
-// openRouterSonnet is "openrouter/" and the latest-Sonnet alias's target,
-// or openRouterFallback when OpenRouter's list cannot say.
-func (h SetupModel) openRouterSonnet(ctx context.Context) string {
+// openRouterSonnet is "openrouter/" and the latest-Sonnet alias's target.
+func (h SetupModel) openRouterSonnet(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	target, err := openrouter.AliasTarget(ctx, h.openRouterBase, openRouterSonnetAlias)
 	if err != nil {
-		return openRouterFallback
+		return "", err
 	}
-	return "openrouter/" + target
+	return "openrouter/" + target, nil
 }
 
 // SetupModel: POST /api/v1/setup/model {provider, key, model?} — the
@@ -105,11 +95,16 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 		}
 		model := strings.TrimSpace(in.Model)
 		if model == "" {
+			var err error
 			switch in.Provider {
 			case "anthropic":
-				model = h.anthropicSonnet(r.Context(), in.Key)
+				model, err = h.anthropicSonnet(r.Context(), in.Key)
 			case "openrouter":
-				model = h.openRouterSonnet(r.Context())
+				model, err = h.openRouterSonnet(r.Context())
+			}
+			if err != nil {
+				WriteError(w, 502, "AppTown could not read %s's model list to choose a model (%v); nothing was saved", in.Provider, err)
+				return
 			}
 		}
 		// secrets.env: append or replace the key's line. 0600 — it holds values.
@@ -117,8 +112,11 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 500, "writing secrets.env: %v", err)
 			return
 		}
+		// The gateway reaches the provider through its binding: without it the
+		// model is not set up, whatever the default slot says.
 		if _, err := h.integrations.Bindings.Upsert(r.Context(), in.Provider, "model", "pi", encodedJSON(map[string]any{"model": model, "secretEnv": []string{secretName}}), false); err != nil {
-			log.Printf("integration %s: recording its configuration: %v", in.Provider, err)
+			WriteError(w, 500, "the key was saved in secrets.env, but the %s binding could not be recorded (%v); the default model was not changed", in.Provider, err)
+			return
 		}
 		if err := h.models.SetDefault(r.Context(), model); err != nil {
 			WriteError(w, 500, "saving the default model: %v", err)

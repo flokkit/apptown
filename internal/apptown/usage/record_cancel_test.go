@@ -30,7 +30,7 @@ func TestSpendIsRecordedThoughTheCallerStopped(t *testing.T) {
 	if err := l.RecordOnce(stopped, "once", e, Totals{Total: 5}, ""); err != nil {
 		t.Fatalf("record once: %v", err)
 	}
-	if err := l.SetCursor(stopped, "/records/a", 42); err != nil {
+	if err := l.RecordHarvest(stopped, "/records/a", 42, nil); err != nil {
 		t.Fatalf("cursor: %v", err)
 	}
 	if err := r.Finish(stopped, receipt, 200, "ok", "{}"); err != nil {

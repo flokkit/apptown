@@ -14,12 +14,12 @@ func NewModelDiscovery(catalog *inference.Catalog) ModelDiscovery {
 	return ModelDiscovery{catalog: catalog}
 }
 func (h ModelDiscovery) ModelCatalog(w http.ResponseWriter, r *http.Request) {
-	models, err := h.catalog.Models(r.Context())
+	models, unlisted, err := h.catalog.Models(r.Context())
 	if err != nil {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, ModelCatalogList{Models: models})
+	WriteJSON(w, 200, ModelCatalogList{Models: models, Unlisted: unlisted})
 }
 func (h ModelDiscovery) DiscoverModels(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{errorText: "bad json"}, func(in struct {
@@ -36,9 +36,11 @@ func (h ModelDiscovery) DiscoverModels(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ModelCatalogList is the models the instance knows about.
+// ModelCatalogList is the models the instance knows about, and the bindings
+// whose models could not all be listed, with why.
 type ModelCatalogList struct {
-	Models []inference.ModelEntry `json:"models"`
+	Models   []inference.ModelEntry      `json:"models"`
+	Unlisted []inference.UnlistedBinding `json:"unlisted"`
 }
 
 // DiscoveredModels is the model ids a provider offered.

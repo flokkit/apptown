@@ -183,3 +183,40 @@ describe('a chat the worker refused', () => {
     done()
   })
 })
+
+// Ending a chat starts a fresh one only when the chat ended, or AppTown says
+// it no longer exists; a failure to end it is shown and opens nothing.
+describe('ending a chat', () => {
+  const ending = async (status: number) => {
+    const opens = fakeAppTown(() => ({ body: { sessions: [chat('mine', C1)] } }))
+    const answered = globalThis.fetch
+    const deletes: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') {
+        deletes.push(String(url))
+        return new Response(JSON.stringify(status === 200 ? { ok: true } : { error: status === 404 ? 'no such session' : 'the database is unavailable' }), { status })
+      }
+      return answered(url, init)
+    }))
+    const { el, done } = await page(`?change=${C1}`)
+    await vi.waitFor(() => expect(el.querySelector('[title="mine"]')).not.toBeNull())
+    const button = [...el.querySelectorAll('button')].find((b) => b.textContent === 'end chat')!
+    await act(async () => { button.click() })
+    await settle()
+    expect(deletes).toEqual(['/api/v1/console/mine'])
+    return { el, opens, done }
+  }
+  it('shows a failure to end and opens no fresh chat', async () => {
+    const { el, opens, done } = await ending(500)
+    expect(el.textContent).toContain('the database is unavailable')
+    expect(opens).toEqual([])
+    done()
+  })
+  for (const status of [200, 404]) {
+    it(`opens a fresh chat once the chat is gone (${status})`, async () => {
+      const { opens, done } = await ending(status)
+      await vi.waitFor(() => expect(opens).toEqual([{ changeId: C1 }]))
+      done()
+    })
+  }
+})

@@ -27,7 +27,9 @@ func NewPackAssistance(ways *wow.Service, selection ModelSelection, completion m
 // yes/no questions that genuinely discriminate between the available
 // setups (multiplayer? shared saves? uploads?) — phrased for someone who
 // is not a developer, never naming technology. Round two (answers present): it MUST decide.
-// No model → the house default, no questions.
+// When the interview cannot decide (no model, a failed call, an answer that
+// is not a valid choice) it answers an error and decides nothing: the
+// person chooses the way of working.
 func (h PackAssistance) PackInterview(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{}, func(in struct {
 		Description string `json:"description"`
@@ -45,15 +47,17 @@ func (h PackAssistance) PackInterview(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 422, "no packs are turned on — turn one on under Ways of working")
 			return
 		}
-		fallback := packs[0].Name
-		for _, p := range packs {
-			if p.Name == "go-small" {
-				fallback = p.Name
-			}
+		if strings.TrimSpace(in.Description) == "" {
+			WriteError(w, 400, "describe the project first")
+			return
 		}
-		pattern, _, _ := h.selection.Resolve(r.Context(), ids.Nil, "fast")
-		if pattern == "" || h.completion == nil || strings.TrimSpace(in.Description) == "" {
-			WriteJSON(w, 200, PackInterviewPick{Decided: true, Pack: fallback, Why: "the house default (no model available to interview)"})
+		pattern, _, _, err := h.selection.Resolve(r.Context(), ids.Nil, "fast")
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		if pattern == "" || h.completion == nil {
+			WriteError(w, 422, "no model is set up to suggest a way of working; choose one yourself")
 			return
 		}
 
@@ -92,7 +96,7 @@ or
 		}
 		out, _, err := h.completion.Ask(r.Context(), modelcall.Call{Purpose: "pack-assistance", Model: pattern, System: system, User: user})
 		if err != nil {
-			WriteJSON(w, 200, PackInterviewPick{Decided: true, Pack: fallback, Why: "the house default (the interviewer was unavailable)"})
+			WriteError(w, 502, "the interviewer could not be asked (%v); choose a way of working yourself", err)
 			return
 		}
 		clean := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(out), "```json"), "```"), "```"))
@@ -104,21 +108,23 @@ or
 			Questions []string `json:"questions"`
 		}
 		if json.Unmarshal([]byte(clean), &v) != nil {
-			WriteJSON(w, 200, PackInterviewPick{Decided: true, Pack: fallback, Why: "the house default (the interviewer answered unclearly)"})
+			WriteError(w, 502, "the interviewer's answer could not be read; choose a way of working yourself")
 			return
 		}
-		if v.Decided || mustDecide || len(v.Questions) == 0 {
-			pick, why := fallback, v.Why
+		if v.Decided || mustDecide {
+			// Only a pack the interviewer named and this AppTown offers is a
+			// decision; its reason is the interviewer's own, or none.
 			for _, p := range packs {
 				if p.Name == v.Pack {
-					pick = v.Pack
-					break
+					WriteJSON(w, 200, PackInterviewPick{Decided: true, Pack: v.Pack, Why: strings.TrimSpace(v.Why), Icon: strings.TrimSpace(v.Icon)})
+					return
 				}
 			}
-			if why == "" {
-				why = "it fits what you described"
-			}
-			WriteJSON(w, 200, PackInterviewPick{Decided: true, Pack: pick, Why: why, Icon: strings.TrimSpace(v.Icon)})
+			WriteError(w, 502, "the interviewer named %q, which is not a way of working this AppTown offers; choose one yourself", v.Pack)
+			return
+		}
+		if len(v.Questions) == 0 {
+			WriteError(w, 502, "the interviewer neither chose a way of working nor asked a question; choose one yourself")
 			return
 		}
 		if len(v.Questions) > 3 {

@@ -20,32 +20,41 @@ type ModelEntry struct {
 	Source string `json:"source"`
 }
 
+// UnlistedBinding is a model binding whose models could not all be listed,
+// and why: its configuration does not parse or resolve (a missing
+// credential, say), or its provider's live list could not be read. Its
+// configured patterns are still listed when they could be read.
+type UnlistedBinding struct {
+	Binding string `json:"binding"`
+	Error   string `json:"error"`
+}
+
 // ErrNoEndpoint is a binding whose provider has no model list to ask.
 var ErrNoEndpoint = fault.New(fault.Unprocessable, "no discoverable endpoint for this provider")
 
 // Models lists the patterns a model slot may name, binding by binding:
 // the default, the curated list, and what the provider lists live, read
 // through the same resolution and discovery cache the gateway admits by.
-// A binding that does not resolve (a missing credential, say) still lists
-// its configured patterns, without live ones.
-func (catalog Catalog) Models(ctx context.Context) ([]ModelEntry, error) {
+// A binding whose models could not all be listed is named in unlisted with
+// why, so an unread list is never shown as an empty or current one.
+func (catalog Catalog) Models(ctx context.Context) (entries []ModelEntry, unlisted []UnlistedBinding, err error) {
 	bindings, err := integration.ForCapability(ctx, catalog.db, integration.CapModel)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	secrets := catalog.secrets.All(ctx)
 	seen := map[string]bool{}
-	var out []ModelEntry
 	add := func(pattern, binding, source string) {
 		if pattern == "" || seen[pattern] {
 			return
 		}
 		seen[pattern] = true
-		out = append(out, ModelEntry{Pattern: pattern, Binding: binding, Source: source})
+		entries = append(entries, ModelEntry{Pattern: pattern, Binding: binding, Source: source})
 	}
 	for _, b := range bindings {
 		var cfg integration.ModelConfig
 		if json.Unmarshal([]byte(b.ConfigJSON), &cfg) != nil {
+			unlisted = append(unlisted, UnlistedBinding{Binding: b.Name, Error: "its configuration could not be read"})
 			continue
 		}
 		add(cfg.Model, b.Name, "default")
@@ -53,14 +62,22 @@ func (catalog Catalog) Models(ctx context.Context) ([]ModelEntry, error) {
 			add(b.Name+"/"+id, b.Name, "curated")
 		}
 		p, err := resolveInferenceProvider(b.Name, cfg, secrets)
-		if err != nil || p == nil || !discoverable(p, cfg) {
+		if err != nil {
+			unlisted = append(unlisted, UnlistedBinding{Binding: b.Name, Error: err.Error()})
 			continue
 		}
-		for _, id := range catalog.discovery.models(p, clock.Or(catalog.Now)()) {
+		if p == nil || !discoverable(p, cfg) {
+			continue
+		}
+		ids, err := catalog.discovery.models(p, clock.Or(catalog.Now)())
+		if err != nil {
+			unlisted = append(unlisted, UnlistedBinding{Binding: b.Name, Error: err.Error()})
+		}
+		for _, id := range ids {
 			add(b.Name+"/"+id, b.Name, "live")
 		}
 	}
-	return out, nil
+	return entries, unlisted, nil
 }
 
 // Discover asks a provider for its models before its binding is saved, with

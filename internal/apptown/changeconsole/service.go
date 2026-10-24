@@ -32,7 +32,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/scm"
-	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
@@ -56,7 +55,6 @@ type Dependencies struct {
 	Sessions   *console.Service
 	Chats      conversation.Chats
 	Previews   *preview.Service
-	Usage      *usage.Ledger
 	Narratives Narratives
 	Folders    FolderPublisher
 	DataDir    string
@@ -75,7 +73,6 @@ type Service struct {
 	sessions   *console.Service
 	chats      conversation.Chats
 	previews   *preview.Service
-	usage      *usage.Ledger
 	narratives Narratives
 	folders    FolderPublisher
 	dataDir    string
@@ -88,7 +85,7 @@ type Service struct {
 // landing preparation it publishes through. With a worker, the chats there
 // are sourced, saved after each turn and saved last through it.
 func New(saves *Saves, d Dependencies) *Service {
-	s := &Service{db: d.DB, sessions: d.Sessions, chats: d.Chats, previews: d.Previews, usage: d.Usage,
+	s := &Service{db: d.DB, sessions: d.Sessions, chats: d.Chats, previews: d.Previews,
 		narratives: d.Narratives, folders: d.Folders, dataDir: d.DataDir, stop: d.Stop, engine: d.Engine, saves: saves}
 	if r := saves.remote; r != nil {
 		r.Source, r.HandedBack, r.Ending = s.workerChatSource, s.SaveAfterTurn, s.lastSave
@@ -253,7 +250,8 @@ func (c *Service) End(ctx context.Context, id, actor string) error {
 	if err != nil {
 		return err
 	}
-	conversation.HarvestUsage(ctx, c.usage, s)
+	// The end itself records the chat's spend, after its runtime's last
+	// record is in (console.Dependencies.Settle).
 	_, err = c.sessions.End(ctx, id)
 	if err != nil {
 		return err

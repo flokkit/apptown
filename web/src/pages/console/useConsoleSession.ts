@@ -59,12 +59,22 @@ export function useConsoleSession({ slug, changeId, forcedSession }: ConsoleAddr
     void open()
   }, [storageKey, open])
 
+  // Ending starts a fresh chat only once the chat is ended, or AppTown says
+  // it no longer exists (404); any other failure is shown and the chat stays.
   const end = useCallback(async () => {
     if (session) {
-      try { await del(`/console/${session.id}`) } catch { /* already gone */ }
+      const ended = await run(async () => {
+        try {
+          await del(`/console/${session.id}`)
+        } catch (e) {
+          if (!(e instanceof HttpError && e.status === 404)) throw e
+        }
+        return true
+      })
+      if (!ended) return
     }
     startFresh()
-  }, [session, startFresh])
+  }, [session, startFresh, run])
 
   // AppTown's own classification says when a change's chat the worker
   // refused can open on AppTown instead; its sentence is never read.

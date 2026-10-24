@@ -308,3 +308,100 @@ func TestATerminalThatEndsOnTheWorkerEndsForAppTown(t *testing.T) {
 		t.Fatal("the chat's screen ended, but AppTown's terminal stayed open")
 	}
 }
+
+// settlingChats is a chat service on a worker whose last save, like the
+// worker's own, needs a live session, and whose settle answers settle.
+type settlingChats struct {
+	svc     *console.Service
+	runtime *consoletest.Agent
+	client  worker.SessionClient
+	saves   int
+	settle  error
+}
+
+func startSettlingChats(t *testing.T) *settlingChats {
+	t.Helper()
+	ca := workertest.NewCA(t)
+	c := &settlingChats{runtime: consoletest.NewAgent()}
+	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Sessions: c.runtime})
+	c.client = worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+	data := t.TempDir()
+	agent := &worker.RemoteAgent{Sessions: c.client, Image: "apptown-agent", Root: filepath.Join(data, "console"), CopyEvery: 50 * time.Millisecond,
+		Ending: func(ctx context.Context, id string) error {
+			if st, err := c.client.Status(ctx, id); err != nil || st.Removed {
+				return fmt.Errorf("no live session to save: %v", err)
+			}
+			c.saves++
+			return nil
+		}}
+	t.Cleanup(agent.Close)
+	c.svc = console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: data},
+		Settle: func(context.Context, *console.Session) error { return c.settle }})
+	return c
+}
+
+func (c *settlingChats) open(t *testing.T) *console.Session {
+	t.Helper()
+	ctx := context.Background()
+	s, err := c.svc.Open(ctx, console.OpenRequest{Scope: "change:1", Workspace: console.Workspace{Path: t.TempDir(), Writable: true}, Actor: "alice", Model: "m"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := c.svc.Warm(ctx, s.ID); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// A worker chat whose end could not be settled on AppTown (its spend not
+// recorded, say) stays a chat, and ending it again finishes: the worker
+// session an end removed (after its last save and last copy) is not saved
+// or copied a second time, which a removed session would refuse.
+func TestAWorkerChatEndedAgainAfterAFailedSettleEnds(t *testing.T) {
+	c := startSettlingChats(t)
+	s := c.open(t)
+	ctx := context.Background()
+	unsettled := errors.New("spend not recorded")
+	c.settle = unsettled
+	if _, err := c.svc.End(ctx, s.ID); !errors.Is(err, unsettled) {
+		t.Fatalf("an unsettled end: %v", err)
+	}
+	if _, err := c.svc.Get(ctx, s.ID); err != nil {
+		t.Fatalf("an unsettled chat is gone: %v", err)
+	}
+	c.settle = nil
+	if _, err := c.svc.End(ctx, s.ID); err != nil {
+		t.Fatalf("ending it again: %v", err)
+	}
+	if c.saves != 1 {
+		t.Fatalf("the last save ran %d times", c.saves)
+	}
+	if _, err := c.svc.Get(ctx, s.ID); !errors.Is(err, console.ErrNoSession) {
+		t.Fatalf("an ended chat is still registered: %v", err)
+	}
+}
+
+// A removal the worker could not finish (its runtime still there) is not an
+// end, however often it is asked: each end asks for the removal again, and
+// only one that takes the runtime away ends the chat; the last save is not
+// made twice.
+func TestAWorkerChatEndsOnlyOnceItsRemovalFinishes(t *testing.T) {
+	c := startSettlingChats(t)
+	s := c.open(t)
+	ctx := context.Background()
+	c.runtime.FailRemove(s.ID, 2)
+	for i := range 2 {
+		if _, err := c.svc.End(ctx, s.ID); err == nil {
+			t.Fatalf("end %d succeeded with the runtime still there", i+1)
+		}
+		if !c.runtime.Exists(s.ID) {
+			t.Fatalf("end %d: the runtime is gone", i+1)
+		}
+	}
+	if _, err := c.svc.End(ctx, s.ID); err != nil {
+		t.Fatalf("the end whose removal finished: %v", err)
+	}
+	if c.runtime.Exists(s.ID) || c.saves != 1 {
+		t.Fatalf("after the end: runtime %v, %d last saves", c.runtime.Exists(s.ID), c.saves)
+	}
+}

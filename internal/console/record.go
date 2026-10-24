@@ -318,17 +318,25 @@ type Transcript struct {
 // pinned "console" session or the continued lane agent's own; names are
 // timestamp-prefixed, so sorted order is chronological.
 // Only regular files count: the agent writes this directory, and a link or
-// a device there is not a record.
-func (t *Transcript) SessionFiles() []string {
-	files, _ := filepath.Glob(filepath.Join(t.Dir, "sessions", "*.jsonl"))
-	out := files[:0]
-	for _, f := range files {
-		if fi, err := os.Lstat(f); err == nil && fi.Mode().IsRegular() {
-			out = append(out, f)
+// a device there is not a record. A folder that does not exist holds no
+// records; one that cannot be read is an error, never "no records".
+func (t *Transcript) SessionFiles() ([]string, error) {
+	dir := filepath.Join(t.Dir, "sessions")
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, e := range entries {
+		if e.Type().IsRegular() && strings.HasSuffix(e.Name(), ".jsonl") {
+			out = append(out, filepath.Join(dir, e.Name()))
 		}
 	}
 	sort.Strings(out)
-	return out
+	return out, nil
 }
 
 // Offset is the reader's position in the newest record, for tests of the
@@ -342,13 +350,12 @@ func (t *Transcript) Offset() int64 {
 // refresh reads whatever the newest record file has appended since the
 // last call and folds it into the bubbles. Caller holds t.mu.
 func (t *Transcript) refresh() {
-	// Glob answers an unreadable folder as an empty one: the folder is read
-	// first, so a record that cannot be read is never taken for no record.
-	if _, err := os.ReadDir(filepath.Join(t.Dir, "sessions")); err != nil && !errors.Is(err, os.ErrNotExist) {
+	// A record that cannot be read is never taken for no record.
+	files, err := t.SessionFiles()
+	if err != nil {
 		t.err = err
 		return
 	}
-	files := t.SessionFiles()
 	if len(files) == 0 {
 		t.err = nil
 		return
@@ -437,8 +444,8 @@ func (t *Transcript) ReadMessages() ([]Message, error) {
 // same structural signal the UI's green bubble uses; the moment the
 // helper claims "done" is exactly the moment worth verifying.
 func (t *Transcript) TurnHandedBack() bool {
-	files := t.SessionFiles()
-	if len(files) == 0 {
+	files, err := t.SessionFiles()
+	if err != nil || len(files) == 0 {
 		return false
 	}
 	fi, err := os.Lstat(files[len(files)-1])
@@ -455,8 +462,8 @@ func (t *Transcript) TurnHandedBack() bool {
 // LatestSessionFile returns the newest session record and its size: the
 // before/after marker the submit path uses to verify a message landed.
 func (t *Transcript) LatestSessionFile() (string, int64) {
-	files := t.SessionFiles()
-	if len(files) == 0 {
+	files, err := t.SessionFiles()
+	if err != nil || len(files) == 0 {
 		return "", 0
 	}
 	latest := files[len(files)-1]

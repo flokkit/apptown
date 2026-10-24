@@ -24,7 +24,7 @@ func projectDeletionFor(a *App) *projectlifecycle.Deletion {
 }
 
 func projectCleanupFor(a *App) projectlifecycle.Cleanup {
-	return projectlifecycle.Cleanup{Projects: a.Projects, Sessions: a.Console, Usage: a.Usage.Ledger, Docker: &a.docker, Previews: a.Preview, GitLab: repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}, DB: a.DB, DataDir: a.cfg.dataDir, Now: a.cfg.clock.Now}
+	return projectlifecycle.Cleanup{Projects: a.Projects, Sessions: a.Console, Docker: &a.docker, Previews: a.Preview, GitLab: repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}, DB: a.DB, DataDir: a.cfg.dataDir, Now: a.cfg.clock.Now}
 }
 
 // cleanupQueue queues a cleanup round in the deletion's own transaction.

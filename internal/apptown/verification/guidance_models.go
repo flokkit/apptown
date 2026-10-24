@@ -178,6 +178,9 @@ func (a *Guidance) judgeChecklist(ctx context.Context, source workflow.Source, i
 	if len(items) == 0 {
 		return nil, nil, nil
 	}
-	pattern, _, _ := a.selection.Resolve(ctx, source.ProjectID, "fast")
+	pattern, _, _, err := a.selection.Resolve(ctx, source.ProjectID, "fast")
+	if err != nil {
+		return nil, nil, err
+	}
 	return a.evaluator.Checklist(ctx, modelcall.Call{Purpose: "guidance-checklist", ProjectID: source.ProjectID, RunID: source.RunID, Model: pattern}, items, diff)
 }

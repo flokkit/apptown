@@ -385,7 +385,10 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		return workerAgentRequest{}, fmt.Errorf("invalid session id %q", c.session)
 	}
 	out := workerAgentRequest{image: image}
-	out.model, out.modelSlot, out.modelProfile = a.modelSelection.Resolve(ctx, run.ProjectID, k.model)
+	out.model, out.modelSlot, out.modelProfile, err = a.modelSelection.Resolve(ctx, run.ProjectID, k.model)
+	if err != nil {
+		return workerAgentRequest{}, fmt.Errorf("choosing the step's model: %w", err)
+	}
 
 	var inputs []execution.Input
 	add := func(at string, content []byte, mode fs.FileMode) error {

@@ -2,8 +2,8 @@ package model
 
 import (
 	"context"
-	"database/sql"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -76,12 +76,20 @@ func New(db *database.DB) *Slots { return &Slots{db: db} }
 
 func (s *Slots) now() time.Time { return clock.Or(s.Now)() }
 
-func (s *Slots) cell(ctx context.Context, slot string, projectID ids.ID, profile string) (string, bool) {
+// cell is one mapping: found is false when no row (or an empty pattern)
+// maps it. A failed read is an error, never an unmapped cell.
+func (s *Slots) cell(ctx context.Context, slot string, projectID ids.ID, profile string) (pattern string, found bool, err error) {
 	r, err := queries(s.db).ModelSlotCell(ctx, modelsql.ModelSlotCellParams{Slot: slot, ProjectID: projectID, Profile: profile})
-	if err != nil || r.Pattern == "" {
-		return "", false
+	if found, err := database.Lookup(err); err != nil || !found {
+		return "", false, err
 	}
-	return r.Pattern, true
+	return r.Pattern, r.Pattern != "", nil
+}
+
+type cellRef struct {
+	decided string
+	project ids.ID
+	profile string
 }
 
 // Resolve walks, most specific first, until a cell holds a pattern:
@@ -95,11 +103,12 @@ func (s *Slots) cell(ctx context.Context, slot string, projectID ids.ID, profile
 // profile column decided. A slash-pattern passes through with slot "";
 // when nothing is mapped the pattern is "" with slot `default`: no model is
 // set up. Empty requested selects the default slot. Cycles end the same way.
-// A cell read failure skips that cell; a fallback read failure ends the walk.
-// The result therefore does not establish that configuration reads succeeded.
-func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, requested string) (pattern, slot, profile string) {
+// Only an absent cell or fallback row passes the walk on: a failed read
+// returns its error, so a database fault never selects a less specific model
+// or reads as "no model is set up".
+func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, requested string) (pattern, slot, profile string, err error) {
 	if requested != "" && !IsSlot(requested) {
-		return requested, "", ""
+		return requested, "", "", nil
 	}
 	proj := ProfileOf(projectProfile)
 	seen := map[string]bool{}
@@ -109,22 +118,28 @@ func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, r
 	}
 	for name != "" && !seen[name] {
 		seen[name] = true
+		// Most specific first: what the receipt says decided, the cell's
+		// project (Nil for the instance) and its profile column.
+		var cells []cellRef
 		if !projectID.IsZero() {
-			if p, ok := s.cell(ctx, name, projectID, ""); ok {
-				return p, name, "override"
-			}
+			cells = append(cells, cellRef{"override", projectID, ""})
 		}
-		if p, ok := s.cell(ctx, name, ids.Nil, proj); ok {
-			return p, name, proj
-		}
+		cells = append(cells, cellRef{proj, ids.Nil, proj})
 		if proj != StandardProfile {
-			if p, ok := s.cell(ctx, name, ids.Nil, StandardProfile); ok {
-				return p, name, StandardProfile
+			cells = append(cells, cellRef{StandardProfile, ids.Nil, StandardProfile})
+		}
+		for _, c := range cells {
+			p, ok, err := s.cell(ctx, name, c.project, c.profile)
+			if err != nil {
+				return "", "", "", fmt.Errorf("reading the %s model slot: %w", name, err)
+			}
+			if ok {
+				return p, name, c.decided, nil
 			}
 		}
 		r, err := queries(s.db).SlotFallbackBySlot(ctx, name)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			break
+		if _, err := database.Lookup(err); err != nil {
+			return "", "", "", fmt.Errorf("reading the %s model slot's fallback: %w", name, err)
 		}
 		if r.Fallback != "" {
 			name = r.Fallback
@@ -134,7 +149,7 @@ func (s *Slots) Resolve(ctx context.Context, projectID ids.ID, projectProfile, r
 			break
 		}
 	}
-	return "", "default", ""
+	return "", "default", "", nil
 }
 
 // SeedFallbacks records the stock chain as data, only where no row says

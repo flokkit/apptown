@@ -27,7 +27,7 @@ func TestAppTownsNarrativeRefreshPublishesAfterARunEndsButNeverTheBrief(t *testi
 	}
 	calls := 0
 	b := narrativeBuilder{work: a.Work,
-		resolve: func(context.Context, ids.ID) (string, string) { return "openrouter/fixture", "fast" },
+		resolve: func(context.Context, ids.ID) (string, string, error) { return "openrouter/fixture", "fast", nil },
 		evidence: func(context.Context, workflow.NarrativeSource) (narrativeEvidence, error) {
 			return narrativeEvidence{Text: "DIFF: one line"}, nil
 		},
@@ -76,7 +76,7 @@ func TestANarrativeRequestIsOneJobRunAsAppTown(t *testing.T) {
 	change := createReadTestChange(t, a, createReadTestProject(t, a, "told"), "told")
 	var refused error
 	a.narratives.builder = narrativeBuilder{work: a.Work,
-		resolve: func(context.Context, ids.ID) (string, string) { return "openrouter/fixture", "fast" },
+		resolve: func(context.Context, ids.ID) (string, string, error) { return "openrouter/fixture", "fast", nil },
 		evidence: func(context.Context, workflow.NarrativeSource) (narrativeEvidence, error) {
 			return narrativeEvidence{Text: "DIFF: one line"}, nil
 		},

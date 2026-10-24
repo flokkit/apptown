@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,17 +16,18 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 )
 
-type noBriefModel struct{}
+// noBriefModel resolves every slot to no model, or fails with err.
+type noBriefModel struct{ err error }
 
-func (noBriefModel) Resolve(context.Context, ids.ID, string) (string, string, string) {
-	return "", "", ""
+func (m noBriefModel) Resolve(context.Context, ids.ID, string) (string, string, string, error) {
+	return "", "", "", m.err
 }
 func TestBuildApprovalBriefSkeleton(t *testing.T) {
 	t.Parallel()
 	h := ApprovalBriefs{selection: noBriefModel{}}
 	approval := &workflow.Step{ID: idstest.N(4), Name: "accept", Type: "approval", Status: workflow.StatusPending,
 		Config: json.RawMessage(`{"means":"you are accepting the visual design","instructions":"look at the screenshots"}`)}
-	brief := h.buildApprovalBrief(context.Background(), workflow.ApprovalBriefInputs{
+	brief, err := h.buildApprovalBrief(context.Background(), workflow.ApprovalBriefInputs{
 		StepContext: workflow.StepContext{Step: approval, Run: &workflow.Run{ProjectID: idstest.N(1)}},
 		Change:      &workflow.Change{Title: "Add dark mode", Body: "A toggle in settings.", Summary: "Implemented the toggle and wired the theme."},
 		Steps: []*workflow.Step{
@@ -38,6 +40,9 @@ func TestBuildApprovalBriefSkeleton(t *testing.T) {
 		Report: "I added the toggle and tested both themes.",
 		Asked:  &workflow.PersonFeedback{Note: "make the toggle remember the choice", By: "ana"},
 	}, " settings.tsx | 12 ++++++++----\n 1 file changed, 8 insertions(+), 4 deletions(-)")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, want := range []string{
 		"THE ASK: Add dark mode",
@@ -131,5 +136,22 @@ func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
 	inputs.Change.Branch = "apptown/change-gone"
 	if stat := h.diffStat(f.Context, inputs); !strings.HasPrefix(stat, "could not be read: ") {
 		t.Fatalf("an unreadable diff: %q", stat)
+	}
+}
+
+// A fast-model selection that cannot be read is a failure, not "no model":
+// the bare skeleton is not returned to be saved as the approval's brief.
+func TestApprovalBriefRefusesAnUnreadModelSelection(t *testing.T) {
+	t.Parallel()
+	unread := errors.New("model slots unreadable")
+	h := ApprovalBriefs{selection: noBriefModel{err: unread}}
+	approval := &workflow.Step{ID: idstest.N(4), Name: "accept", Type: "approval", Status: workflow.StatusPending}
+	brief, err := h.buildApprovalBrief(context.Background(), workflow.ApprovalBriefInputs{
+		StepContext: workflow.StepContext{Step: approval, Run: &workflow.Run{ProjectID: idstest.N(1)}},
+		Change:      &workflow.Change{Title: "Add dark mode"},
+		Steps:       []*workflow.Step{approval},
+	}, "")
+	if !errors.Is(err, unread) || brief != "" {
+		t.Fatalf("an unread selection gave %q, %v", brief, err)
 	}
 }
