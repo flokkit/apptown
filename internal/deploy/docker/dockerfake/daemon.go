@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 )
 
 type Daemon struct {
@@ -364,7 +364,7 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		return []byte("sha256:built\n"), nil
 	}
 	if IsDiskRead(args) {
-		return []byte(d.disk), nil
+		return DiskReadAnswer(args, d.disk), nil
 	}
 	if args[0] == "info" && len(args) == 3 && strings.Contains(args[2], "MemTotal") {
 		return []byte(d.host + "\n"), nil
@@ -519,9 +519,9 @@ func dfLines(total, free int64) string {
 }
 
 // RoomyDisk answers the disk admission's reads (docker.AdmitDisk: docker
-// info's data folder, and df of it in a docker.DiskImage container) as a
-// daemon with room does; ok is false for any other command. A test's own
-// scripted client asks it first.
+// info's data folder, and each call of a df container's read,
+// diskspace.ReadThroughDocker) as a daemon with room does; ok is false for
+// any other command. A test's own scripted client asks it first.
 func RoomyDisk(args []string) ([]byte, bool) {
 	if len(args) > 1 && args[0] == "--config" {
 		args = args[2:]
@@ -530,16 +530,37 @@ func RoomyDisk(args []string) ([]byte, bool) {
 	case len(args) == 3 && args[0] == "info" && strings.Contains(args[2], "DockerRootDir"):
 		return []byte("8589934592\t8\t/var/lib/docker\n"), true
 	case IsDiskRead(args):
-		return []byte(dfLines(100<<30, 90<<30)), true
+		return DiskReadAnswer(args, dfLines(100<<30, 90<<30)), true
 	}
 	return nil, false
 }
 
-// IsDiskRead says args is the disk read's throwaway container, which
-// changes nothing on the host.
+// IsDiskRead says args is one call of the disk read's throwaway container
+// (diskspace.ProbeStep), which leaves nothing on the host.
 func IsDiskRead(args []string) bool {
 	if len(args) > 1 && args[0] == "--config" {
 		args = args[2:]
 	}
-	return len(args) > 0 && args[0] == "run" && slices.Contains(args, docker.DiskImage) && slices.Contains(args, "df")
+	return diskspacetest.Step(args) != ""
+}
+
+// DiskReadAnswer is what a daemon answers to the disk read's call args when
+// its df prints df: the exit code to its wait, df's result files to its cp
+// (written where cp copies to), df to its logs, nothing to the rest (no
+// leftover probes to sweep).
+func DiskReadAnswer(args []string, df string) []byte {
+	if len(args) > 1 && args[0] == "--config" {
+		args = args[2:]
+	}
+	switch diskspacetest.Step(args) {
+	case "cp":
+		if _, err := diskspacetest.WriteResult(args, df, "", "0"); err != nil {
+			return []byte(err.Error())
+		}
+	case "wait":
+		return []byte("0\n")
+	case "logs":
+		return []byte(df)
+	}
+	return nil
 }

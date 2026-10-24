@@ -39,6 +39,23 @@ case still leaves a volume: before a service or init container starts, a
 container of the same name left from an earlier attempt is replaced without
 `-v`.
 
+The disk read's `df` container (`diskspace.ReadThroughDocker`, before a
+task or a boot is admitted, on every daemon AppTown reads) never answers
+through its output: in CI a container this short-lived has come back with
+exit 0 and nothing on its attached stream or in its log. It runs `df -Pk /d`
+(the data root bound read-only) with df's stdout, stderr and status
+written to `/probe` in its own writable layer; after it exits, `docker cp`
+copies that folder out, and the answer is accepted only when the container
+and df both exited 0 and df's output parses. Anything else refuses, with
+what Docker shows of the container (its image, command, mounts, log driver
+and state, never its environment), its image and Docker's versions; a
+result whose log lacks it is logged the same way. The container is named
+before it is made and removed by name (`rm -f -v`) however the read ends,
+even when the caller has stopped. One a removal missed carries
+`apptown.class=disk-probe` and an `apptown.deadline` ten minutes on; each
+read first removes those past their deadline, and the reaper leaves them
+alone.
+
 A standing deployment's containers are removed without `-v`: one made before
 its data moved to named volumes may still hold its data in an anonymous one.
 For the same reason, do not clear volumes with `docker volume prune`.

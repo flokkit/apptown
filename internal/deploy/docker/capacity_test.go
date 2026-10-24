@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 )
 
 // needCatalog fulfils postgres as a service and llm as a key that runs
@@ -392,8 +393,21 @@ func TestABootIsRefusedOnADaemonShortOfDisk(t *testing.T) {
 		{"at the floor", df(100*gib, 5*gib), ""},
 	} {
 		f := &fakeClient{reply: func(req Command) ([]byte, error) {
-			if req.Args[0] == "run" && slices.Contains(req.Args, DiskImage) {
+			switch diskspacetest.Step(req.Args) {
+			case "":
+			case "wait":
+				return []byte("0\n"), nil
+			case "cp":
+				out, err := tc.disk()
+				if err != nil {
+					return out, err
+				}
+				_, err = diskspacetest.WriteResult(req.Args, string(out), "", "0")
+				return nil, err
+			case "logs":
 				return tc.disk()
+			default:
+				return nil, nil
 			}
 			if req.Args[0] == "port" {
 				return []byte("0.0.0.0:43210\n"), nil
@@ -453,5 +467,43 @@ func TestANeedWhoseDataFolderCannotBeReadStopsTheBoot(t *testing.T) {
 	}
 	if _, err := PrepareBoot(t.Context(), Dependencies{Needs: unreadableData{}}, nil, "shop", "preview", t.TempDir(), c); err == nil {
 		t.Fatal("a preparation went on without knowing where its database keeps its data")
+	}
+}
+
+// lifetimeClient ends its scope's lifetime when the disk read waits, and
+// records whether the read's removal still reached the daemon.
+type lifetimeClient struct {
+	end     context.CancelFunc
+	removed bool
+}
+
+func (c *lifetimeClient) Run(ctx context.Context, _ string, req Command) ([]byte, error) {
+	switch diskspacetest.Step(req.Args) {
+	case "wait":
+		c.end()
+		<-ctx.Done()
+		return nil, ctx.Err()
+	case "rm":
+		c.removed = ctx.Err() == nil
+	}
+	return nil, nil
+}
+
+// A disk read through a scope whose lifetime ends during the read (a boot
+// out of time) still removes its container: the lifetime stops the read,
+// not its cleanup.
+//
+// Kills: the read's calls left bounded by the scope's lifetime, which
+// refuses the removal once it has ended.
+func TestADiskReadRemovesItsContainerWhenItsScopesLifetimeEnds(t *testing.T) {
+	t.Parallel()
+	lifetime, end := context.WithCancel(t.Context())
+	defer end()
+	c := &lifetimeClient{end: end}
+	if _, err := ReadDisk(t.Context(), Scope{Client: c}.WithLifetime(lifetime), "/var/lib/docker"); err == nil {
+		t.Fatal("a read whose lifetime ended answered")
+	}
+	if !c.removed {
+		t.Fatal("the read's container was not removed after its scope's lifetime ended")
 	}
 }

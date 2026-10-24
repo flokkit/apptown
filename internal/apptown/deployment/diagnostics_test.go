@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
@@ -306,7 +307,7 @@ func TestALogIsReadOnlyForTheRunningGenerationsParts(t *testing.T) {
 	w := newDiagnosticsWorld(t)
 	var asked [][]string
 	w.daemon.SetReply(func(args []string) ([]byte, error, bool) {
-		if len(args) > 0 && args[0] == "logs" {
+		if len(args) > 0 && args[0] == "logs" && !dockerfake.IsDiskRead(args) {
 			asked = append(asked, args)
 			return []byte("2026-10-16T01:00:00Z worker: out of memory\n"), nil, true
 		}
@@ -436,7 +437,7 @@ func TestPartsDuringADeployAreNotCalledTheSettledGenerations(t *testing.T) {
 		t.Fatalf("opening the next deploy: %v %v", created, err)
 	}
 	w.daemon.SetReply(func(args []string) ([]byte, error, bool) {
-		if len(args) > 0 && args[0] == "logs" {
+		if len(args) > 0 && args[0] == "logs" && !dockerfake.IsDiskRead(args) {
 			return []byte("a line\n"), nil, true
 		}
 		return nil, nil, false

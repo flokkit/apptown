@@ -93,15 +93,6 @@ func Bytes(n int64) string {
 // digest (busybox 1.37.0), for its df.
 const DFImage = "busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
 
-// DockerDFArgs are the docker CLI's arguments that read the filesystem
-// holding root on the daemon's machine (its data folder, say): a throwaway
-// container of DFImage with no network mounts root read only and runs df
-// there. Docker reports no disk figures itself, and docker system df walks
-// every layer (minutes on a busy host). ParseDF reads the answer.
-func DockerDFArgs(root string) []string {
-	return []string{"run", "--rm", "--network", "none", "--read-only", "-v", root + ":/d:ro", DFImage, "df", "-Pk", "/d"}
-}
-
 // ParseDF reads df -Pk's filesystem line: total and available, in
 // kibibytes. Other lines before it (a pull's progress, a notice) are left.
 func ParseDF(out []byte) (Space, error) {

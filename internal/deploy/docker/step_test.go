@@ -52,6 +52,9 @@ type jobDaemon struct {
 func newJobDaemon(exit string, output string) *jobDaemon {
 	j := &jobDaemon{Daemon: dockerfake.New(), exit: exit}
 	j.SetReply(func(args []string) ([]byte, error, bool) {
+		if dockerfake.IsDiskRead(args) {
+			return nil, nil, false
+		}
 		switch args[0] {
 		case "inspect":
 			return []byte(`postgres:16-alpine` + "\t" + `["POSTGRES_USER=keeper","PATH=/bin"]`), nil, true

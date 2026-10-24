@@ -3,9 +3,12 @@ package docker
 import (
 	"context"
 	"errors"
-	"slices"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 )
 
 type fakeClient struct {
@@ -41,10 +44,30 @@ func roomyDisk(args []string) ([]byte, bool) {
 	switch {
 	case len(args) == 3 && args[0] == "info" && strings.Contains(args[2], "DockerRootDir"):
 		return []byte("8589934592\t8\t/var/lib/docker\n"), true
-	case len(args) > 0 && args[0] == "run" && slices.Contains(args, DiskImage) && slices.Contains(args, "df"):
-		return []byte("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data 104857600 10485760 94371840 10% /d\n"), true
+	case diskspacetest.Step(args) != "":
+		return diskAnswer(args, "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data 104857600 10485760 94371840 10% /d\n"), true
 	}
 	return nil, false
+}
+
+// diskAnswer is a daemon's answer to the disk read's call args when its df
+// prints df (dockerfake.DiskReadAnswer, which this package's tests cannot
+// import).
+func diskAnswer(args []string, df string) []byte {
+	switch diskspacetest.Step(args) {
+	case "cp":
+		if _, err := os.Stat(filepath.Join(args[2], "probe")); err == nil {
+			return nil // the test's own reply answered it
+		}
+		if _, err := diskspacetest.WriteResult(args, df, "", "0"); err != nil {
+			return []byte(err.Error())
+		}
+	case "wait":
+		return []byte("0\n")
+	case "logs":
+		return []byte(df)
+	}
+	return nil
 }
 
 // diskRead says args is one of the disk admission's reads, which change
