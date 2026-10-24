@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"fmt"
-	"io"
 	"slices"
 	"strings"
 	"testing"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -307,7 +307,7 @@ func (d daemonReplies) Run(_ context.Context, _ string, req docker.Command) ([]b
 		}
 		if req.Stdout != nil {
 			// A read with its own streams (image inspect) answers on stdout.
-			_, err := io.WriteString(req.Stdout, strings.Join(kept, ""))
+			_, err := containerresulttest.WriteString(req.Stdout, strings.Join(kept, ""))
 			return nil, err
 		}
 		return []byte(strings.Join(kept, "")), nil

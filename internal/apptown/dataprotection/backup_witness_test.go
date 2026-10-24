@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/operations"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
@@ -52,7 +53,7 @@ func TestABackupSaysHowEachItemWasCopied(t *testing.T) {
 		line := strings.Join(req.Args, " ")
 		ran = append(ran, line)
 		envOf[line] = req.Env
-		_, err := io.WriteString(req.Stdout, "copy")
+		_, err := containerresulttest.WriteString(req.Stdout, "copy")
 		return nil, err
 	})
 	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
@@ -147,7 +148,7 @@ func TestARestoreReportsWhatWitnessedEachItem(t *testing.T) {
 				line := strings.Join(req.Args, " ")
 				switch {
 				case req.Stdout != nil:
-					_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+					_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 					return nil, err
 				case strings.HasPrefix(line, "inspect --format {{.Config.Image}}"):
 					return []byte("redis:7-alpine\n"), nil
@@ -324,7 +325,7 @@ func TestABackupNamesDeclaredNeedsItCannotRead(t *testing.T) {
 			writes = append(writes, strings.Join(req.Args, " "))
 		}
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy")
+			_, err := containerresulttest.WriteString(req.Stdout, "copy")
 			return nil, err
 		}
 		return nil, nil
@@ -369,7 +370,7 @@ func TestANeedWhoseKindDeclaresNoCopyIsNotInTheSet(t *testing.T) {
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		ran = append(ran, strings.Join(req.Args, " "))
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy")
+			_, err := containerresulttest.WriteString(req.Stdout, "copy")
 			return nil, err
 		}
 		return nil, nil

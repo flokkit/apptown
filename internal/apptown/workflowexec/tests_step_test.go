@@ -704,3 +704,21 @@ func TestATestsStepCountsTheChangeNotItsBase(t *testing.T) {
 		t.Fatalf("ran %d; evidence %s", len(seen.all()), step.Evidence)
 	}
 }
+
+// A tests run that fails with nothing that arrived keeps its verdict from
+// the exit code (here the base fails too, so it is carried), and its log
+// says the report was lost, never an empty log a reader takes for
+// "nothing to say".
+func TestAFailedTestsRunWhoseOutputDidNotArriveSaysReportLost(t *testing.T) {
+	t.Parallel()
+	f, ch, folder := testsWorld(t, map[string]any{"command": "go test ./..."})
+	commitFolder(t, folder)
+	seen := &markersSeen{answer: func(int, execution.Request) execution.Outcome {
+		return execution.Outcome{Termination: execution.Exited, ExitCode: 1}
+	}}
+	f.checks = seen.run
+	step := f.execute(t, testsRun(t, f, ch), "tests")
+	if log, _ := stepEvidence(t, step)["logTail"].(string); !strings.Contains(log, "report lost") {
+		t.Fatalf("%s: %s", step.Status, step.Evidence)
+	}
+}

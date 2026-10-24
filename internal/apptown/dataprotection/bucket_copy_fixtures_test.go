@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 )
@@ -120,7 +121,7 @@ func (f *fakeBuckets) reply(c docker.Command) ([]byte, error, bool) {
 			out = append(out, fakeObject{Key: k, Type: o.ContentType, Body: o.Body})
 		}
 		raw, _ := json.Marshal(out)
-		_, _ = c.Stdout.Write(raw)
+		_, _ = containerresulttest.WriteString(c.Stdout, string(raw))
 	case "import", "restore":
 		raw, _ := io.ReadAll(c.Stdin)
 		var in []fakeObject

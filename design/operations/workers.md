@@ -723,6 +723,19 @@ refuses the step too.
   values, registry logins for private Docker, AppTown's own credentials
   and the database address.
 
+**Events.** Pi's `--mode json` event stream, which says what the agent
+answered and what it spent, is written to a file as it runs
+(`piharness.CaptureEvents`: a `tee` in the invocation's entry, which exits
+with Pi's own status) and returned, like the transcript, as a declared
+result when the invocation exits; the text, model, usage and a provider's
+refusal are read from that file. The task's log carries the same stream
+for the live feed only: Docker can lose the end of a container's output,
+and an event stream without its end reads as an agent that said nothing.
+An events file that is missing or over its bound is an unread output: the
+attempt is an error and its usage unknown, never "no output". An agent in
+AppTown's own containers writes the file in its folder's `.apptown/`, read
+and removed when it exits.
+
 **Transcripts.** Pi is pointed at one transcript file AppTown named
 (`--session`). When an invocation exits, the worker returns it, and the
 AppTown keeps it by its digest in `<data>/transcripts/<sha256>.jsonl`, named by

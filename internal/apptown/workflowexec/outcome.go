@@ -56,15 +56,17 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 	} else if r.worker != nil && r.worker.problem != "" {
 		// A declared result that could not be read is not "no output".
 		status, reason = workflow.StatusError, r.worker.problem
+	} else if r.worker != nil && r.worker.outputUnread != "" {
+		// Its events are what it answered: unread, the invocation is
+		// unknown, whatever files it wrote.
+		status, reason = workflow.StatusError, "the agent's output could not be read: "+r.worker.outputUnread
 	} else if r.files.Problem != "" {
 		status, reason = workflow.StatusError, r.files.Problem
 	} else if r.files.MissingOutput != "" {
 		// The declared output is the output: nothing else stands in for it.
 		status, reason = workflow.StatusFail, "the step declares its output in "+r.files.MissingOutput+", and the agent did not write it (or left it empty)"
 	} else if strings.TrimSpace(r.files.Output) == "" {
-		if r.worker != nil && r.worker.outputUnread != "" {
-			status, reason = workflow.StatusError, "the agent's output could not be read: "+r.worker.outputUnread
-		} else if perr := piharness.LastModelError(out); perr != "" {
+		if perr := piharness.LastModelError(r.pi.Events); perr != "" {
 			// Infrastructure, not the agent's work: an error, and the
 			// provider's own words ('credit balance too low' must not read
 			// as 'agent produced no output').

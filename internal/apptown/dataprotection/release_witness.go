@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -192,11 +193,13 @@ func storageOf(ctx context.Context, dk docker.Scope, container, path string) (do
 }
 
 // measureNeed runs a need's declared measure in its service and reads its
-// "name value" lines.
+// "name value" lines, from a file the measure wrote there
+// (containerresult.RunIn): a measure whose answer did not come back is not
+// read, never read as fewer rows.
 func measureNeed(ctx context.Context, dk docker.Scope, container, measure string) (map[string]int64, error) {
-	out, err := dk.Run(ctx, "exec", container, "sh", "-c", measure)
+	out, err := dk.ExecResult(ctx, container, containerresult.Spec{Script: measure})
 	if err != nil {
-		return nil, fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+		return nil, err
 	}
 	got := map[string]int64{}
 	for _, l := range strings.Split(string(out), "\n") {

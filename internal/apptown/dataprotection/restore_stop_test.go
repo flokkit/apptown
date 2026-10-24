@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
@@ -44,7 +45,7 @@ func TestARestoreWritesNothingUnlessEveryPartIsStopped(t *testing.T) {
 	failStop, failStart := "", ""
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 			return nil, err
 		}
 		if req.Stdin != nil {
@@ -121,7 +122,7 @@ func TestARestoreNamesAPartThatIsNotThere(t *testing.T) {
 	client.SetRunning(app, true) // the worker's container is gone
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 			return nil, err
 		}
 		if req.Stdin != nil {
@@ -177,7 +178,7 @@ func TestARestoreStartsAgainOnlyWhatItStopped(t *testing.T) {
 	var lifecycle []string
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 			return nil, err
 		}
 		if req.Stdin != nil {
@@ -223,7 +224,7 @@ func TestARestoreOperationFailsAndNamesAPartThatIsNotThere(t *testing.T) {
 	client.SetRunning(app, true) // the worker's container is gone
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 			return nil, err
 		}
 		if req.Stdin != nil {

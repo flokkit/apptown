@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"io"
 	"log"
 	"os"
@@ -29,6 +28,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flokkit/apptown/internal/containerresult"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/console"
@@ -383,8 +385,11 @@ func (r *Runtime) awaitPi(ctx context.Context, id string) error {
 	ctx, cancel := context.WithTimeout(ctx, piStartWait)
 	defer cancel()
 	var last string
+	// The pane's command is read from a file tmux's answer is written to in
+	// the chat's container (containerresult.RunIn), never its output.
+	docker := func(ctx context.Context, _ []string, args ...string) ([]byte, error) { return r.command(ctx, args...) }
 	if poll.Until(ctx, piStartWait, 1500*time.Millisecond, func() bool {
-		out, err := r.command(ctx, "exec", ContainerName(id), "tmux", "display-message", "-p", "-t", console.TmuxSession, "#{pane_current_command}")
+		out, err := containerresult.RunIn(ctx, docker, ContainerName(id), containerresult.Spec{Script: "tmux display-message -p -t " + console.TmuxSession + " '#{pane_current_command}'"})
 		last = strings.TrimSpace(string(out))
 		return err == nil && last == "pi"
 	}) {

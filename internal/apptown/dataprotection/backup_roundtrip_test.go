@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -116,7 +117,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		ran = append(ran, strings.Join(req.Args, " "))
-		_, err := io.WriteString(req.Stdout, "bytes for "+filepath.Base(req.Stdout.(*os.File).Name()))
+		_, err := containerresulttest.WriteString(req.Stdout, "bytes for "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 		return nil, err
 	})
 	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
@@ -149,15 +150,29 @@ func TestBackupPlanAndTake(t *testing.T) {
 		if strings.Contains(strings.Join(req.Args, " "), "pg_dump") {
 			return nil, os.ErrNotExist
 		}
-		_, err := io.WriteString(req.Stdout, "x")
+		_, err := containerresulttest.WriteString(req.Stdout, "x")
 		return nil, err
 	})
 	if b, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil || b.Status != BackupPartial || b.Items[1].Error == "" {
 		t.Fatalf("partial: %+v %v", b, err)
 	}
+	// An export that exited 0 but whose end did not arrive (the daemon lost
+	// the tail of its stdout) is a failed item too, never a good copy.
+	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
+		if strings.Contains(strings.Join(req.Args, " "), "pg_dump") {
+			whole := containerresulttest.Framed([]byte("the whole dump"))
+			_, err := req.Stdout.Write(whole[:len(whole)-30])
+			return nil, err
+		}
+		_, err := containerresulttest.WriteString(req.Stdout, "x")
+		return nil, err
+	})
+	if b, err := s.TakeBackup(context.Background(), pid, "main", "scheduled", "apptown-system"); err != nil || b.Status != BackupPartial || !strings.Contains(b.Items[1].Error, "cut short") || b.Items[1].SHA256 != "" {
+		t.Fatalf("a copy cut short: %+v %v", b, err)
+	}
 	// Retention: the newest seven stay.
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
-		_, err := io.WriteString(req.Stdout, "x")
+		_, err := containerresulttest.WriteString(req.Stdout, "x")
 		return nil, err
 	})
 	for i := 0; i < 8; i++ {
@@ -181,7 +196,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 			}
 		}
 	}
-	if kept != BackupKeep || pruned != 3 {
+	if kept != BackupKeep || pruned != 4 { // eleven sets: the first, the partial, the cut short and eight more
 		t.Fatalf("keep the newest %d: kept %d pruned %d", BackupKeep, kept, pruned)
 	}
 
@@ -242,10 +257,10 @@ func TestASetWithoutItsManifestSaysSo(t *testing.T) {
 	s, _, client, _, pid := backupWorld(t, "mf", 40003)
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		// Fixture: a folder where the manifest goes, so it cannot be written.
-		if err := os.MkdirAll(filepath.Join(filepath.Dir(req.Stdout.(*os.File).Name()), "manifest.json"), 0o700); err != nil {
+		if err := os.MkdirAll(filepath.Join(filepath.Dir(containerresulttest.Destination(req.Stdout).(*os.File).Name()), "manifest.json"), 0o700); err != nil {
 			return nil, err
 		}
-		_, err := io.WriteString(req.Stdout, "x")
+		_, err := containerresulttest.WriteString(req.Stdout, "x")
 		return nil, err
 	})
 	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
@@ -271,7 +286,7 @@ func TestRestoreBackup(t *testing.T) {
 
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 			return nil, err
 		}
 		if req.Stdin != nil {
@@ -374,7 +389,7 @@ func TestARestoreWhoseSafetySetIsIncompleteWritesNothing(t *testing.T) {
 					if copies > 2 && ((failing == "volume" && strings.Contains(line, ":/src:ro")) || (failing == "database" && strings.Contains(line, "pg_dump"))) {
 						return nil, errors.New("no space left on device")
 					}
-					_, err := io.WriteString(req.Stdout, "copy")
+					_, err := containerresulttest.WriteString(req.Stdout, "copy")
 					return nil, err
 				case req.Stdin != nil:
 					writes = append(writes, line)

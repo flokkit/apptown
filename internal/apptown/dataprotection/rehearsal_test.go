@@ -16,6 +16,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -170,6 +171,28 @@ func newRehearsalHost() *rehearsalHost {
 		}
 		return nil, nil, false
 	})
+	h.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		if !strings.Contains(c.Script, "PROBE_PATH") {
+			return containerresulttest.Answer{}, false
+		}
+		dep := map[string]string{}
+		for _, kv := range c.Env {
+			k, v, _ := strings.Cut(kv, "=")
+			dep[k] = v
+		}
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		h.envs = append(h.envs, c.Env)
+		status, ok := h.status[dep["PROBE_PATH"]]
+		if !ok {
+			status = "200"
+		}
+		// The app's whole answer stays in the probe's container; only the
+		// status line's code (and a redirect's Location) comes out, in its
+		// answer file.
+		code, location, _ := strings.Cut(status, " ")
+		return containerresulttest.Answer{Answer: []byte(code + "\n" + location + "\n")}, true
+	})
 	h.SetCommandReply(func(c docker.Command) ([]byte, error, bool) {
 		if len(c.Args) < 3 || c.Args[0] != "run" || c.Args[len(c.Args)-3] != "sh" {
 			return nil, nil, false
@@ -184,15 +207,6 @@ func newRehearsalHost() *rehearsalHost {
 		defer h.mu.Unlock()
 		h.envs = append(h.envs, c.Env)
 		switch {
-		case strings.Contains(script, "PROBE_PATH"):
-			status, ok := h.status[dep["PROBE_PATH"]]
-			if !ok {
-				status = "200"
-			}
-			// The app's whole answer stays in the probe's container; only
-			// the status line's code (and a redirect's Location) comes out.
-			code, location, _ := strings.Cut(status, " ")
-			return []byte(code + "\n" + location + "\n"), nil, true
 		case strings.Contains(script, "cat > "+copyMount+"/"):
 			data, _ := io.ReadAll(c.Stdin)
 			h.volumes[stagedFile(c.Args)] = string(data)
@@ -517,7 +531,7 @@ func TestARehearsalFillsTheNewStoreFromTheBucketsCopy(t *testing.T) {
 						raw, _ := json.Marshal([]fakeObject{want["from-docker.txt"]})
 						out = string(raw)
 					}
-					_, err := io.WriteString(req.Stdout, out)
+					_, err := containerresulttest.WriteString(req.Stdout, out)
 					return nil, err
 				})
 				pg, _ := w.s.catalog.ByCapability(context.Background(), "postgres")

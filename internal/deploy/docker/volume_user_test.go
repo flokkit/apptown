@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 )
 
 func TestStaleEndpointIsRecognised(t *testing.T) {
@@ -52,3 +53,41 @@ func TestHandVolumeToImageUserRunsChownForNumericUser(t *testing.T) {
 		t.Fatalf("no USER: inspect only, got %v", second.args)
 	}
 }
+
+// A named user's ids are the image's own answer, read from a file in its
+// container, so a lost stdout is no answer: the volume is left as it is,
+// never handed to a wrong or empty owner.
+//
+// Kills: ids read from what the container printed.
+func TestANamedUsersIdsComeFromTheImagesAnswer(t *testing.T) {
+	t.Parallel()
+	for _, answer := range [][]byte{[]byte("1000\n1001\n"), nil} {
+		var chowns []string
+		results := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+			return containerresulttest.Answer{Answer: answer}, c.Script == "id -u app && id -g app"
+		}}
+		client := clientFunc(func(c Command) ([]byte, error) {
+			if out, err, ok := results.Run(c.Args); ok {
+				return out, err
+			}
+			switch c.Args[0] {
+			case "image":
+				return []byte("app\n"), nil
+			case "run":
+				chowns = append(chowns, strings.Join(c.Args, " "))
+			}
+			return nil, nil
+		})
+		HandVolumeToImageUser(context.Background(), Scope{Client: client}, "apptown-data-x", "app:1", check.ShImage)
+		switch {
+		case answer != nil && (len(chowns) != 1 || !strings.Contains(chowns[0], "chown -R 1000:1001 /mnt")):
+			t.Fatalf("the image's ids: chowns %v", chowns)
+		case answer == nil && len(chowns) != 0:
+			t.Fatalf("no answer came back, and the volume was handed over: %v", chowns)
+		}
+	}
+}
+
+type clientFunc func(Command) ([]byte, error)
+
+func (f clientFunc) Run(_ context.Context, _ string, c Command) ([]byte, error) { return f(c) }

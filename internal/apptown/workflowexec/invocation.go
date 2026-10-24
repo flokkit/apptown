@@ -4,7 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"os"
+	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -54,9 +58,14 @@ type piCall struct {
 	Session string
 }
 
-// piResult is what came back: the raw outcome plus the parsed transcript.
+// piResult is what came back: the raw outcome (its Output the log, both
+// streams, for a failure's words), pi's event stream as its file held it,
+// and what was parsed from that.
 type piResult struct {
 	execution.Outcome
+	// Events is pi's --mode json stream, read from the file it was written
+	// to (piharness.CaptureEvents), never from the log: the result.
+	Events   []byte
 	Text     string // all assistant text, joined
 	Model    string
 	Provider string
@@ -102,7 +111,15 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		if tries > 1 {
 			name += fmt.Sprintf("-r%d", tries)
 		}
-		argv := console.ToolchainArgs(append([]string{"pi"}, c.Args...))
+		// pi's events are written to a file in the step's runtime folder as
+		// they go and read from there once it exits, never from its output
+		// (piharness.CaptureEvents); the output feeds the live view only.
+		eventsFile := path.Join(".apptown", "events-"+name+".jsonl")
+		if err := os.MkdirAll(filepath.Join(c.Workspace, ".apptown"), 0o755); err != nil {
+			r = piResult{Outcome: execution.Outcome{RunErr: fmt.Errorf("making the agent's runtime folder: %w", err)}, Tries: tries}
+			break
+		}
+		argv := piharness.CapturedArgv(console.ToolchainArgs(append([]string{"pi"}, c.Args...)), eventsFile, eventsFile+".status")
 		// Every invocation of a step, whether a retry, a review's wrap-up or
 		// a re-run after an empty turn, waits until no earlier agent of the
 		// step is still there: they would share the step's folder.
@@ -138,9 +155,17 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 			// or recorded unavailable.
 			historyErr = a.keepTranscript(ctx, c, tries)
 		}
-		r.Text, r.Model, r.Provider, r.Usage = piharness.ParseOutput(out.Output)
-		if incomplete := a.recordInvocationUsage(ctx, c, name, r); incomplete != "" && usageIncomplete == "" {
-			usageIncomplete = name + ": " + incomplete
+		events, readErr := readEvents(c.Workspace, eventsFile)
+		if readErr != nil {
+			// No usage is recorded: an unread output is unknown usage,
+			// never zero, and the step an error, never "no output".
+			r.RunErr = errors.Join(r.RunErr, fmt.Errorf("the agent's output could not be read: %w", readErr))
+		} else {
+			r.Events = events
+			r.Text, r.Model, r.Provider, r.Usage = piharness.ParseOutput(events)
+			if incomplete := a.recordInvocationUsage(ctx, c, name, r); incomplete != "" && usageIncomplete == "" {
+				usageIncomplete = name + ": " + incomplete
+			}
 		}
 		if historyErr != nil {
 			// A history neither recorded nor recorded unavailable is an
@@ -152,12 +177,12 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		// A provider that refused the request (billing, auth, quota) leaves
 		// an empty turn with an error on it. That is not "the agent produced
 		// nothing" and retrying does not help — say what the provider said.
-		if perr := piharness.LastModelError(out.Output); perr != "" && strings.TrimSpace(r.Text) == "" {
+		if perr := piharness.LastModelError(r.Events); perr != "" && strings.TrimSpace(r.Text) == "" {
 			r.ProviderError = perr
 			a.progress.Append(c.Step.ID, "✗ the model provider refused: "+strs.Truncate(perr, 200))
 			break
 		}
-		if c.RetryEmpty && strings.TrimSpace(r.Text) == "" && !out.TimedOut && out.RunErr == nil && tries < 2 {
+		if c.RetryEmpty && strings.TrimSpace(r.Text) == "" && !out.TimedOut && r.RunErr == nil && tries < 2 {
 			recordEvent(ctx, a.db, c.Source.RunID, "step.retried", map[string]any{"step": c.Step.Name, "reason": "empty model output"}, a.now())
 			a.progress.Append(c.Step.ID, "⟳ empty model output — retrying")
 			continue
@@ -175,7 +200,7 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 // A transcript that could not be read whole is recorded as incomplete, even
 // when no usage survived, and the reason is returned for the evidence.
 func (a *Executor) recordInvocationUsage(ctx context.Context, c piCall, name string, r piResult) string {
-	spent := sumPiUsage(r.Output)
+	spent := sumPiUsage(r.Events)
 	if spent.Totals.Total == 0 && spent.Incomplete == "" {
 		return ""
 	}
@@ -295,4 +320,25 @@ func folderReady(ctx context.Context, dk *docker.Scope, stepID ids.ID, ws, own s
 		return fmt.Errorf("something from before is still writing this step's folder and could not be removed (%s); retry once it is gone", strings.Join(names, ", "))
 	}
 	return nil
+}
+
+// readEvents reads, and removes, an invocation's events file (rel, in the
+// workspace) and its status beside it. One that is not there is an error:
+// the output is unknown, never empty.
+func readEvents(workspace, rel string) ([]byte, error) {
+	at := filepath.Join(workspace, filepath.FromSlash(rel))
+	defer func() { _ = os.Remove(at); _ = os.Remove(at + ".status") }()
+	f, err := os.Open(at)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	out, err := io.ReadAll(io.LimitReader(f, maxInvocationOutput+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(out) > maxInvocationOutput {
+		return nil, fmt.Errorf("the agent's events are over %d MiB", maxInvocationOutput>>20)
+	}
+	return out, nil
 }

@@ -41,6 +41,23 @@ git, `dockertest` or `docker.CLI` for a test's docker, `execution.Runner` for
 a command). `-tighten` records a fall; a rise is
 a hand edit with its reason.
 
+Reading what a container answered is owned by `internal/containerresult`.
+Docker can lose a short-lived container's stdout at its end and still
+report exit 0, so a value, version or list is written to a file in the
+container and copied out with `docker cp` after it exits
+(`docker.Scope.Result`, `ExecResult`), and a copy of data out of a
+container carries a trailer its receiver checks (`docker.Scope.RunStep`).
+`scripts/container-output-check.go` (`make check-container-output`) refuses
+production code elsewhere that reads the output of a `docker run` or
+`docker exec` as a result: one whose output is used other than in error
+text, or streamed out through a `docker.Command`'s `Stdout`. Detached runs,
+terminals and a method answering only success are not reads. It has no
+baseline. A command built in another function, a process started with
+`exec.Command`, `docker logs` and deliberate evasion are out of its reach
+and are review's. Pass/fail work (scripts, checks, tests) keeps its exit
+code as the verdict, and a failure whose output did not arrive says
+"report lost" (`check.ReportLost`).
+
 Time is owned as well. An owner reads the time only through a
 `now func() time.Time` it takes from its dependencies, defaulted with
 `clock.Or` (`internal/clock`, the one package that names `time.Now`), so a

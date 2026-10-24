@@ -103,6 +103,9 @@ const (
 	maxTranscriptResult = 32 << 20
 	maxOutputResult     = 1 << 20
 	maxReviewReport     = 256 << 10
+	// maxEventsResult bounds an invocation's event stream, within what a
+	// request's results may hold together (execution.MaxResultTotalBytes).
+	maxEventsResult = 62 << 20
 )
 
 // workerReviewReport is where a reviewer on a worker writes its verdict.
@@ -510,7 +513,11 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		args = piharness.StepArgs(piharness.StepPaths{SessionFile: sessionFile, Steering: workerSteeringFile}, c.session, k.executor, st.Text != "", out.model, k.thinking, prompt)
 	}
 	command := console.ToolchainArgs(append([]string{"pi"}, args...))
-	argv := append([]string{"sh", "-c", workerEntry(out.sessionFile, home.Link, carried), "sh"}, command...)
+	// pi's events are written to a file in the attempt's state as they go,
+	// and read from there when it exits (a declared result), never from
+	// its log: the log's end can be lost (piharness.CaptureEvents).
+	events := execution.StateRoot + "/events-" + c.invocation + ".jsonl"
+	argv := append([]string{"sh", "-c", workerEntry(out.sessionFile, home.Link, carried, events), "sh"}, command...)
 
 	stepEnv, err := a.stepEnv(ctx, run.ProjectID)
 	if err != nil {
@@ -539,7 +546,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 	// owned by the worker's user, which need not be the image's.
 	env = append(env, "GIT_CONFIG_COUNT=1", "GIT_CONFIG_KEY_0=safe.directory", "GIT_CONFIG_VALUE_0="+workerTree)
 
-	results := []execution.Result{{Name: "transcript", Path: sessionFile, Max: maxTranscriptResult}}
+	results := []execution.Result{{Name: "transcript", Path: sessionFile, Max: maxTranscriptResult}, {Name: "events", Path: events, Max: maxEventsResult}}
 	if cfg.Output.File != "" && c.review == nil {
 		at := path.Join(workerTree, cfg.Output.File)
 		if !strings.HasPrefix(at, workerTree+"/") || path.IsAbs(cfg.Output.File) {
@@ -636,8 +643,9 @@ func (a *Executor) agentCLI() ([]byte, error) {
 // home and AppTown CLI is first on PATH. Each copy is made beside its
 // place and moved there, so an interrupted copy is never taken for a whole
 // one. The names are AppTown's own (a session file name and a fixed link),
-// quoted besides.
-func workerEntry(sessionFile string, link piharness.SentLink, carried []wroteFile) string {
+// quoted besides. Pi then runs with its events written to events
+// (piharness.CaptureEvents), and the entry exits with Pi's status.
+func workerEntry(sessionFile string, link piharness.SentLink, carried []wroteFile, events string) string {
 	var b strings.Builder
 	b.WriteString("set -e\n")
 	// Earlier steps' outputs are put in the tree where the run's folder
@@ -666,7 +674,7 @@ func workerEntry(sessionFile string, link piharness.SentLink, carried []wroteFil
 	b.WriteString("fi\n")
 	b.WriteString("export HOME=" + workerHome + "\n")
 	b.WriteString("export PATH=\"" + workerCLIDir + ":$PATH\"\n")
-	b.WriteString("exec \"$@\"\n")
+	b.WriteString(piharness.CaptureEvents(events, events+".status"))
 	return b.String()
 }
 

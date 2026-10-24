@@ -4,12 +4,27 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 )
+
+// paneAnswers is a chat container whose tmux names the pane's command
+// pane() through its answer file, its stdout lost; ok is false for any
+// other call.
+func paneAnswers(pane func() string) func(args []string) ([]byte, error, bool) {
+	d := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		if !strings.Contains(c.Script, "display-message") {
+			return containerresulttest.Answer{}, false
+		}
+		return containerresulttest.Answer{Answer: []byte(pane() + "\n")}, true
+	}}
+	return d.Run
+}
 
 // Delivering words presses Enter until the session's record shows them;
 // the wait between presses ends with the request that asked.
@@ -17,11 +32,12 @@ func TestDeliveringWordsStopsWaitingWhenItsRequestEnds(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
+	pane := paneAnswers(func() string { return "pi" })
 	r := New(Config{Run: func(_ context.Context, args ...string) ([]byte, error) {
 		// pi runs; the words are typed and Enter is pressed; the request then
 		// ends, and the record (an empty session folder) never shows them.
-		if slices.Contains(args, "display-message") {
-			return []byte("pi\n"), nil
+		if out, err, ok := pane(args); ok {
+			return out, err
 		}
 		if slices.Contains(args, "Enter") {
 			cancel()
@@ -54,16 +70,20 @@ func TestWordsWaitForPiToStart(t *testing.T) {
 	defer cancel()
 	var mu sync.Mutex
 	var seen []string
+	pane := paneAnswers(func() string {
+		seen = append(seen, "ask")
+		if len(seen) < 3 {
+			return "sh"
+		}
+		return "pi"
+	})
 	r := New(Config{Run: func(_ context.Context, args ...string) ([]byte, error) {
 		mu.Lock()
 		defer mu.Unlock()
+		if out, err, ok := pane(args); ok {
+			return out, err
+		}
 		switch {
-		case slices.Contains(args, "display-message"):
-			seen = append(seen, "ask")
-			if len(seen) < 3 {
-				return []byte("sh\n"), nil
-			}
-			return []byte("pi\n"), nil
 		case slices.Contains(args, "-l"):
 			seen = append(seen, "type")
 		case slices.Contains(args, "Enter"):

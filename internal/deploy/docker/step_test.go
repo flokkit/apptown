@@ -4,11 +4,14 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/containerresult"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
@@ -16,7 +19,8 @@ import (
 // On a daemon with attached streams a step is the one command a Docker
 // host's copies have always run: docker exec in a running container, or
 // docker run of a throwaway one, -i only when it reads a copy, its
-// variables passed by name.
+// variables passed by name. A command whose output is the copy is framed,
+// and the copy reaches the step without its trailer.
 func TestAStepWithStreamsIsOneCommand(t *testing.T) {
 	t.Parallel()
 	d := dockerfake.New()
@@ -26,16 +30,21 @@ func TestAStepWithStreamsIsOneCommand(t *testing.T) {
 		if strings.Join(c.Env, " ") != "PGPASSWORD=secret" {
 			t.Errorf("the variables reach the CLI's environment: %v", c.Env)
 		}
+		if c.Stdout != nil {
+			_, _ = c.Stdout.Write(containerresulttest.Framed([]byte("the dump")))
+		}
 		return nil, nil, true
 	})
 	dk := docker.Scope{Client: d}
 	env := []string{"PGPASSWORD=secret"}
-	if _, err := dk.RunStep(context.Background(), docker.Step{Exec: "pg", Env: env, Command: "pg_dump", Stdout: io.Discard}); err != nil {
-		t.Fatal(err)
+	var dump bytes.Buffer
+	if _, err := dk.RunStep(context.Background(), docker.Step{Exec: "pg", Env: env, Command: "pg_dump", Stdout: &dump}); err != nil || dump.String() != "the dump" {
+		t.Fatalf("the copy %q, %v; want it whole without its trailer", dump.String(), err)
 	}
 	if _, err := dk.RunStep(context.Background(), docker.Step{Image: "pg:16", Options: []string{"--network", "none"}, Env: env, Command: "pg_restore", Stdin: strings.NewReader("copy")}); err != nil {
 		t.Fatal(err)
 	}
+	// The stand-in daemon records the command inside the copy's frame.
 	want := []string{"exec -e PGPASSWORD pg sh -c pg_dump", "run --rm -i --network none -e PGPASSWORD pg:16 sh -c pg_restore"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("commands %q, want %q", got, want)
@@ -88,7 +97,7 @@ func newJobDaemon(exit string, output string) *jobDaemon {
 // status, not the wait's, is the step's result.
 func TestAStepWithoutStreamsIsAJob(t *testing.T) {
 	t.Parallel()
-	j := newJobDaemon("0", "the dump")
+	j := newJobDaemon("0", string(containerresulttest.Framed([]byte("the dump"))))
 	dk := docker.Scope{Client: j, NoStreams: true}
 	var out bytes.Buffer
 	if _, err := dk.RunStep(context.Background(), docker.Step{Exec: "pg", Env: []string{"PGPASSWORD=secret"}, Command: "pg_dump", Stdout: &out, Stdin: strings.NewReader("in"), Name: "forge-copy-prod-1"}); err != nil {
@@ -136,5 +145,55 @@ func TestAJobThatFailsIsAFailedStep(t *testing.T) {
 	cmds := j.Commands()
 	if last := cmds[len(cmds)-1]; last[0] != "rm" {
 		t.Fatalf("the failed job is not removed: %v", last)
+	}
+}
+
+// A copy whose end did not arrive (the daemon lost the tail of the
+// container's stdout, and the command exited 0) fails the step, in both
+// forms: the trailer is missing, or does not count what arrived.
+func TestAStepWhoseCopyLostItsTailFails(t *testing.T) {
+	t.Parallel()
+	whole := containerresulttest.Framed([]byte("a dump with its last rows"))
+	for _, lost := range [][]byte{whole[:len(whole)-40], append(append([]byte{}, whole[:10]...), whole[20:]...), nil} {
+		d := dockerfake.New()
+		d.SetCommandReply(func(c docker.Command) ([]byte, error, bool) {
+			_, _ = c.Stdout.Write(lost)
+			return nil, nil, true
+		})
+		if _, err := (docker.Scope{Client: d}).RunStep(context.Background(), docker.Step{Exec: "pg", Command: "pg_dump", Stdout: io.Discard}); !errors.Is(err, containerresult.ErrCutShort) {
+			t.Fatalf("streamed, %d bytes arrived: got %v; want the copy refused", len(lost), err)
+		}
+		j := newJobDaemon("0", string(lost))
+		if _, err := (docker.Scope{Client: j, NoStreams: true}).RunStep(context.Background(), docker.Step{Exec: "pg", Command: "pg_dump", Stdout: io.Discard}); !errors.Is(err, containerresult.ErrCutShort) {
+			t.Fatalf("as a job, %d bytes arrived: got %v; want the copy refused", len(lost), err)
+		}
+	}
+}
+
+// clientFunc is a Docker client that is one function.
+type clientFunc func(docker.Command) ([]byte, error)
+
+func (f clientFunc) Run(_ context.Context, _ string, c docker.Command) ([]byte, error) { return f(c) }
+
+// What a step sends the daemon is its command framed when its output is a
+// copy, and as it is when it has none.
+func TestAStepsCopyIsFramedOnTheWire(t *testing.T) {
+	t.Parallel()
+	var sent []string
+	dk := docker.Scope{Client: clientFunc(func(c docker.Command) ([]byte, error) {
+		sent = append(sent, c.Args[len(c.Args)-1])
+		if c.Stdout != nil {
+			_, _ = c.Stdout.Write(containerresulttest.Framed(nil))
+		}
+		return nil, nil
+	})}
+	if _, err := dk.RunStep(context.Background(), docker.Step{Exec: "pg", Argv: []string{"pg_dump", "-U", "it's"}, Stdout: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := dk.RunStep(context.Background(), docker.Step{Exec: "pg", Command: "pg_restore", Stdin: strings.NewReader("x")}); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{containerresult.Framed(`'pg_dump' '-U' 'it'\''s'`), "pg_restore"}; !slices.Equal(sent, want) {
+		t.Fatalf("sent %q, want %q", sent, want)
 	}
 }

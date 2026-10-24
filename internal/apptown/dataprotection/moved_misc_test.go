@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -180,7 +181,7 @@ func TestNoLocalDockerBacksUpAttachedTargetsOnly(t *testing.T) {
 		if req.Stdout == nil {
 			return nil, nil, false
 		}
-		_, err := io.WriteString(req.Stdout, "data")
+		_, err := containerresulttest.WriteString(req.Stdout, "data")
 		return nil, err, true
 	})
 	b, err := s.TakeBackup(context.Background(), w.project, "main", "manual", "alice")

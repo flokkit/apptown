@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/execution"
@@ -70,7 +71,9 @@ func (s *Server) dindVersion(ctx context.Context) string {
 	if s.DindImage == "" {
 		return "none"
 	}
-	out, err := s.command(ctx, "run", "--rm", "--network", "none", "--label", dockerlabel.Class+"=profile-probe", "--entrypoint", "dockerd", s.DindImage, "--version")
+	// Read from a file in the container (containerresult.Run): a version
+	// whose words did not come back is unknown, never empty.
+	out, err := s.scope().Result(ctx, containerresult.Spec{Image: s.DindImage, Options: []string{"--network", "none"}, Script: "dockerd --version"})
 	if err != nil {
 		return "unknown: " + err.Error()
 	}

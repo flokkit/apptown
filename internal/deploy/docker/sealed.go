@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/poll"
 )
 
@@ -96,14 +97,12 @@ func (s *Sealed) getOnce(ctx context.Context, dk Scope, network, container strin
 	if strings.ContainsAny(path, " \r\n") || !strings.HasPrefix(path, "/") {
 		return 0, "", fmt.Errorf("a probe path is one absolute path, not %q", path)
 	}
-	args := []string{"run", "--rm", "--network", network, "--entrypoint", "",
-		"-e", "PROBE_PATH", "-e", "PROBE_HOST", "-e", "PROBE_TARGET", "-e", "PROBE_PORT"}
-	args = append(args, dk.Labels("step", "sealed-probe")...)
-	args = append(args, s.ProbeImage, "sh", "-c", probeScript)
 	env := []string{"PROBE_PATH=" + path, "PROBE_HOST=" + s.Host, "PROBE_TARGET=" + container, "PROBE_PORT=" + strconv.Itoa(port)}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	out, err := dk.Command(ctx, Command{Args: args, Env: env})
+	// The status is read from a file in the probe's container
+	// (containerresult.Run): one that did not come back is no answer.
+	out, err := dk.Result(ctx, containerresult.Spec{Image: s.ProbeImage, Options: []string{"--network", network}, Env: env, Script: probeScript})
 	if err != nil {
 		// The probe's own output is not repeated: it can hold the app's.
 		return 0, "", ErrNoAnswer

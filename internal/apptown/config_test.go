@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/flokkit/apptown/internal/execution"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -19,6 +18,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -136,7 +138,7 @@ func TestBuiltinDatabaseOwnershipIsInstanceLocal(t *testing.T) {
 		f.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
 			if req.Stdout != nil {
 				dumps[i]++
-				_, err := io.WriteString(req.Stdout, "-- fixture database dump\n")
+				_, err := containerresulttest.WriteString(req.Stdout, "-- fixture database dump\n")
 				return nil, err
 			}
 			return f.run(req.Args...)
@@ -570,7 +572,7 @@ func TestABackupWithoutItsRecordFailsItsJob(t *testing.T) {
 	f := newFakeDocker()
 	f.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "-- fixture database dump\n")
+			_, err := containerresulttest.WriteString(req.Stdout, "-- fixture database dump\n")
 			return nil, err
 		}
 		return f.run(req.Args...)

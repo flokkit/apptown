@@ -129,7 +129,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 			return "", fmt.Errorf("creating the database volume: %v: %s", err, out)
 		}
 	}
-	args := []string{"-d", "--name", names.Container, "--restart", "unless-stopped",
+	args := []string{"--name", names.Container, "--restart", "unless-stopped",
 		"-p", "127.0.0.1:" + builtinDBPort + ":5432",
 		"-v", names.Volume + ":/var/lib/postgresql/data",
 		"-e", "POSTGRES_PASSWORD=" + password, "-e", "POSTGRES_DB=" + names.Database,

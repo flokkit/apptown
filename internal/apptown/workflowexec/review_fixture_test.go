@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/agentharness/pi/pitest"
+
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
@@ -42,7 +44,23 @@ func TestMain(m *testing.M) {
 type reviewProcess func(execution.Request) execution.Outcome
 
 func (p reviewProcess) Run(_ context.Context, _ string, req execution.Request) execution.Outcome {
-	return p(req)
+	return piStandIn(req, p)
+}
+
+// piStandIn answers req as answer says, as pi run through its capture
+// (piharness.CapturedArgv) would: the stream answer prints is written to
+// the events file the argv names, which is where the result is read.
+func piStandIn(req execution.Request, answer func(execution.Request) execution.Outcome) execution.Outcome {
+	events, inner, ok := pitest.CapturedEvents(req.Argv)
+	if !ok {
+		return answer(req)
+	}
+	req.Argv = inner
+	out := answer(req)
+	if out.Termination == execution.Exited || out.Termination == "" {
+		_ = os.WriteFile(filepath.Join(req.Workspace, filepath.FromSlash(events)), out.Output, 0o644)
+	}
+	return out
 }
 
 type noReviewCLI struct{}

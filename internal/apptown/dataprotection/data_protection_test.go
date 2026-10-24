@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -192,7 +193,7 @@ func (f *fakeClusters) reply(c docker.Command) ([]byte, error, bool) {
 		if f.failExport || !exists {
 			return []byte("could not connect"), errors.New("exit status 1"), true
 		}
-		_, _ = io.WriteString(c.Stdout, "PGCOPY\n"+content)
+		_, _ = containerresulttest.WriteString(c.Stdout, "PGCOPY\n"+content)
 	case f.copy.Import:
 		data, _ := io.ReadAll(c.Stdin)
 		if f.importSays != "" {

@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/operations"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
@@ -71,7 +72,7 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 		calls++
 		if req.Stdout != nil {
 			copied = append(copied, fmt.Sprintf("saved game %d", calls))
-			_, err := io.WriteString(req.Stdout, copied[len(copied)-1])
+			_, err := containerresulttest.WriteString(req.Stdout, copied[len(copied)-1])
 			return nil, err
 		}
 		if req.Stdin != nil {

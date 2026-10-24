@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/execution"
 
@@ -565,9 +566,10 @@ func HandVolumeToImageUser(ctx context.Context, dk Scope, volume, image, chownIm
 		return
 	}
 	if !isNumeric(uid) {
-		// A named user: ask the image itself, as root, what its ids are.
-		res, err := dk.Run(ctx, "run", "--rm", "--entrypoint", "", "--user", "0", "--network", "none", image,
-			"sh", "-c", "id -u "+uid+" && id -g "+uid)
+		// A named user: ask the image itself, as root, what its ids are,
+		// read from a file in the container (an answer that did not come
+		// back leaves the volume as it is).
+		res, err := dk.Result(ctx, containerresult.Spec{Image: image, Options: []string{"--user", "0", "--network", "none"}, Script: "id -u " + uid + " && id -g " + uid})
 		if err != nil {
 			return
 		}

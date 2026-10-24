@@ -444,9 +444,10 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		t.Errorf("a new session is sent its header only: %q %v", header, err)
 	}
 
-	if len(spec.Results) != 2 ||
+	if len(spec.Results) != 3 ||
 		spec.Results[0] != (execution.Result{Name: "transcript", Path: "/apptown/state/sessions/" + session, Max: 32 << 20}) ||
-		spec.Results[1] != (execution.Result{Name: "output", Path: "/work/.apptown/REPORT.md", Max: 1 << 20}) {
+		spec.Results[1] != (execution.Result{Name: "events", Path: "/apptown/state/events-agent.jsonl", Max: maxEventsResult}) ||
+		spec.Results[2] != (execution.Result{Name: "output", Path: "/work/.apptown/REPORT.md", Max: 1 << 20}) {
 		t.Errorf("declared results: %+v", spec.Results)
 	}
 
@@ -494,7 +495,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		"cp '/apptown/in/sessions/" + session + "' /apptown/state/session.part",
 		"export HOME=/apptown/state/home",
 		`export PATH="/apptown/in/bin:$PATH"`,
-		`exec "$@"`,
+		piharness.CaptureEvents("/apptown/state/events-agent.jsonl", "/apptown/state/events-agent.jsonl.status"),
 	} {
 		if !strings.Contains(entry, line) {
 			t.Errorf("the entry lacks %q:\n%s", line, entry)
@@ -740,6 +741,7 @@ func TestAReviewOnAWorkerIsSentItsBrief(t *testing.T) {
 	}
 	want := []execution.Result{
 		{Name: "transcript", Path: sessionFile, Max: maxTranscriptResult},
+		{Name: "events", Path: "/apptown/state/events-review.jsonl", Max: maxEventsResult},
 		{Name: "review", Path: "/work/.apptown/review.json", Max: 256 << 10, Fresh: true},
 	}
 	if !slices.Equal(req.spec.Results, want) || req.spec.Key != "step-00000000-0009-7000-8000-000000000000-attempt-2-review" {

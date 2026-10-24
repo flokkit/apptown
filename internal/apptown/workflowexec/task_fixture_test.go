@@ -177,7 +177,7 @@ func (p *fakePi) Run(_ context.Context, _ string, req execution.Request) executi
 	p.calls = append(p.calls, req)
 	n, on := len(p.calls), p.on
 	p.mu.Unlock()
-	return on(n, req)
+	return piStandIn(req, func(req execution.Request) execution.Outcome { return on(n, req) })
 }
 
 func (p *fakePi) requests() []execution.Request {

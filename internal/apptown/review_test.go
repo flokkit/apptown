@@ -11,6 +11,10 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/agentharness/pi/pitest"
+
+	"github.com/flokkit/apptown/internal/execution"
+
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -40,12 +44,25 @@ func installFakePi(t *testing.T, a *App, on func(n int, req ExecRequest) ExecOut
 	a.Work.Stop()
 	return f
 }
+
+// Run answers req as on says, as pi run through its capture
+// (piharness.CapturedArgv) would: the stream it prints is written to the
+// events file the argv names, which is where the result is read; on sees
+// pi's own argv.
 func (f *fakePi) Run(_ context.Context, _ string, req ExecRequest) ExecOutcome {
+	events, inner, captured := pitest.CapturedEvents(req.Argv)
+	if captured {
+		req.Argv = inner
+	}
 	f.mu.Lock()
 	f.calls = append(f.calls, req)
 	n := len(f.calls)
 	f.mu.Unlock()
-	return f.on(n, req)
+	out := f.on(n, req)
+	if captured && (out.Termination == execution.Exited || out.Termination == "") {
+		_ = os.WriteFile(filepath.Join(req.Workspace, filepath.FromSlash(events)), out.Output, 0o644)
+	}
+	return out
 }
 
 func (f *fakePi) requests() []ExecRequest {

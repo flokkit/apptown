@@ -138,3 +138,29 @@ func TestCheckEvaluationsStayWithTheirApplication(t *testing.T) {
 		})
 	}
 }
+
+// A check that fails with nothing that arrived (a container's stdout can be
+// lost at its end) keeps its verdict from the exit code and says its report
+// was lost: never "no findings", and a lines check lists no occurrences
+// rather than fewer; a tool's summary says the same.
+//
+// Kills: an empty failure read as a clean or occurrence-free report.
+func TestAFailedCheckWhoseReportDidNotArriveSaysReportLost(t *testing.T) {
+	t.Parallel()
+	silent := func(code int) func(execution.Request) execution.Outcome {
+		return func(execution.Request) execution.Outcome {
+			return execution.Outcome{Termination: execution.Exited, ExitCode: code}
+		}
+	}
+	decl := sourced("lang/hygiene", 3, "no-fixme", "grep -rn FIXME .", "high")
+	decl.Occurrences = "lines"
+	for _, code := range []int{1, 2} {
+		ev := (&check.Judge{Run: silent(code)}).EvaluateSh([]check.Declared{decl}, check.Source{Tree: t.TempDir()}, check.Gate, "t-lost")[0]
+		if ev.Evidence.Output != check.ReportLost("no-fixme") || ev.Outcome == check.Conforms || len(ev.Occurrences) != 0 {
+			t.Fatalf("exit %d with nothing printed: %+v", code, ev)
+		}
+	}
+	if got := check.ToolSummary("osv", " \n"); got != check.ReportLost("osv") {
+		t.Fatalf("a failed tool with nothing printed: %q", got)
+	}
+}

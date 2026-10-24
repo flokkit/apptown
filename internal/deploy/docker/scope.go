@@ -99,8 +99,8 @@ func (dk Scope) Running(ctx context.Context, container string) bool {
 }
 
 // EnsureRunning makes the named container run: a running one is left alone,
-// a stopped one is started, and a missing one is created with `docker run`
-// and runArgs (which must name it). Another process may create it at the same
+// a stopped one is started, and a missing one is created with `docker run
+// -d` and runArgs (which must name it). Another process may create it at the same
 // moment; a failed run that leaves the container existing is treated as that
 // race and the existing container is started instead. Docker reserves the
 // name before the winner's container can be inspected, so after a name
@@ -111,7 +111,7 @@ func (dk Scope) EnsureRunning(ctx context.Context, name string, runArgs []string
 	if dk.OK(ctx, "inspect", name) {
 		return dk.startExisting(ctx, name)
 	}
-	out, err := dk.Run(ctx, append([]string{"run"}, runArgs...)...)
+	out, err := dk.Run(ctx, append([]string{"run", "-d"}, runArgs...)...)
 	if err == nil {
 		return nil
 	}

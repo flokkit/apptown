@@ -3,13 +3,13 @@ package dataprotection
 import (
 	"context"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -25,7 +25,7 @@ func copyingDaemon() *dockerfake.Daemon {
 	d := dockerfake.New()
 	setBackupDockerCommand(d, func(req docker.Command) ([]byte, error) {
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 			return nil, err
 		}
 		return nil, nil
