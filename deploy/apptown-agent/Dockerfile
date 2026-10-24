@@ -19,7 +19,7 @@
 # Each RUN that downloads mounts the extra certificates AppTown gives a build
 # (the secret apptown-trust; internal/trust) and runs them first, so a
 # build behind a TLS-inspecting proxy can fetch; without them it runs as is.
-FROM golang:1.27.0-bookworm@sha256:ded31c68586d2e49e760acc2e65a884b23d032e9bbbed0ae0c55abd3fcaf4452 AS gopls
+FROM golang:1.27.2-bookworm@sha256:5cf287a799e6b94384bad13d16b14904c531f51ba65792237e122ce42b392f61 AS gopls
 ARG GOPLS_VERSION=v0.23.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; CGO_ENABLED=0 GOBIN=/out go install golang.org/x/tools/gopls@${GOPLS_VERSION} && /out/gopls version
 
