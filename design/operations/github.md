@@ -16,6 +16,63 @@ The squash commit takes the pull request's title and description, which are
 the change's public record. Opening a pull request is limited to the
 repository's collaborators ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
+## Dependency updates
+
+The hosted Renovate GitHub App proposes dependency updates, configured by
+`renovate.json5` at the root. It reads Go modules, the npm packages of `web/`
+and of the starters, the starters' composer packages, the Actions in
+`.github/workflows/` and the bases of every Dockerfile. It skips `testdata/`
+and `eval/`. Versions written elsewhere (Go constants, `deploy/tool-pins.txt`,
+`stock/scanners.yaml`, `stock/toolchains/`) are not read by it yet and are
+updated by hand.
+
+Nothing opens by itself. Renovate keeps one issue, the **Dependency
+Dashboard**, listing the available updates, grouped so that one pull request
+is one thing to verify: Go modules, `web/` npm, each
+starter (its packages and its Dockerfile's bases together), Actions,
+AppTown's own Dockerfile bases, and a new Go line (`go.mod` and the `golang`
+images). Each major version is its own entry, except that packages released
+together (React with React DOM) move together.
+
+An update whose release is at least three days old waits under "Pending
+Approval". One less than three days old, or one whose registry gives no
+release date, is listed under "Pending Status Checks". Ticking a box there
+opens the pull request at once, skipping the three-day wait. Leave a dated
+release until it is three days old, when it moves to "Pending Approval". An
+undated one stays pending, so tick it there once you have checked it. Actions stay pinned by commit SHA with the version in a comment, and a
+base image pinned by digest keeps its digest.
+
+To take an update, bls ticks its box on the dashboard and Renovate opens its
+pull request, with bls as reviewer. Tick one at a time: a ticked box overrides
+Renovate's limit of one open pull request, so the limit holds only for what
+Renovate opens unasked. Bump pull requests land like any other change, as in
+the section above: bls reviews the change and its notes, `ci-ok` passes on a
+branch up to date with `main`, and it is squash-merged; nothing merges
+automatically. Renovate rebases a branch only when it conflicts; to bring one
+up to date, tick the rebase box in the pull request. GitHub's "Update branch"
+button adds a merge commit, after which Renovate stops updating that branch.
+A bump that fails a check stays open for a person to finish (a coupled pin
+such as `deploy/tool-pins.txt`) or close.
+
+Security fixes are the exception. Renovate reads GitHub's Dependabot alerts,
+which are on in the repository's security settings (`renovate.json5` does not
+turn them on). When an alert names a dependency it reads, Renovate opens the
+fix without approval or the three-day wait,
+assigned to bls, one at a time. So at most two Renovate pull requests are open:
+one ticked update and one security fix. Land the fix first.
+
+To check the file after editing it (pinned, and with npm's install scripts
+off, as for every npm command here; a warning that RE2 is not usable is
+expected):
+
+```sh
+npm_config_ignore_scripts=true npx --yes --package renovate@44.149.0 -- \
+  renovate-config-validator --strict
+```
+
+Renovate also checks the file on every run and opens an issue when it cannot
+read it.
+
 ## GitHub Actions
 
 The repository is public, so standard runners cost nothing.
