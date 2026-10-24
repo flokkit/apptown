@@ -90,6 +90,9 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 		return nil
 	}
 	for _, volume := range volumes {
+		if ctx.Err() != nil {
+			return reaped // stopped: the rest wait for the next sweep
+		}
 		// The listing decides what is removed, so it is read from a file in
 		// the container (containerresult.Run), never its output: a volume
 		// whose listing did not come back is left as it is.
