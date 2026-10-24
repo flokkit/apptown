@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
 
@@ -72,6 +71,10 @@ type Suite struct {
 	// PostgreSQL reaches max_connections: the suite failed in the hundreds
 	// while only ~58 connections were live on the server.
 	admin *sql.DB
+	// owner is the connection whose application_name is the template's
+	// name. While it is open, no suite's sweep drops this suite's
+	// databases; see sweepOrphans.
+	owner *pgx.Conn
 	// Dropping a clone costs about as much as making it (on the private
 	// test server: 0.66 s drop, 0.76 s clone, both forcing a checkpoint). A suite run through Run drops clones in the
 	// background so a finished test frees its parallel slot at once, unless
@@ -205,7 +208,15 @@ func (s *Suite) setup() {
 	if s.params != "" {
 		s.sweepOrphans()
 	}
-	s.template = fmt.Sprintf("apptown_tpl_%d_%d_%d", os.Getpid(), time.Now().UnixNano(), templateSequence.Add(1))
+	s.template = fmt.Sprintf("%s%d_%d", namePrefix, time.Now().UnixNano(), templateSequence.Add(1))
+	// The owner connection exists before the template does, so no sweep
+	// ever sees one of this suite's databases without it.
+	ownerCfg := cfg.Copy()
+	ownerCfg.RuntimeParams["application_name"] = s.template
+	if s.owner, err = pgx.ConnectConfig(ctx, ownerCfg); err != nil {
+		s.err = fmt.Errorf("open the template's owner connection: %w", err)
+		return
+	}
 	if _, err := admin.Exec(fmt.Sprintf(`CREATE DATABASE %s`, s.template)); err != nil {
 		s.err = fmt.Errorf("create template (the account needs CREATEDB): %w", err)
 		return
@@ -266,30 +277,39 @@ func (s *Suite) dropInBackground() {
 	}
 }
 
+// namePrefix begins every template's and clone's name. Databases named
+// apptown_tpl_ were made by code that judged them by a process id in the
+// name; this sweep never judges them, so a checkout still on that code can
+// share the server without either dropping the other's databases.
+const namePrefix = "apptown_test_"
+
 // sweepOrphans drops the databases of test binaries that are gone. A binary
 // that is killed or times out never drops its template or clones, and the
 // private server keeps its data in a 4 GB tmpfs, which a few hundred such
 // templates fill, and then every package fails with "No space left on
-// device". Names carry the creating process's id; only the private server
-// on this machine shares that id space, so a shared server is never swept.
-// A live process (or a reused id) keeps its databases. The sweep is
+// device". A suite's databases are alive while its owner connection, whose
+// application_name is the template's name, is open: the server ends that
+// backend when the owning process exits, wherever it ran. A process id
+// cannot say this, because binaries in containers (scripts/ci-heavy.sh)
+// share the server with binaries on the host, each in its own pid
+// namespace; judging by pid dropped databases other lanes were using. A
+// shared APPTOWN_TEST_DB_URL server is never swept: a role without
+// pg_read_all_stats cannot see other roles' application_name. The sweep is
 // housekeeping: a failure leaves the orphan for the next binary to retry.
 func (s *Suite) sweepOrphans() {
-	rows, err := s.admin.Query(`SELECT datname FROM pg_database WHERE datname LIKE 'apptown_tpl_%'`)
+	rows, err := s.admin.Query(`SELECT d.datname FROM pg_database d
+		WHERE d.datname LIKE $1 || '%' AND NOT EXISTS (
+			SELECT 1 FROM pg_stat_activity a
+			WHERE a.application_name LIKE $1 || '%'
+			  AND (d.datname = a.application_name OR d.datname LIKE a.application_name || '\_t%'))`,
+		strings.ReplaceAll(namePrefix, "_", `\_`))
 	if err != nil {
 		return
 	}
 	var gone []string
 	for rows.Next() {
 		var name string
-		if rows.Scan(&name) != nil {
-			continue
-		}
-		var pid int
-		if _, err := fmt.Sscanf(strings.TrimPrefix(name, "apptown_tpl_"), "%d_", &pid); err != nil || pid <= 0 {
-			continue
-		}
-		if syscall.Kill(pid, 0) == syscall.ESRCH {
+		if rows.Scan(&name) == nil {
 			gone = append(gone, name)
 		}
 	}
@@ -337,5 +357,12 @@ func (s *Suite) Close() error {
 	if s.template == "" {
 		return errors.Join(s.dropErrs...)
 	}
-	return errors.Join(append(s.dropErrs, s.drop(s.template))...)
+	errs := append(s.dropErrs, s.drop(s.template))
+	// After the template's drop: the owner keeps the databases from other
+	// suites' sweeps until they are gone.
+	if s.owner != nil {
+		errs = append(errs, s.owner.Close(context.Background()))
+		s.owner = nil
+	}
+	return errors.Join(errs...)
 }
