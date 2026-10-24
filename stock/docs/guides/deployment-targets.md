@@ -88,8 +88,8 @@ images no container uses that are not a release you may deploy again
 (`docker image ls`, then `docker image rm` by name), and released tasks'
 leftovers on a worker (releasing a task removes its files). Do not run
 `docker system prune --volumes` or `docker volume prune`: a deployment's data
-volume belongs to it, and a backup's evidence is not garbage. AppTown
-has no image clean-up of its own.
+volume belongs to it, and a backup's evidence is not garbage. AppTown's own
+image clean-up removes only the unused, untagged images it built itself.
 
 **Container logs.** Every container AppTown starts for a deployment or
 preview keeps its log in Docker's `json-file` files, rotated at 10 MiB with

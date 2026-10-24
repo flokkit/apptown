@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 	"testing"
@@ -304,14 +305,19 @@ func (d daemonReplies) Run(_ context.Context, _ string, req docker.Command) ([]b
 				kept = append(kept, l)
 			}
 		}
+		if req.Stdout != nil {
+			// A read with its own streams (image inspect) answers on stdout.
+			_, err := io.WriteString(req.Stdout, strings.Join(kept, ""))
+			return nil, err
+		}
 		return []byte(strings.Join(kept, "")), nil
 	}
 	return nil, nil
 }
 
 // What AppTown records owning and the Docker host still holds reads as
-// recorded, through the real listing: a local build recorded bare (BuildTag,
-// which the daemon lists as name:latest) and an approved older database
+// recorded, through the real reads: a local build recorded bare (BuildTag,
+// which the daemon answers as name:latest) and an approved older database
 // volume with Docker's anonymous name. A volume nobody records and AppTown
 // did not name is not offered as an orphan.
 func TestOwnedResourcesTheHostHoldsArePresent(t *testing.T) {
@@ -319,10 +325,11 @@ func TestOwnedResourcesTheHostHoldsArePresent(t *testing.T) {
 	tag := docker.Current.BuildTag("apptown-env-shop-main-g1-app")
 	anon := strings.Repeat("ab", 32)
 	daemon := daemonReplies{
-		"image ls":  tag + "\tlatest\t<none>\n",
-		"volume ls": anon + "\t\t\nsomeone-elses-data\t\t\n",
+		"image inspect": `["` + tag + `:latest"]` + "\t[]\t" + `"sha256:1"` + "\n",
+		"volume ls":     anon + "\t\t\nsomeone-elses-data\t\t\n",
 	}
-	live, err := docker.Inventory{Scope: func(context.Context) (docker.Scope, error) { return docker.Scope{Client: daemon}, nil }}.Inventory(t.Context())
+	images := func(context.Context) ([]string, error) { return []string{tag}, nil }
+	live, err := docker.Inventory{Scope: func(context.Context) (docker.Scope, error) { return docker.Scope{Client: daemon}, nil }, Images: images}.Inventory(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}

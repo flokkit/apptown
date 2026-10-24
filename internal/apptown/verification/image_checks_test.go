@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -74,7 +75,7 @@ func TestAnImageScanReadsTheImageOfItsCommit(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			cached[args[4]] = "sha256:" + strings.TrimSpace(string(body))
+			cached[args[slices.Index(args, "-t")+1]] = "sha256:" + strings.TrimSpace(string(body))
 			return nil, nil
 		}
 		return nil, errors.New("unexpected Docker command")

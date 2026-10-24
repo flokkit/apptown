@@ -62,7 +62,7 @@ func TestDockerSelectedImagesUseLocalAndRemoteBuildContexts(t *testing.T) {
 							t.Fatalf("wrong static bytes %q %v", raw, err)
 						}
 					}
-					if !strings.Contains(args[2], "-g7-") {
+					if !strings.Contains(args[slices.Index(args, "-t")+1], "-g7-") {
 						t.Fatalf("shared generation tag: %v", args)
 					}
 				}

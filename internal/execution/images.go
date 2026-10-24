@@ -139,7 +139,9 @@ func PrepareImage(ctx context.Context, docker DockerCLI, req ImageRequest) Image
 			return ImageAnswer{Err: fmt.Sprintf("the build context %s is not a folder in the tree: %v", req.Context, err)}
 		}
 		// The extra certificates as the build's secret (internal/trust).
-		build := append(append([]string{"build"}, trust.BuildArgs(true)...), "--label", CheckLabel, "-t", req.Tag, filepath.Join(req.Tree, req.Context))
+		build := append([]string{"build"}, trust.BuildArgs(true)...)
+		build = append(append(build, "--label", CheckLabel), dockerlabel.BuiltArgs()...)
+		build = append(build, "-t", req.Tag, filepath.Join(req.Tree, req.Context))
 		if out, err := docker(ctx, nil, build...); err != nil {
 			return ImageAnswer{Err: fmt.Sprintf("building the app image: %v: %s", err, bounded(out))}
 		}

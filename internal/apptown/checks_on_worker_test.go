@@ -47,7 +47,7 @@ image)
   [ -f "` + have + `/$name" ] || { echo "Error: No such image: $5" >&2; exit 1; }
   echo "\"sha256:$name\" {\"forge.go.version\":\"1.24.4\"}"; exit 0;;
 pull) touch "` + have + `/$(echo "$2" | tr '/:@' '___')"; exit 0;;
-build) touch "` + have + `/$(echo "$5" | tr '/:@' '___')"; exit 0;;
+build) tag=""; prev=""; for a in "$@"; do [ "$prev" = "-t" ] && tag="$a"; prev="$a"; done; touch "` + have + `/$(echo "$tag" | tr '/:@' '___')"; exit 0;;
 save) exit 0;;
 inspect) echo "running healthy"; exit 0;;
 run)
@@ -183,7 +183,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		if step := reviewExecute(t, a, run, "guidance"); step.Status != workflow.StatusPass {
 			t.Fatalf("the guidance step on the worker: %s %s", step.Status, step.Evidence)
 		}
-		onlyTheWorker(t, calls, "worker build --label apptown.class=check -t apptown-conform:", "--init --name apptown-check-", "python manage.py check", "semgrep --sarif")
+		onlyTheWorker(t, calls, "worker build --label apptown.class=check --label apptown.built=1 -t apptown-conform:", "--init --name apptown-check-", "python manage.py check", "semgrep --sarif")
 	})
 	t.Run("a landing's gates", func(t *testing.T) {
 		t.Parallel()

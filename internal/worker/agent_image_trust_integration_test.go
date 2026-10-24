@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
@@ -48,4 +49,9 @@ func TestIntegrationTheAgentImageBuildTrustsTheWorkersExtraCertificates(t *testi
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _, _ = (docker.Scope{Client: docker.CLI{}}).Run(context.Background(), "rmi", "-f", image) })
+	// The image says AppTown built it, for the maintenance sweep's prune.
+	label, err := (docker.Scope{Client: docker.CLI{}}).Run(context.Background(), "image", "inspect", "--format", `{{index .Config.Labels "`+dockerlabel.Built+`"}}`, image)
+	if err != nil || strings.TrimSpace(string(label)) != "1" {
+		t.Fatalf("the agent image carries no build label: %q %v", label, err)
+	}
 }

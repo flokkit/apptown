@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/trust"
 )
 
@@ -32,6 +33,8 @@ func (dk Scope) Build(ctx context.Context, args ...string) ([]byte, error) {
 	// The extra certificates, as the secret a Dockerfile's RUN lines may
 	// mount (internal/trust). It needs BuildKit, so a Docker without buildx
 	// cannot take it, and refuses the build saying so.
+	// Who made the image, for the maintenance sweep (PruneBuiltImages).
+	args = append(dockerlabel.BuiltArgs(), args...)
 	args = append(trust.BuildArgs(!dk.Remote()), args...)
 	return dk.Run(ctx, append([]string{"build"}, args...)...)
 }

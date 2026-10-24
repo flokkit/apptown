@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
 
 // With extra certificates configured, a check image's build is given them
-// as its secret, and a process run on this machine itself is not given the
+// as its secret (and AppTown's build label), and a process run on this machine itself is not given the
 // containers' script, which run there would change this machine's store.
 // Not parallel: it installs the process's trust.
 func TestBuildsGetTheExtraCertificatesAndLocalProcessesDoNot(t *testing.T) {
@@ -36,6 +37,10 @@ func TestBuildsGetTheExtraCertificatesAndLocalProcessesDoNot(t *testing.T) {
 	}, execution.ImageRequest{Tag: "apptown-conform:abc", Tree: tree, Context: "app", AllowBuild: true})
 	if !strings.Contains(strings.Join(build, " "), "--secret id=apptown-trust,env=APPTOWN_TRUST") {
 		t.Fatalf("the check image's build is not given the certificates: %q", build)
+	}
+	// And it says AppTown built it, for the maintenance sweep's prune.
+	if !strings.Contains(strings.Join(build, " "), strings.Join(dockerlabel.BuiltArgs(), " ")) {
+		t.Fatalf("the check image's build does not label it AppTown's: %q", build)
 	}
 
 	out := execution.Runner{}.Run(context.Background(), execution.Local, execution.Request{
