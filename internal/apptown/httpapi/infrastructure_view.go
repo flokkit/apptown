@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -86,20 +88,31 @@ func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Ta
 
 // leftoverReason says why a deployment no longer records a resource it
 // made: it moved to another target, it stands here without it, or it was
-// torn down.
+// torn down. Only an answer that the project or deployment is not there
+// says torn down; a read that failed says the reason is not known, since
+// the sentence stands beside resources an administrator may remove.
 func (h Infrastructure) leftoverReason(ctx context.Context, t *deployment.Target, slug, env string) string {
+	unknown := func(err error) string {
+		return "whether the deployment still stands could not be read: " + err.Error()
+	}
 	p, err := h.projects.BySlug(ctx, slug)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "the deployment was torn down"
+	} else if err != nil {
+		return unknown(err)
 	}
 	e, err := h.deployment.Deployments.ByName(ctx, p.ID, env)
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
 		return "the deployment was torn down"
+	} else if err != nil {
+		return unknown(err)
 	}
 	if e.TargetID != t.ID {
-		if now, err := h.deployment.Targets.ByID(ctx, e.TargetID); err == nil {
-			return "the deployment now runs on " + now.Name + " and no longer records this"
+		now, err := h.deployment.Targets.ByID(ctx, e.TargetID)
+		if err != nil {
+			return "the deployment now runs on another target, which could not be read: " + err.Error()
 		}
+		return "the deployment now runs on " + now.Name + " and no longer records this"
 	}
 	return "the deployment no longer records this"
 }

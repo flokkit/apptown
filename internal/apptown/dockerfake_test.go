@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -33,7 +34,8 @@ type fakeDocker struct {
 	objects map[string]bool              // networks and volumes a create made ("network n", "volume v"), until rm
 	labels  map[string]map[string]string // a started container's --label pairs
 	browser map[string]string            // a started container's browser values, as it was given them
-	ids     map[string]string            // a container's ID when a test replaces it; "fake-<name>" otherwise
+	ids     map[string]string            // a container's ID when a test replaces it; the one its create printed otherwise
+	names   map[string]string            // a printed container ID -> the name it was made under
 	limits  map[string]string            // a started container's "memory nanocpus", as its run and updates set them
 	entry   map[string][2][]string       // a container started by its own entrypoint: that entrypoint and its arguments
 	// reply scripts an answer for a call; ok=false falls through to the
@@ -122,6 +124,14 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 		return out, nil
 	}
 	f.mu.Lock()
+	// A container is named by the ID its create printed as by its name:
+	// the fake keeps state by name.
+	args = append([]string(nil), args...)
+	for i, a := range args {
+		if name, ok := f.names[a]; ok {
+			args[i] = name
+		}
+	}
 	f.calls = append(f.calls, append([]string(nil), args...))
 	if len(args) > 0 {
 		switch args[0] {
@@ -185,13 +195,15 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 	f.mu.Unlock()
 	if f.reply != nil {
 		if out, err, ok := f.reply(args); ok {
-			return []byte(out), err
+			return f.printID(args, []byte(out), err), err
 		}
 	}
 	if len(args) == 0 {
 		return nil, nil
 	}
 	switch args[0] {
+	case "run", "create":
+		return f.printID(args, nil, nil), nil
 	case "info":
 		if len(args) == 3 && strings.Contains(args[2], "MemTotal") {
 			return []byte("8589934592\t4\t/var/lib/docker\n"), nil
@@ -234,12 +246,12 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			if ok {
 				env = []any{docker.BrowserEnvVar + "=" + values, nil}
 			}
-			return json.Marshal(map[string]any{"id": "fake-" + name, "env": env})
+			return json.Marshal(map[string]any{"id": dockerfake.ContainerID(name), "env": env})
 		case tmpl == docker.RuntimeFormat:
 			f.mu.Lock()
 			id := f.ids[name]
 			if id == "" {
-				id = "fake-" + name
+				id = dockerfake.ContainerID(name)
 			}
 			out, err := json.Marshal(docker.Runtime{ID: id, Image: "sha256:built", Running: true, Labels: f.labels[name]})
 			f.mu.Unlock()
@@ -288,6 +300,28 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 		return []byte("sha256:built\n"), nil
 	}
 	return nil, nil
+}
+
+// printID is what Docker prints for a command: a `docker create` or
+// `docker run -d` that made a named container prints its ID. A test's
+// reply that says something itself is its own answer; any other command's
+// output is its own.
+func (f *fakeDocker) printID(args []string, out []byte, err error) []byte {
+	if err != nil || len(out) > 0 || len(args) == 0 || (args[0] != "create" && !(args[0] == "run" && slices.Contains(args, "-d"))) {
+		return out
+	}
+	name := containerNameOf(strings.Join(args, " "))
+	if name == "" {
+		return out
+	}
+	id := dockerfake.ContainerID(name)
+	f.mu.Lock()
+	if f.names == nil {
+		f.names = map[string]string{}
+	}
+	f.names[id] = name
+	f.mu.Unlock()
+	return []byte(id + "\n")
 }
 
 func (f *fakeDocker) isStarted(name string) bool {

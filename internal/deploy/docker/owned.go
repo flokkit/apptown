@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // What a standing deployment's boot creates on a Docker host is recorded as
@@ -59,17 +60,16 @@ func (o Ownership) created(r deploy.Owned) error {
 var containerID = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 // createdID is the identity of a container a `docker run -d` or `docker
-// create` just made: the ID it printed last, else what the daemon says the
-// name is now, else the name.
-func createdID(ctx context.Context, dk Scope, out []byte, name string) string {
+// create` just made: the ID it printed last. A name is not an identity (a
+// later container can take it), so output without an ID is an error: what
+// was created is not known, and nothing is recorded that a take-down would
+// remove.
+func createdID(out []byte, name string) (string, error) {
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	if last := strings.TrimSpace(lines[len(lines)-1]); containerID.MatchString(last) {
-		return last
+		return last, nil
 	}
-	if id := strings.TrimSpace(dk.Text(ctx, "inspect", "-f", "{{.Id}}", name)); containerID.MatchString(id) {
-		return id
-	}
-	return name
+	return "", fmt.Errorf("docker printed no container ID for %s, so what it created is not known and is not recorded: %s", name, strs.Truncate(strings.TrimSpace(string(out)), 200))
 }
 
 // ensureNetwork makes a stack's network when it is missing, recording it
@@ -89,7 +89,7 @@ func ensureNetwork(ctx context.Context, dk Scope, network string, own Ownership)
 
 // recordService records a standing service's container, naming the need
 // it serves.
-func recordService(ctx context.Context, dk Scope, out []byte, cname, service string, own Ownership) error {
+func recordService(out []byte, cname, service string, own Ownership) error {
 	if own.Record == nil {
 		return nil
 	}
@@ -97,7 +97,11 @@ func recordService(ctx context.Context, dk Scope, out []byte, cname, service str
 	if _, isNeed := own.Needs[service]; isNeed {
 		need = service
 	}
-	return own.created(deploy.Owned{Kind: "container", ID: createdID(ctx, dk, out, cname), Name: cname, Need: need})
+	id, err := createdID(out, cname)
+	if err != nil {
+		return err
+	}
+	return own.created(deploy.Owned{Kind: "container", ID: id, Name: cname, Need: need})
 }
 
 // ensureVolume makes a standing deployment's named data volume before a

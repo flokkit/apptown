@@ -296,7 +296,11 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		return 0, fmt.Errorf("docker run: %s", strs.Tail(strings.TrimSpace(dk.redacted(out)), startFailureTail))
 	}
 	if t.own.Record != nil {
-		if err := t.own.created(deploy.Owned{Kind: "container", ID: createdID(ctx, dk, out, name), Name: name}); err != nil {
+		id, err := createdID(out, name)
+		if err != nil {
+			return 0, err
+		}
+		if err := t.own.created(deploy.Owned{Kind: "container", ID: id, Name: name}); err != nil {
 			return 0, err
 		}
 	}

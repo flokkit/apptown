@@ -133,7 +133,7 @@ func runServiceContainersWith(ctx context.Context, dk Scope, id, network string,
 		if err != nil {
 			return fmt.Errorf("service %s: %v: %s", svc.Name, err, out)
 		}
-		if err := recordService(ctx, dk, out, cname, svc.Name, own); err != nil {
+		if err := recordService(out, cname, svc.Name, own); err != nil {
 			return err
 		}
 	}
@@ -538,7 +538,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			if err != nil {
 				return network, fmt.Errorf("starting the standing %s service: %v: %s", svc.Name, err, strs.Truncate(strings.TrimSpace(string(out)), 200))
 			}
-			if err := recordService(ctx, dk, out, cname, svc.Name, own); err != nil {
+			if err := recordService(out, cname, svc.Name, own); err != nil {
 				return network, err
 			}
 		}
@@ -755,11 +755,17 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 		}
 	}
 	log.Printf("deployment service %s: declared parameters moved (%s) — recreating from the contract; its data was synthetic and is not kept", cname, strings.Join(drift, ", "))
-	_, _ = dk.Run(ctx, "rm", "-f", cname)
+	// The service is made again only once both are gone: a container or
+	// volume left would carry the old parameters into the new service.
+	if err := dk.Remove(ctx, cname); err != nil {
+		return fmt.Errorf("removing the standing %s service to recreate it: %w", svc.Name, err)
+	}
 	if isNeed && own.recorded("volume", vol) {
 		// Its recorded data volume goes too: a database made with the
 		// old parameters would keep them.
-		_ = dk.RemoveVolume(ctx, vol)
+		if err := dk.RemoveVolume(ctx, vol); err != nil {
+			return fmt.Errorf("removing the %s service's data volume %s to recreate it: %w", svc.Name, vol, err)
+		}
 	}
 	return nil
 }

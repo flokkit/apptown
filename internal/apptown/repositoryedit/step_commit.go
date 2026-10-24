@@ -132,7 +132,10 @@ func ProposeTaskSource(ctx context.Context, dataDir string, source workflow.Sour
 		if err != nil {
 			return TaskSource{}, fmt.Errorf("reading whether the run's folder is behind its branch: %w", err)
 		}
-		contained := gitexec.HubRef(ctx, repo, own+"^{commit}") != "" && gitexec.HubAncestor(ctx, repo, own, "refs/heads/"+source.Branch)
+		contained, err := gitexec.HubHolds(ctx, repo, source.Branch, own)
+		if err != nil {
+			return TaskSource{}, fmt.Errorf("reading whether the run's branch holds its folder's commits: %w", err)
+		}
 		if !behind && !contained {
 			token := make([]byte, 8)
 			if _, err := rand.Read(token); err != nil {
@@ -143,20 +146,27 @@ func ProposeTaskSource(ctx context.Context, dataDir string, source workflow.Sour
 				out.Discard(ctx)
 				return TaskSource{}, fmt.Errorf("reading the run's folder's commits: %w: %s", err, msg)
 			}
-			if out.Commit = gitexec.HubRef(ctx, repo, out.staged); out.Commit == "" {
+			if out.Commit, err = gitexec.HubReadRef(ctx, repo, out.staged); err != nil || out.Commit == "" {
 				out.Discard(ctx)
-				return TaskSource{}, fmt.Errorf("reading the run's folder's commits: the fetched commit is missing")
+				return TaskSource{}, fmt.Errorf("reading the run's folder's commits: the fetched commit is missing (%v)", err)
 			}
 			return out, nil
 		}
 	}
-	if out.Commit = gitexec.HubRef(ctx, repo, "refs/heads/"+source.Branch); out.Commit == "" {
-		out.Commit = gitexec.HubRef(ctx, repo, "refs/heads/"+source.DefaultBranch)
+	// The published branch; one not yet published starts where the
+	// project's default branch is. Only Git's answer that a ref names
+	// nothing is "not published": a failed read is an error.
+	for _, branch := range []string{source.Branch, source.DefaultBranch} {
+		commit, err := gitexec.HubReadRef(ctx, repo, "refs/heads/"+branch)
+		if err != nil {
+			return TaskSource{}, fmt.Errorf("reading the commit to give the task: %w", err)
+		}
+		if commit != "" {
+			out.Commit = commit
+			return out, nil
+		}
 	}
-	if out.Commit == "" {
-		return TaskSource{}, fmt.Errorf("the project's repository has no commit to give the task")
-	}
-	return out, nil
+	return TaskSource{}, fmt.Errorf("the project's repository has no commit to give the task")
 }
 
 // Publish publishes the folder's commits proposed (the run's branch moves

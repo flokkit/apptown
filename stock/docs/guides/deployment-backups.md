@@ -28,6 +28,13 @@ the same `<project>/<deployment>/<time>` is kept on "backup store". If the store
 stale; AppTown does not fall back to its disk, a take-down deletes
 nothing, and a restore is refused before anything changes.
 
+**What a restore reads.** Each file goes back as its set recorded it: by
+the restore command the set carries, after its file is checked against the
+set's digest. An older set whose record carries no digest, or no restore
+command for a need, is refused item by item ("not restored"), never put
+back by today's command or unchecked; restore such a set by hand from its
+files.
+
 **Where restore rehearsals run.** A restore rehearsal starts the app from a
 backup on a Docker host, checks it answers, and removes it. If a platform
 administrator keeps a Docker host for rehearsals (the target's settings,

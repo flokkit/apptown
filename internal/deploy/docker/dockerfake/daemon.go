@@ -4,10 +4,13 @@ package dockerfake
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -35,6 +38,7 @@ type Daemon struct {
 	commandReply func(docker.Command) ([]byte, error, bool)
 	configs      []string              // each command's --config, "" for the ambient one
 	published    map[string]*published // nil: every container answers at port (PublishPorts)
+	names        map[string]string     // a created container's ID -> its name
 }
 
 // published is one container's published port: fixed is the host port its
@@ -206,7 +210,14 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		config, req.Args = req.Args[1], req.Args[2:]
 	}
 	d.configs = append(d.configs, config)
-	args := req.Args
+	// A container is named by its ID as by its name, as Docker names it:
+	// the fake keeps state by name, so an ID it printed is read as that name.
+	args := append([]string(nil), req.Args...)
+	for i, a := range args {
+		if name, ok := d.names[a]; ok {
+			args[i] = name
+		}
+	}
 	d.commands = append(d.commands, append([]string(nil), args...))
 	if len(args) == 0 {
 		return nil, nil
@@ -290,12 +301,12 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	}
 	if d.reply != nil {
 		if out, err, ok := d.reply(append([]string(nil), args...)); ok {
-			return out, err
+			return d.printID(args, out, err), err
 		}
 	}
 	if d.commandReply != nil {
 		if out, err, ok := d.commandReply(req); ok {
-			return out, err
+			return d.printID(args, out, err), err
 		}
 	}
 	if args[0] == "ps" && len(args) > 1 && args[1] == "-aq" {
@@ -369,7 +380,41 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if args[0] == "info" && len(args) == 3 && strings.Contains(args[2], "MemTotal") {
 		return []byte(d.host + "\n"), nil
 	}
-	return nil, nil
+	return d.printID(args, nil, nil), nil
+}
+
+// printID is what Docker prints for a command: a `docker create` or
+// `docker run -d` that made a named container prints its ID. A test's
+// reply that says something itself is its own answer; any other command's
+// output is its own.
+func (d *Daemon) printID(args []string, out []byte, err error) []byte {
+	if err != nil || len(out) > 0 || len(args) == 0 || (args[0] != "create" && !(args[0] == "run" && slices.Contains(args, "-d"))) {
+		return out
+	}
+	for i := range args {
+		if args[i] == "--name" && i+1 < len(args) {
+			return []byte(d.created(args[i+1]) + "\n")
+		}
+	}
+	return out
+}
+
+// created is the ID the fake gives a container made under name: one per
+// name, so a container made again under it is named the same way.
+func (d *Daemon) created(name string) string {
+	id := ContainerID(name)
+	if d.names == nil {
+		d.names = map[string]string{}
+	}
+	d.names[id] = name
+	return id
+}
+
+// ContainerID is the ID the fake printed for the container it made under
+// name.
+func ContainerID(name string) string {
+	sum := sha256.Sum256([]byte("container " + name))
+	return hex.EncodeToString(sum[:])
 }
 
 // labelled answers `ps -aq --filter label=k=v ...` as Docker does: the

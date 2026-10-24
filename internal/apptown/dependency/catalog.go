@@ -159,8 +159,9 @@ type Kind struct {
 	// place from it and verify it. The commands read the kind's standard
 	// connection variables, so the same text runs inside the need's own
 	// container on a Docker host and from the copy runner for a managed
-	// instance. nil, or a copy with no export: AppTown copies the
-	// kind's data directory as files.
+	// instance. A copy with no export (copy: {}, or only a caveat):
+	// AppTown copies the kind's data directory as files. nil: the kind's
+	// data is not copied, and a set that holds it says so.
 	Copy *Copy `yaml:"copy,omitempty" json:"copy,omitempty"`
 	// Cloud fulfillment per provider (digitalocean, aws, …): how the
 	// provider makes the need (kind: managed-database, or a terraform
@@ -691,8 +692,9 @@ func parseStored(capability, spec string) (*Kind, error) {
 	return d, nil
 }
 
-// All is the catalog in capability order; a stored kind that no longer
-// parses is left out rather than failing the whole list.
+// All is the catalog in capability order. A stored kind that no longer
+// parses fails the list, naming it: a list without it would show a kind
+// the catalog holds as one it does not.
 func (c *Catalog) All(ctx context.Context) ([]*Kind, error) {
 	rows, err := queries(c.db).DependencyKinds(ctx)
 	if err != nil {
@@ -700,9 +702,11 @@ func (c *Catalog) All(ctx context.Context) ([]*Kind, error) {
 	}
 	out := make([]*Kind, 0, len(rows))
 	for _, row := range rows {
-		if kind, err := parseStored(row.Capability, row.SpecYaml); err == nil {
-			out = append(out, kind)
+		kind, err := parseStored(row.Capability, row.SpecYaml)
+		if err != nil {
+			return nil, fmt.Errorf("the dependency kind %q in the catalog cannot be read: %w", row.Capability, err)
 		}
+		out = append(out, kind)
 	}
 	return out, nil
 }

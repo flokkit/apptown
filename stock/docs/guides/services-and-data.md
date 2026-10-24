@@ -136,8 +136,11 @@ servers and `apptown dev`), and a kind with a local service that generates
 one declares `local.configAtStart: true`: its service must set them again at
 every start, never keep the first in its data.
 
-A kind with no `copy:`, or one with only a `caveat`, gets a file copy of its
-data directory and an unverified restore. Under `cloud.<provider>`,
+A kind that declares `copy:` with no export (`copy: {}`, or only a
+`caveat`) gets a file copy of its data directory and an unverified restore.
+A kind with no `copy:` is not copied: a set says its data is not in it, and
+a deployment holding it is not restored through AppTown until its kind
+declares a copy (restore its older sets by hand from their files). Under `cloud.<provider>`,
 `reach: {how: connect, from: named-host, credential: app-user}` says
 AppTown copies a managed instance there from the target's copy runner as the
 app's user, and `native` names the provider's own backups AppTown shows

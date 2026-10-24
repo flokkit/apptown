@@ -86,17 +86,20 @@ func unresolvedNeed(need string, err error) string {
 }
 
 // needItem is how a need's data is copied from its container and put
-// back: by its kind's declared copy (export, restore in place, verify),
-// run in that container with the connection it was started with; or else
-// as a tar of its data directory taken while it runs, which may be
-// inconsistent and whose restore nothing verifies.
+// back, as its kind's copy declares: by its export (restore in place,
+// verify), run in that container with the connection it was started with;
+// or, for a copy declared with no export, as a tar of its data directory
+// taken while it runs, which may be inconsistent and whose restore nothing
+// verifies. A kind that declares no copy is not copied: the set says so.
 func needItem(d *dependency.Kind, need, container string) backupPlanItem {
 	it := backupPlanItem{Kind: "need", Name: need, Container: container}
 	cp := d.Copy
-	if cp != nil {
-		it.Caveat = cp.Caveat
+	if cp == nil {
+		it.File, it.Unresolved = need+".uncopied", fmt.Sprintf("not copied: the %s kind declares no copy (copy: in its definition says how its data is copied)", need)
+		return it
 	}
-	if cp != nil && cp.Export != "" {
+	it.Caveat = cp.Caveat
+	if cp.Export != "" {
 		where := "in " + container
 		if cp.InClient() {
 			where = "in " + clientImage(cp, "") + " beside " + container
@@ -623,8 +626,10 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 }
 
 // restoreItem puts one item of a set back and says what witnessed it. The
-// item's own record says how (sets carry their restore command, mode and
-// check); a set too old to carry a restore command uses the destination's.
+// item's own record says how (its restore command, mode, check and
+// caveat) and what its file must be (its digest): an item whose record
+// lacks either is not restored, never put back by today's command or
+// unchecked.
 // The app's data volume is emptied and unpacked through a helper. A need
 // is restored by its command in its running container or, when declared
 // restoreStopped, in a throwaway container of its image on its volumes
@@ -632,19 +637,19 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 // verify, if declared, runs in it with the copy on stdin.
 func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope, m restoreMove, path string) RestoredItem {
 	it, p := m.item, m.into
-	// What the copy does not hold is the set's to say; a set from before
-	// copies carried it says what the destination's kind declares.
-	caveat := it.Caveat
-	if caveat == "" {
-		caveat = p.Caveat
-	}
-	row := RestoredItem{Kind: p.Kind, Name: p.Name, Caveat: caveat}
+	row := RestoredItem{Kind: p.Kind, Name: p.Name, Caveat: it.Caveat}
 	fail := func(detail string) RestoredItem {
 		row.Outcome, row.Detail = RestoreFailed, strs.Truncate(strings.TrimSpace(detail), 300)
 		return row
 	}
-	if got := fileSHA256(path); it.SHA256 != "" && got != it.SHA256 {
+	if it.SHA256 == "" {
+		return fail("the record carries no digest of this file, so what it holds is not known; not restored")
+	}
+	if fileSHA256(path) != it.SHA256 {
 		return fail("the file on disk does not match the record's digest; not restored")
+	}
+	if p.Kind != "volume" && it.Restore == "" {
+		return fail("the record carries no restore command (the set is from before sets recorded theirs); AppTown does not restore it by today's command")
 	}
 	if p.Kind == "volume" {
 		f, err := os.Open(path)
@@ -661,9 +666,6 @@ func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope
 		return row
 	}
 	restore, stoppedMode, verify := it.Restore, it.RestoreStopped, it.Verify
-	if restore == "" {
-		restore, stoppedMode, verify = p.Restore, p.RestoreStopped, p.Verify
-	}
 	// The restore and the check run in the running service as the export
 	// did, given the connection it serves (Postgres's PG* variables). A
 	// restore into a stopped service is given none: nothing serves one.

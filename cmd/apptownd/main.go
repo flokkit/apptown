@@ -305,11 +305,6 @@ func main() {
 		app.SyncStock(ctx)
 		app.RecoverAdoptions() // settle outstanding intents before verifying adoptions
 		app.VerifyAdoptions(ctx)
-		// A hub left without its hook accepts every push: each is named, so
-		// the operator can repair it; the rest of AppTown still boots.
-		if err := app.InstallNoPushHooks(); err != nil {
-			log.Printf("no-push hooks: some project hubs accept pushes:\n%v", err)
-		}
 		app.SyncSeedIntegrations(ctx)
 		app.SeedAdministrators(ctx, strings.Split(o.admins, ","))
 		if err := app.EnsureAuthorization(ctx); err != nil {

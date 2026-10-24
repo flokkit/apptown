@@ -21,9 +21,10 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-// RecoverInterruptedWork is a required, database-only startup repair. Call it
-// before recovery can dispatch runs, before workers start, and before serving
-// writes, after the previous daemon has exited. Constructing another App is not
+// RecoverInterruptedWork is a required startup repair: of the database, and
+// of each project hub's no-push hook. Call it before recovery can dispatch
+// runs, before workers start, and before serving writes, after the previous
+// daemon has exited. Constructing another App is not
 // evidence that a process restarted.
 func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 	if a.cfg.verifyOnly {
@@ -54,6 +55,11 @@ func (a *App) RecoverInterruptedWork(ctx context.Context) error {
 	// block lives in memory, so it is taken again before serving.
 	if err := a.deletion.HoldBlocks(ctx); err != nil {
 		return fmt.Errorf("blocking the chats of projects being deleted: %w", err)
+	}
+	// A hub without its no-push hook accepts every push, past governed
+	// landing: AppTown does not serve one.
+	if err := a.InstallNoPushHooks(); err != nil {
+		return fmt.Errorf("project hubs that would accept pushes past landing; repair them before starting:\n%w", err)
 	}
 	log.Printf("startup repair: committed in %s; interrupted steps marked for recovery=%d, river rows settled=%d, orphaned releases failed=%d, interrupted reviews ended=%d, interrupted what-ifs settled=%d, operations settled unknown=%d, queued operations requeued=%d; preserved child workflow calls=%d, steps with recorded tasks=%d, releases owned by queued jobs or deployment attempts=%d", a.cfg.clock.Now().Sub(started).Round(time.Millisecond), report.steps, report.jobs.Settled, report.releases, report.reviews, report.whatIfs, report.operations.Settled, report.operations.Requeued, report.childCalls, report.taskSteps, report.durableReleases)
 	return nil

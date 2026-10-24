@@ -140,3 +140,22 @@ func TestCatalogLocalPlan(t *testing.T) {
 		t.Fatalf("empty requirements: %+v", empty)
 	}
 }
+
+// A stored kind that does not parse fails the catalog's list, naming it: a
+// list without it would show a kind the catalog holds as one it does not,
+// and the emulators a target records would be a shorter list.
+func TestADamagedKindFailsTheCatalogList(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	c := NewCatalog(db, nil)
+	// Save refuses YAML that does not parse; only a damaged row holds it.
+	if _, err := dependencysql.New(db.SQL()).SaveCustomDependencyKind(context.Background(), dependencysql.SaveCustomDependencyKindParams{Capability: "ledger", SpecYaml: "capability: [", Origin: "custom", UpdatedAt: time.Now().UTC()}); err != nil {
+		t.Fatal(err)
+	}
+	if kinds, err := c.All(t.Context()); err == nil || !strings.Contains(err.Error(), `"ledger"`) {
+		t.Fatalf("a damaged kind was left out of a successful list: %d kinds, %v", len(kinds), err)
+	}
+	if kinds, err := c.EmulatorKinds(t.Context()); err == nil || kinds != nil {
+		t.Fatalf("emulators of a damaged catalog: %v %v", kinds, err)
+	}
+}

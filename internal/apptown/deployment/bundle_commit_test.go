@@ -210,3 +210,25 @@ func TestABundleWithUnreadableEvidenceIsAnError(t *testing.T) {
 		}
 	}
 }
+
+// A digest bundle whose recorded images cannot be read makes the list of a
+// project's published images an error, never a panic or a shorter list: a
+// copy's removal reports those images left (deleteCopyImages).
+func TestDigestImagesOfADamagedBundleIsAnError(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	project := createTestProject(t, db, "game", "Game")
+	bundles := NewBundles(db)
+	id, err := bundles.Cut(t.Context(), project, "tree", map[string]string{"web": releaseRepo + digestA}, nil, []byte("app: {}"),
+		digestOrigin(&claimedAttempt{db: db, project: project, run: idstest.N(7), step: idstest.N(70), at: 1}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: Cut refuses a bundle whose parts are not a map; only a damaged row can carry one.
+	if _, err := db.SQL().ExecContext(t.Context(), `UPDATE release_bundles SET parts_json='[1]'::jsonb WHERE id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	if images, err := bundles.DigestImages(t.Context(), project); err == nil || !strings.Contains(err.Error(), "reading its parts") {
+		t.Fatalf("a damaged digest bundle listed its images as %v, %v", images, err)
+	}
+}

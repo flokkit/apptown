@@ -430,7 +430,7 @@ func TestARunIsRefusedWhileACheckoutHoldsTheChange(t *testing.T) {
 }
 
 // The boot backfill names every hub it left without the no-push hook and
-// still installs it on the others.
+// still installs it on the others; the start then refuses to serve.
 func TestTheNoPushBackfillNamesEachHubItCouldNotProtect(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
@@ -458,6 +458,11 @@ func TestTheNoPushBackfillNamesEachHubItCouldNotProtect(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(good, ".git", "hooks", "pre-receive")); err != nil {
 		t.Fatalf("the healthy hub did not get its hook: %v", err)
+	}
+	// A start's required repair refuses to go on serving the hub that
+	// would accept pushes past landing.
+	if err := a.RecoverInterruptedWork(t.Context()); err == nil || !strings.Contains(err.Error(), bad) {
+		t.Fatalf("a start went on with a hub that accepts pushes: %v", err)
 	}
 }
 

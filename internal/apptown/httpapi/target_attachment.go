@@ -102,10 +102,15 @@ func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			detail = words
+			needs, err := h.needs.EmulatorKinds(r.Context())
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
 			t = &deployment.Target{
 				Name: in.Name, Kind: deployment.KindDockerHost, Provider: "", Origin: deployment.OriginAttached,
 				Address:      map[string]any{"host": in.Host, "keyFrom": in.KeyFrom, "user": addr.User, "hostname": addr.Host, "port": addr.Port},
-				Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: false, OwnLiveness: false, Rollout: []string{"replace"}, Needs: h.needs.EmulatorKinds(r.Context())},
+				Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: false, OwnLiveness: false, Rollout: []string{"replace"}, Needs: needs},
 				Ingress:      map[string]any{},
 				NeedsMode:    "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady,
 			}
@@ -127,10 +132,15 @@ func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			detail = fmt.Sprintf("Portainer answers; environment %s is endpoint %d (%s)", cfg.EnvName, id, portainer.PlatformText(r.Context(), cfg, id))
+			needs, err := h.needs.EmulatorKinds(r.Context())
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
 			t = &deployment.Target{
 				Name: in.Name, Kind: deployment.KindPortainer, Provider: "", Origin: deployment.OriginAttached,
 				Address:      map[string]any{"urlFrom": in.URLFrom, "apiKeyFrom": in.APIKeyFrom, "environment": in.Environment, "endpoint": id},
-				Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: false, OwnLiveness: true, Rollout: []string{"replace"}, Needs: h.needs.EmulatorKinds(r.Context())},
+				Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: false, OwnLiveness: true, Rollout: []string{"replace"}, Needs: needs},
 				Ingress:      map[string]any{"binding": "traefik"},
 				NeedsMode:    "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady,
 			}

@@ -72,7 +72,10 @@ type State struct {
 	// (APPTOWN_RELEASE), or 404 when FrontDoorStock says the image runs the
 	// file server's stock configuration. Off, the live URL is a platform
 	// host name nothing answers.
-	FrontDoor, FrontDoorStock                                           bool
+	FrontDoor, FrontDoorStock bool
+	// NoURL makes the platform name no live URL for an app, as it does
+	// before its ingress is assigned.
+	NoURL                                                               bool
 	DeploymentReads, DeploymentGeneration, ListRequests, DeleteRequests int
 	Requests                                                            []Request
 	// ClusterDBs are the databases each cluster holds, by cluster id; a
@@ -248,6 +251,13 @@ func (f *API) ServeFrontDoor(stock bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.state.FrontDoor, f.state.FrontDoorStock = true, stock
+}
+
+// ServeNoURL makes the platform name no URL for the apps it deploys.
+func (f *API) ServeNoURL() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.state.NoURL = true
 }
 
 // AdvanceDeployment models the provider accepting work before AppTown records it.
@@ -597,6 +607,9 @@ func (f *API) Handler() http.Handler {
 		app["live_url"] = "https://" + name + "-abc.ondigitalocean.app"
 		if f.state.FrontDoor {
 			app["live_url"] = "http://" + r.Host + "/apps/" + name
+		}
+		if f.state.NoURL {
+			delete(app, "live_url")
 		}
 	}
 	// The front door routes to the ingress rule's component, as App

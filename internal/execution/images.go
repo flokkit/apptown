@@ -191,10 +191,10 @@ func requestConfig(ctx context.Context, docker DockerCLI, scratch string) (strin
 		return "", err
 	}
 	if current != "" && current != "default" {
-		ambient := os.Getenv("DOCKER_CONFIG")
-		if ambient == "" {
-			home, _ := os.UserHomeDir()
-			ambient = filepath.Join(home, ".docker")
+		ambient, err := DockerConfigDir()
+		if err != nil {
+			os.RemoveAll(dir)
+			return "", err
 		}
 		if err := os.Symlink(filepath.Join(ambient, "contexts"), filepath.Join(dir, "contexts")); err != nil {
 			os.RemoveAll(dir)

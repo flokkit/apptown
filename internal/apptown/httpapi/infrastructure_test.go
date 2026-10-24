@@ -347,3 +347,25 @@ func TestOwnedResourcesTheHostHoldsArePresent(t *testing.T) {
 		}
 	}
 }
+
+// "Torn down" stands beside leftovers an administrator may remove, so only
+// an answer that the deployment is not there says it; a read that failed
+// says the reason is not known.
+func TestALeftoverIsCalledTornDownOnlyWhenItsDeploymentIsNotThere(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	d := deployment.New(context.Background(), db, deployment.Dependencies{})
+	host, err := d.Targets.Put(context.Background(), &deployment.Target{Name: "built-in-docker", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := Infrastructure{deployment: d, projects: project.New(db, nil), db: db, intranet: "lan"}
+	if got := h.leftoverReason(t.Context(), host, "gone", "main"); got != "the deployment was torn down" {
+		t.Fatalf("a project that is not there: %q", got)
+	}
+	failed, cancel := context.WithCancel(t.Context())
+	cancel()
+	if got := h.leftoverReason(failed, host, "gone", "main"); !strings.Contains(got, "could not be read") {
+		t.Fatalf("a failed read: %q", got)
+	}
+}
