@@ -245,8 +245,8 @@ func (s *Session) record() *Transcript {
 }
 
 // Records is every session file the conversation owns, oldest first: what
-// usage accounting reads.
-func (s *Session) Records() []string { return s.record().SessionFiles() }
+// usage accounting reads. A folder that cannot be read is an error.
+func (s *Session) Records() ([]string, error) { return s.record().SessionFiles() }
 
 // Messages is the conversation as chat bubbles, oldest first.
 func (s *Session) Messages() []Message { return s.record().Messages() }

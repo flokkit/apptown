@@ -41,7 +41,11 @@ func (h ApprovalBriefs) ApprovalBrief(w http.ResponseWriter, r *http.Request) {
 		WriteJSON(w, 200, ApprovalBrief{Brief: inputs.Cached})
 		return
 	}
-	brief := h.buildApprovalBrief(r.Context(), inputs, h.diffStat(r.Context(), inputs))
+	brief, err := h.buildApprovalBrief(r.Context(), inputs, h.diffStat(r.Context(), inputs))
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	if brief != "" {
 		if _, err := workflow.AddArtifactIn(context.WithoutCancel(r.Context()), h.db, inputs.Run.ID, "approval-brief", fmt.Sprintf("step-%d", id), "", brief, h.work.Now()); err != nil {
 			log.Printf("background write failed: %v — artifact %s %q on run %d", err, "approval-brief", fmt.Sprintf("step-%d", id), inputs.Run.ID)
@@ -101,8 +105,8 @@ func (h ApprovalBriefs) diffStat(ctx context.Context, inputs workflow.ApprovalBr
 }
 
 // buildApprovalBrief writes the brief from its inputs and the diff's stat
-// (diffStat).
-func (h ApprovalBriefs) buildApprovalBrief(ctx context.Context, inputs workflow.ApprovalBriefInputs, diff string) string {
+// (diffStat). It fails only when the fast model's selection cannot be read.
+func (h ApprovalBriefs) buildApprovalBrief(ctx context.Context, inputs workflow.ApprovalBriefInputs, diff string) (string, error) {
 	step, run := inputs.Step, inputs.Run
 	// ---- mechanical skeleton: always true, always available ----
 	var sk strings.Builder
@@ -172,9 +176,14 @@ func (h ApprovalBriefs) buildApprovalBrief(ctx context.Context, inputs workflow.
 	skeleton := sk.String()
 
 	// ---- fast-slot refinement into an actual briefing ----
-	pattern, _, _ := h.selection.Resolve(ctx, run.ProjectID, "fast")
+	// The fast model's selection that cannot be read is a failure, not "no
+	// model": nothing is saved as the brief.
+	pattern, _, _, err := h.selection.Resolve(ctx, run.ProjectID, "fast")
+	if err != nil {
+		return "", err
+	}
 	if pattern == "" || h.completion == nil {
-		return skeleton
+		return skeleton, nil
 	}
 	system := `You write APPROVAL BRIEFS for a software delivery gate. The reader is
 the human approver, possibly seeing this work for the first time. From
@@ -195,9 +204,9 @@ Plain language. No markdown headers other than the four labels above.
 Under 220 words. Do not invent facts not in the material.`
 	out, _, err := h.completion.Ask(ctx, modelcall.Call{Purpose: "approval-brief", ProjectID: run.ProjectID, RunID: run.ID, Model: pattern, System: system, User: skeleton})
 	if err != nil || strings.TrimSpace(out) == "" {
-		return skeleton
+		return skeleton, nil
 	}
-	return strings.TrimSpace(out)
+	return strings.TrimSpace(out), nil
 }
 
 func decodeBriefMap(raw string) map[string]any {

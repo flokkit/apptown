@@ -25,9 +25,9 @@ func narrativeFor(a *App) narrativeBuilder {
 	return narrativeBuilder{
 		work:   a.Work,
 		models: a.inference,
-		resolve: func(ctx context.Context, projectID ids.ID) (string, string) {
-			pattern, slot, _ := models.Resolve(ctx, projectID, "fast")
-			return pattern, slot
+		resolve: func(ctx context.Context, projectID ids.ID) (string, string, error) {
+			pattern, slot, _, err := models.Resolve(ctx, projectID, "fast")
+			return pattern, slot, err
 		},
 		evidence: func(ctx context.Context, source workflow.NarrativeSource) (narrativeEvidence, error) {
 			diff, err := narrativeDiff(ctx, dataDir, source)

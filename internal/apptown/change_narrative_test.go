@@ -97,7 +97,7 @@ func TestNarrativeBuilderAccountsForRejectedAndEmptyResults(t *testing.T) {
 				return 200, chatAnswer(out, 11, 7, 0.03)
 			})
 			b := narrativeBuilder{work: work, models: gatewayOver(t, db),
-				resolve: func(context.Context, ids.ID) (string, string) { return pattern, "fast" },
+				resolve: func(context.Context, ids.ID) (string, string, error) { return pattern, "fast", nil },
 				evidence: func(ctx context.Context, got workflow.NarrativeSource) (narrativeEvidence, error) {
 					// A second read with one connection proves Source released its snapshot.
 					if _, err := work.Change(ctx, got.Change.ID); err != nil {
@@ -250,7 +250,10 @@ func TestEmptyCommittedNarrativeSkipsModelAndPreservesPublicationChecks(t *testi
 			t.Parallel()
 			_, work, source := narrativeBuilderFixture(t)
 			b := narrativeBuilder{work: work,
-				resolve: func(context.Context, ids.ID) (string, string) { t.Fatal("empty diff resolved a model"); return "", "" },
+				resolve: func(context.Context, ids.ID) (string, string, error) {
+					t.Fatal("empty diff resolved a model")
+					return "", "", nil
+				},
 				evidence: func(ctx context.Context, got workflow.NarrativeSource) (narrativeEvidence, error) {
 					if changed {
 						body, rev := "changed during comparison", got.Change.EditRevision

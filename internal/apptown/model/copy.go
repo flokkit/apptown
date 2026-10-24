@@ -33,9 +33,12 @@ func (s Selection) ArmSlots(ctx context.Context, projectID ids.ID, profile strin
 	for _, slot := range names {
 		var pattern string
 		if !projectID.IsZero() {
-			pattern, _, _ = s.Resolve(ctx, projectID, slot)
+			pattern, _, _, err = s.Resolve(ctx, projectID, slot)
 		} else {
-			pattern, _, _ = s.slots.Resolve(ctx, ids.Nil, profile, slot)
+			pattern, _, _, err = s.slots.Resolve(ctx, ids.Nil, profile, slot)
+		}
+		if err != nil {
+			return nil, err
 		}
 		out[slot] = pattern
 	}

@@ -126,10 +126,24 @@ func (a *Executor) Review(task *workflow.Execution) {
 	// The wait is the backend's: the review draws a slot from the pool of
 	// the binding its model runs on (model_slots.go), so a reviewer on a
 	// hosted API never queues behind an implementer on the GPU box.
-	model, modelSlot, modelProfile := a.modelSelection.Resolve(task.Context(), run.ProjectID, cfg.Model)
+	// A model or capacity that cannot be read refuses the review: it never
+	// runs on another model or under another limit.
+	model, modelSlot, modelProfile, err := a.modelSelection.Resolve(task.Context(), run.ProjectID, cfg.Model)
+	if err != nil {
+		if _, claimErr := task.Claim(); claimErr == nil {
+			finish(workflow.StatusError, map[string]any{"reason": fmt.Sprintf("choosing the review's model: %v", err)})
+		}
+		return
+	}
 	binding := models.BindingOfPattern(model)
 	queuedAt := a.now()
-	releaseSlot, waited := a.capacity.Acquire(task.Context(), binding, step.ID)
+	releaseSlot, waited, err := a.capacity.Acquire(task.Context(), binding, step.ID)
+	if err != nil {
+		if _, claimErr := task.Claim(); claimErr == nil {
+			finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		}
+		return
+	}
 	defer releaseSlot()
 	if waited {
 		recordEvent(task.Context(), a.db, step.RunID, "step.queued", map[string]any{"step": step.Name, "reason": "waited for a slot on " + binding, "ms": a.now().Sub(queuedAt).Milliseconds()}, a.now())

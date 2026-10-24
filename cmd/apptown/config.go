@@ -130,11 +130,16 @@ func cmdDev(args []string) error {
 		}
 
 		if mode == "needs" {
-			// Write the connection env for the host process to source.
-			_ = os.WriteFile(devEnvPath, []byte(devEnvFile(out.Env)), 0o600)
-			// A Procfile for a multi-process app (run with hivemind).
+			// Write the connection env for the host process to source, and a
+			// Procfile for a multi-process app (run with hivemind), before the
+			// needs start: a stale file is never sourced as this run's.
+			if err := os.WriteFile(devEnvPath, []byte(devEnvFile(out.Env)), 0o600); err != nil {
+				return err
+			}
 			if out.Procfile != "" {
-				_ = os.WriteFile(devProcfilePath, []byte(out.Procfile), 0o644)
+				if err := os.WriteFile(devProcfilePath, []byte(out.Procfile), 0o644); err != nil {
+					return err
+				}
 			}
 			if err := runDocker("up", "-d"); err != nil {
 				return err

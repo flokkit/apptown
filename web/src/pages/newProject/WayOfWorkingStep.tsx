@@ -32,10 +32,18 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
   // (the interview can pick a pack before the pack list has answered).
   const readsKnown = (!!packsQ.data || !!packsQ.err) && (!!catQ.data || !!catQ.err)
   const pick = (p: string, why = '', icon?: string) => act({ type: 'pack', pack: p, why, icon, services: servicesFor(p, packs, catalog) })
+  // An interview that cannot decide answers why and decides nothing: the
+  // reason is shown and the person chooses from the ways of working.
   const interview = (withAnswers: boolean) => run(async () => {
     const body: Record<string, unknown> = { description: (name ? name + ' — ' : '') + d.description }
     if (withAnswers) body.answers = questions.map((q) => ({ question: q, answer: answers[q] ?? 'not sure' }))
-    const r = await post<PackInterviewPick | PackInterviewQuestions>('/packs/interview', body)
+    let r: PackInterviewPick | PackInterviewQuestions
+    try {
+      r = await post<PackInterviewPick | PackInterviewQuestions>('/packs/interview', body)
+    } catch (e) {
+      act({ type: 'choosing', on: true })
+      throw e
+    }
     if ('pack' in r) pick(r.pack ?? '', r.why ?? '', r.icon ?? '')
     else act({ type: 'asked', questions: r.questions ?? [] })
   })

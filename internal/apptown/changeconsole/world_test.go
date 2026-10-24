@@ -26,7 +26,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/secret"
-	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
@@ -185,7 +184,7 @@ func newWorldWith(t *testing.T, previews preview.Worker) world {
 	}
 	narratives := &askedNarratives{}
 	chats := New(saves, Dependencies{DB: db, Sessions: sessions, Chats: conversation.Chats{Sessions: sessions, DB: db}, Previews: previewer,
-		Usage: usage.New(db), Narratives: narratives, Folders: workcommands.NewPreparation(db, nil, branches, dataDir, nil, saves, nil, nil),
+		Narratives: narratives, Folders: workcommands.NewPreparation(db, nil, branches, dataDir, nil, saves, nil, nil),
 		DataDir: dataDir, Stop: make(chan struct{}), Engine: context.Background()})
 	t.Cleanup(remote.Close) // first: no copy or save outlives the world
 	return world{db: db, dataDir: dataDir, hub: hub, folder: filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", change.ID)),

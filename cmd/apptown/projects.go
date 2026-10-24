@@ -402,7 +402,9 @@ func cmdDelete(args []string) error {
 		if err != nil {
 			return err
 		}
-		_ = json.Unmarshal(raw, &st)
+		if err := json.Unmarshal(raw, &st); err != nil {
+			return fmt.Errorf("the deletion of %s was cancelled, but AppTown's answer could not be read: %w", slug, err)
+		}
 		fmt.Printf("%s the deletion of %s is cancelled; it is %s\n", green("✓"), slug, st.State)
 		return nil
 	}
@@ -428,7 +430,9 @@ func cmdDelete(args []string) error {
 	if err != nil {
 		return err
 	}
-	_ = json.Unmarshal(raw, &st)
+	if err := json.Unmarshal(raw, &st); err != nil {
+		return fmt.Errorf("%s is being deleted, but AppTown's answer could not be read: %w", slug, err)
+	}
 	fmt.Printf("%s %s is being deleted %s\n", yellow("⏹"), slug, dim("(Ctrl-C stops watching; the deletion carries on)"))
 	if *noWait {
 		return nil

@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -24,7 +25,7 @@ import (
 // Configure a value before use; tests do not replace a global provider or App.
 type narrativeBuilder struct {
 	work     *workflow.Service
-	resolve  func(context.Context, ids.ID) (string, string)
+	resolve  func(context.Context, ids.ID) (string, string, error)
 	evidence func(context.Context, workflow.NarrativeSource) (narrativeEvidence, error)
 	models   modelcall.Completer
 }
@@ -56,7 +57,10 @@ func (b narrativeBuilder) Refresh(ctx context.Context, changeID ids.ID) (err err
 	if extra.Empty {
 		return b.work.PublishNarrative(ctx, workflow.NarrativePublication{Source: source, Draft: workflow.NarrativeDraft{Note: workflow.EmptyCommittedChange}, Model: "forge/committed-diff"})
 	}
-	pattern, slot := b.resolve(ctx, ch.ProjectID)
+	pattern, slot, err := b.resolve(ctx, ch.ProjectID)
+	if err != nil {
+		return fmt.Errorf("choosing the narrative's model: %w", err)
+	}
 	if pattern == "" {
 		return nil // no fast model: the change keeps its committed facts only
 	}

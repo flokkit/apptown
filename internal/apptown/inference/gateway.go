@@ -251,6 +251,11 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !p.allows(model) {
+		// Not allowed for want of a readable list is unknown, not refused.
+		if p.discoveryErr != nil {
+			fail(502, "the provider's model list could not be read, and this model is not declared in its AppTown binding")
+			return
+		}
 		fail(403, "model is not enabled in this AppTown provider binding")
 		return
 	}
