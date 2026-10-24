@@ -9,8 +9,9 @@ are in `.github/workflows/`.
 
 `main` changes only by pull request, one per change, squash-merged. Its
 ruleset requires the pull request, allows only squash merges, forbids force
-pushes and deletion, and requires the `ci-ok` check on a branch that is up to
-date with `main`, so the run that passed tested exactly what `main` becomes.
+pushes and deletion, and requires the `ci-ok` check (`ci.yml`) and the
+`heavy-ok` check (`heavy.yml`) on a branch that is up to date with `main`,
+so the runs that passed tested exactly what `main` becomes.
 The squash commit takes the pull request's title and description, which are
 the change's public record. Opening a pull request is limited to the
 repository's collaborators ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
@@ -59,8 +60,9 @@ pull request restores. Jobs:
 - `sql-writes`: the semgrep rule against silently discarded database writes
   (`make check-sql`).
 - `ci-ok`: passes only when every job above succeeded; a failed, cancelled
-  or skipped job fails it. It is the one required check, so its `needs:`
-  list names every job, and a job added to `ci.yml` is added there too.
+  or skipped job fails it. It is the check the ruleset requires of `ci.yml`,
+  so its `needs:` list names every job, and a job added to `ci.yml` is added
+  there too.
 
 **Caches.** GitHub keeps 10 GB of Actions caches per repository and evicts
 the least recently used beyond that. A cache saved on a pull request's ref
@@ -90,9 +92,12 @@ naming the image, and not a test. A test that starts a new image adds it to
 the list. Tests can still reach a registry: AppTown's own deliberate pulls
 (a selected image, an image preview, a Portainer stack), BuildKit resolving
 a Dockerfile's FROM tag, and private Docker daemons inside a test pulling
-their own images; a registry outage there still fails that test. It is not
-required for merging: a red run on `main` is fixed by the next change. The heavy tiers take from a few minutes (journeys) to about
-an hour (integration, at its limit).
+their own images; a registry outage there still fails that test. Its last
+job, `heavy-ok`, passes only when `web`, every `tier` entry and `race`
+succeeded, and the ruleset requires it, so a red heavy run blocks merging.
+As with `ci-ok`, a job added to `heavy.yml` is added to its `needs:` list.
+The heavy tiers take from a few minutes (journeys) to about an hour
+(integration, at its limit).
 
 **`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`
 (`scripts/heavy-evidence.py`), asks the API for a `heavy.yml` run (on
