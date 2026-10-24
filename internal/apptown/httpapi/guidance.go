@@ -37,7 +37,11 @@ func (h Guidance) GetProjectGuidance(w http.ResponseWriter, r *http.Request) {
 	text, hash, imports, revision := view.Text, view.Hash, view.Imports, view.Revision
 	// The generated sections ride along without bodies: the totals count
 	// them, the library's Generated section shows them.
-	generated := h.inventory.sections(r.Context(), p.ID)
+	generated, err := h.inventory.sections(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	always, conditional := steeringOverhead(generated)
 	for i := range generated {
 		generated[i].BodyMD = ""
@@ -105,7 +109,11 @@ func (h Guidance) GeneratedGuidance(w http.ResponseWriter, r *http.Request) {
 		}
 		projectID = p.ID
 	}
-	out := h.inventory.sections(r.Context(), projectID)
+	out, err := h.inventory.sections(r.Context(), projectID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	if out == nil {
 		out = []steeringSection{}
 	}

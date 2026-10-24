@@ -58,15 +58,15 @@ env:
 	if w := post(spec); w.Code != 200 {
 		t.Fatalf("save: %d %s", w.Code, w.Body.String())
 	}
-	kinds := services.Definitions(t.Context())
-	if len(kinds) != 1 || kinds[0].Capability != "mailer" {
-		t.Fatalf("serviceKinds: %+v", kinds)
+	kinds, err := services.Definitions(t.Context())
+	if err != nil || len(kinds) != 1 || kinds[0].Capability != "mailer" {
+		t.Fatalf("serviceKinds: %+v %v", kinds, err)
 	}
-	if k := services.Definition(t.Context(), "mailer"); k == nil || k.Title != "Mail Relay" {
-		t.Fatalf("integration.Definition: %+v", k)
+	if k, err := services.Definition(t.Context(), "mailer"); err != nil || k == nil || k.Title != "Mail Relay" {
+		t.Fatalf("integration.Definition: %+v %v", k, err)
 	}
-	if services.Definition(t.Context(), "ghost") != nil {
-		t.Fatal("unknown capability must be nil")
+	if k, err := services.Definition(t.Context(), "ghost"); err != nil || k != nil {
+		t.Fatalf("unknown capability must be nil: %+v %v", k, err)
 	}
 	w := call("GET", "/api/v1/services", "")
 	if w.Code != 200 {
@@ -96,8 +96,8 @@ env:
 	if w := post(spec2); w.Code != 200 {
 		t.Fatalf("update: %d %s", w.Code, w.Body.String())
 	}
-	if k := services.Definition(t.Context(), "mailer"); k == nil || k.Description != "sends mail v2" {
-		t.Fatalf("update did not take: %+v", k)
+	if k, err := services.Definition(t.Context(), "mailer"); err != nil || k == nil || k.Description != "sends mail v2" {
+		t.Fatalf("update did not take: %+v %v", k, err)
 	}
 	pid, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
 		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "p", Name: "P"})
@@ -123,7 +123,7 @@ env:
 	if w := call("DELETE", "/api/v1/services/mailer", ""); w.Code != 404 {
 		t.Fatalf("second delete must 404: %d %s", w.Code, w.Body.String())
 	}
-	if len(services.Definitions(t.Context())) != 0 {
-		t.Fatal("kind should be gone after delete")
+	if kinds, err := services.Definitions(t.Context()); err != nil || len(kinds) != 0 {
+		t.Fatalf("kind should be gone after delete: %v %v", kinds, err)
 	}
 }

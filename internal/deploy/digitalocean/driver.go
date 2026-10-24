@@ -28,13 +28,13 @@ type Dependencies struct {
 	Slug   string // the application, for naming on the platform
 	Needs  deploy.NeedRecorder
 	// ReleaseLogin is the credential a release's images by digest are read
-	// from their registry with, when they are copied into DOCR; nil reads
-	// anonymously.
-	ReleaseLogin func() oci.Credential
+	// from their registry with, when they are copied into DOCR; nil, or an
+	// empty credential, reads anonymously. Its error fails the copy.
+	ReleaseLogin func() (oci.Credential, error)
 	// GateLogin is the credential AppTown's gate image (by its
 	// reference) is read with when a gated app is rendered; nil or an empty
-	// credential reads it anonymously.
-	GateLogin func(ref string) oci.Credential
+	// credential reads it anonymously. Its error fails the render.
+	GateLogin func(ref string) (oci.Credential, error)
 	// Repository records the project's DOCR repository AppTown created on
 	// this account; nil records nothing, and then a take-down never empties
 	// it.

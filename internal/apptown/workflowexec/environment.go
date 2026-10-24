@@ -55,7 +55,11 @@ func (a *Executor) agentEnv(ctx context.Context, run *workflow.Run, step *workfl
 		// containers anyway, never the registry token: no step's Docker is
 		// logged in to a registry). Without them an agent cannot fire the test hook it was told
 		// to fire.
-		env = append(env, a.integrations.Environment(ctx, run.ProjectID)...)
+		given, err := a.integrations.Environment(ctx, run.ProjectID)
+		if err != nil {
+			return nil, "", err
+		}
+		env = append(env, given...)
 	}
 	if profile := string(cfg.Scm); profile != "" {
 		if proj, err := project.ByIDIn(ctx, a.db, run.ProjectID); err == nil {

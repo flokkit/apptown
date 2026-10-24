@@ -82,7 +82,12 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 	var r piResult
 	usageIncomplete := ""
 	for tries := 1; ; tries++ {
-		amb := agentenv.AmbientFor(integration.RegistryBindingsIn(ctx, a.db), c.Workspace)
+		bound, err := integration.RegistryBindings(ctx, a.db)
+		if err != nil {
+			r = piResult{Outcome: execution.Outcome{RunErr: err}, Tries: tries}
+			break
+		}
+		amb := agentenv.AmbientFor(bound, c.Workspace)
 		var mounts []string
 		var files []execution.File
 		if c.Executor == execution.Docker {

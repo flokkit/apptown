@@ -188,7 +188,12 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 		// On this machine or the worker alike: the files travel with the
 		// request, and whoever runs the container writes them beside its
 		// tree, never in it.
-		amb = agentenv.AmbientFor(integration.RegistryBindingsIn(ctx, a.db), ws)
+		bound, err := integration.RegistryBindings(ctx, a.db)
+		if err != nil {
+			cleanup()
+			return scriptPlan{}, err
+		}
+		amb = agentenv.AmbientFor(bound, ws)
 		env = append(env, amb.Env...)
 		runCmd = containerScript(cfg.Run, agentenv.DeclaresToolchain(ws))
 	}

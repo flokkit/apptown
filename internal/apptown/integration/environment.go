@@ -12,21 +12,12 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/database"
 	"gopkg.in/yaml.v3"
 )
 
 var slugFieldRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
-
-// parseJSONMap reads a binding's config or resource, stored as a JSONB
-// object. One that is not an object reads as empty, which every consumer
-// treats as "not configured" (no registry, no connector settings): a refusal
-// or a skipped integration, never a wrong value.
-func parseJSONMap(raw string) map[string]any {
-	out := map[string]any{}
-	_ = json.Unmarshal([]byte(raw), &out)
-	return out
-}
 
 type Field struct {
 	Key         string `yaml:"key" json:"key"`
@@ -103,46 +94,50 @@ func ParseDefinition(yamlSrc string) (*Definition, error) {
 	return &k, nil
 }
 
-func (s *Service) Definitions(ctx context.Context) []*Definition {
+// Definitions is every service kind in the catalog. A kind that no longer
+// passes the rules is an error that names it, never left out: the catalog
+// would read as not offering it.
+func (s *Service) Definitions(ctx context.Context) ([]*Definition, error) {
 	rows, err := s.ServiceKinds.All(ctx)
 	if err != nil {
-		log.Printf("reading integration service kinds: %v", err)
-		return nil
+		return nil, fmt.Errorf("reading the service kinds: %w", err)
 	}
 	var out []*Definition
 	for _, k := range rows {
-		if kind, err := ParseDefinition(k.YAML); err == nil {
-			out = append(out, kind)
+		kind, err := ParseDefinition(k.YAML)
+		if err != nil {
+			return nil, fmt.Errorf("the service kind %s is no longer valid: %w", k.Capability, err)
 		}
+		out = append(out, kind)
 	}
-	return out
+	return out, nil
 }
 
-func (s *Service) Definition(ctx context.Context, capability string) *Definition {
+// Definition is the service kind for capability, nil when the catalog has
+// none. A read that fails, or a kind that no longer passes the rules, is an
+// error.
+func (s *Service) Definition(ctx context.Context, capability string) (*Definition, error) {
 	y, err := s.ServiceKinds.ByCapability(ctx, capability)
-	if err != nil {
-		return nil
+	if found, err := database.Lookup(err); err != nil || !found {
+		return nil, err
 	}
 	k, err := ParseDefinition(y)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("the service kind %s is no longer valid: %w", capability, err)
 	}
-	return k
+	return k, nil
 }
 
-// RenderTemplate fills {{connector.K}}, {{resource.K}},
-// {{project.slug}}/{{project.name}}, and {{secret:resource.K}}
-// (resolveSecrets=true injects the secret VALUE — runtime wiring only;
-// steering renders the reference name instead). Unresolved placeholders remain
-// in the result; callers decide whether to omit or reject them.
-func (s *Service) RenderTemplate(ctx context.Context, tmpl string, connectorCfg, resource map[string]any, project *project.Project, resolveSecrets bool) string {
-	var values map[string]string
-	if resolveSecrets && strings.Contains(tmpl, "{{secret:resource.") {
-		values = s.secrets.All(ctx)
-	}
-	return renderTemplate(tmpl, connectorCfg, resource, project, resolveSecrets, values)
+// RenderSteering fills a steering template: {{connector.K}},
+// {{resource.K}}, {{project.slug}}/{{project.name}}, and for
+// {{secret:resource.K}} the reference name, never the value. Unresolved
+// placeholders remain in the result.
+func RenderSteering(tmpl string, connectorCfg, resource map[string]any, project *project.Project) string {
+	return renderTemplate(tmpl, connectorCfg, resource, project, false, nil)
 }
 
+// renderTemplate is the one renderer; resolveSecrets=true puts the
+// secret's value in (runtime wiring only), from values.
 func renderTemplate(tmpl string, connectorCfg, resource map[string]any, project *project.Project, resolveSecrets bool, values map[string]string) string {
 	out := tmpl
 	if project != nil {
@@ -178,16 +173,22 @@ func renderTemplate(tmpl string, connectorCfg, resource map[string]any, project 
 	return out
 }
 
-// ConnectorConfig loads a named connector's config, verifying capability.
-func (s *Service) ConnectorConfig(ctx context.Context, name, capability string) map[string]any {
+// ConnectorConfig is a named connector's config, verifying capability: nil
+// with no error when no connector of that capability has the name. A read
+// that fails, or a config that is not a JSON object, is an error.
+func (s *Service) ConnectorConfig(ctx context.Context, name, capability string) (map[string]any, error) {
 	if name == "" {
-		return nil
+		return nil, nil
 	}
 	b, err := Selected(ctx, s.Bindings.db, capability, name)
-	if err != nil {
-		return nil
+	if found, err := database.Lookup(err); err != nil || !found {
+		return nil, err
 	}
-	return parseJSONMap(b.ConfigJSON)
+	cfg, err := strictJSONMap(b.ConfigJSON)
+	if err != nil {
+		return nil, fmt.Errorf("the %s connector %s's configuration: %w", capability, name, err)
+	}
+	return cfg, nil
 }
 
 // attachedServiceIntegrations returns a project's service-kind integrations
@@ -199,27 +200,11 @@ type AttachedService struct {
 	Resource  map[string]any
 }
 
-func (s *Service) AttachedServices(ctx context.Context, projectID ids.ID) []AttachedService {
-	rows, err := AttachedRows(ctx, s.Bindings.db, projectID)
-	if err != nil {
-		return nil
-	}
-	var out []AttachedService
-	for _, row := range rows {
-		kind, err := ParseDefinition(row.KindYAML)
-		if err != nil {
-			continue
-		}
-		out = append(out, AttachedService{Kind: kind, Connector: row.Binding, Config: parseJSONMap(row.ConfigJSON), Resource: parseJSONMap(row.ResourceJSON)})
-	}
-	return out
-}
-
-// attachedServicesStrict is AttachedServices for a caller that must not read a
-// failure as absence: an unreadable attachment, or a definition that no longer
-// passes the rules (one saved before a value from a secret could no longer be
-// marked for browsers), is an error that names it.
-func (s *Service) attachedServicesStrict(ctx context.Context, projectID ids.ID) ([]AttachedService, error) {
+// AttachedServices is a project's attached service kinds, with their
+// connector config and resource. An unreadable attachment, or a definition
+// that no longer passes the rules (one saved before a value from a secret
+// could no longer be marked for browsers), is an error that names it.
+func (s *Service) AttachedServices(ctx context.Context, projectID ids.ID) ([]AttachedService, error) {
 	rows, err := AttachedRows(ctx, s.Bindings.db, projectID)
 	if err != nil {
 		return nil, err
@@ -246,6 +231,8 @@ func (s *Service) attachedServicesStrict(ctx context.Context, projectID ids.ID) 
 	return out, nil
 }
 
+// strictJSONMap reads a stored config or resource object: blank or null is
+// empty, anything else that is not a JSON object is an error.
 func strictJSONMap(raw string) (map[string]any, error) {
 	out := map[string]any{}
 	if strings.TrimSpace(raw) == "" || raw == "null" {
@@ -280,7 +267,7 @@ func (s *Service) BrowserEnvironment(ctx context.Context, projectID ids.ID) (map
 			}
 		}
 	}
-	if url, key, err := s.feedbackStrict(ctx, projectID); err != nil {
+	if url, key, err := s.Feedback(ctx, projectID); err != nil {
 		return nil, err
 	} else if url != "" && key != "" {
 		out["FEEDBACK_URL"], out["FEEDBACK_APP_KEY"] = url, key
@@ -289,7 +276,7 @@ func (s *Service) BrowserEnvironment(ctx context.Context, projectID ids.ID) (map
 	if err != nil {
 		return nil, err
 	}
-	services, err := s.attachedServicesStrict(ctx, projectID)
+	services, err := s.AttachedServices(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -310,40 +297,54 @@ func (s *Service) BrowserEnvironment(ctx context.Context, projectID ids.ID) (map
 
 // Environment returns error/feedback contributions and rendered service-kind
 // variables for application containers. It resolves named secrets to plaintext.
-// Unresolved templates are omitted; attachment/definition read failures can also
-// omit contributions. Callers must not use this result as a readiness check.
-func (s *Service) Environment(ctx context.Context, projectID ids.ID) []string {
-	env := s.ErrorsEnvironment(ctx, projectID)
-	env = append(env, s.FeedbackEnvironment(ctx, projectID)...)
-	var p *project.Project
-	if record, err := s.projects.ByID(ctx, projectID); err == nil {
-		p = &record
+// What it reads is read strictly: an attachment, definition, project or
+// secrets store that cannot be read is an error, never a variable left out.
+// Absence alone gives nothing: no attachment, a catalog whose error-reporting
+// kind injects nothing, and a template whose value cannot be produced yet (a
+// secret the store does not hold), which the log names.
+func (s *Service) Environment(ctx context.Context, projectID ids.ID) ([]string, error) {
+	env, err := s.ErrorsEnvironment(ctx, projectID)
+	if err != nil {
+		return nil, err
 	}
-	services := s.AttachedServices(ctx, projectID)
+	if url, key, err := s.Feedback(ctx, projectID); err != nil {
+		return nil, err
+	} else if url != "" && key != "" {
+		env = append(env, "FEEDBACK_URL="+url, "FEEDBACK_APP_KEY="+key)
+	}
+	services, err := s.AttachedServices(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	if len(services) == 0 {
+		return env, nil
+	}
+	record, err := s.projects.ByID(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("reading project %s for its attached services: %w", projectID, err)
+	}
 	var values map[string]string
-	needsValues := false
 	for _, service := range services {
 		for _, entry := range service.Kind.Env {
-			if strings.Contains(entry.Value, "{{secret:resource.") {
-				needsValues = true
+			if values == nil && strings.Contains(entry.Value, "{{secret:resource.") {
+				if values, err = s.secrets.WithContext(ctx); err != nil {
+					return nil, fmt.Errorf("reading the secrets the attached services name: %w", err)
+				}
 			}
 		}
 	}
-	if needsValues {
-		values = s.secrets.All(ctx)
-	}
 	for _, svc := range services {
 		for _, e := range svc.Kind.Env {
-			v := renderTemplate(e.Value, svc.Config, svc.Resource, p, true, values)
+			v := renderTemplate(e.Value, svc.Config, svc.Resource, &record, true, values)
 			if strings.Contains(v, "{{") {
 				// The contract (design/subsystems/integration-runtime.md): an
 				// unresolved placeholder is never given; the log names it. A
 				// resolved value, blank included, is given as rendered.
-				log.Printf("project %d: %s is not given %s: its value cannot be produced yet", projectID, svc.Connector, e.Key)
+				log.Printf("project %s: %s is not given %s: its value cannot be produced yet", projectID, svc.Connector, e.Key)
 				continue
 			}
 			env = append(env, e.Key+"="+v)
 		}
 	}
-	return env
+	return env, nil
 }

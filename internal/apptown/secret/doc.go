@@ -12,7 +12,9 @@
 // coordinates are reported as ignored instead of controlling the store.
 //
 // Resolution uses an explicit binding, a declaration default, or a generated value
-// when requested. Generated values and their bindings may be persisted during
+// when requested. A generated value is minted only when the store says it holds
+// none; a read that fails is unknown, never a reason to mint (which would rotate
+// it). Generated values and their bindings may be persisted during
 // resolution; the whole operation is not one transaction. Missing required values
 // return [MissingError]. Do not use a partial [Delivery] after an error.
 //
@@ -30,10 +32,6 @@
 // [UnavailableError] (unknown), never a missing value. A declaration that cannot
 // be used is fault.Invalid.
 //
-// [Service.ProfileFor] and [Service.BindingsFor] log read failures and fall back.
-// [Service.Stored] reports lookup errors as absent. They are conveniences for
-// display, not for delivery.
-//
 // [TestsEnv] gives an app's tests step the declaration's generated secrets as
 // throwaway values minted per call, and its declared defaults. It reads no
 // binding or store, and names the secrets it withholds.
@@ -44,11 +42,14 @@
 // It protects against accidental disclosure, not database compromise. Preserve the
 // key when restoring values; moving it during a migration does not rotate it.
 // Application Infisical bindings use [Service.InfisicalValues], without local file
-// overrides. A cached provider value may remain available after refresh failure.
+// overrides. Infisical's values are read at most once a minute; a refresh that
+// fails is a failed read, with its reason, and never answers the values read
+// before (masking alone still hides those).
 //
 // Daemon/runtime lookup uses [Service.WithContext]: Infisical values are overlaid
-// by local secrets.env entries. Ordinary provider errors allow fallback; context
-// cancellation and deadline errors propagate. [Service.StepEnv] selects only STEP_
+// by local secrets.env entries. A secrets file that cannot be read, or a
+// configured Infisical that cannot be, fails the lookup: the merged values are
+// then unknown, including names the file would supply. [Service.StepEnv] selects only STEP_
 // entries from that map and removes the prefix. Other owners can deliver separately
 // authorized integration or SCM credentials; StepEnv is not their permission check.
 //
@@ -61,10 +62,9 @@
 // value is one line and never returned, logged or recorded, and each change
 // leaves a receipt (secret.instance-set, secret.instance-removed) naming who
 // acted on which name. A name Infisical holds is refused rather than shadowed,
-// and an Infisical that cannot be read (a failed refresh included, whatever
-// it last cached) refuses the write as unknown. [Service.InstanceNames] lists
-// the names with the store each is read from; unlike runtime lookup it does
-// not fall back, so an unreadable secrets file or Infisical is an error
+// and an Infisical that cannot be read refuses the write as unknown.
+// [Service.InstanceNames] lists the names with the store each is read from;
+// as for runtime lookup, an unreadable secrets file or Infisical is an error
 // (unknown), never an empty list.
 //
 // [Vault.Derived] makes a value from the store's key for one scope and name,

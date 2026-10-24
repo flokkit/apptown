@@ -115,10 +115,8 @@ func (a *Service) refuseInfisicalName(ctx context.Context, name, why string) err
 	if !cfg.Configured() {
 		return nil
 	}
-	// A failed refresh answers the last good map with its error: that map
-	// serves running credentials, but it cannot say what Infisical holds now.
 	values, err := a.infisicalFetch(ctx, cfg)
-	if err != nil || values == nil {
+	if err != nil {
 		return fmt.Errorf("%w, so AppTown cannot tell whether it holds %s: %w", ErrInfisicalUnknown, name, err)
 	}
 	if _, held := values[name]; held {
@@ -147,7 +145,7 @@ func (a *Service) InstanceNames(ctx context.Context) (map[string]string, error) 
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
-		if err != nil || remote == nil {
+		if err != nil {
 			return nil, fmt.Errorf("%w: Infisical could not be read: %w", ErrSecretsUnread, err)
 		}
 		for k := range remote {

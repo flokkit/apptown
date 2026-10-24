@@ -46,7 +46,8 @@ const (
 	RefreshRecovered
 )
 
-// SecretResolution may include last-known-good values with a provider error.
+// SecretResolution is a successful read's values, or none with the
+// provider's error: a failed refresh never answers the last values it read.
 // Only the refreshing caller receives a health transition, for one receipt.
 type SecretResolution struct {
 	Values     map[string]string
@@ -78,8 +79,10 @@ type Infisical struct {
 
 func (s *Infisical) now() time.Time { return clock.Or(s.clock)() }
 
-// Resolve bounds the entire call, including shared-refresh waits. Ordinary
-// provider failures retain cached values; caller cancellation returns no values.
+// Resolve bounds the entire call, including shared-refresh waits. Values
+// read under a minute ago are answered as current; after that a refresh
+// decides, and a failed one answers its error and no values. Caller
+// cancellation returns no values.
 // A cancelled refresh does not poison the cache or another caller's operation.
 func (s *Infisical) Resolve(ctx context.Context, config InfisicalConfig, client HTTPClient) (SecretResolution, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
@@ -155,9 +158,9 @@ func (s *Infisical) Resolve(ctx context.Context, config InfisicalConfig, client 
 				s.failed = false
 				s.values = values
 				s.fetched = s.now()
+				flight.values = s.values
+				result.Values = maps.Clone(s.values)
 			}
-			flight.values = s.values
-			result.Values = maps.Clone(s.values)
 		}
 		flight.err = err
 		s.flight = nil
@@ -165,6 +168,17 @@ func (s *Infisical) Resolve(ctx context.Context, config InfisicalConfig, client 
 		s.mu.Unlock()
 		return result, err
 	}
+}
+
+// lastKnown is the values the last successful read of config answered,
+// however old: masking hides them in text, and nothing else reads them.
+func (s *Infisical) lastKnown(config InfisicalConfig) map[string]string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.config != config.normalized() {
+		return nil
+	}
+	return maps.Clone(s.values)
 }
 
 func fetchInfisical(ctx context.Context, client HTTPClient, c InfisicalConfig, token string, expiry time.Time, now func() time.Time) (map[string]string, string, time.Time, error) {

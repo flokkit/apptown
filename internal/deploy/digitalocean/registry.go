@@ -86,7 +86,11 @@ func (d *Driver) pushImage(ctx context.Context, c *Client, registry, repo, local
 func (d *Driver) copyImage(ctx context.Context, c *Client, registry, repo, ref, tag string, logf func(string, ...any)) (string, error) {
 	from := oci.Source{Reference: ref}
 	if d.ReleaseLogin != nil {
-		from.Credential = d.ReleaseLogin()
+		cred, err := d.ReleaseLogin()
+		if err != nil {
+			return "", fmt.Errorf("the credential the release's images are read with: %w", err)
+		}
+		from.Credential = cred
 	}
 	return d.options.CopyImage(d, ctx, c, registry, repo, from, tag, logf)
 }
@@ -110,7 +114,11 @@ const GateRepository = "apptown_gate"
 func (d *Driver) copyGateImage(ctx context.Context, c *Client, registry, ref string, logf func(string, ...any)) (doImage, error) {
 	from := oci.Source{Reference: ref}
 	if d.GateLogin != nil {
-		from.Credential = d.GateLogin(ref)
+		cred, err := d.GateLogin(ref)
+		if err != nil {
+			return doImage{}, fmt.Errorf("the credential the gate image is read with: %w", err)
+		}
+		from.Credential = cred
 	}
 	_, digest, _ := strings.Cut(ref, "@sha256:")
 	got, err := d.options.CopyImage(d, ctx, c, registry, GateRepository, from, "gate-"+strs.ShortSHA(digest), logf)

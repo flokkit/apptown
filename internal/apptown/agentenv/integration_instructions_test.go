@@ -43,7 +43,7 @@ guidance: "Use the mailer, do not print to stdout."`
 	if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{"domain":"shop.example"}`, integration.Provisioned, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
-	doc := NewInstructions(db, s).Integrations(t.Context(), id)
+	doc := instructionsFor(t, db, s, id)
 	if !strings.Contains(doc, "Mail Relay (attached, generated)") ||
 		!strings.Contains(doc, "MAIL_HOST, MAIL_FROM") ||
 		!strings.Contains(doc, "Send mail for Shop via smtp.internal.") ||
@@ -64,7 +64,7 @@ func TestIntegrationInstructionsSayHowAnAppGetsAIModels(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := integration.NewService(db, integration.Dependencies{Projects: project.New(db, nil)})
-	if strings.Contains(NewInstructions(db, s).Integrations(t.Context(), id), "AI models") {
+	if strings.Contains(instructionsFor(t, db, s, id), "AI models") {
 		t.Fatal("an unattached project is told about AI models")
 	}
 	if _, err := s.Bindings.Save(context.Background(), "openrouter", integration.CapLLM, "openrouter", `{"provisioningKeyFrom":["OPENROUTER_PROVISIONING_KEY"],"maxLimit":5}`, "fixture"); err != nil {
@@ -73,8 +73,19 @@ func TestIntegrationInstructionsSayHowAnAppGetsAIModels(t *testing.T) {
 	if err := s.Attachments.Attach(t.Context(), id, integration.CapLLM, "openrouter", "{}", integration.Entered, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
-	doc := NewInstructions(db, s).Integrations(t.Context(), id)
+	doc := instructionsFor(t, db, s, id)
 	if !strings.Contains(doc, "AI models (attached, generated)") || !strings.Contains(doc, "LLM_API_KEY and LLM_BASE_URL") || !strings.Contains(doc, "needs: { llm:") {
 		t.Fatalf("doc section:\n%s", doc)
 	}
+}
+
+// instructionsFor is the integrations steering for a test that expects it
+// readable.
+func instructionsFor(t *testing.T, db *database.DB, s *integration.Service, id ids.ID) string {
+	t.Helper()
+	doc, err := NewInstructions(db, s).Integrations(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return doc
 }

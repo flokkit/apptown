@@ -3,9 +3,6 @@ package integration
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-
-	"github.com/flokkit/apptown/internal/database"
 )
 
 func nameSuffix(name string) string {
@@ -21,11 +18,4 @@ func encodeResource(v any) string {
 		return "{}"
 	}
 	return string(b)
-}
-func providerReadOK(err error) bool {
-	found, err := database.Lookup(err)
-	if err != nil {
-		log.Printf("read failed: %v", err)
-	}
-	return found
 }

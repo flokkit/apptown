@@ -18,7 +18,7 @@ func TestABrowserIsNeverGivenADSNPassword(t *testing.T) {
 	if err != nil || values["SENTRY_DSN"] != "https://public@errors.example/3" || len(values) != 1 {
 		t.Fatalf("browser DSN: %v %v", values, err)
 	}
-	if env := strings.Join(s.Environment(context.Background(), id), "\n"); !strings.Contains(env, "SENTRY_DSN=https://public:private-review-canary@errors.example/3") {
+	if env := strings.Join(mustEnvironment(t, s, id), "\n"); !strings.Contains(env, "SENTRY_DSN=https://public:private-review-canary@errors.example/3") {
 		t.Fatalf("server env: %s", env)
 	}
 }

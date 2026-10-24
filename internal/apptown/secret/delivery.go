@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"regexp"
 	"slices"
 	"sort"
@@ -37,18 +36,6 @@ func (d Delivery) EnvFor(consumer string) map[string]string {
 }
 
 // --- bindings and profiles ------------------------------------------------------
-
-// BindingsFor reads application bindings for one project and deployment.
-// It logs read failures and returns an empty map; use Bindings.For when the
-// caller needs to distinguish missing bindings from a failed read.
-func (a *Service) BindingsFor(ctx context.Context, projectID ids.ID, deployment string) map[string]Binding {
-	out, err := a.Bindings.For(ctx, projectID, deployment)
-	if err != nil {
-		log.Printf("reading the secret bindings of project %d %s: %v", projectID, deployment, err)
-		return map[string]Binding{}
-	}
-	return out
-}
 
 // DeploymentProfile is the one profile a deployment uses, for app.yaml and
 // secretspec.toml alike (appcontract.DeploymentProfile): the explicit
@@ -202,20 +189,24 @@ func (a *Service) resolve(ctx context.Context, projectID ids.ID, slug, deploymen
 		if !bound && s.Generate {
 			// A generated secret binds itself on first need (§8): minted
 			// once per stability domain, never regenerated on deploy.
+			// Only a value the store says it does not hold is minted: a
+			// read that fails is unknown, and minting then would rotate it.
 			domain := c.SecretGenerate[s.Name]
 			scope := Scope(slug, deployment, domain)
-			if _, _, exists := a.Stored(ctx, scope, s.Name); !exists {
+			_, ver, err := a.Vault.Get(ctx, scope, s.Name)
+			if errors.Is(err, ErrNotStored) {
 				v, err := GenerateValue()
 				if err != nil {
 					return d, err
 				}
-				if _, err := a.Vault.Put(ctx, scope, s.Name, v, "apptown-system"); err != nil {
+				if ver, err = a.Vault.Put(ctx, scope, s.Name, v, "apptown-system"); err != nil {
 					return d, err
 				}
 				a.record(ctx, "apptown-system", projectID, "secret.generated", s.Name,
 					map[string]any{"deployment": deployment, "scope": scope})
+			} else if err != nil {
+				return Delivery{}, &UnavailableError{Deployment: deployment, Name: s.Name, Store: StoreInternal, cause: err}
 			}
-			_, ver, _ := a.Stored(ctx, scope, s.Name)
 			b = Binding{Deployment: deployment, Name: s.Name, Store: StoreInternal, Ref: scope,
 				Version: fmt.Sprint(ver), Generated: true, UpdatedBy: "apptown-system"}
 			if err := a.Bindings.Put(ctx, projectID, b); err != nil {

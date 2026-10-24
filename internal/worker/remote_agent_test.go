@@ -57,7 +57,7 @@ func startRemoteChats(t *testing.T, env console.Environment) *remoteChats {
 	agent := &worker.RemoteAgent{Sessions: client, Image: "apptown-agent", Root: filepath.Join(data, "console"), CopyEvery: 50 * time.Millisecond}
 	t.Cleanup(agent.Close)
 	svc := console.New(console.Dependencies{Agent: agent, Environment: env,
-		Config: console.Config{DataDir: data, Mirror: func(context.Context) string { return "https://mirror.example" }}})
+		Config: console.Config{DataDir: data, Mirror: func(context.Context) (string, error) { return "https://mirror.example", nil }}})
 	return &remoteChats{service: svc, agent: agent, runtime: rt, client: client, state: state, data: data, srv: srv}
 }
 

@@ -128,7 +128,11 @@ func (s *Service) llmClient(ctx context.Context, binding string) (*openrouter.Cl
 	if err != nil {
 		return nil, llmConfig{}, fmt.Errorf("reading the AI models connector %s: %w", binding, err)
 	}
-	cfg, err := parseLLMConfig(parseJSONMap(b.ConfigJSON))
+	raw, err := strictJSONMap(b.ConfigJSON)
+	if err != nil {
+		return nil, llmConfig{}, fmt.Errorf("the AI models connector %s's configuration: %w", binding, err)
+	}
+	cfg, err := parseLLMConfig(raw)
 	if err != nil {
 		return nil, cfg, err
 	}

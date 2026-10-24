@@ -69,14 +69,16 @@ type NeedCatalog interface {
 }
 
 // RegistryLogin logs the daemon into the registry an image is pulled from.
+// A login that fails, or a credential that cannot be read, is an error.
 type RegistryLogin interface {
-	Login(ctx context.Context, dk Scope, imageRef string)
+	Login(ctx context.Context, dk Scope, imageRef string) error
 }
 
 // Contributions is the attached integrations' rendered env for an app, and
-// the part of it safe for any browser to read, as a JSON object.
+// the part of it safe for any browser to read, as a JSON object. A read
+// that fails is an error, never fewer variables.
 type Contributions interface {
-	EnvFor(context.Context) []string
+	EnvFor(context.Context) ([]string, error)
 	BrowserEnv(context.Context) (string, error)
 }
 
@@ -99,10 +101,11 @@ func (h *Host) staticServer() string {
 	return "caddy:2-alpine"
 }
 func (h *Host) chownImage() string { return h.deps.ChownImage }
-func (h *Host) login(ctx context.Context, dk Scope, image string) {
-	if h.deps.Registry != nil {
-		h.deps.Registry.Login(ctx, dk, image)
+func (h *Host) login(ctx context.Context, dk Scope, image string) error {
+	if h.deps.Registry == nil {
+		return nil
 	}
+	return h.deps.Registry.Login(ctx, dk, image)
 }
 func (h *Host) origins(ctx context.Context) string {
 	if h.deps.Routes == nil {
@@ -116,9 +119,9 @@ func (h *Host) frontDoor() map[string]string {
 	}
 	return h.deps.Routes.FrontDoorHeaders()
 }
-func (h *Host) contributions(ctx context.Context) []string {
+func (h *Host) contributions(ctx context.Context) ([]string, error) {
 	if h.deps.Integrations == nil {
-		return nil
+		return nil, nil
 	}
 	return h.deps.Integrations.EnvFor(ctx)
 }

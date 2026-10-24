@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -119,8 +120,8 @@ secrets:
 	if code, _ = call(http.MethodDelete, "/api/v1/projects/p/secrets/main/STRIPE_API_KEY", ""); code != 200 {
 		t.Fatalf("unbind: %d", code)
 	}
-	if _, _, ok := secrets.Stored(t.Context(), secret.Scope("p", "main", ""), "STRIPE_API_KEY"); ok {
-		t.Fatal("unbind must remove the stored value")
+	if _, _, err := secrets.Vault.Get(t.Context(), secret.Scope("p", "main", ""), "STRIPE_API_KEY"); !errors.Is(err, secret.ErrNotStored) {
+		t.Fatalf("unbind must remove the stored value: %v", err)
 	}
 	// Bad names and unknown deployments are refused.
 	if code, _ = call(http.MethodPut, "/api/v1/projects/p/secrets/main/not-a-name", `{"value":"x"}`); code != 400 {

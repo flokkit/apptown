@@ -234,7 +234,10 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 	if err != nil {
 		return nil, err
 	}
-	login := s.env.ReleaseLogin(ctx, projectID)
+	login, err := s.env.ReleaseLogin(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
 	purpose, err := s.env.Purpose(ctx, projectID)
 	if err != nil {
 		return nil, err

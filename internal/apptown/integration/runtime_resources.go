@@ -20,23 +20,27 @@ import (
 // ErrorsEnvironment: the runtime contribution — the variables the error
 // reporting kind's definition (stock/dependencies/errors.yaml, inject)
 // gives an attached project's app containers, with its DSN. Empty when
-// unattached (opt-in by attachment), and when the definition cannot be
-// read, which the log names.
-func (s *Service) ErrorsEnvironment(ctx context.Context, projectID ids.ID) []string {
+// unattached (opt-in by attachment), and when the catalog's definition
+// injects nothing, which the log names. An attachment or a catalog that
+// cannot be read is an error.
+func (s *Service) ErrorsEnvironment(ctx context.Context, projectID ids.ID) ([]string, error) {
 	dsn, err := s.errorsDSN(ctx, projectID)
 	if err != nil || dsn == "" {
-		return nil
+		return nil, err
 	}
 	inject, err := s.errorsInject(ctx)
+	if errors.Is(err, errNoErrorsDefinition) {
+		log.Printf("error reporting for project %s: %v; its app is given no error-reporting variables", projectID, err)
+		return nil, nil
+	}
 	if err != nil {
-		log.Printf("error reporting for project %d: %v; its app is given no error-reporting variables", projectID, err)
-		return nil
+		return nil, err
 	}
 	var out []string
 	for _, name := range slices.Sorted(maps.Keys(inject)) {
 		out = append(out, name+"="+strings.ReplaceAll(inject[name], dsnRef, dsn))
 	}
-	return out
+	return out, nil
 }
 
 // dsnRef is where an inject template takes the DSN.
@@ -84,9 +88,9 @@ func (s *Service) errorsDSN(ctx context.Context, projectID ids.ID) (string, erro
 	return r.DSN, nil
 }
 
-// feedbackStrict is FeedbackResource for a caller that must not read a failure
-// as absence: nothing attached is ("", ""), an unreadable resource an error.
-func (s *Service) feedbackStrict(ctx context.Context, projectID ids.ID) (url, key string, err error) {
+// Feedback is the attached feedback service's address and app key:
+// nothing attached is ("", ""), an unreadable resource an error.
+func (s *Service) Feedback(ctx context.Context, projectID ids.ID) (url, key string, err error) {
 	res, err := Resource(ctx, s.Bindings.db, projectID, "feedback")
 	if found, err := database.Lookup(err); err != nil || !found {
 		return "", "", err
@@ -104,30 +108,6 @@ func (s *Service) feedbackStrict(ctx context.Context, projectID ids.ID) (url, ke
 	return r.URL, r.AppKey, nil
 }
 
-func (s *Service) FeedbackResource(ctx context.Context, projectID ids.ID) (url, key string) {
-	res, err := Resource(ctx, s.Bindings.db, projectID, "feedback")
-	if err != nil {
-		return "", ""
-	}
-	var r struct {
-		AppKey string `json:"appKey"`
-		URL    string `json:"url"`
-	}
-	if json.Unmarshal([]byte(res), &r) != nil {
-		return "", ""
-	}
-	return r.URL, r.AppKey
-}
-
-// FeedbackEnvironment: injected into app containers when attached.
-func (s *Service) FeedbackEnvironment(ctx context.Context, projectID ids.ID) []string {
-	url, key := s.FeedbackResource(ctx, projectID)
-	if url == "" || key == "" {
-		return nil
-	}
-	return []string{"FEEDBACK_URL=" + url, "FEEDBACK_APP_KEY=" + key}
-}
-
 type Registry struct {
 	Host     string // registry.example.com
 	Repo     string // registry.example.com/group/project
@@ -135,17 +115,9 @@ type Registry struct {
 	Token    string
 }
 
-// RegistryFor returns the project's registry wiring, or nil if the
-// capability isn't attached (or is attached without a usable repo). A
-// connector credential that does not resolve leaves Token empty: the
-// registry refuses the login, which is an error where it is used.
-func (s *Service) RegistryFor(ctx context.Context, projectID ids.ID) *Registry {
-	ri, _ := s.Registry(ctx, projectID)
-	return ri
-}
-
-// Registry is RegistryFor for a caller that must not take "could not
-// read" or "the credential does not resolve" as an anonymous registry. The
+// Registry is the project's registry wiring, nil when the capability is
+// not attached (or is attached without a repo). "Could not read" and "the
+// credential does not resolve" are errors, never an anonymous registry. The
 // credential is the attachment's own (username, token), when it holds one,
 // or else its connector's: username and the secret tokenFrom names,
 // resolved from the secrets store when used and never stored in the
@@ -162,10 +134,16 @@ func (s *Service) Registry(ctx context.Context, projectID ids.ID) (*Registry, er
 	if err != nil {
 		return nil, err
 	}
-	res := parseJSONMap(resJSON)
+	res, err := strictJSONMap(resJSON)
+	if err != nil {
+		return nil, fmt.Errorf("the container-registry attachment: %w", err)
+	}
 	value := func(k string) string { v, _ := res[k].(string); return v }
 	info := &Registry{Repo: value("repo"), Username: value("username"), Token: value("token")}
-	cfg := s.ConnectorConfig(ctx, binding, CapContainerRegistry)
+	cfg, err := s.ConnectorConfig(ctx, binding, CapContainerRegistry)
+	if err != nil {
+		return nil, err
+	}
 	if u, _ := cfg["url"].(string); u != "" {
 		info.Host = u
 	}
@@ -182,25 +160,33 @@ func (s *Service) Registry(ctx context.Context, projectID ids.ID) (*Registry, er
 			if info.Username == "" {
 				info.Username, _ = cfg["username"].(string)
 			}
-			if s.secrets != nil {
-				info.Token = registryToken(s.secrets.All(ctx), from)
+			if info.Token, err = s.registryToken(ctx, from); err != nil {
+				return nil, err
 			}
 			if info.Token == "" {
-				return info, fmt.Errorf("the container-registry connector %s names its credential %s, which the secrets store does not hold", binding, strings.Join(from, ", "))
+				return nil, fmt.Errorf("the container-registry connector %s names its credential %s, which the secrets store does not hold", binding, strings.Join(from, ", "))
 			}
 		}
 	}
 	return info, nil
 }
 
-// registryToken is the first of from the secrets hold.
-func registryToken(secrets map[string]string, from []string) string {
+// registryToken is the first of from the secrets hold, "" when they hold
+// none; secrets that cannot be read are an error.
+func (s *Service) registryToken(ctx context.Context, from []string) (string, error) {
+	if s.secrets == nil {
+		return "", nil
+	}
+	values, err := s.secrets.WithContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("reading the registry credential: %w", err)
+	}
 	for _, name := range from {
-		if v := secrets[name]; v != "" {
-			return v
+		if v := values[name]; v != "" {
+			return v, nil
 		}
 	}
-	return ""
+	return "", nil
 }
 
 // publicDSN is the form of a DSN any visitor may read: the public key a

@@ -3,6 +3,7 @@ package digitalocean
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -15,7 +16,7 @@ import (
 
 // gatedDriver renders against the fake platform, recording each image copy
 // and the credential it was read with.
-func gatedDriver(t *testing.T, gateLogin func(string) oci.Credential) (*Driver, *[]oci.Source) {
+func gatedDriver(t *testing.T, gateLogin func(string) (oci.Credential, error)) (*Driver, *[]oci.Source) {
 	t.Helper()
 	api := &dofake.API{}
 	server := httptest.NewServer(api.Handler())
@@ -169,11 +170,11 @@ func TestGatedRenderRefusesWhatItCannotGate(t *testing.T) {
 func TestGateImageIsReadWithItsOwnCredential(t *testing.T) {
 	t.Parallel()
 	given := oci.Credential{Username: "apptown", Password: "gate-reader"}
-	d, copied := gatedDriver(t, func(ref string) oci.Credential {
+	d, copied := gatedDriver(t, func(ref string) (oci.Credential, error) {
 		if ref == gateRef {
-			return given
+			return given, nil
 		}
-		return oci.Credential{}
+		return oci.Credential{}, nil
 	})
 	if _, err := renderGated(t, d, &deploy.Gate{Image: gateRef, Secret: strings.Repeat("ab", 32), AppTown: "https://forge.example", Marker: testMarker}, scopedRenderSecrets{}); err != nil {
 		t.Fatal(err)
@@ -186,5 +187,24 @@ func TestGateImageIsReadWithItsOwnCredential(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("the gate image was not read with its credential: %+v", *copied)
+	}
+}
+
+// A gate credential that cannot be read fails the render; the gate image
+// is never read anonymously instead.
+//
+// Kills: the credential's error dropped for an anonymous read.
+func TestAnUnreadableGateCredentialFailsTheRender(t *testing.T) {
+	t.Parallel()
+	d, copied := gatedDriver(t, func(string) (oci.Credential, error) {
+		return oci.Credential{}, errors.New("the registry attachment cannot be read")
+	})
+	if _, err := renderGated(t, d, &deploy.Gate{Image: gateRef, Secret: strings.Repeat("ab", 32), AppTown: "https://forge.example", Marker: testMarker}, scopedRenderSecrets{}); err == nil || !strings.Contains(err.Error(), "cannot be read") {
+		t.Fatalf("render with an unreadable gate credential: %v", err)
+	}
+	for _, src := range *copied {
+		if src.Reference == gateRef {
+			t.Fatal("the gate image was read without its credential")
+		}
 	}
 }

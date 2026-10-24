@@ -110,9 +110,10 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	relEnv := "lan"
-	if t, err := h.integrations.PortainerTarget(r.Context()); err == nil && t.ReleaseDeployment != "" {
-		relEnv = t.ReleaseDeployment
+	relEnv, err := h.releaseDeployment(r.Context())
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
 	}
 	lan := TierView{Name: relEnv, Title: "Intranet", Onward: "someday", Apps: []TierApp{},
 		Gloss: "released for everyone on the intranet — survives reboots, lives on the platform"}
@@ -141,9 +142,10 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 // by the button, failed attempts included) plus the previews alive right
 // now. The departures board reading of the same world the tier map draws.
 func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
-	relEnv := "lan"
-	if t, err := h.integrations.PortainerTarget(r.Context()); err == nil && t.ReleaseDeployment != "" {
-		relEnv = t.ReleaseDeployment
+	relEnv, err := h.releaseDeployment(r.Context())
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
 	}
 	// The destination is a deployment, named with its kind: a bare "MAIN"
 	// read as the branch (sweep 7).
@@ -307,4 +309,21 @@ func (h Tiers) visible(ctx context.Context) (map[ids.ID]*project.Project, error)
 		out[rows[i].ID] = &rows[i]
 	}
 	return out, nil
+}
+
+// releaseDeployment is the intranet's release deployment: the one its
+// settings name, "lan" when it is not wired up or names none. Settings that
+// cannot be read are an error, never "lan".
+func (h Tiers) releaseDeployment(ctx context.Context) (string, error) {
+	t, err := h.integrations.PortainerTarget(ctx)
+	if errors.Is(err, integration.ErrIntranetNotWired) {
+		return "lan", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("reading the intranet's settings: %w", err)
+	}
+	if t.ReleaseDeployment == "" {
+		return "lan", nil
+	}
+	return t.ReleaseDeployment, nil
 }

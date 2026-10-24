@@ -81,8 +81,8 @@ func (liveNeeds) Data(context.Context, string) (string, error) {
 
 type liveContributions struct{ browser string }
 
-func (c liveContributions) EnvFor(context.Context) []string {
-	return []string{"ERRORS_DSN=https://key@errors/1"}
+func (c liveContributions) EnvFor(context.Context) ([]string, error) {
+	return []string{"ERRORS_DSN=https://key@errors/1"}, nil
 }
 func (c liveContributions) BrowserEnv(context.Context) (string, error) { return c.browser, nil }
 

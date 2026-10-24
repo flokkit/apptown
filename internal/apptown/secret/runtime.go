@@ -36,14 +36,8 @@ func infisicalConfig(file map[string]string) InfisicalConfig {
 	return InfisicalConfig{URL: file["INFISICAL_URL"], ClientID: file["INFISICAL_CLIENT_ID"], ClientSecret: file["INFISICAL_CLIENT_SECRET"], ProjectID: file["INFISICAL_PROJECT_ID"], Environment: file["INFISICAL_ENV"], Path: file["INFISICAL_PATH"]}
 }
 
-func (a *Service) fileSecrets() map[string]string {
-	out, _ := a.readFileSecrets()
-	return out
-}
-
 // readFileSecrets reads the bootstrap file: no file is an empty map, any
-// other read failure is an error (runtime lookup falls back to empty; the
-// administrative instance-secret door does not).
+// other read failure is an error, never empty.
 func (a *Service) readFileSecrets() (map[string]string, error) {
 	out := map[string]string{}
 	raw, err := os.ReadFile(filepath.Join(a.dataDir, "secrets.env"))
@@ -65,26 +59,27 @@ func (a *Service) readFileSecrets() (map[string]string, error) {
 	return out, nil
 }
 
-// All returns the merged secret map: Infisical base, file overrides.
-func (a *Service) All(ctx context.Context) map[string]string {
-	// The answer cannot say "unknown": a stopped read would be "no secrets",
-	// so it runs to its end though the caller stops.
-	values, _ := a.WithContext(context.WithoutCancel(ctx))
-	return values
-}
-
-// WithContext preserves file overrides and ordinary provider-failure
-// fallback, but never satisfies a cancelled caller from stale values.
+// WithContext is runtime lookup, the one read of AppTown's own secrets:
+// Infisical's values (when it is configured) with secrets.env's entries
+// over them. A secrets file that cannot be read, or a configured Infisical
+// that cannot be, is an error, never fewer values: the merged map is then
+// unknown, whichever name the caller wants.
 func (a *Service) WithContext(ctx context.Context) (map[string]string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	file := a.fileSecrets()
+	file, err := a.readFileSecrets()
+	if err != nil {
+		return nil, err
+	}
 	out := map[string]string{}
 	if cfg := infisicalConfig(file); cfg.Configured() {
 		remote, err := a.infisicalFetch(ctx, cfg)
-		if err == context.Canceled || err == context.DeadlineExceeded {
-			return nil, err
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			return nil, fmt.Errorf("Infisical could not be read: %w", err)
 		}
 		for k, v := range remote {
 			out[k] = v
@@ -96,20 +91,20 @@ func (a *Service) WithContext(ctx context.Context) (map[string]string, error) {
 	return out, ctx.Err()
 }
 
-func (a *Service) Value(ctx context.Context, key string) string {
-	return a.All(ctx)[key]
-}
-
 // StepEnv selects STEP_ entries from runtime resolution and strips the prefix.
 // Separately authorized integration, registry and SCM delivery belongs to callers.
-func (a *Service) StepEnv(ctx context.Context) []string {
+func (a *Service) StepEnv(ctx context.Context) ([]string, error) {
+	values, err := a.WithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var out []string
-	for k, v := range a.All(ctx) {
+	for k, v := range values {
 		if name, ok := strings.CutPrefix(k, "STEP_"); ok && name != "" {
 			out = append(out, name+"="+v)
 		}
 	}
-	return out
+	return out, nil
 }
 
 // infisicalFetch adapts the resolver's health transitions to existing
@@ -156,10 +151,15 @@ func (a *Service) record(ctx context.Context, who string, projectID ids.ID, kind
 // ExternalStore names the external secret store this AppTown reads values
 // from (Infisical's address and project), "" when it reads none: its
 // values stay there, and a backup of AppTown holds only the connection.
-func (a *Service) ExternalStore() (url, project string) {
-	c := infisicalConfig(a.fileSecrets())
-	if !c.Configured() {
-		return "", ""
+// A secrets file that cannot be read is an error, not "none".
+func (a *Service) ExternalStore() (url, project string, err error) {
+	file, err := a.readFileSecrets()
+	if err != nil {
+		return "", "", err
 	}
-	return c.URL, c.ProjectID
+	c := infisicalConfig(file)
+	if !c.Configured() {
+		return "", "", nil
+	}
+	return c.URL, c.ProjectID, nil
 }

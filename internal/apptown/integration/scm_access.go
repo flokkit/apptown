@@ -81,7 +81,7 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 		}
 	}
 
-	gl, err := gitlab.New(s.secrets.Value(ctx, "GITLAB_URL"), s.secrets.Value(ctx, "GITLAB_TOKEN"))
+	gl, err := s.engineGitLab(ctx)
 	if err != nil {
 		return nil, "", err
 	}
@@ -157,7 +157,7 @@ func (s *Service) SCMEnvironment(ctx context.Context, projectID ids.ID, remote, 
 	if err != nil {
 		return nil, err.Error()
 	}
-	gl, err := gitlab.New(s.secrets.Value(ctx, "GITLAB_URL"), s.secrets.Value(ctx, "GITLAB_TOKEN"))
+	gl, err := s.engineGitLab(ctx)
 	if err != nil {
 		return nil, err.Error()
 	}
@@ -293,4 +293,14 @@ func branchRuleMatches(rule, branch string) bool {
 		rest = rest[i+len(part):]
 	}
 	return strings.HasSuffix(rest, parts[len(parts)-1])
+}
+
+// engineGitLab is AppTown's own GitLab client, from GITLAB_URL and
+// GITLAB_TOKEN in its secrets; secrets that cannot be read are an error.
+func (s *Service) engineGitLab(ctx context.Context) (*gitlab.Client, error) {
+	values, err := s.secrets.WithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading AppTown's GitLab credentials: %w", err)
+	}
+	return gitlab.New(values["GITLAB_URL"], values["GITLAB_TOKEN"])
 }

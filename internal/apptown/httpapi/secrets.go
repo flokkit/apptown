@@ -76,7 +76,11 @@ func (h Secrets) secretDeployments(ctx context.Context, projectID ids.ID) ([]str
 			}
 		}
 	}
-	if t, err := h.integrations.PortainerTarget(ctx); err == nil && t != nil {
+	t, err := h.integrations.PortainerTarget(ctx)
+	if err != nil && !errors.Is(err, integration.ErrIntranetNotWired) {
+		return nil, fmt.Errorf("reading the intranet's settings: %w", err)
+	}
+	if t != nil {
 		add(t.ReleaseDeployment)
 	}
 	return out, nil
@@ -172,7 +176,12 @@ func (h Secrets) ProjectSecrets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ws := h.projectRepoPath(p.Slug)
-	out := ProjectSecrets{Declared: false, Spec: secret.SpecFile, Stores: h.secrets.Stores(), Deployments: []SecretDeployment{}}
+	stores, err := h.secrets.Stores()
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
+	}
+	out := ProjectSecrets{Declared: false, Spec: secret.SpecFile, Stores: stores, Deployments: []SecretDeployment{}}
 	c, err := docker.ReadWorkspaceContract(ws)
 	if err != nil && err != docker.ErrNoContract {
 		out.Problem = err.Error()
@@ -263,7 +272,11 @@ func (h Secrets) ProjectSecrets(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		profile := secret.SpecProfile(spec, chosen)
-		bindings := h.secrets.BindingsFor(r.Context(), p.ID, env)
+		bindings, err := h.secrets.Bindings.For(r.Context(), p.ID, env)
+		if err != nil {
+			WriteFaultOr(w, err, http.StatusServiceUnavailable)
+			return
+		}
 		ev := SecretDeployment{Name: env, Chosen: chosen, Profile: profile, Secrets: []SecretStatus{}, Missing: []string{}}
 		for _, s := range spec.SecretsIn(profile) {
 			st := SecretStatus{Name: s.Name, Required: s.Required}

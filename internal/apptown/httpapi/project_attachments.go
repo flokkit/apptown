@@ -164,7 +164,10 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 					return
 				}
 				name = first
-			} else if h.integrations.ConnectorConfig(r.Context(), name, integration.CapLLM) == nil {
+			} else if cfg, err := h.integrations.ConnectorConfig(r.Context(), name, integration.CapLLM); err != nil {
+				WriteFaultOr(w, err, http.StatusServiceUnavailable)
+				return
+			} else if cfg == nil {
 				WriteError(w, 422, "no AI models connector named %q", name)
 				return
 			}
@@ -184,15 +187,26 @@ func (h ProjectAttachments) AttachIntegration(w http.ResponseWriter, r *http.Req
 		case in.Capability == integration.CapFeedback:
 			fields = []integration.Field{{Key: "appKey", Label: "App key"}, {Key: "url", Label: "Service URL"}}
 		default:
-			k := h.integrations.Definition(r.Context(), in.Capability)
+			k, err := h.integrations.Definition(r.Context(), in.Capability)
+			if err != nil {
+				WriteFaultOr(w, err, http.StatusServiceUnavailable)
+				return
+			}
 			if k == nil {
 				WriteError(w, 404, "unknown capability %q — define it as a service kind first", in.Capability)
 				return
 			}
 			fields = k.Resource.Fields
-			if in.Connector != "" && h.integrations.ConnectorConfig(r.Context(), in.Connector, in.Capability) == nil {
-				WriteError(w, 422, "no %s connector named %q", in.Capability, in.Connector)
-				return
+			if in.Connector != "" {
+				cfg, err := h.integrations.ConnectorConfig(r.Context(), in.Connector, in.Capability)
+				if err != nil {
+					WriteFaultOr(w, err, http.StatusServiceUnavailable)
+					return
+				}
+				if cfg == nil {
+					WriteError(w, 422, "no %s connector named %q", in.Capability, in.Connector)
+					return
+				}
 			}
 		}
 		resource := map[string]any{}
@@ -349,7 +363,12 @@ func (h ProjectAttachments) ListAttachables(w http.ResponseWriter, r *http.Reque
 		Description:   "Lets the app call AI models through OpenRouter. Each deployment and each preview of an app that declares the llm need gets its own key with a spending limit, revoked when it is taken down or ends.",
 		Provisionable: len(llmCons) > 0, Connectors: llmCons, ResourceFields: []integration.Field{},
 	})
-	for _, k := range h.integrations.Definitions(r.Context()) {
+	kinds, err := h.integrations.Definitions(r.Context())
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
+	}
+	for _, k := range kinds {
 		// A kind whose resource fields are all optional needs no input:
 		// attachable in one click (wizard included) — nothing is minted,
 		// the contributions just switch on.
@@ -406,7 +425,11 @@ func (h ProjectAttachments) WireIntegration(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
-		title := h.attachmentTitle(r.Context(), cap)
+		title, err := h.attachmentTitle(r.Context(), cap)
+		if err != nil {
+			WriteFaultOr(w, err, http.StatusServiceUnavailable)
+			return
+		}
 		body := fmt.Sprintf(`This project has been attached to %s (%s). Wire the app into it.
 
 Your steering has an "(attached, generated)" section for this service that
@@ -428,19 +451,20 @@ those env vars are absent (local dev). Verify both modes.`, title, cap)
 	})
 }
 
-func (h ProjectAttachments) attachmentTitle(ctx context.Context, capability string) string {
+func (h ProjectAttachments) attachmentTitle(ctx context.Context, capability string) (string, error) {
 	switch capability {
 	case integration.CapErrors:
-		return "Error reporting"
+		return "Error reporting", nil
 	case integration.CapFeedback:
-		return "Customer feedback"
+		return "Customer feedback", nil
 	case integration.CapLLM:
-		return "AI models"
+		return "AI models", nil
 	}
-	if k := h.integrations.Definition(ctx, capability); k != nil {
-		return k.Title
+	k, err := h.integrations.Definition(ctx, capability)
+	if err != nil || k == nil {
+		return capability, err
 	}
-	return capability
+	return k.Title, nil
 }
 func fieldKeys(m map[string]any) []string {
 	out := make([]string, 0, len(m))

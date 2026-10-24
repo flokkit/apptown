@@ -118,6 +118,9 @@ type BootRequest struct {
 	// browser is a static part's browser values, prepared by Boot before any
 	// effect; nil makes StartAppContainer read them itself.
 	browser *string
+	// contributions are the attached integrations' variables, read by Boot
+	// in its configuration phase before anything in the stack changes.
+	contributions *[]string
 }
 
 func (t BootRequest) logf(format string, args ...any) {
@@ -398,6 +401,13 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		}
 		t.browser = &browser
 	}
+	// So are the integrations' variables: a failed read stops the boot
+	// with the running stack as it was.
+	contributions, err := h.contributions(ctx)
+	if err != nil {
+		return res, &BootError{Phase: PhaseConfig, Err: fmt.Errorf("reading what the attached integrations give the app: %w", err)}
+	}
+	t.contributions = &contributions
 	plan := rs.Plan
 	wasStatic := c.PublicPart().IsStatic()
 	t.release = c.PublicRelease(t.Revision)

@@ -40,7 +40,11 @@ var ErrInvalidConfig = fault.New(fault.Invalid, "the binding's configuration is 
 // step failed "invalid model binding").
 func validateConfig(capability, configJSON string) error {
 	if capability == CapLLM {
-		if _, err := parseLLMConfig(parseJSONMap(configJSON)); err != nil {
+		cfg, err := strictJSONMap(configJSON)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
+		}
+		if _, err := parseLLMConfig(cfg); err != nil {
 			return fmt.Errorf("%w: %w", ErrInvalidConfig, err)
 		}
 		return nil

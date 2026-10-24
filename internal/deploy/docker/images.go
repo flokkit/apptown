@@ -84,7 +84,9 @@ func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			}
 			image = tag
 		} else if !IsLocalBuildTag(image) && !strings.HasPrefix(image, "sha256:") {
-			h.login(ctx, t.Docker, image)
+			if err := h.login(ctx, t.Docker, image); err != nil {
+				return "", fmt.Errorf("pulling selected image %s: %w", image, err)
+			}
 			if out, err := t.Docker.Run(ctx, "pull", image); err != nil {
 				return "", fmt.Errorf("pulling selected image %s: %s", image, strs.Truncate(string(out), 300))
 			}

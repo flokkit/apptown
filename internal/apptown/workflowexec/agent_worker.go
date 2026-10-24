@@ -278,7 +278,11 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 	}
 	p := &execution.PrivateDocker{Daemon: k.useDind, Services: services}
 	if k.useDind {
-		p.Mirror = a.workshop.Mirror(ctx)
+		mirror, err := a.workshop.Mirror(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		p.Mirror = mirror
 	}
 	if err := p.Valid(privateLimits(a.worker.Tasks.Profile.Limits)); err != nil {
 		return nil, nil, &WorkerRefusal{Reason: "the step's private Docker: " + err.Error()}
@@ -524,7 +528,11 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 	if k.useDind {
 		// As on AppTown's host: what the app's containers get from the
 		// project's integrations. No registry credential travels.
-		env = append(env, a.integrations.Environment(ctx, run.ProjectID)...)
+		given, err := a.integrations.Environment(ctx, run.ProjectID)
+		if err != nil {
+			return workerAgentRequest{}, err
+		}
+		env = append(env, given...)
 	}
 	env = append(env, needEnv...)
 	// The agent's own repository at /work/.git (execution.AgentGit) is

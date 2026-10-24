@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -23,7 +24,11 @@ import (
 // never lands in .git/config.
 
 func configuredGitLab(ctx context.Context, secrets *secret.Service) (*gitlab.Client, error) {
-	return gitlab.New(secrets.Value(ctx, "GITLAB_URL"), secrets.Value(ctx, "GITLAB_TOKEN"))
+	values, err := secrets.WithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading AppTown's GitLab credentials: %w", err)
+	}
+	return gitlab.New(values["GITLAB_URL"], values["GITLAB_TOKEN"])
 }
 
 type repositoryPublisher struct {

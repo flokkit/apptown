@@ -212,7 +212,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		// site is given them as browser values where it can be at all
 		// (RefusesBrowserValues).
 		if _, gives := d.(integrationsGiver); !gives && !StaticOnly(req.Source.Contract) {
-			s.noteUndeliveredIntegrations(ctx, rel.ID, rel.ProjectID, t)
+			if err := s.noteUndeliveredIntegrations(ctx, rel.ID, rel.ProjectID, t); err != nil {
+				return fail(err)
+			}
 		}
 	}
 	if err := ctx.Err(); err != nil {
@@ -243,20 +245,26 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 // give an app on a Docker host or Portainer and this target does not
 // deliver yet:
 // integrations are not needs, the app runs without them, and that is said
-// rather than left silent. Only names are written.
-func (s *Service) noteUndeliveredIntegrations(ctx context.Context, release, projectID ids.ID, t *Target) {
+// rather than left silent. Only names are written. Values that cannot be
+// read fail the release: a note naming nothing would say nothing is lost.
+func (s *Service) noteUndeliveredIntegrations(ctx context.Context, release, projectID ids.ID, t *Target) error {
 	if s.env.integrations == nil {
-		return
+		return nil
+	}
+	env, err := s.env.integrations.Environment(ctx, projectID)
+	if err != nil {
+		return fmt.Errorf("reading what the attached integrations give the app: %w", err)
 	}
 	var names []string
-	for _, kv := range s.env.integrations.Environment(ctx, projectID) {
+	for _, kv := range env {
 		if name, _, ok := strings.Cut(kv, "="); ok && !slices.Contains(names, name) {
 			names = append(names, name)
 		}
 	}
 	if len(names) == 0 {
-		return
+		return nil
 	}
 	slices.Sort(names)
 	s.log(release, "the project's attached integrations give an app on a Docker host %s; %s does not deliver them yet, so this release runs without them", strings.Join(names, ", "), t.Name)
+	return nil
 }

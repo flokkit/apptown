@@ -45,8 +45,9 @@ type Dependencies struct {
 	// any other call touches it. Until it is recorded the bucket is not
 	// the deployment's, and nothing is written to it.
 	Own func(bucket string) error
-	// ReleaseLogin reads the release's images from their registry.
-	ReleaseLogin func() oci.Credential
+	// ReleaseLogin reads the release's images from their registry; an
+	// empty credential reads anonymously, and its error fails the publish.
+	ReleaseLogin func() (oci.Credential, error)
 	// BrowserValues are the project's browser-safe values, for env.js.
 	BrowserValues func(context.Context) (map[string]string, error)
 }
@@ -146,7 +147,11 @@ func releaseOf(src deploy.Source) (ref, release string, err error) {
 func (d *Driver) publish(ctx context.Context, ref, release string, browser map[string]string) (staticsite.Set, error) {
 	from := oci.Source{Reference: ref}
 	if d.ReleaseLogin != nil {
-		from.Credential = d.ReleaseLogin()
+		cred, err := d.ReleaseLogin()
+		if err != nil {
+			return staticsite.Set{}, fmt.Errorf("the credential the site's files are read with: %w", err)
+		}
+		from.Credential = cred
 	}
 	files, err := oci.ReadTree(ctx, from, staticsite.Root, staticsite.MaxBytes)
 	if err != nil {

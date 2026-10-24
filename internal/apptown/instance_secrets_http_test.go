@@ -33,7 +33,7 @@ func TestInstanceSecretsAreAdministratorOnlyAndWriteOnly(t *testing.T) {
 			}
 		}
 	}
-	if got := a.Secrets.All(context.Background())["DIGITALOCEAN_ACCESS_TOKEN"]; got != "" {
+	if got := runtimeSecret(t, a, "DIGITALOCEAN_ACCESS_TOKEN"); got != "" {
 		t.Fatal("a refused set reached the secrets file")
 	}
 	var answers []string
@@ -42,7 +42,7 @@ func TestInstanceSecretsAreAdministratorOnlyAndWriteOnly(t *testing.T) {
 		t.Fatalf("the administrator's set: %d %s", w.Code, w.Body.String())
 	}
 	answers = append(answers, w.Body.String())
-	if got := a.Secrets.All(context.Background())["DIGITALOCEAN_ACCESS_TOKEN"]; got != value {
+	if got := runtimeSecret(t, a, "DIGITALOCEAN_ACCESS_TOKEN"); got != value {
 		t.Fatal("runtime lookup does not read the value the administrator set")
 	}
 	w = authzCall(h, "boss", "GET", "/api/v1/secrets/names", "")
@@ -68,7 +68,7 @@ func TestInstanceSecretsAreAdministratorOnlyAndWriteOnly(t *testing.T) {
 		t.Fatalf("the administrator's remove: %d %s", w.Code, w.Body.String())
 	}
 	answers = append(answers, w.Body.String())
-	if got := a.Secrets.All(context.Background())["DIGITALOCEAN_ACCESS_TOKEN"]; got != "" {
+	if got := runtimeSecret(t, a, "DIGITALOCEAN_ACCESS_TOKEN"); got != "" {
 		t.Fatal("the removed secret still resolves")
 	}
 	for i, answer := range answers {
@@ -102,4 +102,15 @@ func TestInstanceSecretsAreAdministratorOnlyAndWriteOnly(t *testing.T) {
 	if w := authzCall(h, "boss", "GET", "/api/v1/secrets/names", ""); w.Code != 503 || strings.Contains(w.Body.String(), `"names"`) {
 		t.Fatalf("names with an unreadable secrets file: %d %s", w.Code, w.Body.String())
 	}
+}
+
+// runtimeSecret is one name from runtime lookup, for a test that expects
+// the lookup to succeed.
+func runtimeSecret(t *testing.T, a *App, name string) string {
+	t.Helper()
+	values, err := a.Secrets.WithContext(t.Context())
+	if err != nil {
+		t.Fatalf("runtime lookup: %v", err)
+	}
+	return values[name]
 }

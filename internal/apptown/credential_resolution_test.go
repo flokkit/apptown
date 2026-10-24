@@ -91,7 +91,10 @@ func TestProviderCredentialResolutionUsesObservationContext(t *testing.T) {
 	}
 }
 
-func TestCredentialRefreshHealthReceiptsAndFileFallback(t *testing.T) {
+// A failing Infisical fails runtime lookup with its reason, never the file's
+// values alone; its health is receipted once per transition, and no receipt
+// or error carries the provider's response.
+func TestCredentialRefreshHealthReceiptsAndAFailedReadIsAnError(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	var failing atomic.Bool
@@ -111,8 +114,9 @@ func TestCredentialRefreshHealthReceiptsAndFileFallback(t *testing.T) {
 	defer server.Close()
 	credentialBootstrap(t, a, server.URL)
 	for range 2 {
-		if _, err := a.Secrets.WithContext(context.Background()); err != nil {
-			t.Fatal(err)
+		values, err := a.Secrets.WithContext(context.Background())
+		if err == nil || values != nil || !strings.Contains(err.Error(), "503") || strings.Contains(err.Error(), "private-response-secret") {
+			t.Fatalf("a failing Infisical: %v %v", values, err)
 		}
 	}
 	requireAudits(t, a.DB, 1, "infisical.error")

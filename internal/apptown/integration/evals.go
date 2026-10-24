@@ -74,7 +74,10 @@ func (s *Service) evalRegistry(ctx context.Context, projectID ids.ID) (*Registry
 		return nil, fmt.Errorf("an eval copy publishes its releases to the one container-registry connector AppTown offers, and it offers %d", len(connectors))
 	}
 	connector := connectors[0]
-	cfg := parseJSONMap(connector.ConfigJSON)
+	cfg, err := strictJSONMap(connector.ConfigJSON)
+	if err != nil {
+		return nil, fmt.Errorf("the container-registry connector %s's configuration: %w", connector.Name, err)
+	}
 	if provider, _ := cfg["provider"].(string); provider == "gitlab" {
 		return nil, fmt.Errorf("the container-registry connector %s provisions a GitLab project per project, which an eval copy is never given; offer a registry connector with its own credential for evals", connector.Name)
 	}
@@ -86,11 +89,11 @@ func (s *Service) evalRegistry(ctx context.Context, projectID ids.ID) (*Registry
 	info := &Registry{Host: host, Repo: strings.Join(slices.DeleteFunc([]string{strings.TrimSuffix(host, "/"), strings.Trim(group, "/"), p.Slug}, func(s string) bool { return s == "" }), "/")}
 	if from := ConfigStrings(cfg["tokenFrom"]); len(from) > 0 {
 		info.Username, _ = cfg["username"].(string)
-		if s.secrets != nil {
-			info.Token = registryToken(s.secrets.All(ctx), from)
+		if info.Token, err = s.registryToken(ctx, from); err != nil {
+			return nil, err
 		}
 		if info.Token == "" {
-			return info, fmt.Errorf("the container-registry connector %s names its credential %s, which the secrets store does not hold", connector.Name, strings.Join(from, ", "))
+			return nil, fmt.Errorf("the container-registry connector %s names its credential %s, which the secrets store does not hold", connector.Name, strings.Join(from, ", "))
 		}
 	}
 	return info, nil

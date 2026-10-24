@@ -71,7 +71,7 @@ func TestAnUnreadableBrowserValueLeavesTheRunningContainer(t *testing.T) {
 
 type unreadableBrowser struct{}
 
-func (unreadableBrowser) EnvFor(context.Context) []string { return nil }
+func (unreadableBrowser) EnvFor(context.Context) ([]string, error) { return nil, nil }
 func (unreadableBrowser) BrowserEnv(context.Context) (string, error) {
 	return "", errors.New("the feedback attachment could not be read")
 }
@@ -140,7 +140,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 
 type givenBrowser struct{}
 
-func (givenBrowser) EnvFor(context.Context) []string { return nil }
+func (givenBrowser) EnvFor(context.Context) ([]string, error) { return nil, nil }
 func (givenBrowser) BrowserEnv(context.Context) (string, error) {
 	return `{"SENTRY_DSN":"https://k@e/1"}`, nil
 }
@@ -163,3 +163,49 @@ type reviewUp struct{}
 func (reviewUp) Check(context.Context, Scope, string, string, time.Duration, RenderedProbe) (bool, string) {
 	return true, ""
 }
+
+// A server app's integration variables are read in the boot's
+// configuration phase, before anything in its stack changes: a failed read
+// leaves migrations unrun, workers untouched and the old app serving. A
+// direct start of the app container reads them before removing the old one.
+//
+// Kills: the variables read only when the new app container starts.
+func TestIntegrationVariablesAreReadBeforeTheStackChanges(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{reply: func(c Command) ([]byte, error) {
+		if len(c.Args) > 1 && c.Args[0] == "image" && c.Args[1] == "inspect" {
+			return []byte("sha256:review"), nil
+		}
+		return nil, nil
+	}}
+	c := &appcontract.Contract{Parts: []appcontract.Part{
+		{Name: "web", Public: true, Image: "web:1", Port: 8080},
+		{Name: "worker", Image: "worker:1"},
+	}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
+	req := BootRequest{Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true,
+		Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}}
+	host := NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: unreadableIntegrations{}, Probe: reviewUp{}})
+	_, err := host.Boot(context.Background(), req, c)
+	if AsBootError(err) == nil || AsBootError(err).Phase != PhaseConfig || !strings.Contains(err.Error(), "attached integrations") {
+		t.Fatalf("expected a configuration failure, got %v", err)
+	}
+	for _, args := range client.args {
+		if !diskRead(args) && (args[0] == "run" || args[0] == "rm") {
+			t.Fatalf("changed the running stack before reading the integrations: %v", client.args)
+		}
+	}
+	client.args = nil
+	if _, err := host.StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Image: "web:1", Port: 8080}, "", nil); err == nil {
+		t.Fatal("the app started without its integration variables")
+	}
+	if len(client.args) != 0 {
+		t.Fatalf("the running container was touched: %v", client.args)
+	}
+}
+
+type unreadableIntegrations struct{}
+
+func (unreadableIntegrations) EnvFor(context.Context) ([]string, error) {
+	return nil, errors.New("the mailer attachment could not be read")
+}
+func (unreadableIntegrations) BrowserEnv(context.Context) (string, error) { return "{}", nil }

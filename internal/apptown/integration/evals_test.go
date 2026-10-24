@@ -54,7 +54,7 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 		t.Fatalf("the copy holds an attachment: %v %v", attached, err)
 	}
 	// Nothing the copy declares is pulled with AppTown's credential.
-	if got, err := s.Registry(context.Background(), copy); err != nil || got != nil || s.RegistryFor(context.Background(), copy) != nil {
+	if got, err := s.Registry(context.Background(), copy); err != nil || got != nil {
 		t.Fatalf("a copy's general registry: %+v %v", got, err)
 	}
 	got, err := s.EvalPublication(t.Context(), copy)

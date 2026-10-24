@@ -76,6 +76,16 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 			}
 		}
 	}
+	// So are the attached integrations' variables.
+	var contributions []string
+	if t.contributions != nil {
+		contributions = *t.contributions // Boot read them before touching the stack
+	} else {
+		var err error
+		if contributions, err = h.contributions(ctx); err != nil {
+			return 0, fmt.Errorf("reading what the attached integrations give the app: %w", err)
+		}
+	}
 	dk.Remove(ctx, name)
 	// Build only an explicit build declaration. An image remains the selected
 	// recipe even when unrelated Dockerfiles exist in the source tree.
@@ -181,7 +191,9 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// pulled — and a release's recorded images were prepared already
 		// (PrepareImages).
 		if t.Identity == nil && t.Recorded == nil && !IsLocalBuildTag(c.Image) {
-			h.login(ctx, dk, c.Image)
+			if err := h.login(ctx, dk, c.Image); err != nil {
+				return 0, fmt.Errorf("docker pull %s: %w", c.Image, err)
+			}
 			if out, err := dk.Run(ctx, "pull", c.Image); err != nil {
 				return 0, fmt.Errorf("docker pull %s: %s", c.Image, strs.Truncate(string(out), 300))
 			}
@@ -236,7 +248,7 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 	// Attached-integration runtime contributions: the errors DSN plus every attached
 	// service kind's rendered env. Opt-in by integration — unattached
 	// projects get nothing.
-	for _, kv := range h.contributions(ctx) {
+	for _, kv := range contributions {
 		args = append(args, "-e", kv)
 	}
 	if network != "" {

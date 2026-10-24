@@ -88,7 +88,11 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	req := docker.BootRequest{Name: name, StackID: stackID, Workspace: staged,
 		Slug: p.Slug, Deployment: "preview", Docker: s.hosts.Local(), Probe: 90 * time.Second, Incarnation: incarnation, Scratch: s.hosts.BootScratch()}
 	if b != nil {
-		req.Recorded = &docker.RecordedImages{Parts: b.Parts, Init: b.Init, Login: s.env.BundleLogin(ctx, selected.ProjectID, b), Scratch: s.hosts.BootScratch()}
+		login, err := s.env.BundleLogin(ctx, selected.ProjectID, b)
+		if err != nil {
+			return ReleaseResult{}, fmt.Errorf("the credential the release's images are pulled with: %w", err)
+		}
+		req.Recorded = &docker.RecordedImages{Parts: b.Parts, Init: b.Init, Login: login, Scratch: s.hosts.BootScratch()}
 	} else {
 		req.ReleaseImage = selected.Image
 	}

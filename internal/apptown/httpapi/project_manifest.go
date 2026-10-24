@@ -22,9 +22,10 @@ type ProjectManifest struct {
 }
 
 // SecretStores is the secret owner's answer to which stores this AppTown
-// can use now, by provider name.
+// can use now, by provider name; a secrets file that cannot be read is an
+// error.
 type SecretStores interface {
-	AvailableProviders() map[string]bool
+	AvailableProviders() (map[string]bool, error)
 }
 
 func NewProjectManifest(projects *project.Projects, adoption *adoption.Service, db *database.DB, dataDir string, stores SecretStores) ProjectManifest {
@@ -110,7 +111,12 @@ func (h ProjectManifest) ProjectManifest(w http.ResponseWriter, r *http.Request)
 				WriteFault(w, err)
 				return
 			}
-			bs = integration.WithProviders(all, h.stores.AvailableProviders())
+			available, err := h.stores.AvailableProviders()
+			if err != nil {
+				WriteFaultOr(w, err, http.StatusServiceUnavailable)
+				return
+			}
+			bs = integration.WithProviders(all, available)
 		} else if b, err := integration.Selected(r.Context(), h.db, c, ""); err == nil {
 			bs = []integration.Binding{b}
 		}

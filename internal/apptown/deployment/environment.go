@@ -184,7 +184,9 @@ func (e *Environment) hostDependencies(projectID ids.ID, creds dependency.Creden
 // gives. Preparing makes no key: WithRegistered does.
 func (e *Environment) PrepareBoot(ctx context.Context, projectID ids.ID, slug, deployment, ws string, c *appcontract.Contract, creds dependency.Credentials) (docker.Prepared, error) {
 	var login *docker.RegistryCredential
-	if ri := e.integrations.RegistryFor(ctx, projectID); ri != nil {
+	if ri, err := e.integrations.Registry(ctx, projectID); err != nil {
+		return docker.Prepared{}, &docker.BootError{Phase: docker.PhaseResolve, Err: fmt.Errorf("the project's registry credential: %w", err)}
+	} else if ri != nil {
 		login = &docker.RegistryCredential{Host: ri.Host, Username: ri.Username, Token: ri.Token}
 	}
 	// The boot runs c under the deployment's profile (a preview: the
@@ -316,22 +318,24 @@ func (e *Environment) ReleaseRepository(ctx context.Context, projectID ids.ID) (
 }
 
 // ReleaseLogin is the credential a project's images by digest are pulled
-// with: its container-registry attachment's, or nil (anonymous).
-func (e *Environment) ReleaseLogin(ctx context.Context, projectID ids.ID) *docker.RegistryCredential {
+// with: its container-registry attachment's, or nil (anonymous) when none
+// is attached. An attachment or credential that cannot be read is an error.
+func (e *Environment) ReleaseLogin(ctx context.Context, projectID ids.ID) (*docker.RegistryCredential, error) {
 	if e.integrations == nil {
-		return nil
+		return nil, nil
 	}
-	if ri := e.integrations.RegistryFor(ctx, projectID); ri != nil {
-		return &docker.RegistryCredential{Host: ri.Host, Username: ri.Username, Token: ri.Token}
+	ri, err := e.integrations.Registry(ctx, projectID)
+	if err != nil || ri == nil {
+		return nil, err
 	}
-	return nil
+	return &docker.RegistryCredential{Host: ri.Host, Username: ri.Username, Token: ri.Token}, nil
 }
 
 // BundleLogin is the credential b's images are pulled with: an eval copy's
 // own repository's (copyReleaseLogin), else the project's registry's.
-func (e *Environment) BundleLogin(ctx context.Context, projectID ids.ID, b *ReleaseBundle) *docker.RegistryCredential {
-	if login := e.copyReleaseLogin(ctx, projectID, b); login != nil {
-		return login
+func (e *Environment) BundleLogin(ctx context.Context, projectID ids.ID, b *ReleaseBundle) (*docker.RegistryCredential, error) {
+	if login, err := e.copyReleaseLogin(ctx, projectID, b); err != nil || login != nil {
+		return login, err
 	}
 	return e.ReleaseLogin(ctx, projectID)
 }
@@ -339,18 +343,25 @@ func (e *Environment) BundleLogin(ctx context.Context, projectID ids.ID, b *Rele
 // copyReleaseLogin is how an eval copy's published images are pulled where
 // it is deployed: with the credential of the copy's own repository, for
 // images by digest from that repository only (refusesBundle holds every
-// image of a digest bundle to its registry). Nil for any other project.
-func (e *Environment) copyReleaseLogin(ctx context.Context, projectID ids.ID, b *ReleaseBundle) *docker.RegistryCredential {
+// image of a digest bundle to its registry). Nil for any other project; a
+// purpose or repository that cannot be read is an error.
+func (e *Environment) copyReleaseLogin(ctx context.Context, projectID ids.ID, b *ReleaseBundle) (*docker.RegistryCredential, error) {
+	if b == nil || !b.ByDigest() {
+		return nil, nil
+	}
 	purpose, err := e.Purpose(ctx, projectID)
-	if err != nil || purpose.Integrations() || b == nil || !b.ByDigest() {
-		return nil
+	if err != nil || purpose.Integrations() {
+		return nil, err
 	}
 	repo, err := e.ReleaseRepository(ctx, projectID)
-	if err != nil || repo.Name != b.BuiltFrom.Registry {
-		return nil
+	if err != nil {
+		return nil, err
+	}
+	if repo.Name != b.BuiltFrom.Registry {
+		return nil, nil
 	}
 	host, _, _ := strings.Cut(repo.Name, "/")
-	return &docker.RegistryCredential{Host: host, Username: repo.Credential.Username, Token: repo.Credential.Password}
+	return &docker.RegistryCredential{Host: host, Username: repo.Credential.Username, Token: repo.Credential.Password}, nil
 }
 
 // --- needs fulfilled by registering ----------------------------------------
@@ -609,10 +620,15 @@ type hostRegistry struct {
 	project      ids.ID
 }
 
-func (r hostRegistry) Login(ctx context.Context, dk docker.Scope, image string) {
-	if ri := r.integrations.RegistryFor(ctx, r.project); ri != nil {
-		docker.LoginRegistry(ctx, dk, ri.Host, ri.Username, ri.Token, image)
+func (r hostRegistry) Login(ctx context.Context, dk docker.Scope, image string) error {
+	ri, err := r.integrations.Registry(ctx, r.project)
+	if err != nil {
+		return fmt.Errorf("the project's registry credential: %w", err)
 	}
+	if ri == nil {
+		return nil
+	}
+	return docker.LoginRegistry(ctx, dk, ri.Host, ri.Username, ri.Token, image)
 }
 
 type hostContributions struct {
@@ -620,7 +636,7 @@ type hostContributions struct {
 	project      ids.ID
 }
 
-func (c hostContributions) EnvFor(ctx context.Context) []string {
+func (c hostContributions) EnvFor(ctx context.Context) ([]string, error) {
 	return c.integrations.Environment(ctx, c.project)
 }
 

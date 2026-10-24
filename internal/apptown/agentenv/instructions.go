@@ -24,23 +24,50 @@ func NewInstructions(db *database.DB, integrations *integration.Service) *Instru
 // Registry generates the "what is ambient HERE" steering text from
 // the live bindings — norms live in guidance (durable prose); the mechanism
 // inventory is instance state and must never be hand-written (it would lie
-// on any instance with different bindings). Empty when nothing is bound.
-func (s *Instructions) Registry(ctx context.Context) string {
-	return RegistrySteering(integration.RegistryBindingsIn(ctx, s.db))
+// on any instance with different bindings). Empty when nothing is bound;
+// bindings that cannot be read are an error, never "nothing bound".
+func (s *Instructions) Registry(ctx context.Context) (string, error) {
+	bound, err := integration.RegistryBindings(ctx, s.db)
+	if err != nil {
+		return "", err
+	}
+	return RegistrySteering(bound), nil
 }
 
 // Integrations is the generated-steering contribution: per attached
-// integration, what exists and how the product is expected to use it.
-func (s *Instructions) Integrations(ctx context.Context, projectID ids.ID) string {
+// integration, what exists and how the product is expected to use it. An
+// attachment that cannot be read is an error: steering without it would
+// tell the agent the project has none.
+func (s *Instructions) Integrations(ctx context.Context, projectID ids.ID) (string, error) {
 	var b strings.Builder
-	b.WriteString(s.errorsDocSection(ctx, projectID))
-	b.WriteString(s.feedbackDocSection(ctx, projectID))
-	b.WriteString(s.llmDocSection(ctx, projectID))
+	errorsDoc, err := s.errorsDocSection(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	b.WriteString(errorsDoc)
+	feedbackDoc, err := s.feedbackDocSection(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	b.WriteString(feedbackDoc)
+	llmDoc, err := s.llmDocSection(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
+	b.WriteString(llmDoc)
+	services, err := s.integrations.AttachedServices(ctx, projectID)
+	if err != nil {
+		return "", err
+	}
 	var p *project.Project
-	if found, err := project.ByIDIn(ctx, s.db, projectID); err == nil {
+	if len(services) > 0 {
+		found, err := project.ByIDIn(ctx, s.db, projectID)
+		if err != nil {
+			return "", err
+		}
 		p = &found
 	}
-	for _, attached := range s.integrations.AttachedServices(ctx, projectID) {
+	for _, attached := range services {
 		b.WriteString("\n## " + attached.Kind.Title + " (attached, generated)\n\n")
 		if len(attached.Kind.Env) > 0 {
 			b.WriteString("Injected into app containers: ")
@@ -51,19 +78,19 @@ func (s *Instructions) Integrations(ctx context.Context, projectID ids.ID) strin
 			b.WriteString(strings.Join(keys, ", ") + ".\n\n")
 		}
 		if attached.Kind.Steering != "" {
-			b.WriteString(strings.TrimSpace(s.integrations.RenderTemplate(ctx, attached.Kind.Steering, attached.Config, attached.Resource, p, false)) + "\n")
+			b.WriteString(strings.TrimSpace(integration.RenderSteering(attached.Kind.Steering, attached.Config, attached.Resource, p)) + "\n")
 		}
 		if attached.Kind.Guidance != "" {
 			b.WriteString("\n" + strings.TrimSpace(attached.Kind.Guidance) + "\n")
 		}
 	}
-	return b.String()
+	return b.String(), nil
 }
 
 // errorsDocSection: the generated-steering contribution, per project.
-func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) string {
-	if len(s.integrations.ErrorsEnvironment(ctx, projectID)) == 0 {
-		return ""
+func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) (string, error) {
+	if env, err := s.integrations.ErrorsEnvironment(ctx, projectID); err != nil || len(env) == 0 {
+		return "", err
 	}
 	return "\n## Error reporting (attached, generated)\n\n" +
 		"This project has Sentry-compatible error reporting. The DSN is injected\n" +
@@ -81,15 +108,15 @@ func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) s
 		"\"apptown test boom\" event from node with @sentry/node and that DSN.\n" +
 		"Then run `apptown integrations` — it shows when the provider last saw an\n" +
 		"event from this project. Report what it said. That is what \"wired\n" +
-		"in\" means. The developer guide: /docs/errors/glitchtip\n"
+		"in\" means. The developer guide: /docs/errors/glitchtip\n", nil
 }
 
 // llmDocSection: the steering paragraph for a project that attached AI
 // models. The keys are made per deployment and per preview, so the step
 // itself holds none.
-func (s *Instructions) llmDocSection(ctx context.Context, projectID ids.ID) string {
+func (s *Instructions) llmDocSection(ctx context.Context, projectID ids.ID) (string, error) {
 	if attached, err := s.integrations.Attachments.IsAttached(ctx, projectID, integration.CapLLM); err != nil || !attached {
-		return ""
+		return "", err
 	}
 	return "\n## AI models (attached, generated)\n\n" +
 		"This project may give its app AI models (an OpenAI-compatible API). Declare the\n" +
@@ -101,14 +128,14 @@ func (s *Instructions) llmDocSection(ctx context.Context, projectID ids.ID) stri
 		"return or commit the key, and call models from the server only.\n" +
 		"Absent variables mean AI is off; HTTP 402 means the allowance is used\n" +
 		"up: say so to the person. Your own step holds no key: prove the\n" +
-		"wiring in the change's preview. See guidance deps/ai-models.\n"
+		"wiring in the change's preview. See guidance deps/ai-models.\n", nil
 }
 
 // feedbackDocSection: the steering paragraph — agents get the exact embed.
-func (s *Instructions) feedbackDocSection(ctx context.Context, projectID ids.ID) string {
-	url, key := s.integrations.FeedbackResource(ctx, projectID)
-	if url == "" || key == "" {
-		return ""
+func (s *Instructions) feedbackDocSection(ctx context.Context, projectID ids.ID) (string, error) {
+	url, key, err := s.integrations.Feedback(ctx, projectID)
+	if err != nil || url == "" || key == "" {
+		return "", err
 	}
 	return "\n## Customer feedback (attached, generated)\n\n" +
 		"This project collects user feedback with a widget (floating button +\n" +
@@ -127,5 +154,5 @@ func (s *Instructions) feedbackDocSection(ctx context.Context, projectID ids.ID)
 		"    </script>\n\n" +
 		"A server app receives FEEDBACK_URL and FEEDBACK_APP_KEY in its\n" +
 		"environment: render the same widget from them, or POST\n" +
-		"$FEEDBACK_URL/api/feedback {appKey, rating?, nps?, category?, message?, page?}.\n"
+		"$FEEDBACK_URL/api/feedback {appKey, rating?, nps?, category?, message?, page?}.\n", nil
 }

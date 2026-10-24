@@ -3,6 +3,8 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"github.com/flokkit/apptown/internal/ids"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -190,14 +192,14 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 		t.Fatalf("profile: %s", res.Stack.Secrets.Profile)
 	}
 	// The generated key is stable across boots.
-	first := a.Secrets.BindingsFor(t.Context(), idstest.N(1), "main")["SECRET_KEY_BASE"]
-	keyBefore, _, _ := a.Secrets.Stored(t.Context(), first.Ref, "SECRET_KEY_BASE")
+	first := boundSecrets(t, a, idstest.N(1), "main")["SECRET_KEY_BASE"]
+	keyBefore := storedSecret(t, a, first.Ref, "SECRET_KEY_BASE")
 	f.reset()
 	if _, err := testDockerHost(t, a, idstest.N(1)).Boot(context.Background(), docker.BootRequest{Docker: a.docker, Name: secretsNames.App(), StackID: secretsNames.Stack(), Workspace: ws,
 		Deployment: "main", Persistent: true, Probe: 2 * time.Second}, c); err != nil {
 		t.Fatal(err)
 	}
-	keyAfter, _, _ := a.Secrets.Stored(t.Context(), first.Ref, "SECRET_KEY_BASE")
+	keyAfter := storedSecret(t, a, first.Ref, "SECRET_KEY_BASE")
 	if keyBefore == "" || keyBefore != keyAfter {
 		t.Fatal("a generated secret must never be regenerated on deploy")
 	}
@@ -217,7 +219,7 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 	if len(containersRun(f)) != 0 {
 		t.Fatal("a missing secret must stop the boot before any container exists")
 	}
-	if pk := a.Secrets.BindingsFor(t.Context(), idstest.N(1), "preview")["SECRET_KEY_BASE"]; pk.Ref == first.Ref {
+	if pk := boundSecrets(t, a, idstest.N(1), "preview")["SECRET_KEY_BASE"]; pk.Ref == first.Ref {
 		t.Fatal("preview and main must not share a generated key")
 	}
 }
@@ -225,3 +227,27 @@ func TestSecretsDeliveredPerConsumer(t *testing.T) {
 // secretsNames are the names these boots run under: a standing
 // deployment's, by its key.
 var secretsNames = docker.ByKey(idstest.N(1))
+
+// boundSecrets is a deployment's secret bindings, for a test that expects
+// them readable.
+func boundSecrets(t *testing.T, a *App, projectID ids.ID, deployment string) map[string]secret.Binding {
+	t.Helper()
+	bindings, err := a.Secrets.Bindings.For(t.Context(), projectID, deployment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bindings
+}
+
+// storedSecret is a value in the built-in store, "" when it holds none.
+func storedSecret(t *testing.T, a *App, scope, name string) string {
+	t.Helper()
+	value, _, err := a.Secrets.Vault.Get(t.Context(), scope, name)
+	if errors.Is(err, secret.ErrNotStored) {
+		return ""
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}

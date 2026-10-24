@@ -47,7 +47,11 @@ func (s *Scanners) imageForCommit(ctx context.Context, projectID ids.ID, buildDi
 	switch {
 	case c.PublicPart().Image != "":
 		req := execution.ImageRequest{Pull: c.PublicPart().Image}
-		if ri := s.integrations.RegistryFor(ctx, projectID); ri != nil {
+		ri, err := s.integrations.Registry(ctx, projectID)
+		if err != nil {
+			return "", "", "error", fmt.Errorf("the project's registry credential: %w", err)
+		}
+		if ri != nil {
 			req.Registry = &execution.RegistryLogin{Host: ri.Host, Username: ri.Username, Token: ri.Token}
 		}
 		a := s.exec.Image(ctx, req)

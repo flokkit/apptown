@@ -42,7 +42,8 @@ type HostSettings struct {
 	// Scope is this AppTown's own Docker daemon.
 	Scope docker.Scope
 	// DataDir is AppTown's data directory; SSHConfigPath the ssh config
-	// AppTown writes attached hosts' stanzas into ("" is ~/.ssh/config).
+	// AppTown writes attached hosts' stanzas into ("" is ~/.ssh/config of
+	// the user AppTown runs as).
 	DataDir, SSHConfigPath string
 	// BuiltInTarget names the target that is this AppTown's own Docker.
 	BuiltInTarget string
@@ -56,11 +57,11 @@ type HostSettings struct {
 // their keys.
 func NewHosts(targets *Targets, secrets *secret.Service, settings HostSettings) *Hosts {
 	if settings.SSHConfigPath == "" {
-		home, err := os.UserHomeDir()
-		if err != nil || home == "" {
-			home = "/root"
+		// A home directory that cannot be found leaves the path empty, and
+		// writing a stanza then fails: no other home is guessed.
+		if home, err := os.UserHomeDir(); err == nil && home != "" {
+			settings.SSHConfigPath = filepath.Join(home, ".ssh", "config")
 		}
-		settings.SSHConfigPath = filepath.Join(home, ".ssh", "config")
 	}
 	return &Hosts{targets: targets, secrets: secrets, settings: settings}
 }
@@ -121,11 +122,18 @@ func sshStanza(targetName string, addr SSHAddress, keyPath string) string {
 
 // upsertSSHStanza writes the target's block into an ssh config file,
 // replacing an earlier block for the same target and leaving everything
-// else in the file untouched.
+// else in the file untouched. Only a file that does not exist starts empty:
+// one that cannot be read is an error, never replaced by AppTown's block.
 func upsertSSHStanza(configPath, targetName, stanza string) error {
+	if configPath == "" {
+		return errors.New("AppTown has no ssh config path: its home directory is unknown (set HOME)")
+	}
 	sshFiles.Lock()
 	defer sshFiles.Unlock()
-	raw, _ := os.ReadFile(configPath)
+	raw, err := os.ReadFile(configPath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("reading the ssh config %s: %w", configPath, err)
+	}
 	begin, end := "# BEGIN apptown target "+targetName+"\n", "# END apptown target "+targetName+"\n"
 	s := string(raw)
 	if i := strings.Index(s, begin); i >= 0 {
