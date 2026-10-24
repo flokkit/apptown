@@ -1,0 +1,91 @@
+// Renovate: dependency updates for this repository, one at a time.
+// design/operations/github.md ("Dependency updates") says how the dashboard,
+// review and landing work. Nothing opens until a maintainer ticks it on the
+// Dependency Dashboard issue; security fixes are the exception, one at a time.
+//
+// Native managers only, for now. The versions written in Go constants,
+// deploy/tool-pins.txt, stock/scanners.yaml and stock/toolchains are not read
+// here: they are moving into stock/tool-versions.yaml, and custom managers for
+// that file come after it.
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended', 'helpers:pinGitHubActionDigests'],
+  timezone: 'Australia/Melbourne',
+
+  // Admission: the dashboard lists every update; a person ticks one to open it.
+  dependencyDashboard: true,
+  dependencyDashboardApproval: true,
+  prConcurrentLimit: 1,
+  branchConcurrentLimit: 1,
+  prHourlyLimit: 1,
+  automerge: false,
+  rebaseWhen: 'conflicted',
+  minimumReleaseAge: '3 days',
+  reviewers: ['bls'],
+
+  enabledManagers: ['gomod', 'npm', 'github-actions', 'dockerfile', 'composer'],
+  // Fixtures and evaluation material are not dependencies of anything shipped.
+  ignorePaths: ['**/node_modules/**', '**/testdata/**', 'eval/**'],
+
+  // One group per thing to verify, for updates within a major version. A
+  // major is left out of the groups, so it is its own pull request, except
+  // where Renovate's monorepo groups (config:recommended) keep packages that
+  // release together in one (react with react-dom). Later rules win.
+  packageRules: [
+    {
+      matchManagers: ['gomod'],
+      matchUpdateTypes: ['minor', 'patch', 'digest'],
+      groupName: 'Go modules',
+    },
+    {
+      matchManagers: ['gomod'],
+      postUpdateOptions: ['gomodTidy'],
+    },
+    {
+      matchManagers: ['npm'],
+      matchFileNames: ['web/**'],
+      matchUpdateTypes: ['minor', 'patch', 'digest'],
+      groupName: 'web npm',
+    },
+    {
+      matchManagers: ['github-actions'],
+      matchUpdateTypes: ['minor', 'patch', 'digest', 'pin', 'pinDigest'],
+      groupName: 'GitHub Actions',
+    },
+    {
+      matchManagers: ['dockerfile'],
+      matchUpdateTypes: ['minor', 'patch', 'digest'],
+      groupName: 'Dockerfile bases',
+    },
+    {
+      // A new Go line (1.26 to 1.27) in go.mod and the golang images is a
+      // compiler change, verified apart from a digest refresh.
+      matchManagers: ['gomod', 'dockerfile'],
+      matchDepNames: ['go', 'golang'],
+      matchUpdateTypes: ['minor'],
+      groupName: 'Go toolchain',
+    },
+    {
+      // A starter is verified as one thing: its image builds from its
+      // Dockerfile and its npm or composer lockfile together.
+      matchFileNames: ['stock/seeds/**'],
+      matchUpdateTypes: ['minor', 'patch', 'digest'],
+      groupName: 'starter {{parentDir}}',
+    },
+    {
+      // A starter's major stays apart from the same package's major in web/.
+      matchFileNames: ['stock/seeds/**'],
+      matchUpdateTypes: ['major'],
+      additionalBranchPrefix: '{{parentDir}}-',
+      commitMessageSuffix: '({{parentDir}} starter)',
+    },
+  ],
+
+  // Security fixes skip approval, the schedule and the release-age wait
+  // (Renovate's defaults for this object); at most one is open at a time.
+  vulnerabilityAlerts: {
+    enabled: true,
+    prConcurrentLimit: 1,
+    assignees: ['bls'],
+  },
+}
