@@ -25,9 +25,9 @@ func TestAnAppTownCheckWithAnErrorIsNotOK(t *testing.T) {
 	for _, kind := range []string{"sh", "tool", "source"} {
 		t.Run(kind, func(t *testing.T) {
 			t.Parallel()
-			checks := `[{"name":"error","evaluator":"sh","sh":"true"}]`
+			checks := `[{"appliesTo": ["repository"], "name":"error","evaluator":"sh","sh":"true"}]`
 			if kind == "tool" {
-				checks = `[{"name":"error","evaluator":"tool","tool":"missing-binding"}]`
+				checks = `[{"appliesTo": ["repository"], "name":"error","evaluator":"tool","tool":"missing-binding"}]`
 			}
 			if kind == "source" {
 				checks = `[]`
@@ -74,7 +74,7 @@ func TestAnUnconfirmedSaveRefusesTheCheckOverMCP(t *testing.T) {
 
 func TestAppTownCheckChecksOneCommitWhileTheBranchMoves(t *testing.T) {
 	t.Parallel()
-	a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"step1-image","severity":"high"}]`)
+	a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"source","evaluator":"sh","sh":"true"},{"appliesTo": ["repository"], "name":"image","evaluator":"tool","tool":"step1-image","severity":"high"}]`)
 	attachScanner(t, a, "step1-image", map[string]any{"command": []string{"true"}, "target": "exec-image", "manual": true})
 	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
@@ -122,7 +122,7 @@ func TestAppTownCheckChecksOneCommitWhileTheBranchMoves(t *testing.T) {
 // request naming nothing checks the change's latest commit, as before.
 func TestAppTownCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 	t.Parallel()
-	a, ch := step1ReviewGuidance(t, true, `[{"name":"clean","evaluator":"sh","sh":"true"}]`)
+	a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"clean","evaluator":"sh","sh":"true"}]`)
 	var saw []string // work.txt in each tree a check ran on
 	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
 		body, _ := os.ReadFile(filepath.Join(req.Workspace, "work.txt"))
@@ -184,7 +184,7 @@ func TestAppTownCheckOverHTTPChecksTheNamedCommitOrRefuses(t *testing.T) {
 // check run.
 func TestAppTownCheckPublishedChecksTheBranchTipNotTheFolder(t *testing.T) {
 	t.Parallel()
-	a, ch := step1ReviewGuidance(t, true, `[{"name":"clean","evaluator":"sh","sh":"true"}]`)
+	a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"clean","evaluator":"sh","sh":"true"}]`)
 	var saw []string // work.txt in each tree a check ran on
 	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
 		body, _ := os.ReadFile(filepath.Join(req.Workspace, "work.txt"))

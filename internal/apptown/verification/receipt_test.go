@@ -11,7 +11,7 @@ import (
 
 func TestCheckReceiptKeepsZeroValuesAndExactProvenance(t *testing.T) {
 	t.Parallel()
-	sc := conformance.DeclaredCheck{Block: "hygiene", Version: 2, Check: conformance.CheckDeclaration{Name: "clean", Severity: "high"}}
+	sc := conformance.DeclaredCheck{Block: "hygiene", Version: 2, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "clean", Severity: "high"}}
 	results := Results{{Block: sc.Block, Version: 1, Check: sc.Check.Name, Evaluator: "llm", Verdict: workflow.VerdictFail},
 		{Block: sc.Block, Version: 2, Check: sc.Check.Name, Evaluator: "sh", Verdict: workflow.VerdictPass, ExitCode: new(0), DurationMs: new(int64(0)), Gates: new(false)},
 	}

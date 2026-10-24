@@ -43,6 +43,12 @@ tools:
     "3.4": {version: 3.4.12}
   rust:
     "1.84": {version: 1.84.0}
+  # The Godot engine the godot-web-export check's image pins.
+  godot:
+    "4.4": {version: 4.4.1}
+  # The PHP the WordPress starter's runtime image runs.
+  php:
+    "8.3": {version: 8.3.35}
   postgres:
     "16": {version: "16.15", images: {run: "postgres:16.15-alpine@sha256:f4610795587492cd4fb887c2dc3de301b813278bb6f616992061141b5f15ac36"}}
   mariadb:

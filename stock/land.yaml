@@ -29,9 +29,13 @@ spec:
         - name: tests
           # The committed tree runs its own tests before anything else looks
           # at it — the receipt lives on the change, not in a pipeline
-          # somewhere. No tests found = pass that says so (set
-          # with: {require: true} to make absence a failure).
+          # somewhere. A test command found always runs. With none, a part
+          # built with one of these tools (tools: in .apptown/app.yaml) is
+          # a failure, and an app with no such part is not applicable;
+          # require: true makes absence a failure whatever the app declares.
           uses: tests
+          with:
+            appliesTo: [tool:go, tool:node, tool:python, tool:ruby, tool:java, tool:dotnet, tool:rust]
         - name: scan-source
           # A scan POINT, not a scanner: every attached scanner that reads
           # source (osv, gitleaks, syft today) runs here, each as its own
@@ -64,7 +68,8 @@ spec:
             means: "I am the human answerable for this landing: it merges and ships on my say-so."
             # A yes given before the work exists (an adoption's opener can give
             # one): what it means, on the condition AppTown witnesses.
-            inAdvance: "I answer for this landing before it runs, on a condition AppTown checks: it merges no code, and every gate passes with every check passing, none excused."
+            inAdvance: "I answer for this landing before it runs, on a condition AppTown checks: it merges no code, and every gate passes with every check passing or not applicable, none excused."
+            inAdvanceAdmitsNotApplicable: true
             instructions: "Read what changed (the summary and the diff) and the checks before you decide."
     - name: ship
       onEnter:

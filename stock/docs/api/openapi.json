@@ -1299,7 +1299,8 @@
           "cannot-assess",
           "skipped",
           "excepted",
-          "unclear"
+          "unclear",
+          "not-applicable"
         ],
         "type": "string"
       },
@@ -3652,7 +3653,8 @@
           "fail",
           "needs_human",
           "error",
-          "skipped"
+          "skipped",
+          "not_applicable"
         ],
         "type": "string"
       },

@@ -63,7 +63,7 @@ func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.
 	db := testDB(t)
 	old := releaseStock(t, map[string]string{
 		"retired-lane.yaml":                   retiredLane,
-		"guidance/data/retired-rule.md":       "---\nname: data/retired-rule\ntags: data\nchecks: [{\"name\": \"no-db-files\", \"expects\": \"no database files\", \"severity\": \"high\", \"evaluator\": \"sh\", \"sh\": \"true\", \"title\": \"No database files\"}]\n---\nKeep records in one file.\n",
+		"guidance/data/retired-rule.md":       "---\nname: data/retired-rule\ntags: data\nchecks: [{\"appliesTo\": [\"repository\"], \"name\": \"no-db-files\", \"expects\": \"no database files\", \"severity\": \"high\", \"evaluator\": \"sh\", \"sh\": \"true\", \"title\": \"No database files\"}]\n---\nKeep records in one file.\n",
 		"guidance/deploy/retired-platform.md": "---\nname: deploy/retired-platform\ntier: platform\n---\nAn old rule for every app.\n",
 		"policies.yaml":                       "  - name: retired-policy\n    description: an old rule\n    rule: requireStepBefore\n    with: { uses: deploy, requires: scan }\n",
 	})

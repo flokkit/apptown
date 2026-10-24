@@ -72,7 +72,7 @@ func TestCandidatePreparationPreservesOmissionsAndExplicitPins(t *testing.T) {
 		blocks: map[ids.ID]wow.Block{idstest.N(1): {ID: idstest.N(1), Name: "house", LatestVersion: 2}, idstest.N(2): {ID: idstest.N(2), Name: "own", LatestVersion: 2}},
 		versions: map[ids.ID]map[int]wow.BlockObservation{
 			idstest.N(1): {1: {Version: 1, ChecksJSON: `[{"name":"safe","severity":"high"}]`}},
-			idstest.N(2): {1: {Version: 1, ChecksJSON: `[]`}, 2: {Version: 2, ChecksJSON: `[{"name":"new","title":"New check","expects":"works"}]`}},
+			idstest.N(2): {1: {Version: 1, ChecksJSON: `[]`}, 2: {Version: 2, ChecksJSON: `[{"appliesTo": ["repository"], "name":"new","title":"New check","expects":"works"}]`}},
 		},
 		packs: map[string]wow.PackVersion{"house": {SpecJSON: `{"guidance":["house"],"requires":["scanner"]}`, PinsJSON: `{"blocks":{"house":1}}`}},
 	}

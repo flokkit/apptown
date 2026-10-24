@@ -41,7 +41,7 @@ A project's checks sort into lanes, and the lanes decide its standing:
 | Flagged by AI review | a rubric judged this, no person has yet | read the evidence; confirm it, or record it as a false positive |
 | Excepted | it fails, but an exception accepts it on the record | nothing, until the exception expires |
 | Not yet judged | no verdict yet, or the app moved since the last one | run a review |
-| Not applicable in a review | a check about what one *change* did; it runs only when a change lands | nothing |
+| Not applicable | the check applies to nothing this app declares (no part built with its tool, no static part, no image), or it judges what one *change* did and runs only when a change lands; each says why | nothing, unless the reason is wrong: then declare the part's `tools:` in `.apptown/app.yaml` |
 | Conforms | it passes | nothing |
 
 **AI flags do not count as findings until a person confirms them.** A
@@ -107,6 +107,31 @@ a finding is not remediation work: AppTown refuses to open a remediation
 for it and skips a queued item with the reason. Fix it with an ordinary
 change the finding describes (declare more memory) and deploy, or override
 the deployment's resources on its card.
+
+## Not applicable
+
+Every check says what it applies to (`appliesTo`): the whole repository,
+or parts of the app as `.apptown/app.yaml` declares them, such as every
+part built with Go, every static site, every part built from a Dockerfile.
+AppTown decides from the contract, before anything runs, whether a check
+applies. One that applies to nothing here is **not applicable**, with the
+reason ("no part is built with go"). Not applicable is never a pass and
+never an error:
+
+- it does not stop anyone approving or landing a change by itself;
+- the change's record and the approval panel name every check that was
+  not applicable, so none is read as passed;
+- `apptown check` lists each with `○` and its reason, and counts them
+  apart from the checks that pass;
+- a remediation whose check is not applicable is not met: only a pass is.
+
+A check that applies runs once in the folder of each part it matches (a
+monorepo's Go part and Vite part are judged each in its own folder), and
+finding nothing to judge there is a failure, since the contract and the
+code disagree: a part that says it is built with Go has a go.mod. The
+platform check "the contract matches the code" catches the other way
+round, code no part declares, so a check cannot be made not applicable by
+taking a tool out of the contract while its code stays.
 
 ## Fixing many at once: remediations
 

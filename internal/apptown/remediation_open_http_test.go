@@ -55,7 +55,7 @@ func TestAStandingOnlyCheckIsNotRemediationWork(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	alpha, _ := failingFixture(t, a)
-	adopt(t, a, alpha, "memory", 1, checksJSON(`{"name":"memory-within","evaluator":"runtime","probe":"memory-within","severity":"high","expects":"the deployment runs within its memory"}`))
+	adopt(t, a, alpha, "memory", 1, checksJSON(`{"appliesTo": ["repository"], "name":"memory-within","evaluator":"runtime","probe":"memory-within","severity":"high","expects":"the deployment runs within its memory"}`))
 	w := authzCall(a.Handler(), "t", "POST", "/api/v1/conformance/remediate", `{"project":"alpha","block":"memory","check":"memory-within"}`)
 	if w.Code != 422 || !strings.Contains(w.Body.String(), "judged only on the running deployment") {
 		t.Fatalf("a standing-only check was opened as remediation work: %d %s", w.Code, w.Body.String())

@@ -54,7 +54,7 @@ func step1ReviewRun(t *testing.T, a *App, ch *workflow.Change) *workflow.Run {
 
 func TestGuidanceChecksRefuseAFolderWithoutARepository(t *testing.T) {
 	t.Parallel()
-	a, ch := step1ReviewGuidance(t, false, `[{"name":"clean","evaluator":"sh","sh":"true"}]`)
+	a, ch := step1ReviewGuidance(t, false, `[{"appliesTo": ["repository"], "name":"clean","evaluator":"sh","sh":"true"}]`)
 	var folders []string
 	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
 		folders = append(folders, req.Workspace)
@@ -69,7 +69,7 @@ func TestGuidanceChecksRefuseAFolderWithoutARepository(t *testing.T) {
 
 func TestGuidanceChecksKeepImageAndSourceOnOneCommit(t *testing.T) {
 	t.Parallel()
-	a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"step1-image","severity":"high"}]`)
+	a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"source","evaluator":"sh","sh":"true"},{"appliesTo": ["repository"], "name":"image","evaluator":"tool","tool":"step1-image","severity":"high"}]`)
 	attachScanner(t, a, "step1-image", map[string]any{"command": []string{"true"}, "target": "exec-image", "manual": true})
 	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
@@ -133,7 +133,7 @@ func commitFolder(t *testing.T, ws string) {
 // in the newer image), or evidence that names no snapshot.
 func TestAGuidanceStepKeepsTheToolVersionsItStartedWith(t *testing.T) {
 	t.Parallel()
-	a, ch := step1ReviewGuidance(t, true, `[{"name":"one","evaluator":"sh","sh":"true"},{"name":"two","evaluator":"sh","sh":"true"}]`)
+	a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"one","evaluator":"sh","sh":"true"},{"appliesTo": ["repository"], "name":"two","evaluator":"sh","sh":"true"}]`)
 	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
 	commitFolder(t, ws)
 	started := a.cfg.stock.Tools.Current()

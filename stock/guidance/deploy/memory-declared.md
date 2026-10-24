@@ -2,7 +2,7 @@
 name: deploy/memory-declared
 tags: deploy,resources,memory,platform
 tier: platform
-checks: [{"name": "memory-declared", "expects": "each part AppTown runs from a build or an image declares its memory (resources.memory) in .apptown/app.yaml; a static part is served by AppTown's own file server and declares nothing", "severity": "medium", "evaluator": "runtime", "probe": "memory-declared", "title": "Declare the memory each part may use"}, {"name": "memory-within", "expects": "each part of the standing main deployment uses under 90% of the memory limit AppTown applied to it, as AppTown observes it; a part running with no limit does not meet this, and use AppTown cannot observe is not judged", "severity": "high", "evaluator": "runtime", "probe": "memory-within", "title": "Run within the declared memory"}]
+checks: [{"name": "memory-declared", "expects": "each part AppTown runs from a build or an image declares its memory (resources.memory) in .apptown/app.yaml; a static part is served by AppTown's own file server and declares nothing", "severity": "medium", "evaluator": "runtime", "probe": "memory-declared", "title": "Declare the memory each part may use", "appliesTo": ["container"]}, {"name": "memory-within", "expects": "each part of the standing main deployment uses under 90% of the memory limit AppTown applied to it, as AppTown observes it; a part running with no limit does not meet this, and use AppTown cannot observe is not judged", "severity": "high", "evaluator": "runtime", "probe": "memory-within", "title": "Run within the declared memory", "appliesTo": ["container"]}]
 ---
 Every part AppTown runs from your build or image declares the most memory it
 may use (a `static:` part declares nothing). A part that declares nothing runs

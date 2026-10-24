@@ -140,14 +140,8 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 		detected = command != ""
 	}
 	if command == "" {
-		if cfg.Require {
-			finish(workflow.StatusFail, map[string]any{
-				"reason": "this workflow requires tests, and none were found — no go.mod, no package.json test script, no Makefile test target, no pom.xml. Add tests, or set the step's command."})
-			return
-		}
-		finish(workflow.StatusPass, map[string]any{
-			"reason": "no tests found — nothing to run (go.mod, package.json test script, Makefile test target, or pom.xml would be detected)",
-			"tree":   tree})
+		status, reason := noTestCommand(cfg, staged)
+		finish(status, map[string]any{"reason": reason, "tree": tree})
 		return
 	}
 
@@ -472,4 +466,34 @@ type testsConfig struct {
 	Command        string `json:"command"`
 	Require        bool   `json:"require"`
 	TimeoutMinutes int    `json:"timeoutMinutes"`
+	// AppliesTo names, in the checks' words, the parts whose having no test
+	// command is a failure: the declaration says they are built with a tool
+	// that has tests. With no command and no such part, the step is not
+	// applicable. A test command that exists always runs.
+	AppliesTo []string `json:"appliesTo"`
+}
+
+// noTestCommand is what a tests step says when it finds no command: a
+// failure where the workflow requires tests or a declared part it applies
+// to has none, else not applicable, with the reason.
+func noTestCommand(cfg testsConfig, staged string) (workflow.StepState, string) {
+	const conventions = "go.mod, a package.json test script, a Makefile test target or pom.xml at the root, or the step's command"
+	if cfg.Require {
+		return workflow.StatusFail, "this workflow requires tests, and none were found (" + conventions + "). Add tests, or set the step's command."
+	}
+	if len(cfg.AppliesTo) == 0 {
+		return workflow.StatusNotApplicable, "no test command was found (" + conventions + ")"
+	}
+	places, why, err := check.Applies(cfg.AppliesTo, verification.CheckSource(staged))
+	switch {
+	case err != nil:
+		return workflow.StatusError, err.Error()
+	case len(places) == 0:
+		return workflow.StatusNotApplicable, "no test command, and " + why
+	}
+	var parts []string
+	for _, pl := range places {
+		parts = append(parts, pl.Parts...)
+	}
+	return workflow.StatusFail, fmt.Sprintf("%s %s built with a tool that has tests (tools: in .apptown/app.yaml), and no test command was found (%s): add the tests, or correct the part's tools", strings.Join(parts, ", "), map[bool]string{true: "is", false: "are"}[len(parts) == 1], conventions)
 }

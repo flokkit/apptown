@@ -722,3 +722,57 @@ func TestAFailedTestsRunWhoseOutputDidNotArriveSaysReportLost(t *testing.T) {
 		t.Fatalf("%s: %s", step.Status, step.Evidence)
 	}
 }
+
+// With no test command, a tests step is a failure where a part the step
+// applies to is built with a tool that has tests, and not applicable where
+// no part is, never a pass on nothing; a command that exists runs
+// whatever the contract says, so a project whose contract names no tools
+// yet keeps its test run.
+//
+// Kills: no command read as a pass; a contract that names no tools
+// stopping a detected command; not applicable without the step's
+// appliesTo, or a failure with no part it applies to.
+func TestATestsStepWithNoCommandIsNotApplicableOrAFailure(t *testing.T) {
+	t.Parallel()
+	goPart := "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    tools: [go]\n"
+	noTools := "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"
+	stockWords := []any{"tool:go", "tool:node"}
+	for _, tc := range []struct {
+		name     string
+		with     map[string]any
+		contract string
+		makefile bool
+		want     workflow.StepState
+		says     string
+		ran      int
+	}{
+		{"a go part with no command", map[string]any{"appliesTo": stockWords}, goPart, false, workflow.StatusFail, "web is built with a tool that has tests", 0},
+		{"no part built with a tool", map[string]any{"appliesTo": stockWords}, noTools, false, workflow.StatusNotApplicable, "no part is built with go or node", 0},
+		{"no contract", map[string]any{"appliesTo": stockWords}, "", false, workflow.StatusNotApplicable, "no .apptown/app.yaml", 0},
+		{"a step without appliesTo", nil, goPart, false, workflow.StatusNotApplicable, "no test command was found", 0},
+		{"required", map[string]any{"require": true}, noTools, false, workflow.StatusFail, "requires tests", 0},
+		{"a command found whatever the contract names", map[string]any{"appliesTo": stockWords}, noTools, true, workflow.StatusPass, "", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f, ch, folder := testsWorld(t, tc.with)
+			if tc.makefile {
+				if err := os.WriteFile(filepath.Join(folder, "Makefile"), []byte("test:\n\ttrue\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.contract != "" {
+				commitAppDeclaration(t, folder, tc.contract)
+			} else {
+				commitFolder(t, folder)
+			}
+			seen := &markersSeen{}
+			f.checks = seen.run
+			step := f.execute(t, testsRun(t, f, ch), "tests")
+			reason, _ := stepEvidence(t, step)["reason"].(string)
+			if step.Status != tc.want || !strings.Contains(reason, tc.says) || len(seen.all()) != tc.ran {
+				t.Fatalf("%s %q, ran %d; want %s saying %q, %d run", step.Status, reason, len(seen.all()), tc.want, tc.says, tc.ran)
+			}
+		})
+	}
+}

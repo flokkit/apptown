@@ -25,8 +25,8 @@ func preparationFixture(t *testing.T) (reviewStore, ids.ID, ids.ID, []ids.ID) {
 	if err := project.New(s.db, nil).SetDefaultBranch(context.Background(), p, "main"); err != nil {
 		t.Fatal(err)
 	}
-	block := stockCheckFixture(t, s.db, wow.StockBlock{Name: "standard", Body: "old body", ChecksJSON: `[{"name":"clear","evaluator":"llm","scope":"tree","expects":"Pinned wording","rubric":"Check clarity"},{"name":"unscanned","sh":"exit 0"}]`})
-	if _, err := wow.NewLibrary(s.db).StockUpdate(t.Context(), wow.StockBlock{Name: "standard", Body: "new body", ChecksJSON: `[{"name":"new-check","sh":"exit 0"}]`}); err != nil {
+	block := stockCheckFixture(t, s.db, wow.StockBlock{Name: "standard", Body: "old body", ChecksJSON: `[{"appliesTo": ["repository"], "name":"clear","evaluator":"llm","scope":"tree","expects":"Pinned wording","rubric":"Check clarity"},{"appliesTo": ["repository"], "name":"unscanned","sh":"exit 0"}]`})
+	if _, err := wow.NewLibrary(s.db).StockUpdate(t.Context(), wow.StockBlock{Name: "standard", Body: "new body", ChecksJSON: `[{"appliesTo": ["repository"], "name":"new-check","sh":"exit 0"}]`}); err != nil {
 		t.Fatal(err)
 	}
 	pinCheckFixture(t, s.db, p, wow.ResolvedPin{BlockID: block, Name: "standard", Version: 1})

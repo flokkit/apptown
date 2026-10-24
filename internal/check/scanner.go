@@ -1,6 +1,11 @@
 package check
 
-import "github.com/flokkit/apptown/internal/execution"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/flokkit/apptown/internal/execution"
+)
 
 // A Scanner is a maintained tool a way of working can carry: a container, a
 // command, and what to do with what it leaves behind. Reading the catalogue
@@ -47,6 +52,41 @@ type Scanner struct {
 	// runs the extra certificates' script first (internal/trust) with
 	// ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", <program>, ...].
 	NoEntrypoint bool `yaml:"noEntrypoint" json:"noEntrypoint"`
+	// AppliesTo is what a scan-point scanner applies to (applies.go),
+	// required for one that is not manual; a manual scanner takes the
+	// applicability of the check that names it and declares none.
+	AppliesTo []string `yaml:"appliesTo" json:"appliesTo,omitempty"`
+	// EmptyExit is the exit the tool gives when it found nothing to judge
+	// (osv-scanner's 128, "no package sources found"). Where the scanner
+	// applies, that is a failure: the contract says there is something to
+	// judge. 0: the tool has no such exit.
+	EmptyExit int `yaml:"emptyExit" json:"emptyExit,omitempty"`
+}
+
+// ValidateApplicability holds a manifest to its applicability rule: a
+// scanner that is not manual states what it applies to; a manual one does
+// not, since the check that names it does.
+func (s Scanner) ValidateApplicability() error {
+	if s.Manual {
+		if len(s.AppliesTo) > 0 {
+			return fmt.Errorf("scanner %s: a manual scanner declares no appliesTo; the check that names it does", s.Name)
+		}
+		return nil
+	}
+	if err := ValidateAppliesTo(s.AppliesTo); err != nil {
+		return fmt.Errorf("scanner %s: %w", s.Name, err)
+	}
+	return nil
+}
+
+// EmptyExitDetail is what a scanner's nothing-to-judge exit says where the
+// scanner applies.
+func EmptyExitDetail(scanner string, pl Place) string {
+	where := "the repository"
+	if pl.Parts != nil {
+		where = strings.Join(pl.Parts, ", ") + " (" + pl.Folder + ")"
+	}
+	return fmt.Sprintf("%s found nothing to judge in %s, though the contract says there is: commit what %s reads (a lockfile), or correct the part's tools in .apptown/app.yaml", scanner, where, scanner)
 }
 
 // Looks says what the scanner looks at, with "source" as the default.

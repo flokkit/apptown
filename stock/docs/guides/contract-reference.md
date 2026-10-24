@@ -31,6 +31,7 @@ version: 2
 app:
   web:
     build: .
+    tools: [node]
     ports: ["8080"]
     public: true
     dataDir: /data
@@ -46,6 +47,7 @@ init:
     command: ["npm", "run", "migrate"]
 needs:
   postgres: { version: "16" }
+notAppCode: [docs/site]
 ```
 
 - **`version`** is `2`. A file with `version: 1`, or none, is still read as
@@ -100,6 +102,22 @@ needs:
   inside the project, written relative) and how values are
   generated and delivered. Delivery is by environment variable; `file`
   delivery is refused.
+- **`tools`** on a part names what it is built with, from its folder:
+  `tools: [go]`, or `tools: [go, node]` for a Go service that builds its
+  Vite UI in the same image. The names are the tool versions' (go, node,
+  python, java, dotnet, ruby, rust, php, godot); the way of working's pack
+  says which version line of each. A way of working's checks for a tool run
+  on the parts that name it, in the part's folder; a part that names none
+  has them not applicable. An `image:` part has no folder and takes no
+  `tools`. A starter whose app is not written yet names none, and the
+  change that writes the app adds them.
+- **`notAppCode`** lists folders whose code is not the app's
+  (documentation, tooling, examples), relative to the root. The platform
+  check "the contract matches the code" asks for every package manifest
+  (package.json, go.mod, pyproject.toml, Gemfile, Cargo.toml, pom.xml, a
+  .csproj, composer.json, project.godot) to be inside the folder of a part
+  that names its tool, or under one of these. A part's own folder, or one
+  holding it, is refused.
 - **`profiles`** and **`resources`**: see "Resources and profiles" below.
 - **`rehearsal`**: see "Restore checks" below.
 - **Refused until a target uses them:** `seed` on a part (put a command

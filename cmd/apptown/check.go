@@ -105,6 +105,8 @@ func cmdCheck(args []string) error {
 			Scanner   string `json:"scanner"`
 			Evaluator string `json:"evaluator"`
 			Note      string `json:"note"`
+			// Detail is a not-applicable check's reason.
+			Detail string `json:"detail"`
 			// How a failing check read against main: already failing there,
 			// or not decidable (the note says why). Neither blocks.
 			Preexisting bool `json:"preexisting"`
@@ -144,6 +146,8 @@ func cmdCheck(args []string) error {
 			mark = red("✗")
 		case "skipped":
 			mark = dim("–")
+		case "not-applicable":
+			mark = dim("○")
 		}
 		var suffix string
 		switch {
@@ -173,13 +177,29 @@ func cmdCheck(args []string) error {
 		if c.Verdict == "skipped" && c.Note != "" {
 			fmt.Println("      " + dim(c.Note))
 		}
+		if c.Verdict == "not-applicable" {
+			fmt.Println("      " + dim("not applicable: "+c.Detail))
+		}
 	}
 	fmt.Println()
 	if out.Note != "" {
 		fmt.Println(dim(out.Note))
 	}
+	passed, notApplicable := 0, 0
+	for _, c := range out.Checks {
+		switch c.Verdict {
+		case "pass":
+			passed++
+		case "not-applicable":
+			notApplicable++
+		}
+	}
+	if notApplicable > 0 {
+		// Never counted as passed: each is listed above with its reason.
+		fmt.Println(dim(fmt.Sprintf("%d check(s) not applicable to what this app declares", notApplicable)))
+	}
 	if out.OK {
-		fmt.Println(green(fmt.Sprintf("✓ gate clear for commit %s — %d check(s) pass", out.Commit, len(out.Checks))))
+		fmt.Println(green(fmt.Sprintf("✓ gate clear for commit %s — %d check(s) pass", out.Commit, passed)))
 		if out.CheckErrors > 0 {
 			fmt.Println(yellow(fmt.Sprintf("  %d check(s) errored — they don't gate, but may be hiding a real result", out.CheckErrors)))
 		}

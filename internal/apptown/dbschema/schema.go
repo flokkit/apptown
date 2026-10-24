@@ -259,6 +259,40 @@ END $$`,
 		"ALTER TABLE pack_versions ALTER COLUMN source DROP DEFAULT, ALTER COLUMN signer DROP DEFAULT",
 		"ALTER TABLE pack_versions ADD CONSTRAINT pack_version_source CHECK (source <> '')",
 	}},
+	// A check says what it applies to (appliesTo), and the field is
+	// required: there is no default. Every check stored before it existed
+	// was judged once over the whole repository, so it is given
+	// ["repository"], which states that meaning and changes nothing it
+	// does. The same for every scanner that runs at a scan point (one that
+	// is not manual), in the binding and in each of its versions, each
+	// version judged by its own manual. Nothing else stores a declaration:
+	// verdicts, what-if rows, receipts and runs name a check, they do not
+	// hold one. A block version whose checks are not a list of objects
+	// stops the upgrade, named.
+	{n: 169, note: "every stored check and scan-point scanner states what it applies to: repository, its meaning before appliesTo", stmts: []string{
+		`DO $$
+DECLARE bad text;
+BEGIN
+  SELECT string_agg(b.name || ' v' || v.version, ', ' ORDER BY b.name, v.version) INTO bad
+  FROM guidance_block_versions v JOIN guidance_blocks b ON b.id = v.block_id
+  WHERE jsonb_typeof(v.checks_json) <> 'array'
+     OR EXISTS (SELECT 1 FROM jsonb_array_elements(v.checks_json) c WHERE jsonb_typeof(c) <> 'object');
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'these guidance block versions store checks that are not a list of checks, so what they apply to cannot be stated: %', bad;
+  END IF;
+END $$`,
+		`UPDATE guidance_block_versions v SET checks_json = (
+  SELECT jsonb_agg(CASE WHEN jsonb_exists(c, 'appliesTo') THEN c ELSE c || '{"appliesTo": ["repository"]}'::jsonb END ORDER BY ord)
+  FROM jsonb_array_elements(v.checks_json) WITH ORDINALITY AS t(c, ord))
+WHERE EXISTS (SELECT 1 FROM jsonb_array_elements(v.checks_json) c WHERE NOT jsonb_exists(c, 'appliesTo'))`,
+		`UPDATE integrations SET config_json = config_json || '{"appliesTo": ["repository"]}'::jsonb
+WHERE capability = 'scanner' AND jsonb_typeof(config_json) = 'object' AND NOT jsonb_exists(config_json, 'appliesTo')
+  AND COALESCE(config_json->'manual', 'false'::jsonb) <> 'true'::jsonb`,
+		`UPDATE integration_versions v SET config_json = v.config_json || '{"appliesTo": ["repository"]}'::jsonb
+FROM integrations i
+WHERE i.id = v.integration_id AND i.capability = 'scanner' AND jsonb_typeof(v.config_json) = 'object' AND NOT jsonb_exists(v.config_json, 'appliesTo')
+  AND COALESCE(v.config_json->'manual', 'false'::jsonb) <> 'true'::jsonb`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

@@ -23,9 +23,9 @@ func TestBaselineClassificationCarriesItsProvenance(t *testing.T) {
 	t.Parallel()
 	// The split rides on the findings themselves.
 	checks := []conformance.DeclaredCheck{
-		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "occ", Evaluator: "sh", Occurrences: "lines"}},
-		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "bool", Evaluator: "sh"}},
-		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "new", Evaluator: "sh"}},
+		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "occ", Evaluator: "sh", Occurrences: "lines"}},
+		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "bool", Evaluator: "sh"}},
+		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "new", Evaluator: "sh"}},
 	}
 	b := &baselineSet{failing: map[string]bool{"guidance|b@1|occ|": true, "guidance|b@1|bool|": true},
 		items: map[string][]string{"guidance|b@1|occ|": {"x"}}, unknown: map[string]bool{}}

@@ -56,7 +56,7 @@ func TestAConformanceReceiptCarriesItsRecordsTime(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	id := createTestProject(t, db, "stepping", "Stepping", "main")
-	block := stockCheckFixture(t, db, wow.StockBlock{Name: "prose", ChecksJSON: `[{"name":"readme-plain","evaluator":"llm","scope":"tree","rubric":"README is plain","files":["README.md"]}]`})
+	block := stockCheckFixture(t, db, wow.StockBlock{Name: "prose", ChecksJSON: `[{"appliesTo": ["repository"], "name":"readme-plain","evaluator":"llm","scope":"tree","rubric":"README is plain","files":["README.md"]}]`})
 	pinCheckFixture(t, db, id, wow.ResolvedPin{BlockID: block, Name: "prose", Version: 1})
 	clk := clocktest.NewStepping(time.Date(2026, 3, 1, 9, 0, 0, 0, time.UTC), time.Second)
 	s := New(db, nil, &confirmationSource{head: "first-head"}, clk.Now)

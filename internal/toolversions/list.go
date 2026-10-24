@@ -86,6 +86,12 @@ func (l *List) HasLine(tool, line string) bool {
 	return ok
 }
 
+// HasTool says whether the list names tool at any line: the tools a
+// check's appliesTo may name.
+func (l *List) HasTool(tool string) bool {
+	return len(l.Tools[tool]) > 0
+}
+
 // Images is the set of runtime images.
 type Images struct {
 	Sh, DF, StaticServer, PrivateDocker string

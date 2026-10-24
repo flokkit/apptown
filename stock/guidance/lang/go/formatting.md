@@ -1,7 +1,7 @@
 ---
 name: lang/go/formatting
 tags: lang,go
-checks: [{"name": "gofmt-clean", "expects": "gofmt -l reports no file: every Go source in the tree is formatted the one way", "severity": "high", "evaluator": "tool", "tool": "gofmt", "title": "Format Go source files"}, {"name": "go-vet-clean", "expects": "go vet ./... passes: no printf mismatches, unreachable code, copied locks, or the other things the compiler suspects but permits", "severity": "high", "evaluator": "tool", "tool": "go-vet", "title": "Resolve Go vet findings"}]
+checks: [{"name": "gofmt-clean", "expects": "gofmt -l reports no file: every Go source in the tree is formatted the one way", "severity": "high", "evaluator": "tool", "tool": "gofmt", "title": "Format Go source files", "appliesTo": ["tool:go"]}, {"name": "go-vet-clean", "expects": "go vet ./... passes: no printf mismatches, unreachable code, copied locks, or the other things the compiler suspects but permits", "severity": "high", "evaluator": "tool", "tool": "go-vet", "title": "Resolve Go vet findings", "appliesTo": ["tool:go"]}]
 ---
 Go has one formatter and it is not a matter of taste: every file is gofmt
 output, and a diff shows only what changed. `go vet` is the other

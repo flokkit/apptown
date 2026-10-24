@@ -15,7 +15,7 @@ func TestCollectGuidanceChecks(t *testing.T) {
 	db := testDB(t)
 	projectID := createTestProject(t, db, "p", "P", "")
 	library := wow.NewLibrary(db)
-	enabledBlock := wow.StockBlock{Name: "data/sqlite", Body: "body", ChecksJSON: `[{"name":"pure-go","sh":"true","severity":"high"}]`}
+	enabledBlock := wow.StockBlock{Name: "data/sqlite", Body: "body", ChecksJSON: `[{"appliesTo": ["repository"], "name":"pure-go","sh":"true","severity":"high"}]`}
 	if err := library.StockInsert(t.Context(), enabledBlock); err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestCollectGuidanceChecks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := library.StockInsert(t.Context(), wow.StockBlock{Name: "lang/style", Body: "body", ChecksJSON: `[{"name":"tone","rubric":"kind"}]`}); err != nil {
+	if err := library.StockInsert(t.Context(), wow.StockBlock{Name: "lang/style", Body: "body", ChecksJSON: `[{"appliesTo": ["repository"], "name":"tone","rubric":"kind"}]`}); err != nil {
 		t.Fatal(err)
 	}
 	disabled, err := library.ByName(t.Context(), "lang/style")

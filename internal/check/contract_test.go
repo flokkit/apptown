@@ -30,7 +30,7 @@ func TestAJudgeReadsTheOutcomeNotTheProcess(t *testing.T) {
 	if evs := answer(1, nil, nil).EvaluateSh([]check.Declared{sh}, check.Source{Tree: t.TempDir()}, check.Gate, "t"); len(evs) != 1 || evs[0].Outcome != check.DoesNotConform {
 		t.Fatalf("an exit 1 with no process error: %+v", evs)
 	}
-	tool := check.Declared{Identity: check.Identity{Namespace: "b", Version: 1}, Declaration: check.Declaration{Name: "tool", Tool: "t", Severity: "high", Expects: "clean"}}
+	tool := check.Declared{Identity: check.Identity{Namespace: "b", Version: 1}, Declaration: check.Declaration{AppliesTo: repoWide, Name: "tool", Tool: "t", Severity: "high", Expects: "clean"}}
 	finding := []byte(`{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"x","rules":[{"id":"r"}]}},"results":[{"ruleId":"r","level":"error","message":{"text":"m"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"a.go"},"region":{"startLine":1}}}]}]}]}`)
 	for _, c := range []struct {
 		name, says string

@@ -239,7 +239,7 @@ func (s stepRetries) retryIn(ctx context.Context, tx *database.Tx, run *Run, ste
 	}
 	if entryStep(stage, step) {
 		for _, prior := range steps {
-			if prior.ID.Compare(step.ID) < 0 && entryStep(stage, prior) && prior.Status != StatusPass {
+			if prior.ID.Compare(step.ID) < 0 && entryStep(stage, prior) && !prior.Status.Judged() {
 				return &RetryError{RetryConflict, fmt.Sprintf("retry %q first; this step depends on it", prior.Name)}
 			}
 		}

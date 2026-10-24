@@ -128,7 +128,7 @@ func (remediationFixtureChecks) Head(context.Context, conformance.ProjectSource)
 	return conformance.SourceHead{SHA: "original-sha"}, nil
 }
 func (remediationFixtureChecks) HistoricalChecksIn(context.Context, database.Queryer, []conformance.CheckVersion) ([]conformance.DeclaredCheck, error) {
-	return []conformance.DeclaredCheck{{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{Name: "clean", Sh: "false"}}}, nil
+	return []conformance.DeclaredCheck{{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "clean", Sh: "false"}}}, nil
 }
 func (s remediationFixtureChecks) ChecksIn(ctx context.Context, q database.Queryer, projects []ids.ID) (map[ids.ID][]conformance.DeclaredCheck, error) {
 	checks, err := s.HistoricalChecksIn(ctx, q, nil)
@@ -451,7 +451,7 @@ func TestARemediationItemOnAStandingOnlyCheckIsSkipped(t *testing.T) {
 	t.Parallel()
 	a, _, item, _ := remediationAttemptFixture(t, false)
 	a.SyncStock(t.Context())
-	adopt(t, a, item.ProjectID, "memory", 1, checksJSON(`{"name":"memory-within","evaluator":"runtime","probe":"memory-within","severity":"high","expects":"the deployment runs within its memory"}`))
+	adopt(t, a, item.ProjectID, "memory", 1, checksJSON(`{"appliesTo": ["repository"], "name":"memory-within","evaluator":"runtime","probe":"memory-within","severity":"high","expects":"the deployment runs within its memory"}`))
 	if err := a.lifecycle.SelectLane(t.Context(), item.ProjectID, "quick-change", true, "fixture"); err != nil {
 		t.Fatal(err)
 	}

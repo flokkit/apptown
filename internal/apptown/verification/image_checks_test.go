@@ -29,7 +29,7 @@ func TestAnExecImageCheckWhoseCleanupFailedIsAnError(t *testing.T) {
 	}), RunImage: func(image string, argv, env []string) (int, string) {
 		return runInImage(context.Background(), run, image, argv, env)
 	}}
-	got := j.EvaluateTool(check.Declared{Declaration: check.Declaration{Tool: "app"}}, check.Source{Image: "sha256:app"}, check.Gate, "review")
+	got := j.EvaluateTool(check.Declared{Declaration: check.Declaration{AppliesTo: []string{"repository"}, Tool: "app"}}, check.Source{Image: "sha256:app", Parts: []check.Part{{Name: "web", Folder: ".", Kinds: []string{check.KindBuild, check.KindContainer}, Public: true}}}, check.Gate, "review")
 	if got.Outcome != check.Error {
 		t.Fatalf("cleanup failure became %s", got.Outcome)
 	}
@@ -48,7 +48,7 @@ func TestAnExecImageReceiptNamesTheImageThatRan(t *testing.T) {
 		ran = req.Image
 		return execution.Outcome{Termination: execution.Exited}
 	}}
-	results, _, errs := f.Scanners.RunToolChecks(t.Context(), []conformance.DeclaredCheck{{Block: "test", Version: 1, Check: check.Declaration{Name: "app", Tool: "app-check"}}}, ToolContext{BuildDir: tree, SHA: sha, ProjectID: f.ProjectID, AllowBuild: true}, "review")
+	results, _, errs := f.Scanners.RunToolChecks(t.Context(), []conformance.DeclaredCheck{{Block: "test", Version: 1, Check: check.Declaration{AppliesTo: []string{"repository"}, Name: "app", Tool: "app-check"}}}, ToolContext{BuildDir: tree, SHA: sha, ProjectID: f.ProjectID, AllowBuild: true}, "review")
 	raw, err := json.Marshal(results)
 	if err != nil || errs != 0 || ran != id {
 		t.Fatalf("setup: ran=%q errors=%d results=%s marshal=%v", ran, errs, raw, err)

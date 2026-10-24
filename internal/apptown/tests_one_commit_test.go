@@ -120,7 +120,7 @@ func stepEvidence(t *testing.T, step *workflow.Step) map[string]any {
 // Guidance checks select their commit the same way.
 func TestGuidanceChecksReadTheWorkTheChangeSaved(t *testing.T) {
 	t.Parallel()
-	a, ch := step1ReviewGuidance(t, true, `[{"name":"marker","evaluator":"sh","sh":"true"}]`)
+	a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"marker","evaluator":"sh","sh":"true"}]`)
 	p := a.projectByID(context.Background(), ch.ProjectID)
 	hub := a.projectRepoPath(p.Slug)
 	folder := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))

@@ -161,7 +161,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 	app := "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"
 	t.Run("apptown check and a working run", func(t *testing.T) {
 		t.Parallel()
-		a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"self-check","severity":"high"}]`)
+		a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"source","evaluator":"sh","sh":"true"},{"appliesTo": ["repository"], "name":"image","evaluator":"tool","tool":"self-check","severity":"high"}]`)
 		attachScanner(t, a, "self-check", map[string]any{"command": []string{"python", "manage.py", "check"}, "target": "exec-image", "manual": true})
 		attachScanner(t, a, "semgrep", map[string]any{"image": "semgrep:test", "command": []string{"semgrep", "--sarif", "--output", "/work/.apptown/semgrep.sarif", "/work"},
 			"report": ".apptown/semgrep.sarif", "format": "sarif", "kind": "sast", "target": "source"})
@@ -204,7 +204,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 			{Name: "image", Uses: "scan", With: map[string]any{"scanner": "trivy"}},
 			{Name: "history", Uses: "scan", With: map[string]any{"scanner": "secrets"}},
 		}, map[string]string{".apptown/app.yaml": app, "Dockerfile": "FROM scratch\n"}, func(pid ids.ID) {
-			adopt(t, a, pid, "worker-gates", 1, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"image","evaluator":"tool","tool":"self-check","severity":"high"}]`)
+			adopt(t, a, pid, "worker-gates", 1, `[{"appliesTo": ["repository"], "name":"source","evaluator":"sh","sh":"true"},{"appliesTo": ["repository"], "name":"image","evaluator":"tool","tool":"self-check","severity":"high"}]`)
 		})
 		for _, name := range []string{"guidance", "source", "image", "history"} {
 			if step := reviewExecute(t, a, run, name); step.Status != workflow.StatusPass {

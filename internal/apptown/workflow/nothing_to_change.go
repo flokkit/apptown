@@ -44,7 +44,7 @@ func (a Advancement) NothingToChange(steps []*Step) (string, bool) {
 	for _, s := range steps {
 		switch {
 		case s.Type == "approval" && s.Status == StatusPending:
-		case s.Status != StatusPass && s.Status != StatusSkipped:
+		case !s.Status.Judged() && s.Status != StatusSkipped:
 			return "", false
 		}
 		var ev struct {

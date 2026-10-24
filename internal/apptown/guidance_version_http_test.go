@@ -57,13 +57,13 @@ func TestGuidanceHTTPVersionsKeepProseChecksAndRejectedTagsTogether(t *testing.T
 		}
 	}
 	check("", "Read carefully", 1, 0)
-	invalid := `{"tags":"must-not-stick","checks":[{"name":"bad","evaluator":"invented"}]}`
+	invalid := `{"tags":"must-not-stick","checks":[{"appliesTo": ["repository"], "name":"bad","evaluator":"invented"}]}`
 	if w := authzCall(h, "boss", "PATCH", path, invalid); w.Code != 400 {
 		t.Fatalf("invalid checks: %d %s", w.Code, w.Body.String())
 	}
 	// A misspelt key in a check is refused, never saved as a check judged
 	// without it (severty would have left the default severity).
-	misspelt := `{"tags":"must-not-stick","checks":[{"name":"readme","expects":"README exists","severty":"high","sh":"test -f README.md"}]}`
+	misspelt := `{"tags":"must-not-stick","checks":[{"appliesTo": ["repository"], "name":"readme","expects":"README exists","severty":"high","sh":"test -f README.md"}]}`
 	if w := authzCall(h, "boss", "PATCH", path, misspelt); w.Code != 400 || !strings.Contains(w.Body.String(), "severty") {
 		t.Fatalf("misspelt check key: %d %s", w.Code, w.Body.String())
 	}
@@ -71,7 +71,7 @@ func TestGuidanceHTTPVersionsKeepProseChecksAndRejectedTagsTogether(t *testing.T
 	if err != nil || stored.Tags != "team,review" || stored.LatestVersion != 1 {
 		t.Fatalf("rejected tags persisted: %+v %v", stored, err)
 	}
-	next := `{"bodyMd":"Read carefully, then approve","checks":[{"name":"readme","expects":"README exists","severity":"medium","evaluator":"sh","sh":"test -f README.md"}]}`
+	next := `{"bodyMd":"Read carefully, then approve","checks":[{"appliesTo": ["repository"], "name":"readme","expects":"README exists","severity":"medium","evaluator":"sh","sh":"test -f README.md"}]}`
 	if w := authzCall(h, "outsider", "PATCH", path, next); w.Code != 403 {
 		t.Fatalf("foreign patch: %d", w.Code)
 	}

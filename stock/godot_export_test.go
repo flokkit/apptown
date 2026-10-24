@@ -9,6 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/execution"
 )
 
@@ -17,9 +18,14 @@ import (
 // must be what this export wrote, not files an earlier one left. Run with a
 // stub godot on the host's shell, so it proves the script, not the engine.
 //
+// The check applies to a part built with godot, so a tree without
+// project.godot is the part's failure, said in words, not "not judged". The
+// command names its folder as ${PART_FOLDER}, which is replaced with the
+// folder as the engine does (the root part's, here the temporary tree).
+//
 // Kills: the export's exit discarded through a pipe, the import's failure
-// suppressed, and success decided by files that could predate the run
-// (fallback audit F13).
+// suppressed, success decided by files that could predate the run (fallback
+// audit F13), and a missing project.godot passed or left unjudged.
 func TestTheGodotExportCheckNeedsThisRunsSuccessfulExport(t *testing.T) {
 	t.Parallel()
 	script := scannerScript(t, "godot-web-export")
@@ -50,7 +56,7 @@ exit 3
 		{"the import fails", true, false, []string{"GODOT_IMPORT=2", "GODOT_WRITES=1"}, 1, "the import failed"},
 		{"the export writes and fails", true, false, []string{"GODOT_EXPORT=1", "GODOT_WRITES=1"}, 1, "the web export failed"},
 		{"an earlier export's files", true, true, nil, 1, "produced no index.wasm"},
-		{"no Godot project", false, false, []string{"GODOT_WRITES=1"}, 2, "not judged"},
+		{"no Godot project", false, false, []string{"GODOT_WRITES=1"}, 1, "part game is built with godot (tools: in .apptown/app.yaml) and there is no project.godot in the repository root"},
 	} {
 		work := t.TempDir()
 		if c.project {
@@ -69,8 +75,8 @@ exit 3
 			}
 		}
 		out := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Workspace: work,
-			Argv: []string{"sh", "-c", strings.ReplaceAll(script, "/work", work)}, Timeout: time.Minute,
-			Env: append([]string{"PATH=" + bin + ":" + os.Getenv("PATH"), "WORK=" + work}, c.env...)})
+			Argv: []string{"sh", "-c", strings.ReplaceAll(script, check.PartFolderVar, work)}, Timeout: time.Minute,
+			Env: append([]string{"PATH=" + bin + ":" + os.Getenv("PATH"), "WORK=" + work, "APPTOWN_FOLDER=.", "APPTOWN_PARTS_HERE=game"}, c.env...)})
 		if !out.Answered() {
 			t.Fatalf("%s: the script did not run: %v", c.name, out.RunErr)
 		}

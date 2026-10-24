@@ -93,8 +93,8 @@ func TestTheMemoryProbesSayWhatAnswersThem(t *testing.T) {
 	if ps, err = check.ParseProbe("readiness"); err != nil || !ps.NeedsApp() || ps.Standing() {
 		t.Fatalf("readiness needs a running app and no standing deployment: %+v %v", ps, err)
 	}
-	within := check.Declaration{Name: "w", Evaluator: "runtime", Probe: "memory-within"}
-	declared := check.Declaration{Name: "d", Evaluator: "runtime", Probe: "memory-declared"}
+	within := check.Declaration{AppliesTo: repoWide, Name: "w", Evaluator: "runtime", Probe: "memory-within"}
+	declared := check.Declaration{AppliesTo: repoWide, Name: "d", Evaluator: "runtime", Probe: "memory-declared"}
 	if got := check.JudgedWhere(within); got != "in every review, on the running deployment" {
 		t.Errorf("memory-within is judged: %q", got)
 	}

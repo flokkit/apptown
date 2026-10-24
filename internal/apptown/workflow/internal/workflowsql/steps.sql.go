@@ -1527,7 +1527,7 @@ func (q *Queries) StageStepsForUpdate(ctx context.Context, arg StageStepsForUpda
 const staleChecksForUpdate = `-- name: StaleChecksForUpdate :many
 SELECT attempt, id, run_id, stage, name, type, config_json, status, evidence_json, override_by, override_by_principal, override_by_via, override_reason, started_at, finished_at FROM steps WHERE run_id = $1 AND stage = $2 AND override_by = '' AND finished_at < $3
   AND ((type = 'approval' AND status = 'fail')
-    OR (type IN ('agent/review','scan','tests','preview','guidance/conformance') AND status IN ('pass','fail','skipped')))
+    OR (type IN ('agent/review','scan','tests','preview','guidance/conformance') AND status IN ('pass','fail','skipped','not_applicable')))
 ORDER BY id FOR UPDATE
 `
 

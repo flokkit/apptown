@@ -18,6 +18,9 @@ type Snapshot struct {
 // HasLine says whether the snapshot's list names tool at line.
 func (s Snapshot) HasLine(tool, line string) bool { return s.list != nil && s.list.HasLine(tool, line) }
 
+// HasTool says whether the snapshot's list names tool at any line.
+func (s Snapshot) HasTool(tool string) bool { return s.list != nil && s.list.HasTool(tool) }
+
 // NewSnapshot validates a list's document and makes its snapshot, named
 // name; the digest is of raw.
 func NewSnapshot(name string, raw []byte) (Snapshot, error) {
@@ -56,6 +59,9 @@ func (v *Versions) Current() Snapshot {
 
 // HasLine says whether the current list names tool at line.
 func (v *Versions) HasLine(tool, line string) bool { return v.Current().HasLine(tool, line) }
+
+// HasTool says whether the current list names tool at any line.
+func (v *Versions) HasTool(tool string) bool { return v.Current().HasTool(tool) }
 
 // Install puts a newer validated list in place: work that starts from now
 // on uses it, work under way keeps its snapshot. The seam for importing

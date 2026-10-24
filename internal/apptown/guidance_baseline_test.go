@@ -27,8 +27,8 @@ func TestBaselineJudgesOccurrencesAndLeavesBooleansUndecided(t *testing.T) {
 		"main.go": "package main // FIXME someday\n",
 	})
 	adopt(t, a, pid, "data/networked", 1, `[
-		{"name":"no-file-database","evaluator":"sh","occurrences":"lines","sh":"bad=$(grep -Hn sqlite go.mod); [ -z \"$bad\" ] || { echo \"$bad\"; exit 1; }","severity":"high","expects":"no sqlite"},
-		{"name":"no-fixme","evaluator":"sh","sh":"grep -rq FIXME . && { echo 'FIXME left'; exit 1; }; exit 0","severity":"high","expects":"no FIXME"}]`)
+		{"appliesTo":["repository"],"name":"no-file-database","evaluator":"sh","occurrences":"lines","sh":"bad=$(grep -Hn sqlite go.mod); [ -z \"$bad\" ] || { echo \"$bad\"; exit 1; }","severity":"high","expects":"no sqlite"},
+		{"appliesTo":["repository"],"name":"no-fixme","evaluator":"sh","sh":"grep -rq FIXME . && { echo 'FIXME left'; exit 1; }; exit 0","severity":"high","expects":"no FIXME"}]`)
 	ctx := a.asEngine(context.Background())
 	change, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: pid, Title: "tidy"})
 	if err != nil {

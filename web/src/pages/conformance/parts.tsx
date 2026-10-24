@@ -33,7 +33,7 @@ export const STATE: Record<string, { label: string; tone: string; style?: CSSPro
   stale: { label: 'stale', tone: 'pending', rank: 2 },
   'cannot-assess': { label: 'cannot assess', tone: '', rank: 2 },
   'not-scanned': { label: 'not scanned', tone: '', rank: 2 },
-  'not-applicable': { label: 'n/a in a review', tone: 'draft', rank: 4 },
+  'not-applicable': { label: 'not applicable', tone: 'draft', rank: 4 },
   conforms: { label: 'conforms', tone: 'pass', rank: 5 },
 }
 export const stateOf = (s: string) => STATE[s] ?? { label: s, tone: '', rank: 9 }
@@ -45,7 +45,7 @@ export const LANE_COLOR: Record<string, string> = {
 }
 export const LANE_LABEL: Record<string, string> = {
   conforms: 'conform', excepted: 'excepted', flagged: 'flagged by AI review', findings: 'findings',
-  unassessed: 'not yet judged', broken: "couldn't run", na: 'not applicable in a review',
+  unassessed: 'not yet judged', broken: "couldn't run", na: 'not applicable',
 }
 
 export const ITEM: Record<string, { label: string; tone: string }> = {

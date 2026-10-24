@@ -68,7 +68,7 @@ func TestConfirmIsPerVerdict(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	pid := createTestProject(t, db, "proj", "Proj", "main")
-	block := stockCheckFixture(t, db, wow.StockBlock{Name: "prose", ChecksJSON: `[{"name":"readme-plain","evaluator":"llm","scope":"tree","rubric":"README is plain","files":["README.md"]}]`})
+	block := stockCheckFixture(t, db, wow.StockBlock{Name: "prose", ChecksJSON: `[{"appliesTo": ["repository"], "name":"readme-plain","evaluator":"llm","scope":"tree","rubric":"README is plain","files":["README.md"]}]`})
 	pinCheckFixture(t, db, pid, wow.ResolvedPin{BlockID: block, Name: "prose", Version: 1})
 	source := &confirmationSource{head: "first-head"}
 	service := newServiceWithAuthority(db, testAuthority{}, source)
@@ -115,7 +115,7 @@ func TestConfirmIsPerVerdict(t *testing.T) {
 	// Only an AI failure can be confirmed; a deterministic verdict from a real
 	// owner review is already a finding.
 	deterministic := createTestProject(t, db, "deterministic", "Deterministic", "main")
-	shBlock := stockCheckFixture(t, db, wow.StockBlock{Name: "hygiene", ChecksJSON: `[{"name":"no-fixme","evaluator":"sh","sh":"exit 1","severity":"high"}]`})
+	shBlock := stockCheckFixture(t, db, wow.StockBlock{Name: "hygiene", ChecksJSON: `[{"appliesTo": ["repository"], "name":"no-fixme","evaluator":"sh","sh":"exit 1","severity":"high"}]`})
 	pinCheckFixture(t, db, deterministic, wow.ResolvedPin{BlockID: shBlock, Name: "hygiene", Version: 1})
 	shVerdict := confirmationVerdict(t, service, deterministic, DoesNotConform)
 	if shVerdict.Evaluator != "sh" || shVerdict.State != DoesNotConform {

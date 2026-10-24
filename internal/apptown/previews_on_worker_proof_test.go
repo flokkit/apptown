@@ -148,8 +148,8 @@ func proofGate(t *testing.T, fake *fakePreviewWorker, local *fakeDocker, afterBo
 	a, ctx, ch := changeScenarioIn(t, app, schema.Spec{Kind: "pipeline", Role: "working", Stages: stages})
 	// Readiness is below the gate's threshold: its front door is the
 	// preview domain's, which a test cannot reach; its naked door is.
-	adopt(t, a, ch.ProjectID, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"},`+
-		`{"name":"answers","expects":"the app answers","evaluator":"runtime","probe":"GET /healthz","severity":"low"}]`)
+	adopt(t, a, ch.ProjectID, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"},`+
+		`{"appliesTo": ["repository"], "name":"answers","expects":"the app answers","evaluator":"runtime","probe":"GET /healthz","severity":"low"}]`)
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		deps.Automatic = []string{"guidance/conformance", "preview"}
 		deps.Runners = a.workDependencies().Runners

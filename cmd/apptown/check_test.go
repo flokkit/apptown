@@ -88,7 +88,8 @@ func newCheckWorld(t *testing.T, answerFor func(asked string) string) checkWorld
 			checked = answerFor(asked)
 		}
 		httpapi.WriteJSON(rw, 200, map[string]any{"ok": true, "commit": checked, "failOn": "high",
-			"checks": []map[string]any{{"block": "b", "version": 1, "check": "builds", "verdict": "pass"}}})
+			"checks": []map[string]any{{"block": "b", "version": 1, "check": "builds", "verdict": "pass"},
+				{"block": "b", "version": 1, "check": "go-vet-clean", "verdict": "not-applicable", "detail": "no part is built with go"}}})
 	}))
 	t.Cleanup(srv.Close)
 	prev := api
@@ -109,7 +110,10 @@ func TestAppTownCheckAsksAboutThisFoldersHead(t *testing.T) {
 	if err != nil || (*w.bodies)[0]["commit"] != w.published || len((*w.bodies)[0]) != 1 {
 		t.Fatalf("a published HEAD: %v, sent %v\n%s", err, *w.bodies, out)
 	}
-	for _, words := range []string{"checking commit " + w.published + " (this folder's HEAD)", "commit " + w.published + "\n", "gate clear for commit " + w.published} {
+	// A check that is not applicable is listed with its reason and counted
+	// apart: never among the checks that pass.
+	for _, words := range []string{"checking commit " + w.published + " (this folder's HEAD)", "commit " + w.published + "\n", "gate clear for commit " + w.published + " — 1 check(s) pass",
+		"○ go-vet-clean", "not applicable: no part is built with go", "1 check(s) not applicable"} {
 		if !strings.Contains(out, words) {
 			t.Fatalf("the output does not say %q:\n%s", words, out)
 		}

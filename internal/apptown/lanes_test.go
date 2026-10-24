@@ -84,7 +84,7 @@ func TestScanPointsExpandToAttachedScanners(t *testing.T) {
 		t.Fatal(err)
 	}
 	// One image-target scanner attached, no source-target scanner.
-	if _, err := a.Integrations.Bindings.Upsert(t.Context(), "trivy", verification.ScannerCapability, "tool", mustJSON(map[string]any{"image": "x", "command": []string{"y"}, "target": "image"}), true); err != nil {
+	if _, err := a.Integrations.Bindings.Upsert(t.Context(), "trivy", verification.ScannerCapability, "tool", mustJSON(map[string]any{"image": "x", "command": []string{"y"}, "target": "image", "appliesTo": []string{"repository"}}), true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Integrations.Bindings.Upsert(t.Context(), "manual-image", verification.ScannerCapability, "tool", mustJSON(map[string]any{"image": "x", "command": []string{"y"}, "target": "image", "manual": true}), true); err != nil {

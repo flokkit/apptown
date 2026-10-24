@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -195,7 +196,21 @@ func (s *Scanners) evalToolCheck(ctx context.Context, sc conformance.DeclaredChe
 		// instance has not attached.
 		return apptownSays(check.Error, fmt.Sprintf("no scanner binding %q attached — attach it under Integrations › Scanners", sc.Check.Tool)), workflow.VerdictError, ""
 	}
-	src := check.Source{Tree: tc.BuildDir}
+	src := CheckSource(tc.BuildDir)
+	// Applicability first, from the declaration: a check that applies to
+	// nothing here builds no image and runs no tool.
+	why, err := "", error(nil)
+	if m.Looks() == "exec-image" {
+		why, err = check.AppliesToPublic(sc.Check.AppliesTo, src)
+	} else {
+		why, err = check.AppliesHere(sc.Check.AppliesTo, src)
+	}
+	switch {
+	case err != nil:
+		return apptownSays(check.Error, err.Error()), workflow.VerdictError, ""
+	case why != "":
+		return apptownSays(check.NotApplicable, why), workflow.VerdictNotApplicable, ""
+	}
 	if m.Looks() == "exec-image" {
 		// The app image is content-addressed by the commit and SHARED: apptown
 		// check builds it once, the land gate and repeat invocations reuse it
@@ -222,6 +237,16 @@ func (s *Scanners) evalToolCheck(ctx context.Context, sc conformance.DeclaredChe
 	// not only a land gate. Otherwise a spurious finding pins an app
 	// does-not-conform forever, with no honest way to record the truth.
 	// Dispositions stay a human act, carrying a justification (findings.go).
+	if ev.Outcome == check.Error {
+		// An error in any folder is the check's error, whatever a report
+		// from another folder said.
+		return ev, workflow.VerdictError, ""
+	}
+	if slices.ContainsFunc(ev.Findings, func(f check.Finding) bool { return f.Kind == "conformance" }) {
+		// The tool found nothing to judge where the check applies: the
+		// check's own finding, which no tool finding's exception covers.
+		return ev, workflow.VerdictFail, ""
+	}
 	if ev.Evidence.Report != "" {
 		dispositions := tc.Exceptions
 		if dispositions == nil {
@@ -352,6 +377,7 @@ func clearForScan(dir string, m check.Scanner) error {
 // apptown check previews exactly what the land gate will hold against the
 // change (scan_provenance.go). Pass "" to compare against nothing.
 func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefix string, repo, baseSHA string) (results Results, findings []conformance.Finding, scanErrors int) {
+	treeSrc := CheckSource(scanSrc)
 	_ = os.MkdirAll(filepath.Join(scanSrc, ".apptown"), 0o755)
 	attached, err := s.attachedScanners(ctx)
 	if err != nil {
@@ -366,6 +392,15 @@ func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefi
 		}
 		start := s.now()
 		res := workflow.CheckReceipt{Check: sc.Name, Scanner: sc.Name, Evaluator: "scanner"}
+		if why, err := scannerApplies(m, treeSrc); err != nil || why != "" {
+			res.Verdict, res.Detail, res.Gates = workflow.VerdictNotApplicable, why, new(false)
+			if err != nil {
+				res.Verdict, res.Detail, res.Gates, res.Output = workflow.VerdictError, "", nil, err.Error()
+				scanErrors++
+			}
+			results = append(results, res)
+			continue
+		}
 
 		// osv: judge stdlib advisories against the toolchain that builds this
 		// tree, exactly as RunScan does.
@@ -388,9 +423,14 @@ func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefi
 		res.DurationMs = new(s.now().Sub(start).Milliseconds())
 		answer := readScan(outcome, m, sc.Name)
 		exitCode := answer.exit
-		// osv exits 128 for "no package sources found" — a clean pass with a note.
-		if answer.nothingToScan {
-			res.Verdict = workflow.VerdictPass
+		// The tool's declared nothing-to-judge exit, where it applies: a
+		// failure, as the landing's scan step reads it.
+		if answer.empty {
+			res.Verdict, res.Output = workflow.VerdictFail, check.EmptyExitDetail(sc.Name, check.Place{Folder: "."})
+			findings = append(findings, conformance.Finding{Finding: check.Finding{
+				Fingerprint: "scan|" + sc.Name + "|nothing-to-judge", Kind: "scan", Severity: "high",
+				Title: sc.Name + " found nothing to judge", Detail: res.Output, Source: sc.Name,
+			}})
 			results = append(results, res)
 			continue
 		}

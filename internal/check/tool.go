@@ -64,9 +64,42 @@ func (j *Judge) EvaluateTool(d Declared, src Source, mode Mode, namePrefix strin
 		return cannot(d, mode, fmt.Sprintf("no scanner named %q in this judge's catalogue", d.Tool))
 	}
 	if s.Looks() == "exec-image" {
+		// It runs inside the public part's image: the check applies when
+		// that part runs as a container and matches the words.
+		why, err := AppliesToPublic(d.AppliesTo, src)
+		switch {
+		case err != nil:
+			return Evaluation{Declared: d, Mode: mode, Outcome: Error, Detail: err.Error()}
+		case why != "":
+			return notApplicable(d, mode, why)
+		}
 		return j.toolInImage(d, s, src, mode)
 	}
-	return j.toolOnSource(d, s, src, mode, namePrefix)
+	places, why, err := Applies(d.AppliesTo, src)
+	switch {
+	case err != nil:
+		return Evaluation{Declared: d, Mode: mode, Outcome: Error, Detail: err.Error()}
+	case len(places) == 0:
+		return notApplicable(d, mode, why)
+	}
+	var evs []Evaluation
+	for _, pl := range places {
+		evs = append(evs, j.toolOnSource(d, s, src, pl, mode, namePrefix))
+	}
+	return combine(d, mode, places, evs)
+}
+
+// PartFolderVar in a tool's command is the folder it runs in, as the
+// container sees it: /work for the repository root, /work/<folder> for a
+// part's.
+const PartFolderVar = "${PART_FOLDER}"
+
+// PartFolderPath is the folder's path in the container.
+func PartFolderPath(folder string) string {
+	if folder == "" || folder == "." {
+		return "/work"
+	}
+	return "/work/" + strings.TrimPrefix(folder, "./")
 }
 
 // toolInImage runs the tool's command inside the app's built image. The image
@@ -105,7 +138,7 @@ func RemoveStale(path string) error {
 
 // toolOnSource runs the tool's container against the tree and reads what it
 // left behind.
-func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, mode Mode, namePrefix string) Evaluation {
+func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, pl Place, mode Mode, namePrefix string) Evaluation {
 	if j.Run == nil {
 		return cannot(d, mode, "no way to run a command here")
 	}
@@ -118,8 +151,13 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, mode Mode, nameP
 	// A declared report is collected, and required, whatever its format;
 	// only a format says how to read findings from it.
 	structured := s.Format != "" && s.Report != ""
-	req := s.Request(src.Tree, s.Command)
+	argv := make([]string, len(s.Command))
+	for i, a := range s.Command {
+		argv[i] = strings.ReplaceAll(a, PartFolderVar, PartFolderPath(pl.Folder))
+	}
+	req := s.Request(src.Tree, argv)
 	req.Name, req.Report = execution.UniqueName(namePrefix+"-tool"), s.Report
+	req.Env = append(req.Env, placeEnv(pl, src)...)
 	outcome := j.Run(req)
 	ev := Evaluation{Declared: d, Mode: mode}
 	if outcome.Termination == execution.TimedOut {
@@ -131,6 +169,15 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, mode Mode, nameP
 		exitCode = outcome.ExitCode
 	}
 	ev.Evidence.ExitCode = &exitCode
+	if s.EmptyExit != 0 && exitCode == s.EmptyExit {
+		// The tool's own word for "nothing here to judge", where the check
+		// applies: the declaration and the code disagree.
+		// The tool's own words when it gave any, else what the exit means.
+		ev.Outcome = DoesNotConform
+		ev.Detail = strs.FirstNonBlank(strs.Truncate(strings.TrimSpace(string(outcome.Output)), 300), EmptyExitDetail(s.Name, pl))
+		ev.Findings = []Finding{conformanceFinding(d, ev.Detail, "")}
+		return ev
+	}
 	if exitCode < 0 || exitCode > 1 {
 		ev.Outcome = Error
 		said := strs.Truncate(strings.TrimSpace(string(outcome.Output)), 200)

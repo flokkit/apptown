@@ -465,7 +465,7 @@ const dispatchRestartCandidates = `-- name: DispatchRestartCandidates :many
 SELECT r.id FROM runs r JOIN steps s ON s.run_id=r.id AND s.stage=r.current_stage
 WHERE r.status='running' AND s.type=ANY($1::text[])
 GROUP BY r.id HAVING bool_or(s.status='pending' OR (s.status='error' AND s.evidence_json->>'reason'='orphaned by apptownd restart'))
-OR bool_and(s.status IN ('pass','skipped'))
+OR bool_and(s.status IN ('pass','skipped','not_applicable'))
 UNION SELECT r.id FROM run_starts st JOIN runs r ON r.id=st.run_id
 WHERE r.status='running' AND (NOT st.ready OR (r.parent_run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type=ANY($1::text[]))))
 ORDER BY id

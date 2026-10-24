@@ -329,6 +329,14 @@ func validateApproval(stage string, s Step, strict bool) error {
 	if s.With == nil {
 		return nil
 	}
+	if v, declared := s.With["inAdvanceAdmitsNotApplicable"]; declared {
+		if _, isBool := v.(bool); !isBool {
+			return fmt.Errorf("stage %q step %q: inAdvanceAdmitsNotApplicable is true or false", stage, s.Name)
+		}
+		if _, has := s.With["inAdvance"]; !has {
+			return fmt.Errorf("stage %q step %q: inAdvanceAdmitsNotApplicable qualifies inAdvance, which the approval does not have", stage, s.Name)
+		}
+	}
 	if v, declared := s.With["inAdvance"]; declared {
 		// What one person's yes given before the work means: a sentence,
 		// and an approval one person can settle.

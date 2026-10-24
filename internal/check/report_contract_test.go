@@ -25,7 +25,7 @@ func TestAToolsReportFailsClosed(t *testing.T) {
 			j := &check.Judge{ShImage: testShImage, Scanners: oneScanner{Name: "t", Image: "x", Report: ".apptown/report", Format: tc.format}, Run: func(req execution.Request) execution.Outcome {
 				return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: tc.report, ReportErr: tc.err}
 			}}
-			ev := j.EvaluateTool(check.Declared{Declaration: check.Declaration{Name: "tool", Tool: "t"}}, check.Source{Tree: t.TempDir()}, check.Gate, "review")
+			ev := j.EvaluateTool(check.Declared{Declaration: check.Declaration{AppliesTo: repoWide, Name: "tool", Tool: "t"}}, check.Source{Tree: t.TempDir()}, check.Gate, "review")
 			if ev.Outcome != check.Error {
 				t.Fatalf("invalid declared report yielded %s", ev.Outcome)
 			}
@@ -59,7 +59,7 @@ func TestAStaleReportThatCannotBeRemovedStopsTheTool(t *testing.T) {
 		ran = true
 		return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: []byte(`{"version":"2.1.0","runs":[]}`)}
 	}}
-	ev := j.EvaluateTool(check.Declared{Declaration: check.Declaration{Name: "tool", Tool: "t"}}, check.Source{Tree: tree}, check.Gate, "review")
+	ev := j.EvaluateTool(check.Declared{Declaration: check.Declaration{AppliesTo: repoWide, Name: "tool", Tool: "t"}}, check.Source{Tree: tree}, check.Gate, "review")
 	if ran || ev.Outcome != check.Error {
 		t.Fatalf("a stale report left in place: tool ran %v, outcome %s (%s)", ran, ev.Outcome, ev.Detail)
 	}

@@ -26,7 +26,7 @@ func TestABaselineWithUnknownsIsAskedAgainByAppTownsClock(t *testing.T) {
 	move := func(d time.Duration) { mu.Lock(); at = at.Add(d); mu.Unlock() }
 	changes := NewChanges(ChangeDependencies{DB: testDB(t), DataDir: t.TempDir(), Now: now})
 	ctx := context.Background()
-	checks := []conformance.DeclaredCheck{{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "check", Evaluator: "sh"}}}
+	checks := []conformance.DeclaredCheck{{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "check", Evaluator: "sh"}}}
 	// A baseline asked now that could not evaluate one check.
 	first := &baselineSet{failing: map[string]bool{}, items: map[string][]string{}, unknown: map[string]bool{"b@1|check": true}, sha: "base", at: now()}
 	tools := stock.Versions().Current()

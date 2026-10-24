@@ -31,7 +31,7 @@ func TestBlockEditKeepsTagsProseChecksAndReceiptTogether(t *testing.T) {
 				t.Fatal(err)
 			}
 			body, tags := "new", "new"
-			checks := []check.Declaration{{Name: "works", Expects: "works", Sh: "true"}}
+			checks := []check.Declaration{{AppliesTo: []string{"repository"}, Name: "works", Expects: "works", Sh: "true"}}
 			dbtest.FailNextStatement(t, db, fault)
 			if out, err := s.EditBlock(ctx, block.ID, BlockPatch{Tags: &tags, BodyMD: &body, Checks: &checks}, "alice"); err == nil || out != nil {
 				t.Fatalf("failed edit returned success: %+v %v", out, err)
@@ -57,7 +57,7 @@ func TestBlockEditsPreserveConcurrentOmittedFieldsAndStock(t *testing.T) {
 		t.Fatal(err)
 	}
 	body := "new"
-	checks := []check.Declaration{{Name: "works", Expects: "works", Sh: "true"}}
+	checks := []check.Declaration{{AppliesTo: []string{"repository"}, Name: "works", Expects: "works", Sh: "true"}}
 	var wg sync.WaitGroup
 	for _, patch := range []BlockPatch{{BodyMD: &body}, {Checks: &checks}} {
 		wg.Go(func() {

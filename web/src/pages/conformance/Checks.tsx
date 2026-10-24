@@ -26,7 +26,7 @@ function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict
             {act > 0 && <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{act} to look at</span>}
             {act === 0 && unk === 0 && na === 0 && <span style={{ color: 'var(--ok)', fontWeight: 600 }}>✓ all conform</span>}
             {unk > 0 && <span className="muted">{act > 0 ? ' · ' : ''}{unk} not judged</span>}
-            {na > 0 && <span className="muted">{act > 0 || unk > 0 ? ' · ' : ''}{na} n/a here</span>}
+            {na > 0 && <span className="muted">{act > 0 || unk > 0 ? ' · ' : ''}{na} not applicable</span>}
           </span>
         </div>
         {def?.expects && <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 5, maxWidth: 760 }}>{def.expects}</div>}

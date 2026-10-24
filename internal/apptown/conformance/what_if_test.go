@@ -29,7 +29,10 @@ func TestWhatIfResultSaysWhatTakingTheVersionChanges(t *testing.T) {
 		{&fail, &cannot, WhatIfNotAssessed},
 		{&fail, &broken, WhatIfNotAssessed},
 		{&broken, &pass, WhatIfNotAssessed},
-		{&na, &pass, WhatIfNotAssessed},
+		{&na, &pass, WhatIfUnchanged},
+		{&na, &fail, WhatIfWouldFail},
+		{&fail, &na, WhatIfNotApplicable},
+		{&pass, &na, WhatIfNotApplicable},
 		{&fail, nil, WhatIfNoLongerNeeded},
 		{&cannot, nil, WhatIfNoLongerNeeded},
 	} {
@@ -37,7 +40,7 @@ func TestWhatIfResultSaysWhatTakingTheVersionChanges(t *testing.T) {
 			t.Errorf("today %v, under the version %v: %s, want %s", tc.today, tc.version, got, tc.want)
 		}
 	}
-	words := map[string]bool{WhatIfWouldFail: true, WhatIfWouldPass: true, WhatIfUnchanged: true, WhatIfNotAssessed: true, WhatIfNoLongerNeeded: true}
+	words := map[string]bool{WhatIfWouldFail: true, WhatIfWouldPass: true, WhatIfUnchanged: true, WhatIfNotAssessed: true, WhatIfNoLongerNeeded: true, WhatIfNotApplicable: true}
 	all := []Outcome{Conforms, DoesNotConform, Excepted, NotApplicable, CannotAssess, EvaluationError}
 	sides := []*Outcome{nil}
 	for i := range all {

@@ -196,7 +196,7 @@ func TestStrictReadersRefuseUnknownShapes(t *testing.T) {
 	if _, err := ParseStockGuidance("---\nname: x\nchecsk: []\n---\nbody\n"); err == nil {
 		t.Error("guidance with an unknown front-matter key was read")
 	}
-	if _, err := check.ParseDeclarations(`[{"name":"c","sh":"true","severty":"high"}]`); err == nil {
+	if _, err := check.ParseDeclarations(`[{"appliesTo": ["repository"], "name":"c","sh":"true","severty":"high"}]`); err == nil {
 		t.Error("a check with an unknown key was read")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,7 +16,7 @@ import (
 func TestGuidanceGateCannotPassWithoutExceptionEvidence(t *testing.T) {
 	t.Parallel()
 	a, ctx, change := changeScenario(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "check", Uses: "guidance/conformance"}}}}})
-	adopt(t, a, change.ProjectID, "exceptions", 1, `[{"name":"clean","evaluator":"sh","sh":"true"}]`)
+	adopt(t, a, change.ProjectID, "exceptions", 1, `[{"appliesTo": ["repository"], "name":"clean","evaluator":"sh","sh":"true"}]`)
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		deps.Automatic = []string{"guidance/conformance"}
 		deps.Runners = a.workDependencies().Runners
@@ -38,7 +39,11 @@ func TestGuidanceGateCannotPassWithoutExceptionEvidence(t *testing.T) {
 	if err := os.MkdirAll(source.Workspace(a.cfg.dataDir), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	commitFolder(t, source.Workspace(a.cfg.dataDir)) // a check reads a commit
+	// A check reads a commit, and a repository check one with a file.
+	if err := os.WriteFile(filepath.Join(source.Workspace(a.cfg.dataDir), "README.md"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	commitFolder(t, source.Workspace(a.cfg.dataDir))
 	calls := 0
 	installCheckEffects(t, a, checkOverrides{run: func(ExecRequest) ExecOutcome { calls++; return ExecOutcome{} }})
 	dbtest.FailNextStatement(t, a.DB, "FROM dispositions")
@@ -60,7 +65,7 @@ func TestGuidanceGateRecordsCheckErrorsAndUndecidedForOtherOwners(t *testing.T) 
 	a := testApp(t)
 	tgLocalSh(t, a)
 	pid, _, _ := fleetRepo(t, a, "facts", map[string]string{"main.go": "package main // FIXME\n"})
-	adopt(t, a, pid, "facts", 1, `[{"name":"broken","evaluator":"sh","sh":"exit 2","severity":"high"},{"name":"no-fixme","evaluator":"sh","sh":"grep -rq FIXME . && exit 1; exit 0","severity":"high"}]`)
+	adopt(t, a, pid, "facts", 1, `[{"appliesTo": ["repository"], "name":"broken","evaluator":"sh","sh":"exit 2","severity":"high"},{"appliesTo": ["repository"], "name":"no-fixme","evaluator":"sh","sh":"grep -rq FIXME . && exit 1; exit 0","severity":"high"}]`)
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "check", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}}}}})
 	recordFixtureAdoptions(t, a)
 	ctx := a.asEngine(context.Background())

@@ -113,7 +113,7 @@ func TestInTheNoLocalDockerModeMaintenanceAndHealthAskNoLocalDocker(t *testing.T
 	if h := health.Test(t.Context(), verification.ScannerCapability, "trivy", map[string]any{"image": "scanner:1"}); !h.OK || h.Detail != "image pulled on the worker" {
 		t.Fatalf("scanner test: %+v", h)
 	}
-	if _, err := a.Integrations.Bindings.Upsert(t.Context(), "trivy", verification.ScannerCapability, "tool", mustJSON(map[string]any{"image": "scanner:1", "command": []string{"scan"}, "target": "image"}), true); err != nil {
+	if _, err := a.Integrations.Bindings.Upsert(t.Context(), "trivy", verification.ScannerCapability, "tool", mustJSON(map[string]any{"image": "scanner:1", "command": []string{"scan"}, "target": "image", "appliesTo": []string{"repository"}}), true); err != nil {
 		t.Fatal(err)
 	}
 	if w := authzCall(a.Handler(), "boss", "GET", "/api/v1/integrations", ""); w.Code != 200 || !strings.Contains(w.Body.String(), "image scanner:1 pulls on the worker on first use") {

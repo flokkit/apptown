@@ -23,8 +23,9 @@ func (m Mode) String() string {
 	return "gate"
 }
 
-// Outcome is what a judge can say on its own. A person's decisions over an
-// outcome — excepted, not applicable — are the caller's, never the library's.
+// Outcome is what a judge can say on its own. NotApplicable is decided from
+// the check's declared applicability before anything runs; a person's
+// decisions over an outcome (excepted) are the caller's.
 type Outcome int
 
 const (
@@ -32,6 +33,9 @@ const (
 	DoesNotConform
 	CannotAssess // not mechanically answerable, or the source lacks the capability
 	Error        // the evaluator failed, timed out, or returned malformed output
+	// NotApplicable: the check applies to nothing this app declares
+	// (Applies); never a pass and never an error. Detail is the reason.
+	NotApplicable
 )
 
 func (o Outcome) String() string {
@@ -44,6 +48,8 @@ func (o Outcome) String() string {
 		return "cannot-assess"
 	case Error:
 		return "error"
+	case NotApplicable:
+		return "not-applicable"
 	}
 	return "invalid-outcome"
 }
@@ -98,6 +104,15 @@ type Source struct {
 	// Naked: the same app reached by address with no front-door signal. "" when
 	// only one door is reachable.
 	Naked string
+	// What applicability reads (applies.go): the app's declared parts,
+	// whether the tree holds no file, whether there is no contract at all,
+	// a contract that could not be read, and the folders the contract says
+	// are not the app's code.
+	Parts      []Part
+	Empty      bool
+	NoContract bool
+	PartsErr   error
+	NotAppCode []string
 }
 
 // conformanceFinding is the finding a failing declared check reports: the

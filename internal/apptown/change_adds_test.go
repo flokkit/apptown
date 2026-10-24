@@ -183,7 +183,9 @@ func landAccepted(t *testing.T, f addsFixture) ids.ID {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if check := reviewExecute(t, a, landing, "tests"); check.Status != workflow.StatusPass {
+	// The fixture has no test command and declares no part's tools: the
+	// landing's tests step is not applicable, and binds to the candidate.
+	if check := reviewExecute(t, a, landing, "tests"); check.Status != workflow.StatusNotApplicable {
 		t.Fatalf("tests: %s %s", check.Status, check.Evidence)
 	}
 	if _, err := a.Work.AdvanceAcceptedLanding(context.Background(), f.work.ID, alwaysCanLand{}); err != nil {

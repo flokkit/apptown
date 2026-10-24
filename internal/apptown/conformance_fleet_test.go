@@ -158,10 +158,10 @@ func checksJSON(entries ...string) string {
 	return "[" + strings.Join(entries, ",") + "]"
 }
 func shCheck(name, sh, sev string) string {
-	return fmt.Sprintf(`{"name":%q,"evaluator":"sh","sh":%q,"severity":%q,"expects":"the rule holds"}`, name, sh, sev)
+	return fmt.Sprintf(`{"appliesTo":["repository"],"name":%q,"evaluator":"sh","sh":%q,"severity":%q,"expects":"the rule holds"}`, name, sh, sev)
 }
 func llmCheck(name string) string {
-	return fmt.Sprintf(`{"name":%q,"evaluator":"llm","rubric":"a judgement","expects":"the rule holds"}`, name)
+	return fmt.Sprintf(`{"appliesTo":["repository"],"name":%q,"evaluator":"llm","rubric":"a judgement","expects":"the rule holds"}`, name)
 }
 
 // The fleet review yields the correct verdict for each posture state, keyed by
@@ -327,7 +327,7 @@ func TestReviewExecutesInferredDeclarationsAtTheirSavedSource(t *testing.T) {
 	testAdministrator(t, a, "tester")
 	tgLocalSh(t, a)
 	id, sha, _ := fleetRepo(t, a, "inferred", map[string]string{"a.txt": "saved evidence"})
-	adopt(t, a, id, "inference", 1, `[{"name":"script","sh":"test -f a.txt"},{"name":"rubric","rubric":"a transition judgement"}]`)
+	adopt(t, a, id, "inference", 1, `[{"appliesTo": ["repository"], "name":"script","sh":"test -f a.txt"},{"appliesTo": ["repository"], "name":"rubric","rubric":"a transition judgement"}]`)
 	review, verdicts, err := fleetReviewsFor(a).RunFleetReviewWith(testConformanceContext("tester"), "manual", conformance.ReviewOptions{Projects: []ids.ID{id}})
 	if err != nil || review == nil || review.Status != conformance.ReviewDone || len(verdicts) != 2 {
 		t.Fatalf("review=%+v verdicts=%+v error=%v", review, verdicts, err)
@@ -372,7 +372,7 @@ func TestAWhatIfComparesAVersionAndLeavesStandingAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := lib.StockInsert(ctx, wow.StockBlock{Name: "strict-docs", Body: "body", ChecksJSON: checksJSON(shCheck("has-readme", "test -f README.md", "high"), llmCheck("tone"),
-		`{"name":"up","evaluator":"runtime","probe":"page","severity":"high","expects":"the page answers"}`)}); err != nil {
+		`{"appliesTo": ["repository"], "name":"up","evaluator":"runtime","probe":"page","severity":"high","expects":"the page answers"}`)}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Ways.PublishPack(ctx, "team", "Team", `{"guidance":["hygiene","strict-docs"]}`, ""); err != nil {
@@ -1080,12 +1080,12 @@ func TestAnEvalComparisonJudgesBothArmsChecksOnTheArmAndItsBase(t *testing.T) {
 	git("commit", "-q", "-m", "the arm's work")
 	branch := strings.TrimSpace(git("rev-parse", "--abbrev-ref", "HEAD"))
 	lib := wow.NewLibrary(a.DB)
-	listing := `{"name":"no-fixme","evaluator":"sh","sh":"if grep -rl FIXME . ; then exit 1; fi; exit 0","occurrences":"lines","severity":"high","expects":"no FIXME"}`
+	listing := `{"appliesTo": ["repository"], "name":"no-fixme","evaluator":"sh","sh":"if grep -rl FIXME . ; then exit 1; fi; exit 0","occurrences":"lines","severity":"high","expects":"no FIXME"}`
 	if err := lib.StockInsert(t.Context(), wow.StockBlock{Name: "hygiene", Body: "body", ChecksJSON: checksJSON(listing)}); err != nil {
 		t.Fatal(err)
 	}
 	if err := lib.StockInsert(t.Context(), wow.StockBlock{Name: "strict", Body: "body", ChecksJSON: checksJSON(shCheck("has-readme", "test -f README.md", "high"),
-		`{"name":"up","evaluator":"runtime","probe":"page","severity":"high","expects":"the page answers"}`, treeRubric("tone", "be kind", "*.txt"))}); err != nil {
+		`{"appliesTo": ["repository"], "name":"up","evaluator":"runtime","probe":"page","severity":"high","expects":"the page answers"}`, treeRubric("tone", "be kind", "*.txt"))}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := fleetReviewsFor(a).CompareArm(context.Background(), verification.ArmComparison{EvalID: idstest.N(1), ProjectID: id, Slug: "copy", Branch: branch, BaseSHA: base,

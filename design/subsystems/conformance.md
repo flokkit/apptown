@@ -26,6 +26,24 @@ block does not change earlier verdicts or silently replace a project's adoption.
 Current conformance is a projection of recorded evidence, with source/version
 identity retained. Failure to evaluate is distinct from a negative judgment.
 
+## Applicability
+
+A check declares what it applies to (`appliesTo`: the repository, or words
+about the app's declared parts and their tools), and the Check library
+decides it from the judged tree's own `.apptown/app.yaml` before anything
+runs (`check.Applies`; verification's `CheckSource` is the one reading of a
+tree, so the gate, `apptown check`, a review, the baseline, a what-if and
+an eval decide alike). A check that applies to nothing is not applicable
+with its reason: recorded as conformance's `not-applicable` and the
+receipt's `not-applicable`, never a pass, never an error, outside a
+standing's total, and its own count in a what-if. A tests or scan step
+that applies to nothing finishes `not_applicable`, which lets a gate
+through and is not a pass. A contract that cannot be read is an error for
+a part check. A check that applies runs in each matching folder; nothing to
+judge there is its finding, since the declaration and the code disagree.
+`appliesTo` is required: there is no default reading of a check without
+it.
+
 ## Pack versions and what-if
 
 Each pack has one recommended version ([versioned ways of working](ways-of-working-versions.md)).

@@ -428,7 +428,9 @@ func (v *Changes) baselineFor(ctx context.Context, tools toolversions.Snapshot, 
 		b.items[f.Fingerprint] = append(b.items[f.Fingerprint], f.Items...)
 	}
 	for _, r := range results {
-		if r.Verdict != workflow.VerdictPass && r.Verdict != workflow.VerdictFail {
+		// Not applicable on the base is known: nothing there for the check
+		// to find, so a failure on the head is the change's own.
+		if r.Verdict != workflow.VerdictPass && r.Verdict != workflow.VerdictFail && r.Verdict != workflow.VerdictNotApplicable {
 			b.unknown[fmt.Sprintf("%s@%d|%s", r.Block, r.Version, r.Check)] = true
 		}
 	}

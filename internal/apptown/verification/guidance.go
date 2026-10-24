@@ -302,12 +302,20 @@ type evaluatorsSaid struct {
 func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope, tools toolversions.Snapshot, run *workflow.Run, source workflow.Source, checks []conformance.DeclaredCheck, at checked, failOn, prefix string) (evaluatorsSaid, error) {
 	var j evaluatorsSaid
 	j.results, j.findings, j.errors = a.evaluator.runShChecks(ctx, tools.Images.Sh, checks, at.Src, prefix)
+	// Rubrics and probes are judged once for the app: those that apply to
+	// nothing its contract declares are not applicable before any is asked.
+	src := CheckSource(at.Src)
+	once, rtSettled := splitApplicable(checks, "runtime", src, check.Gate)
+	once, llmSettled := splitApplicable(once, "llm", src, check.Gate)
+	settled, settledErrors := receipts(append(rtSettled, llmSettled...))
+	j.results = append(j.results, settled...)
+	j.errors += settledErrors
 
 	// runtime checks at the gate are judged against the CHANGE'S OWN preview,
 	// which the boot step leaves warm — never the standing deployment, which
 	// still runs the code the change exists to replace (a readiness
 	// remediation could not otherwise pass its own target until it landed).
-	rtResults, rtFindings, unjudged := a.runRuntimeChecksForRun(ctx, run, checks, at.Src, at.Commit, failOn, at.Candidate)
+	rtResults, rtFindings, unjudged := a.runRuntimeChecksForRun(ctx, run, once, at.Src, at.Commit, failOn, at.Candidate)
 	j.results = append(j.results, rtResults...)
 	j.findings = append(j.findings, rtFindings...)
 	j.unjudged = unjudged
@@ -322,7 +330,7 @@ func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope
 	j.findings = append(j.findings, toolFindings...)
 	j.errors += toolErrors
 
-	llmResults, llmFindings, llmMeta := a.runLLMChecklist(ctx, source, checks, at)
+	llmResults, llmFindings, llmMeta := a.runLLMChecklist(ctx, source, once, at)
 	j.results = append(j.results, llmResults...)
 	j.findings = append(j.findings, llmFindings...)
 	j.llm = llmMeta

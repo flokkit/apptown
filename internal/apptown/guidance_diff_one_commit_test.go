@@ -18,7 +18,7 @@ func TestGuidanceDiffRubricsJudgeTheCheckedCommit(t *testing.T) {
 	for _, moving := range []bool{false, true} {
 		t.Run(map[bool]string{false: "unpublished", true: "moving-branch"}[moving], func(t *testing.T) {
 			t.Parallel()
-			a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"},{"name":"diff","evaluator":"llm","scope":"diff","rubric":"judge the proposed change","expects":"the rule holds"}]`)
+			a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"source","evaluator":"sh","sh":"true"},{"appliesTo": ["repository"], "name":"diff","evaluator":"llm","scope":"diff","rubric":"judge the proposed change","expects":"the rule holds"}]`)
 			bindFastSlot(t, a)
 			var prompts []string
 			stubLLM(t, a, `[{"item":1,"verdict":"pass","evidence":"inspected diff","note":"ok"}]`, &prompts)
@@ -71,7 +71,7 @@ func TestTheAcceptanceDiffIsTheCheckedCommits(t *testing.T) {
 	for _, bad := range []bool{false, true} {
 		t.Run(map[bool]string{false: "clean-then-dirty", true: "dirty-then-clean"}[bad], func(t *testing.T) {
 			t.Parallel()
-			a, ch := step1ReviewGuidance(t, true, `[{"name":"source","evaluator":"sh","sh":"true"}]`)
+			a, ch := step1ReviewGuidance(t, true, `[{"appliesTo": ["repository"], "name":"source","evaluator":"sh","sh":"true"}]`)
 			ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
 			moved := false
 			installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {

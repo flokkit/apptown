@@ -4,6 +4,7 @@ app:
     build: .
     ports: ["8080"]
     public: true
+    tools: [php]
     resources: {memory: 256Mi}
     health:
       readiness: {http: /healthz.php}

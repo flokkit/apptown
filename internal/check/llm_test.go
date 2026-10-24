@@ -14,7 +14,7 @@ import (
 // packing/template — and is stable otherwise.
 func TestLLMEvaluatorIdentity(t *testing.T) {
 	t.Parallel()
-	c := check.Declaration{Name: "r", Evaluator: "llm", Scope: "tree", Rubric: "plain", Files: []string{"README.md"}}
+	c := check.Declaration{AppliesTo: repoWide, Name: "r", Evaluator: "llm", Scope: "tree", Rubric: "plain", Files: []string{"README.md"}}
 	base := check.LLMEvaluatorVersion(c)
 	if !strings.HasPrefix(base, "llm/"+check.PackingVersion+"/"+check.TemplateHash()+"/") {
 		t.Fatalf("identity shape: %s", base)
@@ -132,7 +132,7 @@ func TestARubricWhoseEvidenceCannotBeReadIsNotJudged(t *testing.T) {
 	unreadable := strings.Repeat("x", 300) + ".md"
 	rubric := func(name string, files ...string) check.Declared {
 		return check.Declared{Identity: check.Identity{Namespace: "b", Version: 1},
-			Declaration: check.Declaration{Name: name, Evaluator: "llm", Scope: "tree", Rubric: "judge", Expects: "it holds", Files: files}}
+			Declaration: check.Declaration{AppliesTo: repoWide, Name: name, Evaluator: "llm", Scope: "tree", Rubric: "judge", Expects: "it holds", Files: files}}
 	}
 	items := check.TreeItems([]check.Declared{rubric("partial", "README.md", unreadable), rubric("whole", "README.md")}, src)
 	if len(items) != 2 || items[0].Unreadable == "" || items[1].Unreadable != "" {

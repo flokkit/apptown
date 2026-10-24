@@ -2601,6 +2601,7 @@ export type Declaration = {
   scope?: string
   files?: string[]
   occurrences?: string
+  appliesTo?: string[]
 }
 
 export type InfrastructureView = {
@@ -3415,7 +3416,7 @@ export type NeedSelection = {
   params: Record<string, unknown>
 }
 
-export type StepState = "pending" | "running" | "pass" | "fail" | "needs_human" | "error" | "skipped"
+export type StepState = "pending" | "running" | "pass" | "fail" | "needs_human" | "error" | "skipped" | "not_applicable"
 
 export type SystemWorkflowBinding = {
   stock: string
@@ -4309,6 +4310,7 @@ export type WhatIfScore = {
   failing: number
   couldNotAssess: number
   noLongerRequired: number
+  notApplicable: number
   newFailures: number
   fixed: number
   movesBack: number
@@ -4355,7 +4357,7 @@ export type Count = {
   other: number
 }
 
-export type CheckVerdict = "pass" | "fail" | "error" | "cannot-assess" | "skipped" | "excepted" | "unclear"
+export type CheckVerdict = "pass" | "fail" | "error" | "cannot-assess" | "skipped" | "excepted" | "unclear" | "not-applicable"
 
 export type CheckAnswer = {
   block: string

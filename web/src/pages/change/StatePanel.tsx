@@ -121,7 +121,8 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
       body = (
         <>
           <ApproveEvidence changeId={changeId} soFar={ch.summary || view.report} diffstat={view.diffstat}
-            shortfall={ch.summary ? requestShortfall(ch) : undefined} boot={latestBoot(d.steps)} head={view.head} />
+            shortfall={ch.summary ? requestShortfall(ch) : undefined} boot={latestBoot(d.steps)} head={view.head}
+            notApplicable={notApplicableHere(d.steps)} />
           {/* Two roles, two zones: the DECISION is the approver's —
               approve, or reject with the words that travel back to the agent.
               Going back to work is the AUTHOR's move: a quiet line below. */}
@@ -300,6 +301,22 @@ export function requestShortfall(ch: { requestMet?: string; requestGap?: string 
   return /[.!?]$/.test(gap) ? gap : gap + '.'
 }
 
+// notApplicableHere: every check and step of the run that applies to
+// nothing this app declares, each with its reason, so the person approving
+// sees them in the decision and never reads them as passed.
+export function notApplicableHere(steps: Step[]): { name: string; why: string }[] {
+  const out: { name: string; why: string }[] = []
+  for (const s of steps) {
+    if (s.status === 'not_applicable') {
+      out.push({ name: s.name, why: (s.type === 'scan' ? s.evidence.notApplicable : '') || s.evidence?.reason || '' })
+    }
+    for (const c of s.checkReading?.checks ?? []) {
+      if (c.verdict === 'not-applicable') out.push({ name: c.check, why: c.detail ?? '' })
+    }
+  }
+  return out
+}
+
 // latestBoot is the run's newest preview step: its screenshots are what the
 // person approving sees of the app. Only this run's: never an earlier one's.
 export function latestBoot(steps: Step[]): StepOf<'preview'> | undefined {
@@ -307,8 +324,9 @@ export function latestBoot(steps: Step[]): StepOf<'preview'> | undefined {
   return boots.length ? boots[boots.length - 1] : undefined
 }
 
-export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, boot, head }: {
+export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, boot, head, notApplicable }: {
   changeId: string; soFar?: string; diffstat?: string; shortfall?: string; boot?: StepOf<'preview'>; head?: string
+  notApplicable?: { name: string; why: string }[]
 }) {
   const asked = useRef(false)
   const [askErr, setAskErr] = useState('')
@@ -329,6 +347,12 @@ export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, boot, he
         {diffstat && <span className="muted small">{diffstat}</span>}
       </div>
       {boot && <Screenshots shots={boot.evidence.screenshots} head={head} at={boot.finishedAt ?? undefined} />}
+      {notApplicable && notApplicable.length > 0 && (
+        <details className="small" style={{ marginTop: 8 }}>
+          <summary>Not applicable here: {notApplicable.length} {notApplicable.length === 1 ? 'check' : 'checks'}, not passed</summary>
+          <ul>{notApplicable.map((c, i) => <li key={i}><strong>{c.name}</strong>{c.why ? <span className="muted"> · {c.why}</span> : null}</li>)}</ul>
+        </details>
+      )}
       {shortfall && (
         <div className="ch-shortfall" role="alert">
           <strong>The summary says this change falls short of the request:</strong> {shortfall}{' '}

@@ -216,7 +216,7 @@ func landingCandidateRefusal(ctx context.Context, q database.Queryer, runID ids.
 			return fmt.Sprintf("step %s (%s) read the change's source but cannot be bound to the landing's candidate; checked landings support tests, scans, guidance conformance and scripts", step.Name, step.Type), nil
 		}
 		earlier := stageIndex[step.Stage] < stageIndex[run.CurrentStage]
-		if earlier && slices.Contains(candidateGates, step.Type) && step.Status != StatusPass && step.Status != StatusSkipped {
+		if earlier && slices.Contains(candidateGates, step.Type) && !step.Status.Judged() && step.Status != StatusSkipped {
 			// A new candidate put this earlier check back to pending, and
 			// nothing runs an earlier stage again.
 			return fmt.Sprintf("check %s in stage %s has not checked the landing's candidate %s; restart the landing to check it again", step.Name, step.Stage, strs.ShortSHA(c.Candidate)), nil
@@ -237,7 +237,7 @@ func landingCandidateRefusal(ctx context.Context, q database.Queryer, runID ids.
 			}
 			continue
 		}
-		if !slices.Contains(candidateGates, step.Type) || step.Status != StatusPass {
+		if !slices.Contains(candidateGates, step.Type) || !step.Status.Judged() {
 			continue
 		}
 		var evidence struct {

@@ -46,6 +46,10 @@ how the software is different now"]
     E --> S
 ```
 
+The evidence names every check the change met, failed or could not be
+judged on, and every check that was not applicable to the app, with the
+reason, so one that did not apply is never read as passed.
+
 The summary is the layer most readers actually consume: a short plain
 account, re-distilled from the diff and the evidence as work proceeds,
 of how the software is different now — never a narration of process.

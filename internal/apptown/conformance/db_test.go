@@ -50,7 +50,7 @@ func reviewFixture(t *testing.T) (*database.DB, ids.ID) {
 	t.Helper()
 	db := testDB(t)
 	project := createTestProject(t, db, "reviewed", "Reviewed", "main")
-	block := stockCheckFixture(t, db, wow.StockBlock{Name: "hygiene", ChecksJSON: `[{"name":"clean","evaluator":"sh","sh":"exit 0","severity":"high"}]`})
+	block := stockCheckFixture(t, db, wow.StockBlock{Name: "hygiene", ChecksJSON: `[{"appliesTo": ["repository"], "name":"clean","evaluator":"sh","sh":"exit 0","severity":"high"}]`})
 	pinCheckFixture(t, db, project, wow.ResolvedPin{BlockID: block, Name: "hygiene", Version: 1})
 	createDispositionFixture(t, db, ExceptionRequest{ProjectID: project, Fingerprint: "guidance|hygiene@1|clean|", Kind: AcceptedRisk, Justification: "fixture"})
 	return db, project

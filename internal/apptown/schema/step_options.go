@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/check"
 )
 
 // stepOptions is each step kind's authored options: the keys a saved
@@ -15,12 +17,12 @@ import (
 var stepOptions = map[string][]string{
 	"agent/pi":             {"prompt", "model", "thinking", "executor", "image", "scm", "skills", "resources", "requires", "services", "needs", "docker", "mayChangeNothing", "output", "timeoutMinutes"},
 	"agent/review":         {"of", "prompt", "question", "model", "thinking", "timeoutMinutes"},
-	"approval":             {"approvers", "quorum", "means", "instructions", "inAdvance"},
+	"approval":             {"approvers", "quorum", "means", "instructions", "inAdvance", "inAdvanceAdmitsNotApplicable"},
 	"artifact/require":     {"kind", "name"},
 	"adr/require":          {"status", "tags"},
 	"preview":              {"services"},
 	"deploy":               {"deployment", "services"},
-	"tests":                {"command", "require", "timeoutMinutes"},
+	"tests":                {"command", "require", "timeoutMinutes", "appliesTo"},
 	"scan":                 {"on", "scanner", "failOn", "timeoutMinutes"},
 	"guidance/conformance": {"failOn"},
 	"workflow/call":        {"workflow", "with"},
@@ -66,6 +68,25 @@ func checkOptions(stage string, s Step) error {
 			return fmt.Errorf("stage %q step %q: %s takes no options (got %s)", stage, s.Name, s.Uses, k)
 		}
 		return fmt.Errorf("stage %q step %q: %s has no option %s (options: %s)", stage, s.Name, s.Uses, k, strings.Join(allowed, ", "))
+	}
+	if v, ok := s.With["appliesTo"]; ok {
+		// The tests step's: the parts whose having no test command is a
+		// failure rather than not applicable, in the checks' words.
+		words, isList := v.([]any)
+		var ws []string
+		for _, w := range words {
+			text, isText := w.(string)
+			if !isText {
+				isList = false
+			}
+			ws = append(ws, text)
+		}
+		if !isList {
+			return fmt.Errorf("stage %q step %q: appliesTo is a list of words (tool:go, build, ...)", stage, s.Name)
+		}
+		if err := check.ValidateAppliesTo(ws); err != nil {
+			return fmt.Errorf("stage %q step %q: %w", stage, s.Name, err)
+		}
 	}
 	if v, ok := s.With["failOn"]; ok {
 		if severity, isText := v.(string); !isText || !slices.Contains(FailOnValues, severity) {

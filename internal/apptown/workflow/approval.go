@@ -148,6 +148,11 @@ type ApprovalConfig struct {
 	// condition AppTown witnesses (in_advance.go). A step without it takes
 	// no yes in advance.
 	InAdvance string `json:"inAdvance,omitempty"`
+	// InAdvanceAdmitsNotApplicable says the InAdvance sentence counts a
+	// check that is not applicable, or a step that is, as meeting its
+	// condition. Without it the condition is every check passing, as the
+	// sentences written before not applicable existed say.
+	InAdvanceAdmitsNotApplicable bool `json:"inAdvanceAdmitsNotApplicable,omitempty"`
 	// Instructions is what the person deciding is told to look at, shown
 	// with the meaning (ApprovalQuestion).
 	Instructions string `json:"instructions,omitempty"`

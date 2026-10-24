@@ -35,7 +35,7 @@ func (confirmationHTTPSource) ChecksIn(_ context.Context, _ database.Queryer, pr
 	for _, id := range projects {
 		out[id] = []conformance.DeclaredCheck{{
 			Block: "hygiene", Version: 1,
-			Check: conformance.CheckDeclaration{Name: "clean", Evaluator: "llm", Rubric: "the tree is clean", Severity: "medium"},
+			Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "clean", Evaluator: "llm", Rubric: "the tree is clean", Severity: "medium"},
 		}}
 	}
 	return out, nil

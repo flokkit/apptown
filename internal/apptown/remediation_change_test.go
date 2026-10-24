@@ -25,7 +25,7 @@ func TestRemediationTitleCannotChangeAcceptance(t *testing.T) {
 	a := testApp(t)
 	testAdministrator(t, a, "test")
 	pid, _, _ := fleetRepo(t, a, "readable", map[string]string{"README.md": "example"})
-	sc := conformance.DeclaredCheck{Block: "build/container-image", Version: 3, Check: conformance.CheckDeclaration{
+	sc := conformance.DeclaredCheck{Block: "build/container-image", Version: 3, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"},
 		Name: "runs-as-non-root", Title: "Run the application without root privileges", Expects: "The final Dockerfile stage declares an unprivileged user."}}
 	ch, err := a.Work.Create(a.asAppTown(context.Background(), pid, "test"), workflow.ChangeDraft{ProjectID: pid, Type: "remediation", Title: remediation.ChangeTitle(sc), Body: "A remediation brief", Acceptance: &workflow.Acceptance{Checks: []workflow.AcceptanceCheck{remediation.AcceptanceCheck(sc)}}})
 	if err != nil {
@@ -109,7 +109,7 @@ func TestChangeEvidenceRequiresRecordedMergeAndReleaseMembership(t *testing.T) {
 	if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "test", Role: access.RoleProjectApprover, Scope: access.ScopeProject, ScopeID: pid.String(), By: "test", Origin: "fixture"}, ""); err != nil {
 		t.Fatal(err)
 	}
-	sc := conformance.DeclaredCheck{Block: "example", Version: 1, Check: conformance.CheckDeclaration{Name: "check"}}
+	sc := conformance.DeclaredCheck{Block: "example", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "check"}}
 	ch, err := a.Work.Create(a.asAppTown(context.Background(), pid, "test"), workflow.ChangeDraft{ProjectID: pid, Type: "remediation", Title: remediation.ChangeTitle(sc), Body: "brief", Acceptance: &workflow.Acceptance{Checks: []workflow.AcceptanceCheck{remediation.AcceptanceCheck(sc)}}})
 	if err != nil {
 		t.Fatal(err)

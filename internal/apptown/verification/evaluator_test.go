@@ -38,7 +38,7 @@ func TestChecklistAsksAgainForJSON(t *testing.T) {
 		}
 		return `[{"item":1,"verdict":"conforms","detail":"fine"}]`, &modelcall.Usage{}, nil
 	}}, nil, stock.Versions())
-	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
+	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
 	items := check.DiffItems(declaredAll([]conformance.DeclaredCheck{sc}), "diff")
 	by, meta, err := e.Checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
 	if err != nil || meta == nil || len(by) != 1 || !meta.Retried || calls != 2 {
@@ -59,7 +59,7 @@ func TestChecklistKeepsTheSpendOfAFailedCall(t *testing.T) {
 		}
 		return "", &modelcall.Usage{Incomplete: "the call ended after it was sent"}, errors.New("timeout")
 	}}, nil, stock.Versions())
-	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
+	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
 	items := check.DiffItems(declaredAll([]conformance.DeclaredCheck{sc}), "diff")
 	_, meta, err := e.Checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
 	if err == nil || meta == nil || meta.Usage == nil || meta.Usage.Incomplete == "" || meta.Usage.Prompt != 4 || meta.Usage.Cost != 0.5 {
@@ -85,8 +85,10 @@ func TestAShellChecksDurationIsAppTownsClock(t *testing.T) {
 	var at atomic.Int64
 	at.Store(time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC).UnixNano())
 	e := NewEvaluator(timedRun{at: &at}, func() time.Time { return time.Unix(0, at.Load()) }, stock.Versions())
-	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "quick", Expects: "e", Evaluator: "sh", Sh: "exit 0", Severity: "low"}}
-	results, _, _ := e.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{sc}, t.TempDir(), "t-clock")
+	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "quick", Expects: "e", Evaluator: "sh", Sh: "exit 0", Severity: "low"}}
+	tree := t.TempDir()
+	writeTree(t, tree, map[string]string{"README.md": "x"})
+	results, _, _ := e.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{sc}, tree, "t-clock")
 	if len(results) != 1 || results[0].DurationMs == nil || *results[0].DurationMs != 7000 {
 		t.Fatalf("a check seven seconds long on AppTown's clock: %+v", results)
 	}

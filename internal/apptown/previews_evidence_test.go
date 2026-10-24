@@ -60,7 +60,7 @@ func runtimeGate(t *testing.T, place gatePlace, beforeBoot, afterBoot func(*App,
 	app.SyncStockDependencies(context.Background()) // error reporting's definition says what the page is given
 	stages := []schema.Stage{{Name: "wire", Steps: []schema.Step{{Name: "boot", Uses: "preview"}, {Name: "guidance-conformance", Uses: "guidance/conformance"}}}}
 	a, ctx, ch := changeScenarioIn(t, app, schema.Spec{Kind: "pipeline", Role: "working", Stages: stages})
-	adopt(t, a, ch.ProjectID, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
+	adopt(t, a, ch.ProjectID, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		deps.Automatic = []string{"guidance/conformance", "preview"}
 		deps.Runners = a.workDependencies().Runners
