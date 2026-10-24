@@ -44,7 +44,12 @@ func TestAuthzInstrumentsAreBounded(t *testing.T) {
 		return access.Resource{Type: "project", ID: id.String(), ProjectID: id, ProjectName: name}
 	}
 	holds := func(pr access.Principal, cap access.Capability, res access.Resource) bool {
-		return service.Evaluate(context.Background(), pr, access.DelegationOf(pr), cap, res, access.Context{}).Allow
+		t.Helper()
+		dec, err := service.Explain(context.Background(), pr, access.Permission{Capability: cap, Resource: res})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return dec.Allow
 	}
 	run := access.Principal{Kind: "instrument", Name: "run/1", Instrument: "run", ProjectID: idstest.N(1)}
 	if holds(run, access.CapChangeApprove, resource(idstest.N(1), "G")) {

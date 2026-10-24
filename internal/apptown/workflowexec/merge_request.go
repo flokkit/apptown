@@ -88,9 +88,14 @@ func (a *Repositories) RunSCMMR(task *workflow.Execution) {
 		fail(err.Error())
 		return
 	}
+	// The merge request exists: its record is the step's evidence, written
+	// before the step passes.
+	if err := recordArtifact(task.Context(), a.db, run.ID, "mr", fmt.Sprintf("!%d", mr.IID), mr.WebURL, pathNS, a.now()); err != nil {
+		fail(fmt.Sprintf("merge request %s was opened, but its record could not be written: %v", mr.WebURL, err))
+		return
+	}
 	if err := task.Settle(workflow.EncodeOutcome(workflow.StatusPass, map[string]any{"url": mr.WebURL, "iid": mr.IID, "project": pathNS}, nil)); err != nil {
 		return
 	}
-	recordArtifact(task.Context(), a.db, run.ID, "mr", fmt.Sprintf("!%d", mr.IID), mr.WebURL, pathNS, a.now())
 	recordEvent(task.Context(), a.db, run.ID, "mr.opened", map[string]any{"iid": mr.IID, "url": mr.WebURL}, a.now())
 }

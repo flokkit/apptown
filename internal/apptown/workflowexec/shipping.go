@@ -2,7 +2,7 @@ package workflowexec
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -111,11 +111,16 @@ func (a *Shipping) projectSlugOf(ctx context.Context, id ids.ID) string {
 	p, _ := project.ByIDIn(ctx, a.db, id)
 	return p.Slug
 }
-func recordArtifact(ctx context.Context, db *database.DB, runID ids.ID, kind, name, ref, body string, at time.Time) {
-	ctx = context.WithoutCancel(ctx) // a record of what happened
-	if _, err := workflow.AddArtifactIn(ctx, db, runID, kind, name, ref, body, at); err != nil {
-		log.Printf("background write failed: %v — artifact %s %q on run %d", err, kind, name, runID)
+
+// recordArtifact writes what a step made (a release, a preview, a merge
+// request): the step's evidence of what is running. The effect has happened,
+// so it is written though the caller stops; one that cannot be written is
+// the step's error, never a pass.
+func recordArtifact(ctx context.Context, db database.Queryer, runID ids.ID, kind, name, ref, body string, at time.Time) error {
+	if _, err := workflow.AddArtifactIn(context.WithoutCancel(ctx), db, runID, kind, name, ref, body, at); err != nil {
+		return fmt.Errorf("recording the %s %q: %w", kind, name, err)
 	}
+	return nil
 }
 
 // now reads AppTown's clock.

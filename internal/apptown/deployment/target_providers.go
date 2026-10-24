@@ -127,17 +127,27 @@ func (s *Service) SeedCloudTargets(ctx context.Context, who string) {
 // owns the region, registry and sizes; the copy runner, domain and other
 // settings an administrator edits are kept (Targets.Sync).
 func (s *Service) SeedCloudTarget(ctx context.Context, account, who string) (*Target, error) {
+	return s.seedCloudTarget(ctx, account, who, nil)
+}
+
+// AttachCloudTarget is SeedCloudTarget for a person attaching the account
+// on Targets: the target and the attach's receipts commit together.
+func (s *Service) AttachCloudTarget(ctx context.Context, account string, at Attachment) (*Target, error) {
+	return s.seedCloudTarget(ctx, account, at.By, &at)
+}
+
+func (s *Service) seedCloudTarget(ctx context.Context, account, who string, at *Attachment) (*Target, error) {
 	cfg, err := s.providers.DigitalOceanConfig(ctx, account)
 	if err != nil {
 		return nil, err
 	}
-	return s.Targets.Sync(ctx, &Target{
+	return s.Targets.sync(ctx, &Target{
 		Name: account, Kind: KindDOApp, Provider: account, Origin: OriginAttached,
 		Address:      map[string]any{"region": cfg.Region, "registry": cfg.Registry, "instanceSize": cfg.InstanceSize, "dbSize": cfg.DBSize},
 		Capabilities: StockCapabilities(KindDOApp, nil),
 		Ingress:      map[string]any{"binding": "provider-issued", "domain": "ondigitalocean.app"},
 		NeedsMode:    stockNeedsMode(KindDOApp), SecretsDelivery: "inject", Status: TargetReady,
-	}, who)
+	}, who, at)
 }
 
 // RegistryReading is the container registry of an App Platform target's

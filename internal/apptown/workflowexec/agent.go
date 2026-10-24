@@ -273,8 +273,11 @@ func (a *Executor) Run(task *workflow.Execution) {
 			fail(workflow.StatusError, map[string]any{"reason": "writing steering: " + err.Error()})
 			return
 		}
+		// What the agent is told is evidence: it starts only once that is
+		// recorded.
 		if err := workflow.ReplaceSteeringArtifactIn(context.WithoutCancel(task.Context()), a.db, step.RunID, "steering-"+step.Name, st.Text, "sha256:"+st.Hash); err != nil {
-			log.Printf("run %d: recording the steering the agent was given: %v", step.RunID, err)
+			fail(workflow.StatusError, map[string]any{"reason": "recording the steering the agent is given: " + err.Error()})
+			return
 		}
 	}
 

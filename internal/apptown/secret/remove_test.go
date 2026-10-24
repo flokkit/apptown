@@ -43,9 +43,9 @@ func TestRemoveProjectInKeepsOtherProjects(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	p := NewProfiles(db)
-	_ = p.Set(context.Background(), a, "main", "default")
-	_ = p.Set(context.Background(), b, "main", "default")
+	p := NewProfiles(db, nil)
+	_ = p.Set(context.Background(), a, "main", "default", "test")
+	_ = p.Set(context.Background(), b, "main", "default", "test")
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return RemoveProjectIn(context.Background(), tx, a) }); err != nil {
 		t.Fatal(err)
 	}

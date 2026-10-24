@@ -110,12 +110,15 @@ func (b databaseBackup) take(ctx context.Context) error {
 		audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup-failed", name, map[string]any{"error": err.Error()})
 		return err
 	}
-	fi, _ := os.Stat(name)
-	var size int64
-	if fi != nil {
-		size = fi.Size()
+	fi, err := os.Stat(name)
+	if err != nil {
+		return fmt.Errorf("database backup %s: reading what was written: %w", name, err)
 	}
-	audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup", name, map[string]any{"bytes": size, "keep": builtinDBBackupKeep})
+	// The backup's record is its evidence: one not recorded fails the job,
+	// though the file stays (it is a good backup).
+	if err := audit.At(clock.Or(b.now)()).Record(context.WithoutCancel(ctx), b.db, "apptown-system", ids.Nil, "db.backup", name, map[string]any{"bytes": fi.Size(), "keep": builtinDBBackupKeep}); err != nil {
+		return fmt.Errorf("database backup %s was written, but its record was not: %w", name, err)
+	}
 	// Keep the newest N, by the day each is of: a release before 1.0 named
 	// them forge-<day>, and those age out under the same rule.
 	var entries []string

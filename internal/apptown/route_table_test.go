@@ -191,6 +191,8 @@ func TestRouteTableInstrumentsRemainScoped(t *testing.T) {
 	pid := plainTestProject(t, a.DB, "game", "Game")
 	a.Console.Restore(consoleMetaFor("own", pid, ids.Nil))
 	a.Console.Restore(consoleMetaFor("other", pid, ids.Nil))
+	testAccounts(t, a.DB, "alice")
+	alice := testPrincipalOf(t, a.DB, "alice")
 	// Keep the production declarations and replace only the final effect. A
 	// rejected instrument must never reach that effect.
 	var routes []routeSpec
@@ -220,7 +222,12 @@ func TestRouteTableInstrumentsRemainScoped(t *testing.T) {
 		{"console", "/api/v1/console/other/messages", pid, 403},
 	} {
 		r := httptest.NewRequest("GET", tc.path, nil)
-		r = r.WithContext(context.WithValue(r.Context(), authCtxKey{}, &authIdentity{Via: tc.via, ProjectID: tc.projectID, ConsoleID: "own"}))
+		id := &authIdentity{Via: tc.via, ProjectID: tc.projectID, ConsoleID: "own"}
+		if tc.via == "console" {
+			// A chat acts for an enabled person.
+			id.User, id.PrincipalID = "alice via console/own", alice
+		}
+		r = r.WithContext(context.WithValue(r.Context(), authCtxKey{}, id))
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, r)
 		if w.Code != tc.status {

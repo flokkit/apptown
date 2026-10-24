@@ -114,7 +114,7 @@ env:
 	if w := call("DELETE", "/api/v1/services/mailer", ""); w.Code != 409 {
 		t.Fatalf("in-use delete must 409: %d %s", w.Code, w.Body.String())
 	}
-	if err := services.Attachments.Detach(context.Background(), pid, "mailer"); err != nil {
+	if err := services.Attachments.Detach(context.Background(), pid, "mailer", "test"); err != nil {
 		t.Fatal(err)
 	}
 	if w := call("DELETE", "/api/v1/services/mailer", ""); w.Code != 200 {

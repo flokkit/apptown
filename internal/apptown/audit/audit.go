@@ -27,6 +27,16 @@ func (at At) RecordIn(ctx context.Context, tx *database.Tx, actor string, projec
 	return at.RecordDecisionIn(ctx, tx, ids.Nil, actor, projectID, kind, subject, payload)
 }
 
+// Record writes a required line in its own transaction, for an act whose
+// effect is not a write of the caller's transaction: the receipt before a
+// secret is disclosed, the request before an irreversible effect and its
+// outcome after. A line that cannot be written is the error.
+func (at At) Record(ctx context.Context, db *database.DB, actor string, projectID ids.ID, kind, subject string, payload any) error {
+	return db.InTx(ctx, func(tx *database.Tx) error {
+		return at.RecordIn(ctx, tx, actor, projectID, kind, subject, payload)
+	})
+}
+
 // RecordDecisionIn is RecordIn for a line that points at the
 // authorization decision it follows from (a denial of a consequential
 // act, authorization-capabilities.md §13).

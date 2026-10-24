@@ -50,7 +50,7 @@ func TestBindingsVersionsAndRules(t *testing.T) {
 	if err := bs.Delete(t.Context(), "mine", "alice"); !errors.Is(err, ErrAttached) {
 		t.Fatalf("a load-bearing binding was deleted: %v", err)
 	}
-	if err := attachments.Detach(context.Background(), projectID, "scanner"); err != nil {
+	if err := attachments.Detach(context.Background(), projectID, "scanner", "test"); err != nil {
 		t.Fatal(err)
 	}
 	if err := bs.Delete(t.Context(), "mine", "alice"); err != nil {
@@ -149,13 +149,13 @@ func TestAttachmentsRulesAndReceipts(t *testing.T) {
 	if got := linked(); got != idstest.N(43) {
 		t.Fatalf("a refused link wrote: %d", got)
 	}
-	if err := at.Detach(context.Background(), p, "errors"); err != nil {
+	if err := at.Detach(context.Background(), p, "errors", "test"); err != nil {
 		t.Fatal(err)
 	}
-	if err := at.Detach(context.Background(), p, "errors"); !errors.Is(err, ErrNotAttached) {
+	if err := at.Detach(context.Background(), p, "errors", "test"); !errors.Is(err, ErrNotAttached) {
 		t.Fatalf("detaching twice: %v", err)
 	}
-	if err := at.Detach(context.Background(), p, "scm"); !errors.Is(err, ErrNotAttached) {
+	if err := at.Detach(context.Background(), p, "scm", "test"); !errors.Is(err, ErrNotAttached) {
 		t.Fatalf("an engine-internal row is never detached: %v", err)
 	}
 }

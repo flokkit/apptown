@@ -135,15 +135,18 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 	// GitLab has made the token: it is recorded though the caller stops, or
 	// a live token would exist that AppTown cannot rotate or revoke. One
 	// that cannot be recorded is revoked at once.
-	if err := s.Attachments.Remember(context.WithoutCancel(ctx), projectID, CapSCM, "gitlab", string(resource)); err != nil {
+	settle := context.WithoutCancel(ctx)
+	rotated := func(tx *database.Tx, at time.Time) error {
+		return audit.At(at).RecordIn(settle, tx, "apptown-system", projectID, "scm.token-rotated", profile,
+			map[string]any{"project": path, "scopes": prof.Scopes, "expires": nt.ExpiresAt, "ttl": "72h"})
+	}
+	if err := s.Attachments.remember(settle, projectID, CapSCM, "gitlab", string(resource), rotated); err != nil {
 		log.Printf("remembering the SCM access token: %v", err)
 		if rerr := gl.Do(ctx, "DELETE", fmt.Sprintf("/projects/%d/access_tokens/%d", proj.ID, tok.ID), nil, nil); rerr != nil {
 			log.Printf("revoking the unrecorded SCM access token %d: %v", tok.ID, rerr)
 		}
 		return nil, "", err
 	}
-	audit.At(s.now()).BestEffort(ctx, s.Bindings.db, "apptown-system", projectID, "scm.token-rotated", profile,
-		map[string]any{"project": path, "scopes": prof.Scopes, "expires": nt.ExpiresAt, "ttl": "72h"})
 	return nt, path, nil
 }
 

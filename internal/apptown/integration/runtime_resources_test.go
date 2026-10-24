@@ -100,7 +100,18 @@ func TestRegistryCredentialsFollowTheCurrentAttachment(t *testing.T) {
 	if got := s.RegistryFor(context.Background(), id); got == nil || got.Host != "fallback.example" {
 		t.Fatal("repo host fallback changed")
 	}
-	if err := s.Attachments.Detach(context.Background(), id, "container-registry"); err != nil {
+	// Detaching changes what the project may reach: without its receipt it
+	// does not happen.
+	restore := s.Attachments.db.FailNextStatement("-- name: AppendReceipt")
+	err := s.Attachments.Detach(context.Background(), id, "container-registry", "test")
+	restore()
+	if err == nil {
+		t.Fatal("a detach whose receipt failed reported success")
+	}
+	if got := s.RegistryFor(context.Background(), id); got == nil || got.Host != "fallback.example" {
+		t.Fatal("a detach whose receipt failed removed the credential")
+	}
+	if err := s.Attachments.Detach(context.Background(), id, "container-registry", "test"); err != nil {
 		t.Fatal(err)
 	}
 	if s.RegistryFor(context.Background(), id) != nil {

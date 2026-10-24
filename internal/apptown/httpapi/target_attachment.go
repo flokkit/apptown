@@ -1,21 +1,16 @@
 package httpapi
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
-	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -184,15 +179,19 @@ func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {
 			}
 			// Unmanaged: nothing in apptown config declares this account, so it is
 			// the target's to keep and to take away with it when retired.
-			h.bindCloudAccount(r.Context(), in.Name, cfg)
-			audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "integration.bound", in.Name, map[string]any{"capability": digitalocean.CapCloudAccount, "provider": "digitalocean", "via": "targets"})
-			saved, err := h.deployment.SeedCloudTarget(r.Context(), in.Name, Actor(r))
+			// The account's connector is saved with its receipt, then the
+			// target with the attach's.
+			if _, err := h.integrations.Bindings.Save(r.Context(), in.Name, digitalocean.CapCloudAccount, "digitalocean", encodedJSON(cfg), Actor(r)); err != nil {
+				WriteFault(w, err)
+				return
+			}
+			saved, err := h.deployment.AttachCloudTarget(r.Context(), in.Name, deployment.Attachment{By: Actor(r),
+				Attached: map[string]any{"kind": deployment.KindDOApp, "region": in.Region, "tokenFrom": in.TokenFrom, "answered": detail},
+				Answer:   map[string]any{"ok": true, "detail": detail, "registry": reading}})
 			if err != nil {
 				WriteFault(w, err)
 				return
 			}
-			audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "target.attached", saved.Name, map[string]any{"kind": saved.Kind, "region": in.Region, "tokenFrom": in.TokenFrom, "answered": detail})
-			audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "target.checked", saved.Name, map[string]any{"ok": true, "detail": detail, "registry": reading})
 			WriteJSON(w, 200, CloudTargetAttached{OK: true, Target: saved, Detail: detail, Registry: registry})
 			return
 		case deployment.KindS3Bucket:
@@ -236,19 +235,17 @@ func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {
 		if in.Evals {
 			t.Ingress[deployment.IngressEvals] = true
 		}
-		saved, err := h.deployment.Targets.Put(r.Context(), t)
+		payload := map[string]any{"kind": t.Kind, "answered": detail}
+		for _, k := range []string{"hostname", "user", "port", "keyFrom", "urlFrom", "apiKeyFrom", "environment", "endpoint", "region", "websiteEndpoint", "accessKeyFrom", "secretKeyFrom"} {
+			if v, ok := t.Address[k]; ok {
+				payload[k] = v
+			}
+		}
+		saved, err := h.deployment.Targets.Attach(r.Context(), t, deployment.Attachment{By: Actor(r), Attached: payload, Answer: map[string]any{"ok": true, "detail": detail}})
 		if err != nil {
 			WriteFault(w, err)
 			return
 		}
-		payload := map[string]any{"kind": saved.Kind, "answered": detail}
-		for _, k := range []string{"hostname", "user", "port", "keyFrom", "urlFrom", "apiKeyFrom", "environment", "endpoint", "region", "websiteEndpoint", "accessKeyFrom", "secretKeyFrom"} {
-			if v, ok := saved.Address[k]; ok {
-				payload[k] = v
-			}
-		}
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "target.attached", saved.Name, payload)
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "target.checked", saved.Name, map[string]any{"ok": true, "detail": detail})
 		WriteJSON(w, 200, TargetAttached{OK: true, Target: saved, Detail: detail})
 	})
 }
@@ -309,10 +306,4 @@ func (h Targets) EditTarget(w http.ResponseWriter, r *http.Request) {
 		}
 		WriteJSON(w, 200, TargetEdited{OK: true, Target: saved})
 	})
-}
-
-func (h Targets) bindCloudAccount(ctx context.Context, name string, cfg map[string]any) {
-	if _, err := h.integrations.Bindings.Upsert(ctx, name, digitalocean.CapCloudAccount, "digitalocean", encodedJSON(cfg), false); err != nil {
-		log.Printf("integration %s: recording its configuration: %v", name, err)
-	}
 }

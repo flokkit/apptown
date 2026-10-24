@@ -89,7 +89,10 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 			// Admission feedback only: the person must be able to accept
 			// changes here at all. The exact step's eligibility is asked
 			// again when the yes is cast.
-			if !h.holds(r.Context(), Principal(r), access.CapChangeApprove, access.Resource{Type: "project", ID: p.ID.String(), ProjectID: p.ID}) {
+			if may, err := h.holds(r.Context(), Principal(r), access.CapChangeApprove, access.Resource{Type: "project", ID: p.ID.String(), ProjectID: p.ID}); err != nil {
+				WriteFaultOr(w, err, http.StatusServiceUnavailable)
+				return
+			} else if !may {
 				WriteError(w, 403, "a yes in advance is an acceptance, and you cannot accept changes on %s", p.Slug)
 				return
 			}
@@ -132,9 +135,16 @@ func (h AdoptionCommands) Adopt(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		who := Actor(r)
-		if len(c.Weakens) > 0 && !h.holds(r.Context(), Principal(r), access.CapStandardsPacks, access.Resource{Type: "instance"}) {
-			WriteError(w, 403, "dropping %s weakens what a selected pack asks of this project; that takes the standards authority (%s)", strings.Join(c.Weakens, ", "), access.CapStandardsPacks)
-			return
+		if len(c.Weakens) > 0 {
+			may, err := h.holds(r.Context(), Principal(r), access.CapStandardsPacks, access.Resource{Type: "instance"})
+			if err != nil {
+				WriteFaultOr(w, err, http.StatusServiceUnavailable)
+				return
+			}
+			if !may {
+				WriteError(w, 403, "dropping %s weakens what a selected pack asks of this project; that takes the standards authority (%s)", strings.Join(c.Weakens, ", "), access.CapStandardsPacks)
+				return
+			}
 		}
 		activity, err := h.work.ProjectActivity(r.Context(), p.ID)
 		if err != nil {
@@ -219,8 +229,11 @@ func (h AdoptionCommands) assessedIn(r *http.Request, id, projectID ids.ID) (ass
 	return assessed{}, fault.New(fault.Conflict, fmt.Sprintf("what-if #%d assessed no candidate for this project", id))
 }
 
-func (h AdoptionCommands) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) bool {
-	return h.access.Evaluate(ctx, pr, access.DelegationOf(pr), c, res, access.Context{}).Allow
+// holds answers whether pr may, as a question: no receipt, and a
+// fact that cannot be read is an error.
+func (h AdoptionCommands) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) (bool, error) {
+	dec, err := h.access.Explain(ctx, pr, access.Permission{Capability: c, Resource: res})
+	return dec.Allow, err
 }
 
 // AdoptionUpliftOpened names the change that will carry an adoption, and

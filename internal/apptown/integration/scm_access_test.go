@@ -201,20 +201,28 @@ func TestAMintedSCMTokenIsRecordedThoughTheCallerStops(t *testing.T) {
 	}
 }
 
-// A token GitLab has made but AppTown cannot record is revoked at once:
-// no live token is left that AppTown does not know.
+// A token GitLab has made but AppTown cannot record, or whose receipt it
+// cannot write, is revoked at once: no live token is left that AppTown does
+// not know, and none is handed out without its receipt.
 func TestAnSCMTokenThatCannotBeRecordedIsRevoked(t *testing.T) {
 	t.Parallel()
-	srv, _, revoked := scmFake(t, nil)
-	db := testDB(t)
-	id := createTestProject(t, db, "app", "App")
-	service := scmService(t, db, srv.URL)
-	t.Cleanup(db.FailNextStatement("-- name: RememberIntegration"))
-	if env, why := service.SCMEnvironment(context.Background(), id, "https://gitlab.test/group/app.git", "read"); env != nil || why == "" {
-		t.Fatalf("an unrecorded token was handed out: %v", env)
-	}
-	if _, ok := revoked.Load("9"); !ok {
-		t.Fatal("the unrecorded token is still live at GitLab")
+	for _, failed := range []string{"-- name: RememberIntegration", "-- name: AppendReceipt"} {
+		srv, _, revoked := scmFake(t, nil)
+		db := testDB(t)
+		id := createTestProject(t, db, "app", "App")
+		service := scmService(t, db, srv.URL)
+		restore := db.FailNextStatement(failed)
+		env, why := service.SCMEnvironment(context.Background(), id, "https://gitlab.test/group/app.git", "read")
+		restore()
+		if env != nil || why == "" {
+			t.Fatalf("%s failed: a token was handed out: %v", failed, env)
+		}
+		if _, ok := revoked.Load("9"); !ok {
+			t.Fatalf("%s failed: the token is still live at GitLab", failed)
+		}
+		if res, err := Resource(t.Context(), db, id, CapSCM); err == nil && res != "" {
+			t.Fatalf("%s failed: the token was remembered: %s", failed, res)
+		}
 	}
 }
 

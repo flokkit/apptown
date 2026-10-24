@@ -93,10 +93,17 @@ func (a *App) handleAuthMe(w http.ResponseWriter, r *http.Request) {
 	if id := identityFrom(r); id != nil {
 		out.User, out.Role, out.Via = id.User, id.Role, id.Via
 		out.From = a.cfg.proxies.ClientIP(r).String()
-		out.Can = &httpapi.AuthMeCan{
-			Amend:   a.hasPrivilege(r.Context(), id.User, id.Role, "amend"),
-			Release: a.hasPrivilege(r.Context(), id.User, id.Role, "release"),
+		amend, err := a.hasPrivilege(r.Context(), id.User, id.Role, "amend")
+		if err != nil {
+			writeErr(w, 503, "reading what you may do: %v", err)
+			return
 		}
+		release, err := a.hasPrivilege(r.Context(), id.User, id.Role, "release")
+		if err != nil {
+			writeErr(w, 503, "reading what you may do: %v", err)
+			return
+		}
+		out.Can = &httpapi.AuthMeCan{Amend: amend, Release: release}
 	}
 	writeJSON(w, 200, out)
 }

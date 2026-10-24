@@ -163,12 +163,25 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 				return
 			}
 		}
+		// A removal cannot be undone: it is requested on the record before
+		// it happens, and its outcome recorded after.
+		what := map[string]any{"kind": in.Kind, "name": in.Name, "id": in.ID}
+		admit := func() bool {
+			if err := audit.At(clock.Or(h.now)()).Record(r.Context(), h.db, Actor(r), ids.Nil, "infrastructure.remove-requested", t.Name, what); err != nil {
+				WriteError(w, 503, "not removed: the request could not be recorded: %v", err)
+				return false
+			}
+			return true
+		}
 		var out []byte
 		switch {
 		case t.Kind == deployment.KindDockerHost && (in.Kind == "container" || in.Kind == "volume"):
 			dk, scopeErr := h.hosts.DockerScope(r.Context(), t)
 			if scopeErr != nil {
 				WriteError(w, 502, "not removed: %v", scopeErr)
+				return
+			}
+			if !admit() {
 				return
 			}
 			if in.Kind == "container" {
@@ -191,6 +204,9 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 				WriteError(w, 400, "a stack is removed by its id")
 				return
 			}
+			if !admit() {
+				return
+			}
 			code, raw, derr := portainer.JSON(r.Context(), cfg, "DELETE", fmt.Sprintf("/api/stacks/%s?endpointId=%d", in.ID, endpointID), nil)
 			if derr != nil || code >= 300 {
 				err = fmt.Errorf("Portainer refused: HTTP %d %v %s", code, derr, strs.Truncate(string(raw), 200))
@@ -199,12 +215,21 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 			WriteError(w, 400, "nothing to remove: a %s on a %s target", in.Kind, t.Kind)
 			return
 		}
+		settle := context.WithoutCancel(r.Context())
 		if err != nil {
-			WriteError(w, 502, "not removed: %s", strs.Truncate(strings.TrimSpace(string(out))+" "+err.Error(), 300))
+			why := strs.Truncate(strings.TrimSpace(string(out))+" "+err.Error(), 300)
+			failed := map[string]any{"kind": in.Kind, "name": in.Name, "id": in.ID, "error": why}
+			if recErr := audit.At(clock.Or(h.now)()).Record(settle, h.db, Actor(r), ids.Nil, "infrastructure.remove-failed", t.Name, failed); recErr != nil {
+				why += "; and recording that it failed: " + recErr.Error()
+			}
+			WriteError(w, 502, "not removed: %s", why)
 			return
 		}
 		h.cache.Invalidate()
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), ids.Nil, "infrastructure.removed", t.Name, map[string]any{"kind": in.Kind, "name": in.Name, "id": in.ID})
+		if err := audit.At(clock.Or(h.now)()).Record(settle, h.db, Actor(r), ids.Nil, "infrastructure.removed", t.Name, what); err != nil {
+			WriteError(w, 500, "%s %s was removed, but its outcome was not recorded: %v", in.Kind, in.Name, err)
+			return
+		}
 		WriteJSON(w, 200, Done{OK: true})
 	})
 }

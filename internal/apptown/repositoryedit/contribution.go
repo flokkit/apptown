@@ -62,7 +62,10 @@ func (c *Contributions) authorize(ctx context.Context, action string, ch *workfl
 		return access.ErrPrincipalRequired
 	}
 	pr := caller.Principal
-	dec := c.identity.Evaluate(ctx, pr, access.DelegationOf(pr), access.CapChangeWriteRevision, workflow.ChangeResource(ctx, c.projects, ch), access.Context{Consequential: true, Route: "mcp:" + action})
+	dec, err := c.identity.Decide(ctx, pr, access.Permission{Capability: access.CapChangeWriteRevision, Resource: workflow.ChangeResource(ctx, c.projects, ch), Context: access.Context{Consequential: true, Route: "mcp:" + action}})
+	if err != nil {
+		return err
+	}
 	if !dec.Allow {
 		return contributionRefusal("%s", dec.Reason)
 	}
@@ -126,8 +129,15 @@ func (c *Contributions) Checkout(ctx context.Context, changeID ids.ID) (Checkout
 	// it expires. Another holder that has not ended (a chat, a run, another
 	// checkout) refuses it; the unusable ticket is revoked. The desktop works
 	// from the branch as published: nothing is published for it here.
+	// The receipt of the credential is written with the hold it takes: a
+	// ticket whose receipt failed is revoked like one that could not hold.
 	if _, err := database.Transact(ctx, c.db, func(tx *database.Tx) (scm.Authority, error) {
-		return workflow.TakeChangeIn(ctx, tx, p.ID, ch.Branch, scm.TicketHolder(t.ID), c.chats, c.now())
+		held, err := workflow.TakeChangeIn(ctx, tx, p.ID, ch.Branch, scm.TicketHolder(t.ID), c.chats, c.now())
+		if err != nil {
+			return held, err
+		}
+		return held, audit.At(c.now()).RecordIn(ctx, tx, caller.Receipt, p.ID, "change.ticket-minted", fmt.Sprintf("change %d", ch.ID),
+			map[string]any{"ref": ref, "expectedTip": tip, "ticketId": t.ID, "expiresAt": t.ExpiresAt})
 	}); err != nil {
 		// The ticket was issued: revoke it though the caller has gone.
 		if revokeErr := c.identity.RevokeChangeTickets(context.WithoutCancel(ctx), ch.ID); revokeErr != nil {
@@ -139,8 +149,6 @@ func (c *Contributions) Checkout(ctx context.Context, changeID ids.ID) (Checkout
 		}
 		return Checkout{}, err
 	}
-	audit.At(c.now()).BestEffort(ctx, c.db, caller.Receipt, p.ID, "change.ticket-minted", fmt.Sprintf("change %d", ch.ID),
-		map[string]any{"ref": ref, "expectedTip": tip, "ticketId": t.ID, "expiresAt": t.ExpiresAt})
 	return Checkout{Token: tok, Ticket: t, Tip: tip, Ref: ref, PushRef: scm.IncomingRef(t.ID)}, nil
 }
 

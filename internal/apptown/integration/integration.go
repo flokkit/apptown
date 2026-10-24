@@ -148,11 +148,12 @@ func (s *Bindings) Count(ctx context.Context, name, capability string) (int, err
 // nothing when it did not. The row and its version row commit together.
 // It returns the version that stands.
 func (s *Bindings) Upsert(ctx context.Context, name, capability, provider, configJSON string, managed bool) (int, error) {
-	return s.upsertAt(ctx, s.now(), name, capability, provider, configJSON, managed)
+	return s.upsertAt(ctx, s.now(), name, capability, provider, configJSON, managed, nil)
 }
 
-// upsertAt is Upsert at the operation's time, now.
-func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability, provider, configJSON string, managed bool) (int, error) {
+// upsertAt is Upsert at the operation's time, now, with receipt (when not
+// nil) written in the same transaction.
+func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability, provider, configJSON string, managed bool, receipt func(*database.Tx) error) (int, error) {
 	var version int
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {
 		q := integrationsql.New(tx.SQL())
@@ -168,7 +169,11 @@ func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability
 		} else {
 			version = int(current.Version)
 			if sameJSON(string(current.ConfigJson), configJSON) {
-				return nil
+				// Saved as it stands: still a person's act, still receipted.
+				if receipt == nil {
+					return nil
+				}
+				return receipt(tx)
 			}
 			version++
 			current, err = q.SetBindingConfiguration(ctx, integrationsql.SetBindingConfigurationParams{ID: current.ID, ConfigJson: json.RawMessage(configJSON), Version: int64(version), UpdatedAt: now})
@@ -176,8 +181,13 @@ func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability
 				return err
 			}
 		}
-		_, err = q.InsertBindingVersion(ctx, integrationsql.InsertBindingVersionParams{ID: ids.New(now), IntegrationID: current.ID, Version: int64(version), ConfigJson: json.RawMessage(configJSON), CreatedAt: now})
-		return err
+		if _, err = q.InsertBindingVersion(ctx, integrationsql.InsertBindingVersionParams{ID: ids.New(now), IntegrationID: current.ID, Version: int64(version), ConfigJson: json.RawMessage(configJSON), CreatedAt: now}); err != nil {
+			return err
+		}
+		if receipt == nil {
+			return nil
+		}
+		return receipt(tx)
 	})
 	return version, err
 }
@@ -192,19 +202,16 @@ func (s *Bindings) Save(ctx context.Context, name, capability, provider, configJ
 		return 0, err
 	}
 	at := s.now()
-	version, err := s.upsertAt(ctx, at, name, capability, provider, configJSON, false)
+	version, err := s.upsertAt(ctx, at, name, capability, provider, configJSON, false, func(tx *database.Tx) error {
+		return audit.At(at).RecordIn(ctx, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": capability, "provider": provider})
+	})
 	if err != nil {
 		return 0, err
 	}
 	if s.committed != nil {
 		s.committed()
 	}
-	// The binding is committed: its receipt's whole transaction is written
-	// though the caller has gone.
-	settle := context.WithoutCancel(ctx)
-	return version, s.db.InTx(settle, func(tx *database.Tx) error {
-		return audit.At(at).RecordIn(settle, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": capability, "provider": provider})
-	})
+	return version, nil
 }
 
 // Delete removes a person's binding with its receipt: managed bindings
@@ -446,24 +453,44 @@ func (s *Attachments) Attach(ctx context.Context, projectID ids.ID, capability, 
 // Remember keeps an engine-internal row (no provenance): a resource the
 // AppTown holds for a project, replaced whole when it changes.
 func (s *Attachments) Remember(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string) error {
+	return s.remember(ctx, projectID, capability, binding, resourceJSON, nil)
+}
+
+// remember is Remember with, when receipt is not nil, a ledger line written
+// in the same transaction: a credential it holds is never remembered
+// without its receipt.
+func (s *Attachments) remember(ctx context.Context, projectID ids.ID, capability, binding, resourceJSON string, receipt func(*database.Tx, time.Time) error) error {
 	if err := refusesIntegrations(ctx, s.db, projectID); err != nil {
 		return err
 	}
-	_, err := integrationsql.New(s.db.SQL()).RememberIntegration(ctx, integrationsql.RememberIntegrationParams{ProjectID: projectID, Capability: capability, Binding: binding, ResourceJson: json.RawMessage(resourceJSON), CreatedAt: clock.Or(s.clock)().UTC()})
-	return err
+	at := clock.Or(s.clock)().UTC()
+	return s.db.InTx(ctx, func(tx *database.Tx) error {
+		if _, err := integrationsql.New(tx.SQL()).RememberIntegration(ctx, integrationsql.RememberIntegrationParams{ProjectID: projectID, Capability: capability, Binding: binding, ResourceJson: json.RawMessage(resourceJSON), CreatedAt: at}); err != nil {
+			return err
+		}
+		if receipt == nil {
+			return nil
+		}
+		return receipt(tx, at)
+	})
 }
 
-// Detach removes a project's attachment; the provider-side resource is
-// never deprovisioned here. Nothing attached is ErrNotAttached.
-func (s *Attachments) Detach(ctx context.Context, projectID ids.ID, capability string) error {
-	n, err := integrationsql.New(s.db.SQL()).DetachIntegration(ctx, integrationsql.DetachIntegrationParams{ProjectID: projectID, Capability: capability})
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotAttached
-	}
-	return nil
+// Detach removes a project's attachment, with its receipt in the same
+// transaction: an attachment can carry a credential the project's runtime
+// is given, so removing it changes what the project may reach. The
+// provider-side resource is never deprovisioned here. Nothing attached is
+// ErrNotAttached.
+func (s *Attachments) Detach(ctx context.Context, projectID ids.ID, capability, who string) error {
+	return s.db.InTx(ctx, func(tx *database.Tx) error {
+		n, err := integrationsql.New(tx.SQL()).DetachIntegration(ctx, integrationsql.DetachIntegrationParams{ProjectID: projectID, Capability: capability})
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrNotAttached
+		}
+		return audit.At(clock.Or(s.clock)().UTC()).RecordIn(ctx, tx, who, projectID, "integration.detached", capability, nil)
+	})
 }
 
 // AttachedProject is a project that attaches a binding.

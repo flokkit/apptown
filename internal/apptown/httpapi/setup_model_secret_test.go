@@ -45,6 +45,52 @@ func TestSetupModelWritesSecrets(t *testing.T) {
 	if slot, _, _ := model.NewSelection(models).Resolve(req.Context(), ids.Nil, ""); slot == "" {
 		t.Fatal("a default model slot should exist after setup")
 	}
+	// Replacing the key changes the credential in use: the request is on the
+	// record before the file changes, and the outcome after.
+	again := func(key string) int {
+		r := httptest.NewRequest("POST", "/api/v1/setup/model", strings.NewReader(`{"provider":"anthropic","key":"`+key+`"}`))
+		w := httptest.NewRecorder()
+		h.SetupModel(w, r.WithContext(req.Context()))
+		return w.Code
+	}
+	keyIs := func(want string) {
+		t.Helper()
+		if b, err := os.ReadFile(envPath); err != nil || !strings.Contains(string(b), "ANTHROPIC_API_KEY="+want+"\n") {
+			t.Fatalf("the key in the file is not %s: %v", want, err)
+		}
+	}
+	restore := db.FailNextStatement("-- name: AppendReceipt")
+	code := again("sk-ant-unrecorded")
+	restore()
+	if code == 200 {
+		t.Fatal("a key change whose request was not recorded succeeded")
+	}
+	keyIs("sk-ant-test-123")
+	restore = db.FailStatementAfter("-- name: AppendReceipt", 1)
+	code = again("sk-ant-test-456")
+	restore()
+	if code == 200 {
+		t.Fatal("a key change whose outcome was not recorded succeeded")
+	}
+	// A file that cannot be read is not rewritten (a directory in its
+	// place fails for root too).
+	if err := os.Rename(envPath, envPath+".kept"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(envPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	code = again("sk-ant-unwritable")
+	if err := os.Remove(envPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(envPath+".kept", envPath); err != nil {
+		t.Fatal(err)
+	}
+	if code == 200 {
+		t.Fatal("a key that could not be written succeeded")
+	}
+	keyIs("sk-ant-test-456")
 }
 
 // A first OpenRouter key sets the default model to what OpenRouter's

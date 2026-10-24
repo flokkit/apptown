@@ -562,3 +562,24 @@ func TestTheSweepRemovesOnlyWhenStartedWithReap(t *testing.T) {
 		t.Fatal("an AppTown started with -reap only logs leftovers")
 	}
 }
+
+// A backup whose record cannot be written fails its job: the file is a
+// good backup, but nothing says it was taken.
+func TestABackupWithoutItsRecordFailsItsJob(t *testing.T) {
+	t.Parallel()
+	f := newFakeDocker()
+	f.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+		if req.Stdout != nil {
+			_, err := io.WriteString(req.Stdout, "-- fixture database dump\n")
+			return nil, err
+		}
+		return f.run(req.Args...)
+	}
+	a := testApp(t, Config{UsingBuiltinDB: true, DockerClient: f, DataDir: builtinDataDir(t)})
+	restore := a.DB.FailNextStatement("-- name: AppendReceipt")
+	_, err := apptownJobKinds(a)["db-backup"].Run(t.Context(), "daily", nil)
+	restore()
+	if err == nil {
+		t.Fatal("a backup whose record failed reported success")
+	}
+}

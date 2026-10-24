@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"maps"
 	"os"
 	"strings"
@@ -560,10 +559,11 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 		}
 		b, handle, err := f.FulfilNeed(ctx, dep.Placement(), need, c.NeedParams[need], logf)
 		if err != nil {
+			err = fmt.Errorf("fulfilling %s on %s: %w", need, t.Name, err)
 			if endErr := p.reconciliations.End(ctx, recID, true, map[string]any{"need": need, "error": err.Error()}); endErr != nil {
-				log.Printf("reconcile %d: recording the failure: %v", recID, endErr)
+				return nil, fmt.Errorf("%w; and recording that it failed: %v", err, endErr)
 			}
-			return nil, fmt.Errorf("fulfilling %s on %s: %w", need, t.Name, err)
+			return nil, err
 		}
 		out[need] = b
 		if handle == nil {
@@ -579,8 +579,10 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 		}
 		receipt[need] = handle
 	}
+	// The needs are fulfilled; the reconciliation is not done until its
+	// outcome is recorded.
 	if err := p.reconciliations.End(ctx, recID, false, receipt); err != nil {
-		log.Printf("reconcile %d: recording the receipt: %v", recID, err)
+		return nil, fmt.Errorf("the needs were fulfilled on %s, but the reconciliation's outcome was not recorded: %w", t.Name, err)
 	}
 	if p.applied != nil {
 		p.applied()

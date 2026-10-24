@@ -206,10 +206,18 @@ func TestOAuthFlowMintsBoundedTokens(t *testing.T) {
 	}
 	pr := principalOf(id, "")
 	p, _ := a.Projects.BySlug(context.Background(), "p")
-	if a.holds(req.Context(), pr, access.CapChangeCreate, a.resourceProject(context.Background(), &p)) {
+	holds := func(c access.Capability) bool {
+		t.Helper()
+		may, err := a.holds(req.Context(), pr, c, a.resourceProject(context.Background(), &p))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return may
+	}
+	if holds(access.CapChangeCreate) {
 		t.Error("a read-only delegation must not create changes, whatever boss may do in person")
 	}
-	if !a.holds(req.Context(), pr, access.CapProjectRead, a.resourceProject(context.Background(), &p)) {
+	if !holds(access.CapProjectRead) {
 		t.Error("the delegation covers reads")
 	}
 	// Refresh rotates: the old refresh token dies, and reusing it ends the connection.

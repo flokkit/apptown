@@ -113,7 +113,7 @@ func (h SetupModel) SetupModel(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		// secrets.env: append or replace the key's line. 0600 — it holds values.
-		if err := h.secrets.SetBootstrap(secretName, in.Key); err != nil {
+		if err := h.secrets.SetBootstrap(r.Context(), secretName, in.Key, Actor(r)); err != nil {
 			WriteError(w, 500, "writing secrets.env: %v", err)
 			return
 		}

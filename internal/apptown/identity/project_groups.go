@@ -38,7 +38,11 @@ func (s *Service) OwningGroupFor(ctx context.Context, pr access.Principal, asked
 	// creator, the sovereign): owning a personal group carries project:create
 	// in it, so minting one for everyone would make everyone a creator. For
 	// anyone else the name is what it would be, and the kernel refuses there.
-	if s.Evaluate(ctx, pr, access.DelegationOf(pr), access.CapProjectCreate, access.Resource{Type: "instance"}, access.Context{}).Allow {
+	dec, err := s.Explain(ctx, pr, access.Permission{Capability: access.CapProjectCreate, Resource: access.Resource{Type: "instance"}})
+	if err != nil {
+		return "", err
+	}
+	if dec.Allow {
 		return s.PersonalGroup(ctx, user, user)
 	}
 	return user, nil

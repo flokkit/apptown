@@ -115,14 +115,14 @@ func TestBindingsAndProfiles(t *testing.T) {
 	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE kind='secret.unbound' AND subject='TOKEN' AND project_id=?`, pid).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("unbind receipt: %v %d", err, n)
 	}
-	p := NewProfiles(db)
+	p := NewProfiles(db, nil)
 	if chosen, err := p.Chosen(t.Context(), pid, "main"); err != nil || chosen != "" {
 		t.Fatalf("no choice yet: %v %q", err, chosen)
 	}
-	if err := p.Set(context.Background(), pid, "main", "preview"); err != nil {
+	if err := p.Set(context.Background(), pid, "main", "preview", "test"); err != nil {
 		t.Fatal(err)
 	}
-	if err := p.Set(context.Background(), pid, "main", "default"); err != nil {
+	if err := p.Set(context.Background(), pid, "main", "default", "test"); err != nil {
 		t.Fatal(err)
 	}
 	if chosen, _ := p.Chosen(t.Context(), pid, "main"); chosen != "default" {

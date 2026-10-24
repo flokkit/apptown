@@ -90,7 +90,9 @@ func TestAnInstanceSecretIsSetAndRemovedWithReceiptsAndNoValue(t *testing.T) {
 		t.Fatalf("removing an absent secret: %v", err)
 	}
 	receipts := instanceReceipts(t, s)
-	if len(receipts) != 2 || receipts[0].Kind != "secret.instance-removed" || receipts[1].Kind != "secret.instance-set" {
+	// Newest first: each change's request, then its outcome.
+	if len(receipts) != 4 || receipts[0].Kind != "secret.instance-removed" || receipts[1].Kind != "secret.instance-removed-requested" ||
+		receipts[2].Kind != "secret.instance-set" || receipts[3].Kind != "secret.instance-set-requested" {
 		t.Fatalf("receipts: %+v", receipts)
 	}
 	for _, r := range receipts {
@@ -98,8 +100,8 @@ func TestAnInstanceSecretIsSetAndRemovedWithReceiptsAndNoValue(t *testing.T) {
 			t.Fatalf("receipt: %+v", r)
 		}
 	}
-	if !strings.Contains(string(receipts[1].Payload), `"replaced":true`) {
-		t.Fatalf("the set receipt says it replaced a line: %s", receipts[1].Payload)
+	if !strings.Contains(string(receipts[2].Payload), `"replaced":true`) {
+		t.Fatalf("the set receipt says it replaced a line: %s", receipts[2].Payload)
 	}
 }
 
@@ -162,7 +164,7 @@ func TestAnInstanceSecretInfisicalHoldsIsRefused(t *testing.T) {
 	if _, held := fresh.fileSecrets()["ANOTHER_TOKEN"]; held {
 		t.Fatal("a set AppTown could not check was written")
 	}
-	if got := instanceReceipts(t, s); len(got) != 1 || got[0].Subject != "PORTAINER_API_KEY" {
+	if got := instanceReceipts(t, s); len(got) != 2 || got[0].Subject != "PORTAINER_API_KEY" || got[1].Subject != "PORTAINER_API_KEY" {
 		t.Fatalf("receipts: %+v", got)
 	}
 }
