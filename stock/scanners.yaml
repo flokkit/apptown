@@ -110,9 +110,11 @@ scanners:
     description: Exports the Godot 4 game for the browser in the pinned engine image; the export must succeed (game/godot-web)
     image: barichello/godot-ci:4.4.1
     # Import first (the .godot cache is never committed), then export the Web
-    # preset. Success = index.wasm + index.pck exist and the folder is under
-    # the size budget; Godot's own exit code is not trusted for either.
-    command: ["sh", "-c", "cd /work && mkdir -p /work/build/web && (godot --headless --import >/dev/null 2>&1 || true); godot --headless --export-release Web /work/build/web/index.html 2>&1 | grep -iE 'error|fail' | head -20; [ -f /work/build/web/index.wasm ] && [ -f /work/build/web/index.pck ] || { echo 'the web export produced no index.wasm/index.pck — see the errors above (a missing Web preset, a script that does not parse, a missing template)'; exit 1; }; s=$(du -sm /work/build/web | cut -f1); [ \"$s\" -le 80 ] || { echo \"the web export is ${s} MB — over the 80 MB budget; shrink textures/audio or split scenes\"; exit 1; }; echo \"web export ok: ${s} MB\"; exit 0"]
+    # preset; each must exit 0. The outputs are removed first, so only this
+    # export can leave index.wasm and index.pck, and the folder must stay
+    # under the size budget. Godot 4.4 exits 0 on a script that does not
+    # parse (it logs the error and exports), so the error lines are shown.
+    command: ["sh", "-c", "cd /work || exit 2; [ -f project.godot ] || { echo 'not judged: no project.godot in the tree'; exit 2; }; mkdir -p build/web && rm -f build/web/index.wasm build/web/index.pck || { echo 'could not clear an earlier export from build/web'; exit 2; }; out=$(godot --headless --import 2>&1) || { echo 'the import failed:'; echo \"$out\" | grep -iE 'error|fail' | head -20; exit 1; }; out=$(godot --headless --export-release Web /work/build/web/index.html 2>&1); e=$?; echo \"$out\" | grep -iE 'error|fail' | head -20; [ $e -eq 0 ] || { echo \"the web export failed (exit $e) — see the errors above (a missing Web preset, a missing template)\"; exit 1; }; [ -f build/web/index.wasm ] && [ -f build/web/index.pck ] || { echo 'the web export produced no index.wasm/index.pck — see the errors above (a missing Web preset, a script that does not parse, a missing template)'; exit 1; }; s=$(du -sm build/web | cut -f1); [ \"$s\" -le 80 ] || { echo \"the web export is ${s} MB — over the 80 MB budget; shrink textures/audio or split scenes\"; exit 1; }; echo \"web export ok: ${s} MB\"; exit 0"]
     network: false
     target: source
     manual: true

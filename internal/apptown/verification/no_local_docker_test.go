@@ -24,9 +24,14 @@ func (s *refusalSpy) Run(_ context.Context, _ string, c docker.Command) ([]byte,
 	return nil, docker.ErrNoLocalBackend
 }
 
-// On an AppTown with no local Docker, a scan's baseline says the serving
-// release image is unknown, never that nothing serves, and asks no Docker,
-// wherever its checks run.
+// A scan's baseline is the base commit's image or unavailable: with no
+// image of the base, a project that has released has every finding
+// introduced, and the image the app runs now (another commit's, and on an
+// AppTown with no local Docker not even readable) never stands in. No
+// Docker is asked, wherever the checks run.
+//
+// Kills: the serving release's image substituted for the base commit's
+// (fallback audit F18).
 func TestAScanBaselineWithNoLocalDockerIsUnknown(t *testing.T) {
 	t.Parallel()
 	for name, exec := range map[string]Executor{"on the worker": {}, "on this machine": {Local: true}} {
@@ -39,7 +44,7 @@ func TestAScanBaselineWithNoLocalDockerIsUnknown(t *testing.T) {
 			servingMain(t, f, deployments, sha)
 			f.Scanners.deployments, f.Scanners.docker, f.Scanners.exec = deployments, &docker.Scope{Client: spy}, exec
 			base := f.Scanners.baseImageFingerprints(f.Context, f.ProjectID, repo, sha, check.Scanner{}, "scanner", t.TempDir(), nil, "scan")
-			if base.OK || !strings.Contains(base.Note, "this AppTown runs no Docker of its own, so it cannot read the image the app runs now") || strings.Contains(base.Note, "no local Docker") || len(spy.asked) != 0 {
+			if base.OK || !strings.Contains(base.Note, "every finding is treated as introduced") || len(spy.asked) != 0 {
 				t.Fatalf("baseline: %+v, asked %v", base, spy.asked)
 			}
 		})

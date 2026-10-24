@@ -56,6 +56,11 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 	} else if r.worker != nil && r.worker.problem != "" {
 		// A declared result that could not be read is not "no output".
 		status, reason = workflow.StatusError, r.worker.problem
+	} else if r.files.Problem != "" {
+		status, reason = workflow.StatusError, r.files.Problem
+	} else if r.files.MissingOutput != "" {
+		// The declared output is the output: nothing else stands in for it.
+		status, reason = workflow.StatusFail, "the step declares its output in "+r.files.MissingOutput+", and the agent did not write it (or left it empty)"
 	} else if strings.TrimSpace(r.files.Output) == "" {
 		if r.worker != nil && r.worker.outputUnread != "" {
 			status, reason = workflow.StatusError, "the agent's output could not be read: "+r.worker.outputUnread

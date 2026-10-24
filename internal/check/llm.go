@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -105,12 +106,14 @@ func isMinified(rel string) bool {
 // PackEvidence collects the files matching globs under src, deterministically
 // (sorted relative paths; excluded dirs, except files a glob names exactly,
 // symlinks, binaries and minified files skipped; per-file and per-rubric caps with explicit markers), and returns
-// the bundle text plus the list of files it contains.
-func PackEvidence(src string, globs []string) (bundle string, files []string) {
+// the bundle text plus the list of files it contains. A file or directory
+// that cannot be read is the error: a bundle without it would be judged as
+// if it were the whole evidence.
+func PackEvidence(src string, globs []string) (bundle string, files []string, err error) {
 	var matched []string
-	_ = filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		rel, rerr := filepath.Rel(src, p)
 		if rerr != nil || rel == "." {
@@ -137,7 +140,14 @@ func PackEvidence(src string, globs []string) (bundle string, files []string) {
 		}
 		return nil
 	})
-	for _, rel := range namedFiles(src, globs) {
+	if walkErr != nil {
+		return "", nil, fmt.Errorf("reading the evidence: %w", walkErr)
+	}
+	named, err := namedFiles(src, globs)
+	if err != nil {
+		return "", nil, err
+	}
+	for _, rel := range named {
 		if !slices.Contains(matched, rel) {
 			matched = append(matched, rel)
 		}
@@ -152,7 +162,10 @@ func PackEvidence(src string, globs []string) (bundle string, files []string) {
 			break
 		}
 		b, err := os.ReadFile(filepath.Join(src, rel))
-		if err != nil || looksBinary(b) {
+		if err != nil {
+			return "", nil, fmt.Errorf("reading the evidence: %w", err)
+		}
+		if looksBinary(b) {
 			continue
 		}
 		body := string(b)
@@ -166,43 +179,52 @@ func PackEvidence(src string, globs []string) (bundle string, files []string) {
 	if len(matched) == 0 {
 		sb.WriteString("[no files matched: " + strings.Join(globs, ", ") + "]\n")
 	}
-	return sb.String(), files
+	return sb.String(), files, nil
 }
 
 // namedFiles are the globs that name one exact path (no pattern characters)
 // whose file exists under src as a regular file, not through a symlink. The walk
 // skips whole directories; these are found by name instead.
-func namedFiles(src string, globs []string) []string {
+func namedFiles(src string, globs []string) ([]string, error) {
 	var out []string
 	for _, g := range globs {
 		rel := path.Clean(g)
 		if strings.ContainsAny(g, "*?[{\\") || !fs.ValidPath(rel) || isMinified(rel) {
 			continue
 		}
-		if regularWithin(src, rel) {
+		ok, err := regularWithin(src, rel)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
 			out = append(out, rel)
 		}
 	}
-	return out
+	return out, nil
 }
 
 // regularWithin: rel is a regular file under src reached through real
 // directories only, so a symlinked directory never leads evidence outside
 // the tree (the walk never follows one either).
-func regularWithin(src, rel string) bool {
+// A path that is not there is no such file; one that cannot be read is the
+// error.
+func regularWithin(src, rel string) (bool, error) {
 	at := src
 	parts := strings.Split(rel, "/")
 	for i, part := range parts {
 		at = filepath.Join(at, part)
 		info, err := os.Lstat(at)
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
 		if err != nil {
-			return false
+			return false, fmt.Errorf("reading the evidence: %w", err)
 		}
 		if i < len(parts)-1 && !info.IsDir() || i == len(parts)-1 && !info.Mode().IsRegular() {
-			return false
+			return false, nil
 		}
 	}
-	return true
+	return true, nil
 }
 
 func BundleHash(s string) string {
@@ -219,6 +241,9 @@ type Item struct {
 	Evidence string // packed files for tree; "" for diff (the shared diff is attached once)
 	Files    []string
 	Hash     string // hash of the exact evidence this item is judged on
+	// Unreadable says why the item's evidence could not be read: it is not
+	// put to the model, and its judgement is cannot-assess.
+	Unreadable string
 }
 
 // Verdict is one item's parsed answer.
@@ -272,6 +297,10 @@ func Judgement(it Item, v Verdict, answered bool, meta *ChecklistMeta, mode Mode
 	if meta != nil {
 		ev.Evidence.PromptHash, ev.Evidence.Tokens = meta.PromptHash, meta.Tokens
 	}
+	if it.Unreadable != "" {
+		ev.Outcome, ev.Detail = CannotAssess, "its evidence could not be read: "+it.Unreadable
+		return ev
+	}
 	if !answered {
 		ev.Outcome, ev.Detail = CannotAssess, "no verdict returned for this item"
 		return ev
@@ -298,7 +327,11 @@ func TreeItems(checks []Declared, src string) []Item {
 		if Evaluator(sc.Declaration) != "llm" || Scope(sc.Declaration) != ScopeTree {
 			continue
 		}
-		ev, files := PackEvidence(src, sc.Files)
+		ev, files, err := PackEvidence(src, sc.Files)
+		if err != nil {
+			items = append(items, Item{Declared: sc, Scope: ScopeTree, Unreadable: err.Error()})
+			continue
+		}
 		if total+len(ev) > batchCap {
 			ev = "[evidence omitted: project bundle cap reached]\n"
 			files = nil
@@ -325,8 +358,11 @@ func DiffItems(checks []Declared, diff string) []Item {
 // number (1-based). diff is attached once when any item is diff-scoped. A
 // failed call returns err; the caller records the items as skipped with the
 // reason — conformance never depends on a model being up.
+//
+// An item whose evidence could not be read (Unreadable) is left out of the
+// prompt, keeping every other item's number; with none left, no call is made.
 func (j *Judge) Checklist(ctx context.Context, items []Item, diff string) (map[int]Verdict, *ChecklistMeta, error) {
-	if len(items) == 0 {
+	if !slices.ContainsFunc(items, func(it Item) bool { return it.Unreadable == "" }) {
 		return nil, nil, nil
 	}
 	if j.Complete == nil {
@@ -336,6 +372,9 @@ func (j *Judge) Checklist(ctx context.Context, items []Item, diff string) (map[i
 	sb.WriteString("CHECKLIST — items are numbered; each names its evidence.\n\n")
 	var diffNums []string
 	for i, it := range items {
+		if it.Unreadable != "" {
+			continue
+		}
 		src := "DIFF"
 		if it.Scope == ScopeTree {
 			src = "FILES for item " + fmt.Sprint(i+1)
@@ -346,7 +385,7 @@ func (j *Judge) Checklist(ctx context.Context, items []Item, diff string) (map[i
 			i+1, it.Namespace, it.Version, it.Name, it.Expects, it.Rubric, src)
 	}
 	for i, it := range items {
-		if it.Scope == ScopeTree {
+		if it.Scope == ScopeTree && it.Unreadable == "" {
 			fmt.Fprintf(&sb, "\n--- FILES for item %d (%s) ---\n%s", i+1, strings.Join(it.Files, ", "), it.Evidence)
 		}
 	}

@@ -8,9 +8,9 @@ package verification
 // never hidden). Otherwise semgrep findings that sat on main for weeks would
 // block an unrelated CSS-and-JS change.
 //
-// Matching prefers the scanner's own stable fingerprint (semgrep's are
-// content hashes, so a moved line still matches) and falls back to
-// kind + rule + file, so a line shift alone never turns debt into "new".
+// A finding is carried only when the base reports its fingerprint
+// (check.Classify): semgrep's are content hashes, so a moved line still
+// matches; a different finding of the same rule in the same file is new.
 
 import (
 	"fmt"

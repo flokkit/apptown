@@ -1,6 +1,7 @@
 package check_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,13 +33,13 @@ func TestLLMEvaluatorIdentity(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "README.md", "one")
 	writeFile(t, dir, "b/README.md", "two")
-	b1, files := check.PackEvidence(dir, []string{"**/README.md"})
-	b2, _ := check.PackEvidence(dir, []string{"**/README.md"})
+	b1, files, _ := check.PackEvidence(dir, []string{"**/README.md"})
+	b2, _, _ := check.PackEvidence(dir, []string{"**/README.md"})
 	if b1 != b2 || len(files) != 2 || files[0] != "README.md" || files[1] != "b/README.md" {
 		t.Fatalf("packing must be deterministic and sorted: %v", files)
 	}
 	writeFile(t, dir, "README.md", "changed")
-	if b3, _ := check.PackEvidence(dir, []string{"**/README.md"}); check.BundleHash(b3) == check.BundleHash(b1) {
+	if b3, _, _ := check.PackEvidence(dir, []string{"**/README.md"}); check.BundleHash(b3) == check.BundleHash(b1) {
 		t.Fatal("changed evidence must change the bundle hash")
 	}
 }
@@ -90,7 +91,7 @@ func TestNamedFilesAreEvidenceEvenUnderSkippedDirectories(t *testing.T) {
 	writeFile(t, without, "README.md", "an app")
 	writeFile(t, without, ".apptown/CHANGE.md", "the implementer's report")
 	writeFile(t, without, ".apptown/sessions/s.md", "a transcript")
-	if bundle, files := check.PackEvidence(without, globs); len(files) != 1 || files[0] != "README.md" || strings.Contains(bundle, "transcript") || strings.Contains(bundle, "report") {
+	if bundle, files, _ := check.PackEvidence(without, globs); len(files) != 1 || files[0] != "README.md" || strings.Contains(bundle, "transcript") || strings.Contains(bundle, "report") {
 		t.Fatalf("without a contract only README.md is evidence, got %v\n%s", files, bundle)
 	}
 
@@ -98,7 +99,7 @@ func TestNamedFilesAreEvidenceEvenUnderSkippedDirectories(t *testing.T) {
 	writeFile(t, with, "README.md", "an app")
 	writeFile(t, with, ".apptown/app.yaml", "app:\n  web: { build: ., public: true }\n")
 	writeFile(t, with, ".apptown/CHANGE.md", "the implementer's report")
-	bundle, files := check.PackEvidence(with, globs)
+	bundle, files, _ := check.PackEvidence(with, globs)
 	if strings.Join(files, ",") != ".apptown/app.yaml,README.md" || !strings.Contains(bundle, "=== .apptown/app.yaml ===\napp:") {
 		t.Fatalf("a committed contract is evidence, got %v\n%s", files, bundle)
 	}
@@ -109,7 +110,68 @@ func TestNamedFilesAreEvidenceEvenUnderSkippedDirectories(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(linked, ".apptown")); err != nil {
 		t.Fatal(err)
 	}
-	if bundle, files := check.PackEvidence(linked, globs); len(files) != 0 || strings.Contains(bundle, "outside") {
+	if bundle, files, _ := check.PackEvidence(linked, globs); len(files) != 0 || strings.Contains(bundle, "outside") {
 		t.Fatalf("a symlinked directory must not lead evidence outside the tree, got %v", files)
+	}
+}
+
+// A rubric is judged on all of its evidence or not at all: evidence AppTown
+// could not read makes the item cannot-assess, and the model is never asked
+// about a bundle that silently lacks it. Other items are still asked.
+//
+// Kills: the walk and read errors skipped in PackEvidence (fallback audit
+// F14), which sent a plausible partial bundle.
+func TestARubricWhoseEvidenceCannotBeReadIsNotJudged(t *testing.T) {
+	t.Parallel()
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "README.md"), []byte("# readable\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A path Git could hold but the file system cannot name (one component
+	// over the 255-byte limit): reading it fails whoever runs the test.
+	unreadable := strings.Repeat("x", 300) + ".md"
+	rubric := func(name string, files ...string) check.Declared {
+		return check.Declared{Identity: check.Identity{Namespace: "b", Version: 1},
+			Declaration: check.Declaration{Name: name, Evaluator: "llm", Scope: "tree", Rubric: "judge", Expects: "it holds", Files: files}}
+	}
+	items := check.TreeItems([]check.Declared{rubric("partial", "README.md", unreadable), rubric("whole", "README.md")}, src)
+	if len(items) != 2 || items[0].Unreadable == "" || items[1].Unreadable != "" {
+		t.Fatalf("items: %+v", items)
+	}
+	var asked string
+	j := &check.Judge{Complete: check.CompleterFunc(func(_ context.Context, _, user string) (check.Completion, error) {
+		asked = user
+		return check.Completion{Text: `[{"item":1,"verdict":"pass"},{"item":2,"verdict":"pass"}]`}, nil
+	})}
+	verdicts, _, err := j.Checklist(context.Background(), items, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(asked, "b v1 · partial") || !strings.Contains(asked, "b v1 · whole") {
+		t.Fatalf("the prompt:\n%s", asked)
+	}
+	for i, it := range items {
+		v, answered := verdicts[i+1]
+		ev := check.Judgement(it, v, answered, nil, check.Gate)
+		want := check.Conforms
+		if i == 0 {
+			want = check.CannotAssess
+		}
+		if ev.Outcome != want {
+			t.Fatalf("%s: %s (%s), want %s", it.Name, ev.Outcome, ev.Detail, want)
+		}
+	}
+
+	// A directory the walk cannot read is the same, for a reader it is
+	// closed to (root reads it anyway, so the case says nothing as root).
+	if os.Geteuid() != 0 {
+		closed := filepath.Join(src, "docs")
+		if err := os.Mkdir(closed, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(closed, 0o755) })
+		if _, _, err := check.PackEvidence(src, []string{"**/*.md"}); err == nil {
+			t.Fatal("an unreadable directory was left out of the evidence")
+		}
 	}
 }

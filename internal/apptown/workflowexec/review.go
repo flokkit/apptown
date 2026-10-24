@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/strs"
@@ -168,25 +169,10 @@ func (a *Executor) Review(task *workflow.Execution) {
 			return
 		}
 	}
-	// The branch in the hub is what the change has published; its base
-	// there is an ancestor of the folder's HEAD too.
-	base, err := reviewBase(task.Context(), source.Repository(a.cfg.DataDir), source, "refs/heads/"+source.Branch)
-	if err != nil && source.RepoBacked() {
-		finish(workflow.StatusError, map[string]any{"reason": "reading the change's base for the reviewer: " + err.Error()})
-		return
-	}
-	scope := func(ctx context.Context) (string, []repositoryedit.ChangedFile, error) {
-		files, err := a.changedFiles(ctx, ws, base)
-		return base, files, err
-	}
-	brief, err := a.reviewBrief(task.Context(), run, source, cfg, reviewDiff(task.Context(), a.cfg.DataDir, source, base), scope)
-	if err != nil {
-		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
-		return
-	}
-	_ = os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755)
 	// What the reviewer leaves in the folder is discarded afterwards
-	// (discardReviewerChanges): the folder goes back to this commit.
+	// (discardReviewerChanges): the folder goes back to this commit. It is
+	// also the commit the change's base is read against (reviewBase); one
+	// the hub does not hold yet takes the change's recorded base.
 	var reviewed string
 	if source.RepoBacked() {
 		if reviewed, err = gitexec.Run(task.Context(), ws, "rev-parse", "--verify", "HEAD^{commit}"); err != nil {
@@ -195,6 +181,26 @@ func (a *Executor) Review(task *workflow.Execution) {
 		}
 		reviewed = strings.TrimSpace(reviewed)
 	}
+	base, err := reviewBase(task.Context(), source.Repository(a.cfg.DataDir), source, reviewed)
+	if err != nil && source.RepoBacked() {
+		finish(workflow.StatusError, map[string]any{"reason": "reading the change's base for the reviewer: " + err.Error()})
+		return
+	}
+	scope := func(ctx context.Context) (string, []repositoryedit.ChangedFile, error) {
+		files, err := a.changedFiles(ctx, ws, base)
+		return base, files, err
+	}
+	diff, err := reviewDiff(task.Context(), ws, source, base)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
+	brief, err := a.reviewBrief(task.Context(), run, source, cfg, diff, scope)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
+	_ = os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755)
 	// The prompt travels as ONE argv element; Linux caps a single arg at
 	// ~128KB (MAX_ARG_STRLEN), and a large excavated report blew it — the
 	// review container died at exec with "argument list too long" (run
@@ -207,7 +213,10 @@ func (a *Executor) Review(task *workflow.Execution) {
 	}
 
 	verdictPath := filepath.Join(ws, ".apptown", "review.json")
-	_ = os.Remove(verdictPath) // never trust a stale verdict
+	if err := check.RemoveStale(verdictPath); err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
 
 	thinking := cfg.Thinking
 	if thinking == "" {
@@ -458,9 +467,9 @@ func stagedClaim(claim, path string) (staged []byte, pointer string) {
 // that satisfies both after a send-back: the reviewer calls the earlier
 // rounds' files "claimed but absent", the scope rule calls them unclaimed if
 // left out, and reviews loop until a human overrides them. The change's base
-// is scm.ChangeBase, read in the hub against tip: after the change catches up
-// with main it is the main it merged, so main's files are not held against
-// the report. Off a change it is where the run started, else the default
+// is scm.ForkBase, read in the hub against tip (the commit under review), as
+// every gate reads it: after the change catches up with main it is the main
+// it merged, so main's files are not held against the report. Off a change it is where the run started, else the default
 // branch; without a repository, only what was recorded.
 func reviewBase(ctx context.Context, hub string, source workflow.Source, tip string) (string, error) {
 	recorded := strs.FirstNonBlank(source.ChangeBaseSHA, source.RunBaseSHA)
@@ -468,24 +477,26 @@ func reviewBase(ctx context.Context, hub string, source workflow.Source, tip str
 	case !source.RepoBacked():
 		return recorded, nil
 	case !source.ChangeID.IsZero():
-		return scm.ChangeBase(ctx, hub, source.DefaultBranch, tip, recorded)
+		return scm.ForkBase(ctx, hub, source.DefaultBranch, tip, recorded)
 	case recorded != "":
 		return recorded, nil
 	}
 	return "refs/heads/" + source.DefaultBranch, nil
 }
 
-// reviewDiff is the authoritative diff, from reviewBase to the branch now.
-func reviewDiff(ctx context.Context, dataDir string, source workflow.Source, base string) string {
+// reviewDiff is the authoritative diff, from reviewBase to the commit under
+// review in the change's folder (ws), which the scope is read from too: a
+// change not yet published has no branch in the hub. One Git cannot read is
+// the error: a brief without its diff is not given.
+func reviewDiff(ctx context.Context, ws string, source workflow.Source, base string) (string, error) {
 	if !source.RepoBacked() {
-		return "(project is not repo-backed — inspect the workspace directly)"
+		return "(project is not repo-backed — inspect the workspace directly)", nil
 	}
-	repo, branch := source.Repository(dataDir), source.Branch
-	d, err := gitexec.Run(ctx, repo, "diff", base+"..."+branch)
+	d, err := gitexec.Run(ctx, ws, "diff", base+"...HEAD")
 	if err != nil {
-		return "(project is not repo-backed — inspect the workspace directly)"
+		return "", fmt.Errorf("reading the change's diff for the reviewer (%s...HEAD): %w", base, err)
 	}
-	return boundedDiff(d)
+	return boundedDiff(d), nil
 }
 
 // boundedDiff is a diff as the brief carries it: at most maxReviewDiff, and

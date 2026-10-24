@@ -60,7 +60,7 @@ func (editor *Integrity) Resolve(ctx context.Context, p *project.Project, action
 		return IntegrityResult{OK: true, Clean: true}, nil
 	}
 	// The diff is the evidence of what the decision keeps or destroys.
-	diff, err := gitexec.Run(ctx, repo, "diff")
+	diff, err := editor.git(ctx, repo, "diff")
 	if err != nil {
 		return IntegrityResult{}, fmt.Errorf("reading what the edits change: %w", err)
 	}

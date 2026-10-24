@@ -22,7 +22,9 @@ package check
 // whether a person has already excused what the tool reported.
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,6 +92,17 @@ func (j *Judge) toolInImage(d Declared, s Scanner, src Source, mode Mode) Evalua
 	return ev
 }
 
+// RemoveStale removes what an earlier run left at path (a report, a
+// verdict) before a run that will write it: a file there afterwards is then
+// this run's. Already absent is fine; a removal that fails is the error,
+// since the old bytes would read as this run's answer.
+func RemoveStale(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("removing the stale %s before the run: %w", filepath.Base(path), err)
+	}
+	return nil
+}
+
 // toolOnSource runs the tool's container against the tree and reads what it
 // left behind.
 func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, mode Mode, namePrefix string) Evaluation {
@@ -98,7 +111,9 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, mode Mode, nameP
 	}
 	_ = os.MkdirAll(filepath.Join(src.Tree, ".apptown"), 0o755)
 	if s.Report != "" {
-		_ = os.Remove(filepath.Join(src.Tree, s.Report)) // never trust a stale report
+		if err := RemoveStale(filepath.Join(src.Tree, s.Report)); err != nil {
+			return Evaluation{Declared: d, Mode: mode, Outcome: Error, Detail: err.Error()}
+		}
 	}
 	// A declared report is collected, and required, whatever its format;
 	// only a format says how to read findings from it.

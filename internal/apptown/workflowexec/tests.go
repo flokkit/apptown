@@ -267,7 +267,11 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 		// this change's — greeting-api's Testcontainers suite needs a Docker
 		// daemon the step has none of, failed on main exactly as on the
 		// change, and wedged a README fix and a readiness fix on it.
-		if base := verification.WorkflowProvenanceBase(task.Context(), a.cfg.DataDir, source); base != "" {
+		base, baseErr := verification.WorkflowProvenanceBase(task.Context(), a.cfg.DataDir, source, sel.Commit)
+		if baseErr != nil {
+			evidence["base"] = "the commit this change is compared with could not be read: " + baseErr.Error() // the failure stands
+		}
+		if base != "" {
 			switch carried, why := testsFailOnBase(task.Context(), a.cfg.DataDir, source.Repository(a.cfg.DataDir), base, command, detected, runIn); {
 			case carried:
 				short := base[:min(8, len(base))]

@@ -45,8 +45,8 @@ type Executor struct {
 	Run   CheckRun
 	Image CheckImage
 	// Local says the executor is this machine's Docker. Only then can a
-	// check reuse a release image, or read the serving deployment's image,
-	// which are both here; a worker builds and reports "unavailable".
+	// check reuse a release image, which is here; a worker builds and
+	// reports "unavailable".
 	Local bool
 	// AgentImage is the agent image on the executor's machine, in which a
 	// committed tree is compiled with the toolchain it declares.

@@ -41,7 +41,13 @@ refs are removed when their attempt settles, and swept if left.
 ## Comparing a change with main
 
 Every finding at a change's gate reads one of three ways against the change's
-base (main as the change forked from it, or current main for a landing):
+base: main as the commit being checked forked from it (`scm.ForkBase`, the
+same for `apptown check`, a working run and a landing), so after the change
+catches up with main, main's own findings are not the change's. The recorded
+base stands in only where Git says there is no fork (no default branch, a
+commit the repository does not hold yet, no common history); Git failing to
+answer is an error, never another base. A scanner finding is on main only
+when main's scan reports its fingerprint. Each finding reads:
 
 - **introduced** — the change's; it blocks at the step's threshold.
 - **preexisting** — main already fails it; shown, never blocks, left for the

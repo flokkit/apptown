@@ -9,7 +9,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
-	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
 )
@@ -134,7 +133,12 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 			return
 		}
 	}
-	baseSHA := workflowBaseline(task.Context(), a.dataDir, source)
+	baseSHA, err := WorkflowProvenanceBase(task.Context(), a.dataDir, source, commit)
+	if err != nil {
+		evidence["reason"] = "reading the commit this change is compared with: " + err.Error()
+		finish(workflow.StatusError, evidence)
+		return
+	}
 	base := a.verification.baselineFor(conformance.WithRun(task.Context(), task.RunScope()), run.ProjectID, checks, baseSHA, fmt.Sprintf("apptown-conform-%d", stepID))
 	// Model rubrics and runtime probes are not in the cached deterministic
 	// baseline: a failing one is judged on main here — the rubric on the
@@ -212,15 +216,10 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	var changed []repositoryedit.ChangedFile
 	if ch != nil {
 		// The checked commit's own diff and ignore rules, never the folder's
-		// HEAD now or its live .gitignore, from the change's base: after it
-		// caught up with main, what it merged from main is not its scope.
-		// A commit the hub does not hold yet is read from the baseline, and
-		// an error leaves the baseline as it was (it can only be empty).
-		scopeBase, baseErr := scm.ChangeBase(task.Context(), source.Repository(a.dataDir), source.DefaultBranch, commit, baseSHA)
-		if baseErr != nil {
-			scopeBase = baseSHA
-		}
-		if changed, err = repositoryedit.ChangedFilesBetween(task.Context(), checkedAt.Repo, scopeBase, commit, src); err != nil {
+		// HEAD now or its live .gitignore, from the change's base (the
+		// baseline's): after it caught up with main, what it merged from
+		// main is not its scope.
+		if changed, err = repositoryedit.ChangedFilesBetween(task.Context(), checkedAt.Repo, baseSHA, commit, src); err != nil {
 			finish(workflow.StatusError, map[string]any{"reason": "reading what the checked commit changed: " + err.Error()})
 			return
 		}

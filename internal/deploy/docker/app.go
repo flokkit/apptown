@@ -378,6 +378,11 @@ func (p *Probe) check(ctx context.Context, dk Scope, container, url string, time
 	if probe.Grace > timeout {
 		timeout = probe.Grace
 	}
+	// A readiness probe names its path; a probe without one is not up-probed
+	// at "/" in its place (fallback audit F04).
+	if probe.Path == "" {
+		return false, "the readiness probe names no path"
+	}
 	target := strings.TrimRight(url, "/") + "/" + strings.TrimLeft(probe.Path, "/")
 	settle := 3 * time.Second
 	if p != nil && p.Settle != 0 {

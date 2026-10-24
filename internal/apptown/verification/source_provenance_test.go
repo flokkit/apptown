@@ -27,9 +27,9 @@ func sarifOf(results ...string) string {
 
 const (
 	oldFinding = `{"ruleId":"go.math-random","level":"warning","message":{"text":"math/rand used"},"partialFingerprints":{"matchBasedId/v1":"aaa111"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"main.go"},"region":{"startLine":8}}}]}`
-	// Same rule and file, different line and fingerprint: the loose key still
-	// says it is the old finding moved, not a new one.
-	oldMoved   = `{"ruleId":"go.math-random","level":"warning","message":{"text":"math/rand used"},"partialFingerprints":{"matchBasedId/v1":"aaa222"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"main.go"},"region":{"startLine":19}}}]}`
+	// The same finding on another line: semgrep's fingerprint is a hash of
+	// what matched, so it is the old finding moved, not a new one.
+	oldMoved   = `{"ruleId":"go.math-random","level":"warning","message":{"text":"math/rand used"},"partialFingerprints":{"matchBasedId/v1":"aaa111"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"main.go"},"region":{"startLine":19}}}]}`
 	newFinding = `{"ruleId":"js.eval","level":"error","message":{"text":"eval() used"},"partialFingerprints":{"matchBasedId/v1":"bbb111"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"web/ball.js"},"region":{"startLine":3}}}]}`
 )
 

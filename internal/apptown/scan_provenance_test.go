@@ -54,7 +54,7 @@ func TestProvenanceBaseIsTheForkPoint(t *testing.T) {
 	if source.RunBaseSHA != tip1 {
 		t.Fatalf("landing run must retain branch tip %s as its run base, got %q", tip1[:8], source.RunBaseSHA)
 	}
-	if got := verification.WorkflowProvenanceBase(t.Context(), a.cfg.dataDir, workflowSourceForTest(t, a, run)); got != fork {
-		t.Fatalf("provenance base must be the fork point %s, not the run's base_sha %s: got %s", fork[:8], tip1[:8], got)
+	if got, err := verification.WorkflowProvenanceBase(t.Context(), a.cfg.dataDir, workflowSourceForTest(t, a, run), "refs/heads/"+branch); err != nil || got != fork {
+		t.Fatalf("provenance base must be the fork point %s, not the run's base_sha %s: got %s %v", fork[:8], tip1[:8], got, err)
 	}
 }

@@ -82,7 +82,11 @@ func TestAWholeChangeReportSatisfiesTheReviewAfterASendBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for name, diff := range map[string]string{"folder": reviewDiff(t.Context(), dir, source, base), "hub": hubDiff} {
+	folderDiff, err := reviewDiff(t.Context(), repo, source, base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, diff := range map[string]string{"folder": folderDiff, "hub": hubDiff} {
 		for _, c := range scope {
 			if !strings.Contains(diff, "+++ b/"+c.Path) {
 				t.Errorf("the %s diff the reviewer reads lacks %s, which the scope rule holds the report to:\n%s", name, c.Path, diff)

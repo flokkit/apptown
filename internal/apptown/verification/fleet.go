@@ -333,7 +333,9 @@ func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Exec
 	for i, it := range items {
 		extra := verdictExtra{EvaluatorVer: check.LLMEvaluatorVersion(it.Declaration), EvidenceHash: it.Hash}
 		state, detail := conformance.CannotAssess, "no verdict returned for this item"
-		if judgeErr != nil {
+		if it.Unreadable != "" {
+			detail = "its evidence could not be read: " + it.Unreadable
+		} else if judgeErr != nil {
 			detail = judgeErr.Error()
 		} else if v, ok := byItem[i+1]; ok {
 			detail = llmVerdictDetail(v, it, meta)

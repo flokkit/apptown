@@ -73,7 +73,7 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 	git("commit", "-q", "-m", "the app")
 	head := git("rev-parse", "HEAD")
 
-	changes := NewChanges(ChangeDependencies{DB: f.DB, DataDir: dataDir, Conformance: f.Conformance, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil)})
+	changes := NewChanges(ChangeDependencies{DB: f.DB, DataDir: dataDir, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil)})
 	ch := &workflow.Change{ID: idstest.N(7), ProjectID: f.ProjectID, Branch: branch, BaseSHA: seed}
 	out, err := changes.Check(f.Context, ch, Selection{Commit: head})
 	if err != nil {

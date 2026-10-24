@@ -44,9 +44,17 @@ func TestBaselineClassificationCarriesItsProvenance(t *testing.T) {
 	}
 }
 
-// Verification receives a checked Workflow source. Its choice of comparison
-// tree is private policy; the fixture needs a repository and project, not App.
-func TestBaselineUsesWorkingBaseAndCurrentLandingHead(t *testing.T) {
+// Every gate compares the commit it checks with that commit's fork from
+// main (WorkflowProvenanceBase, Changes.forkBase): for a working run and a
+// landing alike, and for work that caught up with main in a commit the
+// change's published branch does not hold yet (a step's scratch commit).
+// main's own work is then not the change's. baseProvenance says whether a
+// base is on the protected branch.
+//
+// Kills: the guidance baseline preferring the recorded base, and a base read
+// from the published branch instead of the checked commit (fallback audit
+// F18).
+func TestEveryGateComparesTheCheckedCommitWithItsFork(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	pid, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
@@ -75,29 +83,43 @@ func TestBaselineUsesWorkingBaseAndCurrentLandingHead(t *testing.T) {
 	}
 	git("init", "-q", "-b", "main")
 	git("commit", "-q", "--allow-empty", "-m", "base")
-	seed := git("rev-parse", "HEAD")
-	git("branch", "change")
-	const unknown = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
-	source := workflow.Source{ProjectID: pid, ChangeID: idstest.N(1), Slug: "baseline", DefaultBranch: "main", Branch: "change", RootRole: "working", ChangeBaseSHA: unknown}
-	if got := workflowBaseline(t.Context(), dataDir, source); got != unknown {
-		t.Fatalf("working comparison lost its recorded base: %s", got)
-	}
-	source.RootRole = "landing"
-	if got := workflowBaseline(t.Context(), dataDir, source); got != seed {
-		t.Fatalf("landing comparison is not current main: %s", got)
+	recorded := git("rev-parse", "HEAD")
+	git("checkout", "-q", "-b", "change")
+	git("commit", "-q", "--allow-empty", "-m", "the change's work")
+	git("checkout", "-q", "main")
+	git("commit", "-q", "--allow-empty", "-m", "main moved on")
+	mainNow := git("rev-parse", "HEAD")
+	// The step catches up with main in a commit only its scratch work holds.
+	git("checkout", "-q", "--detach", "change")
+	git("merge", "-q", "--no-edit", "-m", "catch up", "main")
+	caughtUp := git("rev-parse", "HEAD")
+	git("checkout", "-q", "main")
+
+	source := workflow.Source{ProjectID: pid, ChangeID: idstest.N(1), Slug: "baseline", DefaultBranch: "main", Branch: "change", RootRole: "working", ChangeBaseSHA: recorded}
+	for _, role := range []string{"working", "landing"} {
+		source.RootRole = role
+		if got, err := WorkflowProvenanceBase(t.Context(), dataDir, source, caughtUp); err != nil || got != mainNow {
+			t.Fatalf("%s run: base %s %v, want main as the checked commit merged it (%s)", role, got, err, mainNow)
+		}
 	}
 	changes := NewChanges(ChangeDependencies{DB: db, DataDir: dataDir})
-	if on, is := changes.baseProvenance(t.Context(), pid, seed); !on || !is {
+	ch := &workflow.Change{ID: idstest.N(1), ProjectID: pid, Branch: "change", BaseSHA: recorded}
+	if got, err := changes.forkBase(t.Context(), ch, caughtUp); err != nil || got != mainNow {
+		t.Fatalf("apptown check: base %s %v, want %s", got, err, mainNow)
+	}
+	// Off a change there is nothing to compare with.
+	if got, err := WorkflowProvenanceBase(t.Context(), dataDir, workflow.Source{ProjectID: pid, Slug: "baseline", DefaultBranch: "main"}, caughtUp); err != nil || got != "" {
+		t.Fatalf("no change: %q %v", got, err)
+	}
+
+	const unknown = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+	if on, is := changes.baseProvenance(t.Context(), pid, mainNow); !on || !is {
 		t.Fatalf("head: on=%v is=%v", on, is)
 	}
 	if on, is := changes.baseProvenance(t.Context(), pid, unknown); on || is {
 		t.Fatalf("unknown: on=%v is=%v", on, is)
 	}
-	git("commit", "-q", "--allow-empty", "-m", "main advanced")
-	if got := changes.forkPointSHA(t.Context(), pid, "change"); got != seed {
-		t.Fatalf("fork point moved with main: %s", got)
-	}
-	if on, is := changes.baseProvenance(t.Context(), pid, seed); !on || is {
+	if on, is := changes.baseProvenance(t.Context(), pid, recorded); !on || is {
 		t.Fatalf("ancestor: on=%v is=%v", on, is)
 	}
 }

@@ -126,9 +126,6 @@ func (s *Sealed) getOnce(ctx context.Context, dk Scope, network, container strin
 // serves unless the probe expects one.
 func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container string, port int, rp RenderedProbe, wait time.Duration) bool {
 	path := rp.Path
-	if path == "" || rp.TCP || len(rp.Exec) > 0 {
-		path = "/"
-	}
 	ctx = dk.lifetime(ctx)
 	ready := false
 	poll.Until(ctx, wait, time.Second, func() bool {

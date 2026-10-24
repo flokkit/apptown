@@ -21,9 +21,9 @@ naming the other parts and init steps; an app with no `.apptown/app.yaml`
 passes the image point with a note.
 
 An image scan compares with an earlier image: the image of the commit the
-change started from, else the image the main deployment serves. On a
-project's first release there is none, so the scan says "first release" and
-every finding counts as new.
+change forked from main at. When that image cannot be made, there is nothing
+to compare with and every finding counts as new; the scan says why, and on a
+project's first release it says "first release".
 
 `apptown check` runs the same source and image scans on your commit before you
 hand back, as feedback: the landing still scans what it lands.

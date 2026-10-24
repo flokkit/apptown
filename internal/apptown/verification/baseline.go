@@ -1,7 +1,6 @@
 package verification
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -12,8 +11,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
-	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/strs"
 )
 
 // The baseline (design/subsystems/conformance.md): a change is
@@ -50,20 +47,6 @@ const unknownRetry = 2 * time.Minute
 type baselineCache struct {
 	mu      sync.Mutex
 	entries map[string]*baselineSet
-}
-
-// A landing is compared with current main; working runs prefer the change's
-// recorded base. Known recorded bases remain usable when Git has no fork proof.
-func workflowBaseline(ctx context.Context, dataDir string, source workflow.Source) string {
-	if source.ChangeID.IsZero() {
-		return ""
-	}
-	if source.RootRole == "landing" && source.RepoBacked() {
-		if head, err := (deploy.SelectedSource{Repository: source.Repository(dataDir), Revision: "refs/heads/" + source.DefaultBranch}).Resolve(ctx); err == nil {
-			return head
-		}
-	}
-	return strs.FirstNonBlank(source.ChangeBaseSHA, workflowForkPoint(ctx, dataDir, source))
 }
 
 func checksDigest(checks []conformance.DeclaredCheck) string {

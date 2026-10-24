@@ -115,3 +115,34 @@ func TestAReviewCommitsNothingAndLeavesNothing(t *testing.T) {
 		t.Fatalf("the reviewer's changes are still in the folder:\n%s", left)
 	}
 }
+
+// A review's verdict is this review's: a verdict an earlier review left that
+// cannot be removed is an error before the reviewer runs, never read as the
+// new verdict.
+//
+// Kills: the unchecked removal of a stale verdict (fallback audit F15).
+func TestAStaleVerdictThatCannotBeRemovedStopsTheReview(t *testing.T) {
+	t.Parallel()
+	a, runID, stepID := admittedReviewStep(t)
+	f := installFakePi(a, func(_ int, req execution.Request) execution.Outcome {
+		return execution.Outcome{Output: piSays("reviewed")}
+	})
+	run, err := a.work.Run(a.ctx, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, err := workflow.ReadSourceIn(a.ctx, a.db, workflow.RunRef{ID: runID, ProjectID: run.ProjectID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// An earlier verdict that os.Remove cannot remove: a non-empty directory.
+	if err := os.MkdirAll(filepath.Join(source.Workspace(a.dir), ".apptown", "review.json", "kept"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	if status, ev := stepStatus(t, a, stepID); status != workflow.StatusError || len(f.requests()) != 0 {
+		t.Fatalf("a stale verdict left in place: %s %v, reviewer invoked %d times", status, ev, len(f.requests()))
+	}
+}

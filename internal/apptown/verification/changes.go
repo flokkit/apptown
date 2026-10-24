@@ -20,7 +20,6 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/gitexec"
-	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Changes judges a committed Change against its declared checks.
@@ -29,7 +28,6 @@ import (
 type Changes struct {
 	db          *database.DB
 	adoption    *adoption.Service
-	conformance *conformance.Service
 	scanners    *Scanners
 	evaluator   *Evaluator
 	dataDir     string
@@ -79,13 +77,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 
 	// The checks of the revision the change's own run reads (§4.1): the
 	// agent's loop and the gate agree.
-	var checks []conformance.DeclaredCheck
-	adoption := changeAdoption(ctx, v.db, ch)
-	if adoption != nil {
-		checks, err = ChecksOfReceipt(ctx, v.adoption, adoption)
-	} else {
-		checks, err = v.conformance.AdoptedChecks(ctx, ch.ProjectID)
-	}
+	checks, adoption, err := v.changeChecks(ctx, ch)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +106,12 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 	// fails a source scan on ANY actionable finding, so scan findings count as
 	// failing regardless of severity — distinct from the guidance/tool findings
 	// which gate at failOn.
-	forkBase := strs.FirstNonBlank(v.forkPointSHA(ctx, ch.ProjectID, ch.Branch), ch.BaseSHA)
+	// One base for every comparison below, as the landing's gates read it:
+	// the change's fork from main at the checked commit (scm.ForkBase).
+	forkBase, err := v.forkBase(ctx, ch, headSHA)
+	if err != nil {
+		return nil, err
+	}
 	scanResults, scanFindings, scanErrs := v.scanners.RunSourceScans(ctx, src, fmt.Sprintf("apptown-check-%d", id), read, forkBase)
 	results = append(results, scanResults...)
 	shErrors += scanErrs
@@ -130,8 +127,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 
 	// The baseline, as the gate applies it: a finding that already fails
 	// on the tree this change forked from is marked and does not count.
-	baseSHA := strs.FirstNonBlank(ch.BaseSHA, v.forkPointSHA(ctx, ch.ProjectID, ch.Branch))
-	base := v.baselineFor(ctx, ch.ProjectID, checks, baseSHA, fmt.Sprintf("apptown-check-%d", id))
+	base := v.baselineFor(ctx, ch.ProjectID, checks, forkBase, fmt.Sprintf("apptown-check-%d", id))
 	// A check its caller stopped part-way has no answer: a cut-short phase
 	// reads as nothing found, never as a pass.
 	if err := ctx.Err(); err != nil {
@@ -463,21 +459,18 @@ func (v *Changes) toolIdentities(ctx context.Context, checks []conformance.Decla
 // forkPointSHA is where a change's branch diverged from the project's default
 // branch — the merge-base, computed in the project repo (which holds both) —
 // the honest "base" for provenance even after catch-up merges. "" when unknown.
-func (v *Changes) forkPointSHA(ctx context.Context, projectID ids.ID, branch string) string {
-	project, err := project.ByIDIn(ctx, v.db, projectID)
-	if err != nil || project.DefaultBranch == "" || branch == "" {
-		return ""
-	}
-	slug, def := project.Slug, project.DefaultBranch
-	repo := filepath.Join(v.dataDir, "workspaces", "project-"+slug)
-	if !gitexec.IsRepo(repo) {
-		return ""
-	}
-	out, err := gitexec.Run(ctx, repo, "merge-base", def, branch)
+// forkBase is the commit a check of tip is compared with: the change's
+// fork from the project's default branch, read in the hub (scm.ForkBase).
+func (v *Changes) forkBase(ctx context.Context, ch *workflow.Change, tip string) (string, error) {
+	p, err := project.ByIDIn(ctx, v.db, ch.ProjectID)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return strings.TrimSpace(out)
+	base, err := scm.ForkBase(ctx, filepath.Join(v.dataDir, "workspaces", "project-"+p.Slug), p.DefaultBranch, tip, ch.BaseSHA)
+	if err != nil {
+		return "", fmt.Errorf("reading the commit this change is compared with: %w", err)
+	}
+	return base, nil
 }
 
 type noWorkspaceError struct{ id ids.ID }
