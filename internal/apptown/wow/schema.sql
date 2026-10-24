@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS lib_workflow_versions (
   version    BIGINT NOT NULL,
   yaml       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL,
+  -- Where it came from: "AppTown <version>" for the stock a release shipped,
+  -- "AppTown before <build>" for stock older than this record, or
+  -- "authored here".
+  came_from  TEXT NOT NULL CONSTRAINT lib_workflow_version_came_from CHECK (came_from <> ''),
   UNIQUE(lib_id, version)
 );
 CREATE TABLE IF NOT EXISTS packs (
@@ -44,6 +48,8 @@ CREATE TABLE IF NOT EXISTS pack_versions (
   -- An optional name, and the version of this pack it was made from (0: none).
   name       TEXT NOT NULL DEFAULT '',
   based_on   BIGINT NOT NULL DEFAULT 0,
+  -- Where it came from, as lib_workflow_versions.came_from says.
+  came_from  TEXT NOT NULL CONSTRAINT pack_version_came_from CHECK (came_from <> ''),
   UNIQUE(pack_id, version)
 );
 CREATE TABLE IF NOT EXISTS policy_library (
@@ -73,6 +79,8 @@ CREATE TABLE IF NOT EXISTS guidance_block_versions (
   body_md     TEXT NOT NULL,
   checks_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at  TIMESTAMPTZ NOT NULL,
+  -- Where it came from, as lib_workflow_versions.came_from says.
+  came_from   TEXT NOT NULL CONSTRAINT guidance_block_version_came_from CHECK (came_from <> ''),
   UNIQUE(block_id, version)
 );
 CREATE TABLE IF NOT EXISTS system_workflows (

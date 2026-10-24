@@ -92,11 +92,15 @@ trap 'rm -rf "$work"' EXIT
 python3 scripts/third-party-notices.py > "$work/THIRD_PARTY_NOTICES"
 
 ldflags="-X github.com/flokkit/apptown/internal/version.Release=$tag"
+# The update files every archive carries (share/apptown/updates), named with
+# the release: the binaries read their stock from them at start.
+go run -ldflags "$ldflags" scripts/stock-files.go -o "$work/updates" >/dev/null
 for platform in linux/amd64 linux/arm64 darwin/arm64; do
 	os=${platform%/*} arch=${platform#*/}
 	name=apptown-$tag-$os-$arch
 	dir=$work/$name
-	mkdir -p "$dir/bin" "$dir/deploy"
+	mkdir -p "$dir/bin" "$dir/deploy" "$dir/share/apptown"
+	cp -R "$work/updates" "$dir/share/apptown/updates"
 	for cmd in apptownd apptown apptown-worker; do
 		CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "$ldflags" -o "$dir/bin/$cmd" "./cmd/$cmd"
 	done

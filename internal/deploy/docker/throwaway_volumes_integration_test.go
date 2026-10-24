@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // On a real daemon: a step's throwaway service keeps its data in an
@@ -22,7 +22,7 @@ func TestIntegrationAThrowawayServiceLeavesNoVolume(t *testing.T) {
 	dk := Scope{Client: CLI{Binary: "docker"}}
 	stack := fmt.Sprintf("itown-vol-%d", time.Now().UnixNano()%1_000_000)
 	_, teardown, err := StartServices(context.Background(), dk, stack, []deploy.ServiceSpec{
-		{Name: "store", Image: diskspace.DFImage, Data: "/data", Command: []string{"sleep", "3600"}},
+		{Name: "store", Image: runtimeimages.DF(), Data: "/data", Command: []string{"sleep", "3600"}},
 	})
 	t.Cleanup(teardown)
 	if err != nil {

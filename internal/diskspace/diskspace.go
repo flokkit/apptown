@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // Space is one filesystem: its size and what an unprivileged writer may
@@ -89,17 +91,16 @@ func Bytes(n int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTP"[exp])
 }
 
-// DFImage is what a read through Docker runs in: a small image pinned by
-// digest (busybox 1.37.0), for its df.
-const DFImage = "busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+// A read through Docker runs df in runtimeimages.DF(): busybox, which the
+// build's tool versions pin by digest.
 
 // DockerDFArgs are the docker CLI's arguments that read the filesystem
 // holding root on the daemon's machine (its data folder, say): a throwaway
-// container of DFImage with no network mounts root read only and runs df
+// container of runtimeimages.DF() with no network mounts root read only and runs df
 // there. Docker reports no disk figures itself, and docker system df walks
 // every layer (minutes on a busy host). ParseDF reads the answer.
 func DockerDFArgs(root string) []string {
-	return []string{"run", "--rm", "--network", "none", "--read-only", "-v", root + ":/d:ro", DFImage, "df", "-Pk", "/d"}
+	return []string{"run", "--rm", "--network", "none", "--read-only", "-v", root + ":/d:ro", runtimeimages.DF(), "df", "-Pk", "/d"}
 }
 
 // ParseDF reads df -Pk's filesystem line: total and available, in

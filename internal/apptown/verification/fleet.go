@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
@@ -53,7 +54,7 @@ import (
 // changed evaluator. Empty when the expectation has no posture evaluator.
 func evaluatorVersion(c conformance.CheckDeclaration) string {
 	if s, ok := check.PostureScript(c); ok {
-		h := sha256.Sum256([]byte(check.ShImage + "\x00" + s))
+		h := sha256.Sum256([]byte(runtimeimages.Sh() + "\x00" + s))
 		return hex.EncodeToString(h[:6])
 	}
 	if check.Evaluator(c) == "runtime" && strings.TrimSpace(c.Probe) != "" {

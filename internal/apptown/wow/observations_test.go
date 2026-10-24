@@ -36,7 +36,7 @@ func TestWorkflowCatalogObservationDistinguishesFailureFromNoEntries(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := q.InsertWorkflowVersion(context.Background(), wowsql.InsertWorkflowVersionParams{ID: ids.New(time.Now()), LibID: bad.ID, Version: 1, Yaml: "[", At: time.Now().UTC()}); err != nil {
+	if _, err := q.InsertWorkflowVersion(context.Background(), wowsql.InsertWorkflowVersionParams{ID: ids.New(time.Now()), LibID: bad.ID, Version: 1, Yaml: "[", At: time.Now().UTC(), CameFrom: CameFromHere}); err != nil {
 		t.Fatal(err)
 	}
 	if rows, err := s.Workflows(t.Context()); err != nil || len(rows) != 1 || rows[0].Name != "readable" {

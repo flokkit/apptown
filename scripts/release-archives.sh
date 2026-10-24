@@ -18,6 +18,8 @@
 #   bin/apptownd, bin/apptown, bin/apptown-worker  for the platform
 #   bin/apptown-linux   the CLI AppTown hands its containers: linux on the
 #                       same architecture (a Mac's containers are linux too)
+#   share/apptown/updates  the stock and tool versions the binaries read at
+#                       start (scripts/stock-files.go)
 #   deploy/apptown-agent, deploy/systemd   the agent image's recipe, units
 #   scripts/apptown-db-backup.sh             the checked backup upgrading runs
 #   LICENSE, NOTICE, README.md, THIRD_PARTY_NOTICES
@@ -46,12 +48,15 @@ for arch in amd64 arm64; do
 done
 
 GOOS='' GOARCH='' python3 scripts/third-party-notices.py >"$work/THIRD_PARTY_NOTICES"
+# The update files every archive carries, named with the release.
+GOOS='' GOARCH='' go run -ldflags "$ld" scripts/stock-files.go -o "$work/updates" >/dev/null
 
 for p in $platforms; do
 	os=${p%/*} arch=${p#*/}
 	name=apptown-$version-$os-$arch
 	d=$work/$name
-	mkdir -p "$d/bin" "$d/deploy" "$d/scripts"
+	mkdir -p "$d/bin" "$d/deploy" "$d/scripts" "$d/share/apptown"
+	cp -R "$work/updates" "$d/share/apptown/updates"
 	for c in apptownd apptown-worker; do
 		build "$os" "$arch" "$c" "$d/bin/$c"
 	done

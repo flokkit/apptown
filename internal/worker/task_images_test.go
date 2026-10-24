@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executionfake"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 )
@@ -26,7 +27,7 @@ func imageHub(t *testing.T) (hub, base string) {
 	t.Helper()
 	hub = t.TempDir()
 	files := map[string]string{
-		"Dockerfile":   "FROM " + diskspace.DFImage + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
+		"Dockerfile":   "FROM " + runtimeimages.DF() + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
 		"greeting.txt": "hello from a release build\n",
 	}
 	for name, body := range files {

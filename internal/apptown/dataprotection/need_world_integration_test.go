@@ -12,11 +12,11 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/secret"
-	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -41,7 +41,7 @@ func needWorld(t *testing.T, need string) (*both, ids.ID, map[string]string) {
 		t.Fatal(err)
 	}
 	dk := docker.Scope{Client: docker.CLI{Binary: "docker"}}
-	s := assembled(db, testRuntime{Scope: dk, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: check.ShImage, BuiltInTarget: "local"}, deployment.Dependencies{Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
+	s := assembled(db, testRuntime{Scope: dk, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: runtimeimages.Sh(), BuiltInTarget: "local"}, deployment.Dependencies{Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
 	target, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)

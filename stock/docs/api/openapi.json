@@ -2327,6 +2327,12 @@
           "toolchain": {
             "type": "string"
           },
+          "tools": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
           "workflows": {
             "items": {
               "type": "string"
@@ -2432,6 +2438,12 @@
           },
           "toolchain": {
             "type": "string"
+          },
+          "tools": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
           },
           "version": {
             "type": "integer"

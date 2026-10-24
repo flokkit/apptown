@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // A static site's image is built from a Dockerfile of its own that names
@@ -32,8 +33,8 @@ func TestAReleaseBuildGivesEachStaticImageItsOwnServingCommand(t *testing.T) {
 		t.Fatalf("request: %d images, %d files, %v", len(images), len(files), err)
 	}
 	want := map[string]string{
-		"/forge/release/part-web.Dockerfile":    docker.StaticSiteDockerfile(docker.StaticServerImage, 8080),
-		"/forge/release/part-mirror.Dockerfile": docker.StaticSiteDockerfile(docker.StaticServerImage, 9090),
+		"/forge/release/part-web.Dockerfile":    docker.StaticSiteDockerfile(runtimeimages.StaticServer(), 8080),
+		"/forge/release/part-mirror.Dockerfile": docker.StaticSiteDockerfile(runtimeimages.StaticServer(), 9090),
 	}
 	for _, f := range files {
 		if want[f.Path] != string(f.Content) || !strings.Contains(script, "'-f' '"+f.Path+"'") {
@@ -86,7 +87,7 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 	if strings.Contains(lines[exportLine], "--platform") || strings.Contains(script, "--builder") {
 		t.Fatalf("the export names a platform or a builder:\n%s", script)
 	}
-	if string(files[0].Content) != docker.StaticSiteDockerfile(docker.StaticServerImage, 80) {
+	if string(files[0].Content) != docker.StaticSiteDockerfile(runtimeimages.StaticServer(), 80) {
 		t.Fatalf("the pack's Dockerfile:\n%s", files[0].Content)
 	}
 }

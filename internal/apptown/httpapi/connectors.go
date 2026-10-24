@@ -12,7 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/stock"
+	"github.com/flokkit/apptown/stock/docs"
 )
 
 type Connectors struct {
@@ -52,7 +52,7 @@ func (h Connectors) ConnectorCatalog(w http.ResponseWriter, r *http.Request) {
 	out := make([]ConnectorEntry, 0, len(integration.ConnectorCatalog()))
 	defaults := h.integrations.CatalogDefaults(r.Context())
 	for _, c := range integration.ConnectorCatalog() {
-		_, err := stock.FS.ReadFile("docs/integrations/" + c.Capability + "-" + c.Provider + ".admin.md")
+		_, err := docs.FS.ReadFile("integrations/" + c.Capability + "-" + c.Provider + ".admin.md")
 		out = append(out, ConnectorEntry{integration.InstancePresets(c, defaults), err == nil})
 	}
 	for _, k := range h.integrations.Definitions(r.Context()) {

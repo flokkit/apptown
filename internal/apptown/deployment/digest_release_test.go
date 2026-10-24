@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -374,7 +376,7 @@ func TestAReleaseToAHostShortOfDiskChangesNothingThere(t *testing.T) {
 		t.Fatalf("a release to a host short of disk: %s %v", rel.State, err)
 	}
 	for _, c := range w.hosts.commands("lab")[before:] {
-		if !strings.HasPrefix(c, "info") && !strings.Contains(c, docker.DiskImage) && !strings.HasPrefix(c, "inspect") && !strings.HasPrefix(c, "ps") {
+		if !strings.HasPrefix(c, "info") && !strings.Contains(c, runtimeimages.DF()) && !strings.HasPrefix(c, "inspect") && !strings.HasPrefix(c, "ps") {
 			t.Errorf("the host was asked %q after the refusal", c)
 		}
 	}

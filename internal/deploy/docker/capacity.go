@@ -165,9 +165,6 @@ func RunningMemoryUsage(ctx context.Context, dk Scope) (map[string]int64, error)
 	return parseMemoryUsage(out)
 }
 
-// DiskImage is what the disk read runs in (diskspace.DFImage).
-const DiskImage = diskspace.DFImage
-
 // ReadDisk reads the filesystem holding the daemon's data folder
 // (diskspace.DockerDFArgs).
 func ReadDisk(ctx context.Context, dk Scope, dataRoot string) (diskspace.Space, error) {

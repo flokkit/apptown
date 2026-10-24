@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // On a real daemon the maintenance sweep's prune removes a dangling image
@@ -25,19 +25,19 @@ import (
 func TestIntegrationThePruneRemovesOnlyImagesAppTownBuilt(t *testing.T) {
 	ctx := context.Background()
 	dk := Scope{Client: CLI{Binary: "docker"}}
-	if out, err := dk.Run(ctx, "pull", diskspace.DFImage); err != nil {
-		t.Fatalf("pulling %s: %v %s", diskspace.DFImage, err, out)
+	if out, err := dk.Run(ctx, "pull", runtimeimages.DF()); err != nil {
+		t.Fatalf("pulling %s: %v %s", runtimeimages.DF(), err, out)
 	}
-	pulledID := dk.imageID(ctx, diskspace.DFImage)
+	pulledID := dk.imageID(ctx, runtimeimages.DF())
 	// The bug needs the pulled image dangling: a tag naming it would keep it
 	// from any prune, and the test would prove nothing.
 	if tags := dk.Text(ctx, "image", "inspect", "--format", "{{len .RepoTags}}", pulledID); tags != "0" {
-		t.Fatalf("a tag names %s on this daemon (%s tags), so it is not dangling here and the test cannot show the prune leaves it", diskspace.DFImage, tags)
+		t.Fatalf("a tag names %s on this daemon (%s tags), so it is not dangling here and the test cannot show the prune leaves it", runtimeimages.DF(), tags)
 	}
 
 	nonce := fmt.Sprintf("%s-%d", t.Name(), time.Now().UnixNano())
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM "+diskspace.DFImage+"\nARG NONCE\nLABEL nonce=$NONCE\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM "+runtimeimages.DF()+"\nARG NONCE\nLABEL nonce=$NONCE\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	// Someone else's: a plain docker build, untagged.

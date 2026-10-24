@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 )
@@ -107,7 +107,7 @@ ln -s / /work/out
 mkdir /work/adir
 echo done
 `
-	spec := execution.TaskSpec{Key: namespace + "-task", Image: diskspace.DFImage, Argv: []string{"sh", "-c", script},
+	spec := execution.TaskSpec{Key: namespace + "-task", Image: runtimeimages.DF(), Argv: []string{"sh", "-c", script},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: base},
 		Inputs: []execution.Input{
@@ -243,7 +243,7 @@ func TestIntegrationAWorkerReportsItsAgentImageLabels(t *testing.T) {
 	ca := workertest.NewCA(t)
 	image := fmt.Sprintf("forge-test-agent-image:%d", time.Now().UnixNano()%1_000_000_000)
 	build := exec.Command("docker", "build", "-q", "-t", image, "-")
-	build.Stdin = strings.NewReader("FROM " + diskspace.DFImage + "\nLABEL forge.subagents=reviewer apptown.pi.version=1.2.3\n")
+	build.Stdin = strings.NewReader("FROM " + runtimeimages.DF() + "\nLABEL forge.subagents=reviewer apptown.pi.version=1.2.3\n")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building a labelled image: %v: %s", err, out)
 	}

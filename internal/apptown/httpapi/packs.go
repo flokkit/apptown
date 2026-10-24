@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
-	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -42,7 +41,7 @@ type PackView struct {
 	// offers, which is what applying it installs.
 	Declaration wow.PackSpec `json:"declaration"`
 	// StaticStarter: the pack's starter app is static files with no server
-	// (projectlifecycle.StarterIsStatic), so the wizard offers no services.
+	// (wow.Service.StarterIsStatic), so the wizard offers no services.
 	StaticStarter bool `json:"staticStarter,omitempty"`
 }
 
@@ -68,7 +67,7 @@ func (h Packs) Packs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		out = append(out, PackView{Pack: p, Declaration: declared.Spec(), Requires: h.packRequirements(r.Context(), p), GuidanceBytes: total, GeneratedBytes: generated,
-			StaticStarter: projectlifecycle.StarterIsStatic(p.StarterPack())})
+			StaticStarter: h.ways.StarterIsStatic(p.StarterPack())})
 	}
 	WriteJSON(w, 200, out)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // Guidance checks (design/subsystems/guidance-checks.md): a guidance block may carry
@@ -34,10 +35,6 @@ import (
 // written as a conformance-report artifact; exceptions are the existing
 // per-fingerprint dispositions. Only sh findings at/above failOn (default
 // high) fail the step. Checks validate, never fix.
-
-// conformanceImage is the pinned image every sh check runs in; the library
-// owns it, because it is part of what an sh verdict means.
-const conformanceImage = check.ShImage
 
 // RunGuidanceConformance executes a guidance/conformance step.
 func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
@@ -108,7 +105,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	defer cleanup()
 	src, commit := checkedAt.Src, checkedAt.Commit
 
-	evidence := map[string]any{"image": conformanceImage, "failOn": cfg.FailOn, "commit": commit}
+	evidence := map[string]any{"image": runtimeimages.Sh(), "failOn": cfg.FailOn, "commit": commit}
 	if adoption != nil {
 		evidence["adoption"] = map[string]any{"revision": adoption.Revision, "digest": adoption.Digest}
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"gopkg.in/yaml.v3"
 
@@ -94,13 +95,13 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 		var mounts []string
 		switch {
 		case p.Static != "":
-			svc["image"] = docker.StaticServerImage
+			svc["image"] = runtimeimages.StaticServer()
 			mounts = []string{"./" + p.Static + ":/srv:ro"}
 			svc["command"] = composeLiteral(docker.StaticServerCommand(p.Port))
 		case p.StaticBuild != nil:
 			// Compose cannot export a build's files, so `apptown dev up` runs
 			// the build first (DevStaticBuilds) and this serves what it wrote.
-			svc["image"] = docker.StaticServerImage
+			svc["image"] = runtimeimages.StaticServer()
 			mounts = []string{"./" + devStaticSite(p.Name, p.StaticBuild.Output) + ":/srv:ro"}
 			svc["command"] = composeLiteral(docker.StaticServerCommand(p.Port))
 		case p.Image != "":

@@ -87,7 +87,7 @@ func TestAnUpgradeStopsOfferingWithdrawnStockAndKeepsWhatProjectsUse(t *testing.
 	}
 
 	// AppTown restarts on the new release.
-	after := wow.New(db, wow.Dependencies{Stock: stock.FS})
+	after := wow.New(db, wow.Dependencies{Stock: stock.FS, ToolLines: stock.Tools()})
 	after.SyncStock(t.Context())
 	s = New(db, Dependencies{Ways: after})
 
@@ -203,7 +203,7 @@ func TestAnUpgradeTurnsOffAStockPackItNoLongerShips(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	after := wow.New(db, wow.Dependencies{Stock: stock.FS})
+	after := wow.New(db, wow.Dependencies{Stock: stock.FS, ToolLines: stock.Tools()})
 	after.SyncStock(t.Context())
 	offered, err := after.OfferedPacks(t.Context())
 	if err != nil {

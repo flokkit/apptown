@@ -55,6 +55,8 @@ type Pin struct {
 type BlockVersion struct {
 	Version   int    `json:"version"`
 	CreatedAt string `json:"createdAt"`
+	// CameFrom is where the version came from (came_from.go).
+	CameFrom string `json:"cameFrom"`
 }
 
 // BlockFilter narrows a listing: a substring of the name or body, a tag.
@@ -79,6 +81,8 @@ func ValidName(name string) bool { return blockNameRe.MatchString(name) }
 // Library is the supported API over guidance blocks, versions and imports.
 type Library struct {
 	db *database.DB
+	// stock is where the stock sync's versions came from (came_from).
+	stock string
 	// clock is AppTown's clock, which stamps a block version: an
 	// adoption resolves a block as of its own time, by the same clock.
 	// nil is the real one.
@@ -87,7 +91,7 @@ type Library struct {
 
 func (s *Library) now() time.Time { return clock.Or(s.clock)() }
 
-func NewLibrary(db *database.DB) *Library { return &Library{db: db} }
+func NewLibrary(db *database.DB) *Library { return &Library{db: db, stock: stockCameFrom("")} }
 
 func (s *Library) ByID(ctx context.Context, id ids.ID) (*Block, error) {
 	r, err := wowsql.New(s.db.SQL()).BlockByID(ctx, id)
@@ -164,7 +168,7 @@ func (s *Library) Create(ctx context.Context, name, body, tags, who string) (*Bl
 			return err
 		}
 		block = blockRecord(r)
-		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: body, Checks: []byte("[]"), At: now}); err != nil {
+		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: body, Checks: []byte("[]"), At: now, CameFrom: CameFromHere}); err != nil {
 			return err
 		}
 		return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "guidance.block.created", name, map[string]any{"blockId": r.ID})
@@ -180,7 +184,7 @@ func (s *Library) Versions(ctx context.Context, blockID ids.ID) ([]BlockVersion,
 	rows, err := wowsql.New(s.db.SQL()).BlockVersionsMeta(ctx, blockID)
 	out := make([]BlockVersion, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, BlockVersion{Version: int(r.Version), CreatedAt: r.CreatedAt.Format(time.RFC3339Nano)})
+		out = append(out, BlockVersion{Version: int(r.Version), CreatedAt: r.CreatedAt.Format(time.RFC3339Nano), CameFrom: r.CameFrom})
 	}
 	return out, err
 }

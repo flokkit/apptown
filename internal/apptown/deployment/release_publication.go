@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/database"
@@ -55,7 +56,7 @@ func (img ReleaseImage) IsStatic() bool {
 // image, with the command that serves them (docker.StaticSiteDockerfile),
 // as a Docker host's own build of it is (docker.PrepareImages).
 func (img ReleaseImage) Dockerfile() string {
-	return docker.StaticSiteDockerfile(docker.StaticServerImage, img.Port)
+	return docker.StaticSiteDockerfile(runtimeimages.StaticServer(), img.Port)
 }
 
 // ReleasePlan is what a release is made of: its distinct images, in the

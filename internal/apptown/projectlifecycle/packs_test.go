@@ -38,21 +38,3 @@ func TestSeedIgnoreRulesMerge(t *testing.T) {
 		t.Fatal("a second merge adds nothing")
 	}
 }
-
-// A pack's starter is static only when its seed's contract says every part
-// is static files and nothing is needed; the wizard then offers no services.
-func TestStarterIsStaticReadsTheSeedContract(t *testing.T) {
-	for pack, want := range map[string]bool{
-		"html-game":        true,  // static: .
-		"frontend-only":    true,  // static: { build: ., output: dist }
-		"video-game":       true,  // static: { build: ., output: dist }
-		"go-small":         false, // builds and runs a server
-		"rails":            false, // needs postgres
-		"conventions-only": false, // no seed
-		"no-such-pack":     false,
-	} {
-		if got := StarterIsStatic(pack); got != want {
-			t.Errorf("StarterIsStatic(%q) = %v, want %v", pack, got, want)
-		}
-	}
-}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 // The real static server, as every path runs it: the site from /srv, and
@@ -31,7 +32,7 @@ func TestIntegrationStaticServerGivesThePageItsValues(t *testing.T) {
 		if values != "" {
 			args = append(args, "-e", BrowserEnvVar+"="+values)
 		}
-		args = append(args, StaticServerImage)
+		args = append(args, runtimeimages.StaticServer())
 		args = append(args, StaticServerCommand(8080)...)
 		id := runDetached(t, args...)
 		port, err := exec.Command("docker", "port", id, "8080/tcp").CombinedOutput()
@@ -80,7 +81,7 @@ func TestIntegrationStaticServerStartsWithoutWarnings(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html></html>"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	args := append([]string{"run", "-d", "-v", site + ":/srv:ro", StaticServerImage}, StaticServerCommand(8080)...)
+	args := append([]string{"run", "-d", "-v", site + ":/srv:ro", runtimeimages.StaticServer()}, StaticServerCommand(8080)...)
 	id := runDetached(t, args...)
 	var logs []byte
 	if !poll.Until(context.Background(), 30*time.Second, 100*time.Millisecond, func() bool {

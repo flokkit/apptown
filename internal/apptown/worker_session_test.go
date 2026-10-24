@@ -21,7 +21,7 @@ func TestTwoStartsNeverShareASession(t *testing.T) {
 	if err := os.WriteFile(counter, []byte(strconv.FormatInt(ahead, 10)), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := withPreviewWorker(t, &fakePreviewWorker{}, Config{DataDir: dir, DockerClient: newFakeDocker()})
+	cfg := withPreviewWorker(t, &fakePreviewWorker{}, Config{DataDir: dir, DockerClient: newFakeDocker(), Stock: testStock(t)})
 	var previous int64
 	for i := 0; i < 2; i++ {
 		app, err := New(context.Background(), db, cfg)

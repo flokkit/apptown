@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/dind"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
 	"github.com/flokkit/apptown/internal/apptown/integration"
@@ -212,7 +213,7 @@ func TestAStepsPrivateDockerAndItsBuilderAreGivenTheExtraCertificates(t *testing
 	}
 	cleanup()
 	<-client.preload
-	if !client.ran("-e "+trust.EnvVar+" --entrypoint sh "+DindImage+" -c "+trust.Run) ||
+	if !client.ran("-e "+trust.EnvVar+" --entrypoint sh "+runtimeimages.PrivateDocker()+" -c "+trust.Run) ||
 		!client.ran("docker exec -e "+trust.EnvVar+" "+dind.BuilderContainer) || !client.ran("docker restart "+dind.BuilderContainer) {
 		t.Fatalf("calls:\n%s", strings.Join(client.calls, "\n"))
 	}

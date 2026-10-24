@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 type Daemon struct {
@@ -519,7 +520,7 @@ func dfLines(total, free int64) string {
 }
 
 // RoomyDisk answers the disk admission's reads (docker.AdmitDisk: docker
-// info's data folder, and df of it in a docker.DiskImage container) as a
+// info's data folder, and df of it in a runtimeimages.DF() container) as a
 // daemon with room does; ok is false for any other command. A test's own
 // scripted client asks it first.
 func RoomyDisk(args []string) ([]byte, bool) {
@@ -541,5 +542,5 @@ func IsDiskRead(args []string) bool {
 	if len(args) > 1 && args[0] == "--config" {
 		args = args[2:]
 	}
-	return len(args) > 0 && args[0] == "run" && slices.Contains(args, docker.DiskImage) && slices.Contains(args, "df")
+	return len(args) > 0 && args[0] == "run" && slices.Contains(args, runtimeimages.DF()) && slices.Contains(args, "df")
 }

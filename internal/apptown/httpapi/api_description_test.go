@@ -16,7 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/stamp"
-	"github.com/flokkit/apptown/stock"
+	stockdocs "github.com/flokkit/apptown/stock/docs"
 )
 
 // A failed backup answers 502 with its record, and that body is what the
@@ -52,7 +52,7 @@ func TestAFailedBackupAnswersAsDescribed(t *testing.T) {
 // AppTown serves the description it ships, to any caller, as JSON.
 func TestTheShippedDescriptionIsServed(t *testing.T) {
 	w := httptest.NewRecorder()
-	NewAPIDescription(stock.FS).Serve(w, httptest.NewRequest("GET", "/api/v1/openapi.json", nil))
+	NewAPIDescription(stockdocs.FS).Serve(w, httptest.NewRequest("GET", "/api/v1/openapi.json", nil))
 	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "stock", "docs", "api", "openapi.json"))
 	if err != nil {
 		t.Fatal(err)

@@ -882,8 +882,9 @@ chooses AppTown; a chat keeps the placement it opened with. An AppTown
 started with `-no-local-docker` refuses every chat the worker cannot take. A chat on
 the worker is the chat's container and its private Docker daemon, on the
 worker's Docker. For that daemon the worker must be able to run privileged
-containers, and it uses the image `-dind-image` names (`docker:27-dind` by
-default).
+containers, and it uses the image `-dind-image` names (by default the
+private Docker image, by digest, of the tool versions shipped beside the
+worker in `share/apptown/updates`).
 
 A chat on the worker runs under the same rules as a task's private Docker:
 - **Limits.** The chat's container, its private daemon and a save's

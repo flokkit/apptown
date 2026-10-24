@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
@@ -73,8 +74,6 @@ func (w *Workshop) BuildkitConfig(ctx context.Context) string {
 //
 // Writable change consoles use the same image, DNS and mirror policy with
 // a longer session lifecycle; see internal/console/pi. Steps remain disposable.
-
-const DindImage = "docker:27-dind"
 
 const DockerInstructions = `# Your private Docker
 
@@ -173,7 +172,7 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	//    unless --tls=false is explicit — so say it; the listener lives on a
 	//    private network anyway.
 	args = append(args, "-e", "ZFS_MODULE_TIMEOUT=0")
-	args = append(args, dind.Start(DindImage, "--tls=false")...)
+	args = append(args, dind.Start(runtimeimages.PrivateDocker(), "--tls=false")...)
 	// Name resolution for the containers the nested daemon runs (a plain
 	// `docker build`, `docker compose build`, a rehearsal container): dind's
 	// own resolv.conf points at Docker's embedded DNS (127.0.0.11), which

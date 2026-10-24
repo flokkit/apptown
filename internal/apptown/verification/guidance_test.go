@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/model"
@@ -124,7 +125,7 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 		Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
 	kinds := map[string]gateKind{
 		"sh": {check.Declaration{Name: "script", Expects: "a readme", Sh: "test -f README.md", Severity: "high"}, "pass",
-			func() bool { return f.Effects.ran(check.ShImage) }},
+			func() bool { return f.Effects.ran(runtimeimages.Sh()) }},
 		"tool": {check.Declaration{Name: "sast", Expects: "no sast findings", Tool: "semgrep-django", Severity: "high"}, "pass",
 			func() bool { return f.Effects.ran("semgrep/semgrep:test") }},
 		"llm": {check.Declaration{Name: "readme", Expects: "says what it is", Rubric: "the readme names the app", Scope: check.ScopeTree, Files: []string{"README.md"}}, "unclear", // "conforms" is not a checklist word

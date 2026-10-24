@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 )
 
@@ -60,7 +61,7 @@ func TestIntegrationQualificationATaskHasItsOwnDockerAndServices(t *testing.T) {
 echo "same path $$" > /work/marker
 docker build -q -t nested-greeting /work >/dev/null
 docker run --rm nested-greeting
-docker run --rm -v /work:/work ` + diskspace.DFImage + ` sh -c 'cat /work/marker; echo nested wrote > /work/from-nested'
+docker run --rm -v /work:/work ` + runtimeimages.DF() + ` sh -c 'cat /work/marker; echo nested wrote > /work/from-nested'
 cat /work/from-nested
 nc -z cache 6379 && echo "reached the cache"
 test -S /var/run/docker.sock && echo "HOST SOCKET"
@@ -171,7 +172,7 @@ func TestIntegrationQualificationAnInterruptedWorkerRecoversAndAStopFences(t *te
 
 	// The stop and its fence.
 	stop := f.spec("stop", `set -e
-docker run -d -v /work:/work `+diskspace.DFImage+` sh -c 'while true; do echo tick >> /work/ticks.txt; sleep 0.1; done'
+docker run -d -v /work:/work `+runtimeimages.DF()+` sh -c 'while true; do echo tick >> /work/ticks.txt; sleep 0.1; done'
 echo writer-ready
 sleep 300`, &execution.PrivateDocker{Daemon: true}, execution.Result{Name: "ticks", Path: "/work/ticks.txt", Max: 1 << 20})
 	created, err = f.driver.Ensure(ctx, stop)
@@ -227,7 +228,7 @@ sleep 300`, &execution.PrivateDocker{Daemon: true}, execution.Result{Name: "tick
 	}
 
 	// Expiry, with nothing asking the worker: its sweep runs each minute.
-	expiring := f.spec("expiring", "sleep 600", &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: diskspace.DFImage, Command: []string{"sleep", "3600"}}}})
+	expiring := f.spec("expiring", "sleep 600", &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{{Name: "svc", Image: runtimeimages.DF(), Command: []string{"sleep", "3600"}}}})
 	expiring.Admission.Expires = time.Now().Add(20 * time.Second)
 	created, err = f.driver.Ensure(ctx, expiring)
 	if err != nil {
@@ -288,7 +289,7 @@ func TestIntegrationQualificationDiskExhaustionIsRefusedAndRecovered(t *testing.
 	t.Cleanup(func() { f.external.Ctl(t, "unreserve") })
 	t.Logf("available before: %d MiB; with the reserve: %d MiB", before>>20, avail()>>20)
 
-	fill := f.spec("disk-fill", `docker run --name filler `+diskspace.DFImage+` sh -c 'cat /dev/urandom > /fill; echo "filler stopped: exit $?"'
+	fill := f.spec("disk-fill", `docker run --name filler `+runtimeimages.DF()+` sh -c 'cat /dev/urandom > /fill; echo "filler stopped: exit $?"'
 echo filled
 sleep 1200`, &execution.PrivateDocker{Daemon: true})
 	fill.Admission.Expires = time.Now().Add(40 * time.Minute)

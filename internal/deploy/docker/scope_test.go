@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/runtimeimages"
 )
 
 type fakeClient struct {
@@ -41,7 +43,7 @@ func roomyDisk(args []string) ([]byte, bool) {
 	switch {
 	case len(args) == 3 && args[0] == "info" && strings.Contains(args[2], "DockerRootDir"):
 		return []byte("8589934592\t8\t/var/lib/docker\n"), true
-	case len(args) > 0 && args[0] == "run" && slices.Contains(args, DiskImage) && slices.Contains(args, "df"):
+	case len(args) > 0 && args[0] == "run" && slices.Contains(args, runtimeimages.DF()) && slices.Contains(args, "df"):
 		return []byte("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data 104857600 10485760 94371840 10% /d\n"), true
 	}
 	return nil, false

@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/internal/runtimeimages"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -92,11 +92,11 @@ var fakePiBuild, fakePiGitBuild fakePiBuilt
 // machine's Docker, once per test binary, named by its content.
 func fakePiImage(t *testing.T) string {
 	t.Helper()
-	return fakePiImageFrom(t, &fakePiBuild, "FROM "+diskspace.DFImage+"\n")
+	return fakePiImageFrom(t, &fakePiBuild, "FROM "+runtimeimages.DF()+"\n")
 }
 
 // fakePiGitImage is the fake agent image with git, for an agent that
-// commits and pushes as a real one does: the check image (check.ShImage's
+// commits and pushes as a real one does: the check image (runtimeimages.Sh()'s
 // alpine/git) without its git entrypoint.
 func fakePiGitImage(t *testing.T) string {
 	t.Helper()
@@ -485,7 +485,7 @@ func TestIntegrationARecoveredInvocationKeepsItsFrozenNeed(t *testing.T) {
 		t.Fatal(err)
 	}
 	gittest.Run(t, folder, "-c", "user.name=alice", "-c", "user.email=alice@example.org", "commit", "-q", "-am", "another flavour")
-	if _, err := w.a.Dependencies.Save(context.Background(), kvKind(diskspace.DFImage, "changed"), "tester"); err != nil {
+	if _, err := w.a.Dependencies.Save(context.Background(), kvKind(runtimeimages.DF(), "changed"), "tester"); err != nil {
 		t.Fatal(err)
 	}
 	b := w.restart(t)

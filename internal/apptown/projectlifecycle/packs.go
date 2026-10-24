@@ -16,8 +16,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/wow"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/stock"
 )
 
 // ApplyPack adopts a pack on a project: pinned guidance, the platform tier,
@@ -132,41 +130,21 @@ func (s *Service) seedPackFiles(ctx execcontext.Context, p *project.Project, pac
 	written, err = s.CommitGenesis(ctx, p, fmt.Sprintf("apptown: seed %s starter (pack apply)", packName), who,
 		func(dir string) ([]string, error) {
 			var w []string
-			w, refused, err = writePackSeeds(dir, packName)
+			w, refused, err = writePackSeeds(dir, s.ways.Seed(packName))
 			return w, err
 		})
 	return written, refused, err
 }
 
-// StarterIsStatic says whether a pack's starter app, as its seed's
-// .apptown/app.yaml declares it, is static files only: no part runs a server
-// and nothing is needed, so a database or cache would have nothing to serve.
-// A pack whose seed declares no contract (or no seed) says nothing: false.
-func StarterIsStatic(packName string) bool {
-	raw, err := stock.FS.ReadFile("seeds/" + packName + "/.apptown/app.yaml")
-	if err != nil {
-		return false
+func writePackSeeds(dir string, seed fs.FS) (written, refused []string, _ error) {
+	if seed == nil {
+		return nil, nil, nil // a pack without seeds is the common case
 	}
-	c, err := appcontract.Parse(raw)
-	if err != nil || len(c.Needs) > 0 || len(c.Init) > 0 || len(c.Parts) == 0 {
-		return false
-	}
-	for _, part := range c.Parts {
-		if !part.IsStatic() {
-			return false
-		}
-	}
-	return true
-}
-
-func writePackSeeds(dir, packName string) (written, refused []string, _ error) {
-	root := "seeds/" + packName
-	err := fs.WalkDir(stock.FS, root, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(seed, ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
-			return nil //nolint:nilerr // a pack without seeds is the common case
+			return nil //nolint:nilerr // an unreadable entry is skipped, as before
 		}
-		rel := strings.TrimPrefix(path, root+"/")
-		body, err := stock.FS.ReadFile(path)
+		body, err := fs.ReadFile(seed, rel)
 		if err != nil {
 			return nil
 		}
@@ -218,9 +196,9 @@ func writePackSeeds(dir, packName string) (written, refused []string, _ error) {
 // already exists — the project's declaration is its own, never clobbered.
 // An established project is refused with ErrProjectEstablished.
 func (s *Service) SeedToolchain(ctx execcontext.Context, p *project.Project, name, who string) (bool, error) {
-	body, err := stock.FS.ReadFile("toolchains/" + name + ".toml")
+	body, err := s.ways.Toolchain(name)
 	if err != nil {
-		return false, fmt.Errorf("no stock toolchain %q: %w", name, fs.ErrNotExist)
+		return false, err
 	}
 	written, err := s.CommitGenesis(ctx, p, "apptown: declare "+name+" toolchain", who,
 		func(dir string) ([]string, error) {
