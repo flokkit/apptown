@@ -66,18 +66,24 @@ func probeClient(t *testing.T, db *sql.DB, run func(context.Context, *river.Job[
 	return probeClientUsing(t, db, riverdatabasesql.New(db), run)
 }
 
-func probeClientUsing(t *testing.T, db *sql.DB, driver riverdriver.Driver[*sql.Tx], run func(context.Context, *river.Job[probeOperation]) error) *river.Client[*sql.Tx] {
+// configure, if given, adjusts the probe's River configuration before the
+// client is made.
+func probeClientUsing(t *testing.T, db *sql.DB, driver riverdriver.Driver[*sql.Tx], run func(context.Context, *river.Job[probeOperation]) error, configure ...func(*river.Config)) *river.Client[*sql.Tx] {
 	t.Helper()
 	var logs probeLog
 	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &probeWorker{run: run})
-	c, err := river.NewClient(driver, &river.Config{
+	config := &river.Config{
 		Workers: workers, Queues: map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: 4}},
 		MaxAttempts: 1, JobTimeout: time.Minute, RescueStuckJobsAfter: time.Hour,
 		PollOnly: true, FetchCooldown: time.Millisecond, FetchPollInterval: 10 * time.Millisecond,
 		Logger: logger, TestOnly: true,
-	})
+	}
+	for _, f := range configure {
+		f(config)
+	}
+	c, err := river.NewClient(driver, config)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -440,5 +446,77 @@ func TestRiverShutdownRemainsBounded(t *testing.T) {
 	case <-c.Stopped():
 		t.Fatal("stop claimed worker had exited")
 	default:
+	}
+}
+
+// failingMaintenanceStart makes River's maintenance fail to start: the
+// periodic job enqueuer runs its start hooks as it starts, and an error from
+// one fails that start. It fails the first `fail` starts and lets the rest
+// through.
+type failingMaintenanceStart struct {
+	river.HookDefaults
+	fail      int32
+	calls     atomic.Int32
+	recovered chan struct{}
+}
+
+func (h *failingMaintenanceStart) Start(context.Context, *rivertype.HookPeriodicJobsStartParams) error {
+	n := h.calls.Add(1)
+	if n <= h.fail {
+		return fmt.Errorf("maintenance start %d refused", n)
+	}
+	if n == h.fail+1 {
+		close(h.recovered)
+	}
+	return nil
+}
+
+// AppTown runs one poll-only River client. When its maintenance fails to
+// start through a whole leadership term's retries, that client gives up the
+// term, is elected again and starts maintenance again, without a restart:
+// stuck jobs are rescued, scheduled jobs become available and periodic jobs
+// are enqueued. Before River 0.48 the client asked to resign through a
+// database notification, which a poll-only client never receives, and kept
+// renewing a leadership whose maintenance had stopped.
+//
+// The rescuer looks every thirty seconds (River's interval, not settable),
+// so the rescue below can take that long.
+func TestRiverPollOnlyClientRestartsMaintenanceAfterItFailsToStart(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t).Pool()
+	// River retries a failed start three times in one term before giving it up.
+	hook := &failingMaintenanceStart{fail: 3, recovered: make(chan struct{})}
+	var worked sync.Map
+	c := probeClientUsing(t, db, riverdatabasesql.New(db), func(_ context.Context, job *river.Job[probeOperation]) error {
+		worked.Store(job.Args.Key, true)
+		return nil
+	}, func(config *river.Config) {
+		config.Hooks = []rivertype.Hook{hook}
+		config.JobTimeout, config.RescueStuckJobsAfter = time.Second, 2*time.Second
+		config.PeriodicJobs = []*river.PeriodicJob{river.NewPeriodicJob(river.PeriodicInterval(time.Hour), func() (river.JobArgs, *river.InsertOpts) {
+			return probeOperation{Key: "periodic"}, nil
+		}, &river.PeriodicJobOpts{ID: "probe", RunOnStart: true})}
+	})
+	probeStart(t, c)
+	select {
+	case <-hook.recovered:
+	case <-time.After(40 * time.Second):
+		t.Fatalf("maintenance was not started again after %d failed starts", hook.calls.Load())
+	}
+
+	// Made after the recovered start, so only the recovered maintenance can
+	// settle them. The stuck job is on a queue this client does not work, held
+	// as running by a client that is gone, as a crashed AppTown leaves it.
+	scheduled := probeInsert(t, c, probeOperation{Key: "scheduled"}, &river.InsertOpts{ScheduledAt: time.Now().Add(100 * time.Millisecond)})
+	stuck := probeInsert(t, c, probeOperation{Key: "stuck"}, &river.InsertOpts{Queue: "gone"})
+	claimed, err := riverdatabasesql.New(db).GetExecutor().JobGetAvailable(context.Background(), &riverdriver.JobGetAvailableParams{ClientID: "gone", MaxAttemptedBy: 100, MaxToLock: 1, Queue: "gone"})
+	if err != nil || len(claimed.Jobs) != 1 || claimed.Jobs[0].ID != stuck {
+		t.Fatalf("holding the stuck job: %v %+v", err, claimed)
+	}
+
+	probeAwaitState(t, c, scheduled, rivertype.JobStateCompleted)
+	probeEventually(t, "the periodic job ran", func() bool { _, ok := worked.Load("periodic"); return ok })
+	if row := probeAwaitState(t, c, stuck, rivertype.JobStateDiscarded); len(row.Errors) == 0 {
+		t.Fatalf("the stuck job was settled without the rescuer's error: %+v", row)
 	}
 }

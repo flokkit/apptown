@@ -27,7 +27,7 @@ type shutdownFetchExecutor struct {
 	blocked, refunded atomic.Bool
 }
 
-func (e *shutdownFetchExecutor) JobGetAvailable(ctx context.Context, p *riverdriver.JobGetAvailableParams) ([]*rivertype.JobRow, error) {
+func (e *shutdownFetchExecutor) JobGetAvailable(ctx context.Context, p *riverdriver.JobGetAvailableParams) (*riverdriver.JobGetAvailableResult, error) {
 	select {
 	case <-e.entered:
 		if e.blocked.CompareAndSwap(false, true) {
