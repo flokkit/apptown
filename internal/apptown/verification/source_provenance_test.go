@@ -56,14 +56,14 @@ func TestScanGateHoldsOnlyIntroducedFindings(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	if _, err := integration.New(db).Upsert(t.Context(), "semgrep", ScannerCapability, "tool",
-		`{"image":"semgrep/semgrep:test","command":["semgrep","/work"],"report":".apptown/semgrep.sarif","format":"sarif","target":"source","kind":"sast"}`, true); err != nil {
+		`{"image":"semgrep/semgrep:test","command":["semgrep","/work"],"report":".apptown/semgrep.sarif","format":"sarif","target":"source","kind":"sast","appliesTo":["repository"]}`, true); err != nil {
 		t.Fatal(err)
 	}
 	reports := &provenanceReports{scannerEffects: scannerEffects{t: t}, base: sarifOf(oldFinding)}
 	// This source comparison uses only bindings and evaluator execution.
 	scanners := NewScanners(ScannerDependencies{DB: db, Evaluator: NewEvaluator(reports, nil, stock.Versions())})
 
-	ws := t.TempDir()
+	ws := projectTree(t)
 	git := func(args ...string) string {
 		t.Helper()
 		cmd := gittest.Command(args...)

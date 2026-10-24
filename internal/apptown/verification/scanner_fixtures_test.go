@@ -37,6 +37,7 @@ type scannerEffects struct {
 	t      *testing.T
 	report string
 	answer string
+	exit   int // the exit every run answers with
 
 	mu       sync.Mutex
 	images   []string
@@ -71,7 +72,7 @@ func (e *scannerEffects) Run(ctx context.Context, req execution.Request) executi
 	}
 	// Answered as a runner answers: a normal exit, and the declared report
 	// carried back in the outcome.
-	out := execution.Outcome{Termination: execution.Exited}
+	out := execution.Outcome{Termination: execution.Exited, ExitCode: e.exit}
 	if req.Report != "" {
 		out.Report, out.ReportErr = execution.ReadReport(req.Workspace, req.Report)
 	}
@@ -144,6 +145,14 @@ func (noAdoptedChecks) ChecksIn(context.Context, database.Queryer, []ids.ID) (ma
 
 func (f scannerOwnerFixture) bind(t *testing.T, name string, cfg map[string]any) {
 	t.Helper()
+	// A fixture scanner at a scan point applies to the repository unless
+	// it says otherwise, as a scanner stored before appliesTo was migrated
+	// to.
+	if manual, _ := cfg["manual"].(bool); !manual {
+		if _, ok := cfg["appliesTo"]; !ok {
+			cfg["appliesTo"] = []string{"repository"}
+		}
+	}
 	b, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -151,6 +160,15 @@ func (f scannerOwnerFixture) bind(t *testing.T, name string, cfg map[string]any)
 	if _, err := integration.New(f.DB).Upsert(f.Context, name, ScannerCapability, "tool", string(b), true); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// projectTree is a staged tree with a file in it and no contract: what a
+// repository check applies to.
+func projectTree(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	writeTree(t, dir, map[string]string{"README.md": "an app\n"})
+	return dir
 }
 
 func scannerSARIF(n int) string {

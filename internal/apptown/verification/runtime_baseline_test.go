@@ -27,7 +27,7 @@ func TestARunningAppFindingIsComparedWithMainOnlyAtTheBaseCommit(t *testing.T) {
 	t.Parallel()
 	const base = "1111111111111111111111111111111111111111"
 	const other = "2222222222222222222222222222222222222222"
-	sc := conformance.DeclaredCheck{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{
+	sc := conformance.DeclaredCheck{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"},
 		Name: "front-page-answers", Evaluator: "runtime", Probe: "page", Severity: "high"}}
 	checks := []conformance.DeclaredCheck{sc}
 	mainAnswering := func(status int) string {
@@ -102,9 +102,9 @@ func TestARunningAppFindingIsComparedWithMainOnlyAtTheBaseCommit(t *testing.T) {
 func TestWholePropertyChecksFailingOnMainArePreexisting(t *testing.T) {
 	t.Parallel()
 	checks := []conformance.DeclaredCheck{
-		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "rubric", Evaluator: "llm", Scope: "tree", Rubric: "r"}},
-		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "probe", Evaluator: "runtime", Probe: "page"}},
-		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "script", Evaluator: "sh", Sh: "exit 1"}},
+		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "rubric", Evaluator: "llm", Scope: "tree", Rubric: "r"}},
+		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "probe", Evaluator: "runtime", Probe: "page"}},
+		{Block: "b", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "script", Evaluator: "sh", Sh: "exit 1"}},
 	}
 	var findings []conformance.Finding
 	var judged []check.Evaluation

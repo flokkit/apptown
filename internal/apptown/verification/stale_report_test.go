@@ -22,10 +22,10 @@ func TestAScanStopsWhenAnEarlierRunsOutputCannotBeRemoved(t *testing.T) {
 	t.Parallel()
 	f := newScannerOwnerFixture(t)
 	if _, err := integration.New(f.DB).Upsert(t.Context(), "semgrep", ScannerCapability, "tool",
-		`{"image":"semgrep/semgrep:test","command":["semgrep","/work"],"report":".apptown/semgrep.sarif","format":"sarif","target":"source","kind":"sast"}`, true); err != nil {
+		`{"image":"semgrep/semgrep:test","command":["semgrep","/work"],"report":".apptown/semgrep.sarif","format":"sarif","target":"source","kind":"sast","appliesTo":["repository"]}`, true); err != nil {
 		t.Fatal(err)
 	}
-	src := t.TempDir()
+	src := projectTree(t)
 	if err := os.MkdirAll(filepath.Join(src, ".apptown", "semgrep.sarif", "kept"), 0o755); err != nil {
 		t.Fatal(err)
 	}

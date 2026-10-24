@@ -188,7 +188,7 @@ func TestAFailingContractCheckIsComparedWithTheBaseCommit(t *testing.T) {
 		gittest.Commit{Message: "undeclared", Files: map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"}},
 	)
 	a := &Guidance{runtime: &Runtime{dataDir: dataDir}}
-	sc := conformance.DeclaredCheck{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{Name: "memory-declared", Evaluator: "runtime", Probe: "memory-declared", Severity: "medium"}}
+	sc := conformance.DeclaredCheck{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "memory-declared", Evaluator: "runtime", Probe: "memory-declared", Severity: "medium"}}
 	finding := conformance.Finding{Finding: check.Finding{Fingerprint: conformance.Fingerprint(sc, "")}}
 	for _, tc := range []struct {
 		base string
@@ -214,8 +214,8 @@ func TestAWhatIfJudgesTheContractOnTheAssessedTree(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tree, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	declared := conformance.DeclaredCheck{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{Name: "memory-declared", Evaluator: "runtime", Probe: "memory-declared", Severity: "medium"}}
-	page := conformance.DeclaredCheck{Block: "run", Version: 1, Check: conformance.CheckDeclaration{Name: "page", Evaluator: "runtime", Probe: "page", Severity: "high"}}
+	declared := conformance.DeclaredCheck{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "memory-declared", Evaluator: "runtime", Probe: "memory-declared", Severity: "medium"}}
+	page := conformance.DeclaredCheck{Block: "run", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "page", Evaluator: "runtime", Probe: "page", Severity: "high"}}
 	f := Fleet{runtime: &Runtime{}}
 	got := map[string]treeAssessment{}
 	for _, a := range f.assessChecks(t.Context(), []conformance.DeclaredCheck{declared, page}, assessInput{Tool: ToolContext{BuildDir: tree}, NoApp: "no standing main deployment"}) {

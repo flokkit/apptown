@@ -124,7 +124,12 @@ func TestWordPressStarterTakesItsUploadsStoreFromTheS3Need(t *testing.T) {
 // is told an empty change is right when every check already holds. So the
 // pack's check must fail on the starter before the s3 need (rc.5: MariaDB
 // alone, six S3 settings in secretspec.toml), or that project keeps asking
-// for them. It names every variable the need provides.
+// for them. It names every variable the need provides. The check applies to
+// a part built with php, so the starter's contract names it; without that
+// the check is not applicable and the starter would never be asked.
+//
+// Kills: the check passing the rc.5 starter, and a finding that leaves out a
+// variable the need provides.
 func TestWordPressUploadsCheckFailsOnTheHandEnteredS3Starter(t *testing.T) {
 	items, _ := wow.ReadStockGuidance(stock.FS, nil)
 	var check *conformance.CheckDeclaration
@@ -158,7 +163,7 @@ func TestWordPressUploadsCheckFailsOnTheHandEnteredS3Starter(t *testing.T) {
 	dir := t.TempDir()
 	writeTree(t, dir, map[string]string{
 		"composer.json":     `{"require": {"humanmade/s3-uploads": "3.0.13"}}`,
-		".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  mariadb: {version: \"11.4.13\"}\n",
+		".apptown/app.yaml": "version: 2\napp:\n  web:\n    build: .\n    public: true\n    tools: [php]\nneeds:\n  mariadb: {version: \"11.4.13\"}\n",
 		"secretspec.toml":   spec.String(),
 	})
 	results, _, errs := NewEvaluator(localChecks{}, nil, stock.Versions()).runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{{Block: "lang/selection/wordpress-bedrock", Version: 1, Check: *check}}, dir, "t-wordpress-rc5")

@@ -296,7 +296,8 @@
                               "quorum": {},
                               "means": {},
                               "instructions": {},
-                              "inAdvance": {}
+                              "inAdvance": {},
+                              "inAdvanceAdmitsNotApplicable": {}
                             }
                           }
                         }
@@ -508,6 +509,7 @@
                             "type": "object",
                             "additionalProperties": false,
                             "properties": {
+                              "appliesTo": {},
                               "command": {},
                               "require": {},
                               "timeoutMinutes": {}
@@ -691,7 +693,8 @@
                               "quorum": {},
                               "means": {},
                               "instructions": {},
-                              "inAdvance": {}
+                              "inAdvance": {},
+                              "inAdvanceAdmitsNotApplicable": {}
                             }
                           }
                         }
@@ -903,6 +906,7 @@
                             "type": "object",
                             "additionalProperties": false,
                             "properties": {
+                              "appliesTo": {},
                               "command": {},
                               "require": {},
                               "timeoutMinutes": {}

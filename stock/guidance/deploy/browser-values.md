@@ -2,7 +2,7 @@
 name: deploy/browser-values
 tags: deploy,integration,static,platform
 tier: platform
-checks: [{"name": "page-loads-browser-values", "expects": "a static app whose page AppTown gives values (an attached integration's public key or address) is served exactly those at /_apptown/env.js, and its HTML loads that file in <head> before any other script", "severity": "high", "evaluator": "runtime", "probe": "browser-env", "title": "Load the values AppTown gives the page"}]
+checks: [{"name": "page-loads-browser-values", "expects": "a static app whose page AppTown gives values (an attached integration's public key or address) is served exactly those at /_apptown/env.js, and its HTML loads that file in <head> before any other script", "severity": "high", "evaluator": "runtime", "probe": "browser-env", "title": "Load the values AppTown gives the page", "appliesTo": ["static"]}]
 ---
 A static page cannot read environment variables. When the project is attached
 to a service a page uses (error reporting, a feedback widget), AppTown serves

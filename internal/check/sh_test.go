@@ -26,7 +26,7 @@ func localShell() func(execution.Request) execution.Outcome {
 func sourced(block string, ver int, name, sh, sev string) check.Declared {
 	return check.Declared{
 		Identity:    check.Identity{Namespace: block, Version: ver},
-		Declaration: check.Declaration{Name: name, Evaluator: "sh", Sh: sh, Severity: sev, Expects: "the rule holds"},
+		Declaration: check.Declaration{AppliesTo: repoWide, Name: name, Evaluator: "sh", Sh: sh, Severity: sev, Expects: "the rule holds"},
 	}
 }
 
@@ -130,7 +130,7 @@ func TestCheckEvaluationsStayWithTheirApplication(t *testing.T) {
 			if len(evs) != 1 || evs[0].Outcome != want || (len(evs[0].Findings) == 1) != (verdict == "fail") {
 				t.Fatalf("command result crossed applications: %+v", evs)
 			}
-			decl.Declaration = check.Declaration{Name: "clean", Evaluator: "llm", Rubric: "clean", Scope: check.ScopeDiff}
+			decl.Declaration = check.Declaration{AppliesTo: repoWide, Name: "clean", Evaluator: "llm", Rubric: "clean", Scope: check.ScopeDiff}
 			judged, meta, err := j.Checklist(context.Background(), check.DiffItems([]check.Declared{decl}, "diff"), "diff")
 			if err != nil || meta == nil || meta.Served != verdict || judged[1].Verdict != verdict {
 				t.Fatalf("model result crossed applications: %+v %+v %v", judged, meta, err)
@@ -164,3 +164,6 @@ func TestAFailedCheckWhoseReportDidNotArriveSaysReportLost(t *testing.T) {
 		t.Fatalf("a failed tool with nothing printed: %q", got)
 	}
 }
+
+// repoWide is the applicability of a check judged once over the repository.
+var repoWide = []string{check.AppliesRepository}

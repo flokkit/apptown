@@ -4,6 +4,7 @@ app:
     build: .
     ports: ["8080"]
     public: true
+    tools: [godot]
     resources: { memory: 32Mi }
     health:
       readiness:

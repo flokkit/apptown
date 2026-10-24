@@ -109,7 +109,7 @@ func runBrowserGate(t *testing.T, lane browserLane, installed, served, page stri
 		}
 		ch = accepted
 	}
-	adopt(t, a, ch.ProjectID, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
+	adopt(t, a, ch.ProjectID, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		deps.Automatic = []string{"guidance/conformance", "preview"}
 		deps.Runners = a.workDependencies().Runners

@@ -26,6 +26,7 @@ export function verificationSummary(steps: Step[]): string {
     [count('fail') + count('error') + count('needs_human'), 'need attention'],
     [count('pending') + count('running'), 'unfinished'],
     [count('skipped'), 'skipped'],
+    [count('not_applicable'), 'not applicable'],
   ] as const
   return parts.filter(([n]) => n > 0).map(([n, label]) => `${n} ${label}`).join(' · ')
 }
@@ -86,6 +87,7 @@ function result(s: Step, live: boolean): { result: string; cls: string } {
     case 'needs_human': return { result: 'needs a person', cls: 'pending' }
     case 'running': return { result: 'running', cls: 'running' }
     case 'skipped': return { result: 'skipped', cls: 'skipped' }
+    case 'not_applicable': return { result: 'not applicable', cls: 'skipped' }
     default: return s.type === 'approval' ? { result: 'waiting', cls: 'pending' } : { result: 'not run yet', cls: '' }
   }
 }
@@ -109,6 +111,8 @@ function sentence(s: Step, live: boolean): string {
   const reason = s.evidence?.reason ?? ''
   const failing = s.status !== 'pass' && s.status !== 'pending' && s.status !== 'running'
   if (s.overrideBy) return `Overridden by ${s.overrideBy}: “${s.overrideReason}”`
+  // Not a pass: what the step looked for that this app does not declare.
+  if (s.status === 'not_applicable') return clip((s.type === 'scan' ? s.evidence.notApplicable : '') || reason)
   switch (s.type) {
     case 'agent/pi': {
       if (failing && reason) return clip(reason)
@@ -140,6 +144,10 @@ function sentence(s: Step, live: boolean): string {
       const checks = s.checkReading?.checks ?? []
       if (!checks.length) return reason ? clip(reason) : ''
       const met = checks.filter((c) => c.verdict === 'pass').length
+      // Every check that applies to nothing here is named: never counted
+      // among the rules, so never read as met.
+      const notApplicable = checks.filter((c) => c.verdict === 'not-applicable').map((c) => c.check)
+      const rules = checks.length - notApplicable.length
       const failed = checks.filter((c) => c.verdict === 'fail')
       // What main already fails, or what could not be compared with main,
       // is shown apart: it does not block this change.
@@ -147,9 +155,10 @@ function sentence(s: Step, live: boolean): string {
       const onMain = failed.filter((c) => c.preexisting).length
       const undecided = failed.filter((c) => c.undecided).length
       const named = `${unmet.slice(0, 3).join(', ')}${unmet.length > 3 ? ', …' : ''}`
-      return `${met} of ${plural(checks.length, 'rule')} met.${unmet.length ? s.status === 'pass' ? ` Not met, and not blocking: ${named}.` : ` Not met: ${named}.` : ''}`
+      return `${met} of ${plural(rules, 'rule')} met.${unmet.length ? s.status === 'pass' ? ` Not met, and not blocking: ${named}.` : ` Not met: ${named}.` : ''}`
         + (onMain ? ` ${onMain} already failing on main.` : '')
         + (undecided ? ` ${undecided} undecided (not known whether this change introduced ${undecided === 1 ? 'it' : 'them'}).` : '')
+        + (notApplicable.length ? ` Not applicable here: ${notApplicable.join(', ')}.` : '')
     }
     case 'approval': {
       const ev = s.evidence

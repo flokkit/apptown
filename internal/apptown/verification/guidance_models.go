@@ -140,12 +140,25 @@ func (a *Guidance) llmBaseline(ctx context.Context, source workflow.Source, chec
 	if err != nil {
 		return unassessed("main's tree at " + strs.ShortSHA(base) + " could not be read: " + err.Error())
 	}
+	// A rubric that applies to nothing main's contract declares had
+	// nothing there to find: known, so the change's finding is its own.
+	var out []check.Evaluation
+	failing, settled := splitApplicable(failing, "llm", CheckSource(src), check.Gate)
+	for _, d := range settled {
+		ev := check.Evaluation{Declared: d.Check.Declared(), Mode: check.Gate, Outcome: check.NotApplicable, Detail: d.Receipt.Detail}
+		if d.Receipt.Verdict == workflow.VerdictError {
+			ev.Outcome = check.CannotAssess
+		}
+		out = append(out, ev)
+	}
+	if len(failing) == 0 {
+		return out
+	}
 	items := check.TreeItems(declaredAll(failing), src)
 	byItem, _, err := a.judgeChecklist(ctx, source, items, "")
 	if err != nil {
-		return unassessed("the model could not judge main's tree: " + err.Error())
+		return append(out, unassessed("the model could not judge main's tree: "+err.Error())...)
 	}
-	out := make([]check.Evaluation, 0, len(items))
 	for i, it := range items {
 		v, answered := byItem[i+1]
 		ev := check.Judgement(it, v, answered, nil, check.Gate)

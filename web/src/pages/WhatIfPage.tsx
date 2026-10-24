@@ -152,6 +152,7 @@ function ScoreLine({ s }: { s: WhatIfScore }) {
   if (s.failing) parts.push(`${s.failing} fail${s.failing === 1 ? 's' : ''}`)
   if (s.couldNotAssess) parts.push(`${s.couldNotAssess} could not assess`)
   if (s.noLongerRequired) parts.push(`${s.noLongerRequired} no longer required`)
+  if (s.notApplicable) parts.push(`${s.notApplicable} not applicable`)
   return <span>{parts.join(' · ')}</span>
 }
 
@@ -332,6 +333,7 @@ const RESULT_WORDS: Record<string, string> = {
   'would-fail': 'would fail',
   'would-pass': 'would pass',
   'not-assessed': 'not assessed',
+  'not-applicable': 'not applicable here',
   'no-longer-required': 'no longer required',
   unchanged: 'unchanged',
 }

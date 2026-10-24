@@ -1,10 +1,14 @@
 package httpapi
 
 import (
+	"encoding/json"
+
 	"context"
 	"fmt"
 	"net/http"
 	"slices"
+
+	"github.com/flokkit/apptown/internal/check"
 
 	"github.com/flokkit/apptown/internal/access"
 
@@ -130,6 +134,19 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 		for _, f := range spec.Fields {
 			if f.Type == "command" || f.Type == "secretRef" || f.Type == "modelList" {
 				in.Config[f.Key] = integration.ConfigStrings(in.Config[f.Key])
+			}
+		}
+		if in.Capability == "scanner" {
+			// A scanner states what it applies to, as a check does.
+			var m check.Scanner
+			if err := json.Unmarshal([]byte(encodedJSON(in.Config)), &m); err != nil {
+				WriteError(w, 400, "the scanner's configuration cannot be read: %v", err)
+				return
+			}
+			m.Name = in.Name
+			if err := m.ValidateApplicability(); err != nil {
+				WriteError(w, 400, "%v", err)
+				return
 			}
 		}
 		if in.Capability == "registry" {

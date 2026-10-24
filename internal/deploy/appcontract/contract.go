@@ -2,6 +2,9 @@ package appcontract
 
 import (
 	"maps"
+	"path"
+	"path/filepath"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/trust"
 )
@@ -42,6 +45,9 @@ type Contract struct {
 	// changes by its name (resources.go); a need's are its resources alone.
 	// The base, default, is the declaration itself.
 	Profiles map[string]map[string]ProfilePart
+	// NotAppCode are the folders the contract says are not the app's code,
+	// cleaned, relative to the repository root.
+	NotAppCode []string
 }
 
 // Disposable says the app declared need's data not worth keeping
@@ -82,6 +88,26 @@ type Part struct {
 	// file-server image (Static is cleared then): it is still a static site,
 	// and AppTown still gives its page browser values.
 	ServesStatic bool
+	// Tools names what the part is built with; a part with a folder only.
+	Tools []string
+}
+
+// Folder is the part's folder in the repository, cleaned and relative to
+// its root ("." for the root): the build context, the static build's
+// context or the static folder. "" for a pulled image, which has none.
+func (p *Part) Folder() string {
+	var f string
+	switch {
+	case p.Build != "":
+		f = p.Build
+	case p.StaticBuild != nil:
+		f = p.StaticBuild.Context
+	case p.Static != "":
+		f = p.Static
+	default:
+		return ""
+	}
+	return path.Clean(strings.TrimPrefix(filepath.ToSlash(f), "./"))
 }
 
 // StaticBuild declares a static site AppTown builds before serving it:

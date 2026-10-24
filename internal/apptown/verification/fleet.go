@@ -230,7 +230,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 		// staged tree; tool checks run their binding; runtime checks probe a
 		// booted app; AI tree rubrics are judged on packed evidence; AI diff
 		// rubrics are transitions — not applicable in a review.
-		var posture, toolChecks, llmTree []conformance.DeclaredCheck
+		var posture, toolChecks, llmTree, runtimeChecks []conformance.DeclaredCheck
 		for _, sc := range checks {
 			switch {
 			case check.IsPostureSh(sc.Check):
@@ -238,15 +238,9 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 			case check.Evaluator(sc.Check) == "tool":
 				toolChecks = append(toolChecks, sc)
 			case check.IsRuntime(sc.Check):
-				st, detail := f.evaluator.Observe(ctx, p.ID, sha, sc.Check.Probe)
-				if st == conformance.EvaluationError {
-					rev.Errors++
-				}
-				v, err := f.recordVerdict(ctx, execution, p.ID, sc, st, detail, verdictExtra{ShImage: sh})
-				if err != nil {
-					return verdicts, err
-				}
-				verdicts = append(verdicts, v)
+				// Observed after the tree is read: whether it applies is
+				// what the commit's contract declares.
+				runtimeChecks = append(runtimeChecks, sc)
 			case check.Evaluator(sc.Check) == "llm" && check.Scope(sc.Check) == conformance.ScopeTree:
 				llmTree = append(llmTree, sc)
 			case check.Evaluator(sc.Check) == "llm":
@@ -264,13 +258,13 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 				verdicts = append(verdicts, v)
 			}
 		}
-		if len(posture) == 0 && len(toolChecks) == 0 && len(llmTree) == 0 {
+		if len(posture) == 0 && len(toolChecks) == 0 && len(llmTree) == 0 && len(runtimeChecks) == 0 {
 			continue
 		}
 
 		src, cleanup, err := scm.StageTreeAt(ctx, repo, sha)
 		if err != nil {
-			for _, sc := range append(append(append([]conformance.DeclaredCheck{}, posture...), toolChecks...), llmTree...) {
+			for _, sc := range append(append(append(append([]conformance.DeclaredCheck{}, posture...), toolChecks...), llmTree...), runtimeChecks...) {
 				v, err := f.recordVerdict(ctx, execution, p.ID, sc, conformance.EvaluationError, strs.Truncate(err.Error(), 200), verdictExtra{ShImage: sh})
 				if err != nil {
 					return verdicts, err
@@ -282,6 +276,26 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 		}
 		err = func() error {
 			defer cleanup()
+			treeSrc := CheckSource(src)
+			for _, sc := range runtimeChecks {
+				st, detail := conformance.Outcome(0), ""
+				if na := check.NotApplicableHere(sc.Declared(), treeSrc, check.Posture); na != nil {
+					st, detail = conformance.NotApplicable, na.Detail
+					if na.Outcome == check.Error {
+						st = conformance.EvaluationError
+					}
+				} else {
+					st, detail = f.evaluator.Observe(ctx, p.ID, sha, sc.Check.Probe)
+				}
+				if st == conformance.EvaluationError {
+					rev.Errors++
+				}
+				v, err := f.recordVerdict(ctx, execution, p.ID, sc, st, detail, verdictExtra{ShImage: sh})
+				if err != nil {
+					return err
+				}
+				verdicts = append(verdicts, v)
+			}
 			// Read-only sweep: source scanners run; exec-image tools reuse an image
 			// AppTown already holds for this exact commit (a cached conformance
 			// build, or the standing deployment's release — by digest), else
@@ -326,12 +340,25 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 // as does-not-conform, which the projection keeps in the "flagged by AI
 // review" lane until a person confirms it (conformance_lens.go).
 func (f Fleet) judgeTreeRubrics(ctx context.Context, execution *conformance.Execution, rev *conformance.Review, projectID ids.ID, checks []conformance.DeclaredCheck, src string) ([]conformance.Verdict, error) {
+	out := []conformance.Verdict{}
+	checks, settled := splitApplicable(checks, "llm", CheckSource(src), check.Posture)
+	for _, d := range settled {
+		state := conformance.NotApplicable
+		if d.Receipt.Verdict == workflow.VerdictError {
+			state = conformance.EvaluationError
+			rev.Errors++
+		}
+		v, err := f.recordVerdict(ctx, execution, projectID, d.Check, state, d.Receipt.Detail, verdictExtra{})
+		if err != nil {
+			return out, err
+		}
+		out = append(out, v)
+	}
 	items := check.TreeItems(declaredAll(checks), src)
 	byItem, meta, judgeErr := f.judgeChecklist(ctx, modelcall.Call{Purpose: "conformance-review", ProjectID: projectID}, items, "")
 	if meta != nil && meta.Usage != nil {
 		rev.Cost += meta.Usage.Cost
 	}
-	out := []conformance.Verdict{}
 	for i, it := range items {
 		extra := verdictExtra{EvaluatorVer: check.LLMEvaluatorVersion(it.Declaration), EvidenceHash: it.Hash}
 		state, detail := conformance.CannotAssess, "no verdict returned for this item"
@@ -377,7 +404,7 @@ type treeAssessment struct {
 func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []conformance.DeclaredCheck, tc ToolContext, label string) []treeAssessment {
 	var out []treeAssessment
 	if len(posture) > 0 {
-		evaluations := f.evaluator.judge(ctx, sh).EvaluateSh(declaredAll(posture), check.Source{Tree: tc.BuildDir}, check.Gate, label)
+		evaluations := f.evaluator.judge(ctx, sh).EvaluateSh(declaredAll(posture), CheckSource(tc.BuildDir), check.Gate, label)
 		for _, sc := range posture {
 			a := treeAssessment{Check: sc, State: conformance.EvaluationError, Reason: conformance.NotAssessedError}
 			for _, ev := range evaluations {
@@ -388,6 +415,8 @@ func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []confo
 				switch result.Verdict {
 				case workflow.VerdictPass:
 					a.State, a.Reason = conformance.Conforms, ""
+				case workflow.VerdictNotApplicable:
+					a.State, a.Reason, a.Detail = conformance.NotApplicable, "", result.Detail
 				case workflow.VerdictFail:
 					a.State, a.Reason, a.Detail, a.Findings = conformance.DoesNotConform, "", detailOr(result, sc.Check.Expects), ev.Findings
 					if ref, ok := conformance.ExceptionFor(sc, tc.Exceptions); ok {
@@ -424,6 +453,8 @@ func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []confo
 			a.State, a.Reason, a.Detail, a.ExceptedBy, a.Findings = conformance.Excepted, "", detail(sc.Check.Expects), exceptedBy, ev.Findings
 		case workflow.VerdictSkipped:
 			a.State, a.Reason, a.Detail = conformance.CannotAssess, conformance.NotAssessedNoImage, detail("exec-image tool runs at the land gate")
+		case workflow.VerdictNotApplicable:
+			a.State, a.Reason, a.Detail = conformance.NotApplicable, "", ev.Detail
 		}
 		out = append(out, a)
 	}

@@ -108,69 +108,130 @@ func TestNoBuildArtifactsTrackedNamesPrograms(t *testing.T) {
 		t.Fatalf("an ELF and a class file are named, the image is not: %+v %+v", results, findings)
 	}
 }
+
+// webContract is the smallest contract a part check applies to: one public
+// part, web, built from the Dockerfile at the repository root, naming tools.
+func webContract(tools ...string) string {
+	s := "version: 2\napp:\n  web:\n    build: .\n    public: true\n    ports: [\"8080\"]\n"
+	if len(tools) > 0 {
+		s += "    tools: [" + strings.Join(tools, ", ") + "]\n"
+	}
+	return s
+}
+
+// Each lane's gitignore check, once a part names the lane's tool, wants the
+// ignore list to cover what that tool writes beside the part's manifest, and
+// fails without it; a part naming the tool with no manifest fails in words
+// rather than passing with nothing judged.
+//
+// Kills: a probe path the lane's ignore lines do not cover, a missing
+// .gitignore read as a pass, and an absent manifest read as a pass.
 func TestLaneGitignoreChecksNameTheirOwnBuildOutput(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	cases := []struct {
-		block string
-		good  string
+		block, tool, manifest, good string
+		names                       string // how the no-manifest failure names it
 	}{
-		{"lang/selection/java-spring-boot", "target/\n"},
-		{"lang/selection/rust", "/target\n"},
-		{"lang/selection/node-fullstack", "node_modules/\ndist/\n"},
-		{"lang/selection/typescript-for-web", "**/node_modules/\ndist/**\n"},
-		{"lang/selection/django-fullstack", "*.py[cod]\n"},
-		{"lang/selection/dotnet-aspnet", "[Bb]in/\n[Oo]bj/\n"},
-		{"lang/selection/rails", "/tmp/*\n/log/*\n"},
+		{"lang/selection/java-spring-boot", "java", "pom.xml", "target/\n", "pom.xml"},
+		{"lang/selection/rust", "rust", "Cargo.toml", "/target\n", "Cargo.toml"},
+		{"lang/selection/node-fullstack", "node", "package.json", "node_modules/\ndist/\n", "package.json"},
+		{"lang/selection/typescript-for-web", "node", "package.json", "**/node_modules/\ndist/**\n", "package.json"},
+		{"lang/selection/django-fullstack", "python", "pyproject.toml", "*.py[cod]\n", "pyproject.toml"},
+		{"lang/selection/dotnet-aspnet", "dotnet", "app.csproj", "[Bb]in/\n[Oo]bj/\n", ".csproj"},
+		{"lang/selection/rails", "ruby", "Gemfile", "/tmp/*\n/log/*\n", "Gemfile"},
+	}
+	run := func(check conformance.DeclaredCheck, files map[string]string, name string) (Results, []conformance.Finding, int) {
+		dir := t.TempDir()
+		writeTree(t, dir, files)
+		return evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, name)
 	}
 	for _, c := range cases {
 		check := sourcedNamed(t, c.block, "gitignore-names-build-output")
-		good := t.TempDir()
-		writeTree(t, good, map[string]string{".gitignore": c.good})
-		if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, good, "t-gi-good"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
+		contract := webContract(c.tool)
+		if results, _, errs := run(check, map[string]string{".apptown/app.yaml": contract, c.manifest: "x", ".gitignore": c.good}, "t-gi-good"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
 			t.Fatalf("%s: %q names the build output: %+v", c.block, c.good, results)
 		}
-		bare := t.TempDir()
-		writeTree(t, bare, map[string]string{".gitignore": "*.log\n", "web/package.json": "{}"})
-		if results, findings, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, bare, "t-gi-bare"); results[0].Verdict != workflow.VerdictFail || errs != 0 || len(findings) != 1 {
+		if results, findings, errs := run(check, map[string]string{".apptown/app.yaml": contract, c.manifest: "x", ".gitignore": "*.log\n"}, "t-gi-bare"); results[0].Verdict != workflow.VerdictFail || errs != 0 || len(findings) != 1 {
 			t.Fatalf("%s: an ignore list without it fails: %+v", c.block, results)
 		}
-		missing := t.TempDir()
-		writeTree(t, missing, map[string]string{"web/package.json": "{}"})
-		if results, _, _ := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, missing, "t-gi-none"); results[0].Verdict != workflow.VerdictFail {
+		if results, _, _ := run(check, map[string]string{".apptown/app.yaml": contract, c.manifest: "x"}, "t-gi-none"); results[0].Verdict != workflow.VerdictFail {
 			t.Fatalf("%s: no ignore list at all fails: %+v", c.block, results)
+		}
+		if results, _, _ := run(check, map[string]string{".apptown/app.yaml": contract, ".gitignore": c.good}, "t-gi-nomanifest"); results[0].Verdict != workflow.VerdictFail || !strings.Contains(results[0].Output, "there is no "+c.names) {
+			t.Fatalf("%s: a part built with %s and no %s fails saying so: %+v", c.block, c.tool, c.manifest, results)
 		}
 	}
 }
 
 // typescript-for-web sits in the Go house style, where a service may have
-// no frontend at all: with no package.json there is nothing for Node to
-// write, so the check has nothing to judge (go-small failed it, 2026-10).
+// no frontend at all (go-small failed it, 2026-10). Applicability, not the
+// script, now decides that: a part that names only go is not judged; a part
+// that names node is judged at every package.json at or below its folder,
+// against the repository's own ignore list; and a part that names node with
+// no package.json fails in words.
+//
+// Kills: the check running for a Go-only part, probing a monorepo part's
+// output at the repository root instead of under its folder, a negated
+// keep-file line read as uncovering the whole dist folder, and a package.json
+// inside node_modules counted as the part's manifest.
 func TestFrontendIgnoreCheckWaitsForAFrontend(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "lang/selection/typescript-for-web", "gitignore-names-build-output")
-	goOnly := t.TempDir()
-	writeTree(t, goOnly, map[string]string{".gitignore": "/app\n", "go.mod": "module app\n", "main.go": "package main\n"})
-	if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, goOnly, "t-gi-go"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
-		t.Fatalf("a Go service with no frontend passes: %+v", results)
+	run := func(files map[string]string, name string) Results {
+		dir := t.TempDir()
+		writeTree(t, dir, files)
+		results, _, _ := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, name)
+		return results
 	}
-	vendored := t.TempDir()
-	writeTree(t, vendored, map[string]string{".gitignore": "/app\n", "tools/node_modules/x/package.json": "{}"})
-	if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, vendored, "t-gi-vendored"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
-		t.Fatalf("a package.json inside node_modules is not a frontend: %+v", results)
+	if results := run(map[string]string{".apptown/app.yaml": webContract("go"), ".gitignore": "/app\n", "go.mod": "module app\n", "main.go": "package main\n"}, "t-gi-go"); results[0].Verdict != workflow.VerdictNotApplicable {
+		t.Fatalf("a Go-only part is not judged by the frontend check: %+v", results)
+	}
+	if results := run(map[string]string{".apptown/app.yaml": webContract("go", "node"), "go.mod": "module app\n", "frontend/package.json": "{}",
+		".gitignore": "/app\nfrontend/node_modules/\nfrontend/dist/*\n!frontend/dist/.keep\n"}, "t-gi-go-node"); results[0].Verdict != workflow.VerdictPass {
+		t.Fatalf("a root part naming go and node, its frontend's output ignored, passes: %+v", results)
+	}
+	monorepo := "version: 2\napp:\n  web:\n    build: web\n    public: true\n    ports: [\"8080\"]\n    tools: [node]\n"
+	if results := run(map[string]string{".apptown/app.yaml": monorepo, "web/package.json": "{}", ".gitignore": "web/node_modules/\nweb/dist/\n"}, "t-gi-monorepo"); results[0].Verdict != workflow.VerdictPass {
+		t.Fatalf("a node part in web/ whose root ignore list covers web/node_modules and web/dist passes: %+v", results)
+	}
+	if results := run(map[string]string{".apptown/app.yaml": webContract("node"), ".gitignore": "/app\n", "tools/node_modules/x/package.json": "{}"}, "t-gi-vendored"); results[0].Verdict != workflow.VerdictFail || !strings.Contains(results[0].Output, "there is no package.json") {
+		t.Fatalf("a node part with no package.json of its own (one inside node_modules does not count) fails saying so: %+v", results)
 	}
 }
 
+// buildCheckNeedsItsDockerfile: a check on a part built from a Dockerfile is
+// not judged when no part is declared, and once one is, a missing Dockerfile
+// is a failure that says so, never a pass.
+func buildCheckNeedsItsDockerfile(t *testing.T, evaluator *Evaluator, check conformance.DeclaredCheck, tools ...string) {
+	t.Helper()
+	none := t.TempDir()
+	writeTree(t, none, map[string]string{"README.md": "hi"})
+	if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, none, "t-df-nocontract"); results[0].Verdict != workflow.VerdictNotApplicable || errs != 0 {
+		t.Fatalf("%s with no contract is not applicable: %+v", check.Check.Name, results)
+	}
+	missing := t.TempDir()
+	writeTree(t, missing, map[string]string{".apptown/app.yaml": webContract(tools...)})
+	if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, missing, "t-df-missing"); results[0].Verdict != workflow.VerdictFail || errs != 0 || !strings.Contains(results[0].Output, "no Dockerfile") {
+		t.Fatalf("%s with a built part and no Dockerfile fails saying so: %+v", check.Check.Name, results)
+	}
+}
+
+// runs-as-non-root judges the final stage's USER of a built part's
+// Dockerfile; a built part with no Dockerfile fails in words.
+//
+// Kills: a USER in a build stage credited to the runtime, root runnable
+// scratch stages passed as files only, and a missing Dockerfile passed.
 func TestRunsAsNonRootReadsTheFinalStage(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "build/container-image", "runs-as-non-root")
+	buildCheckNeedsItsDockerfile(t, evaluator, check)
 	cases := []struct {
 		name, df string
 		pass     bool
 	}{
-		{"no dockerfile", "", true},
 		{"single stage, app user", "FROM node:20-alpine\nUSER node\nCMD [\"node\"]\n", true},
 		{"single stage, no user", "FROM node:20-alpine\nCMD [\"node\"]\n", false},
 		{"explicit root", "FROM alpine:3.20\nUSER app\nUSER root\n", false},
@@ -188,9 +249,7 @@ func TestRunsAsNonRootReadsTheFinalStage(t *testing.T) {
 	}
 	for _, c := range cases {
 		dir := t.TempDir()
-		if c.df != "" {
-			writeTree(t, dir, map[string]string{"Dockerfile": c.df})
-		}
+		writeTree(t, dir, map[string]string{".apptown/app.yaml": webContract(), "Dockerfile": c.df})
 		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-user")
 		got := results[0].Verdict == workflow.VerdictPass
 		if got != c.pass || errs != 0 {
@@ -202,17 +261,23 @@ func TestRunsAsNonRootReadsTheFinalStage(t *testing.T) {
 // build/container-image: AppTown mounts an app's data folder itself, so any
 // VOLUME in the image, even at the dataDir, only makes Docker create a new
 // unnamed volume in every container started without that mount. The final
-// stage is read as Docker reads it; app.yaml grants nothing.
+// stage is read as Docker reads it; app.yaml grants nothing. A built part
+// with no Dockerfile fails in words. What a run reports is prefixed with the
+// part it judged.
+//
+// Kills: a VOLUME at the dataDir excused, a build stage's VOLUME charged to
+// the runtime, a heredoc's body read as instructions, and a missing
+// Dockerfile passed.
 func TestNoVolumeReadsTheFinalStage(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "build/container-image", "no-volume")
+	buildCheckNeedsItsDockerfile(t, evaluator, check)
 	const dataDir = "version: 2\napp:\n  web:\n    build: .\n    public: true\n    dataDir: /data\n"
 	cases := []struct {
 		name, df string
 		names    []string // the paths a failure names, one line each
 	}{
-		{"no dockerfile", "", nil},
 		{"no volume", "FROM alpine:3.20\nCMD [\"/app\"]\n", nil},
 		{"a volume", "FROM alpine:3.20\nVOLUME /data\n", []string{"/data"}},
 		{"JSON form, two paths", "FROM alpine:3.20\nVOLUME [\"/data\", \"/cache\"]\n", []string{"/data", "/cache"}},
@@ -230,18 +295,14 @@ func TestNoVolumeReadsTheFinalStage(t *testing.T) {
 		dir := t.TempDir()
 		// The app declares /data as its dataDir; the check fails a VOLUME
 		// there all the same.
-		files := map[string]string{".apptown/app.yaml": dataDir}
-		if c.df != "" {
-			files["Dockerfile"] = c.df
-		}
-		writeTree(t, dir, files)
+		writeTree(t, dir, map[string]string{".apptown/app.yaml": dataDir, "Dockerfile": c.df})
 		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-volume")
 		pass := results[0].Verdict == workflow.VerdictPass
 		if pass != (len(c.names) == 0) || errs != 0 || len(results[0].Occurrences) != len(c.names) {
 			t.Fatalf("%s: want %v named, got %+v", c.name, c.names, results)
 		}
 		for i, path := range c.names {
-			if !strings.HasPrefix(results[0].Occurrences[i], "the Dockerfile declares VOLUME "+path+". Remove the VOLUME line.") {
+			if !strings.HasPrefix(results[0].Occurrences[i], "web: the Dockerfile declares VOLUME "+path+". Remove the VOLUME line.") {
 				t.Fatalf("%s: occurrence %d does not name %s: %q", c.name, i, path, results[0].Occurrences[i])
 			}
 		}
@@ -253,7 +314,7 @@ func TestNoVolumeReadsTheFinalStage(t *testing.T) {
 		"two heredocs":          "FROM alpine:3.20\nCOPY <<FIRST <<SECOND /\na\nFIRST\nb\nSECOND\nVOLUME /cache\n",
 	} {
 		dir := t.TempDir()
-		writeTree(t, dir, map[string]string{"Dockerfile": df})
+		writeTree(t, dir, map[string]string{".apptown/app.yaml": dataDir, "Dockerfile": df})
 		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-volume-not-judged")
 		if errs != 1 || results[0].Verdict == workflow.VerdictPass || results[0].Verdict == workflow.VerdictFail || !strings.Contains(results[0].Output, "not judged") {
 			t.Fatalf("%s: %d errors, %+v", name, errs, results)
@@ -267,16 +328,20 @@ func TestNoVolumeReadsTheFinalStage(t *testing.T) {
 // high or critical findings). The final stage is read through stage names,
 // platform flags, digests, the Docker Hub prefix, continued lines, CRLF
 // endings, comments and heredocs, as Docker reads them; a base given by a
-// build argument is not judged.
+// build argument is not judged. The check applies to a part built with
+// rust; such a part with no Dockerfile fails in words.
+//
+// Kills: the final stage misread through any of those forms, and a missing
+// Dockerfile passed.
 func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "lang/selection/rust", "runtime-stage-not-build-image")
+	buildCheckNeedsItsDockerfile(t, evaluator, check, "rust")
 	cases := []struct {
 		name, df string
 		pass     bool
 	}{
-		{"no dockerfile", "", true},
 		{"single stage on the build image", "FROM rust:1.84.1\nRUN cargo build --release\nCMD [\"/src/target/release/app\"]\n", false},
 		{"build stage, then a runtime stage", "FROM rust:1.84 AS build\nRUN cargo install --path . --root /out\nFROM debian:bookworm-slim\nCOPY --from=build /out/bin/ /usr/local/bin/\n", true},
 		{"distroless runtime", "FROM rust:1.84 AS build\nRUN cargo build\nFROM gcr.io/distroless/cc-debian12:nonroot\nCOPY --from=build /src/target/release/app /app\n", true},
@@ -307,9 +372,7 @@ func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 	}
 	for _, c := range cases {
 		dir := t.TempDir()
-		if c.df != "" {
-			writeTree(t, dir, map[string]string{"Dockerfile": c.df})
-		}
+		writeTree(t, dir, map[string]string{".apptown/app.yaml": webContract("rust"), "Dockerfile": c.df})
 		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-runtime-stage")
 		got := results[0].Verdict == workflow.VerdictPass
 		if got != c.pass || errs != 0 {
@@ -326,7 +389,7 @@ func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 		"quoted text, then the runtime":     "FROM rust:1.84 AS build\nRUN echo 'cat <<EOF' > /script.sh\nFROM debian:bookworm-slim AS runtime\n",
 	} {
 		dir := t.TempDir()
-		writeTree(t, dir, map[string]string{"Dockerfile": df})
+		writeTree(t, dir, map[string]string{".apptown/app.yaml": webContract("rust"), "Dockerfile": df})
 		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-runtime-stage-not-judged")
 		if errs != 1 || results[0].Verdict == workflow.VerdictPass || results[0].Verdict == workflow.VerdictFail || !strings.Contains(results[0].Output, "not judged") {
 			t.Fatalf("%s: %d errors, %+v", name, errs, results)
@@ -337,26 +400,32 @@ func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 // deploy/health-declared: the check's own message tells authors to write
 // health: { readiness: { http: /healthz } }, so that flow style must pass
 // as well as the block style (a journey following the advice failed it).
-// It is judged per part: a static part is served by AppTown's own file
-// server and declares nothing (html-game failed it for that), while a
-// built part beside it still must.
+// It applies to the parts run as containers: a static part is served by
+// AppTown's own file server and declares nothing (html-game failed it for
+// that), so a contract of static parts alone, or none, is not judged, while a
+// built part beside a static one still must declare.
+//
+// Kills: the flow style refused, liveness taken for readiness, a static
+// part's missing probe charged to the app, and a served container part
+// without readiness passed.
 func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "deploy/health-declared", "readiness-declared")
+	const pass, fail, na = workflow.VerdictPass, workflow.VerdictFail, workflow.VerdictNotApplicable
 	cases := []struct {
 		name, contract string
-		pass           bool
+		want           workflow.CheckVerdict
 	}{
-		{"no contract", "", true},
-		{"nothing served", "app:\n  worker:\n    build: .\n", true},
-		{"served, no readiness", "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n", false},
-		{"static part: AppTown's file server, nothing to declare", "app:\n  web:\n    static: site\n    public: true\n", true},
-		{"static front, built api without readiness", "app:\n  site:\n    static: web\n    public: true\n  api:\n    build: .\n    ports: [\"8080\"]\n", false},
-		{"every built part declares", "app:\n    api:\n        build: .\n        ports: [\"8080\"]\n        health: { readiness: { http: /healthz } }\n    site:\n        static: web\n        public: true\nneeds:\n  postgres: { version: \"16\" }\n", true},
-		{"block style", "app:\n  web:\n    ports: [\"8080\"]\n    health:\n      readiness:\n        http: /healthz\n", true},
-		{"flow style, as recommended", "app:\n  web:\n    static: site\n    public: true\n    health: { readiness: { http: /healthz } }\n", true},
-		{"liveness is not readiness", "app:\n  web:\n    public: true\n    health: { liveness: { tcp: 8080 } }\n", false},
+		{"no contract", "", na},
+		{"a container part that serves nothing", "app:\n  site:\n    static: web\n    public: true\n  worker:\n    build: .\n", pass},
+		{"served, no readiness", "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n", fail},
+		{"static part: AppTown's file server, nothing to declare", "app:\n  web:\n    static: site\n    public: true\n", na},
+		{"static front, built api without readiness", "app:\n  site:\n    static: web\n    public: true\n  api:\n    build: .\n    ports: [\"8080\"]\n", fail},
+		{"every built part declares", "app:\n    api:\n        build: .\n        ports: [\"8080\"]\n        health: { readiness: { http: /healthz } }\n    site:\n        static: web\n        public: true\nneeds:\n  postgres: { version: \"16\" }\n", pass},
+		{"block style", "app:\n  web:\n    build: .\n    public: true\n    ports: [\"8080\"]\n    health:\n      readiness:\n        http: /healthz\n", pass},
+		{"flow style, as recommended", "app:\n  web:\n    build: .\n    public: true\n    ports: [\"8080\"]\n    health: { readiness: { http: /healthz } }\n", pass},
+		{"liveness is not readiness", "app:\n  web:\n    build: .\n    public: true\n    health: { liveness: { tcp: 8080 } }\n", fail},
 	}
 	for _, c := range cases {
 		dir := t.TempDir()
@@ -364,8 +433,8 @@ func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 			writeTree(t, dir, map[string]string{".apptown/app.yaml": c.contract})
 		}
 		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-ready")
-		if got := results[0].Verdict == workflow.VerdictPass; got != c.pass || errs != 0 {
-			t.Fatalf("%s: want pass=%v, got %+v", c.name, c.pass, results)
+		if results[0].Verdict != c.want || errs != 0 {
+			t.Fatalf("%s: want %s, got %+v", c.name, c.want, results)
 		}
 	}
 }
@@ -376,7 +445,12 @@ func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 // wildcard written in the framework's leading-dot form; reading the
 // variable alone lets a raw origin, which matches no Host, pass, and a
 // wide-open host list is no trust at all. The lines each guidance block
-// recommends must pass.
+// recommends must pass. Each applies to a part built with its framework's
+// language: with no contract it is not judged, and a part naming the
+// language with no settings file fails in words.
+//
+// Kills: a raw origin, a wide-open host list or a cleared host list passed,
+// the recommended lines refused, and an absent settings file passed.
 func TestFrontDoorChecksWantTranslatedOrigins(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
@@ -391,7 +465,7 @@ func TestFrontDoorChecksWantTranslatedOrigins(t *testing.T) {
 		name, block, file, body string
 		pass                    bool
 	}{
-		{"django: no settings yet", "lang/selection/django-fullstack", "", "", true},
+		{"django: no settings yet", "lang/selection/django-fullstack", "", "", false},
 		{"django: the recommended lines", "lang/selection/django-fullstack", "app/settings.py", djangoGood, true},
 		{"django: origins never read", "lang/selection/django-fullstack", "app/settings.py", "ALLOWED_HOSTS = []\n", false},
 		{"django: every host trusted", "lang/selection/django-fullstack", "app/settings.py", "ALLOWED_HOSTS = ['*']\n" + djangoGood, false},
@@ -401,7 +475,7 @@ func TestFrontDoorChecksWantTranslatedOrigins(t *testing.T) {
 			"# Never fall back to or [\"*\"]: an unset APPTOWN_ORIGINS must not trust every host.\n" + djangoGood, true},
 		{"django: origins used untranslated", "lang/selection/django-fullstack", "app/settings.py",
 			"ALLOWED_HOSTS = os.environ.get(\"APPTOWN_ORIGINS\", \"\").split(\",\")\n", false},
-		{"rails: no app yet", "lang/selection/rails", "", "", true},
+		{"rails: no app yet", "lang/selection/rails", "", "", false},
 		{"rails: the recommended lines", "lang/selection/rails", "config/environments/production.rb", railsGood, true},
 		{"rails: origins never read", "lang/selection/rails", "config/environments/production.rb", "Rails.application.configure do\nend\n", false},
 		{"rails: hosts cleared", "lang/selection/rails", "config/environments/production.rb", railsGood + "config.hosts.clear\n", false},
@@ -410,15 +484,61 @@ func TestFrontDoorChecksWantTranslatedOrigins(t *testing.T) {
 		{"rails: probe not excluded", "lang/selection/rails", "config/environments/production.rb",
 			"config.hosts = ENV.fetch(\"APPTOWN_ORIGINS\", \"\").split(\",\").map { |o| URI(o).host.sub(/\\A\\*\\./, \".\") }\n", false},
 	}
+	toolOf := map[string]string{"lang/selection/django-fullstack": "python", "lang/selection/rails": "ruby"}
+	for block := range toolOf {
+		dir := t.TempDir()
+		writeTree(t, dir, map[string]string{"README.md": "hi"})
+		if results, _, _ := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{sourcedNamed(t, block, "trusts-front-door")}, dir, "t-front-door-na"); results[0].Verdict != workflow.VerdictNotApplicable {
+			t.Fatalf("%s with no contract is not judged: %+v", block, results)
+		}
+	}
 	for _, c := range cases {
 		dir := t.TempDir()
+		files := map[string]string{".apptown/app.yaml": webContract(toolOf[c.block])}
 		if c.file != "" {
-			writeTree(t, dir, map[string]string{c.file: c.body})
+			files[c.file] = c.body
 		}
+		writeTree(t, dir, files)
 		check := sourcedNamed(t, c.block, "trusts-front-door")
 		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-front-door")
 		if got := results[0].Verdict == workflow.VerdictPass; got != c.pass || errs != 0 {
 			t.Fatalf("%s: want pass=%v, got %+v", c.name, c.pass, results)
+		}
+		if c.file == "" && !strings.Contains(results[0].Output, "there is no") {
+			t.Fatalf("%s: the failure names the missing file: %+v", c.name, results)
+		}
+	}
+}
+
+// data/networked-database's db-client-has-need runs in a part's folder but
+// reads the needs from the repository root's contract: an api part in api/
+// whose go.mod requires a postgres driver passes when the root contract
+// declares postgres, and fails naming the need when it does not.
+//
+// Kills: the needs read from the part's folder instead of the root (the
+// pass case fails), and the part's manifest not read at all (the fail case
+// passes).
+func TestDBClientNeedIsReadFromTheRootContract(t *testing.T) {
+	t.Parallel()
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
+	check := sourcedNamed(t, "data/networked-database", "db-client-has-need")
+	const api = "version: 2\napp:\n  api:\n    build: api\n    public: true\n    ports: [\"8080\"]\n    tools: [go]\n"
+	gomod := "module api\n\ngo 1.25\n\nrequire github.com/jackc/pgx/v5 v5.7.1\n"
+	for _, c := range []struct {
+		name, contract string
+		want           workflow.CheckVerdict
+	}{
+		{"the root declares postgres", api + "needs:\n  postgres: {}\n", workflow.VerdictPass},
+		{"no postgres need", api, workflow.VerdictFail},
+	} {
+		dir := t.TempDir()
+		writeTree(t, dir, map[string]string{".apptown/app.yaml": c.contract, "api/go.mod": gomod, "api/main.go": "package main\n"})
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-db-need")
+		if results[0].Verdict != c.want || errs != 0 {
+			t.Fatalf("%s: want %s, got %+v", c.name, c.want, results)
+		}
+		if c.want == workflow.VerdictFail && !strings.Contains(results[0].Output, "declares no postgres need") {
+			t.Fatalf("%s: the failure names the need: %+v", c.name, results)
 		}
 	}
 }

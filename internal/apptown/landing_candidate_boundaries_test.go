@@ -231,8 +231,10 @@ func TestAnAcceptanceCarriesOnlyToTheCommitItWasGivenOn(t *testing.T) {
 	if pin.Candidate == acceptedSHA || pin.Swept {
 		t.Fatalf("bad fixture: %+v", pin)
 	}
+	// No test command and no part's tools: not applicable, bound to the
+	// candidate like a pass.
 	check := reviewExecute(t, a, landing, "tests")
-	if check.Status != workflow.StatusPass {
+	if check.Status != workflow.StatusNotApplicable {
 		t.Fatalf("tests: %s %s", check.Status, check.Evidence)
 	}
 	// Apply the handoff and advance through the clean gates to carried approval.

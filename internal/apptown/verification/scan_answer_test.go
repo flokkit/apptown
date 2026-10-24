@@ -48,7 +48,12 @@ func TestAScannersAnswerFailsClosed(t *testing.T) {
 			}
 		})
 	}
-	if a := readScan(exited(128, nil, nil), check.Scanner{Image: "osv-scanner:test", Report: ".apptown/o.json", Format: "osv"}, "osv"); !a.nothingToScan || a.failure != "" {
+	// The nothing-to-judge exit is what the manifest declares, never read
+	// from the image's name: undeclared, 128 is a scanner error.
+	if a := readScan(exited(128, nil, nil), check.Scanner{Image: "osv-scanner:test", Report: ".apptown/o.json", Format: "osv", EmptyExit: 128}, "osv"); !a.empty || a.failure != "" {
 		t.Fatalf("osv with no package sources: %+v", a)
+	}
+	if a := readScan(exited(128, nil, nil), check.Scanner{Image: "osv-scanner:test", Report: ".apptown/o.json", Format: "osv"}, "osv"); a.empty || a.failure == "" {
+		t.Fatalf("an undeclared 128: %+v", a)
 	}
 }

@@ -3,6 +3,7 @@ package appcontract
 import (
 	"bytes"
 	"fmt"
+	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -41,7 +42,10 @@ type appYamlPart struct {
 	Healthcheck string  `yaml:"healthcheck"` // a non-public part's container health check (a shell command; exit 0 = healthy); refused on the public part
 	Health      *Health `yaml:"health"`      // structured per-part health intent (design/subsystems/healthchecks.md)
 	Public      bool    `yaml:"public"`
-	Replicas    any     `yaml:"replicas"` // omitted/null or 1; larger counts are not supported
+	// Tools names what the part is built with (go, node): the checks for
+	// a tool judge the parts that name it, in the part's folder.
+	Tools    []string `yaml:"tools"`
+	Replicas any      `yaml:"replicas"` // omitted/null or 1; larger counts are not supported
 	// Resources is the most the part may use (resources.go); none is no limit.
 	Resources *appYamlResources `yaml:"resources"`
 }
@@ -130,6 +134,10 @@ type appYamlDoc struct {
 	// Profiles change parts' resources and environment for the deployments
 	// that use them (resources.go).
 	Profiles map[string]map[string]appYamlProfilePart `yaml:"profiles"`
+	// NotAppCode lists folders whose code is not the app's (docs, tooling),
+	// relative to the repository root: the contract check does not ask for
+	// their manifests to be declared.
+	NotAppCode []string `yaml:"notAppCode"`
 }
 
 // appYamlRehearsal: the data checks a restore rehearsal runs.
@@ -294,7 +302,11 @@ func Parse(raw []byte) (*Contract, error) {
 		if err != nil {
 			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %w", name, err)
 		}
+		if err := checkTools(p); err != nil {
+			return nil, fmt.Errorf(".apptown/app.yaml: app part %q: %w", name, err)
+		}
 		part := Part{
+			Tools:     slices.Clone(p.Tools),
 			Resources: resources,
 			Name:      name, Build: p.Build, Image: p.Image, Static: p.Static.Folder, StaticBuild: built,
 			DataDir: p.DataDir, Health: p.Healthcheck, Intent: p.Health, Public: p.Public,
@@ -322,6 +334,11 @@ func Parse(raw []byte) (*Contract, error) {
 	if publicCount != 1 {
 		return nil, fmt.Errorf(".apptown/app.yaml: exactly one app part must be marked `public: true` (got %d) — it is the front door the preview/deploy URL points at", publicCount)
 	}
+	notApp, err := checkNotAppCode(doc.NotAppCode, c.Parts)
+	if err != nil {
+		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
+	}
+	c.NotAppCode = notApp
 
 	// init: ordered run-to-completion containers that must succeed before the
 	// app parts start.
@@ -600,4 +617,57 @@ func shapeOf(v any) string {
 		return "empty"
 	}
 	return fmt.Sprintf("%T", v)
+}
+
+// toolName is how a tool is spelled in a part's tools: lower-case letters,
+// digits and dashes, starting with a letter (the tool versions' names).
+var toolName = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+
+// checkTools holds a part's tools to their spelling: no repeats, and only
+// on a part that has a folder to judge (not a pulled image).
+func checkTools(p appYamlPart) error {
+	if len(p.Tools) == 0 {
+		return nil
+	}
+	if p.Image != "" {
+		return fmt.Errorf("tools: names what a part is built with from its folder, and an image: part has none; remove it")
+	}
+	seen := map[string]bool{}
+	for _, t := range p.Tools {
+		if !toolName.MatchString(t) {
+			return fmt.Errorf("tools: %q is not a tool name (go, node, python: lower-case letters, digits and dashes)", t)
+		}
+		if seen[t] {
+			return fmt.Errorf("tools: names %s twice", t)
+		}
+		seen[t] = true
+	}
+	return nil
+}
+
+// checkNotAppCode cleans the folders that are not the app's code: each is
+// relative, inside the repository, and neither a part's folder nor one
+// holding it (that would declare the part's own code not the app's).
+func checkNotAppCode(folders []string, parts []Part) ([]string, error) {
+	var out []string
+	for _, f := range folders {
+		c := path.Clean(strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(f)), "./"))
+		if c == "" || c == "." || path.IsAbs(c) || c == ".." || strings.HasPrefix(c, "../") {
+			return nil, fmt.Errorf("notAppCode: %q must be a folder inside the repository, written relative (docs/site)", f)
+		}
+		for i := range parts {
+			pf := parts[i].Folder()
+			if pf == "" {
+				continue
+			}
+			if strings.HasPrefix(pf+"/", c+"/") {
+				return nil, fmt.Errorf("notAppCode: %q holds part %s's folder %s, so it would say the part's own code is not the app's", f, parts[i].Name, pf)
+			}
+		}
+		if slices.Contains(out, c) {
+			return nil, fmt.Errorf("notAppCode: names %s twice", c)
+		}
+		out = append(out, c)
+	}
+	return out, nil
 }

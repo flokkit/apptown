@@ -35,6 +35,9 @@ type Dependencies struct {
 // against it.
 type ToolLines interface {
 	HasLine(tool, line string) bool
+	// HasTool says whether the list names the tool at all: the tools a
+	// check's appliesTo may name.
+	HasTool(tool string) bool
 }
 
 type Importers interface {

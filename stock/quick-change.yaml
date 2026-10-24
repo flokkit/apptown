@@ -102,5 +102,6 @@ spec:
             means: "This change is small and low-risk enough that a quick look is enough, and I have looked at it."
             # A yes given before the work exists (an adoption's opener can give
             # one): what it means, on the condition AppTown witnesses.
-            inAdvance: "I accept this change before it is worked, on a condition AppTown checks: it changes no code, and every step of its run passes with every check passing, none excused."
+            inAdvance: "I accept this change before it is worked, on a condition AppTown checks: it changes no code, and every step of its run passes with every check passing or not applicable, none excused."
+            inAdvanceAdmitsNotApplicable: true
             instructions: "Look at CHANGE.md and the diff. To send it back, reject with a comment."

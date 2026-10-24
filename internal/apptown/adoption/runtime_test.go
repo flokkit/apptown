@@ -54,7 +54,7 @@ func (c *runtimeCatalog) PackPublication(context.Context, string, int64) (wow.Pa
 
 func TestRuntimeSourcesUseExactPinsAndRejectForeignReceipts(t *testing.T) {
 	t.Parallel()
-	cat := &runtimeCatalog{blocks: map[int]wow.BlockObservation{1: {Version: 1, Body: " old rule \n", ChecksJSON: `[{"name":"old-check","title":"Old title","expects":"old expectation","sh":"true","files":["README.md"]}]`}, 2: {Version: 2, Body: "new rule", ChecksJSON: `[{"name":"new-check"}]`}}, workflows: map[int]wow.WorkflowObservation{1: {Name: "build", Version: 1, YAML: "old workflow"}, 2: {Name: "build", Version: 2, YAML: "new workflow"}}}
+	cat := &runtimeCatalog{blocks: map[int]wow.BlockObservation{1: {Version: 1, Body: " old rule \n", ChecksJSON: `[{"appliesTo": ["repository"], "name":"old-check","title":"Old title","expects":"old expectation","sh":"true","files":["README.md"]}]`}, 2: {Version: 2, Body: "new rule", ChecksJSON: `[{"name":"new-check"}]`}}, workflows: map[int]wow.WorkflowObservation{1: {Name: "build", Version: 1, YAML: "old workflow"}, 2: {Name: "build", Version: 2, YAML: "new workflow"}}}
 	revision := &RecordedRevision{ProjectID: idstest.N(3), Revision: 11, Receipt: Receipt{Guidance: []ReceiptBlock{{Name: "rules/plain", BlockID: idstest.N(7), Version: 1}, {Name: "disabled", BlockID: idstest.N(9), Version: 99, Disabled: true}}, Workflows: []ReceiptWorkflow{{Name: "build", Version: 1}}}}
 	s := New(nil, Dependencies{Ways: cat})
 	source := Source{ProjectID: idstest.N(3), Revision: revision}

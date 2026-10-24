@@ -159,6 +159,18 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		return
 	}
 	defer cleanup()
+	// Whether the scanner applies is what the commit's contract declares,
+	// decided before it runs or an image is built.
+	switch why, err := scannerApplies(m, CheckSource(scanSrc)); {
+	case err != nil:
+		evidence["reason"] = err.Error()
+		finish(workflow.StatusError, evidence)
+		return
+	case why != "":
+		evidence["notApplicable"] = why
+		finish(workflow.StatusNotApplicable, evidence)
+		return
+	}
 	_ = os.MkdirAll(filepath.Join(scanSrc, ".apptown"), 0o755)
 	if strings.Contains(m.Image, "osv") {
 		if _, err := os.Stat(filepath.Join(scanSrc, "go.mod")); err == nil {
@@ -183,14 +195,10 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			return
 		}
 		if ref == "" {
-			evidence["note"] = note
-			// Skipping the public part is not "nothing ships": name the rest.
-			if c, err := docker.ReadWorkspaceContract(scanSrc); err == nil {
-				if others := otherImages(c); len(others) > 0 {
-					evidence["notScanned"] = others
-				}
-			}
-			finish(workflow.StatusPass, evidence)
+			// The scanner applies to the public part's image, so there is
+			// one: none here means the two readings of the contract differ.
+			evidence["reason"] = "no image to scan, though the scanner applies to the public part: " + note
+			finish(workflow.StatusError, evidence)
 			return
 		}
 		// Provenance for an image scan (design/subsystems/conformance.md §7.3): the base
@@ -289,9 +297,9 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	}
 
 	switch {
-	case answer.nothingToScan:
-		evidence["note"] = "no package sources found — nothing to scan"
-		finish(workflow.StatusPass, evidence)
+	case answer.empty:
+		evidence["reason"] = check.EmptyExitDetail(binding, check.Place{Folder: "."})
+		finish(workflow.StatusFail, evidence)
 		return
 	case answer.failure != "":
 		tailBytes := outcome.Output

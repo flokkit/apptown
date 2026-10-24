@@ -21,10 +21,10 @@ import (
 // failure read as a verdict; a probe answer kept after the app changed.
 func TestAnAssessmentSaysWhyEachCheckWasNotJudged(t *testing.T) {
 	t.Parallel()
-	probe := conformance.DeclaredCheck{Block: "run", Version: 1, Check: conformance.CheckDeclaration{Name: "page", Evaluator: "runtime", Probe: "page", Severity: "high"}}
-	tree := conformance.DeclaredCheck{Block: "style", Version: 1, Check: conformance.CheckDeclaration{Name: "tone", Rubric: "r", Evaluator: "llm", Scope: "tree"}}
-	diff := conformance.DeclaredCheck{Block: "style", Version: 1, Check: conformance.CheckDeclaration{Name: "small", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
-	odd := conformance.DeclaredCheck{Block: "odd", Version: 1, Check: conformance.CheckDeclaration{Name: "mystery", Evaluator: "telepathy"}}
+	probe := conformance.DeclaredCheck{Block: "run", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "page", Evaluator: "runtime", Probe: "page", Severity: "high"}}
+	tree := conformance.DeclaredCheck{Block: "style", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "tone", Rubric: "r", Evaluator: "llm", Scope: "tree"}}
+	diff := conformance.DeclaredCheck{Block: "style", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "small", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
+	odd := conformance.DeclaredCheck{Block: "odd", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "mystery", Evaluator: "telepathy"}}
 	reasons := func(as []treeAssessment) map[string]treeAssessment {
 		out := map[string]treeAssessment{}
 		for _, a := range as {
@@ -56,7 +56,7 @@ func TestAnAssessmentSaysWhyEachCheckWasNotJudged(t *testing.T) {
 	if a := got["tone"]; a.State != conformance.CannotAssess || a.Reason != conformance.NotAssessedError {
 		t.Errorf("an item the judge passed over: %+v", a)
 	}
-	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree, diff}, assessInput{Diff: "+line", Tool: ToolContext{BuildDir: t.TempDir()}, Judge: func(items []check.Item, _ string) (map[int]check.Verdict, *llmMetadata, error) {
+	got = reasons(f.assessChecks(t.Context(), []conformance.DeclaredCheck{tree, diff}, assessInput{Diff: "+line", Tool: ToolContext{BuildDir: projectTree(t)}, Judge: func(items []check.Item, _ string) (map[int]check.Verdict, *llmMetadata, error) {
 		return map[int]check.Verdict{1: {Item: 1, Verdict: "fail", Note: "curt"}, 2: {Item: 2, Verdict: "pass"}}, nil, nil
 	}}))
 	if a := got["tone"]; a.State != conformance.DoesNotConform || a.Reason != "" || len(a.Findings) != 1 {

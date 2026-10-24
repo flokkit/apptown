@@ -201,7 +201,8 @@ func (w folderRun) readsThePublishedCommit(t *testing.T) {
 	if err != nil || sel.Commit != w.published {
 		t.Fatalf("the run's gates select %+v, want the published %s: %v", sel, w.published, err)
 	}
-	if tests := w.execute(t, w.tests); tests.Status != workflow.StatusPass || stepEvidence(t, tests)["commit"] != w.published {
+	// No test command in the fixture: not applicable, naming the commit read.
+	if tests := w.execute(t, w.tests); tests.Status != workflow.StatusNotApplicable || stepEvidence(t, tests)["commit"] != w.published {
 		t.Fatalf("the tests step read %s, want the published %s", tests.Evidence, w.published)
 	}
 	if boot := w.execute(t, w.boot); boot.Status != workflow.StatusPass || !strings.HasPrefix(fmt.Sprint(stepEvidence(t, boot)["incarnation"]), w.published+"+") {

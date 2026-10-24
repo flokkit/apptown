@@ -15,14 +15,14 @@ func TestValidateChecks(t *testing.T) {
 		wantErr string
 	}{
 		{"empty ok", nil, ""},
-		{"sh inferred", []check.Declaration{{Name: "a", Sh: "true"}}, ""},
-		{"llm inferred", []check.Declaration{{Name: "a", Rubric: "handlers stay thin"}}, ""},
-		{"no name", []check.Declaration{{Sh: "true"}}, "name required"},
-		{"dup name", []check.Declaration{{Name: "a", Sh: "true"}, {Name: "a", Sh: "true"}}, "duplicate"},
-		{"sh without script", []check.Declaration{{Name: "a", Evaluator: "sh"}}, "requires a script"},
-		{"llm without rubric", []check.Declaration{{Name: "a", Evaluator: "llm"}}, "requires a rubric"},
-		{"bad evaluator", []check.Declaration{{Name: "a", Evaluator: "regex", Sh: "true"}}, "must be sh, llm, runtime or tool"},
-		{"bad severity", []check.Declaration{{Name: "a", Sh: "true", Severity: "fatal"}}, "severity"},
+		{"sh inferred", []check.Declaration{{AppliesTo: repoWide, Name: "a", Sh: "true"}}, ""},
+		{"llm inferred", []check.Declaration{{AppliesTo: repoWide, Name: "a", Rubric: "handlers stay thin"}}, ""},
+		{"no name", []check.Declaration{{AppliesTo: repoWide, Sh: "true"}}, "name required"},
+		{"dup name", []check.Declaration{{AppliesTo: repoWide, Name: "a", Sh: "true"}, {AppliesTo: repoWide, Name: "a", Sh: "true"}}, "duplicate"},
+		{"sh without script", []check.Declaration{{AppliesTo: repoWide, Name: "a", Evaluator: "sh"}}, "requires a script"},
+		{"llm without rubric", []check.Declaration{{AppliesTo: repoWide, Name: "a", Evaluator: "llm"}}, "requires a rubric"},
+		{"bad evaluator", []check.Declaration{{AppliesTo: repoWide, Name: "a", Evaluator: "regex", Sh: "true"}}, "must be sh, llm, runtime or tool"},
+		{"bad severity", []check.Declaration{{AppliesTo: repoWide, Name: "a", Sh: "true", Severity: "fatal"}}, "severity"},
 	}
 	for _, c := range cases {
 		err := check.Validate(c.checks)
@@ -34,7 +34,7 @@ func TestValidateChecks(t *testing.T) {
 		}
 	}
 	// defaults applied in place
-	checks := []check.Declaration{{Name: "a", Sh: "true"}}
+	checks := []check.Declaration{{AppliesTo: repoWide, Name: "a", Sh: "true"}}
 	_ = check.Validate(checks)
 	if checks[0].Evaluator != "sh" || checks[0].Severity != "note" {
 		t.Errorf("defaults not applied: %+v", checks[0])
@@ -45,19 +45,19 @@ func TestValidateChecks(t *testing.T) {
 // defaults to diff; a tree rubric must name its files.
 func TestCheckScopeValidation(t *testing.T) {
 	t.Parallel()
-	bad := []check.Declaration{{Name: "x", Evaluator: "sh", Sh: "true", Scope: "diff"}}
+	bad := []check.Declaration{{AppliesTo: repoWide, Name: "x", Evaluator: "sh", Sh: "true", Scope: "diff"}}
 	if err := check.Validate(bad); err == nil || !strings.Contains(err.Error(), "always tree-scoped") {
 		t.Fatalf("sh with scope diff must be refused, got %v", err)
 	}
-	bad = []check.Declaration{{Name: "y", Evaluator: "llm", Rubric: "r", Scope: "tree"}}
+	bad = []check.Declaration{{AppliesTo: repoWide, Name: "y", Evaluator: "llm", Rubric: "r", Scope: "tree"}}
 	if err := check.Validate(bad); err == nil || !strings.Contains(err.Error(), "files") {
 		t.Fatalf("tree rubric without files must be refused, got %v", err)
 	}
 	ok := []check.Declaration{
-		{Name: "a", Evaluator: "llm", Rubric: "r"},
-		{Name: "b", Evaluator: "llm", Rubric: "r", Scope: "tree", Files: []string{"README.md"}},
-		{Name: "c", Tool: "semgrep"},
-		{Name: "d", Sh: "true"},
+		{AppliesTo: repoWide, Name: "a", Evaluator: "llm", Rubric: "r"},
+		{AppliesTo: repoWide, Name: "b", Evaluator: "llm", Rubric: "r", Scope: "tree", Files: []string{"README.md"}},
+		{AppliesTo: repoWide, Name: "c", Tool: "semgrep"},
+		{AppliesTo: repoWide, Name: "d", Sh: "true"},
 	}
 	if err := check.Validate(ok); err != nil {
 		t.Fatal(err)

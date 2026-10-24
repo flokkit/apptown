@@ -73,10 +73,10 @@ func (e *Evaluator) judge(ctx context.Context, sh string) *check.Judge {
 	return &check.Judge{Run: func(req execution.Request) execution.Outcome { return e.effects.Run(ctx, req) }, Now: e.clock, ShImage: sh}
 }
 func (e *Evaluator) runShChecks(ctx context.Context, sh string, checks []conformance.DeclaredCheck, src, namePrefix string) (results Results, findings []conformance.Finding, shErrors int) {
-	for _, ev := range e.judge(ctx, sh).EvaluateSh(declaredAll(checks), check.Source{Tree: src}, check.Gate, namePrefix) {
+	for _, ev := range e.judge(ctx, sh).EvaluateSh(declaredAll(checks), CheckSource(src), check.Gate, namePrefix) {
 		res := resultOf(ev)
 		res.DurationMs = new(ev.Evidence.Duration.Milliseconds())
-		if res.Verdict != workflow.VerdictPass && res.Verdict != workflow.VerdictFail {
+		if res.Verdict != workflow.VerdictPass && res.Verdict != workflow.VerdictFail && res.Verdict != workflow.VerdictNotApplicable {
 			res.Verdict = workflow.VerdictError // a script that neither passed nor found anything errored
 			shErrors++
 		}

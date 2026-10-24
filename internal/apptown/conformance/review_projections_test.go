@@ -61,7 +61,7 @@ func newProjectionFixture(t *testing.T) *projectionFixture {
 	return f
 }
 
-const noFixme = `{"name":"no-fixme","evaluator":"sh","sh":"! grep -r FIXME .","severity":"high","expects":"the rule holds"}`
+const noFixme = `{"appliesTo": ["repository"], "name":"no-fixme","evaluator":"sh","sh":"! grep -r FIXME .","severity":"high","expects":"the rule holds"}`
 
 // project creates a repo-backed project at a committed head that adopts
 // one guidance block at a version, publishing that version when it is new.
@@ -226,9 +226,9 @@ func TestCurrentWorklistSurfacesStates(t *testing.T) {
 	f := newProjectionFixture(t)
 	f.project(t, "conf", "hygiene", 1, noFixme)
 	stale := f.project(t, "stale", "hygiene", 1, noFixme)
-	f.project(t, "errp", "strict", 1, `{"name":"boom","evaluator":"sh","sh":"exit 3","severity":"high","expects":"the rule holds"}`)
-	f.project(t, "cannot", "live", 1, `{"name":"probe","evaluator":"runtime","probe":"GET /healthz","expects":"the app answers"}`)
-	f.project(t, "na", "prose", 2, `{"name":"tone","evaluator":"llm","rubric":"a judgement","expects":"the rule holds"}`)
+	f.project(t, "errp", "strict", 1, `{"appliesTo": ["repository"], "name":"boom","evaluator":"sh","sh":"exit 3","severity":"high","expects":"the rule holds"}`)
+	f.project(t, "cannot", "live", 1, `{"appliesTo": ["repository"], "name":"probe","evaluator":"runtime","probe":"GET /healthz","expects":"the app answers"}`)
+	f.project(t, "na", "prose", 2, `{"appliesTo": ["repository"], "name":"tone","evaluator":"llm","rubric":"a judgement","expects":"the rule holds"}`)
 
 	f.review(t, caller("t"), "manual", nil, outcomes(map[string]Outcome{
 		"conf": Conforms, "stale": Conforms, "errp": EvaluationError, "cannot": CannotAssess, "na": NotApplicable}))

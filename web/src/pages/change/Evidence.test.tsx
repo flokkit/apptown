@@ -17,6 +17,29 @@ describe('recorded verification', () => {
  })
 })
 
+describe('not applicable', () => {
+ it('counts a not-applicable step apart from passes', () => {
+  expect(verificationSummary([step('pass'), step('not_applicable')])).toBe('1 passed · 1 not applicable')
+ })
+ it('names every not-applicable check and never counts it among the rules met', () => {
+  const checks = [
+   { block: 'b', version: 1, check: 'builds', evaluator: 'sh', verdict: 'pass' },
+   { block: 'b', version: 1, check: 'go-vet-clean', evaluator: 'tool', verdict: 'not-applicable', detail: 'no part is built with go' },
+   { block: 'b', version: 1, check: 'gofmt-clean', evaluator: 'tool', verdict: 'not-applicable', detail: 'no part is built with go' },
+   { block: 'b', version: 1, check: 'no-volume', evaluator: 'sh', verdict: 'not-applicable', detail: 'no part is built from a Dockerfile' },
+   { block: 'b', version: 1, check: 'readme', evaluator: 'sh', verdict: 'not-applicable', detail: 'x' },
+  ]
+  const s = { id: '00000000-0009-7000-8000-000000000000', type: 'guidance/conformance', name: 'guidance', status: 'pass', config: {}, overrideBy: '', evidence: {}, checkReading: { checks } } as unknown as Step
+  const r = receiptOf(s)
+  expect(r.sentence).toBe('1 of 1 rule met. Not applicable here: go-vet-clean, gofmt-clean, no-volume, readme.')
+ })
+ it('says why a scan or tests step is not applicable, and never that it passed', () => {
+  const scan = { id: '00000000-000a-7000-8000-000000000000', type: 'scan', name: 'scan-image:trivy', status: 'not_applicable', config: {}, overrideBy: '', evidence: { notApplicable: 'the public part is a static site: there is no image' } } as unknown as Step
+  expect(receiptOf(scan).result).toBe('not applicable')
+  expect(receiptOf(scan).sentence).toBe('the public part is a static site: there is no image')
+ })
+})
+
 describe('receipts', () => {
  it('reads an unfinished step of an ended run as never decided, not as waiting', () => {
   const approval = { id: '00000000-0001-7000-8000-000000000000', type: 'approval', name: 'accept', status: 'pending', config: { approvers: ['bls'] }, evidence: {}, overrideBy: '' } as unknown as Step

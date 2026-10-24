@@ -2,6 +2,7 @@ package verification
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/check"
@@ -51,6 +52,21 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 	var out []treeAssessment
 	notJudged := func(sc conformance.DeclaredCheck, why conformance.NotAssessed, detail string) {
 		out = append(out, treeAssessment{Check: sc, State: conformance.CannotAssess, Reason: why, Detail: detail})
+	}
+	// Rubrics and probes judged once for the app are settled first when they
+	// apply to nothing the tree's contract declares (what-if, an eval).
+	if in.Tool.BuildDir != "" {
+		src := CheckSource(in.Tool.BuildDir)
+		var settled, more []decided
+		checks, settled = splitApplicable(checks, "runtime", src, check.Posture)
+		checks, more = splitApplicable(checks, "llm", src, check.Posture)
+		for _, d := range append(settled, more...) {
+			state := conformance.NotApplicable
+			if d.Receipt.Verdict == workflow.VerdictError {
+				state = conformance.EvaluationError
+			}
+			out = append(out, treeAssessment{Check: d.Check, State: state, Detail: d.Receipt.Detail})
+		}
 	}
 	for _, sc := range checks {
 		switch {

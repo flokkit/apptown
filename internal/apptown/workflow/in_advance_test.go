@@ -46,9 +46,39 @@ func TestPassedOutrightIsEveryCheckPassing(t *testing.T) {
 		{"skipped by a person", &Step{Name: "scan", Type: "scan", Status: StatusSkipped}, false},
 		{"failed", &Step{Name: "scan", Type: "scan", Status: StatusFail}, false},
 	} {
-		if got := passedOutright([]*Step{tc.step}) == ""; got != tc.outright {
-			t.Errorf("%s: outright %v, want %v (%q)", tc.name, got, tc.outright, passedOutright([]*Step{tc.step}))
+		if got := passedOutright([]*Step{tc.step}, false) == ""; got != tc.outright {
+			t.Errorf("%s: outright %v, want %v (%q)", tc.name, got, tc.outright, passedOutright([]*Step{tc.step}, false))
 		}
+	}
+}
+
+// Not applicable meets the condition of a yes in advance only under an
+// approval whose sentence says so (inAdvanceAdmitsNotApplicable): a yes
+// given on a sentence written before not applicable existed keeps the
+// condition it was given on, every check passing.
+//
+// Kills: admitting not applicable whatever the approval says, or never.
+func TestNotApplicableMeetsAYesInAdvanceOnlyWhereItsSentenceSaysSo(t *testing.T) {
+	t.Parallel()
+	na := &Step{Name: "guidance", Type: "guidance/conformance", Status: StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"health","verdict":"pass"},{"check":"go-vet","verdict":"not-applicable","detail":"no part is built with go"}]}`)}
+	naStep := &Step{Name: "scan-image:trivy", Type: "scan", Status: StatusNotApplicable, Evidence: json.RawMessage(`{"notApplicable":"the public part is a static site"}`)}
+	for _, steps := range [][]*Step{{na}, {naStep}} {
+		if why := passedOutright(steps, false); why == "" {
+			t.Errorf("%s: not applicable met the old sentence's condition", steps[0].Name)
+		}
+		if why := passedOutright(steps, true); why != "" {
+			t.Errorf("%s: not applicable under a sentence that admits it: %s", steps[0].Name, why)
+		}
+	}
+	// Admitting not applicable admits nothing else.
+	if why := passedOutright([]*Step{{Name: "scan", Type: "scan", Status: StatusSkipped}}, true); why == "" {
+		t.Error("a skip met the condition")
+	}
+	cfg := json.RawMessage(`{"means":"m","inAdvance":"every check passing or not applicable","inAdvanceAdmitsNotApplicable":true}`)
+	old := json.RawMessage(`{"means":"m","inAdvance":"every check passing"}`)
+	steps := []*Step{{ID: ids.New(time.Now()), Type: "approval", Config: cfg}, {ID: ids.New(time.Now()), Type: "approval", Config: old}}
+	if !admitsNotApplicable(steps, steps[0].ID) || admitsNotApplicable(steps, steps[1].ID) {
+		t.Error("the deciding approval's own config says whether not applicable is admitted")
 	}
 }
 

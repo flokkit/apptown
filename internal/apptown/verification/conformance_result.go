@@ -17,6 +17,9 @@ type Results []workflow.CheckReceipt
 // written in the words the web, the CLI and the reviewer read. Every
 // evaluator's receipt is made here, so the shape cannot drift between them.
 //
+// Not applicable is the judge's, decided from the check's declared
+// applicability (check.Applies) before anything ran.
+//
 // The words with no outcome behind them are the App's, set by the caller from
 // what only AppTown knows: "skipped" (there was nothing to judge with),
 // "unclear" (the model answered but would not say), "excepted" (a person has
@@ -42,6 +45,10 @@ func resultOf(ev check.Evaluation) workflow.CheckReceipt {
 		res.Verdict = workflow.VerdictFail
 	case check.Error:
 		res.Verdict = workflow.VerdictError
+	case check.NotApplicable:
+		// Not a judgement of the tree and never gating: the reason is the
+		// receipt's words.
+		res.Verdict, res.Detail, res.Gates = workflow.VerdictNotApplicable, ev.Detail, new(false)
 	default:
 		res.Verdict = workflow.VerdictCannotAssess
 	}

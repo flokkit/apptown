@@ -32,6 +32,10 @@ type Declaration struct {
 	// from a new one (design/subsystems/ways-of-working-versions.md §4.2). Unset: the
 	// check is boolean; failing on both trees is "regression unknown".
 	Occurrences string `json:"occurrences,omitempty"`
+	// AppliesTo says what the check applies to, in words about the app's
+	// declared parts (applies.go). Required: a check that applies to no
+	// declared part is not applicable, never a pass on nothing.
+	AppliesTo []string `json:"appliesTo,omitempty"`
 }
 
 // Check scopes.
@@ -134,6 +138,9 @@ func Validate(checks []Declaration) error {
 			if strings.TrimSpace(c.Tool) == "" {
 				return fmt.Errorf("check %q: tool evaluator requires a tool (scanner binding) name", c.Name)
 			}
+		}
+		if err := ValidateAppliesTo(c.AppliesTo); err != nil {
+			return fmt.Errorf("check %q: %w", c.Name, err)
 		}
 		if c.Occurrences != "" && c.Occurrences != "lines" {
 			return fmt.Errorf("check %q: occurrences must be lines or absent", c.Name)

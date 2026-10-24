@@ -12,7 +12,7 @@ import (
 )
 
 // CheckVerdict is a check receipt's word for what one check said of the
-// commit. Pass, fail, error and cannot-assess are the judge's outcomes; the
+// commit. Pass, fail, error, cannot-assess and not-applicable are the judge's outcomes; the
 // rest are AppTown's: skipped (nothing to judge with), excepted (a person
 // already excused what was found), unclear (a model declined to say).
 type CheckVerdict uint8
@@ -25,12 +25,15 @@ const (
 	VerdictSkipped
 	VerdictExcepted
 	VerdictUnclear
+	// VerdictNotApplicable: the check applies to nothing this app declares;
+	// Detail says why. Never a pass, never an error, never gating.
+	VerdictNotApplicable
 )
 
 var errCheckVerdict = errors.New("invalid check verdict")
 
 var checkVerdictCodec = enum.Set[CheckVerdict]{
-	Names:     []string{"pass", "fail", "error", "cannot-assess", "skipped", "excepted", "unclear"},
+	Names:     []string{"pass", "fail", "error", "cannot-assess", "skipped", "excepted", "unclear", "not-applicable"},
 	Invalid:   "invalid-check-verdict",
 	Err:       errCheckVerdict,
 	ScanLabel: "value",

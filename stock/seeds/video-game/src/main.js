@@ -3,6 +3,7 @@
 // game yet; tell the helper what yours should be and it will reshape or
 // replace this.
 import * as THREE from 'three'
+import { nextSpeed } from './drive.js'
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x0b0e1a)
@@ -135,10 +136,7 @@ function tick() {
   const left = keys.has('KeyA') || keys.has('ArrowLeft') || pointerSteer < -1
   const right = keys.has('KeyD') || keys.has('ArrowRight') || pointerSteer > 1
 
-  if (forward) speed += 24 * dt
-  if (back) speed -= 18 * dt
-  speed -= speed * 1.6 * dt // drag
-  speed = Math.max(-8, Math.min(22, speed))
+  speed = nextSpeed(speed, forward, back, dt)
   const steer = (left ? 1 : 0) - (right ? 1 : 0)
   heading += steer * 1.9 * dt * Math.min(1, Math.abs(speed) / 6) * Math.sign(speed || 1)
 

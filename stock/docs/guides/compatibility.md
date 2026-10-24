@@ -57,6 +57,8 @@ policies, guidance blocks and their checks, in the shapes the
 [formats guide](ways-of-working-formats.md) gives. A version you saved is read
 as it was saved: a pack version keeps the blocks, workflows and policy
 definitions it pinned; a run keeps the workflow version it was admitted under.
+A check's `appliesTo` words, and what not applicable means (never a pass,
+never an error, listed on the change), are promised with the shapes.
 
 **The command line's core loop.** The command names and their arguments for
 `new`, `fix`, `quick`, `plan`, `build`, `land`, `show`, `changes`, `wait`,

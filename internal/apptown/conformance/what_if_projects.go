@@ -88,10 +88,13 @@ type WhatIfScore struct {
 	Failing          int `json:"failing"`
 	CouldNotAssess   int `json:"couldNotAssess"`
 	NoLongerRequired int `json:"noLongerRequired"`
-	NewFailures      int `json:"newFailures"`
-	Fixed            int `json:"fixed"`
-	MovesBack        int `json:"movesBack"`
-	RuleChanges      int `json:"ruleChanges"`
+	// NotApplicable: checks the version declares that apply to nothing
+	// this project declares; neither judged nor unjudgeable.
+	NotApplicable int `json:"notApplicable"`
+	NewFailures   int `json:"newFailures"`
+	Fixed         int `json:"fixed"`
+	MovesBack     int `json:"movesBack"`
+	RuleChanges   int `json:"ruleChanges"`
 }
 
 // WhatIfReasonCount is how many checks one reason left unjudged, and what
@@ -233,6 +236,8 @@ func WhatIfByProject(selected []ids.ID, rows []WhatIfRow, slugs map[ids.ID]strin
 			switch {
 			case r.Proposed == "":
 				p.Score.NoLongerRequired++
+			case r.Proposed == NotApplicable.String():
+				p.Score.NotApplicable++
 			case r.Proposed == Conforms.String():
 				p.Score.Judged++
 				p.Score.Passed++

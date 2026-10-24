@@ -129,7 +129,7 @@ func TestARuntimeCheckIsNotAttributedToAnUnprovenPreview(t *testing.T) {
 	run, source := reviewLanding(t, a, []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
 		".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html>does not load browser values</html>",
 	}, func(pid ids.ID) {
-		adopt(t, a, pid, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
+		adopt(t, a, pid, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 		if err := a.Integrations.Attachments.Remember(t.Context(), pid, "errors", "glitchtip", `{"dsn":"https://key@errors.example/3"}`); err != nil {
 			t.Fatal(err)
 		}
@@ -167,7 +167,7 @@ func TestGuidanceScopeAndReworkEvidenceUseTheCandidate(t *testing.T) {
 			run, source := reviewLanding(t, a, []schema.Step{{Name: "catch-up", Uses: "reconcile"}, {Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
 				".gitignore": "artifacts/\n", "artifacts/output.txt": "generated output", ".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n",
 			}, func(pid ids.ID) {
-				adopt(t, a, pid, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
+				adopt(t, a, pid, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 			})
 			// The change's work forced the ignored output into its commits
 			// (reviewLanding), so the candidate carries it.
@@ -226,7 +226,7 @@ func landingWithAPage(t *testing.T, beforeLanding func(*App, ids.ID)) (*App, *fa
 	run, source := reviewLanding(t, a, []schema.Step{{Name: "guidance", Uses: "guidance/conformance"}}, map[string]string{
 		".apptown/app.yaml": "app:\n  web: {static: ., public: true}\n", "index.html": "<html>the change's page</html>",
 	}, func(pid ids.ID) {
-		adopt(t, a, pid, "deploy/browser-values", 1, `[{"name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
+		adopt(t, a, pid, "deploy/browser-values", 1, `[{"appliesTo": ["repository"], "name":"page-loads-browser-values","expects":"loads the public values","evaluator":"runtime","probe":"browser-env","severity":"high"}]`)
 		if err := a.Integrations.Attachments.Remember(t.Context(), pid, "errors", "glitchtip", `{"dsn":"https://key@errors.example/3"}`); err != nil {
 			t.Fatal(err)
 		}

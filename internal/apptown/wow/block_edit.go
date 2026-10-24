@@ -33,6 +33,9 @@ func (s *Service) EditBlock(ctx context.Context, id ids.ID, patch BlockPatch, ac
 		if err := check.Validate(*patch.Checks); err != nil {
 			return nil, err
 		}
+		if err := s.checkAppliesToTools(*patch.Checks); err != nil {
+			return nil, err
+		}
 	}
 	var out Block
 	now := s.library.now().UTC()
@@ -112,4 +115,21 @@ func bumpBlockIn(ctx context.Context, tx *database.Tx, r wowsql.GuidanceBlock, b
 		return err
 	}
 	return audit.At(at).RecordIn(ctx, tx, who, ids.Nil, "guidance.block.updated", r.Name, map[string]any{"blockId": r.ID, "version": next})
+}
+
+// ErrUnknownTool is a check naming, in its appliesTo, a tool the tool
+// versions list does not have: a tool no part could be built with here.
+var ErrUnknownTool = fault.New(fault.Invalid, "a check's appliesTo names only tools the tool versions list has")
+
+// checkAppliesToTools holds each tool a check's appliesTo names to the tool
+// versions list, as a pack's tools are held to its lines.
+func (s *Service) checkAppliesToTools(checks []check.Declaration) error {
+	for _, c := range checks {
+		for _, tool := range check.AppliesTools(c.AppliesTo) {
+			if s.packs.lines == nil || !s.packs.lines.HasTool(tool) {
+				return fmt.Errorf("%w: check %s names tool:%s, which is not in the tool versions this AppTown has", ErrUnknownTool, c.Name, tool)
+			}
+		}
+	}
+	return nil
 }

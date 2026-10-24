@@ -38,7 +38,7 @@ SELECT * FROM steps WHERE run_id = $1 AND stage = $2 ORDER BY id FOR UPDATE;
 -- name: StaleChecksForUpdate :many
 SELECT * FROM steps WHERE run_id = $1 AND stage = $2 AND override_by = '' AND finished_at < $3
   AND ((type = 'approval' AND status = 'fail')
-    OR (type IN ('agent/review','scan','tests','preview','guidance/conformance') AND status IN ('pass','fail','skipped')))
+    OR (type IN ('agent/review','scan','tests','preview','guidance/conformance') AND status IN ('pass','fail','skipped','not_applicable')))
 ORDER BY id FOR UPDATE;
 
 -- name: StepForUpdate :one

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -89,9 +90,19 @@ func TestSeedsPassTheirPacksOwnShellChecks(t *testing.T) {
 		if errs != 0 {
 			t.Errorf("%s: %d checks errored", p.Name, errs)
 		}
+		src := CheckSource(dir)
 		for _, r := range results {
-			if r.Verdict != workflow.VerdictPass {
-				t.Errorf("seed %s fails %s · %s: %s", p.Name, r.Block, r.Check, strings.TrimSpace(r.Output))
+			// Green or not applicable, never red: a starter whose app is not
+			// written yet names no tools, so its tool checks do not apply.
+			if r.Verdict != workflow.VerdictPass && r.Verdict != workflow.VerdictNotApplicable {
+				t.Errorf("seed %s fails %s · %s: %s", p.Name, r.Block, r.Check, strings.TrimSpace(r.Output+" "+r.Detail))
+			}
+			for _, c := range checks {
+				if c.Block == r.Block && c.Check.Name == r.Check && r.Verdict == workflow.VerdictNotApplicable {
+					if _, why, _ := check.Applies(c.Check.AppliesTo, src); why == "" {
+						t.Errorf("seed %s: %s not applicable, though its contract declares a part it applies to", p.Name, r.Check)
+					}
+				}
 			}
 		}
 	}
@@ -265,7 +276,13 @@ func indentedContracts(body string) []string {
 // name is the seed's declaration, not a separate list. Seeds whose final
 // stage is the build image's own family (node, python, ruby) or a scratch
 // carrier of files (AppTown serves them; the image never runs) state no
-// such split.
+// such split. The check applies to a part built with the pack's language,
+// so each tree carries the seed's own contract with the root part naming
+// the check's tool (seeds that do not name it yet get it added here); a
+// tree without one would be not applicable and prove nothing.
+//
+// Kills: a check whose image name drifts from the seed's build image, and
+// a refusal that only "passes" because nothing was judged.
 func TestSeedBuildImagesAreRefusedAsTheirRuntime(t *testing.T) {
 	t.Parallel()
 	packs, err := wow.ReadStockPacks(stock.FS)
@@ -319,8 +336,12 @@ func TestSeedBuildImagesAreRefusedAsTheirRuntime(t *testing.T) {
 			continue
 		}
 		lines[froms[len(froms)-1]] = "FROM " + build
+		var tools []string
+		for _, c := range checks {
+			tools = append(tools, check.AppliesTools(c.Check.AppliesTo)...)
+		}
 		dir := t.TempDir()
-		writeTree(t, dir, map[string]string{"Dockerfile": strings.Join(lines, "\n")})
+		writeTree(t, dir, map[string]string{"Dockerfile": strings.Join(lines, "\n"), ".apptown/app.yaml": seedContractNaming(t, p.Name, tools)})
 		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, checks, dir, "t-seed-runtime-"+p.Name)
 		refused := false
 		for _, r := range results {
@@ -333,6 +354,53 @@ func TestSeedBuildImagesAreRefusedAsTheirRuntime(t *testing.T) {
 	if split < 5 {
 		t.Fatalf("expected the compiled stacks' seeds (rust, go, java, dotnet, godot), found %d", split)
 	}
+}
+
+// seedContractNaming is the seed's contract with its root-built part naming
+// each of tools, added after the part's build line where the seed does not
+// name it already.
+func seedContractNaming(t *testing.T, seed string, tools []string) string {
+	t.Helper()
+	raw, err := fs.ReadFile(stock.FS, "seeds/"+seed+"/.apptown/app.yaml")
+	if err != nil {
+		t.Fatalf("seed %s has no contract: %v", seed, err)
+	}
+	named := func(y string) []string {
+		c, err := appcontract.Parse([]byte(y))
+		if err != nil {
+			t.Fatalf("seed %s: %v", seed, err)
+		}
+		for i := range c.Parts {
+			if c.Parts[i].Folder() == "." {
+				return c.Parts[i].Tools
+			}
+		}
+		t.Fatalf("seed %s has no part built from its root", seed)
+		return nil
+	}
+	y := string(raw)
+	var add []string
+	for _, tool := range tools {
+		if !slices.Contains(named(y), tool) && !slices.Contains(add, tool) {
+			add = append(add, tool)
+		}
+	}
+	if len(add) == 0 {
+		return y
+	}
+	const buildLine = "    build: .\n"
+	i := strings.Index(y, buildLine)
+	if i < 0 || strings.Contains(y, "    tools:") {
+		t.Fatalf("seed %s: cannot add tools %v to its contract", seed, add)
+	}
+	i += len(buildLine)
+	y = y[:i] + "    tools: [" + strings.Join(add, ", ") + "]\n" + y[i:]
+	for _, tool := range tools {
+		if !slices.Contains(named(y), tool) {
+			t.Fatalf("seed %s: the contract does not name %s after adding it", seed, tool)
+		}
+	}
+	return y
 }
 
 // imageRepository is an image reference without its tag, digest or Docker

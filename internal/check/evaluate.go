@@ -25,12 +25,27 @@ func (j *Judge) Evaluate(ctx context.Context, checks []Declared, src Source, mod
 			}
 			out = append(out, j.evaluateSh(d, src, mode, j.namePrefix()))
 		case "runtime":
+			if na := NotApplicableHere(d, src, mode); na != nil {
+				out = append(out, *na)
+				continue
+			}
 			out = append(out, j.evaluateRuntime(ctx, d, src, mode))
 		case "tool":
 			out = append(out, j.EvaluateTool(d, src, mode, j.namePrefix()))
 		}
 	}
-	out = append(out, j.evaluateRubrics(ctx, checks, src, mode)...)
+	var rubrics []Declared
+	for _, d := range checks {
+		if Evaluator(d.Declaration) != "llm" {
+			continue
+		}
+		if na := NotApplicableHere(d, src, mode); na != nil {
+			out = append(out, *na)
+			continue
+		}
+		rubrics = append(rubrics, d)
+	}
+	out = append(out, j.evaluateRubrics(ctx, rubrics, src, mode)...)
 	return out, nil
 }
 

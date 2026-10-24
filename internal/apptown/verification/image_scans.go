@@ -40,6 +40,7 @@ func (s *Scanners) RunImageScans(ctx context.Context, projectID ids.ID, src, sha
 	}
 	var dispositions []conformance.Disposition
 	read := false
+	treeSrc := CheckSource(src)
 	for _, sc := range attached {
 		m := sc.M
 		if m.Manual || m.Looks() != "image" {
@@ -51,19 +52,24 @@ func (s *Scanners) RunImageScans(ctx context.Context, projectID ids.ID, src, sha
 			scanErrors++
 			results = append(results, res)
 		}
+		why, aerr := scannerApplies(m, treeSrc)
+		switch {
+		case aerr != nil:
+			fail(aerr.Error())
+			continue
+		case why != "":
+			res.Verdict, res.Detail, res.Gates = workflow.VerdictNotApplicable, why, new(false)
+			results = append(results, res)
+			continue
+		}
 		start := s.now()
-		ref, note, status, err := s.imageForCommit(ctx, projectID, src, sha, true)
+		ref, note, _, err := s.imageForCommit(ctx, projectID, src, sha, true)
 		switch {
 		case err != nil:
 			fail("the image to scan: " + err.Error())
 			continue
 		case ref == "":
-			if status != "none" {
-				fail("no image to scan: " + note)
-				continue
-			}
-			res.Verdict, res.Output = workflow.VerdictPass, strings.Replace(note, "nothing to run in an image", "nothing to scan as an image", 1)
-			results = append(results, res)
+			fail("no image to scan: " + note)
 			continue
 		}
 		if !read {

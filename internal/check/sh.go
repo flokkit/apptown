@@ -36,20 +36,45 @@ func (j *Judge) EvaluateSh(checks []Declared, src Source, mode Mode, namePrefix 
 	return out
 }
 
-// evaluateSh runs one sh check against the staged tree.
+// evaluateSh runs one sh check against the staged tree: once in each
+// folder of the parts it applies to, or not at all when it applies to none.
 func (j *Judge) evaluateSh(d Declared, src Source, mode Mode, namePrefix string) Evaluation {
-	now := clock.Or(j.Now)
-	start := now()
+	places, why, err := Applies(d.AppliesTo, src)
+	switch {
+	case err != nil:
+		return Evaluation{Declared: d, Mode: mode, Outcome: Error, Detail: err.Error()}
+	case len(places) == 0:
+		return notApplicable(d, mode, why)
+	}
 	image := j.ShImage
 	if image == "" {
 		// No shell image is no verdict: recorded as the check's error.
 		exitCode := -1
 		return Evaluation{Declared: d, Mode: mode, Outcome: Error, Evidence: Evidence{ExitCode: &exitCode, Output: "no shell image: the tool versions name it"}}
 	}
+	var evs []Evaluation
+	for _, pl := range places {
+		evs = append(evs, j.shAt(d, src, pl, mode, image, namePrefix))
+	}
+	return combine(d, mode, places, evs)
+}
+
+// shPrelude runs before every sh check's script: the repository root is
+// kept in APPTOWN_ROOT, then the script runs in its folder. A declared
+// folder the tree does not have is the check's finding: the contract names
+// what is not there.
+const shPrelude = `APPTOWN_ROOT=$PWD; export APPTOWN_ROOT; cd -- "$APPTOWN_FOLDER" 2>/dev/null || { echo "the contract names the folder $APPTOWN_FOLDER, which is not in the tree"; exit 1; }
+`
+
+// shAt runs one sh check in one place.
+func (j *Judge) shAt(d Declared, src Source, pl Place, mode Mode, image, namePrefix string) Evaluation {
+	now := clock.Or(j.Now)
+	start := now()
 	outcome := j.Run(execution.Request{
 		Workspace:    src.Tree,
 		WorkspaceRO:  true,
-		Argv:         []string{"sh", "-c", d.Sh},
+		Argv:         []string{"sh", "-c", shPrelude + d.Sh},
+		Env:          placeEnv(pl, src),
 		Image:        image,
 		NoEntrypoint: true,
 		Network:      "none",

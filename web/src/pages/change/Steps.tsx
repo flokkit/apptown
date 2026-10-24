@@ -212,7 +212,7 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
           )}
           {(step.checkReading.checks ?? []).map((c, i) => (
             <div key={i} className="row" style={{ marginTop: 2 }}>
-              <span className={`chip ${c.verdict === 'pass' ? 'pass' : c.verdict === 'fail' && !c.preexisting && !c.undecided ? 'fail' : ''}`}>{c.verdict}</span>
+              <span className={`chip ${c.verdict === 'pass' ? 'pass' : c.verdict === 'fail' && !c.preexisting && !c.undecided ? 'fail' : ''}`}>{c.verdict === 'not-applicable' ? 'not applicable' : c.verdict}</span>
               {c.undecided && <span className="chip pending" title="Not known whether this change introduced it; it does not block">undecided</span>}
               {c.preexisting && <span className="chip" title="Main already fails this check; it does not block">already on main</span>}
               <span className="small">{c.check}</span>
@@ -222,6 +222,7 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
                 {c.evidence ? ` · ${c.evidence}` : ''}
               </span>
               {c.note && <span className="muted small">{c.note}</span>}
+              {c.verdict === 'not-applicable' && c.detail && <span className="muted small">{c.detail}</span>}
             </div>
           ))}
           {ev.reason != null && step.status !== 'pass' && <div className="error">{ev.reason}</div>}

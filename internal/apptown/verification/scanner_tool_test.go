@@ -18,11 +18,11 @@ func TestRunToolChecksSourceFailAndPass(t *testing.T) {
 	f := newScannerOwnerFixture(t)
 	f.semgrep(t)
 	sc := []conformance.DeclaredCheck{{Block: "lang/django", Version: 3,
-		Check: conformance.CheckDeclaration{Name: "python-sast", Evaluator: "tool", Tool: "semgrep-django", Severity: "medium", Expects: "no sast findings"}}}
+		Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "python-sast", Evaluator: "tool", Tool: "semgrep-django", Severity: "medium", Expects: "no sast findings"}}}
 
 	// Report with a finding → fail, one Finding at the CHECK's severity.
 	f.Effects.report = scannerSARIF(1)
-	src := t.TempDir()
+	src := projectTree(t)
 	results, findings, errs := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: src}, "test")
 	if errs != 0 {
 		t.Fatalf("unexpected tool errors: %d", errs)
@@ -39,7 +39,7 @@ func TestRunToolChecksSourceFailAndPass(t *testing.T) {
 
 	// Empty report → pass, no findings.
 	f.Effects.report = scannerSARIF(0)
-	src2 := t.TempDir()
+	src2 := projectTree(t)
 	results, findings, errs = f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: src2}, "test")
 	if len(findings) != 0 || errs != 0 || results[0].Verdict != workflow.VerdictPass {
 		t.Fatalf("want clean pass, got results=%+v findings=%+v errs=%d", results, findings, errs)
@@ -56,18 +56,18 @@ func TestRunToolChecksHonorsDispositions(t *testing.T) {
 	f.semgrep(t)
 	pid := f.ProjectID
 	sc := []conformance.DeclaredCheck{{Block: "lang/django", Version: 3,
-		Check: conformance.CheckDeclaration{Name: "python-sast", Evaluator: "tool", Tool: "semgrep-django", Severity: "medium", Expects: "no sast findings"}}}
+		Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "python-sast", Evaluator: "tool", Tool: "semgrep-django", Severity: "medium", Expects: "no sast findings"}}}
 
 	// Finding present, no disposition → fail.
 	f.Effects.report = scannerSARIF(1)
-	results, _, _ := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: t.TempDir()}, "test")
+	results, _, _ := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
 	if results[0].Verdict != workflow.VerdictFail {
 		t.Fatalf("want fail without a disposition, got %+v", results)
 	}
 
 	// Failed exception storage is an evaluation error, not an ordinary finding.
 	t.Cleanup(f.DB.FailNextStatement("FROM dispositions"))
-	failed, _, nerrors := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: t.TempDir()}, "test")
+	failed, _, nerrors := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
 	if len(failed) != 1 || failed[0].Verdict != workflow.VerdictError || nerrors != 1 || !strings.Contains(failed[0].Output, "reading exceptions") {
 		t.Fatalf("failed exception read was hidden: %+v errors=%d", failed, nerrors)
 	}
@@ -79,7 +79,7 @@ func TestRunToolChecksHonorsDispositions(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.Effects.report = scannerSARIF(1)
-	results, findings, _ := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: t.TempDir()}, "test")
+	results, findings, _ := f.Scanners.RunToolChecks(t.Context(), sc, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test")
 	// EXCEPTED, not pass (design/subsystems/conformance-surface.md §9): the findings stay
 	// underneath in the detail and the exception is named — never folded green.
 	if results[0].Verdict != workflow.VerdictExcepted {
@@ -96,7 +96,7 @@ func TestRunToolChecksHonorsDispositions(t *testing.T) {
 	// what a what-if on that version says.
 	moved := []conformance.DeclaredCheck{{Block: sc[0].Block, Version: sc[0].Version + 1, Check: sc[0].Check}}
 	f.Effects.report = scannerSARIF(1)
-	if results, _, _ := f.Scanners.RunToolChecks(t.Context(), moved, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: t.TempDir()}, "test"); results[0].Verdict != workflow.VerdictExcepted {
+	if results, _, _ := f.Scanners.RunToolChecks(t.Context(), moved, ToolContext{Context: f.Context, ProjectID: pid, BuildDir: projectTree(t)}, "test"); results[0].Verdict != workflow.VerdictExcepted {
 		t.Fatalf("an identifier exception covers the check at a new block version, got %+v", results)
 	}
 }
@@ -112,7 +112,7 @@ func TestRunToolChecksExecImageSharedBuild(t *testing.T) {
 		"target":  "exec-image", "manual": true,
 	})
 	// A build-based contract so appImageForCommit reaches the image branch.
-	src := t.TempDir()
+	src := projectTree(t)
 	if err := os.MkdirAll(filepath.Join(src, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestRunToolChecksExecImageSharedBuild(t *testing.T) {
 	})
 
 	sc := []conformance.DeclaredCheck{{Block: "lang/django", Version: 5,
-		Check: conformance.CheckDeclaration{Name: "django-check-deploy", Evaluator: "tool", Tool: "django-check-deploy", Severity: "high", Expects: "deploy checks pass"}}}
+		Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "django-check-deploy", Evaluator: "tool", Tool: "django-check-deploy", Severity: "high", Expects: "deploy checks pass"}}}
 	results, findings, errs := f.Scanners.RunToolChecks(t.Context(), sc,
 		ToolContext{Context: f.Context, ProjectID: f.ProjectID, SHA: "abcdef1234567890", BuildDir: src, AllowBuild: true}, "test")
 
@@ -158,7 +158,7 @@ func TestRunToolChecksExecImageCrashIsError(t *testing.T) {
 		"command": []string{"sh", "-c", "python manage.py check --deploy"},
 		"target":  "exec-image", "manual": true,
 	})
-	src := t.TempDir()
+	src := projectTree(t)
 	_ = os.MkdirAll(filepath.Join(src, ".apptown"), 0o755)
 	_ = os.WriteFile(filepath.Join(src, ".apptown", "app.yaml"),
 		[]byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644)
@@ -176,7 +176,7 @@ func TestRunToolChecksExecImageCrashIsError(t *testing.T) {
 	})
 
 	sc := []conformance.DeclaredCheck{{Block: "lang/django", Version: 5,
-		Check: conformance.CheckDeclaration{Name: "django-check-deploy", Evaluator: "tool", Tool: "django-check-deploy", Severity: "high", Expects: "deploy checks pass"}}}
+		Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "django-check-deploy", Evaluator: "tool", Tool: "django-check-deploy", Severity: "high", Expects: "deploy checks pass"}}}
 	results, findings, errs := f.Scanners.RunToolChecks(t.Context(), sc,
 		ToolContext{Context: f.Context, ProjectID: f.ProjectID, SHA: "abcdef1234567890", BuildDir: src, AllowBuild: true}, "test")
 

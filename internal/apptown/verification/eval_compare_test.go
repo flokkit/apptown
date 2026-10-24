@@ -26,9 +26,9 @@ import (
 // introducing everything; a boolean failure on both counted as unchanged.
 func TestAnEvalComparesFindingsOnlyWhereTheCheckAnsweredOnBothTrees(t *testing.T) {
 	t.Parallel()
-	lines := conformance.DeclaredCheck{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{Name: "no-fixme", Sh: "grep -rl FIXME .", Occurrences: "lines"}}
-	boolean := conformance.DeclaredCheck{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{Name: "has-readme", Sh: "test -f README.md"}}
-	diff := conformance.DeclaredCheck{Block: "style", Version: 1, Check: conformance.CheckDeclaration{Name: "small", Rubric: "r", Evaluator: "llm"}}
+	lines := conformance.DeclaredCheck{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "no-fixme", Sh: "grep -rl FIXME .", Occurrences: "lines"}}
+	boolean := conformance.DeclaredCheck{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "has-readme", Sh: "test -f README.md"}}
+	diff := conformance.DeclaredCheck{Block: "style", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "small", Rubric: "r", Evaluator: "llm"}}
 	declared := map[string]check.Declared{}
 	for _, sc := range []conformance.DeclaredCheck{lines, boolean, diff} {
 		declared[answerKey(CheckAnswer{Block: sc.Block, Version: sc.Version, Check: sc.Check.Name})] = sc.Declared()

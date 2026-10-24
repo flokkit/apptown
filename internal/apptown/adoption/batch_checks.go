@@ -59,9 +59,9 @@ func HistoricalChecksIn(ctx context.Context, q database.Queryer, versions []Chec
 	}
 	var out []DeclaredCheck
 	for _, row := range rows {
-		var declarations []CheckDeclaration
-		if err := json.Unmarshal([]byte(row.ChecksJSON), &declarations); err != nil {
-			return nil, err
+		declarations, err := storedChecks(row.ChecksJSON)
+		if err != nil {
+			return nil, fmt.Errorf("%s v%d: %w", row.Block, row.Version, err)
 		}
 		for _, c := range declarations {
 			out = append(out, DeclaredCheck{Block: row.Block, Version: row.Version, Check: c})

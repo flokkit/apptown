@@ -17,12 +17,12 @@ func TestDeclarationDefaultsStayConsistentAcrossValidationAndUse(t *testing.T) {
 		declaration      conformance.CheckDeclaration
 		evaluator, scope string
 	}{
-		{"shell", conformance.CheckDeclaration{Sh: "true"}, "sh", conformance.ScopeTree},
-		{"rubric", conformance.CheckDeclaration{Rubric: "check changes"}, "llm", conformance.ScopeDiff},
-		{"scanner", conformance.CheckDeclaration{Tool: "semgrep"}, "tool", conformance.ScopeTree},
-		{"probe", conformance.CheckDeclaration{Probe: "readiness"}, "runtime", conformance.ScopeTree},
-		{"publication precedence", conformance.CheckDeclaration{Sh: "true", Rubric: "context", Tool: "semgrep", Probe: "readiness"}, "sh", conformance.ScopeTree},
-		{"explicit selection", conformance.CheckDeclaration{Evaluator: "tool", Sh: "true", Tool: "semgrep"}, "tool", conformance.ScopeTree},
+		{"shell", conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Sh: "true"}, "sh", conformance.ScopeTree},
+		{"rubric", conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Rubric: "check changes"}, "llm", conformance.ScopeDiff},
+		{"scanner", conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Tool: "semgrep"}, "tool", conformance.ScopeTree},
+		{"probe", conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Probe: "readiness"}, "runtime", conformance.ScopeTree},
+		{"publication precedence", conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Sh: "true", Rubric: "context", Tool: "semgrep", Probe: "readiness"}, "sh", conformance.ScopeTree},
+		{"explicit selection", conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Evaluator: "tool", Sh: "true", Tool: "semgrep"}, "tool", conformance.ScopeTree},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := tc.declaration
@@ -60,7 +60,7 @@ func TestDeclarationDefaultsStayConsistentAcrossValidationAndUse(t *testing.T) {
 
 func TestCheckDefinitionPreservesPublicVocabulary(t *testing.T) {
 	t.Parallel()
-	definition := conformance.DefinitionOf("block", 2, conformance.CheckDeclaration{Name: "check", Sh: "true"})
+	definition := conformance.DefinitionOf("block", 2, conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "check", Sh: "true"})
 	body, err := json.Marshal(definition)
 	if err != nil {
 		t.Fatal(err)

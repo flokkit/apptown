@@ -31,7 +31,7 @@ func TestTargetAdmissionRejectsForgedAcceptanceAndRollsBackParticipants(t *testi
 		t.Fatal(err)
 	}
 	// sql-guarantee: change the exact immutable version already pinned by the target; BumpBlock would create a different version.
-	if _, err := db.Exec(`UPDATE guidance_block_versions SET checks_json='[{"name":"works","title":"Works","expects":"start succeeds"}]' WHERE block_id=? AND version=1`, c.Receipt.Guidance[0].BlockID); err != nil {
+	if _, err := db.Exec(`UPDATE guidance_block_versions SET checks_json='[{"appliesTo": ["repository"], "name":"works","title":"Works","expects":"start succeeds"}]' WHERE block_id=? AND version=1`, c.Receipt.Guidance[0].BlockID); err != nil {
 		t.Fatal(err)
 	}
 	err := db.InTx(context.Background(), func(tx *database.Tx) error {
@@ -80,7 +80,7 @@ func TestTargetNewChecksPreserveChangeAndDeclarationOrder(t *testing.T) {
 func TestAnUpliftIsNotAcceptedOnACheckNoLandingCanJudge(t *testing.T) {
 	t.Parallel()
 	cat := candidateCatalogFake{blocks: map[ids.ID]wow.Block{idstest.N(1): {ID: idstest.N(1), Name: "deploy/memory-declared"}},
-		versions: map[ids.ID]map[int]wow.BlockObservation{idstest.N(1): {1: {ChecksJSON: `[{"name":"memory-declared","evaluator":"runtime","probe":"memory-declared"},{"name":"memory-within","evaluator":"runtime","probe":"memory-within"},{"name":"memory-within-implied","probe":"memory-within 80%"}]`}}}}
+		versions: map[ids.ID]map[int]wow.BlockObservation{idstest.N(1): {1: {ChecksJSON: `[{"appliesTo": ["repository"], "name":"memory-declared","evaluator":"runtime","probe":"memory-declared"},{"appliesTo": ["repository"], "name":"memory-within","evaluator":"runtime","probe":"memory-within"},{"appliesTo": ["repository"], "name":"memory-within-implied","probe":"memory-within 80%"}]`}}}}
 	next := Receipt{Guidance: []ReceiptBlock{{BlockID: idstest.N(1), Name: "deploy/memory-declared", Version: 1}}}
 	got, err := (candidateBuilder{ways: cat}).newChecks(t.Context(), Receipt{}, next)
 	want := []CheckSummary{{Block: "deploy/memory-declared", Version: 1, Check: "memory-declared"}}

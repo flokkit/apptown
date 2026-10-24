@@ -111,6 +111,12 @@
             "type": "boolean",
             "description": "Marks the one front-door part the preview/deploy URL points at."
           },
+          "tools": {
+            "type": "array",
+            "uniqueItems": true,
+            "description": "What the part is built with, from its folder (go, node, python): the checks for a tool run on the parts that name it, in the part's folder. Refused on an image: part. A part that names none has its tool checks not applicable.",
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+          },
           "health": {
             "type": "object",
             "additionalProperties": false,
@@ -400,6 +406,12 @@
           }
         }
       }
+    },
+    "notAppCode": {
+      "type": "array",
+      "uniqueItems": true,
+      "description": "Folders whose code is not the app's (docs, tooling, examples), relative to the repository root: the contract check does not ask for their package manifests to be declared. Never a part's folder or one holding it.",
+      "items": { "type": "string" }
     },
     "rehearsal": {
       "type": "object",

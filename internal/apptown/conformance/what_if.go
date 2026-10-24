@@ -98,6 +98,7 @@ const (
 	WhatIfWouldPass      = "would-pass"         // fails today; passes under the version
 	WhatIfUnchanged      = "unchanged"          // the same answer both ways
 	WhatIfNotAssessed    = "not-assessed"       // the version's side could not be judged
+	WhatIfNotApplicable  = "not-applicable"     // the version's check applies to nothing the project declares
 	WhatIfNoLongerNeeded = "no-longer-required" // the version does not carry the check
 	// A rule (a guidance block, or "workflow <name>") whose version taking
 	// the version changes: Block names it, Check is empty, and
@@ -241,6 +242,15 @@ func (u NotAssessed) Remedy() string {
 // (WhatIfByProject), and the row says so. Inability to judge either side is
 // never an improvement.
 func WhatIfResult(current, proposed *Outcome) string {
+	// A side that does not apply is a side with nothing to judge: a check
+	// the version makes not applicable says so, never an improvement, and
+	// one not applicable today compares as one that was not carried.
+	if proposed != nil && *proposed == NotApplicable {
+		return WhatIfNotApplicable
+	}
+	if current != nil && *current == NotApplicable {
+		current = nil
+	}
 	failing := func(o *Outcome) bool { return o != nil && (*o == DoesNotConform || *o == Excepted) }
 	judged := func(o *Outcome) bool { return o != nil && (*o == Conforms || failing(o)) }
 	switch {

@@ -128,6 +128,40 @@ could not assess the project: an error, shown as such and never a pass. The
 container image (today `alpine/git` with a shell and Git) is not promised:
 use only POSIX shell and Git.
 
+Every check states **`appliesTo`**, a list of words; it is required, and a
+check without it is refused when it is saved:
+
+| Word | The check applies to | It runs |
+| --- | --- | --- |
+| `repository` | the repository, when it holds any file (stands alone) | once, at the root |
+| `part` | every part | in each part's folder |
+| `build` | parts built from a folder's Dockerfile (`build:`, `static: {build:}`) | in that folder |
+| `static` | parts served as files (`static:`) | in the static folder or its build folder |
+| `container` | parts run as containers (`build:`, `image:`) | in the build folder; at the root for an `image:` part |
+| `tool:<name>` | parts whose `tools:` in `.apptown/app.yaml` name the tool | in the part's folder |
+
+A part matches when it matches any of the words. `<name>` is a tool the
+tool versions list has (go, node, python, java, dotnet, ruby, rust, php,
+godot). A check that applies to nothing the app declares is **not
+applicable**, with the reason, before anything runs: never a pass, never an
+error. An `sh` or `tool` check runs once in each folder of the parts it
+matches (parts sharing a folder are judged once, together) and its outcome
+is the worst of them; a rubric or a runtime check is judged once when any
+part matches. Once a check applies, **finding nothing to judge is a
+finding** (exit 1, saying what is missing): the contract says there is
+something there.
+
+A script starts in its folder and gets: `APPTOWN_FOLDER` (the folder,
+relative to the root; `.` for the root), `APPTOWN_ROOT` (the root, for
+files the repository declares there, such as `.apptown/app.yaml` and
+`.gitignore`), `APPTOWN_PARTS_HERE` (the parts judged in this folder,
+space-separated), `APPTOWN_PARTS` (every part, one line each:
+name, tab, folder, tab, its tools comma-separated) and
+`APPTOWN_NOT_APP_CODE` (the contract's `notAppCode` folders, one per line).
+A tool's inputs are at or below the folder: a Go part at the root may build
+its UI from `frontend/`, so a rule about a tool's files looks below the
+folder, not only in it.
+
 ## What stays readable
 
 AppTown keeps running what it accepted. A workflow version, a pack version

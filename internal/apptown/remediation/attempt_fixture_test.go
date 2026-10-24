@@ -257,7 +257,7 @@ func (attemptChecks) Head(context.Context, conformance.ProjectSource) (conforman
 	return conformance.SourceHead{SHA: "original-sha"}, nil
 }
 func (attemptChecks) HistoricalChecksIn(context.Context, database.Queryer, []conformance.CheckVersion) ([]conformance.DeclaredCheck, error) {
-	return []conformance.DeclaredCheck{{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{Name: "clean", Sh: "false"}}}, nil
+	return []conformance.DeclaredCheck{{Block: "hygiene", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "clean", Sh: "false"}}}, nil
 }
 func (s attemptChecks) ChecksIn(ctx context.Context, q database.Queryer, projects []ids.ID) (map[ids.ID][]conformance.DeclaredCheck, error) {
 	checks, err := s.HistoricalChecksIn(ctx, q, nil)

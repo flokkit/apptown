@@ -4,8 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { newQueryClient } from '../../data'
-import type { ChangeView } from '../../api'
-import { ApproveEvidence, MainConflictLine, StatePanel, requestShortfall } from './StatePanel'
+import type { ChangeView, Step } from '../../api'
+import { ApproveEvidence, MainConflictLine, StatePanel, notApplicableHere, requestShortfall } from './StatePanel'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0004-7000-8000-000000000000'
@@ -54,4 +54,19 @@ describe('the state panel', () => {
     expect(html(view)).toContain('AppTown could not merge it in before step rework')
     expect(html({ ...view, mainConflict: null })).not.toContain('could not merge')
   })
+})
+
+describe('the approval panel and not-applicable checks', () => {
+ it('lists every check and step of the run that is not applicable, with its reason', () => {
+  const steps = [
+   { type: 'guidance/conformance', name: 'guidance', status: 'pass', evidence: {}, checkReading: { checks: [
+    { check: 'builds', verdict: 'pass' }, { check: 'go-vet-clean', verdict: 'not-applicable', detail: 'no part is built with go' }] } },
+   { type: 'scan', name: 'scan-image:trivy', status: 'not_applicable', evidence: { notApplicable: 'the public part is a static site: there is no image' } },
+   { type: 'tests', name: 'tests', status: 'pass', evidence: {} },
+  ] as unknown as Step[]
+  expect(notApplicableHere(steps)).toEqual([
+   { name: 'go-vet-clean', why: 'no part is built with go' },
+   { name: 'scan-image:trivy', why: 'the public part is a static site: there is no image' },
+  ])
+ })
 })

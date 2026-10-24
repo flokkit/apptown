@@ -47,7 +47,7 @@ func treeRubric(name, rubric string, files ...string) string {
 	for i, f := range files {
 		fs[i] = `"` + f + `"`
 	}
-	return `{"name":"` + name + `","evaluator":"llm","scope":"tree","files":[` + strings.Join(fs, ",") + `],"rubric":"` + rubric + `","expects":"the rule holds","severity":"medium"}`
+	return `{"appliesTo": ["repository"], "name":"` + name + `","evaluator":"llm","scope":"tree","files":[` + strings.Join(fs, ",") + `],"rubric":"` + rubric + `","expects":"the rule holds","severity":"medium"}`
 }
 
 func standingOf(t *testing.T, view *conformance.View, slug string) conformance.ProjectStanding {
@@ -76,7 +76,7 @@ func TestTreeRubricJudgedInReviewAndAtGate(t *testing.T) {
 	})
 	adopt(t, a, pid, "prose", 3, checksJSON(
 		treeRubric("readme-plain", "README is plain", "README.md"),
-		`{"name":"tone-of-change","evaluator":"llm","rubric":"the diff reads well","expects":"the rule holds"}`,
+		`{"appliesTo": ["repository"], "name":"tone-of-change","evaluator":"llm","rubric":"the diff reads well","expects":"the rule holds"}`,
 	))
 	var prompts []string
 	stubLLM(t, a, `[{"item":1,"verdict":"fail","evidence":"README.md:2","note":"reads like marketing"}]`, &prompts)

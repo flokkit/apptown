@@ -13,7 +13,7 @@ import (
 // Scheduled/import trigger labels record provenance; they do not install a scheduler.
 
 func runtimeCheckJSON(name, probe string) string {
-	return `{"name":"` + name + `","evaluator":"runtime","probe":"` + probe + `","severity":"high","expects":"the rule holds"}`
+	return `{"appliesTo": ["repository"], "name":"` + name + `","evaluator":"runtime","probe":"` + probe + `","severity":"high","expects":"the rule holds"}`
 }
 
 // A runtime expectation is evaluated by a probe against the booted app; with no

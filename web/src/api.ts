@@ -91,6 +91,9 @@ export type TestsEvidence = ScriptEvidence & {
 export type ScanEvidence = EvidenceBase & {
   binding?: string; bindingVersion?: number; image?: string; exitCode?: number
   configHash?: string; note?: string
+  // Why the scanner applies to nothing this app declares (step status
+  // not_applicable).
+  notApplicable?: string
   findings?: { total: number; actionable: number; dispositioned: number }
 }
 // A boot step's screenshots (workflowexec.screenshots): AppTown's own

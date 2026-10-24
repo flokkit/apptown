@@ -94,6 +94,7 @@ type CheckDeclaration struct {
 	Scope       string   `json:"scope,omitempty"`
 	Files       []string `json:"files,omitempty"`
 	Occurrences string   `json:"occurrences,omitempty"`
+	AppliesTo   []string `json:"appliesTo,omitempty"`
 }
 type DeclaredCheck struct {
 	Block   string
@@ -121,8 +122,8 @@ func (s *Service) Checks(ctx context.Context, source Source) ([]DeclaredCheck, e
 		if err != nil {
 			return nil, fmt.Errorf("revision %d: %s v%d: %w", revision.Revision, b.Name, b.Version, err)
 		}
-		var checks []CheckDeclaration
-		if err := json.Unmarshal([]byte(version.ChecksJSON), &checks); err != nil {
+		checks, err := storedChecks(version.ChecksJSON)
+		if err != nil {
 			return nil, fmt.Errorf("revision %d: %s v%d: %w", revision.Revision, b.Name, b.Version, err)
 		}
 		for _, check := range checks {
@@ -258,4 +259,21 @@ func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWo
 		prefix = "stock"
 	}
 	return &ResolvedWorkflow{Name: name, Kind: doc.Spec.Kind, Version: version, YAML: yaml, Origin: fmt.Sprintf("%s/%s@%d", prefix, name, version), Doc: doc, System: doc.Metadata.System}, nil
+}
+
+// storedChecks reads a block version's stored checks. Every stored check
+// states what it applies to (the upgrade's migration gave the ones saved
+// before appliesTo existed [repository]); one that does not is refused,
+// never judged under a default.
+func storedChecks(raw string) ([]CheckDeclaration, error) {
+	var checks []CheckDeclaration
+	if err := json.Unmarshal([]byte(raw), &checks); err != nil {
+		return nil, err
+	}
+	for _, c := range checks {
+		if len(c.AppliesTo) == 0 {
+			return nil, fmt.Errorf("check %s declares no appliesTo", c.Name)
+		}
+	}
+	return checks, nil
 }

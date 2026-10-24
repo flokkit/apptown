@@ -185,6 +185,13 @@ without a security scan in an earlier stage.
 **Scan** — a tool-based check of the workspace: dependencies, leaked
 secrets, SBOM.
 
+**Not applicable** — what a check or scan says when it applies to nothing
+the app's contract declares: no part built with its tool, no static part,
+no image. It gives the reason, is never a pass or an error, does not stop a
+change by itself, and is listed on the change so it is never read as
+passed. What a check applies to is its `appliesTo`; what a part is built
+with is its `tools:` in `.apptown/app.yaml`.
+
 **Finding** — one issue reported by a scan or a review, tracked until it is
 fixed or suppressed.
 

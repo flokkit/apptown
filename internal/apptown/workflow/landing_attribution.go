@@ -122,6 +122,8 @@ func checkResult(step *Step) string {
 		return "passed"
 	case StatusSkipped:
 		return "skipped"
+	case StatusNotApplicable:
+		return "not applicable"
 	case StatusFail:
 		return "failed"
 	case StatusNeedsHuman:

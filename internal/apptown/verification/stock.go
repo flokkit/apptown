@@ -31,6 +31,12 @@ func loadScannerManifests(fsys fs.FS) []check.Scanner {
 // Config edits bump versions like any binding.
 func SyncStockScanners(ctx context.Context, integrations *integration.Service, fsys fs.FS) {
 	for _, m := range loadScannerManifests(fsys) {
+		if err := m.ValidateApplicability(); err != nil {
+			// Never bound without what it applies to: it would error every
+			// scan point it reached.
+			log.Printf("stock scanner %s: %v (not bound)", m.Name, err)
+			continue
+		}
 		if err := integrations.MarkScannerManaged(ctx, m.Name); err != nil {
 			log.Printf("marking scanner %s managed: %v", m.Name, err)
 		}

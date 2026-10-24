@@ -17,16 +17,16 @@ import (
 
 func TestPostureModeDeclaration(t *testing.T) {
 	t.Parallel()
-	if s, ok := check.PostureScript(conformance.CheckDeclaration{Evaluator: "sh", Sh: "exit 0"}); !ok || s != "exit 0" {
+	if s, ok := check.PostureScript(conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Evaluator: "sh", Sh: "exit 0"}); !ok || s != "exit 0" {
 		t.Fatal("an sh check must be posture-assessable")
 	}
-	if _, ok := check.PostureScript(conformance.CheckDeclaration{Evaluator: "llm", Rubric: "x"}); ok {
+	if _, ok := check.PostureScript(conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Evaluator: "llm", Rubric: "x"}); ok {
 		t.Fatal("an llm-only check must have no posture mode")
 	}
-	if evaluatorVersion(conformance.CheckDeclaration{Evaluator: "sh", Sh: "exit 0"}, stock.Images().Sh) == "" {
+	if evaluatorVersion(conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Evaluator: "sh", Sh: "exit 0"}, stock.Images().Sh) == "" {
 		t.Fatal("an sh posture check must carry an evaluator version")
 	}
-	if evaluatorVersion(conformance.CheckDeclaration{Evaluator: "llm", Rubric: "x"}, stock.Images().Sh) != "" {
+	if evaluatorVersion(conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Evaluator: "llm", Rubric: "x"}, stock.Images().Sh) != "" {
 		t.Fatal("no posture evaluator → no evaluator version")
 	}
 }

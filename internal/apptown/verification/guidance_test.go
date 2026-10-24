@@ -26,7 +26,7 @@ import (
 func TestConformanceFingerprintStable(t *testing.T) {
 	t.Parallel()
 	sc := conformance.DeclaredCheck{Block: "data/sqlite-everywhere", Version: 4,
-		Check: conformance.CheckDeclaration{Name: "pure-go-driver"}}
+		Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "pure-go-driver"}}
 	got := conformance.Fingerprint(sc, "")
 	want := "guidance|data/sqlite-everywhere@4|pure-go-driver|"
 	if got != want {
@@ -124,13 +124,13 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil, stock.Versions()), Previews: previews,
 		Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
 	kinds := map[string]gateKind{
-		"sh": {check.Declaration{Name: "script", Expects: "a readme", Sh: "test -f README.md", Severity: "high"}, "pass",
+		"sh": {check.Declaration{AppliesTo: []string{"repository"}, Name: "script", Expects: "a readme", Sh: "test -f README.md", Severity: "high"}, "pass",
 			func() bool { return f.Effects.ran(stock.Images().Sh) }},
-		"tool": {check.Declaration{Name: "sast", Expects: "no sast findings", Tool: "semgrep-django", Severity: "high"}, "pass",
+		"tool": {check.Declaration{AppliesTo: []string{"repository"}, Name: "sast", Expects: "no sast findings", Tool: "semgrep-django", Severity: "high"}, "pass",
 			func() bool { return f.Effects.ran("semgrep/semgrep:test") }},
-		"llm": {check.Declaration{Name: "readme", Expects: "says what it is", Rubric: "the readme names the app", Scope: check.ScopeTree, Files: []string{"README.md"}}, "unclear", // "conforms" is not a checklist word
+		"llm": {check.Declaration{AppliesTo: []string{"repository"}, Name: "readme", Expects: "says what it is", Rubric: "the readme names the app", Scope: check.ScopeTree, Files: []string{"README.md"}}, "unclear", // "conforms" is not a checklist word
 			func() bool { return f.Effects.asked("openrouter/test-model") }},
-		"runtime": {check.Declaration{Name: "ready", Expects: "answers readiness", Probe: "readiness", Severity: "medium"}, "cannot-assess",
+		"runtime": {check.Declaration{AppliesTo: []string{"repository"}, Name: "ready", Expects: "answers readiness", Probe: "readiness", Severity: "medium"}, "cannot-assess",
 			func() bool { return previews.asked(fmt.Sprintf("change-%d", created.Change.ID)) }},
 	}
 	var declarations []check.Declaration
@@ -138,7 +138,7 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 		row, ok := kinds[kind]
 		if !ok {
 			t.Errorf("evaluator kind %q may be declared, but this test does not say how the gate judges it", kind)
-			row.declaration = check.Declaration{Name: "undescribed-" + kind}
+			row.declaration = check.Declaration{AppliesTo: []string{"repository"}, Name: "undescribed-" + kind}
 		}
 		row.declaration.Evaluator = kind
 		declarations = append(declarations, row.declaration)
@@ -175,7 +175,7 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 		t.Errorf("%d receipts for %d checks: %+v", len(got.results), len(checks), got.results)
 	}
 
-	unsupported := []conformance.DeclaredCheck{{Block: "kinds", Version: 1, Check: check.Declaration{Name: "other", Evaluator: "nonesuch"}}}
+	unsupported := []conformance.DeclaredCheck{{Block: "kinds", Version: 1, Check: check.Declaration{AppliesTo: []string{"repository"}, Name: "other", Evaluator: "nonesuch"}}}
 	if _, err := a.judgeDeclared(t.Context(), projectScope(f.ProjectID), stock.Versions().Current(), run, source, unsupported, at, "high", "test"); err == nil || !strings.Contains(err.Error(), `"nonesuch"`) {
 		t.Fatalf("a check of a kind no runner judges was not refused: %v", err)
 	}
@@ -183,7 +183,7 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 func TestGateRuntimeCheckWithoutAPreviewIsCannotAssess(t *testing.T) {
 	t.Parallel()
 	a := &Guidance{}
-	checks := []conformance.DeclaredCheck{{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{Name: "readiness-redirect-safe", Evaluator: "runtime", Probe: "readiness", Severity: "medium"}}}
+	checks := []conformance.DeclaredCheck{{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "readiness-redirect-safe", Evaluator: "runtime", Probe: "readiness", Severity: "medium"}}}
 	// Required or not, a run with no preview booted (the landing boots none)
 	// records the check unjudged and does not hold the step.
 	res, findings, unjudged := a.runRuntimeChecksForRun(t.Context(), &workflow.Run{ID: idstest.N(1), ProjectID: idstest.N(1), ChangeID: ids.Nil}, checks, t.TempDir(), "", "medium", "")
@@ -219,7 +219,7 @@ func TestLandingBootsItsCandidatesPreview(t *testing.T) {
 		t.Fatal(err)
 	}
 	runtimeCheck := func(name string) conformance.DeclaredCheck {
-		return conformance.DeclaredCheck{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{Name: name, Evaluator: "runtime", Probe: "readiness", Severity: "medium"}}
+		return conformance.DeclaredCheck{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: name, Evaluator: "runtime", Probe: "readiness", Severity: "medium"}}
 	}
 	checks := []conformance.DeclaredCheck{runtimeCheck("front-page-answers"), runtimeCheck("readiness-redirect-safe")}
 	run := &workflow.Run{ID: idstest.N(7), ProjectID: f.ProjectID, ChangeID: created.Change.ID}
@@ -299,7 +299,7 @@ func TestLandingBootsItsCandidatesPreview(t *testing.T) {
 func TestGateAppTownFaultIsNotRework(t *testing.T) {
 	t.Parallel()
 	a := &Guidance{}
-	checks := []conformance.DeclaredCheck{{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{Name: "readiness-redirect-safe", Evaluator: "runtime", Probe: "readiness", Severity: "medium"}}}
+	checks := []conformance.DeclaredCheck{{Block: "deploy/health-declared", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "readiness-redirect-safe", Evaluator: "runtime", Probe: "readiness", Severity: "medium"}}}
 	res, _, _ := a.runRuntimeChecksForRun(t.Context(), &workflow.Run{ID: idstest.N(1), ProjectID: idstest.N(1), ChangeID: ids.Nil}, checks, t.TempDir(), "", "high", "")
 	target := workflow.AcceptanceScopeOf(&workflow.Change{AcceptanceJSON: `{"checks":[{"block":"deploy/health-declared","check":"readiness-redirect-safe"}]}`})
 	unmet := unmetAcceptance(res, target)
@@ -327,7 +327,7 @@ func TestAChecklistAnswerOutsideItsWordsIsUnclear(t *testing.T) {
 		Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
 	var checks []conformance.DeclaredCheck
 	for _, name := range []string{"one", "two", "three", "four", "five"} {
-		checks = append(checks, conformance.DeclaredCheck{Block: "style", Version: 1, Check: check.Declaration{Name: name, Evaluator: "llm", Rubric: name, Scope: check.ScopeTree, Files: []string{"README.md"}}})
+		checks = append(checks, conformance.DeclaredCheck{Block: "style", Version: 1, Check: check.Declaration{AppliesTo: []string{"repository"}, Name: name, Evaluator: "llm", Rubric: name, Scope: check.ScopeTree, Files: []string{"README.md"}}})
 	}
 	results, _, _ := a.runLLMChecklist(t.Context(), workflow.Source{RunID: idstest.N(1), ProjectID: f.ProjectID}, checks, checked{Src: src})
 	var got []string
@@ -344,7 +344,7 @@ func TestLLMChecklistSkipsWithoutModel(t *testing.T) {
 	a := &Guidance{selection: model.NewSelection(model.New(testDB(t))), evaluator: NewEvaluator(nil, nil, stock.Versions())}
 	source := workflow.Source{RunID: idstest.N(1), ProjectID: ids.Nil}
 	checks := []conformance.DeclaredCheck{
-		{Block: "style", Version: 1, Check: conformance.CheckDeclaration{Name: "tone", Evaluator: "llm", Rubric: "kind wording"}},
+		{Block: "style", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "tone", Evaluator: "llm", Rubric: "kind wording"}},
 	}
 	results, findings, meta := a.runLLMChecklist(context.Background(), source, checks, checked{Src: t.TempDir()})
 	if len(results) != 1 || results[0].Verdict != workflow.VerdictSkipped {
@@ -370,8 +370,8 @@ func TestGateJudgesTheMemoryContractAndSkipsTheStandingCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 	checks := []conformance.DeclaredCheck{
-		{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{Name: "memory-declared", Evaluator: "runtime", Probe: "memory-declared", Severity: "medium"}},
-		{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{Name: "memory-within", Evaluator: "runtime", Probe: "memory-within", Severity: "high"}},
+		{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "memory-declared", Evaluator: "runtime", Probe: "memory-declared", Severity: "medium"}},
+		{Block: "deploy/memory-declared", Version: 1, Check: conformance.CheckDeclaration{AppliesTo: []string{"repository"}, Name: "memory-within", Evaluator: "runtime", Probe: "memory-within", Severity: "high"}},
 	}
 	res, findings, unjudged := a.runRuntimeChecksForRun(t.Context(), &workflow.Run{ID: idstest.N(1), ProjectID: idstest.N(1), ChangeID: ids.Nil}, checks, tree, "", "medium", "")
 	if len(res) != 2 || len(unjudged) != 0 {

@@ -17,6 +17,7 @@ packs:
       - deploy/browser-values
       - deploy/memory-declared
       - repo/no-build-artifacts
+      - repo/contract-matches-code
     workflows: [land, ship, adopt-integration, retire-integration]
   - name: conventions-only
     description: >-
@@ -29,6 +30,7 @@ packs:
       - build/toolchain-mise
       - deploy/health-declared
       - repo/no-build-artifacts
+      - repo/contract-matches-code
       - prose/no-claude-speak
     workflows: [land, implement, quick-change, fix-bug, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
@@ -37,7 +39,7 @@ packs:
     description: >-
       Go services, Postgres, a React UI built with Vite, REST and
       server-sent events, and few dependencies.
-    tools: {go: "1.27"}
+    tools: {go: "1.27", node: "24"}
     toolchain: go
     extensions: [lsp]
     guidance:
@@ -83,6 +85,7 @@ packs:
       WebAssembly. GDScript, the Compatibility renderer, threads off, and a
       Dockerfile that exports and serves the game. Starts with a small
       working first-person game to change.
+    tools: {godot: "4.4"}
     guidance:
       - game/godot-web
       - game/player-first
@@ -308,7 +311,7 @@ packs:
       Experimental: no app shipped from the current starter yet. WordPress with Composer-locked core and plugins, an immutable PHP/Apache
       image, deployment-owned MariaDB, and uploads in the deployment's own object storage, served by the site.
       Starts with a small neutral theme; code updates go through reviewed builds.
-    tools: {mariadb: "11.4"}
+    tools: {mariadb: "11.4", php: "8.3"}
     services:
       - name: mariadb
         image: mariadb:11.4.13

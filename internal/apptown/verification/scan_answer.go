@@ -2,7 +2,6 @@ package verification
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/check"
@@ -21,8 +20,10 @@ type scanAnswer struct {
 	// errored, or its declared structured report is missing, unreadable or
 	// malformed. "" when it answered.
 	failure string
-	// nothingToScan: osv found no package sources, a pass with nothing to do.
-	nothingToScan bool
+	// empty: the scanner gave its declared nothing-to-judge exit
+	// (Scanner.EmptyExit), where it applies a failure: the contract says
+	// there is something for it to judge.
+	empty bool
 }
 
 // readScan reads a scanner run's answer. A scanner that declares a structured
@@ -43,8 +44,8 @@ func readScan(outcome execution.Outcome, m check.Scanner, binding string) scanAn
 		a.failure = fmt.Sprintf("the scan did not run: %v", outcome.RunErr)
 		return a
 	}
-	if a.exit == 128 && strings.Contains(m.Image, "osv") {
-		a.nothingToScan = true // no package sources found
+	if m.EmptyExit != 0 && a.exit == m.EmptyExit {
+		a.empty = true
 		return a
 	}
 	if a.exit > 1 {

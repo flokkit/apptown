@@ -29,7 +29,8 @@ chooses its workflows.
   per project: **new failures** (by check, including an exception that
   would no longer cover one), **could not assess**, **no new failures**, or
   **not evaluated**; beside that, a score (how many checks pass, fail,
-  could not be assessed and why, and what would make them assessable) and
+  are not applicable to what the project declares, could not be assessed
+  and why, and what would make them assessable) and
   the rules the version moves. A rule taken to an **older version** or
   **removed** is marked **moves back**: going back is allowed, never
   silent, and the adoption Change says it too. The top of the page lists the

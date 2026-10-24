@@ -164,7 +164,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
       <LaneSection {...sectionProps} lane="flagged" title="Flagged by AI review" hint="a rubric judged this; confirm before it counts" />
       <LaneSection {...sectionProps} lane="excepted" title="Excepted" hint="fails, but accepted on the record" />
       <LaneSection {...sectionProps} lane="unassessed" title="Not yet judged" collapsed />
-      <LaneSection {...sectionProps} lane="na" title="Not applicable in a review" hint="transition checks run only when a change lands" collapsed />
+      <LaneSection {...sectionProps} lane="na" title="Not applicable" hint="checks that apply to nothing this app declares, or that judge one change and run when a change lands; each says why" collapsed />
       <LaneSection {...sectionProps} lane="conforms" title="Conforms" collapsed />
     </div>
   )
