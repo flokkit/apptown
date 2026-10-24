@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // Losing the fence must not turn a preserved preview into an unfenced one.
@@ -18,7 +19,7 @@ func TestALostFenceAdmitsNothingButAClaim(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
-	srv := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	client := workertest.Client(t, ca, workertest.Installation)
 	client.Transport = laterBootTransport{base: client.Transport}
@@ -38,7 +39,7 @@ func TestALostFenceAdmitsNothingButAClaim(t *testing.T) {
 	if err := os.Remove(filepath.Join(state, "previews", "fence.json")); err != nil {
 		t.Fatal(err)
 	}
-	restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	restarted.SweepPreviews(context.Background(), true)
 	hs2 := workertest.StartServer(t, ca, restarted)
 	p.URL = hs2.URL
@@ -53,7 +54,7 @@ func TestALostFenceAdmitsNothingButAClaim(t *testing.T) {
 func TestAClaimDoesNotRevisitRemovedHistory(t *testing.T) {
 	binary, _ := sweepDocker(t)
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation), Session: "2"}
 	// Two removed names: a claim that forgets none, or only one, of them
@@ -99,7 +100,7 @@ func TestAFenceThatCannotBeWrittenAdmitsNothing(t *testing.T) {
 		t.Run(action, func(t *testing.T) {
 			binary, dk := sweepDocker(t)
 			ca := workertest.NewCA(t)
-			srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+			srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 			hs := workertest.StartServer(t, ca, srv)
 			p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation), Session: "2"}
 			if code := fencedDelete(t, p, "", "2", "1"); code != http.StatusNoContent {
@@ -143,7 +144,7 @@ func TestAFenceThatCannotBeWrittenAdmitsNothing(t *testing.T) {
 func TestACorruptFenceAdmitsNothing(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	name := "apptown-preview-change-903"
 	seedPreview(t, srv.State, dk, name)
 	if err := os.WriteFile(filepath.Join(srv.State, "previews", "fence.json"), []byte("{"), 0600); err != nil {

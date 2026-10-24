@@ -3,13 +3,14 @@ package integration
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/apptown/dependency"
-	"github.com/flokkit/apptown/stock"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/dependency"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"

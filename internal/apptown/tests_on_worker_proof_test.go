@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -70,7 +71,7 @@ func newNoHostWorld(t *testing.T, command string, scriptMinutes int) noHostWorld
 	}
 	ca := workertest.NewCA(t)
 	w.state = t.TempDir()
-	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: w.state, Tasks: fake,
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: w.state, Tasks: fake,
 		Checks: execution.Runner{DockerBinary: workerCheckDocker(t, w.calls)}})
 	a.cfg.worker = &execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	a.cfg.agentContext = "../../deploy/apptown-agent"

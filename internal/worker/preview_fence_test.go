@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 func fencedDelete(t *testing.T, p worker.Previews, name, session, seq string) int {
@@ -68,7 +69,7 @@ func TestALateClaimNeverUndoesAConfirmedClaimAndBoot(t *testing.T) {
 		t.Run(strconv.FormatBool(previous), func(t *testing.T) {
 			binary, dk := sweepDocker(t)
 			ca := workertest.NewCA(t)
-			srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+			srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 			hs := workertest.StartServer(t, ca, srv)
 			p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation), Session: "2"}
 			p.Client.Transport = laterBootTransport{base: p.Client.Transport}
@@ -112,7 +113,7 @@ func TestAClaimRequiresItsSessionAndNumber(t *testing.T) {
 		t.Run(headers[0]+"_"+headers[1], func(t *testing.T) {
 			binary, dk := sweepDocker(t)
 			ca := workertest.NewCA(t)
-			srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+			srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 			hs := workertest.StartServer(t, ca, srv)
 			p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation), Session: "2"}
 			// On a worker never claimed, whose fence is still zero.
@@ -143,7 +144,7 @@ func TestAWorkerRestartKeepsTheLatestClaim(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
-	first := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	first := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	hs := workertest.StartServer(t, ca, first)
 	client := workertest.Client(t, ca, workertest.Installation)
 	p := worker.Previews{URL: hs.URL, Client: client, Session: "2"}
@@ -159,7 +160,7 @@ func TestAWorkerRestartKeepsTheLatestClaim(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.Close()
-	restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	restarted.SweepPreviews(context.Background(), true)
 	hs2 := workertest.StartServer(t, ca, restarted)
 	p.URL = hs2.URL
@@ -179,7 +180,7 @@ func TestAWorkerRestartKeepsRequestOrder(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
-	first := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	first := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	hs := workertest.StartServer(t, ca, first)
 	client := workertest.Client(t, ca, workertest.Installation)
 	// Use a fixed later sequence for the real reuse, so this test is
@@ -199,7 +200,7 @@ func TestAWorkerRestartKeepsRequestOrder(t *testing.T) {
 		t.Fatalf("fixture: old removal before restart: %d", code)
 	}
 	hs.Close()
-	restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	restarted.SweepPreviews(context.Background(), true)
 	hs2 := workertest.StartServer(t, ca, restarted)
 	p.URL = hs2.URL
@@ -232,7 +233,7 @@ func TestAClaimInFlightNeverUndoesItsRetryAndBoot(t *testing.T) {
 	entered, resume := binary.holdFirst("ps")
 	defer resume()
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	var first atomic.Bool
 	settled := make(chan struct{})
 	hs := workertest.StartWith(t, ca, srv.State, nil, func(_ http.Handler) http.Handler {

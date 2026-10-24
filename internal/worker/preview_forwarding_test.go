@@ -16,6 +16,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // seen is what the preview's app was sent.
@@ -73,7 +74,7 @@ func forwardedPreview(t *testing.T) (apptownServer *httptest.Server, workerURL s
 	if err := os.MkdirAll(filepath.Join(state, "previews", "apptown-preview-change-9"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: state, Previews: dk})
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: dk})
 	client = workertest.Client(t, ca, workertest.Installation)
 	apptownServer = httptest.NewServer(worker.Previews{URL: hs.URL, Client: client}.Forward("apptown-preview-change-7", "https"))
 	t.Cleanup(apptownServer.Close)

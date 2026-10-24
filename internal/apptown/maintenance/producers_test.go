@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // The containers a step leaves, its own and its private daemon's, are aged
@@ -42,7 +43,7 @@ func TestAStepsContainersAgeOnAppTownsClock(t *testing.T) {
 		return nil, nil, true
 	})
 	db := databaseSuite.New(t)
-	workshop := agentenv.NewWorkshop(&docker.Scope{Client: starting}, integration.NewService(db, integration.Dependencies{}), nil, t.TempDir(), "apptown-agent", clockNow)
+	workshop := agentenv.NewWorkshop(&docker.Scope{Client: starting}, integration.NewService(db, integration.Dependencies{}), nil, t.TempDir(), "apptown-agent", stock.Images().PrivateDocker, clockNow)
 	if _, _, cleanup, err := workshop.StartStep(t.Context(), idstest.N(999), t.TempDir(), "net", ".docker"); err != nil {
 		t.Fatal(err)
 	} else {
@@ -64,7 +65,7 @@ func TestAStepsContainersAgeOnAppTownsClock(t *testing.T) {
 	})
 	sessions := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: t.TempDir()}})
 	reaper := func(at time.Time) *Reaper {
-		return New(db, Dependencies{Docker: docker.Scope{Client: daemon}, Sessions: sessions, Now: func() time.Time { return at }}, t.TempDir())
+		return New(db, Dependencies{ToolVersions: stock.Versions(), Docker: docker.Scope{Client: daemon}, Sessions: sessions, Now: func() time.Time { return at }}, t.TempDir())
 	}
 	if got := reaper(made).Containers(context.Background(), true); len(got) != 0 {
 		t.Fatalf("reaped containers just made by AppTown's clock: %v", got)
@@ -118,7 +119,7 @@ func TestAStepsNetworksCarryTheOwnerTheReaperReads(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
-	workshop := agentenv.NewWorkshop(&scope, integration.NewService(db, integration.Dependencies{}), nil, t.TempDir(), "apptown-agent", time.Now)
+	workshop := agentenv.NewWorkshop(&scope, integration.NewService(db, integration.Dependencies{}), nil, t.TempDir(), "apptown-agent", stock.Images().PrivateDocker, time.Now)
 	_, dindNet, dindCleanup, err := workshop.StartStep(t.Context(), stepID, t.TempDir(), "", ".docker")
 	if err != nil {
 		t.Fatal(err)
@@ -143,7 +144,7 @@ func TestAStepsNetworksCarryTheOwnerTheReaperReads(t *testing.T) {
 		return nil, nil, false
 	})
 	sessions := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: t.TempDir()}})
-	r := New(db, Dependencies{Docker: docker.Scope{Client: daemon}, Sessions: sessions}, t.TempDir())
+	r := New(db, Dependencies{ToolVersions: stock.Versions(), Docker: docker.Scope{Client: daemon}, Sessions: sessions}, t.TempDir())
 	if got := r.Containers(context.Background(), true); strings.Join(got, ",") != network+","+dindNet {
 		t.Fatalf("would reap %v, want the step's networks %s and %s", got, network, dindNet)
 	}

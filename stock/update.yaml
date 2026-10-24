@@ -1,0 +1,7 @@
+# The header of the ways-of-working update this directory is built into
+# (internal/stockupdate; design/subsystems/ways-of-working-versions.md). The
+# build stamps its name (the AppTown version, v1.0.0 or dev-<commit>) and
+# its publication time; worksWith is the AppTown versions that can read it.
+apiVersion: apptown.dev/v1
+kind: WaysOfWorkingUpdate
+worksWith: ">=1.0.0"

@@ -161,7 +161,7 @@ func TestWordPressUploadsCheckFailsOnTheHandEnteredS3Starter(t *testing.T) {
 		".apptown/app.yaml": "app:\n  web:\n    build: .\n    public: true\nneeds:\n  mariadb: {version: \"11.4.13\"}\n",
 		"secretspec.toml":   spec.String(),
 	})
-	results, _, errs := NewEvaluator(localChecks{}, nil).runShChecks(context.Background(), []conformance.DeclaredCheck{{Block: "lang/selection/wordpress-bedrock", Version: 1, Check: *check}}, dir, "t-wordpress-rc5")
+	results, _, errs := NewEvaluator(localChecks{}, nil, stock.Versions()).runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{{Block: "lang/selection/wordpress-bedrock", Version: 1, Check: *check}}, dir, "t-wordpress-rc5")
 	if errs != 0 || len(results) != 1 {
 		t.Fatalf("the check did not run on the rc.5 starter: %d errors, %v", errs, results)
 	}

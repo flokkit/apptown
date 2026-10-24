@@ -40,7 +40,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 	dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
 	c := &appcontract.Part{Build: ".", Port: 8080, DataDir: "/data"}
-	port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: ws, Persistent: true}, c, "", nil)
+	port, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: ws, Persistent: true}, c, "", nil)
 	if err != nil || port != 40001 {
 		t.Fatalf("start on the attached host: port=%d err=%v calls=%v", port, err, client.calls)
 	}
@@ -99,7 +99,7 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost(tc.host, "192.0.2.10", "")
-			port, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-site-main", Slug: "site", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
+			port, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-site-main", Slug: "site", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -135,7 +135,7 @@ func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", tc.domain)
-			if _, err := NewHost(Dependencies{Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
+			if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
 				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil); err != nil {
 				t.Fatal(err)
 			}
@@ -175,7 +175,7 @@ func TestAFailedStartKeepsTheEndOfTheDaemonsAnswer(t *testing.T) {
 				return nil, nil
 			}}
 			dk := (Scope{Client: client}).WithHost("ssh://h", "h.example", c.domain)
-			_, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-shop-main", Slug: "shop", Deployment: "main", Workspace: t.TempDir()}, &appcontract.Part{Image: "shop:1", Port: 8080}, "", nil)
+			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-shop-main", Slug: "shop", Deployment: "main", Workspace: t.TempDir()}, &appcontract.Part{Image: "shop:1", Port: 8080}, "", nil)
 			if err == nil || !strings.Contains(err.Error(), "docker "+c.fails+": …(") || !strings.HasSuffix(err.Error(), "Error: port 8080 is already allocated") || len(err.Error()) > startFailureTail+100 {
 				t.Fatalf("start failure (%d bytes): %v", len(fmt.Sprint(err)), err)
 			}
@@ -196,7 +196,7 @@ func TestMainsTrafficNeverReachesAnotherDeployment(t *testing.T) {
 		client := &remoteAppClient{}
 		dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", "apps.example.com")
 		name := ByKey(keyed(byte(len(started) + 1))).App()
-		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Slug: "bkproof", Deployment: deployment, Workspace: t.TempDir(), Persistent: true},
+		if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: name, Slug: "bkproof", Deployment: deployment, Workspace: t.TempDir(), Persistent: true},
 			&appcontract.Part{Image: "example/bkproof:1", Port: 8080}, "", nil); err != nil {
 			t.Fatal(err)
 		}

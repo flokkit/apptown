@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A declared result file is read as a check's report is: a regular file
@@ -15,7 +16,7 @@ import (
 // large, not cut short.
 func TestAResultFileIsReadConfined(t *testing.T) {
 	t.Parallel()
-	s := &Server{State: t.TempDir()}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir()}
 	tree, state := s.workspacePath("ws"), s.statePath("ws")
 	outside := t.TempDir()
 	write := func(path, body string) {
@@ -90,7 +91,7 @@ func TestAResultFileIsReadConfined(t *testing.T) {
 // the link itself goes.
 func TestFreshRemovalFollowsNoLink(t *testing.T) {
 	t.Parallel()
-	s := &Server{State: t.TempDir()}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir()}
 	tree := s.workspacePath("ws")
 	outside := t.TempDir()
 	secret := filepath.Join(outside, "review.json")

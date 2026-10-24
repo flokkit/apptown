@@ -111,7 +111,7 @@ func (w *targetHTTPWorld) createProject(t *testing.T, slug string) ids.ID {
 func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	targets, deployments := deployment.NewTargets(w.db, targetTestConnectors{}), deployment.NewDeployments(w.db)
 	w.hosts = deployment.NewHosts(targets, w.secrets, deployment.HostSettings{Scope: docker.Scope{Client: client}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), BuiltInTarget: targetTestBuiltin})
-	environment := deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{Secrets: w.secrets, Integrations: w.integrations, Needs: w.needs, Projects: w.projects})
+	environment := deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: w.integrations, Needs: w.needs, Projects: w.projects})
 	w.providers = deployment.NewProviders(context.Background(), w.db, deployment.ProviderRecords{Targets: targets, Deployments: deployments}, w.hosts, environment,
 		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud})
 	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,

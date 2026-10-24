@@ -18,7 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/stock"
+	"github.com/flokkit/apptown/stock/docs"
 )
 
 type ProjectAttachments struct {
@@ -483,7 +483,7 @@ func integrationDocPath(capability string) string {
 		if c.Capability != capability {
 			continue
 		}
-		if _, err := stock.FS.ReadFile("docs/integrations/" + c.Capability + "-" + c.Provider + ".developer.md"); err == nil {
+		if _, err := docs.FS.ReadFile("integrations/" + c.Capability + "-" + c.Provider + ".developer.md"); err == nil {
 			return "/docs/" + c.Capability + "/" + c.Provider
 		}
 	}

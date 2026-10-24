@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A declared image is captured as a result file is read: a folder of
@@ -23,7 +24,7 @@ func TestAnImageIsCapturedConfined(t *testing.T) {
 	// workertest imports this package), never the machine's own disk. The
 	// capture's disk refusal is
 	// TestAnImageWhoseCopyWouldFillTheStateFolderIsRefused's.
-	s := &Server{State: t.TempDir(), StateDisk: func(string) (diskspace.Space, error) {
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), StateDisk: func(string) (diskspace.Space, error) {
 		return diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 50 << 30}, nil
 	}}
 	state := s.statePath("ws")

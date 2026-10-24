@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 )
 
 // recordingDocker is a docker executable that records its arguments, and,
@@ -79,7 +80,7 @@ func TestADiskReadWithNoAnswerSaysWhatTheProbeShowed(t *testing.T) {
 	t.Parallel()
 	binary, calls := recordingDocker(t)
 	dir := filepath.Dir(calls)
-	d := DockerTasks{Binary: binary, Namespace: "test"}
+	d := DockerTasks{ToolVersions: stock.Versions(), Binary: binary, Namespace: "test"}
 	spec := TaskSpec{Key: "script-1", Image: "alpine:3", Argv: []string{"true"}, Admission: Admission{Profile: "local", Network: NetworkDefault}}
 	for _, tc := range []struct {
 		flag string
@@ -127,7 +128,7 @@ func TestALocalTaskIsRefusedOnADiskShortOfSpace(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	d := DockerTasks{Binary: binary, Namespace: "test", Files: t.TempDir()}
+	d := DockerTasks{ToolVersions: stock.Versions(), Binary: binary, Namespace: "test", Files: t.TempDir()}
 	spec := TaskSpec{Key: "script-1", Image: "alpine:3", Argv: []string{"true"}, Admission: Admission{Profile: "local", Network: NetworkDefault},
 		Files: []File{configFile}}
 	created := func() bool { b, _ := os.ReadFile(calls); return strings.Contains(string(b), "create") }
@@ -166,7 +167,7 @@ func TestALocalTaskIsRefusedOnADiskShortOfSpace(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A caller that admitted the disk itself (a worker) is not asked again.
-	if _, err := (DockerTasks{Binary: binary, Namespace: "test", Files: t.TempDir(), CallerAdmitsDisk: true}).Ensure(context.Background(), spec); err != nil || !created() {
+	if _, err := (DockerTasks{ToolVersions: stock.Versions(), Binary: binary, Namespace: "test", Files: t.TempDir(), CallerAdmitsDisk: true}).Ensure(context.Background(), spec); err != nil || !created() {
 		t.Fatalf("a task its caller admitted: %v", err)
 	}
 	if err := os.Remove(calls); err != nil {
@@ -319,7 +320,7 @@ func TestALocalTaskKeepsItsFilesUntilItIsReleased(t *testing.T) {
 	t.Parallel()
 	binary, calls := recordingDocker(t)
 	root := t.TempDir()
-	d := DockerTasks{Binary: binary, Files: root, Namespace: "test"}
+	d := DockerTasks{ToolVersions: stock.Versions(), Binary: binary, Files: root, Namespace: "test"}
 	spec := TaskSpec{Key: "script-1", Image: "alpine:3", Argv: []string{"true"}, Admission: Admission{Profile: "local", Network: NetworkDefault},
 		Files: []File{configFile}}
 	if _, err := d.Ensure(context.Background(), spec); err != nil {
@@ -349,7 +350,7 @@ func TestALocalTaskKeepsItsFilesUntilItIsReleased(t *testing.T) {
 	if _, err := os.Stat(folder); !os.IsNotExist(err) {
 		t.Fatal("the task's files outlived it")
 	}
-	if _, err := (DockerTasks{Binary: binary}).Ensure(context.Background(), spec); !errors.Is(err, ErrUnsupported) {
+	if _, err := (DockerTasks{ToolVersions: stock.Versions(), Binary: binary}).Ensure(context.Background(), spec); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("a driver with no folder for files: %v", err)
 	}
 }

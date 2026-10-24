@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 
@@ -52,7 +53,7 @@ func startRemoteChats(t *testing.T, env console.Environment) *remoteChats {
 	ca := workertest.NewCA(t)
 	rt := consoletest.NewAgent()
 	state, data := t.TempDir(), t.TempDir()
-	srv := workertest.StartServer(t, ca, &worker.Server{State: state, Sessions: rt})
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: state, Sessions: rt})
 	client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	agent := &worker.RemoteAgent{Sessions: client, Image: "apptown-agent", Root: filepath.Join(data, "console"), CopyEvery: 50 * time.Millisecond}
 	t.Cleanup(agent.Close)
@@ -515,7 +516,7 @@ func TestAChatIsRefusedAnImageTheWorkerDoesNotHave(t *testing.T) {
 	ctx := context.Background()
 	ca := workertest.NewCA(t)
 	rt := consoletest.NewAgent()
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Sessions: rt, Images: images{"apptown-agent:aaaaaaaaaaaa": true}})
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Sessions: rt, Images: images{"apptown-agent:aaaaaaaaaaaa": true}})
 	client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	if _, err := client.Put(ctx, "c1", worker.SessionSpec{Image: "apptown-agent:bbbbbbbbbbbb", AgentSession: "console"}); err != nil {
 		t.Fatal(err)

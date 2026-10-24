@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A task's admission expiry is judged on the driver's clock, the one that
@@ -29,7 +30,7 @@ func TestATasksExpiryIsJudgedOnTheDriversClock(t *testing.T) {
 		later  func(*execution.TaskSpec) // refused after the expiry is judged
 	}{
 		{"docker", func(now func() time.Time, s execution.TaskSpec) error {
-			_, err := execution.DockerTasks{Now: now}.Ensure(context.Background(), s)
+			_, err := execution.DockerTasks{ToolVersions: stock.Versions(), Now: now}.Ensure(context.Background(), s)
 			return err
 		}, func(s *execution.TaskSpec) { s.SharedWorkspace = "shared" }},
 		{"worker", func(now func() time.Time, s execution.TaskSpec) error {

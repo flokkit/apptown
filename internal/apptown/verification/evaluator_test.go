@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 // The test supplies only completion; an unexpected command or runtime probe
@@ -36,7 +37,7 @@ func TestChecklistAsksAgainForJSON(t *testing.T) {
 			t.Errorf("the second ask says what was wrong")
 		}
 		return `[{"item":1,"verdict":"conforms","detail":"fine"}]`, &modelcall.Usage{}, nil
-	}}, nil)
+	}}, nil, stock.Versions())
 	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
 	items := check.DiffItems(declaredAll([]conformance.DeclaredCheck{sc}), "diff")
 	by, meta, err := e.Checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
@@ -57,7 +58,7 @@ func TestChecklistKeepsTheSpendOfAFailedCall(t *testing.T) {
 			return "prose, not JSON", &modelcall.Usage{Prompt: 4, Completion: 2, Cost: 0.5}, nil
 		}
 		return "", &modelcall.Usage{Incomplete: "the call ended after it was sent"}, errors.New("timeout")
-	}}, nil)
+	}}, nil, stock.Versions())
 	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "c", Expects: "e", Rubric: "r", Evaluator: "llm", Scope: "diff"}}
 	items := check.DiffItems(declaredAll([]conformance.DeclaredCheck{sc}), "diff")
 	_, meta, err := e.Checklist(context.Background(), modelcall.Call{Purpose: "guidance-checklist", Model: "openrouter/test-model"}, items, "diff")
@@ -83,9 +84,9 @@ func TestAShellChecksDurationIsAppTownsClock(t *testing.T) {
 	t.Parallel()
 	var at atomic.Int64
 	at.Store(time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC).UnixNano())
-	e := NewEvaluator(timedRun{at: &at}, func() time.Time { return time.Unix(0, at.Load()) })
+	e := NewEvaluator(timedRun{at: &at}, func() time.Time { return time.Unix(0, at.Load()) }, stock.Versions())
 	sc := conformance.DeclaredCheck{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "quick", Expects: "e", Evaluator: "sh", Sh: "exit 0", Severity: "low"}}
-	results, _, _ := e.runShChecks(context.Background(), []conformance.DeclaredCheck{sc}, t.TempDir(), "t-clock")
+	results, _, _ := e.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{sc}, t.TempDir(), "t-clock")
 	if len(results) != 1 || results[0].DurationMs == nil || *results[0].DurationMs != 7000 {
 		t.Fatalf("a check seven seconds long on AppTown's clock: %+v", results)
 	}

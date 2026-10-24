@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A worker serves the AppTown installations whose protocol is in its range and refuses
@@ -21,7 +22,7 @@ import (
 func TestAWorkerServesOnlyAppTownProtocolsInItsRange(t *testing.T) {
 	t.Parallel()
 	ca := workertest.NewCA(t)
-	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir()})
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir()})
 	client := workertest.BareClient(t, ca, workertest.Installation)
 	get := func(protocol string) *http.Response {
 		t.Helper()

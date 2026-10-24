@@ -47,7 +47,7 @@ func TestAnAppsContainersAndBuildsAreGivenTheExtraCertificates(t *testing.T) {
 	}
 	start := func(dk Scope) string {
 		client := dk.Client.(*remoteAppClient)
-		if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-w-main", Slug: "w", Deployment: "main", Workspace: ws}, &appcontract.Part{Build: ".", Port: 8080}, "", nil); err != nil {
+		if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-w-main", Slug: "w", Deployment: "main", Workspace: ws}, &appcontract.Part{Build: ".", Port: 8080}, "", nil); err != nil {
 			t.Fatal(err)
 		}
 		plan := &appcontract.Plan{Init: []appcontract.InitContainer{{Name: "migrate", Image: "app:1"}}}

@@ -66,11 +66,13 @@ func workflowByNameIn(ctx context.Context, q *wowsql.Queries, name string) (wows
 type Workflows struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock; nil is the real one
+	// stock is where the stock sync's versions came from (source and signer, origin.go).
+	stock Origin
 }
 
 func (s *Workflows) now() time.Time { return clock.Or(s.clock)() }
 
-func NewWorkflows(db *database.DB) *Workflows { return &Workflows{db: db} }
+func NewWorkflows(db *database.DB) *Workflows { return &Workflows{db: db, stock: shippedOrigin("")} }
 
 // Version is one version's YAML (0 = the latest), through q.
 func WorkflowVersionIn(ctx context.Context, q database.Queryer, name string, version int) (int, string, error) {
@@ -161,7 +163,7 @@ func (s *Workflows) Put(ctx context.Context, yamlSrc, who string) (name string, 
 			}
 			version = nextVersion(rows)
 		}
-		if _, err := q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: int64(version), Yaml: yamlSrc, At: now}); err != nil {
+		if _, err := q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: int64(version), Yaml: yamlSrc, At: now, Source: AuthoredHere.Source, Signer: AuthoredHere.Signer}); err != nil {
 			return err
 		}
 		if created {

@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // observationService is the preview owner over a daemon, with no worker:
@@ -23,7 +24,7 @@ func observationService(t *testing.T, client docker.Client) *Service {
 	db := testDB(t)
 	targets, dir := deployment.NewTargets(db, nil), t.TempDir()
 	return New(db, Dependencies{DataDir: dir, Hosts: deployment.NewHosts(targets, nil, deployment.HostSettings{Scope: docker.Scope{Client: client}, DataDir: dir}),
-		Environment: deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{})})
+		Environment: deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{ToolVersions: stock.Versions()})})
 }
 
 func TestPreviewObservationAndWireShape(t *testing.T) {

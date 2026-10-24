@@ -139,7 +139,7 @@ func TestARubricWhoseEvidenceCannotBeReadIsNotJudged(t *testing.T) {
 		t.Fatalf("items: %+v", items)
 	}
 	var asked string
-	j := &check.Judge{Complete: check.CompleterFunc(func(_ context.Context, _, user string) (check.Completion, error) {
+	j := &check.Judge{ShImage: testShImage, Complete: check.CompleterFunc(func(_ context.Context, _, user string) (check.Completion, error) {
 		asked = user
 		return check.Completion{Text: `[{"item":1,"verdict":"pass"},{"item":2,"verdict":"pass"}]`}, nil
 	})}

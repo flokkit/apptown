@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/worker"
@@ -59,7 +60,7 @@ func TestACheckImageIsPreparedOnTheWorker(t *testing.T) {
 	t.Parallel()
 	binary, calls, _ := fakeImageDocker(t)
 	ca := workertest.NewCA(t)
-	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
 	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	ctx := context.Background()
 	tree := t.TempDir()
@@ -115,7 +116,7 @@ func TestAnImageIsScannedAndRunWhereItWasPrepared(t *testing.T) {
 	t.Parallel()
 	binary, calls, _ := fakeImageDocker(t)
 	ca := workertest.NewCA(t)
-	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
 	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	scan := checks.Run(context.Background(), execution.Request{Workspace: t.TempDir(), Image: "trivy:test", Argv: []string{"image", "--input", "/work/.apptown/image.tar"},
 		Network: "none", Timeout: time.Minute, Name: "s", ExportImage: "sha256:app"})
@@ -159,7 +160,7 @@ exit 0
 		t.Fatal(err)
 	}
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}}
 	hs := workertest.StartServer(t, ca, srv)
 	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	uses := filepath.Join(srv.State, "check-images")

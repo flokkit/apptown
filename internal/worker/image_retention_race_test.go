@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // Preparation may overlap a sweep. Pause Docker's removal after the sweep
@@ -41,7 +42,7 @@ func TestAPreparationNeverReturnsAnImageBeingSwept(t *testing.T) {
 	binary.reply = func(args []string) ([]byte, error, bool) { out, err := answer(args); return out, err, true }
 	ctx := t.Context()
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: imageChecks{answer}}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: imageChecks{answer}}
 	hs := workertest.StartServer(t, ca, srv)
 	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	uses := filepath.Join(srv.State, "check-images")

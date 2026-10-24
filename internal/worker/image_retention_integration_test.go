@@ -13,7 +13,7 @@ import (
 	"time"
 
 	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/worker"
 )
@@ -46,7 +46,7 @@ func TestIntegrationAnExpiredImageWithTwoNamesIsRemoved(t *testing.T) {
 	cli("build", "-q", "-t", first, tree)
 	cli("tag", first, second)
 	id := cli("image", "inspect", "--format", "{{.Id}}", first)
-	srv := worker.Server{State: t.TempDir()}
+	srv := worker.Server{ToolVersions: stock.Versions(), State: t.TempDir()}
 	uses := filepath.Join(srv.State, "check-images")
 	if err := os.MkdirAll(uses, 0700); err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestIntegrationAnExpiredImageInUseIsKept(t *testing.T) {
 	nonce := fmt.Sprintf("%d-%d", os.Getpid(), time.Now().UnixNano())
 	tag := "apptown-review-step4:" + nonce + "-used"
 	tree := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tree, "Dockerfile"), []byte("FROM "+diskspace.DFImage+"\nLABEL apptown.class=check review.test="+nonce+"\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(tree, "Dockerfile"), []byte("FROM "+stock.Images().DF+"\nLABEL apptown.class=check review.test="+nonce+"\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	cli("build", "-q", "-t", tag, tree)
@@ -98,7 +98,7 @@ func TestIntegrationAnExpiredImageInUseIsKept(t *testing.T) {
 		_ = exec.Command(docker, "rm", "-f", container).Run()
 		_ = exec.Command(docker, "rmi", tag).Run()
 	})
-	srv := worker.Server{State: t.TempDir()}
+	srv := worker.Server{ToolVersions: stock.Versions(), State: t.TempDir()}
 	uses := filepath.Join(srv.State, "check-images")
 	if err := os.MkdirAll(uses, 0700); err != nil {
 		t.Fatal(err)

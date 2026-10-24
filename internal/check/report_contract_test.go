@@ -22,7 +22,7 @@ func TestAToolsReportFailsClosed(t *testing.T) {
 		{"declared unstructured report missing", "", nil, errors.New("missing")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			j := &check.Judge{Scanners: oneScanner{Name: "t", Image: "x", Report: ".apptown/report", Format: tc.format}, Run: func(req execution.Request) execution.Outcome {
+			j := &check.Judge{ShImage: testShImage, Scanners: oneScanner{Name: "t", Image: "x", Report: ".apptown/report", Format: tc.format}, Run: func(req execution.Request) execution.Outcome {
 				return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: tc.report, ReportErr: tc.err}
 			}}
 			ev := j.EvaluateTool(check.Declared{Declaration: check.Declaration{Name: "tool", Tool: "t"}}, check.Source{Tree: t.TempDir()}, check.Gate, "review")
@@ -34,7 +34,7 @@ func TestAToolsReportFailsClosed(t *testing.T) {
 }
 
 func TestAShellCheckWhoseCleanupFailedIsAnError(t *testing.T) {
-	j := &check.Judge{Run: func(execution.Request) execution.Outcome {
+	j := &check.Judge{ShImage: testShImage, Run: func(execution.Request) execution.Outcome {
 		return execution.Outcome{Termination: execution.Exited, ExitCode: 0, CleanupErr: errors.New("cleanup failed")}
 	}}
 	ev := j.EvaluateSh([]check.Declared{sourced("b", 1, "rule", "true", "high")}, check.Source{Tree: t.TempDir()}, check.Gate, "review")
@@ -55,7 +55,7 @@ func TestAStaleReportThatCannotBeRemovedStopsTheTool(t *testing.T) {
 		t.Fatal(err)
 	}
 	ran := false
-	j := &check.Judge{Scanners: oneScanner{Name: "t", Image: "x", Report: ".apptown/report", Format: "sarif"}, Run: func(execution.Request) execution.Outcome {
+	j := &check.Judge{ShImage: testShImage, Scanners: oneScanner{Name: "t", Image: "x", Report: ".apptown/report", Format: "sarif"}, Run: func(execution.Request) execution.Outcome {
 		ran = true
 		return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: []byte(`{"version":"2.1.0","runs":[]}`)}
 	}}

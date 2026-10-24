@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executionfake"
@@ -258,7 +259,7 @@ func TestANewTaskIsRefusedWhileTheStateFolderIsShortOfSpace(t *testing.T) {
 	tasks := &executionfake.Tasks{}
 	var reading atomic.Value // func() (diskspace.Space, error)
 	set := func(s diskspace.Space, err error) { reading.Store(func() (diskspace.Space, error) { return s, err }) }
-	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: state, Tasks: tasks,
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Tasks: tasks,
 		StateDisk: func(path string) (diskspace.Space, error) {
 			if path != state {
 				return diskspace.Space{}, fmt.Errorf("read %s, not the state folder", path)
@@ -325,7 +326,7 @@ func TestATaskOnAShortDockerDiskIsRefusedBeforeTheWorkerWritesAnything(t *testin
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
 	tasks := dockerShortOfDisk{&executionfake.Tasks{}}
-	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: state, Tasks: tasks,
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Tasks: tasks,
 		StateDisk: func(string) (diskspace.Space, error) {
 			return diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 50 << 30}, nil
 		}})
@@ -372,7 +373,7 @@ func (d *dockerTurnsUnread) DataDisk(context.Context) (string, diskspace.Space, 
 func TestANewTaskIsAdmittedOnceBeforeItsFirstWrite(t *testing.T) {
 	ca := workertest.NewCA(t)
 	tasks := &dockerTurnsUnread{Tasks: &executionfake.Tasks{}}
-	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Tasks: tasks,
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Tasks: tasks,
 		StateDisk: func(string) (diskspace.Space, error) {
 			return diskspace.Space{TotalBytes: 100 << 30, FreeBytes: 50 << 30}, nil
 		}})

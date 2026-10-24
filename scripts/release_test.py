@@ -47,7 +47,12 @@ class ReleaseRefuses(unittest.TestCase):
 
 
 GO_STUB = r"""#!/bin/sh
-# go build ... -o PATH ...: make the file; go run scripts/release-facts.go: the facts.
+# go build ... -o PATH ...: make the file; go run scripts/stock-files.go -o DIR:
+# the update files; go run scripts/release-facts.go: the facts.
+case "$*" in *stock-files.go*)
+	while [ $# -gt 0 ]; do [ "$1" = -o ] && { mkdir -p "$2"; echo update > "$2/ways-of-working-v1.0.0.update"; echo update > "$2/tool-versions-v1.0.0.update"; }; shift; done
+	exit 0 ;;
+esac
 if [ "$1" = run ]; then printf 'WORKER_PROTOCOL=1-1\nCLI_PROTOCOL=1\nAGENT_IMAGE=apptown-agent:000000000000\n'; exit 0; fi
 while [ $# -gt 0 ]; do [ "$1" = -o ] && { mkdir -p "$(dirname "$2")"; echo binary > "$2"; }; shift; done
 """
@@ -107,6 +112,11 @@ class ReleaseChecksums(unittest.TestCase):
             with tarfile.open(os.path.join(out, a)) as t:
                 held = {os.path.basename(m.name) for m in t.getmembers()}
             self.assertTrue({"LICENSE", "NOTICE", "THIRD_PARTY_NOTICES"} <= held, a)
+            # The stock and tool versions the binaries read at start travel
+            # beside bin/: without them apptownd and the worker do not start.
+            with tarfile.open(os.path.join(out, a)) as t:
+                shipped = {m.name.split("/", 1)[1] for m in t.getmembers() if "/share/apptown/updates/" in m.name}
+            self.assertEqual(shipped, {"share/apptown/updates/ways-of-working-v1.0.0.update", "share/apptown/updates/tool-versions-v1.0.0.update"}, a)
 
     def test_a_failing_checksum_tool_fails_the_release(self):
         self.stub("sha256sum", "#!/bin/sh\nexit 1\n")

@@ -1,10 +1,11 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/schema"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/schema"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -15,7 +16,6 @@ import (
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/stock"
 )
 
 type PackLibrary struct {
@@ -95,7 +95,7 @@ func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 		// not pinned, so a missing one is only a warning.
 		var warnings []string
 		if in.Toolchain != "" {
-			if _, err := stock.FS.ReadFile("toolchains/" + in.Toolchain + ".toml"); err != nil {
+			if _, err := h.ways.Toolchain(in.Toolchain); err != nil {
 				warnings = append(warnings, "no stock toolchain: "+in.Toolchain)
 			}
 		}
@@ -103,7 +103,7 @@ func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 		// editor does not edit, so an unchanged save publishes what was
 		// written. The platform tier is not the editor's.
 		spec := encodedJSON(wow.PackSpec{Resources: in.Resources, Includes: in.Includes, Replaces: in.Replaces, Drops: in.Drops, Clears: in.Clears,
-			Guidance: in.Guidance, Workflows: in.Workflows, Policies: in.Policies, Toolchain: in.Toolchain,
+			Guidance: in.Guidance, Workflows: in.Workflows, Policies: in.Policies, Toolchain: in.Toolchain, Tools: in.Tools,
 			Services: in.Services, Extensions: in.Extensions, Requires: in.Requires})
 		version, err := h.ways.PublishPackVersion(r.Context(), in.Name, in.Description, spec, "", strings.TrimSpace(in.VersionName))
 		if err != nil {

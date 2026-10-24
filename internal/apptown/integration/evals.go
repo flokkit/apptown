@@ -3,9 +3,10 @@ package integration
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"slices"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"

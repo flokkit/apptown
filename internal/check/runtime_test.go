@@ -103,7 +103,7 @@ func TestTheMemoryProbesSayWhatAnswersThem(t *testing.T) {
 	}
 	// Only AppTown holds the contract and the deployment record: the
 	// library's own judge says so, and never probes an app for either.
-	j := &check.Judge{Probe: check.ProberFunc(func(context.Context, string) (int, error) {
+	j := &check.Judge{ShImage: testShImage, Probe: check.ProberFunc(func(context.Context, string) (int, error) {
 		t.Error("a memory probe reached the app")
 		return 200, nil
 	})}

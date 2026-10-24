@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 // The worker judges expiries, deadlines and leases by its own clock
@@ -71,7 +72,7 @@ func TestThePrivateSweepJudgesExpiryByTheWorkersClock(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			tasks := &stopRecorder{}
-			s := &Server{State: t.TempDir(), Docker: docker, Tasks: tasks, Now: skewed(c.ahead)}
+			s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Docker: docker, Tasks: tasks, Now: skewed(c.ahead)}
 			if err := s.writeRecord(record{Key: "agent-1", Private: &privateSet{Network: "apptown-private-agent-1"}}); err != nil {
 				t.Fatal(err)
 			}
@@ -87,7 +88,7 @@ func TestThePrivateSweepJudgesExpiryByTheWorkersClock(t *testing.T) {
 // the worker's clock.
 func TestAnExpiredAdmissionIsRefusedByTheWorkersClock(t *testing.T) {
 	t.Parallel()
-	s := &Server{State: t.TempDir(), Docker: fakeDocker(nil), Tasks: &stopRecorder{}, Now: skewed(2 * time.Hour)}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Docker: fakeDocker(nil), Tasks: &stopRecorder{}, Now: skewed(2 * time.Hour)}
 	rec := record{Key: "agent-1", Private: &privateSet{Network: "apptown-private-agent-1", Expires: time.Now().Add(time.Hour)}}
 	if err := s.startPrivate(context.Background(), rec); !errors.Is(err, execution.ErrExpired) {
 		t.Fatalf("an admission an hour past on the worker's clock: %v", err)
@@ -99,7 +100,7 @@ func TestEnsuringJudgesTheAdmissionByTheWorkersClock(t *testing.T) {
 	t.Parallel()
 	body := `{"key":"agent-1","image":"busybox","argv":["true"],"admission":{"profile":"worker","network":"none","expires":"` +
 		time.Now().Add(time.Hour).UTC().Format(time.RFC3339) + `"}}`
-	s := &Server{State: t.TempDir(), Tasks: &stopRecorder{}, Now: skewed(2 * time.Hour)}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: &stopRecorder{}, Now: skewed(2 * time.Hour)}
 	req := httptest.NewRequest("PUT", "/v1/tasks/agent-1", strings.NewReader(body))
 	req.SetPathValue("key", "agent-1")
 	w := httptest.NewRecorder()
@@ -112,7 +113,7 @@ func TestEnsuringJudgesTheAdmissionByTheWorkersClock(t *testing.T) {
 // A check's folder is past its deadline when the worker's clock is.
 func TestTheCheckSweepJudgesDeadlinesByTheWorkersClock(t *testing.T) {
 	t.Parallel()
-	s := &Server{State: t.TempDir(), Now: skewed(2 * time.Hour)}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Now: skewed(2 * time.Hour)}
 	folder := filepath.Join(s.checksRoot(), strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10)+"-c1")
 	if err := os.MkdirAll(folder, 0o700); err != nil {
 		t.Fatal(err)
@@ -131,7 +132,7 @@ func TestAServicesMinuteIsTheWorkersClocks(t *testing.T) {
 	at := time.Now()
 	// Each reading of the worker's clock is two minutes after the last.
 	now := func() time.Time { mu.Lock(); defer mu.Unlock(); at = at.Add(2 * time.Minute); return at }
-	s := &Server{State: t.TempDir(), Docker: fakeDocker(map[string]string{"inspect": "running starting"}), Now: now}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Docker: fakeDocker(map[string]string{"inspect": "running starting"}), Now: now}
 	// A hang guard only: the minute is the worker's clock's.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()

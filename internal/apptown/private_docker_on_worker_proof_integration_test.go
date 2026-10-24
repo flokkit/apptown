@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -101,8 +101,8 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 			} else {
 				namespace := "privproof" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", "")
 				removeTaskContainers(t, namespace)
-				agent := &worker.Server{Installation: workertest.Installation, State: t.TempDir(),
-					Tasks: execution.DockerTasks{Namespace: namespace}, AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"},
+				agent := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(),
+					Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace}, AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"},
 					DindImage: "docker:27-dind", Docker: docker.CLI{Binary: "docker"}, Checks: execution.Runner{DockerBinary: "docker"}}
 				agent.Profile = agent.MeasureProfile(ctx, true)
 				removePrivateDockerOf(t, agent)
@@ -121,11 +121,11 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 				{Name: "implement", Uses: "agent/pi", With: map[string]any{"prompt": "build it", "executor": "docker", "docker": true, "needs": true}},
 				{Name: "tests", Uses: "tests", With: map[string]any{"command": `grep -q "hello from a nested build" built.txt && grep -q nested nested.txt && grep -q reached kv.txt && echo "the agent's work holds"`}},
 			}, map[string]string{
-				"Dockerfile":        "FROM " + diskspace.DFImage + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
+				"Dockerfile":        "FROM " + stock.Images().DF + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
 				"greeting.txt":      "hello from a nested build\n",
 				".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  kv:\n    flavour: sourdough\n",
 				"fake-pi.sh": `docker build -q -t composed-greeting /work >/dev/null 2>build.log && docker run --rm composed-greeting > built.txt
-docker run --rm -v /work:/work ` + diskspace.DFImage + ` sh -c 'echo nested > /work/nested.txt'
+docker run --rm -v /work:/work ` + stock.Images().DF + ` sh -c 'echo nested > /work/nested.txt'
 nc -z kv 6379 && echo reached > kv.txt
 echo "$KV_URL" > url.txt
 say "built, ran and reached the service"`,
@@ -303,7 +303,7 @@ const failingWithPrivateDocker = "APPTOWN_TEST_FAILING_PRIVATE_DOCKER"
 func TestIntegrationPrivateDockerIsRemovedWhenATestFails(t *testing.T) {
 	requireDocker(t)
 	if os.Getenv(failingWithPrivateDocker) != "" {
-		server := &worker.Server{State: t.TempDir()}
+		server := &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir()}
 		removePrivateDockerOf(t, server)
 		workertest.StartServerWith(t, workertest.NewCA(t), server, nil)
 		owner := server.CheckOwnerLabel()
@@ -311,7 +311,7 @@ func TestIntegrationPrivateDockerIsRemovedWhenATestFails(t *testing.T) {
 		if out, err := dockertest.CombinedOutput("network", "create", "--label", owner, "apptown-private-cleanup-"+strings.TrimPrefix(owner, "apptown.worker=")); err != nil {
 			t.Fatalf("network: %v %s", err, out)
 		}
-		if out, err := dockertest.CombinedOutput("run", "-d", "--label", owner, diskspace.DFImage, "sleep", "300"); err != nil {
+		if out, err := dockertest.CombinedOutput("run", "-d", "--label", owner, stock.Images().DF, "sleep", "300"); err != nil {
 			t.Fatalf("container: %v %s", err, out)
 		}
 		t.Fatal("the test fails after its worker made private Docker")

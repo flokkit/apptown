@@ -89,10 +89,6 @@ func Bytes(n int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTP"[exp])
 }
 
-// DFImage is what a read through Docker runs in: a small image pinned by
-// digest (busybox 1.37.0), for its df.
-const DFImage = "busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
-
 // ParseDF reads df -Pk's filesystem line: total and available, in
 // kibibytes. Other lines before it (a pull's progress, a notice) are left.
 func ParseDF(out []byte) (Space, error) {

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/dind"
 	"github.com/flokkit/apptown/internal/poll"

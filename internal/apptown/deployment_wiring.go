@@ -6,7 +6,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 )
 
@@ -79,7 +78,7 @@ func hostSettingsFor(a *App) deployment.HostSettings {
 // from, for a release and a preview alike.
 func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
 	return deployment.EnvironmentDependencies{MemoryDefaults: a.Adoption, Secrets: a.Secrets, Integrations: a.Integrations, Needs: a.Dependencies,
-		Probe: a.probe, ChownImage: check.ShImage, Routes: a.cfg.routing(), Projects: a.Projects}
+		Probe: a.probe, ToolVersions: a.cfg.stock.Tools, Routes: a.cfg.routing(), Projects: a.Projects}
 }
 
 // providerDependencies are the providers' owners and settings.

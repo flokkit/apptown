@@ -46,8 +46,8 @@ LOCK TABLE packs IN SHARE ROW EXCLUSIVE MODE;
 INSERT INTO guidance_blocks(id, name,tags,latest_version,origin,created_at,updated_at,tier,conflicts)
 VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(tags),1,sqlc.arg(origin),sqlc.arg(at),sqlc.arg(at),sqlc.arg(tier),sqlc.arg(conflicts)) RETURNING *;
 -- name: InsertBlockVersion :one
-INSERT INTO guidance_block_versions(id, block_id,version,body_md,checks_json,created_at)
-VALUES(sqlc.arg(id), sqlc.arg(block_id),sqlc.arg(version),sqlc.arg(body),sqlc.arg(checks),sqlc.arg(at)) RETURNING *;
+INSERT INTO guidance_block_versions(id, block_id,version,body_md,checks_json,created_at,source,signer)
+VALUES(sqlc.arg(id), sqlc.arg(block_id),sqlc.arg(version),sqlc.arg(body),sqlc.arg(checks),sqlc.arg(at),sqlc.arg(source),sqlc.arg(signer)) RETURNING *;
 -- name: SetBlockTags :execrows
 UPDATE guidance_blocks SET tags=sqlc.arg(tags),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
 -- name: AdvanceBlockVersion :execrows
@@ -61,8 +61,8 @@ WHERE name=sqlc.arg(name) AND (tags<>sqlc.arg(tags) OR tier<>sqlc.arg(tier) OR c
 INSERT INTO lib_workflows(id, name,description,latest_version,origin,updated_at)
 VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(description),1,sqlc.arg(origin),sqlc.arg(at)) RETURNING *;
 -- name: InsertWorkflowVersion :one
-INSERT INTO lib_workflow_versions(id, lib_id,version,yaml,created_at)
-VALUES(sqlc.arg(id), sqlc.arg(lib_id),sqlc.arg(version),sqlc.arg(yaml),sqlc.arg(at)) RETURNING *;
+INSERT INTO lib_workflow_versions(id, lib_id,version,yaml,created_at,source,signer)
+VALUES(sqlc.arg(id), sqlc.arg(lib_id),sqlc.arg(version),sqlc.arg(yaml),sqlc.arg(at),sqlc.arg(source),sqlc.arg(signer)) RETURNING *;
 -- name: AdvanceWorkflowVersion :execrows
 UPDATE lib_workflows SET latest_version=sqlc.arg(version),description=sqlc.arg(description),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
 -- name: RefreshWorkflowWords :execrows
@@ -80,8 +80,8 @@ DELETE FROM system_workflows WHERE stock_name=$1;
 INSERT INTO packs(id, name,description,spec_json,origin,updated_at,latest_version,recommended_version)
 VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(description),sqlc.arg(spec),sqlc.arg(origin),sqlc.arg(at),1,1) RETURNING *;
 -- name: InsertPackVersion :one
-INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,included_pack,included_version,name,based_on)
-VALUES(sqlc.arg(id), sqlc.arg(pack_id),sqlc.arg(version),sqlc.arg(spec),sqlc.arg(note),sqlc.arg(at),sqlc.arg(pins),sqlc.arg(declaration),sqlc.arg(included_pack),sqlc.arg(included_version),sqlc.arg(name),sqlc.arg(based_on)) RETURNING *;
+INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,included_pack,included_version,name,based_on,source,signer)
+VALUES(sqlc.arg(id), sqlc.arg(pack_id),sqlc.arg(version),sqlc.arg(spec),sqlc.arg(note),sqlc.arg(at),sqlc.arg(pins),sqlc.arg(declaration),sqlc.arg(included_pack),sqlc.arg(included_version),sqlc.arg(name),sqlc.arg(based_on),sqlc.arg(source),sqlc.arg(signer)) RETURNING *;
 -- name: RecommendPackVersion :execrows
 UPDATE packs SET recommended_version=sqlc.arg(version),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
 -- name: OfferedPacks :many
@@ -122,7 +122,7 @@ WHERE (sqlc.arg(query)::text='' OR b.name LIKE '%'||sqlc.arg(query)||'%' OR v.bo
 AND (sqlc.arg(tag)::text='' OR (','||b.tags||',') LIKE '%,'||sqlc.arg(tag)||',%') ORDER BY b.name;
 -- name: BlockVersionsMeta :many
 -- History lists show versions and dates without copying their potentially large bodies/checks.
-SELECT block_id,version,created_at FROM guidance_block_versions WHERE block_id=$1 ORDER BY version DESC;
+SELECT block_id,version,created_at,source,signer FROM guidance_block_versions WHERE block_id=$1 ORDER BY version DESC;
 -- name: WorkflowCatalog :many
 SELECT sqlc.embed(l),COALESCE(v.yaml,'')::text AS yaml,(v.lib_id IS NOT NULL)::boolean AS has_version
 FROM lib_workflows l LEFT JOIN lib_workflow_versions v ON v.lib_id=l.id AND v.version=l.latest_version ORDER BY l.origin DESC,l.name;

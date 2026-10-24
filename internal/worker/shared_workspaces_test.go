@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution/executionfake"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // An agent step attempt's invocations share one workspace: each task names
@@ -98,10 +99,10 @@ func TestOnlyAWorkerSharesWorkspaces(t *testing.T) {
 	if _, err := (&executionfake.Tasks{}).Ensure(context.Background(), spec); !errors.Is(err, execution.ErrUnsupported) {
 		t.Fatalf("the fake with a shared workspace: %v", err)
 	}
-	if _, err := (execution.DockerTasks{}).Ensure(context.Background(), spec); !errors.Is(err, execution.ErrUnsupported) {
+	if _, err := (execution.DockerTasks{ToolVersions: stock.Versions()}).Ensure(context.Background(), spec); !errors.Is(err, execution.ErrUnsupported) {
 		t.Fatalf("local Docker with a shared workspace: %v", err)
 	}
-	if err := (execution.DockerTasks{}).ReleaseWorkspace(context.Background(), "step-1-a1"); !errors.Is(err, execution.ErrUnsupported) {
+	if err := (execution.DockerTasks{ToolVersions: stock.Versions()}).ReleaseWorkspace(context.Background(), "step-1-a1"); !errors.Is(err, execution.ErrUnsupported) {
 		t.Fatalf("local Docker releasing a workspace: %v", err)
 	}
 	if _, err := (execution.WorkerTasks{URL: "https://127.0.0.1:1"}).Ensure(context.Background(), spec); !errors.Is(err, execution.ErrUnsupported) {

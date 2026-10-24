@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // imageHub is a repository with one commit holding a Dockerfile.
@@ -26,7 +27,7 @@ func imageHub(t *testing.T) (hub, base string) {
 	t.Helper()
 	hub = t.TempDir()
 	files := map[string]string{
-		"Dockerfile":   "FROM " + diskspace.DFImage + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
+		"Dockerfile":   "FROM " + stock.Images().DF + "\nCOPY greeting.txt /greeting.txt\nCMD [\"cat\", \"/greeting.txt\"]\n",
 		"greeting.txt": "hello from a release build\n",
 	}
 	for name, body := range files {
@@ -170,7 +171,7 @@ func TestAnImageWhoseCopyWouldFillTheStateFolderIsRefused(t *testing.T) {
 	const gib = int64(1) << 30
 	var free atomic.Int64
 	free.Store(50 * gib)
-	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: state, Tasks: tasks,
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Tasks: tasks,
 		StateDisk: func(string) (diskspace.Space, error) {
 			return diskspace.Space{TotalBytes: 100 * gib, FreeBytes: free.Load()}, nil
 		}})

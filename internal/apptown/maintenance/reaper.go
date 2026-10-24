@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/toolversions"
 )
 
 type ConsoleRuntime interface {
@@ -20,6 +21,9 @@ type Dependencies struct {
 	Docker   docker.Scope
 	Sessions *console.Service
 	Runtime  ConsoleRuntime
+	// ToolVersions names the shell image a cache pass runs its reads and
+	// removals in, one snapshot per pass.
+	ToolVersions toolversions.Source
 	// Now is AppTown's clock, against which the reaper judges the ages
 	// AppTown stamped (the real clock when nil).
 	Now func() time.Time
@@ -31,10 +35,11 @@ type Reaper struct {
 	runtime  ConsoleRuntime
 	dataDir  string
 	clock    func() time.Time
+	tools    toolversions.Source
 }
 
 func New(db *database.DB, deps Dependencies, dataDir string) *Reaper {
-	return &Reaper{db: db, docker: deps.Docker, sessions: deps.Sessions, runtime: deps.Runtime, dataDir: dataDir, clock: deps.Now}
+	return &Reaper{db: db, docker: deps.Docker, sessions: deps.Sessions, runtime: deps.Runtime, dataDir: dataDir, clock: deps.Now, tools: deps.ToolVersions}
 }
 
 func (r *Reaper) now() time.Time { return clock.Or(r.clock)() }

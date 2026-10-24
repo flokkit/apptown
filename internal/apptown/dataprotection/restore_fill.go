@@ -109,6 +109,8 @@ func (s *core) Fill(ctx context.Context, dep *deployment.Deployment, t *deployme
 }
 
 func (s *core) fill(ctx context.Context, dep *deployment.Deployment, t *deployment.Target, row protectionsql.RestoreFill) error {
+	// The fill's volume writes run in one snapshot's shell image.
+	sh := s.env.ToolVersions().Images.Sh
 	if row.BackupID.IsZero() {
 		return fmt.Errorf("AppTown's backup holds no set of %s's data (%s); its app is not started on empty data", dep.Name, orElse(row.Detail, "no reason recorded"))
 	}
@@ -165,7 +167,7 @@ func (s *core) fill(ctx context.Context, dep *deployment.Deployment, t *deployme
 		return err
 	}
 	for _, m := range moves {
-		r := s.restoreItem(ctx, nil, dk, m, filepath.Join(b.Path, m.item.File))
+		r := s.restoreItem(ctx, nil, dk, m, filepath.Join(b.Path, m.item.File), sh)
 		if r.Outcome == RestoreFailed {
 			return fmt.Errorf("putting %s %s back from set %s: %s", r.Kind, r.Name, b.ID, r.Detail)
 		}

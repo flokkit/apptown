@@ -20,6 +20,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executiontest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // With TLS asked for in the environment, the real CLI's default endpoint is
@@ -62,7 +63,7 @@ func TestIntegrationTheDefaultTLSDaemonIsNotTheLocalSocket(t *testing.T) {
 	if selected.Refused != nil || selected.Host == expected {
 		return
 	}
-	d := execution.DockerTasks{Daemon: selected}
+	d := execution.DockerTasks{ToolVersions: stock.Versions(), Daemon: selected}
 	taskKey := executiontest.UniqueKeys("round6")("default-tls")
 	t.Cleanup(func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 10*time.Second)

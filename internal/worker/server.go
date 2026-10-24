@@ -44,6 +44,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/toolversions"
 )
 
 // MaxBundleBytes bounds a source or result bundle in either direction.
@@ -91,6 +92,9 @@ type Server struct {
 	// DindImage is the image of a task's private Docker daemon
 	// (private.go); "" refuses a task that asks for one.
 	DindImage string
+	// ToolVersions names the images the worker runs for itself (a preview's
+	// static server, chown and df), one snapshot per preview.
+	ToolVersions toolversions.Source
 	// Docker is the Docker private Docker runs on and the profile is
 	// measured from (docker.CLI in production); nil is the docker CLI.
 	Docker docker.Client
@@ -1059,4 +1063,13 @@ func writeJSON(w http.ResponseWriter, v any) {
 
 func httpError(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
+}
+
+// toolVersions is the current tool versions snapshot, or an empty one,
+// whose missing images the work that needs them reports.
+func (s *Server) toolVersions() toolversions.Snapshot {
+	if s.ToolVersions == nil {
+		return toolversions.Snapshot{}
+	}
+	return s.ToolVersions.Current()
 }

@@ -60,7 +60,7 @@ func (s *Library) StockInsert(ctx context.Context, b StockBlock) error {
 		if err != nil {
 			return err
 		}
-		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), At: now}); err != nil {
+		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: 1, Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), At: now, Source: s.stock.Source, Signer: s.stock.Signer}); err != nil {
 			return err
 		}
 		return audit.At(now).RecordIn(ctx, tx, "apptown-system", ids.Nil, "guidance.stock.seeded", b.Name, nil)
@@ -85,7 +85,7 @@ func (s *Library) StockUpdateIn(ctx context.Context, tx *database.Tx, b StockBlo
 		}
 		blockID = r.ID
 		version = int(r.LatestVersion) + 1
-		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: int64(version), Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), At: now}); err != nil {
+		if _, err := q.InsertBlockVersion(ctx, wowsql.InsertBlockVersionParams{ID: ids.New(now), BlockID: r.ID, Version: int64(version), Body: b.Body, Checks: []byte(jsonOr(b.ChecksJSON)), At: now, Source: s.stock.Source, Signer: s.stock.Signer}); err != nil {
 			return err
 		}
 		if _, err := q.AdvanceStockBlockVersion(ctx, wowsql.AdvanceStockBlockVersionParams{ID: r.ID, Version: int64(version), Tags: NormalizeTags(b.Tags), Tier: b.Tier, Conflicts: NormalizeTags(b.Conflicts), At: now}); err != nil {
@@ -134,7 +134,7 @@ func (s *Workflows) StockInsert(ctx context.Context, name, description, yamlSrc 
 		if err != nil {
 			return err
 		}
-		_, err = q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: 1, Yaml: yamlSrc, At: now})
+		_, err = q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: 1, Yaml: yamlSrc, At: now, Source: s.stock.Source, Signer: s.stock.Signer})
 		return err
 	})
 }
@@ -153,7 +153,7 @@ func (s *Workflows) StockUpdate(ctx context.Context, name, description, yamlSrc 
 			return err
 		}
 		version = nextVersion(rows)
-		if _, err := q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: int64(version), Yaml: yamlSrc, At: now}); err != nil {
+		if _, err := q.InsertWorkflowVersion(ctx, wowsql.InsertWorkflowVersionParams{ID: ids.New(now), LibID: r.ID, Version: int64(version), Yaml: yamlSrc, At: now, Source: s.stock.Source, Signer: s.stock.Signer}); err != nil {
 			return err
 		}
 		if _, err := q.AdvanceWorkflowVersion(ctx, wowsql.AdvanceWorkflowVersionParams{ID: r.ID, Version: int64(version), Description: description, At: now}); err != nil {

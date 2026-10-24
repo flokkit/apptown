@@ -12,6 +12,8 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/toolversions"
+	"github.com/flokkit/apptown/stock"
 )
 
 // testRuntime is a test's Docker and provider settings and the owners they
@@ -49,9 +51,21 @@ func assembled(db *database.DB, rt testRuntime, deps Dependencies) Dependencies 
 	deps.Hosts = NewHosts(deps.Targets, rt.Secrets, HostSettings{Scope: rt.Scope, DataDir: rt.DataDir, SSHConfigPath: rt.SSHConfigPath,
 		BuiltInTarget: rt.BuiltInTarget, NoLocalDocker: rt.NoLocalDocker})
 	deps.Environment = NewEnvironment(deps.Targets, EnvironmentDependencies{Secrets: rt.Secrets, Integrations: rt.Integrations, Needs: rt.Needs,
-		Probe: rt.Probe, ChownImage: rt.ChownImage, Routes: rt.Routes, Projects: rt.Projects})
+		Probe: rt.Probe, ToolVersions: chownTools(rt.ChownImage), Routes: rt.Routes, Projects: rt.Projects})
 	deps.Providers = NewProviders(context.Background(), db, ProviderRecords{Targets: deps.Targets, Deployments: deps.Deployments}, deps.Hosts, deps.Environment,
 		ProviderDependencies{Projects: rt.Projects, Secrets: rt.Secrets, Integrations: rt.Integrations, DigitalOcean: rt.DigitalOcean, S3Bucket: rt.S3Bucket,
 			Drivers: rt.Drivers, Inventories: rt.Inventories, AfterRelease: rt.AfterRelease, DatabaseContainer: rt.DatabaseContainer, Applied: deps.Applied, Now: deps.Now})
 	return deps
 }
+
+// chownTools is a test runtime's tool versions: the stock list's images,
+// with chown as the runtime names it ("" skips handing volumes over).
+func chownTools(chown string) toolversions.Source {
+	s := stock.Versions().Current()
+	s.Images.Sh = chown
+	return fixedTools{s}
+}
+
+type fixedTools struct{ s toolversions.Snapshot }
+
+func (f fixedTools) Current() toolversions.Snapshot { return f.s }

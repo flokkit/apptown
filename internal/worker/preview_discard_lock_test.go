@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/stock"
 )
 
 // Hold the first deletion until a boot, absent from the initial directory
@@ -32,7 +33,7 @@ func TestRemovingEveryPreviewWaitsForABootsLock(t *testing.T) {
 		}
 		return nil, nil
 	})
-	s := &Server{State: state, Previews: binary}
+	s := &Server{ToolVersions: stock.Versions(), State: state, Previews: binary}
 	if err := os.MkdirAll(filepath.Join(s.previewsRoot(), "apptown-preview-change-1"), 0700); err != nil {
 		t.Fatal(err)
 	}

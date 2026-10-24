@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/execution"
 )
@@ -68,7 +69,7 @@ func TestADockerCallIsPinnedToTheDaemonSelectedAtStartup(t *testing.T) {
 	writeDockerContext(t, configDir, "work", "tcp://second.invalid:2376")
 	t.Setenv("DOCKER_HOST", "tcp://third.invalid:2376")
 	binary, calls := recordingDocker(t)
-	d := execution.DockerTasks{Binary: binary, Daemon: selected}
+	d := execution.DockerTasks{ToolVersions: stock.Versions(), Binary: binary, Daemon: selected}
 	_, _ = d.Observe(context.Background(), execution.TaskRef{Key: "k"})
 	_ = d.Stop(context.Background(), execution.TaskRef{Key: "k"})
 	body, err := os.ReadFile(calls)
@@ -112,7 +113,7 @@ func TestAnUnpinnableDockerSelectionCreatesNothing(t *testing.T) {
 	writeDockerContext(t, configDir, "later", "tcp://later.invalid:2376")
 	binary, calls := recordingDocker(t)
 	for _, selected := range []execution.DockerSelection{missing, withTLS} {
-		d := execution.DockerTasks{Binary: binary, Daemon: selected}
+		d := execution.DockerTasks{ToolVersions: stock.Versions(), Binary: binary, Daemon: selected}
 		spec := execution.TaskSpec{Key: "k", Image: "busybox", Argv: []string{"true"}, Admission: execution.Admission{Profile: "local-docker", Expires: time.Now().Add(time.Hour)}}
 		if _, err := d.Ensure(context.Background(), spec); !errors.Is(err, execution.ErrUnsupported) {
 			t.Fatalf("creating on %q: %v", selected.Backend(), err)
@@ -169,7 +170,7 @@ func TestDockerTLSSettingsFollowTheCLIsSelection(t *testing.T) {
 		{"a named context", selectWith(t, "", "work", configDir), false},
 	} {
 		binary, calls := recordingDocker(t)
-		_, _ = execution.DockerTasks{Binary: binary, Daemon: tc.selected}.Observe(context.Background(), execution.TaskRef{Key: "k"})
+		_, _ = execution.DockerTasks{ToolVersions: stock.Versions(), Binary: binary, Daemon: tc.selected}.Observe(context.Background(), execution.TaskRef{Key: "k"})
 		body, err := os.ReadFile(calls)
 		if err != nil {
 			t.Fatal(err)

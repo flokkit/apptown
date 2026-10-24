@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/toolversions"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/integration"
@@ -50,7 +51,7 @@ type Environment struct {
 	integrations   *integration.Service
 	needs          *dependency.Catalog
 	probe          *docker.Probe
-	chownImage     string
+	tools          toolversions.Source
 	routes         Routing
 	projects       *project.Projects
 }
@@ -62,11 +63,12 @@ type EnvironmentDependencies struct {
 	Secrets        *secret.Service
 	Integrations   *integration.Service
 	Needs          *dependency.Catalog
-	// Probe is this machine's readiness probe; ChownImage the image that
-	// gives a data volume to its app's user.
-	Probe      *docker.Probe
-	ChownImage string
-	Routes     Routing
+	// Probe is this machine's readiness probe; ToolVersions names the
+	// images a boot runs for itself (the static server, the chown and df
+	// helpers), one snapshot per host a unit of work builds.
+	Probe        *docker.Probe
+	ToolVersions toolversions.Source
+	Routes       Routing
 	// Projects answers each project's purpose (project/purpose.go), which
 	// decides its domain and the credentials it is given. Without it every
 	// purpose question is an error and the effect is refused.
@@ -80,7 +82,7 @@ func NewEnvironment(targets *Targets, deps EnvironmentDependencies) *Environment
 		deps.Routes.Scheme = "http"
 	}
 	return &Environment{memoryDefaults: deps.MemoryDefaults, targets: targets, secrets: deps.Secrets, integrations: deps.Integrations, needs: deps.Needs,
-		probe: deps.Probe, chownImage: deps.ChownImage, routes: deps.Routes, projects: deps.Projects}
+		probe: deps.Probe, tools: deps.ToolVersions, routes: deps.Routes, projects: deps.Projects}
 }
 
 // Routes is how this AppTown names addresses, as configured; RoutesFor is
@@ -171,9 +173,10 @@ func (e *Environment) NeedCredentials(scope string) dependency.Credentials {
 }
 
 func (e *Environment) hostDependencies(projectID ids.ID, creds dependency.Credentials, keys func(slug string) KeyOwner) docker.Dependencies {
+	im := e.ToolVersions().Images
 	return docker.Dependencies{
 		Secrets: hostSecrets{secrets: e.secrets, project: projectID, env: e, keys: keys}, Needs: dependency.LocalRuntime{Catalog: e.needs, Credentials: creds}, Registry: hostRegistry{e.integrations, projectID}, Integrations: hostContributions{e.integrations, projectID},
-		Routes: hostRoutes{e}, Probe: e.probe, ChownImage: e.chownImage,
+		Routes: hostRoutes{e}, Probe: e.probe, StaticServer: im.StaticServer, ChownImage: im.Sh, DFImage: im.DF,
 	}
 }
 
@@ -268,7 +271,7 @@ func (e *Environment) WithRegistered(ctx context.Context, p docker.Prepared, own
 
 // PreparedHost boots from prepared values alone, with this machine's probe.
 func (e *Environment) PreparedHost(p docker.Prepared) *docker.Host {
-	return docker.NewHost(p.Dependencies(e.probe, "", e.chownImage))
+	return docker.NewHost(p.Dependencies(e.probe, e.ToolVersions().Images))
 }
 
 // ResolveDockerStack prepares the declared stack for validation/rendering. It
@@ -519,16 +522,24 @@ func (e *Environment) registrable(ctx context.Context, c *appcontract.Contract) 
 	return err
 }
 
-// ChownImage is the image that gives a data volume to its app's user.
-func (e *Environment) ChownImage() string { return e.chownImage }
+// ToolVersions is the current tool versions snapshot: a unit of work takes
+// it once, at its start, and uses its images throughout. With none, the
+// snapshot names no image and what needs one says so.
+func (e *Environment) ToolVersions() toolversions.Snapshot {
+	if e.tools == nil {
+		return toolversions.Snapshot{}
+	}
+	return e.tools.Current()
+}
 
 // SealedHost is the built-in host's dependencies for a sealed boot of one
-// project: its dependency catalog, registry login, probe and chown image,
-// with the secrets and routes given and no integration's contributions (a
+// project: its dependency catalog, registry login, probe and the images of
+// the caller's snapshot (the unit's, never re-read), with the secrets and
+// routes given and no integration's contributions (a
 // rehearsal's withheld secrets and its one origin), its needs given creds.
-func (e *Environment) SealedHost(projectID ids.ID, secrets docker.SecretResolver, routes docker.Routes, creds dependency.Credentials) docker.Dependencies {
+func (e *Environment) SealedHost(projectID ids.ID, secrets docker.SecretResolver, routes docker.Routes, creds dependency.Credentials, im toolversions.Images) docker.Dependencies {
 	return docker.Dependencies{Secrets: secrets, Needs: dependency.LocalRuntime{Catalog: e.needs, Credentials: creds}, Registry: hostRegistry{e.integrations, projectID},
-		Routes: routes, Probe: e.probe, ChownImage: e.chownImage}
+		Routes: routes, Probe: e.probe, StaticServer: im.StaticServer, ChownImage: im.Sh, DFImage: im.DF}
 }
 
 // RefusesContract is the target's refusal of c, judged on what the target

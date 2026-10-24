@@ -669,6 +669,13 @@ CREATE TABLE IF NOT EXISTS lib_workflow_versions (
   version    BIGINT NOT NULL,
   yaml       TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL,
+  -- Where it came from: the source it was published by (flokkit, the
+  -- built-in source, or here, this AppTown) and who signed what came in
+  -- ('' for here; "shipped with AppTown <version>, unsigned" for stock a
+  -- release shipped; "shipped with AppTown before <build>, unsigned" for
+  -- stock older than this record).
+  source     TEXT NOT NULL CONSTRAINT lib_workflow_version_source CHECK (source <> ''),
+  signer     TEXT NOT NULL,
   UNIQUE(lib_id, version)
 );
 CREATE TABLE IF NOT EXISTS packs (
@@ -701,6 +708,9 @@ CREATE TABLE IF NOT EXISTS pack_versions (
   -- An optional name, and the version of this pack it was made from (0: none).
   name       TEXT NOT NULL DEFAULT '',
   based_on   BIGINT NOT NULL DEFAULT 0,
+  -- Where it came from, as lib_workflow_versions says.
+  source     TEXT NOT NULL CONSTRAINT pack_version_source CHECK (source <> ''),
+  signer     TEXT NOT NULL,
   UNIQUE(pack_id, version)
 );
 CREATE TABLE IF NOT EXISTS policy_library (
@@ -730,6 +740,9 @@ CREATE TABLE IF NOT EXISTS guidance_block_versions (
   body_md     TEXT NOT NULL,
   checks_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   created_at  TIMESTAMPTZ NOT NULL,
+  -- Where it came from, as lib_workflow_versions says.
+  source      TEXT NOT NULL CONSTRAINT guidance_block_version_source CHECK (source <> ''),
+  signer      TEXT NOT NULL,
   UNIQUE(block_id, version)
 );
 CREATE TABLE IF NOT EXISTS system_workflows (

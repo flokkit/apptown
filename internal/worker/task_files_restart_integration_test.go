@@ -14,11 +14,11 @@ import (
 
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // With real Docker and the real task driver: a worker that stops and starts
@@ -47,7 +47,7 @@ func TestIntegrationAWorkerRestartKeepsItsTasksFiles(t *testing.T) {
 	other := otherWorkersCheck(t)
 	config := execution.File{Path: "/etc/mise/config.toml", Content: []byte("[settings]\nnode.mirror_url = \"https://mirror.invalid/node/\"\n"), Mode: 0o644}
 	start := func() (*worker.Server, execution.WorkerTasks, func()) {
-		srv := &worker.Server{Installation: workertest.Installation, State: state, Tasks: execution.DockerTasks{Namespace: namespace},
+		srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
 			Checks: execution.Runner{}, Previews: docker.CLI{Binary: "docker"}, Sessions: consoletest.NewAgent()}
 		// What apptown-worker runs as it starts.
 		srv.SweepChecks(context.Background(), docker.CLI{Binary: "docker"}, true)
@@ -68,7 +68,7 @@ func TestIntegrationAWorkerRestartKeepsItsTasksFiles(t *testing.T) {
 	base = strings.TrimSpace(base)
 	task := func(key, script string) (execution.TaskSpec, execution.TaskRef) {
 		t.Helper()
-		spec := execution.TaskSpec{Key: key, Image: diskspace.DFImage, Argv: []string{"sh", "-c", script},
+		spec := execution.TaskSpec{Key: key, Image: stock.Images().DF, Argv: []string{"sh", "-c", script},
 			Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 			Files:     []execution.File{config}, Source: &execution.TaskSource{Repository: hub, Commit: base}}
 		created, err := driver.Ensure(ctx, spec)

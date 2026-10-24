@@ -13,6 +13,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/version"
 )
 
 // schemaSQL creates a fresh PostgreSQL database atomically. Existing databases
@@ -230,6 +231,34 @@ END $$`,
 		"ALTER TABLE deployments DROP COLUMN host_prefix",
 		"ALTER TABLE release_requests DROP COLUMN move_names",
 	}},
+	// Every published workflow, block and pack version says where it came
+	// from: its source and its signer. Stock is the built-in source,
+	// flokkit; it was published before this record by some earlier build,
+	// which was never recorded, so its signer says "shipped with AppTown
+	// before <the build running this migration>, unsigned" (applyMigration
+	// sets migration.build), which is all that is known. Versions authored on
+	// the instance are source here, with no signer. Adoptions and receipts
+	// are not touched.
+	{n: 168, note: "each published workflow, block and pack version records its source and signer", stmts: []string{
+		"ALTER TABLE lib_workflow_versions ADD COLUMN source TEXT NOT NULL DEFAULT '', ADD COLUMN signer TEXT NOT NULL DEFAULT ''",
+		`UPDATE lib_workflow_versions v SET source = CASE WHEN l.origin = 'stock' THEN 'flokkit' ELSE 'here' END,
+  signer = CASE WHEN l.origin = 'stock' THEN 'shipped with AppTown before ' || current_setting('migration.build') || ', unsigned' ELSE '' END
+  FROM lib_workflows l WHERE l.id = v.lib_id`,
+		"ALTER TABLE lib_workflow_versions ALTER COLUMN source DROP DEFAULT, ALTER COLUMN signer DROP DEFAULT",
+		"ALTER TABLE lib_workflow_versions ADD CONSTRAINT lib_workflow_version_source CHECK (source <> '')",
+		"ALTER TABLE guidance_block_versions ADD COLUMN source TEXT NOT NULL DEFAULT '', ADD COLUMN signer TEXT NOT NULL DEFAULT ''",
+		`UPDATE guidance_block_versions v SET source = CASE WHEN l.origin = 'stock' THEN 'flokkit' ELSE 'here' END,
+  signer = CASE WHEN l.origin = 'stock' THEN 'shipped with AppTown before ' || current_setting('migration.build') || ', unsigned' ELSE '' END
+  FROM guidance_blocks l WHERE l.id = v.block_id`,
+		"ALTER TABLE guidance_block_versions ALTER COLUMN source DROP DEFAULT, ALTER COLUMN signer DROP DEFAULT",
+		"ALTER TABLE guidance_block_versions ADD CONSTRAINT guidance_block_version_source CHECK (source <> '')",
+		"ALTER TABLE pack_versions ADD COLUMN source TEXT NOT NULL DEFAULT '', ADD COLUMN signer TEXT NOT NULL DEFAULT ''",
+		`UPDATE pack_versions v SET source = CASE WHEN l.origin = 'stock' THEN 'flokkit' ELSE 'here' END,
+  signer = CASE WHEN l.origin = 'stock' THEN 'shipped with AppTown before ' || current_setting('migration.build') || ', unsigned' ELSE '' END
+  FROM packs l WHERE l.id = v.pack_id`,
+		"ALTER TABLE pack_versions ALTER COLUMN source DROP DEFAULT, ALTER COLUMN signer DROP DEFAULT",
+		"ALTER TABLE pack_versions ADD CONSTRAINT pack_version_source CHECK (source <> '')",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.
@@ -314,6 +343,12 @@ func applyMigrations(ctx context.Context, db *database.DB, list []migration) (ap
 // applyMigration commits application DDL, data and version together.
 func applyMigration(ctx context.Context, db *database.DB, m migration) error {
 	return db.InTx(ctx, func(tx *database.Tx) error {
+		// The build running the migration, for statements that record it
+		// (current_setting('migration.build')): the numbered SQL stays fixed
+		// while naming the binary that applied it. Local to the transaction.
+		if _, err := tx.Exec(`SELECT set_config('migration.build', ?, true)`, version.String()); err != nil {
+			return err
+		}
 		for _, q := range m.stmts {
 			if _, err := tx.Exec(q); err != nil {
 				return err

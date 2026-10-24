@@ -14,9 +14,9 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/stock"
 )
 
 // taskRecoveryFixture admits one Docker script step on a repository-backed
@@ -32,7 +32,7 @@ func taskRecoveryFixture(t *testing.T, script string) (*App, *workflow.Step, str
 		t.Fatal(err)
 	}
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{
-		{Name: "build", Steps: []schema.Step{{Name: "make", Uses: "script", With: map[string]any{"run": "echo run >> /work/runs.txt; " + script, "executor": "docker", "image": diskspace.DFImage}}}},
+		{Name: "build", Steps: []schema.Step{{Name: "make", Uses: "script", With: map[string]any{"run": "echo run >> /work/runs.txt; " + script, "executor": "docker", "image": stock.Images().DF}}}},
 	}}
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "work", Version: 1}, Spec: spec})
 	a.lifecycle.SelectLane(t.Context(), projectID, "work", true, "fixture")
@@ -130,7 +130,7 @@ func TestIntegrationAFinishedTaskIsCollectedAfterARestart(t *testing.T) {
 	var obs execution.TaskObservation
 	var err error
 	if !poll.Until(context.Background(), 30*time.Second, 50*time.Millisecond, func() bool {
-		obs, err = execution.DockerTasks{}.Observe(context.Background(), execution.TaskRef{Key: attempt.Operation, ProviderID: attempt.ProviderID})
+		obs, err = execution.DockerTasks{ToolVersions: stock.Versions()}.Observe(context.Background(), execution.TaskRef{Key: attempt.Operation, ProviderID: attempt.ProviderID})
 		return err == nil && obs.State == execution.TaskExited
 	}) {
 		t.Fatalf("the task did not exit: %+v %v", obs, err)
@@ -168,7 +168,7 @@ func TestIntegrationAStopRecordedBeforeARestartIsCarriedOut(t *testing.T) {
 	var obs execution.TaskObservation
 	var err error
 	if !poll.Until(context.Background(), 30*time.Second, 50*time.Millisecond, func() bool {
-		obs, err = execution.DockerTasks{}.Observe(context.Background(), execution.TaskRef{Key: attempt.Operation, ProviderID: attempt.ProviderID})
+		obs, err = execution.DockerTasks{ToolVersions: stock.Versions()}.Observe(context.Background(), execution.TaskRef{Key: attempt.Operation, ProviderID: attempt.ProviderID})
 		return err == nil && obs.State == execution.TaskAbsent
 	}) {
 		t.Fatalf("the stopped task's container: %+v %v", obs, err)

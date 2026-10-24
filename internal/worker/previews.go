@@ -24,7 +24,6 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 
-	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
@@ -655,7 +654,8 @@ func (s *Server) bootPreview(w http.ResponseWriter, r *http.Request) {
 	if spec.Images != nil {
 		recorded = &docker.RecordedImages{Parts: spec.Images.Parts, Init: spec.Images.Init, Login: prepared.Registry, Scratch: dir}
 	}
-	res, err := docker.NewHost(prepared.Dependencies(&docker.Probe{}, "", check.ShImage)).Boot(bootLife, docker.BootRequest{
+	// The boot's images, from the tool versions current as it begins.
+	res, err := docker.NewHost(prepared.Dependencies(&docker.Probe{}, s.toolVersions().Images)).Boot(bootLife, docker.BootRequest{
 		Docker: s.previewScope().WithLifetime(bootLife), Name: name, StackID: spec.StackID, Workspace: tree, Slug: spec.Slug,
 		Deployment: "preview", Probe: time.Duration(spec.ProbeSeconds) * time.Second, PageCheck: spec.PageCheck, VisitorHost: spec.VisitorHost,
 		Services: prepared.Services, Incarnation: spec.Incarnation, Scratch: dir, Recorded: recorded,

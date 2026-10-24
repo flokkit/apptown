@@ -16,8 +16,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker"
@@ -120,7 +120,7 @@ func TestIntegrationASessionOnARealWorker(t *testing.T) {
 	}
 	// A nested container: this machine's resolvers, and the daemon's PID
 	// limit holds what it starts.
-	loadNested(t, daemon, diskspace.DFImage, workertest.LoadedBusybox)
+	loadNested(t, daemon, stock.Images().DF, workertest.LoadedBusybox)
 	nested := w.Docker("exec", "-e", "DOCKER_HOST=tcp://localhost:2375", daemon, "docker", "run", "--rm", workertest.LoadedBusybox, "sh", "-c",
 		"cat /etc/resolv.conf; i=0; while [ $i -lt 700 ]; do sleep 30 & i=$((i+1)); done 2>&1 | tail -1; echo started")
 	for _, ns := range resolvers(t, "nameserver") {

@@ -6,10 +6,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 
 	"github.com/flokkit/apptown/internal/apptown/wow/internal/wowsql"
 	"github.com/flokkit/apptown/internal/fault"
@@ -139,6 +141,7 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 		Policies:   slices.Clone(inc.Spec.Policies),
 		Resources:  inc.Spec.Resources,
 		Toolchain:  inc.Spec.Toolchain,
+		Tools:      maps.Clone(inc.Spec.Tools),
 		Services:   slices.Clone(inc.Spec.Services),
 		Extensions: slices.Clone(inc.Spec.Extensions),
 		Requires:   slices.Clone(inc.Spec.Requires),
@@ -274,6 +277,13 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 	if d.Toolchain != "" {
 		out.Toolchain = d.Toolchain
 	}
+	// A tool's line is inherited unless this pack names its own.
+	for tool, line := range d.Tools {
+		if out.Tools == nil {
+			out.Tools = map[string]string{}
+		}
+		out.Tools[tool] = line
+	}
 	if len(d.Services) > 0 {
 		out.Services = slices.Clone(d.Services)
 	}
@@ -283,10 +293,12 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 			out.Resources = appcontract.MemoryDefault{}
 		case "toolchain":
 			out.Toolchain = ""
+		case "tools":
+			out.Tools = nil
 		case "services":
 			out.Services = nil
 		default:
-			return resolution{}, fmt.Errorf("%w: clears names %q; only toolchain, services and resources are inherited", ErrInclusion, field)
+			return resolution{}, fmt.Errorf("%w: clears names %q; only toolchain, tools, services and resources are inherited", ErrInclusion, field)
 		}
 	}
 	for _, e := range d.Extensions {
@@ -356,16 +368,18 @@ func decodeSpec(raw string) (PackSpec, error) {
 // Publication is one pack version as recorded: the author's declaration,
 // its resolved contents and pins, and the publication it included.
 type Publication struct {
-	Version         int64      `json:"version"`
-	Name            string     `json:"name,omitempty"`
-	BasedOn         int64      `json:"basedOn,omitempty"`
-	Declaration     PackSpec   `json:"declaration"`
-	Spec            PackSpec   `json:"spec"`
-	Pins            PinSet     `json:"pins"`
-	IncludedPack    string     `json:"includedPack,omitempty"`
-	IncludedVersion int64      `json:"includedVersion,omitempty"`
-	Note            string     `json:"note"`
-	At              stamp.Time `json:"at"`
+	Version         int64    `json:"version"`
+	Name            string   `json:"name,omitempty"`
+	BasedOn         int64    `json:"basedOn,omitempty"`
+	Declaration     PackSpec `json:"declaration"`
+	Spec            PackSpec `json:"spec"`
+	Pins            PinSet   `json:"pins"`
+	IncludedPack    string   `json:"includedPack,omitempty"`
+	IncludedVersion int64    `json:"includedVersion,omitempty"`
+	Note            string   `json:"note"`
+	// Origin is where the version came from (origin.go).
+	Origin
+	At stamp.Time `json:"at"`
 }
 
 // PublicationsOf is a pack's versions as recorded, newest first.
@@ -381,7 +395,7 @@ func (s *Packs) PublicationsOf(ctx context.Context, name string) ([]Publication,
 	}
 	out := make([]Publication, 0, len(rows))
 	for _, r := range rows {
-		pub := Publication{Version: r.Version, Name: r.Name, BasedOn: r.BasedOn, IncludedPack: r.IncludedPack, IncludedVersion: r.IncludedVersion, Note: r.Note,
+		pub := Publication{Version: r.Version, Name: r.Name, BasedOn: r.BasedOn, IncludedPack: r.IncludedPack, IncludedVersion: r.IncludedVersion, Note: r.Note, Origin: Origin{Source: r.Source, Signer: r.Signer},
 			At: stamp.Time{NullTime: sql.NullTime{Time: r.CreatedAt, Valid: true}}}
 		// A publication that cannot be read is an error, not an empty one:
 		// the list and the recommendation show what each version holds.

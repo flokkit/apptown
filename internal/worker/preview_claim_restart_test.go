@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A failed post-rename recovery write must stay fail-closed after restart.
@@ -18,7 +19,7 @@ func TestAClaimThatFailedAfterItsRenameKeepsTheBarrierAcrossARestart(t *testing.
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
-	first := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	first := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	hs := workertest.StartServer(t, ca, first)
 	client := workertest.Client(t, ca, workertest.Installation)
 	client.Transport = laterBootTransport{base: client.Transport}
@@ -39,7 +40,7 @@ func TestAClaimThatFailedAfterItsRenameKeepsTheBarrierAcrossARestart(t *testing.
 	if err := os.Remove(fence); err != nil {
 		t.Fatal(err)
 	}
-	restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	restarted.SweepPreviews(context.Background(), true)
 	hs2 := workertest.StartServer(t, ca, restarted)
 	p.URL = hs2.URL
@@ -65,7 +66,7 @@ func TestAClaimThatFailedAfterItsRenameKeepsTheBarrierAcrossARestart(t *testing.
 	}
 	t.Logf("fence left by failed claim: %s", persisted)
 	hs2.Close()
-	third := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	third := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	third.SweepPreviews(context.Background(), true)
 	hs3 := workertest.StartServer(t, ca, third)
 	p.URL = hs3.URL
@@ -87,7 +88,7 @@ func TestASuccessfulClaimEndsALostFence(t *testing.T) {
 	if err := os.Remove(filepath.Join(state, "previews", "fence.json")); err != nil {
 		t.Fatal(err)
 	}
-	srv := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation), Session: "3"}
 	if code := fencedDelete(t, p, "/apptown-preview-run-1", "3", "1"); code != http.StatusConflict {
@@ -100,7 +101,7 @@ func TestASuccessfulClaimEndsALostFence(t *testing.T) {
 		t.Fatalf("a request after the recovery claim: %d", code)
 	}
 	hs.Close()
-	restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	hs2 := workertest.StartServer(t, ca, restarted)
 	p.URL = hs2.URL
 	if code := fencedDelete(t, p, "/apptown-preview-run-1", "3", "4"); code != http.StatusNoContent {

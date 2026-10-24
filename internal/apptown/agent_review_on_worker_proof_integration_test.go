@@ -20,6 +20,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
@@ -203,7 +204,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	namespace := fmt.Sprintf("agentproof%d", time.Now().UnixNano()%1_000_000_000)
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{Namespace: namespace},
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
 		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	cfg := Config{DataDir: t.TempDir(), AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent",
 		ConsoleCLI: linuxAppTownCLI(t), Worker: workerClientConfig(t, ca, srv.URL), DockerClient: local,

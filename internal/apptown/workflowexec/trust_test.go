@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/trust"
+	"github.com/flokkit/apptown/stock"
 )
 
 // AppTown's own commands in a container run the extra certificates
@@ -73,7 +74,7 @@ func TestEveryReleaseBuildIsGivenTheExtraCertificatesAsItsSecret(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	script, _, _, err := releaseBuildRequest(tree, deployment.PlanRelease(c), "linux/amd64")
+	script, _, _, err := releaseBuildRequest(tree, deployment.PlanRelease(c), "linux/amd64", stock.Images().StaticServer)
 	if err != nil {
 		t.Fatal(err)
 	}

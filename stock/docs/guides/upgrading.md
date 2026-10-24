@@ -39,7 +39,10 @@
    set `APPTOWN_VERSION` in `.env` to the new version (or download the new
    `compose.yaml`), then `docker compose pull && docker compose up -d`: the
    image brings its own agent image's name. Otherwise, unpack the new release over
-   `/opt/apptown` ([downloading a release](server-setup.md)) and set `APPTOWN_AGENT_IMAGE` to the new release's agent
+   `/opt/apptown` ([downloading a release](server-setup.md)), its `share/`
+   folder with its `bin/` (AppTown reads its ways of working and tool
+   versions from `share/apptown/updates` at start, and does not start
+   without them), and set `APPTOWN_AGENT_IMAGE` to the new release's agent
    image (`ghcr.io/flokkit/apptown-agent:<version>`); AppTown pulls it when
    it starts. Workers build their own agent image from the recipe in the
    release. Install the worker first, then start `apptownd`. The new

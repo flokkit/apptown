@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A release's preview on the worker runs the release's images by digest:
@@ -49,7 +50,7 @@ func TestAReleasePreviewOnTheWorkerPullsItsImagesByDigestAndBuildsNothing(t *tes
 		return nil, nil, true
 	}
 	ca := workertest.NewCA(t)
-	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: dk})
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: dk})
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 
 	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n  worker:\n    build: worker\ninit:\n  - name: migrate\n    build: .\n"))

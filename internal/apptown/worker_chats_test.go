@@ -32,6 +32,7 @@ import (
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // workerChatWorld is an AppTown with a worker for chats: AppTown's own chat
@@ -73,7 +74,7 @@ func newWorkerChatWorldConfigured(t *testing.T, configure func(*Config) Config) 
 	t.Helper()
 	ca := workertest.NewCA(t)
 	onWork := consoletest.NewAgent()
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Sessions: onWork})
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Sessions: onWork})
 	client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	failSaves := &atomic.Bool{}
 	client.Client.Transport = failing{base: client.Client.Transport, fail: failSaves}

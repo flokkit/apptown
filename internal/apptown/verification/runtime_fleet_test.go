@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/stock"
 )
 
 func TestPostureModeDeclaration(t *testing.T) {
@@ -22,10 +23,10 @@ func TestPostureModeDeclaration(t *testing.T) {
 	if _, ok := check.PostureScript(conformance.CheckDeclaration{Evaluator: "llm", Rubric: "x"}); ok {
 		t.Fatal("an llm-only check must have no posture mode")
 	}
-	if evaluatorVersion(conformance.CheckDeclaration{Evaluator: "sh", Sh: "exit 0"}) == "" {
+	if evaluatorVersion(conformance.CheckDeclaration{Evaluator: "sh", Sh: "exit 0"}, stock.Images().Sh) == "" {
 		t.Fatal("an sh posture check must carry an evaluator version")
 	}
-	if evaluatorVersion(conformance.CheckDeclaration{Evaluator: "llm", Rubric: "x"}) != "" {
+	if evaluatorVersion(conformance.CheckDeclaration{Evaluator: "llm", Rubric: "x"}, stock.Images().Sh) != "" {
 		t.Fatal("no posture evaluator → no evaluator version")
 	}
 }

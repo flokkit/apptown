@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/stock"
 )
 
 func TestImageSweepRequiresAValidExpiredAge(t *testing.T) {
@@ -127,7 +128,7 @@ func TestAContainersAgeIsJudgedOnAppTownsClock(t *testing.T) {
 		return nil, nil, false
 	})
 	sessions := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: t.TempDir()}})
-	r := New(databaseSuite.New(t), Dependencies{Docker: docker.Scope{Client: daemon}, Sessions: sessions, Now: func() time.Time { return apptownNow }}, t.TempDir())
+	r := New(databaseSuite.New(t), Dependencies{ToolVersions: stock.Versions(), Docker: docker.Scope{Client: daemon}, Sessions: sessions, Now: func() time.Time { return apptownNow }}, t.TempDir())
 	if got := r.Containers(context.Background(), true); len(got) != 1 || got[0] != "apptown-step-00000006-7932-7000-8000-000000000000" {
 		t.Fatalf("would reap %v, want the step's container three hours old on AppTown's clock, and no preview", got)
 	}
@@ -190,7 +191,7 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 		}
 		return nil, nil, true
 	})
-	r := &Reaper{docker: docker.Scope{Client: daemon}}
+	r := &Reaper{docker: docker.Scope{Client: daemon}, tools: stock.Versions()}
 	if reaped := r.Cache(t.Context(), false); len(reaped) != 0 {
 		t.Fatalf("reaped %v with no listing", reaped)
 	}

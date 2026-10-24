@@ -15,6 +15,9 @@ type Judge struct {
 	// execution.Runner because a host adds its own cache mounts, labels and
 	// ownership to every run it owns.
 	Run func(execution.Request) execution.Outcome
+	// ShImage is the image sh checks run in, the tool versions' shell, from
+	// the snapshot the caller's unit of work took. "": they error.
+	ShImage string
 	// Complete asks a model for one answer. nil: rubrics cannot be assessed.
 	Complete Completer
 	// Probe makes one HTTP request. nil: runtime checks cannot be assessed.

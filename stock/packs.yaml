@@ -1,5 +1,7 @@
 # Packs: complete ways-of-working a new project opts into (state-model §6.4).
 # guidance = pinned manifest imports; workflows = installed from the library.
+# tools = the version line of each tool the pack prescribes, which
+# tool-versions.yaml resolves to an exact version.
 packs:
   # The platform tier (design/subsystems/ways-of-working-versions.md §1.1): AppTown's
   # own coupling — health, the front door, no build artifacts — and the
@@ -35,6 +37,7 @@ packs:
     description: >-
       Go services, Postgres, a React UI built with Vite, REST and
       server-sent events, and few dependencies.
+    tools: {go: "1.27"}
     toolchain: go
     extensions: [lsp]
     guidance:
@@ -95,6 +98,7 @@ packs:
       Experimental: the current starter has not shipped an app yet. Browser games built with npm libraries such as three.js, a bundler,
       and TypeScript where it helps. Players need only the link. Starts
       with a small working 3D game to change.
+    tools: {node: "24"}
     toolchain: node
     guidance:
       - game/open-toolchain
@@ -112,6 +116,7 @@ packs:
       with Vite, a few npm libraries, tests with Vitest, data kept in the
       browser, and working offline where the app needs it. Starts with a
       small working app to change.
+    tools: {node: "24"}
     toolchain: node
     extensions: [lsp]
     guidance:
@@ -135,6 +140,7 @@ packs:
       needs one, is React built with Vite. The repository starts with the
       packaging recipe and runtime contract only; the first change writes
       the app.
+    tools: {node: "24", postgres: "16"}
     toolchain: node
     extensions: [lsp]
     services:
@@ -161,6 +167,7 @@ packs:
     description: >-
       Django with server-rendered templates and HTMX, Postgres, and the
       Django admin.
+    tools: {python: "3.12", postgres: "16"}
     toolchain: python
     extensions: [lsp]
     services:
@@ -188,6 +195,7 @@ packs:
       an executable jar. Starts from Spring Initializr on the first change.
       Toolchain pinned in mise.toml; dependencies are fetched through the
       package registries AppTown is set up with.
+    tools: {java: "21", maven: "3.9", postgres: "16"}
     toolchain: java
     services:
       - name: postgres
@@ -218,6 +226,7 @@ packs:
       published app. Starts from the SDK's own templates on the first change.
       Toolchain pinned in mise.toml; packages are fetched through the
       package registries AppTown is set up with.
+    tools: {dotnet: "10", postgres: "16"}
     toolchain: dotnet
     services:
       - name: postgres
@@ -247,6 +256,7 @@ packs:
       Puma, propshaft — no Node toolchain. Starts from `rails new` on the
       first change. Toolchain pinned in mise.toml; gems are fetched through
       the package registries AppTown is set up with.
+    tools: {ruby: "3.4", postgres: "16"}
     toolchain: ruby
     services:
       - name: postgres
@@ -275,6 +285,7 @@ packs:
       Experimental: not yet run in production by the maintainers for two weeks with a clean image scan. Stable Rust via mise, std-first services, minimal crates, deployed
       as a release binary. Toolchain and crates are fetched through the
       package registries AppTown is set up with.
+    tools: {rust: "1.84"}
     toolchain: rust
     guidance:
       - arch/boring-technology
@@ -297,6 +308,7 @@ packs:
       Experimental: no app shipped from the current starter yet. WordPress with Composer-locked core and plugins, an immutable PHP/Apache
       image, deployment-owned MariaDB, and uploads in the deployment's own object storage, served by the site.
       Starts with a small neutral theme; code updates go through reviewed builds.
+    tools: {mariadb: "11.4"}
     services:
       - name: mariadb
         image: mariadb:11.4.13

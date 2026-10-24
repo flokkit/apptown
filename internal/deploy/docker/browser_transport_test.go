@@ -32,7 +32,7 @@ func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 			} else {
 				secrets = map[string]string{BrowserEnvVar: "private-review-canary"}
 			}
-			_, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "review-browser", Workspace: t.TempDir()}, part, "", secrets)
+			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "review-browser", Workspace: t.TempDir()}, part, "", secrets)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -60,7 +60,7 @@ func TestNothingButAppTownSetsAStaticPartsBrowserValues(t *testing.T) {
 func TestAnUnreadableBrowserValueLeavesTheRunningContainer(t *testing.T) {
 	t.Parallel()
 	client := &fakeClient{reply: func(Command) ([]byte, error) { return nil, nil }}
-	_, err := NewHost(Dependencies{Integrations: unreadableBrowser{}}).StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Static: ".", Port: 8080}, "", nil)
+	_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Integrations: unreadableBrowser{}}).StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "serving", Workspace: t.TempDir()}, &appcontract.Part{Static: ".", Port: 8080}, "", nil)
 	if err == nil || !strings.Contains(err.Error(), "browser may be given") {
 		t.Fatalf("want the read failure, got %v", err)
 	}
@@ -109,7 +109,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 				if readable {
 					browser = givenBrowser{}
 				}
-				_, err := NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: browser, Probe: reviewUp{}}).Boot(context.Background(), req, c)
+				_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: browser, Probe: reviewUp{}}).Boot(context.Background(), req, c)
 				if !readable {
 					if err == nil || !strings.Contains(err.Error(), "browser may be given") {
 						t.Fatalf("expected the read failure, got %v", err)
@@ -184,7 +184,7 @@ func TestIntegrationVariablesAreReadBeforeTheStackChanges(t *testing.T) {
 	}, Init: []appcontract.InitContainer{{Name: "migrate", Image: "migration:1"}}}
 	req := BootRequest{Docker: Scope{Client: client}, Name: "serving", StackID: "env-review-main", Workspace: t.TempDir(), Persistent: true,
 		Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "review"}}
-	host := NewHost(Dependencies{Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: unreadableIntegrations{}, Probe: reviewUp{}})
+	host := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Integrations: unreadableIntegrations{}, Probe: reviewUp{}})
 	_, err := host.Boot(context.Background(), req, c)
 	if AsBootError(err) == nil || AsBootError(err).Phase != PhaseConfig || !strings.Contains(err.Error(), "attached integrations") {
 		t.Fatalf("expected a configuration failure, got %v", err)

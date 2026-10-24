@@ -162,7 +162,7 @@ func (s *Scanners) RunToolChecks(ctx context.Context, checks []conformance.Decla
 // way to run a command inside an app image.
 func (s *Scanners) toolJudge(ctx context.Context, tool, bindingName string, m check.Scanner) *check.Judge {
 	m.Name = bindingName
-	j := s.evaluator.judge(ctx)
+	j := s.evaluator.judge(ctx, "")
 	j.Scanners = check.ScannersFunc(func(name string) (check.Scanner, bool) { return m, name == tool })
 	j.RunImage = func(image string, command, env []string) (int, string) {
 		return runInImage(ctx, s.exec.Run, image, command, env)
@@ -308,7 +308,7 @@ func (s *Scanners) baseScanFingerprints(ctx context.Context, repo, baseSHA strin
 	}
 	req := m.Request(src, m.Command)
 	req.Name, req.Report = execution.UniqueName(fmt.Sprintf("%s-base-%s", namePrefix, binding)), m.Report
-	answer := readScan(s.evaluator.judge(ctx).Run(req), m, binding)
+	answer := readScan(s.evaluator.judge(ctx, "").Run(req), m, binding)
 	if answer.failure != "" {
 		b.Note = "scanning the base commit failed (" + strs.Truncate(answer.failure, 160) + ") — every finding is treated as introduced"
 		return b
@@ -384,7 +384,7 @@ func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefi
 		}
 		req := m.Request(scanSrc, m.Command)
 		req.Name, req.Report = execution.UniqueName(fmt.Sprintf("%s-scan-%s", namePrefix, sc.Name)), m.Report
-		outcome := s.evaluator.judge(ctx).Run(req)
+		outcome := s.evaluator.judge(ctx, "").Run(req)
 		res.DurationMs = new(s.now().Sub(start).Milliseconds())
 		answer := readScan(outcome, m, sc.Name)
 		exitCode := answer.exit

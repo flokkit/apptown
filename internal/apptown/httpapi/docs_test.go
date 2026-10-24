@@ -10,7 +10,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/flokkit/apptown/stock"
+	stockdocs "github.com/flokkit/apptown/stock/docs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -111,7 +111,7 @@ func TestGuideGroupsRefuseABrokenIndex(t *testing.T) {
 // except a guide being written; once that guide lands it leaves the
 // exception list.
 func TestShippedGuideIndexNamesRealGuides(t *testing.T) {
-	raw, err := stock.FS.ReadFile("docs/guides/" + guideIndexFile)
+	raw, err := stockdocs.FS.ReadFile("guides/" + guideIndexFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestShippedGuideIndexNamesRealGuides(t *testing.T) {
 				t.Errorf("index names %s twice", slug)
 			}
 			named[slug] = true
-			_, err := fs.Stat(stock.FS, "docs/guides/"+slug+".md")
+			_, err := fs.Stat(stockdocs.FS, "guides/"+slug+".md")
 			_, pending := guidesBeingWritten[slug]
 			switch {
 			case err != nil && !pending:
@@ -160,7 +160,7 @@ func TestDocsListOpensOnStartHere(t *testing.T) {
 	if len(got.Groups) == 0 || got.Groups[0].Title != "Start here" || got.Groups[0].Guides[0].Slug != "quickstart" {
 		t.Fatalf("first group: %+v", got.Groups)
 	}
-	entries, err := stock.FS.ReadDir("docs/guides")
+	entries, err := stockdocs.FS.ReadDir("guides")
 	if err != nil {
 		t.Fatal(err)
 	}

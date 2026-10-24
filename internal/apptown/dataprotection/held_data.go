@@ -154,6 +154,8 @@ func (s *core) releaseContract(ctx context.Context, dep *deployment.Deployment) 
 // by volume and each asked of the host. named says whether either source
 // names data. An error is a host that could not be asked.
 func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *deployment.Deployment, owned []deploy.Owned, c *appcontract.Contract) ([]backupPlanItem, bool, error) {
+	// One plan's volume copies run in one snapshot's shell image.
+	sh := s.env.ToolVersions().Images.Sh
 	hostNames, err := dep.HostNames()
 	if err != nil {
 		return nil, false, err
@@ -244,7 +246,7 @@ func (s *core) heldFrom(ctx context.Context, dk docker.Scope, slug string, dep *
 			continue
 		}
 		if w.need == "" {
-			it := appVolumeItem(s.env.ChownImage(), w.volume)
+			it := appVolumeItem(sh, w.volume)
 			it.Listed = w.listed
 			add(it)
 			continue

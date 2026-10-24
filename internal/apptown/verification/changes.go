@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/toolversions"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -68,6 +69,8 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 		return nil, err
 	}
 	id := ch.ID
+	// The tool versions this check uses throughout: head and base alike.
+	tools := v.evaluator.snapshot()
 	// What is checked is settled first: a commit AppTown cannot answer
 	// for is refused before anything runs.
 	read, headSHA, scratch, err := v.checkedCommit(ctx, ch, sel)
@@ -86,7 +89,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 		return nil, err
 	}
 	defer cleanup()
-	results, findings, shErrors := v.evaluator.runShChecks(ctx, checks, src, fmt.Sprintf("apptown-check-%d", id))
+	results, findings, shErrors := v.evaluator.runShChecks(ctx, tools.Images.Sh, checks, src, fmt.Sprintf("apptown-check-%d", id))
 
 	// tool checks (design/subsystems/conformance.md §13.6): the agent sees the real tool
 	// findings — SAST issues, framework self-check warnings — in its own loop.
@@ -127,7 +130,7 @@ func (v *Changes) Check(ctx context.Context, ch *workflow.Change, sel Selection)
 
 	// The baseline, as the gate applies it: a finding that already fails
 	// on the tree this change forked from is marked and does not count.
-	base := v.baselineFor(ctx, ch.ProjectID, checks, forkBase, fmt.Sprintf("apptown-check-%d", id))
+	base := v.baselineFor(ctx, tools, ch.ProjectID, checks, forkBase, fmt.Sprintf("apptown-check-%d", id))
 	// A check its caller stopped part-way has no answer: a cut-short phase
 	// reads as nothing found, never as a pass.
 	if err := ctx.Err(); err != nil {
@@ -385,13 +388,14 @@ func (v *Changes) baseProvenance(ctx context.Context, projectID ids.ID, baseSHA 
 // per project, base and check set). Tool checks needing the app image use a
 // cached image only — never a build for the baseline — and count as
 // unknown when it is not there.
-func (v *Changes) baselineFor(ctx context.Context, projectID ids.ID, checks []conformance.DeclaredCheck, baseSHA, prefix string) *baselineSet {
+func (v *Changes) baselineFor(ctx context.Context, tools toolversions.Snapshot, projectID ids.ID, checks []conformance.DeclaredCheck, baseSHA, prefix string) *baselineSet {
 	if baseSHA == "" || len(checks) == 0 {
 		return nil
 	}
 	// The cache key is every input the answer depends on (§4.2): the
-	// tree, the checks, and the evaluators behind the tool checks.
-	key := fmt.Sprintf("%d|%s|%s|%s", projectID, baseSHA, checksDigest(checks), v.toolIdentities(ctx, checks))
+	// tree, the checks, the evaluators behind the tool checks, and the tool
+	// versions the shell checks ran under.
+	key := fmt.Sprintf("%d|%s|%s|%s|%s", projectID, baseSHA, checksDigest(checks), v.toolIdentities(ctx, checks), tools.Digest)
 	c := v.baseline
 	c.mu.Lock()
 	if b := c.entries[key]; b != nil && (len(b.unknown) == 0 || v.now().Sub(b.at) < unknownRetry) {
@@ -408,7 +412,7 @@ func (v *Changes) baselineFor(ctx context.Context, projectID ids.ID, checks []co
 		return b
 	}
 	defer cleanup()
-	results, findings, _ := v.evaluator.runShChecks(ctx, checks, src, prefix+"-base")
+	results, findings, _ := v.evaluator.runShChecks(ctx, tools.Images.Sh, checks, src, prefix+"-base")
 	toolResults, toolFindings, _ := v.scanners.RunToolChecks(ctx, checks,
 		ToolContext{Context: ctx, ProjectID: projectID, SHA: baseSHA, BuildDir: src, AllowBuild: false}, prefix+"-base")
 	results = append(results, toolResults...)

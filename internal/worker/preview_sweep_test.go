@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
@@ -162,7 +163,7 @@ func TestThePreviewSweepFinishesRemovalsAndInterruptedBoots(t *testing.T) {
 	t.Parallel()
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 
@@ -220,7 +221,7 @@ func TestAWorkerRefusesAPreparedBootWithoutItsContract(t *testing.T) {
 	t.Parallel()
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	kept := previewFolder(t, srv.State, "apptown-preview-change-00000000-0004-7000-8000-000000000000")
@@ -241,7 +242,7 @@ func TestAWorkerListsItsPreviews(t *testing.T) {
 	t.Parallel()
 	binary, _ := sweepDocker(t)
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	previewFolder(t, srv.State, "apptown-preview-change-00000000-0002-7000-8000-000000000000")
@@ -251,7 +252,7 @@ func TestAWorkerListsItsPreviews(t *testing.T) {
 		t.Fatalf("listed %q %v", names, err)
 	}
 
-	srv2 := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: unavailableDocker()}
+	srv2 := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: unavailableDocker()}
 	hs2 := workertest.StartServer(t, ca, srv2)
 	if names, err := (worker.Previews{URL: hs2.URL, Client: workertest.Client(t, ca, workertest.Installation)}).List(context.Background()); err == nil {
 		t.Fatalf("a Docker that cannot list answered %q", names)
@@ -268,7 +269,7 @@ func TestAnOlderRequestNeverUndoesALaterOne(t *testing.T) {
 	t.Parallel()
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	client := workertest.Client(t, ca, workertest.Installation)
 	send := func(path, session string, n int64) int {
@@ -331,7 +332,7 @@ func TestAChangesPreviewKeepsItsBuildImagesUntilAppTownRemovesThem(t *testing.T)
 		return nil, nil, false
 	}
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	removed := func() string { return strings.Join(binary.commands("rmi"), "\n") + "\n" }
@@ -364,7 +365,7 @@ func TestAChangesPreviewKeepsItsBuildImagesUntilAppTownRemovesThem(t *testing.T)
 func TestTheWorkerTrimsItsBuildCacheToTheBudget(t *testing.T) {
 	t.Parallel()
 	binary, _ := sweepDocker(t)
-	(&worker.Server{State: t.TempDir(), Docker: binary}).TrimBuildCache(context.Background())
+	(&worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Docker: binary}).TrimBuildCache(context.Background())
 	if got := binary.commands("builder"); len(got) != 1 || got[0] != "builder prune -f --keep-storage "+docker.BuildCacheBudget {
 		t.Fatalf("trimmed with %v", got)
 	}

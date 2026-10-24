@@ -215,7 +215,7 @@ func (q *Queries) BlockByNameForUpdate(ctx context.Context, name string) (Guidan
 }
 
 const blockVersion = `-- name: BlockVersion :one
-SELECT id, block_id, version, body_md, checks_json, created_at FROM guidance_block_versions WHERE block_id=$1 AND version=$2
+SELECT id, block_id, version, body_md, checks_json, created_at, source, signer FROM guidance_block_versions WHERE block_id=$1 AND version=$2
 `
 
 type BlockVersionParams struct {
@@ -233,12 +233,14 @@ func (q *Queries) BlockVersion(ctx context.Context, arg BlockVersionParams) (Gui
 		&i.BodyMd,
 		&i.ChecksJson,
 		&i.CreatedAt,
+		&i.Source,
+		&i.Signer,
 	)
 	return i, err
 }
 
 const blockVersionAsOf = `-- name: BlockVersionAsOf :one
-SELECT id, block_id, version, body_md, checks_json, created_at FROM guidance_block_versions WHERE block_id=$1 AND created_at<=$2 ORDER BY version DESC LIMIT 1
+SELECT id, block_id, version, body_md, checks_json, created_at, source, signer FROM guidance_block_versions WHERE block_id=$1 AND created_at<=$2 ORDER BY version DESC LIMIT 1
 `
 
 type BlockVersionAsOfParams struct {
@@ -256,18 +258,22 @@ func (q *Queries) BlockVersionAsOf(ctx context.Context, arg BlockVersionAsOfPara
 		&i.BodyMd,
 		&i.ChecksJson,
 		&i.CreatedAt,
+		&i.Source,
+		&i.Signer,
 	)
 	return i, err
 }
 
 const blockVersionsMeta = `-- name: BlockVersionsMeta :many
-SELECT block_id,version,created_at FROM guidance_block_versions WHERE block_id=$1 ORDER BY version DESC
+SELECT block_id,version,created_at,source,signer FROM guidance_block_versions WHERE block_id=$1 ORDER BY version DESC
 `
 
 type BlockVersionsMetaRow struct {
 	BlockID   ids.ID
 	Version   int64
 	CreatedAt time.Time
+	Source    string
+	Signer    string
 }
 
 // History lists show versions and dates without copying their potentially large bodies/checks.
@@ -280,7 +286,13 @@ func (q *Queries) BlockVersionsMeta(ctx context.Context, blockID ids.ID) ([]Bloc
 	var items []BlockVersionsMetaRow
 	for rows.Next() {
 		var i BlockVersionsMetaRow
-		if err := rows.Scan(&i.BlockID, &i.Version, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.BlockID,
+			&i.Version,
+			&i.CreatedAt,
+			&i.Source,
+			&i.Signer,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -503,8 +515,8 @@ func (q *Queries) InsertBlock(ctx context.Context, arg InsertBlockParams) (Guida
 }
 
 const insertBlockVersion = `-- name: InsertBlockVersion :one
-INSERT INTO guidance_block_versions(id, block_id,version,body_md,checks_json,created_at)
-VALUES($1, $2,$3,$4,$5,$6) RETURNING id, block_id, version, body_md, checks_json, created_at
+INSERT INTO guidance_block_versions(id, block_id,version,body_md,checks_json,created_at,source,signer)
+VALUES($1, $2,$3,$4,$5,$6,$7,$8) RETURNING id, block_id, version, body_md, checks_json, created_at, source, signer
 `
 
 type InsertBlockVersionParams struct {
@@ -514,6 +526,8 @@ type InsertBlockVersionParams struct {
 	Body    string
 	Checks  json.RawMessage
 	At      time.Time
+	Source  string
+	Signer  string
 }
 
 func (q *Queries) InsertBlockVersion(ctx context.Context, arg InsertBlockVersionParams) (GuidanceBlockVersion, error) {
@@ -524,6 +538,8 @@ func (q *Queries) InsertBlockVersion(ctx context.Context, arg InsertBlockVersion
 		arg.Body,
 		arg.Checks,
 		arg.At,
+		arg.Source,
+		arg.Signer,
 	)
 	var i GuidanceBlockVersion
 	err := row.Scan(
@@ -533,6 +549,8 @@ func (q *Queries) InsertBlockVersion(ctx context.Context, arg InsertBlockVersion
 		&i.BodyMd,
 		&i.ChecksJson,
 		&i.CreatedAt,
+		&i.Source,
+		&i.Signer,
 	)
 	return i, err
 }
@@ -614,8 +632,8 @@ func (q *Queries) InsertPack(ctx context.Context, arg InsertPackParams) (Pack, e
 }
 
 const insertPackVersion = `-- name: InsertPackVersion :one
-INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,included_pack,included_version,name,based_on)
-VALUES($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on
+INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,included_pack,included_version,name,based_on,source,signer)
+VALUES($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on, source, signer
 `
 
 type InsertPackVersionParams struct {
@@ -631,6 +649,8 @@ type InsertPackVersionParams struct {
 	IncludedVersion int64
 	Name            string
 	BasedOn         int64
+	Source          string
+	Signer          string
 }
 
 func (q *Queries) InsertPackVersion(ctx context.Context, arg InsertPackVersionParams) (PackVersion, error) {
@@ -647,6 +667,8 @@ func (q *Queries) InsertPackVersion(ctx context.Context, arg InsertPackVersionPa
 		arg.IncludedVersion,
 		arg.Name,
 		arg.BasedOn,
+		arg.Source,
+		arg.Signer,
 	)
 	var i PackVersion
 	err := row.Scan(
@@ -662,6 +684,8 @@ func (q *Queries) InsertPackVersion(ctx context.Context, arg InsertPackVersionPa
 		&i.IncludedVersion,
 		&i.Name,
 		&i.BasedOn,
+		&i.Source,
+		&i.Signer,
 	)
 	return i, err
 }
@@ -700,8 +724,8 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 }
 
 const insertWorkflowVersion = `-- name: InsertWorkflowVersion :one
-INSERT INTO lib_workflow_versions(id, lib_id,version,yaml,created_at)
-VALUES($1, $2,$3,$4,$5) RETURNING id, lib_id, version, yaml, created_at
+INSERT INTO lib_workflow_versions(id, lib_id,version,yaml,created_at,source,signer)
+VALUES($1, $2,$3,$4,$5,$6,$7) RETURNING id, lib_id, version, yaml, created_at, source, signer
 `
 
 type InsertWorkflowVersionParams struct {
@@ -710,6 +734,8 @@ type InsertWorkflowVersionParams struct {
 	Version int64
 	Yaml    string
 	At      time.Time
+	Source  string
+	Signer  string
 }
 
 func (q *Queries) InsertWorkflowVersion(ctx context.Context, arg InsertWorkflowVersionParams) (LibWorkflowVersion, error) {
@@ -719,6 +745,8 @@ func (q *Queries) InsertWorkflowVersion(ctx context.Context, arg InsertWorkflowV
 		arg.Version,
 		arg.Yaml,
 		arg.At,
+		arg.Source,
+		arg.Signer,
 	)
 	var i LibWorkflowVersion
 	err := row.Scan(
@@ -727,6 +755,8 @@ func (q *Queries) InsertWorkflowVersion(ctx context.Context, arg InsertWorkflowV
 		&i.Version,
 		&i.Yaml,
 		&i.CreatedAt,
+		&i.Source,
+		&i.Signer,
 	)
 	return i, err
 }
@@ -973,7 +1003,7 @@ func (q *Queries) PackPublication(ctx context.Context, arg PackPublicationParams
 }
 
 const packVersion = `-- name: PackVersion :one
-SELECT id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on FROM pack_versions WHERE pack_id=$1 AND version=$2
+SELECT id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on, source, signer FROM pack_versions WHERE pack_id=$1 AND version=$2
 `
 
 type PackVersionParams struct {
@@ -997,12 +1027,14 @@ func (q *Queries) PackVersion(ctx context.Context, arg PackVersionParams) (PackV
 		&i.IncludedVersion,
 		&i.Name,
 		&i.BasedOn,
+		&i.Source,
+		&i.Signer,
 	)
 	return i, err
 }
 
 const packVersions = `-- name: PackVersions :many
-SELECT id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on FROM pack_versions WHERE pack_id=$1 ORDER BY version DESC
+SELECT id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on, source, signer FROM pack_versions WHERE pack_id=$1 ORDER BY version DESC
 `
 
 func (q *Queries) PackVersions(ctx context.Context, packID ids.ID) ([]PackVersion, error) {
@@ -1027,6 +1059,8 @@ func (q *Queries) PackVersions(ctx context.Context, packID ids.ID) ([]PackVersio
 			&i.IncludedVersion,
 			&i.Name,
 			&i.BasedOn,
+			&i.Source,
+			&i.Signer,
 		); err != nil {
 			return nil, err
 		}
@@ -1370,7 +1404,7 @@ func (q *Queries) WorkflowCatalog(ctx context.Context) ([]WorkflowCatalogRow, er
 }
 
 const workflowVersion = `-- name: WorkflowVersion :one
-SELECT v.id, v.lib_id, v.version, v.yaml, v.created_at FROM lib_workflows l JOIN lib_workflow_versions v ON v.lib_id=l.id
+SELECT v.id, v.lib_id, v.version, v.yaml, v.created_at, v.source, v.signer FROM lib_workflows l JOIN lib_workflow_versions v ON v.lib_id=l.id
  AND v.version=CASE WHEN $1::bigint>0 THEN $1::bigint ELSE l.latest_version END
 WHERE l.name=$2::text
 `
@@ -1389,12 +1423,14 @@ func (q *Queries) WorkflowVersion(ctx context.Context, arg WorkflowVersionParams
 		&i.Version,
 		&i.Yaml,
 		&i.CreatedAt,
+		&i.Source,
+		&i.Signer,
 	)
 	return i, err
 }
 
 const workflowVersions = `-- name: WorkflowVersions :many
-SELECT id, lib_id, version, yaml, created_at FROM lib_workflow_versions WHERE lib_id=$1 ORDER BY version DESC
+SELECT id, lib_id, version, yaml, created_at, source, signer FROM lib_workflow_versions WHERE lib_id=$1 ORDER BY version DESC
 `
 
 func (q *Queries) WorkflowVersions(ctx context.Context, libID ids.ID) ([]LibWorkflowVersion, error) {
@@ -1412,6 +1448,8 @@ func (q *Queries) WorkflowVersions(ctx context.Context, libID ids.ID) ([]LibWork
 			&i.Version,
 			&i.Yaml,
 			&i.CreatedAt,
+			&i.Source,
+			&i.Signer,
 		); err != nil {
 			return nil, err
 		}

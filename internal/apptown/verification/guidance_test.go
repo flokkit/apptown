@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/preview"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/model"
@@ -120,11 +121,11 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 		t.Fatal(err)
 	}
 	previews := &recordingPreviews{}
-	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil), Previews: previews,
+	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil, stock.Versions()), Previews: previews,
 		Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
 	kinds := map[string]gateKind{
 		"sh": {check.Declaration{Name: "script", Expects: "a readme", Sh: "test -f README.md", Severity: "high"}, "pass",
-			func() bool { return f.Effects.ran(check.ShImage) }},
+			func() bool { return f.Effects.ran(stock.Images().Sh) }},
 		"tool": {check.Declaration{Name: "sast", Expects: "no sast findings", Tool: "semgrep-django", Severity: "high"}, "pass",
 			func() bool { return f.Effects.ran("semgrep/semgrep:test") }},
 		"llm": {check.Declaration{Name: "readme", Expects: "says what it is", Rubric: "the readme names the app", Scope: check.ScopeTree, Files: []string{"README.md"}}, "unclear", // "conforms" is not a checklist word
@@ -152,7 +153,7 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 	run := &workflow.Run{ID: idstest.N(1), ProjectID: f.ProjectID, ChangeID: created.Change.ID}
 	source := workflow.Source{RunID: run.ID, ProjectID: f.ProjectID}
 	at := checked{Src: src, Commit: "0123456789abcdef0123456789abcdef01234567"}
-	got, err := a.judgeDeclared(t.Context(), projectScope(f.ProjectID), run, source, checks, at, "high", "test")
+	got, err := a.judgeDeclared(t.Context(), projectScope(f.ProjectID), stock.Versions().Current(), run, source, checks, at, "high", "test")
 	if err != nil {
 		t.Fatalf("the gate refused a kind declarations may name: %v", err)
 	}
@@ -175,7 +176,7 @@ func TestEveryEvaluatorKindIsJudgedAtTheGate(t *testing.T) {
 	}
 
 	unsupported := []conformance.DeclaredCheck{{Block: "kinds", Version: 1, Check: check.Declaration{Name: "other", Evaluator: "nonesuch"}}}
-	if _, err := a.judgeDeclared(t.Context(), projectScope(f.ProjectID), run, source, unsupported, at, "high", "test"); err == nil || !strings.Contains(err.Error(), `"nonesuch"`) {
+	if _, err := a.judgeDeclared(t.Context(), projectScope(f.ProjectID), stock.Versions().Current(), run, source, unsupported, at, "high", "test"); err == nil || !strings.Contains(err.Error(), `"nonesuch"`) {
 		t.Fatalf("a check of a kind no runner judges was not refused: %v", err)
 	}
 }
@@ -322,7 +323,7 @@ func TestAChecklistAnswerOutsideItsWordsIsUnclear(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(src, "README.md"), []byte("# shop\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil),
+	a := NewGuidance(GuidanceDependencies{DB: f.DB, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil, stock.Versions()),
 		Selection: selectionWithDefault(t, f.DB, "openrouter/test-model")})
 	var checks []conformance.DeclaredCheck
 	for _, name := range []string{"one", "two", "three", "four", "five"} {
@@ -340,7 +341,7 @@ func TestAChecklistAnswerOutsideItsWordsIsUnclear(t *testing.T) {
 
 func TestLLMChecklistSkipsWithoutModel(t *testing.T) {
 	t.Parallel()
-	a := &Guidance{selection: model.NewSelection(model.New(testDB(t))), evaluator: NewEvaluator(nil, nil)}
+	a := &Guidance{selection: model.NewSelection(model.New(testDB(t))), evaluator: NewEvaluator(nil, nil, stock.Versions())}
 	source := workflow.Source{RunID: idstest.N(1), ProjectID: ids.Nil}
 	checks := []conformance.DeclaredCheck{
 		{Block: "style", Version: 1, Check: conformance.CheckDeclaration{Name: "tone", Evaluator: "llm", Rubric: "kind wording"}},

@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A recovery claim already persisted on the worker must not be lowered by
@@ -25,7 +26,7 @@ func TestOverlappingRecoveryClaimsKeepTheNewestFloor(t *testing.T) {
 				t.Fatal(err)
 			}
 			ca := workertest.NewCA(t)
-			srv := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+			srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 			hs := workertest.StartServer(t, ca, srv)
 			// Registered after server cleanup so a failed assertion cannot strand it.
 			t.Cleanup(resume)
@@ -87,7 +88,7 @@ func TestOverlappingRecoveryClaimsKeepTheNewestFloor(t *testing.T) {
 				t.Errorf("older request admitted after newer recovery claim confirmed: %d", code)
 			}
 			hs.Close()
-			restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+			restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 			hs2 := workertest.StartServer(t, ca, restarted)
 			p.URL = hs2.URL
 			if code := fencedDelete(t, p, "/apptown-preview-run-983", olderSession, "3"); code != http.StatusConflict {

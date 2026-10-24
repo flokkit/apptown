@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/stock"
 )
 
 // An input's blob is the tar the worker's blob store takes: one regular
@@ -199,7 +201,7 @@ func TestInputsAndResultsNeedABackendThatClaimsThem(t *testing.T) {
 	withResults.Results = []Result{{Name: "a", Path: "/work/a", Max: 1}}
 	binary, calls := recordingDocker(t)
 	for _, s := range []TaskSpec{withInputs, withResults} {
-		if _, err := (DockerTasks{Binary: binary}).Ensure(context.Background(), s); !errors.Is(err, ErrUnsupported) {
+		if _, err := (DockerTasks{ToolVersions: stock.Versions(), Binary: binary}).Ensure(context.Background(), s); !errors.Is(err, ErrUnsupported) {
 			t.Errorf("the local driver: %v", err)
 		}
 		if err := (WorkerTasks{}).Capabilities().Unclaimed(s); err != nil {

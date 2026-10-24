@@ -11,6 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -225,7 +226,7 @@ func (f *taskAppTown) agentExecutor(t *testing.T) *Executor {
 	return New(f.db, Dependencies{
 		Adoption: adoptions, Integrations: integrations, Secrets: secrets, Catalog: dependency.NewCatalog(f.db, nil),
 		Models: models, Capacity: model.NewScheduler(nil, 1), Progress: feeds, Tokens: tokens, Docker: scope,
-		Workshop: agentenv.NewWorkshop(scope, integrations, feeds, f.dir, f.image, nil), Instructions: agentenv.NewInstructions(f.db, integrations),
+		Workshop: agentenv.NewWorkshop(scope, integrations, feeds, f.dir, f.image, stock.Images().PrivateDocker, nil), Instructions: agentenv.NewInstructions(f.db, integrations),
 		Home: piharness.NewPreparer(gatewayModels{}, models, adoptions, scope, f.image), CLI: fileCLI(cli),
 		Process: apptownPi{f}, Ledger: usage.New(f.db), Publisher: noPublisher{}, Branches: f.branches,
 	}, Config{DataDir: f.dir, Image: f.image, Backend: execution.Local})

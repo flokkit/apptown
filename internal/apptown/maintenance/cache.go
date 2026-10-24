@@ -10,7 +10,6 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
@@ -82,11 +81,19 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 		return c.State
 	}
 	var reaped []string
+	var sh string
+	if r.tools != nil {
+		sh = r.tools.Current().Images.Sh
+	}
+	if sh == "" {
+		log.Printf("reaper: toolchain caches not read: no shell image in the tool versions")
+		return nil
+	}
 	for _, volume := range volumes {
 		// The listing decides what is removed, so it is read from a file in
 		// the container (containerresult.Run), never its output: a volume
 		// whose listing did not come back is left as it is.
-		out, err := r.docker.Result(ctx, containerresult.Spec{Image: check.ShImage, Options: []string{"-v", volume + ":/apptown-cache"}, Script: "ls /apptown-cache/mise/ws"})
+		out, err := r.docker.Result(ctx, containerresult.Spec{Image: sh, Options: []string{"-v", volume + ":/apptown-cache"}, Script: "ls /apptown-cache/mise/ws"})
 		if err != nil {
 			continue
 		}
@@ -101,7 +108,7 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 				continue
 			}
 			log.Printf("reaper: removing toolchain cache %s in %s (%s)", entry, volume, why)
-			if out, err := r.docker.Run(ctx, "run", "--rm", "--entrypoint", "", "-v", volume+":/apptown-cache", check.ShImage, "rm", "-rf", "/apptown-cache/mise/ws/"+entry); err != nil {
+			if out, err := r.docker.Run(ctx, "run", "--rm", "--entrypoint", "", "-v", volume+":/apptown-cache", sh, "rm", "-rf", "/apptown-cache/mise/ws/"+entry); err != nil {
 				log.Printf("reaper: toolchain cache %s in %s not removed: %s", entry, volume, strs.Truncate(string(out), 120))
 			}
 		}

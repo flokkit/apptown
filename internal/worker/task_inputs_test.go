@@ -20,6 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // blobOf is a blob the worker's store takes: a tar with one file "content".
@@ -205,13 +206,13 @@ func (l labels) Labels(_ context.Context, image string) (map[string]string, erro
 // them from Docker.)
 func TestAWorkerReportsItsAgentImage(t *testing.T) {
 	ca := workertest.NewCA(t)
-	with := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: &executionfake.Tasks{}, AgentImage: "apptown-agent:abc",
+	with := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: &executionfake.Tasks{}, AgentImage: "apptown-agent:abc",
 		ImageLabels: labels{"apptown-agent:abc": {"forge.subagents": "reviewer"}}})
 	got, err := workertest.Driver(t, ca, with).AgentImage(context.Background())
 	if err != nil || got.Name != "apptown-agent:abc" || got.Labels["forge.subagents"] != "reviewer" {
 		t.Fatalf("the agent image: %+v %v", got, err)
 	}
-	without := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: &executionfake.Tasks{}})
+	without := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: &executionfake.Tasks{}})
 	if _, err := workertest.Driver(t, ca, without).AgentImage(context.Background()); !errors.Is(err, execution.ErrNoAgentImage) {
 		t.Fatalf("a worker without an agent image: %v", err)
 	}

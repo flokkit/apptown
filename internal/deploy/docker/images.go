@@ -50,7 +50,11 @@ func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.
 				return "", err
 			}
 			image = Current.BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.Identity.Generation, name))
-			if err := PackStaticBuild(ctx, t.Docker, root, *sb, h.staticServer(), port, image); err != nil {
+			server, err := h.staticServer()
+			if err != nil {
+				return "", err
+			}
+			if err := PackStaticBuild(ctx, t.Docker, root, *sb, server, port, image); err != nil {
 				return "", err
 			}
 			if err := t.own.created(deploy.Owned{Kind: "image", ID: image}); err != nil {
@@ -68,7 +72,11 @@ func (h *Host) PrepareImages(ctx context.Context, t BootRequest, c *appcontract.
 			tag := Current.BuildTag(fmt.Sprintf("%s-g%d-%s", t.Name, t.Identity.Generation, name))
 			args := []string{"-t", tag}
 			if static != "" {
-				dockerfile, remove, err := staticDockerfile(h.staticServer(), port)
+				server, err := h.staticServer()
+				if err != nil {
+					return "", err
+				}
+				dockerfile, remove, err := staticDockerfile(server, port)
 				if err != nil {
 					return "", err
 				}

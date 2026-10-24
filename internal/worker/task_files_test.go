@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/execution"
@@ -77,7 +78,7 @@ func TestAWorkerTaskKeepsItsFilesUntilItIsReleased(t *testing.T) {
 	t.Parallel()
 	ca := workertest.NewCA(t)
 	tasks := &mountsSeen{Tasks: &executionfake.Tasks{}}
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Tasks: tasks, Sessions: consoletest.NewAgent()}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Tasks: tasks, Sessions: consoletest.NewAgent()}
 	hs := workertest.StartServer(t, ca, srv)
 	driver := execution.WorkerTasks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	ctx := context.Background()
@@ -147,7 +148,7 @@ func TestACollectedCommitHoldsNoGeneratedFiles(t *testing.T) {
 	t.Parallel()
 	ca := workertest.NewCA(t)
 	tasks := &mountsSeen{Tasks: &executionfake.Tasks{}}
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Tasks: tasks}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Tasks: tasks}
 	hs := workertest.StartServer(t, ca, srv)
 	driver := execution.WorkerTasks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	hub := sourceRepo(t)

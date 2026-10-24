@@ -672,6 +672,7 @@ type packHistory struct {
 		IncludedPack    string
 		IncludedVersion int64
 		Note            string
+		Source, Signer  string
 	}
 }
 
@@ -703,6 +704,16 @@ func printPackHistory(h packHistory) {
 		}
 		if v.IncludedPack != "" {
 			line += fmt.Sprintf(", includes %s v%d", v.IncludedPack, v.IncludedVersion)
+		}
+		switch {
+		case v.Source == "here":
+			line += " (authored here)"
+		case v.Source != "":
+			line += " (from " + v.Source
+			if v.Signer != "" {
+				line += ", " + v.Signer
+			}
+			line += ")"
 		}
 		fmt.Println(line)
 		if v.Note != "" && v.Note != "published contents" {

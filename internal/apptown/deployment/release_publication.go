@@ -54,8 +54,11 @@ func (img ReleaseImage) IsStatic() bool {
 // Dockerfile is a static site's image: its files in the file server's
 // image, with the command that serves them (docker.StaticSiteDockerfile),
 // as a Docker host's own build of it is (docker.PrepareImages).
-func (img ReleaseImage) Dockerfile() string {
-	return docker.StaticSiteDockerfile(docker.StaticServerImage, img.Port)
+func (img ReleaseImage) Dockerfile(server string) (string, error) {
+	if server == "" {
+		return "", fmt.Errorf("no static server image: the tool versions name it")
+	}
+	return docker.StaticSiteDockerfile(server, img.Port), nil
 }
 
 // ReleasePlan is what a release is made of: its distinct images, in the

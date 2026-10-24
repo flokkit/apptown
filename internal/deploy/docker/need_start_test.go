@@ -57,7 +57,7 @@ func storeRelease(t *testing.T, class, health string) (*ownedHost, error) {
 	}}
 	d := &Driver{
 		Scope: func(context.Context) (Scope, error) { return Scope{Client: client}, nil },
-		Boot:  NewHost(Dependencies{Needs: storeNeed{}, Secrets: reviewNoSecrets{}}),
+		Boot:  NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: storeNeed{}, Secrets: reviewNoSecrets{}}),
 		URL:   func(_, _ string, port int) string { return fmt.Sprintf("http://127.0.0.1:%d", port) },
 		Owner: recordNothing{},
 		Owned: func(context.Context) ([]deploy.Owned, error) {

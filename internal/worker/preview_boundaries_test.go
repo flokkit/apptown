@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
@@ -38,7 +39,7 @@ func TestAVisitorsForwardingHeadersNeverReachTheApp(t *testing.T) {
 // probe leaves exactly this running app plus spec, with no completion record.
 func TestAnInterruptedBootIsRemovedWhenTheWorkerStarts(t *testing.T) {
 	binary, dk := sweepDocker(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	dir := previewFolder(t, srv.State, "apptown-preview-change-42")
 	if err := os.WriteFile(filepath.Join(dk, "running-apptown-preview-change-42"), nil, 0600); err != nil {
 		t.Fatal(err)
@@ -52,7 +53,7 @@ func TestAnInterruptedBootIsRemovedWhenTheWorkerStarts(t *testing.T) {
 func TestAPreviewMarkedForRemovalIsNeverReused(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	name := "apptown-preview-change-43"
@@ -75,7 +76,7 @@ func TestAPreviewMarkedForRemovalIsNeverReused(t *testing.T) {
 func TestRemovingEveryPreviewFailsWhenDockerCannotList(t *testing.T) {
 	binary := unavailableDocker()
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	if err := previews.Remove(context.Background(), ""); err == nil {

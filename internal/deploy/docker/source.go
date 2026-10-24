@@ -205,9 +205,6 @@ func ReadWorkspaceContract(ws string) (*appcontract.Contract, error) {
 	return appcontract.Parse(raw)
 }
 
-// StaticServerImage serves static contract output in deployments and local compose.
-const StaticServerImage = "caddy:2-alpine"
-
 // BrowserEnvVar carries a static part's browser-safe values, a JSON object.
 const BrowserEnvVar = appcontract.BrowserEnvVar
 

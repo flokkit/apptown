@@ -13,12 +13,12 @@ import (
 // read-only tree, no network. Exit 0 conformant, 1 findings, anything else
 // the check errored (recorded, never silently dropped).
 
-// ShImage is the pinned image every sh check runs in: alpine with git,
-// because the reference for "what does this repository ignore" is git's own
-// matcher (repo/no-build-artifacts asks it of the committed tree) and a tree
-// question is a shell question. The image's ENTRYPOINT is git;
-// runs clear it (NoEntrypoint) so `sh -c` is the command.
-const ShImage = "alpine/git:v2.47.2"
+// Every sh check runs in Judge.ShImage, alpine with git (the build's
+// tool versions name it by digest), because the reference for "what does
+// this repository ignore" is git's own matcher (repo/no-build-artifacts asks
+// it of the committed tree) and a tree question is a shell question. The
+// image's ENTRYPOINT is git; runs clear it (NoEntrypoint) so `sh -c` is the
+// command.
 
 // ShTimeout bounds one check's script.
 const ShTimeout = 60 * time.Second
@@ -40,11 +40,17 @@ func (j *Judge) EvaluateSh(checks []Declared, src Source, mode Mode, namePrefix 
 func (j *Judge) evaluateSh(d Declared, src Source, mode Mode, namePrefix string) Evaluation {
 	now := clock.Or(j.Now)
 	start := now()
+	image := j.ShImage
+	if image == "" {
+		// No shell image is no verdict: recorded as the check's error.
+		exitCode := -1
+		return Evaluation{Declared: d, Mode: mode, Outcome: Error, Evidence: Evidence{ExitCode: &exitCode, Output: "no shell image: the tool versions name it"}}
+	}
 	outcome := j.Run(execution.Request{
 		Workspace:    src.Tree,
 		WorkspaceRO:  true,
 		Argv:         []string{"sh", "-c", d.Sh},
-		Image:        ShImage,
+		Image:        image,
 		NoEntrypoint: true,
 		Network:      "none",
 		Timeout:      ShTimeout,

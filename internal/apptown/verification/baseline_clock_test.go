@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A baseline with unknowns is asked again once unknownRetry has passed on
@@ -28,13 +29,14 @@ func TestABaselineWithUnknownsIsAskedAgainByAppTownsClock(t *testing.T) {
 	checks := []conformance.DeclaredCheck{{Block: "b", Version: 1, Check: conformance.CheckDeclaration{Name: "check", Evaluator: "sh"}}}
 	// A baseline asked now that could not evaluate one check.
 	first := &baselineSet{failing: map[string]bool{}, items: map[string][]string{}, unknown: map[string]bool{"b@1|check": true}, sha: "base", at: now()}
-	changes.baseline.entries[fmt.Sprintf("%d|%s|%s|%s", idstest.N(1), "base", checksDigest(checks), changes.toolIdentities(ctx, checks))] = first
+	tools := stock.Versions().Current()
+	changes.baseline.entries[fmt.Sprintf("%d|%s|%s|%s|%s", idstest.N(1), "base", checksDigest(checks), changes.toolIdentities(ctx, checks), tools.Digest)] = first
 	move(time.Minute)
-	if again := changes.baselineFor(ctx, idstest.N(1), checks, "base", ""); again != first {
+	if again := changes.baselineFor(ctx, tools, idstest.N(1), checks, "base", ""); again != first {
 		t.Fatal("a baseline with unknowns was asked again within unknownRetry")
 	}
 	move(2 * time.Minute)
-	if again := changes.baselineFor(ctx, idstest.N(1), checks, "base", ""); again == first {
+	if again := changes.baselineFor(ctx, tools, idstest.N(1), checks, "base", ""); again == first {
 		t.Fatal("a baseline with unknowns was kept past unknownRetry")
 	}
 }

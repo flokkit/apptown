@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // subagentsTestImage is the pinned Pi runtime with the pinned subagent
@@ -227,7 +228,7 @@ func runDelegation(t *testing.T, background bool) delegationRun {
 		})
 	}
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServerWith(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{Namespace: namespace},
+	srv := workertest.StartServerWith(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
 		AgentImage: subagentsTestImage, ImageLabels: worker.DockerImages{Binary: "docker"}}, capture)
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))

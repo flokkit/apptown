@@ -61,8 +61,8 @@ const removalBound = time.Minute
 // ReadThroughDocker reads the filesystem holding root on dk's daemon (its
 // data folder, say). Docker reports no disk figures itself, and docker
 // system df walks every layer (minutes on a busy host), so a throwaway
-// container of DFImage with no network mounts root read only and runs df
-// there.
+// container of image (the tool versions' df, from its caller's snapshot)
+// with no network mounts root read only and runs df there.
 //
 // The answer is a file, never the container's output: in CI the output
 // of a container this short-lived has come back empty with exit 0, on the
@@ -85,7 +85,10 @@ const removalBound = time.Minute
 // read. A read with no usable answer is an error that says why, what the
 // file and the log held, and what Docker shows of the container, its image
 // and its versions (evidence), gathered before the container is removed.
-func ReadThroughDocker(ctx context.Context, dk Docker, root string, now func() time.Time, report func(string)) (Space, error) {
+func ReadThroughDocker(ctx context.Context, dk Docker, image, root string, now func() time.Time, report func(string)) (Space, error) {
+	if image == "" {
+		return Space{}, fmt.Errorf("no df image: the tool versions name it")
+	}
 	start := now()
 	sweepProbes(ctx, dk, start)
 	var suffix [8]byte
@@ -108,7 +111,7 @@ func ReadThroughDocker(ctx context.Context, dk Docker, root string, now func() t
 	deadline := start.Add(probeLifetime).Unix()
 	if stdout, stderr, err := dk(ctx, "create", "--name", name,
 		"--label", dockerlabel.Class+"="+ProbeClass, "--label", dockerlabel.Deadline+"="+strconv.FormatInt(deadline, 10),
-		"--log-driver", "json-file", "--network", "none", "-v", root+":/d:ro", DFImage, "sh", "-c", probeScript); err != nil {
+		"--log-driver", "json-file", "--network", "none", "-v", root+":/d:ro", image, "sh", "-c", probeScript); err != nil {
 		return Space{}, fmt.Errorf("creating the probe container %s: %v; stdout %q; stderr %q", name, err, clip(stdout), clip(stderr))
 	}
 	failed := func(why string) error {

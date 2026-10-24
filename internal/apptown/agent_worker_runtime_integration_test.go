@@ -29,6 +29,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // linuxAppTownCLI builds AppTown CLI an agent is given, for Linux, as
@@ -87,7 +88,7 @@ func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testi
 	namespace := fmt.Sprintf("agentcli%d", time.Now().UnixNano()%1_000_000_000)
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{Namespace: namespace},
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
 		AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	// The API's address is known only once it listens: the App is served
 	// behind a handler that is set once it exists.
@@ -137,7 +138,7 @@ func TestIntegrationAppTownCheckOnTheWorkerChecksTheAgentsCommitAsFeedback(t *te
 	namespace := fmt.Sprintf("agentscratch%d", time.Now().UnixNano()%1_000_000_000)
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{Namespace: namespace},
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
 		AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var api http.Handler
 	apiURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(w, r) }))
@@ -208,7 +209,7 @@ func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T)
 	namespace := fmt.Sprintf("agentpi%d", time.Now().UnixNano()%1_000_000_000)
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{Namespace: namespace},
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
 		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
@@ -315,7 +316,7 @@ func TestIntegrationThePackagedPiRuntimeResumesOnlyTheNamedTranscript(t *testing
 	namespace := fmt.Sprintf("agentpin%d", time.Now().UnixNano()%1_000_000_000)
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{Namespace: namespace},
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
 		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))

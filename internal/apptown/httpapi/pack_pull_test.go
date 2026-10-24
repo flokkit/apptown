@@ -61,7 +61,7 @@ func newPackPullFixture(t *testing.T) packPullFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ways := wow.New(db, wow.Dependencies{Stock: stock.FS})
+	ways := wow.New(db, wow.Dependencies{Stock: stock.FS, ToolLines: stock.Versions()})
 	adopt := adoption.New(db, adoption.Dependencies{Ways: ways})
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "bls", Via: "test"}, Receipt: "bls", Verified: true})
 	return packPullFixture{db: db, ways: ways, adoption: adopt, projects: projects, identity: accounts, projectID: pid, ctx: ctx}

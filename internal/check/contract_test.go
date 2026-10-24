@@ -19,7 +19,7 @@ func (s oneScanner) Scanner(string) (check.Scanner, bool) { return check.Scanner
 func TestAJudgeReadsTheOutcomeNotTheProcess(t *testing.T) {
 	t.Parallel()
 	answer := func(code int, report []byte, reportErr error) *check.Judge {
-		return &check.Judge{
+		return &check.Judge{ShImage: testShImage,
 			Run: func(execution.Request) execution.Outcome {
 				return execution.Outcome{Termination: execution.Exited, ExitCode: code, Report: report, ReportErr: reportErr}
 			},

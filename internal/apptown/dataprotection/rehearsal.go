@@ -663,6 +663,9 @@ func (s *Service) runRehearsal(ctx context.Context, t *tracker) (runEnd, string,
 // rehearse fills, boots and checks; it says how it went, and the step a
 // failure was in, in safe words.
 func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, place rehearsalPlace, facts *RehearsalFacts, staged func()) (runEnd, string, string) {
+	// The rehearsal's probes, copies and boot run under one snapshot.
+	tools := s.env.ToolVersions()
+	sh := tools.Images.Sh
 	fail := func(step, why string) (runEnd, string, string) {
 		t.fail(ctx, why)
 		return OperationFailed, step, fmt.Sprintf("the rehearsal of %s from set %d failed while %s: %s", p.dep.Name, p.set.ID, step, why)
@@ -753,7 +756,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 			return OperationFailed, step, fmt.Sprintf("the rehearsal of %s stopped before %s: %v", p.dep.Name, step, err)
 		}
 		t.begin(ctx, step)
-		if err := s.stageOnHost(ctx, dk, read, m.from, place.Copy); err != nil {
+		if err := s.stageOnHost(ctx, dk, read, m.from, place.Copy, sh); err != nil {
 			return fail(step, err.Error())
 		}
 		t.end(ctx, fmt.Sprintf("%d bytes, sha256 %s, as recorded", m.from.Bytes, shortDigest(m.from.SHA256)), m.from.Bytes)
@@ -764,7 +767,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	// The rehearsal's needs hold a copy of the deployment's data: they get
 	// the operation's own credentials, and its fill connects with them.
 	creds := s.env.NeedCredentials(operationNeedScope(t.op.ID))
-	sealed := &docker.Sealed{ProbeImage: s.env.ChownImage(), Host: origin}
+	sealed := &docker.Sealed{ProbeImage: sh, Host: origin}
 	sealed.Fill = func(network string) error {
 		for _, m := range moves {
 			if m.kind == nil {
@@ -777,7 +780,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 				t.begin(ctx, step)
 				args := []string{"run", "--rm", "--network", "none", "--entrypoint", "", "-v", place.Copy + ":" + copyMount + ":ro", "-v", docker.Current.DataVolume(place.App) + ":/dst"}
 				args = append(args, dk.Labels("step", "rehearsal-files")...)
-				args = append(args, s.env.ChownImage(), "sh", "-c", "find /dst -mindepth 1 -delete && tar xz -C /dst < "+copyMount+"/"+m.from.File)
+				args = append(args, sh, "sh", "-c", "find /dst -mindepth 1 -delete && tar xz -C /dst < "+copyMount+"/"+m.from.File)
 				if _, err := dk.Command(ctx, docker.Command{Args: args}); err != nil {
 					return &safeFailure{fmt.Sprintf("unpacking the app's files ended with %s", exitOf(err))}
 				}
@@ -820,7 +823,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	t.begin(ctx, step)
 	var withheld []string
 	deps := s.env.SealedHost(p.dep.ProjectID, rehearsalSecrets{secrets: s.secrets, project: p.dep.ProjectID, source: p.dep.Name, withheld: &withheld},
-		sealedRoutes{origin: origin}, creds)
+		sealedRoutes{origin: origin}, creds, tools.Images)
 	readiness := docker.RenderColdBootProbe(c.PublicPart(), nil).Path
 	if readiness == "" {
 		readiness = "/"
@@ -935,7 +938,7 @@ func (s *Service) backupRoot() string {
 // host, through AppTown's memory, never a new file on its disk, and holds
 // it to the set's record: its size and digest. A copy that does not match
 // is not used.
-func (s *Service) stageOnHost(ctx context.Context, dk docker.Scope, read readItem, it *BackupItem, volume string) error {
+func (s *Service) stageOnHost(ctx context.Context, dk docker.Scope, read readItem, it *BackupItem, volume, sh string) error {
 	pr, pw := io.Pipe()
 	type got struct {
 		n   int64
@@ -954,7 +957,7 @@ func (s *Service) stageOnHost(ctx context.Context, dk docker.Scope, read readIte
 	file := copyMount + "/" + it.File
 	args := []string{"run", "--rm", "-i", "--network", "none", "--entrypoint", "", "-v", volume + ":" + copyMount, "-e", "APPTOWN_COPY_BYTES", "-e", "APPTOWN_COPY_SHA256"}
 	args = append(args, dk.Labels("step", "rehearsal-copy")...)
-	args = append(args, s.env.ChownImage(), "sh", "-c", "umask 077 && cat > "+file+` || exit 1
+	args = append(args, sh, "sh", "-c", "umask 077 && cat > "+file+` || exit 1
 [ "$(wc -c < `+file+` | tr -d ' ')" = "$APPTOWN_COPY_BYTES" ] && [ "$(sha256sum `+file+` | cut -d' ' -f1)" = "$APPTOWN_COPY_SHA256" ] || exit 3`)
 	_, werr := dk.Command(ctx, docker.Command{Args: args, Stdin: pr, Env: []string{"APPTOWN_COPY_BYTES=" + strconv.FormatInt(it.Bytes, 10), "APPTOWN_COPY_SHA256=" + it.SHA256}})
 	_ = pr.CloseWithError(werr)

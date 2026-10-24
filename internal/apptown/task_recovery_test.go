@@ -21,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // fakeTaskFixture admits one script step whose task runs on the fake driver.
@@ -393,7 +394,7 @@ func TestARefusalSettlesAcrossEveryWriteBoundary(t *testing.T) {
 			if daemon.Refused == nil {
 				t.Fatal("fixture must be refused")
 			}
-			a.tasks.Driver = execution.DockerTasks{Daemon: daemon}
+			a.tasks.Driver = execution.DockerTasks{ToolVersions: stock.Versions(), Daemon: daemon}
 			a.tasks.SettleTries = tc.tries
 			ctx := context.Background()
 			dbtest.FailNextStatement(t, a.DB, tc.fail)
@@ -451,7 +452,7 @@ func TestARefusedDockerSelectionSettlesItsAttempt(t *testing.T) {
 	if daemon.Refused == nil {
 		t.Fatal("fixture must be refused")
 	}
-	a.tasks.Driver = execution.DockerTasks{Daemon: daemon}
+	a.tasks.Driver = execution.DockerTasks{ToolVersions: stock.Versions(), Daemon: daemon}
 	ctx := context.Background()
 	if err := a.Work.ExecuteStep(a.asEngine(ctx), step.ID); err != nil {
 		t.Fatal(err)

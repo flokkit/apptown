@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A failed recovery claim must leave the lost-fence barrier intact. The
@@ -17,7 +18,7 @@ func TestAFailedClaimKeepsTheLostFenceBarrier(t *testing.T) {
 	binary, dk := sweepDocker(t)
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
-	first := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	first := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	hs := workertest.StartServer(t, ca, first)
 	client := workertest.Client(t, ca, workertest.Installation)
 	client.Transport = laterBootTransport{base: client.Transport}
@@ -38,7 +39,7 @@ func TestAFailedClaimKeepsTheLostFenceBarrier(t *testing.T) {
 	if err := os.Remove(fence); err != nil {
 		t.Fatal(err)
 	}
-	restarted := &worker.Server{Installation: workertest.Installation, State: state, Previews: binary}
+	restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Previews: binary}
 	restarted.SweepPreviews(context.Background(), true)
 	hs2 := workertest.StartServer(t, ca, restarted)
 	p.URL = hs2.URL

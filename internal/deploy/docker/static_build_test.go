@@ -147,7 +147,7 @@ func TestAStandingStaticBuildIsPackedAndRunAsAnImage(t *testing.T) {
 	}
 	req := BootRequest{Name: "apptown-env-p-main", Workspace: ws, Docker: Scope{Client: fake},
 		Identity: &deploy.DockerIdentity{Deployment: "1", Generation: 2, Artifact: "a"}}
-	plan, err := NewHost(Dependencies{}).PrepareImages(t.Context(), req, appcontract.Prepare(c, nil))
+	plan, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).PrepareImages(t.Context(), req, appcontract.Prepare(c, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestAStandingStaticBuildIsPackedAndRunAsAnImage(t *testing.T) {
 	recorded := &RecordedImages{Parts: map[string]string{"web": "sha256:recorded"}}
 	req.Recorded = recorded
 	fake.reply = func(req Command) ([]byte, error) { return []byte("sha256:recorded"), nil }
-	if _, err := NewHost(Dependencies{}).PrepareImages(t.Context(), req, appcontract.Prepare(c, nil)); err != nil {
+	if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).PrepareImages(t.Context(), req, appcontract.Prepare(c, nil)); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range fake.args {
