@@ -6,6 +6,7 @@ status, and fails the pulls it is told to.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -14,7 +15,26 @@ import unittest
 SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ci-heavy.sh")
 
 DOCKER_STUB = """#!/bin/sh
+[ -z "${STUB_ALL_CALLS:-}" ] || printf '%s\\n' "$*" >>"$STUB_ALL_CALLS"
 case "$1" in
+create)
+    case "$*" in
+    *network-server*) [ "${STUB_NETWORK_FAIL:-}" != server ] || exit 1; echo preflight-server ;;
+    *network-client*) [ "${STUB_NETWORK_FAIL:-}" != client ] || exit 1; echo preflight-client ;;
+    *) exit 98 ;;
+    esac ;;
+start)
+    case "$*" in
+    *preflight-client*)
+        [ "${STUB_NETWORK_FAIL:-}" != unreachable ] || exit 1
+        if [ "${STUB_NETWORK_FAIL:-}" = wrong ]; then echo wrong-marker
+        else echo "apptown-ci-$CI_HEAVY_ID"; fi ;;
+    *) [ "${STUB_NETWORK_FAIL:-}" != start ] || exit 1 ;;
+    esac ;;
+port)
+    [ "${STUB_NETWORK_FAIL:-}" != mapping ] || exit 1
+    if [ "${STUB_NETWORK_FAIL:-}" = malformed ]; then echo 43210
+    else echo 127.0.0.1:43210; fi ;;
 run) case "$*" in *busybox*) exit 0 ;; esac
 	[ -z "${STUB_CALLS:-}" ] || printf '%s\n' "$*" >>"$STUB_CALLS"
 	printf '%s' "$STUB_OUTPUT"
@@ -62,6 +82,63 @@ class RequiredTests(unittest.TestCase):
         args = ["test", "./..."] if mode == "test" else [mode]
         return subprocess.run(["sh", SCRIPT] + args, env=env, capture_output=True, text=True,
                               cwd=os.path.dirname(os.path.dirname(SCRIPT)))
+
+    def test_make_journeys_builds_and_runs_in_linux_without_a_job_id(self):
+        native = os.path.join(self.dir.name, "bin", "go")
+        with open(native, "w") as f:
+            f.write("#!/bin/sh\necho 'native Go must not run journeys' >&2\nexit 99\n")
+        os.chmod(native, 0o755)
+        for status in (0, 3):
+            with self.subTest(status=status):
+                calls = os.path.join(self.dir.name, f"make-calls-{status}")
+                env = dict(os.environ, PATH=self.path, STUB_ALL_CALLS=calls,
+                           STUB_OUTPUT="ok\n", STUB_STATUS=str(status), GOMAXPROCS="3")
+                env.pop("CI_HEAVY_ID", None)
+                env.pop("CI_HEAVY_REQUIRE", None)
+                r = subprocess.run(["make", "--no-print-directory", "check-journeys",
+                                    "GO_TEST_FLAGS=-timeout 7m"], env=env,
+                                   cwd=os.path.dirname(os.path.dirname(SCRIPT)),
+                                   capture_output=True, text=True)
+                self.assertEqual(r.returncode == 0, status == 0, r.stdout + r.stderr)
+                with open(calls) as f:
+                    commands = f.read()
+                names = re.findall(r"--name (apptown-ci-journeys-[0-9]+)(?: |$)", commands)
+                self.assertEqual(len(names), 1, commands)
+                self.addCleanup(shutil.rmtree, "/tmp/" + names[0], ignore_errors=True)
+                self.assertIn("build -q -t apptown-agent deploy/apptown-agent", commands)
+                self.assertIn("build -q -t apptown-ci-heavy", commands)
+                self.assertIn("-e GOMAXPROCS=3", commands)
+                self.assertIn("apptown-ci-heavy go test -tags journey ./internal/apptown -run TestJourney -count=1 -p 2 -timeout 7m", commands)
+
+    def test_network_preflight_refuses_before_build_and_cleans_owned_probes(self):
+        for failure in ('server', 'start', 'mapping', 'malformed', 'client', 'unreachable', 'wrong'):
+            with self.subTest(failure=failure):
+                calls = os.path.join(self.dir.name, 'network-' + failure)
+                r = self.run_job('', require=None, STUB_NETWORK_FAIL=failure, STUB_ALL_CALLS=calls)
+                self.assertNotEqual(r.returncode, 0, r.stdout + r.stderr)
+                with open(calls) as f:
+                    commands = f.read()
+                self.assertNotIn('build -q', commands)
+                self.assertNotIn('go test', commands)
+                if failure != 'server':
+                    self.assertIn('rm -f preflight-server', commands)
+                if failure in ('unreachable', 'wrong'):
+                    self.assertIn('rm -f preflight-client', commands)
+                    self.assertIn('Enable host networking', r.stderr)
+                else:
+                    self.assertNotIn('Enable host networking', r.stderr)
+
+    def test_network_probe_checks_loopback_from_host_network_and_is_bounded(self):
+        calls = os.path.join(self.dir.name, 'network-success')
+        r = self.run_job('', require=None, STUB_ALL_CALLS=calls)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(calls) as f:
+            commands = f.read()
+        self.assertIn('-p 127.0.0.1::8080', commands)
+        self.assertIn('--network host', commands)
+        self.assertIn('wget -q -T 2', commands)
+        self.assertIn('http://127.0.0.1:43210/', commands)
+        self.assertLess(commands.index('rm -f preflight-server'), commands.index('build -q'))
 
     def test_every_required_test_passing_passes(self):
         r = self.run_job("--- PASS: TestA (0.01s)\n    --- PASS: TestB (1.20s)\nok\n")

@@ -79,13 +79,10 @@ precheck:               ## the fast gates and the tests of affected packages, be
 # public needs it.
 -include private/scripts/maintainer.mk
 
-# The journey tier (build tag journey) runs the user stories end to end. CI
-# runs it on the docker-host runner; it takes about a minute, so precheck runs
-# it too: a story broken by a change to stock content or a workflow fixture
-# shows here, not after landing. (The integration tier takes about ten minutes
-# and stays with CI and explicit runs.)
+# Journeys use the same Linux runner as CI, including its pinned agent image
+# build and cleanup. Run precheck through the gate queue on a shared machine.
 check-journeys:         ## the journey tier: the user stories end to end (-tags journey)
-	GOMAXPROCS=$${GOMAXPROCS:-4} go test -tags journey ./internal/apptown -run TestJourney -count=1 $(AFFECTED_TEST_FLAGS) $(GO_TEST_FLAGS)
+	CI_HEAVY_ID="$${CI_HEAVY_ID:-journeys-$$$$}" sh scripts/ci-heavy.sh test -tags journey ./internal/apptown -run TestJourney -count=1 $(AFFECTED_TEST_FLAGS) $(GO_TEST_FLAGS)
 
 # The affected tests can be most of the suite (a change to a central package),
 # and they share the test database with the gate: on a machine where several

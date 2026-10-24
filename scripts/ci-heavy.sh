@@ -51,8 +51,19 @@ fi
 
 name=apptown-ci-${CI_HEAVY_ID:?CI_HEAVY_ID names the job}
 tmp=/tmp/$name
+probe_server=
+probe_client=
+probe_image=busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+
+cleanup_probes() {
+	[ -z "$probe_client" ] || docker rm -f "$probe_client" >/dev/null 2>&1 || true
+	[ -z "$probe_server" ] || docker rm -f "$probe_server" >/dev/null 2>&1 || true
+	probe_client=
+	probe_server=
+}
 
 cleanup() {
+	cleanup_probes
 	docker rm -f "$name" >/dev/null 2>&1 || true
 	# What the tests' containers wrote is root's; only a root container
 	# removes it. The pinned busybox (diskspace.DFImage) is one the
@@ -74,6 +85,47 @@ test | tour)
 	exit 2
 	;;
 esac
+
+# A Linux runner must reach the same published loopback ports as AppTown.
+# Docker Desktop requires its opt-in host networking for this path. Prove it
+# before building images or reporting a healthy preview as a journey failure.
+trap cleanup_probes EXIT
+trap 'exit 143' TERM INT
+if ! probe_server=$(docker create --name "$name-network-server" \
+	-p 127.0.0.1::8080 "$probe_image" sh -c \
+	'mkdir -p /www && printf "%s" "$1" > /www/index.html && exec httpd -f -p 8080 -h /www' sh "$name"); then
+	echo "ci-heavy: could not create the network preflight server" >&2
+	exit 1
+fi
+if ! docker start "$probe_server" >/dev/null; then
+	echo "ci-heavy: could not start the network preflight server" >&2
+	exit 1
+fi
+if ! mapping=$(docker port "$probe_server" 8080/tcp); then
+	echo "ci-heavy: could not read the network preflight port" >&2
+	exit 1
+fi
+case "$mapping" in
+127.0.0.1:*) port=${mapping#127.0.0.1:} ;;
+*) echo "ci-heavy: network preflight is not published on loopback: $mapping" >&2; exit 1 ;;
+esac
+case "$port" in
+'' | *[!0-9]*) echo "ci-heavy: invalid loopback mapping for network preflight: $mapping" >&2; exit 1 ;;
+esac
+if ! probe_client=$(docker create --name "$name-network-client" --network host "$probe_image" sh -c \
+	'for n in 1 2 3 4 5; do
+		if body=$(wget -q -T 2 -O - "$1"); then printf "%s" "$body"; exit 0; fi
+		sleep 1
+	done
+	exit 1' sh "http://127.0.0.1:$port/"); then
+	echo "ci-heavy: could not create the network preflight client" >&2
+	exit 1
+fi
+if ! answer=$(docker start -a "$probe_client") || [ "$answer" != "$name" ]; then
+	echo "ci-heavy: runner cannot reach its published localhost ports; on Docker Desktop enable Settings > Resources > Network > Enable host networking and apply/restart, then rerun the gate" >&2
+	exit 1
+fi
+cleanup_probes
 
 # The agent image the tests run steps in (built from this checkout, so a
 # change to deploy/apptown-agent is what is tested), and the test image.
@@ -108,7 +160,7 @@ status=0
 	-v "$PWD:$PWD:ro" -w "$PWD" \
 	-v "$tmp:$tmp" -e TMPDIR="$tmp" \
 	-v apptown-ci-gomod:/root/go/pkg/mod -v apptown-ci-gocache:/root/.cache/go-build \
-	-e GOFLAGS="${GOFLAGS:-}" \
+	-e GOFLAGS="${GOFLAGS:-}" -e GOMAXPROCS="${GOMAXPROCS:-4}" \
 	apptown-ci-heavy go test "$@" || echo $? >"$tmp/.ci-heavy-status"; } | tee "$tmp/.ci-heavy-go-test.log"
 [ -f "$tmp/.ci-heavy-status" ] && status=$(cat "$tmp/.ci-heavy-status")
 missing=

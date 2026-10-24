@@ -294,3 +294,15 @@ fake); and a containerised chat harness so the chat door and delegation
 round-trip leave live-fire. The ceiling on unit coverage is architectural:
 the root package is glue over everything, and the ownership boundaries in
 [domains.md](domains.md) move the number, not more handler tests.
+
+`make check-journeys` uses the Linux CI runner through `scripts/ci-heavy.sh`,
+including its agent image build and cleanup. It gives an unnamed local run a
+unique job ID and passes `GOMAXPROCS` into the runner (default 4). On a shared
+machine, run this target and `precheck` through the gate queue.
+
+The heavy runner checks that a container using host networking can reach a
+port published on the Docker host's loopback before building or running tests.
+Docker Desktop requires **Enable host networking** under Settings → Resources →
+Network (apply/restart after changing it). A failed preflight names this
+prerequisite; it does not change Desktop settings or widen app port publication.
+Docker startup or port-observation failures remain harness errors.
