@@ -410,6 +410,8 @@ func containerConnection(ctx context.Context, dk docker.Scope, kind *dependency.
 // not start again is named. It asks the admitting authority again before
 // the safety set and before each item.
 func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID ids.ID, deploymentName string, backupID ids.ID, actor string) (*RestoreResult, error) {
+	// The restore's volume writes run in one snapshot's shell image.
+	sh := s.env.ToolVersions().Images.Sh
 	now := s.now()
 	files, err := LockBackupFiles(filepath.Join(s.dataDir, "backups"), false)
 	if err != nil {
@@ -567,7 +569,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 			continue
 		}
 		rec.begin(ctx, "restoring "+m.into.Name)
-		it := s.restoreItem(ctx, rec, dk, m, paths[i])
+		it := s.restoreItem(ctx, rec, dk, m, paths[i], sh)
 		result.Items = append(result.Items, it)
 		rec.record(ctx, "items", result.Items)
 		if it.Outcome == RestoreFailed {
@@ -635,7 +637,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 // restoreStopped, in a throwaway container of its image on its volumes
 // while it is stopped, after which it is started again. Then the need's
 // verify, if declared, runs in it with the copy on stdin.
-func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope, m restoreMove, path string) RestoredItem {
+func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope, m restoreMove, path, sh string) RestoredItem {
 	it, p := m.item, m.into
 	row := RestoredItem{Kind: p.Kind, Name: p.Name, Caveat: it.Caveat}
 	fail := func(detail string) RestoredItem {
@@ -656,7 +658,7 @@ func (s *core) restoreItem(ctx context.Context, rec *restoreLog, dk docker.Scope
 		if err != nil {
 			return fail(err.Error())
 		}
-		out, err := dk.RunStep(ctx, docker.Step{Image: s.env.ChownImage(), Options: []string{"--entrypoint", "", "--network", "none", "-v", p.Name + ":/dst"},
+		out, err := dk.RunStep(ctx, docker.Step{Image: sh, Options: []string{"--entrypoint", "", "--network", "none", "-v", p.Name + ":/dst"},
 			Command: "find /dst -mindepth 1 -delete && tar xz -C /dst", Stdin: f})
 		f.Close()
 		if err != nil {

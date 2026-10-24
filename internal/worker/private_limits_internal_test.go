@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A task's private services run under the worker's service limits (its
@@ -39,7 +40,7 @@ func TestPrivateServicesRunUnderTheWorkersServiceLimits(t *testing.T) {
 		mu.Lock()
 		calls = nil
 		mu.Unlock()
-		s := &Server{State: t.TempDir(), Docker: fake, ServiceLimits: c.limits}
+		s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Docker: fake, ServiceLimits: c.limits}
 		if err := s.makePrivate(context.Background(), rec); err != nil {
 			t.Fatal(err)
 		}
@@ -75,7 +76,7 @@ func TestAPrivateNeedThatKeepsDataGetsADisposableFolderThere(t *testing.T) {
 		Spec: execution.PrivateDocker{Services: []deploy.ServiceSpec{
 			{Name: "s3", Image: "versity/versitygw:v1.8.0", Data: "/data", Entrypoint: []string{"/bin/sh", "-c"}, Command: []string{"start"}}, {Name: "cache", Image: "redis:7"}}},
 		Services: []string{"apptown-private-agent-2-s3", "apptown-private-agent-2-cache"}}}
-	s := &Server{State: t.TempDir(), Docker: fake}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Docker: fake}
 	if err := s.makePrivate(context.Background(), rec); err != nil {
 		t.Fatal(err)
 	}

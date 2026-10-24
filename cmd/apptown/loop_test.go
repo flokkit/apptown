@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/stock"
+	stockdocs "github.com/flokkit/apptown/stock/docs"
 	"gopkg.in/yaml.v3"
 )
 
@@ -382,7 +383,7 @@ func TestARefusedVoteOnAStillPendingApprovalIsNotADecision(t *testing.T) {
 // promises through 1.x, and only it says so: a command moved in or out of the
 // promise without the page (or the page without help) is caught here.
 func TestHelpsPromisedSectionIsTheCompatibilityPagesCommands(t *testing.T) {
-	page, err := stock.FS.ReadFile("docs/guides/compatibility.md")
+	page, err := stockdocs.FS.ReadFile("guides/compatibility.md")
 	if err != nil {
 		t.Fatal(err)
 	}

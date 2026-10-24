@@ -2,12 +2,14 @@ package httpapi
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/apptown/secret"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
@@ -51,7 +53,7 @@ func newDeploymentAuthorityWorld(t *testing.T, drivers map[string]deployment.Dri
 	}
 	checked := access.Checked{Authority: identity, Projects: projects}
 	targets, deployments := deployment.NewTargets(db, nil), deployment.NewDeployments(db)
-	hosts, environment := deployment.NewHosts(targets, nil, deployment.HostSettings{}), deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{Projects: projects, Secrets: secret.NewService(db, secret.Config{DataDir: t.TempDir()})})
+	hosts, environment := deployment.NewHosts(targets, nil, deployment.HostSettings{}), deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Projects: projects, Secrets: secret.NewService(db, secret.Config{DataDir: t.TempDir()})})
 	providers := deployment.NewProviders(context.Background(), db, deployment.ProviderRecords{Targets: targets, Deployments: deployments}, hosts, environment, deployment.ProviderDependencies{Drivers: drivers})
 	starter := dataprotection.NewStarter(db, dataprotection.StarterDependencies{Authority: checked, Targets: targets, Hosts: hosts, Environment: environment, Providers: providers})
 	shared := deployment.Dependencies{Targets: targets, Deployments: deployments, Hosts: hosts, Environment: environment, Providers: providers, CopyStarter: starter}

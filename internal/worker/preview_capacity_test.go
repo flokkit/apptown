@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A worker refuses a preview larger than its own daemon can give a
@@ -27,7 +28,7 @@ func TestAWorkerRefusesAnOversizedPreviewBeforeRemovingTheRunningOne(t *testing.
 		return nil, nil, false
 	}
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	name := "apptown-preview-change-44"
@@ -67,7 +68,7 @@ func TestAWorkerAnswersWhetherItsDaemonCanHoldAPreview(t *testing.T) {
 		return nil, nil, false
 	}
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: binary}
 	hs := workertest.StartServer(t, ca, srv)
 	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	parse := func(y string) *appcontract.Contract {

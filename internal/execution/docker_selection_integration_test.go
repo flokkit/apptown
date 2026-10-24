@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executiontest"
@@ -76,7 +77,7 @@ exec "$REVIEW_R5_DOCKER" "$@"
 		defer cleanupCancel()
 		_ = exec.CommandContext(cleanupCtx, binary, "--host", endpoint, "rm", "-f", "forge-task-"+key).Run()
 	})
-	d := execution.DockerTasks{Binary: wrapper, Daemon: selected}
+	d := execution.DockerTasks{ToolVersions: stock.Versions(), Binary: wrapper, Daemon: selected}
 	obs, err := d.Ensure(ctx, dockerSpec(key, "must not run", 0, false))
 	if err == nil || obs.ID != "" {
 		t.Fatalf("admitted endpoint %s was replaced by %s during the call; created %s on the replacement: %v", pinned, endpoint, obs.ID, err)

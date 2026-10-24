@@ -20,6 +20,8 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/s3bucket"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/toolversions"
+	"github.com/flokkit/apptown/stock"
 )
 
 // The package's rules are tested against the canonical schema, each test
@@ -109,7 +111,7 @@ func assembled(db *database.DB, rt testRuntime, deps deployment.Dependencies) *b
 	deps.Hosts = deployment.NewHosts(deps.Targets, rt.Secrets, deployment.HostSettings{Scope: rt.Scope, DataDir: rt.DataDir, SSHConfigPath: rt.SSHConfigPath,
 		BuiltInTarget: rt.BuiltInTarget, NoLocalDocker: rt.NoLocalDocker})
 	deps.Environment = deployment.NewEnvironment(deps.Targets, deployment.EnvironmentDependencies{Secrets: rt.Secrets, Integrations: rt.Integrations, Needs: rt.Needs,
-		Probe: rt.Probe, ChownImage: rt.ChownImage, Routes: rt.Routes, Projects: rt.Projects})
+		Probe: rt.Probe, ToolVersions: chownTools(rt.ChownImage), Routes: rt.Routes, Projects: rt.Projects})
 	deps.Providers = deployment.NewProviders(ctx, db, deployment.ProviderRecords{Targets: deps.Targets, Deployments: deps.Deployments}, deps.Hosts, deps.Environment,
 		deployment.ProviderDependencies{Projects: rt.Projects, Secrets: rt.Secrets, Integrations: rt.Integrations, DigitalOcean: rt.DigitalOcean, S3Bucket: rt.S3Bucket,
 			Drivers: rt.Drivers, Inventories: rt.Inventories, AfterRelease: rt.AfterRelease, DatabaseContainer: rt.DatabaseContainer, Applied: deps.Applied, Now: deps.Now})
@@ -130,3 +132,15 @@ func (b *both) setClock(now func() time.Time) {
 }
 
 var errAttemptLost = errors.New("the attempt does not own its step any more")
+
+// chownTools is a test runtime's tool versions: the stock list's images,
+// with chown as the runtime names it ("" skips handing volumes over).
+func chownTools(chown string) toolversions.Source {
+	s := stock.Versions().Current()
+	s.Images.Sh = chown
+	return fixedTools{s}
+}
+
+type fixedTools struct{ s toolversions.Snapshot }
+
+func (f fixedTools) Current() toolversions.Snapshot { return f.s }

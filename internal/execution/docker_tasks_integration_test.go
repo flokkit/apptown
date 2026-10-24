@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executiontest"
+	"github.com/flokkit/apptown/stock"
 )
 
 func dockerSpec(key, output string, exit int, block bool) execution.TaskSpec {
@@ -20,19 +20,19 @@ func dockerSpec(key, output string, exit int, block bool) execution.TaskSpec {
 	if block {
 		script = "sleep 300"
 	}
-	return execution.TaskSpec{Key: key, Image: diskspace.DFImage, Argv: []string{"sh", "-c", script}, Labels: []string{"apptown.class=test"},
+	return execution.TaskSpec{Key: key, Image: stock.Images().DF, Argv: []string{"sh", "-c", script}, Labels: []string{"apptown.class=test"},
 		Admission: execution.Admission{Profile: "local-docker", Network: execution.NetworkNone, Limits: execution.Limits{CPUs: 1, MemoryBytes: 64 << 20, PIDs: 64}}}
 }
 
 // Local Docker keeps the task contract with real containers, including the
 // admission's limits and network policy.
 func TestIntegrationDockerTasksKeepTheContract(t *testing.T) {
-	executiontest.Run(t, executiontest.Harness{Driver: execution.DockerTasks{}, Spec: dockerSpec, Key: executiontest.UniqueKeys("conformance")})
+	executiontest.Run(t, executiontest.Harness{Driver: execution.DockerTasks{ToolVersions: stock.Versions()}, Spec: dockerSpec, Key: executiontest.UniqueKeys("conformance")})
 }
 
 // The admission's limits and network policy reach the container Docker runs.
 func TestIntegrationDockerTasksApplyTheAdmission(t *testing.T) {
-	d := execution.DockerTasks{}
+	d := execution.DockerTasks{ToolVersions: stock.Versions()}
 	key := executiontest.UniqueKeys("admission")("limits")
 	t.Cleanup(func() { _ = d.Release(context.Background(), execution.TaskRef{Key: key}) })
 	created, err := d.Ensure(context.Background(), dockerSpec(key, "", 0, false))
@@ -51,7 +51,7 @@ func TestIntegrationDockerTasksApplyTheAdmission(t *testing.T) {
 // A repeated Start after a lost response must not execute an exited task again.
 func TestIntegrationADockerTaskIsNotRunAgainByASecondStart(t *testing.T) {
 	ctx := context.Background()
-	d := execution.DockerTasks{}
+	d := execution.DockerTasks{ToolVersions: stock.Versions()}
 	key := executiontest.UniqueKeys("start")("once")
 	t.Cleanup(func() { _ = d.Release(ctx, execution.TaskRef{Key: key}) })
 	obs, err := d.Ensure(ctx, dockerSpec(key, "executed\n", 0, false))
@@ -79,7 +79,7 @@ func TestIntegrationADockerTaskIsNotRunAgainByASecondStart(t *testing.T) {
 // Identity must bind the operation to its request, not just a container name.
 func TestIntegrationDockerRefusesADifferentRequestUnderAKey(t *testing.T) {
 	ctx := context.Background()
-	d := execution.DockerTasks{}
+	d := execution.DockerTasks{ToolVersions: stock.Versions()}
 	key := executiontest.UniqueKeys("digest")("conflict")
 	t.Cleanup(func() { _ = d.Release(ctx, execution.TaskRef{Key: key}) })
 	first := dockerSpec(key, "first", 0, false)
@@ -100,7 +100,7 @@ func TestIntegrationADockerClientFailureIsNotAbsence(t *testing.T) {
 	t.Setenv("DOCKER_CONTEXT", "")
 	t.Setenv("DOCKER_TLS_VERIFY", "1")
 	t.Setenv("DOCKER_CERT_PATH", t.TempDir()) // No certificates: Docker never reaches a daemon.
-	d := execution.DockerTasks{}
+	d := execution.DockerTasks{ToolVersions: stock.Versions()}
 	ctx := context.Background()
 	ref := execution.TaskRef{Key: "client-unavailable"}
 	obs, err := d.Observe(ctx, ref)
@@ -120,7 +120,7 @@ func TestIntegrationADockerClientFailureIsNotAbsence(t *testing.T) {
 func TestIntegrationInstallationsSharingDockerKeepTheirTasksApart(t *testing.T) {
 	ctx := context.Background()
 	key := executiontest.UniqueKeys("shared")("same-key")
-	first, second := execution.DockerTasks{Namespace: "installation-a"}, execution.DockerTasks{Namespace: "installation-b"}
+	first, second := execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: "installation-a"}, execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: "installation-b"}
 	t.Cleanup(func() {
 		_ = first.Release(context.Background(), execution.TaskRef{Key: key})
 		_ = second.Release(context.Background(), execution.TaskRef{Key: key})

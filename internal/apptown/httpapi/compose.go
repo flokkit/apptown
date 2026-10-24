@@ -89,18 +89,25 @@ func (h Configuration) generateDevCompose(ctx context.Context, c *appcontract.Co
 		services[in.Name] = svc
 	}
 
+	var server string
+	if h.tools != nil {
+		server = h.tools.Current().Images.StaticServer
+	}
+	if server == "" {
+		return "", fmt.Errorf("no static server image: the tool versions name it")
+	}
 	for _, p := range parts {
 		svc := map[string]any{}
 		var mounts []string
 		switch {
 		case p.Static != "":
-			svc["image"] = docker.StaticServerImage
+			svc["image"] = server
 			mounts = []string{"./" + p.Static + ":/srv:ro"}
 			svc["command"] = composeLiteral(docker.StaticServerCommand(p.Port))
 		case p.StaticBuild != nil:
 			// Compose cannot export a build's files, so `apptown dev up` runs
 			// the build first (DevStaticBuilds) and this serves what it wrote.
-			svc["image"] = docker.StaticServerImage
+			svc["image"] = server
 			mounts = []string{"./" + devStaticSite(p.Name, p.StaticBuild.Output) + ":/srv:ro"}
 			svc["command"] = composeLiteral(docker.StaticServerCommand(p.Port))
 		case p.Image != "":

@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/dind"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
 	"github.com/flokkit/apptown/internal/apptown/integration"
@@ -93,7 +94,7 @@ func TestWorkshopCleanupOwnsOnlyItsNetwork(t *testing.T) {
 				scope := docker.Scope{Client: client}
 				feeds := &progress.Feeds{}
 				integrations := integration.NewService(databaseSuite.New(t), integration.Dependencies{})
-				workshop := NewWorkshop(&scope, integrations, feeds, t.TempDir(), "test-agent", nil)
+				workshop := NewWorkshop(&scope, integrations, feeds, t.TempDir(), "test-agent", stock.Images().PrivateDocker, nil)
 				ws := t.TempDir()
 				if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 					t.Fatal(err)
@@ -140,7 +141,7 @@ func TestAWorkshopIsTornDownAfterItsContextEnds(t *testing.T) {
 	client := &workshopClient{preload: make(chan struct{})}
 	scope := docker.Scope{Client: client}
 	integrations := integration.NewService(databaseSuite.New(t), integration.Dependencies{})
-	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", nil)
+	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", stock.Images().PrivateDocker, nil)
 	ws := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
@@ -172,7 +173,7 @@ func TestAStepsPrivateDockerIsBoundedAndSharesOnlyItsProjectsCache(t *testing.T)
 	client := &workshopClient{preload: make(chan struct{})}
 	scope := docker.Scope{Client: client}
 	integrations := integration.NewService(databaseSuite.New(t), integration.Dependencies{})
-	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", nil)
+	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", stock.Images().PrivateDocker, nil)
 	workshop.Limits = execution.Limits{CPUs: 3, MemoryBytes: 2 << 30, PIDs: 512}
 	ws := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
@@ -201,7 +202,7 @@ func TestAStepsPrivateDockerAndItsBuilderAreGivenTheExtraCertificates(t *testing
 	client := &workshopClient{preload: make(chan struct{})}
 	scope := docker.Scope{Client: client}
 	integrations := integration.NewService(databaseSuite.New(t), integration.Dependencies{})
-	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", nil)
+	workshop := NewWorkshop(&scope, integrations, &progress.Feeds{}, t.TempDir(), "test-agent", stock.Images().PrivateDocker, nil)
 	ws := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
@@ -212,7 +213,7 @@ func TestAStepsPrivateDockerAndItsBuilderAreGivenTheExtraCertificates(t *testing
 	}
 	cleanup()
 	<-client.preload
-	if !client.ran("-e "+trust.EnvVar+" --entrypoint sh "+DindImage+" -c "+trust.Run) ||
+	if !client.ran("-e "+trust.EnvVar+" --entrypoint sh "+stock.Images().PrivateDocker+" -c "+trust.Run) ||
 		!client.ran("docker exec -e "+trust.EnvVar+" "+dind.BuilderContainer) || !client.ran("docker restart "+dind.BuilderContainer) {
 		t.Fatalf("calls:\n%s", strings.Join(client.calls, "\n"))
 	}

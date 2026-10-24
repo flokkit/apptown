@@ -64,7 +64,7 @@ func TestAFailedRegistryLoginPullsNothing(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "unauthorized") || strings.Contains(err.Error(), "wrong-token") {
 		t.Fatalf("a failed login: %v", err)
 	}
-	host := NewHost(Dependencies{Registry: registryLoginFunc(func(ctx context.Context, dk Scope, image string) error {
+	host := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Registry: registryLoginFunc(func(ctx context.Context, dk Scope, image string) error {
 		return LoginRegistry(ctx, dk, "registry.example", "robot", "wrong-token", image)
 	})})
 	plan := appcontract.Prepare(&appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Image: "registry.example/team/app:1", Port: 8080}}}, nil)

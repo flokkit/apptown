@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -60,7 +61,7 @@ func TestScanGateHoldsOnlyIntroducedFindings(t *testing.T) {
 	}
 	reports := &provenanceReports{scannerEffects: scannerEffects{t: t}, base: sarifOf(oldFinding)}
 	// This source comparison uses only bindings and evaluator execution.
-	scanners := NewScanners(ScannerDependencies{DB: db, Evaluator: NewEvaluator(reports, nil)})
+	scanners := NewScanners(ScannerDependencies{DB: db, Evaluator: NewEvaluator(reports, nil, stock.Versions())})
 
 	ws := t.TempDir()
 	git := func(args ...string) string {

@@ -2,8 +2,9 @@ package agentenv
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/ids"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"

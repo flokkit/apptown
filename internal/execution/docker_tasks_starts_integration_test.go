@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/execution/executiontest"
@@ -45,13 +46,13 @@ exec "$TEST_DOCKER_BIN" "$@"
 	}
 	key := executiontest.UniqueKeys("round3")("conflict")
 	spec := dockerSpec(key, "once", 0, false)
-	d := execution.DockerTasks{}
+	d := execution.DockerTasks{ToolVersions: stock.Versions()}
 	obs, err := d.Ensure(ctx, spec)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = d.Release(context.Background(), execution.TaskRef{Key: key, ProviderID: obs.ID}) })
-	_, err = (execution.DockerTasks{Binary: wrapper}).Ensure(ctx, spec)
+	_, err = (execution.DockerTasks{ToolVersions: stock.Versions(), Binary: wrapper}).Ensure(ctx, spec)
 	if !errors.Is(err, execution.ErrTaskUnobservable) {
 		t.Fatalf("failed adoption observation becomes authoritative failure: %v", err)
 	}
@@ -83,7 +84,7 @@ exec "$TEST_DOCKER_BIN" "$@"
 		t.Fatal(err)
 	}
 	key := executiontest.UniqueKeys("round3")("aliases")
-	d := execution.DockerTasks{}
+	d := execution.DockerTasks{ToolVersions: stock.Versions()}
 	obs, err := d.Ensure(ctx, dockerSpec(key, "executed\n", 0, false))
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +92,9 @@ exec "$TEST_DOCKER_BIN" "$@"
 	ref := execution.TaskRef{Key: key, ProviderID: obs.ID}
 	t.Cleanup(func() { _ = d.Release(context.Background(), ref) })
 	done := make(chan error, 1)
-	go func() { done <- (execution.DockerTasks{Binary: wrapper}).Start(ctx, ref) }()
+	go func() {
+		done <- (execution.DockerTasks{ToolVersions: stock.Versions(), Binary: wrapper}).Start(ctx, ref)
+	}()
 	defer func() { _ = os.WriteFile(filepath.Join(dir, "release"), nil, 0600) }()
 	for {
 		if _, err := os.Stat(filepath.Join(dir, "ready")); err == nil {
@@ -171,7 +174,7 @@ exec "$TEST_DOCKER_BIN" "$@"
 		t.Fatal(err)
 	}
 	key := executiontest.UniqueKeys("round3")("cancel")
-	d := execution.DockerTasks{}
+	d := execution.DockerTasks{ToolVersions: stock.Versions()}
 	obs, err := d.Ensure(ctx, dockerSpec(key, "executed\n", 0, false))
 	if err != nil {
 		t.Fatal(err)
@@ -179,7 +182,9 @@ exec "$TEST_DOCKER_BIN" "$@"
 	ref := execution.TaskRef{Key: key, ProviderID: obs.ID}
 	t.Cleanup(func() { _ = d.Release(context.Background(), ref) })
 	first := make(chan error, 1)
-	go func() { first <- (execution.DockerTasks{Binary: wrapper}).Start(ctx, ref) }()
+	go func() {
+		first <- (execution.DockerTasks{ToolVersions: stock.Versions(), Binary: wrapper}).Start(ctx, ref)
+	}()
 	// Release and join both starts before the container cleanup, even on failure.
 	var second chan error
 	secondJoined := false

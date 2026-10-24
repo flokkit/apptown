@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/toolversions"
 	"github.com/flokkit/apptown/internal/version"
 
 	"github.com/flokkit/apptown/internal/clock"
@@ -45,7 +46,8 @@ func main() {
 		keyFile       = flag.String("key", "", "the worker's TLS key (PEM)")
 		clientCA      = flag.String("client-ca", "", "the CA that signs the installation's client certificate (PEM)")
 		docker        = flag.String("docker", "docker", "the docker binary")
-		dindImage     = flag.String("dind-image", "docker:27-dind", "the image of a chat's or a task's private Docker daemon")
+		dindImage     = flag.String("dind-image", "", "the image of a chat's or a task's private Docker daemon; empty = the private Docker image of the tool versions this release shipped with")
+		shipped       = flag.String("shipped", "", "the folder of the update files this release shipped with (its tool versions); empty = share/apptown/updates beside this binary")
 		agentContext  = flag.String("agent-context", "deploy/apptown-agent", "the agent image's build context; the worker builds apptown-agent:<hash of it> when it starts (empty: build none)")
 		chatCPUs      = flag.Float64("chat-cpus", 2, "CPUs for each of a chat's container and its private Docker daemon")
 		chatMemory    = flag.Int64("chat-memory-mib", 4096, "memory, swap included, in MiB, for each of a chat's container and its private Docker daemon")
@@ -75,7 +77,28 @@ func main() {
 		fmt.Println(versionLine())
 		return
 	}
+	// The runtime images (the shell checks run in, df, the private Docker
+	// daemon) come from the tool versions this release shipped with: read
+	// before anything runs an image. -check-metadata needs one too.
+	var tools *toolversions.Versions
+	loadImages := func() {
+		dir, err := toolversions.ShippedDir(*shipped)
+		var snapshot toolversions.Snapshot
+		if err == nil {
+			snapshot, err = toolversions.Shipped(dir, version.String())
+		}
+		if err != nil {
+			log.Fatalf("apptown-worker: the tool versions this release shipped with: %v", err)
+		}
+		tools = toolversions.New(snapshot)
+		// The private Docker image is release-bound (its qualified
+		// profile): the start snapshot's, never a later one's.
+		if *dindImage == "" {
+			*dindImage = snapshot.Images.PrivateDocker
+		}
+	}
 	if *checkMetadata {
+		loadImages()
 		fmt.Println("the cloud metadata service from a container: " + metadataReach(ctx, dockercli.CLI{Binary: *docker}, *dindImage))
 		return
 	}
@@ -115,6 +138,7 @@ func main() {
 	if err := os.MkdirAll(*state, 0o700); err != nil {
 		log.Fatal(err)
 	}
+	loadImages()
 	// Before anything makes a connection: every client trusts its use's
 	// bundle from here on (internal/trust). The worker calls no model
 	// provider, so it has no inference bundle.
@@ -166,7 +190,7 @@ func main() {
 		log.Printf("apptown-worker: Docker is at %s, not on this machine; this worker runs no previews", host)
 		previews = nil
 	}
-	w := &worker.Server{Installation: *installation, State: *state, Tasks: execution.DockerTasks{Binary: *docker, CallerAdmitsDisk: true}, Sessions: sessions,
+	w := &worker.Server{Installation: *installation, State: *state, Tasks: execution.DockerTasks{Binary: *docker, CallerAdmitsDisk: true, ToolVersions: tools}, ToolVersions: tools, Sessions: sessions,
 		Images: worker.DockerImages{Binary: *docker}, AgentImage: agentImage, ImageLabels: worker.DockerImages{Binary: *docker}, Checks: execution.Runner{DockerBinary: *docker, ServiceLimits: serviceLimits}, Previews: previews,
 		DindImage: *dindImage, Docker: dockercli.CLI{Binary: *docker}, ServiceLimits: serviceLimits, ToolCache: toolCache, Now: now}
 	// What private Docker rests on is measured now, and reported with what

@@ -13,10 +13,10 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dind"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/trust/trusttest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A private daemon, started the common way, pushes to and pulls from a
@@ -82,7 +82,7 @@ func TestIntegrationAPrivateDaemonAndItsBuilderTrustATLSRegistry(t *testing.T) {
 	// An image in the daemon, pushed to the registry and pulled back: the
 	// pinned busybox, which loads untagged (it is named by digest).
 	saved := filepath.Join(t.TempDir(), "busybox.tar")
-	must("save", "-o", saved, diskspace.DFImage)
+	must("save", "-o", saved, stock.Images().DF)
 	must("cp", saved, name+":/busybox.tar")
 	if out, err := inner(`loaded=$(docker load -q -i /busybox.tar | sed -n 's/^Loaded image[^:]*: //p') && docker tag "$loaded" ` + at + "/busybox:t && docker push " + at + "/busybox:t && docker rmi " + at + "/busybox:t && docker pull " + at + "/busybox:t"); err != nil {
 		t.Fatalf("the private daemon does not trust the registry: %v\n%s", err, out)

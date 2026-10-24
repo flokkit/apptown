@@ -15,12 +15,13 @@ import (
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 func TestAnImageExportStaysInsideTheRequestTree(t *testing.T) {
 	binary, _, _ := fakeImageDocker(t)
 	ca := workertest.NewCA(t)
-	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
 	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	tree, outside := t.TempDir(), t.TempDir()
 	target := filepath.Join(outside, "image.tar")
@@ -40,7 +41,7 @@ func TestAnImageExportStaysInsideTheRequestTree(t *testing.T) {
 func TestABuildContextCannotFollowALinkOutOfTheTree(t *testing.T) {
 	binary, _, _ := fakeImageDocker(t)
 	ca := workertest.NewCA(t)
-	hs := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
 	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	tree, outside := t.TempDir(), t.TempDir()
 	if err := os.WriteFile(filepath.Join(outside, "Dockerfile"), []byte("FROM scratch\n"), 0600); err != nil {
@@ -109,7 +110,7 @@ func TestARestartRemovesInterruptedRegistryCredentials(t *testing.T) {
 	}
 	_ = child.Wait()
 	binary, _ := sweepDocker(t)
-	server := worker.Server{State: state}
+	server := worker.Server{ToolVersions: stock.Versions(), State: state}
 	server.SweepChecks(context.Background(), binary, true)
 	if _, err := os.Stat(filepath.Join(dir, "config.json")); !os.IsNotExist(err) {
 		t.Fatalf("request credentials survived worker death and startup sweep: %v", err)

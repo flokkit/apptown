@@ -41,7 +41,7 @@ func TestACopyStagedOnTheHostIsHeldToTheSetsRecord(t *testing.T) {
 			return nil, nil, true
 		})
 		s := &Service{core: &core{env: &deployment.Environment{}}}
-		err := s.stageOnHost(context.Background(), docker.Scope{Client: d}, read, it, "rehearsal-copy")
+		err := s.stageOnHost(context.Background(), docker.Scope{Client: d}, read, it, "rehearsal-copy", "test-helper")
 		if !slices.Equal(env, []string{"APPTOWN_COPY_BYTES=4", "APPTOWN_COPY_SHA256=aaaa"}) {
 			t.Fatalf("the receiver was given %v; want the set's size and digest", env)
 		}

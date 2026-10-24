@@ -18,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 type previewWorker struct {
@@ -30,7 +31,7 @@ type previewWorker struct {
 func startPreviewWorker(t *testing.T) previewWorker {
 	t.Helper()
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: docker.CLI{Binary: "docker"}}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: docker.CLI{Binary: "docker"}}
 	hs := workertest.StartServer(t, ca, srv)
 	suffix := fmt.Sprintf("%d", time.Now().UnixNano()%1_000_000_000)
 	w := previewWorker{previews: worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)},

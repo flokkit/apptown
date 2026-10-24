@@ -142,7 +142,8 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 		return nil, false
 	}
 	plan := deployment.PlanRelease(in.contract)
-	script, files, images, err := releaseBuildRequest(in.tree, plan, platform)
+	// The build's static server, from the tool versions current as it begins.
+	script, files, images, err := releaseBuildRequest(in.tree, plan, platform, a.deployment.ToolVersions().Images.StaticServer)
 	if err != nil {
 		releaseRefused(task, err.Error())
 		return nil, false
@@ -280,7 +281,7 @@ func (a *Shipping) publicationWatch() time.Duration {
 // platform, without provenance or SBOM, exported as an OCI layout under
 // the workspace's state. Each folder built is the tree's own (no link out
 // of it); image-only declarations are not built, but copied by AppTown.
-func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform string) (string, []execution.File, []execution.ImageResult, error) {
+func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform, staticServer string) (string, []execution.File, []execution.ImageResult, error) {
 	// The extra certificates this machine's containers trust reach each
 	// build as its secret (internal/trust), from the task's own variable:
 	// the worker's, never this machine's. None when it has none. Their
@@ -340,7 +341,11 @@ func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform stri
 			// the port it serves on.
 			dockerfile := path.Join(releaseStaticDockerfiles, img.Name+".Dockerfile")
 			args = append(args, "-f", dockerfile)
-			files = append(files, execution.File{Path: dockerfile, Content: []byte(img.Dockerfile()), Mode: 0o644})
+			body, err := img.Dockerfile(staticServer)
+			if err != nil {
+				return "", nil, nil, err
+			}
+			files = append(files, execution.File{Path: dockerfile, Content: []byte(body), Mode: 0o644})
 		}
 		lines = append(lines, quote(args)+buildSecret+shellQuote(context))
 		images = append(images, execution.ImageResult{Name: img.Name, Path: out, Max: releaseImageMax})

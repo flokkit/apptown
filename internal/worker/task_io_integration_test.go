@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // removeNamespace removes, when the test ends, the containers this test
@@ -59,7 +59,7 @@ func TestIntegrationATaskReadsItsInputsAndLeavesItsResultFiles(t *testing.T) {
 	namespace := fmt.Sprintf("taskio%d", time.Now().UnixNano()%1_000_000_000)
 	removeNamespace(t, namespace)
 	start := func() (execution.WorkerTasks, func()) {
-		srv := &worker.Server{State: state, Tasks: execution.DockerTasks{Namespace: namespace}}
+		srv := &worker.Server{ToolVersions: stock.Versions(), State: state, Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace}}
 		hs := workertest.StartServer(t, ca, srv)
 		return workertest.Driver(t, ca, hs), hs.Close
 	}
@@ -107,7 +107,7 @@ ln -s / /work/out
 mkdir /work/adir
 echo done
 `
-	spec := execution.TaskSpec{Key: namespace + "-task", Image: diskspace.DFImage, Argv: []string{"sh", "-c", script},
+	spec := execution.TaskSpec{Key: namespace + "-task", Image: stock.Images().DF, Argv: []string{"sh", "-c", script},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: base},
 		Inputs: []execution.Input{
@@ -234,7 +234,7 @@ echo done
 func TestIntegrationAWorkerRefusesInputsBeforeCreatingAContainer(t *testing.T) {
 	namespace := fmt.Sprintf("inputsrefused%d", time.Now().UnixNano()%1_000_000_000)
 	removeNamespace(t, namespace)
-	refuseInputs(t, execution.DockerTasks{Namespace: namespace}, busyboxSpec)
+	refuseInputs(t, execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace}, busyboxSpec)
 }
 
 // With real Docker: the worker reports the labels its Docker holds for its
@@ -243,18 +243,18 @@ func TestIntegrationAWorkerReportsItsAgentImageLabels(t *testing.T) {
 	ca := workertest.NewCA(t)
 	image := fmt.Sprintf("forge-test-agent-image:%d", time.Now().UnixNano()%1_000_000_000)
 	build := exec.Command("docker", "build", "-q", "-t", image, "-")
-	build.Stdin = strings.NewReader("FROM " + diskspace.DFImage + "\nLABEL forge.subagents=reviewer apptown.pi.version=1.2.3\n")
+	build.Stdin = strings.NewReader("FROM " + stock.Images().DF + "\nLABEL forge.subagents=reviewer apptown.pi.version=1.2.3\n")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("building a labelled image: %v: %s", err, out)
 	}
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", image).Run() })
 	images := worker.DockerImages{Binary: "docker"}
-	hs := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{}, AgentImage: image, ImageLabels: images})
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions()}, AgentImage: image, ImageLabels: images})
 	got, err := workertest.Driver(t, ca, hs).AgentImage(context.Background())
 	if err != nil || got.Name != image || got.Labels["forge.subagents"] != "reviewer" || got.Labels["apptown.pi.version"] != "1.2.3" {
 		t.Fatalf("the agent image: %+v %v", got, err)
 	}
-	missing := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Tasks: execution.DockerTasks{}, AgentImage: image + "-absent", ImageLabels: images})
+	missing := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions()}, AgentImage: image + "-absent", ImageLabels: images})
 	if _, err := workertest.Driver(t, ca, missing).AgentImage(context.Background()); !errors.Is(err, execution.ErrNoAgentImage) {
 		t.Fatalf("an agent image not on the worker's Docker: %v", err)
 	}

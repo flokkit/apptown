@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 
@@ -66,7 +67,7 @@ func checkWorker(t *testing.T, binary string) (worker.Checks, *worker.Server) {
 	t.Helper()
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
-	srv := &worker.Server{Installation: workertest.Installation, State: state, Checks: execution.Runner{DockerBinary: binary},
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Checks: execution.Runner{DockerBinary: binary},
 		ToolCache: filepath.Join(state, "tool-cache", "mise")}
 	hs := workertest.StartServer(t, ca, srv)
 	return worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}, srv
@@ -226,7 +227,7 @@ func TestAHistoryScanReadsTheLandingsCommitsOnTheWorker(t *testing.T) {
 // check is discarded.
 func TestTheSweepRemovesChecksPastTheirDeadline(t *testing.T) {
 	t.Parallel()
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir()}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir()}
 	past, future := time.Now().Add(-time.Minute).Unix(), time.Now().Add(time.Hour).Unix()
 	binary, _ := sweepDocker(t)
 	binary.reply = func(args []string) ([]byte, error, bool) {

@@ -13,7 +13,7 @@ import (
 func TestPackPublicationsAreAtomicAndImmutable(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	ways := New(db, Dependencies{Stock: stock.FS})
+	ways := New(db, Dependencies{Stock: stock.FS, ToolLines: stock.Versions()})
 	ways.SyncStock(t.Context())
 	spec, err := json.Marshal(PackSpec{Guidance: []string{"prose/terse-style"}})
 	if err != nil {

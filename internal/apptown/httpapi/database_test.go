@@ -20,5 +20,5 @@ func configurationFixture(t *testing.T) Configuration {
 	if _, _, err := catalog.SyncStock(context.Background(), stock.FS, "dependencies"); err != nil {
 		t.Fatal(err)
 	}
-	return NewConfiguration(catalog)
+	return NewConfiguration(catalog, stock.Versions())
 }

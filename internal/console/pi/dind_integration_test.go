@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/console"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A real private daemon: the client sees the same /work, builds and runs an
@@ -48,7 +48,7 @@ func TestIntegrationConsoleDind(t *testing.T) {
 	})
 	for name, body := range map[string]string{
 		"marker":     "console-workspace",
-		"Dockerfile": "FROM " + diskspace.DFImage + "\nCOPY marker /site/index.html\nRUN test \"$(cat /site/index.html)\" = console-workspace\nCMD [\"httpd\", \"-f\", \"-p\", \"8080\", \"-h\", \"/site\"]\n",
+		"Dockerfile": "FROM " + stock.Images().DF + "\nCOPY marker /site/index.html\nRUN test \"$(cat /site/index.html)\" = console-workspace\nCMD [\"httpd\", \"-f\", \"-p\", \"8080\", \"-h\", \"/site\"]\n",
 	} {
 		if err := os.WriteFile(filepath.Join(in.Workspace.Path, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)
@@ -135,7 +135,7 @@ func TestIntegrationACancelledScriptDoesNotOutliveItsChat(t *testing.T) {
 		}
 		return strings.TrimSpace(string(out))
 	}
-	docker("image", "inspect", diskspace.DFImage)
+	docker("image", "inspect", stock.Images().DF)
 	t.Cleanup(func() {
 		for _, cid := range strings.Fields(docker("ps", "-aq", "--filter", "label="+dockerlabel.Owner+"="+id)) {
 			docker("rm", "-f", cid)
@@ -145,7 +145,7 @@ func TestIntegrationACancelledScriptDoesNotOutliveItsChat(t *testing.T) {
 		return exec.CommandContext(ctx, "docker", args...).CombinedOutput()
 	}})
 	defer r.Close()
-	in := console.Launch{ID: id, Image: diskspace.DFImage, Workspace: console.Workspace{Path: t.TempDir(), Writable: true}}
+	in := console.Launch{ID: id, Image: stock.Images().DF, Workspace: console.Workspace{Path: t.TempDir(), Writable: true}}
 	run := func(ctx context.Context) chan error {
 		done := make(chan error, 1)
 		go func() {
@@ -171,7 +171,7 @@ func TestIntegrationACancelledScriptDoesNotOutliveItsChat(t *testing.T) {
 	if err := os.Remove(filepath.Join(in.Workspace.Path, "started")); err != nil {
 		t.Fatal(err)
 	}
-	docker("run", "-d", "--name", scriptName(id), "--label", dockerlabel.Owner+"="+id, "-v", in.Workspace.Path+":/work", diskspace.DFImage, "sh", "-c", "while true; do sleep 1; done")
+	docker("run", "-d", "--name", scriptName(id), "--label", dockerlabel.Owner+"="+id, "-v", in.Workspace.Path+":/work", stock.Images().DF, "sh", "-c", "while true; do sleep 1; done")
 	if st, err := r.Status(context.Background(), id); err != nil || !st.ScriptExists {
 		t.Fatalf("status with a script running: %+v %v", st, err)
 	}

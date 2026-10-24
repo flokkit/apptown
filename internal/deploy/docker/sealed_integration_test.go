@@ -97,7 +97,7 @@ func TestIntegrationASealedBootHasNoAddressAndAnswersOnlyStatuses(t *testing.T) 
 		}
 		return nil
 	}
-	host := NewHost(Dependencies{Secrets: sealedSecrets{}, Needs: sealedNeeds{}, Routes: sealedOrigin{origin}})
+	host := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: sealedSecrets{}, Needs: sealedNeeds{}, Routes: sealedOrigin{origin}})
 	res, err := host.Boot(context.Background(), BootRequest{Name: name, StackID: stack, Workspace: t.TempDir(), Slug: "orders", Deployment: "prod", Docker: dk,
 		Probe: 90 * time.Second, Sealed: sealed, Recorded: &RecordedImages{Parts: map[string]string{"web": id}}}, c)
 	if err != nil {

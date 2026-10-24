@@ -27,6 +27,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/stock"
 )
 
 // scannerEffects answers commands with report, and model questions with
@@ -125,7 +126,7 @@ func newScannerOwnerFixture(t *testing.T) scannerOwnerFixture {
 	scope := docker.Scope{Client: daemon}
 	effects := &scannerEffects{t: t}
 	scanners := NewScanners(ScannerDependencies{DB: db, Docker: &scope, Executor: daemonExecutor(scope), Conformance: service,
-		Evaluator: NewEvaluator(effects, nil), Integrations: integration.NewService(db, integration.Dependencies{Projects: projects}), Dependencies: dependency.NewCatalog(db, nil)})
+		Evaluator: NewEvaluator(effects, nil, stock.Versions()), Integrations: integration.NewService(db, integration.Dependencies{Projects: projects}), Dependencies: dependency.NewCatalog(db, nil)})
 	return scannerOwnerFixture{DB: db, ProjectID: projectID, Context: ctx, Conformance: service, Scanners: scanners, Daemon: daemon, Effects: effects}
 }
 

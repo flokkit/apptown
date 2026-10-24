@@ -158,9 +158,16 @@ tour: web                ## the UI tour's screenshots and page, from site/tour/t
 check-migrations:       ## a released migration keeps its number and statements: the lock only grows from origin/main's
 	sh scripts/migrations-append-only.sh
 
-check-reachability:     ## what apptownd's main can never reach, against scripts/reachability-baseline
+check-reachability: check-stock-embed ## what apptownd's main can never reach, against scripts/reachability-baseline
 	python3 scripts/reachability-check_test.py
 	sh scripts/reachability-check.sh
+
+# The binaries read their stock from the update files a release ships
+# (share/apptown/updates); none may import package stock, whose embedded copy
+# is for tests, or a production path could fall back to it.
+check-stock-embed:      ## apptownd and apptown-worker do not import package stock
+	@if go list -deps ./cmd/apptownd ./cmd/apptown-worker | grep -qx 'github.com/flokkit/apptown/stock'; then \
+		echo "apptownd or apptown-worker imports github.com/flokkit/apptown/stock: production reads stock from its shipped update files, never the embedded copy"; exit 1; fi
 
 check-exec:             ## process starts outside their owners, against scripts/exec-baseline.json
 	python3 scripts/exec-check_test.py
@@ -288,12 +295,14 @@ web:                     ## the web bundle (installs web/node_modules first when
 # build in a git worktree): internal/version.
 REVISION_LDFLAGS = -ldflags "-X github.com/flokkit/apptown/internal/version.Revision=$(shell git rev-parse --short=12 HEAD)$(shell git diff --quiet HEAD -- . 2>/dev/null || echo -modified)"
 
-go: console-cli
+go: console-cli stock-files
 	go build $(REVISION_LDFLAGS) -o bin/apptownd ./cmd/apptownd
 	go build $(REVISION_LDFLAGS) -o bin/apptown ./cmd/apptown
 	go build $(REVISION_LDFLAGS) -o bin/apptown-worker ./cmd/apptown-worker
 
-.PHONY: console-cli
+.PHONY: console-cli stock-files
+stock-files:             ## the update files the binaries read their stock from at start (share/apptown/updates, beside bin/)
+	go run $(REVISION_LDFLAGS) scripts/stock-files.go -o share/apptown/updates >/dev/null
 release:                 ## build a release's artifacts from a clean checkout at its tag: make release VERSION=1.0.0
 	sh scripts/release.sh $(VERSION)
 
@@ -318,8 +327,8 @@ APPTOWND_FLAGS ?=
 run: build               ## build everything and serve on $(ADDR)
 	./bin/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) $(APPTOWND_FLAGS)
 
-dev-api: console-cli     ## backend only (uses last-built dist for static files)
-	go run ./cmd/apptownd -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) -console-cli ./bin/apptown-linux $(APPTOWND_FLAGS)
+dev-api: console-cli stock-files ## backend only (uses last-built dist for static files)
+	go run ./cmd/apptownd -shipped share/apptown/updates -data ./_data -addr $(ADDR) -console-addr $(CONSOLE_ADDR) -auth $(AUTH) -console-cli ./bin/apptown-linux $(APPTOWND_FLAGS)
 
 dev-web:                 ## vite dev server on :5173, proxies /api to :7777
 	cd web && npm run dev

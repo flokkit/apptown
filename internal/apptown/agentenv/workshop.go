@@ -29,7 +29,10 @@ type Workshop struct {
 	integrations   *integration.Service
 	progress       *progress.Feeds
 	dataDir, image string
-	clock          func() time.Time // AppTown's clock; nil is the real one
+	// daemonImage is a step's private Docker daemon's image: the private
+	// Docker image of the tool versions this AppTown shipped with.
+	daemonImage string
+	clock       func() time.Time // AppTown's clock; nil is the real one
 	// Limits bound a step's private Docker daemon, where its builds run (the
 	// AppTown's task limits).
 	Limits execution.Limits
@@ -37,8 +40,8 @@ type Workshop struct {
 
 // now is AppTown's clock, which stamps a workshop container's
 // apptown.created label.
-func NewWorkshop(scope *docker.Scope, integrations *integration.Service, feeds *progress.Feeds, dataDir, image string, now func() time.Time) *Workshop {
-	return &Workshop{docker: scope, integrations: integrations, progress: feeds, dataDir: dataDir, image: image, clock: now}
+func NewWorkshop(scope *docker.Scope, integrations *integration.Service, feeds *progress.Feeds, dataDir, image, daemonImage string, now func() time.Time) *Workshop {
+	return &Workshop{daemonImage: daemonImage, docker: scope, integrations: integrations, progress: feeds, dataDir: dataDir, image: image, clock: now}
 }
 
 func (w *Workshop) now() time.Time { return clock.Or(w.clock)() }
@@ -66,8 +69,6 @@ func (w *Workshop) now() time.Time { return clock.Or(w.clock)() }
 //
 // Writable change consoles use the same image, DNS and mirror policy with
 // a longer session lifecycle; see internal/console/pi. Steps remain disposable.
-
-const DindImage = "docker:27-dind"
 
 const DockerInstructions = `# Your private Docker
 
@@ -170,7 +171,7 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	//    unless --tls=false is explicit — so say it; the listener lives on a
 	//    private network anyway.
 	args = append(args, "-e", "ZFS_MODULE_TIMEOUT=0")
-	args = append(args, dind.Start(DindImage, "--tls=false")...)
+	args = append(args, dind.Start(w.daemonImage, "--tls=false")...)
 	// Name resolution for the containers the nested daemon runs (a plain
 	// `docker build`, `docker compose build`, a rehearsal container): dind's
 	// own resolv.conf points at Docker's embedded DNS (127.0.0.11), which

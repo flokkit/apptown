@@ -72,6 +72,11 @@ func packByNameIn(ctx context.Context, q *wowsql.Queries, name string) (wowsql.P
 type Packs struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock; nil is the real one
+	// lines is the tool versions list a pack's tools are held to; nil
+	// refuses every line.
+	lines ToolLines
+	// shipped names the update stock versions come from (source and signer, origin.go).
+	shipped string
 }
 
 func (s *Packs) now() time.Time { return clock.Or(s.clock)() }
@@ -249,6 +254,9 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 	if how.refuseGone && len(res.Missing) > 0 {
 		return 0, fmt.Errorf("%w: the library has no %s; add it first, or leave it out of the pack", ErrUnpinned, strings.Join(res.Missing, ", "))
 	}
+	if err := s.checkTools(res.Spec); err != nil {
+		return 0, fmt.Errorf("pack %s: %w", name, err)
+	}
 	// A version stores the resolved contents: inherited items from the
 	// included publication, and every policy with the definition it pins.
 	// A declaration that does not decode (a historical representation) is
@@ -300,7 +308,7 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 		basedOn = p.LatestVersion
 	}
 	if _, err := q.InsertPackVersion(ctx, wowsql.InsertPackVersionParams{ID: ids.New(now), PackID: p.ID, Version: version, Spec: []byte(spec), Pins: []byte(pins),
-		Declaration: []byte(declaration), IncludedPack: includedPack, IncludedVersion: includedVersion, Note: note, Name: how.name, BasedOn: basedOn, At: now}); err != nil {
+		Declaration: []byte(declaration), IncludedPack: includedPack, IncludedVersion: includedVersion, Note: note, Name: how.name, BasedOn: basedOn, At: now, Source: s.origin(origin).Source, Signer: s.origin(origin).Signer}); err != nil {
 		return 0, err
 	}
 	if _, err := q.AdvancePackVersion(ctx, wowsql.AdvancePackVersionParams{ID: p.ID, Version: version, Description: description, Spec: []byte(declaration), At: now}); err != nil {

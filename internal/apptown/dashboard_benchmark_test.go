@@ -20,7 +20,7 @@ func BenchmarkDashboardRefresh(b *testing.B) {
 	for _, clients := range []int{1, 8} {
 		b.Run(fmt.Sprintf("1000-projects/%d-clients", clients), func(b *testing.B) {
 			db := databaseSuite.New(b)
-			a, err := New(context.Background(), db, Config{DataDir: b.TempDir()})
+			a, err := New(context.Background(), db, Config{DataDir: b.TempDir(), Stock: testStock(b)})
 			if err != nil {
 				b.Fatal(err)
 			}

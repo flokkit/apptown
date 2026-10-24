@@ -23,8 +23,8 @@ type IntegrationDocs struct {
 // prose about the mechanism; instance state stays in generated steering.
 func (h IntegrationDocuments) IntegrationDocs(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("capability") + "-" + r.PathValue("provider")
-	admin, errA := h.docs.ReadFile("docs/integrations/" + key + ".admin.md")
-	dev, errD := h.docs.ReadFile("docs/integrations/" + key + ".developer.md")
+	admin, errA := h.docs.ReadFile("integrations/" + key + ".admin.md")
+	dev, errD := h.docs.ReadFile("integrations/" + key + ".developer.md")
 	if errA != nil && errD != nil {
 		WriteError(w, 404, "no docs for %s", key)
 		return

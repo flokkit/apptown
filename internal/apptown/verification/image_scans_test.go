@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/stock"
 )
 
 const buildContract = "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"
@@ -73,7 +74,7 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 	git("commit", "-q", "-m", "the app")
 	head := git("rev-parse", "HEAD")
 
-	changes := NewChanges(ChangeDependencies{DB: f.DB, DataDir: dataDir, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil)})
+	changes := NewChanges(ChangeDependencies{DB: f.DB, DataDir: dataDir, Scanners: f.Scanners, Evaluator: NewEvaluator(f.Effects, nil, stock.Versions())})
 	ch := &workflow.Change{ID: idstest.N(7), ProjectID: f.ProjectID, Branch: branch, BaseSHA: seed}
 	out, err := changes.Check(f.Context, ch, Selection{Commit: head})
 	if err != nil {

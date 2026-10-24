@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/execution/executiontest"
 	"github.com/flokkit/apptown/internal/poll"
@@ -27,7 +28,7 @@ func TestIntegrationDockerClientFailuresAreUnobservable(t *testing.T) {
 	t.Setenv("DOCKER_CONTEXT", "")
 	t.Setenv("DOCKER_TLS_VERIFY", "1")
 	t.Setenv("DOCKER_CERT_PATH", t.TempDir())
-	d, ctx := execution.DockerTasks{}, context.Background()
+	d, ctx := execution.DockerTasks{ToolVersions: stock.Versions()}, context.Background()
 	ref := execution.TaskRef{Key: "client-unavailable-all"}
 	for _, op := range []string{"ensure", "wait", "output"} {
 		t.Run(op, func(t *testing.T) {
@@ -74,14 +75,14 @@ exec "$TEST_DOCKER_BIN" "$@"
 		t.Fatal(err)
 	}
 	key := executiontest.UniqueKeys("race")("once")
-	d := execution.DockerTasks{}
+	d := execution.DockerTasks{ToolVersions: stock.Versions()}
 	t.Cleanup(func() { _ = d.Release(context.Background(), execution.TaskRef{Key: key}) })
 	obs, err := d.Ensure(ctx, dockerSpec(key, "executed\n", 0, false))
 	if err != nil {
 		t.Fatal(err)
 	}
 	ref := execution.TaskRef{Key: key, ProviderID: obs.ID}
-	delayed := execution.DockerTasks{Binary: wrapper}
+	delayed := execution.DockerTasks{ToolVersions: stock.Versions(), Binary: wrapper}
 	done := make(chan error, 1)
 	go func() { done <- delayed.Start(ctx, ref) }()
 	defer func() { _ = os.WriteFile(filepath.Join(barrier, "release"), nil, 0600) }()

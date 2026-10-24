@@ -112,7 +112,11 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		}
 		defer cleanup()
 		before := dk.imageID(ctx, tag)
-		if err := PackStaticBuild(ctx, dk, buildDir, *c.StaticBuild, h.staticServer(), c.Port, tag); err != nil {
+		server, err := h.staticServer()
+		if err != nil {
+			return 0, err
+		}
+		if err := PackStaticBuild(ctx, dk, buildDir, *c.StaticBuild, server, c.Port, tag); err != nil {
 			return 0, err
 		}
 		removeReplacedImage(ctx, dk, tag, before)
@@ -286,7 +290,11 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		args = append(args, trust.ContainerArgs(!dk.Remote())...)
 	}
 	if c.Static != "" {
-		args = append(args, h.staticServer())
+		server, err := h.staticServer()
+		if err != nil {
+			return 0, err
+		}
+		args = append(args, server)
 		args = append(args, StaticServerCommand(c.Port)...)
 	} else if c.Image != "" {
 		args = append(args, c.Image)

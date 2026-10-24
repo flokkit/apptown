@@ -12,7 +12,7 @@ import (
 func TestAnShChecksDurationIsTheJudgesClocks(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2031, 1, 1, 0, 0, 0, 0, time.UTC)
-	j := &check.Judge{
+	j := &check.Judge{ShImage: testShImage,
 		Now: func() time.Time { return at },
 		Run: func(execution.Request) execution.Outcome {
 			at = at.Add(7 * time.Second) // the run takes seven seconds on the judge's clock

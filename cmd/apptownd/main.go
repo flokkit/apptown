@@ -23,7 +23,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/trust"
-	"github.com/flokkit/apptown/stock"
 )
 
 // daemonFlags is apptownd's command line. Every flag can also be set in the
@@ -56,6 +55,7 @@ type daemonFlags struct {
 	inferenceNetworks                                string
 	publicHost                                       string
 	restoreGateImage                                 string
+	shipped                                          string
 	otlpEndpoint                                     string
 	otlpProtocol                                     string
 	verifyOnly                                       bool
@@ -109,6 +109,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.inferenceAddr, "inference-addr", "", "private inference listener (empty = disabled; never route through public ingress)")
 	fs.StringVar(&o.inferenceURL, "inference-url", "", "inference origin reachable from worker containers")
 	fs.StringVar(&o.inferenceNetworks, "inference-networks", "", "explicit comma-separated worker CIDRs allowed to use inference; direct connection peers only")
+	fs.StringVar(&o.shipped, "shipped", "", "the folder of the update files this release shipped with (its stock and tool versions); empty = share/apptown/updates beside this binary")
 	fs.StringVar(&o.restoreGateImage, "restore-gate-image", "", "AppTown's access gate image, pinned by digest (<ref>@sha256:...), built with `make gate-image` and pushed where the deployment targets can read it: restore tests of production run behind it; empty = this AppTown makes no restore test (it also needs a -public-host origin, where the gate checks AppTown's own test ticket)")
 	fs.StringVar(&o.publicHost, "public-host", "", "AppTown's public hostname, or its whole origin (https://forge.example) to state how people reach it: only a stated origin is shown as a link in the guides (empty = localhost only); app ports stay on this host's loopback, so without a -tier-domain preview and deployment addresses answer on this host only, and the UI says so")
 	fs.StringVar(&o.otlpEndpoint, "otlp-endpoint", "", "OTLP receiver for apptownd's own traces, metrics and logs, host:port or URL (env APPTOWN_OTLP_ENDPOINT); empty sends nothing")
@@ -252,6 +253,9 @@ func main() {
 		log.Fatalf("open db: %v", err)
 	}
 	cfg.FitLimitsToHost(ctx)
+	if cfg.Stock, err = loadStock(o.shipped, version.String()); err != nil {
+		log.Fatalf("stock: %v", err)
+	}
 	app, err := apptown.New(ctx, db, cfg)
 	if err != nil {
 		log.Fatal(err)
@@ -337,7 +341,7 @@ func main() {
 		if err := app.RecoverConsoles(ctx); err != nil {
 			return fmt.Errorf("console recovery: %w", err)
 		}
-		resumeWork(ctx, func(ctx context.Context) { verification.SyncStockScanners(ctx, app.Integrations, stock.FS) }, app.ResumePendingAutoSteps)
+		resumeWork(ctx, func(ctx context.Context) { verification.SyncStockScanners(ctx, app.Integrations, cfg.Stock.FS) }, app.ResumePendingAutoSteps)
 		app.EnsureDeployments(ctx)
 		app.SyncStockDependencies(ctx)
 		runtime := daemonRuntime{

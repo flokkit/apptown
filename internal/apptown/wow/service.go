@@ -13,6 +13,13 @@ import (
 
 type Dependencies struct {
 	Stock fs.FS // the release's shipped ways of working (stock/)
+	// Shipped is the name of the ways-of-working update Stock came from:
+	// the AppTown version that built it. Versions the stock sync publishes
+	// record it (source and signer, origin.go).
+	Shipped string
+	// ToolLines says which tool lines the tool versions list names; a pack
+	// may name only those (Pack.Tools). nil refuses every line.
+	ToolLines ToolLines
 	// Importers says how many projects stay on earlier versions of a block
 	// after a release moved it: adoption's fact, observed for the boot log.
 	Importers Importers
@@ -22,6 +29,12 @@ type Dependencies struct {
 	// Now is AppTown's clock, which stamps block versions; nil is the
 	// real one.
 	Now func() time.Time
+}
+
+// ToolLines is the tool versions list, as a pack's tools are checked
+// against it.
+type ToolLines interface {
+	HasLine(tool, line string) bool
 }
 
 type Importers interface {
@@ -47,6 +60,8 @@ type Service struct {
 func New(db *database.DB, deps Dependencies) *Service {
 	s := &Service{db: db, deps: deps, library: NewLibrary(db), workflows: NewWorkflows(db), packs: NewPacks(db), policies: NewPolicies(db)}
 	s.library.clock, s.workflows.clock, s.packs.clock, s.policies.clock = deps.Now, deps.Now, deps.Now, deps.Now
+	s.packs.lines, s.packs.shipped = deps.ToolLines, deps.Shipped
+	s.library.stock, s.workflows.stock = shippedOrigin(deps.Shipped), shippedOrigin(deps.Shipped)
 	return s
 }
 

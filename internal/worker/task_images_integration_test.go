@@ -20,11 +20,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/oci"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -46,7 +46,7 @@ func TestIntegrationImageCapturesAreRefusedWithTheTaskExitKept(t *testing.T) {
 	state := t.TempDir()
 	namespace := fmt.Sprintf("images%d", time.Now().UnixNano()%1_000_000_000)
 	removeNamespace(t, namespace)
-	driver := workertest.Driver(t, ca, workertest.StartServer(t, ca, &worker.Server{State: state, Tasks: execution.DockerTasks{Namespace: namespace}}))
+	driver := workertest.Driver(t, ca, workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: state, Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace}}))
 	ctx := context.Background()
 	hub, base := imageHub(t)
 	blob := strings.Repeat("a", 64)
@@ -60,7 +60,7 @@ ln -s /etc /apptown/state/out/linked
 head -c 2048 /dev/zero > /apptown/state/out/big/index.json
 exit 3
 `
-	spec := execution.TaskSpec{Key: namespace + "-build", Image: diskspace.DFImage, Argv: []string{"sh", "-c", script},
+	spec := execution.TaskSpec{Key: namespace + "-build", Image: stock.Images().DF, Argv: []string{"sh", "-c", script},
 		Admission: execution.Admission{Profile: "worker", Network: execution.NetworkNone, Expires: time.Now().Add(time.Hour)},
 		Source:    &execution.TaskSource{Repository: hub, Commit: base},
 		Images: []execution.ImageResult{
@@ -306,7 +306,7 @@ docker buildx build --platform ` + platform + ` --provenance=false --sbom=false 
 
 	// A layer cut short on the wire, by a worker over the same state.
 	layer := "blobs/sha256/" + strings.TrimPrefix(manifest.Layers[0].Digest, "sha256:")
-	cutting := workertest.StartServerWith(t, f.ca, &worker.Server{State: f.state, Tasks: execution.DockerTasks{Namespace: f.namespace}},
+	cutting := workertest.StartServerWith(t, f.ca, &worker.Server{ToolVersions: stock.Versions(), State: f.state, Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: f.namespace}},
 		func(h http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if strings.HasSuffix(r.URL.Path, layer) {

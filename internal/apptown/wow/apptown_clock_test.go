@@ -18,7 +18,7 @@ func TestAppTownsClockStampsTheWaysOfWorking(t *testing.T) {
 	ctx := context.Background()
 	at := time.Now().Add(-90 * 24 * time.Hour).UTC().Truncate(time.Microsecond)
 	stamped := at.Format(time.RFC3339Nano)
-	s := New(testDB(t), Dependencies{Stock: stock.FS, Now: func() time.Time { return at }})
+	s := New(testDB(t), Dependencies{Stock: stock.FS, ToolLines: stock.Versions(), Now: func() time.Time { return at }})
 	s.SyncStock(ctx)
 
 	if _, err := s.CreateBlock(ctx, "house/clocked", "first", "", "alice"); err != nil {

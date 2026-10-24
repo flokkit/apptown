@@ -24,7 +24,7 @@ import (
 
 func stockService(t *testing.T) *Service {
 	t.Helper()
-	return New(testDB(t), Dependencies{Stock: stock.FS})
+	return New(testDB(t), Dependencies{Stock: stock.FS, ToolLines: stock.Versions()})
 }
 
 // stockLibrary is stockService with the stock workflows, guidance and
@@ -307,7 +307,7 @@ func TestAPolicyOnlyReleasePublishesThePacksThatNameIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	tightened := strings.Replace(string(raw), "with: { uses: deploy, requires: scan }", "with: { uses: deploy, requires: tests }", 1)
-	release := New(s.db, Dependencies{Stock: changedStock{FS: stock.FS, files: fstest.MapFS{"policies.yaml": {Data: []byte(tightened)}}}})
+	release := New(s.db, Dependencies{Stock: changedStock{FS: stock.FS, files: fstest.MapFS{"policies.yaml": {Data: []byte(tightened)}}}, ToolLines: stock.Versions()})
 	release.SyncStock(t.Context())
 	latest, err := libraryRows(s.db).PackByName(t.Context(), pack)
 	if err != nil {
@@ -423,7 +423,7 @@ func TestANewPackKeepsTheDefinitionItsLegacyParentHeld(t *testing.T) {
 	const legacy = 2
 	v1 := rows[len(rows)-1]
 	if _, err := q.InsertPackVersion(ctx, wowsql.InsertPackVersionParams{ID: ids.New(time.Now()), PackID: parent.ID, Version: legacy, Spec: v1.SpecJson, Pins: []byte(`{"blocks":{},"workflows":{}}`),
-		Declaration: v1.DeclarationJson, IncludedPack: v1.IncludedPack, IncludedVersion: v1.IncludedVersion, BasedOn: v1.Version, At: time.Now().UTC()}); err != nil {
+		Declaration: v1.DeclarationJson, IncludedPack: v1.IncludedPack, IncludedVersion: v1.IncludedVersion, BasedOn: v1.Version, At: time.Now().UTC(), Source: AuthoredHere.Source, Signer: AuthoredHere.Signer}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SaveLibraryPolicy(ctx, policy("tests"), "alice"); err != nil {

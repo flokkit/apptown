@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/stock"
 )
 
 // The static site's image, built from StaticSiteDockerfile and run with no
@@ -29,7 +30,7 @@ func TestIntegrationAStaticSiteImageServesItselfWithNoCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	dockerfile := filepath.Join(t.TempDir(), "Dockerfile")
-	if err := os.WriteFile(dockerfile, []byte(StaticSiteDockerfile(StaticServerImage, 8080)), 0o644); err != nil {
+	if err := os.WriteFile(dockerfile, []byte(StaticSiteDockerfile(stock.Images().StaticServer, 8080)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	tag := fmt.Sprintf("forge-static-self-test:%d", time.Now().UnixNano())

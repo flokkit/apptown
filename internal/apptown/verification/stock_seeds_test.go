@@ -48,7 +48,7 @@ func TestSeedsPassTheirPacksOwnShellChecks(t *testing.T) {
 		}
 		checksOf[it.Name] = cs
 	}
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	seeded := 0
 	for _, p := range packs {
 		root := "seeds/" + p.Name
@@ -85,7 +85,7 @@ func TestSeedsPassTheirPacksOwnShellChecks(t *testing.T) {
 				}
 			}
 		}
-		results, _, errs := evaluator.runShChecks(context.Background(), checks, dir, "t-seed-"+p.Name)
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, checks, dir, "t-seed-"+p.Name)
 		if errs != 0 {
 			t.Errorf("%s: %d checks errored", p.Name, errs)
 		}
@@ -283,7 +283,7 @@ func TestSeedBuildImagesAreRefusedAsTheirRuntime(t *testing.T) {
 		}
 		checksOf[it.Name] = cs
 	}
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	split := 0
 	for _, p := range packs {
 		raw, err := stock.FS.ReadFile("seeds/" + p.Name + "/Dockerfile")
@@ -321,7 +321,7 @@ func TestSeedBuildImagesAreRefusedAsTheirRuntime(t *testing.T) {
 		lines[froms[len(froms)-1]] = "FROM " + build
 		dir := t.TempDir()
 		writeTree(t, dir, map[string]string{"Dockerfile": strings.Join(lines, "\n")})
-		results, _, errs := evaluator.runShChecks(context.Background(), checks, dir, "t-seed-runtime-"+p.Name)
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, checks, dir, "t-seed-runtime-"+p.Name)
 		refused := false
 		for _, r := range results {
 			refused = refused || r.Verdict == workflow.VerdictFail

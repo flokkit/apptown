@@ -5,9 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/schema"
 	"io"
 	"io/fs"
+	"maps"
+	"slices"
+	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/fault"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -62,6 +67,11 @@ type Pack struct {
 	// project's mise.toml at pack apply — a pack whose guidance says "the
 	// toolchain is declared in mise.toml" must deliver that declaration.
 	Toolchain string `yaml:"toolchain" json:"toolchain,omitempty"`
+	// Tools names the version line of each tool the pack prescribes
+	// (node: "24", postgres: "16"): a line, never an exact version, which
+	// the tool versions list resolves. Changing a line is a new version of
+	// the pack, adopted like any other.
+	Tools map[string]string `yaml:"tools" json:"tools,omitempty"`
 	// Services are the sidecars this pack PROPOSES (a database, a cache) —
 	// pre-selected in the creation wizard, freely tuned. A server pack that
 	// says "Postgres" declares it here; a client-only pack declares none.
@@ -110,7 +120,7 @@ type PackSpec struct {
 	Includes  string                    `json:"includes,omitempty"`
 	Replaces  map[string]string         `json:"replaces,omitempty"`
 	Drops     []PackDrop                `json:"drops,omitempty"`
-	// Clears names inherited setup fields (toolchain, services) this pack
+	// Clears names inherited setup fields (toolchain, tools, services) this pack
 	// sets to nothing; an omitted field is inherited.
 	Clears     []string             `json:"clears,omitempty"`
 	Starter    string               `json:"starter,omitempty"`
@@ -118,6 +128,7 @@ type PackSpec struct {
 	Workflows  []string             `json:"workflows"`
 	Policies   []PackPolicy         `json:"policies"`
 	Toolchain  string               `json:"toolchain,omitempty"`
+	Tools      map[string]string    `json:"tools,omitempty"`
 	Services   []deploy.ServiceSpec `json:"services,omitempty"`
 	Extensions []string             `json:"extensions,omitempty"`
 	Requires   []string             `json:"requires,omitempty"`
@@ -127,7 +138,7 @@ type PackSpec struct {
 func (p Pack) Spec() PackSpec {
 	return PackSpec{Resources: p.Resources, Platform: p.Platform, Includes: p.Includes, Replaces: p.Replaces, Drops: p.Drops, Clears: p.Clears,
 		Guidance: p.Guidance, Workflows: p.Workflows, Policies: p.Policies,
-		Toolchain: p.Toolchain, Services: p.Services, Extensions: p.Extensions, Requires: p.Requires}
+		Toolchain: p.Toolchain, Tools: p.Tools, Services: p.Services, Extensions: p.Extensions, Requires: p.Requires}
 }
 
 // Pack decodes the row's declaration into the shape readers use. A pack
@@ -146,7 +157,7 @@ func packFrom(p PackRecord, spec string) (Pack, error) {
 		return pk, fmt.Errorf("pack %s: its stored spec cannot be read: %w", p.Name, err)
 	}
 	pk.Guidance, pk.Workflows, pk.Policies, pk.Toolchain, pk.Services, pk.Extensions, pk.Platform = ps.Guidance, ps.Workflows, ps.Policies, ps.Toolchain, ps.Services, ps.Extensions, ps.Platform
-	pk.Resources = ps.Resources
+	pk.Resources, pk.Tools = ps.Resources, ps.Tools
 	pk.Includes, pk.Replaces, pk.Drops, pk.Clears, pk.Starter, pk.Requires = ps.Includes, ps.Replaces, ps.Drops, ps.Clears, ps.Starter, ps.Requires
 	return pk, nil
 }
@@ -207,6 +218,35 @@ func decodeStrict(raw []byte, v any) error {
 	dec.KnownFields(true)
 	if err := dec.Decode(v); err != nil && !errors.Is(err, io.EOF) {
 		return err
+	}
+	return nil
+}
+
+// ErrUnknownToolLine is a pack naming a tool line the tool versions list
+// does not have, or proposing a service whose image disagrees with its line.
+var ErrUnknownToolLine = fault.New(fault.Invalid, "a pack names only tool lines the tool versions list has")
+
+// checkTools holds a pack's resolved tools to the tool versions list, and a
+// proposed service's image tag to the pack's line for that tool: the tag is
+// the line, or the line and a dot and more (postgres:16, mariadb:11.4.13 on
+// line 11.4).
+func (s *Packs) checkTools(spec PackSpec) error {
+	for _, tool := range slices.Sorted(maps.Keys(spec.Tools)) {
+		line := spec.Tools[tool]
+		if s.lines == nil || !s.lines.HasLine(tool, line) {
+			return fmt.Errorf("%w: %s %q is not in the tool versions this AppTown has", ErrUnknownToolLine, tool, line)
+		}
+	}
+	for _, svc := range spec.Services {
+		line, ok := spec.Tools[svc.Name]
+		if !ok || svc.Image == "" {
+			continue
+		}
+		_, tag, found := strings.Cut(svc.Image[strings.LastIndex(svc.Image, "/")+1:], ":")
+		tag, _, _ = strings.Cut(tag, "@")
+		if !found || (tag != line && !strings.HasPrefix(tag, line+".")) {
+			return fmt.Errorf("%w: service %s proposes %s, which is not %s line %s", ErrUnknownToolLine, svc.Name, svc.Image, svc.Name, line)
+		}
 	}
 	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/preview"
+	"github.com/flokkit/apptown/internal/toolversions"
 
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 
@@ -57,7 +58,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/progress"
-	"github.com/flokkit/apptown/stock"
 )
 
 // App is the composition root and the remaining application orchestration.
@@ -65,6 +65,8 @@ import (
 // receive this object. workflow_wiring.go supplies the advancement engine's
 // operations. Database schema and migrations belong to dbschema.
 type App struct {
+	// images is the runtime images of the tool versions this AppTown shipped with.
+	images toolversions.Images
 	// newWork holds new jobs and steps for a whole-AppTown backup's brief
 	// pause (instancebackup).
 	newWork instancebackup.Hold
@@ -191,6 +193,13 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if db == nil {
 		return nil, fmt.Errorf("constructing App requires a database")
 	}
+	if cfg.stock.FS == nil || cfg.stock.Tools == nil || cfg.stock.Name == "" {
+		return nil, fmt.Errorf("no stock: AppTown reads its ways of working and tool versions from the update files its release shipped with")
+	}
+	// The start snapshot: what is release-bound (the private Docker image,
+	// in its qualified profile) is read from it once; the rest follows the
+	// owner, one snapshot per unit of work.
+	images := cfg.stock.Tools.Current().Images
 	cfg.proxies.hosts = hostAddressSnapshot(input.HostAddresses)
 	client := input.DockerClient
 	if client == nil {
@@ -199,7 +208,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if cfg.noLocalDocker {
 		client = docker.Refusing{Attached: client}
 	}
-	a := &App{cfg: cfg, docker: docker.Scope{Client: client, Now: cfg.clock.Now}, probe: input.DockerProbe, DB: db,
+	a := &App{cfg: cfg, images: images, docker: docker.Scope{Client: client, Now: cfg.clock.Now}, probe: input.DockerProbe, DB: db,
 		processRunner: input.ProcessRunner,
 		consoleStop:   make(chan struct{}),
 		cli:           agentenv.NewCLI(cfg.consoleCLI),
@@ -227,7 +236,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	daemon := execution.SelectDocker()
 	records := tasks.New(db)
 	records.Now = cfg.clock.Now
-	a.tasks = &workflowexec.TaskRunner{Records: records, Driver: execution.DockerTasks{Namespace: namespace, Daemon: daemon, Files: filepath.Join(cfg.dataDir, "task-files"), Now: cfg.clock.Now},
+	a.tasks = &workflowexec.TaskRunner{Records: records, Driver: execution.DockerTasks{Namespace: namespace, Daemon: daemon, Files: filepath.Join(cfg.dataDir, "task-files"), Now: cfg.clock.Now, ToolVersions: cfg.stock.Tools},
 		Requests: filepath.Join(cfg.dataDir, "tasks"),
 		Profile:  workflowexec.TaskProfile{Name: "local-docker", Limits: cfg.taskLimits, Network: execution.NetworkDefault},
 		Backend:  "local-docker " + namespace + " on " + daemon.Backend(), Now: cfg.clock.Now}
@@ -256,7 +265,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Secrets = secret.NewService(db, secret.Config{DataDir: cfg.dataDir, Client: input.SecretsHTTPClient, Now: cfg.clock.Now})
 	a.Dependencies = dependency.NewCatalog(db, cfg.clock.Now)
 	a.Integrations = integration.NewService(db, integration.Dependencies{Kinds: a.Dependencies, Projects: a.Projects, Secrets: a.Secrets, Now: cfg.clock.Now})
-	a.workshop = agentenv.NewWorkshop(&a.docker, a.Integrations, &a.progress, cfg.dataDir, cfg.agentImage, cfg.clock.Now)
+	a.workshop = agentenv.NewWorkshop(&a.docker, a.Integrations, &a.progress, cfg.dataDir, cfg.agentImage, images.PrivateDocker, cfg.clock.Now)
 	a.workshop.Limits = cfg.taskLimits
 	a.Usage = usage.NewService(db, access.Checked{Authority: identity.Scoped(a.Access, "usage"), Projects: a.Projects}, cfg.clock.Now)
 	// The evals' one rule, asked at every effect for a copy: each step's
@@ -269,7 +278,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	// AppTown cannot read runs a step at a time.
 	a.capacity = model.NewScheduler(model.BindingCapacity{Bindings: a.Integrations.Bindings}, 1)
 	a.Complaints = complaint.NewBox(db, complaintPackVersions{db}, cfg.clock.Now)
-	a.Ways = wow.New(db, wow.Dependencies{Stock: stock.FS, Importers: waysImporters{db}, Checks: waysChecks{}, Now: cfg.clock.Now})
+	a.Ways = wow.New(db, wow.Dependencies{Stock: cfg.stock.FS, Shipped: cfg.stock.Name, ToolLines: cfg.stock.Tools, Importers: waysImporters{db}, Checks: waysChecks{}, Now: cfg.clock.Now})
 	changes := workflow.NewChanges(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, cfg.clock.Now)
 	a.Adoption = adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(a.Access, "adoption"), Projects: a.Projects}, Ways: a.Ways, Capabilities: adoptionCapabilities{}, Uplift: workcommands.Uplift{Changes: changes, DB: db, Lanes: func() remediation.WorkflowResolver { return a.lifecycle }, Runs: func() workcommands.RunStarter { return a.Work }}, Reviews: adoptionReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Copies: project.Copies{}, Now: cfg.clock.Now})
 	var extensionNames []string
@@ -335,7 +344,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.changeConsole = changeConsoleFor(a)
 	a.consoleAdmission = consoleAdmissionFor(a)
 	a.health = a.Deployment.HealthController()
-	a.reaper = maintenance.New(db, maintenance.Dependencies{Docker: a.docker, Sessions: a.Console, Runtime: consoleDeps.Agent, Now: cfg.clock.Now}, cfg.dataDir)
+	a.reaper = maintenance.New(db, maintenance.Dependencies{Docker: a.docker, Sessions: a.Console, Runtime: consoleDeps.Agent, ToolVersions: cfg.stock.Tools, Now: cfg.clock.Now}, cfg.dataDir)
 	a.disks = maintenance.Disks{DataDir: cfg.dataDir, Now: cfg.clock.Now}
 	if cfg.worker != nil {
 		a.disks.Worker = *cfg.worker

@@ -30,6 +30,8 @@ type GuidanceBlockVersion struct {
 	BodyMd     string
 	ChecksJson json.RawMessage
 	CreatedAt  time.Time
+	Source     string
+	Signer     string
 }
 
 type LibWorkflow struct {
@@ -47,6 +49,8 @@ type LibWorkflowVersion struct {
 	Version   int64
 	Yaml      string
 	CreatedAt time.Time
+	Source    string
+	Signer    string
 }
 
 type Pack struct {
@@ -74,6 +78,8 @@ type PackVersion struct {
 	IncludedVersion int64
 	Name            string
 	BasedOn         int64
+	Source          string
+	Signer          string
 }
 
 type PolicyLibrary struct {

@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/toolversions"
 )
 
 // PreparedVersion is the prepared value's shape; a machine given another
@@ -154,10 +155,10 @@ func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCrede
 }
 
 // Dependencies are the prepared values as a Host's dependencies, with the
-// machine's own probe and helper images.
-func (p Prepared) Dependencies(probe Prober, staticServer, chownImage string) Dependencies {
+// machine's own probe and the images of one tool versions snapshot.
+func (p Prepared) Dependencies(probe Prober, images toolversions.Images) Dependencies {
 	return Dependencies{Secrets: preparedSecrets{p}, Needs: preparedNeeds{p}, Registry: preparedLogin{p.Registry},
-		Integrations: preparedContributions{p}, Routes: preparedRoutes{p}, Probe: probe, StaticServer: staticServer, ChownImage: chownImage}
+		Integrations: preparedContributions{p}, Routes: preparedRoutes{p}, Probe: probe, StaticServer: images.StaticServer, ChownImage: images.Sh, DFImage: images.DF}
 }
 
 type preparedSecrets struct{ p Prepared }

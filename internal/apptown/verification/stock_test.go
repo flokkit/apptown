@@ -61,12 +61,12 @@ func writeTree(t *testing.T, root string, files map[string]string) {
 }
 func TestNoIgnoredFilesTrackedAsksTheTreeItself(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "repo/no-build-artifacts", "no-ignored-files-tracked")
 
 	clean := t.TempDir()
 	writeTree(t, clean, map[string]string{".gitignore": "target/\n.apptown/*\n!.apptown/app.yaml\n", "src/Main.java": "class Main {}", ".apptown/app.yaml": "app: {}"})
-	results, findings, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, clean, "t-ign-clean")
+	results, findings, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, clean, "t-ign-clean")
 	if len(results) != 1 || results[0].Verdict != workflow.VerdictPass || len(findings) != 0 || errs != 0 {
 		t.Fatalf("a tree that honours its own ignore list passes: %+v %+v %d", results, findings, errs)
 	}
@@ -74,7 +74,7 @@ func TestNoIgnoredFilesTrackedAsksTheTreeItself(t *testing.T) {
 	bad := t.TempDir()
 	writeTree(t, bad, map[string]string{".gitignore": "target/\n.apptown/*\n!.apptown/app.yaml\n", "src/Main.java": "class Main {}",
 		"target/surefire-reports/TEST-x.xml": "<xml/>", ".apptown/CHANGE.md": "report", ".apptown/app.yaml": "app: {}"})
-	results, findings, errs = evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, bad, "t-ign-bad")
+	results, findings, errs = evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, bad, "t-ign-bad")
 	if len(results) != 1 || results[0].Verdict != workflow.VerdictFail || errs != 0 || len(findings) != 1 {
 		t.Fatalf("a force-added ignored file fails: %+v %+v %d", results, findings, errs)
 	}
@@ -86,31 +86,31 @@ func TestNoIgnoredFilesTrackedAsksTheTreeItself(t *testing.T) {
 	// No ignore list at all: nothing is declared, nothing is refused.
 	none := t.TempDir()
 	writeTree(t, none, map[string]string{"target/x.class": "x", "README.md": "hi"})
-	results, _, errs = evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, none, "t-ign-none")
+	results, _, errs = evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, none, "t-ign-none")
 	if results[0].Verdict != workflow.VerdictPass || errs != 0 {
 		t.Fatalf("with no declaration the check has nothing to say: %+v", results)
 	}
 }
 func TestNoBuildArtifactsTrackedNamesPrograms(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "repo/no-build-artifacts", "no-build-artifacts-tracked")
 	big := strings.Repeat("x", 3<<20)
 	data := t.TempDir()
 	writeTree(t, data, map[string]string{"assets/map.png": "\x89PNG\r\n" + big, "fixtures/rows.csv": big, "notes.txt": "tiny"})
-	if results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, data, "t-prog-data"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
+	if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, data, "t-prog-data"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
 		t.Fatalf("data and media of any size pass: %+v", results)
 	}
 	built := t.TempDir()
 	writeTree(t, built, map[string]string{"server": "\x7fELF" + "\x02\x01\x01", "Greeting.class": "\xca\xfe\xba\xbe\x00\x00", "assets/map.png": "\x89PNG" + big})
-	results, findings, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, built, "t-prog-built")
+	results, findings, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, built, "t-prog-built")
 	if results[0].Verdict != workflow.VerdictFail || errs != 0 || len(findings) != 1 || len(findings[0].Items) != 2 {
 		t.Fatalf("an ELF and a class file are named, the image is not: %+v %+v", results, findings)
 	}
 }
 func TestLaneGitignoreChecksNameTheirOwnBuildOutput(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	cases := []struct {
 		block string
 		good  string
@@ -127,17 +127,17 @@ func TestLaneGitignoreChecksNameTheirOwnBuildOutput(t *testing.T) {
 		check := sourcedNamed(t, c.block, "gitignore-names-build-output")
 		good := t.TempDir()
 		writeTree(t, good, map[string]string{".gitignore": c.good})
-		if results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, good, "t-gi-good"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
+		if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, good, "t-gi-good"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
 			t.Fatalf("%s: %q names the build output: %+v", c.block, c.good, results)
 		}
 		bare := t.TempDir()
 		writeTree(t, bare, map[string]string{".gitignore": "*.log\n", "web/package.json": "{}"})
-		if results, findings, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, bare, "t-gi-bare"); results[0].Verdict != workflow.VerdictFail || errs != 0 || len(findings) != 1 {
+		if results, findings, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, bare, "t-gi-bare"); results[0].Verdict != workflow.VerdictFail || errs != 0 || len(findings) != 1 {
 			t.Fatalf("%s: an ignore list without it fails: %+v", c.block, results)
 		}
 		missing := t.TempDir()
 		writeTree(t, missing, map[string]string{"web/package.json": "{}"})
-		if results, _, _ := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, missing, "t-gi-none"); results[0].Verdict != workflow.VerdictFail {
+		if results, _, _ := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, missing, "t-gi-none"); results[0].Verdict != workflow.VerdictFail {
 			t.Fatalf("%s: no ignore list at all fails: %+v", c.block, results)
 		}
 	}
@@ -148,23 +148,23 @@ func TestLaneGitignoreChecksNameTheirOwnBuildOutput(t *testing.T) {
 // write, so the check has nothing to judge (go-small failed it, 2026-10).
 func TestFrontendIgnoreCheckWaitsForAFrontend(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "lang/selection/typescript-for-web", "gitignore-names-build-output")
 	goOnly := t.TempDir()
 	writeTree(t, goOnly, map[string]string{".gitignore": "/app\n", "go.mod": "module app\n", "main.go": "package main\n"})
-	if results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, goOnly, "t-gi-go"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
+	if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, goOnly, "t-gi-go"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
 		t.Fatalf("a Go service with no frontend passes: %+v", results)
 	}
 	vendored := t.TempDir()
 	writeTree(t, vendored, map[string]string{".gitignore": "/app\n", "tools/node_modules/x/package.json": "{}"})
-	if results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, vendored, "t-gi-vendored"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
+	if results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, vendored, "t-gi-vendored"); results[0].Verdict != workflow.VerdictPass || errs != 0 {
 		t.Fatalf("a package.json inside node_modules is not a frontend: %+v", results)
 	}
 }
 
 func TestRunsAsNonRootReadsTheFinalStage(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "build/container-image", "runs-as-non-root")
 	cases := []struct {
 		name, df string
@@ -191,7 +191,7 @@ func TestRunsAsNonRootReadsTheFinalStage(t *testing.T) {
 		if c.df != "" {
 			writeTree(t, dir, map[string]string{"Dockerfile": c.df})
 		}
-		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-user")
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-user")
 		got := results[0].Verdict == workflow.VerdictPass
 		if got != c.pass || errs != 0 {
 			t.Fatalf("%s: want pass=%v, got %+v", c.name, c.pass, results)
@@ -205,7 +205,7 @@ func TestRunsAsNonRootReadsTheFinalStage(t *testing.T) {
 // stage is read as Docker reads it; app.yaml grants nothing.
 func TestNoVolumeReadsTheFinalStage(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "build/container-image", "no-volume")
 	const dataDir = "version: 2\napp:\n  web:\n    build: .\n    public: true\n    dataDir: /data\n"
 	cases := []struct {
@@ -235,7 +235,7 @@ func TestNoVolumeReadsTheFinalStage(t *testing.T) {
 			files["Dockerfile"] = c.df
 		}
 		writeTree(t, dir, files)
-		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-volume")
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-volume")
 		pass := results[0].Verdict == workflow.VerdictPass
 		if pass != (len(c.names) == 0) || errs != 0 || len(results[0].Occurrences) != len(c.names) {
 			t.Fatalf("%s: want %v named, got %+v", c.name, c.names, results)
@@ -254,7 +254,7 @@ func TestNoVolumeReadsTheFinalStage(t *testing.T) {
 	} {
 		dir := t.TempDir()
 		writeTree(t, dir, map[string]string{"Dockerfile": df})
-		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-volume-not-judged")
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-volume-not-judged")
 		if errs != 1 || results[0].Verdict == workflow.VerdictPass || results[0].Verdict == workflow.VerdictFail || !strings.Contains(results[0].Output, "not judged") {
 			t.Fatalf("%s: %d errors, %+v", name, errs, results)
 		}
@@ -270,7 +270,7 @@ func TestNoVolumeReadsTheFinalStage(t *testing.T) {
 // build argument is not judged.
 func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "lang/selection/rust", "runtime-stage-not-build-image")
 	cases := []struct {
 		name, df string
@@ -310,7 +310,7 @@ func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 		if c.df != "" {
 			writeTree(t, dir, map[string]string{"Dockerfile": c.df})
 		}
-		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-runtime-stage")
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-runtime-stage")
 		got := results[0].Verdict == workflow.VerdictPass
 		if got != c.pass || errs != 0 {
 			t.Fatalf("%s: want pass=%v, got %+v", c.name, c.pass, results)
@@ -327,7 +327,7 @@ func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 	} {
 		dir := t.TempDir()
 		writeTree(t, dir, map[string]string{"Dockerfile": df})
-		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-runtime-stage-not-judged")
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-runtime-stage-not-judged")
 		if errs != 1 || results[0].Verdict == workflow.VerdictPass || results[0].Verdict == workflow.VerdictFail || !strings.Contains(results[0].Output, "not judged") {
 			t.Fatalf("%s: %d errors, %+v", name, errs, results)
 		}
@@ -342,7 +342,7 @@ func TestRuntimeStageNotBuildImageReadsTheFinalStage(t *testing.T) {
 // built part beside it still must.
 func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	check := sourcedNamed(t, "deploy/health-declared", "readiness-declared")
 	cases := []struct {
 		name, contract string
@@ -363,7 +363,7 @@ func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 		if c.contract != "" {
 			writeTree(t, dir, map[string]string{".apptown/app.yaml": c.contract})
 		}
-		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-ready")
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-ready")
 		if got := results[0].Verdict == workflow.VerdictPass; got != c.pass || errs != 0 {
 			t.Fatalf("%s: want pass=%v, got %+v", c.name, c.pass, results)
 		}
@@ -379,7 +379,7 @@ func TestReadinessDeclaredAcceptsTheFormItRecommends(t *testing.T) {
 // recommends must pass.
 func TestFrontDoorChecksWantTranslatedOrigins(t *testing.T) {
 	t.Parallel()
-	evaluator := NewEvaluator(localChecks{}, nil)
+	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
 	djangoGood := "import os\nfrom urllib.parse import urlsplit\n" +
 		"APPTOWN_ORIGINS = [o for o in os.environ.get(\"APPTOWN_ORIGINS\", \"\").split(\",\") if o]\n" +
 		"ALLOWED_HOSTS = [\n    \".\" + h[2:] if h.startswith(\"*.\") else h\n    for h in (urlsplit(o).hostname for o in APPTOWN_ORIGINS)\n] or [\"localhost\", \"127.0.0.1\"]\n" +
@@ -416,7 +416,7 @@ func TestFrontDoorChecksWantTranslatedOrigins(t *testing.T) {
 			writeTree(t, dir, map[string]string{c.file: c.body})
 		}
 		check := sourcedNamed(t, c.block, "trusts-front-door")
-		results, _, errs := evaluator.runShChecks(context.Background(), []conformance.DeclaredCheck{check}, dir, "t-front-door")
+		results, _, errs := evaluator.runShChecks(context.Background(), stock.Images().Sh, []conformance.DeclaredCheck{check}, dir, "t-front-door")
 		if got := results[0].Verdict == workflow.VerdictPass; got != c.pass || errs != 0 {
 			t.Fatalf("%s: want pass=%v, got %+v", c.name, c.pass, results)
 		}

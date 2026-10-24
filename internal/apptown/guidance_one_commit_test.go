@@ -2,10 +2,12 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -13,6 +15,8 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/toolversions"
+	"github.com/flokkit/apptown/stock"
 )
 
 // These checks exercise step 1's commit-only rule through an admitted working run.
@@ -118,4 +122,44 @@ func commitFolder(t *testing.T, ws string) {
 	}
 	gittest.Run(t, ws, "add", "-A", "-f")
 	gittest.Run(t, ws, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-q", "--allow-empty", "-m", "the run's work")
+}
+
+// A guidance step takes one tool versions snapshot when it starts: every
+// shell check of the step runs in that snapshot's image, even when a newer
+// list is installed while the step runs, and the step's evidence names the
+// snapshot beside the image.
+//
+// Kills: a check reading the current list per check (the second check runs
+// in the newer image), or evidence that names no snapshot.
+func TestAGuidanceStepKeepsTheToolVersionsItStartedWith(t *testing.T) {
+	t.Parallel()
+	a, ch := step1ReviewGuidance(t, true, `[{"name":"one","evaluator":"sh","sh":"true"},{"name":"two","evaluator":"sh","sh":"true"}]`)
+	ws := (workflow.Layout{DataDir: a.cfg.dataDir}).ChangeWorkspace(ch.ID)
+	commitFolder(t, ws)
+	started := a.cfg.stock.Tools.Current()
+	newer, err := toolversions.NewSnapshot("newer", []byte(strings.Replace(string(stock.ToolVersions), "alpine/git:v2.47.2@", "alpine/git:v2.47.3@", 1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var images []string
+	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
+		images = append(images, req.Image)
+		a.cfg.stock.Tools.Install(newer)
+		return ExecOutcome{}
+	}})
+	result := reviewExecute(t, a, step1ReviewRun(t, a, ch), "guidance")
+	// Two checks on the change's tree, and its base judged alike.
+	if len(images) < 2 || slices.ContainsFunc(images, func(i string) bool { return i != started.Images.Sh }) {
+		t.Fatalf("the step's checks ran in %v, not the %q it started with", images, started.Images.Sh)
+	}
+	var evidence struct {
+		Image        string
+		ToolVersions struct{ Name, Digest string }
+	}
+	if err := json.Unmarshal([]byte(result.Evidence), &evidence); err != nil {
+		t.Fatal(err)
+	}
+	if evidence.Image != started.Images.Sh || evidence.ToolVersions.Name != started.Name || evidence.ToolVersions.Digest != started.Digest {
+		t.Fatalf("evidence %+v, want the started snapshot %s %s", evidence, started.Name, started.Digest)
+	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution/executionfake"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // Every task on the worker mounts the worker's one tool cache, writable, at
@@ -25,7 +26,7 @@ func TestAWorkerTaskSharesTheWorkersToolCache(t *testing.T) {
 	tasks := &mountsSeen{Tasks: &executionfake.Tasks{}}
 	state := t.TempDir()
 	cache := filepath.Join(t.TempDir(), "tool-cache")
-	srv := &worker.Server{Installation: workertest.Installation, State: state, Tasks: tasks, Sessions: consoletest.NewAgent(), ToolCache: cache}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Tasks: tasks, Sessions: consoletest.NewAgent(), ToolCache: cache}
 	hs := workertest.StartServer(t, ca, srv)
 	driver := execution.WorkerTasks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	ctx := context.Background()
@@ -45,7 +46,7 @@ func TestAWorkerTaskSharesTheWorkersToolCache(t *testing.T) {
 
 	// A worker given no tool cache mounts none.
 	none := &mountsSeen{Tasks: &executionfake.Tasks{}}
-	bare := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Tasks: none, Sessions: consoletest.NewAgent()})
+	bare := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Tasks: none, Sessions: consoletest.NewAgent()})
 	if _, err := (execution.WorkerTasks{URL: bare.URL, Client: workertest.Client(t, ca, workertest.Installation)}).Ensure(ctx, taskWithFiles("script-3", miseConfig)); err != nil {
 		t.Fatal(err)
 	}

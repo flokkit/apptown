@@ -51,9 +51,9 @@ import (
 // evaluatorVersion identifies the exact evaluator behind a posture verdict: a
 // digest of the pinned image plus the sh script, so a changed script is a
 // changed evaluator. Empty when the expectation has no posture evaluator.
-func evaluatorVersion(c conformance.CheckDeclaration) string {
+func evaluatorVersion(c conformance.CheckDeclaration, sh string) string {
 	if s, ok := check.PostureScript(c); ok {
-		h := sha256.Sum256([]byte(check.ShImage + "\x00" + s))
+		h := sha256.Sum256([]byte(sh + "\x00" + s))
 		return hex.EncodeToString(h[:6])
 	}
 	if check.Evaluator(c) == "runtime" && strings.TrimSpace(c.Probe) != "" {
@@ -147,6 +147,8 @@ func (f Fleet) RunReviewJob(ctx context.Context, key string, _ map[string]any) (
 // walkReview evaluates an already-created review record, updating its live
 // progress as it goes. Shared by the synchronous and background entry points.
 func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution, rev *conformance.Review, opts conformance.ReviewOptions) (verdicts []conformance.Verdict, walkErr error) {
+	// The review's shell image, one tool versions snapshot for every project.
+	sh := f.evaluator.snapshot().Images.Sh
 	completed := false
 	defer func() {
 		rev.Verdicts = len(verdicts)
@@ -240,7 +242,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 				if st == conformance.EvaluationError {
 					rev.Errors++
 				}
-				v, err := f.recordVerdict(ctx, execution, p.ID, sc, st, detail, verdictExtra{})
+				v, err := f.recordVerdict(ctx, execution, p.ID, sc, st, detail, verdictExtra{ShImage: sh})
 				if err != nil {
 					return verdicts, err
 				}
@@ -249,13 +251,13 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 				llmTree = append(llmTree, sc)
 			case check.Evaluator(sc.Check) == "llm":
 				v, err := f.recordVerdict(ctx, execution, p.ID, sc, conformance.NotApplicable,
-					"a transition check: it judges what one change did, so it is judged at landing only", verdictExtra{})
+					"a transition check: it judges what one change did, so it is judged at landing only", verdictExtra{ShImage: sh})
 				if err != nil {
 					return verdicts, err
 				}
 				verdicts = append(verdicts, v)
 			default:
-				v, err := f.recordVerdict(ctx, execution, p.ID, sc, conformance.CannotAssess, "", verdictExtra{})
+				v, err := f.recordVerdict(ctx, execution, p.ID, sc, conformance.CannotAssess, "", verdictExtra{ShImage: sh})
 				if err != nil {
 					return verdicts, err
 				}
@@ -269,7 +271,7 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 		src, cleanup, err := scm.StageTreeAt(ctx, repo, sha)
 		if err != nil {
 			for _, sc := range append(append(append([]conformance.DeclaredCheck{}, posture...), toolChecks...), llmTree...) {
-				v, err := f.recordVerdict(ctx, execution, p.ID, sc, conformance.EvaluationError, strs.Truncate(err.Error(), 200), verdictExtra{})
+				v, err := f.recordVerdict(ctx, execution, p.ID, sc, conformance.EvaluationError, strs.Truncate(err.Error(), 200), verdictExtra{ShImage: sh})
 				if err != nil {
 					return verdicts, err
 				}
@@ -288,13 +290,13 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 			if allowBuild {
 				buildsUsed++
 			}
-			assessed := f.assessTree(ctx, posture, toolChecks, ToolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: sha, BuildDir: src, AllowBuild: allowBuild},
+			assessed := f.assessTree(ctx, sh, posture, toolChecks, ToolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: sha, BuildDir: src, AllowBuild: allowBuild},
 				fmt.Sprintf("apptown-fleet-%d-%d", rev.ID, p.ID))
 			for _, a := range assessed {
 				if a.State == conformance.EvaluationError {
 					rev.Errors++
 				}
-				v, err := f.recordVerdict(ctx, execution, p.ID, a.Check, a.State, a.Detail, verdictExtra{ExceptedBy: a.ExceptedBy})
+				v, err := f.recordVerdict(ctx, execution, p.ID, a.Check, a.State, a.Detail, verdictExtra{ExceptedBy: a.ExceptedBy, ShImage: sh})
 				if err != nil {
 					return err
 				}
@@ -372,10 +374,10 @@ type treeAssessment struct {
 // found, with the exceptions in tc applied. It records nothing: a review
 // records verdicts from it and a what-if and an eval keep their own rows,
 // so evaluation is one thing.
-func (f Fleet) assessTree(ctx context.Context, posture, tools []conformance.DeclaredCheck, tc ToolContext, label string) []treeAssessment {
+func (f Fleet) assessTree(ctx context.Context, sh string, posture, tools []conformance.DeclaredCheck, tc ToolContext, label string) []treeAssessment {
 	var out []treeAssessment
 	if len(posture) > 0 {
-		evaluations := f.evaluator.judge(ctx).EvaluateSh(declaredAll(posture), check.Source{Tree: tc.BuildDir}, check.Gate, label)
+		evaluations := f.evaluator.judge(ctx, sh).EvaluateSh(declaredAll(posture), check.Source{Tree: tc.BuildDir}, check.Gate, label)
 		for _, sc := range posture {
 			a := treeAssessment{Check: sc, State: conformance.EvaluationError, Reason: conformance.NotAssessedError}
 			for _, ev := range evaluations {
@@ -433,6 +435,7 @@ type verdictExtra struct {
 	ExceptedBy   string
 	EvidenceHash string
 	EvaluatorVer string // overrides evaluatorVersion(check) when set (AI checks)
+	ShImage      string // the review's shell image, which a posture check's version names
 }
 
 // recordVerdict appends one immutable verdict and returns it.
@@ -440,7 +443,7 @@ type verdictExtra struct {
 func (f Fleet) recordVerdict(ctx context.Context, execution *conformance.Execution, projectID ids.ID, sc conformance.DeclaredCheck, state conformance.Outcome, detail string, x verdictExtra) (conformance.Verdict, error) {
 	pending, err := execution.PrepareVerdict(ctx, conformance.Assessment{
 		ProjectID: projectID, Check: conformance.CheckIdentity{Block: sc.Block, Version: sc.Version, Check: sc.Check.Name},
-		State: state, Detail: detail, EvaluatorVersion: strs.FirstNonBlank(x.EvaluatorVer, evaluatorVersion(sc.Check)), ExceptedBy: x.ExceptedBy, EvidenceHash: x.EvidenceHash,
+		State: state, Detail: detail, EvaluatorVersion: strs.FirstNonBlank(x.EvaluatorVer, evaluatorVersion(sc.Check, x.ShImage)), ExceptedBy: x.ExceptedBy, EvidenceHash: x.EvidenceHash,
 	})
 	if err != nil {
 		return conformance.Verdict{}, err

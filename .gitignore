@@ -1,4 +1,5 @@
 bin/
+/share/
 _data/
 web/node_modules
 web/dist/

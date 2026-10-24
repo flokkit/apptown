@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/stock"
 )
 
 func staticBuildTree(t *testing.T, dockerfile string) string {
@@ -37,7 +38,7 @@ func TestIntegrationAStaticBuildIsPackedOnTheSelectedDaemon(t *testing.T) {
 	tag := Current.BuildTag("forge-static-build-test-" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", ""))
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", "-f", tag).Run() })
 	tree := staticBuildTree(t, "FROM scratch AS site\nCOPY page.html /dist/index.html\nFROM scratch\nCOPY page.html /other\n")
-	if err := PackStaticBuild(context.Background(), dk, tree, appcontract.StaticBuild{Context: ".", Target: "site", Output: "dist"}, StaticServerImage, 8080, tag); err != nil {
+	if err := PackStaticBuild(context.Background(), dk, tree, appcontract.StaticBuild{Context: ".", Target: "site", Output: "dist"}, stock.Images().StaticServer, 8080, tag); err != nil {
 		t.Fatal(err)
 	}
 	out, err := exec.Command("docker", "run", "--rm", "--entrypoint", "cat", tag, "/srv/index.html").CombinedOutput()
@@ -49,8 +50,8 @@ func TestIntegrationAStaticBuildIsPackedOnTheSelectedDaemon(t *testing.T) {
 		t.Fatalf("the packed image does not serve itself: %s %v", cmd, err)
 	}
 
-	linked := staticBuildTree(t, "FROM "+StaticServerImage+" AS b\nRUN mkdir -p /out && cp /etc/hostname /out/index.html 2>/dev/null || echo x > /out/index.html; ln -s /etc/passwd /out/leak\nFROM scratch\nCOPY --from=b /out /dist\n")
-	err = PackStaticBuild(context.Background(), dk, linked, appcontract.StaticBuild{Context: ".", Output: "dist"}, StaticServerImage, 8080, tag+"-linked")
+	linked := staticBuildTree(t, "FROM "+stock.Images().StaticServer+" AS b\nRUN mkdir -p /out && cp /etc/hostname /out/index.html 2>/dev/null || echo x > /out/index.html; ln -s /etc/passwd /out/leak\nFROM scratch\nCOPY --from=b /out /dist\n")
+	err = PackStaticBuild(context.Background(), dk, linked, appcontract.StaticBuild{Context: ".", Output: "dist"}, stock.Images().StaticServer, 8080, tag+"-linked")
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", "-f", tag+"-linked").Run() })
 	if err == nil || !strings.Contains(err.Error(), "dist/leak") {
 		t.Fatalf("a site with a link was packed: %v", err)
@@ -87,7 +88,7 @@ func TestIntegrationABuilderAliasDoesNotTakeTheBuildElsewhere(t *testing.T) {
 	tag := Current.BuildTag("forge-static-alias-test-" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", ""))
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", "-f", tag).Run() })
 	tree := staticBuildTree(t, "FROM scratch\nCOPY page.html /dist/index.html\n")
-	if err := PackStaticBuild(context.Background(), dk, tree, appcontract.StaticBuild{Context: ".", Output: "dist"}, StaticServerImage, 8080, tag); err != nil {
+	if err := PackStaticBuild(context.Background(), dk, tree, appcontract.StaticBuild{Context: ".", Output: "dist"}, stock.Images().StaticServer, 8080, tag); err != nil {
 		t.Fatalf("the build left the selected daemon: %v", err)
 	}
 	if out, err := exec.Command("docker", "image", "inspect", tag).CombinedOutput(); err != nil {

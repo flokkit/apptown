@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
 	"os"
 	"os/exec"
@@ -14,6 +13,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/toolversions"
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/diskspace"
@@ -49,6 +51,10 @@ type DockerTasks struct {
 	// Files is the folder tasks' generated files are kept in, one folder per
 	// task until it is released. "" refuses a task with generated files.
 	Files string
+	// ToolVersions names the df image a disk read runs in, read once at
+	// each admission or read. nil: the disk cannot be read, so new tasks
+	// are refused.
+	ToolVersions toolversions.Source
 	// CallerAdmitsDisk says the caller reads this daemon's data disk before
 	// its own first effect of a task (a worker, before the task's workspace
 	// or record), so Ensure does not read it again. Otherwise Ensure admits
@@ -299,7 +305,12 @@ func (d DockerTasks) DataDisk(ctx context.Context) (root string, space diskspace
 	if err != nil || root == "" || strings.ContainsAny(root, "\n:") {
 		return "", diskspace.Space{}, fmt.Errorf("where Docker keeps its data: %v: %s", err, strs.Truncate(root, 200))
 	}
-	space, err = diskspace.ReadThroughDocker(ctx, d.dockerApart, root, clock.Or(d.Now), reportDiskRead)
+	// The df image of the tool versions current when this read begins.
+	var image string
+	if d.ToolVersions != nil {
+		image = d.ToolVersions.Current().Images.DF
+	}
+	space, err = diskspace.ReadThroughDocker(ctx, d.dockerApart, image, root, clock.Or(d.Now), reportDiskRead)
 	if err != nil {
 		return root, space, fmt.Errorf("reading its disk: %w", err)
 	}

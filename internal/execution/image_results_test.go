@@ -13,6 +13,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 // buildSpec is a release build as AppTown may send it: its source, its
@@ -82,7 +83,7 @@ func TestABuildRequestCarriesNoCredentialOrSecret(t *testing.T) {
 		t.Errorf("%d requests reached the worker for refused builds", n)
 	}
 	// A backend that captures no images refuses them.
-	if err := (execution.DockerTasks{}).Capabilities().Unclaimed(buildSpec()); !errors.Is(err, execution.ErrUnsupported) {
+	if err := (execution.DockerTasks{ToolVersions: stock.Versions()}).Capabilities().Unclaimed(buildSpec()); !errors.Is(err, execution.ErrUnsupported) {
 		t.Errorf("a local backend's answer to images: %v", err)
 	}
 }

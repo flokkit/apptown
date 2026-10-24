@@ -79,6 +79,7 @@ RUN go mod download
 COPY cmd/ cmd/
 COPY internal/ internal/
 COPY stock/ stock/
+COPY scripts/stock-files.go scripts/
 COPY web/*.go web/
 COPY --from=web /src/web/dist web/dist
 ARG TARGETOS TARGETARCH
@@ -90,7 +91,8 @@ ENV CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GOFLAGS=-buildvcs=false
 RUN --mount=type=cache,target=/root/.cache/go-build \
     ld="-X github.com/flokkit/apptown/internal/version.Release=$VERSION -X github.com/flokkit/apptown/internal/version.Revision=$REVISION" \
     && for c in apptownd apptown apptown-worker; do go build -trimpath -ldflags "$ld" -o /out/bin/$c ./cmd/$c; done \
-    && cp /out/bin/apptown /out/bin/apptown-linux
+    && cp /out/bin/apptown /out/bin/apptown-linux \
+    && GOOS= GOARCH= go run -ldflags "$ld" scripts/stock-files.go -o /out/share/apptown/updates
 
 # Every third-party licence and notice the binaries and the web bundle carry
 # (scripts/third-party-notices.py, as a release archive has).
@@ -121,6 +123,8 @@ COPY --from=dockerd /usr/local/bin/dockerd /usr/local/bin/containerd /usr/local/
      /usr/local/bin/runc /usr/local/bin/docker-init /usr/local/bin/docker-proxy /usr/local/bin/dind /usr/local/bin/
 WORKDIR /opt/apptown
 COPY --from=go /out/bin/apptownd /out/bin/apptown /out/bin/apptown-linux bin/
+# The stock and tool versions the binaries read at start.
+COPY --from=go /out/share/ share/
 COPY deploy/apptown-agent/ deploy/apptown-agent/
 COPY deploy/apptown-start.sh bin/
 # The checked database dump a one-server compose install runs before an
@@ -144,6 +148,7 @@ ENTRYPOINT ["/opt/apptown/bin/apptown-start.sh"]
 FROM base AS worker
 WORKDIR /opt/apptown-worker
 COPY --from=go /out/bin/apptown-worker bin/
+COPY --from=go /out/share/ share/
 COPY deploy/apptown-agent/ deploy/apptown-agent/
 COPY LICENSE NOTICE ./
 COPY --from=notices /out/THIRD_PARTY_NOTICES ./

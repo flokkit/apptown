@@ -32,7 +32,7 @@ func sourced(block string, ver int, name, sh, sev string) check.Declared {
 
 func TestRunShChecksCleanAndViolating(t *testing.T) {
 	t.Parallel()
-	j := &check.Judge{Run: localShell()}
+	j := &check.Judge{ShImage: testShImage, Run: localShell()}
 
 	// A check that fails when any file contains FIXME.
 	const script = `if grep -rl FIXME . >/dev/null 2>&1; then echo "FIXME left in the tree"; exit 1; fi; exit 0`
@@ -75,7 +75,7 @@ func TestRunShChecksCleanAndViolating(t *testing.T) {
 
 func TestRunShChecksErrorAndMixed(t *testing.T) {
 	t.Parallel()
-	j := &check.Judge{Run: localShell()}
+	j := &check.Judge{ShImage: testShImage, Run: localShell()}
 	src := check.Source{Tree: t.TempDir()}
 
 	checks := []check.Declared{
@@ -107,7 +107,7 @@ func TestRunShChecksErrorAndMixed(t *testing.T) {
 func TestCheckEvaluationsStayWithTheirApplication(t *testing.T) {
 	t.Parallel()
 	for _, verdict := range []string{"pass", "fail"} {
-		j := &check.Judge{
+		j := &check.Judge{ShImage: testShImage,
 			Run: func(req execution.Request) execution.Outcome {
 				req.Env = append(req.Env, "REVIEWER="+verdict)
 				return execution.Runner{}.Run(context.Background(), execution.Local, req)
@@ -155,7 +155,7 @@ func TestAFailedCheckWhoseReportDidNotArriveSaysReportLost(t *testing.T) {
 	decl := sourced("lang/hygiene", 3, "no-fixme", "grep -rn FIXME .", "high")
 	decl.Occurrences = "lines"
 	for _, code := range []int{1, 2} {
-		ev := (&check.Judge{Run: silent(code)}).EvaluateSh([]check.Declared{decl}, check.Source{Tree: t.TempDir()}, check.Gate, "t-lost")[0]
+		ev := (&check.Judge{ShImage: testShImage, Run: silent(code)}).EvaluateSh([]check.Declared{decl}, check.Source{Tree: t.TempDir()}, check.Gate, "t-lost")[0]
 		if ev.Evidence.Output != check.ReportLost("no-fixme") || ev.Outcome == check.Conforms || len(ev.Occurrences) != 0 {
 			t.Fatalf("exit %d with nothing printed: %+v", code, ev)
 		}

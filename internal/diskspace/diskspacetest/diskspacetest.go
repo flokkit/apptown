@@ -24,7 +24,7 @@ func Step(args []string) string {
 	switch {
 	case args[0] == "ps" && slices.Contains(args, "label="+dockerlabel.Class+"="+diskspace.ProbeClass):
 		return "sweep"
-	case args[0] == "create" && len(args) > 2 && args[1] == "--name" && strings.HasPrefix(args[2], diskspace.ProbePrefix) && slices.Contains(args, diskspace.DFImage):
+	case args[0] == "create" && len(args) > 2 && args[1] == "--name" && strings.HasPrefix(args[2], diskspace.ProbePrefix):
 		return "create"
 	case args[0] == "cp" && len(args) == 3 && strings.HasPrefix(args[1], diskspace.ProbePrefix):
 		return "cp"

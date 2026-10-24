@@ -120,7 +120,10 @@ func (s *Packs) followIn(ctx context.Context, tx *database.Tx, now time.Time, na
 		note := followNote(name, version, decl, before, next)
 		cut, err := s.publishIn(ctx, tx, now, r.Name, r.Description, string(r.SpecJson), r.Origin,
 			cut{includedVersion: version, name: fmt.Sprintf("follows %s v%d", name, version), note: note})
-		if errors.Is(err, ErrInclusion) {
+		// A follow the child cannot take — an inclusion it no longer
+		// resolves, or a tool line or service it now contradicts — is
+		// refused for that child alone; the check runs before any write.
+		if errors.Is(err, ErrInclusion) || errors.Is(err, ErrUnknownToolLine) {
 			if err := audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "pack.follow-refused", r.Name, map[string]any{"includes": name, "version": version, "reason": err.Error(), "packVersion": r.LatestVersion}); err != nil {
 				return err
 			}

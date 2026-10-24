@@ -36,7 +36,7 @@ app:
 	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "apptown-preview-limits", t.TempDir(), "", plan, Delivery{}, Ownership{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-preview-limits", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
+	if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-preview-limits", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	runs := map[string][]string{}
@@ -111,7 +111,7 @@ init:
 	if _, _, err := bringUpParts(t.Context(), dk, "pvtest", "apptown-preview-logs", t.TempDir(), "", plan, Delivery{}, Ownership{}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewHost(Dependencies{}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-preview-logs", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
+	if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-preview-logs", Workspace: t.TempDir()}, plan.PublicPart(), "", nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := runServiceContainers(t.Context(), dk, "pvtest", "net", []deploy.ServiceSpec{{Name: "cache", Image: "need:throwaway"}}); err != nil {

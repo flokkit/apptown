@@ -21,6 +21,8 @@ import (
 // kind's copy in that service's container; any other is copied as files.
 // Only listed volumes are the deployment's to delete.
 func (s *core) heldOnPortainer(ctx context.Context, dk docker.Scope, layout portainer.StackLayout, dep *deployment.Deployment) (heldItems, error) {
+	// One plan's volume copies run in one snapshot's shell image.
+	sh := s.env.ToolVersions().Images.Sh
 	owned, err := s.owned.Owned(ctx, dep.ID)
 	if err != nil {
 		return heldItems{}, fmt.Errorf("%w: reading its list: %v", ErrDataNotKnown, err)
@@ -85,7 +87,7 @@ func (s *core) heldOnPortainer(ctx context.Context, dk docker.Scope, layout port
 			it.Volume = vol
 			it = volumeFile(it)
 		default:
-			it = appVolumeItem(s.env.ChownImage(), vol)
+			it = appVolumeItem(sh, vol)
 		}
 		it.Listed = listed[vol]
 		items = append(items, it)

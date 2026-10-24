@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 func checkContainers(t *testing.T) string {
@@ -33,12 +33,12 @@ func checkContainers(t *testing.T) string {
 // or restarted) leaves no container and no folder on the worker.
 func TestIntegrationADisconnectedCheckLeavesNothing(t *testing.T) {
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{}}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{}}
 	hs := workertest.StartServer(t, ca, srv)
 	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	out := checks.Run(ctx, execution.Request{Workspace: t.TempDir(), Image: diskspace.DFImage, Argv: []string{"sleep", "60"},
+	out := checks.Run(ctx, execution.Request{Workspace: t.TempDir(), Image: stock.Images().DF, Argv: []string{"sleep", "60"},
 		Network: "none", Timeout: time.Minute, Name: "disconnect"})
 	if out.Exited0() {
 		t.Fatalf("a check AppTown stopped waiting for passed: %+v", out)
@@ -55,7 +55,7 @@ func TestIntegrationADisconnectedCheckLeavesNothing(t *testing.T) {
 // is removed when the worker starts again, before its deadline; another
 // worker's running check on the same Docker is left alone.
 func TestIntegrationTheStartSweepRemovesAnInterruptedCheck(t *testing.T) {
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir()}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir()}
 	id := runCheckContainer(t, srv.CheckOwnerLabel())
 	other := otherWorkersCheck(t)
 	srv.SweepChecks(context.Background(), docker.CLI{Binary: "docker"}, false)
@@ -80,7 +80,7 @@ func runCheckContainer(t *testing.T, owner string) string {
 	// reported on standard error and is not part of it.
 	var stderr strings.Builder
 	cmd := exec.Command("docker", "run", "-d", "--label", "apptown.class=check", "--label", owner,
-		"--label", "apptown.deadline="+future, diskspace.DFImage, "sleep", "300")
+		"--label", "apptown.deadline="+future, stock.Images().DF, "sleep", "300")
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {

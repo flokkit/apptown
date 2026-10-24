@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // With real Docker behind the worker and the packaged agent image's git: a
@@ -34,7 +35,7 @@ func TestIntegrationAnAgentUsesGitInItsTaskAndTheWorkerCollectsOnlyTheTree(t *te
 	state := t.TempDir()
 	namespace := fmt.Sprintf("agentgit%d", time.Now().UnixNano()%1_000_000_000)
 	removeNamespace(t, namespace)
-	driver := workertest.Driver(t, ca, workertest.StartServer(t, ca, &worker.Server{State: state, Tasks: execution.DockerTasks{Namespace: namespace}}))
+	driver := workertest.Driver(t, ca, workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: state, Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace}}))
 	ctx := context.Background()
 	hub, base, source := agentSource(t)
 	sentinel := t.TempDir()

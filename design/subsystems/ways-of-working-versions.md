@@ -51,6 +51,47 @@ sync publishes available versions; projects change through adoption operations.
 A running workflow retains its prepared definition and receipt rather than reading
 new library content as it advances.
 
+## Where stock comes from
+
+A release carries its stock as two update files beside its binaries, in
+`share/apptown/updates/` (`internal/stockupdate`): a ways-of-working update
+(workflows, guidance, policies, packs, the change catalog, starters,
+toolchain files, and the scanner and need definitions, which change only
+with a release) and a tool versions update (`stock/tool-versions.yaml`).
+`scripts/stock-files.go` builds both from `stock/`, named with the build's
+version. Each says the AppTown versions it works with (`worksWith`); a
+release refuses one outside the range, and a maintainer's `dev-` build,
+which has no version to place, validates it and logs that the range was not
+judged. `apptownd` reads its stock from the ways-of-working update at start
+and `apptown-worker` its runtime images from the tool versions update;
+neither starts without them, and neither has a compiled-in copy (`make
+check-stock-embed`). AppTown's own documentation (`stock/docs`) is part of
+the binary. Tests may read `stock/` directly.
+
+A pack names the version line of each tool it prescribes (`tools: {node:
+"24", postgres: "16"}`); the tool versions list says what each line means
+exactly, and a pack may name only lines the list has. A proposed service's
+image tag is on its tool's line. Changing a line is a new version of the
+pack. The runtime images AppTown runs for itself (the shell guidance checks
+run in, df, the static server, the private Docker daemon) are read from the
+list, by digest; the private Docker image's digest is part of the qualified
+worker profile. The list has one owner per process (`internal/toolversions`,
+`Versions`), filled at start from the shipped update; owners that run these
+images take it, and each unit of work (a check, a guidance step, a review,
+a what-if, a boot, a release build, a preview, a backup, restore or
+rehearsal, a cache pass, a disk admission) takes one snapshot at its start
+and uses it throughout, so a newer list never mixes images within one unit.
+The private Docker image is read from the start snapshot only. A guidance
+step's evidence names the snapshot (`toolVersions`) beside its shell image.
+
+Every published workflow, block and pack version records where it came
+from as two fields: its **source** and its **signer**. Stock comes from the
+built-in source, `flokkit`, signed `shipped with AppTown <version>,
+unsigned` (this release does not sign its shipped updates); the instance's
+own versions are source `here`, with no signer; stock published before the
+record began is signed `shipped with AppTown before <build>, unsigned`,
+since the build that published it was never recorded.
+
 ## Adopting changes
 
 Adoption resolves a candidate from specific catalog versions, checks conflicts

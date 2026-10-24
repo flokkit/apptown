@@ -185,8 +185,10 @@ func (f Fleet) walkWhatIf(ctx context.Context, run *conformance.WhatIfRun, in co
 		return err
 	}
 	builds := 0
+	// One tool versions snapshot for the whole what-if.
+	sh := f.evaluator.snapshot().Images.Sh
 	for _, p := range projects {
-		rows, spend, err := f.whatIfProject(ctx, run, in, p, &builds)
+		rows, spend, err := f.whatIfProject(ctx, run, in, p, sh, &builds)
 		if err != nil {
 			return fmt.Errorf("%s: %w", p.Slug, err)
 		}
@@ -200,7 +202,7 @@ func (f Fleet) walkWhatIf(ctx context.Context, run *conformance.WhatIfRun, in co
 // whatIfProject answers one project. A project that cannot be judged gets
 // one row saying why, never an empty answer. builds counts the image builds
 // the what-if has spent of the fleet budget.
-func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in conformance.WhatIfRequest, p conformance.Project, builds *int) ([]conformance.WhatIfRow, conformance.WhatIfSpend, error) {
+func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in conformance.WhatIfRequest, p conformance.Project, sh string, builds *int) ([]conformance.WhatIfRow, conformance.WhatIfSpend, error) {
 	var spend conformance.WhatIfSpend
 	joins, err := joinsPack(ctx, f, p.ID, in.Pack)
 	if err != nil {
@@ -276,7 +278,7 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 		if allowBuild {
 			*builds++
 		}
-		assess := assessInput{Tool: ToolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: head.SHA, BuildDir: src, AllowBuild: allowBuild},
+		assess := assessInput{Sh: sh, Tool: ToolContext{Context: ctx, Exceptions: append([]conformance.Disposition{}, exceptions...), ProjectID: p.ID, SHA: head.SHA, BuildDir: src, AllowBuild: allowBuild},
 			Label: fmt.Sprintf("apptown-what-if-%d-%d", run.ID(), p.ID)}
 		if runtime > 0 {
 			assess.Running, assess.NoApp = f.servingCommit(ctx, p.ID, head.SHA)

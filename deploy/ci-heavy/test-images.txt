@@ -19,10 +19,14 @@ mariadb:11.4.13
 versity/versitygw:v1.8.0
 python:3.13.16-alpine3.24
 
-# Images AppTown runs: diskspace.DFImage, check.ShImage,
-# docker.StaticServerImage, agentenv.DindImage, and the scanners the
-# integration tests run (stock/scanners.yaml).
+# Images AppTown runs: the runtime images of stock/tool-versions.yaml
+# (apptown-df, apptown-sh, static-server, private-docker), and the scanners
+# the integration tests run (stock/scanners.yaml).
 busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+alpine/git:v2.47.2@sha256:062a01ad7a0eb17cff382bc5e26086b4d710e56dfdfdf001109a49b6d9bd378c
+caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+docker:27.5.1-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce
+# Tests that name these tags themselves.
 alpine/git:v2.47.2
 caddy:2-alpine
 docker:27-dind

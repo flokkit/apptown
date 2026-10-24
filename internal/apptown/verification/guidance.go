@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/toolversions"
 )
 
 // Guidance checks (design/subsystems/guidance-checks.md): a guidance block may carry
@@ -33,10 +34,6 @@ import (
 // written as a conformance-report artifact; exceptions are the existing
 // per-fingerprint dispositions. Only sh findings at/above failOn (default
 // high) fail the step. Checks validate, never fix.
-
-// conformanceImage is the pinned image every sh check runs in; the library
-// owns it, because it is part of what an sh verdict means.
-const conformanceImage = check.ShImage
 
 // RunGuidanceConformance executes a guidance/conformance step.
 func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
@@ -107,11 +104,14 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	defer cleanup()
 	src, commit := checkedAt.Src, checkedAt.Commit
 
-	evidence := map[string]any{"image": conformanceImage, "failOn": cfg.FailOn, "commit": commit}
+	// The tool versions this step's checks run under, head and base alike,
+	// named in its evidence beside the shell image.
+	tools := a.evaluator.snapshot()
+	evidence := map[string]any{"image": tools.Images.Sh, "toolVersions": map[string]any{"name": tools.Name, "digest": tools.Digest}, "failOn": cfg.FailOn, "commit": commit}
 	if adoption != nil {
 		evidence["adoption"] = map[string]any{"revision": adoption.Revision, "digest": adoption.Digest}
 	}
-	said, err := a.judgeDeclared(task.Context(), task.RunScope(), run, source, checks, checkedAt, cfg.FailOn, fmt.Sprintf("apptown-conform-%d", stepID))
+	said, err := a.judgeDeclared(task.Context(), task.RunScope(), tools, run, source, checks, checkedAt, cfg.FailOn, fmt.Sprintf("apptown-conform-%d", stepID))
 	results, findings, shErrors, unjudged := said.results, said.findings, said.errors, said.unjudged
 	if said.llm != nil {
 		evidence["llm"] = said.llm
@@ -139,7 +139,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		finish(workflow.StatusError, evidence)
 		return
 	}
-	base := a.verification.baselineFor(conformance.WithRun(task.Context(), task.RunScope()), run.ProjectID, checks, baseSHA, fmt.Sprintf("apptown-conform-%d", stepID))
+	base := a.verification.baselineFor(conformance.WithRun(task.Context(), task.RunScope()), tools, run.ProjectID, checks, baseSHA, fmt.Sprintf("apptown-conform-%d", stepID))
 	// Model rubrics and runtime probes are not in the cached deterministic
 	// baseline: a failing one is judged on main here — the rubric on the
 	// base tree, the probe on main's deployment when it serves the base.
@@ -299,9 +299,9 @@ type evaluatorsSaid struct {
 // evaluator kind. Each runner records one result for each check of its
 // kind, so a declared check left without a result is one no runner here
 // judges: the gate refuses it rather than let it pass unexamined.
-func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope, run *workflow.Run, source workflow.Source, checks []conformance.DeclaredCheck, at checked, failOn, prefix string) (evaluatorsSaid, error) {
+func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope, tools toolversions.Snapshot, run *workflow.Run, source workflow.Source, checks []conformance.DeclaredCheck, at checked, failOn, prefix string) (evaluatorsSaid, error) {
 	var j evaluatorsSaid
-	j.results, j.findings, j.errors = a.evaluator.runShChecks(ctx, checks, at.Src, prefix)
+	j.results, j.findings, j.errors = a.evaluator.runShChecks(ctx, tools.Images.Sh, checks, at.Src, prefix)
 
 	// runtime checks at the gate are judged against the CHANGE'S OWN preview,
 	// which the boot step leaves warm — never the standing deployment, which

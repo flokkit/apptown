@@ -181,7 +181,7 @@ func TestAScanRunsOnTheWorkerWhenOneIsConfigured(t *testing.T) {
 	}
 	remote := &countedChecks{}
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Checks: remote})
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: remote})
 	a.cfg.worker = &execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	a.processRunner = execution.Runner{DockerBinary: local}
 	attachScanner(t, a, "secrets", map[string]any{

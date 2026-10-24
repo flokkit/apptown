@@ -18,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution/executionfake"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // profileDocker is an in-process Docker for the worker's private Docker
@@ -103,7 +104,7 @@ func TestAWorkerReportsTheProfileItMeasured(t *testing.T) {
 	ctx := context.Background()
 	binary := newProfileDocker()
 	state := t.TempDir()
-	srv := &worker.Server{Installation: "inst-1", State: state, Tasks: &executionfake.Tasks{}, Docker: binary, DindImage: "docker:27-dind"}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: "inst-1", State: state, Tasks: &executionfake.Tasks{}, Docker: binary, DindImage: "docker:27-dind"}
 	ca := workertest.NewCA(t)
 	driver := workertest.Driver(t, ca, workertest.StartServer(t, ca, srv))
 	if _, err := driver.Profile(ctx); err == nil {
@@ -141,7 +142,7 @@ func TestAWorkerReportsTheProfileItMeasured(t *testing.T) {
 func TestPrivateDockerIsRefusedOnAChangedProfile(t *testing.T) {
 	ctx := context.Background()
 	binary := newProfileDocker()
-	srv := &worker.Server{Installation: "inst-1", State: t.TempDir(), Tasks: anyWorkspace{&executionfake.Tasks{}}, Docker: binary, DindImage: "docker:27-dind"}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: "inst-1", State: t.TempDir(), Tasks: anyWorkspace{&executionfake.Tasks{}}, Docker: binary, DindImage: "docker:27-dind"}
 	srv.Profile = srv.MeasureProfile(ctx, false)
 	ca := workertest.NewCA(t)
 	driver := workertest.Driver(t, ca, workertest.StartServer(t, ca, srv))
@@ -215,7 +216,7 @@ func TestPrivateDockerIsRefusedOnAChangedProfile(t *testing.T) {
 func TestPrivateDockerIsRefusedOnAnotherKernel(t *testing.T) {
 	ctx := context.Background()
 	binary := newProfileDocker()
-	srv := &worker.Server{Installation: "inst-1", State: t.TempDir(), Tasks: anyWorkspace{&executionfake.Tasks{}}, Docker: binary, DindImage: "docker:27-dind"}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: "inst-1", State: t.TempDir(), Tasks: anyWorkspace{&executionfake.Tasks{}}, Docker: binary, DindImage: "docker:27-dind"}
 	admitted := srv.MeasureProfile(ctx, false)
 	srv.Profile = admitted
 	ca := workertest.NewCA(t)

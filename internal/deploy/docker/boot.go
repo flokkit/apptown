@@ -420,7 +420,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	// New work on a daemon short of disk is refused before anything is
 	// pulled, built or started (AdmitDisk), after every other refusal that
 	// needs no Docker; what runs now is not touched.
-	if err := AdmitDisk(ctx, t.Docker); err != nil {
+	if err := AdmitDisk(ctx, t.Docker, h.deps.DFImage); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
 	if t.Identity != nil || t.Recorded != nil {

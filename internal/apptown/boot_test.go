@@ -701,7 +701,20 @@ func upgradeReads(t *testing.T, a *App, s upgradeSubjects) map[string]any {
 	}
 	if s.Pack != "" {
 		pack := get("/api/v1/packs/" + s.Pack)
-		reads["pack"] = map[string]any{"pack": pick(pack, "name", "description", "origin", "declaration", "recommended", "latest"), "versions": pack["versions"]}
+		// Where each version came from is recorded from schema 168 on: a
+		// release before it had no such fields, and the upgrade records the
+		// team's own pack as this AppTown's, unsigned. The rest reads as it did.
+		versions, _ := pack["versions"].([]any)
+		for _, v := range versions {
+			if m, ok := v.(map[string]any); ok {
+				if m["source"] != "here" || m["signer"] != "" {
+					t.Errorf("after the upgrade, %s v%v came from %v signed %q, not here", s.Pack, m["version"], m["source"], m["signer"])
+				}
+				delete(m, "source")
+				delete(m, "signer")
+			}
+		}
+		reads["pack"] = map[string]any{"pack": pick(pack, "name", "description", "origin", "declaration", "recommended", "latest"), "versions": versions}
 	}
 	return reads
 }

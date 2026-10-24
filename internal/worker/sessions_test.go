@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // fakeSessions stands in for the chat runtime on the worker's Docker.
@@ -133,7 +134,7 @@ func sessionWorker(t *testing.T) (worker.SessionClient, *fakeSessions, string) {
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
 	fake := &fakeSessions{status: map[string]console.Status{}}
-	srv := workertest.StartServer(t, ca, &worker.Server{State: state, Sessions: fake})
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: state, Sessions: fake})
 	return worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}, fake, state
 }
 
@@ -330,7 +331,7 @@ func TestARestartedWorkerKeepsItsSessions(t *testing.T) {
 	ca := workertest.NewCA(t)
 	state := t.TempDir()
 	fake := &fakeSessions{status: map[string]console.Status{}}
-	first := workertest.StartServer(t, ca, &worker.Server{State: state, Sessions: fake})
+	first := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: state, Sessions: fake})
 	client := worker.SessionClient{URL: first.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	for _, id := range []string{"live1", "ended1"} {
 		if _, err := client.Put(ctx, id, chatSpec()); err != nil {
@@ -350,7 +351,7 @@ func TestARestartedWorkerKeepsItsSessions(t *testing.T) {
 		fake.keepDocker = false
 		fake.status["ended1"] = console.Status{SidecarExists: true}
 	})
-	restarted := &worker.Server{Installation: workertest.Installation, State: state, Sessions: fake}
+	restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Sessions: fake}
 	if err := restarted.ReapSessions(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -519,7 +520,7 @@ func TestPrivateDockerCleanupFailuresAreNotSuccess(t *testing.T) {
 				})
 				t.Cleanup(runtime.Close)
 				ca := workertest.NewCA(t)
-				srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Sessions: runtime})
+				srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Sessions: runtime})
 				client := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 				ctx := context.Background()
 				if _, err := client.Put(ctx, id, worker.SessionSpec{Image: "agent:test", Model: "m", AgentSession: "console", Docker: true}); err != nil {

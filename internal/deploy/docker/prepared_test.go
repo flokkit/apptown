@@ -121,7 +121,7 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 	if err := os.WriteFile(ws+"/Dockerfile", []byte("FROM scratch\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	live := Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
+	live := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
 	prepared, err := PrepareBoot(t.Context(), live, &RegistryCredential{Host: "registry.example", Username: "u", Token: "secret-token"}, "app", "preview", ws, c)
 	if err != nil {
 		t.Fatal(err)
@@ -150,7 +150,7 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 	}
 	withoutLogin := prepared
 	withoutLogin.Registry = nil
-	preparedCalls := bootOnce(t, withoutLogin.Dependencies(upProbe{}, "", ""), c, ws)
+	preparedCalls := bootOnce(t, withoutLogin.Dependencies(upProbe{}, testImages()), c, ws)
 	if normalised(liveCalls) != normalised(preparedCalls) {
 		t.Fatalf("a prepared boot differs from a live one:\nlive:\n%s\nprepared:\n%s", strings.Join(liveCalls, "\n"), strings.Join(preparedCalls, "\n"))
 	}
@@ -173,7 +173,7 @@ func TestTheDigestFollowsThePublicValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	prepare := func(browser string) string {
-		p, err := PrepareBoot(t.Context(), Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{browser}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
+		p, err := PrepareBoot(t.Context(), Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{browser}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -186,7 +186,7 @@ func TestTheDigestFollowsThePublicValues(t *testing.T) {
 		t.Fatal("a browser value changed and the digest did not")
 	}
 	withSecrets := func(version string) Prepared {
-		p, err := PrepareBoot(t.Context(), Dependencies{Secrets: liveSecrets{version}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
+		p, err := PrepareBoot(t.Context(), Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{version}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}}, nil, "app", "", t.TempDir(), c)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -220,14 +220,14 @@ func TestEveryPreparedBootHasAConfigurationOfItsOwn(t *testing.T) {
 	if err := os.WriteFile(ws+"/Dockerfile", []byte("FROM registry.example/base:1\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	live := Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
+	live := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
 	configs := map[string]bool{}
 	for _, login := range []*RegistryCredential{{Host: "registry.example", Username: "u", Token: "first"}, {Host: "registry.example", Username: "u", Token: "second"}, nil} {
 		p, err := PrepareBoot(t.Context(), live, login, "app", "", ws, c)
 		if err != nil {
 			t.Fatal(err)
 		}
-		calls := bootOnce(t, p.Dependencies(upProbe{}, "", ""), c, ws)
+		calls := bootOnce(t, p.Dependencies(upProbe{}, testImages()), c, ws)
 		var config string
 		for _, call := range calls {
 			if call == "context show" {
@@ -267,7 +267,7 @@ func TestPreparedValuesBelongToTheirContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	ws := t.TempDir()
-	live := Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
+	live := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
 	p, err := PrepareBoot(t.Context(), live, nil, "app", "", ws, c)
 	if err != nil {
 		t.Fatal(err)
@@ -297,7 +297,7 @@ func TestPreparedValuesBelongToTheirContract(t *testing.T) {
 	if q.Public().Digest() == p.Public().Digest() {
 		t.Fatal("another contract with the same answers has the same digest")
 	}
-	_, err = NewHost(sent.Dependencies(upProbe{}, "", "")).Boot(context.Background(), BootRequest{Docker: Scope{Client: &recordingClient{}}, Name: "apptown-preview-change-1",
+	_, err = NewHost(sent.Dependencies(upProbe{}, testImages())).Boot(context.Background(), BootRequest{Docker: Scope{Client: &recordingClient{}}, Name: "apptown-preview-change-1",
 		StackID: "pvsnap-change-1", Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, other)
 	if err == nil || AsBootError(err).Phase != PhaseSecrets {
 		t.Fatalf("another contract booted with these values: %v", err)

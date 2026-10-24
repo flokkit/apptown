@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A disk read through Docker answers every time under parallel load and
@@ -53,7 +54,7 @@ func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 	for range loaders {
 		load.Go(func() {
 			for loadCtx.Err() == nil {
-				_, _, _ = dk(loadCtx, "run", "--rm", "--network", "none", diskspace.DFImage, "sh", "-c", "seq 1 2000")
+				_, _, _ = dk(loadCtx, "run", "--rm", "--network", "none", stock.Images().DF, "sh", "-c", "seq 1 2000")
 			}
 		})
 	}
@@ -64,7 +65,7 @@ func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 	for range readers {
 		readersDone.Go(func() {
 			for next.Add(1) <= reads {
-				space, err := diskspace.ReadThroughDocker(ctx, dk, root, time.Now, func(r string) { t.Log(r) })
+				space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, root, time.Now, func(r string) { t.Log(r) })
 				if err == nil && space.TotalBytes <= 0 {
 					err = errors.New("an empty filesystem")
 				}
@@ -122,7 +123,7 @@ func TestIntegrationADiskReadAnswersFromItsFileWhenTheLogIsEmpty(t *testing.T) {
 		t.Fatal(err)
 	}
 	var reports []string
-	space, err := diskspace.ReadThroughDocker(ctx, dk, strings.TrimSpace(root), time.Now, func(r string) { reports = append(reports, r) })
+	space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, strings.TrimSpace(root), time.Now, func(r string) { reports = append(reports, r) })
 	if err != nil || space.TotalBytes <= 0 {
 		t.Fatalf("read %+v, %v", space, err)
 	}

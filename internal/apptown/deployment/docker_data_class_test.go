@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/stock"
 )
 
 // A release or rebuild on a Docker host boots with the deployment's
@@ -13,7 +14,7 @@ import (
 func TestADockerReleaseCarriesTheDeploymentsDataClass(t *testing.T) {
 	t.Parallel()
 	targets := NewTargets(nil, nil)
-	env := NewEnvironment(targets, EnvironmentDependencies{})
+	env := NewEnvironment(targets, EnvironmentDependencies{ToolVersions: stock.Versions()})
 	p := NewProviders(context.Background(), nil, ProviderRecords{Targets: targets}, NewHosts(targets, nil, HostSettings{}), env, ProviderDependencies{})
 	for _, class := range []string{"production", "non-production", "synthetic"} {
 		d, err := p.dockerDriver(context.Background(), &Target{Name: "local", Kind: KindDockerHost}, &Deployment{Name: "staging", DataClass: class})

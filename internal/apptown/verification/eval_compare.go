@@ -92,6 +92,9 @@ type CheckRow struct {
 // CompareArm judges the union of both arms' checks on the arm's landed
 // main and, unless given, on the Change's base.
 func (f Fleet) CompareArm(ctx context.Context, in ArmComparison) (*ArmCompared, error) {
+	// One tool versions snapshot for base and arm alike: a changed
+	// evaluator is never read as a changed tree.
+	sh := f.evaluator.snapshot().Images.Sh
 	if in.ProjectID.IsZero() || in.Slug == "" || in.Branch == "" || in.BaseSHA == "" {
 		return nil, errors.New("a comparison names the arm's copy, its main and the Change's base")
 	}
@@ -113,12 +116,12 @@ func (f Fleet) CompareArm(ctx context.Context, in ArmComparison) (*ArmCompared, 
 	judge := f.evalJudgeFor(ctx, in)
 	out := &ArmCompared{Head: cmp.Head, Base: in.Base}
 	if out.Base == nil {
-		if out.Base, err = f.answersAt(ctx, repo, cmp.Base, checks, assessInput{NoApp: "the Change's base has no deployment to probe", Judge: judge,
+		if out.Base, err = f.answersAt(ctx, repo, cmp.Base, checks, assessInput{Sh: sh, NoApp: "the Change's base has no deployment to probe", Judge: judge,
 			Label: fmt.Sprintf("apptown-eval-%d-%d-base", in.EvalID, in.ProjectID)}, in.ProjectID); err != nil {
 			return nil, err
 		}
 	}
-	arm := assessInput{Diff: diff, Judge: judge, Label: fmt.Sprintf("apptown-eval-%d-%d", in.EvalID, in.ProjectID)}
+	arm := assessInput{Sh: sh, Diff: diff, Judge: judge, Label: fmt.Sprintf("apptown-eval-%d-%d", in.EvalID, in.ProjectID)}
 	if hasRuntime(checks) {
 		arm.Running, arm.NoApp = f.servingCommit(ctx, in.ProjectID, cmp.Head)
 	}

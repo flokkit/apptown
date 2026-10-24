@@ -28,7 +28,7 @@ func TestAFillRunsAfterTheNeedsAndBeforeAnythingOfTheApp(t *testing.T) {
 	if err := os.WriteFile(ws+"/Dockerfile", []byte("FROM scratch\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	deps := Dependencies{Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
+	deps := Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}
 	for _, failing := range []bool{false, true} {
 		client := &recordingClient{}
 		filledAt := -1

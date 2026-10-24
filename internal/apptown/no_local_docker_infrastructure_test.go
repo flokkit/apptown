@@ -35,6 +35,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // Infrastructure on an AppTown with no local Docker.
@@ -76,7 +77,7 @@ func infrastructureModeAppWith(t *testing.T, client docker.Client) *App {
 		}
 		return nil, nil, true
 	})
-	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(),
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(),
 		AgentImage: "apptown-agent:fixture", ImageLabels: agentLabels{piharness.SubagentsLabel: "1.0.0"},
 		Checks: execution.Runner{DockerBinary: workerCheckDocker(t, filepath.Join(t.TempDir(), "calls"))}, Previews: previews})
 	a := authzFixture(t, Config{NoLocalDocker: true, ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),

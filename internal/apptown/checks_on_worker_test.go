@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
@@ -86,7 +87,7 @@ func onWorkerWithATripwire(t *testing.T, a *App) (calls string) {
 	t.Helper()
 	calls = filepath.Join(t.TempDir(), "calls")
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServer(t, ca, &worker.Server{Installation: workertest.Installation, State: t.TempDir(),
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(),
 		Checks: execution.Runner{DockerBinary: workerCheckDocker(t, calls)}})
 	a.cfg.worker = &execution.WorkerTasks{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	a.cfg.agentContext = "../../deploy/apptown-agent"

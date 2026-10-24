@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // With real Docker: AppTown starting removes every preview, including a
@@ -30,14 +31,14 @@ func TestIntegrationAStartClaimRemovesABootAdmittedBeforeIt(t *testing.T) {
 	resume := func() { held.done.Do(func() { close(held.release) }) }
 	defer resume()
 	ca := workertest.NewCA(t)
-	srv := &worker.Server{Installation: workertest.Installation, State: t.TempDir(), Previews: held}
+	srv := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: held}
 	hs := workertest.StartServer(t, ca, srv)
 	p := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	t.Cleanup(func() { resume(); _ = p.Remove(context.Background(), name) })
 	// Another preview on the same Docker: AppTown package's preview tests
 	// run beside this one in CI. The claim this test makes must leave it.
 	other := "apptown-preview-other-" + suffix
-	if out, err := dockertest.CombinedOutput("create", "--name", other, "--label", dockerlabel.Class+"=preview", docker.StaticServerImage); err != nil {
+	if out, err := dockertest.CombinedOutput("create", "--name", other, "--label", dockerlabel.Class+"=preview", stock.Images().StaticServer); err != nil {
 		t.Fatalf("creating another preview: %v: %s", err, out)
 	}
 	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", other) })

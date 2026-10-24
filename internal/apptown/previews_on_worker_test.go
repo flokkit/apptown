@@ -32,6 +32,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"github.com/flokkit/apptown/stock"
 )
 
 // fakePreviewWorker answers the worker's preview endpoints on the wire (the
@@ -241,7 +242,7 @@ func (f *fakePreviewWorker) setDown(down bool) {
 func withPreviewWorker(t *testing.T, fake *fakePreviewWorker, cfg Config) Config {
 	t.Helper()
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServerWith(t, ca, &worker.Server{State: t.TempDir(), Previews: newFakeDocker()}, fake.wrap)
+	srv := workertest.StartServerWith(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Previews: newFakeDocker()}, fake.wrap)
 	cfg.Worker = workerClientConfig(t, ca, srv.URL)
 	return cfg
 }

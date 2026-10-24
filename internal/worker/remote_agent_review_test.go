@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
@@ -173,7 +174,7 @@ func TestStoppingAChatEndsItsTerminalOnAppTown(t *testing.T) {
 	}})
 	defer rt.Close()
 	ca := workertest.NewCA(t)
-	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Sessions: rt})
+	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Sessions: rt})
 	c := worker.SessionClient{URL: srv.URL, Client: workertest.Client(t, ca, workertest.Installation)}
 	ctx := context.Background()
 	const id = "stopterminal"

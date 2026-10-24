@@ -257,7 +257,7 @@ func TestARestoreOfAnOldSetClaimsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := &Backup{Path: dir, Items: []BackupItem{{Kind: "need", Name: "postgres", File: "postgres.dump", Restore: "pg_restore", SHA256: fileSHA256(path)}}}
-	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: b.Items[0], into: plan}, filepath.Join(b.Path, b.Items[0].File))
+	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: b.Items[0], into: plan}, filepath.Join(b.Path, b.Items[0].File), "test-helper")
 	if row.Outcome != RestoreCopied {
 		t.Fatalf("an old set's item: %+v", row)
 	}
@@ -286,7 +286,7 @@ func TestAnObjectStoreTarSetGoesBackAsFilesInTheStore(t *testing.T) {
 	}
 	old := BackupItem{Kind: "need", Name: "s3", File: "s3.tar.gz", Restore: "tar xz -C /data", Copy: CopyLiveFiles, Caveat: "object metadata is not in the copy", SHA256: fileSHA256(path)}
 	into := needItem(kind, "s3", deployedNames(t, s, pid, "main", "bwt").Service("s3"))
-	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: old, into: into}, path)
+	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: old, into: into}, path, "test-helper")
 	if row.Outcome != RestoreCopied || !strings.Contains(row.Detail, "not verified") || !strings.Contains(row.Caveat, "metadata") {
 		t.Fatalf("an old tar set of a store: %+v", row)
 	}
@@ -432,7 +432,7 @@ func TestAnItemWithoutItsDigestOrRestoreCommandIsNotRestored(t *testing.T) {
 		"no digest":          {BackupItem{Kind: "need", Name: "redis", File: "redis.rdb", Restore: into.Restore, Copy: CopyDeclared}, "no digest"},
 		"no restore command": {BackupItem{Kind: "need", Name: "redis", File: "redis.rdb", Copy: CopyDeclared, SHA256: fileSHA256(path)}, "no restore command"},
 	} {
-		row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: c.item, into: into}, path)
+		row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: c.item, into: into}, path, "test-helper")
 		if row.Outcome != RestoreFailed || !strings.Contains(row.Detail, c.says) {
 			t.Errorf("%s: %+v", name, row)
 		}

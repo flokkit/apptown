@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 type reviewS2Run func(context.Context, string, execution.Request) execution.Outcome
@@ -32,7 +33,7 @@ func TestACheckRunsOnlyOnceItsRequestIsRead(t *testing.T) {
 	body.Write(bytes.Repeat([]byte("x"), 2*maxCheckSpec))
 	r := httptest.NewRequest("POST", "/v1/checks", &body)
 	r.Header.Set("Content-Type", form.FormDataContentType())
-	s := &Server{State: t.TempDir(), Checks: reviewS2Run(func(context.Context, string, execution.Request) execution.Outcome {
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Checks: reviewS2Run(func(context.Context, string, execution.Request) execution.Outcome {
 		if body.Len() > 0 {
 			t.Errorf("ran with %d unread request bytes; disconnect detection is not established", body.Len())
 		}
@@ -54,7 +55,7 @@ func TestACancelledUploadStopsItsReads(t *testing.T) {
 	defer cancel()
 	r := httptest.NewRequest("POST", "/v1/checks", io.MultiReader(bytes.NewReader(prefix.Bytes()), pr)).WithContext(ctx)
 	r.Header.Set("Content-Type", form.FormDataContentType())
-	s := &Server{State: t.TempDir(), Checks: reviewS2Run(func(context.Context, string, execution.Request) execution.Outcome { return execution.Outcome{} })}
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Checks: reviewS2Run(func(context.Context, string, execution.Request) execution.Outcome { return execution.Outcome{} })}
 	done := make(chan struct{})
 	go func() { s.runCheck(httptest.NewRecorder(), r); close(done) }()
 	cancel()
@@ -102,7 +103,7 @@ func TestACheckRequestWithAnExtraPartIsRefused(t *testing.T) {
 	r := httptest.NewRequest("POST", "/v1/checks", &body)
 	r.Header.Set("Content-Type", form.FormDataContentType())
 	ran := false
-	s := &Server{State: t.TempDir(), Checks: reviewS2Run(func(context.Context, string, execution.Request) execution.Outcome {
+	s := &Server{ToolVersions: stock.Versions(), State: t.TempDir(), Checks: reviewS2Run(func(context.Context, string, execution.Request) execution.Outcome {
 		ran = true
 		return execution.Outcome{Termination: execution.Exited}
 	})}

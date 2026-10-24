@@ -17,6 +17,9 @@ import (
 // assessInput is what an assessment may use beyond the tree.
 type assessInput struct {
 	Tool ToolContext // the tree, its commit, exceptions and whether an image may be built
+	// Sh is the shell image of the unit's tool versions snapshot: one
+	// what-if or one comparison uses one for every tree it judges.
+	Sh string
 	// Label names the containers the checks run in.
 	Label string
 	// Running is the app serving exactly this commit, when one does:
@@ -66,7 +69,7 @@ func (f Fleet) assessChecks(ctx context.Context, checks []conformance.DeclaredCh
 		}
 	}
 	if len(posture)+len(tools) > 0 {
-		out = append(out, f.assessTree(ctx, posture, tools, in.Tool, in.Label)...)
+		out = append(out, f.assessTree(ctx, in.Sh, posture, tools, in.Tool, in.Label)...)
 	}
 	var probe func(context.Context, Target, string) check.ProbeVerdict
 	if f.runtime != nil {

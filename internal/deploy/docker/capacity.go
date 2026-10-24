@@ -167,13 +167,10 @@ func RunningMemoryUsage(ctx context.Context, dk Scope) (map[string]int64, error)
 	return parseMemoryUsage(out)
 }
 
-// DiskImage is what the disk read runs in (diskspace.DFImage).
-const DiskImage = diskspace.DFImage
-
 // ReadDisk reads the filesystem holding the daemon's data folder
 // (diskspace.ReadThroughDocker). Each call's output is combined, as every
 // call through a scope's client is.
-func ReadDisk(ctx context.Context, dk Scope, dataRoot string) (diskspace.Space, error) {
+func ReadDisk(ctx context.Context, dk Scope, image, dataRoot string) (diskspace.Space, error) {
 	if dk.Lifetime != nil {
 		// The scope's lifetime bounds the read through ctx instead, so the
 		// read's removal of its container, which outlives ctx, outlives it
@@ -187,7 +184,7 @@ func ReadDisk(ctx context.Context, dk Scope, dataRoot string) (diskspace.Space, 
 	space, err := diskspace.ReadThroughDocker(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 		out, err := dk.Run(ctx, args...)
 		return string(out), "", err
-	}, dataRoot, clock.Or(dk.Now), func(s string) { log.Print(s) })
+	}, image, dataRoot, clock.Or(dk.Now), func(s string) { log.Print(s) })
 	if err != nil {
 		return diskspace.Space{}, fmt.Errorf("reading the disk: %w", err)
 	}
@@ -199,13 +196,13 @@ func ReadDisk(ctx context.Context, dk Scope, dataRoot string) (diskspace.Space, 
 // floor free, or cannot be read (diskspace.Admit). It reads the disk now:
 // a target's capacity view keeps its reading for minutes, and admission
 // does not trust it. Stopping, removing and taking down never ask.
-func AdmitDisk(ctx context.Context, dk Scope) error {
+func AdmitDisk(ctx context.Context, dk Scope, image string) error {
 	const what = "this Docker host's data folder"
 	info, err := ReadHostInfo(ctx, dk)
 	if err != nil {
 		return diskspace.Admit(what, diskspace.Space{}, fmt.Errorf("where its data is: %w", err))
 	}
-	d, err := ReadDisk(ctx, dk, info.DataRoot)
+	d, err := ReadDisk(ctx, dk, image, info.DataRoot)
 	return diskspace.Admit(what+" ("+info.DataRoot+")", d, err)
 }
 

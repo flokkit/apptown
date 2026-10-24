@@ -11,6 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
+	"github.com/flokkit/apptown/stock"
 )
 
 const roomy = "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10% /d\n"
@@ -87,7 +88,7 @@ func TestADiskReadTakesItsAnswerFromTheResultFile(t *testing.T) {
 	t.Parallel()
 	s := &scripted{}
 	var reports []string
-	space, err := diskspace.ReadThroughDocker(t.Context(), s.docker, "/var/lib/docker", fixedNow, func(r string) { reports = append(reports, r) })
+	space, err := diskspace.ReadThroughDocker(t.Context(), s.docker, testDF, "/var/lib/docker", fixedNow, func(r string) { reports = append(reports, r) })
 	if err != nil || space.TotalBytes != 104857600<<10 || space.FreeBytes != 94371840<<10 {
 		t.Fatalf("read %+v, %v", space, err)
 	}
@@ -99,7 +100,7 @@ func TestADiskReadTakesItsAnswerFromTheResultFile(t *testing.T) {
 	}
 	create := strings.Join(s.calls[1], " ")
 	for _, w := range []string{"--name apptown-disk-probe-", "--label apptown.class=disk-probe", "--label apptown.deadline=1800000600",
-		"--network none", "-v /var/lib/docker:/d:ro", diskspace.DFImage + " sh -c", "df -Pk /d >/probe/df.out 2>/probe/df.err"} {
+		"--network none", "-v /var/lib/docker:/d:ro", testDF + " sh -c", "df -Pk /d >/probe/df.out 2>/probe/df.err"} {
 		if !strings.Contains(create, w) {
 			t.Errorf("create does not say %q: %s", w, create)
 		}
@@ -134,7 +135,7 @@ func TestAResultFileIsTheAnswerWhenTheLogLacksIt(t *testing.T) {
 				return "", "", nil, false
 			}}
 			var reports []string
-			space, err := diskspace.ReadThroughDocker(t.Context(), s.docker, "/var/lib/docker", fixedNow, func(r string) { reports = append(reports, r) })
+			space, err := diskspace.ReadThroughDocker(t.Context(), s.docker, testDF, "/var/lib/docker", fixedNow, func(r string) { reports = append(reports, r) })
 			if err != nil || space.FreeBytes != 94371840<<10 {
 				t.Fatalf("a valid result file with a %s log: %+v %v", logs.name, space, err)
 			}
@@ -242,7 +243,7 @@ func TestADiskReadWithoutAUsableResultRefusesAndRemovesItsContainer(t *testing.T
 				}
 				return tc.answer(cancel, step, args)
 			}
-			_, err := diskspace.ReadThroughDocker(ctx, s.docker, "/var/lib/docker", fixedNow, func(r string) { t.Errorf("a failed read reported %q", r) })
+			_, err := diskspace.ReadThroughDocker(ctx, s.docker, testDF, "/var/lib/docker", fixedNow, func(r string) { t.Errorf("a failed read reported %q", r) })
 			if err == nil {
 				t.Fatal("a read without a usable result answered")
 			}
@@ -280,7 +281,7 @@ func TestADiskReadSweepsOnlyExpiredProbeContainers(t *testing.T) {
 		}
 		return "", "", nil, false
 	}}
-	if _, err := diskspace.ReadThroughDocker(t.Context(), s.docker, "/var/lib/docker", fixedNow, nil); err != nil {
+	if _, err := diskspace.ReadThroughDocker(t.Context(), s.docker, testDF, "/var/lib/docker", fixedNow, nil); err != nil {
 		t.Fatal(err)
 	}
 	got := strings.Join(s.steps(), ",")
@@ -309,7 +310,7 @@ func TestRejectedInspectDoesNotKeepEnvironment(t *testing.T) {
 				return "", "", nil, false
 			}}
 			var reports []string
-			_, err := diskspace.ReadThroughDocker(t.Context(), s.docker, "/var/lib/docker", fixedNow, func(r string) { reports = append(reports, r) })
+			_, err := diskspace.ReadThroughDocker(t.Context(), s.docker, testDF, "/var/lib/docker", fixedNow, func(r string) { reports = append(reports, r) })
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -322,3 +323,7 @@ func TestRejectedInspectDoesNotKeepEnvironment(t *testing.T) {
 		})
 	}
 }
+
+// testDF is the df image the probe tests read with, the stock tool
+// versions' as a caller's snapshot would give it.
+var testDF = stock.Images().DF

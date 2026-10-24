@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/stock"
 )
 
 // exitedAsAsked is a backend whose task has exited, and the request that
@@ -37,7 +38,7 @@ func TestAWaitForAnUnquietTaskEndsWithItsRequest(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		ctx, cancel := context.WithCancel(t.Context())
 		defer cancel()
-		s := &Server{State: state, Docker: fake, Tasks: exitedAsAsked{cancel: cancel}}
+		s := &Server{ToolVersions: stock.Versions(), State: state, Docker: fake, Tasks: exitedAsAsked{cancel: cancel}}
 		if err := s.writeRecord(record{Key: "agent-1", Private: &privateSet{Network: "apptown-private-agent-1", Services: []string{"apptown-private-agent-1-postgres"}}}); err != nil {
 			t.Fatal(err)
 		}

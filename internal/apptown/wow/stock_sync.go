@@ -32,8 +32,12 @@ func (s *Service) SyncStock(ctx context.Context) {
 
 // ---- workflows ---------------------------------------------------------------
 
-// readStockWorkflows reads the workflow files at the top of stock/. The
-// other top-level files (packs, policies, scanners, catalog) are other kinds' input.
+// notWorkflowFiles are the top-level files that are other kinds' input: the
+// update's header, packs, policies, scanners, the catalog and the tool
+// versions list.
+var notWorkflowFiles = map[string]bool{"update.yaml": true, "packs.yaml": true, "policies.yaml": true, "scanners.yaml": true, "catalog.yaml": true, "tool-versions.yaml": true}
+
+// readStockWorkflows reads the workflow files at the top of stock/.
 func readStockWorkflows(fsys fs.FS) (items []SyncItem, skipped int) {
 	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
@@ -42,7 +46,7 @@ func readStockWorkflows(fsys fs.FS) (items []SyncItem, skipped int) {
 	}
 	for _, e := range entries {
 		n := e.Name()
-		if e.IsDir() || !strings.HasSuffix(n, ".yaml") || n == "packs.yaml" || n == "policies.yaml" || n == "scanners.yaml" || n == "catalog.yaml" {
+		if e.IsDir() || !strings.HasSuffix(n, ".yaml") || notWorkflowFiles[n] {
 			continue
 		}
 		raw, err := fs.ReadFile(fsys, n)
