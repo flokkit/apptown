@@ -358,6 +358,17 @@ func TrimBuildCache(ctx context.Context, dk Scope) error {
 	return nil
 }
 
+// PruneBuiltImages removes the dangling images on dk that AppTown built
+// (dockerlabel.Built), and no others: an image pulled by digest alone is
+// dangling on Docker's classic store (the disk read's image), and a shared
+// host's other images are not AppTown's.
+func PruneBuiltImages(ctx context.Context, dk Scope) error {
+	if out, err := dk.Run(ctx, "image", "prune", "-f", "--filter", "label="+dockerlabel.Built); err != nil {
+		return fmt.Errorf("docker image prune: %v: %s", err, strs.Truncate(strings.TrimSpace(string(out)), 200))
+	}
+	return nil
+}
+
 // RemoveUnusedImage removes an image no container uses. One a container
 // still uses, running or stopped, is kept, and that is not a failure: the
 // daemon refuses it without force, and nothing here forces.

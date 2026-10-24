@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/trust"
 )
@@ -158,7 +159,7 @@ func (s *setupState) fetch(ctx context.Context, dk docker.Scope, image, buildCon
 func fetchAgentImage(ctx context.Context, dk docker.Scope, image, buildContext string, pull bool, out io.Writer) error {
 	// The extra certificates as the build's secret: its RUN lines download
 	// (internal/trust, deploy/apptown-agent/Dockerfile).
-	req := docker.Command{Args: append(append([]string{"build"}, trust.BuildArgs(!dk.Remote())...), "-t", image, buildContext)}
+	req := docker.Command{Args: append(append(append([]string{"build"}, trust.BuildArgs(!dk.Remote())...), dockerlabel.BuiltArgs()...), "-t", image, buildContext)}
 	what := "build"
 	if pull {
 		req, what = docker.Command{Args: []string{"pull", image}}, "pull of "+image

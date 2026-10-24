@@ -1,12 +1,16 @@
 package docker
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
+	"slices"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Inventory answers what a Docker host holds: the standing containers
@@ -16,6 +20,9 @@ import (
 type Inventory struct {
 	Scope func(context.Context) (Scope, error)
 	Also  []string // containers the host also reports by name (the caller's own database on its built-in host)
+	// Images is the image references the deployments on the target
+	// recorded (deploy.Owned of kind image), each asked for exactly.
+	Images func(context.Context) ([]string, error)
 }
 
 var _ deploy.Inventorier = Inventory{}
@@ -104,38 +111,20 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 			res = append(res, r)
 		}
 	}
-	// --digests returns repository/digest aliases, including several for one
-	// image. Tags cannot confirm an immutable digest. Local build ownership
-	// also records tags, so report those separately. Reconciliation exposes
-	// only recorded images, not unrelated host images as cleanup candidates.
-	out, err = dk.Run(ctx, "image", "ls", "--digests", "--no-trunc", "--format", "{{.Repository}}\t{{.Tag}}\t{{.Digest}}")
-	if err != nil {
-		return nil, fmt.Errorf("listing images: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-	refs := map[string]bool{}
-	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		f := strings.Split(line, "\t")
-		if len(f) != 3 || f[0] == "" || f[0] == "<none>" {
-			continue
+	// Images are asked for by the references the deployments recorded,
+	// never listed: a listing leaves out an image with no tag (Docker's
+	// containerd store, and the classic one for an image pulled by digest
+	// alone), and reconciliation shows only recorded images anyway.
+	if i.Images != nil {
+		recorded, err := i.Images(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("reading the recorded images: %w", err)
 		}
-		var aliases []string
-		if strings.HasPrefix(f[2], "sha256:") {
-			aliases = append(aliases, f[0]+"@"+f[2])
+		present, err := recordedImages(ctx, dk, recorded)
+		if err != nil {
+			return nil, err
 		}
-		if f[1] != "" && f[1] != "<none>" {
-			aliases = append(aliases, f[0]+":"+f[1])
-		}
-		// A bare name is Docker's implicit latest: a local build is tagged
-		// and recorded bare (BuildTag), and the daemon lists it as
-		// name:latest. Both spellings name the one image.
-		if f[1] == "latest" {
-			aliases = append(aliases, f[0])
-		}
-		for _, ref := range aliases {
-			if refs[ref] {
-				continue
-			}
-			refs[ref] = true
+		for _, ref := range present {
 			res = append(res, deploy.Resource{Kind: "image", Name: ref, ID: ref, Status: "present"})
 		}
 	}
@@ -144,3 +133,85 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 
 // ownerLabel is a `docker ps` or `ls` format reading who made a thing.
 var ownerLabel = `{{.Label "` + dockerlabel.Owner + `"}}`
+
+// recordedImages answers which of refs are on dk, with one `docker image
+// inspect` for all of them (an attached host is an ssh round trip a call).
+// A ref is present when it is one of an answered image's own names: a
+// digest reference among its RepoDigests (only there: a tag cannot confirm
+// a digest), a tag among its RepoTags (a bare name is Docker's implicit latest, as a
+// local build is recorded), or its ID. It is absent when Docker says it has
+// no such image. Anything else is unknown, and an error: a failure that is
+// not "no such image", an answer that cannot be read, or a ref Docker
+// neither answered by that name nor said it lacks.
+func recordedImages(ctx context.Context, dk Scope, refs []string) ([]string, error) {
+	refs = slices.Compact(slices.Sorted(slices.Values(refs)))
+	if len(refs) == 0 {
+		return nil, nil
+	}
+	var stdout, stderr bytes.Buffer
+	args := append([]string{"image", "inspect", "--format", "{{json .RepoTags}}\t{{json .RepoDigests}}\t{{json .Id}}"}, refs...)
+	_, runErr := dk.Command(ctx, Command{Args: args, Stdout: &stdout, Stderr: &stderr})
+	names := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		if line == "" {
+			continue
+		}
+		f := strings.Split(line, "\t")
+		var tags, digests []string
+		var id string
+		if len(f) != 3 || json.Unmarshal([]byte(f[0]), &tags) != nil || json.Unmarshal([]byte(f[1]), &digests) != nil || json.Unmarshal([]byte(f[2]), &id) != nil {
+			return nil, fmt.Errorf("reading Docker's answer about the recorded images: %q", strs.Truncate(line, 200))
+		}
+		for _, n := range append(append(tags, digests...), id) {
+			names[familiar(n)] = true
+		}
+	}
+	missing := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimSpace(stderr.String()), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		_, ref, ok := strings.Cut(line, "No such image: ")
+		if !ok {
+			return nil, fmt.Errorf("asking Docker for the recorded images: %s", strs.Truncate(line, 200))
+		}
+		missing[familiar(strings.TrimSpace(ref))] = true
+	}
+	if runErr != nil && len(missing) == 0 {
+		return nil, fmt.Errorf("asking Docker for the recorded images: %w", runErr)
+	}
+	var present []string
+	for _, ref := range refs {
+		switch name := familiar(ref); {
+		case missing[name]:
+		case names[name]:
+			present = append(present, ref)
+		default:
+			return nil, fmt.Errorf("docker did not say whether it has the recorded image %s", ref)
+		}
+	}
+	return present, nil
+}
+
+// familiar is ref as Docker spells it in its answers: Docker Hub's host and
+// its library/ namespace left out, and a name with neither tag nor digest
+// given Docker's implicit latest (a local build is recorded bare,
+// BuildTag). An image ID (sha256:…) is left as it is.
+func familiar(ref string) string {
+	for _, hub := range []string{"docker.io/", "index.docker.io/"} {
+		if rest, ok := strings.CutPrefix(ref, hub); ok {
+			ref = rest
+			break
+		}
+	}
+	if rest, ok := strings.CutPrefix(ref, "library/"); ok && !strings.Contains(strings.SplitN(rest, "@", 2)[0], "/") {
+		ref = rest
+	}
+	name := strings.SplitN(ref, "@", 2)[0]
+	last := name[strings.LastIndex(name, "/")+1:]
+	if !strings.Contains(ref, "@") && !strings.Contains(last, ":") {
+		ref += ":latest"
+	}
+	return ref
+}

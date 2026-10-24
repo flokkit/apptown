@@ -157,7 +157,7 @@ func TestAMissingBareAgentImageIsBuilt(t *testing.T) {
 	if state, reason := agentImageSettled(t, &s); state != "present" {
 		t.Fatalf("after a build: %q %q", state, reason)
 	}
-	if got := rec.seen(); len(got) != 1 || got[0] != "build -t apptown-agent ../../deploy/apptown-agent" {
+	if got := rec.seen(); len(got) != 1 || got[0] != "build --label apptown.built=1 -t apptown-agent ../../deploy/apptown-agent" {
 		t.Fatalf("commands: %v", got)
 	}
 }

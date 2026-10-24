@@ -35,6 +35,8 @@ mcr.microsoft.com/dotnet/sdk:10.0
 mcr.microsoft.com/dotnet/aspnet:10.0
 composer:2.10.3@sha256:af98f42dfff7c68ba8d53c2164fd9fde1087b7d449514baa38c418b1f6bc4bac
 php:8.3.35-apache-bookworm@sha256:b79a53c3fb1dd4b9f350a8d99d84951512b6c21044e61bbecfee8af030b3722e
+golang:1.27
+gcr.io/distroless/static-debian12:nonroot
 
 # The tests' own images. Tests that need busybox run diskspace.DFImage
 # above; Debian 12 is the PHP seed's image, Python the stock S3 client's.

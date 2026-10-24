@@ -42,11 +42,11 @@ func TestABuildNamesTheSelectedDaemonsOwnBuilder(t *testing.T) {
 		return out
 	}
 	attached := &fakeClient{reply: answer("docker", true)}
-	if _, err := (Scope{Client: attached}).WithHost("ssh://lab", "lab", "").Build(context.Background(), "-t", "x", "ctx"); err != nil || strings.Join(builds(attached), "|") != "build --builder default -t x ctx" {
+	if _, err := (Scope{Client: attached}).WithHost("ssh://lab", "lab", "").Build(context.Background(), "-t", "x", "ctx"); err != nil || strings.Join(builds(attached), "|") != "build --label apptown.built=1 --builder default -t x ctx" {
 		t.Fatalf("a daemon chosen by --host: %q %v", builds(attached), err)
 	}
 	own := &fakeClient{reply: answer("docker", true)}
-	if _, err := (Scope{Client: own}).Build(context.Background(), "-t", "x", "ctx"); err != nil || strings.Join(builds(own), "|") != "build --builder desktop-linux -t x ctx" {
+	if _, err := (Scope{Client: own}).Build(context.Background(), "-t", "x", "ctx"); err != nil || strings.Join(builds(own), "|") != "build --label apptown.built=1 --builder desktop-linux -t x ctx" {
 		t.Fatalf("AppTown's own daemon: %q %v", builds(own), err)
 	}
 	remote := &fakeClient{reply: answer("remote", true)}
@@ -54,7 +54,7 @@ func TestABuildNamesTheSelectedDaemonsOwnBuilder(t *testing.T) {
 		t.Fatalf("a remote builder: %q %v", builds(remote), err)
 	}
 	legacy := &fakeClient{reply: answer("", false)}
-	if _, err := (Scope{Client: legacy}).Build(context.Background(), "-t", "x", "ctx"); err != nil || strings.Join(builds(legacy), "|") != "build -t x ctx" {
+	if _, err := (Scope{Client: legacy}).Build(context.Background(), "-t", "x", "ctx"); err != nil || strings.Join(builds(legacy), "|") != "build --label apptown.built=1 -t x ctx" {
 		t.Fatalf("no buildx: %q %v", builds(legacy), err)
 	}
 }
@@ -117,10 +117,10 @@ func TestAPreviewBuildCachesFromItsKeptImageAndRemovesTheOneItReplaced(t *testin
 		}
 		return calls, images
 	}
-	if got, _ := run(map[string]string{}, nil, "sha256:new", false); strings.Join(got, "\n") != "build -t "+tag+" --build-arg BUILDKIT_INLINE_CACHE=1 /ctx" {
+	if got, _ := run(map[string]string{}, nil, "sha256:new", false); strings.Join(got, "\n") != "build --label apptown.built=1 -t "+tag+" --build-arg BUILDKIT_INLINE_CACHE=1 /ctx" {
 		t.Fatalf("a first build: %v", got)
 	}
-	want := "build -t " + tag + " --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from " + tag + " /ctx"
+	want := "build --label apptown.built=1 -t " + tag + " --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from " + tag + " /ctx"
 	if got, _ := run(map[string]string{tag: "sha256:old"}, nil, "sha256:new", false); strings.Join(got, "\n") != want+"\nrmi sha256:old" {
 		t.Fatalf("a rebuild to a new image: %v", got)
 	}

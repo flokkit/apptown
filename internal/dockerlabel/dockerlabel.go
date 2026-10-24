@@ -29,6 +29,13 @@ const (
 	Inference   = "apptown.inference"   // a container that may reach the inference gateway
 	Console     = "apptown.console"     // the chat a network, volume or daemon belongs to
 
+	// Built marks an image AppTown built on a host's Docker, written at
+	// build time; the maintenance sweep prunes only dangling images that
+	// carry it. It is its own key, not a Class: a container inherits its
+	// image's labels, and a class would give containers one they were
+	// never given. Nothing reads it on a container.
+	Built = "apptown.built"
+
 	ConsoleDind   = "apptown.console.dind"   // a chat container's Docker mode, to know when to rebuild it
 	ConsoleModel  = "apptown.console.model"  // a chat container's model, likewise
 	ConsoleMounts = "apptown.console.mounts" // a digest of a chat container's mounts, likewise
@@ -61,6 +68,10 @@ func Informational(project, deployment string) []string {
 	return []string{"--label", Project + "=" + project, "--label", DeploymentName + "=" + deployment}
 }
 
+// BuiltArgs is the --label argument every image build on a host's Docker
+// carries (Built).
+func BuiltArgs() []string { return []string{"--label", Built + "=1"} }
+
 // The agent image's labels: the versions of the tools inside it, written by
 // deploy/apptown-agent/Dockerfile and read to record what a step ran with.
 const (
@@ -74,7 +85,7 @@ const (
 // spelled outside this list.
 var Keys = []string{
 	Class, Owner, Created, Expires, Deadline, Instance, Stack, Source, Incarnation, Writes, Step, Task,
-	Profile, Request, Worker, Inference, Console, ConsoleDind, ConsoleModel, ConsoleMounts,
+	Profile, Request, Worker, Inference, Console, Built, ConsoleDind, ConsoleModel, ConsoleMounts,
 	Deployment, Generation, Artifact, Project, DeploymentName,
 	PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion,
 }

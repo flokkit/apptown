@@ -183,7 +183,31 @@ func (p *Providers) dockerInventory(t *Target) (deploy.Inventorier, error) {
 	if t.Origin == OriginBuiltIn && p.databaseContainer != "" {
 		also = []string{p.databaseContainer}
 	}
-	return docker.Inventory{Scope: func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) }, Also: also}, nil
+	return docker.Inventory{Scope: func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) }, Also: also,
+		Images: func(ctx context.Context) ([]string, error) { return p.recordedImages(ctx, t) }}, nil
+}
+
+// recordedImages is the images the deployments on t recorded creating or
+// selecting: what the inventory asks the host for (Inventory.Recorded lays
+// the same records under its answer).
+func (p *Providers) recordedImages(ctx context.Context, t *Target) ([]string, error) {
+	deps, err := p.deployments.OnTarget(ctx, t.ID)
+	if err != nil {
+		return nil, fmt.Errorf("reading the deployments on %s: %w", t.Name, err)
+	}
+	var refs []string
+	for _, d := range deps {
+		owned, err := ownedIn(ctx, deploymentsql.New(p.db.SQL()), d.ID)
+		if err != nil {
+			return nil, fmt.Errorf("reading what %s/%s owns: %w", d.Project, d.Name, err)
+		}
+		for _, o := range owned {
+			if o.Kind == "image" {
+				refs = append(refs, o.ID)
+			}
+		}
+	}
+	return refs, nil
 }
 
 // doDocker adapts the built-in host's docker scope to what the driver asks

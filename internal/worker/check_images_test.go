@@ -39,7 +39,8 @@ image)
   echo "\"sha256:$name\" {\"forge.go.version\":\"1.24.4\"}"; exit 0;;
 login) [ -n "$config" ] && [ -d "$config" ] || exit 9; cat > /dev/null; exit 0;;
 pull) name=$(echo "$2" | tr '/:' '__'); touch "` + have + `/$name"; exit 0;;
-build) name=$(echo "$5" | tr '/:' '__'); [ -f "$6/Dockerfile" ] || exit 2; touch "` + have + `/$name"; exit 0;;
+build) tag=""; prev=""; for a in "$@"; do [ "$prev" = "-t" ] && tag="$a"; prev="$a"; done
+  name=$(echo "$tag" | tr '/:' '__'); [ -f "$prev/Dockerfile" ] || exit 2; touch "` + have + `/$name"; exit 0;;
 save) echo "image archive of $2"; exit 0;;
 run) exit 0;;
 esac
@@ -103,7 +104,7 @@ func TestACheckImageIsPreparedOnTheWorker(t *testing.T) {
 	if _, err := os.Stat(login); !os.IsNotExist(err) {
 		t.Fatal("the request's Docker configuration outlived it")
 	}
-	if !strings.Contains(string(recorded), "build --label apptown.class=check -t apptown-conform:abc") {
+	if !strings.Contains(string(recorded), "build --label apptown.class=check --label apptown.built=1 -t apptown-conform:abc") {
 		t.Fatalf("a check image is not labelled for the sweep: %s", recorded)
 	}
 }

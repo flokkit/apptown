@@ -20,7 +20,7 @@ import (
 // hundred MB each they fill a disk. Same owner rule: a closed
 // change's or finished run's toolchain goes; a live one stays; anything not
 // named for a change or a run is left alone. The build cache is kept under a
-// budget and dangling image layers are pruned in the same sweep.
+// budget and the dangling images AppTown built are pruned in the same sweep.
 
 // reapCacheDecision says whether one per-workspace cache directory is
 // reapable. Pure, so it is tested without a daemon.
@@ -103,7 +103,7 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 	}
 	if !logOnly {
 		_ = docker.TrimBuildCache(ctx, r.docker)
-		_, _ = r.docker.Run(ctx, "image", "prune", "-f")
+		_ = docker.PruneBuiltImages(ctx, r.docker)
 	}
 	return reaped
 }

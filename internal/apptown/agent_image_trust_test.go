@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
@@ -19,7 +20,8 @@ func (c *agentImageDocker) Run(_ context.Context, host string, req docker.Comman
 }
 
 // The agent image's build is given the extra certificates as its secret: its
-// RUN lines download (deploy/apptown-agent/Dockerfile).
+// RUN lines download (deploy/apptown-agent/Dockerfile). It carries AppTown's
+// build label, for the maintenance sweep's prune.
 // Not parallel: it installs the process's trust.
 func TestTheAgentImageBuildIsGivenTheExtraCertificates(t *testing.T) {
 	trusttest.Install(t, trusttest.New(t, "Company CA").Bundle(t), trust.Bundle{})
@@ -27,7 +29,7 @@ func TestTheAgentImageBuildIsGivenTheExtraCertificates(t *testing.T) {
 	if err := fetchAgentImage(context.Background(), docker.Scope{Client: client}, "apptown-agent", "/ctx", false, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if len(client.calls) != 1 || client.calls[0] != "build "+strings.Join(trust.BuildArgs(true), " ")+" -t apptown-agent /ctx" ||
+	if len(client.calls) != 1 || client.calls[0] != "build "+strings.Join(trust.BuildArgs(true), " ")+" "+strings.Join(dockerlabel.BuiltArgs(), " ")+" -t apptown-agent /ctx" ||
 		!strings.Contains(client.calls[0], "--secret id=apptown-trust,env=APPTOWN_TRUST ") {
 		t.Fatalf("calls %q", client.calls)
 	}

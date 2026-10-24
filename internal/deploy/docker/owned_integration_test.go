@@ -16,10 +16,8 @@ import (
 	"github.com/flokkit/apptown/internal/poll"
 )
 
-// taggedImage is what the inventory test runs: an image with a tag, which
-// docker image ls lists, so the inventory confirms it. The pinned busybox is
-// pulled by digest alone, and Docker's containerd image store lists an image
-// with no tag only with -a.
+// taggedImage is what the inventory test runs: an image with a tag. The
+// pinned busybox, pulled by digest alone, is the inventory's other case.
 const taggedImage = "caddy:2-alpine"
 
 // On a real daemon: a standing deployment's services record their
@@ -55,14 +53,26 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Inventory uses the real Docker list formats, including empty labels,
-	// need volumes, networks and repository/digest image aliases.
-	resources, err := (Inventory{Scope: func(context.Context) (Scope, error) { return dk, nil }}).Inventory(t.Context())
+	// need volumes and networks, and Docker's real answer about recorded
+	// images: a tagged one, one pulled by digest alone (no listing shows it),
+	// and one the host lacks.
+	if out, err := dk.Run(t.Context(), "pull", diskspace.DFImage); err != nil {
+		t.Fatalf("pulling %s: %v %s", diskspace.DFImage, err, out)
+	}
+	gone := Current.BuildTag("itest-gone-" + stack)
+	recordedImages := func(context.Context) ([]string, error) { return []string{taggedImage, diskspace.DFImage, gone}, nil }
+	resources, err := (Inventory{Scope: func(context.Context) (Scope, error) { return dk, nil }, Images: recordedImages}).Inventory(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, r := range resources {
+		if r.Kind == "image" && r.Name == gone {
+			t.Errorf("an image the host lacks read as present: %+v", r)
+		}
+	}
 	for _, want := range []struct{ kind, name string }{
 		{"container", Current.Service(stack, "store")}, {"container", Current.Service(stack, "worker")},
-		{"network", Current.Network(stack)}, {"volume", Current.NeedVolume(stack, "store")}, {"image", taggedImage},
+		{"network", Current.Network(stack)}, {"volume", Current.NeedVolume(stack, "store")}, {"image", taggedImage}, {"image", diskspace.DFImage},
 	} {
 		found := false
 		for _, r := range resources {

@@ -126,10 +126,14 @@ witnessed outcomes):
 
 A target's inventory compares recorded resource claims with a complete scoped
 Docker observation: AppTown-named containers, application (`apptown-data-`) and need
-(`apptown-need-`) volumes, AppTown networks (named by the deployment's key), and recorded image references. Immutable
-repository/digest references require an exact alias from Docker; local-build tags
-are observed separately and cannot confirm a digest. Unclaimed host images are
-not listed as orphan cleanup candidates. The page adds no image/network removal
+(`apptown-need-`) volumes, AppTown networks (named by the deployment's key), and recorded image references.
+Images are not listed: a listing leaves out an image with no tag, such as one
+pulled by digest alone. Docker is asked about each recorded reference, and the
+reference is present only when Docker answers by that exact name (a
+repository/digest reference by its digest; a tag cannot confirm a digest),
+absent when Docker says it has no such image, and unknown otherwise, which
+fails the read rather than calling the image missing. Unclaimed host images
+are not listed as orphan cleanup candidates. The page adds no image/network removal
 authority.
 
 Named containers describe one logical slot, even when the deployment's teardown

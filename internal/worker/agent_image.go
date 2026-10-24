@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/trust"
 )
 
@@ -59,7 +60,7 @@ func BuildAgentImage(ctx context.Context, docker, dir string) (string, error) {
 	defer cancel()
 	// The worker's extra certificates as the build's secret: the agent
 	// image's RUN lines download (internal/trust).
-	args := append(append([]string{"build"}, trust.BuildArgs(true)...), "-t", image, dir)
+	args := append(append(append([]string{"build"}, trust.BuildArgs(true)...), dockerlabel.BuiltArgs()...), "-t", image, dir)
 	out, err := exec.CommandContext(ctx, docker, args...).CombinedOutput()
 	if err != nil {
 		tail := strings.TrimSpace(string(out))
