@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"maps"
 	"os"
@@ -518,6 +519,15 @@ func (s *Service) End(ctx context.Context, id string) (Ended, error) {
 		s.mu.Unlock()
 		return Ended{}, fmt.Errorf("removing chat %s's agent: %w; the chat stays until it is removed", sess.ID, err)
 	}
+	// The record becomes the archive: recovery no longer sees a live
+	// session, the transcript still finds the conversation. Until it has,
+	// the chat stays live, and ending it again finishes the end.
+	if err := os.Rename(sess.metaPath(), filepath.Join(sess.Dir, EndedFile)); err != nil {
+		s.mu.Lock()
+		sess.ending = false
+		s.mu.Unlock()
+		return Ended{}, fmt.Errorf("chat %s's agent is removed, but its record could not be marked ended: %w; end it again", sess.ID, err)
+	}
 	s.mu.Lock()
 	delete(s.sessions, id)
 	s.mu.Unlock()
@@ -525,9 +535,6 @@ func (s *Service) End(ctx context.Context, id string) (Ended, error) {
 	if sess.OwnsCheckout {
 		_ = os.RemoveAll(sess.Checkout)
 	}
-	// The record becomes the archive: recovery no longer sees a live
-	// session, the transcript still finds the conversation.
-	_ = os.Rename(sess.metaPath(), filepath.Join(sess.Dir, EndedFile))
 	return Ended{Session: sess}, nil
 }
 
@@ -626,12 +633,19 @@ func (s *Service) Evict(ctx context.Context, id string) error {
 	return s.agent.Remove(ctx, sess.ID)
 }
 
-// Restore registers a session from its record without touching its agent:
-// what Resume does per record, offered to tests that build sessions by hand.
+// Restore registers a session and writes its live record without touching
+// its agent: what Resume finds per record, offered to tests that build
+// sessions by hand. A registered chat always has its record (End archives
+// it); a test whose folder cannot hold one panics here.
 func (s *Service) Restore(meta Meta) *Session {
 	dir := filepath.Join(s.root(), meta.ID)
-	_ = os.MkdirAll(dir, 0o755)
 	sess := newSession(meta, dir, s.now)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		panic(fmt.Sprintf("restoring chat %s: %v", meta.ID, err))
+	}
+	if err := sess.persist(); err != nil {
+		panic(fmt.Sprintf("restoring chat %s: %v", meta.ID, err))
+	}
 	s.mu.Lock()
 	s.sessions[meta.ID] = sess
 	s.mu.Unlock()
@@ -1023,21 +1037,34 @@ func labelKeys(labels map[string]string) []string {
 
 // Resume rebuilds the registry from the records on disk after a restart
 // (agents survive restarts; terminals do not), then has the runtime reap
-// what belongs to no record.
+// what belongs to no record. The records are the only inventory of what
+// may run, so the reap runs only when every one was read: a chat folder
+// that cannot be listed, or a live record that cannot be read or is
+// incomplete (kept for repair), is an error and nothing is reaped, since
+// its agent may be one of those still running. The readable chats are
+// registered either way. A folder with no live record is an ended chat.
 func (s *Service) Resume(ctx context.Context) error {
-	entries, _ := os.ReadDir(s.root())
+	entries, err := os.ReadDir(s.root())
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("listing the chats: %w; nothing is reaped", err)
+	}
 	alive := map[string]bool{}
+	var unknown []string
 	for _, e := range entries {
 		if !e.IsDir() || e.Name() == "bin" {
 			continue
 		}
 		dir := filepath.Join(s.root(), e.Name())
 		meta, err := readMeta(dir)
-		if err != nil || meta.ID == "" {
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			continue // ended
+		case err != nil:
+			unknown = append(unknown, fmt.Sprintf("%s: %v", e.Name(), err))
 			continue
 		}
 		if meta.ID != e.Name() || meta.Scope == "" || meta.Checkout == "" || meta.LastUsed.IsZero() {
-			log.Printf("console recovery: %s has incomplete or mismatched session metadata; preserved for repair", e.Name())
+			unknown = append(unknown, e.Name()+": incomplete or mismatched session metadata, preserved for repair")
 			continue
 		}
 		sess := newSession(meta, dir, s.now)
@@ -1045,6 +1072,9 @@ func (s *Service) Resume(ctx context.Context) error {
 		s.sessions[meta.ID] = sess
 		s.mu.Unlock()
 		alive[meta.ID] = true
+	}
+	if len(unknown) > 0 {
+		return fmt.Errorf("these chat records cannot be read, so whether their agents still run is not known and nothing is reaped: %s", strings.Join(unknown, "; "))
 	}
 	return s.agent.Reap(ctx, alive)
 }

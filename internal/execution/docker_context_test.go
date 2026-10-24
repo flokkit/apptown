@@ -180,3 +180,31 @@ func TestDockerTLSSettingsFollowTheCLIsSelection(t *testing.T) {
 		}
 	}
 }
+
+// A saved Docker configuration that is there but cannot be read refuses the
+// selection: the context it names is not known, and the local daemon is
+// not assumed in its place. A configuration that is not there is the
+// default context.
+func TestAnUnreadableDockerConfigurationRefusesTheSelection(t *testing.T) {
+	for name, c := range map[string]struct {
+		write func(string) error
+		says  string
+	}{
+		"not JSON":   {func(path string) error { return os.WriteFile(path, []byte("{currentContext"), 0o600) }, "is not JSON"},
+		"not a file": {func(path string) error { return os.MkdirAll(path, 0o700) }, "reading the Docker configuration"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			configDir := t.TempDir()
+			if err := c.write(filepath.Join(configDir, "config.json")); err != nil {
+				t.Fatal(err)
+			}
+			got := selectWith(t, "", "", configDir)
+			if got.Refused == nil || !strings.Contains(got.Refused.Error(), c.says) || got.Host != "" || !strings.Contains(got.Backend(), "unresolved") {
+				t.Fatalf("an unreadable configuration selected %+v", got)
+			}
+		})
+	}
+	if got := selectWith(t, "", "", t.TempDir()); got.Refused != nil || got.Context != "default" {
+		t.Fatalf("no configuration: %+v", got)
+	}
+}

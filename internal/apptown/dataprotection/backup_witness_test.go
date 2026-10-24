@@ -20,9 +20,10 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
-// fileCopyKind is a custom kind that keeps local data and declares no
-// copy, only what a file copy of it leaves out: AppTown's tar fallback.
-// No stock kind uses the fallback since object storage declared its copy.
+// fileCopyKind is a custom kind that keeps local data and declares a copy
+// with no export, only what a file copy of it leaves out: AppTown's tar of
+// its data directory. No stock kind declares one since object storage
+// declared its export.
 const fileCopyKind = "capability: notes\nlocal:\n  image: notes:1\n  data: /notes\ncopy:\n  caveat: the notes index is not in the copy\n"
 
 func withFileCopyKind(t *testing.T, s *both) {
@@ -34,7 +35,7 @@ func withFileCopyKind(t *testing.T, s *both) {
 
 // A set records how each item was copied: a need with a declared command
 // (Redis's SAVE, Postgres's dump, object storage's copy through its API) as
-// declared, a need on the tar fallback and the app's volume, both copied
+// declared, a need whose copy is a file copy and the app's volume, both copied
 // while running, as file copies that may be inconsistent. Redis's copy is
 // taken with SAVE first, so it is the data in memory now, not the last
 // snapshot on disk. Object storage's copy runs in its kind's client image
@@ -254,7 +255,7 @@ func TestARestoreOfAnOldSetClaimsNothing(t *testing.T) {
 	if err := os.WriteFile(path, []byte("dump"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	b := &Backup{Path: dir, Items: []BackupItem{{Kind: "need", Name: "postgres", File: "postgres.dump", Restore: "pg_restore"}}}
+	b := &Backup{Path: dir, Items: []BackupItem{{Kind: "need", Name: "postgres", File: "postgres.dump", Restore: "pg_restore", SHA256: fileSHA256(path)}}}
 	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: b.Items[0], into: plan}, filepath.Join(b.Path, b.Items[0].File))
 	if row.Outcome != RestoreCopied {
 		t.Fatalf("an old set's item: %+v", row)
@@ -282,7 +283,7 @@ func TestAnObjectStoreTarSetGoesBackAsFilesInTheStore(t *testing.T) {
 	if err := os.WriteFile(path, []byte("files"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	old := BackupItem{Kind: "need", Name: "s3", File: "s3.tar.gz", Restore: "tar xz -C /data", Copy: CopyLiveFiles, Caveat: "object metadata is not in the copy"}
+	old := BackupItem{Kind: "need", Name: "s3", File: "s3.tar.gz", Restore: "tar xz -C /data", Copy: CopyLiveFiles, Caveat: "object metadata is not in the copy", SHA256: fileSHA256(path)}
 	into := needItem(kind, "s3", deployedNames(t, s, pid, "main", "bwt").Service("s3"))
 	row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: old, into: into}, path)
 	if row.Outcome != RestoreCopied || !strings.Contains(row.Detail, "not verified") || !strings.Contains(row.Caveat, "metadata") {
@@ -351,5 +352,91 @@ func TestABackupNamesDeclaredNeedsItCannotRead(t *testing.T) {
 	}
 	if _, err := s.restoreBackup(context.Background(), nil, pid, "main", b.ID, "bls"); !errors.Is(err, ErrRestoreMismatch) || !strings.Contains(err.Error(), "kv") || len(writes) != 0 {
 		t.Fatalf("a restore into a deployment with an unread need is refused before any write: %v %v", err, writes)
+	}
+}
+
+// A kind that declares no copy is not copied by some other means: its set
+// says the need is not in it, nothing is run to copy it, and a restore of
+// that deployment is refused naming it, before anything is changed.
+func TestANeedWhoseKindDeclaresNoCopyIsNotInTheSet(t *testing.T) {
+	t.Parallel()
+	s, _, client, _, pid := backupWorld(t, "bnc", 40016)
+	if _, err := s.catalog.Save(t.Context(), "capability: ledger\nlocal:\n  image: ledger:1\n  data: /ledger\n", "bls"); err != nil {
+		t.Fatal(err)
+	}
+	releaseMain(t, s, "bnc", "app:\n  web:\n    image: registry.example/bnc:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  redis: {}\n  ledger: {}\n")
+	var ran []string
+	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
+		ran = append(ran, strings.Join(req.Args, " "))
+		if req.Stdout != nil {
+			_, err := io.WriteString(req.Stdout, "copy")
+			return nil, err
+		}
+		return nil, nil
+	})
+	b, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ledger *BackupItem
+	for i := range b.Items {
+		if b.Items[i].Name == "ledger" {
+			ledger = &b.Items[i]
+		}
+	}
+	if b.Status == BackupOK || ledger == nil || !strings.Contains(ledger.Error, "declares no copy") {
+		t.Fatalf("the set does not say the ledger is not in it: %s %+v", b.Status, b.Items)
+	}
+	for _, line := range ran {
+		if strings.Contains(line, "/ledger") {
+			t.Fatalf("the ledger was copied by another means: %s", line)
+		}
+	}
+	ran = nil
+	withJobs(t, s)
+	if _, err := s.RequestRestore(context.Background(), pid, "main", b.ID); err == nil || !strings.Contains(err.Error(), "declares no copy") {
+		t.Fatalf("a restore of a deployment with an uncopied need was admitted: %v", err)
+	}
+	for _, line := range ran {
+		if strings.HasPrefix(line, "stop ") || strings.Contains(line, "tar x") {
+			t.Fatalf("the refused restore changed something: %s", line)
+		}
+	}
+}
+
+// An item is put back only as its own record says: one whose record has no
+// digest, or (a need) no restore command, is not restored, and nothing is
+// run for it, never by the destination's command of today or unchecked.
+func TestAnItemWithoutItsDigestOrRestoreCommandIsNotRestored(t *testing.T) {
+	t.Parallel()
+	s, _, client, dir, pid := backupWorld(t, "bwd", 40018)
+	kind, err := s.catalog.ByCapability(t.Context(), "redis")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ran []string
+	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
+		ran = append(ran, strings.Join(req.Args, " "))
+		return nil, nil
+	})
+	path := filepath.Join(dir, "redis.rdb")
+	if err := os.WriteFile(path, []byte("copy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	into := needItem(kind, "redis", deployedNames(t, s, pid, "main", "bwd").Service("redis"))
+	for name, c := range map[string]struct {
+		item BackupItem
+		says string
+	}{
+		"no digest":          {BackupItem{Kind: "need", Name: "redis", File: "redis.rdb", Restore: into.Restore, Copy: CopyDeclared}, "no digest"},
+		"no restore command": {BackupItem{Kind: "need", Name: "redis", File: "redis.rdb", Copy: CopyDeclared, SHA256: fileSHA256(path)}, "no restore command"},
+	} {
+		row := s.restoreItem(context.Background(), nil, docker.Scope{Client: client}, restoreMove{item: c.item, into: into}, path)
+		if row.Outcome != RestoreFailed || !strings.Contains(row.Detail, c.says) {
+			t.Errorf("%s: %+v", name, row)
+		}
+	}
+	if len(ran) != 0 {
+		t.Fatalf("a refused item ran:\n%s", strings.Join(ran, "\n"))
 	}
 }

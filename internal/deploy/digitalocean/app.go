@@ -146,7 +146,8 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if app.ID == "" {
 		return deploy.Observation{}, errors.New("the platform accepted the spec without naming its app; provider inspection is required")
 	}
-	ids := map[string]any{"appId": app.ID, "appName": name, "readinessPath": readinessPathOf(art)}
+	readinessPath := readinessPathOf(typed)
+	ids := map[string]any{"appId": app.ID, "appName": name, "readinessPath": readinessPath}
 	release := expectedRelease(art.Source)
 	if release != "" {
 		ids["release"] = release
@@ -165,7 +166,7 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	return d.finish(ctx, c, app.ID, name, dep, generation, readinessPathOf(art), release, p.Gate != nil, logf)
+	return d.finish(ctx, c, app.ID, name, dep, generation, readinessPath, release, p.Gate != nil, logf)
 }
 
 // finish: after the deployment is ACTIVE, re-read the app, refuse a cut-over
@@ -208,10 +209,15 @@ func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep 
 		return deploy.Observation{Generation: generation, Rollout: "active", Health: "unknown", URL: url,
 			Handle: map[string]any{"appId": app.ID, "appName": name, "deploymentId": dep.ID}}, nil
 	}
+	// Healthy is what AppTown saw: the front door answered the readiness
+	// path, or served this release's identity. Neither asked is unknown,
+	// whatever the platform's own probe says.
+	witnessed := false
 	if path := readinessPath; path != "" && url != "" {
 		if err := d.options.ProbeFrontDoor(ctx, strings.TrimRight(url, "/")+path, until, logf); err != nil {
 			return deploy.Observation{}, err
 		}
+		witnessed = true
 	}
 	switch {
 	case url == "":
@@ -222,8 +228,13 @@ func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep 
 		if err := witnessRelease(ctx, d.frontDoor, strings.TrimRight(url, "/")+appcontract.ReleasePath, release, until, logf, d.options.PollInterval, d.options.Now); err != nil {
 			return deploy.Observation{}, err
 		}
+		witnessed = true
 	}
-	return deploy.Observation{Generation: generation, Rollout: "active", Health: "healthy", URL: url,
+	health := "unknown"
+	if witnessed {
+		health = "healthy"
+	}
+	return deploy.Observation{Generation: generation, Rollout: "active", Health: health, URL: url,
 		Handle: map[string]any{"appId": app.ID, "appName": name, "deploymentId": dep.ID}}, nil
 }
 
@@ -260,18 +271,9 @@ func activeID(app *doApp) string {
 	return ""
 }
 
-// readinessPathOf: the public service's health path from the rendered spec.
-func readinessPathOf(art deploy.Artifact) string {
-	var spec struct {
-		Services []struct {
-			HealthCheck *struct {
-				HTTPPath string `json:"http_path"`
-			} `json:"health_check"`
-		} `json:"services"`
-	}
-	if json.Unmarshal(art.Body, &spec) != nil {
-		return ""
-	}
+// readinessPathOf: the public service's health path from the rendered
+// spec, "" when it declares none.
+func readinessPathOf(spec AppSpec) string {
 	for _, s := range spec.Services {
 		if s.HealthCheck != nil && s.HealthCheck.HTTPPath != "" {
 			return s.HealthCheck.HTTPPath

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -42,26 +43,47 @@ const (
 	defaultDockerTLSHost = "tcp://localhost:2376"
 )
 
+// DockerConfigDir is the docker CLI's configuration folder, as the CLI
+// finds it: DOCKER_CONFIG, else .docker in the home folder. A home folder
+// that cannot be named is an error, never a relative path.
+func DockerConfigDir() (string, error) {
+	if dir := os.Getenv("DOCKER_CONFIG"); dir != "" {
+		return dir, nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("finding the Docker configuration: DOCKER_CONFIG is unset and %w", err)
+	}
+	return filepath.Join(home, ".docker"), nil
+}
+
 // SelectDocker resolves the daemon the docker CLI would use now: DOCKER_HOST;
 // else DOCKER_CONTEXT; else the current context saved in the CLI's
-// configuration (DOCKER_CONFIG, or ~/.docker); else the default context. It
-// only reads.
+// configuration (DockerConfigDir); else the default context. It only reads.
+// A configuration that is there but cannot be read refuses the selection:
+// what it names is not known, and the default daemon is not assumed.
 func SelectDocker() DockerSelection {
 	if host := os.Getenv("DOCKER_HOST"); host != "" {
 		return DockerSelection{Host: host, TLSFromEnvironment: true}
 	}
-	dir := os.Getenv("DOCKER_CONFIG")
-	if dir == "" {
-		if home, err := os.UserHomeDir(); err == nil {
-			dir = filepath.Join(home, ".docker")
-		}
-	}
 	name := os.Getenv("DOCKER_CONTEXT")
+	dir, err := DockerConfigDir()
+	if err != nil {
+		return DockerSelection{Context: name, Refused: err}
+	}
 	if name == "" {
 		var saved struct {
 			CurrentContext string `json:"currentContext"`
 		}
-		if body, err := os.ReadFile(filepath.Join(dir, "config.json")); err == nil && json.Unmarshal(body, &saved) == nil {
+		config := filepath.Join(dir, "config.json")
+		body, err := os.ReadFile(config)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+		case err != nil:
+			return DockerSelection{Context: "current", Refused: fmt.Errorf("reading the Docker configuration %s: %w", config, err)}
+		case json.Unmarshal(body, &saved) != nil:
+			return DockerSelection{Context: "current", Refused: fmt.Errorf("the Docker configuration %s is not JSON", config)}
+		default:
 			name = saved.CurrentContext
 		}
 	}

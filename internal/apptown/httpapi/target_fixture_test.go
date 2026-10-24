@@ -84,7 +84,11 @@ func newTargetHTTPWorld(t *testing.T, options ...digitalocean.Options) *targetHT
 
 func (w *targetHTTPWorld) seedBuiltin(t *testing.T) *deployment.Target {
 	t.Helper()
-	bi, err := w.deployment.Targets.Put(context.Background(), &deployment.Target{Name: targetTestBuiltin, Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Address: map[string]any{"daemon": "local"}, Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: true, Needs: w.needs.EmulatorKinds(context.Background())}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady})
+	emulators, err := w.needs.EmulatorKinds(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	bi, err := w.deployment.Targets.Put(context.Background(), &deployment.Target{Name: targetTestBuiltin, Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Address: map[string]any{"daemon": "local"}, Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: true, Needs: emulators}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -284,6 +285,7 @@ func TestRecordRoundTrip(t *testing.T) {
 
 // Incomplete metadata is preserved for operator repair, transcripts
 // included: recovery never invents a checkout or an activity timestamp.
+// Its agent may still run, so nothing is reaped and recovery says why.
 func TestRecoveryPreservesIncompleteRecords(t *testing.T) {
 	t.Parallel()
 	for _, name := range []string{"checkout", "lastUsed", "id"} {
@@ -306,9 +308,16 @@ func TestRecoveryPreservesIncompleteRecords(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			chats := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: data}})
-			if err := chats.Resume(context.Background()); err != nil {
+			agent := consoletest.NewAgent()
+			if err := agent.Start(context.Background(), console.Launch{ID: "chat"}); err != nil {
 				t.Fatal(err)
+			}
+			chats := console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: data}})
+			if err := chats.Resume(context.Background()); err == nil || !strings.Contains(err.Error(), "nothing is reaped") {
+				t.Fatalf("recovery over an incomplete record: %v", err)
+			}
+			if !agent.Exists("chat") {
+				t.Fatal("the agent of a record kept for repair was reaped")
 			}
 			if _, err := chats.Get(context.Background(), "chat"); err == nil {
 				t.Fatal("incomplete record registered for automatic lifecycle management")
@@ -440,4 +449,92 @@ func TestDeletionWaitsForAnEndingChat(t *testing.T) {
 		t.Fatalf("a project whose chat has ended: %v", err)
 	}
 	release()
+}
+
+// A live record that cannot be read leaves what may run unknown: the
+// chats that read are registered, and no agent is reaped, neither the
+// unreadable chat's nor one that belongs to no record.
+func TestRecoveryReapsNothingWhenARecordCannotBeRead(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	data := t.TempDir()
+	agent := consoletest.NewAgent()
+	first := console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: data}})
+	readable, err := first.Open(ctx, console.OpenRequest{Scope: "project:p", Workspace: console.Workspace{Path: "/tmp/p"}, Actor: "bls"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	broken := filepath.Join(filepath.Dir(readable.Dir), first.NewSessionID())
+	if err := os.MkdirAll(filepath.Join(broken, console.MetaFile), 0o700); err != nil { // a record that is a folder: unreadable
+		t.Fatal(err)
+	}
+	for _, id := range []string{filepath.Base(broken), "orphan"} {
+		if err := agent.Start(ctx, console.Launch{ID: id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	again := console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: data}})
+	if err := again.Resume(ctx); err == nil || !strings.Contains(err.Error(), filepath.Base(broken)) {
+		t.Fatalf("recovery over an unreadable record: %v", err)
+	}
+	if !agent.Exists(filepath.Base(broken)) || !agent.Exists("orphan") {
+		t.Fatal("an agent was reaped while a record could not be read")
+	}
+	if _, err := again.Get(ctx, readable.ID); err != nil {
+		t.Fatalf("the readable chat was not registered: %v", err)
+	}
+}
+
+// An end whose record cannot be marked ended leaves the chat live, so a
+// restart does not take it for a running chat with no agent; ending it
+// again, once the record can be moved, ends it.
+func TestAnEndThatCannotArchiveItsRecordCanBeAskedAgain(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	chats := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Config: console.Config{DataDir: t.TempDir()}})
+	s, err := chats.Open(ctx, console.OpenRequest{Scope: "project:p", Workspace: console.Workspace{Path: "/tmp/p"}, Actor: "bls"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	obstacle := filepath.Join(s.Dir, console.EndedFile, "x")
+	if err := os.MkdirAll(obstacle, 0o700); err != nil { // a non-empty folder where the archive goes
+		t.Fatal(err)
+	}
+	if _, err := chats.End(ctx, s.ID); err == nil || !strings.Contains(err.Error(), "end it again") {
+		t.Fatalf("an end whose record could not be archived: %v", err)
+	}
+	if _, err := chats.Get(ctx, s.ID); err != nil {
+		t.Fatalf("the chat is no longer listed: %v", err)
+	}
+	if err := os.RemoveAll(filepath.Join(s.Dir, console.EndedFile)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := chats.End(ctx, s.ID); err != nil {
+		t.Fatalf("ending it again: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(s.Dir, console.EndedFile)); err != nil {
+		t.Fatalf("the record is not archived: %v", err)
+	}
+}
+
+// A chat folder that cannot be listed leaves every chat unknown: nothing
+// is reaped, and recovery says why.
+func TestRecoveryReapsNothingWhenTheChatsCannotBeListed(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	data := t.TempDir()
+	if err := os.WriteFile(filepath.Join(data, "console"), []byte("not a folder"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	agent := consoletest.NewAgent()
+	if err := agent.Start(ctx, console.Launch{ID: "running"}); err != nil {
+		t.Fatal(err)
+	}
+	chats := console.New(console.Dependencies{Agent: agent, Config: console.Config{DataDir: data}})
+	if err := chats.Resume(ctx); err == nil || !strings.Contains(err.Error(), "nothing is reaped") {
+		t.Fatalf("recovery over an unlisted chat folder: %v", err)
+	}
+	if !agent.Exists("running") {
+		t.Fatal("an agent was reaped while the chats could not be listed")
+	}
 }

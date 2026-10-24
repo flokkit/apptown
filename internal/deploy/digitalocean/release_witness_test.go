@@ -99,12 +99,16 @@ func TestTheReleaseWitnessIsTheSelectedPublicStaticPart(t *testing.T) {
 // Kills: a guide or result that claims AppTown asked the app.
 func TestAppPlatformAsksTheFrontDoorOnlyWhenTheContractSaysWhat(t *testing.T) {
 	t.Parallel()
+	const ready = "app:\n  web:\n    image: web:1\n    ports: [\"8080\"]\n    public: true\n    health:\n      readiness: { http: /ready }\n"
 	for _, c := range []struct {
 		name, contract string
+		noURL          bool
 		asked          int
+		health         string
 	}{
-		{"no readiness path", "app:\n  web:\n    image: web:1\n    ports: [\"8080\"]\n    public: true\n", 0},
-		{"an HTTP readiness path", "app:\n  web:\n    image: web:1\n    ports: [\"8080\"]\n    public: true\n    health:\n      readiness: { http: /ready }\n", 1},
+		{"no readiness path", "app:\n  web:\n    image: web:1\n    ports: [\"8080\"]\n    public: true\n", false, 0, "unknown"},
+		{"an HTTP readiness path", ready, false, 1, "healthy"},
+		{"a readiness path and no URL", ready, true, 0, "unknown"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -123,6 +127,9 @@ func TestAppPlatformAsksTheFrontDoorOnlyWhenTheContractSaysWhat(t *testing.T) {
 			src := deploy.Source{Images: map[string]string{"web": "local-web"}, Contract: contract, Revision: "r1"}
 			api := &dofake.API{}
 			api.ServeFrontDoor(false)
+			if c.noURL {
+				api.ServeNoURL()
+			}
 			server := httptest.NewServer(api.Handler())
 			defer server.Close()
 			push := func(_ *Driver, _ context.Context, _ *Client, _, _, _, _ string, _ func(string, ...any)) (string, error) {
@@ -143,7 +150,9 @@ func TestAppPlatformAsksTheFrontDoorOnlyWhenTheContractSaysWhat(t *testing.T) {
 			if err != nil {
 				t.Fatalf("reconcile: %v\n%s", err, strings.Join(log, "\n"))
 			}
-			if asked != c.asked || obs.Rollout != "active" || !strings.Contains(strings.Join(log, "\n"), "not witnessed") {
+			// Healthy is what AppTown saw answer: a readiness path that is
+			// configured but was not asked is not its answer.
+			if asked != c.asked || obs.Rollout != "active" || obs.Health != c.health || !strings.Contains(strings.Join(log, "\n"), "not witnessed") {
 				t.Fatalf("asked the front door %d times (want %d), %+v\n%s", asked, c.asked, obs, strings.Join(log, "\n"))
 			}
 		})

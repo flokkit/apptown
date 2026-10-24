@@ -285,3 +285,19 @@ func TestAStandingStackSaysWhichProjectAndDeploymentItIsFor(t *testing.T) {
 		t.Fatalf("made %v, ran %v", h.created, h.runs)
 	}
 }
+
+// A container is recorded by the ID Docker printed for it, never by its
+// name: output without an ID is an error, so nothing a take-down would
+// remove is recorded under a name another container can take.
+func TestACreatedContainerIsRecordedOnlyByItsPrintedID(t *testing.T) {
+	t.Parallel()
+	id := strings.Repeat("ab", 32)
+	if got, err := createdID([]byte("Unable to find image locally\n"+id+"\n"), "apptown-shop-main"); err != nil || got != id {
+		t.Fatalf("the printed ID was not taken: %q %v", got, err)
+	}
+	for _, out := range []string{"", "WARNING: something\n", "apptown-shop-main\n"} {
+		if got, err := createdID([]byte(out), "apptown-shop-main"); err == nil || got != "" {
+			t.Fatalf("output %q gave the identity %q", out, got)
+		}
+	}
+}

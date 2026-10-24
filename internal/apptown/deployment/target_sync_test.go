@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"testing/fstest"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/dependency"
@@ -27,6 +28,7 @@ import (
 type syncWorld struct {
 	s            *Service
 	integrations *integration.Service
+	catalog      *dependency.Catalog
 }
 
 func newSyncWorld(t *testing.T) *syncWorld {
@@ -40,7 +42,7 @@ func newSyncWorld(t *testing.T) *syncWorld {
 	if _, _, err := catalog.SyncStock(context.Background(), stock.FS, "dependencies"); err != nil {
 		t.Fatal(err)
 	}
-	w := &syncWorld{integrations: integrations, s: New(context.Background(), db, assembled(db, testRuntime{Scope: docker.Scope{Client: dockerfake.New()}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, BuiltInTarget: "local"}, Dependencies{}))}
+	w := &syncWorld{integrations: integrations, catalog: catalog, s: New(context.Background(), db, assembled(db, testRuntime{Scope: docker.Scope{Client: dockerfake.New()}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, BuiltInTarget: "local"}, Dependencies{}))}
 	w.saveConnector(t, "syd")
 	if _, err := w.s.Targets.Put(context.Background(), &Target{Name: "runner", Kind: KindDockerHost, Origin: OriginAttached, Status: TargetReady, Address: map[string]any{"host": "ssh://deploy@runner"}}); err != nil {
 		t.Fatal(err)
@@ -311,4 +313,26 @@ func operationReceipts(t *testing.T, db *database.DB, kind string, project ids.I
 		t.Fatal(err)
 	}
 	return rows
+}
+
+// A start whose dependency catalog cannot be read leaves the built-in
+// target as recorded: never re-recorded with the shorter list of needs it
+// runs locally that a list without the unreadable kind would give.
+func TestAStartWithAnUnreadableCatalogLeavesTheBuiltInTargetAsRecorded(t *testing.T) {
+	t.Parallel()
+	w := newSyncWorld(t)
+	before := w.target(t, "local").Capabilities.Needs
+	if len(before) == 0 {
+		t.Fatal("the built-in target records no needs to begin with")
+	}
+	// A release whose shipped kind does not parse: the sync stores the
+	// unreadable file (and withdraws the kinds it no longer ships).
+	broken := fstest.MapFS{"dependencies/kv.yaml": {Data: []byte("capability: kv\nlocal:\n  image: kv:1\n  data: /data\ncopy:\n  ext: f\n  export: cat /data/f\n  verify: cmp -s - /data/f\n")}}
+	if _, _, err := w.catalog.SyncStock(t.Context(), broken, "dependencies"); !errors.Is(err, dependency.ErrStockUnreadable) {
+		t.Fatalf("the broken release synced: %v", err)
+	}
+	w.s.SeedTargets(t.Context(), []string{"team=apps.example"})
+	if after := w.target(t, "local").Capabilities.Needs; !reflect.DeepEqual(after, before) {
+		t.Fatalf("the built-in target's needs moved from %v to %v", before, after)
+	}
 }

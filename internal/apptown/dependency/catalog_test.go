@@ -229,18 +229,13 @@ func TestAShippedKindThatDoesNotParseIsNamedAndNeverKeptStale(t *testing.T) {
 		t.Fatalf("a misnamed file adds no kind under another name: %v", err)
 	}
 	// The misnamed definition, stored under its file's name, is not
-	// served under that name either, nor listed as the other kind.
+	// served under that name either; the list fails, naming an unreadable
+	// kind, rather than listing it as the other kind or leaving it out.
 	if _, err := c.ByCapability(t.Context(), "mis"); !errors.Is(err, ErrSpec) || !strings.Contains(err.Error(), `declares the capability "other"`) {
 		t.Fatalf("the misnamed file's kind is unreadable: %v", err)
 	}
-	all, err := c.All(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, k := range all {
-		if k.Capability == "other" || k.Capability == "mis" {
-			t.Fatalf("a rejected definition is listed: %+v", k)
-		}
+	if all, err := c.All(context.Background()); !errors.Is(err, ErrSpec) {
+		t.Fatalf("a catalog holding unreadable kinds listed %d: %v", len(all), err)
 	}
 }
 

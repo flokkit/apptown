@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -213,6 +214,32 @@ func TestAServiceThatKeepsItsImageIsNotRemadeForANewOne(t *testing.T) {
 			}
 			if err == nil || !strings.Contains(err.Error(), "created with other parameters") || len(removed) != 0 {
 				t.Fatalf("a new image on a database's files was not refused: %v %v", err, removed)
+			}
+		})
+	}
+}
+
+// A synthetic need recreated for moved parameters is made again only on
+// a new volume: a failed removal of its recorded data volume, or of its
+// container, is the boot's error, never a new service on the old data.
+func TestARecreatedSyntheticNeedFailsWhenItsOldDataCannotGo(t *testing.T) {
+	t.Parallel()
+	const stack = "env-shop-main"
+	vol := Current.NeedVolume(stack, "postgres")
+	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}, Recorded: []deploy.Owned{{Kind: "volume", ID: vol, Data: true, Need: "postgres"}}}
+	svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:17-alpine"}
+	for _, failing := range []string{"rm -f", "volume rm"} {
+		t.Run(failing, func(t *testing.T) {
+			t.Parallel()
+			client := &fakeClient{reply: func(req Command) ([]byte, error) {
+				if strings.HasPrefix(strings.Join(req.Args, " "), failing) {
+					return []byte("Error response from daemon: it is in use"), errors.New("exit status 1")
+				}
+				return nil, nil
+			}}
+			err := replaceDrifted(t.Context(), Scope{Client: client}, stack, Current.Service(stack, "postgres"), svc, []string{"POSTGRES_PASSWORD"}, "synthetic", own)
+			if err == nil || !strings.Contains(err.Error(), "to recreate it") {
+				t.Fatalf("a recreate whose %s failed went on: %v", failing, err)
 			}
 		})
 	}

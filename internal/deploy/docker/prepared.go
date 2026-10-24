@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // PreparedVersion is the prepared value's shape; a machine given another
@@ -250,10 +251,10 @@ func (dk Scope) WithBootConfig(ctx context.Context, scratch string, login *Regis
 			"auth": base64.StdEncoding.EncodeToString([]byte(login.Username + ":" + login.Token))}}
 	}
 	config := map[string]any{"auths": auths}
-	ambient := os.Getenv("DOCKER_CONFIG")
-	if ambient == "" {
-		home, _ := os.UserHomeDir()
-		ambient = filepath.Join(home, ".docker")
+	ambient, err := execution.DockerConfigDir()
+	if err != nil {
+		_ = done()
+		return dk, none, err
 	}
 	// The CLI's plugins (buildx, which a static site's build needs for its
 	// export) are found where the ambient configuration keeps them, as

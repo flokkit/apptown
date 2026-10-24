@@ -47,9 +47,12 @@ func (s *Service) TakeStoppedSet(ctx context.Context, dep *deployment.Deployment
 	if err != nil {
 		return nil, fmt.Errorf("reading what %s owns: %w", dep.Name, err)
 	}
-	// The release names data the list may lack; unread, the list alone is
-	// planned, as a take-down's final set is.
-	c, _ := s.releaseContract(ctx, dep)
+	// The release names data the list may lack: unread, what the set
+	// would hold is not known, and nothing is stopped for it.
+	c, err := s.releaseContract(ctx, dep)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrDataNotKnown, err)
+	}
 	plan, named, err := s.heldFrom(ctx, dk, p.Slug, dep, owned, c)
 	switch {
 	case err != nil:

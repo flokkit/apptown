@@ -2,6 +2,7 @@ package dataprotection
 
 import (
 	"context"
+	"errors"
 	"io"
 	"path/filepath"
 	"strings"
@@ -105,5 +106,26 @@ func TestDiskSetsAreFoundWhereTheRestoredDataDirectoryIs(t *testing.T) {
 	}
 	if res, err := w.s.restoreBackup(ctx, nil, w.pid, "main", id, "alice"); err != nil || res.Status != RestoreNotVerified {
 		t.Fatalf("restoring the moved set: %+v %v", res, err)
+	}
+}
+
+// A whole-AppTown backup's set of a deployment whose release cannot be read
+// is not planned from its list alone: what it would hold is not known, so
+// it is ErrDataNotKnown (the archive says that deployment's data is not
+// whole in it), and nothing is stopped.
+//
+// Kills: a set planned without the release's declared data, read as whole.
+func TestAnAppTownBackupSetOfAnUnreadableReleaseIsNotKnown(t *testing.T) {
+	t.Parallel()
+	s, client, dep := takeDownWorld(t, "abu")
+	unread := *dep
+	unread.ReleaseSHA = "" // a release AppTown cannot read: none is recorded
+	if b, err := s.TakeStoppedSet(context.Background(), &unread, "the host's administrator"); !errors.Is(err, ErrDataNotKnown) || b != nil {
+		t.Fatalf("a set of an unreadable release: %+v %v", b, err)
+	}
+	for _, c := range commandsOf(client) {
+		if strings.HasPrefix(c, "stop ") {
+			t.Fatalf("a part was stopped for a set that was not taken: %s", c)
+		}
 	}
 }

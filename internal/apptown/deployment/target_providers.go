@@ -40,11 +40,17 @@ const BuiltInTargetName = "built-in-docker"
 // is receipted to AppTown itself.
 func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 	const who = "apptown-system"
-	if !s.hosts.settings.NoLocalDocker { // with no local daemon there is no built-in host
+	// The targets that run needs locally record which; a catalog that
+	// cannot be read leaves them as recorded rather than with a shorter list.
+	emulators, catalogErr := s.env.needs.EmulatorKinds(ctx)
+	if catalogErr != nil {
+		log.Printf("targets: the built-in and intranet targets are left as recorded: %v", catalogErr)
+	}
+	if !s.hosts.settings.NoLocalDocker && catalogErr == nil { // with no local daemon there is no built-in host
 		_, err := s.Targets.Sync(ctx, &Target{
 			Name: s.hosts.settings.BuiltInTarget, Kind: KindDockerHost, Provider: "", Origin: OriginBuiltIn,
 			Address:      map[string]any{"daemon": "local"},
-			Capabilities: StockCapabilities(KindDockerHost, s.env.needs.EmulatorKinds(ctx)),
+			Capabilities: StockCapabilities(KindDockerHost, emulators),
 			Ingress:      map[string]any{"binding": "apptown-vhost", "domains": ingressDomains},
 			NeedsMode:    stockNeedsMode(KindDockerHost), SecretsDelivery: "inject", Status: TargetReady,
 		}, who)
@@ -54,11 +60,14 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 		}
 	}
 	s.SeedCloudTargets(ctx, who)
+	if catalogErr != nil {
+		return
+	}
 	if cfg, err := s.env.integrations.PortainerTarget(ctx); err == nil {
 		if _, err := s.Targets.Sync(ctx, &Target{
 			Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached,
 			Address:      map[string]any{"url": cfg.PortainerURL, AddressEnvironment: DefaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},
-			Capabilities: StockCapabilities(KindPortainer, s.env.needs.EmulatorKinds(ctx)),
+			Capabilities: StockCapabilities(KindPortainer, emulators),
 			Ingress:      map[string]any{"binding": "traefik", "domain": cfg.AppsDomain},
 			NeedsMode:    stockNeedsMode(KindPortainer), SecretsDelivery: "inject", Status: TargetReady,
 		}, who); err != nil {

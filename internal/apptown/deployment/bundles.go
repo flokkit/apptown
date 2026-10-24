@@ -240,7 +240,10 @@ func (s *Bundles) DigestImages(ctx context.Context, projectID ids.ID) ([]string,
 	}
 	var images []string
 	for _, r := range rows {
-		b, _ := bundleRecord(r, nil)
+		b, err := bundleRecord(r, nil)
+		if err != nil {
+			return nil, err
+		}
 		for _, m := range []map[string]string{b.Parts, b.Init} {
 			for _, ref := range m {
 				images = append(images, ref)

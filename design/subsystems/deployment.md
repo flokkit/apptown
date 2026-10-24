@@ -544,9 +544,15 @@ asked). The in-place restore (`copy.restore`) and the check after it
 (`copy.verify`) run there with the same connection, so Postgres's restore
 is checked by the same verify a managed fill passes. Only a copy that
 fills a new place records its `format`, image and user, the same kind of
-copy a managed database's is (Postgres; Redis's copy fills none). A kind
-with no `copy:`, or a `copy:` with only a `caveat`, falls back to a tar of
-its data directory. **Where a set is kept:** in the backup store whenever one is
+copy a managed database's is (Postgres; Redis's copy fills none). A
+`copy:` with no export (`{}` or only a `caveat`) is a tar of the kind's data
+directory. A kind with no `copy:` is not copied (the item is unresolved: the
+set is partial and says so) and its deployment is not restored, since
+`restoreMoves` refuses an unresolved destination; nothing copies it some
+other way. A restore puts each item back only as its own record says: its
+digest, restore command, mode, check and caveat. An item recorded without a
+digest, or a need without a restore command (an older set), is
+not restored, never put back by the destination kind's command of today. **Where a set is kept:** in the backup store whenever one is
 attached (staged under `backups/.staging/take-*` while it uploads; each
 file is held to its size and digest there, and the manifest is written
 beside it once the set has its id); on AppTown's disk otherwise, where
