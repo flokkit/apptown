@@ -17,8 +17,8 @@ ENV PATH=/usr/local/go/bin:/root/go/bin:$PATH
 
 # The Docker CLI with its buildx and compose plugins, pinned by version and
 # digest (x86_64 static builds); the daemon is the host's, through its socket.
-ARG DOCKER_CLI_VERSION=29.8.1
-ARG DOCKER_CLI_SHA256=d8db66739d2e28d4933786d73e918d9be643a67fbd835db1bf740d650a259e70
+ARG DOCKER_CLI_VERSION=29.9.1
+ARG DOCKER_CLI_SHA256=c158ecc55adb3afb01bbd3539ed3b997d20c26dbdc418080506cc1bf5243ff57
 ARG DOCKER_BUILDX_VERSION=v0.37.1
 ARG DOCKER_BUILDX_SHA256=9447199cdb435f25880548343c128a4b6650e8891ee598905d8d29d39a8e359b
 ARG DOCKER_COMPOSE_VERSION=v5.5.1
