@@ -12,7 +12,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -57,7 +56,7 @@ func cleanupFixture(t *testing.T, client docker.Client, gl GitLabClient, plan Cl
 	}); err != nil {
 		t.Fatal(err)
 	}
-	return Cleanup{Projects: project.New(db, nil), Sessions: noSessions{}, Usage: usage.New(db), Docker: &docker.Scope{Client: client}, Previews: noWorker{}, GitLab: gl, DB: db, DataDir: t.TempDir()}
+	return Cleanup{Projects: project.New(db, nil), Sessions: noSessions{}, Docker: &docker.Scope{Client: client}, Previews: noWorker{}, GitLab: gl, DB: db, DataDir: t.TempDir()}
 }
 
 // A cleanup that never reached Docker is not done, and its name stays held.

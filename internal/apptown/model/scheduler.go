@@ -2,15 +2,17 @@ package model
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// CapacitySource returns a binding's current capacity, or zero if unknown.
-// Implementations must be safe for concurrent reads.
+// CapacitySource returns a binding's current capacity: zero for a binding it
+// does not have, an error when the capacity could not be read. Implementations
+// must be safe for concurrent reads.
 type CapacitySource interface {
-	Capacity(ctx context.Context, binding string) int
+	Capacity(ctx context.Context, binding string) (int, error)
 }
 
 // Scheduler admits agent/review work independently for each model binding.
@@ -32,13 +34,20 @@ func NewScheduler(source CapacitySource, fallback int) *Scheduler {
 	return &Scheduler{source: source, fallback: fallback, pools: map[string]*slotPool{}}
 }
 
-func (s *Scheduler) Capacity(ctx context.Context, binding string) int {
+// Capacity is the binding's capacity, or the scheduler's configured default
+// for a binding its source does not have. A failed read is an error: it never
+// becomes the default.
+func (s *Scheduler) Capacity(ctx context.Context, binding string) (int, error) {
 	if s.source != nil {
-		if n := s.source.Capacity(ctx, binding); n > 0 {
-			return n
+		n, err := s.source.Capacity(ctx, binding)
+		if err != nil {
+			return 0, err
+		}
+		if n > 0 {
+			return n, nil
 		}
 	}
-	return s.fallback
+	return s.fallback, nil
 }
 
 // slotPool is one binding's pool and the steps waiting on it, in order.
@@ -47,9 +56,12 @@ type slotPool struct {
 	waiting []ids.ID
 }
 
-func (s *Scheduler) poolFor(ctx context.Context, binding string) *slotPool {
+func (s *Scheduler) poolFor(ctx context.Context, binding string) (*slotPool, error) {
 	// caller holds s.mu
-	want := s.Capacity(ctx, binding)
+	want, err := s.Capacity(ctx, binding)
+	if err != nil {
+		return nil, err
+	}
 	p := s.pools[binding]
 	if p == nil || cap(p.slots) != want {
 		// A new or resized pool: steps holding slots in the old one release
@@ -61,21 +73,27 @@ func (s *Scheduler) poolFor(ctx context.Context, binding string) *slotPool {
 		s.pools[binding] = np
 		p = np
 	}
-	return p
+	return p, nil
 }
 
 // Acquire takes a slot on the binding's pool for stepID, blocking when full.
 // It returns a release function, which the caller must invoke exactly once, and
 // whether it had to wait. Acquisition is not cancellable and does not promise FIFO
 // ordering. Binding should identify the provider binding, not an individual model.
-func (s *Scheduler) Acquire(ctx context.Context, binding string, stepID ids.ID) (release func(), waited bool) {
+// When the binding's capacity cannot be read nothing is reserved and the error
+// is returned: the work is refused, not admitted under another limit.
+func (s *Scheduler) Acquire(ctx context.Context, binding string, stepID ids.ID) (release func(), waited bool, err error) {
 	s.mu.Lock()
-	p := s.poolFor(ctx, binding)
+	p, err := s.poolFor(ctx, binding)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, false, fmt.Errorf("reading the capacity of model binding %q: %w", binding, err)
+	}
 	slots := p.slots
 	select {
 	case slots <- struct{}{}:
 		s.mu.Unlock()
-		return func() { <-slots }, false
+		return func() { <-slots }, false, nil
 	default:
 	}
 	p.waiting = append(p.waiting, stepID)
@@ -91,7 +109,7 @@ func (s *Scheduler) Acquire(ctx context.Context, binding string, stepID ids.ID) 
 		}
 	}
 	s.mu.Unlock()
-	return func() { <-slots }, true
+	return func() { <-slots }, true, nil
 }
 
 // Waiting says whether stepID is waiting for a slot, on which binding,

@@ -93,7 +93,7 @@ type Preparer struct {
 // The adapter can read model and extension selections, but cannot change them
 // or settle work. The owners keep fallback and project-policy rules.
 type modelSlots interface {
-	Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string)
+	Resolve(ctx context.Context, projectID ids.ID, requested string) (pattern, slot, profile string, err error)
 }
 type extensionSelection interface {
 	EnabledExtensions(ctx context.Context, projectID ids.ID) ([]string, error)
@@ -135,8 +135,11 @@ func (home Preparer) Stage(ctx context.Context, ws string, projectID ids.ID) (st
 // StageAgentDir resolves the project's selected slots and extensions into
 // Pi files, for AppTown's own agent image.
 func (home Preparer) StageAgentDir(ctx context.Context, agentDir string, projectID ids.ID) error {
-	config, _, err := home.agentHome(ctx, projectID, home.Labels(ctx))
-	if _, err := database.Lookup(err); err != nil {
+	config, _, extErr, err := home.agentHome(ctx, projectID, home.Labels(ctx))
+	if err != nil {
+		return err
+	}
+	if _, err := database.Lookup(extErr); err != nil {
 		log.Printf("read failed: %v", err)
 	}
 	return StageAgentDir(agentDir, config)
@@ -144,15 +147,21 @@ func (home Preparer) StageAgentDir(ctx context.Context, agentDir string, project
 
 // agentHome is what the project selected, as the image's labels provide
 // it, the enabled extensions the image does not carry, and a failure to
-// read which extensions are enabled (with the home as if none were).
-func (home Preparer) agentHome(ctx context.Context, projectID ids.ID, labels Labels) (Home, []string, error) {
-	packages, missing, err := home.enabledExtensionPackages(ctx, projectID, labels)
-	config := Home{SubagentsVersion: subagentsVersion(labels), Packages: packages}
+// read which extensions are enabled (extErr, with the home as if none were).
+// err is a failure to resolve the delegates' models: no home is staged on a
+// model nobody selected.
+func (home Preparer) agentHome(ctx context.Context, projectID ids.ID, labels Labels) (config Home, missing []string, extErr, err error) {
+	config.SubagentsVersion = subagentsVersion(labels)
 	if config.SubagentsVersion != "" {
-		config.WorkerModel, _, _ = home.selection.Resolve(ctx, projectID, "worker")
-		config.ScoutModel, _, _ = home.selection.Resolve(ctx, projectID, "scout")
+		if config.WorkerModel, _, _, err = home.selection.Resolve(ctx, projectID, "worker"); err != nil {
+			return Home{}, nil, nil, fmt.Errorf("choosing the worker delegate's model: %w", err)
+		}
+		if config.ScoutModel, _, _, err = home.selection.Resolve(ctx, projectID, "scout"); err != nil {
+			return Home{}, nil, nil, fmt.Errorf("choosing the scout delegate's model: %w", err)
+		}
 	}
-	return config, missing, err
+	config.Packages, missing, extErr = home.enabledExtensionPackages(ctx, projectID, labels)
+	return config, missing, extErr, nil
 }
 
 // enabledExtensionPackages resolves opt-ins only to baked, curated
@@ -197,8 +206,11 @@ type SentLink struct{ Path, Target string }
 // temporary folder of its own. Extensions that cannot be read are an
 // error, never "none enabled".
 func (home Preparer) SentHome(ctx context.Context, projectID ids.ID, labels Labels) (SentHome, error) {
-	config, missing, err := home.agentHome(ctx, projectID, labels)
-	if _, err := database.Lookup(err); err != nil {
+	config, missing, extErr, err := home.agentHome(ctx, projectID, labels)
+	if err != nil {
+		return SentHome{}, err
+	}
+	if _, err := database.Lookup(extErr); err != nil {
 		return SentHome{}, fmt.Errorf("reading the project's extensions: %w", err)
 	}
 	dir, err := os.MkdirTemp("", "apptown-pi-home-")

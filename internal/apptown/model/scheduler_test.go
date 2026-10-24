@@ -8,16 +8,22 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 type capacityFunc func(string) int
 
-func (f capacityFunc) Capacity(ctx context.Context, binding string) int { return f(binding) }
+func (f capacityFunc) Capacity(ctx context.Context, binding string) (int, error) {
+	return f(binding), nil
+}
 
 // Capacity belongs to the backend: a binding's declared concurrency, else
 // one for a self-hosted endpoint and eight for a hosted API, and the
-// daemon's flag only for a binding AppTown does not know.
+// daemon's flag only for a binding AppTown does not know. A capacity that
+// cannot be read (a failed read, a malformed or non-model binding) is an
+// error, never the daemon's flag: a step is refused, not admitted under
+// another limit.
 func TestModelCapacityComesFromTheBinding(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
@@ -28,35 +34,51 @@ func TestModelCapacityComesFromTheBinding(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got := s.Capacity(t.Context(), "gpu1"); got != 3 {
+	capacity := func(binding string) int {
+		t.Helper()
+		n, err := s.Capacity(t.Context(), binding)
+		if err != nil {
+			t.Fatalf("capacity of %q: %v", binding, err)
+		}
+		return n
+	}
+	if got := capacity("gpu1"); got != 3 {
 		t.Fatalf("declared concurrency wins: %d", got)
 	}
-	if got := s.Capacity(t.Context(), "openrouter"); got != hostedModelCapacity {
+	if got := capacity("openrouter"); got != hostedModelCapacity {
 		t.Fatalf("a hosted API defaults to %d, got %d", hostedModelCapacity, got)
 	}
-	if got := s.Capacity(t.Context(), "box"); got != selfHostedCapacity {
+	if got := capacity("box"); got != selfHostedCapacity {
 		t.Fatalf("a custom endpoint defaults to %d, got %d", selfHostedCapacity, got)
 	}
-	for _, binding := range []string{"", "nobody", "bad"} {
-		if got := s.Capacity(t.Context(), binding); got != 2 {
-			t.Fatalf("unknown/malformed binding %q: %d", binding, got)
+	for _, binding := range []string{"", "nobody"} {
+		if got := capacity(binding); got != 2 {
+			t.Fatalf("a binding AppTown does not know (%q) gets the daemon's default: %d", binding, got)
 		}
 	}
 	if _, err := bindings.Upsert(t.Context(), "other", "registry", "docker", `{}`, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := s.Capacity(t.Context(), "other"); got != 2 {
-		t.Fatalf("wrong capability: %d", got)
+	for _, binding := range []string{"bad", "other"} {
+		if n, err := s.Capacity(t.Context(), binding); err == nil {
+			t.Fatalf("a malformed or non-model binding (%q) is not a capacity: %d", binding, n)
+		}
 	}
 	restore := db.FailNextStatement("SELECT")
-	if got := s.Capacity(t.Context(), "gpu1"); got != 2 {
-		t.Fatalf("read failure lost fallback: %d", got)
+	if n, err := s.Capacity(t.Context(), "gpu1"); err == nil {
+		t.Fatalf("a failed read became a capacity: %d", n)
+	}
+	restore()
+	restore = db.FailNextStatement("SELECT")
+	if release, _, err := s.Acquire(t.Context(), "gpu1", idstest.N(1)); err == nil {
+		release()
+		t.Fatal("a failed capacity read admitted work")
 	}
 	restore()
 	if _, err := bindings.Upsert(t.Context(), "gpu1", "model", "pi", `{"concurrency":4}`, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := s.Capacity(t.Context(), "gpu1"); got != 4 {
+	if got := capacity("gpu1"); got != 4 {
 		t.Fatalf("updated capacity: %d", got)
 	}
 	if BindingOfPattern("openrouter/deepseek/deepseek-v4-pro") != "openrouter" || BindingOfPattern("gpu1/Qwen3.6") != "gpu1" {
@@ -76,13 +98,13 @@ func TestModelSlotsAreProvisionedPerBinding(t *testing.T) {
 			}
 			return 8
 		}), 2)
-		rel1, waited := s.Acquire(t.Context(), "gpu1", idstest.N(101))
+		rel1, waited := mustAcquire(t, s, t.Context(), "gpu1", idstest.N(101))
 		if waited {
 			t.Fatal("the first step on an idle box does not wait")
 		}
 		got := make(chan bool, 1)
 		go func() {
-			rel, w := s.Acquire(t.Context(), "gpu1", idstest.N(102))
+			rel, w := mustAcquire(t, s, t.Context(), "gpu1", idstest.N(102))
 			got <- w
 			rel()
 		}()
@@ -94,7 +116,7 @@ func TestModelSlotsAreProvisionedPerBinding(t *testing.T) {
 		// A hosted-API step beside them is not held up.
 		done := make(chan struct{})
 		go func() {
-			rel, w := s.Acquire(t.Context(), "openrouter", idstest.N(103))
+			rel, w := mustAcquire(t, s, t.Context(), "openrouter", idstest.N(103))
 			if w {
 				t.Error("openrouter is not full; 103 must not wait")
 			}
@@ -127,12 +149,16 @@ func TestSchedulerResizeKeepsOldHoldersAndWaiters(t *testing.T) {
 		var capacity atomic.Int64
 		capacity.Store(1)
 		s := NewScheduler(capacityFunc(func(string) int { return int(capacity.Load()) }), 1)
-		oldRelease, _ := s.Acquire(t.Context(), "gpu", idstest.N(1))
+		oldRelease, _ := mustAcquire(t, s, t.Context(), "gpu", idstest.N(1))
 		finished := make(chan bool, 1)
-		go func() { release, waited := s.Acquire(t.Context(), "gpu", idstest.N(2)); release(); finished <- waited }()
+		go func() {
+			release, waited := mustAcquire(t, s, t.Context(), "gpu", idstest.N(2))
+			release()
+			finished <- waited
+		}()
 		synctest.Wait() // 2 is queued behind 1
 		capacity.Store(2)
-		newRelease, waited := s.Acquire(t.Context(), "gpu", idstest.N(3))
+		newRelease, waited := mustAcquire(t, s, t.Context(), "gpu", idstest.N(3))
 		if waited {
 			t.Fatal("resized pool should have room")
 		}
@@ -154,7 +180,7 @@ func TestSchedulerResizeKeepsOldHoldersAndWaiters(t *testing.T) {
 			t.Fatal("finished waiter remains visible")
 		}
 		newRelease()
-		release, waited := s.Acquire(t.Context(), "gpu", idstest.N(4))
+		release, waited := mustAcquire(t, s, t.Context(), "gpu", idstest.N(4))
 		if waited {
 			t.Fatal("replacement pool leaked capacity")
 		}
@@ -169,14 +195,14 @@ func TestSchedulerReleasesAfterFailedExecution(t *testing.T) {
 	go func() {
 		defer close(failed)
 		defer func() { _ = recover() }()
-		release, _ := s.Acquire(t.Context(), "unknown", idstest.N(1))
+		release, _ := mustAcquire(t, s, t.Context(), "unknown", idstest.N(1))
 		defer release()
 		panic("execution failed")
 	}()
 	<-failed
 	acquired := make(chan bool, 1)
 	go func() {
-		release, waited := s.Acquire(t.Context(), "unknown", idstest.N(2))
+		release, waited := mustAcquire(t, s, t.Context(), "unknown", idstest.N(2))
 		release()
 		acquired <- waited
 	}()
@@ -188,7 +214,20 @@ func TestSchedulerReleasesAfterFailedExecution(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("failed execution stranded the next step")
 	}
-	if s.Capacity(t.Context(), "unknown") != 1 || NewScheduler(nil, 0).Capacity(t.Context(), "unknown") != 1 {
+	if a, _ := s.Capacity(t.Context(), "unknown"); a != 1 {
 		t.Fatal("missing source lost fallback")
 	}
+	if b, _ := NewScheduler(nil, 0).Capacity(t.Context(), "unknown"); b != 1 {
+		t.Fatal("missing source lost fallback")
+	}
+}
+
+func mustAcquire(t *testing.T, s *Scheduler, ctx context.Context, binding string, stepID ids.ID) (func(), bool) {
+	t.Helper()
+	release, waited, err := s.Acquire(ctx, binding, stepID)
+	if err != nil {
+		t.Error(err)
+		return func() {}, false
+	}
+	return release, waited
 }

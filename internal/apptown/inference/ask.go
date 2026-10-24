@@ -59,7 +59,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 		return "", nil, fmt.Errorf("no model binding is named %q", name)
 	}
 	if !p.allows(id) {
-		return "", nil, fmt.Errorf("the model %q is not enabled in the %q model binding", id, name)
+		return "", nil, p.refusal(id)
 	}
 	if err := g.choose(ctx, call); err != nil {
 		return "", nil, err

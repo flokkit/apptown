@@ -18,7 +18,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/maintenance"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/console"
@@ -67,7 +66,6 @@ type GitLabClient interface {
 type Cleanup struct {
 	Projects *project.Projects
 	Sessions CleanupSessions
-	Usage    *usage.Ledger
 	Docker   *docker.Scope
 	// Previews reaches previews on the worker, when AppTown has them.
 	Previews WorkerPreviews
@@ -140,8 +138,9 @@ func (c Cleanup) Clean(ctx context.Context, id ids.ID, plan CleanupPlan) []strin
 			failed = append(failed, err.Error())
 		}
 	}
+	// Removing a chat ends it, and its end records its spend first: a chat
+	// whose spend could not be recorded is not removed.
 	for _, s := range c.Sessions.List(ctx, conversation.ForProject(id)) {
-		conversation.HarvestUsage(ctx, c.Usage, s)
 		note(c.Sessions.Remove(ctx, s.ID))
 	}
 	// Ended chats are folders the registry no longer holds: their words and

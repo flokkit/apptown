@@ -59,7 +59,9 @@ func TestHarvestConsoleUsageFromRecord(t *testing.T) {
 	ledger := usage.New(db)
 	s, path := recordSession(t, fixtureLines(t))
 	s.Labels = map[string]string{ProjectLabel: idstest.N(1).String()}
-	HarvestUsage(context.Background(), ledger, s)
+	if err := HarvestUsage(context.Background(), ledger, s); err != nil {
+		t.Fatal(err)
+	}
 	// sql-guarantee: One stored row per paid provider for this session is the guarantee; the usage rollups sum rows and cannot show how many were written.
 	rows, err := db.Query(`SELECT provider, model, total, cost_micros FROM token_usage WHERE session_id='t' ORDER BY provider`)
 	if err != nil {
@@ -90,7 +92,9 @@ func TestHarvestConsoleUsageFromRecord(t *testing.T) {
 	if off != fi.Size() {
 		t.Errorf("cursor must sit at EOF: %d vs %d", off, fi.Size())
 	}
-	HarvestUsage(context.Background(), ledger, s)
+	if err := HarvestUsage(context.Background(), ledger, s); err != nil {
+		t.Fatal(err)
+	}
 	var n int
 	// sql-guarantee: As above: the row count, not a rollup, shows a second harvest wrote nothing.
 	_ = db.QueryRow(`SELECT COUNT(*) FROM token_usage WHERE session_id='t'`).Scan(&n)
@@ -116,7 +120,9 @@ func TestTheLastHarvestRecordsSpendThoughTheCallerStopped(t *testing.T) {
 	}
 	stopped, cancel := context.WithCancel(t.Context())
 	cancel()
-	HarvestUsage(stopped, ledger, s)
+	if err := HarvestUsage(stopped, ledger, s); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.RemoveAll(s.Dir); err != nil { // the chat ends; its record goes
 		t.Fatal(err)
 	}
@@ -157,7 +163,9 @@ func TestHarvestedChatSpendIsTheOpeners(t *testing.T) {
 	s, _ := recordSession(t, fixtureLines(t))
 	s.Actor = "alice"
 	s.Labels = map[string]string{ProjectLabel: idstest.N(1).String(), OpenerLabel: alice.Principal.String()}
-	HarvestUsage(ctx, usage.New(db), s)
+	if err := HarvestUsage(ctx, usage.New(db), s); err != nil {
+		t.Fatal(err)
+	}
 	// sql-guarantee: the stored spend line's actor is the guarantee; the usage rollups do not return who spent.
 	rows, err := db.Query(`SELECT DISTINCT actor_principal::text, actor_via FROM token_usage WHERE session_id='t'`)
 	if err != nil {
@@ -177,5 +185,40 @@ func TestHarvestedChatSpendIsTheOpeners(t *testing.T) {
 	}
 	if n != 1 {
 		t.Fatalf("spend lines by %d actors", n)
+	}
+}
+
+// Spend is never skipped: a harvest whose write fails returns the failure and
+// leaves its cursor, so the next harvest records that spend once; a record
+// folder that cannot be read is a failure, never an empty harvest.
+//
+// Kills: logging the failed write and advancing the cursor past it; reading
+// an unreadable folder as no records.
+func TestAFailedHarvestKeepsItsSpendForTheNext(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	ledger := usage.New(db)
+	s, path := recordSession(t, fixtureLines(t))
+	s.Labels = map[string]string{ProjectLabel: idstest.N(1).String()}
+	restore := db.FailNextStatement("INSERT INTO token_usage")
+	if err := HarvestUsage(t.Context(), ledger, s); err == nil {
+		t.Fatal("a failed spend write harvested")
+	}
+	restore()
+	if off, err := ledger.Cursor(t.Context(), path); err != nil || off != 0 {
+		t.Fatalf("the cursor passed unrecorded spend: %d %v", off, err)
+	}
+	if err := HarvestUsage(t.Context(), ledger, s); err != nil {
+		t.Fatal(err)
+	}
+	if total, err := ledger.ProjectsTotal(t.Context(), db, idstest.N(1)); err != nil || total.Total != 1833+1912+2660 {
+		t.Fatalf("spend after the retry: %+v %v", total, err)
+	}
+	unreadable := &console.Session{Meta: console.Meta{ID: "u", AgentSession: console.AgentSession}, Dir: t.TempDir()}
+	if err := os.WriteFile(filepath.Join(unreadable.Dir, "sessions"), []byte("not a folder"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := HarvestUsage(t.Context(), ledger, unreadable); err == nil {
+		t.Fatal("an unreadable record folder harvested nothing, as if it held no records")
 	}
 }

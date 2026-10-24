@@ -2,7 +2,6 @@ package workflowexec
 
 import (
 	"testing"
-	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/model"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -27,7 +26,7 @@ func TestOnlyAModelStepWithNoModelIsRefused(t *testing.T) {
 	agent := schema.Step{Name: "apply-change", Uses: AgentKind}
 	review := schema.Step{Name: "review", Uses: ReviewKind}
 	named := func(s schema.Step, m string) schema.Step { s.With = map[string]any{"model": m}; return s }
-	project := ids.New(time.Now()) // no such project: the standard profile, as for any project with no slots of its own
+	project := ids.Nil // no project of its own: the standard profile, as for any project with no slots of its own
 	for _, c := range []struct {
 		name    string
 		spec    *schema.Spec
@@ -41,11 +40,25 @@ func TestOnlyAModelStepWithNoModelIsRefused(t *testing.T) {
 		{"the workflow's default", spec("openrouter/x", agent), "{}", false},
 		{"a catalog pin", spec("", agent), `{"catalog":{"model":"openrouter/x"}}`, false},
 	} {
-		if got := none(t.Context(), project, c.spec, c.inputs); (got != "") != c.refused {
-			t.Errorf("%s, no instance default: refusal %q", c.name, got)
+		if got, err := none(t.Context(), project, c.spec, c.inputs); err != nil || (got != "") != c.refused {
+			t.Errorf("%s, no instance default: refusal %q (%v)", c.name, got, err)
 		}
-		if got := withDefault(t.Context(), project, c.spec, c.inputs); got != "" {
-			t.Errorf("%s, with an instance default: refused %q", c.name, got)
+		if got, err := withDefault(t.Context(), project, c.spec, c.inputs); err != nil || got != "" {
+			t.Errorf("%s, with an instance default: refused %q (%v)", c.name, got, err)
 		}
+	}
+}
+
+// A model selection that cannot be read is an admission error, never
+// "no AI model is set up": the person is not told to add a key on a
+// database fault.
+func TestAnUnreadModelSelectionIsNotNoModel(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	refusal := ModelRefusal(selectionWithDefault(t, db, "anthropic/claude-sonnet"))
+	spec := &schema.Spec{Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "apply-change", Uses: AgentKind}}}}}
+	defer db.FailNextStatement("FROM model_slots")()
+	if got, err := refusal(t.Context(), ids.Nil, spec, "{}"); err == nil {
+		t.Fatalf("an unread selection answered %q", got)
 	}
 }

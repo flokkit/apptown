@@ -104,7 +104,7 @@ type Dependencies struct {
 	// ModelRefusal says why a run's definition cannot be admitted for want
 	// of a model ("" when it can: no model step, or every one has a model),
 	// asked before anything is written. nil admits every definition.
-	ModelRefusal func(ctx context.Context, projectID ids.ID, spec *schema.Spec, inputsJSON string) string
+	ModelRefusal func(ctx context.Context, projectID ids.ID, spec *schema.Spec, inputsJSON string) (string, error)
 
 	// EvalGate is an eval's "may this proceed?" for its copies, asked as
 	// each step is claimed (eval_authority.go); nil admits every step.

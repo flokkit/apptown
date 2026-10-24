@@ -238,3 +238,40 @@ describe('the new project summary', () => {
     errors.mockRestore()
   })
 })
+
+// An interview that cannot decide decides nothing: its reason is shown and
+// the person is given the ways of working to choose from, with none chosen.
+describe('an interview that cannot decide', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it('shows why and opens the chooser', async () => {
+    const pack = { name: 'go-small', description: 'a small Go app', guidance: [], workflows: [], policies: [], services: [], origin: 'stock', enabled: true, requires: [], guidanceBytes: 0, generatedBytes: 0, declaration: {} }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const path = url.replace(/^\/api\/v1/, '')
+      const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status })
+      if (path === '/authz/me') return json({ user: 'u', instance: {} })
+      if (path === '/packs') return json([pack])
+      if (path === '/dependencies') return json({ dependencies: [] })
+      if (path === '/scm/namespaces') return json({ configured: false, namespaces: [] })
+      if (path === '/packs/interview') return json({ error: 'no model is set up to suggest a way of working; choose one yourself' }, 422)
+      return json({ error: 'no route ' + path }, 404)
+    }))
+    const { el, root } = await mount()
+    try {
+      await type(el.querySelector('input') as HTMLInputElement, 'shop')
+      await act(async () => { button(el, 'Next →')!.click() })
+      await act(async () => {
+        const area = el.querySelector('textarea') as HTMLTextAreaElement
+        Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(area, 'a shop')
+        area.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      await act(async () => { button(el, 'Next →')!.click() })
+      await settle()
+      expect(el.textContent).toContain('no model is set up to suggest a way of working')
+      expect(el.querySelector('.pack-grid')).not.toBeNull()
+      expect(el.querySelector('.pack-card.on')).toBeNull()
+      expect(button(el, 'Next →')).toBeUndefined()
+    } finally {
+      act(() => root.unmount())
+    }
+  })
+})

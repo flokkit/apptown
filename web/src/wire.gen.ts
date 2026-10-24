@@ -768,6 +768,7 @@ export type LibraryWorkflow = {
 
 export type ModelCatalogList = {
   models: ModelEntry[]
+  unlisted: UnlistedBinding[]
 }
 
 export type ModelConfigured = {
@@ -2736,6 +2737,11 @@ export type ModelEntry = {
   pattern: string
   binding: string
   source: string
+}
+
+export type UnlistedBinding = {
+  binding: string
+  error: string
 }
 
 export type ModelSlotView = {

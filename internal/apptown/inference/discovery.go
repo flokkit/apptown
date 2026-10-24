@@ -33,12 +33,15 @@ type inferenceDiscoveryEntry struct {
 	key [32]byte
 	at  time.Time
 	ids []string
+	err error // the provider's answer could not be had; ids is then empty
 }
 
 // Cache only public model IDs, indexed by binding. Credentials never become
 // runtime metadata; the digest only invalidates discovery after key rotation.
-// The provider is asked under its binding's own lock only.
-func (d *inferenceDiscovery) models(p *inferenceProvider, now time.Time) []string {
+// The provider is asked under its binding's own lock only. A failed request
+// is cached as a failure for the same minute: its ids are never the list an
+// earlier request saw, so an unknown list is never shown as current.
+func (d *inferenceDiscovery) models(p *inferenceProvider, now time.Time) ([]string, error) {
 	key := discoveryKey(p)
 	d.mu.Lock()
 	if d.entries == nil {
@@ -54,17 +57,15 @@ func (d *inferenceDiscovery) models(p *inferenceProvider, now time.Time) []strin
 	defer slot.mu.Unlock()
 	old := slot.entry
 	if old.key == key && now.Sub(old.at) < time.Minute {
-		return old.ids
+		return old.ids, old.err
 	}
 	entry := inferenceDiscoveryEntry{key: key, at: now}
-	entry.ids, _ = fetchModels(p)
-	// Endpoint temporarily unavailable: declared models still work. Do not
-	// carry catalog authority over a changed endpoint or credential.
-	if entry.ids == nil && old.key == key {
-		entry.ids = old.ids
+	entry.ids, entry.err = fetchModels(p)
+	if entry.err != nil {
+		entry.ids = nil
 	}
 	slot.entry = entry
-	return entry.ids
+	return entry.ids, entry.err
 }
 
 // fetchModels lists the model IDs an OpenAI-style provider offers at
@@ -112,11 +113,16 @@ func discoverable(p *inferenceProvider, cfg integration.ModelConfig) bool {
 	return (cfg.BaseURL != "" || cfg.ProviderDef["baseUrl"] != nil) && strings.HasPrefix(p.api, "openai-")
 }
 
+// discoverModels adds what the provider lists live to what the binding
+// declares. A list that cannot be read adds nothing and is kept on the
+// provider (discoveryErr), so a refusal of an undeclared model says why.
 func (catalog Catalog) discoverModels(p *inferenceProvider, cfg integration.ModelConfig) {
 	if !discoverable(p, cfg) {
 		return
 	}
-	for _, id := range catalog.discovery.models(p, clock.Or(catalog.Now)()) {
+	ids, err := catalog.discovery.models(p, clock.Or(catalog.Now)())
+	p.discoveryErr = err
+	for _, id := range ids {
 		if len(cfg.Models) == 0 {
 			p.patterns = append(p.patterns, id)
 		}

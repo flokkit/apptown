@@ -17,10 +17,18 @@ func (c publicConfig) ModelsJSON(context.Context) ([]byte, error) {
 	return []byte(`{"providers":{}}`), c.err
 }
 
-type selectedSlots struct{}
+// selectedSlots resolves every slot, except that failing (when set) fails
+// with err.
+type selectedSlots struct {
+	failing string
+	err     error
+}
 
-func (selectedSlots) Resolve(ctx context.Context, _ ids.ID, slot string) (string, string, string) {
-	return "test/" + slot, slot, "standard"
+func (s selectedSlots) Resolve(ctx context.Context, _ ids.ID, slot string) (string, string, string, error) {
+	if slot == s.failing {
+		return "", "", "", s.err
+	}
+	return "test/" + slot, slot, "standard", nil
 }
 
 type selectedExtensions struct{}
@@ -70,5 +78,26 @@ func TestConsoleFilesPreservePrivateModesAndBakedLinks(t *testing.T) {
 	home.models = publicConfig{err: refusal}
 	if files, err := home.ConsoleFiles(t.Context(), t.TempDir(), idstest.N(7)); !errors.Is(err, refusal) || files != nil {
 		t.Fatalf("configuration refusal: %v %v", files, err)
+	}
+}
+
+// A delegate's model that cannot be resolved stages no home: neither a
+// console's files, a workspace's pi home nor a worker's sent home is written
+// with the delegate on no model or another one.
+func TestAnUnresolvedDelegateModelStagesNoHome(t *testing.T) {
+	t.Parallel()
+	scope := docker.Scope{Client: bakedLabels{}}
+	unread := errors.New("model slots unreadable")
+	for _, delegate := range []string{"worker", "scout"} {
+		home := NewPreparer(publicConfig{}, selectedSlots{failing: delegate, err: unread}, selectedExtensions{}, &scope, "test-agent")
+		if files, err := home.ConsoleFiles(t.Context(), t.TempDir(), idstest.N(7)); !errors.Is(err, unread) || files != nil {
+			t.Fatalf("%s: console files: %v %v", delegate, files, err)
+		}
+		if _, err := home.Stage(t.Context(), t.TempDir(), idstest.N(7)); !errors.Is(err, unread) {
+			t.Fatalf("%s: workspace home: %v", delegate, err)
+		}
+		if _, err := home.SentHome(t.Context(), idstest.N(7), home.Labels(t.Context())); !errors.Is(err, unread) {
+			t.Fatalf("%s: sent home: %v", delegate, err)
+		}
 	}
 }

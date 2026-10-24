@@ -90,9 +90,10 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 	if chosen == "" {
 		// Chat gets its own slot: quality-per-word matters most here, while
 		// mechanical lanes stay on the cheap slot.
-		chosen, _, _ = c.models.Resolve(ctx, p.ID, "chat")
-		if chosen == "" {
-			chosen, _, _ = c.models.Resolve(ctx, ids.Nil, "")
+		// The chat slot's chain ends at the default slot: nothing more to ask.
+		var err error
+		if chosen, _, _, err = c.models.Resolve(ctx, p.ID, "chat"); err != nil {
+			return nil, err
 		}
 		// No model at all: the chat's agent would start and fail every
 		// message. Refused before anything is reserved or started, with

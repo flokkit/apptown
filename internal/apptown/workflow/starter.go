@@ -31,7 +31,7 @@ type startRuntime struct {
 	Missing   func(context.Context, ids.ID, *schema.Spec) (string, error) // an artifact the workflow needs and the project lacks
 	// NoModel says why a model step of the workflow would have no model
 	// (Dependencies.ModelRefusal); nil admits every definition.
-	NoModel   func(ctx context.Context, projectID ids.ID, spec *schema.Spec, inputsJSON string) string
+	NoModel   func(ctx context.Context, projectID ids.ID, spec *schema.Spec, inputsJSON string) (string, error)
 	Resolve   func(context.Context, StartRequest, StartSource) (PreparedRun, error)
 	Assent    func(context.Context, StartRequest, string) error // landing authority for an effect no approval precedes (assent.go)
 	LandingBy func(context.Context, StartRequest) string        // who admits the run holding change:land, "" when nobody
@@ -144,7 +144,11 @@ func (s *starter) definition(ctx context.Context, req StartRequest, source Start
 	// A called workflow is asked too: its model steps need a model as much
 	// as its caller's do.
 	if s.runtime.NoModel != nil {
-		if why := s.runtime.NoModel(ctx, req.ProjectID, &def.Spec, req.InputsJSON); why != "" {
+		why, err := s.runtime.NoModel(ctx, req.ProjectID, &def.Spec, req.InputsJSON)
+		if err != nil {
+			return PreparedRun{}, err
+		}
+		if why != "" {
 			return PreparedRun{}, fault.Wrap(fault.Unprocessable, errors.New(why))
 		}
 	}
