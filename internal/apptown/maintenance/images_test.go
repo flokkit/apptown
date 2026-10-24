@@ -199,3 +199,33 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 		t.Fatalf("swept %v", listed)
 	}
 }
+
+// A cache sweep the daemon's shutdown stops mid-volume removes the
+// container it made for that volume and asks Docker nothing about the
+// volumes after it: the shutdown waits on this sweep, and a removal that
+// outlives the stop, spent once per remaining volume, held it past its
+// limit on a machine with hundreds of cache volumes.
+//
+// Kills: a read that registers its removal before checking for the stop.
+func TestACacheSweepStoppedMidwayAsksDockerNothingMore(t *testing.T) {
+	t.Parallel()
+	daemon := dockerfake.New()
+	ctx, stop := context.WithCancel(t.Context())
+	defer stop()
+	daemon.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		stop() // the shutdown arrives while the first volume is read
+		return containerresulttest.Answer{Answer: []byte{}}, true
+	})
+	daemon.SetReply(func(args []string) ([]byte, error, bool) {
+		if strings.HasPrefix(strings.Join(args, " "), "volume ls") {
+			return []byte("apptown-cache-game\napptown-cache-shop\napptown-cache-blog\n"), nil, true
+		}
+		return nil, nil, true
+	})
+	r := &Reaper{docker: docker.Scope{Client: daemon}, tools: stock.Versions()}
+	r.Cache(ctx, false)
+	made, removed := daemon.Matching("create "), daemon.Matching("rm ")
+	if len(made) != 1 || len(removed) != 1 || removed[0][len(removed[0])-1] != made[0][slices.Index(made[0], "--name")+1] {
+		t.Fatalf("made %v, removed %v; want the one read in flight removed and nothing else asked", made, removed)
+	}
+}

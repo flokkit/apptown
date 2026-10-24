@@ -130,11 +130,19 @@ func envFlags(env []string) []string {
 // that fails, or a container whose creation was never answered, is left
 // to a later read: each read first removes result containers past their
 // deadline label, and nothing else.
+//
+// A caller that has stopped before the container is made is answered with
+// its stop and no removal: the removal outlives the stop, so a read begun
+// after it would otherwise spend one on a container never made (a cache
+// sweep of hundreds of volumes held the daemon's shutdown that way).
 func Run(ctx context.Context, dk Docker, s Spec) ([]byte, error) {
 	now := clock.Or(s.Now)
 	sweep(ctx, dk, now())
 	name, err := randomName(Prefix)
 	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	defer remove(ctx, dk, "rm", "-f", "-v", name)

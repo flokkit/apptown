@@ -175,3 +175,26 @@ func TestRunInReportsANonZeroExit(t *testing.T) {
 		t.Fatalf("got %v; want exit status 2", err)
 	}
 }
+
+// A read whose caller has stopped before its container is made asks Docker
+// to remove nothing: the removal outlives the stop, and a container never
+// made needs none.
+func TestRunOfAStoppedCallerRemovesNothing(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var reached []string
+	dk := func(c context.Context, _ []string, args ...string) ([]byte, error) {
+		if c.Err() != nil {
+			return nil, c.Err() // refused before it starts, as the CLI is
+		}
+		reached = append(reached, strings.Join(args, " "))
+		return nil, nil
+	}
+	if _, err := containerresult.Run(ctx, dk, containerresult.Spec{Image: "busybox", Script: "ls"}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("got %v; want the stop", err)
+	}
+	if len(reached) != 0 {
+		t.Fatalf("asked Docker %q after the stop", reached)
+	}
+}
