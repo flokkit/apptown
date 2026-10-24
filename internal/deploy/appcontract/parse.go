@@ -118,7 +118,7 @@ type appYamlInit struct {
 
 type appYamlDoc struct {
 	// Version is the contract's shape version. Absent means 1 (files that
-	// predate versioning); an explicit 0 is invalid; a version this binary
+	// predate versioning); a nonpositive value is invalid; a version this binary
 	// does not know is a clear error, never a silent partial decode.
 	Version *int                      `yaml:"version"`
 	App     map[string]appYamlPart    `yaml:"app"`
@@ -203,13 +203,13 @@ func Parse(raw []byte) (*Contract, error) {
 	if err := dec.Decode(&doc); err != nil {
 		return nil, fmt.Errorf(".apptown/app.yaml: %w", err)
 	}
-	// Version rules: absent == 1 (pre-version files); explicit 0 is invalid;
+	// Version rules: absent == 1 (pre-version files); explicit nonpositive values are invalid;
 	// anything past what we know needs a newer AppTown.
 	switch {
 	case doc.Version == nil:
 		// pre-version file — treat as v1
-	case *doc.Version == 0:
-		return nil, fmt.Errorf(".apptown/app.yaml: version: 0 is invalid — omit version (means 1) or set the version your contract is written for")
+	case *doc.Version <= 0:
+		return nil, fmt.Errorf(".apptown/app.yaml: version: %d is invalid — omit version (means 1) or set 1 or 2 for the contract you intend", *doc.Version)
 	case *doc.Version > currentContractVersion:
 		return nil, fmt.Errorf(".apptown/app.yaml: contract version %d requires a newer AppTown (this build understands up to %d)", *doc.Version, currentContractVersion)
 	}

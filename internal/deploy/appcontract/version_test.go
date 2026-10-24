@@ -1,6 +1,7 @@
 package appcontract_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -9,17 +10,32 @@ import (
 
 func TestContractVersionAndStrictDecode(t *testing.T) {
 	base := "app:\n  web:\n    static: .\n    public: true\n"
-	// Absent version → v1, valid.
-	if _, err := appcontract.Parse([]byte(base)); err != nil {
-		t.Fatalf("no version must parse as v1: %v", err)
+	for _, tc := range []struct {
+		name   string
+		prefix string
+		want   int
+	}{
+		{"absent", "", 1},
+		{"v1", "version: 1\n", 1},
+		{"v2", "version: 2\n", 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c, err := appcontract.Parse([]byte(tc.prefix + base))
+			if err != nil {
+				t.Fatalf("supported version: %v", err)
+			}
+			if c.Version != tc.want {
+				t.Fatalf("version = %d, want %d", c.Version, tc.want)
+			}
+		})
 	}
-	// Explicit version: 1 valid.
-	if _, err := appcontract.Parse([]byte("version: 1\n" + base)); err != nil {
-		t.Fatalf("version 1: %v", err)
-	}
-	// version: 0 is invalid.
-	if _, err := appcontract.Parse([]byte("version: 0\n" + base)); err == nil {
-		t.Fatal("version 0 must be rejected")
+	for _, version := range []int{0, -1, -42} {
+		t.Run(fmt.Sprintf("invalid-%d", version), func(t *testing.T) {
+			_, err := appcontract.Parse([]byte(fmt.Sprintf("version: %d\n", version) + base))
+			if err == nil || !strings.Contains(err.Error(), fmt.Sprintf("version: %d is invalid", version)) {
+				t.Fatalf("nonpositive version must be rejected by value: %v", err)
+			}
+		})
 	}
 	// A future version fails with a clear message.
 	_, err := appcontract.Parse([]byte("version: 99\n" + base))
