@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -574,7 +575,7 @@ func TestARestoreUnderWayHoldsADeletionsTakeDown(t *testing.T) {
 			return nil, err
 		}
 		if req.Stdout != nil {
-			_, err := io.WriteString(req.Stdout, "copy")
+			_, err := containerresulttest.WriteString(req.Stdout, "copy")
 			return nil, err
 		}
 		return nil, nil

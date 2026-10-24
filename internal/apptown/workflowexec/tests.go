@@ -18,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
@@ -231,6 +232,9 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 	}
 	if len(log) > 4000 {
 		log = log[len(log)-4000:]
+	}
+	if strings.TrimSpace(log) == "" && outcome.Answered() && outcome.ExitCode != 0 {
+		log = check.ReportLost("the tests")
 	}
 	evidence["logTail"] = log
 	if len(services) > 0 {

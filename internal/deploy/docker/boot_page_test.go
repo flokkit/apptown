@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
 
@@ -262,23 +263,29 @@ func TestASealedStaticBootNeedsAppTownsFileServer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var paths []string
+			// The probe answers through its file, its stdout lost.
+			results := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+				for _, e := range c.Env {
+					if path, ok := strings.CutPrefix(e, "PROBE_PATH="); ok {
+						paths = append(paths, path)
+						if path == "/_apptown/env.js" {
+							return containerresulttest.Answer{Answer: []byte(tc.envJS + "\n")}, true
+						}
+						return containerresulttest.Answer{Answer: []byte("200\n")}, true
+					}
+				}
+				return containerresulttest.Answer{}, false
+			}}
 			client := &fakeClient{reply: func(req Command) ([]byte, error) {
+				if out, err, ok := results.RunEnv(req.Args, req.Env); ok {
+					return out, err
+				}
 				switch req.Args[0] {
 				case "image":
 					return []byte(req.Args[len(req.Args)-1] + "\n"), nil
 				case "inspect":
 					if slices.Contains(req.Args, "{{.State.Running}}") {
 						return []byte("true\n"), nil
-					}
-				case "run":
-					for _, e := range req.Env {
-						if path, ok := strings.CutPrefix(e, "PROBE_PATH="); ok {
-							paths = append(paths, path)
-							if path == "/_apptown/env.js" {
-								return []byte(tc.envJS + "\n"), nil
-							}
-							return []byte("200\n"), nil
-						}
 					}
 				}
 				return nil, nil

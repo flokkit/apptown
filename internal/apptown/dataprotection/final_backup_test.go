@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -19,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
@@ -111,7 +111,7 @@ func TestTakeDownBacksUpWhatTheDeploymentHoldsThenDeletesIt(t *testing.T) {
 	t.Parallel()
 	s, client, dep := takeDownWorld(t, "fbk")
 	setCopies(client, func(req docker.Command) ([]byte, error) {
-		_, err := io.WriteString(req.Stdout, "copy")
+		_, err := containerresulttest.WriteString(req.Stdout, "copy")
 		return nil, err
 	})
 	result, err := s.Remove(context.Background(), removeSelection(dep))
@@ -168,7 +168,7 @@ func TestATakeDownWhoseFinalBackupFallsShortRemovesNothing(t *testing.T) {
 				if scenario == "failed" || (scenario == "partial" && strings.Contains(all, "pg_dump")) {
 					return nil, errors.New("copy failed")
 				}
-				_, err := io.WriteString(req.Stdout, "copy")
+				_, err := containerresulttest.WriteString(req.Stdout, "copy")
 				return nil, err
 			})
 			switch scenario {
@@ -252,7 +252,7 @@ func TestFinalBackupsAreKeptUntilTheProjectIsPurged(t *testing.T) {
 	t.Parallel()
 	s, client, dep := takeDownWorld(t, "fbe")
 	setCopies(client, func(req docker.Command) ([]byte, error) {
-		_, err := io.WriteString(req.Stdout, "copy")
+		_, err := containerresulttest.WriteString(req.Stdout, "copy")
 		return nil, err
 	})
 	result, err := s.Remove(context.Background(), removeSelection(dep))
@@ -360,7 +360,7 @@ func TestAFinalSetRestoresIntoAnotherDeploymentByRole(t *testing.T) {
 			s, client, dep := takeDownWorld(t, "frs")
 			var restores []string
 			setCopies(client, func(req docker.Command) ([]byte, error) {
-				_, err := io.WriteString(req.Stdout, "copy")
+				_, err := containerresulttest.WriteString(req.Stdout, "copy")
 				return nil, err
 			})
 			result, err := s.Remove(context.Background(), removeSelection(dep))
@@ -383,7 +383,7 @@ func TestAFinalSetRestoresIntoAnotherDeploymentByRole(t *testing.T) {
 					if (scenario == "destination volume copy fails" && strings.Contains(line, ":/src:ro")) || (scenario == "destination database copy fails" && strings.Contains(line, "pg_dump")) {
 						return nil, errors.New("no space left on device"), true
 					}
-					_, err := io.WriteString(req.Stdout, "safety copy")
+					_, err := containerresulttest.WriteString(req.Stdout, "safety copy")
 					return nil, err, true
 				case req.Stdin != nil:
 					restores = append(restores, strings.Join(req.Args, " "))
@@ -458,7 +458,7 @@ func TestARemovalAsksAgainBeforeEachEffect(t *testing.T) {
 				if during == "final backup" {
 					withdrawn.Store(true)
 				}
-				_, err := io.WriteString(req.Stdout, "copy")
+				_, err := containerresulttest.WriteString(req.Stdout, "copy")
 				return nil, err
 			})
 			if during == "teardown" {
@@ -549,7 +549,7 @@ func TestARemovalOperationStopsAsAskedBeforeItsTeardown(t *testing.T) {
 						t.Errorf("cancel: %v", err)
 					}
 				}
-				_, err := io.WriteString(req.Stdout, "copy")
+				_, err := containerresulttest.WriteString(req.Stdout, "copy")
 				return nil, err
 			})
 			if start == "refused" {
@@ -610,7 +610,7 @@ func TestARestoreAndATakeDownOfOneDeploymentExcludeEachOther(t *testing.T) {
 	}
 	release()
 	setCopies(client, func(req docker.Command) ([]byte, error) {
-		_, err := io.WriteString(req.Stdout, "copy")
+		_, err := containerresulttest.WriteString(req.Stdout, "copy")
 		return nil, err
 	})
 	if _, err := s.remove(context.Background(), removeSelection(dep), access.Principal{Kind: "user", Name: "alice", Credential: "token:alice"}, nil, nil); err != nil {
@@ -649,7 +649,7 @@ func TestAVolumeOffTheListIsCopiedKeptAndRetained(t *testing.T) {
 				if !copies && strings.Contains(strings.Join(req.Args, " "), "redis") {
 					return nil, errors.New("copy failed")
 				}
-				_, err := io.WriteString(req.Stdout, "copy")
+				_, err := containerresulttest.WriteString(req.Stdout, "copy")
 				return nil, err
 			})
 			result, err := s.Remove(context.Background(), removeSelection(dep))
@@ -777,7 +777,7 @@ func TestOffListDataIsRetainedAsWhatTheHostHolds(t *testing.T) {
 			return nil, nil, false
 		})
 		setCopies(client, func(req docker.Command) ([]byte, error) {
-			_, err := io.WriteString(req.Stdout, "copy")
+			_, err := containerresulttest.WriteString(req.Stdout, "copy")
 			return nil, err
 		})
 		if _, err := s.Remove(context.Background(), removeSelection(dep)); err != nil {
@@ -802,7 +802,7 @@ func TestOffListDataIsRetainedAsWhatTheHostHolds(t *testing.T) {
 				return nil, nil, false
 			})
 			setCopies(client, func(req docker.Command) ([]byte, error) {
-				_, err := io.WriteString(req.Stdout, "copy")
+				_, err := containerresulttest.WriteString(req.Stdout, "copy")
 				return nil, err
 			})
 			if _, err := s.Remove(context.Background(), removeSelection(dep)); err != nil {

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -73,11 +74,34 @@ func (s Step) argv() []string {
 // started, waited for, its exit status read, its output copied out, and
 // removed whatever happened. The output is what the error carries: stderr
 // for a streamed step, the job's log for a job.
+//
+// A step's output is a copy of data, which the container's stdout can
+// lose at its end and still exit 0. So its command is framed
+// (containerresult.Framed): it ends with a trailer, its byte count and
+// sha256, which the step's output is held to before RunStep returns. A
+// copy without its trailer, or whose trailer does not match, is the step's
+// error (containerresult.ErrCutShort), in both forms.
 func (dk Scope) RunStep(ctx context.Context, s Step) ([]byte, error) {
-	if !dk.NoStreams {
-		return dk.Command(ctx, Command{Args: s.argv(), Stdin: s.Stdin, Stdout: s.Stdout, Env: s.Env})
+	var copied *containerresult.Receiver
+	if s.Stdout != nil {
+		if s.Argv != nil {
+			s.Command, s.Argv = shellJoin(s.Argv), nil
+		}
+		s.Command = containerresult.Framed(s.Command)
+		copied = containerresult.NewReceiver(s.Stdout)
+		s.Stdout = copied
 	}
-	return dk.runJob(ctx, s)
+	var out []byte
+	var err error
+	if !dk.NoStreams {
+		out, err = dk.Command(ctx, Command{Args: s.argv(), Stdin: s.Stdin, Stdout: s.Stdout, Env: s.Env})
+	} else {
+		out, err = dk.runJob(ctx, s)
+	}
+	if err == nil && copied != nil {
+		err = copied.Verify()
+	}
+	return out, err
 }
 
 const (

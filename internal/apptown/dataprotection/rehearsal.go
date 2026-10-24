@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -947,15 +948,22 @@ func (s *Service) stageOnHost(ctx context.Context, dk docker.Scope, read readIte
 		pw.CloseWithError(err)
 		done <- got{n, sum, err}
 	}()
-	args := []string{"run", "--rm", "-i", "--network", "none", "--entrypoint", "", "-v", volume + ":" + copyMount}
+	// The receiver holds what it wrote to the set's record (its size and
+	// digest, given by name) and exits 3 when they differ: what arrived on
+	// its stdin is never assumed whole.
+	file := copyMount + "/" + it.File
+	args := []string{"run", "--rm", "-i", "--network", "none", "--entrypoint", "", "-v", volume + ":" + copyMount, "-e", "APPTOWN_COPY_BYTES", "-e", "APPTOWN_COPY_SHA256"}
 	args = append(args, dk.Labels("step", "rehearsal-copy")...)
-	args = append(args, s.env.ChownImage(), "sh", "-c", "umask 077 && cat > "+copyMount+"/"+it.File)
-	_, werr := dk.Command(ctx, docker.Command{Args: args, Stdin: pr})
+	args = append(args, s.env.ChownImage(), "sh", "-c", "umask 077 && cat > "+file+` || exit 1
+[ "$(wc -c < `+file+` | tr -d ' ')" = "$APPTOWN_COPY_BYTES" ] && [ "$(sha256sum `+file+` | cut -d' ' -f1)" = "$APPTOWN_COPY_SHA256" ] || exit 3`)
+	_, werr := dk.Command(ctx, docker.Command{Args: args, Stdin: pr, Env: []string{"APPTOWN_COPY_BYTES=" + strconv.FormatInt(it.Bytes, 10), "APPTOWN_COPY_SHA256=" + it.SHA256}})
 	_ = pr.CloseWithError(werr)
 	r := <-done
 	switch {
 	case r.err != nil:
 		return r.err // the store's or the disk's words
+	case werr != nil && exitOf(werr) == "exit status 3":
+		return fmt.Errorf("the copy written to the host is not %d bytes with sha256 %s, as the set records", it.Bytes, shortDigest(it.SHA256))
 	case werr != nil:
 		return fmt.Errorf("the copy could not be written to the host (%s)", exitOf(werr))
 	case r.n != it.Bytes || r.sum != it.SHA256:

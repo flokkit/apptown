@@ -506,9 +506,11 @@ const maxInvocationOutput = 64 << 20
 const outputPage = 4 << 20
 
 // followOutput streams an invocation's summary lines to the step's live
-// feed while it runs, until ctx ends. It reads only whole lines and keeps
-// nothing: the output is read whole once the invocation exits. The channel
-// carries how many bytes it summarized.
+// feed while it runs, until ctx ends, from its log. It reads only whole
+// lines and keeps nothing: the result is read from the invocation's events
+// file once it exits. The channel carries how many events it summarized
+// (the log holds stderr too, which the file does not, so the catch-up
+// counts events, never bytes).
 func (a *Executor) followOutput(ctx context.Context, ref execution.TaskRef, stepID ids.ID) <-chan int64 {
 	done := make(chan int64, 1)
 	driver := a.worker.Tasks.Driver
@@ -524,7 +526,11 @@ func (a *Executor) followOutput(ctx context.Context, ref execution.TaskRef, step
 				cut := bytes.LastIndexByte(buf, '\n')
 				if cut >= 0 {
 					a.summarize(stepID, buf[:cut+1])
-					summarized += int64(cut + 1)
+					for _, line := range bytes.SplitAfter(buf[:cut+1], []byte("\n")) {
+						if piharness.IsEvent(line) {
+							summarized++
+						}
+					}
 					partial = append([]byte(nil), buf[cut+1:]...)
 				} else {
 					partial = buf
@@ -571,13 +577,13 @@ func (r invocationResult) emptyTurn() bool {
 	return r.outputErr == nil && !r.TimedOut && r.RunErr == nil && r.ProviderError == "" && strings.TrimSpace(r.Text) == ""
 }
 
-// readInvocation reads an exited invocation: its whole output, page by
-// page, its usage (recorded once, keyed by its operation, with its
-// completeness), its declared result files, and its transcript (stored and
-// recorded with the attempt, or recorded unavailable with why). Every part
-// is safe to repeat after a restart. summarized is how much of the output
-// the live feed already carries. An error says its history could not be
-// recorded either way.
+// readInvocation reads an exited invocation: its declared result files,
+// its events among them (read from that file, never its log: the log's end
+// can be lost), its usage (recorded once, keyed by its operation, with its
+// completeness), and its transcript (stored and recorded with the attempt,
+// or recorded unavailable with why). Every part is safe to repeat after a
+// restart. summarized is how many events the live feed already showed. An
+// error says its history could not be recorded either way.
 func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tasks.Attempt, ref execution.TaskRef, meta agentAdmission, code int, timedOut bool, summarized int64) (invocationResult, error) {
 	r := a.worker.Tasks
 	var res invocationResult
@@ -591,7 +597,17 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 		res.Outcome = execution.Outcome{Termination: execution.TimedOut, TimedOut: true, ExitCode: -1}
 	}
 	res.Tries = int(meta.Number)
-	out, cut, err := a.readOutput(ctx, inv.Operation, ref)
+	res.resultsErr = r.whileUnreachable(ctx, inv.Operation, func(ctx context.Context) (err error) {
+		driver, derr := a.worker.driver()
+		if derr != nil {
+			return derr
+		}
+		res.results, err = driver.Results(ctx, ref)
+		return err
+	})
+	// The log is the failure's words (its stderr tail), never the result.
+	res.Output = a.readLog(ctx, inv.Operation, ref)
+	out, err := invocationEvents(res.results, res.resultsErr)
 	if err != nil {
 		// No usage is recorded: an unread output is unknown usage, never zero.
 		// A task the worker says is gone took its output with it.
@@ -600,17 +616,12 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 		}
 		res.outputErr = err
 	} else {
-		res.Output = out
-		if summarized < int64(len(out)) {
-			a.summarize(w.step.ID, out[summarized:])
-		}
+		res.Events = out
+		a.summarize(w.step.ID, piharness.EventsAfter(out, summarized))
 		res.Text, res.Model, res.Provider, res.Usage = piharness.ParseOutput(out)
 		spent := sumPiUsage(out)
 		incomplete := spent.Incomplete
-		switch {
-		case cut != "":
-			incomplete = cut
-		case incomplete == "" && meta.Delegated:
+		if incomplete == "" && meta.Delegated {
 			// The pinned runtime's stream carries no usage for the
 			// subagents the steering promised: their calls are not in it.
 			incomplete = "delegated calls not included"
@@ -632,47 +643,52 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 			a.progress.Append(w.step.ID, "✗ the model provider refused: "+strs.Truncate(perr, 200))
 		}
 	}
-	err = r.whileUnreachable(ctx, inv.Operation, func(ctx context.Context) (err error) {
-		driver, derr := a.worker.driver()
-		if derr != nil {
-			return derr
-		}
-		res.results, err = driver.Results(ctx, ref)
-		return err
-	})
-	res.resultsErr = err
 	// The transcript is kept before anything later runs in the session.
 	return res, a.keepWorkerTranscript(ctx, w, meta, res.results, res.resultsErr)
 }
 
-// readOutput reads an invocation's whole output, page by page, joined as
-// bytes (a record split across pages is one line after joining). cut says
-// why the bytes may not be the whole output: the worker no longer held its
-// start, or it is over maxInvocationOutput.
-func (a *Executor) readOutput(ctx context.Context, operation string, ref execution.TaskRef) (out []byte, cut string, err error) {
+// readLog reads an invocation's log, page by page, as far as
+// maxInvocationOutput: what it printed on both streams, for a failure's
+// words only. A log that cannot be read is empty; nothing is decided by it.
+func (a *Executor) readLog(ctx context.Context, operation string, ref execution.TaskRef) []byte {
 	r := a.worker.Tasks
+	var out []byte
 	var cursor int64
-	for {
+	for len(out) < maxInvocationOutput {
 		var page execution.OutputPage
-		err := r.whileUnreachable(ctx, operation, func(ctx context.Context) (err error) {
+		if err := r.whileUnreachable(ctx, operation, func(ctx context.Context) (err error) {
 			page, err = r.Driver.Output(ctx, ref, execution.OutputRead{Cursor: cursor, Max: outputPage})
 			return err
-		})
-		if err != nil {
-			return nil, "", fmt.Errorf("reading the invocation's output: %w", err)
-		}
-		if page.Truncated && cut == "" {
-			cut = "the worker no longer holds the start of the output"
+		}); err != nil || len(page.Data) == 0 || page.Next <= cursor {
+			return out
 		}
 		out = append(out, page.Data...)
-		if len(out) > maxInvocationOutput {
-			return out[:maxInvocationOutput], fmt.Sprintf("the output is over %d MiB, and only that much was read", maxInvocationOutput>>20), nil
-		}
-		if len(page.Data) == 0 || page.Next <= cursor {
-			return out, cut, nil
-		}
 		cursor = page.Next
 	}
+	return out[:maxInvocationOutput]
+}
+
+// invocationEvents is an invocation's events, as the worker captured its
+// events file when it exited: an error, never an empty stream, when they
+// cannot be read.
+func invocationEvents(results map[string]execution.ResultFile, readErr error) ([]byte, error) {
+	if readErr != nil {
+		return nil, fmt.Errorf("reading the invocation's events: %w", readErr)
+	}
+	f, found := results["events"]
+	switch {
+	case !found:
+		return nil, errors.New("the worker returned no events file")
+	case f.State == execution.ResultAbsent:
+		return nil, errors.New("the invocation's events file was not there when it exited")
+	case f.State == execution.ResultRefused:
+		return nil, fmt.Errorf("the worker refused to read the invocation's events: %s", f.Reason)
+	case f.State == execution.ResultTooLarge:
+		return nil, fmt.Errorf("the invocation's events are %d bytes, over the %d MiB read", f.Size, maxEventsResult>>20)
+	case f.State != execution.ResultPresent:
+		return nil, fmt.Errorf("the invocation's events file is %s", f.State)
+	}
+	return f.Content, nil
 }
 
 // keepWorkerTranscript keeps an invocation's transcript, captured by the

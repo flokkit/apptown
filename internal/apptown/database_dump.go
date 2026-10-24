@@ -31,7 +31,9 @@ func dumpBuiltinDatabase(ctx context.Context, scope docker.Scope, db builtinDBNa
 	}
 	defer func() { _ = file.Close(); _ = os.Remove(file.Name()) }()
 	zip := gzip.NewWriter(file)
-	output, dumpErr := scope.Command(ctx, docker.Command{Args: []string{"exec", db.Container, "pg_dump", "-U", "postgres", "--no-owner", db.Database}, Stdout: zip})
+	// RunStep holds the dump to its trailer: a dump whose end did not
+	// arrive is a failed backup, not today's.
+	output, dumpErr := scope.RunStep(ctx, docker.Step{Exec: db.Container, Argv: []string{"pg_dump", "-U", "postgres", "--no-owner", db.Database}, Stdout: zip})
 	zipErr := zip.Close()
 	if dumpErr != nil {
 		return fmt.Errorf("pg_dump: %w: %s", dumpErr, strs.Truncate(string(output), 300))

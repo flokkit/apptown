@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -82,7 +83,7 @@ func newSharedRehearsalWorld(t *testing.T) *sharedRehearsalWorld {
 	}
 	w.daemon.SetCommandReply(func(req docker.Command) ([]byte, error, bool) {
 		if req.Stdout != nil {
-			_, err := req.Stdout.Write([]byte("data from the deployment"))
+			_, err := containerresulttest.WriteString(req.Stdout, "data from the deployment")
 			return nil, err, true
 		}
 		return nil, nil, false

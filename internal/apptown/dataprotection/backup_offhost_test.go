@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
@@ -82,7 +83,7 @@ func newOffhostWorld(t *testing.T, slug string, port int) *offhostWorld {
 	setBackupDockerCommand(w.client, func(req docker.Command) ([]byte, error) {
 		switch {
 		case req.Stdout != nil:
-			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 			return nil, err
 		case req.Stdin != nil:
 			raw, err := io.ReadAll(req.Stdin)

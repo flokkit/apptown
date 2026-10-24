@@ -1,4 +1,4 @@
-.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-npm-scripts check-build-artifacts check-npm-audit check-docs check-public check-ci-heavy tour
+.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-container-output check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-npm-scripts check-build-artifacts check-npm-audit check-docs check-public check-ci-heavy tour
 
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
@@ -45,7 +45,7 @@ build: web go            ## build frontend then the single apptownd binary
 # as long as go test, not the sum of the stages. Nothing is skipped; the gate
 # fails if any stage fails, and prints that stage's log.
 GATE_GO_STAGES = check-test check-test-root-a check-test-root-b check-go-source check-vet check-staticcheck \
-	check-shape check-exec check-sqlnow check-lint-test check-lint \
+	check-shape check-exec check-container-output check-sqlnow check-lint-test check-lint \
 	check-reachability check-pins check-npm-scripts check-build-artifacts check-docs check-public check-ci-heavy
 GATE_WEB_STAGES = check-web-tsc check-web-lint check-web-test
 # Stages that run on a developer's machine and not in CI: landing, where the
@@ -69,7 +69,7 @@ check:                   ## run the fast CI gates locally
 # failed gate cycle; the gate's full run stays the witness. BASE is what the
 # branch will merge onto.
 BASE ?= origin/main
-PRECHECK_STAGES = check-pins check-npm-scripts check-build-artifacts check-docs check-public check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-reachability check-migrations check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
+PRECHECK_STAGES = check-pins check-npm-scripts check-build-artifacts check-docs check-public check-go-source check-vet check-staticcheck check-lint check-shape check-sqlnow check-exec check-container-output check-reachability check-migrations check-web-tsc check-web-lint check-web-test check-test-affected check-journeys check-sql
 precheck:               ## the fast gates and the tests of affected packages, before the gate
 	@MAKE='$(MAKE)' python3 scripts/gate.py $(PRECHECK_STAGES)
 
@@ -165,6 +165,10 @@ check-reachability:     ## what apptownd's main can never reach, against scripts
 check-exec:             ## process starts outside their owners, against scripts/exec-baseline.json
 	python3 scripts/exec-check_test.py
 	go run scripts/exec-check.go
+
+check-container-output: ## reading what a container printed as a result, outside internal/containerresult
+	python3 scripts/container-output-check_test.py
+	go run scripts/container-output-check.go
 
 check-sqlnow:           ## SQL reading the database's clock fails (frozen migrations aside; scripts/sqlnow-baseline.json records them)
 	python3 scripts/sqlnow-check_test.py

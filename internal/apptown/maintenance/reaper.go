@@ -11,12 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/strs"
 )
-
-func shortOutput(s string) string {
-	return strs.Truncate(s, 120)
-}
 
 type ConsoleRuntime interface {
 	Status(context.Context, string) (console.Status, error)

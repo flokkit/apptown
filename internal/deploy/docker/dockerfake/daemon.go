@@ -16,6 +16,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 )
@@ -35,6 +37,7 @@ type Daemon struct {
 	disk         string                 // what df says of the data folder's filesystem
 	port         int
 	reply        func([]string) ([]byte, error, bool)
+	results      *containerresulttest.Daemon
 	commandReply func(docker.Command) ([]byte, error, bool)
 	configs      []string              // each command's --config, "" for the ambient one
 	published    map[string]*published // nil: every container answers at port (PublishPorts)
@@ -157,6 +160,16 @@ func publishedPort(args []string) (fixed int, ok bool) {
 
 // SetReply scripts a daemon response after recording the command. Returning
 // false lets the daemon answer from its ordinary container state.
+// SetResults answers result reads (containerresult.Run and Exec) as
+// answers says, before anything else this daemon does; ok false leaves a
+// call to the rest. The containers keep their stdout to themselves, as a
+// daemon that lost it would.
+func (d *Daemon) SetResults(answers func(containerresulttest.Command) (containerresulttest.Answer, bool)) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.results = &containerresulttest.Daemon{Answers: answers}
+}
+
 func (d *Daemon) SetReply(reply func([]string) ([]byte, error, bool)) {
 	d.mu.Lock()
 	d.reply = reply
@@ -210,6 +223,11 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		config, req.Args = req.Args[1], req.Args[2:]
 	}
 	d.configs = append(d.configs, config)
+	// A copy's command runs inside its frame (docker.Scope.RunStep): this
+	// daemon's containers run the frame, so what it records and answers is
+	// the command inside, and a copy it writes is framed
+	// (containerresulttest.WriteString).
+	req.Args = containerresulttest.UnframeArgs(req.Args)
 	// A container is named by its ID as by its name, as Docker names it:
 	// the fake keeps state by name, so an ID it printed is read as that name.
 	args := append([]string(nil), req.Args...)
@@ -221,6 +239,11 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	d.commands = append(d.commands, append([]string(nil), args...))
 	if len(args) == 0 {
 		return nil, nil
+	}
+	if d.results != nil {
+		if out, err, ok := d.results.RunEnv(args, req.Env); ok {
+			return out, err
+		}
 	}
 	if args[0] == "run" || args[0] == "update" {
 		name := args[len(args)-1]

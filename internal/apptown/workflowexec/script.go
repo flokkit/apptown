@@ -8,8 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -242,6 +244,11 @@ func (a *Commands) settleScript(task *workflow.Execution, step *workflow.Step, r
 	} else if outcome.ExitCode > 0 {
 		status = workflow.StatusFail
 		exitCode = outcome.ExitCode
+		if strings.TrimSpace(log) == "" {
+			// The exit code is the verdict; what the script printed did
+			// not arrive, which says nothing about why it failed.
+			log = check.ReportLost("the script")
+		}
 	} else if outcome.RunErr != nil {
 		status = workflow.StatusError
 		exitCode = -1

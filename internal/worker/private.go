@@ -96,6 +96,16 @@ func (s *Server) privateLabels(key string, p *privateSet) []string {
 func (s *Server) privateDir(key string) string { return filepath.Join(s.State, "task-docker", key) }
 
 // command runs docker for private resources; a failure carries its output.
+// scope is the worker's own Docker, for the reads that go through a
+// scope (a container's answer, containerresult).
+func (s *Server) scope() docker.Scope {
+	dk := s.Docker
+	if dk == nil {
+		dk = docker.CLI{}
+	}
+	return docker.Scope{Client: dk, Now: s.now}
+}
+
 func (s *Server) command(ctx context.Context, args ...string) ([]byte, error) {
 	dk := s.Docker
 	if dk == nil {

@@ -426,7 +426,7 @@ func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefi
 			// exit 1 without a parseable report (e.g. a format-less scanner) is
 			// still a finding by the exit-code contract.
 			res.Verdict = workflow.VerdictFail
-			res.Output = strs.FirstNonBlank(strs.Truncate(strings.TrimSpace(string(outcome.Output)), 200), sc.Name+" reported findings")
+			res.Output = strs.FirstNonBlank(strs.Truncate(strings.TrimSpace(string(outcome.Output)), 200), check.ReportLost(sc.Name))
 			findings = append(findings, conformance.Finding{Finding: check.Finding{
 				Fingerprint: "scan|" + sc.Name, Kind: "scan", Severity: "high",
 				Title: sc.Name + " reported findings", Source: sc.Name,

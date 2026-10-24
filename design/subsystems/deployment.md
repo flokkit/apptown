@@ -552,7 +552,16 @@ set is partial and says so) and its deployment is not restored, since
 other way. A restore puts each item back only as its own record says: its
 digest, restore command, mode, check and caveat. An item recorded without a
 digest, or a need without a restore command (an older set), is
-not restored, never put back by the destination kind's command of today. **Where a set is kept:** in the backup store whenever one is
+not restored, never put back by the destination kind's command of today. **A copy out of a container is held to its trailer:**
+Docker can lose the end of a container's stdout and still report exit 0,
+so every export, data-directory tar and AppTown's own database dump runs
+framed (`containerresult.Framed`, through `docker.Scope.RunStep`): after
+the command, the container prints the count and sha256 of what it sent,
+and a copy whose trailer is missing or does not match what arrived is a
+failed item, never a good copy. A kind's commands therefore run under
+`sh` with `mkfifo`, `tee`, `wc`, `sha256sum`, `tr` and `cut`, which
+busybox and coreutils both have. A copy staged on a rehearsal host is
+checked there against the set's size and digest the same way. **Where a set is kept:** in the backup store whenever one is
 attached (staged under `backups/.staging/take-*` while it uploads; each
 file is held to its size and digest there, and the manifest is written
 beside it once the set has its id); on AppTown's disk otherwise, where

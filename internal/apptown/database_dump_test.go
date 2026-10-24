@@ -17,6 +17,8 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/backuparchive"
+	"github.com/flokkit/apptown/internal/containerresult"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -24,7 +26,10 @@ import (
 
 type dumpCommand func(context.Context, string, docker.Command) ([]byte, error)
 
+// Run answers req as a daemon whose container runs the dump's frame: what
+// it sees is the command inside.
 func (f dumpCommand) Run(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+	req.Args = containerresulttest.UnframeArgs(req.Args)
 	return f(ctx, host, req)
 }
 
@@ -38,10 +43,10 @@ func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 			dir := t.TempDir()
 			name := filepath.Join(dir, "today's $HOME backup.sql.gz")
 			scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-				if !slices.Equal(req.Args, []string{"exec", "forge-db", "pg_dump", "-U", "postgres", "--no-owner", "forge"}) {
+				if !slices.Equal(req.Args, []string{"exec", "forge-db", "sh", "-c", "'pg_dump' '-U' 'postgres' '--no-owner' '" + before1.Database + "'"}) {
 					t.Fatalf("dump command: %v", req.Args)
 				}
-				_, err := io.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
+				_, err := containerresulttest.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
 				if err != nil {
 					return nil, err
 				}
@@ -82,13 +87,33 @@ func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 	}
 }
 
+// A dump whose end did not arrive (pg_dump exited 0, and the daemon lost
+// the tail of what it printed) is no backup: nothing is published.
+//
+// Kills: a dump taken without its trailer checked.
+func TestADumpWhoseEndDidNotArriveIsNoBackup(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	name := filepath.Join(dir, "apptown-today.sql.gz")
+	whole := containerresulttest.Framed([]byte("CREATE TABLE demo (id bigint);\nCOPY demo FROM stdin;\n1\n\\.\n"))
+	scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+		_, err := req.Stdout.Write(whole[:len(whole)-60])
+		return nil, err
+	})}
+	err := dumpBuiltinDatabase(t.Context(), scope, currentBuiltinDB, name)
+	files, _ := os.ReadDir(dir)
+	if !errors.Is(err, containerresult.ErrCutShort) || len(files) != 0 {
+		t.Fatalf("a dump cut short: %v, files %v; want it refused and nothing published", err, files)
+	}
+}
+
 func TestDatabaseDumpCancellationLeavesNoBackup(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	entered := make(chan struct{})
 	scope := docker.Scope{Client: dumpCommand(func(ctx context.Context, _ string, req docker.Command) ([]byte, error) {
-		if _, err := io.WriteString(req.Stdout, "partial dump"); err != nil {
+		if _, err := containerresulttest.WriteString(req.Stdout, "partial dump"); err != nil {
 			return nil, err
 		}
 		close(entered)
@@ -122,7 +147,7 @@ func TestDatabaseBackupJobFailureDoesNotClaimTodaysDump(t *testing.T) {
 	failed := errors.New("dump interrupted")
 	scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
 		calls++
-		if _, err := io.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n"); err != nil {
+		if _, err := containerresulttest.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n"); err != nil {
 			return nil, err
 		}
 		if calls == 1 {
@@ -178,10 +203,10 @@ func TestDumpRetentionKeepsTheNewestDaysUnderEitherName(t *testing.T) {
 		}
 	}
 	scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-		if req.Args[1] != currentBuiltinDB.Container || req.Args[len(req.Args)-1] != "apptown" {
+		if req.Args[1] != currentBuiltinDB.Container || !strings.HasSuffix(req.Args[len(req.Args)-1], "'apptown'") {
 			t.Errorf("dumped %v, not the container and database db.env names", req.Args)
 		}
-		_, err := io.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
+		_, err := containerresulttest.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
 		return nil, err
 	})}
 	backup := databaseBackup{db: testDB(t), docker: scope, dataDir: dir, enabled: true, now: func() time.Time { return today }}
@@ -245,11 +270,11 @@ func backupWorld(t *testing.T, during func()) *App {
 	backupDataDirFixture(t, dir)
 	f := newFakeDocker()
 	f.command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
-		if len(req.Args) > 2 && req.Args[0] == "exec" && req.Args[2] == "pg_dump" {
+		if len(req.Args) > 4 && req.Args[0] == "exec" && strings.HasPrefix(containerresulttest.UnframeLine(req.Args[4]), "'pg_dump'") {
 			if during != nil {
 				during()
 			}
-			_, err := io.WriteString(req.Stdout, "-- PostgreSQL database dump\nCOPY public.projects (id) FROM stdin;\n1\n\\.\n")
+			_, err := containerresulttest.WriteString(req.Stdout, "-- PostgreSQL database dump\nCOPY public.projects (id) FROM stdin;\n1\n\\.\n")
 			return nil, err
 		}
 		f.command = nil

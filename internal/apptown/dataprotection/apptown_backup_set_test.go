@@ -3,11 +3,11 @@ package dataprotection
 import (
 	"context"
 	"errors"
-	"io"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -23,7 +23,7 @@ func TestAnAppTownBackupSetIsTakenWithTheAppStoppedAndStartsItAgain(t *testing.T
 	t.Parallel()
 	s, client, dep := takeDownWorld(t, "abk")
 	setCopies(client, func(req docker.Command) ([]byte, error) {
-		_, err := io.WriteString(req.Stdout, "copy")
+		_, err := containerresulttest.WriteString(req.Stdout, "copy")
 		return nil, err
 	})
 	dep, err := s.Deployments.ByID(t.Context(), dep.ID) // as it runs its release

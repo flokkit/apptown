@@ -734,19 +734,22 @@ func TestIntegrationAHistoryReceiptThatCannotBeWrittenIsRecordedAfterARestart(t 
 	}
 }
 
-// An output the worker no longer holds the start of is read as far as it
-// goes: its usage is recorded, once, as incomplete, and the evidence says so.
-func TestIntegrationUsageFromATruncatedOutputIsIncomplete(t *testing.T) {
+// An invocation's answer and usage are its events file, never its log: a
+// log the worker no longer holds the start of (a stand-in for one whose
+// output was lost) leaves the step passing with its usage recorded whole.
+//
+// Kills: the result read from the task's log.
+func TestIntegrationALogCutShortLeavesTheAnswerAndUsageWhole(t *testing.T) {
 	t.Parallel()
 	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `say "done"`})
 	w.truncate.Store(true)
 	w.execute(t, w.a)
 	status, ev := stepStatus(t, w.a, w.step.ID)
-	if reason, _ := ev["usageIncomplete"].(string); status != workflow.StatusPass || !strings.Contains(reason, "no longer holds the start") {
+	if reason, _ := ev["usageIncomplete"].(string); status != workflow.StatusPass || reason != "" || ev["output"] != "done" {
 		t.Fatalf("the step is %s: %v", status, ev)
 	}
 	inv := w.invocations(t, 1)[0]
-	if spent, found, err := w.a.Usage.Ledger.Observed(context.Background(), inv.Operation); err != nil || !found || !strings.Contains(spent.Incomplete, "no longer holds the start") {
+	if spent, found, err := w.a.Usage.Ledger.Observed(context.Background(), inv.Operation); err != nil || !found || spent.Incomplete != "" {
 		t.Fatalf("the invocation's usage: %+v %v %v", spent, found, err)
 	}
 }

@@ -15,7 +15,7 @@ import (
 // winner's container instead of failing, though Docker answers "no such
 // container" for a moment after the name conflict.
 func TestEnsureRunningStartsCreatesOrLeavesAlone(t *testing.T) {
-	run := []string{"-d", "--name", "db", "postgres:16-alpine"}
+	run := []string{"--name", "db", "postgres:16-alpine"}
 	count := func(d *dockerfake.Daemon, prefix string) int { return len(d.Matching(prefix)) }
 
 	fresh := dockerfake.New()

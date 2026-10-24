@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
@@ -159,6 +160,8 @@ func TestAnImageInUseIsKeptQuietly(t *testing.T) {
 
 // The toolchain sweep visits each project's cache volume and the shared one
 // older steps wrote, never a chat's own cache (which goes with its chat).
+// Each listing is read from a file in its container; a volume whose
+// listing did not come back has nothing removed.
 //
 // Kills: a sweep of forge-cache alone, which never reaped what steps now
 // write to their project's volume.
@@ -166,23 +169,31 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 	t.Parallel()
 	daemon := dockerfake.New()
 	var listed []string
+	daemon.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		if c.Script != "ls /apptown-cache/mise/ws" {
+			return containerresulttest.Answer{}, false
+		}
+		for _, a := range c.Args {
+			if strings.HasSuffix(a, ":/apptown-cache") {
+				listed = append(listed, strings.TrimSuffix(a, ":/apptown-cache"))
+			}
+		}
+		return containerresulttest.Answer{}, true // no listing came back
+	})
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		line := strings.Join(args, " ")
 		switch {
 		case strings.HasPrefix(line, "volume ls") && strings.Contains(line, "name=apptown-cache-"):
 			return []byte("apptown-cache-game\napptown-cache-console-c1\napptown-cache-shop\n"), nil, true
-		case strings.HasSuffix(line, "ls /apptown-cache/mise/ws"):
-			for _, a := range args {
-				if strings.HasSuffix(a, ":/apptown-cache") {
-					listed = append(listed, strings.TrimSuffix(a, ":/apptown-cache"))
-				}
-			}
-			return []byte("not-a-workspace\n"), nil, true
+		case strings.Contains(line, "rm -rf"):
+			t.Errorf("removed with no listing: %s", line)
 		}
 		return nil, nil, true
 	})
 	r := &Reaper{docker: docker.Scope{Client: daemon}}
-	r.Cache(t.Context(), true)
+	if reaped := r.Cache(t.Context(), false); len(reaped) != 0 {
+		t.Fatalf("reaped %v with no listing", reaped)
+	}
 	if strings.Join(listed, ",") != "apptown-cache,apptown-cache-game,apptown-cache-shop" {
 		t.Fatalf("swept %v", listed)
 	}

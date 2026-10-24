@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
@@ -32,7 +33,7 @@ func (h *hostLog) answer(client *dockerfake.Daemon) {
 	client.SetCommandReply(func(req docker.Command) ([]byte, error, bool) {
 		switch {
 		case req.Stdout != nil:
-			_, err := io.WriteString(req.Stdout, "copy of "+filepath.Base(req.Stdout.(*os.File).Name()))
+			_, err := containerresulttest.WriteString(req.Stdout, "copy of "+filepath.Base(containerresulttest.Destination(req.Stdout).(*os.File).Name()))
 			return nil, err, true
 		case req.Stdin != nil:
 			raw, err := io.ReadAll(req.Stdin)

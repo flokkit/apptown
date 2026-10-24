@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
@@ -28,10 +29,23 @@ type profileDocker struct {
 	version, kernel, digests string
 	noDockerd                bool
 	calls                    []string
+	results                  *containerresulttest.Daemon
 }
 
 func newProfileDocker() *profileDocker {
-	return &profileDocker{version: "26.1.5", kernel: "6.8.12", digests: `["docker@sha256:aa3"]`}
+	d := &profileDocker{version: "26.1.5", kernel: "6.8.12", digests: `["docker@sha256:aa3"]`}
+	// The dind image's dockerd answers its version through its file, its
+	// stdout lost (asked under d.mu).
+	d.results = &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		if c.Script != "dockerd --version" {
+			return containerresulttest.Answer{}, false
+		}
+		if d.noDockerd {
+			return containerresulttest.Answer{Code: 127, Said: "sh: dockerd: no dockerd here\n"}, true
+		}
+		return containerresulttest.Answer{Answer: []byte("Docker version 27.5.1, build 4c9b3b0\n")}, true
+	}}
+	return d
 }
 
 func (d *profileDocker) Run(_ context.Context, _ string, c docker.Command) ([]byte, error) {
@@ -39,18 +53,14 @@ func (d *profileDocker) Run(_ context.Context, _ string, c docker.Command) ([]by
 	defer d.mu.Unlock()
 	args, line := c.Args, strings.Join(c.Args, " ")
 	d.calls = append(d.calls, line)
+	if out, err, ok := d.results.Run(args); ok {
+		return out, err
+	}
 	switch args[0] {
 	case "info":
 		return fmt.Appendf(nil, `{"OperatingSystem":"Debian GNU/Linux 13 (trixie)","OSType":"linux","Architecture":"x86_64","KernelVersion":%q,"CgroupVersion":"2","CgroupDriver":"systemd","ServerVersion":%q,"Driver":"overlay2"}`+"\n", d.kernel, d.version), nil
 	case "image":
 		return []byte("sha256:d1d|" + d.digests + "\n"), nil
-	case "run":
-		if strings.Contains(line, "--entrypoint dockerd") {
-			if d.noDockerd {
-				return []byte("no dockerd here\n"), errExit
-			}
-			return []byte("Docker version 27.5.1, build 4c9b3b0\n"), nil
-		}
 	case "network":
 		if len(args) > 1 && args[1] == "inspect" {
 			return []byte("Error: No such network: " + args[len(args)-1] + "\n"), errExit

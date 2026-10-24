@@ -2,32 +2,51 @@ package dataprotection
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
 // afterDaemon answers what a release witness asks after a release: where
-// the need's data is mounted, when that volume was made, and its measure.
+// the need's data is mounted, when that volume was made, and its measure,
+// which comes back through the measure's answer file (its stdout lost):
+// measureFails exits 2, measureLost leaves no file.
 type afterDaemon struct {
-	mounts, created, measure string
-	measureErr               error
+	mounts, created, measure  string
+	measureFails, measureLost bool
 }
 
-func (d afterDaemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-	args := strings.Join(req.Args, " ")
-	switch {
-	case strings.HasPrefix(args, "inspect") && strings.Contains(args, ".Mounts"):
-		return []byte(d.mounts), nil
-	case strings.HasPrefix(args, "volume inspect"):
-		return []byte(d.created + "\n"), nil
-	case strings.HasPrefix(args, "exec"):
-		return []byte(d.measure), d.measureErr
-	}
-	return nil, nil
+// client is d with its result reads answered.
+func (d afterDaemon) client() docker.Client {
+	results := &containerresulttest.Daemon{Answers: func(containerresulttest.Command) (containerresulttest.Answer, bool) {
+		switch {
+		case d.measureFails:
+			return containerresulttest.Answer{Code: 2, Said: "psql: connection refused"}, true
+		case d.measureLost:
+			return containerresulttest.Answer{}, true
+		}
+		return containerresulttest.Answer{Answer: []byte(d.measure)}, true
+	}}
+	return clientFunc(func(req docker.Command) ([]byte, error) {
+		if out, err, ok := results.Run(req.Args); ok {
+			return out, err
+		}
+		args := strings.Join(req.Args, " ")
+		switch {
+		case strings.HasPrefix(args, "inspect") && strings.Contains(args, ".Mounts"):
+			return []byte(d.mounts), nil
+		case strings.HasPrefix(args, "volume inspect"):
+			return []byte(d.created + "\n"), nil
+		}
+		return nil, nil
+	})
 }
+
+type clientFunc func(docker.Command) ([]byte, error)
+
+func (f clientFunc) Run(_ context.Context, _ string, c docker.Command) ([]byte, error) { return f(c) }
 
 const (
 	pgData   = "/var/lib/postgresql/data"
@@ -36,7 +55,7 @@ const (
 )
 
 func witnessed(d afterDaemon, synthetic bool, before map[string]int64) *ReleaseWitness {
-	return &ReleaseWitness{synthetic: synthetic, dk: docker.Scope{Client: d}, needs: []needFacts{{
+	return &ReleaseWitness{synthetic: synthetic, dk: docker.Scope{Client: d.client()}, needs: []needFacts{{
 		need: "postgres", container: "apptown-svc-env-shop-main-postgres", path: pgData, measure: "measure",
 		mount: docker.DataMount{Volume: pgVolume, Found: true}, created: madeThen, measures: before,
 	}}}
@@ -63,7 +82,10 @@ func TestAReleaseWitnessesItsNeedsData(t *testing.T) {
 		{name: "rows fell", d: afterDaemon{mounts: same, created: madeThen, measure: "tables 5\nrows 3\nbytes 8388608\n"}, before: before, problem: "rows fell from 120 to 3"},
 		{name: "tables went", d: afterDaemon{mounts: same, created: madeThen, measure: "tables 0\nrows 0\nbytes 8388608\n"}, before: before, problem: "had 5 tables and now has none"},
 		{name: "a small app's churn", d: afterDaemon{mounts: same, created: madeThen, measure: "tables 2\nrows 1\nbytes 900000\n"}, before: map[string]int64{"tables": 2, "rows": 15, "bytes": 900000}},
-		{name: "unreadable after", d: afterDaemon{mounts: same, created: madeThen, measure: "psql: connection refused", measureErr: errors.New("exit status 2")}, before: before, problem: "could not be read after the release"},
+		{name: "unreadable after", d: afterDaemon{mounts: same, created: madeThen, measureFails: true}, before: before, problem: "could not be read after the release"},
+		// Kills: a measure read from what the container printed, which a
+		// lost stdout turns into "rows fell".
+		{name: "an answer that did not come back", d: afterDaemon{mounts: same, created: madeThen, measureLost: true}, before: before, problem: "could not be read after the release"},
 		{name: "on other storage", d: afterDaemon{mounts: "volume\tf0e1d2\t/x\t" + pgData + "\n", created: "2026-10-21T00:59:14Z", measure: "tables 5\nrows 120\nbytes 8388608\n"}, before: before, problem: "was on volume " + pgVolume},
 		{name: "the same name, made again", d: afterDaemon{mounts: same, created: "2026-10-21T00:59:14Z", measure: "tables 5\nrows 120\nbytes 8388608\n"}, before: before, problem: "is now on volume " + pgVolume + " (made 2026-10-21"},
 		{name: "a synthetic reset", d: afterDaemon{mounts: same, created: "2026-10-21T00:59:14Z", measure: "tables 0\nrows 0\nbytes 1000\n"}, synthetic: true, before: before, note: "synthetic data was reset"},

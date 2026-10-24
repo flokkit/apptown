@@ -231,8 +231,8 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 		"--config", "/work/.apptown/buildkitd.toml", "--use"}
 	if out, err := w.docker.Run(ctx, buildxArgs...); err != nil {
 		// Non-fatal: plain docker builds still work; the agent just lacks
-		// the preconfigured builder.
-		w.progress.Append(stepID, "buildx builder not provisioned: "+strs.Truncate(string(out), 120))
+		// the preconfigured builder. What it said is the failure's words.
+		w.progress.Append(stepID, fmt.Errorf("buildx builder not provisioned: %s", strs.Truncate(string(out), 120)).Error())
 	} else if err := dind.TrustBuilder(ctx, w.docker.Run, name, filepath.Join("/work", clientConfigDir)); err != nil {
 		w.progress.Append(stepID, strs.Truncate(err.Error(), 200))
 	}

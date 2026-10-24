@@ -227,7 +227,7 @@ func startServer(ctx context.Context) error {
 	if _, err := exec.LookPath("docker"); err != nil {
 		return fmt.Errorf("docker is unavailable and APPTOWN_TEST_DB_URL is not set")
 	}
-	err := docker.Scope{Client: docker.CLI{}}.EnsureRunning(ctx, container, []string{"-d", "--name", container, "-p", "127.0.0.1:" + port + ":5432",
+	err := docker.Scope{Client: docker.CLI{}}.EnsureRunning(ctx, container, []string{"--name", container, "-p", "127.0.0.1:" + port + ":5432",
 		"-e", "POSTGRES_PASSWORD=apptown", "-e", "POSTGRES_INITDB_ARGS=--locale=C.UTF-8",
 		"--label", dockerlabel.Class + "=infra", "--label", dockerlabel.Owner + "=" + container,
 		// The data directory lives in memory. Every test clones a template

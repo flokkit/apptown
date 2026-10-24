@@ -64,6 +64,10 @@ func (j *Judge) evaluateSh(d Declared, src Source, mode Mode, namePrefix string)
 		ev.Outcome = DoesNotConform
 		if msg != "" {
 			ev.Evidence.Output = strs.Truncate(msg, 600) // the check's own words are the evidence
+		} else {
+			// The exit code is the verdict; its words did not arrive, which
+			// is never "no occurrences" (a lines check's are then undecided).
+			ev.Evidence.Output = ReportLost(d.Name)
 		}
 		f := conformanceFinding(d, msg, "")
 		if d.Occurrences == "lines" {
@@ -73,7 +77,7 @@ func (j *Judge) evaluateSh(d Declared, src Source, mode Mode, namePrefix string)
 		ev.Findings = []Finding{f}
 	default:
 		ev.Outcome = Error
-		ev.Evidence.Output = strs.Truncate(msg, 300)
+		ev.Evidence.Output = strs.Truncate(strs.FirstNonBlank(msg, ReportLost(d.Name)), 300)
 	}
 	return ev
 }

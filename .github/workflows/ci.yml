@@ -115,7 +115,7 @@ jobs:
         run: >-
           python3 scripts/gate.py
           check-go-source check-vet check-staticcheck check-lint-test check-lint
-          check-shape check-exec check-sqlnow check-reachability
+          check-shape check-exec check-container-output check-sqlnow check-reachability
           check-ci-heavy check-pins check-npm-scripts check-build-artifacts check-vuln
       - run: make check-gate
       - if: github.ref == 'refs/heads/main' && steps.tools.outputs.cache-hit != 'true'

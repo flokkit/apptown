@@ -133,7 +133,11 @@ func (j *Judge) toolOnSource(d Declared, s Scanner, src Source, mode Mode, nameP
 	ev.Evidence.ExitCode = &exitCode
 	if exitCode < 0 || exitCode > 1 {
 		ev.Outcome = Error
-		ev.Detail = fmt.Sprintf("%s error (exit %d): %s", s.Name, exitCode, strs.Truncate(strings.TrimSpace(string(outcome.Output)), 200))
+		said := strs.Truncate(strings.TrimSpace(string(outcome.Output)), 200)
+		if said == "" {
+			said = ReportLost(s.Name)
+		}
+		ev.Detail = fmt.Sprintf("%s error (exit %d): %s", s.Name, exitCode, said)
 		return ev
 	}
 	// A declared report that is missing or unreadable is an error, never a
@@ -176,11 +180,19 @@ func looksLikeCrash(output string) bool {
 		strings.Contains(output, "ImportError")
 }
 
-// ToolSummary trims a tool's raw output to a one-glance detail line.
+// ReportLost is the detail of a check that failed and whose report, what
+// it printed, did not arrive: a container's stdout can be lost at its end.
+// It says the report is gone, never that nothing was found.
+func ReportLost(name string) string {
+	return name + ": report lost (nothing it printed arrived)"
+}
+
+// ToolSummary trims a tool's raw output to a one-glance detail line. It is
+// only asked of a tool that failed, so no output is a lost report.
 func ToolSummary(tool, output string) string {
 	out := strings.TrimSpace(output)
 	if out == "" {
-		return tool + " reported findings"
+		return ReportLost(tool)
 	}
 	// Keep the first few non-empty lines — enough to name the problem.
 	var lines []string

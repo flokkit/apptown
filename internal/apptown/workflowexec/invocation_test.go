@@ -73,3 +73,72 @@ func TestInvocationWithABrokenTranscriptRecordsIncompleteUsage(t *testing.T) {
 		t.Fatalf("the whole invocation: %+v %t %v", second, found, err)
 	}
 }
+
+// pi's result is its events file, never what reached its output: an
+// invocation whose output holds a whole answer but whose file is not there
+// is an error with unknown usage, never "no output" and never an empty turn
+// to re-run; one whose output lost everything still answers from its file.
+//
+// Kills: the result parsed from the process's output.
+func TestAnInvocationIsReadFromItsEventsFileNotItsOutput(t *testing.T) {
+	t.Parallel()
+	answer := []byte(`{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p","content":[{"type":"text","text":"done"}],"usage":{"input":5,"output":0,"totalTokens":5}}}` + "\n")
+	call := func(a *Executor, step int64) piResult {
+		return a.piInvoke(t.Context(), piCall{
+			Source:   workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
+			Step:     &workflow.Step{ID: idstest.N(9), Attempt: step, Name: "implement"},
+			Executor: execution.Local, Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
+		})
+	}
+	// The output was lost; the file holds the answer.
+	lost := testExecutor(databaseSuite.New(t), t.TempDir(), reviewProcess(func(req execution.Request) execution.Outcome {
+		return execution.Outcome{Termination: execution.Exited, Output: answer}
+	}))
+	if res := call(lost, 1); res.Text != "done" || res.Tries != 1 || res.RunErr != nil {
+		t.Fatalf("from the file: %+v", res)
+	}
+	// No file: the stand-in answers on the output only.
+	tries := 0
+	unread := testExecutor(databaseSuite.New(t), t.TempDir(), processFunc(func(req execution.Request) execution.Outcome {
+		tries++
+		return execution.Outcome{Termination: execution.Exited, Output: answer}
+	}))
+	res := call(unread, 1)
+	if res.Text != "" || tries != 1 || res.RunErr == nil || !strings.Contains(res.RunErr.Error(), "the agent's output could not be read") {
+		t.Fatalf("no events file: tries %d, %+v", tries, res)
+	}
+	if total, _, err := unread.ledger.RunTotal(context.Background(), idstest.N(5)); err != nil || total != 0 {
+		t.Fatalf("an unread output recorded usage: %d %v", total, err)
+	}
+}
+
+// processFunc is a Process that answers req as it is given, with no
+// capture: what it prints never reaches an events file.
+type processFunc func(execution.Request) execution.Outcome
+
+func (p processFunc) Run(_ context.Context, _ string, req execution.Request) execution.Outcome {
+	return p(req)
+}
+
+// The worker's capture of an invocation's events is its result; one the
+// worker could not read, or that was not there, or was too large, is an
+// unread output, never an empty one.
+func TestAWorkerInvocationsEventsAreItsCapturedFile(t *testing.T) {
+	t.Parallel()
+	if got, err := invocationEvents(map[string]execution.ResultFile{"events": {State: execution.ResultPresent, Content: []byte("{}\n")}}, nil); err != nil || string(got) != "{}\n" {
+		t.Fatalf("a captured file: %q %v", got, err)
+	}
+	for name, results := range map[string]map[string]execution.ResultFile{
+		"none":      {},
+		"absent":    {"events": {State: execution.ResultAbsent}},
+		"too large": {"events": {State: execution.ResultTooLarge, Size: 70 << 20}},
+		"refused":   {"events": {State: execution.ResultRefused, Reason: execution.RefusedSymlink}},
+	} {
+		if got, err := invocationEvents(results, nil); err == nil || got != nil {
+			t.Fatalf("%s: %q %v", name, got, err)
+		}
+	}
+	if _, err := invocationEvents(nil, fmt.Errorf("the worker did not answer")); err == nil {
+		t.Fatal("an unreadable capture was read as events")
+	}
+}

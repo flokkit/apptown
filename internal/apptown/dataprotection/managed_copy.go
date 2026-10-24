@@ -1,7 +1,6 @@
 package dataprotection
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -196,16 +195,13 @@ func copyJob(ctx context.Context, dk docker.Scope, cp *dependency.Copy, image, c
 // copyJobOn is copyJob with more docker run options (a network, a volume):
 // a rehearsal's import reaches its new need on the rehearsal's own network
 // and reads the copy staged on the host.
+//
+// A copy written to stdout is framed, and held to its trailer, by RunStep;
+// a command with no stdout (an import, a verify) has what it printed, both
+// streams, returned.
 func copyJobOn(ctx context.Context, dk docker.Scope, extra []string, cp *dependency.Copy, image, command string, conn deploy.Connection, stdin io.Reader, stdout io.Writer) ([]byte, error) {
-	flags, env := copyEnv(cp, conn)
-	args := []string{"run", "--rm", "-i", "--entrypoint", ""}
-	args = append(args, extra...)
-	args = append(args, flags...)
-	args = append(args, image, "sh", "-c", command)
-	if stdout == nil {
-		stdout = io.Discard
-	}
-	out, err := dk.Command(ctx, docker.Command{Args: args, Stdin: stdin, Stdout: stdout, Env: env})
+	_, env := copyEnv(cp, conn)
+	out, err := dk.RunStep(ctx, docker.Step{Image: image, Options: append([]string{"--entrypoint", ""}, extra...), Env: env, Command: command, Stdin: stdin, Stdout: stdout})
 	if err != nil {
 		return out, fmt.Errorf("%w: %s", err, strs.Truncate(strings.TrimSpace(string(out)), 400))
 	}
@@ -452,8 +448,9 @@ func fillAt(ctx context.Context, dk docker.Scope, extra []string, cp *dependency
 	if err != nil {
 		return err
 	}
-	var out bytes.Buffer
-	_, err = copyJobOn(ctx, dk, extra, cp, image, load, conn, f, &out)
+	// What the import and the verify print is their words for an error,
+	// never a copy: they have no stdout of their own (copyJobOn).
+	_, err = copyJobOn(ctx, dk, extra, cp, image, load, conn, f, nil)
 	f.Close()
 	if err != nil {
 		return fmt.Errorf("the import did not finish: %w", err)
@@ -461,11 +458,10 @@ func fillAt(ctx context.Context, dk docker.Scope, extra []string, cp *dependency
 	if f, err = open(); err != nil {
 		return err
 	}
-	out.Reset()
-	_, err = copyJobOn(ctx, dk, extra, cp, image, cp.Verify, conn, f, &out)
+	_, err = copyJobOn(ctx, dk, extra, cp, image, cp.Verify, conn, f, nil)
 	f.Close()
 	if err != nil {
-		return fmt.Errorf("the copy was imported but its check did not confirm the place holds it: %w %s", err, strs.Truncate(strings.TrimSpace(out.String()), 200))
+		return fmt.Errorf("the copy was imported but its check did not confirm the place holds it: %w", err)
 	}
 	return nil
 }
