@@ -126,12 +126,14 @@ func startupFixture(t *testing.T, withChild ...bool) (*database.DB, ids.ID, ids.
 // what the queue holds, so the next sighting can settle it.
 func claimAvailableJobs(t *testing.T, db *database.DB, owner string, want int) {
 	t.Helper()
-	var claimed []*rivertype.JobRow
 	var err error
 	got := 0
 	if !poll.Until(t.Context(), 30*time.Second, 50*time.Millisecond, func() bool {
+		var claimed *riverdriver.JobGetAvailableResult
 		claimed, err = riverdatabasesql.New(db.Pool()).GetExecutor().JobGetAvailable(context.Background(), &riverdriver.JobGetAvailableParams{ClientID: owner, MaxAttemptedBy: 100, MaxToLock: 100, Queue: river.QueueDefault})
-		got += len(claimed)
+		if err == nil {
+			got += len(claimed.Jobs)
+		}
 		return err != nil || got >= want
 	}) || err != nil || got != want {
 		// What the queue holds, read by its owner.

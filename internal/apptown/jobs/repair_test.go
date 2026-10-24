@@ -51,11 +51,11 @@ func claimRepairJobs(t *testing.T, db *database.DB, client string, want int) {
 	executor := riverdatabasesql.New(db.Pool()).GetExecutor()
 	var claimed []int64
 	for {
-		rows, err := executor.JobGetAvailable(ctx, &riverdriver.JobGetAvailableParams{ClientID: client, MaxAttemptedBy: 100, MaxToLock: 100, Queue: river.QueueDefault})
+		available, err := executor.JobGetAvailable(ctx, &riverdriver.JobGetAvailableParams{ClientID: client, MaxAttemptedBy: 100, MaxToLock: 100, Queue: river.QueueDefault})
 		if err != nil {
 			t.Fatalf("claiming jobs for %q: %v (claimed %v; want %d)", client, err, claimed, want)
 		}
-		for _, row := range rows {
+		for _, row := range available.Jobs {
 			claimed = append(claimed, row.ID)
 		}
 		if len(claimed) == want {
