@@ -71,8 +71,9 @@ func (a *App) authorizeRequest(w http.ResponseWriter, r *http.Request, c access.
 	return httpapi.AuthorizeRequest(a.Access, w, r.WithContext(callerContext(r)), c, res, ctx)
 }
 
-// holds answers a plain yes/no for UI and the legacy privilege helpers, with
-// no receipt: it is a question, not an act.
-func (a *App) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) bool {
-	return a.Access.Evaluate(ctx, pr, access.DelegationOf(pr), c, res, access.Context{}).Allow
+// holds answers a yes/no for the account menu, with no receipt: it is a
+// question, not an act. A fact that cannot be read is an error.
+func (a *App) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) (bool, error) {
+	dec, err := a.Access.Explain(ctx, pr, access.Permission{Capability: c, Resource: res})
+	return dec.Allow, err
 }

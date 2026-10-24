@@ -35,7 +35,7 @@ func NewService(db *database.DB, cfg Config) *Service {
 		cfg.Client = &http.Client{Timeout: 30 * time.Second}
 	}
 	return &Service{dataDir: cfg.DataDir, client: cfg.Client, infisical: Infisical{clock: cfg.Now}, clock: cfg.Now,
-		Vault: &Vault{db: db, clock: cfg.Now}, Profiles: NewProfiles(db), Bindings: &Bindings{db: db, clock: cfg.Now}}
+		Vault: &Vault{db: db, clock: cfg.Now}, Profiles: NewProfiles(db, cfg.Now), Bindings: &Bindings{db: db, clock: cfg.Now}}
 }
 
 func (a *Service) now() time.Time { return clock.Or(a.clock)().UTC() }

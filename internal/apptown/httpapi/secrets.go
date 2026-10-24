@@ -12,11 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
@@ -335,11 +333,10 @@ func (h Secrets) SetSecretProfile(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 422, "the app declares no profile %q (it has %s)", in.Profile, strings.Join(slices.Sorted(maps.Keys(declared)), ", "))
 			return
 		}
-		if err := h.secrets.Profiles.Set(r.Context(), p.ID, env, in.Profile); err != nil {
+		if err := h.secrets.Profiles.Set(r.Context(), p.ID, env, in.Profile, Actor(r)); err != nil {
 			WriteFault(w, err)
 			return
 		}
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "secret.profile-set", env, map[string]any{"profile": in.Profile})
 		WriteJSON(w, 200, SecretProfileSet{Deployment: env, Profile: in.Profile})
 	})
 }
@@ -380,13 +377,14 @@ func (h Secrets) BindSecret(w http.ResponseWriter, r *http.Request) {
 				WriteError(w, 400, "a value is required for the built-in store")
 				return
 			}
-			scope := secret.Scope(p.Slug, env, "")
-			ver, err := h.secrets.Vault.Put(r.Context(), scope, name, in.Value, who)
+			// The value, its binding and the receipt are one act.
+			bound, err := h.secrets.BindStored(r.Context(), p.ID, p.Slug, env, name, in.Value, who)
 			if err != nil {
 				WriteError(w, 500, "storing the value: %v", err)
 				return
 			}
-			b.Store, b.Ref, b.Version = secret.StoreInternal, scope, fmt.Sprint(ver)
+			WriteJSON(w, 200, SecretBound{Deployment: env, Name: name, Store: bound.Store, Version: bound.Version, Bound: true})
+			return
 		case secret.StoreInfisical:
 			if in.Ref == "" {
 				WriteError(w, 400, "the Infisical key name is required")
@@ -410,7 +408,6 @@ func (h Secrets) BindSecret(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, who, p.ID, "secret.bound", name, map[string]any{"deployment": env, "store": b.Store, "version": b.Version})
 		WriteJSON(w, 200, SecretBound{Deployment: env, Name: name, Store: b.Store, Version: b.Version, Bound: true})
 	})
 }
@@ -451,20 +448,15 @@ func (h Secrets) RevealSecret(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	env, name := r.PathValue("deployment"), r.PathValue("name")
-	b, ok := h.secrets.BindingsFor(r.Context(), p.ID, env)[name]
-	if !ok {
+	got, err := h.secrets.Reveal(r.Context(), p.ID, env, name, Actor(r))
+	switch {
+	case errors.Is(err, secret.ErrBindingMissing):
 		WriteError(w, 404, "%s is not bound in %s", name, env)
-		return
-	}
-	if b.Store != secret.StoreInternal {
-		WriteError(w, 409, "%s in %s is held by %s, which is where to read it", name, env, b.Store)
-		return
-	}
-	value, version, ok := h.secrets.Stored(r.Context(), b.Ref, name)
-	if !ok {
+	case errors.Is(err, secret.ErrNotStored):
 		WriteError(w, 404, "the built-in store holds no value for %s in %s", name, env)
-		return
+	case err != nil:
+		WriteFault(w, err)
+	default:
+		WriteJSON(w, 200, SecretRevealed{Name: name, Deployment: env, Version: got.Version, Value: got.Value})
 	}
-	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "secret.revealed", name, map[string]any{"deployment": env, "version": version})
-	WriteJSON(w, 200, SecretRevealed{Name: name, Deployment: env, Version: version, Value: value})
 }

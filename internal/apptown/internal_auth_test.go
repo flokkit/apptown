@@ -186,18 +186,18 @@ func TestPrivilegesRequireExplicitCapabilityGrants(t *testing.T) {
 	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "leads", Members: []string{"ana"}}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
-	if a.hasPrivilege(context.Background(), "anyone", "member", "amend") || a.hasPrivilege(context.Background(), "anyone", "admin", "amend") {
+	if privileged(t, a, "anyone", "member", "amend") || privileged(t, a, "anyone", "admin", "amend") {
 		t.Fatal("unclaimed permission or role label granted authority")
 	}
 	a.addGrant("group", "leads", access.RoleStandardsAdmin, "", access.ScopeInstance, "", "fixture", "fixture", "")
-	if !a.hasPrivilege(context.Background(), "ana", "member", "amend") || a.hasPrivilege(context.Background(), "outsider", "member", "amend") {
+	if !privileged(t, a, "ana", "member", "amend") || privileged(t, a, "outsider", "member", "amend") {
 		t.Fatal("explicit group capability scope not respected")
 	}
-	if a.hasPrivilege(context.Background(), "ana", "member", "release") {
+	if privileged(t, a, "ana", "member", "release") {
 		t.Fatal("standards authority granted release access")
 	}
 	a.addGrant("user", "ana", access.RoleReleaseManager, "", access.ScopeTarget, "*", "fixture", "fixture", "")
-	if !a.hasPrivilege(context.Background(), "ana", "member", "release") {
+	if !privileged(t, a, "ana", "member", "release") {
 		t.Fatal("explicit release grant ignored")
 	}
 }
@@ -259,6 +259,8 @@ func TestConsoleTokenWorksInInternalMode(t *testing.T) {
 	a, h := internalApp(t)
 	m := consoleMetaFor("s1", ids.Nil, ids.Nil)
 	m.Actor, m.Token = "pi-console", "sekret-token"
+	// A chat acts for an account; one with none is refused like a disabled one.
+	testAccounts(t, a.DB, "pi-console")
 	a.Console.Restore(m)
 
 	req := httptest.NewRequest("GET", "/api/v1/me", nil)
@@ -835,4 +837,14 @@ func TestARefusedAttemptDoesNotSpendItsCredential(t *testing.T) {
 	if calls != credentialBurst {
 		t.Fatalf("the door ran %d times for %d admitted attempts", calls, credentialBurst)
 	}
+}
+
+// privileged is the account menu's answer for user, which must be readable.
+func privileged(t *testing.T, a *App, user, role, priv string) bool {
+	t.Helper()
+	may, err := a.hasPrivilege(context.Background(), user, role, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return may
 }

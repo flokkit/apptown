@@ -10,6 +10,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/database"
 )
@@ -142,8 +143,20 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	if code, _ := call(`{"kind":"container","name":"apptown-env-old-main","confirm":"other"}`); code != 400 {
 		t.Fatalf("confirmation: %d", code)
 	}
+	// A removal cannot be undone: without its request on the record, Docker
+	// is not asked.
+	w.docker.ResetCommands()
+	restore = w.db.FailNextStatement("-- name: AppendReceipt")
+	code, out := call(`{"kind":"container","name":"apptown-env-old-main","confirm":"apptown-env-old-main"}`)
+	restore()
+	if code != 503 || len(w.docker.Commands()) != 0 {
+		t.Fatalf("a removal whose request was not recorded: %d %v, docker %v", code, out, w.docker.Commands())
+	}
 	if code, out := call(`{"kind":"container","name":"apptown-env-old-main","confirm":"apptown-env-old-main"}`); code != 200 {
 		t.Fatalf("unrecorded container: %d %v", code, out)
+	}
+	if got, err := audit.Recent(t.Context(), w.db, audit.Filter{KindPrefix: "infrastructure.remove"}); err != nil || len(got) != 2 || got[0].Kind != "infrastructure.removed" || got[1].Kind != "infrastructure.remove-requested" {
+		t.Fatalf("a removal's request and outcome: %+v %v", got, err)
 	}
 	if code, out := call(`{"kind":"volume","name":"apptown-data-apptown-env-old-main","confirm":"apptown-data-apptown-env-old-main"}`); code != 200 {
 		t.Fatalf("unrecorded volume: %d %v", code, out)

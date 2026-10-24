@@ -1,6 +1,7 @@
 package secret
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,14 +16,15 @@ func TestBootstrapReplacementPreservesOtherCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, in := range [][2]string{{"FIRST_KEY\nINJECTED", "bad"}, {"FIRST_KEY", "bad\nINJECTED=value"}} {
-		if err := s.SetBootstrap(in[0], in[1]); err == nil {
+		if err := s.SetBootstrap(context.Background(), in[0], in[1], "test"); err == nil {
 			t.Fatal("multi-line credential accepted")
 		}
 	}
 	if raw, err := os.ReadFile(path); err != nil || string(raw) != before {
 		t.Fatal("rejected credential changed the file")
 	}
-	if err := s.SetBootstrap("FIRST_KEY", "replacement"); err != nil {
+	replacement := "replacement"
+	if _, err := s.rewriteBootstrap("FIRST_KEY", &replacement); err != nil {
 		t.Fatal(err)
 	}
 	if raw, err := os.ReadFile(path); err != nil || string(raw) != "OTHER_KEY=untouched\nFIRST_KEY=replacement\n" {

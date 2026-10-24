@@ -187,6 +187,38 @@ func (s *Targets) Put(ctx context.Context, t *Target) (*Target, error) {
 	return targetRecord(deploymentsql.New(s.db.SQL()).PutTarget(ctx, putTargetParams(t, s.now())))
 }
 
+// Attachment is what a person's attach of a target records: what was
+// attached (target.attached) and what the check before it answered
+// (target.checked).
+type Attachment struct {
+	By               string
+	Attached, Answer map[string]any
+}
+
+// receipts writes an attach's two receipts in the caller's transaction.
+func (at Attachment) receipts(ctx context.Context, tx *database.Tx, now time.Time, name string) error {
+	if err := audit.At(now).RecordIn(ctx, tx, at.By, ids.Nil, "target.attached", name, at.Attached); err != nil {
+		return err
+	}
+	return audit.At(now).RecordIn(ctx, tx, at.By, ids.Nil, "target.checked", name, at.Answer)
+}
+
+// Attach records a target a person attached, with its receipts in the same
+// transaction: where projects may deploy is not changed without its record.
+func (s *Targets) Attach(ctx context.Context, t *Target, at Attachment) (*Target, error) {
+	if _, err := t.Status.Value(); err != nil {
+		return nil, err
+	}
+	now := s.now()
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) {
+		saved, err := targetRecord(deploymentsql.New(tx.SQL()).PutTarget(ctx, putTargetParams(t, now)))
+		if err != nil {
+			return nil, err
+		}
+		return saved, at.receipts(ctx, tx, now, saved.Name)
+	})
+}
+
 func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
 	return deploymentsql.PutTargetParams{ID: ids.New(now),
 		Name:             t.Name,
@@ -215,46 +247,60 @@ func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
 // An unchanged sync writes nothing. A retired target stays as it is. Status
 // belongs to checks and retirement, so a sync never changes it.
 func (s *Targets) Sync(ctx context.Context, t *Target, who string) (*Target, error) {
+	return s.sync(ctx, t, who, nil)
+}
+
+// sync is Sync, with an attach's receipts (when not nil) in its transaction.
+func (s *Targets) sync(ctx context.Context, t *Target, who string, attached *Attachment) (*Target, error) {
 	now := s.now()
 	if _, err := t.Status.Value(); err != nil {
 		return nil, err
 	}
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) {
-		q := deploymentsql.New(tx.SQL())
-		// The targets lock order: table, then row (see Targets). The table
-		// lock also keeps a create from racing another sync of the name.
-		if err := q.LockTargets(ctx); err != nil {
-			return nil, err
+		saved, err := s.syncIn(ctx, tx, t, who, now)
+		if err != nil || attached == nil {
+			return saved, err
 		}
-		stored, err := targetRecord(q.TargetByNameForUpdate(ctx, t.Name))
-		if errors.Is(err, sql.ErrNoRows) {
-			return targetRecord(q.PutTarget(ctx, putTargetParams(t, now)))
-		}
-		if err != nil {
-			return nil, err
-		}
-		if stored.Status == TargetRetired {
-			return stored, nil
-		}
-		next := *t
-		next.keepSettings(stored)
-		before, after := configurationChanges(stored, &next)
-		if len(after) == 0 {
-			return stored, nil
-		}
-		saved, err := targetRecord(q.RefreshTarget(ctx, deploymentsql.RefreshTargetParams{
-			ID: stored.ID, Kind: next.Kind, Provider: next.Provider, AddressJson: json.RawMessage(jsonText(next.Address)),
-			CapabilitiesJson: json.RawMessage(jsonText(next.Capabilities)), IngressJson: json.RawMessage(jsonText(next.Ingress)),
-			NeedsMode: next.NeedsMode, SecretsDelivery: next.SecretsDelivery, UpdatedAt: now,
-		}))
-		if err != nil {
-			return nil, err
-		}
-		if err := audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "target.refreshed", saved.Name, map[string]any{"before": before, "after": after}); err != nil {
-			return nil, err
-		}
-		return saved, nil
+		return saved, attached.receipts(ctx, tx, now, saved.Name)
 	})
+}
+
+// syncIn is Sync's write in the caller's transaction.
+func (s *Targets) syncIn(ctx context.Context, tx *database.Tx, t *Target, who string, now time.Time) (*Target, error) {
+	q := deploymentsql.New(tx.SQL())
+	// The targets lock order: table, then row (see Targets). The table
+	// lock also keeps a create from racing another sync of the name.
+	if err := q.LockTargets(ctx); err != nil {
+		return nil, err
+	}
+	stored, err := targetRecord(q.TargetByNameForUpdate(ctx, t.Name))
+	if errors.Is(err, sql.ErrNoRows) {
+		return targetRecord(q.PutTarget(ctx, putTargetParams(t, now)))
+	}
+	if err != nil {
+		return nil, err
+	}
+	if stored.Status == TargetRetired {
+		return stored, nil
+	}
+	next := *t
+	next.keepSettings(stored)
+	before, after := configurationChanges(stored, &next)
+	if len(after) == 0 {
+		return stored, nil
+	}
+	saved, err := targetRecord(q.RefreshTarget(ctx, deploymentsql.RefreshTargetParams{
+		ID: stored.ID, Kind: next.Kind, Provider: next.Provider, AddressJson: json.RawMessage(jsonText(next.Address)),
+		CapabilitiesJson: json.RawMessage(jsonText(next.Capabilities)), IngressJson: json.RawMessage(jsonText(next.Ingress)),
+		NeedsMode: next.NeedsMode, SecretsDelivery: next.SecretsDelivery, UpdatedAt: now,
+	}))
+	if err != nil {
+		return nil, err
+	}
+	if err := audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "target.refreshed", saved.Name, map[string]any{"before": before, "after": after}); err != nil {
+		return nil, err
+	}
+	return saved, nil
 }
 
 // configurationChanges names each part of the record a sync would change,

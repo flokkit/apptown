@@ -15,7 +15,14 @@ import (
 // one with ?all=1 for whoever may manage authentication.
 func (h Accounts) ListDelegations(w http.ResponseWriter, r *http.Request) {
 	pr := Principal(r)
-	all := r.URL.Query().Get("all") == "1" && h.holds(r.Context(), pr, access.CapIdentityAuth, access.Resource{Type: "instance"})
+	all := false
+	if r.URL.Query().Get("all") == "1" {
+		var err error
+		if all, err = h.holds(r.Context(), pr, access.CapIdentityAuth, access.Resource{Type: "instance"}); err != nil {
+			WriteFaultOr(w, err, http.StatusServiceUnavailable)
+			return
+		}
+	}
 	out, err := h.access.Connections(r.Context(), pr.Name, all)
 	if err != nil {
 		WriteFault(w, err)
@@ -61,8 +68,11 @@ func (h Accounts) RevokeDelegation(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, DelegationRevoked{OK: true, ID: id.String()})
 }
 
-func (h Accounts) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) bool {
-	return h.access.Evaluate(ctx, pr, access.DelegationOf(pr), c, res, access.Context{}).Allow
+// holds answers whether pr may, as a question: no receipt, and a
+// fact that cannot be read is an error.
+func (h Accounts) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) (bool, error) {
+	dec, err := h.access.Explain(ctx, pr, access.Permission{Capability: c, Resource: res})
+	return dec.Allow, err
 }
 
 // liveDelegation is the live delegation with this id: nil when there is

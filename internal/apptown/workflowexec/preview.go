@@ -3,6 +3,7 @@ package workflowexec
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -106,7 +107,10 @@ func (a *Shipping) RunPreview(task *workflow.Execution) {
 	}
 	public := res.Stack.Plan.PublicPart()
 	status := workflow.StatusPass
-	recordArtifact(task.Context(), a.db, run.ID, "preview", "preview", url, "", a.now())
+	if err := recordArtifact(task.Context(), a.db, run.ID, "preview", "preview", url, "", a.now()); err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": fmt.Sprintf("the preview is running at %s, but its record could not be written: %v", url, err), "url": url})
+		return
+	}
 	recordEvent(task.Context(), a.db, run.ID, "preview.started", map[string]any{"url": url, "container": name}, a.now())
 
 	ev := map[string]any{"url": url, "container": name, "port": public.Port, "command": public.Command, "commit": sel.Commit}

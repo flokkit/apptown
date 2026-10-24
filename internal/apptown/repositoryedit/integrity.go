@@ -59,7 +59,13 @@ func (editor *Integrity) Resolve(ctx context.Context, p *project.Project, action
 	if len(drift) == 0 {
 		return IntegrityResult{OK: true, Clean: true}, nil
 	}
-	diff, _ := gitexec.Run(ctx, repo, "diff")
+	// The diff is the evidence of what the decision keeps or destroys.
+	diff, err := gitexec.Run(ctx, repo, "diff")
+	if err != nil {
+		return IntegrityResult{}, fmt.Errorf("reading what the edits change: %w", err)
+	}
+	evidence := map[string]any{"files": drift, "diff": strs.Truncate(diff, 8192)}
+	settle := context.WithoutCancel(ctx)
 	switch action {
 	case "adopt":
 		if _, err := gitexec.Run(ctx, repo, "add", "-A"); err != nil {
@@ -70,28 +76,41 @@ func (editor *Integrity) Resolve(ctx context.Context, p *project.Project, action
 		if _, err := gitexec.Run(ctx, repo, "commit", "-m", msg); err != nil {
 			return IntegrityResult{}, fmt.Errorf("committing: %w", err)
 		}
+		// The commit is the act, kept in history; its receipt is required.
 		recordErr := scm.RecordMain(ctx, editor.db, repo, p.ID, p.DefaultBranch, scm.ViaIntegrityAdopt, editor.now())
 		editor.publisher.PushBranch(ctx, p.ID, repo, p.DefaultBranch)
+		if err := audit.At(editor.now()).Record(settle, editor.db, who, p.ID, "integrity.out-of-band-edits", action, evidence); err != nil {
+			return IntegrityResult{}, fmt.Errorf("kept the edits, but their receipt was not recorded: %w", err)
+		}
 		if recordErr != nil {
 			// The edits are kept; the older record stays, and the project's
 			// main note shows main ahead of it.
-			audit.At(editor.now()).BestEffort(ctx, editor.db, who, p.ID, "integrity.out-of-band-edits", action,
-				map[string]any{"files": drift, "diff": strs.Truncate(diff, 8192)})
 			return IntegrityResult{}, fmt.Errorf("kept the edits, but recording where main stands failed: %w", recordErr)
 		}
 	case "discard":
-		// Restoring the tracked files and removing the untracked ones are
-		// one discard: once started it finishes though the caller stops, and
-		// a discard that did not finish records no receipt.
-		discard := context.WithoutCancel(ctx)
-		if _, err := editor.git(discard, repo, "checkout", "--", "."); err != nil {
-			return IntegrityResult{}, fmt.Errorf("restoring: %w", err)
+		// A discard cannot be undone: it is requested on the record, with
+		// what it destroys, before it starts, and its outcome recorded
+		// after. Restoring the tracked files and removing the untracked ones
+		// are one discard: once started it finishes though the caller stops.
+		if err := audit.At(editor.now()).Record(ctx, editor.db, who, p.ID, "integrity.discard-requested", action, evidence); err != nil {
+			return IntegrityResult{}, fmt.Errorf("not discarded: the request could not be recorded: %w", err)
 		}
-		if out, err := editor.git(discard, repo, "clean", "-fd", "-e", ".apptown"); err != nil {
-			return IntegrityResult{}, fmt.Errorf("removing the untracked files: %v: %s", err, out)
+		failed := func(step string, err error) (IntegrityResult, error) {
+			err = fmt.Errorf("%s: %w", step, err)
+			if recErr := audit.At(editor.now()).Record(settle, editor.db, who, p.ID, "integrity.discard-failed", action, map[string]any{"files": drift, "error": err.Error()}); recErr != nil {
+				return IntegrityResult{}, fmt.Errorf("%w; and recording that it failed: %v", err, recErr)
+			}
+			return IntegrityResult{}, err
+		}
+		if _, err := editor.git(settle, repo, "checkout", "--", "."); err != nil {
+			return failed("restoring", err)
+		}
+		if out, err := editor.git(settle, repo, "clean", "-fd", "-e", ".apptown"); err != nil {
+			return failed("removing the untracked files", fmt.Errorf("%v: %s", err, out))
+		}
+		if err := audit.At(editor.now()).Record(settle, editor.db, who, p.ID, "integrity.out-of-band-edits", action, evidence); err != nil {
+			return IntegrityResult{}, fmt.Errorf("discarded the edits, but the outcome was not recorded: %w", err)
 		}
 	}
-	audit.At(editor.now()).BestEffort(ctx, editor.db, who, p.ID, "integrity.out-of-band-edits", action,
-		map[string]any{"files": drift, "diff": strs.Truncate(diff, 8192)})
 	return IntegrityResult{OK: true, Action: action, Files: drift}, nil
 }

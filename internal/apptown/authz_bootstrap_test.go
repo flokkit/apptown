@@ -25,7 +25,7 @@ func TestTransparentReadRevocationSurvivesStartup(t *testing.T) {
 	}
 	reader := access.Principal{Kind: "user", Name: "reader"}
 	resource := access.Resource{Type: "project", ID: "1", ProjectID: idstest.N(1)}
-	if !a.Access.Evaluate(context.Background(), reader, access.Channel{}, access.CapProjectRead, resource, access.Context{}).Allow {
+	if !mayRead(t, a, reader, resource) {
 		t.Fatal("initial read grant did not authorize the reader")
 	}
 	id := testGrantID(t, a.DB, "group", identity.GroupAllUsers, access.RoleAuditor, "", access.ScopeInstance, "")
@@ -51,7 +51,7 @@ func TestTransparentReadRevocationSurvivesStartup(t *testing.T) {
 	if got := testGrantID(t, restarted.DB, "group", identity.GroupAllUsers, access.RoleAuditor, "", access.ScopeInstance, ""); !got.IsZero() {
 		t.Fatalf("startup recreated revoked authority: grant %d", got)
 	}
-	if restarted.Access.Evaluate(context.Background(), reader, access.Channel{}, access.CapProjectRead, resource, access.Context{}).Allow {
+	if mayRead(t, restarted, reader, resource) {
 		t.Fatal("reader retained revoked access after restart")
 	}
 	// Revocation changes the bootstrap default, not the ability to grant explicitly.
@@ -66,7 +66,7 @@ func TestTransparentReadRevocationSurvivesStartup(t *testing.T) {
 	completionCount(t, a.DB, 2, `SELECT COUNT(*) FROM grants WHERE subject=? AND role_name=?`, identity.GroupAllUsers, access.RoleAuditor)
 	// sql-guarantee: LiveGrant cannot tell a revoked grant from a missing one.
 	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM grants WHERE id=? AND revoked_at IS NOT NULL`, id)
-	if !restarted.Access.Evaluate(context.Background(), reader, access.Channel{}, access.CapProjectRead, resource, access.Context{}).Allow {
+	if !mayRead(t, restarted, reader, resource) {
 		t.Fatal("explicit read regrant did not authorize the reader")
 	}
 }
@@ -154,4 +154,14 @@ func TestHealthNeedsNoSignIn(t *testing.T) {
 	if w.Code != 200 || w.Body.String() != "ok\n" {
 		t.Fatalf("health in internal mode: %d %q", w.Code, w.Body.String())
 	}
+}
+
+// mayRead is the reader's project:read answer, asked as a question.
+func mayRead(t *testing.T, a *App, pr access.Principal, res access.Resource) bool {
+	t.Helper()
+	dec, err := a.Access.Explain(context.Background(), pr, access.Permission{Capability: access.CapProjectRead, Resource: res})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dec.Allow
 }

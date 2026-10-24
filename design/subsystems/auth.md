@@ -170,7 +170,11 @@ with a password you choose instead, or `POST /api/v1/users`) remains for
 scripted setup.
 An administrator disables or enables an account on People, or with
 `POST /api/v1/users {username, disabled}`. Disabling ends its sessions and
-stops sign-in; the account, its record and its grants stay. A change that
+stops sign-in; the account, its record and its grants stay. The person can
+no longer act through anything: personal tokens, agent connections and
+their chats' credentials are refused at admission. A change and its chat
+belong to the project, so disabling ends no chat; the change stays for
+others to pick up. A change that
 names no role leaves the account's authority as it is; only `role: admin` or
 `role: member` changes it.
 An account is real once it has a password, has signed in (a session, an

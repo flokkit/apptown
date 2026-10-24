@@ -95,8 +95,16 @@ project's address reveals nothing about it.
 - One caller value carries identity, verification and receipt attribution
   separately. Attribution never grants authority; commands that take an actor
   check it equals the verified receipt actor.
-- A failed policy read is an operational error, never an authorization answer.
-  Required receipts stay required.
+- A failed policy read is an operational error, never an authorization answer
+  (503 on HTTP). Required receipts stay required: a route or tool decision
+  whose receipt cannot be written does not proceed.
+- A consequential act (changing who may do what, disclosing or changing a
+  secret or credential, changing what runs, destroying work) writes its
+  receipt in the act's transaction. An act outside the database records its
+  request before and its outcome after; a secret is disclosed only after its
+  receipt. An act inside an admitted run step records its outcome before the
+  step passes. A line that only repeats an owner's own record is a note
+  (`audit.BestEffort`) and may be lost.
 - Creating a conformance exception requires `exception:approve`; there is no
   pending-request stage.
 - Refusal comes before any record write, run admission or container start, and

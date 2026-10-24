@@ -42,7 +42,17 @@ func TestAttachHostTarget(t *testing.T) {
 	if _, err := w.deployment.Targets.ByName(t.Context(), "dead"); err == nil {
 		t.Fatal("failed probe saved target")
 	}
+	// Where projects may deploy is not changed without its receipt.
+	restore := w.db.FailNextStatement("-- name: AppendReceipt")
 	code, out := call("POST", "/api/v1/targets", `{"name":"droplet","host":"ssh://deploy@droplet.example:2222","keyFrom":"DROPLET_KEY","domain":"*.apps.example.com"}`, "")
+	restore()
+	if code == 200 {
+		t.Fatalf("an attach whose receipt failed succeeded: %v", out)
+	}
+	if _, err := w.deployment.Targets.ByName(t.Context(), "droplet"); err == nil {
+		t.Fatal("an attach whose receipt failed saved its target")
+	}
+	code, out = call("POST", "/api/v1/targets", `{"name":"droplet","host":"ssh://deploy@droplet.example:2222","keyFrom":"DROPLET_KEY","domain":"*.apps.example.com"}`, "")
 	if code != 200 {
 		t.Fatalf("attach: %d %v", code, out)
 	}
@@ -177,7 +187,18 @@ func TestAttachDigitalOceanTarget(t *testing.T) {
 	if code, _ := call(`{"kind":"do-app","name":"do-nyc","tokenFrom":"NO_SUCH_TOKEN","region":"nyc"}`); code != 422 {
 		t.Fatalf("missing token: %d", code)
 	}
-	code, out := call(`{"kind":"do-app","name":"do-nyc","tokenFrom":"DIGITALOCEAN_ACCESS_TOKEN","region":"nyc","registry":"forge"}`)
+	// The connector is saved with its receipt; the target is not saved
+	// without the attach's.
+	restore := w.db.FailStatementAfter("-- name: AppendReceipt", 1)
+	code, out := call(`{"kind":"do-app","name":"do-nyc","tokenFrom":"DIGITALOCEAN_ACCESS_TOKEN","region":"nyc","registry":"team"}`)
+	restore()
+	if code == 200 {
+		t.Fatalf("an attach whose receipt failed succeeded: %v", out)
+	}
+	if _, err := w.deployment.Targets.ByName(t.Context(), "do-nyc"); err == nil {
+		t.Fatal("an attach whose receipt failed saved its target")
+	}
+	code, out = call(`{"kind":"do-app","name":"do-nyc","tokenFrom":"DIGITALOCEAN_ACCESS_TOKEN","region":"nyc","registry":"forge"}`)
 	if code != 200 {
 		t.Fatalf("attach: %d %v", code, out)
 	}

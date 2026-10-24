@@ -30,15 +30,22 @@ func (h Authorization) groupsWhereCanCreate(ctx context.Context, pr access.Princ
 	}
 	var out []string
 	for _, g := range names {
-		if h.holds(ctx, pr, access.CapProjectCreate, access.Resource{Type: "group", ID: g}) {
+		may, err := h.holds(ctx, pr, access.CapProjectCreate, access.Resource{Type: "group", ID: g})
+		if err != nil {
+			return nil, err
+		}
+		if may {
 			out = append(out, g)
 		}
 	}
 	return out, nil
 }
 
-func (h Authorization) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) bool {
-	return h.access.Evaluate(ctx, pr, access.DelegationOf(pr), c, res, access.Context{}).Allow
+// holds answers whether pr may, as a question: no receipt, and a
+// fact that cannot be read is an error.
+func (h Authorization) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) (bool, error) {
+	dec, err := h.access.Explain(ctx, pr, access.Permission{Capability: c, Resource: res})
+	return dec.Allow, err
 }
 
 // AuthzRoles: GET /api/v1/authz/roles — the catalog. Surfaced roles are
@@ -222,7 +229,11 @@ func (h Authorization) AuthzExplain(w http.ResponseWriter, r *http.Request) {
 	if user == "anonymous" {
 		pr = access.Principal{Kind: "anonymous", Name: "anonymous"}
 	}
-	dec := h.access.Evaluate(r.Context(), pr, access.DelegationOf(pr), c, res, access.Context{})
+	dec, err := h.access.Explain(r.Context(), pr, access.Permission{Capability: c, Resource: res})
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
+	}
 	// Who can: every subject with a live grant that applies here.
 	who := []string{}
 	seen := map[string]bool{}
@@ -258,7 +269,12 @@ func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 	for _, c := range []access.Capability{access.CapAuthzGrants, access.CapIdentityUsers, access.CapIdentityGroups, access.CapIdentityAuth, access.CapProjectCreate,
 		access.CapStandardsGuidance, access.CapExecWorkflows, access.CapReleasePromote, access.CapAuditRead, access.CapSecretReveal,
 		access.CapInstitutionRead, access.CapProjectRead, access.CapDeploymentRead, access.CapConformanceRead, access.CapStandardsPacks, access.CapPlatformTargets} {
-		inst[string(c)] = h.holds(r.Context(), pr, c, access.Resource{Type: "instance"})
+		may, err := h.holds(r.Context(), pr, c, access.Resource{Type: "instance"})
+		if err != nil {
+			WriteFaultOr(w, err, http.StatusServiceUnavailable)
+			return
+		}
+		inst[string(c)] = may
 	}
 	out.Instance = inst
 	// Where this person may create projects, and where one goes by default —
@@ -273,9 +289,12 @@ func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 			createIn = []string{}
 		}
 		out.CreateIn = &createIn
-		if g, err := h.access.OwningGroupFor(r.Context(), pr, ""); err == nil {
-			out.DefaultGroup = &g
+		g, err := h.access.OwningGroupFor(r.Context(), pr, "")
+		if err != nil {
+			WriteFaultOr(w, err, http.StatusServiceUnavailable)
+			return
 		}
+		out.DefaultGroup = &g
 	}
 	if slug := r.URL.Query().Get("project"); slug != "" {
 		if p, err := h.projects.BySlug(r.Context(), slug); err == nil {
@@ -284,7 +303,12 @@ func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 			for _, c := range []access.Capability{access.CapChangeCreate, access.CapChangeRequestLand, access.CapChangeLand, access.CapChangeApprove, access.CapChangeOverride,
 				access.CapChangeAbandon, access.CapProjectManageMembers, access.CapProjectConfigure, access.CapProjectWorkflow, access.CapProjectGuidance,
 				access.CapProjectIntegrations, access.CapProjectServices, access.CapReleasePromote} {
-				pc[string(c)] = h.holds(r.Context(), pr, c, res)
+				may, err := h.holds(r.Context(), pr, c, res)
+				if err != nil {
+					WriteFaultOr(w, err, http.StatusServiceUnavailable)
+					return
+				}
+				pc[string(c)] = may
 			}
 			out.Project = pc
 		}

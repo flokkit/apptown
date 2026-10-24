@@ -2,7 +2,6 @@ package identity
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -35,7 +34,9 @@ func (s *Service) Require(ctx context.Context, pr access.Principal, p access.Per
 	return pr, nil
 }
 
-// access.Decide records a decision, including a denial's linked ledger line.
+// Decide is the decision on an act: it records the receipt, a denial's
+// included, and a fact or receipt that cannot be read or written is an
+// error, never an answer. Route guards and tool guards use it.
 func (s *Service) Decide(ctx context.Context, pr access.Principal, p access.Permission) (access.Decision, error) {
 	now := s.now()
 	dec, err := s.explain(ctx, pr, access.DelegationOf(pr), p, now)
@@ -43,10 +44,14 @@ func (s *Service) Decide(ctx context.Context, pr access.Principal, p access.Perm
 		return access.Decision{}, err
 	}
 	dec.ReceiptID, err = s.decisions.record(ctx, pr, access.DelegationOf(pr), p, dec, now)
-	return dec, err
+	if err != nil {
+		return access.Decision{}, err
+	}
+	return dec, nil
 }
 
-// Explain answers without recording a receipt; unavailable facts are errors.
+// Explain answers a question (a menu, a holding, a visibility filter)
+// without recording a receipt; unavailable facts are errors.
 func (s *Service) Explain(ctx context.Context, pr access.Principal, p access.Permission) (access.Decision, error) {
 	return s.explain(ctx, pr, access.DelegationOf(pr), p, s.now())
 }
@@ -73,26 +78,6 @@ func explainWithFacts(ctx context.Context, pr access.Principal, d access.Channel
 		return access.Decision{}, f.err
 	}
 	return dec, nil
-}
-
-// Evaluate preserves the existing transport decision's result shape. Internal
-// operations use Require, whose error result cannot turn unreadable policy or
-// a missing required receipt into authorization.
-func (s *Service) Evaluate(ctx context.Context, pr access.Principal, d access.Channel, c access.Capability, res access.Resource, actx access.Context) access.Decision {
-	now := s.now()
-	f := &serviceFacts{ctx: ctx, q: s.db, at: now}
-	dec := access.Decide(pr, d, c, res, actx, f)
-	if f.err != nil {
-		log.Printf("read failed: %v", f.err)
-	}
-	if actx.Consequential {
-		id, err := s.decisions.record(ctx, pr, d, access.Permission{Capability: c, Resource: res, Context: actx}, dec, now)
-		if err != nil {
-			log.Printf("recording the decision on %s: %v", c, err)
-		}
-		dec.ReceiptID = id
-	}
-	return dec
 }
 
 func (r decisionRecorder) record(ctx context.Context, pr access.Principal, d access.Channel, p access.Permission, dec access.Decision, at time.Time) (ids.ID, error) {

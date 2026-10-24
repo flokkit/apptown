@@ -171,25 +171,30 @@ func (v *Vault) Put(ctx context.Context, scope, name, value, who string) (int, e
 	}
 	var version int
 	err = v.db.InTx(ctx, func(tx *database.Tx) error {
-		if err := LockValueIn(ctx, tx, scope, name); err != nil {
-			return err
-		}
-		at := v.now()
-		setter, err := identity.ActorIn(ctx, tx, who)
-		if err != nil {
-			return err
-		}
-		row, err := queries(tx).InsertSecretValue(ctx, secretsql.InsertSecretValueParams{
-			ID: ids.New(at), Scope: scope, Name: name, Value: sealed, CreatedAt: at,
-			CreatedBy: who, CreatedByPrincipal: setter.Principal, CreatedByVia: setter.Via,
-		})
-		version = int(row.Version)
+		version, err = v.putIn(ctx, tx, scope, name, sealed, who)
 		return err
 	})
 	if err != nil {
 		return 0, err
 	}
 	return version, nil
+}
+
+// putIn writes a sealed value's next version in the caller's transaction.
+func (v *Vault) putIn(ctx context.Context, tx *database.Tx, scope, name, sealed, who string) (int, error) {
+	if err := LockValueIn(ctx, tx, scope, name); err != nil {
+		return 0, err
+	}
+	at := v.now()
+	setter, err := identity.ActorIn(ctx, tx, who)
+	if err != nil {
+		return 0, err
+	}
+	row, err := queries(tx).InsertSecretValue(ctx, secretsql.InsertSecretValueParams{
+		ID: ids.New(at), Scope: scope, Name: name, Value: sealed, CreatedAt: at,
+		CreatedBy: who, CreatedByPrincipal: setter.Principal, CreatedByVia: setter.Via,
+	})
+	return int(row.Version), err
 }
 
 // Get is the latest version of a value, ErrNotStored when there is none.
@@ -326,13 +331,23 @@ func (s *Bindings) begin(ctx context.Context, projectID ids.ID) (*database.Tx, e
 	return tx, nil
 }
 
-// Put binds a name; a built-in binding must point at a stored version.
+// Put binds a name, with its receipt; a built-in binding must point at a
+// stored version.
 func (s *Bindings) Put(ctx context.Context, projectID ids.ID, b Binding) error {
 	tx, err := s.begin(ctx, projectID)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
+	if err := s.putIn(ctx, tx, projectID, b); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// putIn writes a binding and its secret.bound receipt in a transaction
+// begun by begin (the project's bindings locked).
+func (s *Bindings) putIn(ctx context.Context, tx *database.Tx, projectID ids.ID, b Binding) error {
 	if b.Store == StoreInternal {
 		if err := LockValueIn(ctx, tx, b.Ref, b.Name); err != nil {
 			return err
@@ -355,14 +370,16 @@ func (s *Bindings) Put(ctx context.Context, projectID ids.ID, b Binding) error {
 	if err != nil {
 		return err
 	}
+	at := s.now()
 	if _, err := queries(tx).UpsertBinding(ctx, secretsql.UpsertBindingParams{
 		ProjectID: projectID, Deployment: b.Deployment, Name: b.Name, Store: b.Store, Ref: b.Ref,
-		Version: b.Version, Generated: int64(gen), UpdatedAt: s.now(), UpdatedBy: b.UpdatedBy,
+		Version: b.Version, Generated: int64(gen), UpdatedAt: at, UpdatedBy: b.UpdatedBy,
 		UpdatedByPrincipal: binder.Principal, UpdatedByVia: binder.Via,
 	}); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return audit.At(at).RecordIn(ctx, tx, b.UpdatedBy, projectID, "secret.bound", b.Name,
+		map[string]any{"deployment": b.Deployment, "store": b.Store, "version": b.Version, "generated": b.Generated})
 }
 
 // Unbind removes a binding and, for the built-in store, every stored
@@ -411,9 +428,14 @@ func (s *Bindings) Unbind(ctx context.Context, projectID ids.ID, deployment, nam
 }
 
 // Profiles is a deployment's chosen declared profile.
-type Profiles struct{ db *database.DB }
+type Profiles struct {
+	db    *database.DB
+	clock func() time.Time
+}
 
-func NewProfiles(db *database.DB) *Profiles { return &Profiles{db: db} }
+func NewProfiles(db *database.DB, now func() time.Time) *Profiles {
+	return &Profiles{db: db, clock: now}
+}
 
 // Chosen is the explicit choice, empty when none was made.
 func (p *Profiles) Chosen(ctx context.Context, projectID ids.ID, deployment string) (string, error) {
@@ -424,8 +446,15 @@ func (p *Profiles) Chosen(ctx context.Context, projectID ids.ID, deployment stri
 	return row.Profile, err
 }
 
-func (p *Profiles) Set(ctx context.Context, projectID ids.ID, deployment, profile string) error {
-	return queries(p.db).SetProfile(ctx, secretsql.SetProfileParams{
-		ProjectID: projectID, Deployment: deployment, Profile: profile,
+// Set chooses a deployment's profile, which decides the secrets it is
+// given, with its receipt in the same transaction.
+func (p *Profiles) Set(ctx context.Context, projectID ids.ID, deployment, profile, who string) error {
+	return p.db.InTx(ctx, func(tx *database.Tx) error {
+		if err := queries(tx).SetProfile(ctx, secretsql.SetProfileParams{
+			ProjectID: projectID, Deployment: deployment, Profile: profile,
+		}); err != nil {
+			return err
+		}
+		return audit.At(clock.Or(p.clock)().UTC()).RecordIn(ctx, tx, who, projectID, "secret.profile-set", deployment, map[string]any{"profile": profile})
 	})
 }

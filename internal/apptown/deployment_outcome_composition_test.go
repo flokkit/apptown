@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -79,5 +80,23 @@ func TestLandingDeployDoesNotPassWhenOutcomeCannotBeRecorded(t *testing.T) {
 	}
 	if n := len(operationJobs(t, a, deployment.RecoveryJob)); n != 1 {
 		t.Fatalf("%d recovery jobs", n)
+	}
+}
+
+// The release a landing deployed is recorded as its artifact and its
+// release.deployed receipt together, or the step does not pass: it says the
+// new version is running and that its record could not be written.
+func TestALandingDeployWhoseReleaseRecordFailsDoesNotPass(t *testing.T) {
+	t.Parallel()
+	a, _ := bootWorld(t)
+	a.SeedTargets(t.Context())
+	_, stepID := deployRun(t, a)
+	dbtest.FailNextStatement(t, a.DB, "-- name: InsertTextArtifact")
+	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	if step := readStep(t, a, stepID); step.Status != workflow.StatusError || !strings.Contains(stepReason(t, step), "but its record could not be written") {
+		t.Fatalf("deploy step: %s %s", step.Status, step.Evidence)
+	}
+	if got, err := audit.Recent(context.Background(), a.DB, audit.Filter{KindPrefix: "release.deployed"}); err != nil || len(got) != 0 {
+		t.Fatalf("a release.deployed receipt without its artifact: %+v %v", got, err)
 	}
 }

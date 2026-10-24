@@ -1,20 +1,23 @@
 package secret
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-// SetBootstrap replaces one named credential in the instance bootstrap file.
-// Values are single-line credentials; the caller selects a supported provider.
-func (a *Service) SetBootstrap(name, value string) error {
+// SetBootstrap replaces one named credential in the instance bootstrap file,
+// recorded as an instance secret change (instanceReceipt). Values are
+// single-line credentials; the caller selects a supported provider.
+func (a *Service) SetBootstrap(ctx context.Context, name, value, who string) error {
 	if !ValidName(name) || strings.ContainsAny(value, "\n\r") {
 		return errors.New("bootstrap credential requires a valid name and single-line value")
 	}
-	_, err := a.rewriteBootstrap(name, &value)
-	return err
+	return a.instanceReceipt(ctx, who, "secret.instance-set", name, func() (bool, error) {
+		return a.rewriteBootstrap(name, &value)
+	})
 }
 
 // rewriteBootstrap drops name's line from the bootstrap file and, when value

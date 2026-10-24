@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
@@ -121,6 +122,19 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 					opener, _ := ids.Parse(cs.Labels[conversation.OpenerLabel])
 					id = &authIdentity{PrincipalID: opener, User: cs.Actor + " via console/" + cs.SessionID, Role: "member", Via: "console",
 						ProjectID: conversation.FromLabels(cs.Labels).ProjectID, ConsoleID: cs.SessionID}
+					// A chat acts for its person: once their account is
+					// disabled it makes no new request, here as at inference,
+					// including acts no capability decision covers (a
+					// complaint). The chat itself stays with its change.
+					if err := a.Access.RequireEnabled(r.Context(), principalOf(id, "")); err != nil {
+						var denied *access.Denied
+						if errors.As(err, &denied) {
+							writeErr(w, 403, "%s", denied.Reason)
+						} else {
+							writeErr(w, 503, "reading this chat's account: %v", err)
+						}
+						return
+					}
 				} else if who, err := inferenceIdentityFor(a).AuthenticateStep(r.Context(), r.Header.Get("X-AppTown-Session-Token")); err == nil {
 					// A step agent: same species as a console session. The
 					// token is checked as the inference gateway checks it

@@ -48,7 +48,7 @@ func TestSecretsFollowTheDeploymentsOneProfile(t *testing.T) {
 	if p, v := mode("preview"); p != "preview" || v != "preview" {
 		t.Fatalf("a preview with no choice: profile %q, MODE %q; want SecretSpec's preview", p, v)
 	}
-	if err := s.Profiles.Set(t.Context(), id, "preview", "large"); err != nil {
+	if err := s.Profiles.Set(t.Context(), id, "preview", "large", "test"); err != nil {
 		t.Fatal(err)
 	}
 	name, how, err := s.DeploymentProfile(t.Context(), id, "preview", nil, c)
@@ -58,7 +58,7 @@ func TestSecretsFollowTheDeploymentsOneProfile(t *testing.T) {
 	if p, v := mode("preview"); p != "default" || v != "base" {
 		t.Errorf("a preview chosen as large, which SecretSpec does not declare: profile %q, MODE %q; want its default", p, v)
 	}
-	if err := s.Profiles.Set(t.Context(), id, "preview", "default"); err != nil {
+	if err := s.Profiles.Set(t.Context(), id, "preview", "default", "test"); err != nil {
 		t.Fatal(err)
 	}
 	if name, how, _ := s.DeploymentProfile(t.Context(), id, "preview", nil, c); name != "default" || how != appcontract.ProfileChosen {

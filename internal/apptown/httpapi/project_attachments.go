@@ -12,13 +12,11 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/stock"
 )
@@ -237,14 +235,13 @@ func (h ProjectAttachments) DetachIntegration(w http.ResponseWriter, r *http.Req
 		return
 	}
 	capability := r.PathValue("capability")
-	if err := h.integrations.Attachments.Detach(r.Context(), p.ID, capability); errors.Is(err, integration.ErrNotAttached) {
+	if err := h.integrations.Attachments.Detach(r.Context(), p.ID, capability, Actor(r)); errors.Is(err, integration.ErrNotAttached) {
 		WriteError(w, 404, "project has no %s integration", capability)
 		return
 	} else if err != nil {
 		WriteFault(w, err)
 		return
 	}
-	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "integration.detached", capability, nil)
 	WriteJSON(w, 200, Done{OK: true})
 }
 

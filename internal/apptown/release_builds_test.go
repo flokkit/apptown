@@ -818,7 +818,7 @@ func TestAReleaseBuildIsRefusedBeforeAnythingIsBuilt(t *testing.T) {
 		want    string
 	}{
 		{name: "no registry", prepare: func(t *testing.T, w *releaseWorld) {
-			if err := w.a.Integrations.Attachments.Detach(context.Background(), idstest.N(1), "container-registry"); err != nil {
+			if err := w.a.Integrations.Attachments.Detach(context.Background(), idstest.N(1), "container-registry", "test"); err != nil {
 				t.Fatal(err)
 			}
 		}, want: "this project has no container registry for its releases, and no container-registry connector is offered"},
@@ -872,7 +872,7 @@ func TestAReleaseBuildIsRefusedBeforeAnythingIsBuilt(t *testing.T) {
 // the secret tokenFrom names: the store holds REGISTRY_PASSWORD.
 func (w *releaseWorld) offerRegistry(t *testing.T, name, tokenFrom string) {
 	t.Helper()
-	if err := w.a.Integrations.Attachments.Detach(context.Background(), idstest.N(1), integration.CapContainerRegistry); err != nil && !errors.Is(err, integration.ErrNotAttached) {
+	if err := w.a.Integrations.Attachments.Detach(context.Background(), idstest.N(1), integration.CapContainerRegistry, "test"); err != nil && !errors.Is(err, integration.ErrNotAttached) {
 		t.Fatal(err)
 	}
 	f, err := os.OpenFile(filepath.Join(w.a.cfg.dataDir, "secrets.env"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0o600)
@@ -2021,7 +2021,7 @@ func TestALandingBuiltOnItsHostIsPublishedAsOnTheWorker(t *testing.T) {
 func TestALandingWithNoRegistryKeepsItsHostsImages(t *testing.T) {
 	t.Parallel()
 	w := localReleaseWorld(t)
-	if err := w.a.Integrations.Attachments.Detach(t.Context(), idstest.N(1), "container-registry"); err != nil {
+	if err := w.a.Integrations.Attachments.Detach(t.Context(), idstest.N(1), "container-registry", "test"); err != nil {
 		t.Fatal(err)
 	}
 	w.mainOn(t, w.lab)

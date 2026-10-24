@@ -18,6 +18,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
@@ -106,8 +107,10 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 				"reason": "merge-only release refused: the committed tree does not build from a clean checkout — " + reason}))
 			return
 		}
-		recordArtifact(task.Context(), a.db, run.ID, "release", cfg.Deployment, "merge-only (no runtime contract)", "", a.now())
-
+		if err := recordArtifact(task.Context(), a.db, run.ID, "release", cfg.Deployment, "merge-only (no runtime contract)", "", a.now()); err != nil {
+			finish(workflow.StatusError, map[string]any{"reason": "the merge is the release, but its record could not be written: " + err.Error()})
+			return
+		}
 		finish(workflow.StatusPass, map[string]any{"skipped": "no .apptown/app.yaml — nothing to deploy; merge is the release",
 			"cleanTreeBuild": "pass"})
 		return
@@ -266,13 +269,23 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 			log.Printf("run %d: cutting the release bundle: %v", run.ID, err)
 		}
 	}
-	// The deploy's artifact, its run event and its receipt are one fact.
+	// The deploy's artifact and its receipt are one fact, written together
+	// though the caller stops; the run event narrates it.
 	deployed := a.now()
 	logf("Recording the deployed release at %s", url)
-	recordArtifact(task.Context(), a.db, run.ID, "release", cfg.Deployment, url, "", deployed)
 	depEv := out.Evidence
 	if bundle != nil {
 		depEv.Bundle = bundle.ID
+	}
+	if err := a.db.InTx(context.WithoutCancel(task.Context()), func(tx *database.Tx) error {
+		if err := recordArtifact(task.Context(), tx, run.ID, "release", cfg.Deployment, url, "", deployed); err != nil {
+			return err
+		}
+		return audit.At(deployed).RecordIn(context.WithoutCancel(task.Context()), tx, "apptown-system", run.ProjectID, "release.deployed", cfg.Deployment,
+			map[string]any{"runId": run.ID, "url": url, "image": depEv.Image, "digest": depEv.Digest})
+	}); err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": fmt.Sprintf("the new version is running at %s, but its record could not be written: %v", url, err), "url": url})
+		return
 	}
 	recordEvent(task.Context(), a.db, run.ID, "release.deployed", map[string]any{"deployment": cfg.Deployment, "url": url, "digest": depEv.Digest}, deployed)
 	a.backups.AfterRelease(run.ProjectID, cfg.Deployment)
@@ -288,8 +301,6 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 		}
 		logf("The data its needs held before the release is still there")
 	}
-	audit.At(deployed).BestEffort(task.Context(), a.db, "apptown-system", run.ProjectID, "release.deployed", cfg.Deployment,
-		map[string]any{"runId": run.ID, "url": url, "image": depEv.Image, "digest": depEv.Digest})
 
 	logf("Deployment completed: %s", url)
 	finish(workflow.StatusPass, depEv)

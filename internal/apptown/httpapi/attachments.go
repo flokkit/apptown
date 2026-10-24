@@ -1,10 +1,13 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -64,7 +67,23 @@ func (h Attachments) UploadAttachment(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	if err := os.WriteFile(filepath.Join(dir, name), b, 0o644); err != nil {
+	// An attachment is never replaced in place: removing it is the one
+	// way its bytes go, and that is recorded.
+	out, err := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if errors.Is(err, fs.ErrExist) {
+		WriteError(w, 409, "this change already has an attachment named %s; remove it first", name)
+		return
+	}
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if _, err := out.Write(b); err != nil {
+		_ = out.Close()
+		WriteFault(w, err)
+		return
+	}
+	if err := out.Close(); err != nil {
 		WriteFault(w, err)
 		return
 	}
@@ -124,10 +143,29 @@ func (h Attachments) DeleteAttachment(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 400, "bad name")
 		return
 	}
-	_ = os.Remove(filepath.Join((workflow.GitWorkspace{DataDir: h.dataDir}).AttachmentDir(ch.ID), name))
+	// Removing destroys work supplied to the change: it is requested on the
+	// record before the files go, and its outcome recorded after.
+	subject := fmt.Sprintf("change %d: %s", ch.ID, name)
+	if err := audit.At(clock.Or(h.now)()).Record(r.Context(), h.db, Actor(r), p.ID, "change.attachment-remove-requested", subject, nil); err != nil {
+		WriteError(w, 503, "not removed: the request could not be recorded: %v", err)
+		return
+	}
+	settle := context.WithoutCancel(r.Context())
 	wt := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
-	_ = os.Remove(filepath.Join(wt, ".apptown", "attachments", name))
-	audit.At(clock.Or(h.now)()).BestEffort(r.Context(), h.db, Actor(r), p.ID, "change.attachment-removed", fmt.Sprintf("change %d: %s", ch.ID, name), nil)
+	for _, path := range []string{filepath.Join((workflow.GitWorkspace{DataDir: h.dataDir}).AttachmentDir(ch.ID), name), filepath.Join(wt, ".apptown", "attachments", name)} {
+		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			why := err.Error()
+			if recErr := audit.At(clock.Or(h.now)()).Record(settle, h.db, Actor(r), p.ID, "change.attachment-remove-failed", subject, map[string]any{"error": why}); recErr != nil {
+				why += "; and recording that it failed: " + recErr.Error()
+			}
+			WriteError(w, 500, "not removed: %s", why)
+			return
+		}
+	}
+	if err := audit.At(clock.Or(h.now)()).Record(settle, h.db, Actor(r), p.ID, "change.attachment-removed", subject, nil); err != nil {
+		WriteError(w, 500, "%s was removed, but its outcome was not recorded: %v", name, err)
+		return
+	}
 	WriteJSON(w, 200, Done{OK: true})
 }
 

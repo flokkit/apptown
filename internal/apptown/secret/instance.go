@@ -8,7 +8,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 )
 
@@ -79,22 +78,29 @@ func (a *Service) RemoveInstance(ctx context.Context, name, who string) error {
 	})
 }
 
-// instanceReceipt records the receipt and makes the file change inside one
-// transaction: a failed change leaves no receipt.
+// instanceReceipt records a change to the bootstrap file, which runtime
+// reads for its credentials and which no transaction covers: the request
+// before the rewrite (no request record, no rewrite) and the outcome after,
+// <kind> or <kind>-failed. Both name the secret, never its value. An
+// outcome that cannot be recorded is an error, though the file was changed.
 func (a *Service) instanceReceipt(ctx context.Context, who, kind, name string, change func() (bool, error)) error {
-	wrote := false
-	_, err := database.Transact(ctx, a.Vault.db, func(tx *database.Tx) (struct{}, error) {
-		had, err := change()
-		if err != nil {
-			return struct{}{}, err
-		}
-		wrote = true
-		return struct{}{}, audit.At(a.now()).RecordIn(ctx, tx, who, ids.Nil, kind, name, map[string]any{"store": InstanceStore, "replaced": had && kind == "secret.instance-set"})
-	})
-	if err != nil && wrote {
-		return fmt.Errorf("AppTown's secrets file was changed for %s, but its receipt was not recorded: %w", name, err)
+	if err := audit.At(a.now()).Record(ctx, a.Vault.db, who, ids.Nil, kind+"-requested", name, map[string]any{"store": InstanceStore}); err != nil {
+		return err
 	}
-	return err
+	// The file changes whether or not the caller stays: its outcome is
+	// recorded though the caller has gone.
+	settle := context.WithoutCancel(ctx)
+	had, err := change()
+	if err != nil {
+		if recErr := audit.At(a.now()).Record(settle, a.Vault.db, who, ids.Nil, kind+"-failed", name, map[string]any{"store": InstanceStore, "error": err.Error()}); recErr != nil {
+			return fmt.Errorf("%w; and recording that it failed: %v", err, recErr)
+		}
+		return err
+	}
+	if err := audit.At(a.now()).Record(settle, a.Vault.db, who, ids.Nil, kind, name, map[string]any{"store": InstanceStore, "replaced": had && kind == "secret.instance-set"}); err != nil {
+		return fmt.Errorf("AppTown's secrets file was changed for %s, but its outcome was not recorded: %w", name, err)
+	}
+	return nil
 }
 
 // refuseInfisicalName refuses a name Infisical holds, and answers unknown

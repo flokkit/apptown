@@ -567,3 +567,30 @@ func awaitAdvisoryWaiter(t *testing.T, ctx context.Context, db *database.DB, id 
 		}
 	}
 }
+
+// A desktop checkout's ticket is a credential: when its receipt cannot be
+// written, the checkout fails, the ticket is revoked and the change is not
+// held by it.
+func TestACheckoutWhoseTicketReceiptFailsHandsOutNoTicket(t *testing.T) {
+	t.Parallel()
+	a, _ := mcpWriteFixture(t)
+	p, err := a.Projects.BySlug(context.Background(), "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := asPerson("boss")
+	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: p.ID, Type: "feature", Title: "unrecorded ticket"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	restore := a.DB.FailNextStatement("-- name: AppendReceipt")
+	out, err := contributionsFor(a).Checkout(ctx, ch.ID)
+	restore()
+	if err == nil || out.Token != "" {
+		t.Fatalf("a checkout whose receipt failed handed out a ticket: %+v %v", out, err)
+	}
+	held, err := scm.ReadAuthorityIn(ctx, a.DB, p.ID, ch.Branch)
+	if err != nil || strings.HasPrefix(held.Holder, "ticket") {
+		t.Fatalf("the unrecorded ticket holds the change: %+v %v", held, err)
+	}
+}

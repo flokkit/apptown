@@ -80,7 +80,9 @@ func TestInstanceSecretsAreAdministratorOnlyAndWriteOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(receipts) != 2 || receipts[0].Kind != "secret.instance-removed" || receipts[1].Kind != "secret.instance-set" {
+	// Newest first: each change's request, then its outcome.
+	if len(receipts) != 4 || receipts[0].Kind != "secret.instance-removed" || receipts[1].Kind != "secret.instance-removed-requested" ||
+		receipts[2].Kind != "secret.instance-set" || receipts[3].Kind != "secret.instance-set-requested" {
 		t.Fatalf("receipts: %+v", receipts)
 	}
 	for _, r := range receipts {

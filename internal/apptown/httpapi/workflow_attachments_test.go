@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -105,9 +106,26 @@ func TestAttachmentUploadListGetDelete(t *testing.T) {
 	if w = workflowAttachmentRequest(f, dataDir, "GET", f.ChangeID, ".hidden", nil); w.Code != 400 {
 		t.Fatalf("bad name: %d", w.Code)
 	}
+	// An attachment is never replaced in place; removing it is the one way
+	// its bytes go, and that needs its request on the record.
+	if w = workflowAttachmentRequest(f, dataDir, "POST", f.ChangeID, "data.csv", []byte("other")); w.Code != 409 {
+		t.Fatalf("a second upload of the name: %d %s", w.Code, w.Body.String())
+	}
+	restore := f.DB.FailNextStatement("-- name: AppendReceipt")
+	w = workflowAttachmentRequest(f, dataDir, "DELETE", f.ChangeID, "data.csv", nil)
+	restore()
+	if w.Code != 503 {
+		t.Fatalf("a delete whose request was not recorded: %d %s", w.Code, w.Body.String())
+	}
+	if b, err := os.ReadFile(filepath.Join(attachments.AttachmentDir(f.ChangeID), "data.csv")); err != nil || !bytes.Equal(b, body) {
+		t.Fatalf("the attachment's bytes after a refused replace and delete: %q %v", b, err)
+	}
 	w = workflowAttachmentRequest(f, dataDir, "DELETE", f.ChangeID, "data.csv", nil)
 	if w.Code != 200 {
 		t.Fatalf("delete: %d %s", w.Code, w.Body.String())
+	}
+	if got, err := audit.Recent(t.Context(), f.DB, audit.Filter{ProjectID: f.ProjectID, KindPrefix: "change.attachment-remove"}); err != nil || len(got) != 2 || got[0].Kind != "change.attachment-removed" || got[1].Kind != "change.attachment-remove-requested" {
+		t.Fatalf("a removal's request and outcome: %+v %v", got, err)
 	}
 	if names := attachments.AttachmentNames(f.ChangeID); len(names) != 0 {
 		t.Fatalf("survived delete: %v", names)

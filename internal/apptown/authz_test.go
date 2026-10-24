@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/operations"
+	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
@@ -242,10 +244,10 @@ func TestAuthzExplicitGrantsPreserveScopedAccess(t *testing.T) {
 		t.Error("the migrated-open grant should be on the record")
 	}
 	// amend: amy holds it, others do not; release was unclaimed → everyone.
-	if !a.hasPrivilege(context.Background(), "amy", "member", "amend") || a.hasPrivilege(context.Background(), "outsider", "member", "amend") {
+	if !privileged(t, a, "amy", "member", "amend") || privileged(t, a, "outsider", "member", "amend") {
 		t.Error("amend migration wrong")
 	}
-	if !a.hasPrivilege(context.Background(), "outsider", "member", "release") {
+	if !privileged(t, a, "outsider", "member", "release") {
 		t.Error("unclaimed release should have migrated to everyone")
 	}
 	// Running the migration again is a no-op.
@@ -728,5 +730,100 @@ func TestAStepTokenDoesNotReadTheInstancesOwnRecords(t *testing.T) {
 		if w := callAs(t, mux, who, "GET", "/api/v1/projects/game", nil); w.Code != 200 {
 			t.Errorf("%s lost its project read: %d %s", who.User, w.Code, w.Body.String())
 		}
+	}
+}
+
+// A route guard that cannot read the caller's grants, or cannot write the
+// receipt of its decision, answers 503: unreadable authority is neither a
+// refusal nor a permission, and nothing behind the guard runs.
+func TestTheRouteGuardAnswers503WhenAuthorityCannotBeReadOrRecorded(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	h := a.Handler()
+	if w := authzCall(h, "owner", "GET", "/api/v1/projects/game", ""); w.Code != 200 {
+		t.Fatalf("owner reads game: %d %s", w.Code, w.Body)
+	}
+	for _, failed := range []string{"-- name: ActiveGrantsOfPrincipal", "-- name: InsertDecision"} {
+		restore := a.DB.FailNextStatement(failed)
+		w := authzCall(h, "owner", "GET", "/api/v1/projects/game", "")
+		restore()
+		if w.Code != 503 {
+			t.Errorf("%s failed: the guard answered %d %s, want 503", failed, w.Code, w.Body)
+		}
+	}
+}
+
+// Disabling a person stops their open chats making requests: the chat's
+// credential is refused at admission, on a route guarded by the route
+// table, a project-member route and an act no capability covers (a
+// complaint).
+// A change's chat is not ended: the change and its chat stay with the
+// project.
+func TestAChatOfADisabledPersonIsRefused(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t, Config{AuthMode: "internal", ConsoleAgent: consoletest.NewAgent()})
+	ch, err := a.Work.Create(asPerson("owner"), workflow.ChangeDraft{ProjectID: idstest.N(1), Type: "change", Title: "chatted"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	meta := consoleMetaFor("", idstest.N(1), ch.ID)
+	meta.Labels[conversation.OpenerLabel] = testPrincipalOf(t, a.DB, "owner").String()
+	meta.Actor, meta.Token = "owner", "disabled-owner-chat-token"
+	s := a.Console.Restore(meta)
+	paths := []string{"/api/v1/projects/game", "/api/v1/conformance/projects/game/history"}
+	get := func(path string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", path, nil)
+		r.Header.Set("X-AppTown-Session-Token", s.Token)
+		w := httptest.NewRecorder()
+		a.Handler().ServeHTTP(w, r)
+		return w
+	}
+	for _, path := range paths {
+		if w := get(path); w.Code != 200 {
+			t.Fatalf("owner's chat reads %s before the disable: %d %s", path, w.Code, w.Body)
+		}
+	}
+	// A complaint is an act no capability decision covers: the chat's own
+	// read-only listener carries it.
+	complain := func() int {
+		r := httptest.NewRequest("POST", "/api/v1/complaints", strings.NewReader(`{"text":"still acting"}`))
+		r.Header.Set("X-AppTown-Session-Token", s.Token)
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		GETOnly(a.Handler()).ServeHTTP(w, r)
+		return w.Code
+	}
+	filed := func() int {
+		got, err := a.Complaints.All(context.Background(), 100)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(got)
+	}
+	if code := complain(); code != 201 {
+		t.Fatalf("owner's chat complains before the disable: %d", code)
+	}
+	disabled := true
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range paths {
+		if w := get(path); w.Code != 403 {
+			t.Errorf("a disabled person's chat read %s: %d %s", path, w.Code, w.Body)
+		}
+	}
+	before := filed()
+	if code := complain(); code != 403 || filed() != before {
+		t.Errorf("a disabled person's chat filed a complaint: %d", code)
+	}
+	if _, ok := a.Console.Identity(s.Token); !ok {
+		t.Error("disabling its opener ended the change's chat")
+	}
+	// An account that cannot be read is not an enabled one.
+	restore := a.DB.FailNextStatement("-- name: UserByPrincipal :one")
+	w := get(paths[0])
+	restore()
+	if w.Code != 503 {
+		t.Errorf("an unreadable account admitted or refused the chat as policy: %d %s", w.Code, w.Body)
 	}
 }

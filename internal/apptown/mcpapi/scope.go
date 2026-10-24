@@ -23,9 +23,9 @@ func (s Scope) bySlug(ctx context.Context, slug string) (*project.Project, error
 	p, err := s.projects.BySlug(ctx, slug)
 	return &p, err
 }
-func (s Scope) mayRead(c *Call, p *project.Project) bool {
-	pr := c.principal()
-	return s.authority.Evaluate(c.Context, pr, access.DelegationOf(pr), access.CapProjectRead, project.ObservedResource(c.Context, s.projects, p), access.Context{}).Allow
+func (s Scope) mayRead(c *Call, p *project.Project) (bool, error) {
+	dec, err := s.authority.Explain(c.Context, c.principal(), access.Permission{Capability: access.CapProjectRead, Resource: project.ObservedResource(c.Context, s.projects, p)})
+	return dec.Allow, err
 }
 
 // readable returns the project with this id if the caller may read it. A
@@ -39,7 +39,9 @@ func (s Scope) readable(c *Call, id ids.ID, refusal error) (*project.Project, er
 	if err != nil {
 		return nil, err
 	}
-	if !s.mayRead(c, &p) {
+	if may, err := s.mayRead(c, &p); err != nil {
+		return nil, err
+	} else if !may {
 		return nil, refusal
 	}
 	return &p, nil
@@ -56,7 +58,9 @@ func (s Scope) projectForRead(c *Call, slug string) (*project.Project, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !s.mayRead(c, p) {
+	if may, err := s.mayRead(c, p); err != nil {
+		return nil, err
+	} else if !may {
 		return nil, nope
 	}
 	return p, nil
@@ -111,7 +115,10 @@ func (s Scope) changeForWrite(work *workflow.Service, c *Call, args map[string]a
 }
 func (s Scope) authorize(c *Call, tool string, cap access.Capability, res access.Resource) error {
 	pr := c.principal()
-	dec := s.authority.Evaluate(c.Context, pr, access.DelegationOf(pr), cap, res, access.Context{Consequential: true, Route: "mcp:" + tool})
+	dec, err := s.authority.Decide(c.Context, pr, access.Permission{Capability: cap, Resource: res, Context: access.Context{Consequential: true, Route: "mcp:" + tool}})
+	if err != nil {
+		return err
+	}
 	if !dec.Allow {
 		return refuse("%s", dec.Reason)
 	}

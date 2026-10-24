@@ -82,7 +82,7 @@ func TestADeploymentRunsItsProfileAndARebuildRunsWhatItsGenerationApplied(t *tes
 	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "production"); err != nil {
+	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "production", "test"); err != nil {
 		t.Fatal(err)
 	}
 	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
@@ -110,7 +110,7 @@ func TestADeploymentRunsItsProfileAndARebuildRunsWhatItsGenerationApplied(t *tes
 
 	// Another profile is chosen; the container goes; the rebuild runs the
 	// generation as it ran.
-	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "default"); err != nil {
+	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "default", "test"); err != nil {
 		t.Fatal(err)
 	}
 	w.removeContainer(t, "lab", w.names(t, "prod").App())
@@ -182,7 +182,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 	}
 	// The production web's own 512M, set as an override: the committed
 	// profile declares it, so the deploy clears it.
-	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "production"); err != nil {
+	if err := secrets.Profiles.Set(t.Context(), w.project, "prod", "production", "test"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := set("web", "512Mi", "same as production"); err != nil {
@@ -474,7 +474,7 @@ func TestALandingRunsMainsProfileAndKeepsItsOverride(t *testing.T) {
 	t.Parallel()
 	w, secrets := profiledWorld(t)
 	b := w.publish(t)
-	if err := secrets.Profiles.Set(t.Context(), w.project, "main", "production"); err != nil {
+	if err := secrets.Profiles.Set(t.Context(), w.project, "main", "production", "test"); err != nil {
 		t.Fatal(err)
 	}
 	landAs(t, w, b, idstest.N(801))
@@ -518,7 +518,7 @@ func TestAnAppPlatformResourceRefusalComesBeforeTheAIModelsKey(t *testing.T) {
 			t.Parallel()
 			service, provider, _, pid, dep, bundle := doReleaseWorldNeeding(t, "  llm:\n    limit: 4\nprofiles:\n  big:\n    web: {resources: {memory: "+tc.memory+"}}\n")
 			f := withLLM(t, service, pid, true)
-			if err := service.env.secrets.Profiles.Set(t.Context(), pid, dep.Name, "big"); err != nil {
+			if err := service.env.secrets.Profiles.Set(t.Context(), pid, dep.Name, "big", "test"); err != nil {
 				t.Fatal(err)
 			}
 			if tc.fail {

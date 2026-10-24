@@ -11,7 +11,7 @@ import (
 
 // hasPrivilege is the account menu summary; individual actions authorize
 // their exact capability and resource.
-func (a *App) hasPrivilege(ctx context.Context, user, role, priv string) bool {
+func (a *App) hasPrivilege(ctx context.Context, user, role, priv string) (bool, error) {
 	pr := access.Principal{Kind: "user", Name: user, Role: role}
 	if user == "" || user == "anonymous" {
 		pr = access.Principal{Kind: "anonymous", Name: "anonymous"}
@@ -20,9 +20,9 @@ func (a *App) hasPrivilege(ctx context.Context, user, role, priv string) bool {
 		return a.holds(ctx, pr, access.CapReleasePromote, access.Resource{Type: "release-target", ID: releaseTargetName})
 	}
 	for _, c := range access.AmenderCaps {
-		if a.holds(ctx, pr, c, a.resourceInstance()) {
-			return true
+		if may, err := a.holds(ctx, pr, c, a.resourceInstance()); err != nil || may {
+			return may, err
 		}
 	}
-	return false
+	return false, nil
 }

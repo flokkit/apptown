@@ -34,6 +34,14 @@ func RequireEnabledIn(ctx context.Context, q database.Queryer, pr access.Princip
 	return nil
 }
 
+// RequireEnabled is RequireEnabledIn at admission: a chat's credential is
+// admitted only while its person's account is enabled, as inference admits
+// it, for acts no capability decision covers too. A failed read is the
+// error, never an answer.
+func (s *Service) RequireEnabled(ctx context.Context, pr access.Principal) error {
+	return RequireEnabledIn(ctx, s.db, pr)
+}
+
 // SystemActor reports whether a name is one AppTown acts under itself —
 // its engine, triggers and bindings ("system", "apptown-system", "forge"), the
 // author of the commits it writes ("apptown"; "forge-system" and a "forge"
