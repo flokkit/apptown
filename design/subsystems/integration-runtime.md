@@ -31,9 +31,10 @@ owns stored values, application declarations and provider resolution.
    a secret not set), the variable is left out of a server or agent environment
    and the log names the project, connector and variable. A template that
    resolves is given as rendered, including a field or literal that is blank.
-   A variable's presence does not prove the service is ready. The browser's
-   values are read strictly: a definition or attachment that cannot be read is
-   an error that stops the static boot, never an empty set.
+   A variable's presence does not prove the service is ready. A definition,
+   attachment or secret store that cannot be read is an error that stops the
+   boot or step, for a server's environment and a browser's values alike,
+   never a variable left out or an empty set.
 
 ## Wiring an attachment
 
@@ -178,10 +179,26 @@ or a rendered contribution does not independently authorize an operation.
 ## Failure and storage limits
 
 Application Infisical bindings resolve against that store alone. Daemon/runtime
-lookup instead overlays local `secrets.env` values and permits ordinary provider
-failure fallback. Profile, binding and integration-template convenience reads
-also have fallback or omission paths; their method comments document the details.
-Do not interpret an empty rendered environment as successful validation.
+lookup instead overlays local `secrets.env` values on Infisical's. Both read
+strictly: a `secrets.env` that cannot be read, or a configured Infisical that
+cannot be, fails the read with its reason, never fewer values. Infisical's
+values are read at most once a minute; a refresh that fails is a failed read
+and never answers the values read before, which only masking still uses. So
+while Infisical is unreachable every runtime secret read fails, names that
+`secrets.env` would supply included: deploys, steps given step secrets, target
+connections and GitLab calls stop with "Infisical could not be read" until it
+answers.
+
+What an app's containers are given from its attached integrations is read the
+same way. An attachment, service definition, connector configuration, project
+or secret store that cannot be read fails the deploy, preview or step that
+asked, with the reason; it never starts without those variables. Only absence
+gives nothing: no attachment, an error-reporting definition that injects
+nothing, or a template whose value cannot be produced yet (a secret name the
+store does not hold), which the log names. Registry credentials follow the same
+rule: a registry attachment or credential that cannot be read, or a login that
+fails, stops the pull; it is never retried with another credential or
+anonymously. No registry attached reads public images anonymously.
 
 An administrator sets or removes one of AppTown's own credentials (the secret
 a target's `tokenFrom` or `keyFrom` names) with `PUT`/`DELETE /api/v1/secrets/{name}`,

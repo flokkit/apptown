@@ -39,7 +39,11 @@ func (a *Preparation) pinRunIntegrations(ctx context.Context, emit func(kind str
 			if err != nil {
 				return err
 			}
-			bs = integration.WithProviders(all, a.stores.AvailableProviders())
+			available, err := a.stores.AvailableProviders()
+			if err != nil {
+				return err
+			}
+			bs = integration.WithProviders(all, available)
 		} else {
 			b, err := integration.Selected(ctx, a.db, capability, "")
 			if errors.Is(err, sql.ErrNoRows) {

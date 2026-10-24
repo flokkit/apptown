@@ -36,7 +36,7 @@ type Config struct {
 	NoDind  bool   // change consoles get no private Docker daemon
 	// Mirror answers the Docker Hub mirror a private daemon and its
 	// builder pull through ("" none), read at each launch. Nil is none.
-	Mirror func(context.Context) string
+	Mirror func(context.Context) (string, error)
 	// Now is the console's clock: a session's last use and the idle and
 	// busy rules judged against it, and the times its records carry. Nil
 	// is the real clock.
@@ -191,7 +191,11 @@ func (s *Service) launch(ctx context.Context, sess *Session) (Launch, error) {
 		l.AgentSession = AgentSession
 	}
 	if l.Docker && s.cfg.Mirror != nil {
-		l.Mirror = s.cfg.Mirror(ctx)
+		mirror, err := s.cfg.Mirror(ctx)
+		if err != nil {
+			return Launch{}, err
+		}
+		l.Mirror = mirror
 	}
 	var p Provision
 	if s.env != nil {

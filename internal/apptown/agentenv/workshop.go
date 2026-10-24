@@ -43,13 +43,6 @@ func NewWorkshop(scope *docker.Scope, integrations *integration.Service, feeds *
 
 func (w *Workshop) now() time.Time { return clock.Or(w.clock)() }
 
-func (w *Workshop) DaemonOptions(ctx context.Context) []string {
-	return dind.DaemonOptions(w.Mirror(ctx))
-}
-func (w *Workshop) BuildkitConfig(ctx context.Context) string {
-	return dind.BuildkitConfig(w.Mirror(ctx))
-}
-
 // The agent's workshop: a private, disposable Docker daemon per
 // implementation step. The design bet: agents perform
 // better with the real docker CLI/API they were trained on than with any
@@ -120,6 +113,10 @@ const teardownBound = docker.TeardownBound
 
 func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet, clientConfigDir string) ([]string, string, func(), error) {
 	name := fmt.Sprintf("apptown-dind-step-%d", stepID)
+	mirror, err := w.Mirror(ctx)
+	if err != nil {
+		return nil, "", nil, err
+	}
 	network := existingNet
 	ownNet := false
 	if network == "" {
@@ -180,7 +177,7 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	// dockerd swaps for 8.8.8.8 inside those containers — so a LAN name like
 	// a package mirror on the local network never resolves there. Hand dockerd the host's real resolvers
 	// instead; they are reachable from a privileged nested container.
-	args = append(args, w.DaemonOptions(ctx)...)
+	args = append(args, dind.DaemonOptions(mirror)...)
 	if out, err := w.docker.Run(ctx, args...); err != nil {
 		cleanup()
 		return nil, "", nil, fmt.Errorf("dind start: %s", strs.Truncate(string(out), 300))
@@ -224,7 +221,7 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	// --registry-mirror.
 	// The embedded DNS first (it knows the private network's names, e.g.
 	// `dind`), then the host's resolvers for LAN names like the mirror.
-	toml := w.BuildkitConfig(ctx)
+	toml := dind.BuildkitConfig(mirror)
 	_ = os.WriteFile(filepath.Join(ws, ".apptown", "buildkitd.toml"), []byte(toml), 0o644)
 	buildxArgs := []string{"exec",
 		"-e", "DOCKER_HOST=tcp://localhost:2375",
@@ -243,15 +240,20 @@ func (w *Workshop) StartStep(ctx context.Context, stepID ids.ID, ws, existingNet
 	return []string{"DOCKER_HOST=tcp://dind:2375"}, network, cleanup, nil
 }
 
-// Mirror returns the bound docker-hub mirror URL, or "". Stored on the
-// registry-format binding docker-hub (same registry-binding family as the
-// npm/go proxies).
-func (w *Workshop) Mirror(ctx context.Context) string {
+// Mirror returns the bound docker-hub mirror URL, or "" when none is bound.
+// Stored on the registry-format binding docker-hub (same registry-binding
+// family as the npm/go proxies). A binding that cannot be read is an error:
+// pulls would go straight to Docker Hub.
+func (w *Workshop) Mirror(ctx context.Context) (string, error) {
 	if w == nil {
-		return ""
+		return "", nil
 	}
-	u, _ := w.integrations.ConnectorConfig(ctx, "docker-hub", "registry")["url"].(string)
-	return u
+	cfg, err := w.integrations.ConnectorConfig(ctx, "docker-hub", "registry")
+	if err != nil {
+		return "", fmt.Errorf("reading the Docker Hub mirror: %w", err)
+	}
+	u, _ := cfg["url"].(string)
+	return u, nil
 }
 
 // agentImageTar caches `docker save apptown-agent` under _data/cache, keyed

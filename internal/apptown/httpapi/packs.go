@@ -52,7 +52,12 @@ func (h Packs) Packs(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	generated, _ := steeringOverhead(h.inventory.sections(r.Context(), ids.Nil))
+	sections, err := h.inventory.sections(r.Context(), ids.Nil)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	generated, _ := steeringOverhead(sections)
 	out := []PackView{}
 	for _, p := range packs {
 		if p.Platform {

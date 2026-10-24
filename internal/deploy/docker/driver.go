@@ -22,8 +22,9 @@ type Driver struct {
 	AfterRelease func(p deploy.Placement)                       // what follows a release (a backup)
 	// Registry is the credential a release's images by digest are pulled
 	// with, and Scratch the folder each pull's own Docker configuration is
-	// written under (RecordedImages).
-	Registry func() *RegistryCredential
+	// written under (RecordedImages). A credential that cannot be read is
+	// an error, never an anonymous pull.
+	Registry func() (*RegistryCredential, error)
 	Scratch  string
 	// Owner records what the deployment's boot creates on the host; nil
 	// records nothing, and then a take-down deletes only the container.
@@ -106,7 +107,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		// them, build nothing.
 		req.Recorded = &RecordedImages{Parts: source.Images, Init: source.Init, Scratch: d.Scratch}
 		if d.Registry != nil {
-			req.Recorded.Login = d.Registry()
+			if req.Recorded.Login, err = d.Registry(); err != nil {
+				return deploy.Observation{}, fmt.Errorf("the credential the release's images are pulled with: %w", err)
+			}
 		}
 	}
 	res, err := d.Boot.Boot(ctx, req, c)

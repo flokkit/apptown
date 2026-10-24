@@ -97,8 +97,12 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 		// pattern had silently excluded the whole implementation from every
 		// commit, and no gate ever compiled what actually landed. Receipts
 		// must be true of the merged tree, not the worktree.
-		reason, ok, stopped := cleanTreeBuilds(task.Context(), selectedTree, a.checks,
-			agentenv.AmbientFor(integration.RegistryBindingsIn(task.Context(), a.db), selectedTree))
+		bound, err := integration.RegistryBindings(task.Context(), a.db)
+		if err != nil {
+			finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+			return
+		}
+		reason, ok, stopped := cleanTreeBuilds(task.Context(), selectedTree, a.checks, agentenv.AmbientFor(bound, selectedTree))
 		if stopped {
 			return // the step stays running for its recovery
 		}

@@ -36,22 +36,22 @@ guidance: "Use the mailer, do not print to stdout."`
 	if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{"domain":"shop.example"}`, Provisioned, "fixture", nil); err != nil {
 		t.Fatal(err)
 	}
-	connCfg := s.ConnectorConfig(context.Background(), "smtp", "mailer")
-	if connCfg["host"] != "smtp.internal" {
-		t.Fatalf("connectorConfigFor: %+v", connCfg)
+	connCfg, err := s.ConnectorConfig(context.Background(), "smtp", "mailer")
+	if err != nil || connCfg["host"] != "smtp.internal" {
+		t.Fatalf("connectorConfigFor: %+v %v", connCfg, err)
 	}
-	if s.ConnectorConfig(context.Background(), "smtp", "wrong-cap") != nil {
-		t.Fatal("wrong capability must yield no config")
+	if cfg, err := s.ConnectorConfig(context.Background(), "smtp", "wrong-cap"); err != nil || cfg != nil {
+		t.Fatalf("wrong capability must yield no config: %v %v", cfg, err)
 	}
-	out := s.RenderTemplate(context.Background(), "{{project.slug}} {{connector.host}} {{resource.domain}}", connCfg, map[string]any{"domain": "shop.example"}, &p, false)
+	out := RenderSteering("{{project.slug}} {{connector.host}} {{resource.domain}}", connCfg, map[string]any{"domain": "shop.example"}, &p)
 	if out != "shop smtp.internal shop.example" {
 		t.Fatalf("render: %q", out)
 	}
-	svcs := s.AttachedServices(context.Background(), id)
-	if len(svcs) != 1 || svcs[0].Kind.Capability != "mailer" || svcs[0].Config["host"] != "smtp.internal" {
+	svcs, err := s.AttachedServices(context.Background(), id)
+	if err != nil || len(svcs) != 1 || svcs[0].Kind.Capability != "mailer" || svcs[0].Config["host"] != "smtp.internal" {
 		t.Fatalf("attachedServices: %+v", svcs)
 	}
-	env := s.Environment(context.Background(), id)
+	env := mustEnvironment(t, s, id)
 	joined := strings.Join(env, "\n")
 	if !strings.Contains(joined, "MAIL_HOST=smtp.internal") || !strings.Contains(joined, "MAIL_FROM=shop@shop.example") {
 		t.Fatalf("integrationEnvFor: %v", env)

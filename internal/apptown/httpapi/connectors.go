@@ -55,7 +55,12 @@ func (h Connectors) ConnectorCatalog(w http.ResponseWriter, r *http.Request) {
 		_, err := stock.FS.ReadFile("docs/integrations/" + c.Capability + "-" + c.Provider + ".admin.md")
 		out = append(out, ConnectorEntry{integration.InstancePresets(c, defaults), err == nil})
 	}
-	for _, k := range h.integrations.Definitions(r.Context()) {
+	kinds, err := h.integrations.Definitions(r.Context())
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
+	}
+	for _, k := range kinds {
 		if len(k.Connector.Fields) > 0 {
 			out = append(out, ConnectorEntry{integration.ServiceConnectorSpec(k), false})
 		}
@@ -99,7 +104,12 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 		spec := integration.FindConnector(in.Capability, in.Provider)
 		if spec == nil && in.Provider == "service" {
 			// Runtime-defined service kind: derive the spec live.
-			if k := h.integrations.Definition(r.Context(), in.Capability); k != nil && len(k.Connector.Fields) > 0 {
+			k, err := h.integrations.Definition(r.Context(), in.Capability)
+			if err != nil {
+				WriteFaultOr(w, err, http.StatusServiceUnavailable)
+				return
+			}
+			if k != nil && len(k.Connector.Fields) > 0 {
 				derived := integration.ServiceConnectorSpec(k)
 				spec = &derived
 			}
@@ -129,7 +139,12 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 			}
 			// One binding per format: two npm proxies is a configuration error,
 			// not a choice (design/subsystems/registries.md §2).
-			if other, ok := integration.RegistryBindingsIn(r.Context(), h.db)[format]; ok && other.Name != in.Name {
+			bound, err := integration.RegistryBindings(r.Context(), h.db)
+			if err != nil {
+				WriteFaultOr(w, err, http.StatusServiceUnavailable)
+				return
+			}
+			if other, ok := bound[format]; ok && other.Name != in.Name {
 				WriteError(w, 409, "format %q is already bound by %q — edit or delete that binding", format, other.Name)
 				return
 			}

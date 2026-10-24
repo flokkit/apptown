@@ -147,3 +147,43 @@ func TestCheckJudgesAsResolveDoesWithoutEffects(t *testing.T) {
 		t.Fatalf("Resolve judges an unreadable store as Check does: %v", err)
 	}
 }
+
+// A generated secret is minted only when the store says it holds none: a
+// read of the store that fails is unavailable, and Resolve neither mints a
+// value (a silent rotation of one it could not read) nor binds one.
+//
+// Kills: a failed read taken as "not stored".
+func TestAGeneratedSecretIsNotMintedWhenItsReadFails(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	id, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "demo", Name: "Demo"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := t.TempDir()
+	if err := os.WriteFile(filepath.Join(ws, SpecFile), []byte(testSpec), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s := NewService(db, Config{DataDir: t.TempDir()})
+	c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web"}, {Name: "worker"}}, Init: []appcontract.InitContainer{{Name: "migrate"}}}
+	restore := db.FailNextStatement("FROM secret_values WHERE scope = $1 AND name = $2 ORDER BY version DESC")
+	_, err = s.Resolve(t.Context(), id, "demo", "main", ws, c)
+	restore()
+	var unavailable *UnavailableError
+	if !errors.As(err, &unavailable) || unavailable.Name != "SECRET_KEY_BASE" || unavailable.Store != StoreInternal {
+		t.Fatalf("a generated secret whose read failed: %#v", err)
+	}
+	if _, _, err := s.Vault.Get(t.Context(), Scope("demo", "main", ""), "SECRET_KEY_BASE"); !errors.Is(err, ErrNotStored) {
+		t.Fatalf("a value was minted though the store could not be read: %v", err)
+	}
+	bound, err := s.Bindings.For(t.Context(), id, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := bound["SECRET_KEY_BASE"]; ok {
+		t.Fatal("a value AppTown could not read was bound")
+	}
+	wantCount(t, "generated receipts", len(ledger(t, db, "secret.generated")), 0)
+}

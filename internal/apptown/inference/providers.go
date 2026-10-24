@@ -31,7 +31,10 @@ func (catalog Catalog) providers(ctx context.Context) (map[string]*inferenceProv
 	if err != nil {
 		return nil, err
 	}
-	secrets := catalog.secrets.All(ctx)
+	secrets, err := catalog.secrets.WithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	providers := map[string]*inferenceProvider{}
 	for _, b := range bindings {
 		name, raw := b.Name, b.ConfigJSON

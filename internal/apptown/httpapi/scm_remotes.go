@@ -107,7 +107,12 @@ func (h SCMRemotes) AttachRemote(w http.ResponseWriter, r *http.Request) {
 			}
 			ns := in.NamespaceID
 			if ns == 0 {
-				fmt.Sscanf(h.secrets.Value(r.Context(), "GITLAB_NAMESPACE_ID"), "%d", &ns)
+				values, err := h.secrets.WithContext(r.Context())
+				if err != nil {
+					WriteFaultOr(w, err, http.StatusServiceUnavailable)
+					return
+				}
+				fmt.Sscanf(values["GITLAB_NAMESPACE_ID"], "%d", &ns)
 			}
 			if ns == 0 {
 				// No group named: the first group forge-bot can create in — the

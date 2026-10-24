@@ -26,9 +26,13 @@
 // [Service.Environment] renders attached service templates and compiled error and
 // feedback contributions for application containers. Templates can refer to
 // connector, resource and project fields, or to a named secret. Rendering secrets
-// places plaintext in the returned environment. Unresolved templates are omitted;
-// convenience reads can suppress errors, so an empty environment is not proof that
-// all required configuration was read successfully.
+// places plaintext in the returned environment. What it reads is read strictly: an
+// attachment, definition, connector configuration, project or secret store that
+// cannot be read is an error, never a variable left out. Only absence omits one,
+// including a template whose value cannot be produced yet, which the log names.
+// The connector, definition and registry readers ([Service.ConnectorConfig],
+// [Service.Definitions], [Service.Registry], [RegistryBindings]) follow the same
+// rule: nil with no error is absence, a failed read is an error.
 //
 // Provider execution, model credentials and workflow admission stay with their
 // respective owners. A repository-wiring Change is admitted by Work; [LinkWireIn]

@@ -45,9 +45,10 @@ type Preparation struct {
 }
 
 // SecretStores says which secrets stores are available when a run is
-// admitted, by provider name; nil records none.
+// admitted, by provider name; nil records none. A secrets file that cannot
+// be read is an error.
 type SecretStores interface {
-	AvailableProviders() map[string]bool
+	AvailableProviders() (map[string]bool, error)
 }
 
 func (a *Preparation) now() time.Time { return clock.Or(a.clock)() }

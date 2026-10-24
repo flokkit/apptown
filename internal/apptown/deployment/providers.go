@@ -167,7 +167,7 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 				p.afterRelease(dep.ProjectID, pl.Name)
 			}
 		},
-		Registry: func() *docker.RegistryCredential { return p.env.ReleaseLogin(ctx, dep.ProjectID) },
+		Registry: func() (*docker.RegistryCredential, error) { return p.env.ReleaseLogin(ctx, dep.ProjectID) },
 		Scratch:  p.hosts.BootScratch(),
 		Owner:    ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock},
 		Owned: func(ctx context.Context) ([]deploy.Owned, error) {
@@ -222,7 +222,10 @@ func (d doDocker) ImageDigest(ctx context.Context, ref string) string {
 
 // DigitalOceanConfig reads the current connector settings, without resolving secrets.
 func (p *Providers) DigitalOceanConfig(ctx context.Context, provider string) (digitalocean.Config, error) {
-	cfg := p.integrations.ConnectorConfig(ctx, provider, digitalocean.CapCloudAccount)
+	cfg, err := p.integrations.ConnectorConfig(ctx, provider, digitalocean.CapCloudAccount)
+	if err != nil {
+		return digitalocean.Config{}, err
+	}
 	if cfg == nil {
 		return digitalocean.Config{}, fmt.Errorf("no cloud-account connector named %q", provider)
 	}
@@ -278,7 +281,10 @@ func (p *Providers) PortainerConfig(ctx context.Context, t *Target) (*portainer.
 		}
 		return &cfg, nil
 	}
-	secrets := p.secrets.All(ctx)
+	secrets, err := p.secrets.WithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading the Portainer target's secrets: %w", err)
+	}
 	cfg := &portainer.Target{PortainerURL: strings.TrimRight(secrets[urlFrom], "/"), PortainerKey: secrets[keyFrom], AppsDomain: domain, EnvName: endpointName}
 	var missing []string
 	if cfg.PortainerURL == "" {
@@ -394,12 +400,9 @@ func (p *Providers) newS3BucketDriver(ctx context.Context, t *Target, dep *Deplo
 			}
 			return c, cfg, nil
 		},
-		Slug: proj.Slug,
-		Own:  func(bucket string) error { return p.deployments.RecordOwned(ctx, dep.ID, "bucket", bucket) },
-		ReleaseLogin: func() oci.Credential {
-			repo, _ := p.env.ReleaseRepository(ctx, dep.ProjectID)
-			return repo.Credential
-		},
+		Slug:         proj.Slug,
+		Own:          func(bucket string) error { return p.deployments.RecordOwned(ctx, dep.ID, "bucket", bucket) },
+		ReleaseLogin: func() (oci.Credential, error) { return p.releaseCredential(ctx, dep.ProjectID) },
 		BrowserValues: func(ctx context.Context) (map[string]string, error) {
 			if p.integrations == nil {
 				return nil, nil
@@ -436,24 +439,24 @@ func (p *Providers) newDOAppDriver(ctx context.Context, t *Target, dep *Deployme
 		Secrets:  p.needSecrets(dep),
 		// A project with no registry attached now reads anonymously, and
 		// its registry's refusal is the release's error.
-		ReleaseLogin: func() oci.Credential {
-			repo, _ := p.env.ReleaseRepository(ctx, dep.ProjectID)
-			return repo.Credential
-		},
+		ReleaseLogin: func() (oci.Credential, error) { return p.releaseCredential(ctx, dep.ProjectID) },
 		// The gate image is read with the project's registry credential
 		// only when it lives on that registry's host; a credential is never
 		// sent to another host.
-		GateLogin: func(ref string) oci.Credential {
+		GateLogin: func(ref string) (oci.Credential, error) {
 			repo, err := p.env.ReleaseRepository(ctx, dep.ProjectID)
+			if errors.Is(err, ErrNoReleaseRegistry) {
+				return oci.Credential{}, nil
+			}
 			if err != nil {
-				return oci.Credential{}
+				return oci.Credential{}, err
 			}
 			gateHost, _, _ := strings.Cut(ref, "/")
 			repoHost, _, _ := strings.Cut(repo.Name, "/")
 			if gateHost == "" || gateHost != repoHost {
-				return oci.Credential{}
+				return oci.Credential{}, nil
 			}
-			return repo.Credential
+			return repo.Credential, nil
 		},
 		Repository: repositoryRecorder{db: p.db, project: dep.ProjectID, connector: t.Provider, now: p.clock},
 	}, p.digitalOcean), nil
@@ -655,4 +658,15 @@ func (p *Providers) needSecrets(dep *Deployment) digitalocean.KeySecrets {
 		return nil
 	}
 	return needSecrets{vault: p.secrets.Vault, scope: NeedSecretsScope(dep.ID)}
+}
+
+// releaseCredential is the credential a project's release images are read
+// with: its release repository's, or none (anonymous) when the project has
+// no registry. A registry that cannot be read is an error, never anonymous.
+func (p *Providers) releaseCredential(ctx context.Context, projectID ids.ID) (oci.Credential, error) {
+	repo, err := p.env.ReleaseRepository(ctx, projectID)
+	if errors.Is(err, ErrNoReleaseRegistry) {
+		return oci.Credential{}, nil
+	}
+	return repo.Credential, err
 }

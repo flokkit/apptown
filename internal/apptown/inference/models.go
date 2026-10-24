@@ -33,7 +33,10 @@ func (catalog Catalog) Models(ctx context.Context) ([]ModelEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	secrets := catalog.secrets.All(ctx)
+	secrets, err := catalog.secrets.WithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	seen := map[string]bool{}
 	var out []ModelEntry
 	add := func(pattern, binding, source string) {
@@ -76,7 +79,11 @@ func (catalog Catalog) Discover(ctx context.Context, name string, config map[str
 	if json.Unmarshal(raw, &cfg) != nil {
 		return nil, integration.ErrInvalidConfig
 	}
-	p, err := resolveInferenceProvider(name, cfg, catalog.secrets.All(ctx))
+	secrets, err := catalog.secrets.WithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p, err := resolveInferenceProvider(name, cfg, secrets)
 	if err != nil {
 		return nil, fault.Wrap(fault.Unprocessable, err)
 	}

@@ -36,8 +36,8 @@ func TestALocalAgentsPrivateDockerIsLoggedInToNoRegistry(t *testing.T) {
 	if err := ex.integrations.Attachments.Attach(context.Background(), snapshot.Run.ProjectID, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/agents","username":"robot","token":"`+token+`"}`, integration.Entered, "test", nil); err != nil {
 		t.Fatal(err)
 	}
-	if ri := ex.integrations.RegistryFor(context.Background(), snapshot.Run.ProjectID); ri == nil || ri.Token != token {
-		t.Fatalf("the project's registry: %+v", ri)
+	if ri, err := ex.integrations.Registry(context.Background(), snapshot.Run.ProjectID); err != nil || ri == nil || ri.Token != token {
+		t.Fatalf("the project's registry: %+v %v", ri, err)
 	}
 	var steering string
 	var env []string

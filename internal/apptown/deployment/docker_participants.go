@@ -115,7 +115,11 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 		return fail(fmt.Errorf("reading what the deployment owns: %w", err))
 	}
 	if in.Bundle != nil {
-		request.Recorded = &docker.RecordedImages{Parts: in.Bundle.Parts, Init: in.Bundle.Init, Login: s.env.BundleLogin(ctx, projectID, in.Bundle), Scratch: s.hosts.BootScratch()}
+		login, err := s.env.BundleLogin(ctx, projectID, in.Bundle)
+		if err != nil {
+			return fail(fmt.Errorf("the credential the release's images are pulled with: %w", err))
+		}
+		request.Recorded = &docker.RecordedImages{Parts: in.Bundle.Parts, Init: in.Bundle.Init, Login: login, Scratch: s.hosts.BootScratch()}
 	}
 	reached := func(port int) string {
 		// An attached host is reached at that host, main too: this

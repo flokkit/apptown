@@ -405,15 +405,29 @@ func (s *Session) Steering() string {
 
 // --- staged files: what the last provision placed, replaced each wake ----------
 
+// stage replaces what the last provision placed with files. Only a session
+// with no manifest yet starts from nothing: a manifest that cannot be read,
+// or a file it names that cannot be removed, fails the wake, since a
+// configuration or credential taken away would stay and drop out of the
+// inventory that removes it later.
 func stage(dir string, files map[string]Staged) error {
 	manifest := filepath.Join(dir, StagedFile)
 	var previous []string
-	if raw, err := os.ReadFile(manifest); err == nil {
-		_ = json.Unmarshal(raw, &previous)
+	raw, err := os.ReadFile(manifest)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
+		return fmt.Errorf("reading the staged-file inventory: %w", err)
+	default:
+		if err := json.Unmarshal(raw, &previous); err != nil {
+			return fmt.Errorf("reading the staged-file inventory: %w", err)
+		}
 	}
 	for _, rel := range previous {
 		if _, keep := files[rel]; !keep {
-			_ = os.Remove(filepath.Join(dir, rel))
+			if err := removeStaged(filepath.Join(dir, rel)); err != nil {
+				return err
+			}
 		}
 	}
 	names := make([]string, 0, len(files))
@@ -425,7 +439,9 @@ func stage(dir string, files map[string]Staged) error {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err
 		}
-		_ = os.Remove(path)
+		if err := removeStaged(path); err != nil {
+			return err
+		}
 		if f.Link != "" {
 			if err := os.Symlink(f.Link, path); err != nil {
 				return err
@@ -442,6 +458,17 @@ func stage(dir string, files map[string]Staged) error {
 		names = append(names, rel)
 	}
 	sort.Strings(names)
-	raw, _ := json.Marshal(names)
+	raw, err = json.Marshal(names)
+	if err != nil {
+		return err
+	}
 	return os.WriteFile(manifest, raw, 0o644)
+}
+
+// removeStaged removes one staged file; one already gone is removed.
+func removeStaged(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("removing the staged file %s: %w", filepath.Base(path), err)
+	}
+	return nil
 }

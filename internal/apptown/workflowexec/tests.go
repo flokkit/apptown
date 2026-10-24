@@ -162,7 +162,12 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 	// executor adds a cache volume here, the worker its tool cache). Its
 	// files are generated beside the tree, never in it, and the base rerun
 	// below is given the same ones.
-	amb := agentenv.AmbientFor(integration.RegistryBindingsIn(task.Context(), a.db), staged)
+	bound, err := integration.RegistryBindings(task.Context(), a.db)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error(), "tree": tree})
+		return
+	}
+	amb := agentenv.AmbientFor(bound, staged)
 	env := append([]string{}, amb.Env...)
 	// The app's declared needs, as the tested commit declares them, run
 	// beside the tests, which are given the environment the app is given

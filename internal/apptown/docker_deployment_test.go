@@ -144,9 +144,12 @@ func TestDockerSelectedDeploymentKeepsResolvedSecretsOutOfInputsAndProof(t *test
 	if strings.Contains(input+proof, "private-value-") {
 		t.Fatal("resolved secret leaked into deployment input or boot proof")
 	}
-	binding := a.Secrets.BindingsFor(t.Context(), idstest.N(1), "main")["SECRET_KEY_BASE"]
-	generated, _, found := a.Secrets.Stored(t.Context(), binding.Ref, "SECRET_KEY_BASE")
-	if !found || generated == "" {
+	bindings, err := a.Secrets.Bindings.For(t.Context(), idstest.N(1), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	generated, _, err := a.Secrets.Vault.Get(t.Context(), bindings["SECRET_KEY_BASE"].Ref, "SECRET_KEY_BASE")
+	if err != nil || generated == "" {
 		t.Fatal("expected the selected deployment's generated secret")
 	}
 	if strings.Contains(input+proof, generated) {

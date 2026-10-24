@@ -297,8 +297,12 @@ func TestProvisioningKeyStaysOnTheServer(t *testing.T) {
 	if h := s.TestLLMBinding(ctx, map[string]any{"url": f.Base, "provisioningKeyFrom": []any{"NOT_THERE"}, "maxLimit": 5.0}); !h.OK {
 		seen = append(seen, h.Detail)
 	}
-	seen = append(seen, s.Environment(ctx, id)...)
-	for _, e := range s.secrets.StepEnv(ctx) {
+	seen = append(seen, mustEnvironment(t, s, id)...)
+	stepEnv, err := s.secrets.StepEnv(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range stepEnv {
 		if strings.HasPrefix(e, "OPENROUTER_PROVISIONING_KEY=") {
 			continue // the deliberately misnamed STEP_ copy this fixture holds, which no connector may name
 		}

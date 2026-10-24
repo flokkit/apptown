@@ -824,9 +824,13 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	if readiness == "" {
 		readiness = "/"
 	}
+	login, err := s.env.BundleLogin(ctx, p.dep.ProjectID, p.bundle)
+	if err != nil {
+		return fail(step, "the credential the release's images are pulled with: "+err.Error())
+	}
 	req := docker.BootRequest{Name: place.App, StackID: place.Stack, Workspace: tree.Directory, Slug: proj.Slug, Deployment: p.dep.Name,
 		DataClass: "production", Docker: dk, Probe: 90 * time.Second, Sealed: sealed,
-		Recorded: &docker.RecordedImages{Parts: p.bundle.Parts, Init: p.bundle.Init, Login: s.env.BundleLogin(ctx, p.dep.ProjectID, p.bundle), Scratch: s.hosts.BootScratch()}}
+		Recorded: &docker.RecordedImages{Parts: p.bundle.Parts, Init: p.bundle.Init, Login: login, Scratch: s.hosts.BootScratch()}}
 	// The rehearsed release runs as its generation ran it: that
 	// generation's profile and overrides (its secrets stay the rehearsal's
 	// allow-list, rehearsalSecrets).

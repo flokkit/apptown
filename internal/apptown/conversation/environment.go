@@ -122,7 +122,15 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 	}
 	// What the prompt says about the provision: the registries and
 	// integrations the agent can reach, and a change console's Docker.
-	notes := e.instructions.Registry(ctx) + e.instructions.Integrations(ctx, Of(s).ProjectID)
+	registries, err := e.instructions.Registry(ctx)
+	if err != nil {
+		return console.Provision{}, err
+	}
+	integrations, err := e.instructions.Integrations(ctx, Of(s).ProjectID)
+	if err != nil {
+		return console.Provision{}, err
+	}
+	notes := registries + integrations
 	if !Of(s).ChangeID.IsZero() {
 		notes += "\nConsole-specific notes on Docker:\n" + agentenv.ConsoleDockerInstructions(e.cfg.NoPrivateDocker) + "\n"
 	}
@@ -151,7 +159,11 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 	// sessions build exactly like steps do.
 	// Its files are written into the session's own folder (never a
 	// project's tree), afresh for each start, and mounted from there.
-	amb := agentenv.AmbientFor(integration.RegistryBindingsIn(ctx, e.db), s.Dir)
+	bound, err := integration.RegistryBindings(ctx, e.db)
+	if err != nil {
+		return console.Provision{}, err
+	}
+	amb := agentenv.AmbientFor(bound, s.Dir)
 	dir := filepath.Join(s.Dir, ".apptown", "ambient")
 	if err := os.RemoveAll(dir); err != nil {
 		return console.Provision{}, fmt.Errorf("the chat's generated configuration: %w", err)

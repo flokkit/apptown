@@ -182,7 +182,7 @@ func (noSecrets) Resolve(context.Context, string, string, string, *appcontract.C
 
 type unreadableBrowser struct{}
 
-func (unreadableBrowser) EnvFor(context.Context) []string { return nil }
+func (unreadableBrowser) EnvFor(context.Context) ([]string, error) { return nil, nil }
 func (unreadableBrowser) BrowserEnv(context.Context) (string, error) {
 	return "", errors.New("browser attachment unavailable")
 }

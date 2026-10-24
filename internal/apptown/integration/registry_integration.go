@@ -78,7 +78,10 @@ func (s *Service) AttachOfferedRegistry(ctx context.Context, projectID ids.ID, w
 		return fmt.Errorf("%w: several container-registry connectors are offered (%s); attach the one %s publishes to, then land again", ErrNoOfferedRegistry, strings.Join(names, ", "), p.Slug)
 	}
 	connector := connectors[0]
-	cfg := parseJSONMap(connector.ConfigJSON)
+	cfg, err := strictJSONMap(connector.ConfigJSON)
+	if err != nil {
+		return fmt.Errorf("the container-registry connector %s's configuration: %w", connector.Name, err)
+	}
 	if provider, _ := cfg["provider"].(string); provider == "gitlab" {
 		_, _, err := s.ProvisionRegistry(ctx, &p, connector.Name, who)
 		return err
@@ -109,7 +112,10 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 		}
 		connector = name
 	}
-	cfg := s.ConnectorConfig(ctx, connector, CapContainerRegistry)
+	cfg, err := s.ConnectorConfig(ctx, connector, CapContainerRegistry)
+	if err != nil {
+		return nil, 503, err
+	}
 	if cfg == nil {
 		return nil, 422, fmt.Errorf("no %s connector%s — add one first", CapContainerRegistry, nameSuffix(connector))
 	}
@@ -122,7 +128,11 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 	if host == "" || group == "" {
 		return nil, 422, fmt.Errorf("connector %q needs url and group to provision", connector)
 	}
-	base, tok := s.secrets.Value(ctx, "GITLAB_URL"), s.secrets.Value(ctx, "GITLAB_TOKEN")
+	values, err := s.secrets.WithContext(ctx)
+	if err != nil {
+		return nil, 503, fmt.Errorf("reading the engine GitLab credentials: %w", err)
+	}
+	base, tok := values["GITLAB_URL"], values["GITLAB_TOKEN"]
 	if base == "" || tok == "" {
 		return nil, 422, fmt.Errorf("engine GitLab credentials (GITLAB_URL/GITLAB_TOKEN) do not resolve")
 	}

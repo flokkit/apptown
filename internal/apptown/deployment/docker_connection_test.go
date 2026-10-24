@@ -98,3 +98,27 @@ func TestTheSSHConfigIsReplacedWholeAndOnlyWhenItChanges(t *testing.T) {
 		t.Fatalf("leftover files beside the config: %v", entries)
 	}
 }
+
+// An ssh config that exists but cannot be read is an error, and AppTown's
+// block never replaces it: the file's other settings would be lost.
+//
+// Kills: the failed read taken as an empty file.
+func TestAnUnreadableSSHConfigIsNotReplaced(t *testing.T) {
+	t.Parallel()
+	cfg := filepath.Join(t.TempDir(), "config")
+	// A link to itself cannot be read (root included), and renaming over it
+	// would succeed, as replacing a real file would.
+	if err := os.Symlink(cfg, cfg); err != nil {
+		t.Fatal(err)
+	}
+	a := SSHAddress{User: "deploy", Host: "box.example", Port: 22}
+	if err := upsertSSHStanza(cfg, "box", sshStanza("box", a, "/k/one")); err == nil {
+		t.Fatal("an unreadable ssh config was written over")
+	}
+	if fi, err := os.Lstat(cfg); err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("the unreadable config was replaced: %v %v", fi, err)
+	}
+	if err := upsertSSHStanza("", "box", sshStanza("box", a, "/k/one")); err == nil {
+		t.Fatal("a stanza was written with no ssh config path")
+	}
+}

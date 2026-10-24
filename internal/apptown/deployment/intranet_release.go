@@ -438,8 +438,12 @@ func (e *Environment) integrationValues(ctx context.Context, projectID ids.ID, c
 		}
 		return nil, "", nil
 	}
+	env, err := e.integrations.Environment(ctx, projectID)
+	if err != nil {
+		return nil, "", fmt.Errorf("reading what the attached integrations give the app: %w", err)
+	}
 	given := map[string]string{}
-	for _, kv := range e.integrations.Environment(ctx, projectID) {
+	for _, kv := range env {
 		if k, v, ok := strings.Cut(kv, "="); ok {
 			given[k] = v
 		}

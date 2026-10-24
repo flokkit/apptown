@@ -15,9 +15,11 @@ import (
 // once slipped between the list and its revision.
 type betweenReads struct{ hook func() }
 
-func (s betweenReads) Registry(ctx context.Context) string         { s.hook(); return "" }
-func (s betweenReads) Integrations(context.Context, ids.ID) string { return "" }
-func (s betweenReads) Delegation(ctx context.Context) string       { return "" }
+func (s betweenReads) Registry(ctx context.Context) (string, error) { s.hook(); return "", nil }
+func (s betweenReads) Integrations(context.Context, ids.ID) (string, error) {
+	return "", nil
+}
+func (s betweenReads) Delegation(ctx context.Context) string { return "" }
 
 // The guidance an editor starts from and its revision are one snapshot: a
 // save landing while the page reads cannot pair the old list with the new

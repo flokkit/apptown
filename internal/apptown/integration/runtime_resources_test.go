@@ -55,18 +55,18 @@ func (k kindsWith) ByCapability(_ context.Context, capability string) (*dependen
 func TestErrorReportingGivesWhatItsDefinitionLists(t *testing.T) {
 	t.Parallel()
 	s, id, _ := runtimeFixture(t)
-	if got := s.ErrorsEnvironment(context.Background(), id); got != nil {
+	if got, err := s.ErrorsEnvironment(context.Background(), id); err != nil || got != nil {
 		t.Fatalf("an unattached project is given nothing: %v", got)
 	}
 	if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":"https://k:secret@errors.example/3"}`, Entered, "test", nil); err != nil {
 		t.Fatal(err)
 	}
-	stockList := strings.Join(s.ErrorsEnvironment(context.Background(), id), "\n")
+	stockList := strings.Join(mustErrorsEnvironment(t, s, id), "\n")
 	if stockList != "SENTRY_DSN=https://k:secret@errors.example/3" {
 		t.Fatalf("the stock definition's list: %q", stockList)
 	}
 	s.kinds = kindsWith{"SENTRY_DSN": "${dsn}", "MY_ERRORS_URL": "${dsn}", "SENTRY_ENVIRONMENT": "production"}
-	if got := strings.Join(s.ErrorsEnvironment(context.Background(), id), "\n"); got != "MY_ERRORS_URL=https://k:secret@errors.example/3\nSENTRY_DSN=https://k:secret@errors.example/3\nSENTRY_ENVIRONMENT=production" {
+	if got := strings.Join(mustErrorsEnvironment(t, s, id), "\n"); got != "MY_ERRORS_URL=https://k:secret@errors.example/3\nSENTRY_DSN=https://k:secret@errors.example/3\nSENTRY_ENVIRONMENT=production" {
 		t.Fatalf("a changed definition: %q", got)
 	}
 	browser, err := s.BrowserEnvironment(context.Background(), id)
@@ -78,7 +78,7 @@ func TestErrorReportingGivesWhatItsDefinitionLists(t *testing.T) {
 func TestRegistryCredentialsFollowTheCurrentAttachment(t *testing.T) {
 	t.Parallel()
 	s, id, _ := runtimeFixture(t)
-	if s.RegistryFor(context.Background(), id) != nil {
+	if mustRegistry(t, s, id) != nil {
 		t.Fatal("unattached project has credentials")
 	}
 	if _, err := s.Bindings.Upsert(t.Context(), "registry", "container-registry", "direct", `{"url":"registry.example"}`, false); err != nil {
@@ -89,7 +89,7 @@ func TestRegistryCredentialsFollowTheCurrentAttachment(t *testing.T) {
 		if err := s.Attachments.Attach(t.Context(), id, "container-registry", "registry", resource, Entered, "test", nil); err != nil {
 			t.Fatal(err)
 		}
-		got := s.RegistryFor(context.Background(), id)
+		got := mustRegistry(t, s, id)
 		if got == nil || got.Token != token || got.Host != "registry.example" || got.Repo != "registry.example/team/demo" {
 			t.Fatal("credential snapshot did not follow current resource")
 		}
@@ -97,7 +97,7 @@ func TestRegistryCredentialsFollowTheCurrentAttachment(t *testing.T) {
 	if err := s.Attachments.Attach(t.Context(), id, "container-registry", "missing", `{"repo":"fallback.example/team/demo","username":"robot","token":"private"}`, Entered, "test", nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := s.RegistryFor(context.Background(), id); got == nil || got.Host != "fallback.example" {
+	if got := mustRegistry(t, s, id); got == nil || got.Host != "fallback.example" {
 		t.Fatal("repo host fallback changed")
 	}
 	// Detaching changes what the project may reach: without its receipt it
@@ -108,13 +108,13 @@ func TestRegistryCredentialsFollowTheCurrentAttachment(t *testing.T) {
 	if err == nil {
 		t.Fatal("a detach whose receipt failed reported success")
 	}
-	if got := s.RegistryFor(context.Background(), id); got == nil || got.Host != "fallback.example" {
+	if got := mustRegistry(t, s, id); got == nil || got.Host != "fallback.example" {
 		t.Fatal("a detach whose receipt failed removed the credential")
 	}
 	if err := s.Attachments.Detach(context.Background(), id, "container-registry", "test"); err != nil {
 		t.Fatal(err)
 	}
-	if s.RegistryFor(context.Background(), id) != nil {
+	if mustRegistry(t, s, id) != nil {
 		t.Fatal("detached credential stayed usable")
 	}
 }
@@ -148,7 +148,7 @@ env:
 		if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("MAIL_KEY="+value+"\n"), 0600); err != nil {
 			t.Fatal(err)
 		}
-		got := strings.Join(s.Environment(context.Background(), id), "\n")
+		got := strings.Join(mustEnvironment(t, s, id), "\n")
 		for _, want := range []string{"MAIL_HOST=smtp.example", "MAIL_FROM=demo@example.com", "API_KEY=" + value, "SENTRY_DSN=test-dsn", "FEEDBACK_APP_KEY=test-key"} {
 			if !strings.Contains(got, want) {
 				t.Fatalf("missing %s contribution", strings.Split(want, "=")[0])
@@ -192,7 +192,7 @@ func TestBrowserEnvironmentGivesOnlyBrowserSafeValues(t *testing.T) {
 		}
 	}
 	// The container still gets everything.
-	if env := strings.Join(s.Environment(context.Background(), id), "\n"); !strings.Contains(env, "MAILER_RELAY=smtp://relay.internal") {
+	if env := strings.Join(mustEnvironment(t, s, id), "\n"); !strings.Contains(env, "MAILER_RELAY=smtp://relay.internal") {
 		t.Fatalf("container env: %s", env)
 	}
 }
@@ -239,10 +239,11 @@ func (failingKinds) ByCapability(context.Context, string) (*dependency.Kind, err
 	return nil, errors.New("errors.yaml does not parse")
 }
 
-// A static page's values are read strictly: an attached error-reporting
-// service whose definition cannot be read stops the static boot with an
-// error, never gives an empty set; a server environment, best effort, gives
-// no error-reporting variables and the log names why.
+// An attached error-reporting service whose definition cannot be read is an
+// error for a static page's values and for a server's environment alike,
+// never an empty set.
+//
+// Kills: the server environment reading the failure as "nothing to give".
 func TestAnUnreadableErrorReportingDefinitionIsABrowserError(t *testing.T) {
 	t.Parallel()
 	s, id, _ := runtimeFixture(t)
@@ -253,7 +254,113 @@ func TestAnUnreadableErrorReportingDefinitionIsABrowserError(t *testing.T) {
 	if values, err := s.BrowserEnvironment(context.Background(), id); err == nil || !strings.Contains(err.Error(), "does not parse") {
 		t.Fatalf("an unreadable definition is an error for the page: %v %v", values, err)
 	}
-	if env := s.ErrorsEnvironment(context.Background(), id); env != nil {
-		t.Fatalf("server environment: %v", env)
+	if env, err := s.ErrorsEnvironment(context.Background(), id); err == nil || env != nil {
+		t.Fatalf("server error-reporting variables: %v %v", env, err)
+	}
+	if env, err := s.Environment(context.Background(), id); err == nil || env != nil {
+		t.Fatalf("server environment: %v %v", env, err)
+	}
+}
+
+// mustEnvironment is Environment for a test that expects it to succeed.
+func mustEnvironment(t *testing.T, s *Service, id ids.ID) []string {
+	t.Helper()
+	env, err := s.Environment(t.Context(), id)
+	if err != nil {
+		t.Fatalf("environment: %v", err)
+	}
+	return env
+}
+
+func mustErrorsEnvironment(t *testing.T, s *Service, id ids.ID) []string {
+	t.Helper()
+	env, err := s.ErrorsEnvironment(t.Context(), id)
+	if err != nil {
+		t.Fatalf("error-reporting environment: %v", err)
+	}
+	return env
+}
+
+func mustRegistry(t *testing.T, s *Service, id ids.ID) *Registry {
+	t.Helper()
+	ri, err := s.Registry(t.Context(), id)
+	if err != nil {
+		t.Fatalf("registry: %v", err)
+	}
+	return ri
+}
+
+// What an app's containers are given is read strictly: an attached
+// service whose connector config cannot be read, an error-reporting
+// attachment that cannot be read, or a secrets store that cannot be read
+// fails the environment, never gives it without those variables.
+//
+// Kills: each lossy read (connector config as {}, the DSN read as
+// unattached, secrets as none).
+func TestAnEnvironmentThatCannotBeReadIsAnError(t *testing.T) {
+	t.Parallel()
+	t.Run("connector config", func(t *testing.T) {
+		t.Parallel()
+		s, id, _ := runtimeFixture(t)
+		if err := s.ServiceKinds.Save(context.Background(), "mailer", "capability: mailer\ntitle: Mail\nenv:\n  - {key: MAIL_HOST, value: \"{{connector.host}}\"}\n", "Mail", "test"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.Bindings.Upsert(t.Context(), "smtp", "mailer", "service", `["not","an","object"]`, false); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Attachments.Attach(t.Context(), id, "mailer", "smtp", `{}`, Entered, "test", nil); err != nil {
+			t.Fatal(err)
+		}
+		if env, err := s.Environment(t.Context(), id); err == nil || env != nil {
+			t.Fatalf("an unreadable connector config: %v %v", env, err)
+		}
+	})
+	t.Run("error-reporting attachment", func(t *testing.T) {
+		t.Parallel()
+		s, id, _ := runtimeFixture(t)
+		if err := s.Attachments.Attach(t.Context(), id, "errors", "", `{"dsn":42}`, Entered, "test", nil); err != nil {
+			t.Fatal(err)
+		}
+		if env, err := s.Environment(t.Context(), id); err == nil || env != nil {
+			t.Fatalf("an unreadable DSN: %v %v", env, err)
+		}
+	})
+	t.Run("secrets", func(t *testing.T) {
+		t.Parallel()
+		s, id, dir := runtimeFixture(t)
+		if err := s.ServiceKinds.Save(context.Background(), "mailer", "capability: mailer\ntitle: Mail\nenv:\n  - {key: API_KEY, value: \"{{secret:resource.key}}\"}\n", "Mail", "test"); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Attachments.Attach(t.Context(), id, "mailer", "", `{"key":"MAIL_KEY"}`, Entered, "test", nil); err != nil {
+			t.Fatal(err)
+		}
+		// A folder where the secrets file belongs: it cannot be read.
+		if err := os.Mkdir(filepath.Join(dir, "secrets.env"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if env, err := s.Environment(t.Context(), id); err == nil || env != nil {
+			t.Fatalf("unreadable secrets: %v %v", env, err)
+		}
+	})
+}
+
+// A registry binding whose config cannot be read is an error, never left
+// out: a mirror left out sends builds straight to the upstream registry.
+//
+// Kills: the undecodable binding skipped.
+func TestAnUndecodableRegistryBindingIsAnError(t *testing.T) {
+	t.Parallel()
+	s, _, _ := runtimeFixture(t)
+	if _, err := s.Bindings.Upsert(t.Context(), "npm-mirror", CapRegistry, "direct", `{"format":"npm","url":"https://npm.example"}`, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := RegistryBindings(t.Context(), s.Bindings.db); err != nil || got["npm"].URL != "https://npm.example" {
+		t.Fatalf("a readable binding: %v %v", got, err)
+	}
+	if _, err := s.Bindings.Upsert(t.Context(), "go-mirror", CapRegistry, "direct", `{"format":7}`, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := RegistryBindings(t.Context(), s.Bindings.db); err == nil || got != nil {
+		t.Fatalf("an undecodable binding: %v %v", got, err)
 	}
 }

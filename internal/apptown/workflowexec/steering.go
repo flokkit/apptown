@@ -122,11 +122,19 @@ func (a *Executor) composeSteering(ctx context.Context, run *workflow.Run, cfg *
 		// The mechanism inventory is INSTANCE state, generated from bindings —
 		// never hand-written prose (design/subsystems/registries.md: norms in guidance,
 		// WHERE generated).
-		if doc := a.steering.Registry(ctx); doc != "" {
-			steer.WriteString(doc + "\n")
+		registries, err := a.steering.Registry(ctx)
+		if err != nil {
+			return steeringFile{}, nil, fmt.Errorf("the registries in the steering: %w", err)
 		}
-		if doc := a.steering.Integrations(ctx, run.ProjectID); doc != "" {
-			steer.WriteString(doc + "\n")
+		if registries != "" {
+			steer.WriteString(registries + "\n")
+		}
+		integrations, err := a.steering.Integrations(ctx, run.ProjectID)
+		if err != nil {
+			return steeringFile{}, nil, fmt.Errorf("the integrations in the steering: %w", err)
+		}
+		if integrations != "" {
+			steer.WriteString(integrations + "\n")
 		}
 		// The sessions folder holds pi's own JSON transcripts — listing or
 		// reading it dumps tens of thousands of tokens into context and

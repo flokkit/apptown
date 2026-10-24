@@ -31,5 +31,5 @@ func (a *Executor) stepEnv(ctx context.Context, projectID ids.ID) ([]string, err
 	if err != nil || !given {
 		return nil, err
 	}
-	return a.secrets.StepEnv(ctx), nil
+	return a.secrets.StepEnv(ctx)
 }

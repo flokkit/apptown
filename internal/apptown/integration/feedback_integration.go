@@ -28,18 +28,23 @@ type feedbackBinding struct {
 	URL  string
 }
 
-func (s *Service) feedbackBindingNamed(ctx context.Context, name string) *feedbackBinding {
+// feedbackBindingNamed is the named feedback connector (the first when
+// name is ""), nil when there is none with a url; a read that fails is an
+// error.
+func (s *Service) feedbackBindingNamed(ctx context.Context, name string) (*feedbackBinding, error) {
 	b, found, err := s.Bindings.FirstNamed(ctx, CapFeedback, name)
-	if !providerReadOK(err) || !found {
-		return nil
+	if err != nil || !found {
+		return nil, err
 	}
-	n := b.Name
-	cfg := parseJSONMap(b.ConfigJSON)
+	cfg, err := strictJSONMap(b.ConfigJSON)
+	if err != nil {
+		return nil, fmt.Errorf("the feedback connector %s's configuration: %w", b.Name, err)
+	}
 	url, _ := cfg["url"].(string)
 	if url == "" {
-		return nil
+		return nil, nil
 	}
-	return &feedbackBinding{Name: n, URL: strings.TrimSuffix(url, "/")}
+	return &feedbackBinding{Name: b.Name, URL: strings.TrimSuffix(url, "/")}, nil
 }
 
 func feedbackReq(method, url string, body any) (int, []byte, error) {
@@ -91,7 +96,10 @@ func (s *Service) ProvisionFeedback(ctx context.Context, p *project.Project, con
 	if err := refusesIntegrations(ctx, s.Bindings.db, p.ID); err != nil {
 		return nil, 422, err
 	}
-	b := s.feedbackBindingNamed(ctx, connector)
+	b, err := s.feedbackBindingNamed(ctx, connector)
+	if err != nil {
+		return nil, 503, err
+	}
 	if b == nil {
 		return nil, 422, fmt.Errorf("no feedback connector%s — add the Customer feedback integration first", nameSuffix(connector))
 	}

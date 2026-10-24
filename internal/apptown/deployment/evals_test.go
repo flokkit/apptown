@@ -191,11 +191,50 @@ func TestACopysPullCredentialIsForItsOwnBundleOnly(t *testing.T) {
 	}
 	s := New(context.Background(), db, assembled(db, testRuntime{DataDir: dir, Projects: projects, Integrations: integrations}, Dependencies{}))
 	own := &ReleaseBundle{Parts: map[string]string{"web": "registry.example/evals/shop-copy@sha256:" + strings.Repeat("a", 64)}, BuiltFrom: BundleOrigin{Registry: "registry.example/evals/shop-copy", Platform: "linux/amd64"}}
-	if got := s.env.BundleLogin(t.Context(), copy, own); got == nil || got.Token != "forge-held" || got.Host != "registry.example" {
-		t.Fatalf("the copy's own bundle: %+v", got)
+	if got, err := s.env.BundleLogin(t.Context(), copy, own); err != nil || got == nil || got.Token != "forge-held" || got.Host != "registry.example" {
+		t.Fatalf("the copy's own bundle: %+v %v", got, err)
 	}
 	other := &ReleaseBundle{Parts: map[string]string{"web": "registry.example/team/real@sha256:" + strings.Repeat("b", 64)}, BuiltFrom: BundleOrigin{Registry: "registry.example/team/real", Platform: "linux/amd64"}}
-	if got := s.env.BundleLogin(t.Context(), copy, other); got != nil {
-		t.Fatalf("another repository's bundle got the copy's credential: %+v", got)
+	if got, err := s.env.BundleLogin(t.Context(), copy, other); err != nil || got != nil {
+		t.Fatalf("another repository's bundle got the copy's credential: %+v %v", got, err)
+	}
+}
+
+// A project's release images are read with its registry's credential, or
+// anonymously when it has no registry; a registry whose credential cannot
+// be read is an error, never an anonymous read.
+//
+// Kills: the registry's read error taken as "no registry" (the Docker
+// host's pull login, and the s3-bucket and App Platform release reads).
+func TestAnUnreadableRegistryCredentialIsNotAnAnonymousRead(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	dir := t.TempDir()
+	id := createTestProject(t, db, "shop", "Shop")
+	projects := project.New(db, nil)
+	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
+	s := New(context.Background(), db, assembled(db, testRuntime{DataDir: dir, Projects: projects, Integrations: integrations}, Dependencies{}))
+	p := &Providers{env: s.env}
+	if got, err := s.env.ReleaseLogin(t.Context(), id); err != nil || got != nil {
+		t.Fatalf("no registry attached: %+v %v", got, err)
+	}
+	if got, err := p.releaseCredential(t.Context(), id); err != nil || got != (oci.Credential{}) {
+		t.Fatalf("no registry attached: %+v %v", got, err)
+	}
+	if _, err := integrations.Bindings.Upsert(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry.example","username":"robot","tokenFrom":["REGISTRY_PASSWORD"]}`, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", `{"repo":"registry.example/team/shop"}`, integration.Entered, "test", nil); err != nil {
+		t.Fatal(err)
+	}
+	// A folder where the secrets file belongs: the credential cannot be read.
+	if err := os.Mkdir(filepath.Join(dir, "secrets.env"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.env.ReleaseLogin(t.Context(), id); err == nil || got != nil {
+		t.Fatalf("an unreadable credential: %+v %v", got, err)
+	}
+	if got, err := p.releaseCredential(t.Context(), id); err == nil || got != (oci.Credential{}) {
+		t.Fatalf("an unreadable credential: %+v %v", got, err)
 	}
 }

@@ -22,7 +22,7 @@ func TestSecretHTTPSeparatesBindingFromRevealAndKeepsDeploymentScope(t *testing.
 		if w.Code != tc.code {
 			t.Fatalf("bind rejection: %d %s", w.Code, w.Body.String())
 		}
-		if bindings := a.Secrets.BindingsFor(t.Context(), idstest.N(1), "main"); len(bindings) != 0 {
+		if bindings := boundSecrets(t, a, idstest.N(1), "main"); len(bindings) != 0 {
 			t.Fatalf("rejected bind persisted: %+v", bindings)
 		}
 	}

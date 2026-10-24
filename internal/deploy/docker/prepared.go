@@ -138,7 +138,9 @@ func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCrede
 	}
 	p.BrowserEnv = "{}"
 	if deps.Integrations != nil {
-		p.Env = deps.Integrations.EnvFor(ctx)
+		if p.Env, err = deps.Integrations.EnvFor(ctx); err != nil {
+			return Prepared{}, &BootError{Phase: PhaseConfig, Err: fmt.Errorf("reading what the attached integrations give the app: %w", err)}
+		}
 		if c.PublicPart().IsStatic() {
 			if p.BrowserEnv, err = deps.Integrations.BrowserEnv(ctx); err != nil {
 				return Prepared{}, &BootError{Phase: PhaseConfig, Err: fmt.Errorf("reading the values a browser may be given: %w", err)}
@@ -190,7 +192,7 @@ func (n preparedNeeds) Data(ctx context.Context, capability string) (string, err
 
 type preparedContributions struct{ p Prepared }
 
-func (c preparedContributions) EnvFor(context.Context) []string { return c.p.Env }
+func (c preparedContributions) EnvFor(context.Context) ([]string, error) { return c.p.Env, nil }
 func (c preparedContributions) BrowserEnv(context.Context) (string, error) {
 	return c.p.BrowserEnv, nil
 }
@@ -205,7 +207,7 @@ func (r preparedRoutes) PublicOrigins(ctx context.Context) string { return r.p.O
 // anywhere a later command could find it.
 type preparedLogin struct{ c *RegistryCredential }
 
-func (preparedLogin) Login(context.Context, Scope, string) {}
+func (preparedLogin) Login(context.Context, Scope, string) error { return nil }
 
 // bootConfigPattern names a boot's Docker configuration folder under its
 // scratch folder.

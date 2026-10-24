@@ -334,7 +334,11 @@ func (s *Service) manifest(ctx context.Context, dump string, archived []Archived
 		}
 		m.KeyFiles[name] = d
 	}
-	if url, project := s.deps.Secrets.ExternalStore(); url != "" {
+	url, project, err := s.deps.Secrets.ExternalStore()
+	if err != nil {
+		return m, fmt.Errorf("reading which secret store AppTown uses: %w", err)
+	}
+	if url != "" {
 		m.ExternalSecrets = fmt.Sprintf("Infisical at %s (project %s): the values stay in Infisical; this archive holds AppTown's connection to it, not the values", url, project)
 	}
 	return m, nil

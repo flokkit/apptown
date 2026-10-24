@@ -2,10 +2,12 @@ package deployment
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket"
@@ -63,7 +65,11 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 	if catalogErr != nil {
 		return
 	}
-	if cfg, err := s.env.integrations.PortainerTarget(ctx); err == nil {
+	cfg, err := s.env.integrations.PortainerTarget(ctx)
+	if err != nil && !errors.Is(err, integration.ErrIntranetNotWired) {
+		log.Printf("targets: the intranet target is not recorded: its settings could not be read: %v", err)
+	}
+	if err == nil {
 		if _, err := s.Targets.Sync(ctx, &Target{
 			Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached,
 			Address:      map[string]any{"url": cfg.PortainerURL, AddressEnvironment: DefaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},

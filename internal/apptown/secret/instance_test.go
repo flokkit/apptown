@@ -67,7 +67,7 @@ func TestAnInstanceSecretIsSetAndRemovedWithReceiptsAndNoValue(t *testing.T) {
 	if err := s.SetInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", instanceValue, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if got := s.All(ctx); got["DIGITALOCEAN_ACCESS_TOKEN"] != instanceValue || got["OTHER"] != "kept" {
+	if got := runtimeValues(t, s); got["DIGITALOCEAN_ACCESS_TOKEN"] != instanceValue || got["OTHER"] != "kept" {
 		t.Fatalf("runtime lookup after set: %d names, OTHER=%q", len(got), got["OTHER"])
 	}
 	raw, err := os.ReadFile(filepath.Join(s.dataDir, "secrets.env"))
@@ -83,7 +83,7 @@ func TestAnInstanceSecretIsSetAndRemovedWithReceiptsAndNoValue(t *testing.T) {
 	if err := s.RemoveInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", "boss"); err != nil {
 		t.Fatal(err)
 	}
-	if got := s.All(ctx); got["DIGITALOCEAN_ACCESS_TOKEN"] != "" || got["OTHER"] != "kept" {
+	if got := runtimeValues(t, s); got["DIGITALOCEAN_ACCESS_TOKEN"] != "" || got["OTHER"] != "kept" {
 		t.Fatalf("runtime lookup after remove still has the token, or lost OTHER")
 	}
 	if err := s.RemoveInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", "boss"); !errors.Is(err, ErrInstanceAbsent) || fault.KindOf(err) != fault.NotFound {
@@ -142,7 +142,7 @@ func TestAnInstanceSecretInfisicalHoldsIsRefused(t *testing.T) {
 	if !errors.Is(err, ErrHeldByInfisical) || fault.KindOf(err) != fault.Conflict || !strings.Contains(err.Error(), "Infisical") {
 		t.Fatalf("set over an Infisical name: %v", err)
 	}
-	if got := s.All(ctx)["DIGITALOCEAN_ACCESS_TOKEN"]; got != "from-infisical" {
+	if got := runtimeValues(t, s)["DIGITALOCEAN_ACCESS_TOKEN"]; got != "from-infisical" {
 		t.Fatalf("Infisical's value was shadowed")
 	}
 	if err := s.RemoveInstance(ctx, "DIGITALOCEAN_ACCESS_TOKEN", "boss"); !errors.Is(err, ErrHeldByInfisical) {
@@ -161,7 +161,7 @@ func TestAnInstanceSecretInfisicalHoldsIsRefused(t *testing.T) {
 	if err := fresh.SetInstance(ctx, "ANOTHER_TOKEN", instanceValue, "boss"); !errors.Is(err, ErrInfisicalUnknown) || fault.KindOf(err) != fault.Unavailable {
 		t.Fatalf("set with Infisical unreadable: %v", err)
 	}
-	if _, held := fresh.fileSecrets()["ANOTHER_TOKEN"]; held {
+	if _, held := fileValues(t, fresh)["ANOTHER_TOKEN"]; held {
 		t.Fatal("a set AppTown could not check was written")
 	}
 	if got := instanceReceipts(t, s); len(got) != 2 || got[0].Subject != "PORTAINER_API_KEY" || got[1].Subject != "PORTAINER_API_KEY" {
@@ -191,7 +191,7 @@ func TestAFailedInfisicalRefreshDoesNotAuthorizeAnInstanceSecret(t *testing.T) {
 	if err := s.SetInstance(ctx, "TOKEN", instanceValue, "boss"); !errors.Is(err, ErrInfisicalUnknown) || fault.KindOf(err) != fault.Unavailable {
 		t.Fatalf("set after a failed refresh: %v", err)
 	}
-	if _, written := s.fileSecrets()["TOKEN"]; written {
+	if _, written := fileValues(t, s)["TOKEN"]; written {
 		t.Fatal("a set AppTown could not check was written")
 	}
 	if names, err := s.InstanceNames(ctx); !errors.Is(err, ErrSecretsUnread) || names != nil {

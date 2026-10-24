@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 	"io"
 	"net/http"
 	"strings"
@@ -32,44 +34,45 @@ type errorsBinding struct {
 	TokenFrom []string // secret ref holding the admin API token
 }
 
-func errorsBindingConfig(b Binding) *errorsBinding {
+// errorsBindingConfig reads a connector's configuration: one that does not
+// decode, or names no url, is an error that names the connector.
+func errorsBindingConfig(b Binding) (*errorsBinding, error) {
 	var cfg errorsBinding
-	if json.Unmarshal([]byte(b.ConfigJSON), &cfg) != nil || cfg.URL == "" {
-		return nil
+	if err := json.Unmarshal([]byte(b.ConfigJSON), &cfg); err != nil {
+		return nil, fault.Wrap(fault.Unprocessable, fmt.Errorf("the errors connector %s's configuration cannot be read: %w", b.Name, err))
+	}
+	if cfg.URL == "" {
+		return nil, fault.New(fault.Unprocessable, fmt.Sprintf("the errors connector %s names no url", b.Name))
 	}
 	cfg.Name, cfg.URL = b.Name, strings.TrimSuffix(cfg.URL, "/")
-	return &cfg
+	return &cfg, nil
 }
 
-// An empty name selects the first configured errors connector in binding order.
-func (s *Service) errorsBindingNamed(ctx context.Context, name string) *errorsBinding {
-	if name != "" {
-		b, err := Selected(ctx, s.Bindings.db, CapErrors, name)
-		if err != nil {
-			return nil
-		}
-		return errorsBindingConfig(b)
+// errorsBindingNamed is the named errors connector, or with an empty name
+// the first in binding order; nil with no error when there is none. A read
+// that fails, or a selected connector whose configuration cannot be used,
+// is an error: another connector is never chosen in its place.
+func (s *Service) errorsBindingNamed(ctx context.Context, name string) (*errorsBinding, error) {
+	b, err := Selected(ctx, s.Bindings.db, CapErrors, name)
+	if found, err := database.Lookup(err); err != nil || !found {
+		return nil, err
 	}
-	bindings, err := ForCapability(ctx, s.Bindings.db, CapErrors)
+	return errorsBindingConfig(b)
+}
+
+// errorsToken is the first of the connector's tokenFrom the secrets hold,
+// "" when they hold none; secrets that cannot be read are an error.
+func errorsToken(ctx context.Context, secrets *secret.Service, b *errorsBinding) (string, error) {
+	all, err := secrets.WithContext(ctx)
 	if err != nil {
-		return nil
+		return "", fmt.Errorf("reading the error-reporting connector's token: %w", err)
 	}
-	for _, b := range bindings {
-		if cfg := errorsBindingConfig(b); cfg != nil {
-			return cfg
-		}
-	}
-	return nil
-}
-
-func errorsToken(ctx context.Context, secrets *secret.Service, b *errorsBinding) string {
-	all := secrets.All(ctx)
 	for _, k := range b.TokenFrom {
 		if v := all[k]; v != "" {
-			return v
+			return v, nil
 		}
 	}
-	return ""
+	return "", nil
 }
 
 func glitchtipReq(method, url, token string, body any) (int, []byte, error) {
@@ -101,7 +104,10 @@ func (s *Service) TestErrorsBinding(ctx context.Context, config map[string]any) 
 		return Health{OK: false, Detail: "url and org are required"}
 	}
 	tmp := &errorsBinding{URL: strings.TrimSuffix(url, "/"), Org: org, TokenFrom: ConfigStrings(config["tokenFrom"])}
-	token := errorsToken(ctx, s.secrets, tmp)
+	token, err := errorsToken(ctx, s.secrets, tmp)
+	if err != nil {
+		return Health{OK: false, Detail: err.Error()}
+	}
 	if token == "" {
 		return Health{OK: false, Detail: "token secret not resolved (" + strings.Join(tmp.TokenFrom, ", ") + ")"}
 	}
@@ -125,12 +131,21 @@ func (s *Service) ProvisionErrors(ctx context.Context, p *project.Project, conne
 	if err := refusesIntegrations(ctx, s.Bindings.db, p.ID); err != nil {
 		return nil, 422, err
 	}
-	b := s.errorsBindingNamed(ctx, connector)
+	b, err := s.errorsBindingNamed(ctx, connector)
+	if fault.KindOf(err) == fault.Unprocessable {
+		return nil, 422, err
+	}
+	if err != nil {
+		return nil, 503, err
+	}
 	if b == nil {
 		return nil, 422, fmt.Errorf("no errors connector%s — add the GlitchTip integration first", nameSuffix(connector))
 	}
 
-	token := errorsToken(ctx, s.secrets, b)
+	token, err := errorsToken(ctx, s.secrets, b)
+	if err != nil {
+		return nil, 503, err
+	}
 	if token == "" {
 		return nil, 422, fmt.Errorf("errors connector token secret does not resolve")
 	}
@@ -174,11 +189,19 @@ func (s *Service) ProvisionErrors(ctx context.Context, p *project.Project, conne
 // ErrorsIssueSummary enriches an errors integration's resource with a live
 // unresolved-issues summary via the connector token (engine-side only).
 func (s *Service) ErrorsIssueSummary(ctx context.Context, p *project.Project, resource map[string]any) {
-	b := s.errorsBindingNamed(ctx, "")
+	b, err := s.errorsBindingNamed(ctx, "")
+	if err != nil {
+		resource["issuesError"] = err.Error()
+		return
+	}
 	if b == nil {
 		return
 	}
-	token := errorsToken(ctx, s.secrets, b)
+	token, err := errorsToken(ctx, s.secrets, b)
+	if err != nil {
+		resource["issuesError"] = err.Error()
+		return
+	}
 	if token == "" {
 		return
 	}

@@ -87,8 +87,8 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 		t.Fatalf("query growth: %d reads, %d rows: %v", counted.reads, len(rows), err)
 	}
 	// The rendering path consumes the joined records, including service definitions.
-	if services := integrations.AttachedServices(ctx, projectIDs[0]); len(services) != 1 || services[0].Config["host"] != "smtp.internal" {
-		t.Fatalf("render inputs: %+v", services)
+	if services, err := integrations.AttachedServices(ctx, projectIDs[0]); err != nil || len(services) != 1 || services[0].Config["host"] != "smtp.internal" {
+		t.Fatalf("render inputs: %+v %v", services, err)
 	}
 
 	w := httptest.NewRecorder()

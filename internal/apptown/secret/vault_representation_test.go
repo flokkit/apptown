@@ -20,9 +20,9 @@ func TestInternalStoreObfuscates(t *testing.T) {
 	if v2 != 2 {
 		t.Fatalf("second put is version 2, got %d", v2)
 	}
-	got, ver, ok := service.Stored(t.Context(), "env:p:main", "TOKEN")
-	if !ok || got != "hunter3" || ver != 2 {
-		t.Fatalf("get: %q v%d ok=%v", got, ver, ok)
+	got, ver, err := service.Vault.Get(t.Context(), "env:p:main", "TOKEN")
+	if err != nil || got != "hunter3" || ver != 2 {
+		t.Fatalf("get: %q v%d %v", got, ver, err)
 	}
 	// The stored form is not the plaintext, and the key is one per instance.
 	row, err := queries(db).LatestSecretValue(context.Background(), secretsql.LatestSecretValueParams{Scope: "env:p:main", Name: "TOKEN"})

@@ -1,12 +1,10 @@
 package integration
 
 import (
-	"context"
 	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/secret"
 )
 
 func TestParseServiceKind(t *testing.T) {
@@ -53,20 +51,19 @@ steering: "Wire it."
 
 func TestRenderServiceTemplate(t *testing.T) {
 	t.Parallel()
-	a := &Service{} // secretsAll not reached with resolveSecrets=false
 	conn := map[string]any{"url": "https://auth.example"}
 	res := map[string]any{"client_id": "waypoint", "secret_from": "MY_SECRET"}
 	p := &project.Project{Slug: "waypoint", Name: "Waypoint"}
 
-	got := a.RenderTemplate(context.Background(),
+	got := RenderSteering(
 		"{{connector.url}}/o/{{resource.client_id}}/ svc={{project.slug}} key={{secret:resource.secret_from}}",
-		conn, res, p, false)
+		conn, res, p)
 	want := "https://auth.example/o/waypoint/ svc=waypoint key=MY_SECRET (secret, injected at runtime)"
 	if got != want {
 		t.Fatalf("render:\n got %q\nwant %q", got, want)
 	}
 	// Unresolved placeholders survive (callers use that to omit env lines).
-	got = a.RenderTemplate(context.Background(), "{{connector.missing}}", conn, res, p, false)
+	got = RenderSteering("{{connector.missing}}", conn, res, p)
 	if got != "{{connector.missing}}" {
 		t.Fatalf("unresolved placeholder rewritten: %q", got)
 	}
@@ -124,17 +121,16 @@ env:
 
 func TestRenderServiceTemplateSecretModes(t *testing.T) {
 	t.Parallel()
-	a := NewService(nil, Dependencies{Secrets: secret.NewService(nil, secret.Config{DataDir: t.TempDir()})})
-	// A resource key that names a secret. With resolveSecrets=false the
-	// reference name is shown; there is no live secret value to inject.
+	// A resource key that names a secret. Steering shows the reference
+	// name; there is no live secret value to inject.
 	resource := map[string]any{"apiKey": "SHOP_API_KEY"}
-	ref := a.RenderTemplate(context.Background(), "KEY={{secret:resource.apiKey}}", nil, resource, nil, false)
+	ref := RenderSteering("KEY={{secret:resource.apiKey}}", nil, resource, nil)
 	if !strings.Contains(ref, "SHOP_API_KEY (secret, injected at runtime)") {
 		t.Fatalf("steering render should name the secret ref: %q", ref)
 	}
 	// resolveSecrets=true with no stored secret leaves the token unresolved
 	// (the caller omits vars still carrying {{).
-	live := a.RenderTemplate(context.Background(), "KEY={{secret:resource.apiKey}}", nil, resource, nil, true)
+	live := renderTemplate("KEY={{secret:resource.apiKey}}", nil, resource, nil, true, map[string]string{})
 	if !strings.Contains(live, "{{secret:resource.apiKey}}") {
 		t.Fatalf("no stored secret should leave the token unresolved: %q", live)
 	}

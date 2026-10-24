@@ -32,7 +32,11 @@ func awaitSecretSignal(t *testing.T, c <-chan struct{}) {
 	}
 }
 
-func TestInfisicalCacheFallbackAndIdentity(t *testing.T) {
+// A refresh that fails answers its error and no values: the values read
+// before are not current. They are kept for masking alone.
+//
+// Kills: a failed refresh answering the last values it read.
+func TestInfisicalCacheIdentityAndAFailedRefreshAnswersNoValues(t *testing.T) {
 	t.Parallel()
 	var s Infisical
 	var logins, reads atomic.Int32
@@ -66,9 +70,12 @@ func TestInfisicalCacheFallbackAndIdentity(t *testing.T) {
 		if i == 0 {
 			expected = RefreshFailed
 		}
-		if err == nil || strings.Contains(err.Error(), "must-not-leak") || result.Values["TOKEN"] != "value" || result.Transition != expected {
-			t.Fatalf("fallback: %+v %v", result, err)
+		if err == nil || strings.Contains(err.Error(), "must-not-leak") || result.Values != nil || result.Transition != expected {
+			t.Fatalf("failed refresh: %+v %v", result, err)
 		}
+	}
+	if s.lastKnown(cfg)["TOKEN"] != "value" {
+		t.Fatal("the last values read are not kept for masking")
 	}
 	status.Store(0)
 	recovered, err := s.Resolve(context.Background(), cfg, client)
@@ -296,10 +303,13 @@ func TestInfisicalCancelledRefreshPreservesWarmCache(t *testing.T) {
 	if !errors.Is(err, context.Canceled) || cancelled.Values != nil || cancelled.Transition != RefreshUnchanged {
 		t.Fatalf("cancelled: %+v %v", cancelled, err)
 	}
+	if s.lastKnown(cfg)["K"] != "kept" {
+		t.Fatal("cancellation dropped the values read before")
+	}
 	unavailable := infisicalHTTP(func(*http.Request) (*http.Response, error) { return secretResponse(503, "private") })
-	fallback, err := s.Resolve(context.Background(), cfg, unavailable)
-	if err == nil || fallback.Values["K"] != "kept" || fallback.Transition != RefreshFailed {
-		t.Fatalf("cancellation changed cache or health: %+v %v", fallback, err)
+	failed, err := s.Resolve(context.Background(), cfg, unavailable)
+	if err == nil || failed.Values != nil || failed.Transition != RefreshFailed {
+		t.Fatalf("cancellation changed cache or health: %+v %v", failed, err)
 	}
 }
 

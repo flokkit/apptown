@@ -35,16 +35,15 @@ import (
 type generatedFile struct{ Name, ContainerPath, Content string }
 
 type registryAdapter struct {
-	Format     string
-	Title      string
-	Layer      string                    // "packages" (universal package-manager traffic) | "toolchain" (mise/rustup supply line)
-	Mechanism  string                    // how the ambient env delivers it — for the generated steering section
-	Env        func(url string) []string // real container env (the only hook that reaches install subprocesses)
-	MiseConf   func(url string) string   // fragment merged into the generated /etc/mise/config.toml
-	CargoConf  func(url string) string   // fragment for the generated $CARGO_HOME/config.toml
-	Files      func(url string) []generatedFile
-	testMethod string
-	testPath   string // probe path appended to the bound URL (known-small artifact)
+	Format    string
+	Title     string
+	Layer     string                    // "packages" (universal package-manager traffic) | "toolchain" (mise/rustup supply line)
+	Mechanism string                    // how the ambient env delivers it — for the generated steering section
+	Env       func(url string) []string // real container env (the only hook that reaches install subprocesses)
+	MiseConf  func(url string) string   // fragment merged into the generated /etc/mise/config.toml
+	CargoConf func(url string) string   // fragment for the generated $CARGO_HOME/config.toml
+	Files     func(url string) []generatedFile
+	testPath  string // probe path appended to the bound URL (known-small artifact)
 }
 
 var registryAdapters = []registryAdapter{
@@ -52,20 +51,20 @@ var registryAdapters = []registryAdapter{
 		// Consumed by the per-step private docker daemons (dind.go), not by
 		// step env: dockerd --registry-mirror. Pull-through cache for Hub.
 		Format: "docker-hub", Title: "Docker Hub mirror", Layer: "images",
-		Mechanism:  "dockerd `--registry-mirror` on agent daemons",
-		testMethod: "GET", testPath: "/v2/",
+		Mechanism: "dockerd `--registry-mirror` on agent daemons",
+		testPath:  "/v2/",
 	},
 	{
 		Format: "go-proxy", Title: "Go module proxy", Layer: "packages",
-		Mechanism:  "`GOPROXY` env",
-		Env:        func(u string) []string { return []string{"GOPROXY=" + u} },
-		testMethod: "GET", testPath: "/github.com/pkg/errors/@v/list",
+		Mechanism: "`GOPROXY` env",
+		Env:       func(u string) []string { return []string{"GOPROXY=" + u} },
+		testPath:  "/github.com/pkg/errors/@v/list",
 	},
 	{
 		Format: "npm", Title: "npm registry", Layer: "packages",
-		Mechanism:  "`NPM_CONFIG_REGISTRY` env",
-		Env:        func(u string) []string { return []string{"NPM_CONFIG_REGISTRY=" + u} },
-		testMethod: "GET", testPath: "/-/ping",
+		Mechanism: "`NPM_CONFIG_REGISTRY` env",
+		Env:       func(u string) []string { return []string{"NPM_CONFIG_REGISTRY=" + u} },
+		testPath:  "/-/ping",
 	},
 	{
 		Format: "pypi", Title: "PyPI index", Layer: "packages",
@@ -78,7 +77,7 @@ var registryAdapters = []registryAdapter{
 		MiseConf: func(u string) string {
 			return fmt.Sprintf("pipx.registry_url = %q\n", strings.TrimSuffix(u, "/")+"/{}/")
 		},
-		testMethod: "GET", testPath: "/pip/",
+		testPath: "/pip/",
 	},
 	{
 		Format: "cargo", Title: "Cargo sparse index", Layer: "packages",
@@ -88,7 +87,7 @@ var registryAdapters = []registryAdapter{
 			return fmt.Sprintf("[source.crates-io]\nreplace-with = \"apptown-local\"\n\n[source.apptown-local]\nregistry = %q\n",
 				"sparse+"+strings.TrimSuffix(u, "/")+"/")
 		},
-		testMethod: "GET", testPath: "/config.json",
+		testPath: "/config.json",
 	},
 	{
 		Format: "github-releases", Title: "GitHub releases mirror", Layer: "toolchain",
@@ -100,7 +99,7 @@ var registryAdapters = []registryAdapter{
 				"\"regex:^https://github\\\\.com/([^/]+)/([^/]+)/(archive/.+)$\" = %q\n",
 				b+"/$1/$2/$3", b+"/$1/$2/$3")
 		},
-		testMethod: "HEAD", testPath: "/jdx/mise/releases/download/v2026.8.12/SHASUMS256.txt",
+		testPath: "/jdx/mise/releases/download/v2026.8.12/SHASUMS256.txt",
 	},
 	{
 		Format: "gitlab-releases", Title: "GitLab releases mirror", Layer: "toolchain",
@@ -112,7 +111,7 @@ var registryAdapters = []registryAdapter{
 				"\"regex:^https://gitlab\\\\.com/(.+/-/archive/.+)$\" = %q\n",
 				b+"/$1", b+"/$1")
 		},
-		testMethod: "HEAD", testPath: "/gitlab-org/cli/-/releases/v1.55.0/downloads/glab_1.55.0_linux_arm64.deb",
+		testPath: "/gitlab-org/cli/-/releases/v1.55.0/downloads/glab_1.55.0_linux_arm64.deb",
 	},
 	{
 		Format: "node-dist", Title: "Node.js dist mirror", Layer: "toolchain",
@@ -120,7 +119,7 @@ var registryAdapters = []registryAdapter{
 		MiseConf: func(u string) string {
 			return fmt.Sprintf("node.mirror_url = %q\n", strings.TrimSuffix(u, "/")+"/")
 		},
-		testMethod: "GET", testPath: "/latest/SHASUMS256.txt",
+		testPath: "/latest/SHASUMS256.txt",
 	},
 	{
 		Format: "golang-dist", Title: "Go toolchain mirror", Layer: "toolchain",
@@ -128,7 +127,7 @@ var registryAdapters = []registryAdapter{
 		MiseConf: func(u string) string {
 			return fmt.Sprintf("go.download_mirror = %q\n", strings.TrimSuffix(u, "/"))
 		},
-		testMethod: "HEAD", testPath: "/go1.24.4.src.tar.gz",
+		testPath: "/go1.24.4.src.tar.gz",
 	},
 	{
 		Format: "rust-dist", Title: "Rust toolchain dist", Layer: "toolchain",
@@ -141,7 +140,7 @@ var registryAdapters = []registryAdapter{
 			b := strings.TrimSuffix(u, "/")
 			return []string{"RUSTUP_DIST_SERVER=" + b, "RUSTUP_UPDATE_ROOT=" + b + "/rustup"}
 		},
-		testMethod: "HEAD", testPath: "/rustup/release-stable.toml",
+		testPath: "/rustup/release-stable.toml",
 	},
 	{
 		Format: "maven", Title: "Maven repository", Layer: "packages",
@@ -167,7 +166,7 @@ var registryAdapters = []registryAdapter{
 				Content: fmt.Sprintf(tmpl, strings.TrimSuffix(u, "/")),
 			}}
 		},
-		testMethod: "GET", testPath: "/org/slf4j/slf4j-api/maven-metadata.xml",
+		testPath: "/org/slf4j/slf4j-api/maven-metadata.xml",
 	},
 	{
 		Format: "nuget", Title: "NuGet feed", Layer: "packages",
@@ -193,7 +192,7 @@ var registryAdapters = []registryAdapter{
 				Content: fmt.Sprintf(tmpl, strings.TrimSuffix(u, "/")+"/index.json"),
 			}}
 		},
-		testMethod: "GET", testPath: "/index.json",
+		testPath: "/index.json",
 	},
 	{
 		Format: "rubygems", Title: "RubyGems mirror", Layer: "packages",
@@ -211,7 +210,7 @@ var registryAdapters = []registryAdapter{
 				Content: "# GENERATED by AppTown from registry bindings - do not edit.\n:sources:\n- " + strings.TrimSuffix(u, "/") + "/\n",
 			}}
 		},
-		testMethod: "HEAD", testPath: "/latest_specs.4.8.gz",
+		testPath: "/latest_specs.4.8.gz",
 	},
 	{
 		Format: "apache-dist", Title: "Apache dist mirror", Layer: "toolchain",
@@ -223,7 +222,7 @@ var registryAdapters = []registryAdapter{
 				"\"regex:^https://(?:dlcdn|downloads)\\\\.apache\\\\.org/(.+)$\" = %q\n",
 				b+"/$1", b+"/$1")
 		},
-		testMethod: "HEAD", testPath: "/maven/KEYS",
+		testPath: "/maven/KEYS",
 	},
 }
 
@@ -414,30 +413,17 @@ func ProbeRegistry(format, url string) integration.Health {
 	// A registry: the deployments use (internal/trust).
 	client := &http.Client{Timeout: 20 * time.Second, Transport: trust.Transport(trust.Deployments)}
 	defer client.CloseIdleConnections()
-	try := func(method string) (int, error) {
-		req, err := http.NewRequest(method, probe, nil)
-		if err != nil {
-			return 0, err
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return 0, err
-		}
-		defer resp.Body.Close()
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
-		return resp.StatusCode, nil
-	}
-	code, err := try(ad.testMethod)
-	if err == nil && ad.testMethod == "HEAD" && code >= 400 {
-		code, err = try("GET") // some proxies reject HEAD; a bounded GET settles it
-	}
+	// One GET, of which at most 64 KiB is read: a large artifact is not
+	// downloaded, and its answer is the registry's answer, never a second
+	// request's.
+	resp, err := client.Get(probe)
 	if err != nil {
 		return integration.Health{OK: false, Detail: "probe failed: " + err.Error()}
 	}
-	if code >= 200 && code < 300 {
-		return integration.Health{OK: true, Detail: fmt.Sprintf("%s %s → %d", ad.testMethod, ad.testPath, code)}
-	}
-	return integration.Health{OK: false, Detail: fmt.Sprintf("%s %s → %d", ad.testMethod, ad.testPath, code)}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+	detail := fmt.Sprintf("GET %s → %d", ad.testPath, resp.StatusCode)
+	return integration.Health{OK: resp.StatusCode >= 200 && resp.StatusCode < 300, Detail: detail}
 }
 
 // DeclaresToolchain: does the workspace opt in to mise? The repo file IS

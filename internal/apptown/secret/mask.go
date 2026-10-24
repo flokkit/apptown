@@ -53,9 +53,13 @@ func (a *Service) Mask(ctx context.Context, text string) string {
 // Infisical's (each, though a file entry of the same name shadows it at
 // runtime: an application binding can still resolve the Infisical key), and
 // the built-in store's current values. A store that cannot be read gives
-// nothing to mask and the log says so: masking is best effort.
+// nothing to mask and the log says so: masking is best effort. An Infisical
+// that cannot be read now still has the values it last answered masked.
 func (a *Service) maskValues(ctx context.Context) []string {
-	file := a.fileSecrets()
+	file, err := a.readFileSecrets()
+	if err != nil {
+		log.Printf("masking: %v", err)
+	}
 	var out []string
 	for _, v := range file {
 		out = append(out, v)
@@ -64,6 +68,7 @@ func (a *Service) maskValues(ctx context.Context) []string {
 		remote, err := a.infisicalFetch(context.WithoutCancel(ctx), cfg)
 		if err != nil {
 			log.Printf("masking: Infisical's values could not be read: %v", err)
+			remote = a.infisical.lastKnown(cfg)
 		}
 		for _, v := range remote {
 			out = append(out, v)
