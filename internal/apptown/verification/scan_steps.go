@@ -167,9 +167,6 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			}
 		}
 	}
-	if m.Report != "" {
-		_ = os.Remove(filepath.Join(scanSrc, m.Report)) // never trust a stale report
-	}
 	// Image target: the artifact that will actually run, not the tree. Build
 	// it from the contract (or pull the contract's image), save it as a
 	// tarball the scanner can read without a daemon, substitute ${IMAGE_TAR}.
@@ -197,10 +194,16 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			return
 		}
 		// Provenance for an image scan (design/subsystems/conformance.md §7.3): the base
-		// is the release image the project's main deployment is SERVING —
-		// its OS CVEs are carried debt, not this change's. Scanned first, with
-		// the same binding, in the same workspace (the report path is shared).
-		imageBase = a.scanners.baseImageFingerprints(task.Context(), run.ProjectID, ws, WorkflowProvenanceBase(task.Context(), a.dataDir, source), m, binding, scanSrc, argv, fmt.Sprintf("apptown-scan-%d", stepID))
+		// is the image of the commit this change forked from — its OS CVEs
+		// are carried debt, not this change's. Scanned first, with the same
+		// binding, in the same workspace (the report path is shared).
+		baseSHA, err := WorkflowProvenanceBase(task.Context(), a.dataDir, source, rev)
+		if err != nil {
+			evidence["reason"] = "reading the commit this change is compared with: " + strs.Truncate(err.Error(), 300)
+			finish(workflow.StatusError, evidence)
+			return
+		}
+		imageBase = a.scanners.baseImageFingerprints(task.Context(), run.ProjectID, ws, baseSHA, m, binding, scanSrc, argv, fmt.Sprintf("apptown-scan-%d", stepID))
 		exportImage = ref // saved into the tree where the scan runs
 		evidence["image"] = ref
 		// What this receipt covers, and what it does not: the public part's
@@ -249,6 +252,12 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		history = &execution.History{Repository: repository, Commits: strings.Split(commits, "..")}
 		evidence["history"] = commits
 		evidence["historyCommits"] = strings.TrimSpace(count)
+	}
+	// After the base scan, which wrote to the same paths in this tree.
+	if err := clearForScan(scanSrc, m); err != nil {
+		evidence["reason"] = err.Error()
+		finish(workflow.StatusError, evidence)
+		return
 	}
 	start := a.now()
 	req := m.Request(scanSrc, argv)
@@ -321,7 +330,13 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			base.Note = "found in the commits this landing adds to main"
 			compared = false
 		case m.Looks() == "source":
-			base = a.scanners.baseScanFingerprints(task.Context(), ws, WorkflowProvenanceBase(task.Context(), a.dataDir, source), m, binding, fmt.Sprintf("apptown-scan-%d", stepID))
+			baseSHA, err := WorkflowProvenanceBase(task.Context(), a.dataDir, source, rev)
+			if err != nil {
+				evidence["reason"] = "reading the commit this change is compared with: " + strs.Truncate(err.Error(), 300)
+				finish(workflow.StatusError, evidence)
+				return
+			}
+			base = a.scanners.baseScanFingerprints(task.Context(), ws, baseSHA, m, binding, fmt.Sprintf("apptown-scan-%d", stepID))
 		case m.Looks() == "image":
 			base = imageBase
 		default:

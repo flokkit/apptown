@@ -130,33 +130,79 @@ type CommittedDiff struct {
 	Stat       string
 }
 
-// ChangeBase is where "what this change changes" starts: the newest commit
-// of the project's default branch that the change holds, read in its hub.
-// The base a change recorded when it began stops being that once the change
-// catches up with main: a diff from it shows main's files as the change's
-// own (a landing brief would ask why a report left out a file that came
-// from main). So it is the merge-base of the default
-// branch and tip, as a three-dot diff reads it. A change already landed is
-// an ancestor of the default branch, where that merge-base is its own tip;
-// its base is then the merge-base with main as it was before the landing
-// merge (the merge's first parent). recorded stands in when the hub has no
-// default branch or no history in common with tip, and for a change
-// fast-forwarded onto main, which no merge records. An error is
-// "could not be read", never "nothing changed".
-func ChangeBase(ctx context.Context, hub, defaultBranch, tip, recorded string) (string, error) {
-	main := "refs/heads/" + defaultBranch
-	if defaultBranch == "" || gitexec.HubRef(ctx, hub, main+"^{commit}") == "" {
-		return changeBaseRecorded(recorded, "the project has no default branch to compare with")
+// ForkBase is where an active change's work starts, for a gate that asks
+// what the change introduces: the merge-base of the project's default
+// branch and tip (the commit being checked), read in the hub. After the
+// change catches up with main it is the main it merged, so main's own
+// findings are not the change's. recorded stands in only where Git says
+// there is no fork to read: the hub has no default branch, the hub does
+// not hold tip yet (work still only in a change's folder), or tip has no
+// history in common with it. Git failing to answer any of these is an
+// error, never a stand-in (fallback audit F18).
+func ForkBase(ctx context.Context, hub, defaultBranch, tip, recorded string) (string, error) {
+	fork, why, err := forkPoint(ctx, hub, defaultBranch, tip)
+	if err != nil {
+		return "", err
 	}
+	if why != "" {
+		return changeBaseRecorded(recorded, why)
+	}
+	return fork, nil
+}
+
+// forkPoint is the merge-base of the default branch and tip in hub, or why
+// there is none to read ("" fork with a reason); err is Git failing.
+func forkPoint(ctx context.Context, hub, defaultBranch, tip string) (fork, why string, err error) {
+	if defaultBranch == "" {
+		return "", "the project has no default branch to compare with", nil
+	}
+	main := "refs/heads/" + defaultBranch
+	if at, err := gitexec.HubReadRef(ctx, hub, main+"^{commit}"); err != nil {
+		return "", "", err
+	} else if at == "" {
+		return "", "the project has no default branch to compare with", nil
+	}
+	if at, err := gitexec.HubReadRef(ctx, hub, tip+"^{commit}"); err != nil {
+		return "", "", err
+	} else if at == "" {
+		return "", "the project's repository does not hold " + tip + " yet", nil
+	}
+	fork, found, err := gitexec.HubMergeBase(ctx, hub, main, tip)
+	switch {
+	case err != nil:
+		return "", "", fmt.Errorf("reading where the change forked from %s: %w", defaultBranch, err)
+	case !found:
+		return "", "the change has no history in common with " + defaultBranch, nil
+	}
+	return fork, "", nil
+}
+
+// ChangeBase is where "what this change changes" starts, for a view of the
+// change's whole history, landed or not: ForkBase's merge-base while the
+// change is open. A change already landed is an ancestor of the default
+// branch, where that merge-base is its own tip; its base is then the
+// merge-base with main as it was before the landing merge (the merge's
+// first parent). The recorded base stands in where ForkBase's does, and for
+// a change fast-forwarded onto main, which no merge records. An error is
+// "could not be read", never "nothing changed". A gate asks ForkBase.
+func ChangeBase(ctx context.Context, hub, defaultBranch, tip, recorded string) (string, error) {
+	fork, why, err := forkPoint(ctx, hub, defaultBranch, tip)
+	if err != nil {
+		return "", err
+	}
+	if why != "" {
+		return changeBaseRecorded(recorded, why)
+	}
+	main := "refs/heads/" + defaultBranch
 	read := func(args ...string) (string, error) {
 		out, err := gitexec.HubOutput(ctx, hub, nil, args...)
 		return strings.TrimSpace(string(out)), err
 	}
-	fork, err := read("merge-base", "--end-of-options", main, tip)
+	landed, err := gitexec.HubIsAncestor(ctx, hub, tip, main)
 	if err != nil {
-		return changeBaseRecorded(recorded, "the change has no history in common with "+defaultBranch)
+		return "", err
 	}
-	if !gitexec.HubAncestor(ctx, hub, tip, main) {
+	if !landed {
 		return fork, nil
 	}
 	// Landed: the first commit on main's first-parent line that holds tip
@@ -172,7 +218,11 @@ func ChangeBase(ctx context.Context, hub, defaultBranch, tip, recorded string) (
 		if err != nil {
 			return "", fmt.Errorf("reading the change's base before it landed: %w", err)
 		}
-		if !gitexec.HubAncestor(ctx, hub, tip, before) {
+		held, err := gitexec.HubIsAncestor(ctx, hub, tip, before)
+		if err != nil {
+			return "", err
+		}
+		if !held {
 			return before, nil
 		}
 	}

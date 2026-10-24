@@ -764,13 +764,7 @@ func (a *Executor) recordWorkerAgent(ctx context.Context, w *workerAttempt, inv 
 		rec.problem = "the step's written files could not be read from its result: " + filesErr.Error()
 	}
 	if w.cfg.Output.File != "" && rec.problem == "" {
-		body, problem := declaredOutput(res.results, res.resultsErr)
-		switch {
-		case problem != "":
-			rec.problem = "the output file could not be read: " + problem
-		case strings.TrimSpace(body) != "":
-			h.Output = body
-		}
+		rec.problem = applyDeclaredOutput(&h, w.cfg.Output.File, res.results, res.resultsErr)
 	}
 	if res.outputErr != nil {
 		rec.outputUnread = res.outputErr.Error()
@@ -826,6 +820,18 @@ type workerRecord struct {
 // declaredOutput reads the step's declared output file, as the worker
 // captured it. Absent is "" with no problem; refused or too large is a
 // problem, never "no output".
+// applyDeclaredOutput makes the step's declared output file, as the worker
+// returned it, the harvest's output (useDeclared); it returns why the file
+// could not be read, "" when it could.
+func applyDeclaredOutput(h *workspaceHarvest, file string, results map[string]execution.ResultFile, readErr error) string {
+	body, problem := declaredOutput(results, readErr)
+	if problem != "" {
+		return "the output file could not be read: " + problem
+	}
+	h.useDeclared(file, body)
+	return ""
+}
+
 func declaredOutput(results map[string]execution.ResultFile, readErr error) (string, string) {
 	if readErr != nil {
 		return "", readErr.Error()

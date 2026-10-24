@@ -10,25 +10,20 @@ import (
 func TestSplitByProvenanceUnavailableBaseGatesEverything(t *testing.T) {
 	t.Parallel()
 	fs := []conformance.Finding{{Finding: check.Finding{Fingerprint: "x", Kind: "sast", Identifiers: []string{"r"}, Location: &check.Location{File: "a.go"}}}}
-	intro, carried := splitByProvenance(fs, scanBase{OK: false, Note: "no base"})
+	intro, carried := splitByProvenance(fs, scanBase{OK: false, Note: "no base", Findings: []check.Finding{fs[0].Finding}})
 	if len(intro) != 1 || len(carried) != 0 {
 		t.Fatalf("an unavailable base must not hide findings: %d/%d", len(intro), len(carried))
 	}
-	base := scanBase{OK: true, Findings: []check.Finding{{Fingerprint: "moved", Kind: "sast",
-		Identifiers: []string{"r"}, Location: &check.Location{File: "a.go"}}}}
-	intro, carried = splitByProvenance(fs, base)
-	if len(intro) != 0 || len(carried) != 1 || !carried[0].PreExisting {
-		t.Fatalf("loose match marks the finding pre-existing: %+v / %+v", intro, carried)
-	}
 }
 
-// One finding on the base covers one finding of the change, never several:
-// a second finding of the same rule in the same file, with a fingerprint the
-// base never reported, is the change's and gates.
+// A scanner finding is carried only when the base reports its fingerprint,
+// one base finding for one head finding. A different finding of the same
+// rule in the same file is the change's: fixing an old issue and adding
+// another of its rule must not let the new one pass as debt.
 //
-// Kills: a base matched as a set of rule-and-file keys, which let one old
-// finding carry any number of new ones of its rule in its file.
-func TestSplitByProvenanceOneBaseFindingCarriesOneFinding(t *testing.T) {
+// Kills: the second, loose match on kind, rule and file (fallback audit
+// F03), which carried "new" on the base's "old".
+func TestAScanFindingIsCarriedOnlyByItsOwnFingerprint(t *testing.T) {
 	t.Parallel()
 	at := func(fp string) conformance.Finding {
 		return conformance.Finding{Finding: check.Finding{Fingerprint: fp, Kind: "sast", Identifiers: []string{"r"}, Location: &check.Location{File: "a.go"}}}
@@ -46,22 +41,16 @@ func TestSplitByProvenanceOneBaseFindingCarriesOneFinding(t *testing.T) {
 		base           scanBase
 		intro, carried int
 	}{
-		{"a new finding beside a moved old one", []conformance.Finding{at("moved"), at("new")}, base("old"), 1, 1},
-		{"the old finding by its fingerprint, and a new one", []conformance.Finding{at("new"), at("old")}, base("old"), 1, 1},
+		{"the old finding fixed, a new one of its rule in its file", []conformance.Finding{at("new")}, base("old"), 1, 0},
+		{"the old finding kept, and a new one", []conformance.Finding{at("new"), at("old")}, base("old"), 1, 1},
 		{"two old findings, both by fingerprint", []conformance.Finding{at("a"), at("b")}, base("a", "b"), 0, 2},
-		{"an exact match does not also spend a loose one", []conformance.Finding{at("a"), at("moved")}, base("a", "b"), 0, 2},
+		{"one base finding carries one head finding", []conformance.Finding{at("a"), at("a")}, base("a"), 1, 1},
 	}
 	for _, c := range cases {
 		intro, carried := splitByProvenance(c.head, c.base)
 		if len(intro) != c.intro || len(carried) != c.carried {
 			t.Errorf("%s: introduced %d, carried %d; want %d, %d", c.name, len(intro), len(carried), c.intro, c.carried)
 		}
-	}
-	// The exact match wins over the loose one whatever the order: "new" must
-	// not take the base finding that "old" names exactly.
-	intro, _ := splitByProvenance([]conformance.Finding{at("new"), at("old")}, base("old"))
-	if len(intro) != 1 || intro[0].Fingerprint != "new" {
-		t.Fatalf("the finding with no base fingerprint is the change's: %+v", intro)
 	}
 }
 

@@ -302,6 +302,10 @@ func (s *Scanners) baseScanFingerprints(ctx context.Context, repo, baseSHA strin
 			}
 		}
 	}
+	if err := clearForScan(src, m); err != nil {
+		b.Note = "scanning the base commit failed (" + strs.Truncate(err.Error(), 160) + ") — every finding is treated as introduced"
+		return b
+	}
 	req := m.Request(src, m.Command)
 	req.Name, req.Report = execution.UniqueName(fmt.Sprintf("%s-base-%s", namePrefix, binding)), m.Report
 	answer := readScan(s.evaluator.judge(ctx).Run(req), m, binding)
@@ -312,6 +316,22 @@ func (s *Scanners) baseScanFingerprints(ctx context.Context, repo, baseSHA strin
 	b.Findings = conformance.RawFindings(answer.findings)
 	b.OK = true
 	return b
+}
+
+// clearForScan removes what an earlier scan left in dir where m's run
+// writes (its report, and for an image scanner the saved image, which a run
+// saves only where no file is), so what is read afterwards is this run's.
+// A removal that fails is the error (check.RemoveStale).
+func clearForScan(dir string, m check.Scanner) error {
+	if m.Report != "" {
+		if err := check.RemoveStale(filepath.Join(dir, m.Report)); err != nil {
+			return err
+		}
+	}
+	if m.Looks() == "image" {
+		return check.RemoveStale(filepath.Join(dir, ".apptown", "image.tar"))
+	}
+	return nil
 }
 
 // RunSourceScans runs every attached, non-manual SOURCE scanner (osv,
@@ -356,10 +376,11 @@ func (s *Scanners) RunSourceScans(ctx context.Context, scanSrc string, namePrefi
 				}
 			}
 		}
-		if m.Report != "" {
-			_ = os.Remove(filepath.Join(scanSrc, m.Report))
-
-			// never trust a stale report
+		if err := clearForScan(scanSrc, m); err != nil {
+			res.Verdict, res.AppTownFault, res.Output = workflow.VerdictError, true, err.Error()
+			scanErrors++
+			results = append(results, res)
+			continue
 		}
 		req := m.Request(scanSrc, m.Command)
 		req.Name, req.Report = execution.UniqueName(fmt.Sprintf("%s-scan-%s", namePrefix, sc.Name)), m.Report

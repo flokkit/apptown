@@ -154,6 +154,28 @@ func HubAncestor(ctx context.Context, dir, older, newer string) bool {
 	return err == nil
 }
 
+// HubIsAncestor is HubAncestor with Git's failure kept: an answer of no is
+// false with no error, and Git failing to answer is the error, never no.
+func HubIsAncestor(ctx context.Context, dir, older, newer string) (bool, error) {
+	_, err := HubOutput(ctx, dir, nil, "merge-base", "--is-ancestor", "--end-of-options", older, newer)
+	ok, err := answer(err)
+	if err != nil {
+		return false, fmt.Errorf("reading whether %s holds %s: %w", newer, older, err)
+	}
+	return ok, nil
+}
+
+// HubMergeBase is the best common ancestor of a and b in one of AppTown's
+// own repositories. No common history is found false with no error; Git
+// failing to answer is the error.
+func HubMergeBase(ctx context.Context, dir, a, b string) (base string, found bool, err error) {
+	out, err := HubOutput(ctx, dir, nil, "merge-base", "--end-of-options", a, b)
+	if ok, err := answer(err); err != nil || !ok {
+		return "", false, err
+	}
+	return strings.TrimSpace(string(out)), true, nil
+}
+
 // HubStream runs git in one of AppTown's own repositories, hardened,
 // writing its stdout to w; a failure carries stderr.
 func HubStream(ctx context.Context, dir string, w io.Writer, args ...string) error {

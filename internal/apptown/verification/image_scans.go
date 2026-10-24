@@ -5,12 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
@@ -81,16 +78,13 @@ func (s *Scanners) RunImageScans(ctx context.Context, projectID ids.ID, src, sha
 		for i := range argv {
 			argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.apptown/image.tar")
 		}
-		if m.Report != "" {
-			_ = os.Remove(filepath.Join(src, m.Report))
+		if err := clearForScan(src, m); err != nil {
+			fail(err.Error())
+			continue
 		}
 		req := m.Request(src, argv)
 		req.Name, req.Report, req.ExportImage = execution.UniqueName(namePrefix+"-scan-"+sc.Name), m.Report, ref
 		answer := readScan(s.exec.Run(ctx, req), m, sc.Name)
-		// The image is saved into the tree only if no file is there: the
-		// next image scanner's base and head scans save theirs to the same
-		// path.
-		_ = os.Remove(filepath.Join(src, ".apptown", "image.tar"))
 		res.DurationMs = new(s.now().Sub(start).Milliseconds())
 		if answer.failure != "" {
 			fail(answer.failure)
@@ -139,8 +133,9 @@ func (s *Scanners) RunImageScans(ctx context.Context, projectID ids.ID, src, sha
 }
 
 // baseImageFingerprints scans the image a change is compared with: the
-// starting revision's image, else the image the main deployment serves.
-// A base it cannot read is unavailable, never clean, and its note says why.
+// image of its base commit (baseSHA), and nothing else — the release main
+// serves can be another commit, so it never stands in. A base image it
+// cannot prepare is unavailable, never clean, and its note says why.
 func (s *Scanners) baseImageFingerprints(ctx context.Context, projectID ids.ID, repo, baseSHA string, m check.Scanner, binding, scanSrc string, argvTemplate []string, name string) scanBase {
 	b := scanBase{}
 	imgID, how := "", ""
@@ -164,7 +159,6 @@ func (s *Scanners) baseImageFingerprints(ctx context.Context, projectID ids.ID, 
 			}
 		}
 	}
-	var serving *deployment.Deployment
 	if imgID == "" {
 		// A project that has never released has nothing earlier to compare
 		// with, wherever the checks run: say that, not why the starting
@@ -175,65 +169,32 @@ func (s *Scanners) baseImageFingerprints(ctx context.Context, projectID ids.ID, 
 		switch {
 		case errors.Is(err, sql.ErrNoRows) || (err == nil && e.ReleaseSHA == ""):
 			b.Note, b.Detail = firstReleaseNote, preparation
-			return b
 		case err != nil:
 			b.Note = preparation + "; reading the serving release failed: " + strs.Truncate(err.Error(), 300) + " — every finding is treated as introduced"
-			return b
+		default:
+			b.Note = preparation + " — every finding is treated as introduced"
 		}
-		serving = e
-	}
-	absent := s.docker != nil && s.docker.Absent()
-	if imgID == "" && (!s.exec.Local || absent) {
-		// The serving release runs on this machine; checks run on the
-		// worker, which does not have its image. The baseline is
-		// unavailable, never clean. With no local Docker it is unknown.
-		if absent {
-			// Said plainly: "no local Docker" reads as a fault to fix,
-			// but it is how this apptown runs.
-			b.Note = "no earlier image to compare with, so every finding is treated as introduced by this change: the image of the commit it started from was not available (" + preparation + "), and this AppTown runs no Docker of its own, so it cannot read the image the app runs now"
-			return b
-		}
-		b.Note = preparation + "; the serving release image is on AppTown's host, not the worker — every finding is treated as introduced"
 		return b
-	}
-	if imgID == "" {
-		container := serving.Container
-		if container == "" {
-			b.Note = preparation + "; no serving release image — every finding is treated as introduced"
-			return b
-		}
-		if !s.docker.Running(ctx, container) {
-			b.Note = preparation + "; the main deployment is not running — every finding is treated as introduced"
-			return b
-		}
-		imgID = s.docker.Text(ctx, "inspect", "-f", "{{.Image}}", container)
-		if imgID == "" {
-			b.Note = preparation + "; could not read the serving image — every finding is treated as introduced"
-			return b
-		}
-		how = "the serving release image " + strs.Truncate(strings.TrimPrefix(imgID, "sha256:"), 12) + " (" + preparation + ")"
 	}
 	b.SHA = imgID
 	// The SAME tar path as the real scan: the scanner folds the artifact path
 	// into every OS-package finding's fingerprint and location, so a
-	// different name would make identical CVEs look introduced. The base
-	// scan runs first and removes its tar before the real image is saved.
-	defer os.Remove(filepath.Join(scanSrc, ".apptown", "image.tar"))
+	// different name would make identical CVEs look introduced. Each scan
+	// clears the path before it runs (clearForScan), so the real scan never
+	// reads the base's image or report.
 	argv := append([]string{}, argvTemplate...)
 	for i := range argv {
 		argv[i] = strings.ReplaceAll(argv[i], "${IMAGE_TAR}", "/work/.apptown/image.tar")
 	}
-	if m.Report != "" {
-		_ = os.Remove(filepath.Join(scanSrc, m.Report))
+	if err := clearForScan(scanSrc, m); err != nil {
+		b.Note = "scanning the base commit's image failed (" + strs.Truncate(err.Error(), 160) + ") — every finding is treated as introduced"
+		return b
 	}
 	req := m.Request(scanSrc, argv)
 	req.Name, req.Report, req.ExportImage = execution.UniqueName(name+"-base"), m.Report, imgID
 	answer := readScan(s.exec.Run(ctx, req), m, binding)
-	if m.Report != "" {
-		_ = os.Remove(filepath.Join(scanSrc, m.Report)) // the real scan writes its own
-	}
 	if answer.failure != "" {
-		b.Note = "scanning the serving image failed (" + strs.Truncate(answer.failure, 160) + ") — every finding is treated as introduced"
+		b.Note = "scanning the base commit's image failed (" + strs.Truncate(answer.failure, 160) + ") — every finding is treated as introduced"
 		return b
 	}
 	b.Findings = conformance.RawFindings(answer.findings)

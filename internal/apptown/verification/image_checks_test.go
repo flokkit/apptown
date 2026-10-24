@@ -117,11 +117,11 @@ func TestAWorkersImageBaselineIsUnavailableNotClean(t *testing.T) {
 	servingMain(t, f, f.Scanners.deployments, sha)
 	f.Scanners.exec = Executor{Image: images}
 	base := f.Scanners.baseImageFingerprints(f.Context, f.ProjectID, tree, sha, check.Scanner{}, "scan", t.TempDir(), nil, "scan")
-	if base.OK || !strings.Contains(base.Note, "every finding is treated as introduced") || !strings.Contains(base.Note, "not the worker") {
+	if base.OK || !strings.Contains(base.Note, "every finding is treated as introduced") || !strings.Contains(base.Note, "worker image store unavailable") {
 		t.Fatalf("worker baseline: %+v", base)
 	}
 	// No deployment/Docker collaborators are supplied: reaching local release
-	// reuse or the local serving fallback would panic.
+	// reuse would panic.
 	scanners := &Scanners{exec: Executor{Image: images}}
 	scanners.exec.Image = func(_ context.Context, req execution.ImageRequest) execution.ImageAnswer {
 		if req.Context == "" {

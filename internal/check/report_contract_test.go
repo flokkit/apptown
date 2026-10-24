@@ -2,9 +2,12 @@ package check_test
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/execution"
-	"testing"
 )
 
 func TestAToolsReportFailsClosed(t *testing.T) {
@@ -37,5 +40,27 @@ func TestAShellCheckWhoseCleanupFailedIsAnError(t *testing.T) {
 	ev := j.EvaluateSh([]check.Declared{sourced("b", 1, "rule", "true", "high")}, check.Source{Tree: t.TempDir()}, check.Gate, "review")
 	if ev[0].Outcome != check.Error {
 		t.Fatalf("cleanup failure yielded %s", ev[0].Outcome)
+	}
+}
+
+// A tool's report is this run's: one an earlier run left that cannot be
+// removed stops the check before the tool runs, never read as its answer.
+//
+// Kills: the unchecked removal of a stale report (fallback audit F15).
+func TestAStaleReportThatCannotBeRemovedStopsTheTool(t *testing.T) {
+	t.Parallel()
+	tree := t.TempDir()
+	// A non-empty directory where the report goes: os.Remove fails on it.
+	if err := os.MkdirAll(filepath.Join(tree, ".apptown", "report", "kept"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ran := false
+	j := &check.Judge{Scanners: oneScanner{Name: "t", Image: "x", Report: ".apptown/report", Format: "sarif"}, Run: func(execution.Request) execution.Outcome {
+		ran = true
+		return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: []byte(`{"version":"2.1.0","runs":[]}`)}
+	}}
+	ev := j.EvaluateTool(check.Declared{Declaration: check.Declaration{Name: "tool", Tool: "t"}}, check.Source{Tree: tree}, check.Gate, "review")
+	if ran || ev.Outcome != check.Error {
+		t.Fatalf("a stale report left in place: tool ran %v, outcome %s (%s)", ran, ev.Outcome, ev.Detail)
 	}
 }

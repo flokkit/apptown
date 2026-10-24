@@ -74,59 +74,34 @@ func wholeProperty(d Declaration) bool {
 	return (e == "runtime" || e == "llm") && d.Occurrences != "lines"
 }
 
-// looseKey is the fallback identity for a scanner finding: kind + rule + file.
-// Matching a base scan prefers the scanner's own stable fingerprint (semgrep's
-// are content hashes, so a moved line still matches) and falls back to this,
-// so a line shift alone never turns carried debt into "new".
-func looseKey(f Finding) string {
-	rule := ""
-	if len(f.Identifiers) > 0 {
-		rule = f.Identifiers[0]
-	}
-	file := ""
-	if f.Location != nil {
-		file = f.Location.File
-	}
-	return f.Kind + "|" + rule + "|" + file
-}
-
 // carriedScans says which scanner findings of head (those of no declared
-// check) the base already reported. One base finding covers one head
-// finding, never several: an exact fingerprint is matched first, then the
-// loose key, each base finding used once. A set of loose keys let one old
-// finding cover any number of new ones of the same rule in the same file.
+// check) the base already reported: the same fingerprint, one base finding
+// for one head finding, never several. The fingerprint is the finding's
+// identity; a finding the base does not report under it is new, so an old
+// finding fixed and a different one of its rule introduced in its file is
+// the change's (fallback audit F03). A scanner that gives no stable
+// identity is identified by rule, file and line (normalizeSARIF), so a
+// moved line reads as new: it blocks, never admits.
 // Keys are [evaluation, finding] indexes into head.
 func carriedScans(head, base []Evaluation) map[[2]int]bool {
-	exact := map[string][]string{} // fingerprint → loose keys of the base findings with it
-	loose := map[string]int{}
+	left := map[string]int{}
 	for _, ev := range base {
 		for _, f := range ev.Findings {
 			if f.Fingerprint != "" {
-				exact[f.Fingerprint] = append(exact[f.Fingerprint], looseKey(f))
+				left[f.Fingerprint]++
 			}
-			loose[looseKey(f)]++
 		}
 	}
 	out := map[[2]int]bool{}
-	var rest [][2]int
 	for i, ev := range head {
 		if ev.Name != "" {
 			continue
 		}
 		for j, f := range ev.Findings {
-			if keys := exact[f.Fingerprint]; f.Fingerprint != "" && len(keys) > 0 {
-				exact[f.Fingerprint] = keys[1:]
-				loose[keys[0]]--
+			if f.Fingerprint != "" && left[f.Fingerprint] > 0 {
+				left[f.Fingerprint]--
 				out[[2]int{i, j}] = true
-				continue
 			}
-			rest = append(rest, [2]int{i, j})
-		}
-	}
-	for _, at := range rest {
-		if k := looseKey(head[at[0]].Findings[at[1]]); loose[k] > 0 {
-			loose[k]--
-			out[at] = true
 		}
 	}
 	return out
@@ -155,9 +130,8 @@ type Judged struct {
 //     check with no occurrences to compare is Undecided.
 //
 //   - Any other finding — a scanner's — identifies the problem itself, so
-//     the base reporting it is proof the problem was already there. Matching
-//     prefers the scanner's own stable fingerprint and falls back to the
-//     loose key, so a line shift alone never turns carried debt into "new".
+//     the base reporting the same fingerprint is proof the problem was
+//     already there (carriedScans).
 //
 //   - A check that judges one property of the whole app and reports no
 //     occurrences — a probe of the running app, a model's verdict on a

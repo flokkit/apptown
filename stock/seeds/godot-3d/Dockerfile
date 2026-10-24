@@ -6,9 +6,10 @@
 FROM barichello/godot-ci:4.4.1 AS export
 WORKDIR /game
 COPY . .
-# Import first (the .godot cache is never committed), then export the Web preset.
+# Import first (the .godot cache is never committed), then export the Web
+# preset; each must succeed.
 RUN mkdir -p /game/build/web \
-    && (godot --headless --import >/dev/null 2>&1 || true) \
+    && godot --headless --import \
     && godot --headless --export-release Web /game/build/web/index.html \
     && test -f /game/build/web/index.wasm && test -f /game/build/web/index.pck
 

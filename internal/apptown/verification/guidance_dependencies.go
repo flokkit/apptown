@@ -70,12 +70,11 @@ func NewGuidance(d GuidanceDependencies) *Guidance {
 }
 
 type ChangeDependencies struct {
-	DB          *database.DB
-	Adoption    *adoption.Service
-	Conformance *conformance.Service
-	Scanners    *Scanners
-	Evaluator   *Evaluator
-	DataDir     string
+	DB        *database.DB
+	Adoption  *adoption.Service
+	Scanners  *Scanners
+	Evaluator *Evaluator
+	DataDir   string
 	// WorkerChats saves a chat on the worker that holds a change before the
 	// change is checked; nil checks every change as it stands.
 	WorkerChats WorkerChats
@@ -83,7 +82,7 @@ type ChangeDependencies struct {
 }
 
 func NewChanges(d ChangeDependencies) *Changes {
-	return &Changes{db: d.DB, adoption: d.Adoption, conformance: d.Conformance, scanners: d.Scanners, evaluator: d.Evaluator, dataDir: d.DataDir, workerChats: d.WorkerChats, baseline: &baselineCache{entries: make(map[string]*baselineSet)}, clock: d.Now}
+	return &Changes{db: d.DB, adoption: d.Adoption, scanners: d.Scanners, evaluator: d.Evaluator, dataDir: d.DataDir, workerChats: d.WorkerChats, baseline: &baselineCache{entries: make(map[string]*baselineSet)}, clock: d.Now}
 }
 
 // now reads AppTown's clock.

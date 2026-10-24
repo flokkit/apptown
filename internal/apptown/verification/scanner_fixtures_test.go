@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -106,8 +107,14 @@ func newScannerOwnerFixture(t *testing.T) scannerOwnerFixture {
 		t.Fatal(err)
 	}
 	projects := project.New(db, identity.Scoped(directory, "project"))
+	// Created as project creation does: with its adoption at revision zero,
+	// nothing adopted.
 	projectID, err := database.Transact(context.Background(), db, func(tx *database.Tx) (ids.ID, error) {
-		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "p", Name: "P"})
+		id, err := project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "p", Name: "P"})
+		if err != nil {
+			return id, err
+		}
+		return id, adoption.InitializeIn(t.Context(), tx, id, 0, "", "")
 	})
 	if err != nil {
 		t.Fatal(err)

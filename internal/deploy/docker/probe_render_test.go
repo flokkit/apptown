@@ -1,6 +1,8 @@
 package docker
 
 import (
+	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,12 +44,18 @@ func TestRenderColdBootProbe(t *testing.T) {
 		t.Fatalf("direct probe should be unshaped: %+v", p)
 	}
 
-	// tcp/exec readiness on the public part → HTTP up-probe fallback, still shaped.
+	// Readiness is the declared HTTP probe or nothing: a readiness with no
+	// path (the contract refuses tcp and exec readiness at parse) renders no
+	// path, which the probes refuse, never GET / in its place.
+	// Kills: the default branch that up-probed / for tcp or exec readiness.
 	tcp := &appcontract.Part{Name: "web", Public: true, Intent: &appcontract.Health{
 		Readiness: &appcontract.Probe{TCP: 8080},
 	}}
-	if p := RenderColdBootProbe(tcp, fd); p.Path != "/" || p.Headers == nil {
-		t.Fatalf("tcp fallback: %+v", p)
+	if p := RenderColdBootProbe(tcp, fd); p.Path != "" {
+		t.Fatalf("a readiness with no http path rendered %q", p.Path)
+	}
+	if up, why := (&Probe{}).Check(context.Background(), Scope{}, "c", "http://127.0.0.1:1", time.Second, RenderedProbe{}); up || !strings.Contains(why, "names no path") {
+		t.Fatalf("a probe with no path: up %v, %q", up, why)
 	}
 }
 

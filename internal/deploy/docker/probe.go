@@ -53,21 +53,14 @@ func RenderColdBootProbe(pub *appcontract.Part, frontDoor map[string]string) Ren
 			rp.Grace = d
 		}
 	}
-	switch {
-	case r.HTTP != "":
-		rp.Path = r.HTTP
-		rp.Expect = r.Expect
-		// Shape unless the app explicitly declared it needs no front-door signal
-		// (requestContext: direct). Default for a fronted part is frontDoor (§4.1).
-		if r.RequestContext != "direct" {
-			rp.Headers = frontDoor
-		}
-	default:
-		// tcp / exec readiness on the public part isn't specially rendered at
-		// cold-boot yet: fall back to the HTTP up-probe (the front door speaks
-		// HTTP, and a real answer is stronger evidence than a bare TCP dial —
-		// see probeApp's Docker-Desktop caveat). Still shaped, so a hardened app
-		// doesn't 301 the fallback.
+	// Readiness is an HTTP probe: the contract refuses tcp and exec readiness
+	// at parse (appcontract.validateProbe), so there is no weaker probe to
+	// stand in for a declared one.
+	rp.Path = r.HTTP
+	rp.Expect = r.Expect
+	// Shape unless the app explicitly declared it needs no front-door signal
+	// (requestContext: direct). Default for a fronted part is frontDoor (§4.1).
+	if r.RequestContext != "direct" {
 		rp.Headers = frontDoor
 	}
 	return rp

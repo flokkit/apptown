@@ -351,23 +351,32 @@ func (c *Contributions) Diff(ctx context.Context, changeID ids.ID) (string, erro
 	if err != nil {
 		return "", err
 	}
+	return changePatch(ctx, c.dataDir, p, ch)
+}
+
+// changePatch is Diff's body once the change is read: the committed
+// comparison the web page reads (scm.ReadChangeDiff), and its patch. A diff
+// Git could not produce is an error, never "no difference".
+func changePatch(ctx context.Context, dataDir string, p *project.Project, ch *workflow.Change) (string, error) {
 	if ch.Branch == "" {
 		return "", contributionRefusal("change %s#%d has no branch yet, so there is nothing to diff", p.Slug, ch.Number)
 	}
-	repo := filepath.Join(c.dataDir, "workspaces", "project-"+p.Slug)
-	if ws := filepath.Join(c.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID)); ch.BaseSHA != "" && gitexec.IsRepo(ws) {
+	repo := filepath.Join(dataDir, "workspaces", "project-"+p.Slug)
+	if ws := filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID)); ch.BaseSHA != "" && gitexec.IsRepo(ws) {
 		repo = ws
 	}
 	if _, err := gitexec.Run(ctx, repo, "rev-parse", "--verify", ch.Branch); err != nil {
 		return "", contributionRefusal("branch %s of change %s#%d is gone from the repository", ch.Branch, p.Slug, ch.Number)
 	}
-	hub := filepath.Join(c.dataDir, "workspaces", "project-"+p.Slug)
-	base, err := scm.ChangeBase(ctx, hub, p.DefaultBranch, "refs/heads/"+ch.Branch, ch.BaseSHA)
+	hub := filepath.Join(dataDir, "workspaces", "project-"+p.Slug)
+	comparison, err := scm.ReadChangeDiff(ctx, hub, repo, p.DefaultBranch, ch.BaseSHA, ch.Branch)
 	if err != nil {
 		return "", err
 	}
-	diff, _ := gitexec.Run(ctx, repo, "diff", base+".."+ch.Branch)
-	return diff, nil
+	if comparison.Empty {
+		return "", nil
+	}
+	return comparison.Patch(ctx, repo)
 }
 
 // Reload the scoped facts at the command boundary. Transport-supplied record
