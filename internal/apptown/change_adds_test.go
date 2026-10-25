@@ -75,7 +75,7 @@ func newAddsFixture(t *testing.T, slug string) addsFixture {
 		t.Fatal(err)
 	}
 	source := workflowSourceForTest(t, a, work)
-	ws := source.Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	f := addsFixture{a: a, work: work}
 	f.commit = func(files map[string]string) string {
 		t.Helper()
@@ -90,7 +90,7 @@ func newAddsFixture(t *testing.T, slug string) addsFixture {
 			gittest.Run(t, ws, "add", path)
 		}
 		gittest.Run(t, ws, "commit", "-qm", "declarations")
-		if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: pid, Repository: source.Repository(a.cfg.dataDir), Branch: source.Branch, From: ws, Grant: scm.Grant{Holder: scm.RunHolder(work.ID)}}); err != nil {
+		if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: pid, Repository: requireLocation(t)(source.Repository(a.cfg.dataDir)), Branch: source.Branch, From: ws, Grant: scm.Grant{Holder: scm.RunHolder(work.ID)}}); err != nil {
 			t.Fatal(err)
 		}
 		return gittest.Run(t, ws, "rev-parse", "HEAD")
@@ -296,9 +296,9 @@ func TestAnUnreadableAcceptedCommitRefusesTheVote(t *testing.T) {
 			f := newAddsFixture(t, strings.ReplaceAll("unreadable "+name, " ", "-"))
 			f.commit(map[string]string{".apptown/app.yaml": addsContract})
 			source := workflowSourceForTest(t, f.a, f.work)
-			breakRef(t, source.Workspace(f.a.cfg.dataDir), source.Branch)
+			breakRef(t, requireLocation(t)(source.Workspace(f.a.cfg.dataDir)), source.Branch)
 			if both {
-				breakRef(t, source.Repository(f.a.cfg.dataDir), source.Branch)
+				breakRef(t, requireLocation(t)(source.Repository(f.a.cfg.dataDir)), source.Branch)
 			}
 			ctx := asPerson("bls")
 			if q, err := f.a.Work.ApprovalQuestion(ctx, f.acceptID); err == nil {

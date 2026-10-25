@@ -205,7 +205,10 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 	if opener := access.ActorFrom(ctx, who).Principal; !opener.IsZero() {
 		req.Labels[OpenerLabel] = opener.String()
 	}
-	src := filepath.Join(c.dataDir, "workspaces", "project-"+p.Slug)
+	src, err := p.Repository(c.dataDir)
+	if err != nil {
+		return nil, err
+	}
 	diverged := false
 	if change != nil {
 		if err := c.work.PrepareWorkspace(ctx, change.ID); errors.Is(err, workflow.ErrFolderDiverged) {

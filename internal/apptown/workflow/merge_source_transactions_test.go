@@ -70,7 +70,7 @@ func TestMergeSourceBatchesAncestryRepositoryAdoptionAndMR(t *testing.T) {
 	if source.UpliftRefusal() == "" {
 		t.Fatal("moved adoption did not block uplift")
 	}
-	if source.Workspace("/forge") != filepath.Join("/forge", "workspaces", fmt.Sprintf("change-%d", root.ChangeID)) || source.Repository("/forge") != "/forge/workspaces/project-completion" {
+	if requireLocation(t)(source.Workspace("/forge")) != filepath.Join("/forge", "workspaces", fmt.Sprintf("change-%d", root.ChangeID)) || requireLocation(t)(source.Repository("/forge")) != "/forge/workspaces/project-completion" {
 		t.Fatalf("wrong ownership: %+v", source)
 	}
 	// sql-guarantee: Change pinned expected revision between independent source reads; no owner mutation edits an admitted Change's expected revision.
@@ -95,7 +95,7 @@ func TestMergeSourceAbsenceAndDefaultBranchNames(t *testing.T) {
 		t.Fatal(err)
 	}
 	source, err = readMergeSourceForRun(context.Background(), store, run)
-	if err != nil || !source.RepoBacked() || source.Branch != fmt.Sprintf("apptown/run-%d", run.ID) || source.Workspace("/forge") != filepath.Join("/forge", "workspaces", fmt.Sprintf("run-%d", run.ID)) {
+	if err != nil || !source.RepoBacked() || source.Branch != fmt.Sprintf("apptown/run-%d", run.ID) || requireLocation(t)(source.Workspace("/forge")) != filepath.Join("/forge", "workspaces", fmt.Sprintf("run-%d", run.ID)) {
 		t.Fatalf("run-owned source: %+v %v", source, err)
 	}
 }

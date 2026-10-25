@@ -77,7 +77,11 @@ func (o Runtime) contractJudged(ctx context.Context, t Target) (*appcontract.Con
 	case t.ContractDir != "":
 		c, err = docker.ReadWorkspaceContract(t.ContractDir)
 	case t.Slug != "" && t.Revision != "":
-		c, err = docker.ReadContractAt(ctx, o.repo(t.Slug), t.Revision)
+		repo, pathErr := o.repo(t)
+		if pathErr != nil {
+			return nil, pathErr.Error()
+		}
+		c, err = docker.ReadContractAt(ctx, repo, t.Revision)
 	default:
 		return nil, "which commit to judge is not known, so the contract cannot be read"
 	}
@@ -127,7 +131,11 @@ func (o Runtime) memoryWithin(ctx context.Context, t Target, share int) check.Pr
 	}
 	// Which parts are static sites is the running release's contract: the
 	// AppTown's own file server serves those, and they declare nothing.
-	release, err := docker.ReadContractAt(ctx, o.repo(t.Slug), running.Commit)
+	repo, pathErr := o.repo(t)
+	if pathErr != nil {
+		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: pathErr.Error(), Fault: true}
+	}
+	release, err := docker.ReadContractAt(ctx, repo, running.Commit)
 	if err != nil || release == nil {
 		return check.ProbeVerdict{Outcome: check.CannotAssess, Detail: "the contract of the release it runs could not be read, so which of its parts are static sites is not known"}
 	}

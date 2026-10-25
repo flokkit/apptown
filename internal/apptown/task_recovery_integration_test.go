@@ -54,7 +54,7 @@ func taskRecoveryFixture(t *testing.T, script string) (*App, *workflow.Step, str
 		t.Fatalf("script step: %+v %v", snapshot, err)
 	}
 	// The run works in a clone of its own.
-	return a, snapshot.Steps[0], workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+	return a, snapshot.Steps[0], requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 }
 
 // crashAt runs the step with AppTown "dying" at stage: the runner returns

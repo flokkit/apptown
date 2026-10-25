@@ -77,7 +77,14 @@ func SelectCommit(ctx context.Context, db database.Queryer, dataDir string, run 
 		return Selected{}, err
 	}
 	var s Selected
-	project, ws := source.Repository(dataDir), source.Workspace(dataDir)
+	project, err := source.Repository(dataDir)
+	if err != nil {
+		return Selected{}, err
+	}
+	ws, err := source.Workspace(dataDir)
+	if err != nil {
+		return Selected{}, err
+	}
 	switch {
 	case pinned:
 		s.Repo, s.Candidate = project, rev

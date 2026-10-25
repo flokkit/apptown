@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -63,7 +62,11 @@ func (a *Executor) agentEnv(ctx context.Context, run *workflow.Run, step *workfl
 	}
 	if profile := string(cfg.Scm); profile != "" {
 		if proj, err := project.ByIDIn(ctx, a.db, run.ProjectID); err == nil {
-			remote, _ := gitexec.Run(ctx, filepath.Join(a.cfg.DataDir, "workspaces", "project-"+proj.Slug), "remote", "get-url", "origin")
+			repo, err := proj.Repository(a.cfg.DataDir)
+			if err != nil {
+				return nil, "", err
+			}
+			remote, _ := gitexec.Run(ctx, repo, "remote", "get-url", "origin")
 			if scmEnv, why := a.integrations.SCMEnvironment(ctx, proj.ID, remote, profile); why != "" {
 				a.progress.Append(step.ID, "scm access unavailable: "+why)
 			} else {

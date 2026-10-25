@@ -248,7 +248,11 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 	services := slices.Clone(cfg.Services)
 	var env []string
 	if cfg.Needs {
-		raw, err := appContractAt(ctx, c.source.Repository(a.cfg.DataDir), c.commit)
+		hub, err := c.source.Repository(a.cfg.DataDir)
+		if err != nil {
+			return nil, nil, err
+		}
+		raw, err := appContractAt(ctx, hub, c.commit)
 		if err != nil {
 			return nil, nil, &WorkerRefusal{Reason: "the app's declared needs could not be read from commit " + c.commit + ": " + err.Error()}
 		}
@@ -571,7 +575,10 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		limits = privateLimits(limits)
 	}
 	limits.WallClock = timeout
-	repo := c.source.Repository(a.cfg.DataDir)
+	repo, err := c.source.Repository(a.cfg.DataDir)
+	if err != nil {
+		return workerAgentRequest{}, err
+	}
 	out.spec = execution.TaskSpec{
 		Key:             agentOperation(step.ID, step.Attempt, c.invocation),
 		Admission:       execution.Admission{Profile: a.worker.Tasks.Profile.Name, Limits: limits, Network: execution.NetworkDefault, Expires: c.at.Add(timeout + taskGrace)},

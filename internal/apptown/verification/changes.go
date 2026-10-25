@@ -240,7 +240,10 @@ func (v *Changes) checkedCommit(ctx context.Context, ch *workflow.Change, sel Se
 	if err != nil {
 		return "", "", false, err
 	}
-	hub := filepath.Join(v.dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(v.dataDir)
+	if err != nil {
+		return "", "", false, err
+	}
 	ws := filepath.Join(v.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
 	commit := sel.Commit
 	if sel.Published {
@@ -363,7 +366,11 @@ func (v *Changes) mainHeadSHA(ctx context.Context, projectID ids.ID) string {
 	if err != nil || project.DefaultBranch == "" {
 		return ""
 	}
-	out, err := gitexec.Run(ctx, filepath.Join(v.dataDir, "workspaces", "project-"+project.Slug), "rev-parse", "refs/heads/"+project.DefaultBranch)
+	repo, err := project.Repository(v.dataDir)
+	if err != nil {
+		return ""
+	}
+	out, err := gitexec.Run(ctx, repo, "rev-parse", "refs/heads/"+project.DefaultBranch)
 	if err != nil {
 		return ""
 	}
@@ -379,8 +386,15 @@ func (v *Changes) baseProvenance(ctx context.Context, projectID ids.ID, baseSHA 
 	if head == baseSHA {
 		return true, true
 	}
-	slug := projectOrEmpty(ctx, v.db, projectID).Slug
-	_, err := gitexec.Run(ctx, filepath.Join(v.dataDir, "workspaces", "project-"+slug), "merge-base", "--is-ancestor", baseSHA, head)
+	p, err := project.ByIDIn(ctx, v.db, projectID)
+	if err != nil {
+		return false, false
+	}
+	repo, err := p.Repository(v.dataDir)
+	if err != nil {
+		return false, false
+	}
+	_, err = gitexec.Run(ctx, repo, "merge-base", "--is-ancestor", baseSHA, head)
 	return err == nil, false
 }
 
@@ -403,10 +417,19 @@ func (v *Changes) baselineFor(ctx context.Context, tools toolversions.Snapshot, 
 		return b
 	}
 	c.mu.Unlock()
-	slug := projectOrEmpty(ctx, v.db, projectID).Slug
-	src, cleanup, err := scm.StageTreeAt(ctx, filepath.Join(v.dataDir, "workspaces", "project-"+slug), baseSHA)
 	b := &baselineSet{failing: map[string]bool{}, items: map[string][]string{}, unknown: map[string]bool{}, sha: baseSHA, at: v.now()}
 	b.onMain, b.isMain = v.baseProvenance(ctx, projectID, baseSHA)
+	p, err := project.ByIDIn(ctx, v.db, projectID)
+	if err != nil {
+		b.note = "no baseline: " + err.Error()
+		return b
+	}
+	repo, err := p.Repository(v.dataDir)
+	if err != nil {
+		b.note = "no baseline: " + err.Error()
+		return b
+	}
+	src, cleanup, err := scm.StageTreeAt(ctx, repo, baseSHA)
 	if err != nil {
 		b.note = "no baseline: " + err.Error()
 		return b
@@ -472,7 +495,11 @@ func (v *Changes) forkBase(ctx context.Context, ch *workflow.Change, tip string)
 	if err != nil {
 		return "", err
 	}
-	base, err := scm.ForkBase(ctx, filepath.Join(v.dataDir, "workspaces", "project-"+p.Slug), p.DefaultBranch, tip, ch.BaseSHA)
+	repo, err := p.Repository(v.dataDir)
+	if err != nil {
+		return "", err
+	}
+	base, err := scm.ForkBase(ctx, repo, p.DefaultBranch, tip, ch.BaseSHA)
 	if err != nil {
 		return "", fmt.Errorf("reading the commit this change is compared with: %w", err)
 	}

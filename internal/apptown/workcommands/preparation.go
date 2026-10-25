@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -113,7 +112,10 @@ func (a *Preparation) Resolve(ctx context.Context, req workflow.StartRequest, so
 			// The branch as published and main are each read once, for this
 			// check and the pinned candidate alike; whether main already
 			// holds the branch (scm.Contains) is asked of main as it is then.
-			hub := filepath.Join(a.dataDir, "workspaces", "project-"+p.Slug)
+			hub, err := p.Repository(a.dataDir)
+			if err != nil {
+				return workflow.PreparedRun{}, err
+			}
 			tip, main := scm.Ref(ctx, hub, "refs/heads/"+source.Change.Branch), scm.Ref(ctx, hub, "refs/heads/"+p.DefaultBranch)
 			if len(uncommitted) > 0 && (tip == "" || (main != "" && scm.Contains(ctx, hub, p.DefaultBranch, tip))) {
 				return workflow.PreparedRun{}, fault.Wrap(fault.Conflict, fmt.Errorf("nothing to land: change %d has no committed work beyond %s; commit it first (uncommitted: %s)", source.Change.ID, p.DefaultBranch, strings.Join(uncommitted, ", ")))

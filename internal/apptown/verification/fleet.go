@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -210,7 +209,10 @@ func (f Fleet) walkReview(ctx context.Context, execution *conformance.Execution,
 		} else if l.State != project.Active {
 			continue
 		}
-		repo := filepath.Join(f.dataDir, "workspaces", "project-"+p.Slug)
+		repo, err := (project.RepositoryRef{ID: p.ID, Slug: p.Slug}).Path(f.dataDir)
+		if err != nil {
+			return verdicts, err
+		}
 		head, err := execution.Source(ctx, p.ID)
 		if err != nil {
 			return verdicts, err

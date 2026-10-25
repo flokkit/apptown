@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -161,7 +160,11 @@ func FindRefusedStepWork(ctx context.Context, db database.Queryer, dataDir strin
 	if err != nil {
 		return RefusedStepWork{}, err
 	}
-	kept := RefusedStepWork{hub: source.Repository(dataDir), branch: source.Branch, ref: RefusedStepRef(stepID, attempt)}
+	hub, err := source.Repository(dataDir)
+	if err != nil {
+		return RefusedStepWork{}, err
+	}
+	kept := RefusedStepWork{hub: hub, branch: source.Branch, ref: RefusedStepRef(stepID, attempt)}
 	if source.Branch == "" || !source.RepoBacked() {
 		return RefusedStepWork{}, errNoRefusedStep
 	}
@@ -195,9 +198,4 @@ func bundleKept(ctx context.Context, hub, branch, ref string, missing error, w i
 		return fmt.Errorf("bundling the refused work: %w", err)
 	}
 	return nil
-}
-
-// hubOf is a project's repository under the data directory.
-func hubOf(dataDir, projectSlug string) string {
-	return filepath.Join(dataDir, "workspaces", "project-"+projectSlug)
 }

@@ -1,6 +1,7 @@
 package repositoryedit
 
 import (
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,7 @@ import (
 func TestATaskSourceThatCannotBeReadIsAnErrorNotAnAbsentBranch(t *testing.T) {
 	t.Parallel()
 	data := t.TempDir()
-	source := workflow.Source{Slug: "shop", DefaultBranch: "main", Branch: "apptown/run-1"}
+	source := workflow.Source{ProjectID: idstest.N(2), Slug: "shop", DefaultBranch: "main", Branch: "apptown/run-1"}
 	if err := os.MkdirAll(filepath.Join(data, "workspaces", "project-shop"), 0o700); err != nil { // a hub that is not a repository
 		t.Fatal(err)
 	}

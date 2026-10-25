@@ -509,14 +509,85 @@ func TestRiverPollOnlyClientRestartsMaintenanceAfterItFailsToStart(t *testing.T)
 	// as running by a client that is gone, as a crashed AppTown leaves it.
 	scheduled := probeInsert(t, c, probeOperation{Key: "scheduled"}, &river.InsertOpts{ScheduledAt: time.Now().Add(100 * time.Millisecond)})
 	stuck := probeInsert(t, c, probeOperation{Key: "stuck"}, &river.InsertOpts{Queue: "gone"})
-	claimed, err := riverdatabasesql.New(db).GetExecutor().JobGetAvailable(context.Background(), &riverdriver.JobGetAvailableParams{ClientID: "gone", MaxAttemptedBy: 100, MaxToLock: 1, Queue: "gone"})
-	if err != nil || len(claimed.Jobs) != 1 || claimed.Jobs[0].ID != stuck {
-		t.Fatalf("holding the stuck job: %v %+v", err, claimed)
-	}
+	probeClaimOne(t, riverdatabasesql.New(db).GetExecutor(), "gone", stuck)
 
 	probeAwaitState(t, c, scheduled, rivertype.JobStateCompleted)
 	probeEventually(t, "the periodic job ran", func() bool { _, ok := worked.Load("periodic"); return ok })
 	if row := probeAwaitState(t, c, stuck, rivertype.JobStateDiscarded); len(row.Errors) == 0 {
 		t.Fatalf("the stuck job was settled without the rescuer's error: %+v", row)
+	}
+}
+
+// A committed available row need not be claimable on the first fetch: River
+// skips locked rows and checks scheduled_at against its database clock. Wait
+// for the real ownership transition; do not fabricate running state or time.
+func probeClaimOne(t *testing.T, executor riverdriver.Executor, queue string, want int64) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for {
+		claimed, err := executor.JobGetAvailable(ctx, &riverdriver.JobGetAvailableParams{ClientID: "gone", MaxAttemptedBy: 100, MaxToLock: 1, Queue: queue})
+		if err != nil {
+			t.Fatalf("holding job %d on %s: %v", want, queue, err)
+		}
+		if len(claimed.Jobs) > 0 {
+			if len(claimed.Jobs) != 1 || claimed.Jobs[0].ID != want {
+				t.Fatalf("holding job %d on %s: unexpected claim %+v", want, queue, claimed)
+			}
+			return
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("holding job %d on %s: no claim before %v", want, queue, ctx.Err())
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+// releaseAfterEmpty leaves the real River row locked through the first fetch,
+// then releases it. The fixture must observe emptiness and still claim the
+// exact row after it becomes eligible, without changing its state by hand.
+type releaseAfterEmpty struct {
+	riverdriver.Executor
+	release func()
+	empty   int
+}
+
+func (e *releaseAfterEmpty) JobGetAvailable(ctx context.Context, p *riverdriver.JobGetAvailableParams) (*riverdriver.JobGetAvailableResult, error) {
+	rows, err := e.Executor.JobGetAvailable(ctx, p)
+	if err == nil && len(rows.Jobs) == 0 {
+		e.empty++
+		if e.release != nil {
+			release := e.release
+			e.release = nil
+			release()
+		}
+	}
+	return rows, err
+}
+func TestMaintenanceProbeClaimsAfterACompetingTransactionReleasesTheRow(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t).Pool()
+	c := probeClient(t, db, func(context.Context, *river.Job[probeOperation]) error { return nil })
+	id := probeInsert(t, c, probeOperation{Key: "stuck"}, &river.InsertOpts{Queue: "gone"})
+	executor := riverdatabasesql.New(db).GetExecutor()
+	tx, err := executor.Begin(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+	probeClaimOne(t, tx, "gone", id)
+	observed := &releaseAfterEmpty{Executor: executor, release: func() {
+		if err := tx.Rollback(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	probeClaimOne(t, observed, "gone", id)
+	if observed.empty == 0 {
+		t.Fatal("controlled locked row never produced an empty claim")
+	}
+	row, err := c.JobGet(t.Context(), id)
+	if err != nil || row.State != rivertype.JobStateRunning || row.Attempt != 1 || len(row.AttemptedBy) != 1 || row.AttemptedBy[0] != "gone" {
+		t.Fatalf("claim did not establish real River ownership: %+v %v", row, err)
 	}
 }

@@ -43,7 +43,12 @@ func (a *Repositories) RunReconcile(task *workflow.Execution) {
 		finish(workflow.StatusPass, map[string]any{"reason": "not repo-backed — nothing to reconcile"})
 		return
 	}
-	hub, branch, mainBranch := source.Repository(a.cfg.DataDir), source.Branch, source.DefaultBranch
+	hub, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
+	branch, mainBranch := source.Branch, source.DefaultBranch
 	candidate, target := scm.Ref(task.Context(), hub, "refs/heads/"+branch), scm.Ref(task.Context(), hub, "refs/heads/"+mainBranch)
 	if candidate == "" || target == "" {
 		finish(workflow.StatusError, map[string]any{"reason": fmt.Sprintf("the project's repository has no %s or %s to check", branch, mainBranch)})

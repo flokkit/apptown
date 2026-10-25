@@ -36,14 +36,14 @@ func TestGuidanceGateCannotPassWithoutExceptionEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(source.Workspace(a.cfg.dataDir), 0o755); err != nil {
+	if err := os.MkdirAll(requireLocation(t)(source.Workspace(a.cfg.dataDir)), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	// A check reads a commit, and a repository check one with a file.
-	if err := os.WriteFile(filepath.Join(source.Workspace(a.cfg.dataDir), "README.md"), []byte("x\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "README.md"), []byte("x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	commitFolder(t, source.Workspace(a.cfg.dataDir))
+	commitFolder(t, requireLocation(t)(source.Workspace(a.cfg.dataDir)))
 	calls := 0
 	installCheckEffects(t, a, checkOverrides{run: func(ExecRequest) ExecOutcome { calls++; return ExecOutcome{} }})
 	dbtest.FailNextStatement(t, a.DB, "FROM dispositions")

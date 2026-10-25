@@ -107,7 +107,10 @@ func (a RemediationStarts) Resolve(ctx context.Context, item remediation.Item, s
 	}
 	// Preserve the current-head observation at the remediation command boundary.
 	if sourceProject, err := project.ByIDIn(ctx, a.DB, p.ID); err == nil && sourceProject.DefaultBranch != "" {
-		repo := filepath.Join(a.DataDir, "workspaces", "project-"+sourceProject.Slug)
+		repo, err := sourceProject.Repository(a.DataDir)
+		if err != nil {
+			return remediation.StartDefinition{}, err
+		}
 		if _, err := os.Stat(filepath.Join(repo, ".git")); err == nil {
 			if sha, err := gitexec.Run(ctx, repo, "rev-parse", sourceProject.DefaultBranch); err == nil {
 				def.Base = strings.TrimSpace(sha)

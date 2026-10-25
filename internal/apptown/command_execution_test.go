@@ -48,7 +48,7 @@ func TestScriptRunnerBindingExecutesAndRecordsProcessEvidence(t *testing.T) {
 		t.Fatalf("process evidence: %+v, step=%+v", evidence, snap.Steps[0])
 	}
 	source := workflowSourceForTest(t, a, run)
-	b, err := os.ReadFile(filepath.Join(source.Workspace(a.cfg.dataDir), "proof.txt"))
+	b, err := os.ReadFile(filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "proof.txt"))
 	if err != nil || string(b) != "executed" {
 		t.Fatalf("process effect: %q %v", b, err)
 	}

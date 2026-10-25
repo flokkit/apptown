@@ -110,7 +110,14 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	head := ""
 	diffstat := ""
 	comparison := CommittedComparison{Status: "unavailable", Message: "No committed comparison is available yet."}
-	hub := filepath.Join(h.dataDir, "workspaces", "project-"+slug)
+	var hub string
+	if slug != "" {
+		hub, err = slugMeta.Repository(h.dataDir)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+	}
 	if slug != "" && workflow.CarriesNoCode(item, history) && !branchPublished(r.Context(), hub, item.Branch) {
 		var diff scm.CommittedDiff
 		var ok bool
@@ -150,7 +157,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err)
 			return
 		}
-		mainConflict = repositoryedit.MainConflictIn(r.Context(), filepath.Join(h.dataDir, "workspaces", "project-"+slug), item.Branch, latest)
+		mainConflict = repositoryedit.MainConflictIn(r.Context(), hub, item.Branch, latest)
 	}
 
 	reports, err := h.work.ChangeArtifacts(r.Context(), id, workflow.ArtifactSelection{Kinds: []string{"change-report"}, Latest: true})

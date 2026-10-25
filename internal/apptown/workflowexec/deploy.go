@@ -66,13 +66,21 @@ func (a *Shipping) RunDeploy(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	ws := source.Workspace(a.cfg.DataDir)
+	ws, err := source.Workspace(a.cfg.DataDir)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
 	// A standing deployment reflects MAIN, not the change's worktree: two
 	// concurrent landings each deploying their own branch would leave the
 	// env missing whichever change deployed first. The project checkout's
 	// HEAD is main post-merge — deploy that.
 	if source.RepoBacked() {
-		ws = source.Repository(a.cfg.DataDir)
+		ws, err = source.Repository(a.cfg.DataDir)
+		if err != nil {
+			finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+			return
+		}
 	}
 	relSHA, err := (deploy.SelectedSource{Repository: ws, Revision: "HEAD"}).Resolve(task.Context())
 	if err != nil {

@@ -3,7 +3,6 @@ package changeconsole
 import (
 	"context"
 	"io"
-	"path/filepath"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
@@ -48,7 +47,10 @@ func (c *Service) WorkerChats(ctx context.Context, ch *workflow.Change) ([]Worke
 	if err != nil {
 		return nil, err
 	}
-	hub := filepath.Join(c.dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(c.dataDir)
+	if err != nil {
+		return nil, err
+	}
 	out := []WorkerChat{}
 	for _, rec := range records {
 		if !conversation.OnWorkerRecord(rec.Meta) {
@@ -70,5 +72,5 @@ func (c *Service) RefusedBundle(ctx context.Context, ch *workflow.Change, chat s
 	if err != nil {
 		return err
 	}
-	return repositoryedit.BundleRefusedChatSave(ctx, c.dataDir, p.Slug, ch.Branch, chat, out)
+	return repositoryedit.BundleRefusedChatSave(ctx, c.dataDir, project.RepositoryRef{ID: p.ID, Slug: p.Slug}, ch.Branch, chat, out)
 }

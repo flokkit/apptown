@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -38,8 +37,10 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 		return nil, jobs.Permanent(fmt.Errorf("a rebuild key is project/deployment, got %q", key))
 	}
 	var projectID ids.ID
+	var repositoryOwner project.RepositoryRef
 	if p, err := w.Projects.BySlug(ctx, slug); err == nil {
 		projectID = p.ID
+		repositoryOwner = project.RepositoryRef{ID: p.ID, Slug: p.Slug}
 	} else {
 		if errors.Is(err, sql.ErrNoRows) {
 			return map[string]any{"skipped": "the deployment is gone"}, nil
@@ -83,7 +84,11 @@ func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any)
 	}
 	// The recorded source, restored from the project's repository: the
 	// caller's, as every deploy's source is.
-	art, cleanup, err := docker.RestoreSource(ctx, filepath.Join(w.DataDir, "workspaces", "project-"+slug), slug, plan.Inputs.DockerSource)
+	repo, err := repositoryOwner.Path(w.DataDir)
+	if err != nil {
+		return nil, err
+	}
+	art, cleanup, err := docker.RestoreSource(ctx, repo, slug, plan.Inputs.DockerSource)
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()

@@ -99,7 +99,10 @@ func ChangeIsEmpty(ctx context.Context, dataDir string, source Source) (bool, er
 	if !source.RepoBacked() || source.ChangeID.IsZero() || source.RootRole == "landing" {
 		return false, nil
 	}
-	hub := source.Repository(dataDir)
+	hub, err := source.Repository(dataDir)
+	if err != nil {
+		return false, err
+	}
 	if tip, err := gitexec.HubReadRef(ctx, hub, "refs/heads/"+source.Branch); err != nil || tip == "" {
 		return tip == "" && err == nil, err
 	}

@@ -129,7 +129,11 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	ws := source.Workspace(a.dataDir)
+	ws, err := source.Workspace(a.dataDir)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
 	// Scan one COMMITTED tree, resolved once and staged outside every
 	// writer's folder, never the working directory: the working tree
 	// carries AppTown runtime state (.apptown/sessions with agent transcripts,
@@ -242,7 +246,12 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			finish(workflow.StatusError, evidence)
 			return
 		}
-		repository := source.Repository(a.dataDir)
+		repository, err := source.Repository(a.dataDir)
+		if err != nil {
+			evidence["reason"] = err.Error()
+			finish(workflow.StatusError, evidence)
+			return
+		}
 		// The scanner reads the range with its own git, and gitleaks reports
 		// a range git cannot read as "no leaks found". So the range is read
 		// here first, in the repository the scanner is given: one that does

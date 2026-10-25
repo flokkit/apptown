@@ -81,7 +81,7 @@ func mergeAdmissionFixture(t *testing.T, required ...string) (*App, workflow.Mer
 func TestSCMAssertionCannotMergeBeforeRequiredApproval(t *testing.T) {
 	t.Parallel()
 	a, source, _, merge := mergeAdmissionFixture(t)
-	repo := source.Repository(a.cfg.dataDir)
+	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	before := gittest.Run(t, repo, "rev-parse", "HEAD")
 	result, err := a.Work.Evaluate(a.asEngine(context.Background()), merge)
 	if after := gittest.Run(t, repo, "rev-parse", "HEAD"); after != before {
@@ -126,7 +126,7 @@ func TestSCMAssertionLandsAfterApprovalAndKeepsItsReceipt(t *testing.T) {
 			t.Fatalf("admitted assertion: %+v %v", step, err)
 		}
 	}
-	if merged, err := gitAncestorForTest(t, source.Repository(a.cfg.dataDir), "refs/heads/"+source.Branch, "refs/heads/"+source.DefaultBranch); err != nil || !merged {
+	if merged, err := gitAncestorForTest(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "refs/heads/"+source.Branch, "refs/heads/"+source.DefaultBranch); err != nil || !merged {
 		t.Fatalf("actual merge: %v %v", merged, err)
 	}
 	requireEvents(t, a, 1, eventKind("merge.completed"))
@@ -137,7 +137,7 @@ func TestSCMAssertionLandsAfterApprovalAndKeepsItsReceipt(t *testing.T) {
 func TestWorkflowAdvanceWaitsForApprovalBeforeSCMEffect(t *testing.T) {
 	t.Parallel()
 	a, source, _, _ := mergeAdmissionFixture(t)
-	repo := source.Repository(a.cfg.dataDir)
+	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	before := gittest.Run(t, repo, "rev-parse", "HEAD")
 	result, err := advanceAs(a, source.RunID, "system")
 	if err != nil || result.Advanced || len(result.Blocking) != 2 {

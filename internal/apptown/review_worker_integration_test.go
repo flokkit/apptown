@@ -56,7 +56,7 @@ func names(invocations []tasks.Attempt) string {
 func TestIntegrationAReviewRunsOnTheWorker(t *testing.T) {
 	t.Parallel()
 	w := newReviewWorkerWorld(t, nil, map[string]string{"fake-pi.sh": reviewPass + `say "reviewed with: $PI_ARGS"`})
-	hub := w.source.Repository(w.a.cfg.dataDir)
+	hub := requireLocation(t)(w.source.Repository(w.a.cfg.dataDir))
 	w.execute(t, w.a)
 	status, ev := stepStatus(t, w.a, w.step.ID)
 	if status != workflow.StatusPass || ev["verdict"] != "pass" || ev["summary"] != "fine" {
@@ -92,7 +92,7 @@ func TestIntegrationAReviewRunsOnTheWorker(t *testing.T) {
 func TestIntegrationAReviewOnTheWorkerCatchesTheImplementersScope(t *testing.T) {
 	t.Parallel()
 	w := newReviewWorkerWorld(t, nil, map[string]string{".gitignore": ".apptown/*\n!.apptown/app.yaml\ntarget/\n", "fake-pi.sh": reviewPass + `say "looks fine"`})
-	ws := w.source.Workspace(w.a.cfg.dataDir)
+	ws := requireLocation(t)(w.source.Workspace(w.a.cfg.dataDir))
 	if err := os.MkdirAll(filepath.Join(ws, "target"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestIntegrationAReviewOnTheWorkerCatchesTheImplementersScope(t *testing.T) 
 func TestIntegrationAReviewOnTheWorkerPublishesNothingItLeft(t *testing.T) {
 	t.Parallel()
 	w := newReviewWorkerWorld(t, nil, map[string]string{"fake-pi.sh": reviewPass + `mkdir -p __pycache__; echo cache > __pycache__/app.pyc; echo scratch >> README.md; say "reviewed"`})
-	hub := w.source.Repository(w.a.cfg.dataDir)
+	hub := requireLocation(t)(w.source.Repository(w.a.cfg.dataDir))
 	w.execute(t, w.a)
 	status, ev := stepStatus(t, w.a, w.step.ID)
 	if status != workflow.StatusPass || ev["verdict"] != "pass" {
@@ -330,7 +330,7 @@ func TestIntegrationAReviewWhoseScopeCannotBeReadIsNotAssessed(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	gittest.Run(t, w.source.Repository(w.a.cfg.dataDir), "update-ref", "-d", "refs/heads/"+w.source.DefaultBranch)
+	gittest.Run(t, requireLocation(t)(w.source.Repository(w.a.cfg.dataDir)), "update-ref", "-d", "refs/heads/"+w.source.DefaultBranch)
 	w.execute(t, w.a)
 	status, ev := stepStatus(t, w.a, w.step.ID)
 	// On a worker the reviewer's brief carries the change's diff, read
@@ -349,7 +349,7 @@ func TestIntegrationAReviewWhoseScopeCannotBeReadIsNotAssessed(t *testing.T) {
 func TestReviewS6ScopePreservesPathsWithSpaces(t *testing.T) {
 	t.Parallel()
 	w := newReviewWorkerWorld(t, nil, map[string]string{".gitignore": ".apptown/*\n!.apptown/app.yaml\ntarget/\n", "fake-pi.sh": reviewPass + `say "looks fine"`})
-	ws := w.source.Workspace(w.a.cfg.dataDir)
+	ws := requireLocation(t)(w.source.Workspace(w.a.cfg.dataDir))
 	if err := os.MkdirAll(filepath.Join(ws, "target"), 0o755); err != nil {
 		t.Fatal(err)
 	}

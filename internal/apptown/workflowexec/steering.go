@@ -275,7 +275,14 @@ func (a *Executor) restartFromBase(ctx context.Context, run *workflow.Run, step 
 	if baseSHA == "" || !source.RepoBacked() {
 		return nil
 	}
-	ws, repo := source.Workspace(a.cfg.DataDir), source.Repository(a.cfg.DataDir)
+	ws, err := source.Workspace(a.cfg.DataDir)
+	if err != nil {
+		return err
+	}
+	repo, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		return err
+	}
 	if folder == nil || folder.Path() != filepath.Clean(ws) {
 		return fmt.Errorf("restart: the run's folder %s is not locked", ws)
 	}

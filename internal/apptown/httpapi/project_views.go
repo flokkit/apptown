@@ -116,7 +116,12 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 		out[i].Deployed = ok
 		out[i].ProdRunning = observed.State.Running()
 		out[i].RuntimeObservationView = runtimeObservationView(observed)
-		out[i].Toolchain = readToolchainNames(filepath.Join(h.dataDir, "workspaces", "project-"+out[i].Slug))
+		repository, err := (project.RepositoryRef{ID: out[i].ID, Slug: out[i].Slug}).Path(h.dataDir)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		out[i].Toolchain = readToolchainNames(repository)
 	}
 	if paged {
 		WriteJSON(w, 200, ProjectPage{Projects: out, Total: total})
@@ -139,25 +144,29 @@ func (h ProjectViews) GetProject(w http.ResponseWriter, r *http.Request) {
 	// happen to the project (previewable? intranet-releasable?) — and it
 	// was invisible until a red line at the release door. Surface
 	// it on the project itself, in plain words.
+	hub, err := p.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	form, releasable := "no app yet", false
-	if c, err := docker.ReadWorkspaceContract(filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)); err == nil {
+	if c, err := docker.ReadWorkspaceContract(hub); err == nil {
 		switch {
 		case c.PublicPart().Static != "":
-			_, err := docker.SelectedPath(filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug), c.PublicPart().Static)
+			_, err := docker.SelectedPath(hub, c.PublicPart().Static)
 			form, releasable = "static site", err == nil
 		case c.PublicPart().StaticBuild != nil:
-			_, err := docker.SelectedPath(filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug), filepath.Join(c.PublicPart().StaticBuild.Context, "Dockerfile"))
+			_, err := docker.SelectedPath(hub, filepath.Join(c.PublicPart().StaticBuild.Context, "Dockerfile"))
 			form, releasable = "static site", err == nil
 		case c.PublicPart().Image != "":
 			form, releasable = "ships as a container", true
 		case c.PublicPart().Build != "":
-			_, err := docker.SelectedPath(filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug), filepath.Join(c.PublicPart().Build, "Dockerfile"))
+			_, err := docker.SelectedPath(hub, filepath.Join(c.PublicPart().Build, "Dockerfile"))
 			form, releasable = "runs from source", err == nil
 		}
 	}
 	// Out-of-band edits (gitrepo.go repoDrift): shown to everyone —
 	// tampering hides best when only the tamperer knows to look.
-	hub := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
 	var drift []string
 	if hasGitDirectory(hub) {
 		var err error

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -98,7 +98,10 @@ func (f Fleet) CompareArm(ctx context.Context, in ArmComparison) (*ArmCompared, 
 	if in.ProjectID.IsZero() || in.Slug == "" || in.Branch == "" || in.BaseSHA == "" {
 		return nil, errors.New("a comparison names the arm's copy, its main and the Change's base")
 	}
-	repo := filepath.Join(f.dataDir, "workspaces", "project-"+in.Slug)
+	repo, err := (project.RepositoryRef{ID: in.ProjectID, Slug: in.Slug}).Path(f.dataDir)
+	if err != nil {
+		return nil, err
+	}
 	cmp, err := scm.ReadCommittedDiff(ctx, repo, in.BaseSHA, in.Branch)
 	if err != nil {
 		return nil, err

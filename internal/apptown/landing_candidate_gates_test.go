@@ -100,13 +100,13 @@ func TestAScriptGateInALandingChecksThePinnedCandidate(t *testing.T) {
 	if source.Landing.Candidate == "" {
 		t.Fatal("fixture has no candidate")
 	}
-	if err := os.WriteFile(filepath.Join(source.Workspace(a.cfg.dataDir), "value.txt"), []byte("good\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "value.txt"), []byte("good\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	checked := reviewExecute(t, a, run, "source-check")
 	result, err := mergeEffectForTest(t, a, source)
 	if err == nil && result.Merged {
-		got := gittest.Run(t, source.Repository(a.cfg.dataDir), "show", "HEAD:value.txt")
+		got := gittest.Run(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "show", "HEAD:value.txt")
 		t.Fatalf("merged %q after source-check status %s checked live 'good' bytes: %s", got, checked.Status, checked.Evidence)
 	}
 }
@@ -171,7 +171,7 @@ func TestGuidanceScopeAndReworkEvidenceUseTheCandidate(t *testing.T) {
 			})
 			// The change's work forced the ignored output into its commits
 			// (reviewLanding), so the candidate carries it.
-			ws := source.Workspace(a.cfg.dataDir)
+			ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 			caught := reviewExecute(t, a, run, "catch-up")
 			if caught.Status != workflow.StatusPass {
 				t.Fatalf("catch-up: %s %s", caught.Status, caught.Evidence)
@@ -285,7 +285,7 @@ func TestALandingsRuntimeCheckIsJudgedAgainstTheChangePreviewOfItsCandidate(t *t
 	a, daemon, run, source, given := landingWithAPage(t, nil)
 	candidate := source.Landing.Candidate
 	// The folder holds something besides: the preview is the candidate's.
-	if err := os.WriteFile(filepath.Join(source.Workspace(a.cfg.dataDir), "index.html"), []byte("an uncommitted edit"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "index.html"), []byte("an uncommitted edit"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	out, err := a.Preview.RequestChangePreview(asLander(t, a), preview.Selection{ChangeID: source.ChangeID})

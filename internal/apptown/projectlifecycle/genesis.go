@@ -3,7 +3,6 @@ package projectlifecycle
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -55,7 +54,10 @@ func (s *Service) CommitGenesis(ctx context.Context, p *project.Project, message
 	if err := s.requireGenesis(ctx, p.ID); err != nil {
 		return nil, err
 	}
-	dir := filepath.Join(s.dataDir, "workspaces", "project-"+p.Slug)
+	dir, err := p.Repository(s.dataDir)
+	if err != nil {
+		return nil, err
+	}
 	if !gitexec.IsRepo(dir) {
 		return nil, fault.New(fault.Unprocessable, "project is not repo-backed")
 	}

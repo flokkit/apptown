@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"net/http"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -45,7 +44,11 @@ func (h ProjectManifest) ProjectManifest(w http.ResponseWriter, r *http.Request)
 	repo := ManifestRepo{Backed: p.DefaultBranch != ""}
 	if p.DefaultBranch != "" {
 		repo.DefaultBranch = p.DefaultBranch
-		ws := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+		ws, err := p.Repository(h.dataDir)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
 		if out, err := gitexec.Output(r.Context(), ws, "remote", "get-url", "origin"); err == nil {
 			repo.Remote = out
 		}

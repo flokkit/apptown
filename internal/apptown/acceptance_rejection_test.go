@@ -47,7 +47,7 @@ func TestAnEligiblePersonCanRejectAPartlyGivenAcceptance(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := workflowSourceForTest(t, a, work)
-	ws := source.Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	writeCommit := func(body string) {
 		t.Helper()
 		if err := os.WriteFile(filepath.Join(ws, "work.txt"), []byte(body), 0644); err != nil {
@@ -55,7 +55,7 @@ func TestAnEligiblePersonCanRejectAPartlyGivenAcceptance(t *testing.T) {
 		}
 		gittest.Run(t, ws, "add", "work.txt")
 		gittest.Run(t, ws, "commit", "-qm", body)
-		if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: pid, Repository: source.Repository(a.cfg.dataDir), Branch: source.Branch, From: ws, Grant: scm.Grant{Holder: scm.RunHolder(work.ID)}}); err != nil {
+		if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: pid, Repository: requireLocation(t)(source.Repository(a.cfg.dataDir)), Branch: source.Branch, From: ws, Grant: scm.Grant{Holder: scm.RunHolder(work.ID)}}); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -175,7 +175,7 @@ func TestDockerRebuildInspectionFailureDoesNotAdmitReplacement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 	if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestLandingContractDecisionUsesSelectedCommit(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+			ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 			path := filepath.Join(ws, ".apptown/app.yaml")
 			if drift == "added" {
 				if err := os.Remove(path); err != nil {
@@ -270,7 +270,7 @@ func TestARestoredDeploymentIsRebuiltWithItsDataBeforeItsAppStarts(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+			ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 			// The app keeps its files in its data volume and needs nothing
 			// else, so the fake daemon has no database to answer for.
 			if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(strings.Split(bootFixtureYAML, "needs:")[0]), 0o644); err != nil {

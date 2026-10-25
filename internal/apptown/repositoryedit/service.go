@@ -108,7 +108,10 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 			return nil, &DeclarationError{fmt.Errorf("need %q is not in the dependency catalog", n.Capability)}
 		}
 	}
-	repo := filepath.Join(editor.dataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(editor.dataDir)
+	if err != nil {
+		return nil, err
+	}
 	if in.Direct {
 		_, err := editor.genesis.CommitGenesis(ctx, p, "apptown: declare services", in.Actor, func(dir string) ([]string, error) {
 			updated, err := editDeclaration(dir, in.Needs)

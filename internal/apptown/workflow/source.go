@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -81,25 +82,25 @@ func ReadSourceIn(ctx context.Context, db database.Queryer, run RunRef) (Source,
 }
 
 func (s Source) RepoBacked() bool { return s.DefaultBranch != "" }
-func (s Source) Repository(dataDir string) string {
-	return filepath.Join(dataDir, "workspaces", "project-"+s.Slug)
+func (s Source) Repository(dataDir string) (string, error) {
+	return (project.RepositoryRef{ID: s.ProjectID, Slug: s.Slug}).Path(dataDir)
 }
 
 // Workspace is where the run works. A change has one working copy, its
 // folder, used by whoever holds the change, so a writing run on a change
 // works there. A landing only reads: it works in a copy of its own, made
 // from the branch it checks, and publishes nothing.
-func (s Source) Workspace(dataDir string) string {
+func (s Source) Workspace(dataDir string) (string, error) {
 	id := s.WorkspaceRunID
 	if s.RepoBacked() {
 		if !s.ChangeID.IsZero() && s.RootRole != "landing" {
-			return filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", s.ChangeID))
+			return filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", s.ChangeID)), nil
 		}
 		id = s.RootRunID
 	} else if s.ProjectWorkspace {
 		return s.Repository(dataDir)
 	}
-	return filepath.Join(dataDir, "workspaces", fmt.Sprintf("run-%d", id))
+	return filepath.Join(dataDir, "workspaces", fmt.Sprintf("run-%d", id)), nil
 }
 
 // RunTreeIn lists the runs of run's tree, its root and every run it called:

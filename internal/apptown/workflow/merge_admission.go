@@ -226,6 +226,9 @@ func (a *AdmittedMerge) Context(ctx context.Context, dataDir string) (context.Co
 	if a == nil || a.gate == nil || a.db == nil {
 		return nil, errMergeCaller
 	}
-	claim := (SCMWork{db: a.db, dataDir: dataDir, rules: a.rules, evals: a.evals, clocked: a.clocked}).claim(a.call.Run, a.call.Source, &a.call, a.attribution)
+	claim, err := (SCMWork{db: a.db, dataDir: dataDir, rules: a.rules, evals: a.evals, clocked: a.clocked}).claim(a.call.Run, a.call.Source, &a.call, a.attribution)
+	if err != nil {
+		return nil, err
+	}
 	return context.WithValue(ctx, scmClaimKey{}, claim), nil
 }

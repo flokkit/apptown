@@ -23,7 +23,7 @@ func TestAWorkerResultWithRuntimeInItsHistoryIsRefused(t *testing.T) {
 	t.Parallel()
 	a, fake, step, run, remote := startOnWorker(t)
 	source := a.source(t, run)
-	hub, ws := source.Repository(a.dir), source.Workspace(a.dir)
+	hub, ws := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
 	given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 	before := gittest.Run(t, ws, "rev-parse", "HEAD")
 	workerGit := filepath.Join(filepath.Dir(filepath.Dir(remote)), "git", filepath.Base(remote)+".git")
@@ -63,7 +63,7 @@ func TestAWorkerResultReplacingAppTownIsRefused(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			a, fake, step, run, remote := startOnWorker(t)
 			source := a.source(t, run)
-			hub, ws := source.Repository(a.dir), source.Workspace(a.dir)
+			hub, ws := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
 			given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 			before := gittest.Run(t, ws, "rev-parse", "HEAD")
 			if err := os.RemoveAll(filepath.Join(remote, ".apptown")); err != nil {

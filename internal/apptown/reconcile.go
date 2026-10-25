@@ -3,10 +3,7 @@ package apptown
 import (
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
-	"strings"
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
 )
@@ -16,21 +13,16 @@ import (
 // one error per hub left without its hook, each naming the hub, and an
 // error when the hubs cannot be listed at all.
 func (a *App) InstallNoPushHooks() error {
-	root := filepath.Join(a.cfg.dataDir, "workspaces")
-	entries, err := os.ReadDir(root)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil // no project yet
-	}
+	repositories, err := project.RepositoriesOnDisk(a.cfg.dataDir)
 	if err != nil {
 		return fmt.Errorf("listing the project hubs: %w", err)
 	}
 	var failed []error
-	for _, e := range entries {
-		if e.IsDir() && strings.HasPrefix(e.Name(), "project-") {
-			if err := scm.InstallNoPushHook(filepath.Join(root, e.Name())); err != nil {
-				failed = append(failed, err)
-			}
+	for _, repo := range repositories {
+		if err := scm.InstallNoPushHook(repo); err != nil {
+			failed = append(failed, err)
 		}
 	}
+
 	return errors.Join(failed...)
 }

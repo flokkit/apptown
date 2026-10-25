@@ -190,7 +190,12 @@ func (a *Executor) Run(task *workflow.Execution) {
 		attempt.settle("unclaimed")
 		return
 	}
-	ws := source.Workspace(a.cfg.DataDir)
+	ws, err := source.Workspace(a.cfg.DataDir)
+	if err != nil {
+		log.Printf("run %d step %d: selecting workspace: %v; not started", run.ID, step.ID, err)
+		attempt.settle("unclaimed")
+		return
+	}
 	folder := gitexec.LockFolder(ws)
 	defer folder.Release()
 	if claim, err := task.Claim(); err != nil {

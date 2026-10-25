@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -103,7 +102,12 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 			default:
 				app.Running = o.State == deployment.ContainerRunning
 			}
-			if c, err := docker.ReadWorkspaceContract(filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)); err == nil && c.PublicPart().IsStatic() {
+			repository, err := p.Repository(h.dataDir)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+			if c, err := docker.ReadWorkspaceContract(repository); err == nil && c.PublicPart().IsStatic() {
 				app.Static = true
 			}
 			main.Apps = append(main.Apps, app)

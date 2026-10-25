@@ -3,6 +3,7 @@ package preview
 import (
 	"context"
 	"fmt"
+	projectrepo "github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
 	"path/filepath"
@@ -43,9 +44,13 @@ func (s *Service) prepareChange(ctx context.Context, ch Change) (changeBoot, err
 	if err != nil {
 		return changeBoot{}, err
 	}
+	repository, err := s.hosts.ProjectRepository(projectrepo.RepositoryRef{ID: project.ID, Slug: project.Slug})
+	if err != nil {
+		return changeBoot{}, err
+	}
 	b := changeBoot{slug: project.Slug, source: deploy.PreviewSource{
 		Worktree:  filepath.Join(s.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID)),
-		History:   deploy.SelectedSource{Repository: s.hosts.ProjectRepository(project.Slug), Revision: ch.SourceRevision},
+		History:   deploy.SelectedSource{Repository: repository, Revision: ch.SourceRevision},
 		Snapshots: s.changeSnapshots(ch.ID),
 	}}
 	// A landed change is what it landed as, never its folder, which keeps

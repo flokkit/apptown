@@ -135,7 +135,11 @@ func (a *Guidance) llmBaseline(ctx context.Context, source workflow.Source, chec
 		}
 		return out
 	}
-	src, cleanup, err := scm.StageTreeAt(ctx, source.Repository(a.dataDir), base)
+	repository, err := source.Repository(a.dataDir)
+	if err != nil {
+		return unassessed(err.Error())
+	}
+	src, cleanup, err := scm.StageTreeAt(ctx, repository, base)
 	defer cleanup()
 	if err != nil {
 		return unassessed("main's tree at " + strs.ShortSHA(base) + " could not be read: " + err.Error())

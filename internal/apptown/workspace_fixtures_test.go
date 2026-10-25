@@ -57,8 +57,25 @@ func publishChangeWorkForTest(t *testing.T, a *App, source workflow.MergeSource,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: source.ProjectID, Repository: source.Repository(a.cfg.dataDir),
+	if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: source.ProjectID, Repository: requireLocation(t)(source.Repository(a.cfg.dataDir)),
 		Branch: source.Branch, From: folder, Grant: scm.Grant{Generation: authority.Generation}}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Independent witness for the current installation layout.
+func (a *App) projectRepoPath(slug string) string {
+	return filepath.Join(a.cfg.dataDir, "workspaces", "project-"+slug)
+}
+
+// requireLocation keeps error-bearing location reads explicit in test expressions.
+func requireLocation(t testing.TB) func(string, error) string {
+	t.Helper()
+	return func(path string, err error) string {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return path
 	}
 }

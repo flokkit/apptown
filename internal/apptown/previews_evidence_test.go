@@ -78,7 +78,7 @@ func runtimeGate(t *testing.T, place gatePlace, beforeBoot, afterBoot func(*App,
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := source.Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestACleanupTheWorkerDidNotConfirmIsAnError(t *testing.T) {
 		t.Fatalf("boot: %d %s", resp.Code, resp.Body.String())
 	}
 	fake.setDown(true)
-	err := workResourcesFor(a).Change(context.Background(), "game", ch.ID)
+	err := workResourcesFor(a).Change(context.Background(), ch.ID)
 	fake.setDown(false)
 	st, stateErr := a.workerPreviews.State(context.Background(), docker.PreviewChangeName(ch.ID))
 	if stateErr != nil || !st.Running {
@@ -415,7 +415,7 @@ func bootWithShots(t *testing.T, report string) (*App, *workflow.Step) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := source.Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}

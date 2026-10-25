@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"io"
 	"maps"
 	"net"
@@ -403,11 +404,11 @@ func TestTheTierViewsListTheWorkersPreviewsOrSayTheyAreUnknown(t *testing.T) {
 func TestEndingAPreviewRemovesItOnTheWorker(t *testing.T) {
 	t.Parallel()
 	a, _, fake, ch := previewWorkerWorld(t, false)
-	if err := workResourcesFor(a).Change(context.Background(), "game", ch.ID); err != nil {
+	if err := workResourcesFor(a).Change(context.Background(), ch.ID); err != nil {
 		t.Fatal(err)
 	}
 	workResourcesFor(a).Run(context.Background(), idstest.N(41))
-	if failed := projectCleanupFor(a).Clean(context.Background(), idstest.N(1), projectlifecycle.CleanupPlan{Slug: "game", RunIDs: []ids.ID{idstest.N(42)}, ChangeIDs: []ids.ID{idstest.N(43)}}); len(failed) != 0 {
+	if failed := projectCleanupFor(a).Clean(context.Background(), project.RepositoryRef{ID: idstest.N(1), Slug: "game"}, projectlifecycle.CleanupPlan{Slug: "game", RunIDs: []ids.ID{idstest.N(42)}, ChangeIDs: []ids.ID{idstest.N(43)}}); len(failed) != 0 {
 		t.Fatalf("cleanup: %q", failed)
 	}
 	a.ReapPreviewOrphans(context.Background())
@@ -479,7 +480,7 @@ func runRuntimeGate(t *testing.T, place gatePlace) (*workflow.Step, string, stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := source.Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}

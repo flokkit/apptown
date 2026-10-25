@@ -261,7 +261,12 @@ func (c *Service) RehearseSaved(ctx context.Context, s *console.Session, commit 
 		log.Printf("console %s: rehearsing its saved work: %v", s.ID, err)
 		return
 	}
-	if _, err := docker.ReadContractAt(ctx, filepath.Join(c.dataDir, "workspaces", "project-"+p.Slug), commit); errors.Is(err, docker.ErrNoContract) {
+	repo, err := p.Repository(c.dataDir)
+	if err != nil {
+		log.Printf("console %s: selecting repository: %v", s.ID, err)
+		return
+	}
+	if _, err := docker.ReadContractAt(ctx, repo, commit); errors.Is(err, docker.ErrNoContract) {
 		return // nothing claims to be runnable; the steering owns that nudge
 	}
 	pinned := preview.Change{ID: ch.ID, ProjectID: ch.ProjectID, Pinned: commit}

@@ -110,7 +110,10 @@ func (s *Service) CreateCopy(ctx context.Context, in CopyDraft) (*project.Projec
 	}
 	bundle := filepath.Join(spool, fmt.Sprintf("copy-%d.bundle", p.ID))
 	defer os.Remove(bundle)
-	hub := filepath.Join(s.dataDir, "workspaces", "project-"+source.Slug)
+	hub, err := source.Repository(s.dataDir)
+	if err != nil {
+		return &p, err
+	}
 	if err := gitexec.BundleCommit(ctx, hub, in.Commit, source.DefaultBranch, bundle); err != nil {
 		return &p, fmt.Errorf("cutting %s's history at %s: %w", source.Slug, in.Commit, err)
 	}

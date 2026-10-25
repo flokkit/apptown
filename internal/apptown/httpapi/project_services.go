@@ -3,7 +3,6 @@ package httpapi
 import (
 	"errors"
 	"net/http"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -59,7 +58,11 @@ func (h ProjectServices) ListProjectServices(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	repo := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	// The version is read first: if a landing moves main between the two
 	// reads, the edit names the older declaration and its save is refused.
 	version, err := repositoryedit.DeclarationVersion(repo)

@@ -308,7 +308,7 @@ func (w *agentWorkerWorld) invocations(t *testing.T, attempt int64) []tasks.Atte
 
 func (w *agentWorkerWorld) branchFile(t *testing.T, name string) string {
 	t.Helper()
-	hub := w.source.Repository(w.a.cfg.dataDir)
+	hub := requireLocation(t)(w.source.Repository(w.a.cfg.dataDir))
 	return gittest.Run(t, hub, "show", scm.Ref(t.Context(), hub, "refs/heads/"+w.source.Branch)+":"+name)
 }
 
@@ -480,7 +480,7 @@ func TestIntegrationARecoveredInvocationKeepsItsFrozenNeed(t *testing.T) {
 	}
 	// The folder now declares another parameter, and the catalog another
 	// service and connection.
-	folder := w.source.Workspace(w.a.cfg.dataDir)
+	folder := requireLocation(t)(w.source.Workspace(w.a.cfg.dataDir))
 	if err := os.WriteFile(filepath.Join(folder, ".apptown", "app.yaml"), []byte(app+"rye\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -654,7 +654,7 @@ func TestIntegrationATimedOutInvocationWhosePrivateDockerWillNotStopIsHeld(t *te
 	if reason, _ := ev["reason"].(string); status != workflow.StatusError || !strings.Contains(reason, "did not confirm its stop") {
 		t.Fatalf("the step is %s: %v", status, ev)
 	}
-	hub := w.source.Repository(w.a.cfg.dataDir)
+	hub := requireLocation(t)(w.source.Repository(w.a.cfg.dataDir))
 	if gittest.Command("-C", hub, "cat-file", "-e", scm.Ref(t.Context(), hub, "refs/heads/"+w.source.Branch)+":made.txt").Run() == nil {
 		t.Fatal("the agent's work was published to the branch")
 	}
@@ -924,7 +924,7 @@ func TestReviewS5OldRunContinuesItsFolderTranscriptOnWorker(t *testing.T) {
 	if _, err := w.a.DB.Exec("DELETE FROM agent_transcripts WHERE step_id=$1", w.step.ID); err != nil {
 		t.Fatal(err)
 	}
-	dir := filepath.Join(w.source.Workspace(w.a.cfg.dataDir), ".apptown", "sessions")
+	dir := filepath.Join(requireLocation(t)(w.source.Workspace(w.a.cfg.dataDir)), ".apptown", "sessions")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}

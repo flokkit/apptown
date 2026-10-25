@@ -1480,7 +1480,11 @@ func (a *Commands) resultKept(ctx context.Context, attempt tasks.Attempt) (bool,
 	if err != nil {
 		return false, err
 	}
-	_, found, err := repositoryedit.FindCandidate(ctx, source.Repository(a.cfg.DataDir), attempt.Owner.StepID, attempt.Owner.Attempt, attempt.Source)
+	hub, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		return false, err
+	}
+	_, found, err := repositoryedit.FindCandidate(ctx, hub, attempt.Owner.StepID, attempt.Owner.Attempt, attempt.Source)
 	return found, err
 }
 

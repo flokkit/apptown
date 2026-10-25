@@ -106,7 +106,7 @@ func (c Cleanup) Run(ctx context.Context, key string, _ map[string]any) (map[str
 	if err := json.Unmarshal(d.Plan, &plan); err != nil {
 		return nil, jobs.Permanent(fmt.Errorf("reading the cleanup plan of project %d: %w", id, err))
 	}
-	failures := c.Clean(ctx, id, plan)
+	failures := c.Clean(ctx, project.RepositoryRef{ID: d.ProjectID, Slug: d.Slug}, plan)
 	state, detail := project.CleanupDone, ""
 	if len(failures) > 0 {
 		detail = strs.Truncate(strings.Join(failures, "; "), 2000)
@@ -131,7 +131,12 @@ func (c Cleanup) Run(ctx context.Context, key string, _ map[string]any) (map[str
 
 // Clean applies every effect of the plan once and names each one that
 // failed; it records nothing (Run settles the attempt).
-func (c Cleanup) Clean(ctx context.Context, id ids.ID, plan CleanupPlan) []string {
+func (c Cleanup) Clean(ctx context.Context, owner project.RepositoryRef, plan CleanupPlan) []string {
+	repo, err := owner.Path(c.DataDir)
+	if err != nil {
+		return []string{err.Error()}
+	}
+	id := owner.ID
 	var failed []string
 	note := func(err error) {
 		if err != nil {
@@ -182,7 +187,7 @@ func (c Cleanup) Clean(ctx context.Context, id ids.ID, plan CleanupPlan) []strin
 	if plan.GitLabPath != "" {
 		note(c.archiveGitLab(ctx, plan))
 	}
-	note(os.RemoveAll(filepath.Join(c.DataDir, "workspaces", "project-"+plan.Slug)))
+	note(os.RemoveAll(repo))
 	return failed
 }
 

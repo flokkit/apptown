@@ -15,7 +15,7 @@ import (
 func TestChangeSourceSettlesWithMergeReceipt(t *testing.T) {
 	t.Parallel()
 	a, source := mergeSettlementFixture(t)
-	sha := gittest.Run(t, source.Repository(a.cfg.dataDir), "rev-parse", "HEAD")
+	sha := gittest.Run(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "rev-parse", "HEAD")
 	runID, changeID := source.RunID, source.ChangeID
 	pendingMergeForTest(t, a, runID, sha)
 	ofRun := func(e workflow.Event) bool { return e.RunID == runID }

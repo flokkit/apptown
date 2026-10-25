@@ -112,7 +112,7 @@ func mergeRunForTest(t *testing.T, a *App, run *workflow.Run) (bool, []string, [
 func branchMergedForTest(t *testing.T, a *App, run *workflow.Run) bool {
 	t.Helper()
 	source := mergeSourceForTest(t, a, run)
-	merged, err := gitAncestorForTest(t, source.Repository(a.cfg.dataDir), "refs/heads/"+source.Branch, "refs/heads/"+source.DefaultBranch)
+	merged, err := gitAncestorForTest(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "refs/heads/"+source.Branch, "refs/heads/"+source.DefaultBranch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func branchMergedForTest(t *testing.T, a *App, run *workflow.Run) bool {
 
 func mergeSourceRepository(t *testing.T, source workflow.MergeSource, dataDir string) string {
 	t.Helper()
-	repo := source.Repository(dataDir)
+	repo := requireLocation(t)(source.Repository(dataDir))
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestMergeSourceGitFailuresCannotBecomeEmptyWork(t *testing.T) {
 				source = mergeSourceForTest(t, a, run)
 			}
 			if failure == "failed workspace publication" {
-				if err := os.MkdirAll(filepath.Join(source.Workspace(a.cfg.dataDir), ".git"), 0o755); err != nil {
+				if err := os.MkdirAll(filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), ".git"), 0o755); err != nil {
 					t.Fatal(err)
 				}
 			}

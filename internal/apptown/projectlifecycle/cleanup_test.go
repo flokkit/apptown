@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -170,5 +172,34 @@ func TestProjectCleanupWhosePreviewWasNotWhollyRemovedIsNotDone(t *testing.T) {
 	}
 	if err == nil || d.State == project.CleanupDone {
 		t.Fatalf("cleanup finished though a preview's removal was not confirmed: %v %+v", err, d)
+	}
+}
+
+func TestCleanupUsesRetainedDeletionOwnershipAfterProjectRowsAreGone(t *testing.T) {
+	t.Parallel()
+	c := cleanupFixture(t, dockerfake.New(), gitlabAt(""), CleanupPlan{Slug: "owned"})
+	for _, slug := range []string{"owned", "neighbor"} {
+		dir := hubDir(c.DataDir, slug)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "keep"), []byte(slug), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// sql-guarantee: preserve deletion identity but forge a disagreeing cleanup payload; normal deletion cannot do this.
+	if _, err := c.DB.Exec(`UPDATE project_deletions SET plan=jsonb_set(plan, '{slug}', '"neighbor"') WHERE project_id=?`, idstest.N(100)); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if _, err := c.Run(t.Context(), CleanupKey(idstest.N(100), 0), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := os.Stat(hubDir(c.DataDir, "owned")); !os.IsNotExist(err) {
+		t.Fatalf("owned repository remains: %v", err)
+	}
+	if raw, err := os.ReadFile(filepath.Join(hubDir(c.DataDir, "neighbor"), "keep")); err != nil || string(raw) != "neighbor" {
+		t.Fatalf("wrong repository touched: %s %v", raw, err)
 	}
 }

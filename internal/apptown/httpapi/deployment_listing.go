@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"net/http"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -37,7 +36,12 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	isStatic := false
-	if c, err := docker.ReadWorkspaceContract(filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)); err == nil && c.PublicPart().IsStatic() {
+	repository, err := p.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if c, err := docker.ReadWorkspaceContract(repository); err == nil && c.PublicPart().IsStatic() {
 		isStatic = true
 	}
 	fills := map[ids.ID]dataprotection.RestoreFill{}

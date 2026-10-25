@@ -116,7 +116,7 @@ say "asked AppTown"`})
 		t.Fatalf("the step is %s: %v", status, ev)
 	}
 	source := workflowSourceForTest(t, a, run)
-	hub := source.Repository(a.cfg.dataDir)
+	hub := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	cli := gittest.Run(t, hub, "show", "refs/heads/"+source.Branch+":cli.txt")
 	if !strings.HasSuffix(cli, "exit 0") || !strings.Contains(cli, "build") {
 		t.Fatalf("the CLI inside the step answered:\n%s", cli)
@@ -166,7 +166,7 @@ say "checked my work"`})
 		t.Fatalf("the step is %s: %v", status, ev)
 	}
 	source := workflowSourceForTest(t, a, run)
-	hub := source.Repository(a.cfg.dataDir)
+	hub := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	// The commit the agent checked, and what apptown check printed, as the
 	// step's collected work brought them back.
 	committed := gittest.Run(t, hub, "show", "refs/heads/"+source.Branch+":checked.txt")

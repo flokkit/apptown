@@ -140,7 +140,11 @@ func (a *App) handleGitHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "git: this credential is read-only — pull is allowed, push needs a Change ticket (checkout_change)", http.StatusForbidden)
 		return
 	}
-	hub := a.projectRepoPath(slug)
+	hub, err := p.Repository(a.cfg.dataDir)
+	if err != nil {
+		http.Error(w, "git: repository identity is unavailable", http.StatusInternalServerError)
+		return
+	}
 	if !gitexec.IsRepo(hub) {
 		http.NotFound(w, r)
 		return

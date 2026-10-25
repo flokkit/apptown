@@ -186,7 +186,7 @@ func TestAnApprovalOfACommitRecordsWhatItAddsAsShown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	folder := source.Workspace(dir)
+	folder := requireLocation(t)(source.Workspace(dir))
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}

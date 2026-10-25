@@ -3,6 +3,7 @@ package verification
 import (
 	"context"
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -55,7 +56,7 @@ func TestAStandingBrowserCheckDoesNotSubstituteAnUnreadableRelease(t *testing.T)
 		t.Fatal(err)
 	}
 	for _, sha := range []string{"unavailable-release", ""} {
-		got := (Runtime{dataDir: dir}).Probe(context.Background(), Target{Slug: "demo", ReleaseSHA: sha, Naked: "http://127.0.0.1:1"}, "browser-env")
+		got := (Runtime{dataDir: dir}).Probe(context.Background(), Target{ProjectID: idstest.N(1), Slug: "demo", ReleaseSHA: sha, Naked: "http://127.0.0.1:1"}, "browser-env")
 		if got.Outcome != check.CannotAssess || !got.Fault {
 			t.Fatalf("release %q was judged by the working tree: %+v", sha, got)
 		}

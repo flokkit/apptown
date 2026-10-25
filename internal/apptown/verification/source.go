@@ -2,7 +2,7 @@ package verification
 
 import (
 	"context"
-	"path/filepath"
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -17,7 +17,14 @@ type Source struct {
 }
 
 func (s Source) Head(ctx context.Context, p conformance.ProjectSource) (conformance.SourceHead, error) {
-	return readSourceHead(ctx, filepath.Join(s.dataDir, "workspaces", "project-"+p.Slug), p.Branch)
+	if err := ctx.Err(); err != nil {
+		return conformance.SourceHead{}, err
+	}
+	repo, err := (project.RepositoryRef{ID: p.ID, Slug: p.Slug}).Path(s.dataDir)
+	if err != nil {
+		return conformance.SourceHead{}, err
+	}
+	return readSourceHead(ctx, repo, p.Branch)
 }
 
 // ChecksIn is the live fleet source; Work's gates use their admitted receipt.

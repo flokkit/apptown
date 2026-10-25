@@ -25,8 +25,8 @@ import (
 func TestAWholeChangeReportSatisfiesTheReviewAfterASendBack(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	source := workflow.Source{Slug: "sendback", DefaultBranch: "main", Branch: "apptown/change-00000000-0001-7000-8000-000000000000", ChangeID: idstest.N(1)}
-	repo := source.Repository(dir)
+	source := workflow.Source{ProjectID: idstest.N(2), Slug: "sendback", DefaultBranch: "main", Branch: "apptown/change-00000000-0001-7000-8000-000000000000", ChangeID: idstest.N(1)}
+	repo := requireLocation(t)(source.Repository(dir))
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}

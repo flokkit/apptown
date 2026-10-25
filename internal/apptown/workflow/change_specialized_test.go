@@ -190,7 +190,7 @@ func importFixture(t *testing.T) (changeImporter, ImportBranch, string) {
 	db := testDB(t)
 	id := workflowTestProject(t, db, "history", "History", "main")
 	g := GitWorkspace{DataDir: t.TempDir()}
-	repo := g.Paths().Repository("history")
+	repo := filepath.Join(g.DataDir, "workspaces", "project-history")
 	importTemplate.CopyTo(t, repo)
 	return newImporter(db, g, &scm.RepositoryLocks{}, func(context.Context, CreatedChange) error { return nil }), ImportBranch{ProjectID: id, Branch: "feature-early"}, importBase
 }
@@ -201,7 +201,7 @@ func importFixture(t *testing.T) (changeImporter, ImportBranch, string) {
 func TestImportRefusesANameThatIsNotABranchName(t *testing.T) {
 	t.Parallel()
 	i, in, _ := importFixture(t)
-	repo := i.git.Paths().Repository("history")
+	repo := filepath.Join(i.git.Paths().DataDir, "workspaces", "project-history")
 	if out, err := gitexec.Run(t.Context(), repo, "update-ref", "refs/heads/-early", "refs/heads/"+in.Branch); err != nil {
 		t.Fatalf("%v: %s", err, out)
 	}

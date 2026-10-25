@@ -38,7 +38,7 @@ func TestIntegrationAWorkerTaskFinishedDuringARestartIsCollected(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := b.source(t, run)
-	hub := source.Repository(b.dir)
+	hub := requireLocation(t)(source.Repository(b.dir))
 	tip := scm.Ref(ctx, hub, "refs/heads/"+source.Branch)
 	if got := gittest.Run(t, hub, "show", tip+":count.txt"); got != "ran" {
 		t.Fatalf("finished result lost or task rerun: %q", got)

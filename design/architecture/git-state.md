@@ -1,5 +1,6 @@
 # AppTown — Git-Backed State
 
+Project hub paths and active stored path references are owned by the [project repository location boundary](project-repositories.md).
 The shipped version for operators and agents is Docs → "How changes reach
 main".
 

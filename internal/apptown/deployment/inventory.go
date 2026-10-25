@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -25,7 +26,7 @@ type Declared struct {
 // Declarations reads a project's contract; the second result is false
 // when the project has none that can be read.
 type Declarations interface {
-	Declared(project string) (Declared, bool)
+	Declared(context.Context, ids.ID) (Declared, bool)
 }
 
 // Inventory is the records' side of what is at a target.
@@ -65,7 +66,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 				name = names.App()
 			}
 			out = append(out, deploy.Resource{Kind: "container", Name: name, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
-			if d, ok := inv.declared.Declared(e.Project); ok {
+			if d, ok := inv.declared.Declared(ctx, e.ProjectID); ok {
 				if d.KeepsData {
 					out = append(out, deploy.Resource{Kind: "volume", Name: names.DataVolume(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 				}

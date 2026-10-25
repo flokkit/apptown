@@ -89,7 +89,7 @@ func agentWorkerChange(t *testing.T, a *App, steps []schema.Step, files map[stri
 		t.Fatal(err)
 	}
 	if len(files) > 0 {
-		ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+		ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 		for name, body := range files {
 			at := filepath.Join(ws, name)
 			if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
@@ -161,9 +161,9 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 			run, steps := agentWorkerChange(t, a, []schema.Step{{Name: "build", Uses: "agent/pi", With: with}}, c.files)
 			onlyOnTheWorker(t, a)
 			source := workflowSourceForTest(t, a, run)
-			hub := source.Repository(a.cfg.dataDir)
+			hub := requireLocation(t)(source.Repository(a.cfg.dataDir))
 			before := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
-			folderBefore, err := gitexec.FolderTip(context.Background(), source.Workspace(a.cfg.dataDir), source.Branch)
+			folderBefore, err := gitexec.FolderTip(context.Background(), requireLocation(t)(source.Workspace(a.cfg.dataDir)), source.Branch)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -188,7 +188,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 			if after := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch); after != before {
 				t.Fatalf("the branch moved from %q to %q", before, after)
 			}
-			if after, err := gitexec.FolderTip(context.Background(), source.Workspace(a.cfg.dataDir), source.Branch); err != nil || after != folderBefore {
+			if after, err := gitexec.FolderTip(context.Background(), requireLocation(t)(source.Workspace(a.cfg.dataDir)), source.Branch); err != nil || after != folderBefore {
 				t.Fatalf("the folder moved from %q to %q (%v)", folderBefore, after, err)
 			}
 			if left := gittest.Run(t, hub, "for-each-ref", "refs/apptown/incoming"); left != "" {

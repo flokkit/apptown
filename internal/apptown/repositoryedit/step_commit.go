@@ -42,7 +42,10 @@ func CommitStep(ctx context.Context, db *database.DB, dataDir string, branches *
 	if !source.RepoBacked() || source.RootRole == "landing" {
 		return nil
 	}
-	wt := source.Workspace(dataDir)
+	wt, err := source.Workspace(dataDir)
+	if err != nil {
+		return err
+	}
 	sha, committed, err := scm.CommitWorkspace(ctx, wt, StepCommitMessage(run, step))
 	if err != nil {
 		return fmt.Errorf("committing the step's work: %w", err)
@@ -50,7 +53,11 @@ func CommitStep(ctx context.Context, db *database.DB, dataDir string, branches *
 	if committed {
 		workflow.RecordNoticeOrLog(ctx, db, run.ID, "commit.created", map[string]string{"step": stepName, "sha": sha}, at)
 	}
-	repo, branch := source.Repository(dataDir), source.Branch
+	repo, err := source.Repository(dataDir)
+	if err != nil {
+		return err
+	}
+	branch := source.Branch
 	tip := scm.Ref(ctx, wt, "refs/heads/"+branch)
 	if tip == "" {
 		return nil
@@ -118,7 +125,14 @@ func ProposeTaskSource(ctx context.Context, dataDir string, source workflow.Sour
 	if !source.RepoBacked() {
 		return TaskSource{}, fmt.Errorf("a remote task needs a repository-backed project")
 	}
-	repo, wt := source.Repository(dataDir), source.Workspace(dataDir)
+	repo, err := source.Repository(dataDir)
+	if err != nil {
+		return TaskSource{}, err
+	}
+	wt, err := source.Workspace(dataDir)
+	if err != nil {
+		return TaskSource{}, err
+	}
 	out := TaskSource{repo: repo, branch: source.Branch}
 	own, err := gitexec.FolderTip(ctx, wt, source.Branch)
 	if errors.Is(err, gitexec.ErrFolderRefused) {
@@ -241,7 +255,14 @@ func PublishTaskResult(ctx context.Context, db *database.DB, dataDir string, bra
 	if !candidate.Changed() {
 		return candidate, nil
 	}
-	repo, wt := source.Repository(dataDir), source.Workspace(dataDir)
+	repo, err := source.Repository(dataDir)
+	if err != nil {
+		return candidate, fmt.Errorf("%w: %w", ErrPublicationPending, err)
+	}
+	wt, err := source.Workspace(dataDir)
+	if err != nil {
+		return candidate, fmt.Errorf("%w: %w", ErrPublicationPending, err)
+	}
 	if folder == nil || folder.Path() != filepath.Clean(wt) {
 		return candidate, fmt.Errorf("publishing a task's result needs the run's folder %s locked", wt)
 	}

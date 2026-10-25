@@ -136,7 +136,10 @@ func (s *Service) seed(ctx context.Context, p *project.Project, who string, via 
 	if current.DefaultBranch != "" {
 		return scm.ErrRepositoryEstablished
 	}
-	dir := filepath.Join(s.dataDir, "workspaces", "project-"+current.Slug)
+	dir, err := current.Repository(s.dataDir)
+	if err != nil {
+		return err
+	}
 	branch, err := fill(dir)
 	if err != nil {
 		return err
@@ -160,5 +163,9 @@ func (s *Service) seed(ctx context.Context, p *project.Project, who string, via 
 // WriteBundle writes p's default branch and tags as a Git bundle: the
 // Download code door.
 func (s *Service) WriteBundle(ctx context.Context, p *project.Project, w io.Writer) error {
-	return scm.WriteBundle(ctx, filepath.Join(s.dataDir, "workspaces", "project-"+p.Slug), p.DefaultBranch, w)
+	repo, err := p.Repository(s.dataDir)
+	if err != nil {
+		return err
+	}
+	return scm.WriteBundle(ctx, repo, p.DefaultBranch, w)
 }

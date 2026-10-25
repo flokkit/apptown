@@ -614,7 +614,7 @@ func (w *releaseWorld) restart(t *testing.T) {
 func (w *releaseWorld) landingRun(t *testing.T) (*workflow.Run, ids.ID) {
 	t.Helper()
 	run, stepID := bootRun(t, w.a, "landing", "deploy")
-	ws := workflowSourceForTest(t, w.a, run).Workspace(w.a.cfg.dataDir)
+	ws := requireLocation(t)(workflowSourceForTest(t, w.a, run).Workspace(w.a.cfg.dataDir))
 	appYAML := w.appYAML
 	if appYAML == "" {
 		appYAML = releaseAppYAML
@@ -1796,7 +1796,7 @@ func TestAMissingMainSettingRefusesTheLandingBeforeAnythingIsBuilt(t *testing.T)
 	bindWPHome(t, w.a, "preview", "https://preview.example")
 	run, stepID := w.landingRun(t)
 	// An uncommitted edit that would drop the requirement is not what lands.
-	for _, dir := range []string{workflowSourceForTest(t, w.a, run).Workspace(w.a.cfg.dataDir), filepath.Join(w.a.cfg.dataDir, "workspaces", "project-p")} {
+	for _, dir := range []string{requireLocation(t)(workflowSourceForTest(t, w.a, run).Workspace(w.a.cfg.dataDir)), filepath.Join(w.a.cfg.dataDir, "workspaces", "project-p")} {
 		if err := os.WriteFile(filepath.Join(dir, secret.SpecFile), []byte("[project]\nname = \"p\"\nrevision = \"1.0\"\n\n[profiles.default]\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}

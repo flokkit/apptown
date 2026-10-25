@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -874,7 +873,10 @@ func (s *Service) ArmDiff(ctx context.Context, evalID, armID ids.ID) (string, er
 	if err != nil {
 		return "", err
 	}
-	repo := filepath.Join(s.deps.DataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(s.deps.DataDir)
+	if err != nil {
+		return "", err
+	}
 	cmp, err := scm.ReadCommittedDiff(ctx, repo, source.BaseSHA, p.DefaultBranch)
 	if err != nil || cmp.Empty {
 		return "", err

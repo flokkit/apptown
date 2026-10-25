@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"maps"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -111,7 +110,10 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	if p.DefaultBranch == "" {
 		return nil, 422, fmt.Errorf("project is not repo-backed: nothing has landed to release")
 	}
-	repo := filepath.Join(s.hosts.settings.DataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(s.hosts.settings.DataDir)
+	if err != nil {
+		return nil, 0, err
+	}
 	head := bundle.ContractRevision
 	// Validate the selected commit before minting a release. Uncommitted
 	// changes must not change what this release admits.
@@ -211,7 +213,11 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 			s.relLog(relID, "could not record the preparation failure: %v (preparation: %v)", err, cause)
 		}
 	}
-	repo := filepath.Join(s.hosts.settings.DataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(s.hosts.settings.DataDir)
+	if err != nil {
+		fail("resolving project repository: %v", err)
+		return
+	}
 
 	// Stage the COMMITTED tree — a release ships what landed, never the
 	// worktree (the webalizer lesson).
