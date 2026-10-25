@@ -26,6 +26,8 @@ type Artifact struct {
 // earlier, or a committed tree the caller staged. The caller owns the
 // workspace's lifetime.
 type Source struct {
+	// Ingress is selected at admission, never recomputed from current names.
+	Ingress *Ingress
 	// Services is a replay of supplied sidecars after applying the generation
 	// record; nil uses the original artifact inputs. It never changes Body/Hash.
 	Services  []ServiceSpec

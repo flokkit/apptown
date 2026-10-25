@@ -169,6 +169,61 @@
         ],
         "type": "object"
       },
+      "AddressReading": {
+        "properties": {
+          "certificateDomain": {
+            "type": "string"
+          },
+          "customHostname": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generatedHostname": {
+            "type": "string"
+          },
+          "legacyEvidence": {},
+          "reservedHosts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "servingURL": {
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verified": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "deploymentId",
+          "targetId",
+          "generatedHostname",
+          "customHostname",
+          "certificateDomain",
+          "revision",
+          "verified",
+          "servingURL",
+          "reservedHosts"
+        ],
+        "type": "object"
+      },
       "AddsLine": {
         "properties": {
           "kind": {
@@ -1924,6 +1979,21 @@
         ],
         "type": "object"
       },
+      "LastRelease": {
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "number": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "number",
+          "at"
+        ],
+        "type": "object"
+      },
       "MainConflict": {
         "properties": {
           "catchUp": {
@@ -3035,10 +3105,97 @@
         ],
         "type": "object"
       },
+      "ReleaseHead": {
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha",
+          "subject"
+        ],
+        "type": "object"
+      },
+      "ReleasePlan": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AddressReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "changesSinceLast": {
+            "items": {
+              "$ref": "#/components/schemas/ShippedChange"
+            },
+            "type": "array"
+          },
+          "configError": {
+            "type": "string"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "deployment": {
+            "type": "string"
+          },
+          "head": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReleaseHead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastRelease": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LastRelease"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "published": {
+            "type": "boolean"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "configured",
+          "deployment",
+          "published",
+          "changesSinceLast"
+        ],
+        "type": "object"
+      },
       "ReleaseRequest": {
         "properties": {
           "acceptUncopiedData": {
             "type": "boolean"
+          },
+          "addressRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "domain": {
             "type": "string"
@@ -3551,6 +3708,25 @@
           "agentImage",
           "agentImageError",
           "openNonLoopback"
+        ],
+        "type": "object"
+      },
+      "ShippedChange": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
         ],
         "type": "object"
       },
@@ -8819,6 +8995,158 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/projects/{slug}/deployments/{id}/address": {
+      "get": {
+        "operationId": "getProjectsSlugDeploymentsIdAddress",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.DeploymentAddress",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      },
+      "put": {
+        "operationId": "putProjectsSlugDeploymentsIdAddress",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.EditDeploymentAddress",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/deployments/{id}/address/observation": {
+      "get": {
+        "operationId": "getProjectsSlugDeploymentsIdAddressObservation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.InspectDeploymentAddress",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      },
+      "post": {
+        "operationId": "postProjectsSlugDeploymentsIdAddressObservation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.ConfirmDeploymentAddress",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/projects/{slug}/deployments/{id}/label": {
       "put": {
         "operationId": "putProjectsSlugDeploymentsIdLabel",
@@ -10582,8 +10910,15 @@
           }
         ],
         "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleasePlan"
+                }
+              }
+            },
+            "description": "the operation's result"
           },
           "default": {
             "$ref": "#/components/responses/Refusal"
@@ -10597,7 +10932,8 @@
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-apptown-stability": "experimental"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/releases": {

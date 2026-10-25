@@ -131,12 +131,13 @@ func (p *promotionTargets) lastStack(t *testing.T) (string, int) {
 func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 	t.Parallel()
 	p, b, asked := newPortainerNeeds(t)
-	if err := p.projects.SetReleaseDomain(t.Context(), p.project, "feedback.example"); err != nil {
-		t.Fatal(err)
-	}
 	lan, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", p.target(t, IntranetTargetName).ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
 	if err != nil || lan.URL != "" || lan.Placement().Handle["stack"] != nil {
 		t.Fatalf("the new deployment: %+v %v", lan, err)
+	}
+	address, err := p.s.EditAddress(t.Context(), p.project, lan.ID, 0, "feedback.example")
+	if err != nil {
+		t.Fatal(err)
 	}
 	rel, err := p.releaseByName(t, "lan", b)
 	if err != nil || rel.State != Released {
@@ -162,7 +163,7 @@ func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 		`DATABASE_URL: "postgres://app:` + password + `@postgres:5432/app?sslmode=disable"`,
 		"AUTH_KEY: ",
 		"  init-migrate:\n", "  worker:\n",
-		"Host(`p.apps.example`) || Host(`feedback.example`)",
+		"Host(`" + address.Ingress.Hosts[0] + "`) || Host(`feedback.example`)",
 	} {
 		if !strings.Contains(named, want) {
 			t.Fatalf("the stack lacks %q:\n%s", want, named)
@@ -211,8 +212,7 @@ func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 	}
 }
 
-// A later release answers where the stack routes now: after the target's
-// apps domain changes, the deployment's address is the new one.
+// A later target-domain edit cannot change the deployment's admitted address.
 func TestANamedPortainerReleaseRecordsTheAddressItRoutes(t *testing.T) {
 	t.Parallel()
 	p, b, _ := newPortainerNeeds(t)
@@ -230,10 +230,14 @@ func TestANamedPortainerReleaseRecordsTheAddressItRoutes(t *testing.T) {
 	if rel, err := p.releaseByName(t, "lan", b); err != nil || rel.State != Released {
 		t.Fatalf("the second release: %v", err)
 	}
-	if got, err := p.s.Deployments.ByName(t.Context(), p.project, "lan"); err != nil || got.URL != "https://p.intra.example" {
+	if got, err := p.s.Deployments.ByName(t.Context(), p.project, "lan"); err != nil || got.URL != "https://app-"+strings.ReplaceAll(got.ID.String(), "-", "")+".apps.example" {
 		t.Fatalf("the address after the domain changed: %q %v", got.URL, err)
 	}
-	if stack, _ := p.lastStack(t); !strings.Contains(stack, "Host(`p.intra.example`)") {
+	dep, err := p.s.Deployments.ByName(t.Context(), p.project, "lan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stack, _ := p.lastStack(t); !strings.Contains(stack, ".apps.example`)") || strings.Contains(stack, ".intra.example") || !strings.Contains(stack, `APPTOWN_ORIGINS: "`+dep.URL+`"`) {
 		t.Fatalf("the stack routes:\n%s", stack)
 	}
 }

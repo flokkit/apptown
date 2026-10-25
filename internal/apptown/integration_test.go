@@ -4,6 +4,7 @@ package apptown
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,6 +29,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/dockerlabel"
@@ -533,6 +535,58 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	addressTarget, err := app.Deployment.Targets.Put(ctx, &deployment.Target{Name: "restore-address", Kind: deployment.KindPortainer, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	addressDep, err := app.Deployment.Deployments.EnsureStanding(ctx, pid, "address", addressTarget.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	addressSnapshot := deployment.AddressSnapshot{DeploymentID: addressDep.ID, TargetID: addressTarget.ID, Revision: 4, Ingress: deploy.Ingress{Hosts: []string{"legacy.apps.example", "customer.example"}, URL: "https://customer.example", CertificateDomain: "apps.example"}}
+	addressJSON, err := json.Marshal(addressSnapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: this archive fixture represents retained legacy provider evidence; no live provider observation is claimed.
+	if _, err := db.Exec(`INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain,revision,verification_state,legacy_evidence_json) VALUES($1,'legacy.apps.example','customer.example','apps.example',4,'ready','{"projectReleaseDomain":"customer.example"}')`, addressDep.ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, host := range []string{"legacy.apps.example", "customer.example", "previous.example"} {
+		// sql-guarantee: include an old retained claim absent from current desired ingress, to prove dump/restore does not recompute reservations.
+		if _, err := db.Exec(`INSERT INTO deployment_hostname_claims(hostname) VALUES($1)`, host); err != nil {
+			t.Fatal(err)
+		}
+		// sql-guarantee: the membership is retained archive state, not a new hostname acquisition.
+		if _, err := db.Exec(`INSERT INTO deployment_hostname_claimants(hostname,deployment_id) VALUES($1,$2)`, host, addressDep.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	addressRelease, err := app.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: pid, DeploymentID: addressDep.ID, Deployment: addressDep.Name, Revision: mainSHA, Actor: "restore-fixture"}, "retained address archive fixture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: an already-admitted historical request must retain its exact immutable ingress across the archive boundary.
+	if _, err := db.Exec(`INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,ingress_json) VALUES($1,$2,0,'{}',$3)`, addressRelease.ID, addressTarget.ID, addressJSON); err != nil {
+		t.Fatal(err)
+	}
+	addressAttempt, _, err := app.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: addressDep.ID, TargetID: addressTarget.ID, Key: "address-archive", Inputs: deployment.Inputs{ReleaseID: addressRelease.ID, Revision: mainSHA, ArtifactHash: "retained-address-artifact", Address: &addressSnapshot}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: addressAttempt, Observed: deploy.Observation{Generation: addressAttempt.Generation, Rollout: "active", URL: addressSnapshot.Ingress.URL, Handle: map[string]any{"stack": "retained-address-stack"}}}); err != nil {
+		t.Fatal(err)
+	}
+	addressFacts := func(db *database.DB) string {
+		t.Helper()
+		var facts string
+		// sql-guarantee: archive identity covers raw legacy evidence and every retained claim, not only public desired-address projection.
+		if err := db.SQL().QueryRowContext(ctx, `SELECT jsonb_build_object('settings',(SELECT to_jsonb(s) FROM deployment_address_settings s WHERE deployment_id=$1),'claims',(SELECT jsonb_agg(hostname ORDER BY hostname) FROM deployment_hostname_claimants WHERE deployment_id=$1),'request',(SELECT ingress_json FROM release_requests WHERE release_id=$2),'attempt',(SELECT ingress_json FROM deployment_attempt_inputs WHERE attempt_id=$3))::text`, addressDep.ID, addressRelease.ID, addressAttempt.ID).Scan(&facts); err != nil {
+			t.Fatal(err)
+		}
+		return facts
+	}
+	retainedAddressFacts := addressFacts(db)
 	backupPath := filepath.Join(source, "backups", "restore-project", "main", "recorded-set")
 	if err := os.MkdirAll(backupPath, 0o700); err != nil {
 		t.Fatal(err)
@@ -622,6 +676,13 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	deploymentRow, err := deployment.NewDeployments(restored).ByID(ctx, remote.ID)
 	if err != nil || deploymentRow.RestoreCheck != deployment.RestoreUnconfirmed {
 		t.Fatalf("external restore hold missing: %+v %v", deploymentRow, err)
+	}
+	if got := addressFacts(restored); got != retainedAddressFacts {
+		t.Fatalf("archive changed address ownership, evidence, claims or admitted snapshots: before %s after %s", retainedAddressFacts, got)
+	}
+	addressHeld, err := deployment.NewDeployments(restored).ByID(ctx, addressDep.ID)
+	if err != nil || addressHeld.RestoreCheck != deployment.RestoreUnconfirmed {
+		t.Fatalf("restored address owner lost activation hold: %+v %v", addressHeld, err)
 	}
 	receipts, err := audit.Recent(ctx, restored, audit.Filter{KindPrefix: "instance.restored"})
 	if err != nil || len(receipts) != 1 {

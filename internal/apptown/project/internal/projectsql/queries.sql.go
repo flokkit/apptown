@@ -892,20 +892,6 @@ func (q *Queries) SetProjectModelProfile(ctx context.Context, arg SetProjectMode
 	return err
 }
 
-const setProjectReleaseDomain = `-- name: SetProjectReleaseDomain :exec
-UPDATE projects SET release_domain = $2 WHERE id=$1
-`
-
-type SetProjectReleaseDomainParams struct {
-	ID            ids.ID
-	ReleaseDomain string
-}
-
-func (q *Queries) SetProjectReleaseDomain(ctx context.Context, arg SetProjectReleaseDomainParams) error {
-	_, err := q.db.ExecContext(ctx, setProjectReleaseDomain, arg.ID, arg.ReleaseDomain)
-	return err
-}
-
 const settleProjectDeletionAttempt = `-- name: SettleProjectDeletionAttempt :execrows
 UPDATE project_deletions SET attempts=attempts+1, state=$1, detail=$2,
  finished_at=CASE WHEN $1::text='pending' THEN NULL ELSE $3::timestamptz END

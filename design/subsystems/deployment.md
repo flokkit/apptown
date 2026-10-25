@@ -1365,3 +1365,46 @@ that UUID and advances the preference revision in the same settlement. Failed
 removal settlement preserves the preference. Editors retain unsaved choices and
 the revision they started from when newer readings arrive; conflicts keep the
 draft until the person saves successfully or discards it.
+
+### Deployment addresses
+
+A Portainer deployment owns its desired ingress independently of the project's
+name, its repository, and the target's display label. The first address admission
+records `app-<deployment UUID without hyphens>.<applications domain>` once. Later
+project renames and target domain edits do not recompute that address. A customer
+hostname is optional; it is served alongside the generated address and becomes
+the preferred URL. Other providers retain their existing address owners.
+
+Address edits require current deployment configuration authority and the revision
+read before editing. A release that includes an address edit needs that authority
+in addition to release authority. The release CLI reads the current address revision
+before submitting a custom hostname; an unavailable read sends no release.
+Admission records the address, hostname claims,
+audit receipt and immutable release input together. A failure rolls them all back.
+Queued execution and rebuild refuse missing or stale address snapshots before
+provider preparation. The rendered host rules and certificate domain come from
+that snapshot. The deployment's serving URL remains the last provider observation;
+saving desired settings does not claim that traffic has already moved.
+
+Hostname claims use normalized DNS names across the installation. Generated UUID
+hostnames are reserved for their deployments. Editing or clearing a custom name
+keeps earlier claims, because old traffic may still reach them. Confirmed deployment
+removal releases its claims in the removal settlement transaction. Unknown or
+failed teardown retains them.
+
+An upgraded deployment keeps its raw former project hostname, target domain and
+stored URL as evidence. Its address inventory starts unverified. An operator with
+configuration authority inspects the recorded stack through the target's verified
+connection and confirms the exact observed host rules and certificate domain.
+Confirmation rereads the provider, checks stack ownership and the expected local
+revisions, and records the observation with its receipt. It performs no remote
+write and does not lift a restored-copy hold. Unsupported rules, missing stacks,
+ambiguous ownership and changed observations refuse confirmation. The existing
+provider addresses remain unchanged.
+
+Historical duplicate claims retain every claimant, so no deployment wins by
+migration order. Conflicted hostnames refuse release until the conflicting
+resources are resolved. Unverified legacy inventories block acquisition of new
+custom hostnames; they do not block fresh UUID-generated addresses. Old pending
+release inputs without an address snapshot require a new release after the
+inventory is confirmed. Historical release records remain readable.

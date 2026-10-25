@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
@@ -418,10 +419,27 @@ func TestAnIntranetReleaseNamesEveryImageByDigest(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	b := p.land(t)
+	admittedAt := time.Date(2026, 10, 26, 1, 2, 3, 0, time.UTC)
+	p.s.setClock(func() time.Time { return admittedAt })
 	rel := p.releaseLAN(t)
 	if rel.State != Released || rel.BundleID != b.ID {
 		events, _ := p.s.Releases.Events(context.Background(), rel.ID)
 		t.Fatalf("the intranet release: %+v\n%+v", rel, events)
+	}
+	request, err := deploymentsql.New(p.s.db.SQL()).RequestedReleaseForUpdate(t.Context(), rel.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !request.Release.CreatedAt.Equal(admittedAt) || !request.ReleaseRequest.ClaimedAt.Valid || request.ReleaseRequest.IngressJson == nil {
+		t.Fatalf("legacy admission omitted time or durable snapshot: %+v", request)
+	}
+	address, err := addressSnapshotFrom(*request.ReleaseRequest.IngressJson)
+	if err != nil || address == nil || address.DeploymentID != rel.DeploymentID || address.Revision != 1 {
+		t.Fatalf("legacy request address: %+v %v", address, err)
+	}
+	inputs, err := p.s.Outcomes.InputsAtGeneration(t.Context(), rel.DeploymentID, rel.Generation)
+	if err != nil || inputs.Address == nil || !inputs.Address.same(*address) {
+		t.Fatalf("attempt lost admitted address: %+v %v", inputs.Address, err)
 	}
 	_, web, _ := strings.Cut(b.Parts["web"], "@")
 	// The tag is written once the release is live, after its state is
@@ -541,26 +559,23 @@ func TestAnIntranetReleaseAnswersOnTheTargetsDomain(t *testing.T) {
 	p.mu.Lock()
 	compose := p.stacks[0]
 	p.mu.Unlock()
-	if !strings.Contains(compose, "p.lan.example.org") || strings.Contains(compose, "p.apps.example") {
+	if !strings.Contains(compose, ".lan.example.org") || strings.Contains(compose, ".apps.example") {
 		t.Fatalf("the stack does not answer on the target's domain:\n%s", compose)
 	}
-	if env, err := p.s.Deployments.ByName(ctx, p.project, "lan"); err != nil || env.URL != "https://p.lan.example.org" {
+	if env, err := p.s.Deployments.ByName(ctx, p.project, "lan"); err != nil || env.URL != "https://app-"+strings.ReplaceAll(env.ID.String(), "-", "")+".lan.example.org" {
 		t.Fatalf("the intranet deployment's address: %+v %v", env, err)
 	}
 
 	edit("")
-	proj, err := p.projects.ByID(ctx, p.project)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, code, err := p.s.ReleaseLAN(ctx, &proj, "boss", LANReleaseRequest{}); code != 422 || err == nil || !strings.Contains(err.Error(), "names no domain") {
-		t.Fatalf("a release with no domain: %d %v", code, err)
+	if rel := p.releaseLAN(t); rel.State != Released {
+		t.Fatalf("clearing the target domain broke admitted routing: %+v", rel)
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if len(p.stacks) != 1 {
-		t.Fatalf("a refused release reached Portainer: %d stacks", len(p.stacks))
+	if len(p.stacks) != 2 || !strings.Contains(p.stacks[1], ".lan.example.org") {
+		t.Fatalf("existing deployment recomputed its address after target edit: %v", p.stacks)
 	}
+
 }
 
 // An intranet release ships only a release the landing published to the

@@ -42,10 +42,11 @@ func NewReleaseOperations(projects *project.Projects, access *identity.Service, 
 
 // ReleasePlan is what would ship if the release button were pressed now.
 type ReleasePlan struct {
-	Configured  bool   `json:"configured"`
-	Deployment  string `json:"deployment"`
-	ConfigError string `json:"configError,omitempty"`
-	URL         string `json:"url,omitempty"`
+	Address     *deployment.AddressReading `json:"address,omitempty"`
+	Configured  bool                       `json:"configured"`
+	Deployment  string                     `json:"deployment"`
+	ConfigError string                     `json:"configError,omitempty"`
+	URL         string                     `json:"url,omitempty"`
 	// Published is whether the project's latest bundle is in its container
 	// registry by digest: only such a bundle is released to the intranet.
 	Published bool `json:"published"`
@@ -89,7 +90,27 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 	} else {
 		out.Configured = true
 		out.Deployment = cfg.ReleaseDeployment
-		_, out.URL = deployment.IntranetAddress(p.Slug, cfg.AppsDomain, p.ReleaseDomain)
+		dep, err := h.deployment.Deployments.ByName(r.Context(), p.ID, cfg.ReleaseDeployment)
+		found, err := database.Lookup(err)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		if found {
+			address, err := h.deployment.ReadAddress(r.Context(), p.ID, dep.ID)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+			out.Address = &address
+			if address.Verified {
+				host := address.GeneratedHostname
+				if address.CustomHostname != "" {
+					host = address.CustomHostname
+				}
+				out.URL = "https://" + host
+			}
+		}
 	}
 	bundle, err := h.deployment.Bundles.Latest(r.Context(), p.ID)
 	if err != nil {
@@ -165,13 +186,17 @@ func (h ReleaseOperations) LANRelease(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonCommand(w, r, jsonBody{optional: true}, func(in ReleaseRequest) {
 		// A release, once begun, finishes though the request ends. A vanity
-		// domain sticks to the project once a release with it is admitted;
+		// domain belongs to the deployment once the release is admitted;
 		// DNS for it is platform-owned (IaC) — AppTown only labels the
 		// stack. A refused release changes nothing.
 		d := strings.TrimSpace(in.Domain)
-		res, code, err := h.deployment.ReleaseLAN(context.WithoutCancel(r.Context()), p, Actor(r), deployment.LANReleaseRequest{Domain: d, AcceptUncopiedData: in.AcceptUncopiedData})
+		res, code, err := h.deployment.ReleaseLAN(context.WithoutCancel(r.Context()), p, Actor(r), deployment.LANReleaseRequest{Domain: d, AddressRevision: in.AddressRevision, AcceptUncopiedData: in.AcceptUncopiedData})
 		if err != nil {
-			WriteError(w, code, "%v", err)
+			if code == 0 {
+				WriteFault(w, err)
+			} else {
+				WriteError(w, code, "%v", err)
+			}
 			return
 		}
 		WriteJSON(w, http.StatusAccepted, res)
@@ -236,7 +261,8 @@ func (h ReleaseOperations) resource(ctx context.Context, p *project.Project) (ac
 // ReleaseRequest is POST /projects/{slug}/release: an optional hostname to
 // serve the release on, kept for later releases.
 type ReleaseRequest struct {
-	Domain string `json:"domain"`
+	AddressRevision *int64 `json:"addressRevision,omitempty"`
+	Domain          string `json:"domain"`
 	// AcceptUncopiedData is a person's choice to release onto an intranet
 	// deployment holding data AppTown cannot copy now; the release
 	// records it.

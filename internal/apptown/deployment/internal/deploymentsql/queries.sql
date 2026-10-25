@@ -356,8 +356,8 @@ SELECT COUNT(*) FROM deployments WHERE project_id=sqlc.arg(project_id) AND targe
 SELECT COUNT(*) FROM retained_resources WHERE target_id=sqlc.arg(target_id) AND disposition=sqlc.arg(disposition);
 
 -- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json)
-VALUES ($1,$2,$3,$4,$5,$6) RETURNING *;
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json)
+VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *;
 
 -- name: ReleaseStartFrom :one
 SELECT start_from_backup FROM release_requests WHERE release_id=sqlc.arg(release_id);
@@ -506,3 +506,41 @@ UPDATE project_release_settings SET default_deployment_id=NULL, revision=revisio
 
 -- name: TargetHasReleaseDefault :one
 SELECT EXISTS(SELECT 1 FROM project_release_settings s JOIN deployments d ON d.id=s.default_deployment_id WHERE d.target_id=$1);
+
+-- name: DeploymentAddressSettings :one
+SELECT * FROM deployment_address_settings WHERE deployment_id=$1;
+
+-- name: DeploymentAddressSettingsForUpdate :one
+SELECT * FROM deployment_address_settings WHERE deployment_id=$1 FOR UPDATE;
+
+-- name: InsertDeploymentAddressSettings :one
+INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain,verification_state)
+VALUES(sqlc.arg(deployment_id),sqlc.arg(generated_hostname),sqlc.arg(custom_hostname),sqlc.arg(certificate_domain),'ready') RETURNING *;
+
+-- name: UpdateDeploymentAddressSettings :one
+UPDATE deployment_address_settings SET generated_hostname=sqlc.arg(generated_hostname),custom_hostname=sqlc.arg(custom_hostname),certificate_domain=sqlc.arg(certificate_domain),verification_state='ready',revision=revision+1
+WHERE deployment_id=sqlc.arg(deployment_id) AND revision=sqlc.arg(expected_revision) RETURNING *;
+
+-- name: EnsureHostnameClaim :exec
+INSERT INTO deployment_hostname_claims(hostname) VALUES($1) ON CONFLICT DO NOTHING;
+
+-- name: LockHostnameClaim :one
+SELECT hostname FROM deployment_hostname_claims WHERE hostname=$1 FOR UPDATE;
+
+-- name: HostnameClaimants :many
+SELECT deployment_id FROM deployment_hostname_claimants WHERE hostname=$1 ORDER BY deployment_id;
+
+-- name: AddHostnameClaimant :exec
+INSERT INTO deployment_hostname_claimants(hostname,deployment_id) VALUES($1,$2) ON CONFLICT DO NOTHING;
+
+-- name: DeploymentHostnameClaims :many
+SELECT hostname FROM deployment_hostname_claimants WHERE deployment_id=$1 ORDER BY hostname;
+
+-- name: RemoveDeploymentHostnameClaims :exec
+DELETE FROM deployment_hostname_claimants WHERE deployment_id=$1;
+
+-- name: RemoveEmptyHostnameClaim :exec
+DELETE FROM deployment_hostname_claims c WHERE c.hostname=$1 AND NOT EXISTS(SELECT 1 FROM deployment_hostname_claimants h WHERE h.hostname=c.hostname);
+
+-- name: HasUnverifiedAddressInventory :one
+SELECT EXISTS(SELECT 1 FROM deployment_address_settings WHERE verification_state='legacy-unverified')::boolean;

@@ -357,3 +357,36 @@ func TestReleaseGoesToTheNamedDeploymentOrTheIntranet(t *testing.T) {
 		t.Fatalf("-domain with a named deployment: %v after %d requests", err, len(*seen))
 	}
 }
+
+func TestReleaseHostnameCarriesTheObservedAddressRevision(t *testing.T) {
+	for _, c := range []struct {
+		plan     string
+		revision float64
+	}{{`{"address":{"revision":7}}`, 7}, {`{}`, 0}} {
+		seen := jsonAppTown(t, func(method, path string) (int, string) {
+			if method == "GET" && path == "/projects/shop/release/plan" {
+				return 200, c.plan
+			}
+			return 202, `{"number":5,"state":"releasing"}`
+		})
+		if _, err := run(t, "release", "shop", "-domain", "customer.example", "--json"); err != nil {
+			t.Fatal(err)
+		}
+		if len(*seen) != 2 || (*seen)[0].Path != "/projects/shop/release/plan" || (*seen)[1].Path != "/projects/shop/release" {
+			t.Fatalf("revision was not read before release: %+v", *seen)
+		}
+		body := (*seen)[1].Body
+		if body["addressRevision"] != c.revision || body["domain"] != "customer.example" {
+			t.Fatalf("release omitted current address revision: %+v", body)
+		}
+	}
+	seen := jsonAppTown(t, func(_, _ string) (int, string) { return 503, `{"error":"address read unavailable"}` })
+	if _, err := run(t, "release", "shop", "-domain", "customer.example", "--json"); err == nil || len(*seen) == 0 {
+		t.Fatalf("failed address read still released: %v %+v", err, *seen)
+	}
+	for _, request := range *seen {
+		if request.Method != "GET" {
+			t.Fatalf("failed address read sent %s", request.Method)
+		}
+	}
+}

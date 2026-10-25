@@ -411,6 +411,11 @@ func TestInputsAreTheSameOnlyWhenEveryFieldIs(t *testing.T) {
 			f.Index(0).SetUint(1)
 		case reflect.Struct: // the applied record
 			other.Applied = AppliedProfile{Profile: "production"}
+		case reflect.Pointer:
+			if v.Type().Field(i).Name != "Address" {
+				t.Fatalf("teach this test to change pointer Inputs.%s", v.Type().Field(i).Name)
+			}
+			other.Address = &AddressSnapshot{Revision: 1}
 		default:
 			t.Fatalf("Inputs.%s is a %s this test cannot change: teach it, and Same", v.Type().Field(i).Name, f.Kind())
 		}

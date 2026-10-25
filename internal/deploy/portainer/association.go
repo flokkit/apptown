@@ -63,6 +63,15 @@ func VerifyStackAssociation(ctx context.Context, cfg Target, stack Stack, deploy
 	if err != nil {
 		return fmt.Errorf("reading Portainer stack ownership: %w", err)
 	}
+	return verifyStackCompose(cfg, stack, deployment, legacy, content)
+}
+
+// verifyStackCompose keeps ownership and further observations on the same
+// provider response; a second read could describe a different stack revision.
+func verifyStackCompose(cfg Target, stack Stack, deployment ids.ID, legacy *StackAssociation, content string) error {
+	if cfg.Scope == nil || cfg.Scope.Version != 1 || cfg.Scope.EndpointID != stack.EndpointID || stack.ID <= 0 || stack.Name == "" || deployment.IsZero() {
+		return errors.New("Portainer stack has no scoped deployment identity")
+	}
 	marker, err := composeDeployment(content)
 	if err != nil {
 		return fmt.Errorf("Portainer stack ownership is malformed: %w", err)

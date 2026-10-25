@@ -13,6 +13,7 @@ import (
 // Inputs are immutable receipt inputs, never resolved credentials or rendered
 // secret data. Admission persists them before deployment execution begins.
 type Inputs struct {
+	Address    *AddressSnapshot
 	ReleaseID  ids.ID
 	ReleaseRun ids.ID
 	// BundleID pins the release bundle a generation runs, ahead of its
@@ -34,6 +35,9 @@ type Inputs struct {
 // Same says whether two inputs name the same work: every field equal, and
 // the same applied profile.
 func (in Inputs) Same(other Inputs) bool {
+	if (in.Address == nil) != (other.Address == nil) || (in.Address != nil && !in.Address.same(*other.Address)) {
+		return false
+	}
 	if in.ReleaseID != other.ReleaseID || in.ReleaseRun != other.ReleaseRun || in.BundleID != other.BundleID ||
 		in.Revision != other.Revision || in.ImageDigest != other.ImageDigest || in.ArtifactHash != other.ArtifactHash ||
 		in.DockerSource != other.DockerSource || in.Rebuild != other.Rebuild {

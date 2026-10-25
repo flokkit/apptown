@@ -28,6 +28,7 @@ export function NewReleasePage({ slug }: { slug: string }) {
   const blocker =
     !plan.configured ? plan.configError ?? 'the intranet is not set up yet' :
     !plan.published ? "The intranet pulls every image from the project's container registry, and the latest landing was not published there. Attach a container registry to the project, then land a change." :
+    plan.address && plan.address.revision > 0 && !plan.address.verified ? 'Confirm this deployment’s existing addresses in its settings before releasing.' :
     !plan.head ? 'nothing has landed yet' : ''
 
   return (

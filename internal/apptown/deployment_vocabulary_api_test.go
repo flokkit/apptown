@@ -138,3 +138,44 @@ func TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity(t *
 		t.Fatalf("cleared choice: %d %s %v", w.Code, w.Body, err)
 	}
 }
+
+func TestDeploymentAddressHTTPChecksCurrentAuthorityAndRevision(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: "address-http", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, Status: deployment.TargetReady, Address: map[string]any{"tier": "lan"}, Ingress: map[string]any{"domain": "apps.example"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deployment.Targets.Offer(t.Context(), target, "*", deployment.OfferCaps{}, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "lan", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := "/api/v1/projects/game/deployments/" + dep.ID.String() + "/address"
+	h := a.Handler()
+	if w := authzCall(h, "outsider", http.MethodPut, path, `{"expectedRevision":0,"customHostname":"customer.example"}`); w.Code != http.StatusForbidden {
+		t.Fatalf("unauthorized edit: %d %s", w.Code, w.Body)
+	}
+	if w := authzCall(h, "boss", http.MethodPut, path, `{"expectedRevision":0,"customHostname":"customer.example"}`); w.Code != http.StatusOK {
+		t.Fatalf("authorized edit: %d %s", w.Code, w.Body)
+	}
+	if w := authzCall(h, "boss", http.MethodPut, path, `{"expectedRevision":0,"customHostname":"stale.example"}`); w.Code != http.StatusConflict {
+		t.Fatalf("stale edit: %d %s", w.Code, w.Body)
+	}
+	w := authzCall(h, "boss", http.MethodGet, path, "")
+	var reading deployment.AddressReading
+	if err := json.Unmarshal(w.Body.Bytes(), &reading); err != nil || w.Code != http.StatusOK || reading.CustomHostname != "customer.example" || reading.Revision != 1 {
+		t.Fatalf("address read: %d %s %v", w.Code, w.Body, err)
+	}
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		body := ""
+		if method == http.MethodPost {
+			body = `{}`
+		}
+		if w := authzCall(h, "outsider", method, path+"/observation", body); w.Code != http.StatusForbidden {
+			t.Fatalf("unauthorized observation %s: %d %s", method, w.Code, w.Body)
+		}
+	}
+}

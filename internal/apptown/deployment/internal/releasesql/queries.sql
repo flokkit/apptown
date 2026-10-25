@@ -6,12 +6,12 @@ SELECT id, project_id, number, deployment_id, generation, run_id, state, deploym
   approved_by, commit_sha, external_ref, artifact_hash FROM releases WHERE id = $1 FOR UPDATE;
 
 -- name: DeploymentInputs :one
-SELECT release_id, release_run, revision, image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied
+SELECT release_id, release_run, revision, image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json
 FROM deployment_attempt_inputs WHERE attempt_id = $1;
 
 -- name: InsertDeploymentInputs :execrows
 INSERT INTO deployment_attempt_inputs(attempt_id, release_id, release_run, revision,
-  image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+  image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 -- name: SettleReleaseAttempt :execrows
 UPDATE releases SET state = sqlc.arg(state), deployment_id = sqlc.arg(deployment_id), generation = sqlc.arg(generation),

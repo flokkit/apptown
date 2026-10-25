@@ -217,13 +217,24 @@ func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testin
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secrets})
 	authority := &grants{who: "alice", deny: map[string]bool{}}
 	s := assembled(db, testRuntime{Scope: docker.Scope{Client: docker.CLI{Binary: "docker"}}, DataDir: dir, Needs: catalog, Secrets: secrets, Projects: projects, Integrations: integrations, ChownImage: stock.Images().Sh, BuiltInTarget: "local"},
-		deployment.Dependencies{Authority: authority, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
+		deployment.Dependencies{Authority: authority, Configuration: deployment.ConfigurationDependencies{Authority: authority, Projects: &releasedContracts{}}, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
 	target, err := s.AttachPortainerTarget(ctx, deployment.PortainerAttachment{Name: "lan", Environment: "lan", URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_KEY", Domain: "lan"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	dep, err := s.Deployments.EnsureStanding(ctx, pid, "lan", target.ID, deployment.Attributes{}.WithDefaults())
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Targets.Offer(ctx, target, "*", deployment.OfferCaps{}, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	address, err := s.EditAddress(ctx, pid, dep.ID, 0, slug+".customer.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	laterDomain := "changed.example"
+	if _, err := s.Targets.EditSettings(ctx, target.Name, deployment.TargetSettingsEdit{ExpectedRevision: &target.SettingsRevision, Domain: &laterDomain}, "alice"); err != nil {
 		t.Fatal(err)
 	}
 	// The stack and its volumes are named by the deployment, as the
@@ -278,7 +289,7 @@ needs:
 	if err != nil {
 		t.Fatal(err)
 	}
-	src := deploy.Source{Slug: slug, Revision: "0123456789abcdef", Contract: contract, Published: true, Platform: platform,
+	src := deploy.Source{Ingress: &address.Ingress, Slug: slug, Revision: "0123456789abcdef", Contract: contract, Published: true, Platform: platform,
 		Images: map[string]string{"web": stock.Images().DF, "worker": stock.Images().DF}, Init: map[string]string{"migrate": stock.Images().DF}}
 	art, err := d.(deploy.Renderer).Render(ctx, dep.Placement(), src, nil, noStackSecrets{}, t.Logf)
 	if err != nil {
@@ -288,6 +299,29 @@ needs:
 	if _, err := d.Reconcile(ctx, dep.Placement(), 1, art, "release-1", t.Logf, func(map[string]any) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
+	verifyIngress := func() {
+		t.Helper()
+		verified, err := s.providers.PortainerConfig(ctx, target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stacks, err := portainer.ListStacks(ctx, verified)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, running := range stacks {
+			if running.Name != stack {
+				continue
+			}
+			observed, err := portainer.ReadStackIngress(ctx, *verified, running, dep.ID, nil)
+			if err != nil || !observed.Same(address.Ingress) {
+				t.Fatalf("provider changed admitted host/certificate rules: %+v %v", observed, err)
+			}
+			return
+		}
+		t.Fatal("recorded provider stack is absent")
+	}
+	verifyIngress()
 	app, worker, pg, store := stack+"-app-1", stack+"-worker-1", stack+"-postgres-1", stack+"-s3-1"
 	for _, c := range []string{app, worker, pg, store} {
 		if !poll.Until(ctx, 120*time.Second, time.Second, func() bool {
@@ -371,6 +405,7 @@ needs:
 		t.Fatalf("the completed init container was started again: %s", out)
 	}
 
+	verifyIngress() // application-data restoration leaves routing and certificate input intact.
 	removed, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "lan"})
 	if err != nil || removed.Removed == nil || removed.Removed.FinalBackup == nil {
 		t.Fatalf("take-down: %+v %v", removed, err)

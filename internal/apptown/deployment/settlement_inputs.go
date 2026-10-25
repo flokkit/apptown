@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 )
@@ -13,6 +14,14 @@ func (s *Outcomes) InputsFor(ctx context.Context, at Attempt) (Inputs, error) {
 	if err != nil {
 		return Inputs{}, err
 	}
+	var raw json.RawMessage
+	if r.IngressJson != nil {
+		raw = *r.IngressJson
+	}
+	address, err := addressSnapshotFrom(raw)
+	if err != nil {
+		return Inputs{}, err
+	}
 	applied, err := appliedFrom(r.Applied)
-	return Inputs{ReleaseID: r.ReleaseID, ReleaseRun: r.ReleaseRun, Revision: r.Revision, ImageDigest: r.ImageDigest, ArtifactHash: r.ArtifactHash, DockerSource: r.DockerSource, Rebuild: r.Rebuild, BundleID: r.BundleID, Applied: applied}, err
+	return Inputs{Address: address, ReleaseID: r.ReleaseID, ReleaseRun: r.ReleaseRun, Revision: r.Revision, ImageDigest: r.ImageDigest, ArtifactHash: r.ArtifactHash, DockerSource: r.DockerSource, Rebuild: r.Rebuild, BundleID: r.BundleID, Applied: applied}, err
 }

@@ -9,6 +9,9 @@ import (
 // The deployment, target and release routes' responses.
 func init() {
 	registerWire(
+		wiregen.Named{Name: "DeploymentAddress", Value: deployment.AddressReading{}},
+		wiregen.Named{Name: "AddressSnapshot", Value: deployment.AddressSnapshot{}},
+		wiregen.Named{Name: "AddressObservation", Value: deployment.AddressObservation{}},
 		wiregen.Named{Name: "ReleaseDefault", Value: deployment.ReleaseDefault{}},
 		wiregen.Named{Name: "DeploymentBackups", Value: DeploymentBackups{}},
 		wiregen.Named{Name: "BackupTaken", Value: BackupTaken{}},
