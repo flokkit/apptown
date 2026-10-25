@@ -51,7 +51,11 @@ type Bindings struct {
 	committed func()
 }
 
-func New(db *database.DB) *Bindings { return &Bindings{db: db} }
+// NewWithClock gives standalone binding consumers the instance clock used for
+// version and receipt timestamps. Nil retains the real clock.
+func NewWithClock(db *database.DB, now func() time.Time) *Bindings {
+	return &Bindings{db: db, clock: now}
+}
 
 func (s *Bindings) now() time.Time { return clock.Or(s.clock)().UTC() }
 

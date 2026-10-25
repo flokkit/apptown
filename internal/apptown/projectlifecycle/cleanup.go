@@ -18,12 +18,12 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/maintenance"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/gitlab"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -53,9 +53,9 @@ type WorkerPreviews interface {
 	RemovePreviewForGood(ctx context.Context, name string) error
 }
 
-// GitLabClient opens the configured GitLab, read afresh for each attempt.
+// GitLabClient verifies the saved identity using one current credential snapshot.
 type GitLabClient interface {
-	Client(ctx context.Context) (*gitlab.Client, error)
+	VerifyRecorded(context.Context, scm.RepositoryIdentity) (scm.VerifiedRepository, error)
 }
 
 // Cleanup carries out a recorded cleanup plan. It never deletes records and
@@ -185,7 +185,11 @@ func (c Cleanup) Clean(ctx context.Context, owner project.RepositoryRef, plan Cl
 	// The GitLab copy is never destroyed: it is renamed out of the way,
 	// freeing the path for a future project, and archived read-only.
 	if plan.GitLabPath != "" {
-		note(c.archiveGitLab(ctx, plan))
+		if plan.RepositoryIdentity != nil && plan.RepositoryIdentity.ProjectID != owner.ID {
+			note(fmt.Errorf("cleanup repository identity belongs to another project"))
+		} else {
+			note(c.archiveGitLab(ctx, plan))
+		}
 	}
 	note(os.RemoveAll(repo))
 	return failed
@@ -196,17 +200,17 @@ func (c Cleanup) Clean(ctx context.Context, owner project.RepositoryRef, plan Cl
 // same project and does only what is left. A refusal to archive (the token
 // needs Owner) is a failure, never a quiet success.
 func (c Cleanup) archiveGitLab(ctx context.Context, plan CleanupPlan) error {
-	if plan.GitLabProjectID == 0 {
-		return fmt.Errorf("the plan does not say which GitLab project was at %s; archive it by hand, then retry", plan.GitLabPath)
+	if plan.RepositoryIdentity == nil || plan.RepositoryIdentity.ProviderProjectID != plan.GitLabProjectID {
+		return fmt.Errorf("the cleanup plan has no verified provider identity for %s; inspect its original provider before retrying", plan.GitLabPath)
 	}
-	gl, err := c.GitLab.Client(ctx)
+	if c.GitLab == nil {
+		return fmt.Errorf("repository cleanup verifier is unavailable")
+	}
+	verified, err := c.GitLab.VerifyRecorded(ctx, *plan.RepositoryIdentity)
 	if err != nil {
 		return fmt.Errorf("the GitLab copy at %s was not archived: %w", plan.GitLabPath, err)
 	}
-	p, err := gl.Project(ctx, strconv.FormatInt(plan.GitLabProjectID, 10))
-	if err != nil {
-		return fmt.Errorf("reading GitLab project %d (%s): %w", plan.GitLabProjectID, plan.GitLabPath, err)
-	}
+	gl, p := verified.Provider.Client, verified.Observed
 	if path.Base(p.PathNS) != plan.GitLabArchive {
 		if err := gl.RenameProject(ctx, p.ID, plan.GitLabArchive); err != nil {
 			return fmt.Errorf("moving GitLab project %d from %s to %s: %w", p.ID, p.PathNS, plan.GitLabArchive, err)

@@ -3,6 +3,7 @@ package scm
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,10 +32,11 @@ func TestAMergeRequestIsRefusedWhenGitLabRebasesAutomatically(t *testing.T) {
 			fake := gitlabtest.New(t)
 			yes := true
 			fake.Settings(gitlab.MergeSettings{MergeMethod: method, SquashOption: "never", AutomaticRebase: &yes})
-			fake.Put("p", gitlab.MergeRequest{IID: 1, State: "opened", SHA: candidate, SourceBranch: "change", TargetBranch: "main"})
+			fake.Put("71", gitlab.MergeRequest{IID: 1, State: "opened", SHA: candidate, SourceBranch: "change", TargetBranch: "main"})
 			fake.OnBranch = func(string, string) (string, error) { return base, nil }
-			driver := &gitDriver{dataDir: t.TempDir(), provider: func(context.Context) (*gitlab.Client, error) { return fake.Client() }}
-			plan, err := driver.Prepare(context.Background(), Source{Repository: repo, Branch: "change", DefaultBranch: "main", Candidate: candidate, Target: base, PinRequired: true, MR: MergeRequest{Project: "p", IID: 1}}, "")
+			identity, provider := fixtureProviderIdentity(t, fake, idstest.N(1), remote)
+			driver := &gitDriver{dataDir: t.TempDir(), provider: provider}
+			plan, err := driver.Prepare(context.Background(), Source{ProjectID: idstest.N(1), Repository: repo, Branch: "change", DefaultBranch: "main", Candidate: candidate, Target: base, PinRequired: true, MR: MergeRequest{Identity: *identity, Project: "p", IID: 1}}, "")
 			if !errors.Is(err, ErrMergeRequestSettings) {
 				t.Fatalf("automatic rebasing not refused: plan=%+v err=%v", plan, err)
 			}

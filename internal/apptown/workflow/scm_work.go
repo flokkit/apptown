@@ -78,7 +78,7 @@ func (w SCMWork) claim(run Run, source MergeSource, call *MergeCall, attribution
 		snapshot.Step.Evidence = slices.Clone(call.Step.Evidence)
 		call = &snapshot
 	}
-	selected := scm.Source{RunID: source.RunID, RunNumber: run.Number, ProjectID: source.ProjectID, Branch: source.Branch, WorkflowName: source.WorkflowName, WorkflowVersion: source.WorkflowVersion, MR: scm.MergeRequest{Project: source.MR.Project, IID: source.MR.IID},
+	selected := scm.Source{RunID: source.RunID, RunNumber: run.Number, ProjectID: source.ProjectID, Branch: source.Branch, WorkflowName: source.WorkflowName, WorkflowVersion: source.WorkflowVersion, MR: scm.MergeRequest{Project: source.MR.Project, IID: source.MR.IID, Identity: source.MR.Identity},
 		Candidate: source.Landing.Candidate, Target: source.Landing.Target, PinRequired: source.PinRequired, Attribution: attribution}
 	if source.RepoBacked() {
 		var err error

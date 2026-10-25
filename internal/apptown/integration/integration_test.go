@@ -18,7 +18,7 @@ import (
 func TestBindingsVersionsAndRules(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	bs := New(db)
+	bs := NewWithClock(db, nil)
 	if v, err := bs.Upsert(t.Context(), "semgrep", "scanner", "tool", `{"image":"semgrep:1"}`, true); err != nil || v != 1 {
 		t.Fatalf("first: %d %v", v, err)
 	}
@@ -165,7 +165,7 @@ func TestAttachmentsRulesAndReceipts(t *testing.T) {
 func TestBindingVersionFailureRollsBackConfiguration(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	bindings := New(db)
+	bindings := NewWithClock(db, nil)
 	if _, err := bindings.Upsert(t.Context(), "cache", "cache", "redis", `{"image":"one"}`, false); err != nil {
 		t.Fatal(err)
 	}

@@ -2,6 +2,7 @@ package projectlifecycle
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -62,19 +63,20 @@ var ErrCleanupStillRunning = fault.New(fault.Conflict, "that project's cleanup i
 // the hub repository and archives the GitLab copy before the records go, so
 // a plan made by a purge names neither.
 type CleanupPlan struct {
-	Slug            string   `json:"slug"`
-	RunIDs          []ids.ID `json:"runIds"`
-	ChangeIDs       []ids.ID `json:"changeIds"`
-	PreviewSteps    []ids.ID `json:"previewSteps"`              // run-step preview stacks, by step
-	Transcripts     []string `json:"transcripts,omitempty"`     // kept agent transcripts, by digest
-	GitLabPath      string   `json:"gitlabPath,omitempty"`      // where the GitLab copy was
-	GitLabProjectID int64    `json:"gitlabProjectId,omitempty"` // which GitLab project it is, for ever
-	GitLabArchive   string   `json:"gitlabArchive,omitempty"`   // the name it is archived under
+	RepositoryIdentity *scm.RepositoryIdentity `json:"repositoryIdentity,omitempty"`
+	Slug               string                  `json:"slug"`
+	RunIDs             []ids.ID                `json:"runIds"`
+	ChangeIDs          []ids.ID                `json:"changeIds"`
+	PreviewSteps       []ids.ID                `json:"previewSteps"`              // run-step preview stacks, by step
+	Transcripts        []string                `json:"transcripts,omitempty"`     // kept agent transcripts, by digest
+	GitLabPath         string                  `json:"gitlabPath,omitempty"`      // where the GitLab copy was
+	GitLabProjectID    int64                   `json:"gitlabProjectId,omitempty"` // which GitLab project it is, for ever
+	GitLabArchive      string                  `json:"gitlabArchive,omitempty"`   // the name it is archived under
 }
 
-// GitLabProjects names the GitLab project at a path by its permanent id.
+// GitLabProjects observes the repository identity owned by a deleted project.
 type GitLabProjects interface {
-	ProjectID(ctx context.Context, pathNS string) (int64, error)
+	ResolveForDeletion(context.Context, ids.ID) (scm.VerifiedRepository, error)
 }
 
 // DeletionData is what a deletion asks of data protection: taking one of
@@ -707,26 +709,35 @@ func (d *Deletion) admitPurge(ctx context.Context, projectID ids.ID, authority a
 	// The GitLab copy is named by its permanent id before anything is
 	// removed, and archived under a name no later project can take.
 	input := map[string]any{"slug": p.Slug, "now": now}
-	repo, err := p.Repository(d.lifecycle.dataDir)
+	earlier, err := d.deps.Operations.OnSubject(ctx, subjectOf(projectID), 20)
 	if err != nil {
 		return nil, err
 	}
-	if _, pathNS, ok := scm.Origin(ctx, repo); ok && pathNS != "" {
-		id, err := d.deps.GitLab.ProjectID(ctx, pathNS)
-		if err != nil {
-			return nil, fmt.Errorf("the GitLab copy at %s could not be looked up, so the purge cannot archive it; try again: %w", pathNS, err)
+	prior := false
+	for _, op := range earlier {
+		if op.Kind != PurgeKind {
+			continue
 		}
-		input["gitlabPath"], input["gitlabProjectId"], input["gitlabArchive"] = pathNS, id, fmt.Sprintf("%s-deleted-%d", p.Slug, p.ID)
-	} else if earlier, err := d.deps.Operations.OnSubject(ctx, subjectOf(projectID), 20); err != nil {
-		return nil, err
-	} else {
-		// An earlier purge removed the hub repository, so its origin is
-		// gone: the GitLab copy is the one that purge named.
-		for _, op := range earlier {
-			if path, _ := op.Input["gitlabPath"].(string); op.Kind == PurgeKind && path != "" {
-				input["gitlabPath"], input["gitlabProjectId"], input["gitlabArchive"] = path, op.Input["gitlabProjectId"], op.Input["gitlabArchive"]
-				break
+		prior = true
+		if path, _ := op.Input["gitlabPath"].(string); path != "" {
+			identity, err := purgeRepositoryIdentity(op.Input, projectID)
+			if err != nil {
+				return nil, err
 			}
+			input["gitlabPath"], input["gitlabProjectId"], input["gitlabArchive"], input["repositoryIdentity"] = path, identity.ProviderProjectID, op.Input["gitlabArchive"], identity
+		}
+		break
+	}
+	if !prior && p.DefaultBranch != "" {
+		if d.deps.GitLab == nil {
+			return nil, fmt.Errorf("repository deletion identity resolver is unavailable")
+		}
+		verified, err := d.deps.GitLab.ResolveForDeletion(ctx, projectID)
+		if err != nil && !errors.Is(err, scm.ErrNoUpstream) {
+			return nil, fmt.Errorf("the upstream repository could not be verified for purge: %w", err)
+		}
+		if err == nil {
+			input["gitlabPath"], input["gitlabProjectId"], input["gitlabArchive"], input["repositoryIdentity"] = verified.Observed.PathNS, verified.Identity.ProviderProjectID, fmt.Sprintf("%s-deleted-%s", p.Slug, p.ID), verified.Identity
 		}
 	}
 	return database.Transact(ctx, d.lifecycle.db, func(tx *database.Tx) (*operations.Operation, error) {
@@ -745,4 +756,19 @@ func (d *Deletion) admitPurge(ctx context.Context, projectID ids.ID, authority a
 		}
 		return d.deps.Operations.AdmitIn(ctx, tx, operations.Spec{Kind: PurgeKind, ProjectID: projectID, Subject: subjectOf(projectID), Authority: authority, Input: input})
 	})
+}
+
+func purgeRepositoryIdentity(input map[string]any, projectID ids.ID) (*scm.RepositoryIdentity, error) {
+	raw, err := json.Marshal(input["repositoryIdentity"])
+	if err != nil {
+		return nil, err
+	}
+	identity, err := scm.DecodeRepositoryIdentity(raw)
+	if err != nil {
+		return nil, err
+	}
+	if identity == nil || identity.ProjectID != projectID {
+		return nil, fault.New(fault.Conflict, "recorded purge has no verified upstream identity; inspect its original provider before continuing")
+	}
+	return identity, nil
 }

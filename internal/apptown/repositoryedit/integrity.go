@@ -80,6 +80,7 @@ func (editor *Integrity) Resolve(ctx context.Context, p *project.Project, action
 		}
 		// The commit is the act, kept in history; its receipt is required.
 		recordErr := scm.RecordMain(ctx, editor.db, repo, p.ID, p.DefaultBranch, scm.ViaIntegrityAdopt, editor.now())
+		release() // the upstream owner acquires this same repository lock
 		editor.publisher.PushBranch(ctx, p.ID, repo, p.DefaultBranch)
 		if err := audit.At(editor.now()).Record(settle, editor.db, who, p.ID, "integrity.out-of-band-edits", action, evidence); err != nil {
 			return IntegrityResult{}, fmt.Errorf("kept the edits, but their receipt was not recorded: %w", err)

@@ -507,7 +507,7 @@ func (r emptyReachAnswers) RoundTrip(req *http.Request) (*http.Response, error) 
 func TestEveryRegistryNeedsTheWorkersAnswer(t *testing.T) {
 	t.Parallel()
 	w := newWorld(t)
-	if _, err := integration.New(w.db).Upsert(t.Context(), "npm-mirror", "registry", "registry", `{"format":"npm","url":"https://registry.invalid"}`, false); err != nil {
+	if _, err := integration.NewWithClock(w.db, nil).Upsert(t.Context(), "npm-mirror", "registry", "registry", `{"format":"npm","url":"https://registry.invalid"}`, false); err != nil {
 		t.Fatal(err)
 	}
 	w.remote.Sessions.Client.Transport = emptyReachAnswers{w.remote.Sessions.Client.Transport}

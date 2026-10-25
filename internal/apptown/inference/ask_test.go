@@ -44,7 +44,7 @@ func newAskWorld(t *testing.T, api string, upstream http.HandlerFunc) *askWorld 
 	}))
 	t.Cleanup(server.Close)
 	cfg, _ := json.Marshal(map[string]any{"baseUrl": server.URL, "api": api, "models": []string{"judge"}, "providerDef": map[string]any{"apiKey": "provider-key"}})
-	if _, err := integration.New(w.db).Save(context.Background(), "native", "model", "native", string(cfg), "fixture"); err != nil {
+	if _, err := integration.NewWithClock(w.db, nil).Save(context.Background(), "native", "model", "native", string(cfg), "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	w.g = New(nil, Identity{}, NewCatalog(w.db, secret.NewService(w.db, secret.Config{DataDir: t.TempDir()})), usage.NewRequests(w.db))

@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -132,7 +134,7 @@ func TestProjectCleanupMovesAndArchivesItsGitLabCopyOnce(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	plan := CleanupPlan{Slug: "game", GitLabPath: "team/game", GitLabProjectID: 100, GitLabArchive: "game-deleted-100"}
+	plan := CleanupPlan{RepositoryIdentity: fixtureCleanupIdentity(server.URL, idstest.N(100), "team/game"), Slug: "game", GitLabPath: "team/game", GitLabProjectID: 100, GitLabArchive: "game-deleted-100"}
 	c := cleanupFixture(t, dockerfake.New(), gitlabAt(server.URL), plan)
 	if _, err := c.Run(context.Background(), CleanupKey(idstest.N(100), 0), nil); err != nil {
 		t.Fatal(err)
@@ -202,4 +204,25 @@ func TestCleanupUsesRetainedDeletionOwnershipAfterProjectRowsAreGone(t *testing.
 	if raw, err := os.ReadFile(filepath.Join(hubDir(c.DataDir, idstest.N(101)), "keep")); err != nil || string(raw) != "neighbor" {
 		t.Fatalf("wrong repository touched: %s %v", raw, err)
 	}
+}
+
+func fixtureCleanupIdentity(base string, projectID ids.ID, path string) *scm.RepositoryIdentity {
+	return &scm.RepositoryIdentity{AttachmentID: idstest.N(7901), ProjectID: projectID, Scope: scm.ProviderScope{ConnectionID: idstest.N(7902), Kind: "gitlab", Base: base, AccountID: 41}, ProviderProjectID: 100, CloneURL: base + "/" + path + ".git", Path: path}
+}
+func (g gitlabAt) VerifyRecorded(ctx context.Context, identity scm.RepositoryIdentity) (scm.VerifiedRepository, error) {
+	if identity.Scope.Base != string(g) {
+		return scm.VerifiedRepository{}, fmt.Errorf("provider scope changed")
+	}
+	client, err := g.Client(ctx)
+	if err != nil {
+		return scm.VerifiedRepository{}, err
+	}
+	observed, err := client.Project(ctx, strconv.FormatInt(identity.ProviderProjectID, 10))
+	if err != nil {
+		return scm.VerifiedRepository{}, err
+	}
+	if observed.ID != identity.ProviderProjectID {
+		return scm.VerifiedRepository{}, fmt.Errorf("provider object changed")
+	}
+	return scm.VerifiedRepository{Identity: identity, Provider: scm.ProviderSession{Scope: identity.Scope, Client: client}, Observed: observed}, nil
 }

@@ -1,13 +1,11 @@
 package workflowexec
 
 import (
-	"context"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/gitlab"
 )
 
 const MergeRequestKind = "scm/mr"
@@ -16,15 +14,11 @@ const ReconcileKind = "reconcile"
 // Repositories adapts repository effects to admitted workflow steps. The
 // provider resolves credentials at use; no transport or App reaches the runner.
 type Repositories struct {
-	db       *database.DB
-	provider RepositoryProvider
-	branches *scm.Branches
-	cfg      RepositoryConfig
-	clock    func() time.Time // AppTown's clock; nil is the real one
-}
-type RepositoryProvider interface {
-	Client(ctx context.Context) (*gitlab.Client, error)
-	AskpassEnv(ctx context.Context) ([]string, error)
+	db          *database.DB
+	attachments *scm.RepositoryAttachments
+	branches    *scm.Branches
+	cfg         RepositoryConfig
+	clock       func() time.Time // AppTown's clock; nil is the real one
 }
 type RepositoryConfig struct {
 	DataDir, PublicHost string
@@ -33,8 +27,8 @@ type RepositoryConfig struct {
 	Now func() time.Time
 }
 
-func NewRepositories(db *database.DB, provider RepositoryProvider, branches *scm.Branches, cfg RepositoryConfig) *Repositories {
-	return &Repositories{db: db, provider: provider, branches: branches, cfg: cfg, clock: cfg.Now}
+func NewRepositories(db *database.DB, attachments *scm.RepositoryAttachments, branches *scm.Branches, cfg RepositoryConfig) *Repositories {
+	return &Repositories{db: db, attachments: attachments, branches: branches, cfg: cfg, clock: cfg.Now}
 }
 
 // now reads AppTown's clock.

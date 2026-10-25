@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,7 +24,7 @@ import (
 type GitDrivers struct {
 	Runner   execution.Runner
 	DataDir  string
-	Provider func(context.Context) (*gitlab.Client, error)
+	Provider func(context.Context, RepositoryIdentity) (VerifiedRepository, error)
 	// ChangeURL is a change's page on this AppTown, "" when AppTown has no
 	// public address; merge commits and merge requests link to it.
 	ChangeURL func(changeID ids.ID) string
@@ -35,14 +37,17 @@ func (d GitDrivers) Driver() Driver {
 // This adapter knows Git and the provider protocol, not Work rows or SQL.
 // One driver instance freezes provider credentials for one operation.
 type gitDriver struct {
-	runner      execution.Runner
-	dataDir     string
-	provider    func(context.Context) (*gitlab.Client, error)
-	changeURL   func(ids.ID) string
-	once        sync.Once
-	client      *gitlab.Client
-	env         []string
-	providerErr error
+	runner           execution.Runner
+	dataDir          string
+	provider         func(context.Context, RepositoryIdentity) (VerifiedRepository, error)
+	changeURL        func(ids.ID) string
+	once             sync.Once
+	client           *gitlab.Client
+	env              []string
+	providerErr      error
+	providerProject  string
+	providerURL      string
+	providerIdentity RepositoryIdentity
 }
 
 func (d *gitDriver) git(ctx context.Context, repo string, env []string, args ...string) (string, error) {
@@ -77,17 +82,36 @@ func (d *gitDriver) pageOf(source Source) string {
 	}
 	return d.changeURL(source.Attribution.ChangeID)
 }
-func (d *gitDriver) providerClient(ctx context.Context) (*gitlab.Client, []string, error) {
+func (d *gitDriver) providerClient(ctx context.Context, source Source) (*gitlab.Client, []string, error) {
+	if source.MR.Identity.AttachmentID.IsZero() || source.MR.Identity.ProjectID != source.ProjectID {
+		return nil, nil, fmt.Errorf("recorded merge request has no verified provider identity; inspect its original repository before continuing")
+	}
 	d.once.Do(func() {
 		if d.provider == nil {
 			d.providerErr = fmt.Errorf("merge provider is unavailable")
 			return
 		}
-		d.client, d.providerErr = d.provider(ctx)
-		if d.providerErr == nil {
-			d.env, d.providerErr = d.client.AskpassEnv(d.dataDir)
+		verified, err := d.provider(ctx, source.MR.Identity)
+		if err != nil {
+			d.providerErr = err
+			return
 		}
+		if verified.Identity != source.MR.Identity || verified.Provider.Client == nil {
+			d.providerErr = fmt.Errorf("merge provider changed the recorded identity")
+			return
+		}
+		d.providerIdentity = verified.Identity
+		d.providerProject = strconv.FormatInt(verified.Identity.ProviderProjectID, 10)
+		d.providerURL, d.providerErr = credentialURL(verified.Observed.HTTPURL)
+		if d.providerErr != nil {
+			return
+		}
+		d.client = verified.Provider.Client
+		d.env, d.providerErr = d.client.AskpassEnv(d.dataDir)
 	})
+	if d.providerErr == nil && d.providerIdentity != source.MR.Identity {
+		return nil, nil, fmt.Errorf("merge driver cannot change its recorded provider identity")
+	}
 	return d.client, d.env, d.providerErr
 }
 func (d *gitDriver) Prepare(ctx context.Context, source Source, previous string) (Prepared, error) {
@@ -289,12 +313,12 @@ func (d *gitDriver) prepareMR(ctx context.Context, source Source) (Prepared, err
 	if source.Candidate == "" {
 		return Prepared{}, fmt.Errorf("this landing has no pinned candidate; it cannot merge")
 	}
-	gl, env, err := d.providerClient(ctx)
+	gl, env, err := d.providerClient(ctx, source)
 	if err != nil {
 		return Prepared{}, err
 	}
 	tip := source.Candidate
-	current, err := gl.GetMR(ctx, source.MR.Project, source.MR.IID)
+	current, err := gl.GetMR(ctx, d.providerProject, source.MR.IID)
 	if err != nil {
 		return Prepared{}, err
 	}
@@ -319,14 +343,14 @@ func (d *gitDriver) prepareMR(ctx context.Context, source Source) (Prepared, err
 	default:
 		return Prepared{}, fmt.Errorf("recorded merge request is %q; it is not ready to merge", current.State)
 	}
-	settings, err := gl.MergeSettings(ctx, source.MR.Project)
+	settings, err := gl.MergeSettings(ctx, d.providerProject)
 	if err != nil {
 		return Prepared{}, err
 	}
 	if err := checkedMergeSettings(settings, current); err != nil {
 		return Prepared{}, err
 	}
-	head, err := gl.BranchHead(ctx, source.MR.Project, source.DefaultBranch)
+	head, err := gl.BranchHead(ctx, d.providerProject, source.DefaultBranch)
 	if err != nil {
 		return Prepared{}, err
 	}
@@ -336,11 +360,11 @@ func (d *gitDriver) prepareMR(ctx context.Context, source Source) (Prepared, err
 	// The request's branch is set to exactly the candidate; a branch with
 	// commits AppTown did not check refuses the push instead of losing
 	// them.
-	out, err := d.git(ctx, source.Repository, env, "push", "origin", tip+":refs/heads/"+source.Branch)
+	out, err := gitexec.PushVerifiedRevision(ctx, source.Repository, d.providerURL, tip, source.Branch, env)
 	if err != nil {
 		return Prepared{}, fmt.Errorf("publishing the checked candidate to the merge request: %w: %s", err, strs.Truncate(out, 200))
 	}
-	current, err = gl.GetMR(ctx, source.MR.Project, source.MR.IID)
+	current, err = gl.GetMR(ctx, d.providerProject, source.MR.IID)
 	if err != nil {
 		return Prepared{}, err
 	}
@@ -378,7 +402,7 @@ func checkedMergeSettings(settings gitlab.MergeSettings, mr *gitlab.MergeRequest
 }
 
 func (d *gitDriver) executeMR(ctx context.Context, source Source, plan Prepared) (Execution, error) {
-	gl, _, err := d.providerClient(ctx)
+	gl, _, err := d.providerClient(ctx, source)
 	if err != nil {
 		return Execution{}, err
 	}
@@ -389,15 +413,15 @@ func (d *gitDriver) executeMR(ctx context.Context, source Source, plan Prepared)
 	// AppTown's merge: prepareMR settles it without coming here.
 	if source.Attribution != nil {
 		description := MergeRequestDescription(*source.Attribution, d.pageOf(source))
-		if err := gl.UpdateMRDescription(ctx, source.MR.Project, source.MR.IID, description); err != nil {
+		if err := gl.UpdateMRDescription(ctx, d.providerProject, source.MR.IID, description); err != nil {
 			return Execution{}, fmt.Errorf("could not record the approvals on merge request !%d, so it was not merged; retry: %w", source.MR.IID, err)
 		}
 	}
 	message := mergeMessage(source, "", d.pageOf(source))
-	if err := gl.MergeMR(ctx, source.MR.Project, source.MR.IID, plan.Expected, message); err != nil {
+	if err := gl.MergeMR(ctx, d.providerProject, source.MR.IID, plan.Expected, message); err != nil {
 		return Execution{}, err
 	}
-	current, err := gl.GetMR(ctx, source.MR.Project, source.MR.IID)
+	current, err := gl.GetMR(ctx, d.providerProject, source.MR.IID)
 	if err != nil {
 		return Execution{}, err
 	}
@@ -424,11 +448,11 @@ func (d *gitDriver) confirmMR(ctx context.Context, source Source, tip string, cu
 	if result == "" {
 		result = current.SHA
 	}
-	_, env, err := d.providerClient(ctx)
+	_, env, err := d.providerClient(ctx, source)
 	if err != nil {
 		return "", err
 	}
-	out, err := d.git(ctx, source.Repository, env, "fetch", "origin", source.DefaultBranch)
+	out, err := gitexec.FetchVerifiedURL(ctx, source.Repository, d.providerURL, source.DefaultBranch, env)
 	if err != nil {
 		return "", fmt.Errorf("merge request merged but local fetch failed: %w: %s", err, strs.Truncate(out, 200))
 	}

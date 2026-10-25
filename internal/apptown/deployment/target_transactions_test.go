@@ -27,7 +27,7 @@ func (integrationRetirement) RetireUnusedConnector(ctx context.Context, tx *data
 func targetRetirementFixture(t *testing.T) (*database.DB, *Targets, *Target) {
 	t.Helper()
 	db := testDB(t)
-	if _, err := integration.New(db).Save(context.Background(), "retiring-account", digitalocean.CapCloudAccount, "digitalocean", `{}`, "fixture"); err != nil {
+	if _, err := integration.NewWithClock(db, nil).Save(context.Background(), "retiring-account", digitalocean.CapCloudAccount, "digitalocean", `{}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	targets := NewTargets(db, integrationRetirement{})
@@ -124,7 +124,7 @@ func targetOffers(t *testing.T, targets *Targets, id ids.ID) []Offer {
 // integration owner reads it (names are unique, so 0 or 1).
 func connectors(t *testing.T, db *database.DB, name string) int {
 	t.Helper()
-	_, err := integration.New(db).ByName(t.Context(), name)
+	_, err := integration.NewWithClock(db, nil).ByName(t.Context(), name)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0
 	}

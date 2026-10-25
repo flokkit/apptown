@@ -19,6 +19,8 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/gitlab"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestSCMEnvironmentReusesOnlyProjectScopedCredentials(t *testing.T) {
@@ -59,7 +61,7 @@ func TestSCMEnvironmentReusesOnlyProjectScopedCredentials(t *testing.T) {
 	}
 	db := testDB(t)
 	id := createTestProject(t, db, "app", "App")
-	service := NewService(db, Dependencies{Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
+	service := NewService(db, Dependencies{SCMRepositories: scmTokenRepositoryFixture{secret.NewService(db, secret.Config{DataDir: dir})}, Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
 	for range 2 {
 		env, why := service.SCMEnvironment(t.Context(), id, "https://gitlab.test/group/app.git", "read")
 		if why != "" {
@@ -76,7 +78,7 @@ func TestSCMEnvironmentReusesOnlyProjectScopedCredentials(t *testing.T) {
 		t.Fatalf("minted %d times", issued.Load())
 	}
 	// The integration resource is a durable cache; reconstructing the owner reuses it.
-	service = NewService(db, Dependencies{Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
+	service = NewService(db, Dependencies{SCMRepositories: scmTokenRepositoryFixture{secret.NewService(db, secret.Config{DataDir: dir})}, Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
 	if _, why := service.SCMEnvironment(t.Context(), id, "https://gitlab.test/group/app.git", "read"); why != "" || issued.Load() != 1 {
 		t.Fatalf("credential reuse: %s / %d", why, issued.Load())
 	}
@@ -120,7 +122,7 @@ func TestAnSCMTokenIsRotatedByAppTownsClock(t *testing.T) {
 			id := createTestProject(t, db, "app", "App")
 			var ahead atomic.Int64
 			ahead.Store(int64(skew))
-			service := NewService(db, Dependencies{Secrets: secret.NewService(db, secret.Config{DataDir: dir}), Now: func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }})
+			service := NewService(db, Dependencies{SCMRepositories: scmTokenRepositoryFixture{secret.NewService(db, secret.Config{DataDir: dir})}, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), Now: func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }})
 			for range 2 {
 				if _, why := service.SCMEnvironment(t.Context(), id, "https://gitlab.test/group/app.git", "read"); why != "" {
 					t.Fatal(why)
@@ -172,7 +174,7 @@ func scmService(t *testing.T, db *database.DB, url string) *Service {
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("GITLAB_URL="+url+"\nGITLAB_TOKEN=owner-secret\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	return NewService(db, Dependencies{Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
+	return NewService(db, Dependencies{SCMRepositories: scmTokenRepositoryFixture{secret.NewService(db, secret.Config{DataDir: dir})}, Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
 }
 
 // A token GitLab has made is recorded though the caller stops just as it
@@ -261,7 +263,7 @@ func TestARotationMintsNothingWhileTheOldTokenStands(t *testing.T) {
 	db := testDB(t)
 	id := createTestProject(t, db, "app", "App")
 	var ahead atomic.Int64
-	service := NewService(db, Dependencies{Secrets: secret.NewService(db, secret.Config{DataDir: dir}), Now: func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }})
+	service := NewService(db, Dependencies{SCMRepositories: scmTokenRepositoryFixture{secret.NewService(db, secret.Config{DataDir: dir})}, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), Now: func() time.Time { return time.Now().Add(time.Duration(ahead.Load())) }})
 	recorded := func() int64 {
 		t.Helper()
 		res, err := Resource(t.Context(), db, id, CapSCM)
@@ -442,5 +444,84 @@ func TestBranchRuleMatchesExactlyOrByWildcard(t *testing.T) {
 		if got := branchRuleMatches(tc.rule, tc.branch); got != tc.want {
 			t.Errorf("%q matches %q: %v, want %v", tc.rule, tc.branch, got, tc.want)
 		}
+	}
+}
+
+// The integration owns token lifecycle, while this fixture stands in for the
+// repository owner's already verified identity and credential snapshot.
+type scmTokenRepositoryFixture struct{ secrets *secret.Service }
+
+func (f scmTokenRepositoryFixture) Resolve(ctx context.Context, projectID ids.ID) (SCMRepository, error) {
+	values, err := f.secrets.WithContext(ctx)
+	if err != nil {
+		return SCMRepository{}, err
+	}
+	client, err := gitlab.New(values["GITLAB_URL"], values["GITLAB_TOKEN"])
+	if err != nil {
+		return SCMRepository{}, err
+	}
+	observed, err := client.Project(ctx, "group/app")
+	if err != nil {
+		return SCMRepository{}, err
+	}
+	observed.PathNS = "group/app"
+	return SCMRepository{IdentityJSON: fmt.Sprintf("%s:%s:%d", projectID, client.BaseURL(), observed.ID), Project: observed, Client: client}, nil
+}
+
+// A live cached token and a token due for rotation both retain their original
+// attachment. Neither may be delivered or revoked under a different identity.
+func TestSCMTokensRefuseUnprovenOrChangedAttachment(t *testing.T) {
+	for _, state := range []string{"legacy", "changed-live", "changed-expired"} {
+		t.Run(state, func(t *testing.T) {
+			srv, issued, revoked := scmFake(t, nil)
+			db := testDB(t)
+			id := createTestProject(t, db, "app", "App")
+			service := scmService(t, db, srv.URL)
+			if _, why := service.SCMEnvironment(t.Context(), id, "unused", "read"); why != "" {
+				t.Fatal(why)
+			}
+			raw, err := Resource(t.Context(), db, id, CapSCM)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var record map[string]any
+			if err := json.Unmarshal([]byte(raw), &record); err != nil {
+				t.Fatal(err)
+			}
+			if state == "legacy" {
+				delete(record, "repositoryIdentity")
+			} else {
+				record["repositoryIdentity"] = "different-attachment"
+			}
+			encoded, err := json.Marshal(record)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := service.Attachments.Remember(t.Context(), id, CapSCM, "gitlab", string(encoded)); err != nil {
+				t.Fatal(err)
+			}
+			// Compare the persisted JSON representation: PostgreSQL normalizes
+			// JSONB formatting when the fixture is stored.
+			before, err := Resource(t.Context(), db, id, CapSCM)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if state == "changed-expired" {
+				service.clock = func() time.Time { return time.Now().Add(48 * time.Hour) }
+			}
+			env, why := service.SCMEnvironment(t.Context(), id, "unused", "read")
+			if len(env) != 0 || why == "" || issued.Load() != 1 {
+				t.Fatalf("unproven token delivered or replaced: env count=%d why=%q minted=%d", len(env), why, issued.Load())
+			}
+			anyRevoked := false
+			revoked.Range(func(_, _ any) bool { anyRevoked = true; return false })
+			if anyRevoked {
+				t.Fatal("token revoked against an unproven attachment")
+			}
+			after, err := Resource(t.Context(), db, id, CapSCM)
+			if err != nil || after != before {
+				t.Fatalf("unresolved provenance overwritten: %v", err)
+			}
+		})
 	}
 }

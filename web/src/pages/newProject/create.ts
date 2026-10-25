@@ -41,7 +41,7 @@ export async function createProject(d: Draft, opts: { remote: boolean; namespace
   }
   if (opts.remote) {
     try {
-      const r = await post<RemoteAttached>(`/projects/${slug}/repo/remote`, { create: true, namespaceId: Number(opts.namespaceId) || 0 })
+      const r = await post<RemoteAttached>(`/projects/${slug}/repo/remote`, { requestId: d.attachmentRequestId, repositoryName: d.repositoryName ?? slug, create: true, namespaceId: Number(opts.namespaceId) || 0 })
       log(`✓ GitLab copy: ${r.remote}`)
     } catch (e) { warn(`⚠ GitLab copy failed (the project was created): ${(e as Error).message}`) }
   }

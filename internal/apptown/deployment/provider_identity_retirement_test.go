@@ -14,7 +14,7 @@ func TestProviderIdentityRetirementPreservesReferencedConnection(t *testing.T) {
 	for _, reference := range []string{"target", "repository"} {
 		t.Run(reference, func(t *testing.T) {
 			db, targets, target := targetRetirementFixture(t)
-			bindings := integration.New(db)
+			bindings := integration.NewWithClock(db, nil)
 			binding, err := bindings.ByName(t.Context(), target.Provider)
 			if err != nil {
 				t.Fatal(err)

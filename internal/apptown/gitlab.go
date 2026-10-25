@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/clock"
-	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitlab"
 	"github.com/flokkit/apptown/internal/strs"
 
@@ -32,27 +32,19 @@ func configuredGitLab(ctx context.Context, secrets *secret.Service) (*gitlab.Cli
 }
 
 type repositoryPublisher struct {
-	secrets *secret.Service
-	db      *database.DB
-	dataDir string
-	now     func() time.Time // AppTown's clock, which stamps a failed push's receipt
+	attachments interface {
+		Push(context.Context, ids.ID, string) (scm.VerifiedRepository, error)
+	}
+	db  *database.DB
+	now func() time.Time
 }
 
-func (p repositoryPublisher) PushBranch(ctx context.Context, projectID ids.ID, repoDir, branch string) {
-	if _, _, ok := scm.Origin(ctx, repoDir); !ok {
+func (p repositoryPublisher) PushBranch(ctx context.Context, projectID ids.ID, _ string, branch string) {
+	// Publication is already local and durable. Its mirror cannot undo that act,
+	// but every refused or failed mirror retains an explicit receipt.
+	_, err := p.attachments.Push(context.WithoutCancel(ctx), projectID, branch)
+	if err == nil || errors.Is(err, scm.ErrNoUpstream) {
 		return
 	}
-	gl, err := configuredGitLab(ctx, p.secrets)
-	if err != nil {
-		return
-	}
-	env, err := gl.AskpassEnv(p.dataDir)
-	if err != nil {
-		return
-	}
-	// The mirror follows a publication that has happened: it is pushed
-	// though the caller stops, and a stop is never recorded as a failed push.
-	if out, err := gitexec.RunEnv(context.WithoutCancel(ctx), repoDir, env, "push", "-u", "origin", branch); err != nil {
-		audit.At(clock.Or(p.now)()).BestEffort(ctx, p.db, "apptown-system", projectID, "git.push.failed", branch, map[string]any{"error": strs.Truncate(out, 300)})
-	}
+	audit.At(clock.Or(p.now)()).BestEffort(ctx, p.db, "apptown-system", projectID, "git.push.failed", branch, map[string]any{"error": strs.Truncate(err.Error(), 300)})
 }

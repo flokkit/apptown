@@ -215,7 +215,7 @@ func mergeRequestDriver(t *testing.T) (*gitDriver, *gitlabtest.Server, Source) {
 	repo, remote, base, candidate := landingRepository(t)
 	gittest.RunAsTester(t, repo, "push", "-q", "origin", "change")
 	fake := gitlabtest.New(t)
-	fake.Put("group/project", gitlab.MergeRequest{IID: 7, State: "opened", SHA: candidate, SourceBranch: "change", TargetBranch: "main"})
+	fake.Put("71", gitlab.MergeRequest{IID: 7, State: "opened", SHA: candidate, SourceBranch: "change", TargetBranch: "main"})
 	fake.OnBranch = func(_, branch string) (string, error) {
 		return gittest.RunAsTester(t, remote, "rev-parse", "refs/heads/"+branch), nil
 	}
@@ -225,7 +225,9 @@ func mergeRequestDriver(t *testing.T) (*gitDriver, *gitlabtest.Server, Source) {
 	}
 	source := Source{RunID: idstest.N(1903), ProjectID: idstest.N(1), Repository: repo, Branch: "change", DefaultBranch: "main", WorkflowName: "land", WorkflowVersion: 3,
 		Candidate: candidate, Target: base, PinRequired: true, MR: MergeRequest{Project: "group/project", IID: 7}, Attribution: landingAttribution(candidate)}
-	driver := &gitDriver{dataDir: t.TempDir(), provider: func(context.Context) (*gitlab.Client, error) { return fake.Client() }, changeURL: func(ids.ID) string { return "https://forge.example/changes/412" }}
+	identity, provider := fixtureProviderIdentity(t, fake, source.ProjectID, remote)
+	source.MR.Identity = *identity
+	driver := &gitDriver{dataDir: t.TempDir(), provider: provider, changeURL: func(ids.ID) string { return "https://forge.example/changes/412" }}
 	return driver, fake, source
 }
 
@@ -239,7 +241,7 @@ func TestAMergeRequestIsDescribedBeforeAppTownMergesIt(t *testing.T) {
 	if err != nil || result.Result != source.Candidate {
 		t.Fatalf("merge: %+v %v", result, err)
 	}
-	descriptions := fake.Descriptions("group/project", 7)
+	descriptions := fake.Descriptions("71", 7)
 	if len(descriptions) != 1 || descriptions[0] != MergeRequestDescription(*source.Attribution, "https://forge.example/changes/412") {
 		t.Fatalf("description written: %q", descriptions)
 	}
@@ -275,12 +277,12 @@ func TestAMergeRequestMergedOnGitLabIsNotDescribedAsAppTowns(t *testing.T) {
 	t.Parallel()
 	driver, fake, source := mergeRequestDriver(t)
 	gittest.RunAsTester(t, source.Repository, "push", "-q", "origin", source.Candidate+":refs/heads/main")
-	fake.Update("group/project", 7, func(mr *gitlab.MergeRequest) { mr.State = "merged" })
+	fake.Update("71", 7, func(mr *gitlab.MergeRequest) { mr.State = "merged" })
 	plan, err := driver.Prepare(context.Background(), source, "")
 	if err != nil || plan.Kind != Existing {
 		t.Fatalf("a merged request was not settled as existing: %+v %v", plan, err)
 	}
-	if got := fake.Descriptions("group/project", 7); len(got) != 0 {
+	if got := fake.Descriptions("71", 7); len(got) != 0 {
 		t.Fatalf("described a request AppTown did not merge: %q", got)
 	}
 }

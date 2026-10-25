@@ -84,3 +84,19 @@ repositories before writing layout 2. A completed journal remains until any
 restore continuation settles, then finalization records its receipt and removes
 active migration journals. Rollback uses the paired database/data backup, not an
 old binary against a partly relocated directory.
+
+## Upstream identity
+
+`scm.RepositoryAttachments` owns verified GitLab attachments and pending create
+requests. Local hub UUID, project address and upstream repository name are
+independent. Provider numeric IDs have meaning only within the saved connector,
+canonical base URL and authenticated account. A changed connector or base refuses
+before an account probe; effects retain the credential client that observed the
+account. Changing an origin is not an implicit rebind.
+
+MR artifacts record their original identity in the same transaction as their
+artifact. Merge snapshots read that provenance in their existing batched source
+query and retain it by value. Scoped token resources keep the same identity and
+refuse unproven cached credentials before reuse or revocation. Purge admission
+records provider scope before removing the hub; retained cleanup never infers
+that historical scope from a currently configured provider.

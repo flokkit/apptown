@@ -3059,6 +3059,13 @@
       },
       "RemoteAttached": {
         "properties": {
+          "attachmentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "pushed": {
             "type": "string"
           },
@@ -3067,6 +3074,7 @@
           }
         },
         "required": [
+          "attachmentId",
           "remote",
           "pushed"
         ],
@@ -3110,8 +3118,28 @@
           "create": {
             "type": "boolean"
           },
+          "expectedAttachmentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "namespaceId": {
             "type": "integer"
+          },
+          "recoverProviderId": {
+            "type": "integer"
+          },
+          "repositoryName": {
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "url": {
             "type": "string"
@@ -10757,6 +10785,36 @@
       }
     },
     "/api/v1/projects/{slug}/repo/remote": {
+      "get": {
+        "operationId": "getProjectsSlugRepoRemote",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "capability": "project:configure-integrations",
+          "kind": "capability",
+          "scope": "project-slug"
+        },
+        "x-apptown-stability": "experimental"
+      },
       "post": {
         "operationId": "postProjectsSlugRepoRemote",
         "parameters": [

@@ -1833,6 +1833,7 @@ SELECT root.id AS root_run_id,root.parent_run_id,root.change_id AS root_change_i
   COALESCE(change.base_sha,'')::text AS change_base_sha,
   COALESCE(change.expected_revision,0)::bigint AS expected_revision,
   (mr.id IS NOT NULL)::boolean AS has_mr,COALESCE(mr.name,'')::text AS mr_name,COALESCE(mr.body,'')::text AS mr_project,
+  COALESCE(mr_identity.identity_json,'null'::jsonb)::jsonb AS mr_identity,
   COALESCE((SELECT e.payload_json FROM run_events e WHERE e.run_id=$1 AND e.kind='landing.candidate' ORDER BY e.id DESC LIMIT 1),'null'::jsonb)::jsonb AS landing_candidate,
   EXISTS(SELECT 1 FROM run_events e WHERE e.run_id=$1 AND e.kind='landing.pin.required')::boolean AS landing_pin_required
 FROM root JOIN projects project ON project.id=root.project_id
@@ -1843,6 +1844,7 @@ LEFT JOIN changes change ON change.id=root.change_id
 LEFT JOIN LATERAL (
   SELECT a.id,a.name,a.body FROM artifacts a WHERE a.run_id=$1 AND a.kind='mr' ORDER BY a.id DESC LIMIT 1
 ) mr ON true
+LEFT JOIN repository_mr_identities mr_identity ON mr_identity.artifact_id=mr.id
 `
 
 type WorkflowSourceParams struct {
@@ -1876,6 +1878,7 @@ type WorkflowSourceRow struct {
 	HasMr              bool
 	MrName             string
 	MrProject          string
+	MrIdentity         json.RawMessage
 	LandingCandidate   json.RawMessage
 	LandingPinRequired bool
 }
@@ -1908,6 +1911,7 @@ func (q *Queries) WorkflowSource(ctx context.Context, arg WorkflowSourceParams) 
 		&i.HasMr,
 		&i.MrName,
 		&i.MrProject,
+		&i.MrIdentity,
 		&i.LandingCandidate,
 		&i.LandingPinRequired,
 	)

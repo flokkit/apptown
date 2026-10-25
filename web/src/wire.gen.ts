@@ -1226,6 +1226,7 @@ export type RemediationStarted = {
 }
 
 export type RemoteAttached = {
+  attachmentId: string | null
   remote: string
   pushed: string
 }
@@ -1233,6 +1234,16 @@ export type RemoteAttached = {
 export type RemoteNamespaces = {
   namespaces: RemoteNamespace[]
   configured: boolean
+}
+
+export type RepositoryAttachmentState = {
+  state: string
+  remote: string
+  repositoryName: string
+  attachmentId: string | null
+  providerProjectId: number
+  request?: AttachmentRequest | null
+  canResume: boolean
 }
 
 export type RestartedLanding = {
@@ -3302,6 +3313,16 @@ export type Occupancy = {
 export type RemoteNamespace = {
   id: number
   path: string
+}
+
+export type AttachmentRequest = {
+  requestId: string | null
+  expectedAttachmentId: string | null
+  url: string
+  create: boolean
+  namespaceId: number
+  repositoryName: string
+  recoverProviderId: number
 }
 
 export type RestoreStatus = "restored" | "restored, not verified" | "partly restored"

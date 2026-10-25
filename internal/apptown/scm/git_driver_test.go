@@ -3,6 +3,7 @@ package scm
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -55,22 +56,31 @@ func TestSCMProviderCredentialsAreFrozenForOneOperation(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	calls := 0
-	driver := &gitDriver{dataDir: dir, provider: func(context.Context) (*gitlab.Client, error) {
+	identity := RepositoryIdentity{AttachmentID: idstest.N(2), ProjectID: idstest.N(1), ProviderProjectID: 71, CloneURL: "https://example.invalid/team/p.git"}
+	source := Source{ProjectID: identity.ProjectID, MR: MergeRequest{Identity: identity, IID: 1}}
+	driver := &gitDriver{dataDir: dir, provider: func(context.Context, RepositoryIdentity) (VerifiedRepository, error) {
 		calls++
-		return gitlab.New("https://example.invalid", "first")
+		client, err := gitlab.New("https://example.invalid", "first")
+		return VerifiedRepository{Identity: identity, Provider: ProviderSession{Client: client}, Observed: gitlab.ProjectRef{HTTPURL: identity.CloneURL}}, err
 	}}
-	first, env, err := driver.providerClient(context.Background())
+	first, env, err := driver.providerClient(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}
-	driver.provider = func(context.Context) (*gitlab.Client, error) {
+	driver.provider = func(context.Context, RepositoryIdentity) (VerifiedRepository, error) {
 		t.Fatal("credentials reread during one operation")
-		return nil, nil
+		return VerifiedRepository{}, nil
 	}
-	second, next, err := driver.providerClient(context.Background())
+	second, next, err := driver.providerClient(context.Background(), source)
 	if err != nil || first != second || !slices.Equal(env, next) || calls != 1 {
 		t.Fatalf("credentials were not stable: %v calls=%d", err, calls)
 	}
+	legacy := source
+	legacy.MR.Identity = RepositoryIdentity{}
+	if _, _, err := driver.providerClient(context.Background(), legacy); err == nil {
+		t.Fatal("legacy MR inherited current provider identity")
+	}
+
 }
 
 // A landing's merge is found by its exact Operation trailer.

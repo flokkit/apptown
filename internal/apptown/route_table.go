@@ -136,12 +136,12 @@ func appRoutes(a *App) []routeSpec {
 		runs = httpapi.NewRuns(a.Work, a.operations)
 		findings = httpapi.NewFindings(a.Projects, a.Work, a.conformance, a.DB, a.cfg.dataDir)
 		tiers = httpapi.NewTiers(a.Projects, a.Integrations, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir)
-		repositoryViews = httpapi.NewRepositoryViews(a.Projects, a.Access, a.DB, a.cfg.dataDir, repositoryedit.NewIntegrity(&a.repositories, a.processRunner, repositoryPublisher{secrets: a.Secrets, db: a.DB, dataDir: a.cfg.dataDir, now: a.cfg.clock.Now}, a.DB, a.cfg.dataDir, a.cfg.clock.Now), a.Deployment.Releases)
+		repositoryViews = httpapi.NewRepositoryViews(a.Projects, a.Access, a.DB, a.cfg.dataDir, repositoryedit.NewIntegrity(&a.repositories, a.processRunner, repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, a.DB, a.cfg.dataDir, a.cfg.clock.Now), a.Deployment.Releases)
 		releaseOperations = httpapi.NewReleaseOperations(a.Projects, a.Access, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, releaseTargetName, a.cfg.clock.Now)
 		projectAttachments = httpapi.NewProjectAttachments(a.Projects, a.Integrations, a.Access, a.changeActions, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
 		integrationListing = httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a), &a.docker, agentenv.RegistryFormats(), a.cfg.clock.Now)
 		connectors = httpapi.NewConnectors(a.Integrations, a.Access, a.Deployment, connectorHealthFor(a), a.DB, agentenv.RegistryFormats())
-		scmRemotes = httpapi.NewSCMRemotes(a.Projects, repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}, a.Secrets, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
+		scmRemotes = httpapi.NewSCMRemotes(a.Projects, repositoryProvider{secrets: a.Secrets}, a.repositoryAttachments)
 		remediationChanges = httpapi.NewRemediationChanges(a.Projects, a.Access, a.conformance, a.Work, a.lifecycle, a.DB, a.authModeName(), a.cfg.clock.Now)
 		conformanceReviews = httpapi.NewConformanceReviews(a.Projects, fleetReviewsFor(a))
 		whatIfs = httpapi.NewWhatIfs(a.Projects, a.conformance, fleetReviewsFor(a), a.Ways)
@@ -256,6 +256,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/repo/bundle", repositorySetup.DownloadCode, access.CapProjectRead, "project-slug"),
 		adminRoute("POST /api/v1/projects/{slug}/repo/integrity", repositoryViews.RepoIntegrity),
 		// Where the project's code is pushed: an integration, decided as one.
+		requireRoute("GET /api/v1/projects/{slug}/repo/remote", scmRemotes.RemoteState, access.CapProjectIntegrations, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/repo/remote", scmRemotes.AttachRemote, access.CapProjectIntegrations, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/workflows", projectWorkflows.ListWorkflows, access.CapProjectRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/lanes", projectWorkflows.ProjectLanes, access.CapProjectRead, "project-slug"),

@@ -60,7 +60,7 @@ func rebuildWork(t testing.TB, a *App, mutate func(*workflow.Dependencies)) {
 	}
 	a.Work = workflow.New(context.Background(), a.DB, deps)
 	rebuildConsoleOwners(a)
-	a.repositoryEdits = repositoryedit.New(a.Work, a.Dependencies, repositoryPublisher{secrets: a.Secrets, db: a.DB, dataDir: a.cfg.dataDir, now: a.cfg.clock.Now}, a.branches, a.lifecycle, a.DB, a.cfg.dataDir)
+	a.repositoryEdits = repositoryedit.New(a.Work, a.Dependencies, repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, a.branches, a.lifecycle, a.DB, a.cfg.dataDir)
 	a.changeActions = changeactions.New(a.Work, a.DB)
 	a.ADRs = adrs.New(a.DB, access.Checked{Authority: identity.Scoped(a.Access, "adrs"), Projects: a.Projects}, refreshADREvidence(a.Work, a.asEngine(context.Background())), a.cfg.clock.Now)
 	rebuildFixes(t, a)

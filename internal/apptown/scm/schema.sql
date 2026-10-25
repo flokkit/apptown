@@ -54,3 +54,44 @@ CREATE TABLE IF NOT EXISTS project_main (
   recorded_at TIMESTAMPTZ NOT NULL,
   CONSTRAINT project_main_tuple CHECK (branch<>'' AND sha<>'' AND via IN ('landing','init','seed','copy','genesis','integrity-adopt','backfill','upgrade'))
 );
+
+-- A repository attachment is verified provider ownership, independent of the
+-- project's human-facing address. Unknown creates remain in the intent table.
+CREATE TABLE IF NOT EXISTS repository_attachments (
+  id UUID PRIMARY KEY,
+  project_id UUID NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+  connection_id UUID NOT NULL REFERENCES integrations(id),
+  provider_kind TEXT NOT NULL CHECK (provider_kind='gitlab'),
+  provider_base TEXT NOT NULL CHECK (provider_base<>''),
+  provider_account BIGINT NOT NULL CHECK (provider_account>0),
+  provider_project BIGINT NOT NULL CHECK (provider_project>0),
+  clone_url TEXT NOT NULL CHECK (clone_url<>''),
+  project_path TEXT NOT NULL CHECK (project_path<>''),
+  verified_at TIMESTAMPTZ NOT NULL
+);
+
+-- One attachment operation owns the project's remote choice. A persisted
+-- pre-effect intent is not proof that a crashed executor never dispatched.
+CREATE TABLE IF NOT EXISTS repository_attachment_intents (
+  id UUID PRIMARY KEY,
+  request_id UUID NOT NULL,
+  project_id UUID NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+  actor_id UUID NOT NULL,
+  parameters JSONB NOT NULL,
+  connection_id UUID NOT NULL REFERENCES integrations(id),
+  provider_base TEXT NOT NULL CHECK (provider_base<>''),
+  provider_account BIGINT NOT NULL CHECK (provider_account>0),
+  prior_origin TEXT NOT NULL,
+  phase TEXT NOT NULL CHECK (phase IN ('intent','dispatched','identified','attached','unknown')),
+  provider_result JSONB,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  CHECK ((phase IN ('identified','attached')) = (provider_result IS NOT NULL))
+);
+
+-- The external identity used to open an MR travels with its original artifact,
+-- not with whichever path or attachment happens to be current at merge time.
+CREATE TABLE IF NOT EXISTS repository_mr_identities (
+  artifact_id UUID PRIMARY KEY REFERENCES artifacts(id) ON DELETE CASCADE,
+  identity_json JSONB NOT NULL
+);

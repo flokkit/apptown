@@ -133,10 +133,21 @@ trusted:
 
 ## 5. GitLab specifics
 
-- **Attach a remote** per project (`handleAttachRemote`): the URL is stored
-  on the project; the token comes from the instance's GitLab integration and
-  reaches git through an askpass helper written into the data directory, so
-  it never lands in `.git/config`.
+- **Attach a remote** through `scm.RepositoryAttachments`. A project UUID owns
+  one attachment generation, bound to the connector UUID, canonical provider
+  base, authenticated account and numeric provider project ID. Its upstream
+  name is a separate creation choice. Existing origins are verified lazily;
+  unsupported or foreign origins remain intact and credential effects refuse.
+  A durable request precedes creation and its provider result precedes origin
+  installation and push. Unknown results need independent operation/creator
+  association; retry never guesses by name or creates another repository.
+- Publication, merge requests, scoped tokens and deletion retain this identity.
+  Historical path-only records do not acquire provenance from today's origin.
+  Each effect retains the credential client that observed its scope. Git uses
+  explicit verified HTTP(S) destinations with redirects, rewrite configuration
+  and external credential helpers refused. Askpass keeps the token out of
+  `.git/config`. Pending attachment state and bounded resume are available in
+  repository settings; local project creation remains a separate operation.
 - **New project bootstrap**: `apptown new` initialises a hub with a first
   commit; importing an existing repository clones it into the hub. Both
   work with no remote at all.

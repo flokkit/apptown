@@ -51,7 +51,7 @@ func TestProjectFindingsListUnreadableReportsAndTheirChange(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, true)
 	for _, name := range []string{"gitleaks", "semgrep"} {
-		if _, err := integration.New(f.DB).Save(context.Background(), name, "scanner", "tool", `{"format":"sarif","kind":"secret","image":"scanner:1","command":"scan"}`, "fixture"); err != nil {
+		if _, err := integration.NewWithClock(f.DB, nil).Save(context.Background(), name, "scanner", "tool", `{"format":"sarif","kind":"secret","image":"scanner:1","command":"scan"}`, "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}

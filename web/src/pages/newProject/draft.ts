@@ -35,6 +35,8 @@ export type Draft = {
   // and where the code starts from.
   remoteChoice: boolean | null
   namespaceId: string
+ repositoryName: string | null
+ attachmentRequestId: string
   origin: Origin
   bundleFile: File | null
   sourceURL: string
@@ -45,7 +47,7 @@ export type Draft = {
 export const newDraft = (): Draft => ({
   step: 1, name: '', address: null,
   description: '', questions: [], answers: {}, pack: null, packWhy: '', icon: '', choosing: false, services: [], servicesEdited: false,
-  remoteChoice: null, namespaceId: '', origin: 'empty', bundleFile: null, sourceURL: '', sourceBranch: '', gitSecret: '',
+  remoteChoice: null, namespaceId: '', repositoryName: null, attachmentRequestId: crypto.randomUUID(), origin: 'empty', bundleFile: null, sourceURL: '', sourceBranch: '', gitSecret: '',
 })
 
 // slugify is the address a name gets when nobody types one.
@@ -73,7 +75,7 @@ export function servicesFor(pack: string, packs: PackView[], catalog: Dependency
     })
 }
 
-type RepoField = 'remoteChoice' | 'namespaceId' | 'origin' | 'bundleFile' | 'sourceURL' | 'sourceBranch' | 'gitSecret'
+type RepoField = 'repositoryName' | 'remoteChoice' | 'namespaceId' | 'origin' | 'bundleFile' | 'sourceURL' | 'sourceBranch' | 'gitSecret'
 
 export type DraftAct =
   | { type: 'step'; step: Draft['step'] }

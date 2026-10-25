@@ -2,7 +2,10 @@ package scm
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/url"
+	"os/exec"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -30,4 +33,23 @@ func PublicRemoteURL(raw string) string {
 		return u.String()
 	}
 	return raw
+}
+
+// ReadOrigin distinguishes an absent remote from an unreadable repository or
+// ambiguous multiple fetch URLs. Provider decisions must not use Origin's
+// display-only absence convention.
+func ReadOrigin(ctx context.Context, repoDir string) (string, error) {
+	raw, err := gitexec.HubOutput(ctx, repoDir, nil, "config", "--local", "--get-all", "remote.origin.url")
+	if err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) && exit.ExitCode() == 1 && len(exit.Stderr) == 0 {
+			return "", nil
+		}
+		return "", fmt.Errorf("reading the repository origin: %w", err)
+	}
+	values := strings.Split(strings.TrimSuffix(string(raw), "\n"), "\n")
+	if len(values) != 1 || strings.TrimSpace(values[0]) == "" {
+		return "", fmt.Errorf("repository origin must have exactly one readable URL")
+	}
+	return values[0], nil
 }

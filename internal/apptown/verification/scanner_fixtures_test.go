@@ -157,7 +157,7 @@ func (f scannerOwnerFixture) bind(t *testing.T, name string, cfg map[string]any)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := integration.New(f.DB).Upsert(f.Context, name, ScannerCapability, "tool", string(b), true); err != nil {
+	if _, err := integration.NewWithClock(f.DB, nil).Upsert(f.Context, name, ScannerCapability, "tool", string(b), true); err != nil {
 		t.Fatal(err)
 	}
 }

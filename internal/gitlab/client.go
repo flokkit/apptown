@@ -85,26 +85,35 @@ func (g *Client) DoContext(ctx context.Context, method, path string, body any, o
 
 // CreateProject creates a private project and returns its clone URL and path.
 func (g *Client) CreateProject(ctx context.Context, name string, namespaceID int) (cloneURL, pathNS string, err error) {
-	var p struct {
-		HTTPURL string `json:"http_url_to_repo"`
-		PathNS  string `json:"path_with_namespace"`
-	}
+	p, err := g.CreateRepository(ctx, name, namespaceID, "")
+	return p.HTTPURL, p.PathNS, err
+}
+
+// CreateRepository returns the provider identity as well as its observed location.
+func (g *Client) CreateRepository(ctx context.Context, name string, namespaceID int, association string) (ProjectRef, error) {
+	var p ProjectRef
 	body := map[string]any{
 		"name": name, "path": name, "visibility": "private",
 		"initialize_with_readme": false,
+		"description":            association,
 	}
 	if namespaceID > 0 {
 		body["namespace_id"] = namespaceID
 	}
-	err = g.Do(ctx, "POST", "/projects", body, &p)
-	return p.HTTPURL, p.PathNS, err
+	err := g.Do(ctx, "POST", "/projects", body, &p)
+	return p, err
 }
 
 // ProjectRef is a GitLab project's permanent id, current path and archive state.
 type ProjectRef struct {
-	ID       int64  `json:"id"`
-	PathNS   string `json:"path_with_namespace"`
-	Archived bool   `json:"archived"`
+	DefaultBranch string `json:"default_branch"`
+	Description   string `json:"description"`
+	CreatorID     int64  `json:"creator_id"`
+	ID            int64  `json:"id"`
+	HTTPURL       string `json:"http_url_to_repo"`
+	SSHURL        string `json:"ssh_url_to_repo"`
+	PathNS        string `json:"path_with_namespace"`
+	Archived      bool   `json:"archived"`
 }
 
 // Project reads a project by its id or its path with namespace.

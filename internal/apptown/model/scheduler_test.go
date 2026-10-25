@@ -27,7 +27,7 @@ func (f capacityFunc) Capacity(ctx context.Context, binding string) (int, error)
 func TestModelCapacityComesFromTheBinding(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	bindings := integration.New(db)
+	bindings := integration.NewWithClock(db, nil)
 	s := NewScheduler(BindingCapacity{Bindings: bindings}, 2)
 	for name, cfg := range map[string]string{"gpu1": `{"concurrency":3,"providerDef":{}}`, "openrouter": `{"models":["x"]}`, "box": `{"baseUrl":"https://box.example/v1"}`, "bad": `{"concurrency":"invalid"}`} {
 		if _, err := bindings.Upsert(t.Context(), name, "model", "pi", cfg, false); err != nil {

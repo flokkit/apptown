@@ -5,6 +5,7 @@
 package scmsql
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -29,6 +30,35 @@ type ProjectMain struct {
 	Via        string
 	RunID      ids.ID
 	RecordedAt time.Time
+}
+
+type RepositoryAttachment struct {
+	ID              ids.ID
+	ProjectID       ids.ID
+	ConnectionID    ids.ID
+	ProviderKind    string
+	ProviderBase    string
+	ProviderAccount int64
+	ProviderProject int64
+	CloneUrl        string
+	ProjectPath     string
+	VerifiedAt      time.Time
+}
+
+type RepositoryAttachmentIntent struct {
+	ID              ids.ID
+	RequestID       ids.ID
+	ProjectID       ids.ID
+	ActorID         ids.ID
+	Parameters      json.RawMessage
+	ConnectionID    ids.ID
+	ProviderBase    string
+	ProviderAccount int64
+	PriorOrigin     string
+	Phase           string
+	ProviderResult  []byte
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type RunMerge struct {
