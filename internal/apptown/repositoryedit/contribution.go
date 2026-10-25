@@ -62,7 +62,11 @@ func (c *Contributions) authorize(ctx context.Context, action string, ch *workfl
 		return access.ErrPrincipalRequired
 	}
 	pr := caller.Principal
-	dec, err := c.identity.Decide(ctx, pr, access.Permission{Capability: access.CapChangeWriteRevision, Resource: workflow.ChangeResource(ctx, c.projects, ch), Context: access.Context{Consequential: true, Route: "mcp:" + action}})
+	res, err := workflow.ChangeResource(ctx, c.projects, ch)
+	if err != nil {
+		return err
+	}
+	dec, err := c.identity.Decide(ctx, pr, access.Permission{Capability: access.CapChangeWriteRevision, Resource: res, Context: access.Context{Consequential: true, Route: "mcp:" + action}})
 	if err != nil {
 		return err
 	}

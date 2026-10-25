@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -29,12 +30,12 @@ func TestAuthorityResourceUsesCurrentProject(t *testing.T) {
 	if err != nil || got.ProjectID != id || got.ProjectName != "P" || got.Group != "kids" || got.Type != "project" {
 		t.Fatalf("project facts: %+v %v", got, err)
 	}
-	if _, err := projects.AuthorityResource(context.Background(), idstest.N(9999)); !errors.Is(err, sql.ErrNoRows) {
+	if _, err := projects.AuthorityResource(context.Background(), idstest.N(9999)); !errors.Is(err, sql.ErrNoRows) || fault.KindOf(err) != fault.NotFound {
 		t.Fatalf("missing project: %v", err)
 	}
 	clear := db.FailNextStatement("-- name: ProjectByID :one")
 	defer clear()
-	if got, err := projects.AuthorityResource(context.Background(), id); err == nil || got != (access.Resource{}) {
+	if got, err := projects.AuthorityResource(context.Background(), id); fault.KindOf(err) != fault.Unavailable || got != (access.Resource{}) {
 		t.Fatalf("failed read reused prior facts: %+v %v", got, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

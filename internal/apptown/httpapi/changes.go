@@ -123,7 +123,12 @@ func (h Changes) SendBack(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := AuthorizeRequest(h.access, w, r, access.CapChangeSendBack, workflow.ChangeResource(r.Context(), h.projects, ch), access.Context{}); !ok {
+	authorityResource, err := workflow.ChangeResource(r.Context(), h.projects, ch)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if _, ok := AuthorizeRequest(h.access, w, r, access.CapChangeSendBack, authorityResource, access.Context{}); !ok {
 		return
 	}
 	jsonCommand(w, r, jsonBody{errorText: "say what to change — the note is what the agent works from"}, func(in struct {
