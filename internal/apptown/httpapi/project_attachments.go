@@ -399,7 +399,12 @@ func (h ProjectAttachments) WireIntegration(w http.ResponseWriter, r *http.Reque
 	if !ok {
 		return
 	}
-	if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectIntegrations, project.ObservedResource(r.Context(), h.projects, p), access.Context{}); !ok {
+	authorityResource, err := h.projects.AuthorityResource(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectIntegrations, authorityResource, access.Context{}); !ok {
 		return
 	}
 	cap := r.PathValue("capability")

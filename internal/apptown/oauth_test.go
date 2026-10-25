@@ -208,7 +208,11 @@ func TestOAuthFlowMintsBoundedTokens(t *testing.T) {
 	p, _ := a.Projects.BySlug(context.Background(), "p")
 	holds := func(c access.Capability) bool {
 		t.Helper()
-		may, err := a.holds(req.Context(), pr, c, a.resourceProject(context.Background(), &p))
+		res, err := a.Projects.AuthorityResource(context.Background(), p.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		may, err := a.holds(req.Context(), pr, c, res)
 		if err != nil {
 			t.Fatal(err)
 		}

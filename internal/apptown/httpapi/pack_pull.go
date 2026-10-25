@@ -59,7 +59,12 @@ func (h PackPull) PackPull(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectWayOfWorking, project.ObservedResource(r.Context(), h.projects, p), access.Context{}); !ok {
+	authorityResource, err := h.projects.AuthorityResource(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectWayOfWorking, authorityResource, access.Context{}); !ok {
 		return
 	}
 	jsonCommand(w, r, jsonBody{optional: true}, func(in struct{ Pack string }) {

@@ -3,11 +3,12 @@ package httpapi
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/access"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/access"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -161,7 +162,12 @@ func (h ModelSlots) PutProjectModelProfile(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectModelProfile, project.ObservedResource(r.Context(), h.projects, p), access.Context{}); !ok {
+	authorityResource, err := h.projects.AuthorityResource(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectModelProfile, authorityResource, access.Context{}); !ok {
 		return
 	}
 	jsonCommand(w, r, jsonBody{errorText: "profile must be a short lowercase word (letters, digits, dashes)"}, func(in struct {

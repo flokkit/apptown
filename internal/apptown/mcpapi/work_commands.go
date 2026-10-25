@@ -49,7 +49,11 @@ func (h workCommands) requestChangeLanding(c *Call, args map[string]any) (any, e
 	if ch.State != workflow.ChangeInProgress {
 		return nil, refuse("Change %d is %s; only an in-progress Change can be handed off", ch.ID, ch.State)
 	}
-	if err := h.scope.authorize(c, "request_change_landing", access.CapChangeRequestLand, workflow.ChangeResource(c.Context, h.scope.projects, ch)); err != nil {
+	authorityResource, err := workflow.ChangeResource(c.Context, h.scope.projects, ch)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.scope.authorize(c, "request_change_landing", access.CapChangeRequestLand, authorityResource); err != nil {
 		return nil, err
 	}
 	run, err := h.actions.RequestLanding(c.Context, p, ch, c.actor())
@@ -73,7 +77,11 @@ func (h workCommands) sendChangeBack(c *Call, args map[string]any) (any, error) 
 	if note == "" {
 		return nil, refuse("say what to change — the note is what the agent works from")
 	}
-	if err := h.scope.authorize(c, "send_change_back", access.CapChangeSendBack, workflow.ChangeResource(c.Context, h.scope.projects, ch)); err != nil {
+	authorityResource, err := workflow.ChangeResource(c.Context, h.scope.projects, ch)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.scope.authorize(c, "send_change_back", access.CapChangeSendBack, authorityResource); err != nil {
 		return nil, err
 	}
 	result, err := h.work.SendBack(c.Context, workflow.SendBack{ChangeID: ch.ID, Note: note})
@@ -92,7 +100,11 @@ func (h workCommands) abandonChange(c *Call, args map[string]any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := h.scope.authorize(c, "abandon_change", access.CapChangeAbandon, workflow.ChangeResource(c.Context, h.scope.projects, ch)); err != nil {
+	authorityResource, err := workflow.ChangeResource(c.Context, h.scope.projects, ch)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.scope.authorize(c, "abandon_change", access.CapChangeAbandon, authorityResource); err != nil {
 		return nil, err
 	}
 	if _, err := h.work.Abandon(c.Context, workflow.StopWork{ChangeID: ch.ID, Reason: argString(args, "reason")}); err != nil {

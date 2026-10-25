@@ -9,7 +9,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
-	"github.com/flokkit/apptown/internal/apptown/project"
 )
 
 // The authorization kernel's rule lives in internal/access (Decide, §12).
@@ -52,16 +51,6 @@ func principalOf(id *authIdentity, fallbackActor string) access.Principal {
 // --- resources ----------------------------------------------------------------
 
 func (a *App) resourceInstance() access.Resource { return access.Resource{Type: "instance"} }
-
-func (a *App) resourceProject(ctx context.Context, p *project.Project) access.Resource {
-	return project.ObservedResource(ctx, a.Projects, p)
-}
-
-func (a *App) resourceReleaseTarget(ctx context.Context, target string, p *project.Project) access.Resource {
-	r := a.resourceProject(ctx, p)
-	r.Type, r.ID = "release-target", target
-	return r
-}
 
 // --- HTTP glue ------------------------------------------------------------------
 

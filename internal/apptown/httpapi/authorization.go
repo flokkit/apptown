@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 type Authorization struct {
@@ -120,12 +121,15 @@ func (h Authorization) AuthzGrant(w http.ResponseWriter, r *http.Request) {
 		res := access.Resource{Type: "instance"}
 		if scope == access.ScopeProject {
 			pid, err := ids.Parse(in.ScopeID)
-			p := optionalProject(r.Context(), h.projects, pid)
-			if err != nil || p == nil {
+			if err != nil {
 				WriteError(w, 404, "no such project")
 				return
 			}
-			res = project.ObservedResource(r.Context(), h.projects, p)
+			res, err = h.projects.AuthorityResource(r.Context(), pid)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
 		}
 		// Who may grant: authorization:manage-grants at the instance, or
 		// project:manage-members on the project itself.
@@ -170,10 +174,20 @@ func (h Authorization) AuthzRevoke(w http.ResponseWriter, r *http.Request) {
 	}
 	res, c := access.Resource{Type: "instance"}, access.CapAuthzGrants
 	if scopeType == access.ScopeProject {
-		pid, _ := ids.Parse(scopeID)
-		if p := optionalProject(r.Context(), h.projects, pid); p != nil {
-			res, c = project.ObservedResource(r.Context(), h.projects, p), access.CapProjectManageMembers
+		pid, err := ids.Parse(scopeID)
+		if err != nil {
+			WriteError(w, 500, "the grant has an invalid project scope")
+			return
 		}
+		projectResource, err := h.projects.AuthorityResource(r.Context(), pid)
+		if err != nil && fault.KindOf(err) != fault.NotFound {
+			WriteFault(w, err)
+			return
+		}
+		if err == nil {
+			res, c = projectResource, access.CapProjectManageMembers
+		}
+		// Only a confirmed missing project retains instance-authorized grant cleanup.
 	}
 	if _, ok := AuthorizeRequest(h.access, w, r, c, res, access.Context{}); !ok {
 		return
@@ -211,7 +225,11 @@ func (h Authorization) AuthzExplain(w http.ResponseWriter, r *http.Request) {
 			writeReadFault(w, err, "no such project")
 			return
 		}
-		res = project.ObservedResource(r.Context(), h.projects, &p)
+		res, err = h.projects.AuthorityResource(r.Context(), p.ID)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
 	}
 	if !res.ProjectID.IsZero() && self {
 		if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectRead, res, access.Context{}); !ok {
@@ -297,8 +315,17 @@ func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 		out.DefaultGroup = &g
 	}
 	if slug := r.URL.Query().Get("project"); slug != "" {
-		if p, err := h.projects.BySlug(r.Context(), slug); err == nil {
-			res := project.ObservedResource(r.Context(), h.projects, &p)
+		p, err := h.projects.BySlug(r.Context(), slug)
+		if err != nil && fault.KindOf(err) != fault.NotFound {
+			WriteFaultOr(w, err, http.StatusServiceUnavailable)
+			return
+		}
+		if err == nil {
+			res, err := h.projects.AuthorityResource(r.Context(), p.ID)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
 			pc := map[string]bool{}
 			for _, c := range []access.Capability{access.CapChangeCreate, access.CapChangeRequestLand, access.CapChangeLand, access.CapChangeApprove, access.CapChangeOverride,
 				access.CapChangeAbandon, access.CapProjectManageMembers, access.CapProjectConfigure, access.CapProjectWorkflow, access.CapProjectGuidance,

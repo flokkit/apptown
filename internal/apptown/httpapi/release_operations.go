@@ -152,7 +152,12 @@ func (h ReleaseOperations) LANRelease(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, ok := AuthorizeRequest(h.access, w, r, access.CapReleasePromote, h.resource(r.Context(), p), access.Context{}); !ok {
+	authorityResource, err := h.resource(r.Context(), p)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	if _, ok := AuthorizeRequest(h.access, w, r, access.CapReleasePromote, authorityResource, access.Context{}); !ok {
 		return
 	}
 	jsonCommand(w, r, jsonBody{optional: true}, func(in ReleaseRequest) {
@@ -216,10 +221,13 @@ func writeReleasePreviewError(w http.ResponseWriter, err error) {
 	}
 }
 
-func (h ReleaseOperations) resource(ctx context.Context, p *project.Project) access.Resource {
-	res := project.ObservedResource(ctx, h.projects, p)
+func (h ReleaseOperations) resource(ctx context.Context, p *project.Project) (access.Resource, error) {
+	res, err := h.projects.AuthorityResource(ctx, p.ID)
+	if err != nil {
+		return access.Resource{}, err
+	}
 	res.Type, res.ID = "release-target", h.target
-	return res
+	return res, nil
 }
 
 // ReleaseRequest is POST /projects/{slug}/release: an optional hostname to
