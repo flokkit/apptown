@@ -12,6 +12,8 @@ After=network-online.target docker.service
 Wants=network-online.target
 
 [Service]
+# Root system services need an explicit Docker configuration location.
+Environment=DOCKER_CONFIG=/root/.docker
 # The working directory holds bin/apptown-linux, the CLI given to containers.
 WorkingDirectory=/opt/apptown
 # Every apptownd flag is also its APPTOWN_ variable (apptownd -h).
