@@ -41,7 +41,7 @@ type releaseCopyAuthority interface {
 	CheckStartAuthority(context.Context, ids.ID, ids.ID, string, access.Principal) error
 }
 
-func (s *Service) requireReleaseAuthority(ctx context.Context, captured access.Principal, deploymentID ids.ID) error {
+func (s *Service) requireReleaseAuthority(ctx context.Context, captured access.Principal, deploymentID ids.ID, admittedPromotion bool) error {
 	if s.release.Still == nil || s.projects == nil {
 		return errors.New("release authority recheck is not configured")
 	}
@@ -57,7 +57,7 @@ func (s *Service) requireReleaseAuthority(ctx context.Context, captured access.P
 	if err := s.release.Still.RequireStill(ctx, captured, permission); err != nil {
 		return err
 	}
-	if dep.Protected() {
+	if admittedPromotion || dep.needsPromotion() {
 		permission.Capability = access.CapReleasePromote
 		permission.Resource.Type, permission.Resource.ID = "release-target", dep.Name
 		if err := s.release.Still.RequireStill(ctx, captured, permission); err != nil {

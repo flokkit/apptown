@@ -227,6 +227,28 @@ WHERE length(hostname)<=253
 	{n: 176, note: "retain the initiating authority for queued release execution", stmts: []string{
 		`ALTER TABLE release_requests ADD COLUMN authority_json JSONB`,
 	}},
+	{n: 177, note: "preserve explicit legacy release setup and promotion policy", stmts: []string{
+		`ALTER TABLE deployments ADD COLUMN require_promotion BOOLEAN NOT NULL DEFAULT false`,
+		`ALTER TABLE deployments ADD COLUMN policy_revision BIGINT NOT NULL DEFAULT 1 CHECK (policy_revision > 0)`,
+		`ALTER TABLE release_requests ADD COLUMN require_promotion BOOLEAN NOT NULL DEFAULT false`,
+		`UPDATE release_requests q SET require_promotion=true
+WHERE q.attributes_json->>'audience' IN ('partners','public') OR q.attributes_json->>'data'='production'
+ OR EXISTS(SELECT 1 FROM targets t WHERE t.id=q.target_id AND t.name='intranet' AND t.kind='portainer' AND t.provider='portainer-deploy')`,
+		`ALTER TABLE project_release_settings ADD COLUMN legacy_setup_json JSONB`,
+		`ALTER TABLE project_release_settings ADD CONSTRAINT project_release_setup_exclusive CHECK (default_deployment_id IS NULL OR legacy_setup_json IS NULL)`,
+		`UPDATE deployments d SET require_promotion=true FROM targets t
+WHERE d.target_id=t.id AND t.name='intranet' AND t.kind='portainer' AND t.provider='portainer-deploy'`,
+		`INSERT INTO project_release_settings(project_id,legacy_setup_json)
+SELECT p.id,jsonb_build_object('version',1,'integrationId',i.id,'integrationName',i.name,
+ 'targetId',CASE WHEN t.provider=i.name AND t.kind='portainer' AND i.provider='portainer' AND t.connection_id=i.id
+ AND COALESCE(NULLIF(t.address_json->>'tier',''),'lan')=CASE WHEN jsonb_typeof(i.config_json->'releaseDeployment')='string' THEN COALESCE(NULLIF(i.config_json->>'releaseDeployment',''),'lan') WHEN NOT jsonb_exists(i.config_json,'releaseDeployment') THEN 'lan' ELSE '' END THEN t.id ELSE NULL END,
+ 'deploymentName',CASE WHEN jsonb_typeof(i.config_json->'releaseDeployment')='string' THEN COALESCE(NULLIF(i.config_json->>'releaseDeployment',''),'lan') WHEN NOT jsonb_exists(i.config_json,'releaseDeployment') THEN 'lan' ELSE '' END,
+ 'configuration',i.config_json,'targetEvidence',CASE WHEN t.id IS NOT NULL THEN jsonb_build_object('id',t.id,'provider',t.provider,'kind',t.kind,'address',t.address_json) ELSE NULL END)
+FROM projects p CROSS JOIN integrations i LEFT JOIN targets t ON t.name='intranet'
+WHERE i.name='portainer-deploy' AND i.capability='deploy'
+ AND p.purpose='ordinary' AND NOT EXISTS(SELECT 1 FROM project_lifecycle l WHERE l.project_id=p.id)
+ AND NOT EXISTS(SELECT 1 FROM project_release_settings s WHERE s.project_id=p.id)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

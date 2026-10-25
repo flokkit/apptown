@@ -399,13 +399,44 @@ func (a registeredReleaseAuthority) RequireStill(ctx context.Context, principal 
 // ownership rather than an untracked external credential.
 func TestAReleaseDeniedAfterKeyIssuanceKeepsItsKeyOwned(t *testing.T) {
 	t.Parallel()
-	for _, phase := range []string{"before key", "after key"} {
-		t.Run(phase, func(t *testing.T) {
+	for _, tc := range []struct {
+		name, phase    string
+		defaultRelease bool
+	}{
+		{"named/before key", "before key", false}, {"named/after key", "after key", false},
+		{"default/before key", "before key", true}, {"default/after key", "after key", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			phase := tc.phase
 			t.Parallel()
 			service, provider, _, pid, dep, bundle := doReleaseWorldNeeding(t, "  llm:\n    limit: 4\n")
 			f := withLLM(t, service, pid, true)
+			admit := func() AcceptedRelease { return doAcceptRelease(t, service, pid, dep, bundle) }
+			if tc.defaultRelease {
+				service.configuration.Authority = service.release.Authority
+				service.configuration.Projects = service.release.Sources
+				target, err := service.Targets.ByID(t.Context(), dep.TargetID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := service.Targets.Offer(t.Context(), target, "*", OfferCaps{}, "fixture"); err != nil {
+					t.Fatal(err)
+				}
+				selected, err := service.SetReleaseDefault(t.Context(), pid, dep.ID, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				admit = func() AcceptedRelease {
+					t.Helper()
+					accepted, err := service.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: pid, ExpectedRevision: &selected.Revision})
+					if err != nil {
+						t.Fatal(err)
+					}
+					return accepted
+				}
+			}
 			service.release.Still = registeredReleaseAuthority{denied: func() bool { return phase == "before key" || f.CallsOf("POST") > 0 }}
-			accepted := doAcceptRelease(t, service, pid, dep, bundle)
+			accepted := admit()
 			if err := service.ExecuteRelease(t.Context(), accepted.ID); err == nil {
 				t.Fatal("withdrawn release permission still executed")
 			}
@@ -431,7 +462,7 @@ func TestAReleaseDeniedAfterKeyIssuanceKeepsItsKeyOwned(t *testing.T) {
 				}
 			}
 			service.release.Still = &requestAuthority{}
-			retried := doAcceptRelease(t, service, pid, dep, bundle)
+			retried := admit()
 			if err := service.ExecuteRelease(t.Context(), retried.ID); err != nil {
 				t.Fatal(err)
 			}

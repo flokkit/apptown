@@ -144,7 +144,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	// Infrastructure: what is at the provider and what it hosts. A cluster
 	// nobody recorded shows as unrecorded; AppTown's own shows its host.
 	f.SeedDatabase(map[string]any{"id": "db-stray", "name": "someones-cluster", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online"})
-	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	var infra struct {
 		Targets []infrastructureResponse `json:"targets"`
 	}
@@ -235,7 +235,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatalf("project retained list: %d %s", w.Code, w.Body.String())
 	}
 	// After the teardown the cluster is still at the provider, marked retained.
-	w = tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	w = tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	infra.Targets = nil
 	_ = json.Unmarshal(w.Body.Bytes(), &infra)
 	byName = map[string]deploy.Resource{}

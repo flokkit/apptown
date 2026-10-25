@@ -39,6 +39,8 @@ type Deployment struct {
 	StartedFromAt      sql.NullTime
 	RestoreCheck       string
 	DisplayLabel       string
+	RequirePromotion   bool
+	PolicyRevision     int64
 }
 
 type DeploymentAddressSetting struct {
@@ -145,6 +147,7 @@ type ProjectReleaseSetting struct {
 	ProjectID           ids.ID
 	DefaultDeploymentID ids.ID
 	Revision            int64
+	LegacySetupJson     *json.RawMessage
 }
 
 type Reconciliation struct {
@@ -216,6 +219,7 @@ type ReleaseRequest struct {
 	ProviderBindingJson *json.RawMessage
 	IngressJson         *json.RawMessage
 	AuthorityJson       *json.RawMessage
+	RequirePromotion    bool
 }
 
 type RetainedResource struct {

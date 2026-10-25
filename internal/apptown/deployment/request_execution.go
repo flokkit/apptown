@@ -86,7 +86,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err != nil {
 		return fail(err)
 	}
-	allowed := func(ctx context.Context) error { return s.requireReleaseAuthority(ctx, captured, rel.DeploymentID) }
+	allowed := func(ctx context.Context) error {
+		return s.requireReleaseAuthority(ctx, captured, rel.DeploymentID, placement.RequirePromotion)
+	}
 	if err := allowed(ctx); err != nil {
 		return fail(err)
 	}

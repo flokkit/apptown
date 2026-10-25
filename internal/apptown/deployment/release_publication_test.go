@@ -276,7 +276,7 @@ func TestHistoricalReleaseTagDoesNotRetargetTheCurrentRegistryCredential(t *test
 			if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", resource, integration.Entered, "fixture", nil); err != nil {
 				t.Fatal(err)
 			}
-			s := &Service{env: NewEnvironment(nil, EnvironmentDependencies{Projects: projects, Integrations: integrations})}
+			s := &Service{env: NewEnvironment(EnvironmentDependencies{Projects: projects, Integrations: integrations})}
 			digest := "sha256:" + strings.Repeat("a", 64)
 			bundle := &ReleaseBundle{ProjectID: id, BuiltFrom: BundleOrigin{Registry: oldHost + "/team/shop"}, Parts: map[string]string{"web": oldHost + "/team/shop@" + digest}}
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)

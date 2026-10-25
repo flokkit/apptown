@@ -122,9 +122,9 @@ type Decided struct {
 // ReleaseRequested is what release prints.
 type ReleaseRequested struct {
 	Project    string `json:"project" doc:"the project's slug"`
-	Deployment string `json:"deployment" doc:"the deployment named (apptown release <project> <deployment>); empty for the intranet"`
+	Deployment string `json:"deployment" doc:"the deployment named (apptown release <project> <deployment>); empty for the default release form"`
 	Number     int64  `json:"number" doc:"the release's number within its project: apptown wait -p <project> -r <number>"`
-	URL        string `json:"url" doc:"where the intranet will serve it; empty for a named deployment, which keeps its own address"`
+	URL        string `json:"url" doc:"the selected default deployment address; empty for a named deployment"`
 	State      string `json:"state" doc:"the release's state when AppTown accepted it"`
 }
 

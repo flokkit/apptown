@@ -244,10 +244,10 @@ func TestAuthzExplicitGrantsPreserveScopedAccess(t *testing.T) {
 		t.Error("the migrated-open grant should be on the record")
 	}
 	// amend: amy holds it, others do not; release was unclaimed → everyone.
-	if !privileged(t, a, "amy", "member", "amend") || privileged(t, a, "outsider", "member", "amend") {
+	if !grantedCapability(t, a, "amy", "member", access.CapStandardsGuidance, access.Resource{Type: "instance"}) || grantedCapability(t, a, "outsider", "member", access.CapStandardsGuidance, access.Resource{Type: "instance"}) {
 		t.Error("amend migration wrong")
 	}
-	if !privileged(t, a, "outsider", "member", "release") {
+	if !grantedCapability(t, a, "outsider", "member", access.CapReleasePromote, access.Resource{Type: "release-target", ID: "customer-production"}) {
 		t.Error("unclaimed release should have migrated to everyone")
 	}
 	// Running the migration again is a no-op.

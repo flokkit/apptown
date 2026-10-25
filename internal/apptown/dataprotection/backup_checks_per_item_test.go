@@ -65,51 +65,101 @@ func TestTheWeeklyCheckIsDueWhileAnyItemsLastCheckFailed(t *testing.T) {
 // Kills: FinalCopies' "checked" from any passing row of the set; the
 // release not asking; the release ignoring a person's acceptance.
 func TestAStartFromACopyWhoseDatabaseDidNotComeBackAsksAPerson(t *testing.T) {
-	t.Parallel()
-	w := heldOnAppPlatform(t, postgresAndBucket)
-	ctx := context.Background()
-	putObjects(w, bucketOf(w, "prod"))
-	dep, err := w.s.Deployments.ByName(ctx, w.project, "prod")
-	if err != nil {
-		t.Fatal(err)
-	}
-	id, _ := w.clusterOf(dep)["id"].(string)
-	w.clusters.put(id+".fake", "app", "ledger: 41, 42")
-	w.clusters.importSays = "ERROR: duplicate key value violates unique constraint"
-	res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
-	if err != nil || res.Operation == nil {
-		t.Fatalf("take-down door: %+v %v", res, err)
-	}
-	if op := w.run(res.Operation); endedAs(op, OperationVerified) {
-		t.Fatalf("a take-down whose database did not come back: %s", op.Detail)
-	}
-	w.clusters.mu.Lock()
-	w.clusters.importSays = ""
-	w.clusters.mu.Unlock()
-	finals, err := w.s.FinalCopies(ctx, w.project)
-	if err != nil || len(finals) != 1 {
-		t.Fatalf("final copies: %+v %v", finals, err)
-	}
-	if finals[0].Verified {
-		t.Fatalf("a final copy whose database did not come back is offered as checked: %+v", finals[0])
-	}
-	if _, err := w.bind(w.project, "copy", "production", finals[0].Backup); err != nil {
-		t.Fatal(err)
-	}
-	apps := len(w.api.Snapshot().Apps)
-	_, err = w.s.RequestRelease(ctx, deployment.DeploySelection{ProjectID: w.project, DeploymentName: "copy", BundleID: w.bundle.ID})
-	if err == nil || !strings.Contains(err.Error(), "postgres: its last check (") || !strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "s3:") || !strings.Contains(err.Error(), "--accept-unchecked-copy") {
-		t.Fatalf("the first release from a copy whose database did not come back: %v", err)
-	}
-	if len(w.api.Snapshot().Apps) != apps {
-		t.Fatal("the refused release made an app")
-	}
-	rel, log := w.releaseAs(deployment.DeploySelection{ProjectID: w.project, DeploymentName: "copy", BundleID: w.bundle.ID, AcceptUncheckedCopy: true})
-	if rel.State != deployment.Released {
-		t.Fatalf("the accepted start %s:\n%s", rel.State, log)
-	}
-	first, _, _ := strings.Cut(log, "\n")
-	if !strings.Contains(first, "released by alice accepting a copy not shown to come back whole") || !strings.Contains(first, "postgres: its last check (") {
-		t.Fatalf("the release's first log line: %s", first)
+	for _, path := range []string{"named", "default"} {
+		t.Run(path, func(t *testing.T) {
+			t.Parallel()
+			w := heldOnAppPlatform(t, postgresAndBucket)
+			ctx := context.Background()
+			putObjects(w, bucketOf(w, "prod"))
+			dep, err := w.s.Deployments.ByName(ctx, w.project, "prod")
+			if err != nil {
+				t.Fatal(err)
+			}
+			id, _ := w.clusterOf(dep)["id"].(string)
+			w.clusters.put(id+".fake", "app", "ledger: 41, 42")
+			w.clusters.importSays = "ERROR: duplicate key value violates unique constraint"
+			res, err := w.s.TakeDown(ctx, RemoveDeployment{ProjectID: w.project, Name: "prod"})
+			if err != nil || res.Operation == nil {
+				t.Fatalf("take-down door: %+v %v", res, err)
+			}
+			if op := w.run(res.Operation); endedAs(op, OperationVerified) {
+				t.Fatalf("a take-down whose database did not come back: %s", op.Detail)
+			}
+			w.clusters.mu.Lock()
+			w.clusters.importSays = ""
+			w.clusters.mu.Unlock()
+			finals, err := w.s.FinalCopies(ctx, w.project)
+			if err != nil || len(finals) != 1 {
+				t.Fatalf("final copies: %+v %v", finals, err)
+			}
+			if finals[0].Verified {
+				t.Fatalf("a final copy whose database did not come back is offered as checked: %+v", finals[0])
+			}
+			copy, err := w.bind(w.project, "copy", "production", finals[0].Backup)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := func(accept bool) (deployment.AcceptedRelease, error) {
+				return w.s.RequestRelease(ctx, deployment.DeploySelection{ProjectID: w.project, DeploymentName: "copy", BundleID: w.bundle.ID, AcceptUncheckedCopy: accept})
+			}
+			if path == "default" {
+				selected, err := w.s.SetReleaseDefault(ctx, w.project, copy.ID, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+				request = func(accept bool) (deployment.AcceptedRelease, error) {
+					return w.s.RequestDefaultRelease(ctx, deployment.DefaultReleaseSelection{ProjectID: w.project, ExpectedRevision: &selected.Revision, AcceptUncheckedCopy: accept})
+				}
+			}
+			apps := len(w.api.Snapshot().Apps)
+			before, err := w.s.Releases.ForProject(ctx, w.project, 100)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = request(false)
+			if err == nil || !strings.Contains(err.Error(), "postgres: its last check (") || !strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "s3:") || !strings.Contains(err.Error(), "--accept-unchecked-copy") {
+				t.Fatalf("the first release from a copy whose database did not come back: %v", err)
+			}
+			if len(w.api.Snapshot().Apps) != apps {
+				t.Fatal("the refused release made an app")
+			}
+			refused, err := w.s.Releases.ForProject(ctx, w.project, 100)
+			if err != nil || len(refused) != len(before) {
+				t.Fatalf("unchecked refusal recorded a release: %+v %v", refused, err)
+			}
+			accepted, err := request(true)
+			if err != nil {
+				t.Fatalf("explicit unchecked-copy acknowledgement was refused: %v", err)
+			}
+			_ = w.s.ExecuteRelease(ctx, accepted.ID)
+			rel, err := w.s.Releases.ByNumber(ctx, w.project, accepted.Number)
+			if err != nil {
+				t.Fatal(err)
+			}
+			events, err := w.s.Releases.Events(ctx, accepted.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines := make([]string, 0, len(events))
+			for _, event := range events {
+				lines = append(lines, event.Text)
+			}
+			log := strings.Join(lines, "\n")
+			if rel.ApprovedBy != "alice" || rel.DeploymentID != copy.ID {
+				t.Fatalf("accepted unchecked copy lost attribution: %+v", rel)
+			}
+			if rel.State != deployment.Released {
+				t.Fatalf("the accepted start %s:\n%s", rel.State, log)
+			}
+			first, _, _ := strings.Cut(log, "\n")
+			if !strings.Contains(first, "released by alice accepting a copy not shown to come back whole") || !strings.Contains(first, "postgres: its last check (") {
+				t.Fatalf("the release's first log line: %s", first)
+			}
+
+			after, err := w.s.FinalCopies(ctx, w.project)
+			if err != nil || len(after) != 1 || after[0].Backup != finals[0].Backup || after[0].Verified {
+				t.Fatalf("unchecked acceptance rewrote copy verification: %+v %v", after, err)
+			}
+		})
 	}
 }

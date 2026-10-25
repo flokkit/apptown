@@ -207,7 +207,7 @@ func previewOwner(t *testing.T, db *database.DB, dataDir string, projects *proje
 	return preview.New(db, preview.Dependencies{
 		Worker: previews, Targets: targets, Deployments: deployment.NewDeployments(db), Projects: projects, Integrations: integrations, DataDir: dataDir,
 		Hosts: deployment.NewHosts(targets, secrets, deployment.HostSettings{Scope: docker.Scope{Client: dockerfake.New()}, DataDir: dataDir}),
-		Environment: deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: secrets, Needs: catalog, Integrations: integrations,
+		Environment: deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: secrets, Needs: catalog, Integrations: integrations,
 			Routes: deployment.Routing{PreviewScheme: "https", PreviewDomain: "preview.example.com"}, Projects: projects}),
 	})
 }

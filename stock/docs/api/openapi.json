@@ -1571,6 +1571,9 @@
           "observedGeneration": {
             "type": "integer"
           },
+          "policyRevision": {
+            "type": "integer"
+          },
           "projectId": {
             "format": "uuid",
             "type": [
@@ -1593,6 +1596,9 @@
           },
           "releaseSha": {
             "type": "string"
+          },
+          "requirePromotion": {
+            "type": "boolean"
           },
           "restoreCheck": {
             "type": "string"
@@ -1630,6 +1636,8 @@
           }
         },
         "required": [
+          "requirePromotion",
+          "policyRevision",
           "displayLabel",
           "id",
           "projectId",
@@ -1843,6 +1851,9 @@
           "observedAt": {
             "type": "string"
           },
+          "policyRevision": {
+            "type": "integer"
+          },
           "protected": {
             "type": "boolean"
           },
@@ -1855,6 +1866,9 @@
               "string",
               "null"
             ]
+          },
+          "requirePromotion": {
+            "type": "boolean"
           },
           "restoreCheck": {
             "type": "string"
@@ -1956,6 +1970,45 @@
         ],
         "type": "string"
       },
+      "KindInfo": {
+        "properties": {
+          "containerMemoryLimits": {
+            "type": "boolean"
+          },
+          "environment": {
+            "type": "boolean"
+          },
+          "family": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "vendor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "containerMemoryLimits",
+          "kind",
+          "title",
+          "provider",
+          "family",
+          "vendor",
+          "region",
+          "environment"
+        ],
+        "type": "object"
+      },
       "LANReleaseStarted": {
         "properties": {
           "number": {
@@ -1991,6 +2044,43 @@
         "required": [
           "number",
           "at"
+        ],
+        "type": "object"
+      },
+      "LegacyReleaseSetup": {
+        "properties": {
+          "deploymentName": {
+            "type": "string"
+          },
+          "evidence": {},
+          "integrationId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "integrationName": {
+            "type": "string"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "integrationId",
+          "integrationName",
+          "targetId",
+          "deploymentName",
+          "evidence"
         ],
         "type": "object"
       },
@@ -2052,6 +2142,146 @@
           "act",
           "stepId",
           "step"
+        ],
+        "type": "object"
+      },
+      "Offer": {
+        "properties": {
+          "caps": {
+            "$ref": "#/components/schemas/OfferCaps"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "createdByPrincipal": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "group": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "implicit": {
+            "type": "boolean"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "targetId",
+          "group",
+          "caps",
+          "createdBy",
+          "createdAt"
+        ],
+        "type": "object"
+      },
+      "OfferCaps": {
+        "properties": {
+          "audiences": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxStanding": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "OfferedTarget": {
+        "properties": {
+          "address": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "bound": {
+            "type": "integer"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/TargetCapabilities"
+          },
+          "displayLabel": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ingress": {
+            "additionalProperties": {},
+            "type": "object"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "kindInfo": {
+            "$ref": "#/components/schemas/KindInfo"
+          },
+          "name": {
+            "type": "string"
+          },
+          "needsMode": {
+            "type": "string"
+          },
+          "offer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Offer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "origin": {
+            "type": "string"
+          },
+          "settingsRevision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "settingsRevision",
+          "name",
+          "kind",
+          "kindInfo",
+          "address",
+          "capabilities",
+          "ingress",
+          "needsMode",
+          "origin",
+          "offer",
+          "bound"
         ],
         "type": "object"
       },
@@ -2847,6 +3077,24 @@
         ],
         "type": "object"
       },
+      "ProjectTargets": {
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/OfferedTarget"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "targets",
+          "group"
+        ],
+        "type": "object"
+      },
       "Readiness": {
         "enum": [
           "reconciled",
@@ -3037,6 +3285,45 @@
         ],
         "type": "object"
       },
+      "ReleaseDefault": {
+        "properties": {
+          "deploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "eligibilityIssue": {
+            "type": "string"
+          },
+          "legacySetup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LegacyReleaseSetup"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "projectId",
+          "revision"
+        ],
+        "type": "object"
+      },
       "ReleaseDetail": {
         "properties": {
           "bundle": {
@@ -3144,7 +3431,20 @@
           "configured": {
             "type": "boolean"
           },
+          "defaultRevision": {
+            "type": "integer"
+          },
           "deployment": {
+            "type": "string"
+          },
+          "deploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deploymentLabel": {
             "type": "string"
           },
           "head": {
@@ -3175,6 +3475,7 @@
           }
         },
         "required": [
+          "defaultRevision",
           "configured",
           "deployment",
           "published",
@@ -3184,10 +3485,23 @@
       },
       "ReleaseRequest": {
         "properties": {
+          "acceptUncheckedCopy": {
+            "type": "boolean"
+          },
           "acceptUncopiedData": {
             "type": "boolean"
           },
           "addressRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "defaultRevision": {
             "anyOf": [
               {
                 "type": "integer"
@@ -3224,6 +3538,37 @@
           "deployment",
           "state"
         ],
+        "type": "object"
+      },
+      "ReleaseSetup": {
+        "properties": {
+          "deploymentName": {
+            "type": "string"
+          },
+          "expectedRevision": {
+            "type": "integer"
+          },
+          "requirePromotion": {
+            "type": "boolean"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "targetRevision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
         "type": "object"
       },
       "ReleaseState": {
@@ -3905,6 +4250,39 @@
           "title",
           "available",
           "note"
+        ],
+        "type": "object"
+      },
+      "TargetCapabilities": {
+        "properties": {
+          "needs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "ownLiveness": {
+            "type": "boolean"
+          },
+          "persistentVolumes": {
+            "type": "boolean"
+          },
+          "previews": {
+            "type": "boolean"
+          },
+          "rollout": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "persistentVolumes",
+          "previews",
+          "ownLiveness",
+          "rollout",
+          "needs"
         ],
         "type": "object"
       },
@@ -9186,6 +9564,45 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/projects/{slug}/deployments/{id}/promotion-policy": {
+      "put": {
+        "operationId": "putProjectsSlugDeploymentsIdPromotionPolicy",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.SetPromotionPolicy",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/projects/{slug}/deployments/{name}": {
       "delete": {
         "operationId": "deleteProjectsSlugDeploymentsName",
@@ -10828,9 +11245,8 @@
           "projects"
         ],
         "x-apptown-access": {
-          "capability": "release:promote",
-          "kind": "capability",
-          "scope": "release"
+          "contract": "deployment.RequestDefaultRelease",
+          "kind": "owner"
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
@@ -10850,8 +11266,15 @@
           }
         ],
         "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseDefault"
+                }
+              }
+            },
+            "description": "the operation's result"
           },
           "default": {
             "$ref": "#/components/responses/Refusal"
@@ -10864,7 +11287,8 @@
           "contract": "deployments.ReleaseDefault",
           "kind": "owner"
         },
-        "x-apptown-stability": "experimental"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       },
       "put": {
         "operationId": "putProjectsSlugReleaseDefault",
@@ -10894,6 +11318,55 @@
           "kind": "owner"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/release/default/setup": {
+      "post": {
+        "operationId": "postProjectsSlugReleaseDefaultSetup",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReleaseSetup"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseDefault"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.SetupReleaseDefault",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/release/plan": {
@@ -11821,8 +12294,15 @@
           }
         ],
         "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectTargets"
+                }
+              }
+            },
+            "description": "the operation's result"
           },
           "default": {
             "$ref": "#/components/responses/Refusal"
@@ -11836,7 +12316,8 @@
           "kind": "capability",
           "scope": "project-slug"
         },
-        "x-apptown-stability": "experimental"
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/toolchain": {

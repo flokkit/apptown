@@ -44,11 +44,11 @@ at every start, and an App Platform target again whenever its connector is
 saved (`Targets.Sync`). That sync supplies a setting's first value when it
 creates the target; after that the setting is the administrator's and no sync
 changes it: a domain the connector or configuration names is used only when
-the target is created. Everything that uses the domain reads the target's
-setting: an intranet release's hosts and address, the release plan's
-"it will live at" address, and the origins AppTown allows
-(`Service.IntranetConfig`), so a release on an intranet target with its domain cleared is refused
-until one is set. A sync that changes a configuration fact moves the
+the target is created. New deployment addresses use the target's domain setting as their initial
+configuration. An admitted deployment retains its own address snapshot, including
+routing hosts, certificate domain and allowed origins. Later target-domain changes
+do not retarget existing deployments; release plans show the selected deployment's
+address. A new address requires a configured target domain. A sync that changes a configuration fact moves the
 settings revision and records a `target.refreshed` receipt, with before and
 after, to AppTown at a start or to the person who saved the connector; a
 sync that changes nothing writes nothing. The built-in host takes no edits,

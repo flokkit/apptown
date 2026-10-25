@@ -115,9 +115,9 @@ it refuses before starting anything.
 | Field | Type | Meaning |
 |---|---|---|
 | `project` | string | the project's slug |
-| `deployment` | string | the deployment named (apptown release <project> <deployment>); empty for the intranet |
+| `deployment` | string | the deployment named (apptown release <project> <deployment>); empty for the default release form |
 | `number` | number | the release's number within its project: apptown wait -p <project> -r <number> |
-| `url` | string | where the intranet will serve it; empty for a named deployment, which keeps its own address |
+| `url` | string | the selected default deployment address; empty for a named deployment |
 | `state` | string | the release's state when AppTown accepted it |
 
 ### complain → `ComplaintFiled`

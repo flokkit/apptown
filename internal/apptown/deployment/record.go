@@ -29,6 +29,8 @@ import (
 
 // Deployment is one row of the deployments table.
 type Deployment struct {
+	RequirePromotion   bool             `json:"requirePromotion"`
+	PolicyRevision     int64            `json:"policyRevision"`
 	DisplayLabel       string           `json:"displayLabel"`
 	DeploymentPolicy   DeploymentPolicy `json:"deploymentPolicy,omitempty"` // enforced standing procedure, not persisted
 	ID                 ids.ID           `json:"id"`
@@ -90,6 +92,8 @@ func (e *Deployment) Placement() deploy.Placement {
 
 // Protected is derived, never typed (§2.3a): a deployment is protected when
 // its audience is outside the project or its data is production.
+func (e *Deployment) needsPromotion() bool { return e.Protected() || e.RequirePromotion }
+
 func (e *Deployment) Protected() bool {
 	return e.Audience == "partners" || e.Audience == "public" || e.DataClass == "production"
 }
@@ -163,6 +167,7 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		return nil, err
 	}
 	e := &Deployment{
+		RequirePromotion: r.RequirePromotion, PolicyRevision: r.PolicyRevision,
 		ID:                 r.ID,
 		ProjectID:          r.ProjectID,
 		Name:               r.Name,

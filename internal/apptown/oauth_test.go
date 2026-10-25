@@ -212,11 +212,11 @@ func TestOAuthFlowMintsBoundedTokens(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		may, err := a.holds(req.Context(), pr, c, res)
+		decision, err := a.Access.Explain(req.Context(), pr, access.Permission{Capability: c, Resource: res})
 		if err != nil {
 			t.Fatal(err)
 		}
-		return may
+		return decision.Allow
 	}
 	if holds(access.CapChangeCreate) {
 		t.Error("a read-only delegation must not create changes, whatever boss may do in person")

@@ -297,7 +297,6 @@ func (p *Providers) PortainerConfig(ctx context.Context, target *Target) (*porta
 	cfg.Scope = &scope
 	cfg.AppsDomain, _ = t.Ingress["domain"].(string)
 	cfg.EnvName, _ = t.Address[AddressEnvironment].(string)
-	cfg.ReleaseDeployment = portainerTier(t)
 	return cfg, nil
 }
 

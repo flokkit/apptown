@@ -21,7 +21,8 @@ func TestHTTPAuthorityScopeFailureStopsEvenAdministrator(t *testing.T) {
 	}{
 		{"/api/v1/projects/game", "GET", "", "-- name: ProjectByID :one", 0},
 		{"/api/v1/projects/game/members", "POST", `{"grantee":"outsider","role":"project-viewer"}`, "-- name: ProjectByID :one", 1},
-		{"/api/v1/projects/game/release", "POST", `{}`, "-- name: ProjectByID :one", 1},
+		// Release admission now resolves scope in the deployment owner, with no prior transport authority read.
+		{"/api/v1/projects/game/release", "POST", `{}`, "-- name: ProjectByID :one", 0},
 		{"/api/v1/authz/me?project=game", "GET", "", "-- name: ProjectByID :one", 0},
 		{"/api/v1/authz/me?project=game", "GET", "", "-- name: ProjectBySlug :one", 0},
 	} {

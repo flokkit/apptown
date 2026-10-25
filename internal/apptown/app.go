@@ -311,7 +311,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.targets = deployment.NewTargets(db, targetConnectors{}, deployment.IntranetTargetName)
 	a.deployments = deployment.NewDeployments(db)
 	a.hosts = deployment.NewHosts(a.targets, a.Secrets, hostSettingsFor(a))
-	a.environment = deployment.NewEnvironment(a.targets, environmentDependenciesFor(a))
+	a.environment = deployment.NewEnvironment(environmentDependenciesFor(a))
 	a.targetProviders = deployment.NewProviders(ctx, db, deployment.ProviderRecords{Targets: a.targets, Deployments: a.deployments}, a.hosts, a.environment, providerDependenciesFor(a, input.DigitalOcean))
 	// Data protection's fill of a deployment started from a copy is built
 	// before Deployment, which is given it; data protection itself is

@@ -24,7 +24,7 @@ func observationService(t *testing.T, client docker.Client) *Service {
 	db := testDB(t)
 	targets, dir := deployment.NewTargets(db, nil), t.TempDir()
 	return New(db, Dependencies{DataDir: dir, Hosts: deployment.NewHosts(targets, nil, deployment.HostSettings{Scope: docker.Scope{Client: client}, DataDir: dir}),
-		Environment: deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{ToolVersions: stock.Versions()})})
+		Environment: deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions()})})
 }
 
 func TestPreviewObservationAndWireShape(t *testing.T) {

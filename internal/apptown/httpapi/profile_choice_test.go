@@ -12,7 +12,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -33,7 +32,7 @@ func TestADeploymentsProfileIsChosenFromEitherFileAndReturnsToDefault(t *testing
 	secrets := secret.NewService(db, secret.Config{DataDir: dir})
 	projects := project.New(db, nil)
 	projectID := httpTestProject(t, db, "p", "Project")
-	h := NewSecrets(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), projects,
+	h := NewSecrets(secrets, projects,
 		listedDeployments{{Name: "cloud", Kind: deployment.Standing}, {Name: "copy", Kind: deployment.Restored}}, db, dir, nil)
 	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String(), ".apptown")
 	if err := os.MkdirAll(repo, 0o755); err != nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/stock"
 )
@@ -199,8 +200,14 @@ func mustJSON(t *testing.T, v any) string {
 // set, then deletes the stack and the volumes its deploy made, and keeps
 // (copied) a volume that was there before its first deploy.
 func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testing.T) {
+	for _, separate := range []bool{false, true} {
+		t.Run(fmt.Sprintf("separate-connections-%t", separate), func(t *testing.T) { portainerIndependentRecovery(t, separate) })
+	}
+}
+
+func portainerIndependentRecovery(t *testing.T, separate bool) {
 	ctx := context.Background()
-	slug := fmt.Sprintf("pt%d", os.Getpid())
+	slug := fmt.Sprintf("pt%d-%t", os.Getpid(), separate)
 	url, key := localPortainer(t, "forge-it-portainer-"+slug)
 	db := testDB(t)
 	pid := createTestProject(t, db, slug, "portainer backup")
@@ -218,11 +225,11 @@ func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testin
 	authority := &grants{who: "alice", deny: map[string]bool{}}
 	s := assembled(db, testRuntime{Scope: docker.Scope{Client: docker.CLI{Binary: "docker"}}, DataDir: dir, Needs: catalog, Secrets: secrets, Projects: projects, Integrations: integrations, ChownImage: stock.Images().Sh, BuiltInTarget: "local"},
 		deployment.Dependencies{Authority: authority, Configuration: deployment.ConfigurationDependencies{Authority: authority, Projects: &releasedContracts{}}, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
-	target, err := s.AttachPortainerTarget(ctx, deployment.PortainerAttachment{Name: "lan", Environment: "lan", URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_KEY", Domain: "lan"})
+	target, err := s.AttachPortainerTarget(ctx, deployment.PortainerAttachment{Name: "customer-a", Environment: "lan", URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_KEY", Domain: "lan"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := s.Deployments.EnsureStanding(ctx, pid, "lan", target.ID, deployment.Attributes{}.WithDefaults())
+	dep, err := s.Deployments.EnsureStanding(ctx, pid, "customer-a", target.ID, deployment.Attributes{}.WithDefaults())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,13 +248,7 @@ func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testin
 	// Portainer release names them.
 	prefix, base := portainer.StackNames(dep.ID)
 	stack := portainer.StackName(prefix, base)
-	t.Cleanup(func() {
-		_ = dockertest.Run("rm", "-f", stack+"-app-1", stack+"-worker-1", stack+"-postgres-1", stack+"-s3-1", stack+"-init-migrate-1")
-		for _, v := range []string{"apptown-data-" + base, "apptown-need-" + base + "-postgres", "apptown-need-" + base + "-s3"} {
-			_ = dockertest.Run("volume", "rm", "-f", stack+"_"+v)
-		}
-		_ = dockertest.Run("network", "rm", stack+"_default")
-	})
+	cleanupPortainerStack(t, stack)
 	// The app's data folder was there before the first deploy (an earlier
 	// take-down kept it): compose reuses it, and it is not the deployment's.
 	if out, err := dockertest.CombinedOutput("volume", "create", "--label", "com.docker.compose.project="+stack, "--label", "com.docker.compose.volume=apptown-data-"+base, stack+"_apptown-data-"+base); err != nil {
@@ -291,7 +292,7 @@ needs:
 	}
 	src := deploy.Source{Ingress: &address.Ingress, Slug: slug, Revision: "0123456789abcdef", Contract: contract, Published: true, Platform: platform,
 		Images: map[string]string{"web": stock.Images().DF, "worker": stock.Images().DF}, Init: map[string]string{"migrate": stock.Images().DF}}
-	art, err := d.(deploy.Renderer).Render(ctx, dep.Placement(), src, nil, noStackSecrets{}, t.Logf)
+	art, err := d.(deploy.Renderer).Render(ctx, dep.Placement(), src, nil, secret.Delivery{ByConsumer: map[string]map[string]string{"web": {"DEPLOYMENT_SECRET": "first-secret"}}}, t.Logf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -322,6 +323,27 @@ needs:
 		t.Fatal("recorded provider stack is absent")
 	}
 	verifyIngress()
+	siblingTarget := target
+	if separate {
+		otherURL, otherKey := localPortainer(t, "forge-it-portainer-other-"+slug)
+		for name, value := range map[string]string{"OTHER_PORTAINER_URL": otherURL, "OTHER_PORTAINER_KEY": otherKey} {
+			if err := secrets.SetBootstrap(ctx, name, value, "fixture"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		siblingTarget, err = s.AttachPortainerTarget(ctx, deployment.PortainerAttachment{Name: "second-connection", Environment: "lan", URLFrom: "OTHER_PORTAINER_URL", APIKeyFrom: "OTHER_PORTAINER_KEY", Domain: "other.example"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if siblingTarget.ConnectionID == target.ConnectionID {
+			t.Fatal("second connection reused identity")
+		}
+		if err := s.Targets.Offer(ctx, siblingTarget, "*", deployment.OfferCaps{}, "alice"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	verifySibling := portainerSiblingRecovery(t, s, pid, siblingTarget, src)
+	verifySibling(false)
 	app, worker, pg, store := stack+"-app-1", stack+"-worker-1", stack+"-postgres-1", stack+"-s3-1"
 	for _, c := range []string{app, worker, pg, store} {
 		if !poll.Until(ctx, 120*time.Second, time.Second, func() bool {
@@ -366,7 +388,7 @@ needs:
 		t.Fatalf("%v %s", err, out)
 	}
 
-	b, err := s.TakeBackup(ctx, pid, "lan", "manual", "bls")
+	b, err := s.TakeBackup(ctx, pid, "customer-a", "manual", "bls")
 	if err != nil || b.Status != BackupOK || len(b.Items) != 3 {
 		t.Fatalf("the set: %+v %v", b, err)
 	}
@@ -375,7 +397,7 @@ needs:
 	psql("delete from notes")
 	s3("-X", "PUT", "-H", "Content-Type: text/plain", "--data-binary", "changed", "http://s3:9000/app/logo.png")
 	_ = dockertest.Run("exec", app, "rm", "/data/notes.txt")
-	res, err := s.restoreBackup(ctx, nil, pid, "lan", b.ID, "bls")
+	res, err := s.restoreBackup(ctx, nil, pid, "customer-a", b.ID, "bls")
 	if err != nil || res.Status != RestoreNotVerified {
 		t.Fatalf("restore: %+v %v", res, err)
 	}
@@ -406,7 +428,21 @@ needs:
 	}
 
 	verifyIngress() // application-data restoration leaves routing and certificate input intact.
-	removed, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "lan"})
+	changed, err := s.EditAddress(ctx, pid, dep.ID, address.Revision, "changed-"+slug+".customer.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src.Ingress = &changed.Ingress
+	art, err = d.(deploy.Renderer).Render(ctx, dep.Placement(), src, nil, secret.Delivery{ByConsumer: map[string]map[string]string{"web": {"DEPLOYMENT_SECRET": "first-secret-updated"}}}, t.Logf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	art.Source = &src
+	if _, err := d.Reconcile(ctx, dep.Placement(), 2, art, "release-2", t.Logf, func(map[string]any) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	verifySibling(false)
+	removed, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "customer-a"})
 	if err != nil || removed.Removed == nil || removed.Removed.FinalBackup == nil {
 		t.Fatalf("take-down: %+v %v", removed, err)
 	}
@@ -415,6 +451,7 @@ needs:
 			t.Fatalf("after the take-down the volume %s is there %v, want %v", v, there, want)
 		}
 	}
+	verifySibling(true) // first removal cannot delete or restore the second placement
 	retained, err := s.Retained.ForProject(ctx, pid)
 	found := false
 	for _, r := range retained {
@@ -425,5 +462,180 @@ needs:
 	}
 	if err != nil || !found {
 		t.Fatalf("the kept volume is not retained with its copy: %+v %v", retained, err)
+	}
+}
+
+// The label is the newly allocated deployment UUID stack, never an instance or
+// user-provided prefix. Check cleanup rather than leaving silent test resources.
+func cleanupPortainerStack(t *testing.T, stack string) {
+	t.Helper()
+	t.Cleanup(func() {
+		for _, kind := range []string{"container", "network", "volume"} {
+			list := []string{kind, "ls", "-q", "--filter", "label=com.docker.compose.project=" + stack}
+			if kind == "container" {
+				list = []string{"ps", "-aq", "--filter", "label=com.docker.compose.project=" + stack}
+			}
+			raw, err := dockertest.Output(list...)
+			if err != nil {
+				t.Errorf("listing owned %s cleanup: %v", kind, err)
+				continue
+			}
+			owned := strings.Fields(string(raw))
+			if len(owned) > 0 {
+				command := []string{kind, "rm"}
+				if kind == "container" || kind == "volume" {
+					command = append(command, "-f")
+				}
+				if out, err := dockertest.CombinedOutput(append(command, owned...)...); err != nil {
+					t.Errorf("cleaning owned %s: %v %s", kind, err, out)
+				}
+			}
+			remaining, err := dockertest.Output(list...)
+			if err != nil || len(strings.Fields(string(remaining))) > 0 {
+				t.Errorf("owned %s survived cleanup: %s %v", kind, remaining, err)
+			}
+		}
+	})
+}
+
+// Return a readback that proves the second placement is unchanged by the first's
+// update/removal. The final call also restores its own backup after changing data.
+func portainerSiblingRecovery(t *testing.T, s *both, pid ids.ID, target *deployment.Target, source deploy.Source) func(bool) {
+	t.Helper()
+	ctx := t.Context()
+	dep, err := s.Deployments.EnsureStanding(ctx, pid, "customer-b", target.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	address, err := s.EditAddress(ctx, pid, dep.ID, 0, "second-"+dep.ID.String()+".customer.example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source.Ingress = &address.Ingress
+	prefix, base := portainer.StackNames(dep.ID)
+	stack := portainer.StackName(prefix, base)
+	cleanupPortainerStack(t, stack)
+	driver, err := s.providers.Driver(ctx, target, dep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	art, err := driver.(deploy.Renderer).Render(ctx, dep.Placement(), source, nil, secret.Delivery{ByConsumer: map[string]map[string]string{"web": {"DEPLOYMENT_SECRET": "second-secret"}}}, t.Logf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	art.Source = &source
+	observation, err := driver.Reconcile(ctx, dep.Placement(), 1, art, "second-release", t.Logf, func(map[string]any) error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if observation.URL != address.Ingress.URL || observation.Rollout != "active" {
+		t.Fatalf("second apply: %+v", observation)
+	}
+	app, pg := stack+"-app-1", stack+"-postgres-1"
+	for _, container := range []string{app, pg, stack + "-s3-1"} {
+		if !poll.Until(ctx, 120*time.Second, time.Second, func() bool {
+			out, err := dockertest.Output("inspect", "-f", "{{.State.Running}}{{if .State.Health}} {{.State.Health.Status}}{{end}}", container)
+			state := strings.TrimSpace(string(out))
+			return err == nil && (state == "true" || state == "true healthy")
+		}) {
+			t.Fatalf("second container %s did not become ready", container)
+		}
+	}
+	if !poll.Until(ctx, 120*time.Second, time.Second, func() bool {
+		out, _ := dockertest.Output("exec", pg, "pg_isready", "-U", "app", "-d", "app")
+		return strings.Contains(string(out), "accepting connections")
+	}) {
+		t.Fatal("second database did not become ready")
+	}
+	sql := func(query string) string {
+		t.Helper()
+		out, err := dockertest.CombinedOutput("exec", pg, "psql", "-U", "app", "-d", "app", "-tA", "-c", query)
+		if err != nil {
+			t.Fatalf("second app database: %v %s", err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	// sql-guarantee: independent disposable application data, not AppTown records.
+	sql("create table notes (body text); insert into notes values ('second row')")
+	if out, err := dockertest.CombinedOutput("exec", app, "sh", "-c", "echo second-file > /data/notes.txt"); err != nil {
+		t.Fatalf("second file: %v %s", err, out)
+	}
+	backup, err := s.TakeBackup(ctx, pid, dep.Name, "manual", "alice")
+	if err != nil || backup.Status != BackupOK {
+		t.Fatalf("second backup: %+v %v", backup, err)
+	}
+	for _, item := range backup.Items {
+		if item.Volume != "" && !strings.HasPrefix(item.Volume, stack+"_") {
+			t.Fatalf("second backup contains foreign volume: %+v", item)
+		}
+	}
+	// Current data deliberately differs from the backup: an unintended restore
+	// of this placement is also damage, not evidence that removal preserved it.
+	// sql-guarantee: disposable application data distinguishes current state from backup.
+	sql("update notes set body = 'second current row'")
+	if out, err := dockertest.CombinedOutput("exec", app, "sh", "-c", "echo second-current-file > /data/notes.txt"); err != nil {
+		t.Fatalf("second current file: %v %s", err, out)
+	}
+	assertData := func(wantRow, wantFile string) {
+		t.Helper()
+		if got := sql("select body from notes"); got != wantRow {
+			t.Fatalf("second data changed before intended restore: %q want %q", got, wantRow)
+		}
+		if out, err := dockertest.Output("exec", app, "cat", "/data/notes.txt"); err != nil || strings.TrimSpace(string(out)) != wantFile {
+			t.Fatalf("second file changed: %s %v want %s", out, err, wantFile)
+		}
+	}
+	password, err := s.Service.env.NeedCredentials(deployment.NeedSecretsScope(dep.ID))(ctx, "postgres", "password")
+	if err != nil || password == "" {
+		t.Fatal("second database credentials missing", err)
+	}
+	return func(restore bool) {
+		t.Helper()
+		cfg, err := s.providers.PortainerConfig(ctx, target)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stacks, err := portainer.ListStacks(ctx, cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, st := range stacks {
+			if st.Name == stack {
+				found = true
+				observed, err := portainer.ReadStackIngress(ctx, *cfg, st, dep.ID, nil)
+				if err != nil || !observed.Same(address.Ingress) {
+					t.Fatalf("second routing changed: %+v %v", observed, err)
+				}
+			}
+		}
+		if !found {
+			t.Fatal("second owned stack disappeared")
+		}
+		if out, err := dockertest.Output("inspect", "-f", "{{.State.Running}}", app); err != nil || strings.TrimSpace(string(out)) != "true" {
+			t.Fatalf("second app stopped: %s %v", out, err)
+		}
+		if out, err := dockertest.Output("exec", app, "sh", "-c", "printf '%s' \"$DEPLOYMENT_SECRET\""); err != nil || string(out) != "second-secret" {
+			t.Fatalf("second delivered secret changed: %v", err)
+		}
+		if out, err := dockertest.Output("exec", app, "sh", "-c", "printf '%s' \"$APPTOWN_ORIGINS\""); err != nil || !strings.Contains(string(out), address.Ingress.URL) || strings.Contains(string(out), "changed-") {
+			t.Fatalf("second origin changed: %s %v", out, err)
+		}
+		got, err := s.Service.env.NeedCredentials(deployment.NeedSecretsScope(dep.ID))(ctx, "postgres", "password")
+		if err != nil || got != password {
+			t.Fatal("second database credential changed", err)
+		}
+		assertData("second current row", "second-current-file")
+		if restore {
+			// sql-guarantee: disposable second application's data proves backup ownership.
+			sql("delete from notes")
+			restored, err := s.restoreBackup(ctx, nil, pid, dep.Name, backup.ID, "alice")
+			if err != nil || restored.Status != RestoreNotVerified {
+				t.Fatalf("second own backup restore: %+v %v", restored, err)
+			}
+		}
+		if restore {
+			assertData("second row", "second-file")
+		}
 	}
 }

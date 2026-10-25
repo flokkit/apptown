@@ -275,7 +275,7 @@ func TestRegistryDestinationRefusalReachesPublicationAndLogin(t *testing.T) {
 	id := createTestProject(t, db, "shop", "Shop")
 	projects := project.New(db, nil)
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
-	env := NewEnvironment(nil, EnvironmentDependencies{Projects: projects, Integrations: integrations})
+	env := NewEnvironment(EnvironmentDependencies{Projects: projects, Integrations: integrations})
 	if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"docker.io"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}

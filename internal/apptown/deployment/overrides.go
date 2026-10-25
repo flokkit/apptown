@@ -70,21 +70,15 @@ func (s *Service) SetOverride(ctx context.Context, in OverrideChange) (OverrideR
 	if err != nil {
 		return OverrideResult{}, err
 	}
-	// The intranet deployment is released only with the release grant; so
-	// is an override that redeploys it.
-	intranet := false
 	directLimits := false
 	if found {
-		// The intranet deployment is the one on the intranet target, which
-		// AppTown records at startup from its Portainer configuration.
 		t, err := s.Targets.ByID(ctx, dep.TargetID)
 		if err != nil {
 			return OverrideResult{}, err
 		}
-		intranet = t.Name == IntranetTargetName
 		directLimits = DescribeTarget(t).ContainerMemoryLimits
 	}
-	caller, err := s.requireDeploy(ctx, in.ProjectID, in.Deployment, found && (dep.Protected() || intranet), "deployment.override")
+	caller, err := s.requireDeploy(ctx, in.ProjectID, in.Deployment, found && dep.needsPromotion(), "deployment.override")
 	if err != nil {
 		return OverrideResult{}, err
 	}
@@ -150,11 +144,6 @@ func (s *Service) SetOverride(ctx context.Context, in OverrideChange) (OverrideR
 	if running.IsZero() {
 		out.NotYet = "the running software could not be established; the override is saved for the next deployment, and no redeploy was started"
 		return out, nil
-	}
-	if intranet {
-		// The intranet runs through its own release flow (runLANRelease),
-		// given the bundle it runs, so the same software ships again.
-		return s.redeployIntranet(ctx, out, dep, running, who)
 	}
 	rel, err := s.RequestRelease(ctx, DeploySelection{ProjectID: in.ProjectID, DeploymentName: dep.Name, BundleID: running})
 	if err != nil {
@@ -243,24 +232,4 @@ func covers(declared, override appcontract.Resources) bool {
 		return false
 	}
 	return true
-}
-
-// redeployIntranet ships the bundle the intranet deployment runs again,
-// through the intranet release, so an override applies now.
-func (s *Service) redeployIntranet(ctx context.Context, out OverrideResult, dep *Deployment, running ids.ID, who string) (OverrideResult, error) {
-	bundle, err := s.Bundles.ByID(ctx, running)
-	if err != nil {
-		return OverrideResult{}, err
-	}
-	p, err := s.projects.ByID(ctx, dep.ProjectID)
-	if err != nil {
-		return OverrideResult{}, err
-	}
-	started, _, err := s.releaseLANOf(ctx, &p, who, bundle, LANReleaseRequest{})
-	if err != nil {
-		out.NotYet = fmt.Sprintf("the redeploy of the running bundle was not started (%v): the override applies at the next intranet release", err)
-		return out, nil
-	}
-	out.Release = &RedeployNumber{Number: started.Number, Deployment: dep.Name}
-	return out, nil
 }

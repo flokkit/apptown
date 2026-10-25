@@ -78,7 +78,9 @@ CREATE TABLE IF NOT EXISTS deployments (
   restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling')),
   display_label TEXT NOT NULL DEFAULT '',
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
-  UNIQUE(project_id, name)
+  UNIQUE(project_id, name),
+  require_promotion BOOLEAN NOT NULL DEFAULT false,
+  policy_revision BIGINT NOT NULL DEFAULT 1 CHECK (policy_revision > 0)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
 -- A target (design/subsystems/deployment.md §2.2): a reusable place AppTown can
@@ -283,7 +285,8 @@ CREATE TABLE IF NOT EXISTS release_requests (
   start_from_backup UUID,
   provider_binding_json JSONB,
   ingress_json JSONB,
-  authority_json JSONB
+  authority_json JSONB,
+  require_promotion BOOLEAN NOT NULL DEFAULT false
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,
@@ -343,6 +346,8 @@ CREATE TABLE IF NOT EXISTS project_release_settings (
   project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
   default_deployment_id UUID,
   revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
+  legacy_setup_json JSONB,
+  CONSTRAINT project_release_setup_exclusive CHECK (default_deployment_id IS NULL OR legacy_setup_json IS NULL),
   CONSTRAINT project_release_default_membership FOREIGN KEY(project_id, default_deployment_id)
     REFERENCES deployments(project_id, id) DEFERRABLE INITIALLY DEFERRED
 );

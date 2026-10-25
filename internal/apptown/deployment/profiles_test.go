@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -19,7 +18,6 @@ import (
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
-	"github.com/flokkit/apptown/internal/poll"
 )
 
 // profiledAppYAML is the world's app with resources and a production
@@ -557,27 +555,39 @@ func TestAnIntranetOverrideRedeploysTheRunningBundleThroughPortainer(t *testing.
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	b := p.land(t)
-	if rel := p.releaseLAN(t); rel.State != Released {
+	if rel := p.releaseDefault(t); rel.State != Released {
 		t.Fatalf("the intranet release: %+v", rel)
 	}
-	cfg, err := p.s.IntranetConfig(t.Context())
+	selected := p.chooseDefault(t)
+	configured, err := p.s.Deployments.ByID(t.Context(), selected.DeploymentID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// A newer published receipt is available but was never applied here.
+	newerOrigin := b.BuiltFrom
+	newerOrigin.By = &claimedAttempt{db: p.db, project: p.project, run: idstest.N(7), step: idstest.N(70), at: 2}
+	newer, err := p.s.Bundles.Cut(t.Context(), p.project, b.ContractRevision, b.Parts, b.Init, p.contract, newerOrigin)
+	if err != nil || newer == b.ID {
+		t.Fatalf("newer publication: %s %v", newer, err)
 	}
 	wait := func(out OverrideResult) *Release {
 		t.Helper()
 		if out.Release == nil {
 			t.Fatalf("the override started no redeploy: %+v", out)
 		}
-		var rel *Release
-		if !poll.Until(context.Background(), 10*time.Second, 10*time.Millisecond, func() bool {
-			var err error
-			if rel, err = p.s.Releases.ByNumber(context.Background(), p.project, out.Release.Number); err != nil {
-				t.Fatal(err)
-			}
-			return rel.State != Releasing
-		}) {
-			t.Fatalf("release %d is still releasing", out.Release.Number)
+		rel, err := p.s.Releases.ByNumber(t.Context(), p.project, out.Release.Number)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rel.BundleID != b.ID {
+			t.Fatalf("override admitted latest publication instead of running bundle: %+v", rel)
+		}
+		if err := p.s.ExecuteRelease(t.Context(), rel.ID); err != nil {
+			t.Fatal(err)
+		}
+		rel, err = p.s.Releases.ByNumber(t.Context(), p.project, out.Release.Number)
+		if err != nil {
+			t.Fatal(err)
 		}
 		return rel
 	}
@@ -599,7 +609,7 @@ func TestAnIntranetOverrideRedeploysTheRunningBundleThroughPortainer(t *testing.
 		}
 		return strings.Join(lines, "\n")
 	}
-	out, err := p.s.SetOverride(context.Background(), OverrideChange{ProjectID: p.project, Deployment: cfg.ReleaseDeployment, Part: "worker",
+	out, err := p.s.SetOverride(context.Background(), OverrideChange{ProjectID: p.project, Deployment: configured.Name, Part: "worker",
 		Resources: appcontract.Resources{MemoryBytes: 512 << 20}, Reason: "the intranet's worker needs more"})
 	if err != nil {
 		t.Fatal(err)
@@ -610,14 +620,14 @@ func TestAnIntranetOverrideRedeploysTheRunningBundleThroughPortainer(t *testing.
 	if w := worker(lastStack()); !strings.Contains(w, "mem_limit: 536870912") || !strings.Contains(w, "memswap_limit: 536870912") {
 		t.Errorf("Portainer was not given the override:\n%s", lastStack())
 	}
-	dep, err := p.s.intranetDeployment(t.Context(), p.project, cfg)
+	dep, err := p.s.Deployments.ByID(t.Context(), configured.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if applied, err := p.s.SettledApplied(t.Context(), dep); err != nil || applied.Parts["worker"].Override.MemoryBytes != 512<<20 {
 		t.Errorf("the redeploy's record: %+v %v", applied, err)
 	}
-	out, err = p.s.SetOverride(context.Background(), OverrideChange{ProjectID: p.project, Deployment: cfg.ReleaseDeployment, Part: "worker", Reason: "back to declared"})
+	out, err = p.s.SetOverride(context.Background(), OverrideChange{ProjectID: p.project, Deployment: configured.Name, Part: "worker", Reason: "back to declared"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -658,21 +668,22 @@ func TestAnIntranetOverrideNeedsTheReleaseGrantEvenWhenItsTargetCannotBeRead(t *
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	p.land(t)
-	if rel := p.releaseLAN(t); rel.State != Released {
+	if rel := p.releaseDefault(t); rel.State != Released {
 		t.Fatalf("the intranet release: %+v", rel)
 	}
-	cfg, err := p.s.IntranetConfig(t.Context())
+	selected := p.chooseDefault(t)
+	configured, err := p.s.Deployments.ByID(t.Context(), selected.DeploymentID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if _, err := p.s.SetOverride(ctx, OverrideChange{ProjectID: p.project, Deployment: cfg.ReleaseDeployment, Part: "worker", Resources: appcontract.Resources{MemoryBytes: 512 << 20}, Reason: "set by someone who may"}); err != nil {
+	if _, err := p.s.SetOverride(ctx, OverrideChange{ProjectID: p.project, Deployment: configured.Name, Part: "worker", Resources: appcontract.Resources{MemoryBytes: 512 << 20}, Reason: "set by someone who may"}); err != nil {
 		t.Fatal(err)
 	}
 	deps := p.deps
 	deps.Releases.Authority = releaseDenied{}
 	carol := New(context.Background(), p.db, deps)
-	dep, err := p.s.intranetDeployment(t.Context(), p.project, cfg)
+	dep, err := p.s.Deployments.ByID(t.Context(), configured.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -683,7 +694,7 @@ func TestAnIntranetOverrideNeedsTheReleaseGrantEvenWhenItsTargetCannotBeRead(t *
 		}
 		return len(entries)
 	}
-	last, err := p.s.Releases.Last(ctx, p.project, cfg.ReleaseDeployment)
+	last, err := p.s.Releases.Last(ctx, p.project, configured.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -699,7 +710,7 @@ func TestAnIntranetOverrideNeedsTheReleaseGrantEvenWhenItsTargetCannotBeRead(t *
 		{"setting, its target unread", OverrideChange{Part: "worker", Resources: appcontract.Resources{MemoryBytes: 2 << 30}, Reason: "more"}, true, nil},
 		{"clearing, its target unread", OverrideChange{Part: "worker", Reason: "less"}, true, nil},
 	} {
-		c.change.ProjectID, c.change.Deployment = p.project, cfg.ReleaseDeployment
+		c.change.ProjectID, c.change.Deployment = p.project, configured.Name
 		if c.failRead {
 			p.db.FailNextStatement("FROM targets WHERE id")
 		}
@@ -715,7 +726,7 @@ func TestAnIntranetOverrideNeedsTheReleaseGrantEvenWhenItsTargetCannotBeRead(t *
 	if acts() != before {
 		t.Errorf("a refused override recorded an act")
 	}
-	if now, err := p.s.Releases.Last(ctx, p.project, cfg.ReleaseDeployment); err != nil || now.ID != last.ID {
+	if now, err := p.s.Releases.Last(ctx, p.project, configured.Name); err != nil || now.ID != last.ID {
 		t.Errorf("a refused override started a release: %+v %v", now, err)
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/diskspace"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/stamp"
 	"github.com/flokkit/apptown/internal/strs"
@@ -33,12 +34,11 @@ type Infrastructure struct {
 	builtinDB   bool
 	dbContainer string
 	dbVolume    string
-	intranet    string
 	now         func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, cache InventoryCache, queue *jobs.Queue, builtinDB bool, dbContainer string, dbVolume string, intranet string, now func() time.Time) Infrastructure {
-	return Infrastructure{deployment: deployment, hosts: hosts, providers: providers, projects: projects, db: db, cache: cache, queue: queue, builtinDB: builtinDB, dbContainer: dbContainer, dbVolume: dbVolume, intranet: intranet, now: now}
+func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, cache InventoryCache, queue *jobs.Queue, builtinDB bool, dbContainer string, dbVolume string, now func() time.Time) Infrastructure {
+	return Infrastructure{deployment: deployment, hosts: hosts, providers: providers, projects: projects, db: db, cache: cache, queue: queue, builtinDB: builtinDB, dbContainer: dbContainer, dbVolume: dbVolume, now: now}
 }
 
 // Disks serves the filesystems this AppTown and its worker write to
@@ -105,7 +105,7 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 				var answered bool
 				v.Resources, v.Live, answered = inventoryAnswer(v.Resources, live, errText, at)
 				if answered {
-					if t.Kind == deployment.KindDockerHost {
+					if t.Kind == deployment.KindDockerHost || t.Kind == deployment.KindPortainer {
 						// Without the project list every leftover would read
 						// as nobody's, so a failed read fails the page.
 						if v.Resources, v.Shared, err = h.attributeLeftovers(r.Context(), t, v.Resources); err != nil {
@@ -176,6 +176,15 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 		var out []byte
 		switch {
 		case t.Kind == deployment.KindDockerHost && (in.Kind == "container" || in.Kind == "volume"):
+			inventory, lookupErr := h.providers.TargetInventory(t)
+			if lookupErr != nil {
+				WriteError(w, 503, "not removed: %v", lookupErr)
+				return
+			}
+			if err := h.requireUnclaimedResource(r.Context(), inventory, in.Kind, in.Name, in.ID); err != nil {
+				WriteFault(w, err)
+				return
+			}
 			dk, scopeErr := h.hosts.DockerScope(r.Context(), t)
 			if scopeErr != nil {
 				WriteError(w, 502, "not removed: %v", scopeErr)
@@ -202,6 +211,13 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 			}
 			if in.ID == "" {
 				WriteError(w, 400, "a stack is removed by its id")
+				return
+			}
+			// Listing and removal share the already verified destination and
+			// credential snapshot; do not resolve another target between them.
+			inventory := portainer.Inventory{Config: func(context.Context) (*portainer.Target, error) { return cfg, nil }}
+			if err := h.requireUnclaimedResource(r.Context(), inventory, in.Kind, in.Name, in.ID); err != nil {
+				WriteFault(w, err)
 				return
 			}
 			if !admit() {
@@ -232,4 +248,30 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 		}
 		WriteJSON(w, 200, Done{OK: true})
 	})
+}
+
+// requireUnclaimedResource checks fresh provider identity and the same current
+// placement claims used by the inventory projection, before a removal receipt.
+func (h Infrastructure) requireUnclaimedResource(ctx context.Context, inventory deploy.Inventorier, kind, name, id string) error {
+	observed, err := inventory.Inventory(ctx)
+	if err != nil {
+		return fault.Wrap(fault.Unavailable, fmt.Errorf("not removed: inventory unavailable: %w", err))
+	}
+	var selected []deploy.Resource
+	for _, resource := range observed {
+		if resource.Kind == kind && resource.Name == name && (id == "" || resource.ID == id) {
+			selected = append(selected, resource)
+		}
+	}
+	if len(selected) != 1 {
+		return fault.New(fault.Conflict, "not removed: refresh the inventory; the exact resource was not observed uniquely")
+	}
+	shared, err := h.deployment.Inventory.Shared(ctx, selected)
+	if err != nil {
+		return fault.Wrap(fault.Unavailable, fmt.Errorf("not removed: placement could not be verified: %w", err))
+	}
+	if len(shared) != 0 {
+		return fault.New(fault.Conflict, fmt.Sprintf("not removed: %s belongs to %s/%s on %s; retire its deployment instead", name, shared[0].Project, shared[0].Deployment, shared[0].Target))
+	}
+	return nil
 }

@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,6 +56,8 @@ type ReleaseQueue interface {
 }
 
 type AcceptedRelease struct {
+	// URL is the admitted address, when this placement has one.
+	URL string
 	NumberedRelease
 	Deployment string
 	State      ReleaseState
@@ -98,7 +101,7 @@ func (s *Service) requireDeploy(ctx context.Context, projectID ids.ID, deploymen
 		return access.Caller{}, err
 	}
 	if protected {
-		if _, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapReleasePromote, Resource: access.Resource{Type: "release-target", ID: deployment}, Context: access.Context{Consequential: true, Route: route}}); err != nil {
+		if _, err := s.release.Authority.Require(ctx, access.Permission{Capability: access.CapReleasePromote, Resource: access.Resource{Type: "release-target", ID: deployment, ProjectID: projectID}, Context: access.Context{Consequential: true, Route: route}}); err != nil {
 			return access.Caller{}, err
 		}
 	}
@@ -112,18 +115,34 @@ func (s *Service) requireDeploy(ctx context.Context, projectID ids.ID, deploymen
 // and generation. ErrPlacementChanged requires a new request. Success means the
 // request was accepted; provider execution happens later through ExecuteRelease.
 func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (AcceptedRelease, error) {
+	return s.requestRelease(ctx, in, nil)
+}
+
+func (s *Service) requestRelease(ctx context.Context, in DeploySelection, selectedDefault *ReleaseDefault) (AcceptedRelease, error) {
 	if err := ctx.Err(); err != nil {
 		return AcceptedRelease{}, err
 	}
 	if s.release.Authority == nil || s.release.Sources == nil || s.release.Queue == nil || s.release.Secrets == nil {
 		return AcceptedRelease{}, errors.New("release operations are not configured")
 	}
-	dep, err := s.Deployments.ByName(ctx, in.ProjectID, in.DeploymentName)
+	var dep *Deployment
+	var err error
+	if selectedDefault == nil {
+		dep, err = s.Deployments.ByName(ctx, in.ProjectID, in.DeploymentName)
+	} else {
+		dep, err = s.Deployments.ByID(ctx, selectedDefault.DeploymentID)
+		if err == nil {
+			if dep.ProjectID != in.ProjectID {
+				return AcceptedRelease{}, ErrDeploymentMissing
+			}
+			in.DeploymentName = dep.Name
+		}
+	}
 	found, err := database.Lookup(err)
 	if err != nil {
 		return AcceptedRelease{}, err
 	}
-	actor, err := s.requireDeploy(ctx, in.ProjectID, in.DeploymentName, found && dep.Protected(), "deployment.request")
+	actor, err := s.requireDeploy(ctx, in.ProjectID, in.DeploymentName, found && dep.needsPromotion(), "deployment.request")
 	if err != nil {
 		return AcceptedRelease{}, err
 	}
@@ -266,6 +285,18 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 			return err
 		}
 		q := deploymentsql.New(tx.SQL())
+		if selectedDefault != nil {
+			settings, err := q.LockProjectReleaseSettings(ctx, in.ProjectID)
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrReleaseDefaultChanged
+			}
+			if err != nil {
+				return err
+			}
+			if settings.Revision != selectedDefault.Revision || settings.DefaultDeploymentID != dep.ID {
+				return ErrReleaseDefaultChanged
+			}
+		}
 		lockedTarget, err := targetRecord(q.TargetByNameForUpdate(ctx, t.Name))
 		if err != nil {
 			return err
@@ -275,6 +306,14 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		}
 		current, err := LockDeploymentIn(ctx, tx, dep.ID)
 		if err != nil {
+			return err
+		}
+		if selectedDefault != nil {
+			if err := s.defaultEligible(ctx, q, in.ProjectID, current, lockedTarget); err != nil {
+				return err
+			}
+		}
+		if _, err := s.requireDeploy(ctx, current.ProjectID, current.Name, current.needsPromotion(), "deployment.request"); err != nil {
 			return err
 		}
 		running, err := s.handBundle(ctx, current)
@@ -309,13 +348,16 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		if err != nil {
 			return err
 		}
-		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: &captured}); err != nil {
+		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: &captured, RequirePromotion: current.needsPromotion()}); err != nil {
 			return err
 		}
 		if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {
 			return err
 		}
 		admitted = AcceptedRelease{NumberedRelease: rel, Deployment: dep.Name, State: Releasing}
+		if address != nil {
+			admitted.URL = address.Ingress.URL
+		}
 		return nil
 	})
 	if err != nil {

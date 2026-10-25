@@ -13,7 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
@@ -35,55 +34,55 @@ func (h Infrastructure) recordedResources(ctx context.Context, t *deployment.Tar
 	return append(out, recorded...), nil
 }
 
-// attributeLeftovers reads the labels on a Docker host's unrecorded
-// resources. One made by AppTown for a deployment (apptown.owner) is
-// "left behind" by that deployment, with the reason, and stays removable.
-// One that belongs to an intranet stack (the compose project label names
-// a project's stack) is the intranet target's, not this host's: the
-// intranet's Portainer environment runs on this same daemon, so it is left
-// out here and said in words.
+// attributeLeftovers keeps ordinary teardown evidence and attributes shared
+// resources only through the deployment owner's verified current placement.
 func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Target, res []deploy.Resource) ([]deploy.Resource, string, error) {
-	// A deployment's things carry its stack (its services, network, need
-	// volumes) or its app container's name (its data volume) as owner.
+	shared, err := h.deployment.Inventory.Shared(ctx, res)
+	if err != nil {
+		return nil, "", err
+	}
+	byIndex := make(map[int]deployment.SharedResource)
+	var notes []string
+	counts := make(map[string]int)
+	var order []string
+	for _, claim := range shared {
+		if res[claim.Index].Record != deploy.RecordUnrecorded {
+			continue
+		}
+		byIndex[claim.Index] = claim
+		label := claim.Target + " (" + claim.Project + "/" + claim.Deployment + ")"
+		if counts[label] == 0 {
+			order = append(order, label)
+		}
+		counts[label]++
+	}
+	for _, label := range order {
+		notes = append(notes, fmt.Sprintf("%d resource(s) belong to %s on this same verified Docker daemon; see that environment's inventory.", counts[label], label))
+	}
 	deployments, err := h.deployment.Deployments.All(ctx)
 	if err != nil {
 		return nil, "", err
 	}
 	owners := map[string][2]string{}
-	stacks := map[string]bool{} // the intranet stacks' names, as compose projects
 	for _, d := range deployments {
 		if n, err := d.HostNames(); err == nil {
 			owners[n.Stack()] = [2]string{d.Project, d.Name}
 			owners[n.App()] = [2]string{d.Project, d.Name}
 		}
-		stacks[portainer.StackName(portainer.StackNames(d.ID))] = true
 	}
-	_, noIntranet := h.deployment.Targets.ByName(ctx, h.intranet)
 	var out []deploy.Resource
-	shared := 0
-	for _, r := range res {
-		if r.Record != deploy.RecordUnrecorded {
-			out = append(out, r)
+	for i, r := range res {
+		if _, ok := byIndex[i]; ok && r.Record == deploy.RecordUnrecorded {
 			continue
 		}
-		if r.Stack != "" && stacks[r.Stack] && noIntranet == nil && t.Name != h.intranet {
-			shared++
-			continue
-		}
-		if d, ok := owners[r.Owner]; ok {
-			r.Retained = &deploy.RetainedNote{Project: d[0], Deployment: d[1], Reason: h.leftoverReason(ctx, t, d[0], d[1])}
+		if r.Record == deploy.RecordUnrecorded {
+			if d, ok := owners[r.Owner]; ok {
+				r.Retained = &deploy.RetainedNote{Project: d[0], Deployment: d[1], Reason: h.leftoverReason(ctx, t, d[0], d[1])}
+			}
 		}
 		out = append(out, r)
 	}
-	note := ""
-	if shared > 0 {
-		word := "resources here belong"
-		if shared == 1 {
-			word = "resource here belongs"
-		}
-		note = fmt.Sprintf("%d %s to the intranet's stacks: its Portainer environment runs on this same daemon. It is on the intranet's page.", shared, word)
-	}
-	return out, note, nil
+	return out, strings.Join(notes, " "), nil
 }
 
 // leftoverReason says why a deployment no longer records a resource it
@@ -321,7 +320,7 @@ type InfrastructureView struct {
 	Refreshing bool              `json:"refreshing"`    // a fresh answer is on its way
 	Resources  []deploy.Resource `json:"resources"`
 	// Shared: resources at this daemon that belong to another target's
-	// stacks (the intranet's Portainer environment on the same daemon),
+	// stacks on the same verified Docker daemon,
 	// left out of this list, in words.
 	Shared string `json:"shared,omitempty"`
 }

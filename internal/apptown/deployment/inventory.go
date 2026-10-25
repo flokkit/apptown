@@ -34,6 +34,8 @@ type Inventory struct {
 	deployments *Deployments
 	needs       NeedStore
 	retained    *Retained
+	targets     *Targets
+	providers   *Providers
 	declared    Declarations
 }
 

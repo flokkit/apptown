@@ -20,7 +20,7 @@ func TestARehearsalKeepsItsToolVersionsThroughItsBoot(t *testing.T) {
 	first := stock.Versions().Current()
 	first.Images.Sh = "first-helper"
 	tools := toolversions.New(first)
-	s.env = deployment.NewEnvironment(s.targets, deployment.EnvironmentDependencies{
+	s.env = deployment.NewEnvironment(deployment.EnvironmentDependencies{
 		Secrets: s.secrets, Integrations: s.integrations, Needs: s.catalog,
 		Projects: s.projects, Probe: &docker.Probe{Settle: time.Millisecond},
 		Routes: s.env.Routes(), ToolVersions: tools,

@@ -1,7 +1,6 @@
 package apptown
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -54,11 +53,4 @@ func (a *App) resourceInstance() access.Resource { return access.Resource{Type: 
 // the request, a receipt, and a 403 written in plain words on denial.
 func (a *App) authorizeRequest(w http.ResponseWriter, r *http.Request, c access.Capability, res access.Resource, ctx access.Context) (access.Decision, bool) {
 	return httpapi.AuthorizeRequest(a.Access, w, r.WithContext(callerContext(r)), c, res, ctx)
-}
-
-// holds answers a yes/no for the account menu, with no receipt: it is a
-// question, not an act. A fact that cannot be read is an error.
-func (a *App) holds(ctx context.Context, pr access.Principal, c access.Capability, res access.Resource) (bool, error) {
-	dec, err := a.Access.Explain(ctx, pr, access.Permission{Capability: c, Resource: res})
-	return dec.Allow, err
 }

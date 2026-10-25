@@ -58,8 +58,8 @@ var sections = []section{
 			{[]string{"release"}, `  release <project-slug> <deployment>   release what landed on main to that deployment and follow its log` + "\n" +
 				`                                        (--accept-uncopied-data: release though AppTown cannot copy the data it holds now;` + "\n" +
 				`                                        --accept-unchecked-copy: fill a deployment that starts from a copy not shown to come back whole)` + "\n" +
-				`  release <project-slug> [-domain host] release what landed on main to the intranet and follow its log` + "\n" +
-				`                                        (experimental, not promised: the intranet is Portainer, an experimental target)`, cmdRelease},
+				`  release <project-slug> [-domain host] release to the chosen default and follow its log` + "\n" +
+				`                                        (choose the default separately with release-setup)`, cmdRelease},
 			{[]string{"complain"}, `  complain "<what happened>" [-why W] [-wish W] [-about apptown|way-of-working|project]
                                         file a complaint (default: about AppTown itself, platform friction)`, cmdComplain},
 			{[]string{"executing"}, `  executing                             steps and operations executing right now, in every project (admin):
@@ -70,6 +70,8 @@ var sections = []section{
 	{
 		heading: "not promised in 1.x (a 1.x release may change these):",
 		commands: []command{
+			{[]string{"release-setup"}, `  release-setup <project> [--target UUID --name name] [--require-promotion] [--save] [--json]
+                                        inspect choices; --save records setup without starting a release`, cmdReleaseSetup},
 			{[]string{"uplift"}, `  uplift [-p proj]                      dependency uplift (dependency-uplift workflow)`, verb("uplift")},
 			{[]string{"excavate"}, `  excavate [-p proj] ["<focus>"]        reverse-engineer the codebase into REQUIREMENTS.md (excavate workflow)`, verb("excavate")},
 			{[]string{"adopt"}, `  adopt  <capability> [-p proj]         attach an integration and wire it in`, cmdAdopt},

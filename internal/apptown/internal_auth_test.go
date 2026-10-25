@@ -96,14 +96,19 @@ func TestBootstrapThenLogin(t *testing.T) {
 		t.Fatalf("bootstrap must refuse once an account exists: %d", w.Code)
 	}
 
-	// The session cookie authenticates and carries the right identity.
-	req := httptest.NewRequest("GET", "/api/v1/me", nil)
-	req.AddCookie(cookie)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"user":"bls"`) ||
-		!strings.Contains(rec.Body.String(), `"role":"admin"`) {
-		t.Fatalf("session identity wrong: %d %s", rec.Code, rec.Body.String())
+	// Both identity views retain the authenticated person after bootstrap.
+	for _, path := range []string{"/api/v1/me", "/api/v1/auth/me"} {
+		req := httptest.NewRequest("GET", path, nil)
+		req.AddCookie(cookie)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"user":"bls"`) ||
+			!strings.Contains(rec.Body.String(), `"role":"admin"`) {
+			t.Fatalf("session identity wrong at %s: %d %s", path, rec.Code, rec.Body.String())
+		}
+		if path == "/api/v1/auth/me" && (!strings.Contains(rec.Body.String(), `"mode":"internal"`) || !strings.Contains(rec.Body.String(), `"needsBootstrap":false`)) {
+			t.Fatalf("authenticated login state wrong: %s", rec.Body.String())
+		}
 	}
 
 	// Wrong password and unknown user get the same answer.
@@ -121,9 +126,9 @@ func TestBootstrapThenLogin(t *testing.T) {
 	if w := postJSON(h, "/api/v1/auth/logout", nil, cookie); w.Code != 200 {
 		t.Fatalf("logout: %d", w.Code)
 	}
-	req = httptest.NewRequest("GET", "/api/v1/me", nil)
+	req := httptest.NewRequest("GET", "/api/v1/me", nil)
 	req.AddCookie(cookie)
-	rec = httptest.NewRecorder()
+	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != 401 {
 		t.Fatalf("session must die on logout: got %d", rec.Code)
@@ -173,9 +178,7 @@ func sessionFrom(t *testing.T, w *httptest.ResponseRecorder) *http.Cookie {
 	return nil
 }
 
-// The franchise, minimally (permissions.go): AppTown is not a democracy —
-// amend/release are privileges, granted by name. An unclaimed privilege
-// belongs to every member; the first grant closes it; admins hold all.
+// Capability grants, rather than role labels, decide authority on each resource.
 func TestPrivilegesRequireExplicitCapabilityGrants(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
@@ -186,19 +189,22 @@ func TestPrivilegesRequireExplicitCapabilityGrants(t *testing.T) {
 	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "leads", Members: []string{"ana"}}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
-	if privileged(t, a, "anyone", "member", "amend") || privileged(t, a, "anyone", "admin", "amend") {
+	if grantedCapability(t, a, "anyone", "member", access.CapStandardsGuidance, access.Resource{Type: "instance"}) || grantedCapability(t, a, "anyone", "admin", access.CapStandardsGuidance, access.Resource{Type: "instance"}) {
 		t.Fatal("unclaimed permission or role label granted authority")
 	}
 	a.addGrant("group", "leads", access.RoleStandardsAdmin, "", access.ScopeInstance, "", "fixture", "fixture", "")
-	if !privileged(t, a, "ana", "member", "amend") || privileged(t, a, "outsider", "member", "amend") {
+	if !grantedCapability(t, a, "ana", "member", access.CapStandardsGuidance, access.Resource{Type: "instance"}) || grantedCapability(t, a, "outsider", "member", access.CapStandardsGuidance, access.Resource{Type: "instance"}) {
 		t.Fatal("explicit group capability scope not respected")
 	}
-	if privileged(t, a, "ana", "member", "release") {
+	if grantedCapability(t, a, "ana", "member", access.CapReleasePromote, access.Resource{Type: "release-target", ID: "customer-production"}) {
 		t.Fatal("standards authority granted release access")
 	}
-	a.addGrant("user", "ana", access.RoleReleaseManager, "", access.ScopeTarget, "*", "fixture", "fixture", "")
-	if !privileged(t, a, "ana", "member", "release") {
+	a.addGrant("user", "ana", access.RoleReleaseManager, "", access.ScopeTarget, "customer-production", "fixture", "fixture", "")
+	if !grantedCapability(t, a, "ana", "member", access.CapReleasePromote, access.Resource{Type: "release-target", ID: "customer-production"}) {
 		t.Fatal("explicit release grant ignored")
+	}
+	if grantedCapability(t, a, "ana", "member", access.CapReleasePromote, access.Resource{Type: "release-target", ID: "other-production"}) {
+		t.Fatal("target grant allowed another release environment")
 	}
 }
 
@@ -839,12 +845,12 @@ func TestARefusedAttemptDoesNotSpendItsCredential(t *testing.T) {
 	}
 }
 
-// privileged is the account menu's answer for user, which must be readable.
-func privileged(t *testing.T, a *App, user, role, priv string) bool {
+// grantedCapability reads the identity owner for an exact capability and resource.
+func grantedCapability(t *testing.T, a *App, user, role string, capability access.Capability, resource access.Resource) bool {
 	t.Helper()
-	may, err := a.hasPrivilege(context.Background(), user, role, priv)
+	decision, err := a.Access.Explain(t.Context(), access.Principal{Kind: "user", Name: user, Role: role}, access.Permission{Capability: capability, Resource: resource})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return may
+	return decision.Allow
 }

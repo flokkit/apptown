@@ -89,7 +89,7 @@ func TestALandedChangePreviewsItsLandedCommitAndAnOpenOneItsFolder(t *testing.T)
 	targets := deployment.NewTargets(db, nil)
 	s := New(db, Dependencies{Targets: targets, Deployments: deployment.NewDeployments(db), Projects: projects, Integrations: integrations, DataDir: dir,
 		Hosts: deployment.NewHosts(targets, secrets, deployment.HostSettings{Scope: scope, DataDir: dir, BuiltInTarget: "local"}),
-		Environment: deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: secrets, Integrations: integrations, Needs: dependency.NewCatalog(db, nil),
+		Environment: deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: secrets, Integrations: integrations, Needs: dependency.NewCatalog(db, nil),
 			Probe: &docker.Probe{Settle: time.Millisecond}, Routes: deployment.Routing{Scheme: "https", PreviewScheme: "https", PreviewDomain: "preview.example"}, Projects: projects})})
 	if _, err := s.targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
