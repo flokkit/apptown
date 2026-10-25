@@ -7,15 +7,20 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
+	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/oci"
@@ -234,5 +239,60 @@ func TestAPartAndAnInitStepKeepTheirOwnImages(t *testing.T) {
 	}
 	if b.Parts["web"] != appImage.Reference() || b.Init["migrate"] != initImage.Reference() {
 		t.Fatalf("distinct images collapsed: app=%s init=%s; expected app=%s init=%s", b.Parts["web"], b.Init["migrate"], appImage.Reference(), initImage.Reference())
+	}
+}
+
+// Retagging an old bundle must not retarget a newly attached registry's
+// credential. The fake old registry asks for Basic authentication; no real
+// registry, image or credential is involved.
+func TestHistoricalReleaseTagDoesNotRetargetTheCurrentRegistryCredential(t *testing.T) {
+	t.Parallel()
+	for _, same := range []bool{true, false} {
+		t.Run(fmt.Sprint(same), func(t *testing.T) {
+			var offered, requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				_, password, _ := r.BasicAuth()
+				if password == "new-registry-canary" {
+					offered.Add(1)
+				}
+				w.Header().Set("WWW-Authenticate", `Basic realm="fixture"`)
+				w.WriteHeader(http.StatusUnauthorized)
+			}))
+			t.Cleanup(server.Close)
+			oldHost := strings.TrimPrefix(server.URL, "http://")
+			currentHost := oldHost
+			if !same {
+				currentHost = "new.registry.example"
+			}
+			db := testDB(t)
+			id := createTestProject(t, db, "shop", "Shop")
+			projects := project.New(db, nil)
+			integrations := integration.NewService(db, integration.Dependencies{Projects: projects})
+			if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", fmt.Sprintf(`{"url":%q}`, currentHost), "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			resource := fmt.Sprintf(`{"repo":%q,"username":"robot","token":"new-registry-canary"}`, currentHost+"/team/shop")
+			if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", resource, integration.Entered, "fixture", nil); err != nil {
+				t.Fatal(err)
+			}
+			s := &Service{env: NewEnvironment(nil, EnvironmentDependencies{Projects: projects, Integrations: integrations})}
+			digest := "sha256:" + strings.Repeat("a", 64)
+			bundle := &ReleaseBundle{ProjectID: id, BuiltFrom: BundleOrigin{Registry: oldHost + "/team/shop"}, Parts: map[string]string{"web": oldHost + "/team/shop@" + digest}}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			p := &Providers{env: s.env}
+			selected, err := p.releaseCredential(ctx, id, bundle.Parts["web"])
+			if err != nil || (selected.Password == "new-registry-canary") != same {
+				t.Fatalf("historical provider credential selected=%v want=%v err=%v", selected.Password != "", same, err)
+			}
+			s.tagRelease(ctx, 1, bundle, func(string, ...any) {})
+			if same && offered.Load() == 0 {
+				t.Fatal("same-registry control never offered its credential")
+			}
+			if !same && requests.Load() != 0 {
+				t.Fatalf("out-of-scope historical registry received %d requests", requests.Load())
+			}
+		})
 	}
 }

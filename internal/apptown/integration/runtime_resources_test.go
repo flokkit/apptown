@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -363,5 +364,99 @@ func TestAnUndecodableRegistryBindingIsAnError(t *testing.T) {
 	}
 	if got, err := RegistryBindings(t.Context(), s.Bindings.db); err == nil || got != nil {
 		t.Fatalf("an undecodable binding: %v %v", got, err)
+	}
+}
+
+// A saved connector may rotate credentials, but may not redirect an existing
+// attachment's credential or send a replacement connector's credential to it.
+func TestRegistryResolutionRefusesAChangedConnectorDestination(t *testing.T) {
+	t.Parallel()
+	for _, ownToken := range []bool{false, true} {
+		t.Run(fmt.Sprint(ownToken), func(t *testing.T) {
+			s, id, dir := runtimeFixture(t)
+			if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("REGISTRY_A=token-a\nREGISTRY_B=token-b\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", `{"url":"a.registry.example","group":"team","username":"robot-a","tokenFrom":"REGISTRY_A"}`, "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.AttachOfferedRegistry(t.Context(), id, "fixture", nil); err != nil {
+				t.Fatal(err)
+			}
+			if ownToken {
+				if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"a.registry.example/team/demo","username":"own-a","token":"own-token-a"}`, Entered, "fixture", nil); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if got, err := s.Registry(t.Context(), id); err != nil || got == nil || got.Host != "a.registry.example" {
+				t.Fatalf("original attachment: %+v %v", got, err)
+			}
+			if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", `{"url":"b.registry.example","group":"team","username":"robot-b","tokenFrom":"REGISTRY_B"}`, "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			got, err := s.Registry(t.Context(), id)
+			if err == nil || got != nil {
+				t.Fatalf("mixed registry destination admitted: result=%+v err=%v", got, err)
+			}
+		})
+	}
+}
+
+func TestRegistryCredentialsRotateOnlyWithinAnExplicitConnectorDestination(t *testing.T) {
+	t.Parallel()
+	s, id, dir := runtimeFixture(t)
+	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("REGISTRY_A=token-a\nREGISTRY_B=token-b\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for i, key := range []string{"REGISTRY_A", "REGISTRY_B"} {
+		cfg := fmt.Sprintf(`{"url":"registry.example:5000","username":"robot","tokenFrom":%q}`, key)
+		if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", cfg, "fixture"); err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"registry.example:5000/team/demo"}`, Entered, "fixture", nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+		got, err := s.Registry(t.Context(), id)
+		if err != nil || got == nil || got.Token != []string{"token-a", "token-b"}[i] || got.Host != "registry.example:5000" {
+			t.Fatalf("same-destination rotation: %+v %v", got, err)
+		}
+	}
+	if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", `{"username":"robot","tokenFrom":"REGISTRY_B"}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.Registry(t.Context(), id); err == nil || got != nil {
+		t.Fatalf("hostless connector credential admitted: %+v %v", got, err)
+	}
+	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"registry.example:5000/team/demo","username":"own","token":"own-token"}`, Entered, "fixture", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.Registry(t.Context(), id); err != nil || got == nil || got.Token != "own-token" {
+		t.Fatalf("self-contained attachment: %+v %v", got, err)
+	}
+	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "", `{"repo":"team/demo"}`, Entered, "fixture", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.Registry(t.Context(), id); err != nil || got == nil || got.Host != "index.docker.io" || got.Token != "" {
+		t.Fatalf("anonymous implicit repository: %+v %v", got, err)
+	}
+}
+
+func TestRegistryDestinationIsRefusedBeforeReadingAConnectorSecret(t *testing.T) {
+	t.Parallel()
+	s, id, dir := runtimeFixture(t)
+	if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", `{"url":"b.registry.example","tokenFrom":"PASSWORD"}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Attachments.Attach(t.Context(), id, CapContainerRegistry, "registry", `{"repo":"a.registry.example/team/demo"}`, Entered, "fixture", nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "secrets.env"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Registry(t.Context(), id)
+	if got != nil || err == nil || !strings.Contains(err.Error(), "different registries") {
+		t.Fatalf("destination must refuse before secret read: %+v %v", got, err)
 	}
 }

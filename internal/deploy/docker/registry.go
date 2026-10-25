@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/oci"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -13,7 +14,7 @@ import (
 // A login that fails is an error, and the caller pulls nothing: a pull
 // after it could succeed with another credential Docker holds, or none.
 func LoginRegistry(ctx context.Context, dk Scope, host, username, token, image string) error {
-	if host == "" || username == "" || token == "" || !strings.HasPrefix(image, host+"/") {
+	if host == "" || username == "" || token == "" || !oci.RegistryMatches(host, image) {
 		return nil
 	}
 	if out, err := dk.Command(ctx, Command{Args: []string{"login", host, "-u", username, "--password-stdin"}, Stdin: strings.NewReader(token)}); err != nil {

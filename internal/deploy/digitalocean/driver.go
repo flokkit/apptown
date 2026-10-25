@@ -27,10 +27,11 @@ type Dependencies struct {
 	Client func(context.Context) (*Client, Config, error)
 	Slug   string // the application, for naming on the platform
 	Needs  deploy.NeedRecorder
-	// ReleaseLogin is the credential a release's images by digest are read
+	// ReleaseLogin selects the credential for the actual source reference.
+	// A release's images by digest are read
 	// from their registry with, when they are copied into DOCR; nil, or an
 	// empty credential, reads anonymously. Its error fails the copy.
-	ReleaseLogin func() (oci.Credential, error)
+	ReleaseLogin func(ref string) (oci.Credential, error)
 	// GateLogin is the credential AppTown's gate image (by its
 	// reference) is read with when a gated app is rendered; nil or an empty
 	// credential reads it anonymously. Its error fails the render.

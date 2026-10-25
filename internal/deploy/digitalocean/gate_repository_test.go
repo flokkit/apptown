@@ -3,6 +3,7 @@ package digitalocean
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -167,6 +168,37 @@ func TestPreflightCountsTheGatesRepository(t *testing.T) {
 		}
 		if tc.refuse && (!deploy.IsTerminal(err) || !strings.Contains(err.Error(), GateRepository)) {
 			t.Fatalf("%s: the refusal does not name the gate's repository: %v", tc.name, err)
+		}
+	}
+}
+
+func TestReleaseCopySelectsCredentialForItsActualReference(t *testing.T) {
+	t.Parallel()
+	ref := "old.example/team/shop@sha256:" + strings.Repeat("a", 64)
+	failure := errors.New("credential unavailable")
+	for _, fail := range []bool{false, true} {
+		calls := 0
+		d := NewDriver(Dependencies{ReleaseLogin: func(actual string) (oci.Credential, error) {
+			if actual != ref {
+				t.Fatalf("credential reference=%q want=%q", actual, ref)
+			}
+			if fail {
+				return oci.Credential{}, failure
+			}
+			return oci.Credential{Password: "selected"}, nil
+		}}, Options{CopyImage: func(_ *Driver, _ context.Context, c *Client, registry, repo string, from oci.Source, tag string, _ func(string, ...any)) (string, error) {
+			calls++
+			if from.Reference != ref || from.Credential.Password != "selected" || c.Token != "destination" || registry != "target" || repo != "shop" || tag != "release" {
+				t.Fatal("copy arguments changed")
+			}
+			return "digest", nil
+		}})
+		_, err := d.copyImage(t.Context(), &Client{Token: "destination"}, "target", "shop", ref, "release", func(string, ...any) {})
+		if fail && (!errors.Is(err, failure) || calls != 0) {
+			t.Fatalf("failed selection: calls=%d err=%v", calls, err)
+		}
+		if !fail && (err != nil || calls != 1) {
+			t.Fatalf("copy: calls=%d err=%v", calls, err)
 		}
 	}
 }

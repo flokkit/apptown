@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/oci"
@@ -161,14 +160,13 @@ func TestACopysLandingPublishesUnderItsOwnRepositoryAndAttachesNothing(t *testin
 // project's own-registry image is read with its credential.
 func TestACopysCodeNamesNoImageAppTownsCredentialReads(t *testing.T) {
 	t.Parallel()
-	login := &docker.RegistryCredential{Host: "registry.example", Username: "robot", Token: "forge-held"}
 	repo := oci.Repository{Name: "registry.example/evals/shop-copy", Credential: oci.Credential{Username: "robot", Password: "forge-held"}}
 	for _, source := range []string{"registry.example/team/real-payroll:latest", "registry.example/evals/shop-copy:1"} {
-		if got := sourceCredential(true, login, repo, source); got != (oci.Credential{}) {
+		if got := sourceCredential(true, repo, source); got != (oci.Credential{}) {
 			t.Fatalf("a copy reads %s with %+v", source, got)
 		}
 	}
-	if got := sourceCredential(false, login, repo, "registry.example/team/real:1"); got.Password != "forge-held" {
+	if got := sourceCredential(false, repo, "registry.example/team/real:1"); got.Password != "forge-held" {
 		t.Fatalf("an ordinary project's own image: %+v", got)
 	}
 }
@@ -194,6 +192,13 @@ func TestACopysPullCredentialIsForItsOwnBundleOnly(t *testing.T) {
 	if got, err := s.env.BundleLogin(t.Context(), copy, own); err != nil || got == nil || got.Token != "forge-held" || got.Host != "registry.example" {
 		t.Fatalf("the copy's own bundle: %+v %v", got, err)
 	}
+	p := &Providers{env: s.env}
+	for ref, allowed := range map[string]bool{"registry.example/evals/shop-copy:latest": true, "registry.example/team/real:latest": false, "elsewhere.example/evals/shop-copy:latest": false} {
+		got, err := p.releaseCredential(t.Context(), copy, ref)
+		if err != nil || (got.Password == "forge-held") != allowed {
+			t.Fatalf("copy source %s: selected=%v err=%v", ref, got.Password != "", err)
+		}
+	}
 	other := &ReleaseBundle{Parts: map[string]string{"web": "registry.example/team/real@sha256:" + strings.Repeat("b", 64)}, BuiltFrom: BundleOrigin{Registry: "registry.example/team/real", Platform: "linux/amd64"}}
 	if got, err := s.env.BundleLogin(t.Context(), copy, other); err != nil || got != nil {
 		t.Fatalf("another repository's bundle got the copy's credential: %+v %v", got, err)
@@ -218,7 +223,7 @@ func TestAnUnreadableRegistryCredentialIsNotAnAnonymousRead(t *testing.T) {
 	if got, err := s.env.ReleaseLogin(t.Context(), id); err != nil || got != nil {
 		t.Fatalf("no registry attached: %+v %v", got, err)
 	}
-	if got, err := p.releaseCredential(t.Context(), id); err != nil || got != (oci.Credential{}) {
+	if got, err := p.releaseCredential(t.Context(), id, "registry.example/team/shop:latest"); err != nil || got != (oci.Credential{}) {
 		t.Fatalf("no registry attached: %+v %v", got, err)
 	}
 	if _, err := integrations.Bindings.Upsert(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"registry.example","username":"robot","tokenFrom":["REGISTRY_PASSWORD"]}`, false); err != nil {
@@ -234,7 +239,84 @@ func TestAnUnreadableRegistryCredentialIsNotAnAnonymousRead(t *testing.T) {
 	if got, err := s.env.ReleaseLogin(t.Context(), id); err == nil || got != nil {
 		t.Fatalf("an unreadable credential: %+v %v", got, err)
 	}
-	if got, err := p.releaseCredential(t.Context(), id); err == nil || got != (oci.Credential{}) {
+	if got, err := p.releaseCredential(t.Context(), id, "registry.example/team/shop:latest"); err == nil || got != (oci.Credential{}) {
 		t.Fatalf("an unreadable credential: %+v %v", got, err)
+	}
+}
+
+func TestPublicationSourceCredentialUsesOneRepositoryAuthority(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		repo, source string
+		want         bool
+	}{
+		{"docker.io/team/app", "index.docker.io/team/base:tag", true},
+		{"index.docker.io/team/app", "docker.io/team/base:tag", true},
+		{"registry.example/team/app", "REGISTRY.EXAMPLE/team/base:tag", true},
+		{"registry.example:5000/team/app", "registry.example:5001/team/base:tag", false},
+		{"registry.example/team/app", "other.example/team/base:tag", false},
+		{"registry.example/team/app", "registry.example/team/base@sha256:abc", false},
+	} {
+		repo := oci.Repository{Name: c.repo, Credential: oci.Credential{Username: "robot", Password: "private-canary"}}
+		got := sourceCredential(false, repo, c.source)
+		if (got.Password == "private-canary") != c.want {
+			t.Fatalf("repo=%s source=%s credential selected=%t", c.repo, c.source, got.Password != "")
+		}
+		if got := sourceCredential(true, repo, c.source); got != (oci.Credential{}) {
+			t.Fatal("eval-selected image received a credential")
+		}
+	}
+}
+
+func TestRegistryDestinationRefusalReachesPublicationAndLogin(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	dir := t.TempDir()
+	id := createTestProject(t, db, "shop", "Shop")
+	projects := project.New(db, nil)
+	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secret.NewService(db, secret.Config{DataDir: dir})})
+	env := NewEnvironment(nil, EnvironmentDependencies{Projects: projects, Integrations: integrations})
+	if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"docker.io"}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if err := integrations.Attachments.Attach(t.Context(), id, integration.CapContainerRegistry, "registry", `{"repo":"docker.io/team/shop","username":"robot","token":"private-canary"}`, integration.Entered, "fixture", nil); err != nil {
+		t.Fatal(err)
+	}
+	repo, err := env.ReleaseRepository(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	login, err := env.ReleaseLogin(t.Context(), id)
+	if err != nil || login == nil || login.Host != "index.docker.io" || sourceCredential(false, repo, "docker.io/team/base:tag") != repo.Credential {
+		t.Fatalf("canonical resolver/selector: %+v %v", login, err)
+	}
+	if _, err := integrations.Bindings.Save(t.Context(), "registry", integration.CapContainerRegistry, "service", `{"url":"other.example"}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := env.ReleaseRepository(t.Context(), id); err == nil || got != (oci.Repository{}) {
+		t.Fatalf("unsafe publication repository: %+v %v", got, err)
+	}
+	if got, err := env.ReleaseLogin(t.Context(), id); err == nil || got != nil {
+		t.Fatalf("unsafe Docker login: %+v %v", got, err)
+	}
+}
+
+func TestHistoricalCredentialSelectionPreservesAuthorityAndEvalScope(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		repo, ref        string
+		restricted, want bool
+	}{
+		{"docker.io/team/shop", "DOCKER.IO/team/shop:old", false, true},
+		{"docker.io/team/shop", "index.docker.io/team/shop:old", true, true},
+		{"registry.example/team/shop", "registry.example/other/shop:old", false, true},
+		{"registry.example/team/shop", "registry.example/other/shop:old", true, false},
+		{"registry.example/team/shop", "registry.example:443/team/shop:old", false, false},
+		{"registry.example/team/shop", "other.example/team/shop:old", false, false},
+		{"registry.example/team/shop", "https://registry.example/team/shop", false, false},
+	} {
+		if got := releaseCredentialAllows(oci.Repository{Name: c.repo}, c.ref, c.restricted); got != c.want {
+			t.Errorf("repo=%s ref=%s restricted=%v selected=%v want=%v", c.repo, c.ref, c.restricted, got, c.want)
+		}
 	}
 }

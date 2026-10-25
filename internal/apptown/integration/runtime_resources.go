@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/database"
@@ -121,7 +122,10 @@ type Registry struct {
 // credential is the attachment's own (username, token), when it holds one,
 // or else its connector's: username and the secret tokenFrom names,
 // resolved from the secrets store when used and never stored in the
-// attachment.
+// attachment. Repository and login host must name the same OCI registry as
+// the connector before its credential is read; changing the connector host
+// cannot redirect an attachment. A connector credential needs an explicit
+// matching host. A self-contained attachment derives its host from its repo.
 //
 // An eval copy is attached nothing, so it has no registry here: nothing it
 // declares is pulled with a credential. AppTown publishes a copy's
@@ -144,19 +148,22 @@ func (s *Service) Registry(ctx context.Context, projectID ids.ID) (*Registry, er
 	if err != nil {
 		return nil, err
 	}
-	if u, _ := cfg["url"].(string); u != "" {
-		info.Host = u
-	}
-	if info.Host == "" {
-		if i := strings.IndexByte(info.Repo, '/'); i > 0 {
-			info.Host = info.Repo[:i]
-		}
-	}
 	if info.Repo == "" {
 		return nil, nil
 	}
+	rawHost, hasHost := cfg["url"]
+	host, ok := rawHost.(string)
+	if hasHost && !ok {
+		return nil, fault.New(fault.Unprocessable, "the container-registry connector host must be text")
+	}
+	if info.Host, err = registryDestination(info.Repo, host); err != nil {
+		return nil, err
+	}
 	if info.Token == "" {
 		if from := ConfigStrings(cfg["tokenFrom"]); len(from) > 0 {
+			if host == "" {
+				return nil, fault.New(fault.Unprocessable, "the container-registry connector needs an explicit host before its credential can be used")
+			}
 			if info.Username == "" {
 				info.Username, _ = cfg["username"].(string)
 			}

@@ -38,7 +38,7 @@ func TestRegistryLoginMatchesImageHostAndKeepsTokenOffArguments(t *testing.T) {
 	if c.calls != 0 {
 		t.Fatal("authenticated an unrelated image")
 	}
-	if err := LoginRegistry(context.Background(), scope, "registry.example", "robot", "private-canary", "registry.example/team/app@sha256:abc"); err != nil {
+	if err := LoginRegistry(context.Background(), scope, "registry.example", "robot", "private-canary", "registry.example/team/app@sha256:"+strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)
 	}
 	if c.calls != 1 || c.host != "ssh://remote" || c.password != "private-canary" || strings.Contains(strings.Join(c.args, " "), "private-canary") {
@@ -82,4 +82,40 @@ type registryLoginFunc func(ctx context.Context, dk Scope, image string) error
 
 func (f registryLoginFunc) Login(ctx context.Context, dk Scope, image string) error {
 	return f(ctx, dk, image)
+}
+
+func TestRegistryLoginUsesCanonicalAuthorityRatherThanSpelling(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		host, image string
+		want        int
+	}{
+		{"index.docker.io", "docker.io/team/private:tag", 1},
+		{"docker.io", "index.docker.io/team/private:tag", 1},
+		{"registry.example", "REGISTRY.EXAMPLE/team/private:tag", 1},
+		{"registry.example:5000", "registry.example:5001/team/private:tag", 0},
+		{"index.docker.io", "evil.example/team/private:tag", 0},
+		{"registry.example", "registry.example/team/private@sha256:abc", 0},
+	} {
+		client := &registryClient{}
+		if err := LoginRegistry(t.Context(), Scope{Client: client}, c.host, "robot", "private-canary", c.image); err != nil {
+			t.Fatal(err)
+		}
+		if client.calls != c.want {
+			t.Fatalf("login host=%s image=%s calls=%d want=%d", c.host, c.image, client.calls, c.want)
+		}
+		if c.want > 0 && (client.password != "private-canary" || strings.Contains(strings.Join(client.args, " "), "private-canary")) {
+			t.Fatal("credential channel changed")
+		}
+	}
+}
+
+func TestRegistryLoginDoesNotInventMissingCredentials(t *testing.T) {
+	t.Parallel()
+	for _, pair := range [][2]string{{"", "token"}, {"robot", ""}} {
+		client := &registryClient{}
+		if err := LoginRegistry(t.Context(), Scope{Client: client}, "index.docker.io", pair[0], pair[1], "docker.io/team/app:tag"); err != nil || client.calls != 0 {
+			t.Fatalf("missing credential login: calls=%d err=%v", client.calls, err)
+		}
+	}
 }
