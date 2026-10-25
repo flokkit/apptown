@@ -99,6 +99,12 @@ func TestProviderAssociationAttachesAtomicallyAndProtectsConnection(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+	if target.DisplayLabel != target.Name {
+		t.Fatalf("new attachment label %q, want %q", target.DisplayLabel, target.Name)
+	}
+	if renamed, err := s.EditTargetLabel(t.Context(), target.ID, target.DisplayLabel, "Customer environment"); err != nil || renamed.DisplayLabel != "Customer environment" {
+		t.Fatalf("rename newly attached target: %+v %v", renamed, err)
+	}
 	if target.ConnectionID.IsZero() || len(target.ProviderScope) == 0 {
 		t.Fatal("attachment omitted immutable connection or observed scope")
 	}

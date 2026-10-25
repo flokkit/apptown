@@ -29,8 +29,11 @@ func contains(list []string, s string) bool {
 	return false
 }
 
-// ValidateCaps refuses an audience or data class the vocabulary does not have.
+// ValidateCaps refuses negative limits and unknown audience or data classes.
 func ValidateCaps(caps OfferCaps) error {
+	if caps.MaxStanding < 0 {
+		return fmt.Errorf("standing deployment limit must be zero (unlimited) or greater")
+	}
 	for _, x := range caps.Audiences {
 		if !contains(audiences, x) {
 			return fmt.Errorf("audience %q is not one of %s", x, strings.Join(audiences, ", "))

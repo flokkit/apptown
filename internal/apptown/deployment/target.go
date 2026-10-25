@@ -37,6 +37,7 @@ const (
 
 // Target is one row of the targets table.
 type Target struct {
+	DisplayLabel    string             `json:"displayLabel"`
 	ConnectionID    ids.ID             `json:"connectionId,omitempty"`
 	ProviderScope   json.RawMessage    `json:"providerScope,omitempty"`
 	ID              ids.ID             `json:"id"`
@@ -126,7 +127,7 @@ func targetRecord(r deploymentsql.Target, err error) (*Target, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &Target{ID: r.ID, Name: r.Name, Kind: r.Kind, Provider: r.Provider, ConnectionID: r.ConnectionID, Address: jsonMap(string(r.AddressJson)), Origin: r.Origin, Ingress: jsonMap(string(r.IngressJson)), NeedsMode: r.NeedsMode, SecretsDelivery: r.SecretsDelivery, SettingsRevision: r.SettingsRevision}
+	t := &Target{ID: r.ID, Name: r.Name, DisplayLabel: r.DisplayLabel, Kind: r.Kind, Provider: r.Provider, ConnectionID: r.ConnectionID, Address: jsonMap(string(r.AddressJson)), Origin: r.Origin, Ingress: jsonMap(string(r.IngressJson)), NeedsMode: r.NeedsMode, SecretsDelivery: r.SecretsDelivery, SettingsRevision: r.SettingsRevision}
 	if r.ProviderScopeJson != nil {
 		t.ProviderScope = *r.ProviderScopeJson
 	}
@@ -182,8 +183,8 @@ func (s *Targets) All(ctx context.Context) ([]*Target, error) {
 }
 
 // Put records a target exactly as given, replacing what a record of that
-// name held apart from its id, origin and a retirement: attaching a new
-// target and test setup. A target AppTown derives from configuration
+// name held apart from its id, origin and a retirement. Person-driven
+// creation uses Attach. A target AppTown derives from configuration
 // refreshes through Sync instead, which keeps the administrator's settings.
 func (s *Targets) Put(ctx context.Context, t *Target) (*Target, error) {
 	if _, err := t.Status.Value(); err != nil {
@@ -208,20 +209,31 @@ func (at Attachment) receipts(ctx context.Context, tx *database.Tx, now time.Tim
 	return audit.At(now).RecordIn(ctx, tx, at.By, ids.Nil, "target.checked", name, at.Answer)
 }
 
-// Attach records a target a person attached, with its receipts in the same
+// Attach creates a target under an unused name, with its receipts in the same
 // transaction: where projects may deploy is not changed without its record.
 func (s *Targets) Attach(ctx context.Context, t *Target, at Attachment) (*Target, error) {
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) { return s.attachIn(ctx, tx, t, at) })
+}
+
+func (s *Targets) attachIn(ctx context.Context, tx *database.Tx, t *Target, at Attachment) (*Target, error) {
 	if _, err := t.Status.Value(); err != nil {
 		return nil, err
 	}
 	now := s.now()
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) {
-		saved, err := targetRecord(deploymentsql.New(tx.SQL()).PutTarget(ctx, putTargetParams(t, now)))
-		if err != nil {
-			return nil, err
-		}
-		return saved, at.receipts(ctx, tx, now, saved.Name)
-	})
+	p := putTargetParams(t, now)
+	saved, err := targetRecord(deploymentsql.New(tx.SQL()).InsertTarget(ctx, deploymentsql.InsertTargetParams{
+		ID: p.ID, Name: p.Name, Kind: p.Kind, Provider: p.Provider, AddressJson: p.AddressJson,
+		Origin: p.Origin, CapabilitiesJson: p.CapabilitiesJson, IngressJson: p.IngressJson,
+		NeedsMode: p.NeedsMode, SecretsDelivery: p.SecretsDelivery, Status: p.Status,
+		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+	}))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fault.New(fault.Conflict, fmt.Sprintf("a target named %q already exists", t.Name))
+	}
+	if err != nil {
+		return nil, err
+	}
+	return saved, at.receipts(ctx, tx, now, saved.Name)
 }
 
 func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
@@ -252,22 +264,11 @@ func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
 // An unchanged sync writes nothing. A retired target stays as it is. Status
 // belongs to checks and retirement, so a sync never changes it.
 func (s *Targets) Sync(ctx context.Context, t *Target, who string) (*Target, error) {
-	return s.sync(ctx, t, who, nil)
-}
-
-// sync is Sync, with an attach's receipts (when not nil) in its transaction.
-func (s *Targets) sync(ctx context.Context, t *Target, who string, attached *Attachment) (*Target, error) {
 	now := s.now()
 	if _, err := t.Status.Value(); err != nil {
 		return nil, err
 	}
-	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) {
-		saved, err := s.syncIn(ctx, tx, t, who, now)
-		if err != nil || attached == nil {
-			return saved, err
-		}
-		return saved, attached.receipts(ctx, tx, now, saved.Name)
-	})
+	return database.Transact(ctx, s.db, func(tx *database.Tx) (*Target, error) { return s.syncIn(ctx, tx, t, who, now) })
 }
 
 // syncIn is Sync's write in the caller's transaction.
@@ -373,8 +374,12 @@ func readOffers(ctx context.Context, q *deploymentsql.Queries, targetID ids.ID) 
 }
 
 // Offer makes a target available to a group with caps; offering again
-// replaces the caps. Refused for a target that is not available.
+// replaces the caps. Invalid limits and vocabulary are refused before any
+// write; unavailable targets are refused under the transaction lock.
 func (s *Targets) Offer(ctx context.Context, t *Target, group string, caps OfferCaps, who string) error {
+	if err := ValidateCaps(caps); err != nil {
+		return fault.Wrap(fault.Unprocessable, err)
+	}
 	now := s.now()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		if err := LockAvailableTargetIn(ctx, tx, t.ID); err != nil {
@@ -452,6 +457,13 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 		}
 		if err != nil {
 			return err
+		}
+		hasDefault, err := deploymentsql.New(tx.SQL()).TargetHasReleaseDefault(ctx, t.ID)
+		if err != nil {
+			return err
+		}
+		if hasDefault {
+			return fmt.Errorf("%w: clear or replace project release defaults before retiring this target", ErrTargetConflict)
 		}
 		bound, err := deploymentsql.New(tx.SQL()).BoundTargetDeployments(ctx, deploymentsql.BoundTargetDeploymentsParams{TargetID: t.ID, Kind: Standing.String()})
 		if err != nil {

@@ -20,6 +20,10 @@ import (
 // either as its own top-level test or, for a helper, through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
+	"deployments.ReleaseDefault":      TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
+	"deployments.SetReleaseDefault":   TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
+	"deployments.EditDeploymentLabel": TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
+	"targets.EditTargetLabel":         TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
 
 	"dashboard.Dashboard":       checkFilteredHTTPPolicies,
 	"projectViews.ListProjects": checkFilteredHTTPPolicies,

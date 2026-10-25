@@ -1,7 +1,9 @@
+import { changedTargetSettings, editTarget, NEEDS_MODES, type TargetSettings as SettingsCommand } from '../../targetCommands'
+import { DisplayLabelEdit } from '../../DisplayLabel'
 import { PRODUCT } from '../../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { HttpError, patch, post } from '../../api'
+import { HttpError, post } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -99,7 +101,8 @@ export function TargetPage() {
       <div className="card" style={{ padding: 20 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h2 style={{ margin: 0 }}>{t.name}</h2>
+            <h2 style={{ margin: 0 }}>{t.displayLabel || t.name}</h2>
+ <DisplayLabelEdit value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
             <div className="muted">{(() => { const place = placeOf(t.kindInfo, t.address); return place.startsWith(t.kindInfo.title) ? place : `${t.kindInfo.title} · ${place}` })()}{domain ? ` · *.${domain}` : ''}</div>
           </div>
           <span className={`chip ${t.status === 'ready' ? 'pass' : retired ? 'muted' : 'fail'}`}>{t.status}</span>
@@ -235,7 +238,7 @@ export function CopyRunnerLine({ t }: { t: TargetView }) {
 // may bind, how needs are met. Each save is an audit row with before and after.
 // said quotes a value for a sentence, and names an empty one.
 const said = (v: string) => (v === '' ? 'empty' : `“${v}”`)
-type TargetSettings = { domain: string; persistentVolumes: boolean; previews: boolean; needsMode: string; copyRunner: string; rehearsals: boolean; environment: string }
+type TargetSettings = Omit<SettingsCommand, 'evals'>
 const settingsOf = (t: TargetView): TargetSettings => ({
   domain: typeof t.ingress?.domain === 'string' ? t.ingress.domain : '',
   persistentVolumes: t.capabilities.persistentVolumes, previews: t.capabilities.previews, needsMode: t.needsMode,
@@ -276,14 +279,12 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
       {!current && <span className="muted small"> reading the current settings before editing…</span>}
     </div>
   )
-  const changed = (Object.keys(draft) as (keyof TargetSettings)[]).filter((k) => draft[k] !== base.settings[k])
+  const changes = changedTargetSettings(base.settings, draft)
   const set = <K extends keyof TargetSettings>(k: K, v: TargetSettings[K]) => setDraft((d) => d && { ...d, [k]: v })
   const close = () => { setBase(null); setDraft(null); setConflict(false); setErr('') }
   const save = async () => {
-    if (changed.length === 0) { close(); return }
-    const body: Record<string, unknown> = { expectedRevision: base.revision }
-    for (const k of changed) body[k] = draft[k]
-    const r = await run(() => patch(`/targets/${t.name}`, body))
+    if (Object.keys(changes).length === 0) { close(); return }
+    const r = await run(() => editTarget(t.name, base.revision, changes))
     if (r) { close(); onSaved() }
   }
   const now = settingsOf(t)
@@ -299,7 +300,7 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
         <label className="small"><input type="checkbox" checked={draft.persistentVolumes} disabled={busy} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label>
         <label className="small"><input type="checkbox" checked={draft.previews} disabled={busy} onChange={(e) => set('previews', e.target.checked)} /> previews may bind</label>
         <label className="small">needs are <select value={draft.needsMode} disabled={busy} onChange={(e) => set('needsMode', e.target.value)}>
-          <option value="emulators">emulators on the host</option><option value="managed">managed by the provider</option><option value="register">registered by hand</option>
+          {NEEDS_MODES.map(({ value, title }) => <option key={value} value={value}>{title}</option>)}
         </select></label>
         {t.copies && (
           <label className="small" title={copyRunnerMeaning}>

@@ -49,7 +49,7 @@ describe('connector form', () => {
 const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString()
 const checked = (ok: boolean, detail: string): IntegrationHealth => ({ ok, detail, checked: true, checkedAt: fiveMinutesAgo })
 const binding = (name: string, capability: string, provider: string, health: IntegrationHealth, extra: Partial<IntegrationEntry> = {}): IntegrationEntry => ({
-  id: `00000000-${String(name.length).padStart(4, '0')}-7000-8000-000000000000`, name, capability, provider, config: {}, version: 1, updatedAt: '2026-10-01T00:00:00Z', managed: false, configHash: 'abc123def456', usedBy: { projects: [], deployments: [] }, health, testable: false, ...extra,
+  id: `00000000-${String(name.length).padStart(4, '0')}-7000-8000-000000000000`, name, displayLabel: name, capability, provider, config: {}, version: 1, updatedAt: '2026-10-01T00:00:00Z', managed: false, configHash: 'abc123def456', usedBy: { projects: [], deployments: [] }, health, testable: false, ...extra,
 })
 const gitlab = binding('gitlab', 'scm', 'gitlab', checked(true, 'authenticated as forge-bot'), { managed: true, config: { tokenFrom: 'GITLAB_TOKEN', auth: 'PRIVATE-TOKEN' } })
 const scanner = binding('django-check', 'scanner', 'tool', checked(false, 'no image configured'), {

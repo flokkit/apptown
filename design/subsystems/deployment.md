@@ -1340,3 +1340,28 @@ volumes, even one matching the source or an earlier target. It does not silently
 reimport into, delete or rebind that data. Preserve the volume and source/target
 audit evidence when diagnosing such a failure; retry requires an independently
 verified recovery procedure.
+
+## Customer names and release preferences
+
+Connections, targets and deployments have a display label separate from their
+machine key and UUID. Editing a label changes presentation only: it does not
+rename URLs, provider resources, Git references, stored release requests or
+receipts. Label edits compare the label the person read and record the change in
+the same transaction. Connection credential/configuration changes retain the
+connection's label.
+
+A project's release preference stores one deployment UUID and a revision, or an
+explicitly cleared choice. It never chooses the first provider, silently falls
+back to `main`, or substitutes another deployment after deletion. The preference
+is visible independently of release execution; each release command still names
+its existing destination. Choosing a preference requires current deployment-bind
+authority and an eligible standing, non-landing deployment in that project.
+Existing provider placement and target-offer rules also apply. Reads retain an
+unavailable choice so the person can clear or replace it.
+
+Changing a preferred deployment into an ineligible role, or retiring its target,
+requires clearing or replacing the preference first. Committed removal clears
+that UUID and advances the preference revision in the same settlement. Failed
+removal settlement preserves the preference. Editors retain unsaved choices and
+the revision they started from when newer readings arrive; conflicts keep the
+draft until the person saves successfully or discards it.

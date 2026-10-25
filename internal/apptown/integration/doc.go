@@ -10,6 +10,11 @@
 // An attachment records which binding and resource a project uses; configuring an
 // instance binding does not attach it to every project.
 //
+// [Bindings.CreateIn] creates an unmanaged binding, version and receipt in a
+// caller-owned transaction; an existing name is a conflict. The caller commits
+// the whole operation or rolls it back. Ordinary binding saves retain their
+// separate configuration-update semantics.
+//
 // [Attachments.Attach] commits a project attachment and its audit receipt together.
 // [Attachments.Remember] stores engine-private resources, which do not count as
 // project attachments. [HasCapabilitiesIn] checks actual attachments and matching

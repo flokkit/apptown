@@ -3,7 +3,6 @@ package httpapi
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 )
@@ -28,40 +27,12 @@ func (h Targets) Targets(w http.ResponseWriter, r *http.Request) {
 // audiences, data} — offer the target to a group ("*" = everyone). One
 // offer per group per target; offering again replaces the caps.
 func (h Targets) OfferTarget(w http.ResponseWriter, r *http.Request) {
-	t, err := h.deployment.Targets.ByName(r.Context(), r.PathValue("name"))
-	if err != nil {
-		writeReadFault(w, err, "no target named %q", r.PathValue("name"))
-		return
-	}
-	if h.deployment.Targets.OfferedByConstruction(t) {
-		WriteError(w, 409, "%s is offered to everyone by construction", t.Name)
-		return
-	}
 	jsonCommand(w, r, jsonBody{}, func(in struct {
 		Group string `json:"group"`
 		deployment.OfferCaps
 	}) {
-		in.Group = strings.TrimSpace(in.Group)
-		if in.Group == "" {
-			WriteError(w, 422, "say which group the offer is to, or * for everyone")
-			return
-		}
-		if in.Group != "*" {
-			kind, err := h.access.GroupKind(r.Context(), in.Group)
-			if err != nil {
-				WriteFault(w, err)
-				return
-			}
-			if kind == "" {
-				WriteError(w, 404, "no group named %q", in.Group)
-				return
-			}
-		}
-		if err := deployment.ValidateCaps(in.OfferCaps); err != nil {
-			WriteError(w, 422, "%v", err)
-			return
-		}
-		if err := h.deployment.Targets.Offer(r.Context(), t, in.Group, in.OfferCaps, Actor(r)); err != nil {
+		t, err := h.deployment.OfferTarget(r.Context(), r.PathValue("name"), in.Group, in.OfferCaps)
+		if err != nil {
 			WriteFault(w, err)
 			return
 		}

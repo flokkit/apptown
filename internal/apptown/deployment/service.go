@@ -35,6 +35,7 @@ type Service struct {
 	providers *Providers
 	projects  *project.Projects
 	authority access.Authorizer
+	groups    GroupDirectory
 	db        *database.DB
 	// records is the context a release's log lines are written on: each
 	// says what already happened, so none is lost to its caller stopping.
@@ -83,6 +84,7 @@ type Dependencies struct {
 	Providers     *Providers
 	Projects      *project.Projects
 	Authority     access.Authorizer
+	Groups        GroupDirectory
 	Releases      ReleaseDependencies
 	Configuration ConfigurationDependencies
 	Followups     jobs.Enqueuer // settlement's after-commit work
@@ -139,6 +141,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		providers:          providers,
 		projects:           deps.Projects,
 		authority:          deps.Authority,
+		groups:             deps.Groups,
 		db:                 db,
 		release:            deps.Releases,
 		configuration:      deps.Configuration,

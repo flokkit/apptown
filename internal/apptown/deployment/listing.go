@@ -55,12 +55,13 @@ type RuntimeObservation struct {
 	URL         string
 }
 
-type TargetSummary struct{ Name, Kind, Origin, Region string }
+type TargetSummary struct{ Name, DisplayLabel, Kind, Origin, Region string }
 type NeedSummary struct {
 	Need, Name, ID, Region, Size, Version string
 	Status                                NeedState
 }
 type Summary struct {
+	DisplayLabel     string
 	DeploymentPolicy DeploymentPolicy
 	ID               ids.ID
 	Name             string
@@ -163,7 +164,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 			return nil, err
 		}
 		byTarget[row.ID] = target
-		summaries[row.ID] = &TargetSummary{Name: target.Name, Kind: target.Kind, Origin: target.Origin, Region: TargetPlace(target)}
+		summaries[row.ID] = &TargetSummary{Name: target.Name, DisplayLabel: target.DisplayLabel, Kind: target.Kind, Origin: target.Origin, Region: TargetPlace(target)}
 	}
 	needs, err := q.NeedInstances(ctx, deploymentIDs)
 	if err != nil {
@@ -204,7 +205,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 				needs = append(needs, NeedSummary{Need: o.Need, Name: o.Name, ID: o.ID, Status: NeedReady})
 			}
 		}
-		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{
+		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{DisplayLabel: e.DisplayLabel,
 			DeploymentPolicy: e.UpdatePolicy(), ID: e.ID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,

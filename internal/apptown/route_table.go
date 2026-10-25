@@ -154,7 +154,7 @@ func appRoutes(a *App) []routeSpec {
 		infrastructure = httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Volume, deployment.IntranetTargetName, a.cfg.clock.Now)
 		disks = httpapi.NewDisks(a.disks)
 		deploymentListing = httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir, a.DataProtection.FillsOf)
-		targets = httpapi.NewTargets(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.Access, a.Integrations, a.Dependencies, a.DB, a.cfg.clock.Now)
+		targets = httpapi.NewTargets(a.Deployment, a.targetProviders, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
 		backups = httpapi.NewBackups(a.Projects, a.DataProtection, a.cfg.dataDir)
 		dataProtection = httpapi.NewDataProtection(a.Projects, a.DataProtection)
 		ops = httpapi.NewOperations(a.operations)
@@ -326,6 +326,11 @@ func appRoutes(a *App) []routeSpec {
 		publicRoute("POST /api/v1/workflows/validate", workflowCatalog.ValidateWorkflow, "workflowCatalog.ValidateWorkflow: validate caller-supplied workflow without publication"),
 		requireRoute("GET /api/v1/projects/{slug}/board", changes.Board, access.CapProjectRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/deployments", deploymentListing.Deployments, access.CapDeploymentRead, "project-slug"),
+		ownerRoute("GET /api/v1/projects/{slug}/release/default", deployments.ReleaseDefault, "deployments.ReleaseDefault"),
+		ownerRoute("PUT /api/v1/projects/{slug}/release/default", deployments.SetReleaseDefault, "deployments.SetReleaseDefault"),
+		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{id}/label", deployments.EditDeploymentLabel, "deployments.EditDeploymentLabel"),
+		ownerRoute("PUT /api/v1/targets/{id}/label", targets.EditTargetLabel, "targets.EditTargetLabel"),
+		requireRoute("PUT /api/v1/integrations/{id}/label", connectors.EditConnectionLabel, access.CapIntegrationConnector, "instance"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments", deployments.CreateDeployment, "deployments.CreateDeployment"),
 		ownerRoute("DELETE /api/v1/projects/{slug}/deployments/{name}", deployments.DeleteDeployment, "deployments.DeleteDeployment"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/deploy", deployments.DeployDeployment, "deployments.DeployDeployment"),

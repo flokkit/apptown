@@ -12,15 +12,16 @@ import (
 )
 
 type Integration struct {
-	ID         ids.ID
-	Name       string
-	Capability string
-	Provider   string
-	ConfigJson json.RawMessage
-	Version    int64
-	Managed    bool
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID           ids.ID
+	Name         string
+	Capability   string
+	Provider     string
+	ConfigJson   json.RawMessage
+	Version      int64
+	Managed      bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DisplayLabel string
 }
 
 type IntegrationVersion struct {

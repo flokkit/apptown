@@ -1487,6 +1487,9 @@
           "desiredGeneration": {
             "type": "integer"
           },
+          "displayLabel": {
+            "type": "string"
+          },
           "feed": {
             "type": "string"
           },
@@ -1572,6 +1575,7 @@
           }
         },
         "required": [
+          "displayLabel",
           "id",
           "projectId",
           "kind",
@@ -1667,6 +1671,9 @@
       },
       "DeploymentTargetView": {
         "properties": {
+          "displayLabel": {
+            "type": "string"
+          },
           "family": {
             "type": "string"
           },
@@ -1690,6 +1697,7 @@
           }
         },
         "required": [
+          "displayLabel",
           "name",
           "kind",
           "origin",
@@ -1734,6 +1742,9 @@
           "deploymentPolicy": {
             "type": "string"
           },
+          "displayLabel": {
+            "type": "string"
+          },
           "feed": {
             "type": "string"
           },
@@ -1742,6 +1753,13 @@
           },
           "hostOnly": {
             "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kind": {
             "type": "string"
@@ -1817,6 +1835,8 @@
           }
         },
         "required": [
+          "id",
+          "displayLabel",
           "name",
           "kind",
           "url",
@@ -7306,6 +7326,38 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/integrations/{id}/label": {
+      "put": {
+        "operationId": "putIntegrationsIdLabel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "integrations"
+        ],
+        "x-apptown-access": {
+          "capability": "integration:manage-connectors",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/integrations/{name}": {
       "delete": {
         "operationId": "deleteIntegrationsName",
@@ -8762,6 +8814,45 @@
         ],
         "x-apptown-access": {
           "contract": "deployments.CreateDeployment",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/deployments/{id}/label": {
+      "put": {
+        "operationId": "putProjectsSlugDeploymentsIdLabel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.EditDeploymentLabel",
           "kind": "owner"
         },
         "x-apptown-stability": "experimental"
@@ -10415,6 +10506,66 @@
         },
         "x-apptown-stability": "experimental",
         "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/projects/{slug}/release/default": {
+      "get": {
+        "operationId": "getProjectsSlugReleaseDefault",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.ReleaseDefault",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      },
+      "put": {
+        "operationId": "putProjectsSlugReleaseDefault",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.SetReleaseDefault",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
       }
     },
     "/api/v1/projects/{slug}/release/plan": {
@@ -12526,6 +12677,37 @@
           "capability": "platform:manage-deploy-targets",
           "kind": "capability",
           "scope": "instance"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/targets/{id}/label": {
+      "put": {
+        "operationId": "putTargetsIdLabel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "targets"
+        ],
+        "x-apptown-access": {
+          "contract": "targets.EditTargetLabel",
+          "kind": "owner"
         },
         "x-apptown-stability": "experimental"
       }

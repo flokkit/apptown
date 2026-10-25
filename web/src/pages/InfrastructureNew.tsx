@@ -1,10 +1,12 @@
+import { changedTargetSettings, editTarget, offerTarget, targetOffer, NEEDS_MODES, type TargetSettings } from '../targetCommands'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { patch, post } from '../api'
-import { firstErr, useAction, useGet } from '../data'
-import { AUDIENCES, DATA_CLASSES, OfferCaps } from '../targets'
-import type { CloudAccountCheck, Target, TargetAttached, TargetCheck, TargetList } from '../wire.gen'
+import { HttpError, post } from '../api'
+import { useQueryClient } from '@tanstack/react-query'
+import { firstErr, getKey, useAction, useGet } from '../data'
+import { AUDIENCES, DATA_CLASSES } from '../targets'
+import type { CloudAccountCheck, Target, TargetAttached, TargetCheck, TargetEdited, TargetPage, TargetList } from '../wire.gen'
 import { Glyph } from '../parts/Glyph'
 import { SecretNameStatus } from './integrations/InstanceSecrets'
 
@@ -166,7 +168,14 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
 // OfferStep: who may bind here and with what caps, and the facts only the
 // owner can state. The target is already recorded; skipping leaves it
 // offered to nobody, which the target page can change later.
-function OfferStep({ target, onDone }: { target: Target; onDone: () => void }) {
+type OfferFacts = Pick<TargetSettings, 'domain' | 'persistentVolumes' | 'previews' | 'needsMode'>
+const factsOf = (target: Target): OfferFacts => ({
+  domain: typeof target.ingress?.domain === 'string' ? target.ingress.domain : '',
+  persistentVolumes: target.capabilities.persistentVolumes,
+  previews: target.capabilities.previews, needsMode: target.needsMode,
+})
+
+export function OfferStep({ target, onDone }: { target: Target; onDone: () => void }) {
   const groupsQ = useGet<TargetList>('/targets')
   const groups = groupsQ.data?.groups ?? []
   const [offer, setOffer] = useState(true)
@@ -174,31 +183,57 @@ function OfferStep({ target, onDone }: { target: Target; onDone: () => void }) {
   const [maxStanding, setMaxStanding] = useState('')
   const [audiences, setAudiences] = useState<string[]>([])
   const [data, setData] = useState<string[]>([])
-  const [domain, setDomain] = useState(typeof target.ingress?.domain === 'string' ? target.ingress.domain : '')
-  const [disks, setDisks] = useState(target.capabilities.persistentVolumes)
-  const [previews, setPreviews] = useState(target.capabilities.previews)
-  const [needsMode, setNeedsMode] = useState(target.needsMode)
-  const { run, busy, err: actErr } = useAction()
-  const err = firstErr(actErr, groupsQ.err)
+  const [base, setBase] = useState(target)
+  const [draft, setDraft] = useState(() => factsOf(target))
+  const [conflict, setConflict] = useState(false)
+  const path = `/targets/${target.name}`
+  const currentQ = useGet<TargetPage>(conflict ? path : null)
+  const client = useQueryClient()
+  const { run, busy, err: actErr, setErr } = useAction()
+  const err = firstErr(actErr, groupsQ.err, currentQ.err)
+  const set = <K extends keyof OfferFacts>(key: K, value: OfferFacts[K]) => setDraft((d) => ({ ...d, [key]: value }))
   const toggle = (list: string[], set: (v: string[]) => void, x: string) => set(list.includes(x) ? list.filter((y) => y !== x) : [...list, x])
   const finish = async () => {
+    if (conflict) return
     const ok = await run(async () => {
-      await patch(`/targets/${target.name}`, { domain, persistentVolumes: disks, previews, needsMode })
-      if (offer) {
-        const caps: OfferCaps & { group: string } = { group }
-        if (maxStanding.trim()) caps.maxStanding = Number(maxStanding)
-        if (audiences.length) caps.audiences = audiences
-        if (data.length) caps.data = data
-        await post(`/targets/${target.name}/offers`, caps)
+      const offered = offer ? targetOffer(group, maxStanding, audiences, data) : null
+      const before = factsOf(base)
+      const changes = changedTargetSettings(before, draft)
+      if (Object.keys(changes).length) {
+        let saved: TargetEdited
+        try {
+          saved = await editTarget(target.name, base.settingsRevision, changes)
+        } catch (error) {
+          if (error instanceof HttpError && error.code === 'settings-moved') setConflict(true)
+          throw error
+        }
+        if (!saved.target) throw new Error('The saved target was not returned. Open its page before retrying.')
+        // This edit succeeded even if offering subsequently fails. Preserve the
+        // server's normalized facts and revision, not the submitted spelling.
+        const confirmed = saved.target
+        setBase(confirmed); setDraft(factsOf(confirmed))
+        client.setQueryData<TargetPage>(getKey(path), (old) => old?.target
+          ? { ...old, target: { ...old.target, ...confirmed } } : old)
+        void client.invalidateQueries({ queryKey: getKey(path) })
       }
+      if (offered) await offerTarget(target.name, offered)
       return true
     })
     if (ok) onDone()
+  }
+  const current = currentQ.current && !currentQ.refreshing ? currentQ.data?.target : null
+  const resolve = (keep: boolean) => {
+    if (!current || busy) return
+    const before = factsOf(base), now = factsOf(current)
+    setDraft(keep ? Object.fromEntries((Object.keys(draft) as (keyof OfferFacts)[])
+      .map((key) => [key, draft[key] !== before[key] ? draft[key] : now[key]])) as OfferFacts : now)
+    setBase(current); setConflict(false); setErr('')
   }
   const cloud = target.kind === 'do-app'
   return (
     <div className="card" style={{ padding: 14 }}>
       <p className="muted small" style={{ marginTop: 0 }}><b>{target.name}</b> is added. Choose who it is offered to, and describe what {PRODUCT} cannot detect.</p>
+      <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
       <div className="wiz-section">Offer</div>
       <div className="form-grid" style={{ maxWidth: 'none' }}>
         <label>To</label>
@@ -222,19 +257,28 @@ function OfferStep({ target, onDone }: { target: Target; onDone: () => void }) {
       <div className="form-grid" style={{ maxWidth: 'none' }}>
         {!cloud && <>
           <label>Apps domain</label>
-          <span className="row"><input value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="apps.example.com" style={{ width: 220 }} /> <span className="muted small">apps are reached at name.domain; empty means host:port</span></span>
+          <span className="row"><input value={draft.domain} onChange={(e) => set('domain', e.target.value)} placeholder="apps.example.com" style={{ width: 220 }} /> <span className="muted small">apps are reached at name.domain; empty means host:port</span></span>
         </>}
         <label>Disks</label>
-        <span><label className="small"><input type="checkbox" checked={disks} onChange={(e) => setDisks(e.target.checked)} /> keeps disks (a dataDir may bind)</label></span>
+        <span><label className="small"><input type="checkbox" checked={draft.persistentVolumes} onChange={(e) => set('persistentVolumes', e.target.checked)} /> keeps disks (a dataDir may bind)</label></span>
         <label>Previews</label>
-        <span><label className="small"><input type="checkbox" checked={previews} onChange={(e) => setPreviews(e.target.checked)} /> previews may bind</label></span>
+        <span><label className="small"><input type="checkbox" checked={draft.previews} onChange={(e) => set('previews', e.target.checked)} /> previews may bind</label></span>
         <label>Needs</label>
-        <span><select value={needsMode} onChange={(e) => setNeedsMode(e.target.value)}>
-          <option value="emulators">emulators on the host</option><option value="managed">managed by the provider</option><option value="register">registered by hand</option>
+        <span><select value={draft.needsMode} onChange={(e) => set('needsMode', e.target.value)}>
+          {NEEDS_MODES.map(({ value, title }) => <option key={value} value={value}>{title}</option>)}
         </select></span>
       </div>
+      </fieldset>
+      {conflict && <div role="alert">
+        <p>The target settings changed. Your edits are kept.</p>
+        {current ? <p>Current facts: domain {factsOf(current).domain || '(none)'}, disks {String(current.capabilities.persistentVolumes)}, previews {String(current.capabilities.previews)}, needs {current.needsMode}.</p>
+          : <p>Read the current settings before choosing.</p>}
+        <button disabled={!current || busy} onClick={() => resolve(true)}>Keep my edits on current settings</button>
+        <button disabled={!current || busy} onClick={() => resolve(false)}>Discard my fact edits</button>
+        <button disabled={busy || currentQ.refreshing} onClick={() => void currentQ.reload()}>Read current settings</button>
+      </div>}
       <div className="row" style={{ gap: 8, marginTop: 12, alignItems: 'center' }}>
-        <button className="primary" onClick={finish} disabled={busy}>{busy ? 'saving…' : 'Finish'}</button>
+        <button className="primary" onClick={finish} disabled={busy || conflict}>{busy ? 'saving…' : 'Finish'}</button>
         <Link to={`/infrastructure/${target.name}`} className="small">skip for now</Link>
         {err && <span className="error small">{err}</span>}
       </div>

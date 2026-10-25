@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -301,5 +303,240 @@ func TestTargetCheckAndOfferRequireReceipts(t *testing.T) {
 			}
 			wantN(t, "offers", targetOffers(t, targets, target.ID), 2)
 		})
+	}
+}
+
+// The target name is a durable identity: probing before Attach is not a lock.
+func TestConcurrentTargetAttachmentHasOneWinner(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	targets := NewTargets(db, noRetirement{})
+	saved := make([]*Target, 2)
+	codes := race(2, func(i int) int {
+		var err error
+		saved[i], err = targets.Attach(t.Context(), &Target{Name: "same-name", Kind: KindDockerHost, Origin: OriginAttached,
+			Address: map[string]any{"host": fmt.Sprintf("host-%d", i)}, Status: TargetReady}, Attachment{By: "fixture", Attached: map[string]any{"candidate": i}, Answer: map[string]any{"candidate": i}})
+		if err == nil {
+			return 1
+		}
+		if fault.KindOf(err) == fault.Conflict {
+			return 2
+		}
+		t.Errorf("unexpected attachment failure: %v", err)
+		return 0
+	})
+	if count(codes, 1) != 1 || count(codes, 2) != 1 {
+		t.Fatalf("want one attachment and one conflict: %v", codes)
+	}
+	winner := 0
+	if codes[1] == 1 {
+		winner = 1
+	}
+	actual, err := targets.ByName(t.Context(), "same-name")
+	if err != nil || !reflect.DeepEqual(actual, saved[winner]) {
+		t.Fatalf("winner changed: got=%+v want=%+v err=%v", actual, saved[winner], err)
+	}
+	if actual.DisplayLabel != actual.Name {
+		t.Fatalf("new attachment label %q, want %q", actual.DisplayLabel, actual.Name)
+	}
+	receipts, err := audit.Recent(t.Context(), db, audit.Filter{Subject: "same-name", KindPrefix: "target.", Limit: 10})
+	if err != nil || len(receipts) != 2 {
+		t.Fatalf("attachment receipts: %+v %v", receipts, err)
+	}
+	kinds := map[string]bool{}
+	for _, receipt := range receipts {
+		kinds[receipt.Kind] = true
+		if string(receipt.Payload) != fmt.Sprintf(`{"candidate":%d}`, winner) {
+			t.Errorf("losing attachment receipt: %+v", receipt)
+		}
+	}
+	if !kinds["target.attached"] || !kinds["target.checked"] {
+		t.Fatalf("wrong receipt pair: %+v", receipts)
+	}
+}
+
+func TestDuplicateTargetAttachmentPreservesActiveAndRetiredRecords(t *testing.T) {
+	t.Parallel()
+	for _, retired := range []bool{false, true} {
+		t.Run(fmt.Sprint(retired), func(t *testing.T) {
+			db := testDB(t)
+			targets := NewTargets(db, noRetirement{})
+			initial, err := targets.Attach(t.Context(), &Target{Name: "kept", Kind: KindDockerHost, Provider: "original", Origin: OriginAttached,
+				Address: map[string]any{"host": "original"}, Ingress: map[string]any{"domain": "original.example"}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: TargetReady}, Attachment{By: "fixture"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			revision, yes := initial.SettingsRevision, true
+			if _, err = targets.EditSettings(t.Context(), initial.Name, TargetSettingsEdit{ExpectedRevision: &revision, Previews: &yes}, "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			if retired {
+				if err = targets.Retire(t.Context(), initial.Name, "fixture"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := targets.ByName(t.Context(), initial.Name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			replacement := &Target{Name: initial.Name, Kind: KindS3Bucket, Provider: "replacement", Origin: OriginProvisioned,
+				Address: map[string]any{"endpoint": "other"}, Ingress: map[string]any{"domain": "other.example"}, NeedsMode: "managed", SecretsDelivery: "other", Status: TargetReady}
+			if _, err = targets.Attach(t.Context(), replacement, Attachment{By: "fixture"}); fault.KindOf(err) != fault.Conflict {
+				t.Fatalf("duplicate attachment: %v", err)
+			}
+			after, err := targets.ByName(t.Context(), initial.Name)
+			if err != nil || !reflect.DeepEqual(before, after) {
+				t.Fatalf("existing target changed: before=%+v after=%+v err=%v", before, after, err)
+			}
+			for _, kind := range []string{"target.attached", "target.checked"} {
+				receipts, err := audit.Recent(t.Context(), db, audit.Filter{Subject: initial.Name, KindPrefix: kind, Limit: 10})
+				if err != nil || len(receipts) != 1 {
+					t.Fatalf("duplicate receipt %s: %+v %v", kind, receipts, err)
+				}
+			}
+		})
+	}
+}
+
+func TestCloudAttachmentCommitsOnlyWithANewBindingAndTarget(t *testing.T) {
+	t.Parallel()
+	for _, scenario := range []string{"success", "binding", "managed-binding", "target", "retired-target", "binding-insert", "binding-version", "first-receipt", "second-receipt", "third-receipt"} {
+		t.Run(scenario, func(t *testing.T) {
+			db := testDB(t)
+			integrations := integration.NewService(db, integration.Dependencies{})
+			targets := NewTargets(db, noRetirement{})
+			service := &Service{db: db, Targets: targets, providers: &Providers{integrations: integrations}}
+			var beforeBinding *integration.Binding
+			var beforeTarget *Target
+			if scenario == "binding" || scenario == "managed-binding" {
+				if _, err := integrations.Bindings.Upsert(t.Context(), "account", digitalocean.CapCloudAccount, "digitalocean", `{"tokenFrom":"OLD","region":"old"}`, scenario == "managed-binding"); err != nil {
+					t.Fatal(err)
+				}
+				var err error
+				beforeBinding, err = integrations.Bindings.ByName(t.Context(), "account")
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if scenario == "target" || scenario == "retired-target" {
+				var err error
+				beforeTarget, err = targets.Put(t.Context(), &Target{Name: "account", Kind: KindDockerHost, Origin: OriginAttached, Address: map[string]any{"host": "original"}, Status: TargetReady})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if scenario == "retired-target" {
+					if err = targets.Retire(t.Context(), "account", "fixture"); err != nil {
+						t.Fatal(err)
+					}
+					beforeTarget, err = targets.ByName(t.Context(), "account")
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			switch scenario {
+			case "binding-insert":
+				t.Cleanup(db.FailNextStatement("-- name: CreateBinding"))
+			case "binding-version":
+				t.Cleanup(db.FailNextStatement("-- name: InsertBindingVersion"))
+			case "first-receipt":
+				t.Cleanup(db.FailStatementAfter("-- name: AppendReceipt", 0))
+			case "second-receipt":
+				t.Cleanup(db.FailStatementAfter("-- name: AppendReceipt", 1))
+			case "third-receipt":
+				t.Cleanup(db.FailStatementAfter("-- name: AppendReceipt", 2))
+			}
+			saved, err := service.AttachCloudTarget(t.Context(), "account", map[string]any{"tokenFrom": "NEW", "region": "nyc"}, Attachment{By: "fixture"})
+			if scenario == "success" {
+				if err != nil || saved == nil || saved.Address["region"] != "nyc" || saved.Address["instanceSize"] != "basic-xxs" || saved.Address["dbSize"] != "db-s-1vcpu-1gb" {
+					t.Fatalf("cloud target: %+v %v", saved, err)
+				}
+			} else {
+				if err == nil || saved != nil {
+					t.Fatalf("failed cloud admission returned %+v %v", saved, err)
+				}
+				if (beforeBinding != nil || beforeTarget != nil) && fault.KindOf(err) != fault.Conflict {
+					t.Fatalf("duplicate: %v", err)
+				}
+			}
+			binding, be := integrations.Bindings.ByName(t.Context(), "account")
+			target, te := targets.ByName(t.Context(), "account")
+			if scenario == "success" {
+				if be != nil || binding.Version != 1 || binding.Managed || te != nil || target.Provider != binding.Name {
+					t.Fatalf("split cloud admission: binding=%+v/%v target=%+v/%v", binding, be, target, te)
+				}
+			} else {
+				if beforeBinding == nil {
+					if !errors.Is(be, sql.ErrNoRows) {
+						t.Fatalf("binding survived refusal: %+v %v", binding, be)
+					}
+				} else if be != nil || !reflect.DeepEqual(binding, beforeBinding) {
+					t.Fatalf("binding changed: %+v %v", binding, be)
+				}
+				if beforeTarget == nil {
+					if !errors.Is(te, sql.ErrNoRows) {
+						t.Fatalf("target survived refusal: %+v %v", target, te)
+					}
+				} else if te != nil || !reflect.DeepEqual(target, beforeTarget) {
+					t.Fatalf("target changed: %+v %v", target, te)
+				}
+			}
+			for _, kind := range []string{"target.attached", "target.checked", "integration.saved"} {
+				receipts, e := audit.Recent(t.Context(), db, audit.Filter{Subject: "account", KindPrefix: kind, Limit: 10})
+				want := 0
+				if scenario == "success" {
+					want = 1
+				}
+				if e != nil || len(receipts) != want {
+					t.Fatalf("cloud receipts %s: %+v %v", kind, receipts, e)
+				}
+			}
+		})
+	}
+}
+
+func TestCloudAttachmentValidatesConfigurationBeforeDefaults(t *testing.T) {
+	t.Parallel()
+	for _, config := range []map[string]any{nil, {"region": "nyc"}, {"tokenFrom": "TOKEN"}, {"tokenFrom": " ", "region": "nyc"}, {"tokenFrom": "TOKEN", "region": 2}, {"tokenFrom": "TOKEN", "region": "nyc", "registry": true}} {
+		db := testDB(t)
+		integrations := integration.NewService(db, integration.Dependencies{})
+		service := &Service{db: db, Targets: NewTargets(db, noRetirement{}), providers: &Providers{integrations: integrations}}
+		if _, err := service.AttachCloudTarget(t.Context(), "invalid", config, Attachment{By: "fixture"}); fault.KindOf(err) != fault.Invalid {
+			t.Fatalf("invalid config %v: %v", config, err)
+		}
+		if _, err := integrations.Bindings.ByName(t.Context(), "invalid"); !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("invalid config wrote binding: %v", err)
+		}
+		if _, err := service.Targets.ByName(t.Context(), "invalid"); !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("invalid config wrote target: %v", err)
+		}
+	}
+}
+
+func TestInvalidOfferCapsPreserveTheOfferAndItsReceipts(t *testing.T) {
+	db, targets, target := targetRetirementFixture(t)
+	ctx := context.Background()
+	if err := targets.Offer(ctx, target, "*", OfferCaps{MaxStanding: 3}, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	before, err := targets.Offers(ctx, target.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := len(receipts(t, db, "target.offered"))
+	for _, caps := range []OfferCaps{{MaxStanding: -1}, {Audiences: []string{"unknown"}}, {Data: []string{"unknown"}}} {
+		if err := targets.Offer(ctx, target, "*", caps, "fixture"); fault.KindOf(err) != fault.Unprocessable {
+			t.Fatalf("invalid caps did not return unprocessable: %v", err)
+		}
+		after, err := targets.Offers(ctx, target.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fmt.Sprint(after) != fmt.Sprint(before) {
+			t.Fatalf("refused caps changed offers: before=%v after=%v", before, after)
+		}
+		if got := len(receipts(t, db, "target.offered")); got != count {
+			t.Fatalf("refused caps wrote receipt: %d -> %d", count, got)
+		}
 	}
 }

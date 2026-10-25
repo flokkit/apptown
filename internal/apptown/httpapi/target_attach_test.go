@@ -2,15 +2,23 @@ package httpapi
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 )
@@ -203,6 +211,14 @@ func TestAttachDigitalOceanTarget(t *testing.T) {
 	if _, err := w.deployment.Targets.ByName(t.Context(), "do-nyc"); err == nil {
 		t.Fatal("an attach whose receipt failed saved its target")
 	}
+	if _, err := w.integrations.Bindings.ByName(t.Context(), "do-nyc"); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("an attach whose receipt failed saved its connector: %v", err)
+	}
+	for _, kind := range []string{"integration.saved", "target.attached", "target.checked"} {
+		if receipts := receiptsOfKind(t, w.db, kind); len(receipts) != 0 {
+			t.Fatalf("failed cloud attach left receipts: %+v", receipts)
+		}
+	}
 	code, out = call(`{"kind":"do-app","name":"do-nyc","tokenFrom":"DIGITALOCEAN_ACCESS_TOKEN","region":"nyc","registry":"forge"}`)
 	if code != 200 {
 		t.Fatalf("attach: %d %v", code, out)
@@ -360,5 +376,159 @@ func TestAttachBucketTarget(t *testing.T) {
 	}
 	if code, out := targetCall(t, w.targets.CheckTarget, "POST", "/api/v1/targets/spaces/check", "", map[string]string{"name": "spaces"}); code != 200 || out["ok"] != true {
 		t.Fatalf("check: %d %v", code, out)
+	}
+}
+
+func TestAttachTargetUnavailableLookupStopsBeforeProviderProbe(t *testing.T) {
+	t.Parallel()
+	for _, dryRun := range []bool{false, true} {
+		t.Run(fmt.Sprint(dryRun), func(t *testing.T) {
+			w := newTargetHTTPWorld(t)
+			writeTargetSecret(t, w, "DROPLET_KEY=-----BEGIN OPENSSH PRIVATE KEY-----\\nabc\\n-----END OPENSSH PRIVATE KEY-----\n") // gitleaks:allow (test fixture, not a credential)
+			calls := 0
+			w.setDockerClient(targetDockerClientFunc(func(context.Context, string, docker.Command) ([]byte, error) {
+				calls++
+				return []byte("29.7.2 on Debian, 0/0 containers\n"), nil
+			}))
+			t.Cleanup(w.db.FailNextStatement("-- name: TargetByName :one"))
+			body := fmt.Sprintf(`{"name":"unavailable","host":"ssh://root@host","keyFrom":"DROPLET_KEY","dryRun":%t}`, dryRun)
+			code, _ := targetCall(t, w.targets.AttachTarget, "POST", "/api/v1/targets", body, nil)
+			if code != 500 || calls != 0 {
+				t.Fatalf("lookup failure: status=%d provider calls=%d", code, calls)
+			}
+			for _, kind := range []string{"target.attached", "target.checked"} {
+				if receipts := receiptsOfKind(t, w.db, kind); len(receipts) != 0 {
+					t.Fatalf("lookup failure left receipts: %+v", receipts)
+				}
+			}
+		})
+	}
+}
+
+// Both requests pass the name preflight before the first commits. Completing
+// the second probe later must not overwrite the first account's connector.
+func TestConcurrentCloudAttachmentsKeepTheFirstAdmittedAccount(t *testing.T) {
+	t.Parallel()
+	api := &dofake.API{}
+	provider := api.Handler()
+	arrived := make(chan string, 2)
+	releases := []chan struct{}{make(chan struct{}), make(chan struct{})}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v2/account" {
+			token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+			index := 0
+			if token == "token-b" {
+				index = 1
+			}
+			arrived <- token
+			select {
+			case <-releases[index]:
+			case <-r.Context().Done():
+				return
+			}
+		}
+		provider.ServeHTTP(w, r)
+	}))
+	t.Cleanup(server.Close)
+	release := func(i int) {
+		select {
+		case <-releases[i]:
+		default:
+			close(releases[i])
+		}
+	}
+	t.Cleanup(func() { release(0); release(1) })
+	w := newTargetHTTPWorld(t, digitalocean.Options{APIBase: server.URL})
+	writeTargetSecret(t, w, "TOKEN_A=token-a\nTOKEN_B=token-b\n")
+	type result struct {
+		index, code int
+		out         map[string]any
+	}
+	results := make(chan result, 2)
+	var requests sync.WaitGroup
+	t.Cleanup(func() { release(0); release(1); requests.Wait() })
+	for i, token := range []string{"TOKEN_A", "TOKEN_B"} {
+		requests.Add(1)
+		go func() {
+			defer requests.Done()
+			body := fmt.Sprintf(`{"kind":"do-app","name":"atomic-account","tokenFrom":%q,"region":%q}`, token, []string{"nyc", "syd"}[i])
+			code, out := targetCall(t, func(out http.ResponseWriter, r *http.Request) {
+				ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+				defer cancel()
+				w.targets.AttachTarget(out, r.WithContext(ctx))
+			}, "POST", "/api/v1/targets", body, nil)
+			results <- result{i, code, out}
+		}()
+	}
+	for range 2 {
+		select {
+		case <-arrived:
+		case <-time.After(5 * time.Second):
+			t.Fatal("both attach requests did not reach their probes")
+		}
+	}
+	release(0)
+	first := <-results
+	if first.index != 0 || first.code != 200 {
+		t.Fatalf("first attachment: %+v", first)
+	}
+	release(1)
+	second := <-results
+	if second.index != 1 || second.code != 409 {
+		t.Fatalf("late attachment: %+v", second)
+	}
+	binding, err := w.integrations.Bindings.ByName(t.Context(), "atomic-account")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var config map[string]any
+	if err = json.Unmarshal([]byte(binding.ConfigJSON), &config); err != nil {
+		t.Fatal(err)
+	}
+	target, err := w.deployment.Targets.ByName(t.Context(), "atomic-account")
+	if err != nil || binding.Version != 1 || config["tokenFrom"] != "TOKEN_A" || config["region"] != "nyc" || target.Address["region"] != "nyc" {
+		t.Fatalf("winner changed: binding=%+v target=%+v err=%v", binding, target, err)
+	}
+	for _, kind := range []string{"integration.saved", "target.attached", "target.checked"} {
+		receipts := receiptsOfKind(t, w.db, kind)
+		if len(receipts) != 1 || receipts[0].Subject != "atomic-account" {
+			t.Fatalf("cloud receipts %s: %+v", kind, receipts)
+		}
+	}
+}
+
+// Invalid ingress suffixes are rejected before contacting a provider or saving
+// its target; a syntactically valid URL is not necessarily a bare hostname.
+func TestTargetDomainValidationBeforeProbe(t *testing.T) {
+	w := newTargetHTTPWorld(t)
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(resp http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.URL.Path == "/api/endpoints" {
+			_, _ = resp.Write([]byte(`[{"Id":3,"Name":"local","Type":1}]`))
+		} else {
+			_, _ = resp.Write([]byte(`{"Id":3,"Name":"local","Type":1}`))
+		}
+	}))
+	defer server.Close()
+	writeTargetSecret(t, w, "DOMAIN_PT_URL="+server.URL+"\nDOMAIN_PT_KEY=test-key\n")
+	for index, domain := range []string{"apps.example?x=1", "apps.example#fragment", "person@apps.example"} {
+		t.Run(domain, func(t *testing.T) {
+			name := fmt.Sprintf("domain-test-%d", index)
+			body, err := json.Marshal(map[string]any{"kind": "portainer", "name": name, "urlFrom": "DOMAIN_PT_URL", "apiKeyFrom": "DOMAIN_PT_KEY", "environment": "local", "domain": domain})
+			if err != nil {
+				t.Fatal(err)
+			}
+			code, out := targetCall(t, w.targets.AttachTarget, "POST", "/api/v1/targets", string(body), nil)
+			if code != 400 {
+				t.Fatalf("invalid domain accepted by admission: status %d response %v", code, out)
+			}
+			if calls.Load() != 0 {
+				t.Fatalf("invalid domain contacted provider %d times", calls.Load())
+			}
+			if _, err := w.deployment.Targets.ByName(t.Context(), name); err == nil {
+				t.Fatal("invalid domain saved a target")
+			}
+		})
 	}
 }

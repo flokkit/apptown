@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- then, gone when the provider has no such app. A built-in deployment is
   -- filling until the rebuild that puts its data back has ended. '' otherwise.
   restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling')),
+  display_label TEXT NOT NULL DEFAULT '',
+  CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
@@ -101,7 +103,8 @@ CREATE TABLE IF NOT EXISTS targets (
   -- without routine checks causing conflicts.
   settings_revision BIGINT NOT NULL DEFAULT 0,
   connection_id UUID REFERENCES integrations(id) ON DELETE RESTRICT,
-  provider_scope_json JSONB
+  provider_scope_json JSONB,
+  display_label TEXT NOT NULL DEFAULT ''
 );
 -- A release bundle (§2.8): the immutable thing that ships, committed once
 -- by a landing's deploy step attempt.
@@ -331,4 +334,12 @@ CREATE TABLE IF NOT EXISTS deployment_storage_bindings (
   origin TEXT NOT NULL CHECK (origin IN ('created', 'observed', 'restored')),
   recorded_at TIMESTAMPTZ NOT NULL,
   UNIQUE (deployment_id, need, volume)
+);
+
+CREATE TABLE IF NOT EXISTS project_release_settings (
+  project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  default_deployment_id UUID,
+  revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
+  CONSTRAINT project_release_default_membership FOREIGN KEY(project_id, default_deployment_id)
+    REFERENCES deployments(project_id, id) DEFERRABLE INITIALLY DEFERRED
 );

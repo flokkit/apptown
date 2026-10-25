@@ -36,6 +36,17 @@ func TestOfferCapsRefuseInWords(t *testing.T) {
 	}
 }
 
+func TestStandingLimitsCannotBecomeUnlimitedThroughNegativeValues(t *testing.T) {
+	if err := ValidateCaps(OfferCaps{MaxStanding: -1}); err == nil {
+		t.Fatal("negative standing limit accepted as unlimited")
+	}
+	for _, n := range []int{0, 1, 3} {
+		if err := ValidateCaps(OfferCaps{MaxStanding: n}); err != nil {
+			t.Fatalf("valid limit %d: %v", n, err)
+		}
+	}
+}
+
 func TestRetentionSettlesOnce(t *testing.T) {
 	t.Parallel()
 	if got, err := RetainedOpen.Settle(RetainedReleased); err != nil || got != RetainedReleased {

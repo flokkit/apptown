@@ -22,9 +22,13 @@ SELECT * FROM integrations WHERE name=$1 FOR UPDATE;
 -- name: BindingsForShare :many
 SELECT * FROM integrations ORDER BY id FOR SHARE;
 
--- name: InsertBinding :one
+-- name: CreateBinding :one
 INSERT INTO integrations (id, name, capability, provider, config_json, version, managed, created_at, updated_at)
-VALUES (sqlc.arg(id), sqlc.arg(name),sqlc.arg(capability),sqlc.arg(provider),sqlc.arg(config_json),1,sqlc.arg(managed),sqlc.arg(created_at),sqlc.arg(updated_at)) RETURNING *;
+VALUES (sqlc.arg(id), sqlc.arg(name),sqlc.arg(capability),sqlc.arg(provider),sqlc.arg(config_json),1,sqlc.arg(managed),sqlc.arg(created_at),sqlc.arg(updated_at)) ON CONFLICT (name) DO NOTHING RETURNING *;
+
+-- name: InsertBinding :one
+INSERT INTO integrations (display_label, id, name, capability, provider, config_json, version, managed, created_at, updated_at)
+VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(name),sqlc.arg(capability),sqlc.arg(provider),sqlc.arg(config_json),1,sqlc.arg(managed),sqlc.arg(created_at),sqlc.arg(updated_at)) RETURNING *;
 
 -- name: InsertBindingVersion :one
 INSERT INTO integration_versions (id, integration_id, version, config_json, created_at)
@@ -121,3 +125,7 @@ SELECT * FROM integrations WHERE id=$1;
 
 -- name: BindingByIDForShare :one
 SELECT * FROM integrations WHERE id=$1 FOR SHARE;
+
+-- name: EditBindingDisplayLabel :one
+UPDATE integrations SET display_label=sqlc.arg(display_label)
+WHERE id=sqlc.arg(id) AND display_label=sqlc.arg(expected_label) RETURNING *;

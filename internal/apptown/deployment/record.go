@@ -29,6 +29,7 @@ import (
 
 // Deployment is one row of the deployments table.
 type Deployment struct {
+	DisplayLabel       string           `json:"displayLabel"`
 	DeploymentPolicy   DeploymentPolicy `json:"deploymentPolicy,omitempty"` // enforced standing procedure, not persisted
 	ID                 ids.ID           `json:"id"`
 	ProjectID          ids.ID           `json:"projectId"`
@@ -165,6 +166,7 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		ID:                 r.ID,
 		ProjectID:          r.ProjectID,
 		Name:               r.Name,
+		DisplayLabel:       r.DisplayLabel,
 		ChangeID:           r.ChangeID,
 		TargetID:           r.TargetID,
 		Handle:             jsonMap(string(r.HandleJson)),
@@ -281,7 +283,13 @@ func ensureStandingIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", name, ErrDeploymentAdmitted)
 		}
-		return e, err
+		if err != nil {
+			return nil, err
+		}
+		if err := preserveDefaultConfiguration(ctx, tx, e); err != nil {
+			return nil, err
+		}
+		return e, nil
 	}
 }
 

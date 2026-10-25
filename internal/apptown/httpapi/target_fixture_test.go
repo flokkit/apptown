@@ -117,9 +117,9 @@ func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	environment := deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: w.integrations, Needs: w.needs, Projects: w.projects})
 	w.providers = deployment.NewProviders(context.Background(), w.db, deployment.ProviderRecords{Targets: targets, Deployments: deployments}, w.hosts, environment,
 		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud})
-	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Authority: access.Checked{Authority: w.identity, Projects: w.projects}, Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,
+	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Groups: w.identity, Authority: access.Checked{Authority: w.identity, Projects: w.projects}, Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,
 		Projects: w.projects, Declared: targetTestDeclarations{}})
-	w.targets = NewTargets(w.deployment, w.hosts, w.providers, w.projects, w.identity, w.integrations, w.needs, w.db, nil)
+	w.targets = NewTargets(w.deployment, w.providers, w.projects, w.identity, w.db, nil)
 	w.infra = NewInfrastructure(w.deployment, w.hosts, w.providers, w.projects, w.db, &targetTestInventoryCache{}, nil, false, "", "", deployment.IntranetTargetName, nil)
 }
 

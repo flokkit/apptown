@@ -20,6 +20,7 @@ func (a *App) deploymentDependencies(changes workflow.Changes) deployment.Depend
 		// orphaned copy's age is its taking against the deletion's.
 		Now:           a.cfg.clock.Now,
 		Authority:     authority,
+		Groups:        a.Access,
 		Targets:       a.targets,
 		Deployments:   a.deployments,
 		Hosts:         a.hosts,
