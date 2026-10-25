@@ -81,14 +81,14 @@ func TestTokens(t *testing.T) {
 	if _, role, _, _, _ := k.Resolve(context.Background(), adm); role != "admin" {
 		t.Fatalf("an admin token keeps its bound: %q", role)
 	}
-	all, err := svc.Tokens(context.Background(), testOpenPrincipal("ops"))
+	all, err := svc.Tokens(context.Background(), admittedOpenPrincipal(t, svc, "ops"))
 	if err != nil || len(all) != 2 || all[0].Name != "root-cli" || !all[0].LastUsed.Valid || all[1].RevokedAt.Valid {
 		t.Fatalf("list: %v %+v", err, all)
 	}
-	if ok, err := svc.RevokeToken(context.Background(), "cli", testOpenPrincipal("ops")); err != nil || !ok {
+	if ok, err := svc.RevokeToken(context.Background(), "cli", admittedOpenPrincipal(t, svc, "ops")); err != nil || !ok {
 		t.Fatalf("revoke: %v %v", err, ok)
 	}
-	if ok, err := svc.RevokeToken(context.Background(), "cli", testOpenPrincipal("ops")); err != nil || ok {
+	if ok, err := svc.RevokeToken(context.Background(), "cli", admittedOpenPrincipal(t, svc, "ops")); err != nil || ok {
 		t.Fatalf("revoking twice: %v %v", err, ok)
 	}
 	if _, _, _, ok, _ := k.Resolve(context.Background(), tok); ok {
@@ -181,7 +181,7 @@ func TestATokensDefaultCeilingIsItsPersonsRoleWhenMade(t *testing.T) {
 	testAccounts(t, db, "alice", "ops")
 	svc := New(db, Config{OpenInstance: true})
 	testGrantRoot(t, svc, "ops")
-	ops := testOpenPrincipal("ops")
+	ops := admittedOpenPrincipal(t, svc, "ops")
 	issue := func(name, user, role, purpose string) string {
 		t.Helper()
 		issued, err := svc.IssueToken(context.Background(), NewToken{Name: name, User: user, Role: role, Purpose: purpose}, ops)

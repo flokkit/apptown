@@ -58,7 +58,7 @@ func (h ChangeNarratives) ImportBranch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !RequireProjectMember(h.access, h.authMode, w, r, p.ID, p.Slug) {
+	if !RequireProjectMember(h.access, w, r, p.ID, p.Slug) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{errorText: "branch required"}, func(in struct{ Branch, Title string }) {

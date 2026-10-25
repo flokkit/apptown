@@ -54,7 +54,7 @@ func (h RemediationChanges) OpenRemediation(w http.ResponseWriter, r *http.Reque
 			writeReadFault(w, err, "no such project %q", in.Project)
 			return
 		}
-		if !RequireProjectMember(h.access, h.authMode, w, r, p.ID, p.Slug) {
+		if !RequireProjectMember(h.access, w, r, p.ID, p.Slug) {
 			return
 		}
 		sc, err := h.checks.AdoptedCheck(r.Context(), p.ID, in.Block, in.Check)

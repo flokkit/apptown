@@ -59,7 +59,7 @@ func TestGrantLookupIsOneReadAndUsesCurrentAuthority(t *testing.T) {
 	grantIDs := make([]ids.ID, 5)
 	for i := range grantIDs {
 		group := fmt.Sprintf("query-group-%d", i)
-		if err := svc.SaveGroup(context.Background(), GroupChange{Name: group, Members: []string{user}}, testPrincipal("boss")); err != nil {
+		if err := svc.SaveGroup(context.Background(), GroupChange{Name: group, Members: []string{user}}, admittedPrincipal(t, svc, "boss")); err != nil {
 			t.Fatal(err)
 		}
 		role := access.RoleProjectViewer
@@ -71,7 +71,7 @@ func TestGrantLookupIsOneReadAndUsesCurrentAuthority(t *testing.T) {
 	// A same-named group is not the user, and explicit built-in membership
 	// must not duplicate the grant automatically held by signed-in users.
 	unrelated := put(Spec{SubjectType: "group", Subject: user, Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: idstest.N(1).String(), By: "test"})
-	if err := svc.SaveGroup(context.Background(), GroupChange{Name: GroupAllUsers, Members: []string{user}}, testPrincipal("boss")); err != nil {
+	if err := svc.SaveGroup(context.Background(), GroupChange{Name: GroupAllUsers, Members: []string{user}}, admittedPrincipal(t, svc, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	direct := put(Spec{SubjectType: "user", Subject: user, Role: access.RoleProjectContrib, Scope: access.ScopeProject, ScopeID: idstest.N(1).String(), By: "test"})

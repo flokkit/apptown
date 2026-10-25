@@ -154,7 +154,7 @@ func TestHarvestedChatSpendIsTheOpeners(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := people.RemoveName(ctx, "alice", access.Principal{Kind: "user", Name: "ops", Via: "session"}); err != nil {
+	if err := people.RemoveName(ctx, "alice", testAdmittedPrincipal(t, people, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := people.EnsureUser(ctx, "alice"); err != nil {

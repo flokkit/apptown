@@ -75,7 +75,7 @@ func TestDeploymentRemovalChecksAuthorityAndHTTPOutcome(t *testing.T) {
 		t.Fatalf("missing deployment: %d %s", w.Code, w.Body.String())
 	}
 	disabled := true
-	if err := a.identity.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.identity.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.identity, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.data.Remove(deploymentCaller("owner"), in); err == nil || errors.Is(err, deployment.ErrDeploymentMissing) {

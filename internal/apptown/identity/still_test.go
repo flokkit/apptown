@@ -54,7 +54,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		if err := s.SeedAdministrator(ctx, "boss"); err != nil {
 			t.Fatal(err)
 		}
-		if revoked, err := s.RevokeToken(ctx, "laptop", testPrincipal("boss")); err != nil || !revoked {
+		if revoked, err := s.RevokeToken(ctx, "laptop", admittedPrincipal(t, s, "boss")); err != nil || !revoked {
 			t.Fatalf("revoking: %v %v", revoked, err)
 		}
 		if err := s.RequireStill(ctx, asked, read); !errors.Is(err, ErrCredentialGone) {

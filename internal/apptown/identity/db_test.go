@@ -22,6 +22,33 @@ func testDB(t *testing.T) *database.DB { t.Helper(); return databaseSuite.New(t)
 func testPrincipal(name string) access.Principal {
 	return access.Principal{Kind: "user", Name: name, Via: "session", Role: "admin"}
 }
+
+// admittedPrincipal reads the identity already established by the fixture.
+// It never creates an account to make an authorization test pass.
+func admittedPrincipal(t *testing.T, s *Service, name string) access.Principal {
+	t.Helper()
+	accounts, err := s.Users(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, account := range accounts {
+		if account.Username == name {
+			pr := testPrincipal(name)
+			pr.ID = account.PrincipalID
+			return pr
+		}
+	}
+	t.Fatalf("fixture account %q is missing", name)
+	return access.Principal{}
+}
+
+func admittedOpenPrincipal(t *testing.T, s *Service, name string) access.Principal {
+	t.Helper()
+	pr := admittedPrincipal(t, s, name)
+	pr.Via = "open"
+	return pr
+}
+
 func testOpenPrincipal(name string) access.Principal {
 	return access.Principal{Kind: "user", Name: name, Via: "open"}
 }

@@ -62,14 +62,14 @@ func TestADRAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 		}
 	}
 	disabled := true
-	if err := accounts.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := accounts.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, accounts, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Edit(adrAs(owner), Edit{ID: record.ID, Decision: Accept}); err == nil {
 		t.Fatal("disabled account edited decision")
 	}
 	disabled = false
-	if err := accounts.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := accounts.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, accounts, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, db, "-- name: UserByName :one")

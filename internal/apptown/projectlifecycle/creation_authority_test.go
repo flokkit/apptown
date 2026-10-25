@@ -38,7 +38,7 @@ func TestProjectCreationRejectsRetiredPersonalGroup(t *testing.T) {
 				if err := f.identity.SeedAdministrator(context.Background(), "boss"); err != nil {
 					t.Fatal(err)
 				}
-				if err := f.identity.SaveGroup(context.Background(), identity.GroupChange{Name: "alice"}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+				if err := f.identity.SaveGroup(context.Background(), identity.GroupChange{Name: "alice"}, testAdmittedPrincipal(t, f.identity, "boss")); err != nil {
 					t.Fatal(err)
 				}
 			}

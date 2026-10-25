@@ -137,7 +137,7 @@ func TestInferenceLifecycleAndTrustedReceipts(t *testing.T) {
 	}
 	testAdministrator(t, a, "admin")
 	disabled := true
-	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "alice", Disabled: &disabled}, access.Principal{Kind: "user", Name: "admin", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "alice", Disabled: &disabled}, access.Principal{ID: testPrincipalOf(t, a.DB, "admin"), Kind: "user", Name: "admin", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := inferenceIdentityFor(a).Authenticate(ctx, chat); err == nil {

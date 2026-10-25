@@ -80,8 +80,12 @@ func TestAdoptionAuthoritySeparatesIdentityAttributionAndCapabilities(t *testing
 		t.Fatal("revoked standards authority stayed cached")
 	}
 	selection.Weakens = false
+	boss, err := identity.ActorIn(context.Background(), authority.db, "boss")
+	if err != nil || boss.Principal.IsZero() {
+		t.Fatalf("fixture administrator: %v", err)
+	}
 	disabled := true
-	if err := auth.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := auth.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{ID: boss.Principal, Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := authority.require(ctx, selection); err == nil {

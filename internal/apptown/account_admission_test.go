@@ -15,7 +15,7 @@ func TestAccountReadFailureRejectsHTTPIdentity(t *testing.T) {
 	t.Parallel()
 	a, h := internalApp(t)
 	who := sessionFrom(t, postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "boss", "boss-password")))
-	issued, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: "cli", Name: "test-cli", User: "boss", Role: "admin"}, access.Principal{Kind: "user", Name: "boss", Via: "session"})
+	issued, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: "cli", Name: "test-cli", User: "boss", Role: "admin"}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestMCPUnavailableCredentialDoesNotChallengeForReplacement(t *testing.T) {
 	a, h, who := oauthFixture(t)
 	pair := authorizeAndExchange(t, h, who, registerClient(t, h), "apptown:user:read")
 	oauthToken := pair["access_token"].(string)
-	agent, err := a.Access.IssueToken(t.Context(), identity.NewToken{Purpose: "agent", Name: "test-agent", User: "boss", Role: "admin"}, access.Principal{Kind: "user", Name: "boss", Via: "session"})
+	agent, err := a.Access.IssueToken(t.Context(), identity.NewToken{Purpose: "agent", Name: "test-agent", User: "boss", Role: "admin"}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"})
 	if err != nil {
 		t.Fatal(err)
 	}

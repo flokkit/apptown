@@ -79,14 +79,13 @@ func Principal(r *http.Request) access.Principal {
 	return caller.Principal
 }
 
-func RequireProjectMember(authority *identity.Service, authMode string, w http.ResponseWriter, r *http.Request, projectID ids.ID, slug string) bool {
-	caller, _ := access.CallerFrom(r.Context())
-	user, role := Actor(r), ""
-	if caller.Verified {
-		user, role = caller.Principal.Name, caller.Principal.Role
-	} else if authMode == "open" {
-		role = optionalUser(r.Context(), authority, user)
+func RequireProjectMember(authority *identity.Service, w http.ResponseWriter, r *http.Request, projectID ids.ID, slug string) bool {
+	caller, ok := access.CallerFrom(r.Context())
+	if !ok || !caller.Verified {
+		WriteError(w, http.StatusForbidden, "an authenticated caller is required")
+		return false
 	}
+	user, role := caller.Principal.Name, caller.Principal.Role
 	// Console-provenance identities inherit the person's membership: the
 	// roster names people, and "alice via console/x" is alice at a keyboard.
 	if base, _, ok := strings.Cut(user, " via console/"); ok {

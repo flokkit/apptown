@@ -26,7 +26,7 @@ func tokenFor(t *testing.T, a *App, name, user, role, purpose string) string {
 	t.Helper()
 	testAdministrator(t, a, "boss")
 	issued, err := a.Access.IssueToken(context.Background(), identity.NewToken{Name: name, User: user, Role: role, Purpose: purpose},
-		access.Principal{Kind: "user", Name: "boss", Via: "session"})
+		access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestAnAgentTokenCannotMintItselfACommandLineToken(t *testing.T) {
 	if w.Code != 403 || strings.Contains(w.Body.String(), identity.TokenPrefix) {
 		t.Fatalf("an agent token minted a token: %d %s", w.Code, w.Body.String())
 	}
-	boss := access.Principal{Kind: "user", Name: "boss", Via: "session"}
+	boss := access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}
 	tokens, err := a.Access.Tokens(context.Background(), boss)
 	if err != nil {
 		t.Fatal(err)

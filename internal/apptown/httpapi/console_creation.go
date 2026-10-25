@@ -32,7 +32,7 @@ func (h ConsoleCreation) ConsoleCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !RequireProjectMember(h.access, h.authMode, w, r, p.ID, p.Slug) {
+	if !RequireProjectMember(h.access, w, r, p.ID, p.Slug) {
 		return
 	}
 	if !h.enabled {

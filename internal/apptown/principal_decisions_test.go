@@ -17,7 +17,7 @@ func TestAnAgentTokenCannotApprove(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
 	fx := fixtureWork(t, a)
-	agent, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: access.TokenAgent, Name: "owners-agent", User: "owner"}, access.Principal{Kind: "user", Name: "boss", Via: "session", Role: "admin"})
+	agent, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: access.TokenAgent, Name: "owners-agent", User: "owner"}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session", Role: "admin"})
 	if err != nil {
 		t.Fatal(err)
 	}

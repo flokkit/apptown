@@ -51,14 +51,14 @@ func TestWorkRetryAuthorityWithoutRouteAndCurrentGrants(t *testing.T) {
 		}
 	}
 	disabled := true
-	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Work.RetryStep(ctx, RetryCommand{StepID: a.StepID}); err == nil {
 		t.Fatal("disabled owner retried")
 	}
 	disabled = false
-	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, a.DB, "-- name: UserByName :one")

@@ -134,10 +134,10 @@ func TestGroups(t *testing.T) {
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return DefaultsIn(context.Background(), tx, false, time.Now()) }); err != nil {
 		t.Fatal(err)
 	}
-	if err := New(db, Config{}).SaveGroup(context.Background(), GroupChange{Name: "kids", Description: "the children", Members: []string{"jude", "root"}}, testPrincipal("root")); err != nil {
+	if err := New(db, Config{}).SaveGroup(context.Background(), GroupChange{Name: "kids", Description: "the children", Members: []string{"jude", "root"}}, admittedPrincipal(t, New(db, Config{}), "root")); err != nil {
 		t.Fatal(err)
 	}
-	if err := New(db, Config{}).SaveGroup(context.Background(), GroupChange{Name: "kids", Description: "the children, revised", Members: []string{"jude"}}, testPrincipal("root")); err != nil {
+	if err := New(db, Config{}).SaveGroup(context.Background(), GroupChange{Name: "kids", Description: "the children, revised", Members: []string{"jude"}}, admittedPrincipal(t, New(db, Config{}), "root")); err != nil {
 		t.Fatal(err)
 	}
 	groups, err := d.Groups(context.Background())
@@ -182,7 +182,7 @@ func TestRemovingANameRevokesWhatItHeld(t *testing.T) {
 	ctx := context.Background()
 	s := New(testDB(t), Config{})
 	testGrantRoot(t, s, "ops")
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	if _, err := s.EnsureUser(ctx, "carol"); err != nil {
 		t.Fatal(err)
 	}
@@ -263,7 +263,7 @@ func TestAnAccountThatActedIsDisabledNotRemoved(t *testing.T) {
 	ctx := context.Background()
 	s := New(testDB(t), Config{})
 	testGrantRoot(t, s, "ops")
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	for _, name := range []string{"sso", "agent", "browser", "typo"} {
 		if _, err := s.EnsureUser(ctx, name); err != nil {
 			t.Fatal(err)
@@ -328,7 +328,7 @@ func TestAnUnknownNameIsRefused(t *testing.T) {
 	if _, err := s.EnsureUser(ctx, "ghost"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RemoveName(ctx, "ghost", testPrincipal("ops")); err != nil {
+	if err := s.RemoveName(ctx, "ghost", admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	// Everyone signed in reads everything by default: only the missing
@@ -338,7 +338,7 @@ func TestAnUnknownNameIsRefused(t *testing.T) {
 	}
 	ghost := access.Principal{Kind: "user", Name: "ghost", Via: "session"}
 	read := access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "project", ID: idstest.N(7).String(), ProjectID: idstest.N(7)}}
-	if dec, err := s.Decide(ctx, testPrincipal("ops"), read); err != nil || !dec.Allow {
+	if dec, err := s.Decide(ctx, admittedPrincipal(t, s, "ops"), read); err != nil || !dec.Allow {
 		t.Fatalf("the default read: %v %+v", err, dec)
 	}
 	dec, err := s.Decide(ctx, ghost, read)
@@ -353,7 +353,7 @@ func TestAnUnknownNameIsRefused(t *testing.T) {
 	if err := RequireEnabledIn(ctx, s.db, console); !errors.As(err, &denied) {
 		t.Fatalf("a chat whose person has no account is refused: %v", err)
 	}
-	if err := RequireEnabledIn(ctx, s.db, testPrincipal("ops")); err != nil {
+	if err := RequireEnabledIn(ctx, s.db, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatalf("an enabled account passes: %v", err)
 	}
 	for name, want := range map[string]bool{"system": true, "apptown-system": true, "apptown": true, "forge-system": true, "forge": true, "run/12": true, "run/": false, "run/x": false, "ops": false, "ghost": false} {

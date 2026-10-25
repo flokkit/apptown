@@ -17,7 +17,7 @@ func tokenCommandFixture(t *testing.T) (*Service, access.Principal) {
 	if err := s.SeedAdministrator(context.Background(), "boss"); err != nil {
 		t.Fatal(err)
 	}
-	return s, testPrincipal("boss")
+	return s, admittedPrincipal(t, s, "boss")
 }
 
 func TestTokenCommandsCheckCurrentAdministrator(t *testing.T) {
@@ -49,7 +49,7 @@ func TestTokenCommandsCheckCurrentAdministrator(t *testing.T) {
 					if _, err := s.Grant(context.Background(), Spec{SubjectType: "user", Subject: "member", Capability: string(access.CapIdentityUsers), Scope: access.ScopeInstance, By: "setup"}, ""); err != nil {
 						t.Fatal(err)
 					}
-					pr.Name = "member" // advertised admin role must not override the account
+					pr = admittedPrincipal(t, s, "member") // advertised admin role must not override the account
 				case "disabled":
 					disableStoredAccount(t, s.db, "boss")
 				case "bounded token":
@@ -217,7 +217,7 @@ func TestTokenCommandsRequirePersistenceAndReceipts(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				marker := map[string]string{"account": "-- name: UserByName :one", "receipt": "INSERT INTO audit_log"}[failure]
+				marker := map[string]string{"account": "-- name: UserByPrincipal :one", "receipt": "INSERT INTO audit_log"}[failure]
 				operation := "INSERT"
 				if op == "revoke" {
 					operation = "UPDATE"

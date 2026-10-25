@@ -25,7 +25,7 @@ func TestAdministrationRequiresAuthorityInsideEveryCommand(t *testing.T) {
 			if _, err := s.EnsureUser(context.Background(), "bare"); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.SaveGroup(context.Background(), GroupChange{Name: "kids"}, testPrincipal("boss")); err != nil {
+			if err := s.SaveGroup(context.Background(), GroupChange{Name: "kids"}, admittedPrincipal(t, s, "boss")); err != nil {
 				t.Fatal(err)
 			}
 			beforeUsers, err := s.Users(context.Background())
@@ -38,13 +38,13 @@ func TestAdministrationRequiresAuthorityInsideEveryCommand(t *testing.T) {
 			}
 			switch op {
 			case "save-user":
-				err = s.SaveUser(context.Background(), AccountChange{Username: "new-user"}, testPrincipal("member"))
+				err = s.SaveUser(context.Background(), AccountChange{Username: "new-user"}, admittedPrincipal(t, s, "member"))
 			case "remove-name":
-				err = s.RemoveName(context.Background(), "bare", testPrincipal("member"))
+				err = s.RemoveName(context.Background(), "bare", admittedPrincipal(t, s, "member"))
 			case "save-group":
-				err = s.SaveGroup(context.Background(), GroupChange{Name: "kids", Members: []string{"new-member"}}, testPrincipal("member"))
+				err = s.SaveGroup(context.Background(), GroupChange{Name: "kids", Members: []string{"new-member"}}, admittedPrincipal(t, s, "member"))
 			case "delete-group":
-				err = s.DeleteGroup(context.Background(), "kids", testPrincipal("member"))
+				err = s.DeleteGroup(context.Background(), "kids", admittedPrincipal(t, s, "member"))
 			}
 			var denied *access.Denied
 			if !errors.As(err, &denied) {
@@ -107,6 +107,9 @@ func TestAdministrationPolicyPreservesAccountAndCredentialBounds(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+			if tc.role != "" && tc.pr.Kind == "user" {
+				tc.pr.ID = admittedPrincipal(t, s, tc.pr.Name).ID
+			}
 			if tc.disabled {
 				disableStoredAccount(t, s.db, tc.pr.Name)
 			}
@@ -138,19 +141,28 @@ func TestAdministrationPolicyPreservesAccountAndCredentialBounds(t *testing.T) {
 
 func TestAdministrationRequiresReadableCurrentFacts(t *testing.T) {
 	t.Parallel()
-	for _, marker := range []string{"-- name: UserByName :one", "-- name: AdminUsers :many"} {
+	for _, marker := range []string{"-- name: UserByPrincipal :one", "-- name: AdminUsers :many"} {
 		t.Run(marker, func(t *testing.T) {
 			t.Parallel()
 			s := New(testDB(t), Config{OpenInstance: true})
+			if _, err := s.EnsurePerson(context.Background(), "first"); err != nil {
+				t.Fatal(err)
+			}
+			pr := admittedPrincipal(t, s, "first")
+			pr.Via = "open"
+			before, err := s.Groups(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
 			restore := s.db.FailNextStatement(marker)
-			err := s.SaveGroup(context.Background(), GroupChange{Name: "must-not-exist"}, testOpenPrincipal("first"))
+			err = s.SaveGroup(context.Background(), GroupChange{Name: "must-not-exist"}, pr)
 			restore()
 			var denied *access.Denied
-			if err == nil || errors.As(err, &denied) {
+			if err == nil || errors.As(err, &denied) || errors.Is(err, access.ErrPrincipalRequired) {
 				t.Fatalf("read failure became a policy answer: %v", err)
 			}
 			groups, err := s.Groups(context.Background())
-			if err != nil || len(groups) != 0 {
+			if err != nil || !reflect.DeepEqual(groups, before) {
 				t.Fatalf("failed read allowed mutation: %+v %v", groups, err)
 			}
 		})
@@ -160,12 +172,17 @@ func TestAdministrationRequiresReadableCurrentFacts(t *testing.T) {
 func TestOpenCommandsCannotCreateInitialAuthority(t *testing.T) {
 	t.Parallel()
 	s := New(testDB(t), Config{OpenInstance: true})
+	if _, err := s.EnsurePerson(context.Background(), "installer"); err != nil {
+		t.Fatal(err)
+	}
+	pr := admittedPrincipal(t, s, "installer")
+	pr.Via = "open"
 	start := make(chan struct{})
 	results := make(chan error, 2)
 	for _, name := range []string{"first", "second"} {
 		go func(name string) {
 			<-start
-			results <- s.SaveUser(context.Background(), AccountChange{Username: name, Role: "admin"}, testOpenPrincipal("installer"))
+			results <- s.SaveUser(context.Background(), AccountChange{Username: name, Role: "admin"}, pr)
 		}(name)
 	}
 	close(start)
@@ -194,11 +211,11 @@ func TestAdministrationRechecksDemotionAndConfiguredMode(t *testing.T) {
 	ctx := context.Background()
 	s := New(testDB(t), Config{OpenInstance: true})
 	testGrantRoot(t, s, "first")
-	if err := s.SaveGroup(ctx, GroupChange{Name: "before"}, testOpenPrincipal("first")); err != nil {
+	if err := s.SaveGroup(ctx, GroupChange{Name: "before"}, admittedOpenPrincipal(t, s, "first")); err != nil {
 		t.Fatal(err)
 	}
 	s = New(s.db, Config{OpenInstance: false})
-	if err := s.SaveGroup(ctx, GroupChange{Name: "closed"}, testOpenPrincipal("first")); err == nil {
+	if err := s.SaveGroup(ctx, GroupChange{Name: "closed"}, admittedOpenPrincipal(t, s, "first")); err == nil {
 		t.Fatal("accepted an identity from a disabled transport mode")
 	}
 	for _, name := range []string{"boss", "other"} {
@@ -206,11 +223,68 @@ func TestAdministrationRechecksDemotionAndConfiguredMode(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	pr := testPrincipal("boss")
-	if err := s.SaveUser(ctx, AccountChange{Username: "boss", Role: "member"}, testPrincipal("other")); err != nil {
+	pr := admittedPrincipal(t, s, "boss")
+	if err := s.SaveUser(ctx, AccountChange{Username: "boss", Role: "member"}, admittedPrincipal(t, s, "other")); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.SaveGroup(ctx, GroupChange{Name: "stale"}, pr); err == nil {
 		t.Fatal("stale principal retained administrative authority")
+	}
+}
+
+// An administrator's name is attribution, not an admitted immutable identity.
+func TestAdministrationRefusesNameOnlyPrincipal(t *testing.T) {
+	t.Parallel()
+	for _, via := range []string{"open", "proxy", "session", "token", "oauth"} {
+		t.Run(via, func(t *testing.T) {
+			t.Parallel()
+			s := New(testDB(t), Config{OpenInstance: true})
+			if err := s.SeedAdministrator(context.Background(), "boss"); err != nil {
+				t.Fatal(err)
+			}
+			pr := testPrincipal("boss")
+			pr.Via = via
+			err := s.SaveGroup(context.Background(), GroupChange{Name: "forbidden", Members: []string{"new-person"}}, pr)
+			if !errors.Is(err, access.ErrPrincipalRequired) {
+				t.Fatalf("name-only administrator: %v", err)
+			}
+			if groupRecorded(t, s.db, "forbidden") || userRecorded(t, s.db, "new-person") || len(ledger(t, s.db, "group.saved")) != 0 {
+				t.Fatal("refused identity changed state")
+			}
+			if via != "oauth" {
+				pr.ID = admittedPrincipal(t, s, "boss").ID
+				if err := s.SaveGroup(context.Background(), GroupChange{Name: "permitted"}, pr); err != nil {
+					t.Fatalf("admitted administrator: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestAdministrationDoesNotFollowAReusedName(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := New(testDB(t), Config{})
+	for _, name := range []string{"boss", "backup"} {
+		testGrantRoot(t, s, name)
+	}
+	captured := admittedPrincipal(t, s, "boss")
+	if err := s.RemoveName(ctx, "boss", admittedPrincipal(t, s, "backup")); err != nil {
+		t.Fatal(err)
+	}
+	testGrantRoot(t, s, "boss")
+	replacement := admittedPrincipal(t, s, "boss")
+	if replacement.ID == captured.ID {
+		t.Fatal("fixture reused the old principal")
+	}
+	var denied *access.Denied
+	if err := s.SaveGroup(ctx, GroupChange{Name: "old-caller"}, captured); !errors.As(err, &denied) {
+		t.Fatalf("old principal borrowed replacement authority: %v", err)
+	}
+	if groupRecorded(t, s.db, "old-caller") {
+		t.Fatal("old caller created a group")
+	}
+	if err := s.SaveGroup(ctx, GroupChange{Name: "new-caller"}, replacement); err != nil {
+		t.Fatalf("replacement's own authority: %v", err)
 	}
 }

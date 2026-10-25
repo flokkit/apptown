@@ -39,7 +39,7 @@ func TestInviteSetsThePasswordOnceAndSignsIn(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	issued, err := s.Invite(ctx, NewInvite{Username: "kim", Label: "Kim Lee"}, testPrincipal("ops"))
+	issued, err := s.Invite(ctx, NewInvite{Username: "kim", Label: "Kim Lee"}, admittedPrincipal(t, s, "ops"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestInviteSetsThePasswordOnceAndSignsIn(t *testing.T) {
 	if d := time.Until(issued.Invite.ExpiresAt); d < InviteTTL-time.Minute || d > InviteTTL {
 		t.Fatalf("default lifetime is seven days: %v", d)
 	}
-	pending, err := s.Invites(ctx, testPrincipal("ops"))
+	pending, err := s.Invites(ctx, admittedPrincipal(t, s, "ops"))
 	if err != nil || len(pending) != 1 || pending[0].Username != "kim" || pending[0].InvitedBy != "ops" || pending[0].Label != "Kim Lee" {
 		t.Fatalf("pending invites: %+v %v", pending, err)
 	}
@@ -80,7 +80,7 @@ func TestInviteSetsThePasswordOnceAndSignsIn(t *testing.T) {
 	if shown, _ := s.InviteFor(ctx, issued.Token); shown.State != "accepted" {
 		t.Fatalf("used invite reads as %q", shown.State)
 	}
-	if pending, _ := s.Invites(ctx, testPrincipal("ops")); len(pending) != 0 {
+	if pending, _ := s.Invites(ctx, admittedPrincipal(t, s, "ops")); len(pending) != 0 {
 		t.Fatalf("a used invite is still pending: %+v", pending)
 	}
 
@@ -104,11 +104,11 @@ func TestDeadInvitesAreRefused(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	revoked, err := s.Invite(ctx, NewInvite{Username: "rev"}, testPrincipal("ops"))
+	revoked, err := s.Invite(ctx, NewInvite{Username: "rev"}, admittedPrincipal(t, s, "ops"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RevokeInvite(ctx, revoked.Invite.ID, testPrincipal("ops")); err != nil {
+	if err := s.RevokeInvite(ctx, revoked.Invite.ID, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: revoked.Token, Password: "long-enough"}); !errors.Is(err, ErrInviteRevoked) {
@@ -118,18 +118,18 @@ func TestDeadInvitesAreRefused(t *testing.T) {
 		t.Fatalf("revocation receipt: %+v", got)
 	}
 
-	lost, err := s.Invite(ctx, NewInvite{Username: "lost"}, testPrincipal("ops"))
+	lost, err := s.Invite(ctx, NewInvite{Username: "lost"}, admittedPrincipal(t, s, "ops"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Invite(ctx, NewInvite{Username: "lost"}, testPrincipal("ops")); err != nil {
+	if _, err := s.Invite(ctx, NewInvite{Username: "lost"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: lost.Token, Password: "long-enough"}); !errors.Is(err, ErrInviteRevoked) {
 		t.Fatalf("a replaced invite still works: %v", err)
 	}
 
-	expired, err := s.Invite(ctx, NewInvite{Username: "late", Days: 1}, testPrincipal("ops"))
+	expired, err := s.Invite(ctx, NewInvite{Username: "late", Days: 1}, admittedPrincipal(t, s, "ops"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,10 +161,11 @@ func TestInviteNeedsCurrentAdministrator(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	if err := s.SaveUser(ctx, AccountChange{Username: "mem", Password: "member-password"}, testPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "mem", Password: "member-password"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
-	member := access.Principal{Kind: "user", Name: "mem", Via: "session", Role: "member"}
+	member := admittedPrincipal(t, s, "mem")
+	member.Role = "member"
 	var denied *access.Denied
 	if _, err := s.Invite(ctx, NewInvite{Username: "friend"}, member); !errors.As(err, &denied) {
 		t.Fatalf("a member invited someone: %v", err)
@@ -175,19 +176,19 @@ func TestInviteNeedsCurrentAdministrator(t *testing.T) {
 	if got := receipts(t, s, "user.invited"); len(got) != 0 {
 		t.Fatalf("a refused invite left a receipt: %+v", got)
 	}
-	if _, err := s.Invite(ctx, NewInvite{Username: "mem"}, testPrincipal("ops")); !errors.Is(err, ErrAccountExists) {
+	if _, err := s.Invite(ctx, NewInvite{Username: "mem"}, admittedPrincipal(t, s, "ops")); !errors.Is(err, ErrAccountExists) {
 		t.Fatalf("invited an account that can already sign in: %v", err)
 	}
 
 	// An administrator invite grants the role in the inviter's name.
-	if err := s.SaveUser(ctx, AccountChange{Username: "boss", Password: "boss-password", Role: "admin"}, testPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "boss", Password: "boss-password", Role: "admin"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
-	adminInvite, err := s.Invite(ctx, NewInvite{Username: "deputy", Role: "admin"}, testPrincipal("boss"))
+	adminInvite, err := s.Invite(ctx, NewInvite{Username: "deputy", Role: "admin"}, admittedPrincipal(t, s, "boss"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	later, err := s.Invite(ctx, NewInvite{Username: "intern"}, testPrincipal("boss"))
+	later, err := s.Invite(ctx, NewInvite{Username: "intern"}, admittedPrincipal(t, s, "boss"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +204,7 @@ func TestInviteNeedsCurrentAdministrator(t *testing.T) {
 		t.Fatalf("deputy's administrator grant: %+v %v", g, root)
 	}
 
-	if err := s.SaveUser(ctx, AccountChange{Username: "boss", Role: "member"}, testPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "boss", Role: "member"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: later.Token, Password: "intern-password"}); !errors.Is(err, ErrInviterGone) {
@@ -222,7 +223,7 @@ func TestInviteRespectsEffectiveAdministratorNetworks(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	if _, err := s.SetAdministratorNetworks(ctx, ops, &AdministratorNetworks{}, AdministratorNetworks{"10.0.0.0/8"}, net.ParseIP("10.1.2.3")); err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +292,7 @@ func TestMemberInviteRefusedForAnAdministrator(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	if err := s.SaveUser(ctx, AccountChange{Username: "kim", Role: "admin"}, ops); err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +325,7 @@ func TestPasswordLinkReplacesThePasswordAndEndsEverySession(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	// One administrator and one member with a group's project role, so a
 	// reset that granted or revoked anything would show in either.
 	if err := s.SaveUser(ctx, AccountChange{Username: "kim", Password: "kims-old-password", Role: "admin"}, ops); err != nil {
@@ -444,7 +445,7 @@ func TestPasswordLinkRefusals(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	for _, name := range []string{"kim", "mem", "off", "late", "lost", "rev", "boss"} {
 		role := ""
 		if name == "boss" {
@@ -462,8 +463,10 @@ func TestPasswordLinkRefusals(t *testing.T) {
 	}
 
 	var denied *access.Denied
-	member := access.Principal{Kind: "user", Name: "mem", Via: "session", Role: "member"}
-	agent := access.Principal{Kind: "user", Name: "ops", Via: "token", Role: "admin", Purpose: access.TokenAgent}
+	member := admittedPrincipal(t, s, "mem")
+	member.Role = "member"
+	agent := admittedPrincipal(t, s, "ops")
+	agent.Via, agent.Purpose = "token", access.TokenAgent
 	for _, pr := range []access.Principal{member, agent} {
 		if _, err := s.PasswordLink(ctx, NewPasswordLink{Username: "kim"}, pr); !errors.As(err, &denied) {
 			t.Fatalf("%s via %s made a password reset link: %v", pr.Name, pr.Via, err)
@@ -542,7 +545,7 @@ func TestPasswordLinkRefusals(t *testing.T) {
 	}
 
 	// A link works only while its maker is still an administrator.
-	demoted, err := s.PasswordLink(ctx, NewPasswordLink{Username: "mem"}, testPrincipal("boss"))
+	demoted, err := s.PasswordLink(ctx, NewPasswordLink{Username: "mem"}, admittedPrincipal(t, s, "boss"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -570,7 +573,7 @@ func TestLoginRacingAPasswordResetGetsNoSession(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	if err := s.SaveUser(ctx, AccountChange{Username: "kim", Password: "kims-old-password"}, ops); err != nil {
 		t.Fatal(err)
 	}
@@ -605,7 +608,7 @@ func TestLoginDuringAnUncommittedPasswordChangeWaitsAndIsRefused(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	if err := s.SaveUser(ctx, AccountChange{Username: "kim", Password: "kims-old-password"}, testPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "kim", Password: "kims-old-password"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	verified, err := s.verifyLogin(ctx, PasswordLogin{Username: "kim", Password: "kims-old-password"})
@@ -665,7 +668,7 @@ func TestALinkNamingNoPrincipalActsOnNoOne(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	for _, c := range []struct {
 		column string
 		want   error

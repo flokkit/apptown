@@ -32,7 +32,7 @@ func TestGroupSatisfiesApprover(t *testing.T) {
 	if err := directory.SeedAdministrator(context.Background(), "boss"); err != nil {
 		t.Fatal(err)
 	}
-	principal := access.Principal{Kind: "user", Name: "boss", Via: "session"}
+	principal := testAdmittedPrincipal(t, directory, "boss")
 	if err := directory.SaveGroup(context.Background(), identity.GroupChange{Name: "parents", Members: []string{"bls"}}, principal); err != nil {
 		t.Fatal(err)
 	}

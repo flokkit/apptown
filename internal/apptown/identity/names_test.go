@@ -56,7 +56,7 @@ func TestEveryNameDoorRefusesAnUnusableName(t *testing.T) {
 	if _, err := s.Grant(ctx, Spec{SubjectType: "user", Subject: "system", Role: access.RoleProjectOwner, Scope: access.ScopeProject, ScopeID: idstest.N(7).String(), By: "ops"}, ""); fault.KindOf(err) != fault.Invalid {
 		t.Fatalf("a grant names an unusable person: %v", err)
 	}
-	if _, err := s.IssueToken(ctx, NewToken{Name: "t", User: " ops", Purpose: access.TokenCLI}, testPrincipal("ops")); fault.KindOf(err) != fault.Invalid {
+	if _, err := s.IssueToken(ctx, NewToken{Name: "t", User: " ops", Purpose: access.TokenCLI}, admittedPrincipal(t, s, "ops")); fault.KindOf(err) != fault.Invalid {
 		t.Fatalf("a token is issued to an unusable name: %v", err)
 	}
 	users, err := s.Users(ctx)
@@ -89,7 +89,7 @@ func TestReservedNamesCannotBecomePeopleThroughAccountDoors(t *testing.T) {
 			}
 			s := New(testDB(t), Config{})
 			testGrantRoot(t, s, "ops")
-			ops := testPrincipal("ops")
+			ops := admittedPrincipal(t, s, "ops")
 			if err := s.SaveUser(ctx, AccountChange{Username: name, Password: "a-password"}, ops); fault.KindOf(err) != fault.Invalid {
 				t.Fatalf("an account is created with a reserved name: %v", err)
 			}
@@ -125,7 +125,7 @@ func TestAnExistingAccountIsDisabledWhateverItsName(t *testing.T) {
 	ctx := context.Background()
 	s := New(testDB(t), Config{})
 	testGrantRoot(t, s, "ops")
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	yes := true
 	// A proxy-style name, seen on the wire and acting.
 	sso := "Alice.Smith@example.com"

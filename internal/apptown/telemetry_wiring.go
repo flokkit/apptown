@@ -184,7 +184,7 @@ func tracedHandler(in *instrumentation, next http.Handler) http.Handler {
 		// The auth layer above us attached the identity; the caller the route
 		// layer builds from it lives on a copy below us.
 		if id := identityFrom(routed); id != nil {
-			pr := principalOf(id, "")
+			pr := principalOf(id)
 			attrs = append(attrs, attribute.String("apptown.principal.kind", pr.Kind))
 			if pr.Instrument != "" {
 				attrs = append(attrs, attribute.String("apptown.principal.instrument", pr.Instrument))

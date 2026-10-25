@@ -42,7 +42,7 @@ func TestGroupSaveRollsBackEveryRequiredWrite(t *testing.T) {
 			ctx := context.Background()
 			s := New(testDB(t), Config{OpenInstance: true})
 			testGrantRoot(t, s, "ops")
-			if err := s.SaveGroup(ctx, GroupChange{Name: "kids", Description: "before", Members: []string{"old-member"}}, testOpenPrincipal("ops")); err != nil {
+			if err := s.SaveGroup(ctx, GroupChange{Name: "kids", Description: "before", Members: []string{"old-member"}}, admittedOpenPrincipal(t, s, "ops")); err != nil {
 				t.Fatal(err)
 			}
 			beforeGroups, err := s.Groups(ctx)
@@ -60,7 +60,7 @@ func TestGroupSaveRollsBackEveryRequiredWrite(t *testing.T) {
 				restore = vetoGroupWrite(t, s.db, tc.table, tc.operation)
 			}
 			in := GroupChange{Name: "kids", Description: "after", Members: []string{"new-member"}}
-			if err := s.SaveGroup(ctx, in, testOpenPrincipal("ops")); err == nil {
+			if err := s.SaveGroup(ctx, in, admittedOpenPrincipal(t, s, "ops")); err == nil {
 				t.Fatal("accepted an incomplete group save")
 			}
 			groups, err := s.Groups(ctx)
@@ -78,7 +78,7 @@ func TestGroupSaveRollsBackEveryRequiredWrite(t *testing.T) {
 				t.Fatalf("failed save left a receipt: %+v", receipts)
 			}
 			restore()
-			if err := s.SaveGroup(ctx, in, testOpenPrincipal("ops")); err != nil {
+			if err := s.SaveGroup(ctx, in, admittedOpenPrincipal(t, s, "ops")); err != nil {
 				t.Fatalf("retry failed: %v", err)
 			}
 			groups, err = s.Groups(ctx)
@@ -96,7 +96,7 @@ func TestGroupDeleteRequiresCompleteRemoval(t *testing.T) {
 			t.Parallel()
 			s := New(testDB(t), Config{OpenInstance: true})
 			testGrantRoot(t, s, "ops")
-			if err := s.SaveGroup(context.Background(), GroupChange{Name: "kids", Members: []string{"amy"}}, testOpenPrincipal("ops")); err != nil {
+			if err := s.SaveGroup(context.Background(), GroupChange{Name: "kids", Members: []string{"amy"}}, admittedOpenPrincipal(t, s, "ops")); err != nil {
 				t.Fatal(err)
 			}
 			op := "DELETE"
@@ -104,7 +104,7 @@ func TestGroupDeleteRequiresCompleteRemoval(t *testing.T) {
 				op = "INSERT"
 			}
 			restore := vetoGroupWrite(t, s.db, table, op)
-			if err := s.DeleteGroup(context.Background(), "kids", testOpenPrincipal("ops")); err == nil {
+			if err := s.DeleteGroup(context.Background(), "kids", admittedOpenPrincipal(t, s, "ops")); err == nil {
 				t.Fatal("accepted incomplete group deletion")
 			}
 			groups, err := s.Groups(context.Background())
@@ -115,7 +115,7 @@ func TestGroupDeleteRequiresCompleteRemoval(t *testing.T) {
 				t.Fatalf("failed deletion left a receipt: %+v", receipts)
 			}
 			restore()
-			if err := s.DeleteGroup(context.Background(), "kids", testOpenPrincipal("ops")); err != nil {
+			if err := s.DeleteGroup(context.Background(), "kids", admittedOpenPrincipal(t, s, "ops")); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -138,7 +138,7 @@ func TestConcurrentGroupSavesKeepOneWholeMembership(t *testing.T) {
 		go func(in GroupChange) {
 			defer wg.Done()
 			<-start
-			errs <- s.SaveGroup(context.Background(), in, testOpenPrincipal("ops"))
+			errs <- s.SaveGroup(context.Background(), in, admittedOpenPrincipal(t, s, "ops"))
 		}(in)
 	}
 	close(start)

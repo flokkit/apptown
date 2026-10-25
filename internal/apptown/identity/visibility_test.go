@@ -29,7 +29,7 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 			t.Fatal(err)
 		}
 	}
-	if err := s.SaveGroup(context.Background(), GroupChange{Name: "family", Members: []string{"group-reader"}}, testPrincipal("boss")); err != nil {
+	if err := s.SaveGroup(context.Background(), GroupChange{Name: "family", Members: []string{"group-reader"}}, admittedPrincipal(t, s, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	projectIDs := []ids.ID{}
@@ -79,10 +79,10 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 	clear := db.FailNextStatement("-- name: InsertDecision")
 	defer clear()
 	checkCases := func() {
-		read(testPrincipal("boss"), projectIDs)
-		read(testPrincipal("reader"), projectIDs[:1])
-		read(testPrincipal("group-reader"), []ids.ID{projectIDs[0], projectIDs[2]})
-		read(testPrincipal("outsider"), nil)
+		read(admittedPrincipal(t, s, "boss"), projectIDs)
+		read(admittedPrincipal(t, s, "reader"), projectIDs[:1])
+		read(admittedPrincipal(t, s, "group-reader"), []ids.ID{projectIDs[0], projectIDs[2]})
+		read(admittedPrincipal(t, s, "outsider"), nil)
 		read(access.Principal{Kind: "instrument", Name: "run/1", Instrument: "run", ProjectID: projectIDs[0]}, projectIDs[:1])
 		read(access.Principal{Kind: "instrument", Name: "console/1", Instrument: "console", Person: "boss", ProjectID: projectIDs[1]}, projectIDs[1:2])
 		read(access.Principal{Kind: "instrument", Name: "engine", Instrument: access.SystemInstrument}, projectIDs)
@@ -92,7 +92,7 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 		read(access.Principal{Kind: "user", Name: "reader", Via: "oauth"}, nil)
 	}
 	checkCases()
-	if _, err := s.Decide(context.Background(), testPrincipal("outsider"), access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "instance"}}); err == nil || !strings.Contains(err.Error(), "forge_injected_failure") {
+	if _, err := s.Decide(context.Background(), admittedPrincipal(t, s, "outsider"), access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "instance"}}); err == nil || !strings.Contains(err.Error(), "forge_injected_failure") {
 		t.Fatalf("enumeration consumed receipt tripwire: %v", err)
 	}
 	clear()
@@ -108,16 +108,16 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 	if _, err := s.Revoke(context.Background(), grant, "boss"); err != nil {
 		t.Fatal(err)
 	}
-	read(testPrincipal("reader"), nil)
+	read(admittedPrincipal(t, s, "reader"), nil)
 	if _, err := s.Grant(context.Background(), Spec{SubjectType: "user", Subject: "reader", Capability: string(access.CapProjectRead), Scope: access.ScopeProject, ScopeID: fmt.Sprint(projectIDs[0])}, time.Now().Add(-time.Hour).Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}
-	read(testPrincipal("reader"), nil)
+	read(admittedPrincipal(t, s, "reader"), nil)
 	disabled := true
-	if err := s.SaveUser(context.Background(), AccountChange{Username: "reader", Disabled: &disabled}, testPrincipal("boss")); err != nil {
+	if err := s.SaveUser(context.Background(), AccountChange{Username: "reader", Disabled: &disabled}, admittedPrincipal(t, s, "boss")); err != nil {
 		t.Fatal(err)
 	}
-	read(testPrincipal("reader"), nil)
+	read(admittedPrincipal(t, s, "reader"), nil)
 	read(access.Principal{Kind: "instrument", Name: "console/reader", Instrument: "console", Person: "reader", ProjectID: projectIDs[0]}, nil)
 	for _, kind := range []string{"run", "console", "unknown"} {
 		if _, err := s.VisibleProjects(context.Background(), access.Principal{Kind: "instrument", Name: "bad", Instrument: kind}, access.CapProjectRead); err == nil {
@@ -125,13 +125,13 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 		}
 	}
 	for _, cap := range []access.Capability{access.CapChangeCreate, access.CapIdentityUsers, "unknown"} {
-		if _, err := s.VisibleProjects(context.Background(), testPrincipal("boss"), cap); err == nil {
+		if _, err := s.VisibleProjects(context.Background(), admittedPrincipal(t, s, "boss"), cap); err == nil {
 			t.Fatalf("accepted %s", cap)
 		}
 	}
 	for _, fragment := range []string{"-- name: ProjectAuthorityCatalogue", "-- name: ActiveGrants"} {
 		clear := db.FailNextStatement(fragment)
-		got, err := s.VisibleProjects(context.Background(), testPrincipal("group-reader"), access.CapProjectRead)
+		got, err := s.VisibleProjects(context.Background(), admittedPrincipal(t, s, "group-reader"), access.CapProjectRead)
 		clear()
 		if !errors.Is(err, database.ErrInjectedFailure) || got != nil {
 			t.Fatalf("lost %s failure: %v %v", fragment, got, err)
@@ -139,7 +139,7 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if got, err := s.VisibleProjects(ctx, testPrincipal("boss"), access.CapProjectRead); !errors.Is(err, context.Canceled) || got != nil {
+	if got, err := s.VisibleProjects(ctx, admittedPrincipal(t, s, "boss"), access.CapProjectRead); !errors.Is(err, context.Canceled) || got != nil {
 		t.Fatalf("cancelled: %v %v", got, err)
 	}
 }
@@ -216,7 +216,7 @@ func TestVisibilityFactReadsDoNotGrowWithProjectCount(t *testing.T) {
 				t.Fatal(err)
 			}
 			q := &countedQueries{Handle: db.SQL()}
-			got, err := s.visibleProjects(context.Background(), q, testPrincipal("reader"), access.CapProjectRead)
+			got, err := s.visibleProjects(context.Background(), q, admittedPrincipal(t, s, "reader"), access.CapProjectRead)
 			if err != nil || len(got) != n || q.reads != 2 || q.writes != 0 || catalogue.calls != 1 {
 				t.Fatalf("visible=%d reads=%d writes=%d catalogue=%d: %v", len(got), q.reads, q.writes, catalogue.calls, err)
 			}
@@ -224,7 +224,7 @@ func TestVisibilityFactReadsDoNotGrowWithProjectCount(t *testing.T) {
 				t.Fatal(err)
 			}
 			q.reads, catalogue.calls = 0, 0
-			got, err = s.visibleProjects(context.Background(), q, testPrincipal("reader"), access.CapProjectRead)
+			got, err = s.visibleProjects(context.Background(), q, admittedPrincipal(t, s, "reader"), access.CapProjectRead)
 			if err != nil || len(got) != 0 || q.reads != 2 || catalogue.calls != 1 {
 				t.Fatalf("next operation retained grants: %v reads=%d catalogue=%d: %v", got, q.reads, catalogue.calls, err)
 			}

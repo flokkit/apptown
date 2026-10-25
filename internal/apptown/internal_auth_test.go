@@ -183,7 +183,7 @@ func TestPrivilegesRequireExplicitCapabilityGrants(t *testing.T) {
 	if _, err := a.Access.EnsureUser(context.Background(), "ana"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "leads", Members: []string{"ana"}}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "leads", Members: []string{"ana"}}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if privileged(t, a, "anyone", "member", "amend") || privileged(t, a, "anyone", "admin", "amend") {
@@ -300,7 +300,7 @@ func TestProjectRosterGate(t *testing.T) {
 	if _, err := a.Access.EnsureUser(context.Background(), "dad"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "parents", Members: []string{"dad"}}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "parents", Members: []string{"dad"}}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -423,7 +423,7 @@ func TestBearerTokenLifecycle(t *testing.T) {
 	if _, err := a.Access.EnsureUser(context.Background(), "cli-bls"); err != nil {
 		t.Fatal(err)
 	}
-	issued, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: "cli", Name: "cli", User: "cli-bls", Role: "admin"}, access.Principal{Kind: "user", Name: "boss", Via: "session"})
+	issued, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: "cli", Name: "cli", User: "cli-bls", Role: "admin"}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestBearerTokenLifecycle(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"cli-bls"`) {
 		t.Fatalf("bearer auth: %d %s", w.Code, w.Body.String())
 	}
-	if revoked, err := a.Access.RevokeToken(context.Background(), "cli", access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil || !revoked {
+	if revoked, err := a.Access.RevokeToken(context.Background(), "cli", access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil || !revoked {
 		t.Fatalf("revoke token: revoked=%v err=%v", revoked, err)
 	}
 	w = httptest.NewRecorder()
