@@ -89,7 +89,7 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 	} else {
 		out.Configured = true
 		out.Deployment = cfg.ReleaseDeployment
-		out.URL = "https://" + p.Slug + "." + cfg.AppsDomain
+		_, out.URL = deployment.IntranetAddress(p.Slug, cfg.AppsDomain, p.ReleaseDomain)
 	}
 	bundle, err := h.deployment.Bundles.Latest(r.Context(), p.ID)
 	if err != nil {

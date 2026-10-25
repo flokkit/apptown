@@ -147,7 +147,7 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	if domain != "" {
 		vanity = domain
 	}
-	_, url := portainerAddress(p.Slug, cfg.AppsDomain, vanity)
+	_, url := IntranetAddress(p.Slug, cfg.AppsDomain, vanity)
 	lanEnv, err := s.intranetDeployment(ctx, p.ID, cfg)
 	if err != nil {
 		return nil, 500, fmt.Errorf("naming the intranet deployment: %w", err)
@@ -275,7 +275,7 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	// hold Portainer admin). The credential just exists.
 	stackPrefix, stackBase := portainer.StackNames(dep.ID)
 	stackName := portainer.StackName(stackPrefix, stackBase)
-	hosts, _ := portainerAddress(p.Slug, cfg.AppsDomain, vanity)
+	hosts, _ := IntranetAddress(p.Slug, cfg.AppsDomain, vanity)
 	if vanity != "" {
 		s.relLog(relID, "also answering on %s (DNS for it is platform-owned — needs its record applied)", vanity)
 	}
@@ -335,10 +335,10 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	s.clearCommittedOverrides(ctx, dep, committed, applied, strings.TrimSpace(head), logf)
 }
 
-// portainerAddress is the hosts a project's Portainer stack routes and the
+// IntranetAddress is the hosts a project's Portainer stack routes and the
 // address a release there is reached at: <slug>.<apps domain> always, and
 // the project's release domain beside it, which is then the address.
-func portainerAddress(slug, appsDomain, releaseDomain string) (hosts []string, url string) {
+func IntranetAddress(slug, appsDomain, releaseDomain string) (hosts []string, url string) {
 	hosts = []string{slug + "." + appsDomain}
 	url = "https://" + hosts[0]
 	if releaseDomain != "" {
@@ -505,7 +505,8 @@ func (s *Service) intranetDeployment(ctx context.Context, projectID ids.ID, cfg 
 		return nil, err
 	}
 	if dep.URL == "" {
-		url := "https://" + releaseProject(ctx, s.db, projectID).Slug + "." + cfg.AppsDomain
+		p := releaseProject(ctx, s.db, projectID)
+		_, url := IntranetAddress(p.Slug, cfg.AppsDomain, p.ReleaseDomain)
 		if err := s.Deployments.RecordAddress(ctx, dep.ID, url); err != nil {
 			log.Printf("recording the intranet deployment's address: %v", err)
 		}

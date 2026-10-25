@@ -65,6 +65,20 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	if strings.Contains(w.Body.String(), "never-expose-this-key") {
 		t.Fatal("plan leaked provider key")
 	}
+	// The saved custom domain is the same primary address the release selects.
+	for _, domain := range []string{"game.example.org", ""} {
+		if err := a.Projects.SetReleaseDomain(t.Context(), game.ID, domain); err != nil {
+			t.Fatal(err)
+		}
+		want := "https://game.apps.example"
+		if domain != "" {
+			want = "https://game.example.org"
+		}
+		w = read()
+		if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || plan.URL != want {
+			t.Fatalf("plan for custom domain %q: %d %s %v", domain, w.Code, w.Body.String(), err)
+		}
+	}
 	// The plan promises the intranet target's domain, as the release uses
 	// it: an edited domain, kept when a restart reads configuration naming
 	// another; a cleared one is unconfigured with the release's refusal.
