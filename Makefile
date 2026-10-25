@@ -113,6 +113,7 @@ check-ci-heavy:         ## the heavy tiers' runner: a required test that skipped
 	python3 scripts/ci_heavy_test.py
 	python3 scripts/ci-cache-trim_test.py
 	python3 scripts/ci-test-partition_test.py
+	python3 scripts/ci-compile_test.py
 	python3 scripts/heavy-evidence_test.py
 	python3 scripts/heavy-qualification_test.py
 

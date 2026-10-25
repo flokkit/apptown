@@ -7,11 +7,11 @@ are in `.github/workflows/`.
 
 ## How main changes
 
-`main` changes only by pull request, one per change, squash-merged. Its
+`main` changes through its merge queue, one pull request per change, squash-merged. Its
 ruleset requires the pull request, allows only squash merges, forbids force
 pushes and deletion, and requires the `ci-ok` check (`ci.yml`) and the
-`heavy-ok` check (`heavy.yml`) on a branch that is up to date with `main`,
-so the runs that passed tested exactly what `main` becomes.
+`heavy-ok` check (`heavy.yml`) on the queued commit, so the runs that passed tested exactly what `main` becomes.
+A pull request's `heavy-ok` is admission to the queue, not heavy execution evidence.
 The squash commit takes the pull request's title and description, which are
 the change's public record. Opening a pull request is limited to the
 repository's collaborators ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
@@ -121,7 +121,8 @@ pull request restores. Jobs:
   so its `needs:` list names every job, and a job added to `ci.yml` is added
   there too.
 
-**Caches.** Main publishes Go module and compilation caches; pull requests
+**Caches.** Main publishes Go module and compilation caches, with heavy compilation owned
+by `heavy-cache.yml`; pull requests
 restore them without publishing. Modules (`go-mod-*`) use dependency hashes.
 Compilation keys include platform, architecture, dependencies and commit; each
 successful main job publishes its current compilation cache, and later runs
@@ -146,14 +147,12 @@ the lockfile; a pull request that changes it can save its own copy. Release
 builds (`images.yml`) use no Actions cache, since a tag's cache could serve only
 that tag.
 
-**`heavy.yml`** runs the Docker integration tier, the journeys, the opt-in
-browser, pi and inference_docker tests (each must pass; a skip fails the
-job) and the race detector ([testing](../architecture/testing.md)). It runs
-on every pull request to `main`, once for each commit pushed to it (a newer
-commit's run cancels the older one), on every push to `main`, so each
-merged commit gets its own result, and by hand on any branch or tag. No
-label changes what runs: the repository's `heavy` label has no effect, and
-is deleted. Each job first pulls the images its tests start, listed in
+**`heavy.yml`** executes the Docker integration tier, journeys, opt-in browser,
+pi and inference_docker tests, and the race detector on `merge_group` and
+manual dispatch. A pull request runs the qualification report and reports
+admission-only `heavy-ok`; its tests execute on the actual queue commit before
+merging. Skipped jobs cannot pass the queue or manual aggregate. No label
+changes what executes. Each job first pulls the images its tests start, listed in
 `deploy/ci-heavy/test-images.txt` (`scripts/ci-heavy.sh pull`, three
 attempts each), so a registry error while fetching them fails that step,
 naming the image, and not a test. A test that starts a new image adds it to
@@ -161,8 +160,8 @@ the list. Tests can still reach a registry: AppTown's own deliberate pulls
 (a selected image, an image preview, a Portainer stack), BuildKit resolving
 a Dockerfile's FROM tag, and private Docker daemons inside a test pulling
 their own images; a registry outage there still fails that test. Its last
-job, `heavy-ok`, passes only when `web`, every `tier` entry and `race`
-succeeded, and the ruleset requires it, so a red heavy run blocks merging.
+job, `heavy-ok`, on queue/manual events passes only when the report, `web`,
+every `tier` entry and `race` succeeded, and the ruleset requires it, so a red heavy run blocks merging.
 As with `ci-ok`, a job added to `heavy.yml` is added to its `needs:` list.
 Race uses four package partitions: the root package, backup/data protection,
 workflow execution, and the rest. Integration uses four: root, dependencies,
@@ -176,12 +175,16 @@ compares exact Git inputs for non-executable Markdown changes under `design/`
 and `releases/`, and names a prior complete first-attempt successful main or
 queue run when one exists. Embedded docs, deployment files and unknown paths
 remain inputs. Missing or uncertain evidence reports full execution. Every
-heavy test still executes regardless of this report; it is neither a skipped
+queue/manual heavy test still executes regardless of this report; it is neither a skipped
 test result nor release evidence.
 
-Both CI workflows also handle `merge_group: checks_requested`, running
-all their checks against the queue commit. Repository queue settings control
-whether pull requests use that path; a PR check alone is never release evidence.
+Both CI workflows handle `merge_group: checks_requested`; a PR check alone
+is never release evidence. `heavy-cache.yml` runs on main pushes to compile
+race/integration/journey/opt-in test binaries and refresh image layers. Its
+compiler uses `go test -c` and never executes test binaries or TestMain. Cache
+warming supplies no `heavy-ok` or release evidence. Its groups, cache keys and
+budget match the executing jobs; a failed or late warm run causes later
+compilation, never omission of qualification.
 
 **`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`
 (`scripts/heavy-evidence.py`), asks the API for a `heavy.yml` run (on

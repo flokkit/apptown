@@ -3,6 +3,7 @@
 # opt-in-tiers, race; design/architecture/testing.md), and the release's UI
 # tour (images.yml's tour job):
 #   ci-heavy.sh test <go test arguments...>
+#   ci-heavy.sh compile <tier> [group]  warm caches without running tests
 #   ci-heavy.sh tour           make tour, with site/tour and web/dist left in
 #                              the checkout, owned by the caller
 #   ci-heavy.sh cleanup        (the job's last step; also run on exit)
@@ -76,12 +77,12 @@ cleanup)
 	cleanup
 	exit 0
 	;;
-test | test-partition | tour)
+test | test-partition | compile | tour)
 	mode=$1
 	shift
 	;;
 *)
-	echo "usage: $0 test <go test arguments...> | test-partition integration <group> | tour | cleanup | pull" >&2
+	echo "usage: $0 test <go test arguments...> | test-partition integration <group> | compile <tier> [group] | tour | cleanup | pull" >&2
 	exit 2
 	;;
 esac
@@ -193,6 +194,7 @@ fi
 case "$mode" in
  test) set -- go test "$@" ;;
  test-partition) set -- sh scripts/ci-test-partition.sh "$@" ;;
+ compile) set -- sh scripts/ci-compile.sh "$@" ;;
 esac
 status=0
 { docker run --rm --name "$name" --init --network host \

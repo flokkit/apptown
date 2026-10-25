@@ -143,10 +143,10 @@ service, never a mock.
   `public` runs the public gate (`make check-public`) and `sql-writes`
   `make check-sql`.
 - `.github/workflows/heavy.yml` runs the integration, journey and opt-in
-  tiers and the race tier on every pull request to `main`, on every push to
-  `main`, so each merged commit has its own result, and by hand. Its
-  `heavy-ok` job, which the main ruleset requires, fails unless every heavy
-  job passed, so a red result blocks merging. A release
+  tiers and the race tier on merge-group commits and by hand. Pull requests
+  report admission only; main warms compilation caches without executing tests.
+  Its `heavy-ok` job, which the main ruleset requires, fails on queue/manual
+  runs unless every heavy job passed, so a red result blocks merging. A release
   tag's images and archives are built only for a commit with a run that
   passed on its first attempt (`images.yml`, `heavy-evidence`). The
   heavy jobs first pull the images their tests start

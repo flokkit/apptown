@@ -2,9 +2,12 @@
 # Exhaustive package partitions for hosted heavy jobs. Unknown packages go
 # to rest; selection uses the same build tags as execution. No result cache.
 set -eu
-[ "$#" -eq 2 ] || { echo 'usage: ci-test-partition.sh race|integration group' >&2; exit 2; }
+[ "$#" -ge 2 ] && [ "$#" -le 3 ] || { echo 'usage: ci-test-partition.sh race|integration group [test|list]' >&2; exit 2; }
 tier=$1
 wanted=$2
+action=${3:-test}
+case "$action" in test | list) ;; *) echo "unknown partition action" >&2; exit 2 ;; esac
+selected_packages=
 case "$tier/$wanted" in
 race/root | race/backup | race/workflow | race/rest)
     packages=$(go list -race ./internal/... ./cmd/...)
@@ -32,8 +35,13 @@ for package in $packages; do
     if [ "$group" = "$wanted" ]; then
         set -- "$@" "$package"
         selected=$((selected + 1))
+        selected_packages="$selected_packages $package"
     fi
 done
 [ "$selected" -gt 0 ] || { echo "empty CI partition: $tier/$wanted" >&2; exit 1; }
+if [ "$action" = list ]; then
+    for package in $selected_packages; do printf '%s\n' "$package"; done
+    exit 0
+fi
 printf 'CI partition %s/%s: %s packages\n' "$tier" "$wanted" "$selected"
 exec go test "$@"
