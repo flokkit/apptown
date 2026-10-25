@@ -26,6 +26,8 @@ cat "$f"
 def run(id, event="push", attempt=1, conclusion="success", status="completed"):
     return {"id": id, "event": event, "status": status, "conclusion": conclusion,
             "run_attempt": attempt, "head_sha": SHA,
+            "created_at": f"2026-10-25T00:{id:02d}:00Z",
+            "head_branch": "gh-readonly-queue/main/pr-94-abc" if event == "merge_group" else "main",
             "html_url": f"https://github.com/{REPO}/actions/runs/{id}"}
 
 
@@ -71,7 +73,7 @@ class HeavyEvidence(unittest.TestCase):
         code, out = self.check()
         self.assertEqual(code, 1, out)
         self.assertIn("attempt 1 failure; passed only on re-run 2", out)
-        self.assertIn("::error::no heavy.yml run", out)
+        self.assertIn("::error::newest heavy.yml run decides", out)
 
     def test_a_rerun_of_a_first_attempt_pass_is_still_evidence(self):
         self.runs(run(3, attempt=2))
@@ -100,6 +102,39 @@ class HeavyEvidence(unittest.TestCase):
         code, out = self.check()
         self.assertEqual(code, 1, out)
         self.assertIn("a pull_request run", out)
+
+    def test_queue_run_on_exact_commit_is_evidence(self):
+        self.runs(run(10, event="merge_group"))
+        code, out = self.check()
+        self.assertEqual(code, 0, out)
+
+    def test_queue_rerun_does_not_erase_first_failure(self):
+        self.runs(run(10, event="merge_group", attempt=2))
+        self.first_attempt(10, "failure")
+        code, out = self.check()
+        self.assertEqual(code, 1, out)
+
+    def test_newer_failure_or_pending_run_outvotes_older_success(self):
+        for status, conclusion in [("completed", "failure"), ("in_progress", None)]:
+            with self.subTest(status=status):
+                self.runs(run(11, event="merge_group", status=status, conclusion=conclusion), run(10))
+                code, out = self.check()
+                self.assertEqual(code, 1, out)
+                self.assertIn("newest heavy.yml run decides", out)
+
+    def test_wrong_sha_is_never_evidence(self):
+        wrong = dict(run(10, event="merge_group"), head_sha="f" * 40)
+        self.runs(wrong)
+        code, out = self.check()
+        self.assertEqual(code, 1, out)
+        self.assertIn("different commit", out)
+
+    def test_other_branch_push_or_queue_is_not_evidence(self):
+        for event, branch in [("push", "feature"), ("merge_group", "gh-readonly-queue/other/pr-94")]:
+            with self.subTest(event=event):
+                self.runs(dict(run(10, event=event), head_branch=branch))
+                code, out = self.check()
+                self.assertEqual(code, 1, out)
 
     def test_no_run_is_not_evidence(self):
         self.runs()

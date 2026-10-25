@@ -16,6 +16,8 @@ name: ci
 # request is that pull request's alone), and each landed commit then has its
 # own result.
 on:
+  merge_group:
+    types: [checks_requested]
   pull_request:
   push:
     branches: [main]

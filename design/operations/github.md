@@ -171,10 +171,17 @@ execution build tags and assigns every package to exactly one partition; new
 packages default to the rest. Every matrix entry must succeed. Local
 `make check-race` still runs the entire race suite.
 
+Both CI workflows also handle `merge_group: checks_requested`, running
+all their checks against the queue commit. Repository queue settings control
+whether pull requests use that path; a PR check alone is never release evidence.
+
 **`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`
 (`scripts/heavy-evidence.py`), asks the API for a `heavy.yml` run (on
-`main` or by hand) on the tagged commit that passed on its first attempt,
-and builds nothing without one: CI must pass, not pass eventually. A run
+`main`, its merge queue, or by hand) on the exact tagged commit that passed on its first attempt,
+and builds nothing without one: CI must pass, not pass eventually. The newest
+applicable run decides; an older success never hides a newer failure or a run
+still executing. A queue result must name the tagged SHA; matching trees do not
+count. A run
 that failed and then passed on a re-run is not evidence, nor is a red,
 missing or unreadable result. A re-run of failed jobs keeps the green jobs'
 results and replaces the failure inside the same run; a new run by hand is
