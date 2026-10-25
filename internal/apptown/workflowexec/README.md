@@ -48,3 +48,9 @@ root retains startup hook installation, but supplies no App to either runner.
 `Calls` interpolates nested workflow inputs and invokes `Execution.Call`. Shared
 preparation comes from `workcommands.Preparation`; Workflow owns child admission,
 parent linkage and subsequent dispatch. No runner registry retains App.
+
+Each paid invocation must record its usage before its answer can count. A failed
+usage write makes an agent or review step an error, records the incomplete-usage
+reason in its evidence, and prevents an empty-turn retry or review follow-up.
+The transcript and parsed output remain available for diagnosis; rerunning a
+model is not a way to repair missing accounting.

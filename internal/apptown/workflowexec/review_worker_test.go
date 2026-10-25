@@ -29,6 +29,7 @@ func TestTheReviewVerdictTable(t *testing.T) {
 	timedOut := func(r *invocationResult) {
 		r.Outcome = execution.Outcome{Termination: execution.TimedOut, TimedOut: true, ExitCode: -1}
 	}
+	usageFailed := func(r *invocationResult) { r.UsageError = errors.New("recording step usage: unavailable") }
 	rows := []struct {
 		name     string
 		res      invocationResult
@@ -37,6 +38,10 @@ func TestTheReviewVerdictTable(t *testing.T) {
 		failure  string // why no verdict counts, on the review
 		followUp string // why no verdict counts, on a wrap-up or fixup ("" = as failure)
 	}{
+		{name: "usage lost, a pass", res: result(0, pass, usageFailed), failure: "recording step usage"},
+		{name: "usage lost, no report", res: result(0, absent, usageFailed), failure: "recording step usage"},
+		{name: "usage lost, invalid report", res: result(0, invalid, usageFailed), failure: "recording step usage"},
+		{name: "usage lost, timed out", res: result(0, pass, timedOut, usageFailed), failure: "recording step usage"},
 		{name: "exit 0, a valid report", res: result(0, pass), verdict: "pass"},
 		{name: "exit 0, no report", res: result(0, absent), next: reviewWrapUpInvocation, followUp: "no .apptown/review.json verdict"},
 		{name: "exit 0, an invalid report", res: result(0, invalid), next: reviewFixUpInvocation, followUp: "unparseable"},

@@ -61,6 +61,8 @@ func hubReviewDiff(ctx context.Context, hub string, source workflow.Source, comm
 func reviewStep(invocation string, res invocationResult) (v reviewVerdict, next, failure string) {
 	first := invocation == reviewInvocation
 	switch {
+	case res.UsageError != nil:
+		return v, "", res.UsageError.Error()
 	case res.TimedOut && first:
 		return v, reviewWrapUpInvocation, ""
 	case res.TimedOut:

@@ -2,9 +2,15 @@ package workflowexec
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/tasks"
+	"github.com/flokkit/apptown/internal/progress"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
@@ -140,5 +146,90 @@ func TestAWorkerInvocationsEventsAreItsCapturedFile(t *testing.T) {
 	}
 	if _, err := invocationEvents(nil, fmt.Errorf("the worker did not answer")); err == nil {
 		t.Fatal("an unreadable capture was read as events")
+	}
+}
+
+// Both execution paths must make failed accounting visible and refuse an
+// extra model call; a successful model answer does not make the write pass.
+func TestAnInvocationWhoseUsageCannotBeRecordedStops(t *testing.T) {
+	t.Parallel()
+	events := []byte(`{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p","usage":{"input":5,"output":0,"totalTokens":5}}}` + "\n")
+	for _, worker := range []bool{false, true} {
+		t.Run(fmt.Sprintf("worker=%v", worker), func(t *testing.T) {
+			db := databaseSuite.New(t)
+			calls := 0
+			a := testExecutor(db, t.TempDir(), reviewProcess(func(execution.Request) execution.Outcome {
+				calls++
+				return execution.Outcome{Termination: execution.Exited, Output: events}
+			}))
+			source := workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1}
+			step := &workflow.Step{ID: idstest.N(9), Attempt: 1, Name: "implement"}
+			t.Cleanup(db.FailNextStatement("-- name: RecordUsageOnce"))
+			var result piResult
+			if worker {
+				r := invocationResult{piResult: piResult{Events: events}}
+				a.recordWorkerUsage(t.Context(), &workerAttempt{source: source, step: step}, tasks.Attempt{Admission: tasks.Admission{Operation: "usage-write-test"}}, agentAdmission{Invocation: agentInvocation}, &r)
+				if r.emptyTurn() {
+					t.Fatal("failed usage write earned another invocation")
+				}
+				result = r.piResult
+			} else {
+				result = a.piInvoke(t.Context(), piCall{Source: source, Step: step, Executor: execution.Local, Workspace: t.TempDir(), Name: "usage-write-test", RetryEmpty: true})
+				if calls != 1 {
+					t.Fatalf("model ran %d times", calls)
+				}
+			}
+			if result.UsageError == nil || result.RunErr == nil || !strings.Contains(result.UsageIncomplete, "recording step usage") {
+				t.Fatalf("lost accounting hidden: %+v", result)
+			}
+			if total, _, err := a.ledger.RunTotal(t.Context(), source.RunID); err != nil || total != 0 {
+				t.Fatalf("failed write fabricated usage: %d %v", total, err)
+			}
+		})
+	}
+}
+
+func TestAReviewWithUnrecordedUsageCannotPassOrAskAgain(t *testing.T) {
+	t.Parallel()
+	pass := `{"verdict":"pass","summary":"fine","findings":[]}`
+	for _, report := range []string{pass, "", "broken"} {
+		for _, followup := range []bool{false, true} {
+			if followup && report == pass {
+				continue
+			}
+			for _, timedOut := range []bool{false, true} {
+				t.Run(fmt.Sprintf("report=%q/followup=%v/timedOut=%v", report, followup, timedOut), func(t *testing.T) {
+					a := &Executor{progress: &progress.Feeds{}}
+					path := filepath.Join(t.TempDir(), "review.json")
+					if report != "" {
+						if err := os.WriteFile(path, []byte(report), 0600); err != nil {
+							t.Fatal(err)
+						}
+					}
+					failed := piResult{UsageError: errors.New("recording step usage: unavailable"), UsageIncomplete: "recording step usage: unavailable"}
+					outcome := failed
+					if followup {
+						outcome = piResult{}
+					}
+					outcome.TimedOut = timedOut
+					calls := 0
+					evidence := map[string]any{}
+					v, failure := a.readReviewVerdict(idstest.N(9), path, "m", outcome, func([]string, time.Duration, string) piResult {
+						calls++
+						if err := os.WriteFile(path, []byte(pass), 0600); err != nil {
+							t.Fatal(err)
+						}
+						return failed
+					}, evidence)
+					wantCalls := 0
+					if followup {
+						wantCalls = 1
+					}
+					if v.Verdict != "" || !strings.Contains(failure, "recording step usage") || calls != wantCalls || evidence["usageIncomplete"] != failed.UsageIncomplete {
+						t.Fatalf("verdict=%+v failure=%q calls=%d evidence=%v", v, failure, calls, evidence)
+					}
+				})
+			}
+		}
 	}
 }
