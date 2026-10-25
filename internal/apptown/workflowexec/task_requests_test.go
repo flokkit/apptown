@@ -242,10 +242,9 @@ func TestAFailedReleaseIsTriedAgainUntilConfirmed(t *testing.T) {
 	}
 }
 
-// A task recorded before requests were kept has none: recovery rebuilds its
-// request and, when AppTown's settings changed since, refuses it instead
-// of running something other than what was admitted.
-func TestATaskWithoutAKeptRequestIsRefusedWhenItsRequestChanged(t *testing.T) {
+// Losing a saved request after provider creation refuses recovery and
+// cleans up the owned task without reconstructing its request.
+func TestATaskWhoseSavedRequestWasLostAfterCreationIsRefused(t *testing.T) {
 	t.Parallel()
 	a, fake, step := scriptTaskFixture(t, map[string]any{"run": "true", "executor": "docker", "env": map[string]any{"FAKE_EXIT": "0"}})
 	a.tasks.AbandonAt = func(s string) bool { return s == "created" }
@@ -253,7 +252,7 @@ func TestATaskWithoutAKeptRequestIsRefusedWhenItsRequestChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := taskKeyOf(step)
-	// Made as an earlier AppTown left it: the record without a kept request.
+	// Simulate loss of the saved request after the backend created the task.
 	if err := os.RemoveAll(filepath.Join(a.dir, "tasks", key)); err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +260,7 @@ func TestATaskWithoutAKeptRequestIsRefusedWhenItsRequestChanged(t *testing.T) {
 	b.tasks.Driver, b.tasks.Poll = fake, a.tasks.Poll
 	b.recover(t)
 	settled := awaitStep(t, b, step.ID, workflow.StatusError)
-	if !bytes.Contains(settled.Evidence, []byte("request changed")) || fake.Starts(key) != 0 {
+	if !bytes.Contains(settled.Evidence, []byte("admitted request is not kept")) || fake.Starts(key) != 0 {
 		t.Fatalf("started %d times; evidence %s", fake.Starts(key), settled.Evidence)
 	}
 }
@@ -393,5 +392,103 @@ func TestAWorkerRefusalIsSettledByItsCode(t *testing.T) {
 				t.Fatalf("the attempt: %+v %v; want %s", attempt, err, want)
 			}
 		})
+	}
+}
+
+// A reservation is durable before its request file. Losing AppTown between
+// those writes never authorizes reconstructing work from current settings.
+func TestAReservedTaskWithoutItsRequestFailsWithoutReconstruction(t *testing.T) {
+	for _, backend := range taskBackends {
+		for _, changed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/changed=%v", backend, changed), func(t *testing.T) {
+				a, fake, step := scriptTaskFixture(t, map[string]any{"run": "true", "executor": "docker", "env": map[string]any{"FAKE_EXIT": "0"}})
+				if backend == "worker" {
+					a.onWorker(t, fake)
+				}
+				driver := &recordingDriver{TaskDriver: a.tasks.Driver}
+				a.tasks.Driver, a.tasks.AbandonAt = driver, func(stage string) bool { return stage == "reserved" }
+				if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
+					t.Fatal(err)
+				}
+				key := taskKeyOf(step)
+				before, err := a.tasks.Records.Get(t.Context(), key)
+				if err != nil || before.Observed != tasks.Reserved || keptRequest(t, a, key) != nil || fake.Present(key) || fake.Starts(key) != 0 {
+					t.Fatalf("not a pre-file reservation: %+v %v", before, err)
+				}
+				image := a.image
+				if changed {
+					image = "different-agent-image"
+				}
+				b := startTaskAppTown(t, a.db, a.dir, image, a.definitions)
+				b.tasks.Driver, b.tasks.Remote, b.tasks.Profile, b.tasks.Backend, b.tasks.Poll = driver, a.tasks.Remote, a.tasks.Profile, a.tasks.Backend, a.tasks.Poll
+				b.recover(t)
+				var settled *workflow.Step
+				if !poll.Until(t.Context(), 10*time.Second, 10*time.Millisecond, func() bool {
+					settled, err = workflow.ReadStepIn(t.Context(), b.db, step.ID)
+					return err != nil || settled.Status == workflow.StatusError || settled.Status == workflow.StatusPass
+				}) || err != nil {
+					t.Fatalf("recovery did not settle: %+v %v", settled, err)
+				}
+				if settled.Status != workflow.StatusError || !strings.Contains(string(settled.Evidence), "admitted request is not kept") {
+					t.Fatalf("missing request was reconstructed: status=%s evidence=%s", settled.Status, settled.Evidence)
+				}
+				var after tasks.Attempt
+				if !poll.Until(t.Context(), 10*time.Second, 10*time.Millisecond, func() bool {
+					after, err = b.tasks.Records.Get(t.Context(), key)
+					return err != nil || after.Released
+				}) || err != nil {
+					t.Fatalf("cleanup not confirmed: %+v %v", after, err)
+				}
+				sent, _, _ := driver.record()
+				if len(sent) != 0 || fake.Starts(key) != 0 || fake.Present(key) || after.Observed != tasks.Settled {
+					t.Fatalf("recovery dispatched or retained task: sent=%d starts=%d state=%s", len(sent), fake.Starts(key), after.Observed)
+				}
+				if after.Digest != before.Digest || after.Source != before.Source || !after.Deadline.Equal(before.Deadline) || !after.Admitted.Expires.Equal(before.Admitted.Expires) {
+					t.Fatalf("recovery renewed admission: before=%+v after=%+v", before, after)
+				}
+			})
+		}
+	}
+}
+
+func TestAMissingRequestKeepsAnUncollectedRemoteResultHeld(t *testing.T) {
+	a, fake, step, _, workspace := startOnWorker(t, func(a *taskAppTown, _ *workflow.Step) {
+		a.tasks.AbandonAt = func(stage string) bool { return stage == "exited" }
+	})
+	const contents = "keep this only copy\n"
+	writeRemote(t, workspace, map[string]string{"only-copy.txt": contents})
+	key := taskKeyOf(step)
+	fake.Exit(key, 0)
+	select {
+	case <-a.executed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("task did not reach recorded exit")
+	}
+	attempt := requireRunning(t, a, fake, step)
+	if attempt.Observed != tasks.Collecting {
+		t.Fatalf("not awaiting collection: %s", attempt.Observed)
+	}
+	if kept, err := a.tasks.commands.resultKept(t.Context(), attempt); err != nil || kept {
+		t.Fatalf("result already kept: %v %v", kept, err)
+	}
+	if err := os.Remove(filepath.Join(a.dir, "tasks", key, requestFile)); err != nil {
+		t.Fatal(err)
+	}
+	b := restarted(t, a)
+	settled := awaitStep(t, b, step.ID, workflow.StatusError)
+	if !strings.Contains(string(settled.Evidence), "result not kept") {
+		t.Fatalf("missing held-result evidence: %s", settled.Evidence)
+	}
+	requireHeld(t, b, fake, key, "after request loss")
+	c := restarted(t, b)
+	if _, err := c.tasks.ReleaseSettled(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	requireHeld(t, c, fake, key, "after second restart and release pass")
+	if got, err := os.ReadFile(filepath.Join(workspace, "only-copy.txt")); err != nil || string(got) != contents {
+		t.Fatalf("surviving result lost: %q %v", got, err)
+	}
+	if fake.Starts(key) != 1 {
+		t.Fatalf("recovery executed again: %d", fake.Starts(key))
 	}
 }

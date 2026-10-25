@@ -88,7 +88,7 @@ type TaskRunner struct {
 	// unanswering backend; zero is taskGrace.
 	Patience time.Duration
 	// AbandonAt is a test seam for crash recovery: returning true for a stage
-	// ("created", "started") abandons the attempt there, as an AppTown that died
+	// ("reserved", "created", "started") abandons the attempt there, as an AppTown that died
 	// at that point would.
 	AbandonAt func(stage string) bool
 	// ScriptWallClock is a test seam: when set, it is every script task's
@@ -650,8 +650,11 @@ func (a *Commands) runScriptTask(task *workflow.Execution, step *workflow.Step, 
 		a.finish(task, workflow.StatusError, "recording the task: "+err.Error())
 		return
 	}
-	// The request is kept before anything is asked of the backend. A
-	// reservation found again (a retry) finds its request kept too.
+	if a.tasks.abandon("reserved") {
+		return
+	}
+	// Keep the request before asking the backend. A crash after reservation
+	// but before this write is recovered as failed work, never reconstructed.
 	kept, err := a.tasks.keepRequest(attempt.Operation, admittedRequest{Task: a.taskSpec(attempt, plan), Registries: plan.ambient.Bound})
 	if err == nil && kept.Task.Request != attempt.Digest {
 		err = errors.New("the kept request is not the one admitted")
@@ -732,6 +735,24 @@ func (a *Commands) RecoverScript(task *workflow.Execution) {
 		a.tasks.stopAndFail(task, attempt, "reading the task's kept request: "+err.Error())
 		return
 	}
+	if !found {
+		cause := errors.New("the task's admitted request is not kept")
+		// A completed remote task may hold the only copy of its result.
+		// The same kept-or-held rule as Resume applies before cleanup.
+		if a.tasks.Remote != nil && attempt.Source != "" && attempt.Observed == tasks.Collecting && attempt.Invocation != tasks.ReleaseBuildInvocation {
+			kept, err := a.resultKept(task.Context(), attempt)
+			if err != nil {
+				log.Printf("task %s: finding its kept result: %v; it stays recorded", attempt.Operation, err)
+				return
+			}
+			if !kept {
+				a.tasks.holdResult(task, attempt, cause)
+				return
+			}
+		}
+		a.tasks.stopAndFail(task, attempt, cause.Error())
+		return
+	}
 	// The plan is what the step's outcome is settled with; the request sent
 	// is the one kept at admission, whatever the settings are now.
 	plan, err := a.planScript(task.Context(), step, run)
@@ -742,28 +763,18 @@ func (a *Commands) RecoverScript(task *workflow.Execution) {
 	defer plan.cleanup()
 	plan.folder = folder
 	spec := kept.Task
-	switch {
-	case found && spec.Request != attempt.Digest:
+	if spec.Request != attempt.Digest {
 		a.tasks.stopAndFail(task, attempt, "the task's kept request is not the one admitted")
 		return
-	case found:
-		plan.ambient.Bound = kept.Registries
-		if attempt.Observed == tasks.Reserved && spec.Workspace != "" {
-			// A local task mounts a folder named in its request (a landing's
-			// staged copy); one that is gone cannot be sent again.
-			if _, err := os.Stat(spec.Workspace); err != nil {
-				a.tasks.stopAndFail(task, attempt, "the task's folder is gone: "+err.Error())
-				return
-			}
+	}
+	plan.ambient.Bound = kept.Registries
+	if attempt.Observed == tasks.Reserved && spec.Workspace != "" {
+		// A local task mounts its admitted folder; a missing folder cannot
+		// be replaced by a newly resolved workspace.
+		if _, err := os.Stat(spec.Workspace); err != nil {
+			a.tasks.stopAndFail(task, attempt, "the task's folder is gone: "+err.Error())
+			return
 		}
-	case a.requestDigest(plan, attempt.Source, attempt.Admitted) != attempt.Digest:
-		// Recorded before requests were kept: the request is rebuilt, and
-		// refused if the step's definition or this AppTown's configuration
-		// changed since, so what would run now is not what was admitted.
-		a.tasks.stopAndFail(task, attempt, "the step's request changed since its task was recorded")
-		return
-	default:
-		spec = a.taskSpec(attempt, plan)
 	}
 	if attempt, code, timedOut, _, ok := a.tasks.execute(task, a.db, attempt, spec, taskKind{}); ok {
 		a.collect(task, plan, attempt, code, timedOut)
