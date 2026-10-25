@@ -50,7 +50,7 @@ func newDOCRWorld(t *testing.T) *docrWorld {
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("DIGITALOCEAN_ACCESS_TOKEN=dop_v1_test\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dir, "workspaces", "project-expense")
+	repo := filepath.Join(dir, "workspaces", "project-"+w.project.String())
 	contract := []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    health:\n      readiness: { http: /healthz }\ninit:\n  - name: migrate\n    build: .\n    command: [\"dotnet\", \"App.dll\", \"--init\"]\nneeds:\n  postgres:\n    version: \"16\"\n")
 	for name, body := range map[string][]byte{".apptown/app.yaml": contract, "Dockerfile": []byte("FROM scratch\n")} {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(repo, name)), 0o755); err != nil {

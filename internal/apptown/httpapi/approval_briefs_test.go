@@ -79,7 +79,7 @@ func TestTheApprovalBriefCarriesTheChangesDiffStat(t *testing.T) {
 	t.Parallel()
 	f := newWorkflowHTTPFixture(t, true)
 	dataDir := t.TempDir()
-	hub := filepath.Join(dataDir, "workspaces", "project-shop")
+	hub := filepath.Join(dataDir, "workspaces", "project-"+f.ProjectID.String())
 	if err := os.MkdirAll(hub, 0o755); err != nil {
 		t.Fatal(err)
 	}

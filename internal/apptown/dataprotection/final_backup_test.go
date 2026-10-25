@@ -40,7 +40,7 @@ func takeDownWorldFor(t *testing.T, purpose project.Purpose, slug string) (*both
 	t.Helper()
 	s, _, client, dir, pid := backupWorldFor(t, purpose, slug, 40100)
 	s.authority = &configurationWorld{actor: configurationIdentity{Name: "alice"}}
-	if err := os.WriteFile(filepath.Join(dir, "workspaces", "project-"+slug, ".apptown", "app.yaml"), []byte("app:\n  web:\n    image: registry.example/"+slug+":1\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "workspaces", "project-"+pid.String(), ".apptown", "app.yaml"), []byte("app:\n  web:\n    image: registry.example/"+slug+":1\n    ports: [\"8080\"]\n    public: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	target, err := s.Targets.ByName(t.Context(), "local")

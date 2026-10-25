@@ -20,7 +20,7 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/repo", `{}`); w.Code != 200 {
 		t.Fatalf("init: %d %s", w.Code, w.Body.String())
 	}
-	repo := filepath.Join(a.cfg.dataDir, "workspaces", "project-game")
+	repo := a.projectRepoPath("game")
 	head, err := gitexec.Run(t.Context(), repo, "rev-parse", "main")
 	if err != nil {
 		t.Fatal(err)

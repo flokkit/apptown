@@ -64,7 +64,7 @@ func TestAnArchiveUnpacksWhatItHoldsAndHoldsItToItsManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	write := func(edit func(*Manifest)) string {
-		m := Manifest{Format: ArchiveFormat, Version: ArchiveVersion, Schema: dbschema.Latest(), KeyFiles: map[string]backuparchive.Digest{}}
+		m := Manifest{DataDir: src, Format: ArchiveFormat, Version: ArchiveVersion, Schema: dbschema.Latest(), KeyFiles: map[string]backuparchive.Digest{}}
 		m.Dump, _ = backuparchive.SumFile(dump)
 		keys, err := keyFileNames(src)
 		if err != nil {

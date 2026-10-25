@@ -39,12 +39,14 @@ import (
 // on Docker (the host's own), making the built-in database Database names
 // once the archive's db.env is in place.
 type RestoreRequest struct {
-	DataDir    string
-	Archive    string
-	Passphrase string
-	Say        func(string) // each step as it starts; nil says nothing
-	Docker     docker.Scope
-	Database   BuiltinDatabase
+	DataDir string
+	// MaxLayoutVersion is the daemon's supported data layout, checked before DB effects.
+	MaxLayoutVersion int
+	Archive          string
+	Passphrase       string
+	Say              func(string) // each step as it starts; nil says nothing
+	Docker           docker.Scope
+	Database         BuiltinDatabase
 }
 
 // Restore unpacks and loads an archive, and says what it held. Anything
@@ -78,6 +80,12 @@ func Restore(ctx context.Context, in RestoreRequest) (*Manifest, error) {
 		return nil, err
 	}
 
+	if err := recordRestoreLayout(in.DataDir, in.MaxLayoutVersion); err != nil {
+		return nil, err
+	}
+	if err := syncRestoredFiles(in.DataDir); err != nil {
+		return nil, fmt.Errorf("making restored files durable before database loading: %w", err)
+	}
 	say("making the built-in database")
 	url, err := in.Database.Ensure(ctx)
 	if err != nil {
@@ -108,6 +116,9 @@ func Restore(ctx context.Context, in RestoreRequest) (*Manifest, error) {
 	if err := compareRows(ctx, raw, rows); err != nil {
 		return nil, err
 	}
+	if err := markRestoreLoaded(in.DataDir); err != nil {
+		return nil, err
+	}
 	return m, nil
 }
 
@@ -120,8 +131,11 @@ func unpack(src io.Reader, passphrase, dataDir, dump string, say func(string)) (
 	if err != nil {
 		return nil, err
 	}
-	m, err := readManifest(r)
+	m, manifestRaw, err := readManifest(r)
 	if err != nil {
+		return nil, err
+	}
+	if err := beginRestoreIntent(dataDir, manifestRaw); err != nil {
 		return nil, err
 	}
 	say(fmt.Sprintf("unpacking the archive of AppTown %s, taken %s on %s by %s", m.AppTown, m.TakenAt, m.Host, m.Build))
@@ -147,6 +161,9 @@ func unpack(src io.Reader, passphrase, dataDir, dump string, say func(string)) (
 			}
 			got[dumpEntry] = d
 		case strings.HasPrefix(hdr.Name, dataPrefix):
+			if err := refuseRestoreControlEntry(hdr, dataDir); err != nil {
+				return nil, err
+			}
 			d, err := r.Extract(root, hdr, dataPrefix)
 			if err != nil {
 				return nil, fmt.Errorf("unpacking %s: %w", hdr.Name, err)
@@ -173,6 +190,14 @@ func unpack(src io.Reader, passphrase, dataDir, dump string, say func(string)) (
 // built-in database (labelled with its installation) and its deployments'
 // containers (labelled with the deployment they run).
 func refuseExistingAppTown(ctx context.Context, dk docker.Scope, dataDir string) error {
+	pending, err := ReadPendingRestore(dataDir)
+	if err != nil {
+		return fmt.Errorf("cannot restart this restore: %w", err)
+	}
+	if pending != nil {
+		return errors.New("this archive is already loaded; start AppTown to finish its pending restore instead of extracting it again")
+	}
+
 	if entries, err := os.ReadDir(dataDir); err == nil && len(entries) > 0 {
 		return fmt.Errorf("%s is not empty: a restore goes into a new data directory on a host with no AppTown", dataDir)
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -195,48 +220,48 @@ func refuseExistingAppTown(ctx context.Context, dk docker.Scope, dataDir string)
 
 // readManifest reads the archive's first entry, its manifest, and
 // refuses one this build cannot restore.
-func readManifest(r *backuparchive.Reader) (*Manifest, error) {
+func readManifest(r *backuparchive.Reader) (*Manifest, []byte, error) {
 	hdr, err := r.Next()
 	if err != nil {
-		return nil, fmt.Errorf("reading the archive: %w", err)
+		return nil, nil, fmt.Errorf("reading the archive: %w", err)
 	}
 	if hdr.Name != manifestEntry {
-		return nil, fmt.Errorf("the archive begins with %q, not its manifest: it is not an AppTown backup", hdr.Name)
+		return nil, nil, fmt.Errorf("the archive begins with %q, not its manifest: it is not an AppTown backup", hdr.Name)
 	}
 	raw, err := io.ReadAll(io.LimitReader(r, 16<<20))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var m Manifest
 	if err := json.Unmarshal(raw, &m); err != nil {
-		return nil, fmt.Errorf("the archive's manifest does not read: %w", err)
+		return nil, nil, fmt.Errorf("the archive's manifest does not read: %w", err)
 	}
 	// Absence is legacy evidence; an explicit null is malformed evidence.
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if _, present := fields["database"]; present {
 		if m.Database == nil {
-			return nil, fmt.Errorf("the archive's database provenance is null")
+			return nil, nil, fmt.Errorf("the archive's database provenance is null")
 		}
 		if err := m.Database.validate(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if m.Database.ServerVersionNum/10000 != supportedRestoreMajor {
-			return nil, fmt.Errorf("the archive records PostgreSQL %d; this build restores PostgreSQL %d backups", m.Database.ServerVersionNum/10000, supportedRestoreMajor)
+			return nil, nil, fmt.Errorf("the archive records PostgreSQL %d; this build restores PostgreSQL %d backups", m.Database.ServerVersionNum/10000, supportedRestoreMajor)
 		}
 	}
 	if m.Format != ArchiveFormat || m.Version > ArchiveVersion {
-		return nil, fmt.Errorf("the archive is %s version %d; this build restores %s version %d", m.Format, m.Version, ArchiveFormat, ArchiveVersion)
+		return nil, nil, fmt.Errorf("the archive is %s version %d; this build restores %s version %d", m.Format, m.Version, ArchiveFormat, ArchiveVersion)
 	}
 	if m.Schema < dbschema.Baseline() {
-		return nil, fmt.Errorf("the archive's database is at schema %d; this build restores schema %d or newer (1.0.0-rc.7 or newer)", m.Schema, dbschema.Baseline())
+		return nil, nil, fmt.Errorf("the archive's database is at schema %d; this build restores schema %d or newer (1.0.0-rc.7 or newer)", m.Schema, dbschema.Baseline())
 	}
 	if m.Schema > dbschema.Latest() {
-		return nil, fmt.Errorf("the archive's database is at schema %d, newer than this build's %d: restore it with %s or newer", m.Schema, dbschema.Latest(), m.Build)
+		return nil, nil, fmt.Errorf("the archive's database is at schema %d, newer than this build's %d: restore it with %s or newer", m.Schema, dbschema.Latest(), m.Build)
 	}
-	return &m, nil
+	return &m, raw, nil
 }
 
 func writeDump(path string, r io.Reader) (backuparchive.Digest, error) {

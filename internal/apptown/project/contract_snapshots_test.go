@@ -31,7 +31,7 @@ func snapshotWorld(t *testing.T) (*Contracts, string, ids.ID, map[string]string)
 	if err := New(db, nil).SetDefaultBranch(context.Background(), projectID, "main"); err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dataDir, "workspaces", "project-p")
+	repo := filepath.Join(dataDir, "workspaces", "project-"+projectID.String())
 	_ = os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755)
 	git := func(args ...string) string {
 		c := gittest.Command(args...)
@@ -81,7 +81,7 @@ func TestContractSnapshotNativeOnly(t *testing.T) {
 	assertStatus(t, c, pid, sha["compose"], "absent", "none")
 
 	// Evidence retains the exact native bytes, including need and init metadata.
-	original, err := docker.ContractBytesAt(context.Background(), filepath.Join(dataDir, "workspaces", "project-p"), sha["appyaml"])
+	original, err := docker.ContractBytesAt(context.Background(), filepath.Join(dataDir, "workspaces", "project-"+pid.String()), sha["appyaml"])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestContractSnapshotNativeOnly(t *testing.T) {
 	assertStatus(t, c, pid, sha["none"], "absent", "none")
 
 	// Removing source does not erase or reinterpret the original evidence.
-	if err := os.RemoveAll(filepath.Join(dataDir, "workspaces", "project-p")); err != nil {
+	if err := os.RemoveAll(filepath.Join(dataDir, "workspaces", "project-"+pid.String())); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: The stored snapshot bytes are the evidence guarantee, and no production read returns contract_snapshots rows; adding one would be test-only API.
@@ -111,7 +111,7 @@ func TestContractSnapshotIdempotentPerSHA(t *testing.T) {
 	c, dataDir, pid, sha := snapshotWorld(t)
 	c.RecordCommit(context.Background(), dataDir, pid, sha["appyaml"])
 	// A missing repository would resolve as invalid if AppTown read it again.
-	if err := os.RemoveAll(filepath.Join(dataDir, "workspaces", "project-p")); err != nil {
+	if err := os.RemoveAll(filepath.Join(dataDir, "workspaces", "project-"+pid.String())); err != nil {
 		t.Fatal(err)
 	}
 	c.RecordCommit(context.Background(), dataDir, pid, sha["appyaml"])

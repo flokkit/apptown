@@ -178,8 +178,8 @@ func TestProjectCleanupWhosePreviewWasNotWhollyRemovedIsNotDone(t *testing.T) {
 func TestCleanupUsesRetainedDeletionOwnershipAfterProjectRowsAreGone(t *testing.T) {
 	t.Parallel()
 	c := cleanupFixture(t, dockerfake.New(), gitlabAt(""), CleanupPlan{Slug: "owned"})
-	for _, slug := range []string{"owned", "neighbor"} {
-		dir := hubDir(c.DataDir, slug)
+	for index, slug := range []string{"owned", "neighbor"} {
+		dir := hubDir(c.DataDir, idstest.N(uint64(100+index)))
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			t.Fatal(err)
 		}
@@ -196,10 +196,10 @@ func TestCleanupUsesRetainedDeletionOwnershipAfterProjectRowsAreGone(t *testing.
 			t.Fatal(err)
 		}
 	}
-	if _, err := os.Stat(hubDir(c.DataDir, "owned")); !os.IsNotExist(err) {
+	if _, err := os.Stat(hubDir(c.DataDir, idstest.N(100))); !os.IsNotExist(err) {
 		t.Fatalf("owned repository remains: %v", err)
 	}
-	if raw, err := os.ReadFile(filepath.Join(hubDir(c.DataDir, "neighbor"), "keep")); err != nil || string(raw) != "neighbor" {
+	if raw, err := os.ReadFile(filepath.Join(hubDir(c.DataDir, idstest.N(101)), "keep")); err != nil || string(raw) != "neighbor" {
 		t.Fatalf("wrong repository touched: %s %v", raw, err)
 	}
 }

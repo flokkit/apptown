@@ -96,7 +96,7 @@ func TestADiscardDuringPreparationWins(t *testing.T) {
 func TestALocalReplacementKeepsItsRecord(t *testing.T) {
 	t.Parallel()
 	s, _, _, dir, pid := previewBootWorld(t, "")
-	repo := filepath.Join(dir, "workspaces", "project-p")
+	repo := filepath.Join(dir, "workspaces", "project-"+pid.String())
 	writePreviewBootFixture(t, repo)
 	first := gitCommitAll(t, repo, "first")
 	ch := Change{ID: idstest.N(9), ProjectID: pid, SourceRevision: first}

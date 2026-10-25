@@ -320,7 +320,7 @@ func newDataWorldWith(t *testing.T, opts dataWorldOptions) *dataWorld {
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("DIGITALOCEAN_ACCESS_TOKEN=dop_v1_test\nSTORE_KEY=STOREKEY\nSTORE_SECRET=storesecret\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dir, "workspaces", "project-ledger")
+	repo := filepath.Join(dir, "workspaces", "project-"+w.project.String())
 	w.contract = []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres:\n    version: \"16\"\n")
 	if opts.contract != nil {
 		w.contract = opts.contract

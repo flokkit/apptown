@@ -295,7 +295,7 @@ func newTaskAppTown(t *testing.T, name string, spec schema.Spec) (*taskAppTown, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.hub = filepath.Join(dir, "workspaces", "project-"+slug)
+	f.hub = filepath.Join(dir, "workspaces", "project-"+projectID.String())
 	taskHubTemplate.CopyTo(t, f.hub)
 	if err := project.New(db, nil).SetDefaultBranch(context.Background(), projectID, "main"); err != nil {
 		t.Fatal(err)

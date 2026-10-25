@@ -58,3 +58,9 @@ ON CONFLICT(project_id) DO NOTHING;
 -- name: AdvanceMain :execrows
 UPDATE project_main SET branch=sqlc.arg(branch),sha=sqlc.arg(sha),via=sqlc.arg(via),run_id=sqlc.arg(run_id),recorded_at=sqlc.arg(at)::timestamptz
 WHERE project_id=sqlc.arg(project_id) AND sha=sqlc.arg(previous);
+
+-- name: RelocatePublication :execrows
+UPDATE branch_publications SET repository=sqlc.arg(destination)
+WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id)
+ AND branch=sqlc.arg(branch) AND expected=sqlc.arg(expected) AND proposed=sqlc.arg(proposed)
+ AND repository IN (sqlc.arg(source),sqlc.arg(destination));

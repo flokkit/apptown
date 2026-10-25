@@ -424,7 +424,7 @@ func newDigestWorldWith(t *testing.T, secrets, appYAML string, configure func(*d
 	if err := os.WriteFile(filepath.Join(w.dir, "secrets.env"), []byte("LAB_KEY=-----BEGIN OPENSSH PRIVATE KEY-----\\nabc\\n-----END OPENSSH PRIVATE KEY-----\n"+secrets), 0o600); err != nil { // gitleaks:allow (test fixture, not a credential)
 		t.Fatal(err)
 	}
-	w.repo = filepath.Join(w.dir, "workspaces", "project-p")
+	w.repo = filepath.Join(w.dir, "workspaces", "project-"+w.project.String())
 	w.contract = []byte(strings.ReplaceAll(appYAML, "%[1]s", w.registry.host))
 	files := map[string]string{".apptown/app.yaml": string(w.contract), "site/index.html": "<html>p</html>",
 		"worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n"}

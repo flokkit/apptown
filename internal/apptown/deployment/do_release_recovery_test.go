@@ -60,7 +60,7 @@ func doReleaseWorldNeeding(t *testing.T, more string) (*Service, *dofake.API, *d
 	}
 	pid := createTestProject(t, db, "expense", "Expense")
 	dir := t.TempDir()
-	repo := filepath.Join(dir, "workspaces", "project-expense")
+	repo := filepath.Join(dir, "workspaces", "project-"+pid.String())
 	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}

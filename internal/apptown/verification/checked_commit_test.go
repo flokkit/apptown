@@ -41,7 +41,7 @@ func TestCheckedCommitIsTheNamedCommitOrARefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataDir := t.TempDir()
-	hub := filepath.Join(dataDir, "workspaces", "project-named")
+	hub := filepath.Join(dataDir, "workspaces", "project-"+pid.String())
 	folder := filepath.Join(dataDir, "workspaces", "change-00000000-0007-7000-8000-000000000000")
 	git := func(dir string, args ...string) string {
 		t.Helper()

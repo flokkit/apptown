@@ -20,6 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown"
+	"github.com/flokkit/apptown/internal/apptown/datalayout"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/trust"
@@ -176,6 +177,30 @@ func main() {
 			log.Fatalf("restore: %v", err)
 		}
 	}
+
+	// A loaded restore survives process restarts. Incomplete extraction/loading
+	// refuses here, before TLS/trust files or database/schema startup can change.
+	pendingRestore, err := instancebackup.ReadPendingRestore(dataDir)
+	if err != nil {
+		log.Fatalf("restore continuation: %v", err)
+	}
+	if restored != nil && pendingRestore == nil {
+		log.Fatal("restore did not preserve its loaded continuation")
+	}
+	if pendingRestore != nil {
+		if o.resetPassword != "" {
+			log.Fatal("finish the pending restore before resetting an account")
+		}
+		restored = pendingRestore.Manifest
+	}
+	if err := apptown.PrepareDataLayout(dataDir); err != nil {
+		log.Fatalf("data directory: %v", err)
+	}
+	if o.resetPassword != "" {
+		if err := datalayout.RequireCurrent(dataDir); err != nil {
+			log.Fatal(err)
+		}
+	}
 	mainTLS, chatTLS, err := localTLS(o.localTLS, o.publicHost, o.addr, dataDir, o.tierDomains)
 	if err != nil {
 		log.Fatal(err)
@@ -226,11 +251,6 @@ func main() {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		log.Fatal(err)
 	}
-	// The data directory's layout before anything reads or writes it: a
-	// newer build's directory is refused, not misread.
-	if err := apptown.PrepareDataLayout(dataDir); err != nil {
-		log.Fatalf("data directory: %v", err)
-	}
 	// The built-in database comes up BEFORE the unmigrated check, so the
 	// refusal below can name a database that is already there to move into.
 	if o.dbURL == "" {
@@ -252,6 +272,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
+
+	if o.holdsDatabase() {
+		originalRoot := dataDir
+		if restored != nil {
+			originalRoot = restored.DataDir
+		}
+		if err := apptown.UpgradeDataLayout(ctx, db, cfg, originalRoot); err != nil {
+			log.Fatalf("data layout upgrade: %v", err)
+		}
+		if restored == nil {
+			if err := apptown.FinalizeDataLayout(dataDir); err != nil {
+				log.Fatalf("data layout completion: %v", err)
+			}
+		}
+	}
 	cfg.FitLimitsToHost(ctx)
 	if cfg.Stock, err = loadStock(o.shipped, version.String()); err != nil {
 		log.Fatalf("stock: %v", err)
@@ -264,6 +299,12 @@ func main() {
 	if restored != nil {
 		if err := finishRestore(ctx, app, restored); err != nil {
 			log.Fatalf("restore: %v", err)
+		}
+		if err := instancebackup.CompleteRestore(dataDir, pendingRestore); err != nil {
+			log.Fatalf("restore completion: %v", err)
+		}
+		if err := apptown.FinalizeDataLayout(dataDir); err != nil {
+			log.Fatalf("data layout completion: %v", err)
 		}
 		return
 	}

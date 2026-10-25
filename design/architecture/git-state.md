@@ -7,7 +7,7 @@ main".
 ## 1. Roles: AppTown hosts the repository; a mirror is optional
 
 - **The hub is the project repository**, at
-  `<dataDir>/workspaces/project-<slug>`. It is where `main` lives and it is
+  `<dataDir>/workspaces/project-<UUID>`. It is where `main` lives and it is
   written by exactly one thing: the landing flow, which merges locally (or
   through a recorded GitLab merge request, §4).
   Everything AppTown does — branch, commit, merge, deploy — works against

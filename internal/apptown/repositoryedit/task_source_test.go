@@ -17,7 +17,7 @@ func TestATaskSourceThatCannotBeReadIsAnErrorNotAnAbsentBranch(t *testing.T) {
 	t.Parallel()
 	data := t.TempDir()
 	source := workflow.Source{ProjectID: idstest.N(2), Slug: "shop", DefaultBranch: "main", Branch: "apptown/run-1"}
-	if err := os.MkdirAll(filepath.Join(data, "workspaces", "project-shop"), 0o700); err != nil { // a hub that is not a repository
+	if err := os.MkdirAll(filepath.Join(data, "workspaces", "project-"+source.ProjectID.String()), 0o700); err != nil { // a hub that is not a repository
 		t.Fatal(err)
 	}
 	got, err := ProposeTaskSource(t.Context(), data, source)

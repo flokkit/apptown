@@ -85,3 +85,6 @@ AND NOT EXISTS (SELECT 1 FROM task_attempts t WHERE t.workspace=sqlc.arg(workspa
 
 -- name: WorkspaceHeld :one
 SELECT EXISTS(SELECT 1 FROM task_attempts WHERE workspace=sqlc.arg(workspace) AND backend=sqlc.arg(backend) AND (observed<>'settled' OR released_at IS NULL));
+
+-- name: UnreleasedLayoutAttempts :many
+SELECT * FROM task_attempts WHERE released_at IS NULL ORDER BY operation;

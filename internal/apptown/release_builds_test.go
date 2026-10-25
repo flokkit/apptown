@@ -638,7 +638,7 @@ func (w *releaseWorld) landingRun(t *testing.T) (*workflow.Run, ids.ID) {
 		}
 	}
 	// A promotion reads the bundle's commit from the project's repository.
-	repo := filepath.Join(w.a.cfg.dataDir, "workspaces", "project-p")
+	repo := w.a.projectRepoPath("p")
 	if out, err := gitexec.Run(t.Context(), filepath.Dir(repo), "clone", "-q", ws, repo); err != nil {
 		t.Fatalf("git fixture: %v: %s", err, out)
 	}
@@ -1331,7 +1331,7 @@ func TestDeletingAProjectRemovesItsReleaseImagesFromEachHost(t *testing.T) {
 	}
 	// The fixture's repository is a clone of the run's workspace; that
 	// origin is no GitLab copy for the deletion to archive.
-	if out, err := gitexec.Run(t.Context(), filepath.Join(w.a.cfg.dataDir, "workspaces", "project-p"), "remote", "remove", "origin"); err != nil {
+	if out, err := gitexec.Run(t.Context(), w.a.projectRepoPath("p"), "remote", "remove", "origin"); err != nil {
 		t.Fatalf("git fixture: %v: %s", err, out)
 	}
 	inUse := b.Parts["web"]
@@ -1796,7 +1796,7 @@ func TestAMissingMainSettingRefusesTheLandingBeforeAnythingIsBuilt(t *testing.T)
 	bindWPHome(t, w.a, "preview", "https://preview.example")
 	run, stepID := w.landingRun(t)
 	// An uncommitted edit that would drop the requirement is not what lands.
-	for _, dir := range []string{requireLocation(t)(workflowSourceForTest(t, w.a, run).Workspace(w.a.cfg.dataDir)), filepath.Join(w.a.cfg.dataDir, "workspaces", "project-p")} {
+	for _, dir := range []string{requireLocation(t)(workflowSourceForTest(t, w.a, run).Workspace(w.a.cfg.dataDir)), w.a.projectRepoPath("p")} {
 		if err := os.WriteFile(filepath.Join(dir, secret.SpecFile), []byte("[project]\nname = \"p\"\nrevision = \"1.0\"\n\n[profiles.default]\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}

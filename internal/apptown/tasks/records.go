@@ -443,3 +443,13 @@ func attemptOf(row taskssql.TaskAttempt) (Attempt, error) {
 	}
 	return a, nil
 }
+
+// RelocationAttemptsIn inventories every attempt that may still hold provider
+// resources. No display limit or current-backend filter can hide an older owner.
+func RelocationAttemptsIn(ctx context.Context, q database.Queryer) ([]Attempt, error) {
+	rows, err := taskssql.New(q.SQL()).UnreleasedLayoutAttempts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return attemptsOf(rows)
+}

@@ -444,7 +444,7 @@ func TestJourneyKidStory(t *testing.T) {
 
 	// The change's branch holds the agent's real edits, shared, before
 	// anyone approves.
-	shared := filepath.Join(h.app.cfg.dataDir, "workspaces", "project-"+slug)
+	shared := h.app.projectRepoPath(slug)
 	if b, err := gitexec.Output(t.Context(), shared, "show", "refs/heads/"+h.changeView(chID).Change.Branch+":site/index.html"); err != nil || !strings.Contains(b, "the cat is blue") {
 		t.Fatalf("the agent's edit must be real and shared: %v", err)
 	}

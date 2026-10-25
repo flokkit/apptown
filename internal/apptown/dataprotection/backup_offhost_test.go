@@ -69,7 +69,7 @@ func newOffhostWorld(t *testing.T, slug string, port int) *offhostWorld {
 	if _, err := w.s.Deployments.ReserveHostPort(t.Context(), w.pid, "main", w.names.App(), port); err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(w.dir, "workspaces", "project-"+slug, ".apptown")
+	repo := filepath.Join(w.dir, "workspaces", "project-"+w.pid.String(), ".apptown")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -59,7 +59,7 @@ func TestArchiveProvenanceRefusesBeforeExtraction(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			m, err := readManifest(r)
+			m, _, err := readManifest(r)
 			if (err == nil) != tc.accept {
 				t.Fatalf("readManifest: %v", err)
 			}

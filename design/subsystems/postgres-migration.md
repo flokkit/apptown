@@ -13,7 +13,7 @@ SQLite data rather than silently starting a new database beside it.
 `-db-url` or `APPTOWN_DB_URL` selects an external database. With neither configured,
 startup manages the built-in PostgreSQL container. Database opening performs
 initialization/migration even before the read-serving `-verify-only` mode begins.
-That flag disables application recovery and workers, not schema changes.
+That flag disables application recovery and workers, not schema or required data-layout changes. Layout migration runs under the daemon lock before application construction; see [project repository locations](../architecture/project-repositories.md).
 
 Schema changes require an owner-fragment edit and the appropriate numbered
 migration. Run the generation/check commands in [schema ownership](../architecture/schema-ownership.md).

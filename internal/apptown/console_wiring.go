@@ -9,7 +9,11 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/changeconsole"
+	"github.com/flokkit/apptown/internal/apptown/datalayout"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/maintenance"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 
@@ -186,4 +190,59 @@ func chatsFor(a *App) conversation.Chats {
 
 func consoleAdmissionFor(a *App) *conversation.Admission {
 	return conversation.NewAdmission(a.DB, conversation.AdmissionDependencies{Work: a.Work, Sessions: a.Console, Models: a.modelSelection, Briefing: a.briefing, Harness: piHomeFor(a), Effects: a.changeConsole, Presence: holderPresenceFor(a), Workers: a.changeConsole.Placement(), NoLocal: a.cfg.noLocalDocker, Now: a.cfg.clock.Now}, a.cfg.dataDir)
+}
+
+// UpgradeDataLayout assembles observation-only adapters before New can create
+// application recovery state. The caller holds exclusive database ownership.
+// A missing local backend stays unavailable; NoLocal's absent answer is not
+// evidence that a previously local writer stopped.
+func UpgradeDataLayout(ctx context.Context, db *database.DB, input Config, originalRoot string) error {
+	cfg, err := input.prepare()
+	if err != nil {
+		return err
+	}
+	instance, err := instanceID(cfg.dataDir)
+	if err != nil {
+		return err
+	}
+	observers := datalayout.Observers{Local: input.ConsoleAgent}
+	if observers.Local == nil && !cfg.noLocalDocker {
+		client := input.DockerClient
+		if client == nil {
+			client = docker.CLI{}
+		}
+		scope := docker.Scope{Client: client, Now: cfg.clock.Now}
+		runtime := pi.New(pi.Config{Run: func(ctx context.Context, args ...string) ([]byte, error) {
+			return scope.Command(ctx, docker.Command{Args: args})
+		}, Now: cfg.clock.Now})
+		defer runtime.Close()
+		observers.Local = runtime
+	}
+	if input.ConsoleWorker != nil {
+		observers.Remote = input.ConsoleWorker
+	} else if cfg.worker != nil {
+		remote := &worker.RemoteAgent{Sessions: worker.SessionClient{URL: cfg.worker.URL, Client: cfg.worker.Client}, Root: filepath.Join(cfg.dataDir, "console"), Now: cfg.clock.Now}
+		defer remote.Close()
+		observers.Remote = remote
+	}
+	if cfg.worker != nil {
+		observers.Tasks = *cfg.worker
+		observers.TaskBackend = maintenance.WorkerBackend + cfg.worker.URL
+	} else if !cfg.noLocalDocker {
+		namespace := taskNamespace(cfg.dataDir)
+		daemon := execution.SelectDocker()
+		observers.Tasks = execution.DockerTasks{Namespace: namespace, Daemon: daemon, Files: filepath.Join(cfg.dataDir, "task-files"), Now: cfg.clock.Now}
+		observers.TaskBackend = "local-docker " + namespace + " on " + daemon.Backend()
+	}
+	return datalayout.Upgrade(ctx, db, cfg.dataDir, originalRoot, instance, observers)
+}
+
+// FinalizeDataLayout finishes journal cleanup after any restore continuation
+// has settled. The caller still holds the exclusive database lock.
+func FinalizeDataLayout(dataDir string) error {
+	instance, err := instanceID(dataDir)
+	if err != nil {
+		return err
+	}
+	return datalayout.Finalize(dataDir, instance)
 }

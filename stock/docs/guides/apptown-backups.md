@@ -86,9 +86,10 @@ built-in database is created. A newer schema needs a build that supports it.
    files and the dump are exactly what the manifest says.
 3. It makes the built-in database and loads the dump. It counts each table's
    rows on the way in and compares them with the loaded database.
-4. It opens the database as `-verify-only` would, bringing it up to this
-   build (a newer build than the one that took the archive is fine; an older
-   one is refused).
+4. It opens the database as `-verify-only` would, bringing it and the data
+   layout up to this build. Repository paths use each project's immutable ID.
+   The archive's original data path identifies active local references when the
+   destination differs. A newer build is fine; an unsupported older build refuses.
 5. It records what the restored AppTown does when it first starts (below)
    and stops.
 
@@ -96,8 +97,17 @@ Then start AppTown normally, with the same flags. Start it once with
 `-verify-only` first if you want to look before anything runs. The restored
 AppTown has the same id as the one backed up: run only one of them.
 
-If a restore fails part way, remove the data directory and the database
-container (`apptown-db`) and start again.
+If extraction or database loading fails part way, ordinary startup refuses the
+incomplete restore. Restore the original archive into a fresh empty destination
+and database, or remove this failed fresh-host restore's data directory and
+database container (`apptown-db`) before starting again.
+
+Once loading succeeds, AppTown keeps the original manifest until layout and restore
+bookkeeping finish. Starting with the same flags retries that remaining work and
+exits; it does not reload the dump or begin normal recovery. Stop surviving writers
+or resolve the named ownership/configuration problem if relocation refuses. An
+admitted task that retains a local path being moved must first be settled and
+released under its original layout; do not edit its saved request or digest.
 
 **What the first start does.**
 
@@ -184,7 +194,10 @@ or workers. It is not a dry run of an upgrade. Then restart without it.
 the data directory with it, taken at the same moment (a file-system
 snapshot of the data directory taken with the dump is the reliable way).
 The data directory holds every secret as files, and the database holds the
-built-in secret store's key: protect both as you would the secrets.
+built-in secret store's key: protect both as you would the secrets. A manual
+paired restore keeps the original absolute data path. Use the whole-AppTown
+restore command when moving to a different path, so its saved manifest supplies
+the original location.
 
 ## Rehearsing a recovery
 

@@ -29,7 +29,7 @@ import (
 func TestAChangeDiffGitCannotReadIsAnError(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
-	hub := filepath.Join(dataDir, "workspaces", "project-p")
+	hub := filepath.Join(dataDir, "workspaces", "project-"+idstest.N(2).String())
 	if err := os.MkdirAll(hub, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestAnUnreadableEditDiffStopsTheDecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dataDir, "workspaces", "project-drift")
+	repo := filepath.Join(dataDir, "workspaces", "project-"+id.String())
 	if err := scm.InitializeRepository(t.Context(), repo, "main"); err != nil {
 		t.Fatal(err)
 	}

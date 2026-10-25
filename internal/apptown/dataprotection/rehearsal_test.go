@@ -306,7 +306,7 @@ func newRehearsalWorldWith(t *testing.T, contract string, dw *dataWorld, seed fu
 	w := &rehearsalWorld{dataWorld: dw, host: newRehearsalHost()}
 	w.protect()
 	ctx := context.Background()
-	repo := filepath.Join(w.s.dataDir, "workspaces", "project-ledger")
+	repo := filepath.Join(w.s.dataDir, "workspaces", "project-"+w.project.String())
 	for name, body := range map[string]string{".apptown/app.yaml": contract, "secretspec.toml": rehearsalSpec} {
 		if err := os.WriteFile(filepath.Join(repo, name), []byte(body), 0o644); err != nil {
 			t.Fatal(err)

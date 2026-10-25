@@ -126,7 +126,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 	}
 
 	// The release it serves keeps its data in a folder.
-	repo := filepath.Join(w.s.dataDir, "workspaces", "project-ledger")
+	repo := filepath.Join(w.s.dataDir, "workspaces", "project-"+w.project.String())
 	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(filesContract), 0o644); err != nil {
 		t.Fatal(err)
 	}

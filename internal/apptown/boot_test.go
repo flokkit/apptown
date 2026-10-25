@@ -473,16 +473,19 @@ func TestAStoppedPreviewLosesItsRow(t *testing.T) {
 }
 
 // The data directory says which layout wrote it: a directory from before the
-// file is marked with this build's layout, the same layout is accepted, and
-// a newer build's directory is refused by name rather than misread.
+// file is validated without stamping; the completed same layout is accepted,
+// and a newer build's directory is refused by name rather than misread.
 func TestTheDataDirectorySaysWhichLayoutWroteIt(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	if err := PrepareDataLayout(dir); err != nil {
 		t.Fatal(err)
 	}
-	if raw, err := os.ReadFile(filepath.Join(dir, "layout")); err != nil || strings.TrimSpace(string(raw)) != strconv.Itoa(DataLayoutVersion) {
-		t.Fatalf("an unmarked directory is marked with this layout: %q %v", raw, err)
+	if _, err := os.Lstat(filepath.Join(dir, "layout")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("validation stamped an unfinished layout: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "layout"), []byte(strconv.Itoa(DataLayoutVersion)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	if err := PrepareDataLayout(dir); err != nil {
 		t.Fatalf("the same layout: %v", err)
@@ -831,8 +834,9 @@ func writeUpgradeFixture(t *testing.T, dir string) {
 	if err := dbtest.WriteRows(filepath.Join(dir, "rows.jsonl.gz"), rows); err != nil {
 		t.Fatal(err)
 	}
-	// apptownd marks its data directory at startup; the fixture's is marked the same way.
-	if err := PrepareDataLayout(a.cfg.dataDir); err != nil {
+	// This generator created current-layout repositories directly through New;
+	// freeze that known layout, rather than claiming a legacy migration ran.
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "layout"), []byte(strconv.Itoa(DataLayoutVersion)+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	writeTarGz(t, a.cfg.dataDir, filepath.Join(dir, "files.tar.gz"))
@@ -877,6 +881,12 @@ func upgradeAppTown(t *testing.T, db *database.DB, dataDir string) {
 		t.Fatalf("upgrading the release's database: %v", err)
 	}
 	if err := jobs.Migrate(t.Context(), db.Pool()); err != nil {
+		t.Fatal(err)
+	}
+	if err := UpgradeDataLayout(t.Context(), db, upgradeConfig(t, dataDir, consoletest.NewAgent()), dataDir); err != nil {
+		t.Fatalf("upgrading release layout: %v", err)
+	}
+	if err := FinalizeDataLayout(dataDir); err != nil {
 		t.Fatal(err)
 	}
 }

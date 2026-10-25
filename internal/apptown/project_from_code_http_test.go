@@ -79,7 +79,7 @@ func TestStartingFromExistingCodeIsProjectImportForTheCaller(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub := filepath.Join(a.cfg.dataDir, "workspaces", "project-moved")
+	hub := a.projectRepoPath("moved")
 	bundle, main := codeBundle(t)
 	seedPath := "/api/v1/projects/moved/repo/from-bundle"
 	for name, id := range map[string]*authIdentity{
@@ -184,8 +184,8 @@ func TestDownloadCodeStartsAnotherProjectUnchanged(t *testing.T) {
 	if w := callAs(t, mux, owner, "POST", "/api/v1/projects/copy/repo/from-bundle", downloaded); w.Code != 200 {
 		t.Fatalf("seed from the download: %d %s", w.Code, w.Body.String())
 	}
-	src := filepath.Join(a.cfg.dataDir, "workspaces", "project-source")
-	dst := filepath.Join(a.cfg.dataDir, "workspaces", "project-copy")
+	src := a.projectRepoPath("source")
+	dst := a.projectRepoPath("copy")
 	if gitOut(t, src, "rev-parse", "main") != gitOut(t, dst, "rev-parse", "main") || gitOut(t, dst, "rev-parse", "v1^{commit}") != main {
 		t.Fatal("the downloaded bundle changed the history")
 	}
@@ -283,7 +283,7 @@ func TestSetupNeverWritesThroughALinkInImportedCode(t *testing.T) {
 	if len(made) != 1 || made[0] != "forgedir" || len(inside) != 0 {
 		t.Fatalf("setup wrote outside the repository: %v, forgedir %v", made, inside)
 	}
-	hub := filepath.Join(a.cfg.dataDir, "workspaces", "project-linked")
+	hub := a.projectRepoPath("linked")
 	if got := gitOut(t, hub, "show", "main:README.md"); got == "" {
 		t.Fatal("the written starter file was not committed")
 	}
@@ -312,7 +312,7 @@ func TestASetupFailureAfterTheFetchLeavesNoRepository(t *testing.T) {
 	if w.Code < 400 || !strings.Contains(w.Body.String(), "still has no repository") {
 		t.Fatalf("the failed setup: %d %s", w.Code, w.Body.String())
 	}
-	hub := filepath.Join(a.cfg.dataDir, "workspaces", "project-flaky")
+	hub := a.projectRepoPath("flaky")
 	if _, err := os.Stat(hub); !os.IsNotExist(err) {
 		t.Fatalf("the failed setup left the history: %v", err)
 	}

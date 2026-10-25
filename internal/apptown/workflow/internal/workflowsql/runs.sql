@@ -346,3 +346,9 @@ RETURNING runs;
 
 -- Every run still open anywhere, for an operation that must wait for none
 -- (the AppTown rename's upgrade).
+
+-- name: LayoutWorkspaceOwners :many
+SELECT id,project_id,'change'::text AS kind FROM changes
+UNION ALL
+SELECT id,project_id,'run'::text AS kind FROM runs
+ORDER BY kind,id;

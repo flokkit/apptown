@@ -37,7 +37,7 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 	}
 	// main runs a committed contract that keeps data: what it holds is read
 	// from the release it runs.
-	ws := filepath.Join(a.cfg.dataDir, "workspaces", "project-game")
+	ws := a.projectRepoPath("game")
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}

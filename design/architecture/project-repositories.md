@@ -2,9 +2,9 @@
 
 `project.RepositoryRef` is an identified project UUID and its stored address.
 Its `Path` method owns the hub layout:
-`<data>/workspaces/project-<slug>`. A project record's `Repository` method
-uses the same locator. Missing identity and invalid address shape are errors;
-location calculation does not create or inspect a directory.
+`<data>/workspaces/project-<UUID>`. A project record's `Repository` method
+uses the same locator. Missing identity is an error; the stored address does not select a path.
+Location calculation does not create or inspect a directory.
 
 The reference is a projection of an owner read, not authorization or proof that
 an arbitrary UUID/address pair belongs together. Callers retain their existing
@@ -40,7 +40,7 @@ not just calls to the locator.
 
 | Location or record | Writer and reader | Boundary |
 | --- | --- | --- |
-| Project hub directory | `projectlifecycle` initialization, seed, copy and purge; repository edits, source reads, exports, Git transport and deployments | Located by project UUID plus stored address through the owner; current layout is address-based. |
+| Project hub directory | `projectlifecycle` initialization, seed, copy and purge; repository edits, source reads, exports, Git transport and deployments | Located by immutable project UUID through the owner; display/address changes do not move its hub. |
 | Change/run workspace directories | `workflow.GitWorkspace`, workflow sources, console admission and execution | Separate `change-<UUID>` and `run-<UUID>` identities; a hub is not a substitute for a writing workspace. |
 | Current workspace Git metadata | `workflow/workspace_git.go`, `gitexec/folder.go` | Full `--no-hardlinks` clones; origin is removed after clone. Hardened folder reads refuse gitdir/commondir pointers and alternates. Ordinary current clones do not borrow their hub's objects or retain its origin. |
 | Legacy linked-worktree metadata and local origins | Existing Git directories, read by Git when explicitly selected | Pointer files, hub `worktrees` metadata and local origin/alternate paths can retain absolute locations. They are distinct from today's standalone-clone contract; a location change must inspect them without pruning or discarding dirty work. Remote HTTPS/SSH origins are upstream attachment identity. |
@@ -54,5 +54,33 @@ not just calls to the locator.
 
 Historical log messages, human-facing labels and completed receipts are evidence,
 not automatically active filesystem references. Local hub ownership, an upstream
-repository attachment, and a deployed app's serving address are distinct. This
-location boundary changes neither the current layout nor any of those addresses.
+repository attachment, and a deployed app's serving address are distinct. Local repository relocation does not rename upstream repositories or change application addresses.
+
+## Offline layout transition
+
+Layout 2 uses UUID hub directories. The daemon validates the layout marker before
+startup effects, takes its database exclusion, opens the supported schema, and
+runs `datalayout.Upgrade` before constructing the application. Verify-only startup
+performs this required transition too; application recovery, workers and
+scheduling remain disabled. Password reset does not hold the exclusion and
+refuses any incomplete layout transition.
+
+The journal binds project ownership, source/destination paths and content digests.
+All hub sources are staged before any destination is installed, including address
+cycles. Missing initialized hubs refuse; uninitialized and irreversible deletion
+ownership can preserve an intentional absence. Writer observation includes console
+sidecars/scripts and recorded task backends. Unknown ownership, unavailable
+observation, active writers and immutable task requests retaining affected local
+inputs refuse before relocation. Task requests and backend-owned workspace keys
+are never rewritten.
+
+The transition preserves dirty/staged/untracked working files. Identified linked
+Git metadata and same-project borrowed objects are staged into independent
+metadata; unsupported configuration or foreign dependencies refuse. Original
+metadata remains in a journal-owned evidence directory. Active publication and
+console paths use exact old/new updates; remote HTTPS/SSH origins and historical
+console records stay unchanged. Completion verifies main commits and destination
+repositories before writing layout 2. A completed journal remains until any
+restore continuation settles, then finalization records its receipt and removes
+active migration journals. Rollback uses the paired database/data backup, not an
+old binary against a partly relocated directory.

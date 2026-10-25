@@ -32,10 +32,10 @@ func TestADeploymentsProfileIsChosenFromEitherFileAndReturnsToDefault(t *testing
 	dir := t.TempDir()
 	secrets := secret.NewService(db, secret.Config{DataDir: dir})
 	projects := project.New(db, nil)
-	httpTestProject(t, db, "p", "Project")
+	projectID := httpTestProject(t, db, "p", "Project")
 	h := NewSecrets(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), projects,
 		listedDeployments{{Name: "cloud", Kind: deployment.Standing}, {Name: "copy", Kind: deployment.Restored}}, db, dir, nil)
-	repo := filepath.Join(dir, "workspaces", "project-p", ".apptown")
+	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String(), ".apptown")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}

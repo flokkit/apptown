@@ -131,7 +131,7 @@ func newWorldWith(t *testing.T, previews preview.Worker) world {
 		t.Fatal(err)
 	}
 	projects := project.New(db, identity.Scoped(accounts, "project"))
-	hub := filepath.Join(dataDir, "workspaces", "project-game")
+	hub := filepath.Join(dataDir, "workspaces", "project-"+id.String())
 	if err := scm.InitializeRepository(t.Context(), hub, "main"); err != nil {
 		t.Fatal(err)
 	}

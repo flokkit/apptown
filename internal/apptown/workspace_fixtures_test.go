@@ -65,7 +65,11 @@ func publishChangeWorkForTest(t *testing.T, a *App, source workflow.MergeSource,
 
 // Independent witness for the current installation layout.
 func (a *App) projectRepoPath(slug string) string {
-	return filepath.Join(a.cfg.dataDir, "workspaces", "project-"+slug)
+	owner, err := a.Projects.BySlug(context.Background(), slug)
+	if err != nil {
+		panic(fmt.Sprintf("test repository owner %s: %v", slug, err))
+	}
+	return filepath.Join(a.cfg.dataDir, "workspaces", "project-"+owner.ID.String())
 }
 
 // requireLocation keeps error-bearing location reads explicit in test expressions.

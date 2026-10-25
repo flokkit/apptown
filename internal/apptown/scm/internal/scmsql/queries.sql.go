@@ -320,6 +320,39 @@ func (q *Queries) RecordedMain(ctx context.Context, projectID ids.ID) (ProjectMa
 	return i, err
 }
 
+const relocatePublication = `-- name: RelocatePublication :execrows
+UPDATE branch_publications SET repository=$1
+WHERE id=$2 AND project_id=$3
+ AND branch=$4 AND expected=$5 AND proposed=$6
+ AND repository IN ($7,$1)
+`
+
+type RelocatePublicationParams struct {
+	Destination string
+	ID          ids.ID
+	ProjectID   ids.ID
+	Branch      string
+	Expected    string
+	Proposed    string
+	Source      string
+}
+
+func (q *Queries) RelocatePublication(ctx context.Context, arg RelocatePublicationParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, relocatePublication,
+		arg.Destination,
+		arg.ID,
+		arg.ProjectID,
+		arg.Branch,
+		arg.Expected,
+		arg.Proposed,
+		arg.Source,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const removeMerge = `-- name: RemoveMerge :execrows
 DELETE FROM run_merges WHERE run_id=$1 AND state=$2 AND operation=$3 AND expected=$4 AND result=$5
 `

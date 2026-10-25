@@ -78,7 +78,7 @@ func TestARestartThatCannotRemoveThePreviewStops(t *testing.T) {
 func TestAFailedPreparationLeavesTheServedSnapshotAlone(t *testing.T) {
 	t.Parallel()
 	s, _, client, dir, projectID := previewBootWorld(t, "")
-	repo := filepath.Join(dir, "workspaces", "project-p")
+	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String())
 	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -20,8 +20,8 @@ func TestSourcePackagedSignals(t *testing.T) {
 	dataDir := t.TempDir()
 	h := NewProjectViews(project.New(db, nil), nil, nil, nil, execution.Runner{}, scm.NewBranches(db, &scm.RepositoryLocks{}), dataDir)
 
-	httpTestProject(t, db, "src", "S")
-	repo := filepath.Join(dataDir, "workspaces", "project-src")
+	sourceID := httpTestProject(t, db, "src", "S")
+	repo := filepath.Join(dataDir, "workspaces", "project-"+sourceID.String())
 	_ = os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755)
 	_ = os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte("app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"), 0o644)
 
@@ -45,8 +45,8 @@ func TestSourcePackagedSignals(t *testing.T) {
 
 	// A static declaration already names its complete source; the release
 	// renderer packages it with the same file server as a local preview.
-	httpTestProject(t, db, "st", "T")
-	repo2 := filepath.Join(dataDir, "workspaces", "project-st")
+	staticID := httpTestProject(t, db, "st", "T")
+	repo2 := filepath.Join(dataDir, "workspaces", "project-"+staticID.String())
 	_ = os.MkdirAll(filepath.Join(repo2, ".apptown"), 0o755)
 	_ = os.WriteFile(filepath.Join(repo2, ".apptown", "app.yaml"), []byte("app:\n  web:\n    static: .\n    public: true\n"), 0o644)
 	var out2 struct {
