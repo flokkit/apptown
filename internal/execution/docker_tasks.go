@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -310,16 +309,12 @@ func (d DockerTasks) DataDisk(ctx context.Context) (root string, space diskspace
 	if d.ToolVersions != nil {
 		image = d.ToolVersions.Current().Images.DF
 	}
-	space, err = diskspace.ReadThroughDocker(ctx, d.dockerApart, image, root, clock.Or(d.Now), reportDiskRead)
+	space, err = diskspace.ReadThroughDocker(ctx, d.dockerApart, image, root, clock.Or(d.Now))
 	if err != nil {
 		return root, space, fmt.Errorf("reading its disk: %w", err)
 	}
 	return root, space, nil
 }
-
-// reportDiskRead logs what a disk read reports beside its answer (a
-// result file whose answer its log lacks).
-func reportDiskRead(s string) { log.Print(s) }
 
 // dockerApart is one docker call with its stdout and stderr kept apart, so
 // a disk read's error can say which said what.

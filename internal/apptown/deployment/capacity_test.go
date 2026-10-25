@@ -11,7 +11,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -363,6 +362,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	d.SetHostInfo(8<<30, 8, "/var/lib/docker")
 	statsFail := false
 	dfRuns := 0
+	d.SetDisk(1000000*1024, 50000*1024)
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
 		case len(args) > 1 && args[0] == "ps" && args[1] == "-q":
@@ -377,11 +377,9 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 				return []byte("cannot connect"), fmt.Errorf("exit 1"), true
 			}
 			return []byte("apptown-env-p-prod\t100MiB / 512MiB\napptown-svc-env-p-prod-postgres\t30MiB / 8GiB\ntraefik\t20MiB / 256MiB\nodd\t1MiB / 8GiB\n"), nil, true
-		case dockerfake.IsDiskRead(args):
-			if diskspacetest.Step(args) == "create" {
-				dfRuns++
-			}
-			return dockerfake.DiskReadAnswer(args, "Filesystem 1024-blocks Used Available Capacity Mounted on\nrpool/docker 1000000 950000 50000 95% /d\n"), nil, true
+		case diskspacetest.IsCreate(args):
+			dfRuns++
+			return nil, nil, false
 		}
 		return nil, nil, false
 	})

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"os"
 	"reflect"
 	"regexp"
@@ -21,6 +22,7 @@ import (
 
 // recordingClient records every Docker command, and answers ports.
 type recordingClient struct {
+	disk  diskspacetest.Daemon
 	mu    sync.Mutex
 	calls []string
 }
@@ -29,8 +31,8 @@ func (c *recordingClient) Run(_ context.Context, _ string, req Command) ([]byte,
 	c.mu.Lock()
 	c.calls = append(c.calls, strings.Join(req.Args, " "))
 	c.mu.Unlock()
-	if out, ok := roomyDisk(req.Args); ok {
-		return out, nil
+	if out, err, ok := c.disk.Roomy(req.Args); ok {
+		return out, err
 	}
 	args := req.Args
 	if len(args) > 1 && args[0] == "--config" {
@@ -319,14 +321,14 @@ func normalised(calls []string) string {
 	created := regexp.MustCompile(regexp.QuoteMeta(dockerlabel.Created) + `=\S+`)
 	// A disk read names its container afresh each time and stamps its
 	// deadline from the clock.
-	probe := regexp.MustCompile(`apptown-disk-probe-[0-9a-f]+|apptown\.deadline=\d+`)
+	probe := regexp.MustCompile(`apptown-result-[0-9a-f]+|apptown\.deadline=\d+`)
 	config := regexp.MustCompile(`^--config \S+ `)
 	var out []string
 	for _, call := range calls {
 		if call == "context show" {
 			continue // a prepared boot asks, for its own configuration
 		}
-		words := strings.Fields(probe.ReplaceAllString(created.ReplaceAllString(config.ReplaceAllString(call, ""), dockerlabel.Created), "disk-probe"))
+		words := strings.Fields(probe.ReplaceAllString(created.ReplaceAllString(config.ReplaceAllString(call, ""), dockerlabel.Created), "result"))
 		sort.Strings(words)
 		out = append(out, strings.Join(words, " "))
 	}

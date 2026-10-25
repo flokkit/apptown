@@ -103,7 +103,7 @@ func TestBootFailureCarriesItsPhase(t *testing.T) {
 		if args[0] == "inspect" && args[len(args)-1] == docker.PreviewChangeName(idstest.N(9)) && strings.Contains(strings.Join(args, " "), "Running") {
 			return []byte("false\n"), nil, true
 		}
-		if args[0] == "logs" && !dockerfake.IsDiskRead(args) {
+		if args[0] == "logs" && !client.IsDiskRead(args) {
 			return []byte("panic: no DATABASE_URL\n"), nil, true
 		}
 		return nil, nil, false

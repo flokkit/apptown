@@ -14,6 +14,7 @@ import (
 // blockingClient is a Docker whose named commands run until they are
 // stopped; the rest answer as the recording client does.
 type blockingClient struct {
+	client  recordingClient
 	blocks  string // the command that blocks: "build", "run", …
 	entered chan struct{}
 	calls   atomic.Int32
@@ -33,7 +34,7 @@ func (c *blockingClient) Run(ctx context.Context, host string, req Command) ([]b
 		<-ctx.Done()
 		return nil, ctx.Err()
 	}
-	return (&recordingClient{}).Run(ctx, host, req)
+	return c.client.Run(ctx, host, req)
 }
 
 // A command through a scope with a lifetime is stopped when the lifetime

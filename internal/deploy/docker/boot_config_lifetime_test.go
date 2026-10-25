@@ -11,6 +11,7 @@ import (
 )
 
 type reviewBlockedBuild struct {
+	client  recordingClient
 	entered chan string
 	resume  chan struct{}
 }
@@ -26,7 +27,7 @@ func (c *reviewBlockedBuild) Run(ctx context.Context, host string, req Command) 
 		c.entered <- config
 		<-c.resume
 	}
-	return (&recordingClient{}).Run(ctx, host, req)
+	return c.client.Run(ctx, host, req)
 }
 
 // Advance only the config's age while the real Host.Boot call is still in
@@ -47,7 +48,14 @@ func TestAnotherBootNeverRemovesARunningBootsConfiguration(t *testing.T) {
 		}, c)
 		finished <- err
 	}()
-	config := <-client.entered
+	var config string
+	select {
+	case config = <-client.entered:
+	case err := <-finished:
+		t.Fatalf("boot ended before reaching build: %v", err)
+	case <-t.Context().Done():
+		t.Fatal(t.Context().Err())
+	}
 	old := time.Now().Add(-3 * time.Hour)
 	if err := os.Chtimes(config, old, old); err != nil {
 		t.Fatal(err)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"slices"
 	"strings"
 	"testing"
@@ -19,6 +20,7 @@ import (
 
 // fakeDaemon answers the few questions the driver asks a Docker daemon.
 type fakeDaemon struct {
+	disk    diskspacetest.Daemon
 	calls   [][]string
 	exists  bool
 	running bool
@@ -30,8 +32,8 @@ type fakeDaemon struct {
 
 func (f *fakeDaemon) Run(_ context.Context, _ string, req Command) ([]byte, error) {
 	f.calls = append(f.calls, req.Args)
-	if out, ok := roomyDisk(req.Args); ok {
-		return out, nil
+	if out, err, ok := f.disk.Roomy(req.Args); ok {
+		return out, err
 	}
 	args := req.Args
 	switch {
@@ -391,7 +393,7 @@ func TestARecordedBootWithAMissingImageChangesNothing(t *testing.T) {
 		t.Fatalf("a missing recorded image: %v", err)
 	}
 	for _, args := range fake.args {
-		if args[0] != "image" && !diskRead(args) {
+		if args[0] != "image" && !fake.disk.IsRead(args) {
 			t.Fatalf("a boot whose image is missing ran %v", args)
 		}
 	}

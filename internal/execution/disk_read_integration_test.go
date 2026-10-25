@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"github.com/flokkit/apptown/stock"
@@ -22,15 +23,14 @@ import (
 // taken from docker run's attached stream, then from docker logs) came
 // back empty with exit 0 a few times in CI; that loss was not reproduced
 // in 13,400 runs on three daemons here, so this loop shows the file read
-// holds under load rather than that the old one fails. A log that
-// disagrees with its file is logged, not failed: it is the loss itself.
+// holds under load rather than that the old one fails.
 func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 	const reads, readers, loaders = 300, 16, 8
 	ctx := t.Context()
 	var mu sync.Mutex
 	var names []string
 	dk := func(ctx context.Context, args ...string) (string, string, error) {
-		if diskspacetest.Step(args) == "create" {
+		if diskspacetest.IsCreate(args) {
 			mu.Lock()
 			names = append(names, args[2]) // create --name <name>
 			mu.Unlock()
@@ -65,7 +65,7 @@ func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 	for range readers {
 		readersDone.Go(func() {
 			for next.Add(1) <= reads {
-				space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, root, time.Now, func(r string) { t.Log(r) })
+				space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, root, time.Now)
 				if err == nil && space.TotalBytes <= 0 {
 					err = errors.New("an empty filesystem")
 				}
@@ -86,7 +86,7 @@ func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 	if len(names) != reads {
 		t.Fatalf("%d reads made %d containers", reads, len(names))
 	}
-	out, _, err := dk(ctx, "ps", "-a", "--filter", "label=apptown.class="+diskspace.ProbeClass, "--format", "{{.Names}}")
+	out, _, err := dk(ctx, "ps", "-a", "--filter", "label=apptown.class="+containerresult.Class, "--format", "{{.Names}}")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,8 +103,7 @@ func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 
 // A real probe container's result file is the answer even when its log
 // comes back empty (a stand-in that drops what docker logs prints): the
-// copy out of the exited container carries it, and the disagreement is
-// reported.
+// copy out of the exited container carries it. Logs are not an answer.
 func TestIntegrationADiskReadAnswersFromItsFileWhenTheLogIsEmpty(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
@@ -113,7 +112,7 @@ func TestIntegrationADiskReadAnswersFromItsFileWhenTheLogIsEmpty(t *testing.T) {
 		cmd := exec.CommandContext(ctx, "docker", args...)
 		cmd.Stdout, cmd.Stderr = &stdout, &stderr
 		err := cmd.Run()
-		if diskspacetest.Step(args) == "logs" {
+		if args[0] == "logs" {
 			return "", "", err
 		}
 		return stdout.String(), stderr.String(), err
@@ -122,12 +121,9 @@ func TestIntegrationADiskReadAnswersFromItsFileWhenTheLogIsEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var reports []string
-	space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, strings.TrimSpace(root), time.Now, func(r string) { reports = append(reports, r) })
+	space, err := diskspace.ReadThroughDocker(ctx, dk, stock.Images().DF, strings.TrimSpace(root), time.Now)
 	if err != nil || space.TotalBytes <= 0 {
 		t.Fatalf("read %+v, %v", space, err)
 	}
-	if len(reports) != 1 || !strings.Contains(reports[0], "not in what docker logs returned") || !strings.Contains(reports[0], "docker client ") {
-		t.Fatalf("reports: %q", reports)
-	}
+
 }

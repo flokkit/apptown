@@ -12,7 +12,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 )
 
 // credentialNeed is a catalog whose Postgres was given a generated
@@ -68,7 +67,8 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			client := &fakeClient{reply: func(req Command) ([]byte, error) {
+			client := &fakeClient{}
+			client.reply = func(req Command) ([]byte, error) {
 				line := strings.Join(req.Args, " ")
 				switch {
 				case tc.init != "" && strings.Contains(line, "--name "+Current.Init("pvcreds", "migrate")):
@@ -77,13 +77,13 @@ func TestABootsFailureNeverHoldsTheNeedsGeneratedCredentials(t *testing.T) {
 					return []byte("healthy\n"), nil
 				case len(req.Args) > 0 && req.Args[0] == "port":
 					return []byte("127.0.0.1:" + port + "\n"), nil
-				case len(req.Args) > 0 && req.Args[0] == "logs" && diskspacetest.Step(req.Args) == "":
+				case len(req.Args) > 0 && req.Args[0] == "logs" && !client.disk.IsRead(req.Args):
 					return []byte(tc.logs), nil
 				case len(req.Args) > 0 && req.Args[0] == "image":
 					return []byte("\n"), nil
 				}
 				return nil, nil
-			}}
+			}
 			c, err := appcontract.Parse([]byte("app:\n  web:\n    image: app:1\n    ports: [\"8080\"]\n    public: true\ninit:\n  - name: migrate\n    image: app:1\n    command: [\"migrate\"]\nneeds:\n  postgres: {}\n"))
 			if err != nil {
 				t.Fatal(err)

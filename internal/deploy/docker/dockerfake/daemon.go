@@ -43,6 +43,7 @@ type Daemon struct {
 	port              int
 	reply             func([]string) ([]byte, error, bool)
 	results           *containerresulttest.Daemon
+	diskResults       diskspacetest.Daemon
 	commandReply      func(docker.Command) ([]byte, error, bool)
 	configs           []string              // each command's --config, "" for the ambient one
 	published         map[string]*published // nil: every container answers at port (PublishPorts)
@@ -255,7 +256,7 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if len(args) == 0 {
 		return nil, nil
 	}
-	if d.results != nil {
+	if d.results != nil && !d.diskResults.Owns(args) && !diskspacetest.IsCreate(args) {
 		if out, err, ok := d.results.RunEnv(args, req.Env); ok {
 			return out, err
 		}
@@ -453,8 +454,11 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		}
 		return []byte("sha256:built\n"), nil
 	}
-	if IsDiskRead(args) {
-		return DiskReadAnswer(args, d.disk), nil
+	if d.diskResults.Answer == nil {
+		d.diskResults.Answer = func() containerresulttest.Answer { return containerresulttest.Answer{Answer: []byte(d.disk)} }
+	}
+	if out, err, ok := d.diskResults.Run(args); ok {
+		return out, err
 	}
 	if args[0] == "info" && len(args) == 3 && args[2] == "{{.ID}}" {
 		return []byte("fake-daemon"), nil
@@ -645,52 +649,8 @@ func dfLines(total, free int64) string {
 	return fmt.Sprintf("Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data %d %d %d 10%% /d\n", total>>10, (total-free)>>10, free>>10)
 }
 
-// RoomyDisk answers the disk admission's reads (docker.AdmitDisk: docker
-// info's data folder, and each call of a df container's read,
-// diskspace.ReadThroughDocker) as a daemon with room does; ok is false for
-// any other command. A test's own scripted client asks it first.
-func RoomyDisk(args []string) ([]byte, bool) {
-	if len(args) > 1 && args[0] == "--config" {
-		args = args[2:]
-	}
-	switch {
-	case len(args) == 3 && args[0] == "info" && strings.Contains(args[2], "DockerRootDir"):
-		return []byte("8589934592\t8\t/var/lib/docker\n"), true
-	case IsDiskRead(args):
-		return DiskReadAnswer(args, dfLines(100<<30, 90<<30)), true
-	}
-	return nil, false
-}
-
-// IsDiskRead says args is one call of the disk read's throwaway container
-// (diskspace.ProbeStep), which leaves nothing on the host.
-func IsDiskRead(args []string) bool {
-	if len(args) > 1 && args[0] == "--config" {
-		args = args[2:]
-	}
-	return diskspacetest.Step(args) != ""
-}
-
-// DiskReadAnswer is what a daemon answers to the disk read's call args when
-// its df prints df: the exit code to its wait, df's result files to its cp
-// (written where cp copies to), df to its logs, nothing to the rest (no
-// leftover probes to sweep).
-func DiskReadAnswer(args []string, df string) []byte {
-	if len(args) > 1 && args[0] == "--config" {
-		args = args[2:]
-	}
-	switch diskspacetest.Step(args) {
-	case "cp":
-		if _, err := diskspacetest.WriteResult(args, df, "", "0"); err != nil {
-			return []byte(err.Error())
-		}
-	case "wait":
-		return []byte("0\n")
-	case "logs":
-		return []byte(df)
-	}
-	return nil
-}
+// IsDiskRead identifies this daemon's disk commands, including completed reads.
+func (d *Daemon) IsDiskRead(args []string) bool { return d.diskResults.IsRead(args) }
 
 // setVolume changes incarnation only when an absent volume is created.
 func (d *Daemon) setVolume(name string, exists bool) {

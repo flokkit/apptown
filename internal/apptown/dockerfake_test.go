@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"slices"
 	"strings"
 	"sync"
@@ -28,6 +29,7 @@ import (
 // boot and reaper tests assert the recorded sequence: the argv order IS the
 // behaviour.
 type fakeDocker struct {
+	disk              diskspacetest.Daemon
 	command           dockerClientFunc
 	mu                sync.Mutex
 	calls             [][]string
@@ -118,15 +120,17 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 	// The disk admission's df container is a read of a host with room
 	// unless the test scripts it; it is not recorded with the commands the
 	// sequence tests compare.
-	if dockerfake.IsDiskRead(args) && !(len(args) > 0 && args[0] == "image") {
+	if f.disk.IsRead(args) || diskspacetest.IsCreate(args) {
 		if f.reply != nil {
 			if out, err, ok := f.reply(args); ok {
 				return []byte(out), err
 			}
 		}
-		out, _ := dockerfake.RoomyDisk(args)
-		return out, nil
+		if out, err, ok := f.disk.Run(args); ok {
+			return out, err
+		}
 	}
+
 	f.mu.Lock()
 	// A container is named by the ID its create printed as by its name:
 	// the fake keeps state by name.

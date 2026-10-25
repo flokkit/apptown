@@ -344,7 +344,7 @@ func (h *digestHosts) built(target string) []string {
 func (h *digestHosts) ran(target string) []string {
 	var out []string
 	for _, args := range h.daemon(target).Commands() {
-		if c := strings.Join(args, " "); strings.HasPrefix(c, "run ") && !dockerfake.IsDiskRead(args) {
+		if c := strings.Join(args, " "); strings.HasPrefix(c, "run ") && !h.daemon(target).IsDiskRead(args) {
 			out = append(out, c)
 		}
 	}
