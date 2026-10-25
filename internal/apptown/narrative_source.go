@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -22,7 +21,7 @@ func narrativeDiff(ctx context.Context, dataDir string, source workflow.Narrativ
 	if err != nil {
 		return narrativeEvidence{}, err
 	}
-	workspace := filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	workspace := (workflow.Layout{DataDir: dataDir}).ChangeWorkspace(ch.ID)
 	repo, err := scm.ComparisonRepository(ctx, hub, workspace)
 	if err != nil {
 		return narrativeEvidence{}, err

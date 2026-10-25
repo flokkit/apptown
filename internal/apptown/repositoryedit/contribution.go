@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -164,7 +163,7 @@ func (c *Contributions) Checkout(ctx context.Context, changeID ids.ID) (Checkout
 // under a grant the request takes and at once releases. Another holder that
 // has not ended refuses the checkout.
 func (c *Contributions) publishFolder(ctx context.Context, p *project.Project, ch *workflow.Change, hub string) error {
-	ws := filepath.Join(c.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	ws := (workflow.Layout{DataDir: c.dataDir}).ChangeWorkspace(ch.ID)
 	if !gitexec.IsRepo(ws) {
 		return nil
 	}
@@ -218,7 +217,7 @@ func (c *Contributions) Sync(ctx context.Context, changeID ids.ID, pushed, expec
 		return SyncedRevision{}, contributionRefusal("the hub's %s is %s, not %s: the push did not arrive, or another writer moved it; fetch and look", ch.Branch, strs.ShortSHA(hubTip), strs.ShortSHA(pushed))
 	}
 	// Preparing a missing folder takes the repository lock itself.
-	ws := filepath.Join(c.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	ws := (workflow.Layout{DataDir: c.dataDir}).ChangeWorkspace(ch.ID)
 	if !gitexec.IsRepo(ws) {
 		if err := c.work.PrepareWorkspace(ctx, ch.ID); err != nil {
 			return SyncedRevision{}, contributionRefusal("the workspace could not be prepared: %v", err)
@@ -379,7 +378,7 @@ func changePatch(ctx context.Context, dataDir string, p *project.Project, ch *wo
 		return "", err
 	}
 	repo := hub
-	if ws := filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID)); ch.BaseSHA != "" && gitexec.IsRepo(ws) {
+	if ws := (workflow.Layout{DataDir: dataDir}).ChangeWorkspace(ch.ID); ch.BaseSHA != "" && gitexec.IsRepo(ws) {
 		repo = ws
 	}
 	if _, err := gitexec.Run(ctx, repo, "rev-parse", "--verify", ch.Branch); err != nil {

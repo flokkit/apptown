@@ -43,6 +43,9 @@ func (l Layout) Repository(ref project.RepositoryRef) (string, error) {
 func (l Layout) ChangeWorkspace(changeID ids.ID) string {
 	return filepath.Join(l.DataDir, "workspaces", fmt.Sprintf("change-%d", changeID))
 }
+func (l Layout) RunWorkspace(runID ids.ID) string {
+	return filepath.Join(l.DataDir, "workspaces", fmt.Sprintf("run-%d", runID))
+}
 
 // GitWorkspace receives execution and repository location as values. Its commands
 // are bounded and cancellation reaches the process group via execution.Runner.

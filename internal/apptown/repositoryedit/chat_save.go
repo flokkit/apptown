@@ -176,7 +176,7 @@ func SaveChat(ctx context.Context, db *database.DB, dataDir string, branches *sc
 	// The change's views read the branch while the folder lacks this save
 	// (scm.Behind): recorded before publishing, so a save the folder cannot
 	// take is never shown as the folder's older work.
-	folder := filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	folder := (workflow.Layout{DataDir: dataDir}).ChangeWorkspace(ch.ID)
 	// The folder's lock is held from the record to the fast-forward, as a
 	// step holds it: neither writes the folder while the other checks it.
 	held := gitexec.LockFolder(folder)

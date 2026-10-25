@@ -230,7 +230,7 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 			}
 		}
 		// The change's own folder, borrowed: it stays when the chat ends.
-		req.Workspace = console.Workspace{Path: filepath.Join(c.dataDir, "workspaces", fmt.Sprintf("change-%d", change.ID)), Writable: true}
+		req.Workspace = console.Workspace{Path: (workflow.Layout{DataDir: c.dataDir}).ChangeWorkspace(change.ID), Writable: true}
 		req.Docker = true
 	} else {
 		root := filepath.Join(c.dataDir, "console")

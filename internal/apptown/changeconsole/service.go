@@ -125,7 +125,7 @@ func (c *Service) Rehearse(ctx context.Context, s *console.Session) {
 			}
 			continue // a landing may come back to in_progress
 		}
-		ws := filepath.Join(c.dataDir, "workspaces", fmt.Sprintf("change-%d", conversation.Of(s).ChangeID))
+		ws := (workflow.Layout{DataDir: c.dataDir}).ChangeWorkspace(conversation.Of(s).ChangeID)
 		if _, err := docker.ReadWorkspaceContract(ws); err == docker.ErrNoContract {
 			continue // nothing claims to be runnable; the steering owns that nudge
 		}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -22,7 +21,7 @@ import (
 // A branch that moved elsewhere, or a holder that no longer holds it,
 // refuses the publication; the folder keeps its work.
 func (a *Preparation) PublishChangeFolder(ctx context.Context, p *project.Project, ch *workflow.Change, holder string) ([]string, error) {
-	ws := filepath.Join(a.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	ws := (workflow.Layout{DataDir: a.dataDir}).ChangeWorkspace(ch.ID)
 	if !gitexec.IsRepo(ws) || ch.Branch == "" {
 		return nil, nil
 	}

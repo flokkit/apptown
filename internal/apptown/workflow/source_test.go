@@ -24,7 +24,7 @@ func storeContinuationForTest(t *testing.T, db *database.DB, source, run ids.ID)
 
 func TestWorkflowSourcePreservesWorkspacePathsAndBatchesFacts(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []string{"repository change", "repository run", "project", "run", "continued", "continued child"} {
+	for _, mode := range []string{"repository change", "repository run", "repository landing", "project", "run", "continued", "continued child"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 			q, run, _ := activityFixture(t)
@@ -43,6 +43,13 @@ func TestWorkflowSourcePreservesWorkspacePathsAndBatchesFacts(t *testing.T) {
 					t.Fatal(err)
 				}
 				run = insertStoredRun(t, store, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, WorkflowName: run.WorkflowName, WorkflowVersion: int64(run.WorkflowVersion), Kind: run.Kind, CurrentStage: run.CurrentStage, DefinitionJson: []byte(run.DefinitionJSON), Status: run.Status.String()})
+				origin, root = run.ID, run.ID
+				want = filepath.Join("/forge", "workspaces", fmt.Sprintf("run-%d", origin))
+			case "repository landing":
+				if err := project.New(store, nil).SetDefaultBranch(context.Background(), run.ProjectID, "trunk"); err != nil {
+					t.Fatal(err)
+				}
+				run = insertStoredRun(t, store, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: run.WorkflowName, WorkflowVersion: int64(run.WorkflowVersion), Kind: run.Kind, CurrentStage: run.CurrentStage, DefinitionJson: []byte(`{"role":"landing"}`), Status: run.Status.String()})
 				origin, root = run.ID, run.ID
 				want = filepath.Join("/forge", "workspaces", fmt.Sprintf("run-%d", origin))
 			case "project":
@@ -73,7 +80,7 @@ func TestWorkflowSourcePreservesWorkspacePathsAndBatchesFacts(t *testing.T) {
 				t.Fatalf("store change base: changed=%d %v", changed, err)
 			}
 			id := root
-			if mode == "continued child" || mode == "project" || mode == "repository change" {
+			if mode == "continued child" || mode == "project" || mode == "repository change" || mode == "repository landing" {
 				for range 2 {
 					child := insertStoredRun(t, store, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, WorkflowName: "child", WorkflowVersion: 1, Kind: "pipeline", CurrentStage: "finish", DefinitionJson: []byte(`{"workspace":"run"}`), Status: RunRunning.String(), ParentRunID: id})
 					changed, err := workflowsql.New(store.SQL()).SetRunWorkspaceBase(context.Background(), workflowsql.SetRunWorkspaceBaseParams{Tip: "child-base", RunID: child.ID, ProjectID: child.ProjectID, OldBaseSha: "", OldStatus: child.Status.String(), OldStage: child.CurrentStage, OldRevision: child.RetryRevision})

@@ -166,7 +166,7 @@ func (editor *Service) SetServices(ctx context.Context, p *project.Project, in S
 	// clone would otherwise be overwritten by bytes computed from older main.
 	// If main moved in that window, the
 	// Change is abandoned with the reason and the save refused.
-	wt := filepath.Join(editor.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	wt := (workflow.Layout{DataDir: editor.dataDir}).ChangeWorkspace(ch.ID)
 	if base, err := DeclarationVersion(wt); err != nil {
 		return nil, err
 	} else if base != *in.ExpectedDeclaration {

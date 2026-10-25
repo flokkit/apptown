@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
@@ -94,13 +93,13 @@ func (s Source) Workspace(dataDir string) (string, error) {
 	id := s.WorkspaceRunID
 	if s.RepoBacked() {
 		if !s.ChangeID.IsZero() && s.RootRole != "landing" {
-			return filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", s.ChangeID)), nil
+			return (Layout{DataDir: dataDir}).ChangeWorkspace(s.ChangeID), nil
 		}
 		id = s.RootRunID
 	} else if s.ProjectWorkspace {
 		return s.Repository(dataDir)
 	}
-	return filepath.Join(dataDir, "workspaces", fmt.Sprintf("run-%d", id)), nil
+	return (Layout{DataDir: dataDir}).RunWorkspace(id), nil
 }
 
 // RunTreeIn lists the runs of run's tree, its root and every run it called:

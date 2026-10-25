@@ -2,11 +2,10 @@ package apptown
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/tasks"
@@ -48,7 +47,7 @@ func (h holderPresence) FolderClear(ctx context.Context, changeID ids.ID) (bool,
 	if h.docker.Absent() {
 		return true, nil // no local Docker: nothing runs here, and nothing was left at its start
 	}
-	folder := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", changeID))
+	folder := (workflow.Layout{DataDir: h.dataDir}).ChangeWorkspace(changeID)
 	left, err := h.docker.RemoveLabelled(ctx, docker.WritesLabel+"="+folder)
 	if err != nil {
 		return false, err
