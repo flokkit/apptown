@@ -53,6 +53,9 @@ type Spec struct {
 	// Max bounds the answer, in bytes; 0 is DefaultMax. A larger answer is
 	// an error, never cut short.
 	Max int64
+	// Validate rejects an otherwise complete answer before its owned resources
+	// are removed. Nil accepts any present answer, including an empty one.
+	Validate func([]byte) error
 	// Now stamps a throwaway container's deadline; nil is the real clock.
 	Now func() time.Time
 }
@@ -135,7 +138,7 @@ func envFlags(env []string) []string {
 // its stop and no removal: the removal outlives the stop, so a read begun
 // after it would otherwise spend one on a container never made (a cache
 // sweep of hundreds of volumes held the daemon's shutdown that way).
-func Run(ctx context.Context, dk Docker, s Spec) ([]byte, error) {
+func Run(ctx context.Context, dk Docker, s Spec) (answer []byte, err error) {
 	now := clock.Or(s.Now)
 	sweep(ctx, dk, now())
 	name, err := randomName(Prefix)
@@ -146,6 +149,12 @@ func Run(ctx context.Context, dk Docker, s Spec) ([]byte, error) {
 		return nil, err
 	}
 	defer remove(ctx, dk, "rm", "-f", "-v", name)
+	started := now()
+	defer func() {
+		if err != nil && ctx.Err() == nil {
+			err = fmt.Errorf("%w; container %s after %s; %s", err, name, now().Sub(started).Round(time.Millisecond), evidence(ctx, dk, name))
+		}
+	}()
 	create := []string{"create", "--name", name,
 		"--label", dockerlabel.Class + "=" + Class,
 		"--label", dockerlabel.Deadline + "=" + strconv.FormatInt(now().Add(lifetime).Unix(), 10)}
@@ -171,13 +180,8 @@ func Run(ctx context.Context, dk Docker, s Spec) ([]byte, error) {
 		said, _ := dk(ctx, nil, "logs", name)
 		return nil, &ExitError{Code: code, Said: clip(string(said))}
 	}
-	answer, err := copyOut(ctx, dk, name, resultPath, limitOf(s))
-	if errors.Is(err, ErrNoResult) {
-		state, _ := dk(ctx, nil, "inspect", "--type", "container", "--format", "{{json .State}}", name)
-		said, _ := dk(ctx, nil, "logs", name)
-		return nil, fmt.Errorf("%w: container %s, state %s, log %q", err, name, clip(string(state)), clip(string(said)))
-	}
-	return answer, err
+	answer, err = copyOut(ctx, dk, name, resultPath, limitOf(s))
+	return validateAnswer(answer, err, s)
 }
 
 // RunIn runs s.Script in the running container and returns what it printed
@@ -211,7 +215,19 @@ func RunIn(ctx context.Context, dk Docker, container string, s Spec) ([]byte, er
 	if errors.Is(err, ErrNoResult) {
 		return nil, fmt.Errorf("%w in container %s", err, container)
 	}
-	return answer, err
+	return validateAnswer(answer, err, s)
+}
+
+func validateAnswer(answer []byte, err error, s Spec) ([]byte, error) {
+	if err != nil {
+		return nil, err
+	}
+	if s.Validate != nil {
+		if err := s.Validate(answer); err != nil {
+			return nil, fmt.Errorf("validating the answer: %w", err)
+		}
+	}
+	return answer, nil
 }
 
 func limitOf(s Spec) int64 {
@@ -268,7 +284,15 @@ func missing(out []byte) bool {
 // using is inside its deadline and is left. A sweep that fails changes
 // nothing about this read; the next one sweeps again.
 func sweep(ctx context.Context, dk Docker, now time.Time) {
-	out, err := dk(ctx, nil, "ps", "-a", "--filter", "label="+dockerlabel.Class+"="+Class,
+	// disk-probe is the predecessor owned by diskspace before result reads
+	// shared this lifecycle. Only its expired labelled containers are ours.
+	for _, class := range []string{Class, "disk-probe"} {
+		sweepClass(ctx, dk, now, class)
+	}
+}
+
+func sweepClass(ctx context.Context, dk Docker, now time.Time, class string) {
+	out, err := dk(ctx, nil, "ps", "-a", "--filter", "label="+dockerlabel.Class+"="+class,
 		"--format", `{{.ID}} {{.Label "`+dockerlabel.Deadline+`"}}`)
 	if err != nil {
 		return

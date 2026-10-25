@@ -110,7 +110,16 @@ func TestRunSweepsOnlyResultContainersPastTheirDeadline(t *testing.T) {
 	dk := func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 		switch {
 		case args[0] == "ps":
-			return []byte(fmt.Sprintf("old %d\nfresh %d\nunlabelled \n", now.Unix()-1, now.Unix()+60)), nil
+			class := ""
+			for _, arg := range args {
+				if strings.HasPrefix(arg, "label=apptown.class=") {
+					class = strings.TrimPrefix(arg, "label=apptown.class=")
+				}
+			}
+			if class != containerresult.Class && class != "disk-probe" {
+				t.Fatalf("sweeping unrelated class %q", class)
+			}
+			return []byte(fmt.Sprintf("%s-old %d\n%s-fresh %d\n%s-unlabelled \n", class, now.Unix()-1, class, now.Unix()+60, class)), nil
 		case args[0] == "rm" && !strings.HasPrefix(args[len(args)-1], containerresult.Prefix):
 			removed = append(removed, args[len(args)-1])
 			return nil, nil
@@ -120,7 +129,7 @@ func TestRunSweepsOnlyResultContainersPastTheirDeadline(t *testing.T) {
 	if _, err := containerresult.Run(context.Background(), dk, containerresult.Spec{Image: "busybox", Script: "true", Now: func() time.Time { return now }}); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(removed, " ") != "old unlabelled" {
+	if strings.Join(removed, " ") != "container-result-old container-result-unlabelled disk-probe-old disk-probe-unlabelled" {
 		t.Fatalf("swept %v; want the one past its deadline and the one with none, never one in use", removed)
 	}
 }

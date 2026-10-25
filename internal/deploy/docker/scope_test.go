@@ -3,8 +3,6 @@ package docker
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,6 +10,7 @@ import (
 )
 
 type fakeClient struct {
+	disk  diskspacetest.Daemon
 	hosts []string
 	args  [][]string
 	out   string
@@ -28,53 +27,12 @@ func (f *fakeClient) Run(_ context.Context, host string, req Command) ([]byte, e
 	}
 	// A fake not scripted for the disk admission's questions answers them
 	// as a daemon with room.
-	if roomy, ok := roomyDisk(req.Args); ok && err == nil && len(strings.TrimSpace(string(out))) == 0 {
-		return roomy, nil
+	if err == nil && len(strings.TrimSpace(string(out))) == 0 {
+		if roomy, diskErr, ok := f.disk.Roomy(req.Args); ok {
+			return roomy, diskErr
+		}
 	}
 	return out, err
-}
-
-// roomyDisk answers the disk admission's questions (AdmitDisk) as a daemon
-// with room does: docker info's data folder, and df of its filesystem. ok
-// is false for any other command. A test client that boots asks it first.
-func roomyDisk(args []string) ([]byte, bool) {
-	if len(args) > 1 && args[0] == "--config" {
-		args = args[2:]
-	}
-	switch {
-	case len(args) == 3 && args[0] == "info" && strings.Contains(args[2], "DockerRootDir"):
-		return []byte("8589934592\t8\t/var/lib/docker\n"), true
-	case diskspacetest.Step(args) != "":
-		return diskAnswer(args, "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/data 104857600 10485760 94371840 10% /d\n"), true
-	}
-	return nil, false
-}
-
-// diskAnswer is a daemon's answer to the disk read's call args when its df
-// prints df (dockerfake.DiskReadAnswer, which this package's tests cannot
-// import).
-func diskAnswer(args []string, df string) []byte {
-	switch diskspacetest.Step(args) {
-	case "cp":
-		if _, err := os.Stat(filepath.Join(args[2], "probe")); err == nil {
-			return nil // the test's own reply answered it
-		}
-		if _, err := diskspacetest.WriteResult(args, df, "", "0"); err != nil {
-			return []byte(err.Error())
-		}
-	case "wait":
-		return []byte("0\n")
-	case "logs":
-		return []byte(df)
-	}
-	return nil
-}
-
-// diskRead says args is one of the disk admission's reads, which change
-// nothing: a test that a boot changed nothing passes over them.
-func diskRead(args []string) bool {
-	_, ok := roomyDisk(args)
-	return ok
 }
 
 // A scope names the daemon a command talks to: AppTown's own, or an

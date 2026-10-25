@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -22,7 +23,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -53,6 +53,7 @@ func TestALandedChangePreviewsItsLandedCommitAndAnOpenOneItsFolder(t *testing.T)
 	port, _ := strconv.Atoi(parsed.Port())
 	var mu sync.Mutex
 	var calls []string
+	var disk diskspacetest.Daemon
 	started := false
 	scope := docker.Scope{Client: dockerClientFunc(func(_ context.Context, _ string, c docker.Command) ([]byte, error) {
 		mu.Lock()
@@ -63,8 +64,8 @@ func TestALandedChangePreviewsItsLandedCommitAndAnOpenOneItsFolder(t *testing.T)
 		}
 		line := strings.Join(args, " ")
 		calls = append(calls, line)
-		if out, ok := dockerfake.RoomyDisk(args); ok {
-			return out, nil
+		if out, err, ok := disk.Roomy(args); ok {
+			return out, err
 		}
 		switch args[0] {
 		case "run":

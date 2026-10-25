@@ -11,7 +11,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // mainOf lands b on "main" on lab, as the deploy step of the landing that
@@ -365,7 +364,7 @@ func TestAReleaseToAHostShortOfDiskChangesNothingThere(t *testing.T) {
 		t.Fatalf("a release to a host short of disk: %s %v", rel.State, err)
 	}
 	for _, c := range w.hosts.commands("lab")[before:] {
-		if !strings.HasPrefix(c, "info") && !dockerfake.IsDiskRead(strings.Fields(c)) && !strings.HasPrefix(c, "inspect") && !strings.HasPrefix(c, "ps") {
+		if !strings.HasPrefix(c, "info") && !daemon.IsDiskRead(strings.Fields(c)) && !strings.HasPrefix(c, "inspect") && !strings.HasPrefix(c, "ps") {
 			t.Errorf("the host was asked %q after the refusal", c)
 		}
 	}

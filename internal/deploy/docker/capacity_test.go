@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"slices"
 	"strings"
 	"testing"
@@ -358,7 +359,7 @@ func TestABootRefusesAPartLargerThanItsHost(t *testing.T) {
 		t.Fatalf("an oversized boot: %v", err)
 	}
 	for _, a := range f.args {
-		if a[0] != "info" && !diskRead(a) {
+		if a[0] != "info" && !f.disk.IsRead(a) {
 			t.Fatalf("the boot did %v before refusing", a)
 		}
 	}
@@ -393,27 +394,20 @@ func TestABootIsRefusedOnADaemonShortOfDisk(t *testing.T) {
 		{"at the floor", df(100*gib, 5*gib), ""},
 	} {
 		f := &fakeClient{reply: func(req Command) ([]byte, error) {
-			switch diskspacetest.Step(req.Args) {
-			case "":
-			case "wait":
-				return []byte("0\n"), nil
-			case "cp":
-				out, err := tc.disk()
-				if err != nil {
-					return out, err
-				}
-				_, err = diskspacetest.WriteResult(req.Args, string(out), "", "0")
-				return nil, err
-			case "logs":
-				return tc.disk()
-			default:
-				return nil, nil
-			}
+
 			if req.Args[0] == "port" {
 				return []byte("0.0.0.0:43210\n"), nil
 			}
 			return nil, nil
 		}}
+		f.disk.Answer = func() containerresulttest.Answer {
+			out, err := tc.disk()
+			if err != nil {
+				return containerresulttest.Answer{Code: 125, Said: string(out)}
+			}
+			return containerresulttest.Answer{Answer: out}
+		}
+
 		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: reviewNoNeeds{}, Secrets: reviewNoSecrets{}, Probe: reviewUp{}}).Boot(t.Context(), BootRequest{Docker: Scope{Client: f}, Name: "apptown-preview-x", StackID: "pvx", Workspace: t.TempDir(), Probe: time.Second}, c)
 		if tc.refused == "" {
 			if err != nil {
@@ -428,7 +422,7 @@ func TestABootIsRefusedOnADaemonShortOfDisk(t *testing.T) {
 			t.Errorf("%s: the refusal does not say what is free: %v", tc.name, err)
 		}
 		for _, a := range f.args {
-			if !diskRead(a) {
+			if !f.disk.IsRead(a) {
 				t.Errorf("%s: the boot did %v after refusing", tc.name, a)
 			}
 		}
@@ -461,7 +455,7 @@ func TestANeedWhoseDataFolderCannotBeReadStopsTheBoot(t *testing.T) {
 		t.Fatal("a boot went on without knowing where its database keeps its data")
 	}
 	for _, a := range f.args {
-		if !diskRead(a) && (a[0] == "stop" || a[0] == "rm" || a[0] == "run" || a[0] == "update") {
+		if !f.disk.IsRead(a) && (a[0] == "stop" || a[0] == "rm" || a[0] == "run" || a[0] == "update") {
 			t.Fatalf("the boot did %v before it knew", a)
 		}
 	}
@@ -473,18 +467,22 @@ func TestANeedWhoseDataFolderCannotBeReadStopsTheBoot(t *testing.T) {
 // lifetimeClient ends its scope's lifetime when the disk read waits, and
 // records whether the read's removal still reached the daemon.
 type lifetimeClient struct {
+	disk    diskspacetest.Daemon
 	end     context.CancelFunc
 	removed bool
 }
 
 func (c *lifetimeClient) Run(ctx context.Context, _ string, req Command) ([]byte, error) {
-	switch diskspacetest.Step(req.Args) {
-	case "wait":
+	switch {
+	case c.disk.IsRead(req.Args) && req.Args[0] == "wait":
 		c.end()
 		<-ctx.Done()
 		return nil, ctx.Err()
-	case "rm":
+	case c.disk.IsRead(req.Args) && req.Args[0] == "rm":
 		c.removed = ctx.Err() == nil
+	}
+	if out, err, ok := c.disk.Run(req.Args); ok {
+		return out, err
 	}
 	return nil, nil
 }

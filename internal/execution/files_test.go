@@ -37,23 +37,31 @@ func recordingDocker(t *testing.T) (binary, calls string) {
 [ "$1" = inspect ] && { [ -f "` + dir + `/exists" ] && { echo "c1 created 0 false"; exit 0; }; [ -f "` + dir + `/offline" ] && exit 1; echo "Error: No such object: $4"; exit 1; }
 [ "$1" = info ] && { echo /var/lib/docker; exit 0; }
 case "$*" in
-"ps -a --filter label=apptown.class=disk-probe "*) exit 0;;
-"create --name apptown-disk-probe-"*)
+"ps -a --filter label=apptown.class=disk-probe "*|"ps -a --filter label=apptown.class=container-result "*) exit 0;;
+"create --name apptown-result-"*"df -Pk /d"*)
   [ -f "` + dir + `/unread" ] && exit 125
   [ -f "` + dir + `/uncreated" ] && { echo "docker: Error response from daemon: no space for the probe" >&2; exit 125; }
-  echo probe-c1; exit 0;;
-"start apptown-disk-probe-"*|"rm -f -v apptown-disk-probe-"*) exit 0;;
-"wait apptown-disk-probe-"*) echo 0; exit 0;;
-"cp apptown-disk-probe-"*)
-  mkdir -p "$3/probe" && echo 0 > "$3/probe/df.rc"
-  if [ -f "` + dir + `/silent" ]; then : > "$3/probe/df.out"; echo "a notice on stderr" > "$3/probe/df.err"
-  elif [ -f "` + dir + `/df" ]; then cp "` + dir + `/df" "$3/probe/df.out"; : > "$3/probe/df.err"
-  else printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10%% /d\n' > "$3/probe/df.out"; : > "$3/probe/df.err"; fi
-  exit 0;;
-"logs apptown-disk-probe-"*)
-  [ -f "` + dir + `/silent" ] && { echo "log out"; echo "log err" >&2; exit 0; }
-  exit 0;;
+  touch "` + dir + `/disk-$3"
+  echo "$3"; exit 0;;
 esac
+name=""
+case "$1" in
+start|wait|logs) name="$2";;
+rm) name="$4";;
+cp) name="${2%%:*}";;
+esac
+if [ -n "$name" ] && [ -f "` + dir + `/disk-$name" ]; then
+ case "$1" in
+ start|rm) exit 0;;
+ wait) echo 0; exit 0;;
+ cp)
+  if [ -f "` + dir + `/silent" ]; then : > "$3"
+  elif [ -f "` + dir + `/df" ]; then cp "` + dir + `/df" "$3"
+  else printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10%% /d\n' > "$3"; fi
+  exit 0;;
+ logs) [ -f "` + dir + `/silent" ] && { echo "log out"; echo "log err" >&2; exit 0; }; exit 0;;
+ esac
+fi
 echo "$@" >> "` + calls + `"
 prev=""
 for arg in "$@"; do
@@ -71,11 +79,9 @@ exit 0
 }
 
 // A disk read that gives no usable answer refuses the task, and the
-// refusal says what Docker showed, with the probe container's stdout and
-// stderr apart, so an occurrence can be diagnosed from it alone.
+// refusal retains the invalid answer and available container diagnostics.
 //
-// Kills: the probe's evidence dropped from the refusal; stdout and stderr
-// combined again.
+// Kills: the shared result evidence dropped from the refusal.
 func TestADiskReadWithNoAnswerSaysWhatTheProbeShowed(t *testing.T) {
 	t.Parallel()
 	binary, calls := recordingDocker(t)
@@ -86,8 +92,8 @@ func TestADiskReadWithNoAnswerSaysWhatTheProbeShowed(t *testing.T) {
 		flag string
 		want []string
 	}{
-		{"silent", []string{`df answered ""`, "probe container apptown-disk-probe-", `df.out "", df.err "a notice on stderr", df.rc "0"`, `its log: stdout "log out", stderr "log err"`}},
-		{"uncreated", []string{"creating the probe container apptown-disk-probe-", "exit status 125", `stdout ""`, `stderr "docker: Error response from daemon: no space for the probe"`}},
+		{"silent", []string{`df answered ""`, "container apptown-result-", `container log "log out\nlog err"`}},
+		{"uncreated", []string{"creating apptown-result-", "exit status 125", "docker: Error response from daemon: no space for the probe"}},
 	} {
 		flag := filepath.Join(dir, tc.flag)
 		if err := os.WriteFile(flag, nil, 0o644); err != nil {

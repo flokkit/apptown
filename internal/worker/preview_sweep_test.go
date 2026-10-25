@@ -3,6 +3,7 @@ package worker_test
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/worker"
@@ -25,6 +25,7 @@ import (
 // fails while rmfail does. It records every command. before, when set, runs
 // first (a test holds a command there); reply, when set, may answer instead.
 type fileDocker struct {
+	disk   diskspacetest.Daemon
 	dir    string
 	mu     sync.Mutex
 	calls  []string
@@ -58,8 +59,8 @@ func (d *fileDocker) answer(args []string) ([]byte, error) {
 	if before != nil {
 		before(args)
 	}
-	if out, ok := dockerfake.RoomyDisk(args); ok {
-		return out, nil
+	if out, err, ok := d.disk.Roomy(args); ok {
+		return out, err
 	}
 	if reply != nil {
 		if out, err, ok := reply(args); ok {

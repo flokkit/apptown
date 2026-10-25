@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,11 +17,14 @@ import (
 
 // pageClient is a daemon whose app container is published at an httptest
 // server's port, so the boot's own probes reach a real HTTP app.
-type pageClient struct{ port string }
+type pageClient struct {
+	port string
+	disk *diskspacetest.Daemon
+}
 
 func (c pageClient) Run(_ context.Context, _ string, req Command) ([]byte, error) {
-	if out, ok := roomyDisk(req.Args); ok {
-		return out, nil
+	if out, err, ok := c.disk.Roomy(req.Args); ok {
+		return out, err
 	}
 	switch {
 	case len(req.Args) > 0 && req.Args[0] == "port":
@@ -60,7 +64,7 @@ func TestAGateBootFailsAnAppThatRefusesItsFrontPage(t *testing.T) {
 		t.Fatal(err)
 	}
 	boot := func(pageCheck bool, host string) (BootResult, error) {
-		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(context.Background(), BootRequest{Docker: Scope{Client: pageClient{u.Port()}},
+		return NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: upProbe{}}).Boot(context.Background(), BootRequest{Docker: Scope{Client: pageClient{port: u.Port(), disk: &diskspacetest.Daemon{}}},
 			Name: "apptown-preview-run-4", StackID: "pv4", Workspace: t.TempDir(), Slug: "shop", Deployment: "preview", Probe: time.Second,
 			Scratch: t.TempDir(), PageCheck: pageCheck, VisitorHost: host}, c)
 	}
@@ -103,7 +107,7 @@ func TestAStaticSiteBootRequiresAppTownsFileServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	boot := func(probe Prober) error {
-		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Docker: Scope{Client: pageClient{"1"}},
+		_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Secrets: liveSecrets{}, Needs: liveNeeds{}, Integrations: liveContributions{"{}"}, Routes: liveRoutes{}, Probe: probe}).Boot(context.Background(), BootRequest{Docker: Scope{Client: pageClient{port: "1", disk: &diskspacetest.Daemon{}}},
 			Name: "apptown-preview-run-5", StackID: "pv5", Workspace: t.TempDir(), Slug: "site", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c)
 		return err
 	}

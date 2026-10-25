@@ -3,7 +3,6 @@ package docker
 import (
 	"context"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
@@ -184,7 +183,7 @@ func ReadDisk(ctx context.Context, dk Scope, image, dataRoot string) (diskspace.
 	space, err := diskspace.ReadThroughDocker(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 		out, err := dk.Run(ctx, args...)
 		return string(out), "", err
-	}, image, dataRoot, clock.Or(dk.Now), func(s string) { log.Print(s) })
+	}, image, dataRoot, clock.Or(dk.Now))
 	if err != nil {
 		return diskspace.Space{}, fmt.Errorf("reading the disk: %w", err)
 	}

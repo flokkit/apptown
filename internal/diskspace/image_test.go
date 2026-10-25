@@ -19,11 +19,11 @@ func TestADiskReadRunsInTheImageItIsGiven(t *testing.T) {
 		}
 		return "", "", context.Canceled
 	}
-	_, _ = ReadThroughDocker(t.Context(), dk, "example.invalid/df@sha256:0", "/var/lib/docker", time.Now, func(string) {})
+	_, _ = ReadThroughDocker(t.Context(), dk, "example.invalid/df@sha256:0", "/var/lib/docker", time.Now)
 	if !slices.Contains(created, "example.invalid/df@sha256:0") {
 		t.Fatalf("the probe was created as %v, not in the given image", created)
 	}
-	if _, err := ReadThroughDocker(t.Context(), dk, "", "/var/lib/docker", time.Now, func(string) {}); err == nil {
+	if _, err := ReadThroughDocker(t.Context(), dk, "", "/var/lib/docker", time.Now); err == nil {
 		t.Fatal("a read with no image read something")
 	}
 }

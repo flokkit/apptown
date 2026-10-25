@@ -115,7 +115,7 @@ func TestBrowserValuesAreReadBeforeTheStackChanges(t *testing.T) {
 						t.Fatalf("expected the read failure, got %v", err)
 					}
 					for _, args := range client.args {
-						if !diskRead(args) && (args[0] == "run" || args[0] == "rm") {
+						if !client.disk.IsRead(args) && (args[0] == "run" || args[0] == "rm") {
 							t.Fatalf("changed the running stack before reading browser values: %v", client.args)
 						}
 					}
@@ -190,7 +190,7 @@ func TestIntegrationVariablesAreReadBeforeTheStackChanges(t *testing.T) {
 		t.Fatalf("expected a configuration failure, got %v", err)
 	}
 	for _, args := range client.args {
-		if !diskRead(args) && (args[0] == "run" || args[0] == "rm") {
+		if !client.disk.IsRead(args) && (args[0] == "run" || args[0] == "rm") {
 			t.Fatalf("changed the running stack before reading the integrations: %v", client.args)
 		}
 	}
