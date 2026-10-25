@@ -153,13 +153,18 @@ func (p *Providers) TargetInventory(t *Target) (deploy.Inventorier, error) {
 }
 
 func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment) (deploy.Driver, error) {
+	owner, err := project.ByIDIn(ctx, p.db, dep.ProjectID)
+	if err != nil {
+		return nil, fmt.Errorf("reading the deployment's serving identity: %w", err)
+	}
 	return &docker.Driver{
-		Scope: func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) },
-		Boot:  p.env.Host(dep.ProjectID, p.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(p.db, p.clock, dep, slug) }),
-		URL: func(slug, name string, port int) string {
+		ServingLabel: owner.ServingLabel,
+		Scope:        func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) },
+		Boot:         p.env.Host(dep.ProjectID, p.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(p.db, p.clock, dep, slug) }),
+		URL: func(servingLabel, name string, port int) string {
 			routes := p.env.RoutesFor(ctx, dep.ProjectID)
 			if name == "main" {
-				return routes.DeploymentURL(slug, port)
+				return routes.DeploymentURL(servingLabel, port)
 			}
 			return routes.PublicURL(port)
 		},

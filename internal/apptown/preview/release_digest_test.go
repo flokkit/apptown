@@ -117,6 +117,10 @@ func releasePreviewWorldWithSize(t *testing.T, size bool) (s *Service, w *fakePr
 func TestAPublishedReleasesPreviewBootsOnTheWorkerFromItsDigests(t *testing.T) {
 	t.Parallel()
 	s, w, local, b, published, _ := releasePreviewWorld(t)
+	// sql-guarantee: a future canonical rename must not name a second historical preview or change its provider/credential scope.
+	if _, err := s.db.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, b.ProjectID); err != nil {
+		t.Fatal(err)
+	}
 	out, err := s.RequestReleasePreview(context.Background(), ReleaseSelection{ProjectID: b.ProjectID, Number: published})
 	if err != nil {
 		t.Fatal(err)
@@ -306,6 +310,10 @@ func TestALocalReleasePreviewIsReplacedWhenItsSecretChanges(t *testing.T) {
 	}
 	bundle, err := s.bundles.ByID(t.Context(), bundleID)
 	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: preserve original preview resources and recorded secret bindings after a future canonical-address update.
+	if _, err := s.db.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, wd.projectID); err != nil {
 		t.Fatal(err)
 	}
 	scope := secret.Scope("p", "preview", "")

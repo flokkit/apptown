@@ -496,7 +496,9 @@ CREATE TABLE IF NOT EXISTS projects (
   -- What the project is for, written when it is made and never changed:
   -- 'ordinary', or 'eval-copy' (a throwaway copy an eval made). Effect
   -- owners ask Project what the purpose allows (project/purpose.go).
-  purpose TEXT NOT NULL DEFAULT 'ordinary' CONSTRAINT projects_purpose CHECK (purpose IN ('ordinary','eval-copy'))
+  purpose TEXT NOT NULL DEFAULT 'ordinary' CONSTRAINT projects_purpose CHECK (purpose IN ('ordinary','eval-copy')),
+  -- Captured at creation; independent of the mutable AppTown navigation address.
+  serving_label TEXT NOT NULL CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$') CONSTRAINT projects_serving_label_unique UNIQUE
 );
 -- A project that is not active (design/subsystems/project-deletion.md): no
 -- row is active. Importing and deleting refuse new work; deleted is kept,

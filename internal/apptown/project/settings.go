@@ -25,11 +25,9 @@ type SettingsChange struct{ Before, After Project }
 var (
 	ErrSettingsChanged          = fault.New(fault.Conflict, "project name changed; retry the edit")
 	ErrSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
-	// ErrSlugFixed refuses a new slug for a project that exists. The slug is
-	// the project's address inside AppTown and out: its repository's folder,
-	// and the names of its containers, volumes and backups. Moving those is
-	// not built, so a rename would leave them behind for the next project to
-	// take that slug. The display name is free to change.
+	// ErrSlugFixed refuses changing a project's AppTown address. Address
+	// changes require permanent alias ownership across every reference;
+	// the display name is independently editable.
 	ErrSlugFixed = fault.New(fault.Invalid, "a project's address (its slug) is fixed when the project is made; change its name instead")
 	// ErrSettingsMoved carries a code so a client can tell it from other
 	// conflicts, such as a taken slug, and offer the person the new values.

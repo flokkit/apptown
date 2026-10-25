@@ -13,11 +13,13 @@ import (
 // moved read as replaceable, whatever the deployment held.
 func TestADockerReleaseCarriesTheDeploymentsDataClass(t *testing.T) {
 	t.Parallel()
-	targets := NewTargets(nil, nil)
+	db := testDB(t)
+	pid := createTestProject(t, db, "data-class", "Data Class")
+	targets := NewTargets(db, nil)
 	env := NewEnvironment(targets, EnvironmentDependencies{ToolVersions: stock.Versions()})
-	p := NewProviders(context.Background(), nil, ProviderRecords{Targets: targets}, NewHosts(targets, nil, HostSettings{}), env, ProviderDependencies{})
+	p := NewProviders(context.Background(), db, ProviderRecords{Targets: targets}, NewHosts(targets, nil, HostSettings{}), env, ProviderDependencies{})
 	for _, class := range []string{"production", "non-production", "synthetic"} {
-		d, err := p.dockerDriver(context.Background(), &Target{Name: "local", Kind: KindDockerHost}, &Deployment{Name: "staging", DataClass: class})
+		d, err := p.dockerDriver(context.Background(), &Target{Name: "local", Kind: KindDockerHost}, &Deployment{ProjectID: pid, Name: "staging", DataClass: class})
 		if err != nil {
 			t.Fatal(err)
 		}

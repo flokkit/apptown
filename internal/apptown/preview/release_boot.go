@@ -48,9 +48,9 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	if err != nil {
 		return ReleaseResult{}, &ReleaseSourceError{Cause: fmt.Errorf("reading this release's native contract: %w", err)}
 	}
-	label := docker.ReleasePreviewLabel(p.Slug, n)
+	label := docker.ReleasePreviewLabel(p.ServingLabel, n)
 	name := docker.PreviewLabelName(label)
-	stackID := docker.ReleaseStackID(p.Slug, n)
+	stackID := docker.ReleaseStackID(p.ServingLabel, n)
 	b := selected.Bundle
 	s.Viewed(ctx, name) // a boot is a look
 	if b != nil && s.PreviewsOnWorker() {

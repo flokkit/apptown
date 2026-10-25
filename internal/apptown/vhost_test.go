@@ -363,6 +363,10 @@ func TestTLSAskAllowsOnlyNamesAppTownsRecordsBound(t *testing.T) {
 	if _, err := a.Deployment.Releases.Start(t.Context(), deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: shop.ID, Deployment: "main", Revision: "first", Actor: "bls"}, "a release to look at"); err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: simulate future canonical rename to prove separate certificate identity.
+	if _, err := a.DB.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, shop.ID); err != nil {
+		t.Fatal(err)
+	}
 	h := a.Handler()
 	ask := func(name, from string) int {
 		req := httptest.NewRequest("GET", "/tls/ask?domain="+url.QueryEscape(name), nil)
@@ -375,6 +379,8 @@ func TestTLSAskAllowsOnlyNamesAppTownsRecordsBound(t *testing.T) {
 		"apptown.example.com":                                             200,
 		"APPTOWN.example.com.":                                            200,
 		fmt.Sprintf("change-%s.preview.example.com", ch.ID):               200,
+		"renamed.main.example.com":                                        404,
+		"renamed-release-1.preview.example.com":                           404,
 		"shop.main.example.com":                                           200,
 		"shop-release-1.preview.example.com":                              200,
 		"shop-release-2.preview.example.com":                              404, // no such release
@@ -409,7 +415,12 @@ func TestAMainHostnameReachesTheContainerItsDeploymentRecords(t *testing.T) {
 	var port int
 	fmt.Sscanf(backend.URL[strings.LastIndex(backend.URL, ":")+1:], "%d", &port)
 	const container = "apptown-dep-recorded"
-	recordServing(t, a, engineProject(t, a, "shop").ID, container)
+	shop := engineProject(t, a, "shop")
+	recordServing(t, a, shop.ID, container)
+	// sql-guarantee: model a later canonical-address update without changing the captured serving identity.
+	if _, err := a.DB.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, shop.ID); err != nil {
+		t.Fatal(err)
+	}
 	a.vhostMu.Lock()
 	if a.vhostCache == nil {
 		a.vhostCache = map[string]vhostEntry{}
@@ -441,5 +452,43 @@ func recordServing(t *testing.T, a *App, projectID ids.ID, container string) {
 	// sql-guarantee: a serving container is recorded by a boot on Docker; this test serves from a plain HTTP backend, so no boot can.
 	if _, err := a.DB.Exec(`UPDATE deployments SET container = $1 WHERE id = $2`, container, dep.ID); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestServingIdentityDoesNotFollowCanonicalProjectAddress(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{})
+	id := plainTestProject(t, a.DB, "original", "Original")
+	// sql-guarantee: simulate the future canonical-address operation, which current settings deliberately refuses.
+	if _, err := a.DB.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, id); err != nil {
+		t.Fatal(err)
+	}
+	rules := vhostRules{db: a.DB, projects: a.Projects}
+	for _, route := range []vhostRoute{{label: "original", standing: true}, {label: "original-release-1"}} {
+		if got, err := rules.project(t.Context(), route); err != nil || got != id {
+			t.Errorf("old serving label lost its project: got %v want %v: %v", got, id, err)
+		}
+	}
+	if got, err := rules.project(t.Context(), vhostRoute{label: "renamed", standing: true}); err != nil || !got.IsZero() {
+		t.Errorf("canonical address became an unassigned serving label: %v %v", got, err)
+	}
+}
+
+func TestStandingServingNamesDoNotEnterPreviewNamespaces(t *testing.T) {
+	t.Parallel()
+	a := testApp(t, Config{TierDomains: []string{"main=main.example", "preview=preview.example"}})
+	source := engineProject(t, a, "source")
+	change := engineChange(t, a, source)
+	for _, label := range []string{fmt.Sprintf("change-%s", change.ID), "source-release-1"} {
+		owner := engineProject(t, a, label)
+		rules := vhostRules{db: a.DB, projects: a.Projects}
+		route := vhostRoute{label: label, standing: true}
+		if got, err := rules.project(t.Context(), route); err != nil || got != owner.ID {
+			t.Fatalf("standing name entered preview namespace: %v want %v: %v", got, owner.ID, err)
+		}
+		names := certificateNames{publicHost: a.cfg.publicHost, tiers: a.cfg.tierDomains, rules: &rules, projects: a.Projects, deployment: a.Deployment}
+		if yes, err := names.certifiable(t.Context(), label+".main.example"); err != nil || !yes {
+			t.Fatalf("standing certificate treated as preview: %t %v", yes, err)
+		}
 	}
 }

@@ -650,7 +650,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		}
 	}()
 	owner, err := project.New(restored, nil).ByID(ctx, pid)
-	if err != nil || owner.Slug != "restore-project" {
+	if err != nil || owner.Slug != "restore-project" || owner.ServingLabel != "restore-project" {
 		t.Fatalf("project rows lost: %+v %v", owner, err)
 	}
 	main, found, err := scm.ReadMain(ctx, restored, pid)

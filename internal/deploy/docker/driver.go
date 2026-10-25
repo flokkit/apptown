@@ -17,10 +17,11 @@ import (
 // this daemon, or images by digest it pulls), and
 // runs it as the placement's container, through the stack boot it is given.
 type Driver struct {
-	Scope        func(context.Context) (Scope, error)           // which daemon: AppTown's own, or an attached host's
-	Boot         Booter                                         // the stack boot
-	URL          func(slug, deployment string, port int) string // the address a deployment is reached at
-	AfterRelease func(p deploy.Placement)                       // what follows a release (a backup)
+	ServingLabel string                                                 // immutable owner-supplied routing label, independent of source.Slug
+	Scope        func(context.Context) (Scope, error)                   // which daemon: AppTown's own, or an attached host's
+	Boot         Booter                                                 // the stack boot
+	URL          func(servingLabel, deployment string, port int) string // the address a deployment is reached at
+	AfterRelease func(p deploy.Placement)                               // what follows a release (a backup)
 	// Registry is the credential a release's images by digest are pulled
 	// with, and Scratch the folder each pull's own Docker configuration is
 	// written under (RecordedImages). A credential that cannot be read is
@@ -68,6 +69,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if art.Kind != "docker-source" || art.Source == nil || art.Source.Contract == nil || art.Hash != deploy.ConfigHash(string(art.Body)) {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("Docker deployment requires prepared selected source"))
 	}
+	if d.ServingLabel == "" {
+		return deploy.Observation{}, deploy.Terminal(errors.New("Docker deployment has no serving label"))
+	}
 	source := art.Source
 	slug, ws, c := source.Slug, source.Workspace, source.Contract
 	names, err := NamesOf(p.ID, p.Name)
@@ -93,7 +97,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	}
 	req := BootRequest{
 		Log:  logf,
-		Name: name, StackID: names.Stack(), Slug: slug, Workspace: ws,
+		Name: name, StackID: names.Stack(), Slug: slug, ServingLabel: d.ServingLabel, Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
 		Identity: &id, Services: SourceServices(art), Revision: source.Revision, Fill: d.Fill, Storage: d.Storage, RestoreStorage: d.RestoreStorage,
 	}
@@ -122,9 +126,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	url := d.URL(slug, p.Name, res.HostPort)
+	url := d.URL(d.ServingLabel, p.Name, res.HostPort)
 	if dk.Remote() {
-		url = dk.FrontDoor(slug, p.Name, res.HostPort)
+		url = dk.FrontDoor(d.ServingLabel, p.Name, res.HostPort)
 	}
 	o, err := RecordBoot(ctx, dk, id, name, res.Image(), url, res.HostPort, checkpoint)
 	if err != nil {

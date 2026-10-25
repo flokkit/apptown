@@ -5,6 +5,9 @@ SELECT * FROM projects WHERE id = $1;
 -- name: ProjectBySlug :one
 SELECT * FROM projects WHERE slug = $1;
 
+-- name: ProjectByServingLabel :one
+SELECT * FROM projects WHERE serving_label = $1;
+
 -- name: ProjectsByNamespaceAndName :many
 SELECT * FROM projects ORDER BY namespace, name;
 
@@ -16,8 +19,8 @@ SELECT slug FROM projects ORDER BY slug;
 
 -- Project writes.
 -- name: InsertProject :one
-INSERT INTO projects (id, slug, name, namespace, blurb, icon, owner_group, default_approvers, created_at, purpose)
-VALUES (sqlc.arg(id), sqlc.arg(slug), sqlc.arg(name), sqlc.arg(namespace), sqlc.arg(blurb), sqlc.arg(icon), sqlc.arg(owner_group), sqlc.arg(default_approvers), sqlc.arg(created_at), sqlc.arg(purpose)) RETURNING *;
+INSERT INTO projects (id, slug, name, namespace, blurb, icon, owner_group, default_approvers, created_at, purpose, serving_label)
+VALUES (sqlc.arg(id), sqlc.arg(slug), sqlc.arg(name), sqlc.arg(namespace), sqlc.arg(blurb), sqlc.arg(icon), sqlc.arg(owner_group), sqlc.arg(default_approvers), sqlc.arg(created_at), sqlc.arg(purpose), sqlc.arg(serving_label)) RETURNING *;
 
 -- name: ProjectPurpose :one
 SELECT purpose FROM projects WHERE id = $1;

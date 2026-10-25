@@ -144,3 +144,43 @@ func TestBootReconcileCutShortForgetsNoPreview(t *testing.T) {
 		t.Fatalf("a preview whose host could not be asked was forgotten: %v", err)
 	}
 }
+
+func TestDockerAddressesUseCapturedServingIdentityAndRefuseUnavailableIdentity(t *testing.T) {
+	t.Parallel()
+	s, db, daemon, _, pid := hostWorld(t, "forge.example")
+	s.env.routes.MainScheme, s.env.routes.MainDomain = "https", "main.example"
+	local, err := s.Targets.ByName(t.Context(), "local")
+	if err != nil {
+		t.Fatal(err)
+	}
+	attached, err := s.Targets.Put(t.Context(), &Target{Name: "serving-attached", Kind: KindDockerHost, Origin: OriginAttached, Status: TargetReady, Address: map[string]any{"host": "ssh://deploy@droplet.example", "keyFrom": "KEY"}, Ingress: map[string]any{"domain": "apps.example"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: simulate future canonical rename; current settings deliberately refuses it before serving identity is separated.
+	if _, err := db.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, pid); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		target *Target
+		want   string
+	}{{local, "https://p.main.example"}, {attached, "https://p.apps.example"}} {
+		dep := &Deployment{ProjectID: pid, Name: "main", Kind: Standing, TargetID: tc.target.ID, HostPort: 40001}
+		if got := s.Reach(t.Context(), "caller-display", dep); got.URL != tc.want {
+			t.Fatalf("captured address=%+v want %s", got, tc.want)
+		}
+		clear := db.FailNextStatement("-- name: ProjectByID")
+		got := s.Reach(t.Context(), "caller-display", dep)
+		clear()
+		if got.URL != "" {
+			t.Fatalf("unavailable identity synthesized address: %+v", got)
+		}
+		daemon.ResetCommands()
+		clear = db.FailNextStatement("-- name: ProjectByID")
+		_, err := s.providers.Driver(t.Context(), tc.target, dep)
+		clear()
+		if err == nil || len(daemon.Commands()) != 0 {
+			t.Fatalf("unavailable identity reached driver effects: err=%v calls=%v", err, daemon.Commands())
+		}
+	}
+}

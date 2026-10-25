@@ -812,7 +812,7 @@ func (q *Queries) ProjectActivityReport(ctx context.Context, arg ProjectActivity
 }
 
 const projectByID = `-- name: ProjectByID :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id=$1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=$1
 `
 
 func (q *Queries) ProjectByID(ctx context.Context, id ids.ID) (Project, error) {
@@ -834,6 +834,7 @@ func (q *Queries) ProjectByID(ctx context.Context, id ids.ID) (Project, error) {
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
@@ -866,7 +867,7 @@ func (q *Queries) ProjectChangesForRemovalMeta(ctx context.Context, projectID id
 }
 
 const projectForUpdate = `-- name: ProjectForUpdate :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id=$1 FOR UPDATE
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=$1 FOR UPDATE
 `
 
 // Project identity/configuration is the existing project-first admission lock.
@@ -889,6 +890,7 @@ func (q *Queries) ProjectForUpdate(ctx context.Context, id ids.ID) (Project, err
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
