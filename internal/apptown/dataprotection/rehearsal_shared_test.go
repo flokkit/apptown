@@ -49,7 +49,7 @@ func newSharedRehearsalWorld(t *testing.T) *sharedRehearsalWorld {
 		Projects: projects, Secrets: secrets, Integrations: integration.NewService(w.db, integration.Dependencies{Projects: projects, Secrets: secrets}), Needs: dependency.NewCatalog(w.db, nil),
 		ChownImage: "test-helper", BuiltInTarget: "local", NoLocalDocker: true},
 		deployment.Dependencies{Operations: w.ops, Authority: auth, Followups: noFollowups{}, Configuration: deployment.ConfigurationDependencies{Projects: w.sources},
-			Releases: deployment.ReleaseDependencies{Authority: &requestAuthority{}, Sources: w.sources, Secrets: requestSecrets{}, Queue: requestQueue{}}})
+			Releases: deployment.ReleaseDependencies{Authority: auth, Still: auth, Sources: w.sources, Secrets: requestSecrets{}, Queue: requestQueue{}}})
 	ctx := context.Background()
 	volumes := true
 	remote, err := w.s.Targets.EditSettings(ctx, w.remote.Name, deployment.TargetSettingsEdit{ExpectedRevision: &w.remote.SettingsRevision, PersistentVolumes: &volumes}, "admin")

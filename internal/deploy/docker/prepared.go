@@ -126,7 +126,7 @@ func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCrede
 		}
 		p.NeedData[s.Name] = data
 	}
-	delivery, err := deps.Secrets.Resolve(ctx, slug, deployment, ws, c)
+	delivery, err := deps.Secrets.Resolve(ctx, slug, deployment, ws, c, nil)
 	if err != nil {
 		return Prepared{}, &BootError{Phase: PhaseSecrets, Err: err}
 	}
@@ -165,7 +165,7 @@ type preparedSecrets struct{ p Prepared }
 
 // Resolve answers the prepared deliveries, only for the contract they were
 // prepared for: another contract cannot use them.
-func (s preparedSecrets) Resolve(ctx context.Context, _, _, _ string, c *appcontract.Contract) (Delivery, error) {
+func (s preparedSecrets) Resolve(ctx context.Context, _, _, _ string, c *appcontract.Contract, allowed func(context.Context) error) (Delivery, error) {
 	if !SameContract(c, s.p.Contract) {
 		return Delivery{}, fmt.Errorf("the boot's values were prepared for another contract")
 	}

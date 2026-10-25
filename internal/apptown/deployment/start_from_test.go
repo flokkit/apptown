@@ -58,7 +58,7 @@ func TestAReleaseAdmittedForAnotherSetFillsNothing(t *testing.T) {
 	starter := &copyStarter{}
 	s, dep, rel := startFromWorld(t, starter, idstest.N(8))
 	t0, _ := s.Targets.ByID(context.Background(), dep.TargetID)
-	if err := s.startFromCopy(context.Background(), rel, dep, t0, "alice", func(string, ...any) {}); !errors.Is(err, ErrStartFrom) {
+	if err := s.startFromCopy(context.Background(), rel, dep, t0, "alice", func(string, ...any) {}, nil); !errors.Is(err, ErrStartFrom) {
 		t.Fatalf("a release admitted for set 8 filled set 7: %v", err)
 	}
 	if starter.fills != 0 || startedFrom(t, s, dep) {
@@ -78,11 +78,11 @@ func TestAStartFromACopyIsFilledThenRecorded(t *testing.T) {
 	s, dep, rel := startFromWorld(t, starter, idstest.N(7))
 	t0, _ := s.Targets.ByID(context.Background(), dep.TargetID)
 	s.starter = nil
-	if err := s.startFromCopy(context.Background(), rel, dep, t0, "alice", func(string, ...any) {}); !errors.Is(err, errNoCopyStarter) || startedFrom(t, s, dep) {
+	if err := s.startFromCopy(context.Background(), rel, dep, t0, "alice", func(string, ...any) {}, nil); !errors.Is(err, errNoCopyStarter) || startedFrom(t, s, dep) {
 		t.Fatalf("no data protection: %v, started %v", err, startedFrom(t, s, dep))
 	}
 	s.starter = starter
-	if err := s.startFromCopy(context.Background(), rel, dep, t0, "alice", func(string, ...any) {}); err != nil {
+	if err := s.startFromCopy(context.Background(), rel, dep, t0, "alice", func(string, ...any) {}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if starter.fills != 1 || !startedFrom(t, s, dep) {
@@ -96,7 +96,7 @@ func TestAStartFromACopyIsFilledThenRecorded(t *testing.T) {
 		t.Fatalf("receipt: %+v", p)
 	}
 	// Filled once: a later release does not fill it again.
-	if err := s.startFromCopy(context.Background(), rel, dep, t0, "alice", func(string, ...any) {}); err != nil || starter.fills != 1 {
+	if err := s.startFromCopy(context.Background(), rel, dep, t0, "alice", func(string, ...any) {}, nil); err != nil || starter.fills != 1 {
 		t.Fatalf("a started deployment was filled again: %v, %d", err, starter.fills)
 	}
 }

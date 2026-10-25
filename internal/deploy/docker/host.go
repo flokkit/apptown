@@ -42,8 +42,10 @@ func NewHost(deps Dependencies) *Host { return &Host{deps: deps} }
 // SecretResolver resolves the app's declared secrets for one boot: per
 // consumer, the values to inject, and the receipts (never values) the
 // boot records.
+// A resolver that registers credentials calls allowed again before each
+// registration; nil carries no additional check. Boot checks before resolution.
 type SecretResolver interface {
-	Resolve(ctx context.Context, slug, deployment, ws string, c *appcontract.Contract) (Delivery, error)
+	Resolve(ctx context.Context, slug, deployment, ws string, c *appcontract.Contract, allowed func(context.Context) error) (Delivery, error)
 }
 
 // Delivery is the broker's answer for one boot.

@@ -156,7 +156,7 @@ func (s *Service) chooseStartFrom(ctx context.Context, tx *database.Tx, dep *Dep
 // user and checked by the kind's verify. A deployment that has run is never
 // filled. The record and the receipt name the set and its digests, and the
 // instance and database each copy came from and went into.
-func (s *Service) startFromCopy(ctx context.Context, rel NumberedRelease, dep *Deployment, t *Target, actor string, logf deploy.Logf) error {
+func (s *Service) startFromCopy(ctx context.Context, rel NumberedRelease, dep *Deployment, t *Target, actor string, logf deploy.Logf, allowed func(context.Context) error) error {
 	current, err := s.Deployments.ByID(ctx, dep.ID)
 	if err != nil {
 		return err
@@ -176,7 +176,7 @@ func (s *Service) startFromCopy(ctx context.Context, rel NumberedRelease, dep *D
 	if s.starter == nil {
 		return errNoCopyStarter
 	}
-	receipt, err := s.starter.FillStart(ctx, StartFill{Deployment: current, Target: t, Logf: logf})
+	receipt, err := s.starter.FillStart(ctx, StartFill{Deployment: current, Target: t, Logf: logf, Allowed: allowed})
 	if err != nil {
 		return err
 	}

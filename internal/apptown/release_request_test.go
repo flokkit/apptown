@@ -46,7 +46,7 @@ func acceptBundleForTest(t *testing.T, a *App, p *project.Project, env *deployme
 			t.Fatal(err)
 		}
 	}
-	ctx := verifiedContext(context.Background(), access.Principal{Kind: "user", Name: who, Via: "session"})
+	ctx := verifiedContext(context.Background(), access.Principal{ID: testPrincipalOf(t, a.DB, who), Kind: "user", Name: who, Via: "header", Credential: identity.HeaderCredential(who)})
 	accepted, err := a.Deployment.RequestRelease(ctx, deployment.DeploySelection{ProjectID: p.ID, DeploymentName: env.Name, BundleID: b.ID})
 	if err != nil {
 		return deployment.AcceptedRelease{}, err

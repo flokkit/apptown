@@ -12,6 +12,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/fault"
 )
 
@@ -49,6 +50,8 @@ type preparedRelease struct {
 	Address        *AddressSnapshot
 	Actor          string
 	BaseGeneration *int64
+	// Allowed rechecks the queued requester before each consequential phase.
+	Allowed func(context.Context) error
 }
 
 var (
@@ -70,12 +73,22 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 		}
 		return cause
 	}
+	allowed := req.Allowed
+	if allowed == nil {
+		allowed = func(context.Context) error { return nil }
+	}
+	if err := allowed(ctx); err != nil {
+		return ExecutionResult{}, fail("%v", err)
+	}
 	if err := s.checkAddressSnapshot(ctx, dep, t, req.Address); err != nil {
 		return ExecutionResult{}, fail("%v", err)
 	}
 	d, err := s.providers.Driver(ctx, t, dep)
 	if err != nil {
 		return ExecutionResult{}, fail("%v", err)
+	}
+	if host, ok := d.(*docker.Driver); ok {
+		host.Allowed = req.Allowed
 	}
 	// A target that can tell from its own limits that this release cannot
 	// go through says so before anything is made on it.
@@ -91,14 +104,20 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	if len(req.SecretNames) > 0 {
 		logf("delivering the app's secrets (%s) to the target", strings.Join(req.SecretNames, ", "))
 	}
+	if err := allowed(ctx); err != nil {
+		return ExecutionResult{}, fail("%v", err)
+	}
 	bindings, err := s.providers.PrepareNeeds(ctx, d, t, dep, req.Source.Contract, req.Actor, logf)
 	if err != nil {
 		return ExecutionResult{}, fail("%v", err)
 	}
 	// A deployment that starts from a copy has its data filled and checked
 	// before its app first starts.
-	if err := s.startFromCopy(ctx, rel, dep, t, req.Actor, logf); err != nil {
+	if err := s.startFromCopy(ctx, rel, dep, t, req.Actor, logf, req.Allowed); err != nil {
 		return ExecutionResult{}, fail("starting from the copy: %v", err)
+	}
+	if err := allowed(ctx); err != nil {
+		return ExecutionResult{}, fail("%v", err)
 	}
 	var art deploy.Artifact
 	if req.Artifact != nil {
@@ -130,6 +149,9 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	result, err := (Runner{Store: s.Outcomes, Applied: s.applied}).Run(ctx,
 		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: key, Inputs: inputs, BaseGeneration: req.BaseGeneration},
 		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
+			if err := allowed(ctx); err != nil {
+				return deploy.Observation{}, deploy.Terminal(err)
+			}
 			logf("deploying as generation %d of %s", at.Generation, dep.Name)
 			start := s.now()
 			o, err := d.Reconcile(ctx, dep.Placement(), at.Generation, art, key, logf, checkpoint)

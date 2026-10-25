@@ -568,7 +568,7 @@ type rehearsalSecrets struct {
 	withheld *[]string
 }
 
-func (r rehearsalSecrets) Resolve(ctx context.Context, _, _, ws string, c *appcontract.Contract) (docker.Delivery, error) {
+func (r rehearsalSecrets) Resolve(ctx context.Context, _, _, ws string, c *appcontract.Contract, _ func(context.Context) error) (docker.Delivery, error) {
 	got, err := r.secrets.ResolveRehearsal(ctx, r.project, r.source, ws, c)
 	if err != nil {
 		return docker.Delivery{}, err

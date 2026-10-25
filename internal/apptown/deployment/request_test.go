@@ -33,7 +33,16 @@ type requestAuthority struct {
 
 func (a *requestAuthority) Require(_ context.Context, p access.Permission) (access.Caller, error) {
 	a.seen = append(a.seen, p)
-	return access.Caller{Principal: access.Principal{Name: "alice"}, Verified: true}, a.deny
+	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: "alice", Via: "header", Credential: "header:alice"}, Verified: true}, a.deny
+}
+
+// The owner tests model an identity service; assembly tests exercise actual
+// credential and grant changes through Identity.
+func (a *requestAuthority) RequireStill(_ context.Context, captured access.Principal, _ access.Permission) error {
+	if captured.ID != idstest.N(501) || captured.Credential != "header:alice" {
+		return errors.New("unexpected captured test principal")
+	}
+	return a.deny
 }
 
 type requestSources struct {
@@ -89,7 +98,7 @@ func requestFixture(t *testing.T) (*Service, DeploySelection, *requestAuthority,
 	}
 	mustExec(t, db, `CREATE TABLE test_release_queue(release_id UUID PRIMARY KEY REFERENCES releases(id))`)
 	authority, sources := &requestAuthority{}, &requestSources{}
-	s := New(context.Background(), db, assembled(db, testRuntime{Drivers: map[string]DriverFactory{"request-test": func(context.Context, *Target, *Deployment) (deploy.Driver, error) { return fakeDriver{}, nil }}}, Dependencies{Releases: ReleaseDependencies{Authority: authority, Sources: sources, Secrets: requestSecrets{}, Queue: requestQueue{}}}))
+	s := New(context.Background(), db, assembled(db, testRuntime{Drivers: map[string]DriverFactory{"request-test": func(context.Context, *Target, *Deployment) (deploy.Driver, error) { return fakeDriver{}, nil }}}, Dependencies{Releases: ReleaseDependencies{Authority: authority, Still: authority, Sources: sources, Secrets: requestSecrets{}, Queue: requestQueue{}}}))
 	return s, DeploySelection{ProjectID: draft.ProjectID, DeploymentName: draft.Deployment, BundleID: draft.BundleID}, authority, sources
 }
 func TestRequestReleaseAtomicQueue(t *testing.T) {
@@ -321,7 +330,7 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 type concurrentRequestPorts struct{}
 
 func (concurrentRequestPorts) Require(context.Context, access.Permission) (access.Caller, error) {
-	return access.Caller{Principal: access.Principal{Name: "alice"}, Verified: true}, nil
+	return access.Caller{Principal: access.Principal{ID: idstest.N(501), Kind: "user", Name: "alice", Via: "header", Credential: "header:alice"}, Verified: true}, nil
 }
 func (concurrentRequestPorts) Project(ctx context.Context, id ids.ID) (ReleaseProject, error) {
 	return (&requestSources{}).Project(ctx, id)

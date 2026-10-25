@@ -337,3 +337,28 @@ func (s *Starter) FillStart(ctx context.Context, in deployment.StartFill) (deplo
 	}
 	return deployment.StartReceipt{Set: b.ID, FromDeployment: b.Deployment, FromProject: b.ProjectID, From: from, Into: into}, nil
 }
+
+// CheckStartAuthority checks a queued release's captured caller against current
+// restore grants on both projects. It does not substitute a background caller.
+func (s *Starter) CheckStartAuthority(ctx context.Context, set, destinationProject ids.ID, dataClass string, captured access.Principal) error {
+	b, err := s.startSet(ctx, set)
+	if err != nil {
+		return err
+	}
+	if s.still == nil || s.authorityProjects == nil {
+		return errors.New("copy-start authority recheck is not configured")
+	}
+	for _, projectID := range []ids.ID{b.ProjectID, destinationProject} {
+		resource, err := s.authorityProjects.AuthorityResource(ctx, projectID)
+		if err != nil {
+			return err
+		}
+		if err := s.still.RequireStill(ctx, captured, access.Permission{Capability: access.CapDeploymentRestore, Resource: resource, Context: access.Context{Route: "deployment.start-from", Consequential: true}}); err != nil {
+			return err
+		}
+	}
+	if b.DataClass == "production" && dataClass != "production" {
+		return deployment.ErrProductionCopy
+	}
+	return nil
+}

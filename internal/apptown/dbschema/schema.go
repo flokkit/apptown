@@ -224,6 +224,9 @@ WHERE length(hostname)<=253
 		`ALTER TABLE projects ADD CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$')`,
 		`ALTER TABLE projects ADD CONSTRAINT projects_serving_label_unique UNIQUE(serving_label)`,
 	}},
+	{n: 176, note: "retain the initiating authority for queued release execution", stmts: []string{
+		`ALTER TABLE release_requests ADD COLUMN authority_json JSONB`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

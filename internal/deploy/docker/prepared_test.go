@@ -59,7 +59,7 @@ func (upProbe) Check(context.Context, Scope, string, string, time.Duration, Rend
 // catalog, the integrations' environment and browser values, and routes.
 type liveSecrets struct{ version string }
 
-func (s liveSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract) (Delivery, error) {
+func (s liveSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract, func(context.Context) error) (Delivery, error) {
 	return Delivery{Env: func(consumer string) map[string]string {
 		return map[string]string{"SECRET_FOR": "value-for-" + consumer}
 	}, Receipts: []SecretReceipt{{Name: "SECRET_FOR", Store: "builtin", Version: s.version, Consumers: []string{"web"}}}, Profile: "default"}, nil

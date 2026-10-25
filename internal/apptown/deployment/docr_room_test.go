@@ -90,7 +90,7 @@ func newDOCRWorld(t *testing.T) *docrWorld {
 			logf("pushed %s as %s/%s:%s (fake)", local, registry, repo, tag)
 			return "sha256:" + strings.Repeat("a", 64), nil
 		}}
-	w.s = New(context.Background(), db, assembled(db, testRuntime{Scope: docker.Scope{Client: dockerfake.New()}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, ChownImage: "test-helper", BuiltInTarget: "local", DigitalOcean: options}, Dependencies{Followups: recoveryJobFollowups{}, Configuration: ConfigurationDependencies{Projects: sources}, Releases: ReleaseDependencies{Authority: &requestAuthority{}, Sources: sources, Secrets: doReleaseSecrets{}, Queue: doReleaseQueue{}}}))
+	w.s = New(context.Background(), db, assembled(db, testRuntime{Scope: docker.Scope{Client: dockerfake.New()}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, ChownImage: "test-helper", BuiltInTarget: "local", DigitalOcean: options}, Dependencies{Followups: recoveryJobFollowups{}, Configuration: ConfigurationDependencies{Projects: sources}, Releases: ReleaseDependencies{Authority: &requestAuthority{}, Still: &requestAuthority{}, Sources: sources, Secrets: doReleaseSecrets{}, Queue: doReleaseQueue{}}}))
 	config, err := json.Marshal(map[string]any{"tokenFrom": "DIGITALOCEAN_ACCESS_TOKEN", "region": "syd", "registry": "forge-test"})
 	if err != nil {
 		t.Fatal(err)

@@ -77,7 +77,7 @@ func heldFixture(t *testing.T) (*Service, DeploySelection, *Deployment, *heldDri
 	driver := &heldDriver{}
 	sources := &requestSources{}
 	s := New(context.Background(), db, assembled(db, testRuntime{Drivers: map[string]DriverFactory{KindDOApp: func(context.Context, *Target, *Deployment) (deploy.Driver, error) { return driver, nil }}},
-		Dependencies{Releases: ReleaseDependencies{Authority: &requestAuthority{}, Sources: sources, Secrets: requestSecrets{}, Queue: requestQueue{}}}))
+		Dependencies{Releases: ReleaseDependencies{Authority: &requestAuthority{}, Still: &requestAuthority{}, Sources: sources, Secrets: requestSecrets{}, Queue: requestQueue{}}}))
 	at, _, err := s.Outcomes.Admit(t.Context(), Start{DeploymentID: dep.ID, TargetID: target.ID, Key: "first", Inputs: Inputs{Revision: "selected", ArtifactHash: "spec"}})
 	if err != nil {
 		t.Fatal(err)

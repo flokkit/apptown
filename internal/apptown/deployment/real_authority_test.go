@@ -48,7 +48,7 @@ func realAuthorityFixture(t *testing.T) (*Service, *identity.Service, *database.
 	}
 	checked := access.Checked{Authority: accessStore, Projects: project.New(db, nil)}
 	sources := realAuthoritySources{projectID: pid, slug: "game"}
-	svc := New(context.Background(), db, Dependencies{Authority: checked, Configuration: ConfigurationDependencies{Authority: checked, Projects: sources, Contracts: sources}, Releases: ReleaseDependencies{Authority: checked, Sources: sources, Secrets: requestSecrets{}, Queue: doReleaseQueue{}}})
+	svc := New(context.Background(), db, Dependencies{Authority: checked, Configuration: ConfigurationDependencies{Authority: checked, Projects: sources, Contracts: sources}, Releases: ReleaseDependencies{Authority: checked, Still: accessStore, Sources: sources, Secrets: requestSecrets{}, Queue: doReleaseQueue{}}})
 	return svc, accessStore, db, pid
 }
 

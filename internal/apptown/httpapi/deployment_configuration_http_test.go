@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -57,6 +59,26 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 		},
 	}
 	a := newDeploymentAuthorityWorld(t, drivers)
+	accounts, err := a.identity.Users(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	principals := make(map[string]access.Principal, len(accounts))
+	for _, account := range accounts {
+		principals[account.Username] = access.Principal{ID: account.PrincipalID, Kind: "user", Name: account.Username, Via: "header", Credential: identity.HeaderCredential(account.Username)}
+	}
+	// This adapter test starts after authentication, with the same stable
+	// account and credential identity that release admission records.
+	authenticatedRequest := func(handler http.HandlerFunc, who, method, path, body string, values map[string]string) *httptest.ResponseRecorder {
+		t.Helper()
+		principal, ok := principals[who]
+		if !ok || principal.ID.IsZero() {
+			t.Fatalf("missing authenticated fixture account %q", who)
+		}
+		return deploymentBodyRequest(func(w http.ResponseWriter, r *http.Request) {
+			handler(w, r.WithContext(access.WithCaller(r.Context(), access.Caller{Principal: principal, Verified: true, Receipt: who})))
+		}, who, method, path, body, values)
+	}
 	sourceReads := 0
 	source := configurationHTTPSource{projectID: a.project, before: func() { sourceReads++ }}
 	checked := access.Checked{Authority: a.identity, Projects: a.projects}
@@ -64,7 +86,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	deps := a.shared
 	deps.Authority = checked
 	deps.Configuration = deployment.ConfigurationDependencies{Authority: checked, Projects: source, Contracts: source}
-	deps.Releases = deployment.ReleaseDependencies{Authority: checked, Sources: source, Secrets: unreachedReleaseSecrets{}, Queue: queue}
+	deps.Releases = deployment.ReleaseDependencies{Authority: checked, Still: a.identity, Sources: source, Secrets: unreachedReleaseSecrets{}, Queue: queue}
 	a.service = deployment.New(context.Background(), a.db, deps)
 	for _, cap := range []access.Capability{access.CapDeploymentBind, access.CapDeploymentDeploy, access.CapDeploymentRead, access.CapProjectRead} {
 		a.grant(t, "owner", cap)
@@ -83,7 +105,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	projectValues := map[string]string{"slug": "game"}
 	createPath := "/api/v1/projects/game/deployments"
 	body := `{"name":"prod","target":"cloud","audience":"public","data":"production"}`
-	denied := deploymentBodyRequest(deployments.CreateDeployment, "outsider", http.MethodPost, createPath, body, projectValues)
+	denied := authenticatedRequest(deployments.CreateDeployment, "outsider", http.MethodPost, createPath, body, projectValues)
 	if denied.Code != 403 {
 		t.Fatalf("outsider configured deployment: %d %s", denied.Code, denied.Body.String())
 	}
@@ -91,7 +113,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if err != nil || len(rows) != 0 {
 		t.Fatalf("denial persisted configuration: %+v %v", rows, err)
 	}
-	w := deploymentBodyRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, body, projectValues)
+	w := authenticatedRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, body, projectValues)
 	if w.Code != 403 || !strings.Contains(w.Body.String(), "not offered") {
 		t.Fatalf("domain refusal: %d %s", w.Code, w.Body.String())
 	}
@@ -107,7 +129,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 		{`"unknown"`, 400, ""}, {`"Compatible-Update"`, 400, ""}, {`17`, 400, ""}, {`true`, 400, ""}, {`{}`, 400, ""},
 	} {
 		request := fmt.Sprintf(`{"name":"prod","target":"cloud","deploymentPolicy":%s}`, tc.value)
-		refused := deploymentBodyRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, request, projectValues)
+		refused := authenticatedRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, request, projectValues)
 		if sourceReads != beforePolicyReads {
 			t.Fatalf("refused policy %s reached source preparation: %d -> %d", tc.value, beforePolicyReads, sourceReads)
 		}
@@ -117,12 +139,12 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 		if tc.code != "" && (!strings.Contains(refused.Body.String(), "protected-maintenance") || !strings.Contains(refused.Body.String(), "use compatible-update")) {
 			t.Fatalf("unreadable reserved refusal: %s", refused.Body.String())
 		}
-		outsider := deploymentBodyRequest(deployments.CreateDeployment, "outsider", http.MethodPost, createPath, request, projectValues)
+		outsider := authenticatedRequest(deployments.CreateDeployment, "outsider", http.MethodPost, createPath, request, projectValues)
 		if tc.value[0] == '"' && (outsider.Code != 403 || strings.Contains(outsider.Body.String(), "not implemented")) {
 			t.Fatalf("procedure leaked through authority: %d %s", outsider.Code, outsider.Body.String())
 		}
 	}
-	misspelled := deploymentBodyRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, `{"name":"prod","target":"cloud","deploymentPolcy":"protected-maintenance"}`, projectValues)
+	misspelled := authenticatedRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, `{"name":"prod","target":"cloud","deploymentPolcy":"protected-maintenance"}`, projectValues)
 	if misspelled.Code != 400 || !strings.Contains(misspelled.Body.String(), "deploymentPolcy") {
 		t.Fatalf("misspelled safety selection ignored: %d %s", misspelled.Code, misspelled.Body.String())
 	}
@@ -145,7 +167,7 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"name":"cloud"`) {
 		t.Fatalf("offered target: %d %s", w.Code, w.Body.String())
 	}
-	w = deploymentBodyRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, body, projectValues)
+	w = authenticatedRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, body, projectValues)
 	if w.Code != 422 || !strings.Contains(w.Body.String(), "persistent volumes") {
 		t.Fatalf("saved incompatible configuration: %d %s", w.Code, w.Body.String())
 	}
@@ -157,14 +179,14 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	if _, err := a.service.Targets.Put(context.Background(), cloud); err != nil {
 		t.Fatal(err)
 	}
-	w = deploymentBodyRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, body, projectValues)
+	w = authenticatedRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, body, projectValues)
 	var saved deployment.Deployment
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &saved) != nil || saved.ID != env.ID {
 		t.Fatalf("configuration response: %d %s", w.Code, w.Body.String())
 	}
 	for _, suffix := range []string{"", `,"deploymentPolicy":null`, `,"deploymentPolicy":""`, `,"deploymentPolicy":"compatible-update"`} {
 		request := `{"name":"prod","target":"cloud","audience":"public","data":"production"` + suffix + `}`
-		defaulted := deploymentBodyRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, request, projectValues)
+		defaulted := authenticatedRequest(deployments.CreateDeployment, "owner", http.MethodPost, createPath, request, projectValues)
 		var view map[string]any
 		if defaulted.Code != 200 || json.Unmarshal(defaulted.Body.Bytes(), &view) != nil || view["deploymentPolicy"] != "compatible-update" {
 			t.Fatalf("default %s: %d %s", suffix, defaulted.Code, defaulted.Body.String())
@@ -204,18 +226,18 @@ func TestDeploymentConfigurationHTTP(t *testing.T) {
 	}
 	values := map[string]string{"slug": "game", "name": "manual"}
 	for _, value := range []string{`"protected-maintenance"`, `"compatible-update"`, `null`} {
-		override := deploymentBodyRequest(deployments.DeployDeployment, "owner", http.MethodPost, "/api/v1/projects/game/deployments/manual/deploy", `{"deploymentPolicy":`+value+`}`, values)
+		override := authenticatedRequest(deployments.DeployDeployment, "owner", http.MethodPost, "/api/v1/projects/game/deployments/manual/deploy", `{"deploymentPolicy":`+value+`}`, values)
 		if override.Code != 400 || !strings.Contains(override.Body.String(), "deploymentPolicy") || len(queue.ids) != 0 {
 			t.Fatalf("per-release policy override silently deployed: %d %s queue%v", override.Code, override.Body.String(), queue.ids)
 		}
 	}
 	body = fmt.Sprintf(`{"bundleId":%q}`, bundle)
-	w = deploymentBodyRequest(deployments.DeployDeployment, "outsider", "POST", "/", body, values)
+	w = authenticatedRequest(deployments.DeployDeployment, "outsider", "POST", "/", body, values)
 	releases, err := a.service.Releases.ForProject(context.Background(), a.project, 100)
 	if w.Code != 403 || err != nil || len(releases) != 0 || len(queue.ids) != 0 {
 		t.Fatalf("denied release admitted: %d %s, %+v %v", w.Code, w.Body.String(), releases, err)
 	}
-	w = deploymentBodyRequest(deployments.DeployDeployment, "owner", "POST", "/", body, values)
+	w = authenticatedRequest(deployments.DeployDeployment, "owner", "POST", "/", body, values)
 	releases, err = a.service.Releases.ForProject(context.Background(), a.project, 100)
 	if w.Code != 202 || err != nil || len(releases) != 1 || len(queue.ids) != 1 || releases[0].ID != queue.ids[0] || releases[0].State != deployment.Releasing {
 		t.Fatalf("release admission: %d %s, %+v %v", w.Code, w.Body.String(), releases, err)
