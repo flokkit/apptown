@@ -3,6 +3,9 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"log"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
@@ -37,9 +40,9 @@ func (r Routing) PreviewURL(label string, port int) string {
 	}
 	return r.PublicURL(port)
 }
-func (r Routing) DeploymentURL(slug string, port int) string {
+func (r Routing) DeploymentURL(servingLabel string, port int) string {
 	if r.MainDomain != "" {
-		return fmt.Sprintf("%s://%s.%s", r.MainScheme, slug, r.MainDomain)
+		return fmt.Sprintf("%s://%s.%s", r.MainScheme, servingLabel, r.MainDomain)
 	}
 	return r.PublicURL(port)
 }
@@ -78,18 +81,28 @@ func (s *Service) Reach(ctx context.Context, slug string, d *Deployment) Reach {
 //
 // On this AppTown's own host, an address at the published port (no tier
 // domain for it) answers there only, which the Reach says.
-func (s *Service) reachedAt(ctx context.Context, slug string, d *Deployment, t *Target, observed string) Reach {
+func (s *Service) reachedAt(ctx context.Context, _ string, d *Deployment, t *Target, observed string) Reach {
 	if t != nil && t.Kind == KindDockerHost && d.Standing() && d.HostPort != 0 {
 		routes := s.env.RoutesFor(ctx, d.ProjectID)
+		servingLabel := ""
+		attachedDomain, _ := t.Ingress["domain"].(string)
+		if d.Name == "main" && (t.Origin == OriginBuiltIn && routes.MainDomain != "" || t.Origin == OriginAttached && attachedDomain != "") {
+			owner, err := project.ByIDIn(ctx, s.db, d.ProjectID)
+			if err != nil {
+				log.Printf("deployment %s: reading its serving identity: %v", d.ID, err)
+				return Reach{}
+			}
+			servingLabel = owner.ServingLabel
+		}
 		switch t.Origin {
 		case OriginBuiltIn:
 			if d.Name == "main" && routes.MainDomain != "" {
-				return Reach{URL: routes.DeploymentURL(slug, d.HostPort)}
+				return Reach{URL: routes.DeploymentURL(servingLabel, d.HostPort)}
 			}
 			return Reach{URL: routes.PublicURL(d.HostPort), HostOnly: routes.PortAddressesHostOnly()}
 		case OriginAttached:
 			if addr, _, err := HostTargetAddress(t); err == nil {
-				return Reach{URL: attachedFrontDoor(t, addr.Host).FrontDoor(slug, d.Name, d.HostPort)}
+				return Reach{URL: attachedFrontDoor(t, addr.Host).FrontDoor(servingLabel, d.Name, d.HostPort)}
 			}
 		}
 	}

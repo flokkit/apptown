@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/project/internal/projectsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -37,14 +38,23 @@ func TestProjectQueriesPreserveTypesTransactionsAndErrors(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	id := idstest.Parse(t, "ffffffff-ffff-7fff-bfff-ffffffffffff")
-	// sql-guarantee: an id with every bit a v7 id may set, plus a historical timestamp, tests lossless projection; InsertProject stamps its own creation time.
-	if _, err := db.Exec(`INSERT INTO projects(id,slug,name,default_branch,namespace,icon,blurb,created_at)
-		VALUES (?,'typed','Typed','main','team','star','intent','2020-01-02T03:04:05.123456+11:00')`, id); err != nil {
+	// The owner accepts an exact UUID and timestamp; keep both independent
+	// expected values below while supplying every required creation invariant.
+	at, err := time.Parse(time.RFC3339Nano, "2020-01-02T03:04:05.123456+11:00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.InTx(t.Context(), func(tx *database.Tx) error {
+		if _, err := CreateAt(t.Context(), tx, at, Spec{ID: id, Slug: "typed", Name: "Typed", Namespace: "team", Icon: "star", Blurb: "intent"}); err != nil {
+			return err
+		}
+		return SetDefaultBranchIn(t.Context(), tx, id, "main")
+	}); err != nil {
 		t.Fatal(err)
 	}
 	counted := &countedQueries{Handle: db.SQL()}
 	p, err := ByIDIn(context.Background(), counted, id)
-	if err != nil || p.ID != id || p.Slug != "typed" || p.Name != "Typed" || p.Namespace != "team" || p.Icon != "star" || p.Blurb != "intent" || p.CreatedAt != "2020-01-01T16:04:05.123456Z" || counted.reads != 1 {
+	if err != nil || p.ID != id || p.Slug != "typed" || p.ServingLabel != "typed" || p.Name != "Typed" || p.Namespace != "team" || p.Icon != "star" || p.Blurb != "intent" || p.CreatedAt != "2020-01-01T16:04:05.123456Z" || counted.reads != 1 {
 		t.Fatalf("project projection: %+v, reads=%d: %v", p, counted.reads, err)
 	}
 	if p, err := ByIDIn(context.Background(), db, idstest.N(999999)); p != (Project{}) || !errors.Is(err, sql.ErrNoRows) {

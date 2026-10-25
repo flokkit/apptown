@@ -55,12 +55,19 @@ func StagedBuildContext(ctx context.Context, ws, buildContext string) (string, f
 	return filepath.Join(staged, buildContext), cleanup, nil
 }
 
+// requireServingLabel applies at both complete boot and direct app replacement
+// boundaries, before either can change resources on the attached host.
+func (t BootRequest) requireServingLabel() error {
+	if t.Docker.Remote() && t.Docker.RoutesDeployment(t.Deployment) && t.ServingLabel == "" && t.Sealed == nil {
+		return errors.New("a deployment routed by the host's ingress has no serving label")
+	}
+	return nil
+}
+
 func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontract.Part, network string, secretEnv map[string]string) (int, error) {
 	dk, name, ws, hostPort, persistent := t.Docker, t.Name, t.Workspace, t.HostPort, t.Persistent
-	// The host's ingress routes main by its project's slug, which the boot
-	// is told: refused before anything is replaced.
-	if dk.Remote() && dk.RoutesDeployment(t.Deployment) && t.Slug == "" && t.Sealed == nil {
-		return 0, errors.New("a deployment routed by the host's ingress is booted without its project's slug")
+	if err := t.requireServingLabel(); err != nil {
+		return 0, err
 	}
 	// A static part's browser values are read before anything is replaced:
 	// an attachment that cannot be read fails the boot while the running
@@ -232,12 +239,12 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 		// container joins the network named traefik before it starts, which
 		// Traefik is told to use when the container is on several. The
 		// router is named after the container, which no other deployment's
-		// shares; the host name is the project's slug, as the boot is told it.
+		// shares; the host uses the immutable serving label, not its display address.
 		router := name
 		args = append(args,
 			"-l", "traefik.enable=true",
 			"-l", "traefik.docker.network=traefik",
-			"-l", fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", router, t.Slug, dk.Domain),
+			"-l", fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s.%s`)", router, t.ServingLabel, dk.Domain),
 			"-l", fmt.Sprintf("traefik.http.routers.%s.entrypoints=websecure", router),
 			"-l", fmt.Sprintf("traefik.http.routers.%s.tls.certresolver=letsencrypt", router),
 			"-l", fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=%d", router, c.Port),

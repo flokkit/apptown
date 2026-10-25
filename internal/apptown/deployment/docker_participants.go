@@ -107,7 +107,7 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 	if err != nil {
 		return fail(err)
 	}
-	request := docker.BootRequest{Docker: dk, Name: names.App(), StackID: names.Stack(), Workspace: in.Source.Workspace, Slug: p.Slug, Deployment: dep.Name, DataClass: in.DataClass, HostPort: in.HostPort, Persistent: true, Services: in.Services, Probe: 90 * time.Second, PageCheck: true, Revision: in.Source.Revision}
+	request := docker.BootRequest{Docker: dk, Name: names.App(), StackID: names.Stack(), Workspace: in.Source.Workspace, Slug: p.Slug, ServingLabel: p.ServingLabel, Deployment: dep.Name, DataClass: in.DataClass, HostPort: in.HostPort, Persistent: true, Services: in.Services, Probe: 90 * time.Second, PageCheck: true, Revision: in.Source.Revision}
 	owner := s.Deployments.OwnerOf(dep)
 	request.Storage = s.Deployments.StorageOf(dep)
 	request.Log = in.Log
@@ -126,11 +126,11 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 		// An attached host is reached at that host, main too: this
 		// AppTown's routes serve only its own host.
 		if dk.Remote() {
-			return dk.FrontDoor(p.Slug, dep.Name, port)
+			return dk.FrontDoor(p.ServingLabel, dep.Name, port)
 		}
 		routes := s.env.RoutesFor(ctx, projectID)
 		if dep.Name == "main" {
-			return routes.DeploymentURL(p.Slug, port)
+			return routes.DeploymentURL(p.ServingLabel, port)
 		}
 		return routes.PublicURL(port)
 	}

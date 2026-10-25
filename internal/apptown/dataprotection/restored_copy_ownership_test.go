@@ -24,11 +24,10 @@ func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	ctx := context.Background()
-	// A project's slug is fixed when it is made, and this world makes
-	// "ledger"; the collision needs the hyphenated slug, which no operation
-	// gives an existing project any more.
-	// sql-guarantee: the world's project takes the colliding slug directly.
-	if _, err := w.db.Exec(`UPDATE projects SET slug='ledger-pay' WHERE id=$1`, w.project); err != nil {
+	// This world creates "ledger"; model a project originally created as
+	// "ledger-pay" so another project can own the independent "ledger" label.
+	// sql-guarantee: no operation rewrites initial identity; set both original slug and retained serving label for this collision fixture.
+	if _, err := w.db.Exec(`UPDATE projects SET slug='ledger-pay', serving_label='ledger-pay' WHERE id=$1`, w.project); err != nil {
 		t.Fatal(err)
 	}
 	other := createTestProject(t, w.db, "ledger", "Other Ledger")

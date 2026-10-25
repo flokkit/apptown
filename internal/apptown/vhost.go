@@ -29,7 +29,7 @@ import (
 // in-process. Dropping files into Traefik was declined as non-portable:
 // it assumed a specific proxy, a specific provider, a shared filesystem.
 // The portable mechanism is the oldest one: apptownd routes by Host header.
-// change-97.preview.<domain> and <slug>.main.<domain> arrive at apptownd
+// change-97.preview.<domain> and <serving-label>.main.<domain> arrive at apptownd
 // however the operator likes — wildcard DNS straight at the box, any
 // reverse proxy in front — and apptownd reverse-proxies to the app's local port.
 //
@@ -67,7 +67,7 @@ func parseTierDomains(raw []string) (map[string]tierDomain, error) {
 	return tiers, nil
 }
 
-// Old-version previews: <slug>-release-<n>.preview.<domain> — a past
+// Old-version previews: <serving-label>-release-<n>.preview.<domain> — a past
 // release's exact image, booted for a look (handleReleasePreview).
 var releasePreviewRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*-release-[0-9]+$`)
 
@@ -133,7 +133,7 @@ func hostnameOf(host string) string {
 // vhostRules is the one routing rule for evals: the eval domain serves
 // eval copies only, and the preview and main domains never serve one. It
 // resolves a label to its project (a change's or run's preview by its
-// record, a release preview or a standing deployment by its slug) and asks
+// record, a release preview or standing deployment by its serving label) and asks
 // Project for its purpose. A label that names no project is not served; a record
 // that cannot be read is an error, never a yes. Verdicts are kept briefly:
 // a label's project and a project's purpose do not change.
@@ -159,7 +159,7 @@ func (v *vhostRules) serves(ctx context.Context, route vhostRoute) (bool, error)
 		return got.serves, nil
 	}
 	v.mu.Unlock()
-	projectID, err := v.project(ctx, route.label)
+	projectID, err := v.project(ctx, route)
 	if err != nil {
 		return false, err
 	}
@@ -183,8 +183,8 @@ func (v *vhostRules) serves(ctx context.Context, route vhostRoute) (bool, error)
 // standing is the container a project's main deployment serves from, as
 // its record says ("" when it has none): the Host names the project, and
 // the deployment was named on its host with the prefix it was made with.
-func (v *vhostRules) standing(ctx context.Context, slug string) (string, error) {
-	p, err := v.projects.BySlug(ctx, slug)
+func (v *vhostRules) standing(ctx context.Context, label string) (string, error) {
+	p, err := v.projects.ByServingLabel(ctx, label)
 	if found, err := database.Lookup(err); err != nil || !found {
 		return "", err
 	}
@@ -196,8 +196,9 @@ func (v *vhostRules) standing(ctx context.Context, slug string) (string, error) 
 }
 
 // project is the project a host label names, 0 when none.
-func (v *vhostRules) project(ctx context.Context, label string) (ids.ID, error) {
-	if docker.IsWorkPreviewLabel(label) {
+func (v *vhostRules) project(ctx context.Context, route vhostRoute) (ids.ID, error) {
+	label := route.label
+	if !route.standing && docker.IsWorkPreviewLabel(label) {
 		kind, rest, _ := strings.Cut(label, "-")
 		id, _ := ids.Parse(rest)
 		var projectID ids.ID
@@ -220,10 +221,10 @@ func (v *vhostRules) project(ctx context.Context, label string) (ids.ID, error) 
 		return projectID, nil
 	}
 	slug := label
-	if releasePreviewRe.MatchString(label) {
+	if !route.standing && releasePreviewRe.MatchString(label) {
 		slug = label[:strings.LastIndex(label, "-release-")]
 	}
-	p, err := v.projects.BySlug(ctx, slug)
+	p, err := v.projects.ByServingLabel(ctx, slug)
 	found, err := database.Lookup(err)
 	if err != nil || !found {
 		return ids.Nil, err
@@ -407,7 +408,7 @@ func isLoopback(host string) bool {
 }
 
 // certifiable: name is AppTown's public host, or a tier-domain name this
-// router serves. A release name (<slug>-release-<n>) must also name a
+// router serves. A release name (<serving-label>-release-<n>) must also name a
 // recorded release of that project with its number written canonically:
 // the router serves any number for an existing project, and a certificate
 // for every number would be unbounded.
@@ -423,14 +424,14 @@ func (c certificateNames) certifiable(ctx context.Context, name string) (bool, e
 	if !ok {
 		return false, nil
 	}
-	if releasePreviewRe.MatchString(route.label) {
+	if !route.standing && releasePreviewRe.MatchString(route.label) {
 		i := strings.LastIndex(route.label, "-release-")
 		slug, digits := route.label[:i], route.label[i+len("-release-"):]
 		n, err := strconv.ParseInt(digits, 10, 64)
 		if err != nil || strconv.FormatInt(n, 10) != digits {
 			return false, nil
 		}
-		p, err := c.projects.BySlug(ctx, slug)
+		p, err := c.projects.ByServingLabel(ctx, slug)
 		if found, err := database.Lookup(err); err != nil || !found {
 			return false, err
 		}

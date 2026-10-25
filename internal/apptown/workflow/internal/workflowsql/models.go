@@ -71,6 +71,7 @@ type Project struct {
 	RequireIndependentApproval bool
 	SettingsRevision           int64
 	Purpose                    string
+	ServingLabel               string
 }
 
 type Run struct {

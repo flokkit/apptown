@@ -98,8 +98,8 @@ func (q *Queries) DeletingProjects(ctx context.Context) ([]ProjectLifecycle, err
 }
 
 const insertProject = `-- name: InsertProject :one
-INSERT INTO projects (id, slug, name, namespace, blurb, icon, owner_group, default_approvers, created_at, purpose)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose
+INSERT INTO projects (id, slug, name, namespace, blurb, icon, owner_group, default_approvers, created_at, purpose, serving_label)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label
 `
 
 type InsertProjectParams struct {
@@ -113,6 +113,7 @@ type InsertProjectParams struct {
 	DefaultApprovers string
 	CreatedAt        time.Time
 	Purpose          string
+	ServingLabel     string
 }
 
 // Project writes.
@@ -128,6 +129,7 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (P
 		arg.DefaultApprovers,
 		arg.CreatedAt,
 		arg.Purpose,
+		arg.ServingLabel,
 	)
 	var i Project
 	err := row.Scan(
@@ -146,6 +148,7 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (P
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
@@ -324,7 +327,7 @@ func (q *Queries) ProjectAuthorityCatalogue(ctx context.Context, projectID ids.I
 }
 
 const projectByID = `-- name: ProjectByID :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id = $1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id = $1
 `
 
 // Project record reads and locks.
@@ -347,12 +350,13 @@ func (q *Queries) ProjectByID(ctx context.Context, id ids.ID) (Project, error) {
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
 
 const projectByIDForUpdate = `-- name: ProjectByIDForUpdate :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id = $1 FOR UPDATE
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) ProjectByIDForUpdate(ctx context.Context, id ids.ID) (Project, error) {
@@ -374,12 +378,41 @@ func (q *Queries) ProjectByIDForUpdate(ctx context.Context, id ids.ID) (Project,
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
+	)
+	return i, err
+}
+
+const projectByServingLabel = `-- name: ProjectByServingLabel :one
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE serving_label = $1
+`
+
+func (q *Queries) ProjectByServingLabel(ctx context.Context, servingLabel string) (Project, error) {
+	row := q.db.QueryRowContext(ctx, projectByServingLabel, servingLabel)
+	var i Project
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.DefaultBranch,
+		&i.Namespace,
+		&i.Icon,
+		&i.Blurb,
+		&i.ReleaseDomain,
+		&i.ModelProfile,
+		&i.OwnerGroup,
+		&i.DefaultApprovers,
+		&i.CreatedAt,
+		&i.RequireIndependentApproval,
+		&i.SettingsRevision,
+		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
 
 const projectBySlug = `-- name: ProjectBySlug :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE slug = $1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE slug = $1
 `
 
 func (q *Queries) ProjectBySlug(ctx context.Context, slug string) (Project, error) {
@@ -401,6 +434,7 @@ func (q *Queries) ProjectBySlug(ctx context.Context, slug string) (Project, erro
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
@@ -519,7 +553,7 @@ func (q *Queries) ProjectLifecycle(ctx context.Context, projectID ids.ID) (Proje
 }
 
 const projectPage = `-- name: ProjectPage :many
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
 AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
 AND ($2::text='' OR strpos(lower(name||' '||slug||' '||blurb||' '||namespace||' '||icon),$2)>0)
 ORDER BY CASE WHEN $3::boolean THEN array_position($1::uuid[],id) END,
@@ -570,6 +604,7 @@ func (q *Queries) ProjectPage(ctx context.Context, arg ProjectPageParams) ([]Pro
 			&i.RequireIndependentApproval,
 			&i.SettingsRevision,
 			&i.Purpose,
+			&i.ServingLabel,
 		); err != nil {
 			return nil, err
 		}
@@ -634,7 +669,7 @@ func (q *Queries) ProjectSlugs(ctx context.Context) ([]string, error) {
 }
 
 const projectsByNamespaceAndName = `-- name: ProjectsByNamespaceAndName :many
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects ORDER BY namespace, name
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects ORDER BY namespace, name
 `
 
 func (q *Queries) ProjectsByNamespaceAndName(ctx context.Context) ([]Project, error) {
@@ -662,6 +697,7 @@ func (q *Queries) ProjectsByNamespaceAndName(ctx context.Context) ([]Project, er
 			&i.RequireIndependentApproval,
 			&i.SettingsRevision,
 			&i.Purpose,
+			&i.ServingLabel,
 		); err != nil {
 			return nil, err
 		}
@@ -833,7 +869,7 @@ func (q *Queries) SaveContractSnapshot(ctx context.Context, arg SaveContractSnap
 }
 
 const setIndependentApproval = `-- name: SetIndependentApproval :one
-UPDATE projects SET require_independent_approval = $2 WHERE id=$1 RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose
+UPDATE projects SET require_independent_approval = $2 WHERE id=$1 RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label
 `
 
 type SetIndependentApprovalParams struct {
@@ -860,6 +896,7 @@ func (q *Queries) SetIndependentApproval(ctx context.Context, arg SetIndependent
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
@@ -967,7 +1004,7 @@ func (q *Queries) StartPurge(ctx context.Context, arg StartPurgeParams) (int64, 
 }
 
 const updateProjectSettings = `-- name: UpdateProjectSettings :one
-UPDATE projects SET slug=$2, name=$3, icon=$4, blurb=$5, namespace=$6, settings_revision=settings_revision+1 WHERE id=$1 RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose
+UPDATE projects SET slug=$2, name=$3, icon=$4, blurb=$5, namespace=$6, settings_revision=settings_revision+1 WHERE id=$1 RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label
 `
 
 type UpdateProjectSettingsParams struct {
@@ -1005,6 +1042,7 @@ func (q *Queries) UpdateProjectSettings(ctx context.Context, arg UpdateProjectSe
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
@@ -1028,7 +1066,7 @@ func (q *Queries) VisibleProjectCount(ctx context.Context, arg VisibleProjectCou
 }
 
 const visibleProjects = `-- name: VisibleProjects :many
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
 AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
 ORDER BY namespace, name, id
 `
@@ -1060,6 +1098,7 @@ func (q *Queries) VisibleProjects(ctx context.Context, dollar_1 []ids.ID) ([]Pro
 			&i.RequireIndependentApproval,
 			&i.SettingsRevision,
 			&i.Purpose,
+			&i.ServingLabel,
 		); err != nil {
 			return nil, err
 		}

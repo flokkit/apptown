@@ -217,6 +217,13 @@ WHERE length(hostname)<=253
 		`INSERT INTO deployment_hostname_claims(hostname) SELECT DISTINCT hostname FROM apptown_legacy_hostname_candidates`,
 		`INSERT INTO deployment_hostname_claimants(hostname,deployment_id) SELECT hostname,deployment_id FROM apptown_legacy_hostname_candidates`,
 	}},
+	{n: 175, note: "capture immutable project serving labels without renaming routes", stmts: []string{
+		`ALTER TABLE projects ADD COLUMN serving_label TEXT`,
+		`UPDATE projects SET serving_label=slug`,
+		`ALTER TABLE projects ALTER COLUMN serving_label SET NOT NULL`,
+		`ALTER TABLE projects ADD CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$')`,
+		`ALTER TABLE projects ADD CONSTRAINT projects_serving_label_unique UNIQUE(serving_label)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

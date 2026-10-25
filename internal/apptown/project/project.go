@@ -48,6 +48,9 @@ type Project struct {
 	// Purpose is what the project is for, fixed at creation (purpose.go).
 	// The column's CHECK holds it to the known purposes.
 	Purpose Purpose `json:"-"`
+	// ServingLabel names existing Docker routes and historical release previews.
+	// It is captured at creation and never follows settings edits.
+	ServingLabel string `json:"-"`
 }
 
 var (
@@ -65,7 +68,7 @@ func ValidSlug(slug string) bool { return slugRe.MatchString(slug) }
 func record(r projectsql.Project) Project {
 	return Project{ID: r.ID, Slug: r.Slug, Name: r.Name, DefaultBranch: r.DefaultBranch, Namespace: r.Namespace, Icon: r.Icon, Blurb: r.Blurb,
 		CreatedAt:  r.CreatedAt.Format(time.RFC3339Nano),
-		OwnerGroup: r.OwnerGroup, DefaultApprovers: r.DefaultApprovers, ReleaseDomain: r.ReleaseDomain, ModelProfile: r.ModelProfile, RequireIndependentApproval: r.RequireIndependentApproval, SettingsRevision: r.SettingsRevision, Purpose: Purpose(r.Purpose)}
+		OwnerGroup: r.OwnerGroup, DefaultApprovers: r.DefaultApprovers, ReleaseDomain: r.ReleaseDomain, ModelProfile: r.ModelProfile, RequireIndependentApproval: r.RequireIndependentApproval, SettingsRevision: r.SettingsRevision, Purpose: Purpose(r.Purpose), ServingLabel: r.ServingLabel}
 }
 
 // ByIDIn reads a project through q; absence is the query's error.
@@ -122,6 +125,16 @@ func (s *Projects) BySlug(ctx context.Context, slug string) (Project, error) {
 	return record(r), nil
 }
 
+// ByServingLabel resolves only the immutable serving namespace. AppTown address
+// aliases do not authorize another application hostname or certificate.
+func (s *Projects) ByServingLabel(ctx context.Context, label string) (Project, error) {
+	r, err := queries(s.db).ProjectByServingLabel(ctx, label)
+	if err != nil {
+		return Project{}, database.Missing(database.QueryError(err, "ProjectByServingLabel"))
+	}
+	return record(r), nil
+}
+
 func (s *Projects) Slugs(ctx context.Context) ([]string, error) { return SlugsIn(ctx, s.db) }
 
 // Spec is what a project is made from.
@@ -157,7 +170,7 @@ func CreateAt(ctx context.Context, tx *database.Tx, at time.Time, in Spec) (ids.
 	if id.IsZero() {
 		id = ids.New(at.UTC())
 	}
-	r, err := queries(tx).InsertProject(ctx, projectsql.InsertProjectParams{ID: id, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, OwnerGroup: in.OwnerGroup, DefaultApprovers: in.DefaultApprovers, CreatedAt: at.UTC(), Purpose: string(in.Purpose)})
+	r, err := queries(tx).InsertProject(ctx, projectsql.InsertProjectParams{ID: id, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, OwnerGroup: in.OwnerGroup, DefaultApprovers: in.DefaultApprovers, CreatedAt: at.UTC(), Purpose: string(in.Purpose), ServingLabel: in.Slug})
 	if err != nil {
 		var state interface{ SQLState() string }
 		if errors.As(err, &state) && state.SQLState() == "23505" {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
 // recordingClient records every Docker command, and answers ports.
@@ -97,10 +98,10 @@ func (liveRoutes) PublicOrigins(ctx context.Context) string {
 
 const preparedContract = "version: 1\napp:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n  worker:\n    build: .\n    command: [\"work\"]\ninit:\n  - {name: migrate, build: ., command: [\"migrate\"]}\nneeds:\n  postgres: {version: \"16\"}\n"
 
-func bootOnce(t *testing.T, deps Dependencies, c *appcontract.Contract, ws string) []string {
+func bootOnce(t *testing.T, deps Dependencies, c *appcontract.Contract, ws string, at time.Time) []string {
 	t.Helper()
 	client := &recordingClient{}
-	if _, err := NewHost(deps).Boot(context.Background(), BootRequest{Docker: Scope{Client: client}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1",
+	if _, err := NewHost(deps).Boot(context.Background(), BootRequest{Docker: Scope{Client: client, Now: func() time.Time { return at }}, Name: "apptown-preview-change-1", StackID: "pvsnap-change-1",
 		Workspace: ws, Slug: "app", Deployment: "preview", Probe: time.Second, Scratch: t.TempDir()}, c); err != nil {
 		t.Fatalf("boot: %v\n%s", err, strings.Join(client.calls, "\n"))
 	}
@@ -131,7 +132,8 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 			t.Fatalf("secrets for %s: %v", consumer, prepared.Secrets)
 		}
 	}
-	liveCalls := bootOnce(t, live, c, ws)
+	at := time.Unix(1700000000, 0)
+	liveCalls := bootOnce(t, live, c, ws, at)
 	// The declared PostgreSQL carries its health check, and the boot waits
 	// on its answer before anything runs against it.
 	asked, initRan := -1, -1
@@ -150,7 +152,8 @@ func TestAPreparedBootIsTheSameBoot(t *testing.T) {
 	}
 	withoutLogin := prepared
 	withoutLogin.Registry = nil
-	preparedCalls := bootOnce(t, withoutLogin.Dependencies(upProbe{}, testImages()), c, ws)
+	// Both boots must agree even when their creation timestamps differ.
+	preparedCalls := bootOnce(t, withoutLogin.Dependencies(upProbe{}, testImages()), c, ws, at.Add(time.Second))
 	if normalised(liveCalls) != normalised(preparedCalls) {
 		t.Fatalf("a prepared boot differs from a live one:\nlive:\n%s\nprepared:\n%s", strings.Join(liveCalls, "\n"), strings.Join(preparedCalls, "\n"))
 	}
@@ -227,7 +230,7 @@ func TestEveryPreparedBootHasAConfigurationOfItsOwn(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		calls := bootOnce(t, p.Dependencies(upProbe{}, testImages()), c, ws)
+		calls := bootOnce(t, p.Dependencies(upProbe{}, testImages()), c, ws, time.Unix(1700000000, 0))
 		var config string
 		for _, call := range calls {
 			if call == "context show" {
@@ -313,7 +316,7 @@ func jsonOf(v any) (string, error) {
 // configuration folder, each as its sorted words: environment flags come
 // from maps, in no fixed order.
 func normalised(calls []string) string {
-	created := regexp.MustCompile(`forge\.created=\S+`)
+	created := regexp.MustCompile(regexp.QuoteMeta(dockerlabel.Created) + `=\S+`)
 	// A disk read names its container afresh each time and stamps its
 	// deadline from the clock.
 	probe := regexp.MustCompile(`apptown-disk-probe-[0-9a-f]+|apptown\.deadline=\d+`)
@@ -323,7 +326,7 @@ func normalised(calls []string) string {
 		if call == "context show" {
 			continue // a prepared boot asks, for its own configuration
 		}
-		words := strings.Fields(probe.ReplaceAllString(created.ReplaceAllString(config.ReplaceAllString(call, ""), "apptown.created"), "disk-probe"))
+		words := strings.Fields(probe.ReplaceAllString(created.ReplaceAllString(config.ReplaceAllString(call, ""), dockerlabel.Created), "disk-probe"))
 		sort.Strings(words)
 		out = append(out, strings.Join(words, " "))
 	}

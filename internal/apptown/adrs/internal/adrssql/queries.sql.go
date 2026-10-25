@@ -437,7 +437,7 @@ func (q *Queries) NextADRNumber(ctx context.Context, projectID ids.ID) (int64, e
 }
 
 const projectForUpdate = `-- name: ProjectForUpdate :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id=$1 FOR UPDATE
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=$1 FOR UPDATE
 `
 
 func (q *Queries) ProjectForUpdate(ctx context.Context, id ids.ID) (Project, error) {
@@ -459,6 +459,7 @@ func (q *Queries) ProjectForUpdate(ctx context.Context, id ids.ID) (Project, err
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }

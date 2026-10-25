@@ -118,7 +118,7 @@ func (q *Queries) AdoptionHistory(ctx context.Context, arg AdoptionHistoryParams
 }
 
 const adoptionProjectForUpdate = `-- name: AdoptionProjectForUpdate :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id=$1 FOR UPDATE
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=$1 FOR UPDATE
 `
 
 // All adoption mutations lock project identity before the current aggregate.
@@ -141,6 +141,7 @@ func (q *Queries) AdoptionProjectForUpdate(ctx context.Context, id ids.ID) (Proj
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }
@@ -925,7 +926,7 @@ func (q *Queries) ProjectExtension(ctx context.Context, arg ProjectExtensionPara
 }
 
 const projectIdentity = `-- name: ProjectIdentity :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose FROM projects WHERE id=$1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=$1
 `
 
 func (q *Queries) ProjectIdentity(ctx context.Context, id ids.ID) (Project, error) {
@@ -947,6 +948,7 @@ func (q *Queries) ProjectIdentity(ctx context.Context, id ids.ID) (Project, erro
 		&i.RequireIndependentApproval,
 		&i.SettingsRevision,
 		&i.Purpose,
+		&i.ServingLabel,
 	)
 	return i, err
 }

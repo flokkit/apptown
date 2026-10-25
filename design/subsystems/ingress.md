@@ -15,13 +15,20 @@ Which name reaches which deployment, by target:
 
 | Target | `main` | Any other deployment |
 | --- | --- | --- |
-| AppTown's own Docker host | `<slug>.<main tier domain>`, through apptownd's front door (VHost); without a main tier domain, AppTown's host and the published port | AppTown's host and its published port |
-| An attached Docker host with an ingress domain | `<slug>.<domain>`, through the host's own Traefik | the host's address and its published port; it carries no Traefik route |
+| AppTown's own Docker host | `<serving label>.<main tier domain>`, through apptownd's front door (VHost); without a main tier domain, AppTown's host and the published port | AppTown's host and its published port |
+| An attached Docker host with an ingress domain | `<serving label>.<domain>`, through the host's own Traefik | the host's address and its published port; it carries no Traefik route |
 | An attached Docker host without a domain | the host's address and its published port | the same |
 | Portainer | one deployment per project on the target, named for its configured release tier, with retained deployment-owned addresses | other deployment names are refused |
 | App Platform | the platform's own name for each app | the same |
 
-The project's name belongs to `main` on every Docker host
+A project's serving label is captured from its initial address and stays fixed.
+Project settings and AppTown address aliases do not add application hosts or
+certificate names. Built-in routing, attached Docker Host rules, emitted URLs and
+page-check Host headers use that same label. A failed identity read does not
+synthesize an address from display text. Target domains remain explicit operator
+configuration; Portainer has its separate deployment address owner below.
+
+The serving label belongs to `main` on every Docker host
 (`docker.Scope.RoutesDeployment`). Traefik joins every container that
 declares one router into one service and splits requests between them, so a
 second deployment carrying main's route would take about half of main's
@@ -47,7 +54,9 @@ port Docker picks: they are never restarted in place, and their port is
 asked of Docker each time it is used.
 
 Previews are reached under the preview tier domain (`change-<n>`,
-`<slug>-release-<n>`), never at a deployment's name.
+`<serving label>-release-<n>`), never at a deployment's name. Historical
+release previews retain their original resource names and selected release when
+the AppTown address changes; local and worker preview retention use those names.
 
 ## No common ingress contract
 

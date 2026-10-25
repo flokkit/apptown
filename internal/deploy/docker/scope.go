@@ -251,9 +251,9 @@ func (dk Scope) RoutesDeployment(deployment string) bool {
 // under the target's ingress domain when it has one (RoutesDeployment,
 // design/subsystems/ingress.md), else the host by address and published
 // port.
-func (dk Scope) FrontDoor(slug, deployment string, hostPort int) string {
+func (dk Scope) FrontDoor(servingLabel, deployment string, hostPort int) string {
 	if dk.RoutesDeployment(deployment) {
-		return "https://" + slug + "." + dk.Domain
+		return "https://" + servingLabel + "." + dk.Domain
 	}
 	return fmt.Sprintf("http://%s:%d", dk.Hostname, hostPort)
 }

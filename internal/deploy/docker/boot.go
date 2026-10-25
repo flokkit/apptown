@@ -36,12 +36,13 @@ import (
 type BootRequest struct {
 	// Log reports phase entry. It receives no environment values or command output.
 	// Nil disables progress reporting without changing boot behavior.
-	Log       deploy.Logf
-	Slug      string // the application's slug
-	DataClass string // what a standing deployment holds; "" or "synthetic" lets a moved service be recreated
-	Name      string // the public app container: apptown-preview-change-7, <prefix>env-<slug>-main
-	StackID   string // owner of its stack (services, init, network): pvsnap-change-7, pv<step>, env-<slug>-<env>
-	Workspace string // the tree to boot: a worktree, a run workspace, the project checkout
+	Log          deploy.Logf
+	Slug         string // the application's current display address; not routing identity
+	ServingLabel string // immutable label for a standing host route; separate from secret scope
+	DataClass    string // what a standing deployment holds; "" or "synthetic" lets a moved service be recreated
+	Name         string // the public app container: apptown-preview-change-7, <prefix>env-<slug>-main
+	StackID      string // owner of its stack (services, init, network): pvsnap-change-7, pv<step>, env-<slug>-<env>
+	Workspace    string // the tree to boot: a worktree, a run workspace, the project checkout
 	// HostPort pins a standing deployment's stable port; 0 lets docker pick
 	// (previews).
 	HostPort int
@@ -343,6 +344,9 @@ func (e redactedError) Unwrap() error { return e.err }
 // boot is Boot before its failure is redacted.
 func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract) (BootResult, error) {
 	var res BootResult
+	if err := t.requireServingLabel(); err != nil {
+		return res, &BootError{Phase: PhaseResolve, Err: err}
+	}
 	t.logf("Resolving runtime configuration and container limits")
 	// A prepared boot's Docker configuration is its own: its one registry
 	// login, written before any phase builds, pulls or runs, and gone with
