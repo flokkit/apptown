@@ -123,7 +123,31 @@ jobs:
       # tests: a registry error fails this step, not a test.
       - name: pull test images
         run: sh scripts/ci-heavy.sh pull
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: runner image inputs
+        id: image-inputs
+        run: echo "pi=$(sed -n 's/^ARG PI_VERSION=//p' deploy/apptown-agent/Dockerfile)" >> "$GITHUB_OUTPUT"
+      - name: build agent image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/apptown-agent
+          load: true
+          tags: apptown-agent
+          cache-from: type=gha,version=2,scope=ci-heavy-agent-linux-amd64
+          cache-to: ${{ github.ref == 'refs/heads/main' && matrix.name == 'integration-root' && 'type=gha,version=2,scope=ci-heavy-agent-linux-amd64,mode=min' || '' }}
+      - name: build test runner image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/ci-heavy
+          file: deploy/ci-heavy/Dockerfile
+          build-args: PI_VERSION=${{ steps.image-inputs.outputs.pi }}
+          load: true
+          tags: apptown-ci-heavy
+          cache-from: type=gha,version=2,scope=ci-heavy-runner-linux-amd64
+          cache-to: ${{ github.ref == 'refs/heads/main' && matrix.name == 'integration-root' && 'type=gha,version=2,scope=ci-heavy-runner-linux-amd64,mode=min' || '' }}
       - name: go test (${{ matrix.name }})
+        env:
+          CI_HEAVY_PREBUILT: "1"
         run: eval "sh scripts/ci-heavy.sh ${{ matrix.args }}"
       - if: always()
         run: sh scripts/ci-heavy.sh cleanup

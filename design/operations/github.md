@@ -135,8 +135,11 @@ The container tiers restore the same host module path as the producer and mount
 it with their compilation cache into the Linux runner. `CI_HEAVY_GOMOD` and
 `CI_HEAVY_GOCACHE` select absolute host paths; local runs default to the existing
 named Docker volumes. The runner restores host ownership before archiving.
-Neither database state nor Docker daemon state is cached. Docker image builds
-currently use only the runner's local layer cache.
+Neither database state nor Docker daemon state is cached. Hosted tiers build and load both current-checkout images with Buildx, restoring
+GitHub Actions layer caches in separate runner and agent scopes. Only main's
+integration-root job exports those rolling scopes. The harness's explicit
+prebuilt mode requires both images to exist; local runs still build by default.
+Layer-cache eviction causes a rebuild, never omission of tests.
 
 The analyzers (`go-tools-*`) use the Makefile hash. setup-node's npm cache uses
 the lockfile; a pull request that changes it can save its own copy. Release
