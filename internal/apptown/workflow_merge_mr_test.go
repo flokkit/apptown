@@ -384,7 +384,7 @@ func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 	}
 	gittest.Run(t, workspace, "add", "work.txt")
 	gittest.Run(t, workspace, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "work")
-	hub := filepath.Join(a.cfg.dataDir, "workspaces", "project-"+p.Slug)
+	hub := filepath.Join(a.cfg.dataDir, "workspaces", "project-"+p.ID.String())
 	remote := filepath.Join(t.TempDir(), "group", "project.git")
 	gittest.Run(t, t.TempDir(), "clone", "-q", "--bare", hub, remote)
 	// What linking a remote does to the project's repository (POST

@@ -43,7 +43,7 @@ func imageCheck(t *testing.T, scanners map[string]string, exit int, seedContract
 	f.Scanners.exec.Run = LocalExecutor(execution.Runner{DockerBinary: binary}, f.Scanners.docker, "", nil).Run
 
 	dataDir := t.TempDir()
-	hub := filepath.Join(dataDir, "workspaces", "project-p")
+	hub := filepath.Join(dataDir, "workspaces", "project-"+f.ProjectID.String())
 	git := func(args ...string) string {
 		t.Helper()
 		out, err := gittest.Command(append([]string{"-C", hub, "-c", "user.name=t", "-c", "user.email=t@example.invalid"}, args...)...).CombinedOutput()

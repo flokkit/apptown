@@ -70,7 +70,7 @@ func TestMergeSourceBatchesAncestryRepositoryAdoptionAndMR(t *testing.T) {
 	if source.UpliftRefusal() == "" {
 		t.Fatal("moved adoption did not block uplift")
 	}
-	if requireLocation(t)(source.Workspace("/forge")) != filepath.Join("/forge", "workspaces", fmt.Sprintf("change-%d", root.ChangeID)) || requireLocation(t)(source.Repository("/forge")) != "/forge/workspaces/project-completion" {
+	if requireLocation(t)(source.Workspace("/forge")) != filepath.Join("/forge", "workspaces", fmt.Sprintf("change-%d", root.ChangeID)) || requireLocation(t)(source.Repository("/forge")) != filepath.Join("/forge", "workspaces", "project-"+root.ProjectID.String()) {
 		t.Fatalf("wrong ownership: %+v", source)
 	}
 	// sql-guarantee: Change pinned expected revision between independent source reads; no owner mutation edits an admitted Change's expected revision.

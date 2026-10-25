@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -20,7 +21,7 @@ func TestAMissingSourcePreservesHistory(t *testing.T) {
 	if err != nil || len(vs) != 1 {
 		t.Fatalf("review: %+v %v", vs, err)
 	}
-	if err := os.Rename(a.projectRepoPath("before"), a.projectRepoPath("unavailable")); err != nil {
+	if err := os.Rename(a.projectRepoPath("before"), filepath.Join(t.TempDir(), "unavailable")); err != nil {
 		t.Fatal(err)
 	}
 	observed := currentFor(t, a, id, "clean")

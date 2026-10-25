@@ -145,6 +145,9 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 		return report, errors.New("db.env names no built-in database container, volume or database")
 	}
 	dataDir := s.deps.DataDir
+	if err := refusePendingRestore(dataDir); err != nil {
+		return report, err
+	}
 	archive, err := filepath.Abs(in.Archive)
 	if err != nil {
 		return report, err
@@ -385,6 +388,9 @@ func keyFileNames(dataDir string) ([]string, error) {
 // copies, the backup's own staging and the control socket. It says the
 // archive's digest and size, and what of the data directory it passed over.
 func writeArchive(path, passphrase string, m *Manifest, dump, dataDir, staging string) (backuparchive.Digest, []string, error) {
+	if err := refusePendingRestore(dataDir); err != nil {
+		return backuparchive.Digest{}, nil, err
+	}
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return backuparchive.Digest{}, nil, err

@@ -59,7 +59,7 @@ func TestACopyIsTheSourceAtOneCommitWithItsWayOfWorking(t *testing.T) {
 	if got, err := project.PurposeIn(ctx, f.db, copy.ID); err != nil || got != project.EvalCopy {
 		t.Fatalf("the copy's purpose is %q (%v), want an eval copy", got, err)
 	}
-	hub := filepath.Join(f.lifecycle.dataDir, "workspaces", "project-"+copy.Slug)
+	hub := filepath.Join(f.lifecycle.dataDir, "workspaces", "project-"+copy.ID.String())
 	if head := gittest.RunAsTester(t, hub, "rev-parse", "HEAD"); head != base {
 		t.Fatalf("the copy's main is %s, want the base %s", head, base)
 	}
@@ -264,7 +264,7 @@ func wantMainRecorded(t *testing.T, db *database.DB, dataDir string, projectID i
 	if err != nil || !known {
 		t.Fatalf("%s: no recorded main (%v)", p.Slug, err)
 	}
-	if want := scm.Ref(t.Context(), hubDir(dataDir, p.Slug), "refs/heads/"+p.DefaultBranch); m.SHA != want || m.Via != string(via) {
+	if want := scm.Ref(t.Context(), hubDir(dataDir, p.ID), "refs/heads/"+p.DefaultBranch); m.SHA != want || m.Via != string(via) {
 		t.Fatalf("%s: recorded main %s by %s, want the hub's %s by %s", p.Slug, m.SHA, m.Via, want, via)
 	}
 }
@@ -282,7 +282,7 @@ func TestRepositorySetupAndStarterFilesRecordMain(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantMainRecorded(t, f.db, f.lifecycle.dataDir, p.ID, scm.ViaInit)
-	before := scm.Ref(t.Context(), hubDir(f.lifecycle.dataDir, p.Slug), "refs/heads/main")
+	before := scm.Ref(t.Context(), hubDir(f.lifecycle.dataDir, p.ID), "refs/heads/main")
 	pk, err := f.ways.Pack(t.Context(), "go-small")
 	if err != nil {
 		t.Fatal(err)
@@ -290,7 +290,7 @@ func TestRepositorySetupAndStarterFilesRecordMain(t *testing.T) {
 	if _, err := f.lifecycle.ApplyPack(adoption.WithSystemAuthority(context.Background(), p.ID), p, pk, "bls"); err != nil {
 		t.Fatal(err)
 	}
-	if scm.Ref(t.Context(), hubDir(f.lifecycle.dataDir, p.Slug), "refs/heads/main") == before {
+	if scm.Ref(t.Context(), hubDir(f.lifecycle.dataDir, p.ID), "refs/heads/main") == before {
 		t.Fatal("the pack committed no starter files")
 	}
 	wantMainRecorded(t, f.db, f.lifecycle.dataDir, p.ID, scm.ViaGenesis)

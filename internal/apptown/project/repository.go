@@ -12,7 +12,8 @@ import (
 
 // RepositoryRef identifies a project's hub from an owner record or projection.
 // It is not an authorization decision: the caller must have established that
-// ID and Slug belong together before constructing it.
+// the ID belongs to the requested project before constructing it. Slug is
+// display/projection metadata and never influences the filesystem location.
 type RepositoryRef struct {
 	ID   ids.ID
 	Slug string
@@ -21,10 +22,10 @@ type RepositoryRef struct {
 // Path is the current on-disk hub location. It neither probes nor creates it.
 // Change and run workspaces have their own identities and layouts.
 func (r RepositoryRef) Path(dataDir string) (string, error) {
-	if r.ID.IsZero() || !ValidSlug(r.Slug) {
-		return "", fmt.Errorf("project repository needs an identified project with a valid address")
+	if r.ID.IsZero() {
+		return "", fmt.Errorf("project repository needs an immutable project identity")
 	}
-	return filepath.Join(dataDir, "workspaces", "project-"+r.Slug), nil
+	return filepath.Join(dataDir, "workspaces", "project-"+r.ID.String()), nil
 }
 
 // Repository resolves the hub belonging to this project record.

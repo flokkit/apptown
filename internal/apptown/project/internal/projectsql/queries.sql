@@ -144,3 +144,11 @@ SELECT * FROM project_lifecycle WHERE state = 'deleted' AND kept_until <= sqlc.a
 
 -- name: LifecyclesOf :many
 SELECT sqlc.embed(l), p.slug, p.name FROM project_lifecycle l JOIN projects p ON p.id = l.project_id ORDER BY l.project_id;
+
+-- name: RepositoryLayoutOwners :many
+SELECT p.id,p.slug,p.default_branch,COALESCE(l.state,'')::text AS lifecycle,false::boolean AS retained
+FROM projects p LEFT JOIN project_lifecycle l ON l.project_id=p.id
+UNION ALL
+SELECT d.project_id,d.slug,''::text,'deleted'::text,true::boolean
+FROM project_deletions d WHERE d.state<>'done' AND NOT EXISTS(SELECT 1 FROM projects p WHERE p.id=d.project_id)
+ORDER BY id;

@@ -744,6 +744,52 @@ func (q *Queries) ReconfirmDeletion(ctx context.Context, arg ReconfirmDeletionPa
 	return result.RowsAffected()
 }
 
+const repositoryLayoutOwners = `-- name: RepositoryLayoutOwners :many
+SELECT p.id,p.slug,p.default_branch,COALESCE(l.state,'')::text AS lifecycle,false::boolean AS retained
+FROM projects p LEFT JOIN project_lifecycle l ON l.project_id=p.id
+UNION ALL
+SELECT d.project_id,d.slug,''::text,'deleted'::text,true::boolean
+FROM project_deletions d WHERE d.state<>'done' AND NOT EXISTS(SELECT 1 FROM projects p WHERE p.id=d.project_id)
+ORDER BY id
+`
+
+type RepositoryLayoutOwnersRow struct {
+	ID            ids.ID
+	Slug          string
+	DefaultBranch string
+	Lifecycle     string
+	Retained      bool
+}
+
+func (q *Queries) RepositoryLayoutOwners(ctx context.Context) ([]RepositoryLayoutOwnersRow, error) {
+	rows, err := q.db.QueryContext(ctx, repositoryLayoutOwners)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RepositoryLayoutOwnersRow
+	for rows.Next() {
+		var i RepositoryLayoutOwnersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.DefaultBranch,
+			&i.Lifecycle,
+			&i.Retained,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const restartProjectDeletion = `-- name: RestartProjectDeletion :one
 UPDATE project_deletions SET state='pending', attempts=0, round=round+1, detail='', finished_at=NULL
 WHERE project_id=$1 AND state<>'done' RETURNING round

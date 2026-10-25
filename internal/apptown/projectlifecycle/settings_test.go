@@ -53,7 +53,7 @@ func TestAProjectsSlugCannotChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := hubDir(f.lifecycle.dataDir, a.Slug)
+	dir := hubDir(f.lifecycle.dataDir, a.ID)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}

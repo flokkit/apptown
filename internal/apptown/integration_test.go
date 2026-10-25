@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,15 +17,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/datalayout"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/instancebackup"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/stockupdate/stockupdatetest"
 	"github.com/flokkit/apptown/internal/strs"
 	"github.com/flokkit/apptown/stock"
 )
@@ -371,4 +382,257 @@ func mustGET(t *testing.T, url string) string {
 	}
 	t.Fatalf("GET %s never came good: %v", url, lastErr)
 	return ""
+}
+
+// This is a successful archive/load/startup composition check, not a released
+// RC7 binary fixture: both filesystem layouts carry the current SQL schema.
+// Nonparallel: the real built-in database uses its documented fixed port and
+// Restore must see a host without any other AppTown installation.
+func TestIntegrationRestoredStartupCompletesLayoutAndIntent(t *testing.T) {
+	requireDocker(t)
+	dk := docker.Scope{Client: docker.CLI{}}
+	for _, key := range []string{dockerlabel.Instance, dockerlabel.Deployment} {
+		names, err := dk.List(t.Context(), "ps", "-a", "--filter", "label="+key, "--format", "{{.Names}}")
+		if err != nil || len(names) != 0 {
+			t.Fatalf("restore qualification requires a host with no other AppTown containers (%s): %v %v", key, names, err)
+		}
+	}
+	probe, err := net.Listen("tcp", "127.0.0.1:"+builtinDBPort)
+	if err != nil {
+		t.Fatalf("restore qualification needs the free built-in database port: %v", err)
+	}
+	if err := probe.Close(); err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(t.TempDir(), "apptownd")
+	if out := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"go", "build", "-o", binary, "../../cmd/apptownd"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 3 * time.Minute}); !out.Exited0() {
+		t.Fatalf("build restore daemon: %v %s", out.RunErr, out.Output)
+	}
+	shipped := stockupdatetest.Dir(t)
+	for _, layout := range []int{1, 2} {
+		for _, changedRoot := range []bool{false, true} {
+			t.Run(fmt.Sprintf("layout%d/changedRoot=%t", layout, changedRoot), func(t *testing.T) {
+				restoredStartupCase(t, dk, binary, shipped, layout, changedRoot)
+			})
+		}
+	}
+}
+
+func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, layout int, changedRoot bool) {
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
+	defer cancel()
+	root := t.TempDir()
+	source := filepath.Join(root, "source")
+	target := source
+	if changedRoot {
+		target = filepath.Join(root, "restored")
+	}
+	if err := os.Mkdir(source, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	suffix := ids.New(time.Now()).String()
+	names := builtinDBNames{Container: "apptown-restore-test-" + suffix, Volume: "apptown-restore-test-data-" + suffix, Database: "apptown"}
+	// Register only exact test-owned resources before their first creation.
+	t.Cleanup(func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if err := dk.Remove(cleanup, names.Container); err != nil {
+			t.Error(err)
+		}
+		if err := dk.RemoveVolume(cleanup, names.Volume); err != nil {
+			t.Error(err)
+		}
+	})
+	url := "postgres://postgres:restore-test-only@127.0.0.1:" + builtinDBPort + "/apptown?sslmode=disable"
+	bootstrap := "APPTOWN_DB_URL=" + url + "\nAPPTOWN_DB_PASSWORD=restore-test-only\nAPPTOWN_DB_CONTAINER=" + names.Container + "\nAPPTOWN_DB_VOLUME=" + names.Volume + "\n"
+	if err := os.WriteFile(filepath.Join(source, "db.env"), []byte(bootstrap), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, "layout"), []byte(fmt.Sprintf("%d\n", layout)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (BuiltinDatabase{DataDir: source, Docker: dk}).Ensure(ctx); err != nil {
+		t.Fatal(err)
+	}
+	db, err := OpenURL(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	app := startApp(t, db, Config{DataDir: source, DockerClient: docker.CLI{}, UsingBuiltinDB: true})
+	app.SeedTargets(ctx)
+	testAccounts(t, db, "restore-fixture")
+	pid, err := database.Transact(ctx, db, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(ctx, tx, time.Now(), project.Spec{Slug: "restore-project"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.Projects.SetDefaultBranch(ctx, pid, "main"); err != nil {
+		t.Fatal(err)
+	}
+	hubName := "project-" + pid.String()
+	if layout == 1 {
+		hubName = "project-restore-project"
+	}
+	hub := filepath.Join(source, "workspaces", hubName)
+	if err := os.MkdirAll(hub, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	git := func(folder string, args ...string) string {
+		t.Helper()
+		out, err := gitexec.HubRun(ctx, folder, args...)
+		if err != nil {
+			t.Fatalf("git %v: %v %s", args, err, out)
+		}
+		return out
+	}
+	git(hub, "init", "--quiet", "--template=", "-b", "main")
+	git(hub, "config", "user.name", gitexec.FolderUserName)
+	git(hub, "config", "user.email", gitexec.FolderUserEmail)
+	git(hub, "remote", "add", "origin", "https://example.invalid/unchanged-project.git")
+	if err := os.WriteFile(filepath.Join(hub, "tracked"), []byte("main content\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git(hub, "add", "tracked")
+	git(hub, "commit", "--quiet", "-m", "installed main")
+	mainSHA := git(hub, "rev-parse", "HEAD")
+	if err := scm.RecordMain(ctx, db, hub, pid, "main", scm.ViaInit, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	created, err := database.Transact(ctx, db, func(tx *database.Tx) (workflow.CreatedChange, error) {
+		return workflow.CreateChangeIn(ctx, tx, workflow.ChangeDraft{ProjectID: pid, Title: "preserved local work"}, "restore-fixture", time.Now())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspace := (workflow.Layout{DataDir: source}).ChangeWorkspace(created.Change.ID)
+	if _, err := (workflow.GitWorkspace{DataDir: source}).EnsureClone(ctx, workflow.CloneRequest{Repository: hub, Workspace: workspace, Branch: created.Change.Branch, DefaultBranch: "main"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "tracked"), []byte("staged content\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git(workspace, "add", "tracked")
+	if err := os.WriteFile(filepath.Join(workspace, "tracked"), []byte("dirty content\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(workspace, "untracked"), []byte("untracked content\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	index, dirty := git(workspace, "diff", "--cached", "--binary"), git(workspace, "diff", "--binary")
+	cloud, err := app.Deployment.Targets.Put(ctx, &deployment.Target{Name: "restore-cloud", Kind: deployment.KindDOApp, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote, err := app.Deployment.Deployments.EnsureStanding(ctx, pid, "cloud", cloud.ID, deployment.Attributes{}.WithDefaults())
+	if err != nil {
+		t.Fatal(err)
+	}
+	backupPath := filepath.Join(source, "backups", "restore-project", "main", "recorded-set")
+	if err := os.MkdirAll(backupPath, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	setID, err := dataprotection.NewBackups(db).Record(ctx, &dataprotection.Backup{ProjectID: pid, Deployment: "main", TakenAt: time.Now().UTC().Format(time.RFC3339Nano), Trigger: dataprotection.TriggerAppTownBackup, Path: backupPath, Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk}, "restore-fixture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := filepath.Join(root, "source.backup")
+	const passphrase = "disposable-restore-qualification-passphrase"
+	report, err := app.Backups.Backup(ctx, instancebackup.Request{Archive: archive, Passphrase: passphrase, Actor: "restore-fixture"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Manifest.DataDir != source || report.Manifest.Database == nil {
+		t.Fatal("source archive lacks actual root or database provenance")
+	}
+	if err := app.ShutdownBackground(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := dk.Remove(ctx, names.Container); err != nil {
+		t.Fatal(err)
+	}
+	if err := dk.RemoveVolume(ctx, names.Volume); err != nil {
+		t.Fatal(err)
+	}
+	retired := filepath.Join(root, "retired-source")
+	if err := os.Rename(source, retired); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	passFile := filepath.Join(root, "passphrase")
+	if err := os.WriteFile(passFile, []byte(passphrase), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out := (execution.Runner{}).Run(ctx, execution.Local, execution.Request{Argv: []string{binary, "-data", target, "-shipped", shipped, "restore", archive}, Env: []string{"APPTOWN_BACKUP_PASSPHRASE_FILE=" + passFile}, Timeout: 3 * time.Minute})
+	if !out.Exited0() {
+		t.Fatalf("restored daemon: %v (exit %d)\n%s", out.RunErr, out.ExitCode, out.Output)
+	}
+	if !strings.Contains(string(out.Output), "restored AppTown") {
+		t.Fatalf("daemon did not finish restore: %s", out.Output)
+	}
+	if pending, err := instancebackup.ReadPendingRestore(target); err != nil || pending != nil {
+		t.Fatalf("restore continuation not completed: %+v %v", pending, err)
+	}
+	if err := datalayout.RequireCurrent(target); err != nil {
+		t.Fatal("layout completion was not finalized", err)
+	}
+	restored, err := OpenURL(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := restored.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	owner, err := project.New(restored, nil).ByID(ctx, pid)
+	if err != nil || owner.Slug != "restore-project" {
+		t.Fatalf("project rows lost: %+v %v", owner, err)
+	}
+	main, found, err := scm.ReadMain(ctx, restored, pid)
+	if err != nil || !found || main.SHA != mainSHA {
+		t.Fatalf("main receipt changed: %+v %v %v", main, found, err)
+	}
+	currentHub := filepath.Join(target, "workspaces", "project-"+pid.String())
+	if git(currentHub, "rev-parse", "HEAD") != mainSHA || git(currentHub, "remote", "get-url", "origin") != "https://example.invalid/unchanged-project.git" {
+		t.Fatal("restored hub identity changed")
+	}
+	currentWorkspace := (workflow.Layout{DataDir: target}).ChangeWorkspace(created.Change.ID)
+	if git(currentWorkspace, "diff", "--cached", "--binary") != index || git(currentWorkspace, "diff", "--binary") != dirty {
+		t.Fatal("restored staged or dirty work changed")
+	}
+	raw, err := os.ReadFile(filepath.Join(currentWorkspace, "untracked"))
+	if err != nil || string(raw) != "untracked content\n" {
+		t.Fatalf("untracked content lost: %q %v", raw, err)
+	}
+	set, err := dataprotection.NewBackups(restored).ByID(ctx, pid, "main", setID)
+	if err != nil || set.Path != filepath.Join(target, "backups", "restore-project", "main", "recorded-set") {
+		t.Fatalf("backup reference not relocated: %+v %v", set, err)
+	}
+	deploymentRow, err := deployment.NewDeployments(restored).ByID(ctx, remote.ID)
+	if err != nil || deploymentRow.RestoreCheck != deployment.RestoreUnconfirmed {
+		t.Fatalf("external restore hold missing: %+v %v", deploymentRow, err)
+	}
+	receipts, err := audit.Recent(ctx, restored, audit.Filter{KindPrefix: "instance.restored"})
+	if err != nil || len(receipts) != 1 {
+		t.Fatalf("restore receipt missing/repeated: %d %v", len(receipts), err)
+	}
+	if changedRoot {
+		if _, err := os.Stat(source); !os.IsNotExist(err) {
+			t.Fatalf("restore reused original root: %v", err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(retired, "workspaces", hubName, "tracked")); err != nil {
+		t.Fatal("retired source evidence lost", err)
+	}
 }

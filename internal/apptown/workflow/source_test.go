@@ -55,7 +55,7 @@ func TestWorkflowSourcePreservesWorkspacePathsAndBatchesFacts(t *testing.T) {
 			case "project":
 				run = insertStoredRun(t, store, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: run.WorkflowName, WorkflowVersion: int64(run.WorkflowVersion), Kind: run.Kind, CurrentStage: run.CurrentStage, DefinitionJson: []byte(`{"workspace":"project"}`), Status: run.Status.String()})
 				root = run.ID
-				want = "/forge/workspaces/project-completion"
+				want = filepath.Join("/forge", "workspaces", "project-"+run.ProjectID.String())
 			case "continued", "continued child":
 				for range 6 {
 					id := insertStoredRun(t, store, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: "work", WorkflowVersion: 1, Kind: "pipeline", CurrentStage: "finish", DefinitionJson: []byte(`{}`), Status: RunRunning.String()}).ID

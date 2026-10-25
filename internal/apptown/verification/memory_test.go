@@ -158,7 +158,7 @@ func TestMemoryWithinNeedsAStandingDeployment(t *testing.T) {
 func TestMemoryDeclaredInAReviewReadsTheDefaultBranch(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
-	repo := filepath.Join(dataDir, "workspaces", "project-demo")
+	repo := filepath.Join(dataDir, "workspaces", "project-"+idstest.N(1).String())
 	gittest.Repository(t, repo, "main", gittest.Commit{Message: "declared", Files: map[string]string{
 		".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n",
 	}})
@@ -182,7 +182,7 @@ func TestMemoryDeclaredInAReviewReadsTheDefaultBranch(t *testing.T) {
 func TestAFailingContractCheckIsComparedWithTheBaseCommit(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
-	repo := filepath.Join(dataDir, "workspaces", "project-demo")
+	repo := filepath.Join(dataDir, "workspaces", "project-"+idstest.N(1).String())
 	shas := gittest.Repository(t, repo, "main",
 		gittest.Commit{Message: "declared", Files: map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n    resources: { memory: 64M }\n"}},
 		gittest.Commit{Message: "undeclared", Files: map[string]string{".apptown/app.yaml": "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n"}},

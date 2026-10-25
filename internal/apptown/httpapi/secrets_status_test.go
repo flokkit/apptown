@@ -22,9 +22,9 @@ func TestSecretsAPI(t *testing.T) {
 	dir := t.TempDir()
 	secrets := secret.NewService(db, secret.Config{DataDir: dir})
 	projects := project.New(db, nil)
-	httpTestProject(t, db, "p", "Project")
+	projectID := httpTestProject(t, db, "p", "Project")
 	h := NewSecrets(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), projects, nil, db, dir, nil)
-	repo := filepath.Join(dir, "workspaces", "project-p")
+	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String())
 	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -37,7 +37,7 @@ func TestReleasePreflightUsesCommittedDeclaration(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("PORTAINER_URL=https://unused.invalid\nPORTAINER_API_KEY=unused\nAPPTOWN_APPS_DOMAIN=apps.example\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dir, "workspaces", "project-"+p.Slug)
+	repo := filepath.Join(dir, "workspaces", "project-"+p.ID.String())
 	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}

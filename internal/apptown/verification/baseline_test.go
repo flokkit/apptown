@@ -67,7 +67,7 @@ func TestEveryGateComparesTheCheckedCommitWithItsFork(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataDir := t.TempDir()
-	repo := filepath.Join(dataDir, "workspaces", "project-baseline")
+	repo := filepath.Join(dataDir, "workspaces", "project-"+pid.String())
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}

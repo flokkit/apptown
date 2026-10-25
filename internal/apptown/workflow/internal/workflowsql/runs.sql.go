@@ -780,6 +780,45 @@ func (q *Queries) LatestLandingRunMeta(ctx context.Context, arg LatestLandingRun
 	return id, err
 }
 
+const layoutWorkspaceOwners = `-- name: LayoutWorkspaceOwners :many
+
+SELECT id,project_id,'change'::text AS kind FROM changes
+UNION ALL
+SELECT id,project_id,'run'::text AS kind FROM runs
+ORDER BY kind,id
+`
+
+type LayoutWorkspaceOwnersRow struct {
+	ID        ids.ID
+	ProjectID ids.ID
+	Kind      string
+}
+
+// Every run still open anywhere, for an operation that must wait for none
+// (the AppTown rename's upgrade).
+func (q *Queries) LayoutWorkspaceOwners(ctx context.Context) ([]LayoutWorkspaceOwnersRow, error) {
+	rows, err := q.db.QueryContext(ctx, layoutWorkspaceOwners)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LayoutWorkspaceOwnersRow
+	for rows.Next() {
+		var i LayoutWorkspaceOwnersRow
+		if err := rows.Scan(&i.ID, &i.ProjectID, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markRunLandingAuthority = `-- name: MarkRunLandingAuthority :execrows
 UPDATE runs SET landing_authority = $1, landing_authority_principal = $2, landing_authority_via = $3 WHERE id=$4 AND landing_authority = ''
 `

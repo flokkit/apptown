@@ -236,7 +236,7 @@ func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 	projects := project.New(db, nil)
 	secrets := secret.NewService(db, secret.Config{DataDir: w.dir})
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secrets})
-	w.repo = filepath.Join(w.dir, "workspaces", "project-game")
+	w.repo = filepath.Join(w.dir, "workspaces", "project-"+w.project.String())
 	files := map[string]string{".apptown/app.yaml": yaml, "site/index.html": "<html>game</html>", "worker/Dockerfile": "FROM scratch\n", "migrations/Dockerfile": "FROM scratch\n"}
 	for name, body := range files {
 		if err := os.MkdirAll(filepath.Dir(filepath.Join(w.repo, name)), 0o755); err != nil {

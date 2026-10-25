@@ -36,10 +36,22 @@ import (
 // staged tree) with the check executor routed to the local shell, so no Docker
 // daemon is needed.
 
-// fleetRepo creates a repo-backed project at project-<slug> with a committed
+// fleetRepo creates a repo-backed project at project-<UUID> with a committed
 // tree, and returns its id, the committed SHA, and a git runner for the repo.
 func fleetRepo(t *testing.T, a *App, slug string, files map[string]string) (ids.ID, string, func(...string) string) {
 	t.Helper()
+	var projectID ids.ID
+	err := a.DB.InTx(context.Background(), func(tx *database.Tx) error {
+		id, err := project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: slug, Name: slug})
+		if err != nil {
+			return err
+		}
+		projectID = id
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	repo := a.projectRepoPath(slug)
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
@@ -58,18 +70,6 @@ func fleetRepo(t *testing.T, a *App, slug string, files map[string]string) (ids.
 	// fleet repository starts from.
 	branch := "main"
 	sha := gittest.Repository(t, repo, branch, gittest.Commit{Message: "seed", Files: files})[0]
-	var projectID ids.ID
-	err := a.DB.InTx(context.Background(), func(tx *database.Tx) error {
-		id, err := project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: slug, Name: slug})
-		if err != nil {
-			return err
-		}
-		projectID = id
-		return nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	if err := a.Projects.SetDefaultBranch(context.Background(), projectID, branch); err != nil {
 		t.Fatal(err)
 	}

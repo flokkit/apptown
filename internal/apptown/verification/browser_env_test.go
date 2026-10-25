@@ -48,7 +48,7 @@ func TestAServerAppIsNotJudgedByTheBrowserCheck(t *testing.T) {
 func TestAStandingBrowserCheckDoesNotSubstituteAnUnreadableRelease(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	repo := filepath.Join(dir, "workspaces", "project-demo")
+	repo := filepath.Join(dir, "workspaces", "project-"+idstest.N(1).String())
 	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}

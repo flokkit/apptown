@@ -52,7 +52,7 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 	secrets := secret.NewService(db, secret.Config{DataDir: dir})
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secrets})
 	owner := New(context.Background(), db, assembled(db, testRuntime{DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: dependency.NewCatalog(db, nil)}, Dependencies{}))
-	repo := filepath.Join(dir, "workspaces", "project-p")
+	repo := filepath.Join(dir, "workspaces", "project-"+pid.String())
 	if err := os.MkdirAll(repo, 0755); err != nil {
 		t.Fatal(err)
 	}

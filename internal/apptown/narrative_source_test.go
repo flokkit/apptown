@@ -16,7 +16,7 @@ import (
 func TestNarrativeDiffReadsWorkspaceWithoutPublishingAndFallsBackAfterRemoval(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	repo := filepath.Join(dir, "workspaces", "project-game")
+	repo := filepath.Join(dir, "workspaces", "project-"+idstest.N(2).String())
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestNarrativeDiffReadsWorkspaceWithoutPublishingAndFallsBackAfterRemoval(t 
 func TestEmptyNarrativeComparisonIgnoresDirtyWorkAndLaterMainCommits(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	repo := filepath.Join(dir, "workspaces", "project-game")
+	repo := filepath.Join(dir, "workspaces", "project-"+idstest.N(2).String())
 	base := gittest.Repository(t, repo, "main", gittest.Commit{Message: "starting point"})[0]
 	ws := filepath.Join(dir, "workspaces", "change-00000000-0001-7000-8000-000000000000")
 	gittest.Run(t, dir, "clone", "-q", repo, ws)

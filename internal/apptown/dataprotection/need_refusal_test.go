@@ -15,7 +15,7 @@ import (
 // were withdrawn is refused with the catalogue's sentence, never verified.
 func TestARehearsalRefusesAWithdrawnNeedDeclaration(t *testing.T) {
 	w := newRehearsalWorld(t)
-	repo := filepath.Join(w.s.dataDir, "workspaces", "project-ledger")
+	repo := filepath.Join(w.s.dataDir, "workspaces", "project-"+w.project.String())
 	legacy := strings.Replace(rehearsalContract, "version: \"16\"", "version: \"16\"\n    password: app", 1)
 	if err := os.WriteFile(filepath.Join(repo, ".apptown/app.yaml"), []byte(legacy), 0644); err != nil {
 		t.Fatal(err)

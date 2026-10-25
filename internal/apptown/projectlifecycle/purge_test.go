@@ -15,6 +15,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
@@ -118,7 +119,7 @@ func newPurgeWorld(t *testing.T) *purgeWorld {
 	ids := identity.New(w.db, identity.Config{Projects: project.NewCatalogue(w.db)})
 	w.ops = operations.New(w.db, allowAll{}, ids, nil)
 	w.sets = &leftoverSets{scriptedDeployments: w.deps}
-	w.hub = hubDir(w.d.lifecycle.dataDir, "p")
+	w.hub = hubDir(w.d.lifecycle.dataDir, w.project)
 	if err := os.MkdirAll(w.hub, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -410,7 +411,7 @@ func TestAnEvalCopyIsPurgedWithoutAKeptPeriod(t *testing.T) {
 func TestPurgeResolvesRepositoryAndDeletionByImmutableProjectID(t *testing.T) {
 	t.Parallel()
 	w := newPurgeWorld(t)
-	neighbor := hubDir(w.d.lifecycle.dataDir, "neighbor")
+	neighbor := hubDir(w.d.lifecycle.dataDir, idstest.N(999))
 	if err := os.MkdirAll(neighbor, 0755); err != nil {
 		t.Fatal(err)
 	}

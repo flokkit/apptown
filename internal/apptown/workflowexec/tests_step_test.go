@@ -385,7 +385,7 @@ func TestARunWithoutAChangeTestsItsFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub := filepath.Join(f.dir, "workspaces", "project-tests-alone")
+	hub := filepath.Join(f.dir, "workspaces", "project-"+pid.String())
 	if err := scm.InitializeRepository(t.Context(), hub, "main"); err != nil {
 		t.Fatal(err)
 	}

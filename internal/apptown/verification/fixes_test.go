@@ -26,7 +26,7 @@ func TestAFixNoChangeLandedKeepsItsCommitRange(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataDir := t.TempDir()
-	shas := gittest.Repository(t, filepath.Join(dataDir, "workspaces", "project-fixed"), "main",
+	shas := gittest.Repository(t, filepath.Join(dataDir, "workspaces", "project-"+pid.String()), "main",
 		gittest.Commit{Message: "failing", Files: map[string]string{"a.txt": "FIXME"}},
 		gittest.Commit{Message: "fixed directly", Files: map[string]string{"a.txt": "clean"}})
 	fleet := Fleet{db: db, dataDir: dataDir}

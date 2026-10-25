@@ -41,7 +41,7 @@ func TestAStoppedBaselineIsNotKept(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dataDir, "workspaces"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Rename(repo, filepath.Join(dataDir, "workspaces", "project-p")); err != nil {
+	if err := os.Rename(repo, filepath.Join(dataDir, "workspaces", "project-"+f.ProjectID.String())); err != nil {
 		t.Fatal(err)
 	}
 	stopped, cancel := context.WithCancel(t.Context())
@@ -70,7 +70,7 @@ func TestABaseWhereACheckIsNotApplicableIsKnown(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dataDir, "workspaces"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Rename(repo, filepath.Join(dataDir, "workspaces", "project-p")); err != nil {
+	if err := os.Rename(repo, filepath.Join(dataDir, "workspaces", "project-"+f.ProjectID.String())); err != nil {
 		t.Fatal(err)
 	}
 	effects := &stoppingEffects{scannerEffects: f.Effects}

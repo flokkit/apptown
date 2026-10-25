@@ -78,7 +78,7 @@ func releasePreviewWorldWithSize(t *testing.T, size bool) (s *Service, w *fakePr
 		`{"repo":"registry.example.com/team/p","username":"robot","token":"preview-token"}`, integration.Entered, "test", nil); err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dir, "workspaces", "project-p")
+	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String())
 	writePreviewBootFixture(t, repo)
 	contract := resolvedStackFixture
 	if size {
@@ -230,7 +230,7 @@ func sizedLocalRelease(t *testing.T) (*Service, *fakePreviewWorker, *world, func
 	wd := newWorld(t, "", "")
 	s, w, local, dir, projectID := onWorker(t, wd)
 	s.authority = releasePreviewAuthorityFunc(func(context.Context, ids.ID) error { return nil })
-	repo := filepath.Join(dir, "workspaces", "project-p")
+	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String())
 	writePreviewBootFixture(t, repo)
 	sized := strings.Replace(resolvedStackFixture, "    public: true\n", "    public: true\n    resources: { memory: 4G }\n", 1)
 	if err := os.WriteFile(filepath.Join(repo, ".apptown", "app.yaml"), []byte(sized), 0o644); err != nil {
@@ -294,7 +294,7 @@ func TestALocalReleasePreviewIsReplacedWhenItsSecretChanges(t *testing.T) {
 	t.Parallel()
 	wd := newWorld(t, "", "")
 	s := wd.service(Dependencies{})
-	repo := filepath.Join(wd.dir, "workspaces", "project-p")
+	repo := filepath.Join(wd.dir, "workspaces", "project-"+wd.projectID.String())
 	writePreviewBootFixture(t, repo)
 	if err := os.WriteFile(filepath.Join(repo, secret.SpecFile), []byte("[project]\nname = \"p\"\nrevision = \"1.0\"\n\n[profiles.default]\nGREETING = { description = \"what the app says\" }\n"), 0o644); err != nil {
 		t.Fatal(err)

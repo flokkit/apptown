@@ -13,10 +13,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/datalayout"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/containerresult"
@@ -282,37 +282,17 @@ func waitForDB(ctx context.Context, url string) error {
 // adds the step that moves a directory from the previous one; the upgrade
 // test's fixtures carry the file, so a layout step is tested like a
 // migration.
-const DataLayoutVersion = 1
+const DataLayoutVersion = datalayout.Version
 
 // ErrNewerDataLayout: the data directory was written by a newer build, whose
 // files this build would misread. Downgrades are not supported.
-var ErrNewerDataLayout = errors.New("the data directory was written by a newer build")
+var ErrNewerDataLayout = datalayout.ErrNewerLayout
 
-// PrepareDataLayout checks the data directory's layout version
-// (<dataDir>/layout) before anything else reads or writes it: absent (a
-// directory made before the file existed) or older is brought to this
-// build's version (no step yet: version 1 is the 1.0 layout), the same is
-// accepted, newer is refused by name.
+// PrepareDataLayout validates without stamping. UpgradeDataLayout performs the
+// checked transition under daemon exclusion and stamps only after verification.
 func PrepareDataLayout(dataDir string) error {
-	path := filepath.Join(dataDir, "layout")
-	raw, err := os.ReadFile(path)
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-	case err != nil:
-		return fmt.Errorf("reading the data directory's layout version: %w", err)
-	default:
-		v, err := strconv.Atoi(strings.TrimSpace(string(raw)))
-		if err != nil {
-			return fmt.Errorf("the data directory's layout version %q is not a number", strings.TrimSpace(string(raw)))
-		}
-		if v > DataLayoutVersion {
-			return fmt.Errorf("%w: layout %d, and this build reads %d; start the newer build, or restore the data directory copied before the upgrade", ErrNewerDataLayout, v, DataLayoutVersion)
-		}
-		if v == DataLayoutVersion {
-			return nil
-		}
-	}
-	return os.WriteFile(path, []byte(strconv.Itoa(DataLayoutVersion)+"\n"), 0o644)
+	_, err := datalayout.ReadVersion(dataDir)
+	return err
 }
 
 // BuiltinDatabase is the built-in database of the AppTown whose data

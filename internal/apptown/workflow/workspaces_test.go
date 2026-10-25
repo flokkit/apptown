@@ -57,7 +57,7 @@ func TestWorkspacePreservesDefaultBaseStandaloneCloneAndHumanWork(t *testing.T) 
 	t.Parallel()
 	w, ref, base := workspaceFixture(t)
 	path := changeWorkspacePath(w, ref)
-	repo := filepath.Join(w.git.Paths().DataDir, "workspaces", "project-history")
+	repo := filepath.Join(w.git.Paths().DataDir, "workspaces", "project-"+ref.ProjectID.String())
 	// The hub's current checkout need not be its declared default branch.
 	workspaceGit(t, w.git, repo, "checkout", "feature-early")
 	attachments := filepath.Join(w.git.Paths().DataDir, "changes", fmt.Sprintf("%d", ref.ID), "attachments")

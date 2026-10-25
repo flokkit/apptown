@@ -61,7 +61,7 @@ func driftFixture(t *testing.T) (db *database.DB, dataDir string, id ids.ID, tra
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := filepath.Join(dataDir, "workspaces", "project-drift")
+	repo := filepath.Join(dataDir, "workspaces", "project-"+id.String())
 	if err := scm.InitializeRepository(t.Context(), repo, "main"); err != nil {
 		t.Fatal(err)
 	}

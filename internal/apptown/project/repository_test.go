@@ -8,20 +8,20 @@ import (
 	"testing"
 )
 
-func TestRepositoryLocationRefusesMissingIdentityAndUnsafeAddresses(t *testing.T) {
-	for _, ref := range []RepositoryRef{{Slug: "valid"}, {ID: idstest.N(1)}, {ID: idstest.N(1), Slug: "../neighbor"}, {ID: idstest.N(1), Slug: "a/b"}, {ID: idstest.N(1), Slug: "Upper"}} {
-		if path, err := ref.Path(t.TempDir()); err == nil || path != "" {
-			t.Fatalf("unsafe reference %+v resolved to %q: %v", ref, path, err)
-		}
-	}
+func TestRepositoryLocationUsesImmutableIdentityWithoutFilesystemEffects(t *testing.T) {
 	root := t.TempDir()
+	if path, err := (RepositoryRef{Slug: "valid"}).Path(root); err == nil || path != "" {
+		t.Fatalf("missing identity resolved: %q %v", path, err)
+	}
 	for _, id := range []ids.ID{idstest.N(1), idstest.N(2)} {
-		path, err := (RepositoryRef{ID: id, Slug: "existing-address"}).Path(root)
-		if err != nil || path != filepath.Join(root, "workspaces", "project-existing-address") {
-			t.Fatalf("P1 changed installed layout: %q %v", path, err)
+		for _, slug := range []string{"existing-address", "renamed", "../neighbor", ""} {
+			path, err := (RepositoryRef{ID: id, Slug: slug}).Path(root)
+			if err != nil || path != filepath.Join(root, "workspaces", "project-"+id.String()) {
+				t.Fatalf("address influenced identity path: %q %v", path, err)
+			}
 		}
 	}
 	if entries, err := os.ReadDir(root); err != nil || len(entries) != 0 {
-		t.Fatalf("location lookup created files: %v %v", entries, err)
+		t.Fatalf("lookup changed files: %v %v", entries, err)
 	}
 }
