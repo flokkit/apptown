@@ -299,6 +299,12 @@ func (a *Executor) startAttempt(ctx context.Context, w *workerAttempt, call work
 	meta.Model, meta.ModelSlot, meta.ModelProfile = req.model, req.modelSlot, req.modelProfile
 	meta.Timeout = req.spec.Admission.Limits.WallClock
 	meta.Steering.Hash, meta.Steering.GuidanceHash, meta.Steering.Skills, meta.Steering.Resources = req.steering.Hash, req.steering.GuidanceHash, req.steering.Skills, req.steering.Resources
+	// Refuse before reserving an invocation: no worker may be given a brief
+	// whose required artifact could not be recorded.
+	if err := a.recordSteering(ctx, w.step, req.steering); err != nil {
+		fail(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
 	inv, kept, err := a.reserveInvocation(ctx, w.step, w.run, req.spec, call.commit, meta, call.at.Add(meta.Timeout))
 	if err != nil {
 		if inv.Operation == "" {
@@ -309,7 +315,6 @@ func (a *Executor) startAttempt(ctx context.Context, w *workerAttempt, call work
 		}
 		return
 	}
-	a.recordSteering(ctx, w.step, req.steering)
 	w.obs.run()
 	a.progress.Start(w.step.ID)
 	defer workflow.CaptureProgress(ctx, a.db, a.progress, w.step.ID, a.clock)

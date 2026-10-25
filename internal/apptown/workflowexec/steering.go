@@ -76,7 +76,9 @@ func (a *Executor) buildSteering(ctx context.Context, run *workflow.Run, step *w
 			return st, err
 		}
 	}
-	a.recordSteering(ctx, step, st)
+	if err := a.recordSteering(ctx, step, st); err != nil {
+		return st, err
+	}
 	if err := os.WriteFile(filepath.Join(ws, ".apptown", "steering.md"), []byte(st.Text), 0o644); err != nil {
 		return st, err
 	}
@@ -88,15 +90,17 @@ func (a *Executor) buildSteering(ctx context.Context, run *workflow.Run, step *w
 // guidance + generated registry section + skills + resources + services) is
 // attached as a step artifact and hashed into evidence — dynamic sections
 // included, nothing the model saw is uninspectable.
-func (a *Executor) recordSteering(ctx context.Context, step *workflow.Step, st steeringFile) {
+func (a *Executor) recordSteering(ctx context.Context, step *workflow.Step, st steeringFile) error {
 	ctx = context.WithoutCancel(ctx) // a record of the brief the agent was given
 	if st.Text == "" {
-		return
+		return nil
 	}
-	if res, err := workflow.AddArtifactIn(ctx, a.db, step.RunID, "steering", "steering-"+step.Name, "sha256:"+st.Hash, st.Text, a.now()); err == nil {
-		id := res
-		recordEvent(ctx, a.db, step.RunID, "artifact.added", map[string]any{"kind": "steering", "name": "steering-" + step.Name, "id": id, "hash": st.Hash}, a.now())
+	id, err := workflow.AddArtifactIn(ctx, a.db, step.RunID, "steering", "steering-"+step.Name, "sha256:"+st.Hash, st.Text, a.now())
+	if err != nil {
+		return fmt.Errorf("recording the steering the agent is given: %w", err)
 	}
+	recordEvent(ctx, a.db, step.RunID, "artifact.added", map[string]any{"kind": "steering", "name": "steering-" + step.Name, "id": id, "hash": st.Hash}, a.now())
+	return nil
 }
 
 // composeSteering assembles the steering text — compiled guidance +
