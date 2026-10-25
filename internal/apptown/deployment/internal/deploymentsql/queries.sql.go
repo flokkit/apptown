@@ -1628,6 +1628,43 @@ func (q *Queries) LatestLimitEventOnTarget(ctx context.Context, targetID ids.ID)
 	return at, err
 }
 
+const latestReleasedForDeployment = `-- name: LatestReleasedForDeployment :one
+SELECT id, project_id, number, state, deployment, external_ref, approved_by, run_id, created_at, released_at, notes, commit_sha, source_sha, bundle_id, deployment_id, generation, artifact_hash, origin FROM releases WHERE deployment_id=$1 AND state=$2 ORDER BY number DESC LIMIT 1
+`
+
+type LatestReleasedForDeploymentParams struct {
+	DeploymentID ids.ID
+	State        string
+}
+
+// A release belongs to a placement identity; reused display names cannot
+// establish current attribution or select another placement's history.
+func (q *Queries) LatestReleasedForDeployment(ctx context.Context, arg LatestReleasedForDeploymentParams) (Release, error) {
+	row := q.db.QueryRowContext(ctx, latestReleasedForDeployment, arg.DeploymentID, arg.State)
+	var i Release
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Number,
+		&i.State,
+		&i.Deployment,
+		&i.ExternalRef,
+		&i.ApprovedBy,
+		&i.RunID,
+		&i.CreatedAt,
+		&i.ReleasedAt,
+		&i.Notes,
+		&i.CommitSha,
+		&i.SourceSha,
+		&i.BundleID,
+		&i.DeploymentID,
+		&i.Generation,
+		&i.ArtifactHash,
+		&i.Origin,
+	)
+	return i, err
+}
+
 const latestReleasedNumber = `-- name: LatestReleasedNumber :one
 SELECT COALESCE(MAX(number),0)::bigint FROM releases WHERE project_id=$1 AND deployment=$2 AND state=$3
 `

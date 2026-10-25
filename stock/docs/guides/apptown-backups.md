@@ -123,9 +123,11 @@ import into them again.
   empty data. Until the rebuild ends, nothing else can deploy them. An app
   whose copy in the archive is incomplete, or missing, is not started; its
   card on the Deployments page says why. An app whose last release did not
-  record how to rebuild it is named by the restore: release it again, then
-  restore its copy from its backups. A failure with one app does not stop
-  the others.
+  record how to rebuild it is named by the restore. A promotion-fed deployment
+  can take a new release through its normal checks, followed by restoring its
+  copy from backup. A landing-fed deployment needs recorded bundle provenance
+  for a manual redeploy; unknown historical software cannot be inferred from
+  its name or revision. A failure with one app does not stop the others.
 - **App Platform and Portainer deployments** stay where they are. AppTown
   checks each one with its provider before it acts on it:
   - The provider runs what AppTown last recorded: nothing changes.

@@ -230,16 +230,9 @@ func removeRecordedIn(ctx context.Context, tx *database.Tx, dep *Deployment, s R
 // deployment's record, which the removal deletes in the same transaction.
 func takeDownReleaseIn(ctx context.Context, tx *database.Tx, dep *Deployment, target, who string, at time.Time) error {
 	q := deploymentsql.New(tx.SQL())
-	number, err := q.LatestReleasedNumber(ctx, deploymentsql.LatestReleasedNumberParams{ProjectID: dep.ProjectID, Deployment: dep.Name, State: Released.String()})
-	if err != nil || number == 0 {
+	rel, err := q.LatestReleasedForDeployment(ctx, deploymentsql.LatestReleasedForDeploymentParams{DeploymentID: dep.ID, State: Released.String()})
+	if found, err := database.Lookup(err); err != nil || !found {
 		return err
-	}
-	rel, err := q.ReleaseByNumber(ctx, deploymentsql.ReleaseByNumberParams{ProjectID: dep.ProjectID, Number: number})
-	if err != nil {
-		return err
-	}
-	if !rel.DeploymentID.IsZero() && rel.DeploymentID != dep.ID {
-		return nil // an earlier deployment of the same name; it was ended with that one
 	}
 	return AppendReleaseEvent(ctx, tx, rel.ID, fmt.Sprintf("taken down — %s deleted the deployment %s on %s; it no longer serves this release", who, dep.Name, target), at)
 }

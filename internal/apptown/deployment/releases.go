@@ -142,26 +142,22 @@ func (s *Releases) Last(ctx context.Context, projectID ids.ID, deployment string
 	return releaseRecord(deploymentsql.New(s.db.SQL()).LastRelease(ctx, deploymentsql.LastReleaseParams{ProjectID: projectID, Deployment: deployment}))
 }
 
-// Live reports whether a release is what its deployment serves now: the
-// newest released on that deployment, while the deployment still stands. A
-// removed deployment's last release is history ("taken down" in its log),
-// and a deployment made again under the same name is another deployment. A
-// release from before releases recorded their deployment's identity is
-// matched by the deployment's name.
+// Live reports whether a release is the newest released on its recorded
+// deployment identity while that deployment still stands. Historical releases
+// without a recorded identity remain history; a name cannot establish liveness.
 func (s *Releases) Live(ctx context.Context, rel *Release) (bool, error) {
-	if rel.State != Released {
+	if rel.State != Released || rel.DeploymentID.IsZero() {
 		return false, nil
 	}
-	latest, err := s.LatestReleasedNumber(ctx, rel.ProjectID, rel.Deployment)
-	if err != nil || latest != rel.Number {
+	q := deploymentsql.New(s.db.SQL())
+	latest, err := q.LatestReleasedForDeployment(ctx, deploymentsql.LatestReleasedForDeploymentParams{DeploymentID: rel.DeploymentID, State: Released.String()})
+	if found, err := database.Lookup(err); err != nil || !found {
 		return false, err
 	}
-	q := deploymentsql.New(s.db.SQL())
-	if !rel.DeploymentID.IsZero() {
-		_, err = q.DeploymentByID(ctx, rel.DeploymentID)
-	} else {
-		_, err = q.DeploymentByName(ctx, deploymentsql.DeploymentByNameParams{ProjectID: rel.ProjectID, Name: rel.Deployment})
+	if latest.ID != rel.ID {
+		return false, nil
 	}
+	_, err = q.DeploymentByID(ctx, rel.DeploymentID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}

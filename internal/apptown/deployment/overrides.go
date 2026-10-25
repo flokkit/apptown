@@ -148,7 +148,7 @@ func (s *Service) SetOverride(ctx context.Context, in OverrideChange) (OverrideR
 		return OverrideResult{}, err
 	}
 	if running.IsZero() {
-		out.NotYet = "nothing runs on this deployment yet: the override applies at its next deploy"
+		out.NotYet = "the running software could not be established; the override is saved for the next deployment, and no redeploy was started"
 		return out, nil
 	}
 	if intranet {
