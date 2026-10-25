@@ -43,12 +43,10 @@ func (e *asyncEdge) handler(t *testing.T) http.Handler {
 	})
 }
 
-// A deployment in a Portainer environment AppTown cannot reach for its
-// data (an async edge agent) reads as not known, and its take-down is
-// refused, having changed nothing, unless the person chooses to take it
-// down without a final copy: then the stack goes and its volumes stay, each
-// named with why.
-func TestAPortainerTakeDownWithNoWayToCopyIsAPersonsChoice(t *testing.T) {
+// A legacy async-edge deployment cannot establish the standalone daemon scope
+// required for provider effects. Even an explicit no-copy choice cannot grant
+// identity: both the stack and its recorded holdings remain untouched.
+func TestAnUnverifiedAsyncEdgeRefusesEvenExplicitNoCopy(t *testing.T) {
 	t.Parallel()
 	w := newDataWorld(t)
 	s, pid := w.s, w.project
@@ -79,28 +77,18 @@ func TestAPortainerTakeDownWithNoWayToCopyIsAPersonsChoice(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := s.TakeBackup(ctx, pid, "lan", "manual", "bls"); !errors.Is(err, ErrDataNotKnown) || !strings.Contains(err.Error(), "async mode") {
+	if _, err := s.TakeBackup(ctx, pid, "lan", "manual", "bls"); !errors.Is(err, ErrDataNotKnown) || !strings.Contains(err.Error(), "explicit provider association") {
 		t.Fatalf("a backup there: %v", err)
 	}
-	if _, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "lan"}); !errors.Is(err, ErrNoFinalCopy) || !strings.Contains(err.Error(), "async mode") {
-		t.Fatalf("a take-down with no way to copy: %v", err)
-	}
-	if len(edge.deleted) != 0 {
-		t.Fatal("the refused take-down deleted the stack")
-	}
-	res, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "lan", WithoutFinalCopy: "lan"})
-	if err != nil || res.Removed == nil || res.Removed.FinalBackup != nil || len(edge.deleted) != 1 {
-		t.Fatalf("a take-down without a final copy, chosen: %+v %v (stack deleted %v)", res, err, edge.deleted)
-	}
-	retained, err := s.Retained.ForProject(ctx, pid)
-	found := false
-	for _, r := range retained {
-		why, _ := r.Handle["why"].(string)
-		if name, _ := r.Handle["name"].(string); name == "apptown-ledger_apptown-need-ledger-postgres" && strings.Contains(why, "no complete final backup") {
-			found = true
+	for _, choice := range []string{"", "lan"} {
+		if _, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "lan", WithoutFinalCopy: choice}); err == nil {
+			t.Fatalf("unverified teardown accepted no-copy choice %q", choice)
 		}
 	}
-	if err != nil || !found {
-		t.Fatalf("the kept volume: %+v %v", retained, err)
+	if len(edge.deleted) != 0 {
+		t.Fatal("unverified teardown deleted the stack")
+	}
+	if _, err := s.Deployments.ByID(ctx, dep.ID); err != nil {
+		t.Fatalf("refusal removed deployment: %v", err)
 	}
 }

@@ -189,12 +189,13 @@ type ReleaseEvent struct {
 }
 
 type ReleaseRequest struct {
-	ReleaseID       ids.ID
-	TargetID        ids.ID
-	BaseGeneration  int64
-	AttributesJson  json.RawMessage
-	ClaimedAt       sql.NullTime
-	StartFromBackup ids.ID
+	ReleaseID           ids.ID
+	TargetID            ids.ID
+	BaseGeneration      int64
+	AttributesJson      json.RawMessage
+	ClaimedAt           sql.NullTime
+	StartFromBackup     ids.ID
+	ProviderBindingJson *json.RawMessage
 }
 
 type RetainedResource struct {
@@ -218,20 +219,22 @@ type RetainedResource struct {
 }
 
 type Target struct {
-	ID               ids.ID
-	Name             string
-	Kind             string
-	Provider         string
-	AddressJson      json.RawMessage
-	Origin           string
-	CapabilitiesJson json.RawMessage
-	IngressJson      json.RawMessage
-	NeedsMode        string
-	SecretsDelivery  string
-	Status           string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	SettingsRevision int64
+	ID                ids.ID
+	Name              string
+	Kind              string
+	Provider          string
+	AddressJson       json.RawMessage
+	Origin            string
+	CapabilitiesJson  json.RawMessage
+	IngressJson       json.RawMessage
+	NeedsMode         string
+	SecretsDelivery   string
+	Status            string
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	SettingsRevision  int64
+	ConnectionID      ids.ID
+	ProviderScopeJson *json.RawMessage
 }
 
 type TargetOffer struct {

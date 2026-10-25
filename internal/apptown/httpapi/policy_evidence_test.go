@@ -17,6 +17,8 @@ import (
 // runs once: a top-level test on its own, a helper through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
+	"deployment.InspectProviderAssociation":      TestProviderAssociationHTTPChecksCurrentAuthority,
+	"deployment.AssociateProvider":               TestProviderAssociationHTTPChecksCurrentAuthority,
 	"catalogChanges.CatalogApply":                TestCatalogApplyHTTPKeepsProjectMembershipAndCaller,
 	"accounts.CreateToken":                       TestTokenHTTPKeepsMetadataAndRoleBounds,
 	"accounts.ListTokens":                        TestTokenHTTPKeepsMetadataAndRoleBounds,

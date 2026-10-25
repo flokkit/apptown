@@ -239,6 +239,10 @@ func (s *Bindings) Delete(ctx context.Context, name, who string) error {
 			return fmt.Errorf("%d project integration(s) reference %q: %w", linked, name, ErrAttached)
 		}
 		if _, err := q.DeleteBinding(ctx, name); err != nil {
+			var constraint interface{ SQLState() string }
+			if errors.As(err, &constraint) && constraint.SQLState() == "23503" {
+				return fmt.Errorf("provider resources reference %q: %w", name, ErrAttached)
+			}
 			return err
 		}
 		return audit.At(s.now()).RecordIn(ctx, tx, who, ids.Nil, "integration.deleted", name, nil)

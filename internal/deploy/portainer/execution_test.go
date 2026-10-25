@@ -43,6 +43,8 @@ func TestPortainerExecutionUsesCheckpointedEndpointAndStack(t *testing.T) {
 						} else {
 							fmt.Fprint(w, `[{"Id":9,"Name":"app","EndpointId":8}]`)
 						}
+					case r.Method == "GET" && r.URL.Path == "/api/stacks/4/file":
+						_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}")})
 					default:
 						mutations++
 						wantMethod, wantPath := "POST", "/api/stacks/create/standalone/string"
@@ -52,29 +54,29 @@ func TestPortainerExecutionUsesCheckpointedEndpointAndStack(t *testing.T) {
 						if r.Method != wantMethod || r.URL.Path != wantPath || r.URL.Query().Get("endpointId") != "3" {
 							t.Errorf("wrong mutation: %s %s", r.Method, r.URL)
 						}
-						if !reflect.DeepEqual(checkpoint, map[string]any{"stack": "app", "endpoint": "selected", "endpointId": int64(3)}) {
+						if !reflect.DeepEqual(checkpoint, map[string]any{"stack": "app", "endpoint": "selected", "endpointId": int64(3), "providerScope": scopeFixtureScope("http://" + r.Host), "deploymentId": idstest.N(7)}) {
 							t.Errorf("provider called before durable identity: %v", checkpoint)
 						}
 						var body map[string]any
 						if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 							t.Error(err)
 						}
-						if body["stackFileContent"] != "original compose" {
+						if body["stackFileContent"] != scopeFixtureCompose("services: {}\nx-original: original compose\n") {
 							t.Errorf("changed compose: %v", body)
 						}
 						fmt.Fprint(w, `{}`)
 					}
 				}))
 				defer server.Close()
-				cfg := Target{PortainerURL: server.URL, PortainerKey: "secret", EnvName: "selected"}
+				cfg := Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, PortainerKey: "secret", EnvName: "selected"}
 				save := func(v map[string]any) error { mu.Lock(); defer mu.Unlock(); checkpoint = v; return nil }
 				var got deploy.Observation
 				var err error
 				if driver {
-					d := &Driver{Config: func(ids.ID) (*Target, error) { return &cfg, nil }}
-					got, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), URL: "https://app", Handle: map[string]any{"stack": "app", "owner": "kept"}}, 5, deploy.Artifact{Kind: "compose", Body: []byte("original compose"), Hash: deploy.ConfigHash("original compose")}, "key", func(string, ...any) {}, save)
+					d := &Driver{Config: func(context.Context, ids.ID) (*Target, error) { return &cfg, nil }}
+					got, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), URL: "https://app", Handle: map[string]any{"stack": "app", "owner": "kept"}}, 5, deploy.Artifact{Kind: "compose", Body: []byte(scopeFixtureCompose("services: {}\nx-original: original compose\n")), Hash: deploy.ConfigHash(scopeFixtureCompose("services: {}\nx-original: original compose\n"))}, "key", func(string, ...any) {}, save)
 				} else {
-					got, err = (Execution{Config: cfg, EndpointID: 3, Stack: "app", Compose: "original compose", URL: "https://app", Log: func(string, ...any) {}}).Execute(context.Background(), 5, save)
+					got, err = (Execution{DeploymentID: idstest.N(7), Config: cfg, EndpointID: 3, Stack: "app", Compose: scopeFixtureCompose("services: {}\nx-original: original compose\n"), URL: "https://app", Log: func(string, ...any) {}}).Execute(context.Background(), 5, save)
 				}
 				mu.Lock()
 				defer mu.Unlock()
@@ -110,7 +112,7 @@ func TestPortainerUnreadableInventoryNeverCreatesStack(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			_, err := (Execution{Config: Target{PortainerURL: server.URL, EnvName: "selected"}, EndpointID: 3, Stack: "app", Log: func(string, ...any) {}}).Execute(context.Background(), 1, func(map[string]any) error { return nil })
+			_, err := (Execution{DeploymentID: idstest.N(7), Config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "selected"}, EndpointID: 3, Stack: "app", Compose: scopeFixtureCompose("services: {}"), Log: func(string, ...any) {}}).Execute(context.Background(), 1, func(map[string]any) error { return nil })
 			if err == nil || deploy.IsTerminal(err) || mutations.Load() != 0 {
 				t.Fatalf("unknown inventory became creation: %v mutations=%d", err, mutations.Load())
 			}
@@ -123,8 +125,10 @@ func TestPortainerCheckpointFailurePreventsHTTP(t *testing.T) {
 	called := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called = true; t.Error("HTTP crossed failed checkpoint") }))
 	defer server.Close()
-	_, err := (Execution{Config: Target{PortainerURL: server.URL}, EndpointID: 3, Stack: "app", Log: func(string, ...any) {}}).Execute(context.Background(), 1, func(map[string]any) error { return errors.New("receipt unavailable") })
-	if err == nil || !deploy.IsTerminal(err) || called {
+	receiptErr := errors.New("receipt unavailable")
+	receiptCalled := false
+	_, err := (Execution{DeploymentID: idstest.N(7), Config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL}, EndpointID: 3, Stack: "app", Compose: scopeFixtureCompose("services: {}"), Log: func(string, ...any) {}}).Execute(context.Background(), 1, func(map[string]any) error { receiptCalled = true; return receiptErr })
+	if !receiptCalled || err == nil || !strings.Contains(err.Error(), receiptErr.Error()) || !deploy.IsTerminal(err) || called {
 		t.Fatalf("checkpoint: %v HTTP=%v", err, called)
 	}
 }
@@ -148,7 +152,7 @@ func TestPortainerCancellationInterruptsHTTP(t *testing.T) {
 			defer cancel()
 			done := make(chan error, 1)
 			go func() {
-				_, err := (Execution{Config: Target{PortainerURL: server.URL}, EndpointID: 3, Stack: "app", Log: func(string, ...any) {}}).Execute(ctx, 1, func(map[string]any) error { return nil })
+				_, err := (Execution{DeploymentID: idstest.N(7), Config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL}, EndpointID: 3, Stack: "app", Compose: scopeFixtureCompose("services: {}"), Log: func(string, ...any) {}}).Execute(ctx, 1, func(map[string]any) error { return nil })
 				done <- err
 			}()
 			select {

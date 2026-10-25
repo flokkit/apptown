@@ -47,7 +47,6 @@ var (
 	ErrTargetSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
 	ErrTargetEditEmpty                = fault.New(fault.Invalid, "nothing to change: send domain, persistentVolumes, previews, needsMode, evals, rehearsals, copyRunner or environment")
 	ErrTargetEnvironment              = fault.New(fault.Invalid, "only a Portainer target has a Portainer environment, and it needs a name, such as local")
-	errNoPortainerEnvironment         = fault.New(fault.Invalid, "this Portainer target names no Portainer environment: set one on the target's page")
 	ErrTargetRehearsals               = fault.New(fault.Invalid, "only an attached Docker host can be kept for restore rehearsals, and not one kept for evals")
 	ErrTargetCopyRunner               = fault.New(fault.Invalid, "a copy runner is a Docker host target AppTown reaches, named on an App Platform target")
 	ErrTargetEvals                    = fault.New(fault.Invalid, "only an attached Docker host with a domain can be kept for evals: its domain is the eval domain")
@@ -91,6 +90,12 @@ var (
 // keepSettings carries the stored record's settings into t, the record a
 // sync proposes: a setting the stored record lacks stays absent.
 func (t *Target) keepSettings(stored *Target) {
+	if len(stored.ProviderScope) > 0 {
+		t.Kind = stored.Kind
+		t.Provider = stored.Provider
+		t.ConnectionID = stored.ConnectionID
+		t.ProviderScope = stored.ProviderScope
+	}
 	if stored.Origin == OriginBuiltIn {
 		return
 	}
@@ -242,6 +247,9 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 			env := strings.TrimSpace(*in.Environment)
 			if !DescribeKind(t.Kind).Environment || env == "" {
 				return nil, ErrTargetEnvironment
+			}
+			if len(t.ProviderScope) > 0 && env != t.Address[AddressEnvironment] {
+				return nil, fault.New(fault.Conflict, "this target has a verified provider endpoint; attach another target to select a different endpoint")
 			}
 			if t.Address == nil {
 				t.Address = map[string]any{}

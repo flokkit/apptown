@@ -117,6 +117,8 @@ func TestAttachPortainerTargetAndEdit(t *testing.T) {
 		}
 		if r.URL.Path == "/api/endpoints" {
 			_, _ = resp.Write([]byte(`[{"Id":3,"Name":"home-box","Type":1}]`))
+		} else if r.URL.Path == "/api/endpoints/3/docker/info" {
+			_, _ = resp.Write([]byte(`{"ID":"target-http-engine"}`))
 		} else {
 			_, _ = resp.Write([]byte(`{"Id":3,"Name":"home-box","Type":1,"Snapshots":[{"DockerVersion":"29.7.2"}]}`))
 		}
@@ -137,7 +139,7 @@ func TestAttachPortainerTargetAndEdit(t *testing.T) {
 	if err != nil || target.Kind != deployment.KindPortainer || target.Address["environment"] != "home-box" || !target.Capabilities.OwnLiveness || target.Ingress["domain"] != "apps.home.example" {
 		t.Fatalf("saved: %+v %v", target, err)
 	}
-	if target.Address["apiKeyFrom"] != "PT_KEY" || target.Address["apiKey"] != nil {
+	if target.ConnectionID.IsZero() || len(target.ProviderScope) == 0 || target.Address["apiKey"] != nil {
 		t.Fatalf("row exposed key: %v", target.Address)
 	}
 	cfg, err := w.providers.PortainerConfig(context.Background(), target)
@@ -146,6 +148,9 @@ func TestAttachPortainerTargetAndEdit(t *testing.T) {
 	}
 	if code, out := call(w.targets.CheckTarget, "POST", "/api/v1/targets/home/check", "", "home"); code != 200 || out["ok"] != true {
 		t.Fatalf("check: %d %v", code, out)
+	}
+	if code, out := call(w.targets.EditTarget, "PATCH", "/api/v1/targets/home", `{"expectedRevision":0,"environment":"another-endpoint"}`, "home"); code != 409 {
+		t.Fatalf("verified endpoint retarget: %d %v", code, out)
 	}
 	// The status check above did not move the settings revision, so an edit
 	// read before it still saves.

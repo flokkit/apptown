@@ -1870,6 +1870,8 @@ export type ChatHistoryEntry = {
 }
 
 export type Target = {
+  connectionId?: string | null
+  providerScope?: unknown
   id: string | null
   name: string
   kind: string
@@ -3474,6 +3476,8 @@ export type Figure = {
 export type TargetState = "ready" | "unreachable" | "retired"
 
 export type TargetView = {
+  connectionId?: string | null
+  providerScope?: unknown
   id: string | null
   name: string
   kind: string

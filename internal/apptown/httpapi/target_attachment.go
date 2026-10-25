@@ -10,8 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
-	"github.com/flokkit/apptown/internal/deploy/portainer"
-	"github.com/flokkit/apptown/internal/strs"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // AttachTarget: POST /targets — add a deployment target. Kinds: a
@@ -24,17 +23,19 @@ import (
 // apart. Every kind must answer before it is saved.
 func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{}, func(in struct {
-		Kind        string `json:"kind"`
-		Name        string `json:"name"`
-		Host        string `json:"host"`
-		KeyFrom     string `json:"keyFrom"`
-		URLFrom     string `json:"urlFrom"`
-		APIKeyFrom  string `json:"apiKeyFrom"`
-		Environment string `json:"environment"`
-		Domain      string `json:"domain"`
-		TokenFrom   string `json:"tokenFrom"`
-		Region      string `json:"region"`
-		Registry    string `json:"registry"`
+		ConnectionID ids.ID `json:"connectionId"`
+		EndpointID   int64  `json:"endpointId"`
+		Kind         string `json:"kind"`
+		Name         string `json:"name"`
+		Host         string `json:"host"`
+		KeyFrom      string `json:"keyFrom"`
+		URLFrom      string `json:"urlFrom"`
+		APIKeyFrom   string `json:"apiKeyFrom"`
+		Environment  string `json:"environment"`
+		Domain       string `json:"domain"`
+		TokenFrom    string `json:"tokenFrom"`
+		Region       string `json:"region"`
+		Registry     string `json:"registry"`
 		// A bucket target: the store's API endpoint, the website address
 		// template ({bucket}, {region}) and the secrets holding its key pair.
 		Endpoint        string `json:"endpoint"`
@@ -110,35 +111,18 @@ func (h Targets) AttachTarget(w http.ResponseWriter, r *http.Request) {
 				NeedsMode:    "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady,
 			}
 		case deployment.KindPortainer:
-			in.URLFrom, in.APIKeyFrom, in.Environment = strings.TrimSpace(in.URLFrom), strings.TrimSpace(in.APIKeyFrom), strings.TrimSpace(in.Environment)
-			if in.URLFrom == "" || in.APIKeyFrom == "" || in.Environment == "" {
-				WriteError(w, 400, "a Portainer target needs urlFrom and apiKeyFrom (secret names) and the Portainer environment's name")
-				return
-			}
-			probe := &deployment.Target{Name: in.Name, Kind: deployment.KindPortainer, Address: map[string]any{"urlFrom": in.URLFrom, "apiKeyFrom": in.APIKeyFrom, "environment": in.Environment}, Ingress: map[string]any{"domain": in.Domain}}
-			cfg, err := h.providers.PortainerConfig(r.Context(), probe)
-			if err != nil {
-				WriteError(w, 422, "not attached — %v", err)
-				return
-			}
-			id, err := portainer.EndpointID(r.Context(), cfg)
-			if err != nil {
-				WriteError(w, 422, "not attached — Portainer did not answer as expected: %s", strs.Truncate(err.Error(), 200))
-				return
-			}
-			detail = fmt.Sprintf("Portainer answers; environment %s is endpoint %d (%s)", cfg.EnvName, id, portainer.PlatformText(r.Context(), cfg, id))
-			needs, err := h.needs.EmulatorKinds(r.Context())
+			saved, err := h.deployment.AttachPortainerTarget(r.Context(), deployment.PortainerAttachment{Name: in.Name, ConnectionID: in.ConnectionID, EndpointID: in.EndpointID, Environment: strings.TrimSpace(in.Environment), Domain: in.Domain, URLFrom: strings.TrimSpace(in.URLFrom), APIKeyFrom: strings.TrimSpace(in.APIKeyFrom), DryRun: in.DryRun})
 			if err != nil {
 				WriteFault(w, err)
 				return
 			}
-			t = &deployment.Target{
-				Name: in.Name, Kind: deployment.KindPortainer, Provider: "", Origin: deployment.OriginAttached,
-				Address:      map[string]any{"urlFrom": in.URLFrom, "apiKeyFrom": in.APIKeyFrom, "environment": in.Environment, "endpoint": id},
-				Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: false, OwnLiveness: true, Rollout: []string{"replace"}, Needs: needs},
-				Ingress:      map[string]any{"binding": "traefik"},
-				NeedsMode:    "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady,
+			detail = fmt.Sprintf("Portainer endpoint %v verified", saved.Address["endpoint"])
+			if in.DryRun {
+				WriteJSON(w, 200, TargetCheck{OK: true, Detail: detail, DryRun: true})
+				return
 			}
+			WriteJSON(w, 200, TargetAttached{OK: true, Target: saved, Detail: detail})
+			return
 		case deployment.KindDOApp:
 			in.TokenFrom, in.Region = strings.TrimSpace(in.TokenFrom), strings.TrimSpace(in.Region)
 			if in.TokenFrom == "" || in.Region == "" {

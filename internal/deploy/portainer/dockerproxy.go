@@ -43,6 +43,29 @@ type Environment struct {
 
 // ReadEnvironment reads the target's environment, by name.
 func ReadEnvironment(ctx context.Context, cfg *Target) (Environment, error) {
+	if cfg.Scope != nil {
+		code, raw, err := JSON(ctx, cfg, "GET", fmt.Sprintf("/api/endpoints/%d", cfg.Scope.EndpointID), nil)
+		if err != nil {
+			return Environment{}, err
+		}
+		if code != 200 {
+			return Environment{}, fmt.Errorf("reading pinned Portainer endpoint: HTTP %d", code)
+		}
+		var e struct {
+			ID   int64 `json:"Id"`
+			Name string
+			Type int
+			Edge struct{ AsyncMode bool }
+		}
+		if err := json.Unmarshal(raw, &e); err != nil {
+			return Environment{}, err
+		}
+		if e.ID != cfg.Scope.EndpointID {
+			return Environment{}, errors.New("Portainer returned a different endpoint")
+		}
+		return Environment{ID: e.ID, Name: e.Name, Type: e.Type, Async: e.Edge.AsyncMode}, nil
+	}
+
 	code, raw, err := JSON(ctx, cfg, "GET", endpointsPath, nil)
 	if err != nil {
 		return Environment{}, fmt.Errorf("listing Portainer environments: %w", err)
@@ -127,7 +150,7 @@ func StartDockerProxy(dir string, env Environment, config func(context.Context) 
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			cfg, err := config(r.In.Context())
-			if err != nil {
+			if err != nil || (cfg != nil && cfg.Scope != nil && cfg.Scope.EndpointID != env.ID) {
 				r.Out.URL = &url.URL{} // fails the request: no target
 				return
 			}

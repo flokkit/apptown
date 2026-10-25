@@ -228,6 +228,15 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 	if refused != "" {
 		return AcceptedRelease{}, refusal(refused)
 	}
+	binding, err := providerBindingOf(t)
+	if err != nil {
+		return AcceptedRelease{}, err
+	}
+	if t.Kind == KindPortainer {
+		if _, err := s.providers.PortainerConfig(ctx, t); err != nil {
+			return AcceptedRelease{}, err
+		}
+	}
 	var admitted AcceptedRelease
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
 		rel, err := startReleaseIn(ctx, tx, ReleaseDraft{Source: ReleaseFromBundle, ProjectID: in.ProjectID, DeploymentID: dep.ID, BundleID: bundle.ID, Deployment: dep.Name, Revision: revision, Actor: actor.Principal.Name, At: s.now()}, fmt.Sprintf("to %s started by %s — bundle %d (tree %s) on %s", dep.Name, actor.Principal.Name, bundle.ID, strs.ShortSHA(revision), t.Name)+accepted+uncheckedNote)
@@ -258,7 +267,7 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		if err != nil {
 			return err
 		}
-		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom}); err != nil {
+		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding}); err != nil {
 			return err
 		}
 		if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {

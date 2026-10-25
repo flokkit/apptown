@@ -70,10 +70,12 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		switch r.URL.Path {
 		case "/api/endpoints":
 			fmt.Fprint(w, `[{"Id":3,"Name":"local"},{"Id":3,"Name":"office"}]`)
+		case "/api/endpoints/3":
+			fmt.Fprint(w, `{"Id":3,"Name":"local","Type":1}`)
 		case "/api/endpoints/3/docker/version":
 			fmt.Fprint(w, *p.platform.Load())
 		case "/api/endpoints/3/docker/info":
-			fmt.Fprint(w, `{"MemTotal":17179869184,"NCPU":4}`)
+			fmt.Fprint(w, `{"ID":"promotion-engine","MemTotal":17179869184,"NCPU":4}`)
 		case "/api/stacks":
 			fmt.Fprint(w, `[]`)
 		case "/api/stacks/create/standalone/string":
@@ -123,17 +125,8 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		t.Fatal(err)
 	}
 	p.s.SeedCloudTargets(t.Context(), "fixture")
-	// The intranet target, as AppTown records it at startup from its
-	// Portainer configuration.
-	cfg, err := p.s.env.integrations.PortainerTarget(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := p.s.Targets.Put(context.Background(), &Target{Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached,
-		Address:      map[string]any{"url": cfg.PortainerURL, AddressEnvironment: DefaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},
-		Capabilities: TargetCapabilities{PersistentVolumes: true, OwnLiveness: true, Rollout: []string{"replace"}},
-		Ingress:      map[string]any{"binding": "traefik", "domain": cfg.AppsDomain},
-		NeedsMode:    "emulators", SecretsDelivery: "inject", Status: TargetReady}); err != nil {
+	// The fixture uses the same explicit verified attachment as an operator.
+	if _, err := p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: IntranetTargetName, EndpointID: 3, Environment: DefaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "apps.example"}); err != nil {
 		t.Fatal(err)
 	}
 	return p

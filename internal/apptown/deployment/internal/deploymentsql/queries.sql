@@ -200,12 +200,12 @@ INSERT INTO deployment_owned (id, deployment_id, kind, ident, name, holds_data, 
 DELETE FROM deployment_owned WHERE deployment_id=sqlc.arg(deployment_id) AND kind=sqlc.arg(kind) AND ident=sqlc.arg(ident);
 
 -- name: RecordRepository :execrows
-INSERT INTO owned_repositories (id, project_id, connector, registry, repository, recorded_at, note)
-  VALUES (sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(connector),sqlc.arg(registry),sqlc.arg(repository),sqlc.arg(recorded_at),sqlc.arg(note))
+INSERT INTO owned_repositories (id, project_id, connection_id, connector, registry, repository, recorded_at, note)
+  VALUES (sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(connection_id),sqlc.arg(connector),sqlc.arg(registry),sqlc.arg(repository),sqlc.arg(recorded_at),sqlc.arg(note))
   ON CONFLICT (connector, registry, repository) DO NOTHING;
 
 -- name: RepositoryOwned :one
-SELECT EXISTS(SELECT 1 FROM owned_repositories WHERE project_id=sqlc.arg(project_id) AND connector=sqlc.arg(connector) AND registry=sqlc.arg(registry) AND repository=sqlc.arg(repository));
+SELECT EXISTS(SELECT 1 FROM owned_repositories WHERE project_id=sqlc.arg(project_id) AND connection_id=sqlc.arg(connection_id) AND registry=sqlc.arg(registry) AND repository=sqlc.arg(repository));
 
 -- name: OtherDeploymentsOnConnector :one
 SELECT count(*) FROM deployments d JOIN targets t ON t.id=d.target_id
@@ -350,8 +350,8 @@ SELECT COUNT(*) FROM deployments WHERE project_id=sqlc.arg(project_id) AND targe
 SELECT COUNT(*) FROM retained_resources WHERE target_id=sqlc.arg(target_id) AND disposition=sqlc.arg(disposition);
 
 -- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup)
-VALUES ($1,$2,$3,$4,$5) RETURNING *;
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json)
+VALUES ($1,$2,$3,$4,$5,$6) RETURNING *;
 
 -- name: ReleaseStartFrom :one
 SELECT start_from_backup FROM release_requests WHERE release_id=sqlc.arg(release_id);
@@ -442,3 +442,26 @@ VALUES (sqlc.arg(id), sqlc.arg(deployment_id), sqlc.arg(need), sqlc.arg(volume),
 
 -- name: RetireStorageBinding :exec
 DELETE FROM deployment_storage_bindings WHERE deployment_id=sqlc.arg(deployment_id) AND need=sqlc.arg(need) AND volume=sqlc.arg(volume);
+
+-- name: AssociateTargetProvider :one
+UPDATE targets SET connection_id=sqlc.arg(connection_id), provider=sqlc.arg(provider), provider_scope_json=sqlc.arg(provider_scope_json),
+  settings_revision=settings_revision+1, updated_at=sqlc.arg(at)
+WHERE id=sqlc.arg(id) AND settings_revision=sqlc.arg(expected_revision) AND provider_scope_json IS NULL
+RETURNING *;
+
+-- name: ProviderDeploymentsOnTarget :many
+SELECT * FROM deployments WHERE target_id=$1 ORDER BY id;
+
+-- name: SetProviderAssociationHandle :execrows
+UPDATE deployments SET handle_json=handle_json || jsonb_build_object('portainerAssociations',sqlc.arg(associations)::jsonb)
+WHERE id=sqlc.arg(id) AND target_id=sqlc.arg(target_id) AND desired_generation=sqlc.arg(generation)
+ AND handle_json=sqlc.arg(expected_handle)::jsonb;
+
+-- name: InsertProviderTarget :one
+INSERT INTO targets(id,name,kind,provider,connection_id,provider_scope_json,address_json,origin,capabilities_json,ingress_json,needs_mode,secrets_delivery,status,created_at,updated_at)
+VALUES(sqlc.arg(id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(connection_id),sqlc.arg(provider_scope_json),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(at),sqlc.arg(at))
+ON CONFLICT(name) DO NOTHING RETURNING *;
+
+-- name: ConnectorHasRetainedIdentity :one
+SELECT (EXISTS(SELECT 1 FROM targets WHERE provider=sqlc.arg(provider) AND connection_id IS NOT NULL)
+ OR EXISTS(SELECT 1 FROM owned_repositories WHERE connector=sqlc.arg(provider) AND connection_id IS NOT NULL))::boolean AS referenced;

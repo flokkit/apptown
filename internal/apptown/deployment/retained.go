@@ -135,6 +135,13 @@ func retainNeedInstancesIn(ctx context.Context, tx *database.Tx, dep *Deployment
 			continue
 		}
 		h := jsonMap(string(i.HandleJson))
+		if err := retainProviderBindingIn(ctx, tx, dep.TargetID, h); err != nil {
+			return nil, err
+		}
+		handle, err := json.Marshal(h)
+		if err != nil {
+			return nil, err
+		}
 		name, _ := h["name"].(string)
 		if name == "" {
 			if req, ok := h["requested"].(map[string]any); ok {
@@ -147,7 +154,7 @@ func retainNeedInstancesIn(ctx context.Context, tx *database.Tx, dep *Deployment
 			Deployment:          dep.Name,
 			TargetID:            dep.TargetID,
 			Need:                i.Need,
-			HandleJson:          i.HandleJson,
+			HandleJson:          handle,
 			RetainedBy:          who,
 			RetainedByPrincipal: retainer.Principal,
 			RetainedByVia:       retainer.Via,
@@ -179,6 +186,9 @@ func retainTakenDownIn(ctx context.Context, tx *database.Tx, dep *Deployment, wh
 		}
 		if l.Why != "" {
 			h["why"] = l.Why
+		}
+		if err := retainProviderBindingIn(ctx, tx, dep.TargetID, h); err != nil {
+			return nil, err
 		}
 		handle, err := json.Marshal(h)
 		if err != nil {
@@ -353,4 +363,24 @@ func (s *Service) SettleRetained(ctx context.Context, in SettleRetained) error {
 		}
 		return audit.At(at).RecordIn(ctx, tx, actor.Principal.Name, in.ProjectID, "retained.settled", fmt.Sprint(in.ResourceID), map[string]any{"disposition": to, "note": in.Note})
 	})
+}
+
+// Retention preserves the immutable association selected by the deployment's
+// target; later display or settlement must not infer it from current secrets.
+func retainProviderBindingIn(ctx context.Context, tx *database.Tx, targetID ids.ID, handle map[string]any) error {
+	target, err := targetRecord(deploymentsql.New(tx.SQL()).TargetByID(ctx, targetID))
+	if err != nil {
+		return err
+	}
+	binding, err := providerBindingOf(target)
+	if err != nil {
+		return err
+	}
+	if binding != nil {
+		if handle == nil {
+			return errors.New("retained provider resource has no readable handle")
+		}
+		handle["providerBinding"] = *binding
+	}
+	return nil
 }

@@ -89,6 +89,10 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/endpoints":
 			fmt.Fprint(w, `[{"Id":3,"Name":"selected"}]`)
+		case "/api/endpoints/3":
+			fmt.Fprint(w, `{"Id":3,"Name":"selected","Type":1}`)
+		case "/api/endpoints/3/docker/info":
+			fmt.Fprint(w, `{"ID":"selected-commit-engine"}`)
 		case "/api/endpoints/3/docker/version":
 			fmt.Fprint(w, `{"Os":"linux","Arch":"amd64"}`)
 		case "/api/stacks":
@@ -109,6 +113,14 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 	}))
 	defer server.Close()
 	cfg := &portainer.Target{PortainerURL: server.URL, EnvName: "selected", AppsDomain: "apps.example", ReleaseDeployment: "lan"}
+	// This internal execution test supplies an observed destination snapshot;
+	// public owner attachment/admission is qualified separately.
+	scope, err := portainer.ObserveScope(t.Context(), *cfg, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Scope = &scope
+
 	if _, err := owner.Targets.Put(context.Background(), &Target{Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached, Status: TargetReady}); err != nil {
 		t.Fatal(err)
 	}

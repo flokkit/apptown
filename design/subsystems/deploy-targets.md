@@ -14,7 +14,9 @@ ready state. Operations also apply their caller and project eligibility rules.
 Retiring is `POST /api/v1/targets/<name>/retire` with `{"confirm":"<name>"}`.
 A body without the matching name, including no body at all, is refused with
 that sentence. Retirement is refused while a standing deployment is bound to
-the target; its offers, and a connector no other target uses, go with it.
+the target; its offers go with it. An unused connector is removed only when
+no target or repository history references its immutable connection identity.
+Referenced connections remain, and explicit deletion refuses those references.
 A retired target keeps its name with its history, and nothing revives it:
 attaching another target under that name is refused with a 409 that says the
 target was retired and a new name is needed.
@@ -49,6 +51,44 @@ Docker scope is resolved for the selected target. Remote host routing, credentia
 and daemon reachability must come from that target's configuration rather than
 an implicit global Docker client.
 
+## Portainer connection identity
+
+A Portainer target references one integration by immutable connection UUID and
+one verified destination: canonical API origin and base path, numeric endpoint
+ID, and observed Docker daemon ID. Multiple targets and connections are allowed.
+A display environment name does not select a different endpoint after association.
+Changing that selection requires attaching another target.
+
+Legacy async-edge environments cannot establish this standalone Docker scope.
+They remain unavailable for provider effects, including explicit teardown without
+a final copy; that choice does not substitute for verified provider identity.
+
+Attachment observes the selected standalone endpoint before committing the
+connection, target and audit receipt together. An existing unverified target
+requires an administrator to inspect `GET /api/v1/targets/<name>/provider-association`
+and confirm the returned scope, revision and resource associations with `POST`
+to the same path. The confirmation body copies `connectionId`, supplies the
+observed scope as `expected`, its `endpointId` as `endpointId`, the returned
+`revision` as `expectedRevision`, and the returned `resources` unchanged.
+A missing connection can be selected by `connectionId`; an
+endpoint can be selected by `endpointId`. Inspection makes no local or remote
+resource changes. Adoption records current association, never historical creation
+or deletion entitlement. Unresolved retained resources refuse adoption until an
+operator settles them. Adoption does not clear restored-instance holds.
+
+Ordinary provider operations resolve one credential snapshot, compare its API
+base locally before authenticated requests, then verify endpoint and daemon
+identity using that snapshot. A changed destination refuses; key rotation at the
+same verified destination is allowed. Each cached Docker proxy request repeats
+these checks. Queued release requests and retained-resource evidence preserve the
+selected connection and scope. Requests without that evidence must be reissued.
+
+New stacks carry the deployment UUID in `x-apptown-deployment`. Update and removal
+read current stack metadata and a usable Compose file, matching endpoint, stack
+ID, stack name and deployment marker. An explicitly recorded legacy association
+supports valid unmarked Compose; missing or malformed proof refuses. Deletion
+also requires the existing creation receipt. These checks establish continuity
+at a configured provider, not authenticity against a malicious provider.
 Portainer API requests refuse redirects so the API key stays at the configured
 endpoint. Configure the final Portainer URL; even a redirect within the same
 origin is refused. This rule applies to API requests, not response forwarding

@@ -66,7 +66,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	if !src.Published {
 		return deploy.Artifact{}, notPublished(d.target.Name)
 	}
-	cfg, err := d.Config(d.TargetID)
+	cfg, err := d.Config(ctx, d.TargetID)
 	if err != nil {
 		return deploy.Artifact{}, err
 	}
@@ -107,7 +107,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 // release domain changes.
 func (d *portainerRelease) Reconcile(ctx context.Context, pl deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	if art.Source != nil {
-		cfg, err := d.Config(d.TargetID)
+		cfg, err := d.Config(ctx, d.TargetID)
 		if err != nil {
 			return deploy.Observation{}, deploy.Terminal(err)
 		}

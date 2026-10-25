@@ -100,6 +100,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err != nil {
 		return fail(err)
 	}
+	if err := matchesProviderBinding(t, placement.ProviderBindingJson); err != nil {
+		return fail(err)
+	}
 	bundle, err := s.Bundles.ByID(ctx, rel.BundleID)
 	if err != nil {
 		return fail(err)

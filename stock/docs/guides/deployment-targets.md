@@ -11,13 +11,13 @@ an AppTown secret; set it there, or with `apptown secret set <NAME> < file`.
 | DigitalOcean App Platform | an API token, the region, and the container registry it copies images into. Run the registry's garbage collection occasionally to free space taken-down projects left; it blocks pushes (and so releases) while it runs. An app that needs object storage gets a Spaces bucket, so the account needs Spaces enabled, and the token makes and deletes Spaces keys: for each bucket a key that reaches it alone, and for a moment while it makes or deletes one, a full-access key it deletes again |
 | Bucket website | an S3-compatible endpoint, region, website address and keys. Each deployment gets its own bucket, and taking the deployment down deletes it; use a key made for AppTown alone |
 
-The intranet target is the Portainer environment AppTown is configured
-with rather than one added here: it appears when the secrets `PORTAINER_URL`,
-`PORTAINER_API_KEY` and `APPTOWN_APPS_DOMAIN` are set. It releases to the
-Portainer environment named `local`, the name Portainer gives the Docker it
-is installed on. If your Portainer calls it something else, an administrator
-changes **Portainer environment** under **Edit target** on the target's page.
-The next release goes there; AppTown does not need a restart.
+A Portainer target uses a saved connection and a verified endpoint. You can
+attach several connections and targets. After verification, changing an
+environment name cannot redirect the target: attach a new target for a different
+endpoint. An existing target without a verified association refuses provider
+operations until an administrator inspects and confirms its association through
+the target's provider-association API. Confirmation preserves existing ownership
+records and does not release restored-instance holds.
 
 A project's deployments are made on the project's **Settings → Deployments**.
 What each kind runs, and what a deployment owns and deletes when taken

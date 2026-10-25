@@ -4,7 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -19,13 +21,18 @@ import (
 func TestADriverIsNotBuiltWithoutItsProject(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	s := New(context.Background(), db, assembled(db, testRuntime{Projects: project.New(db, nil)}, Dependencies{}))
+	integrations := integration.NewService(db, integration.Dependencies{})
+	if _, err := integrations.Bindings.Save(t.Context(), "do-syd", digitalocean.CapCloudAccount, "digitalocean", `{}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	s := New(context.Background(), db, assembled(db, testRuntime{Projects: project.New(db, nil), Integrations: integrations}, Dependencies{}))
+	missingOwner := New(context.Background(), db, assembled(db, testRuntime{Projects: project.New(db, nil)}, Dependencies{}))
 	pid := createTestProject(t, db, "p", "P")
 	cloud := &Target{ID: idstest.N(98), Name: "cloud", Kind: KindDOApp, Provider: "do-syd"}
 	missing := &Deployment{ID: idstest.N(1), ProjectID: idstest.N(999999), Name: "prod"}
 	for _, target := range []*Target{cloud, {ID: idstest.N(99), Name: "bucket", Kind: KindS3Bucket}} {
 		t.Run(string(target.Kind), func(t *testing.T) {
-			driver, err := s.providers.Driver(context.Background(), target, missing)
+			driver, err := missingOwner.providers.Driver(context.Background(), target, missing)
 			if err == nil || driver != nil {
 				t.Fatalf("a driver for a deployment of a missing project: %v, %v", driver, err)
 			}

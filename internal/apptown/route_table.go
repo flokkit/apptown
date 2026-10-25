@@ -357,6 +357,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/targets", targets.Targets, access.CapDeploymentRead, "instance"),
 		requireRoute("POST /api/v1/targets", targets.AttachTarget, access.CapPlatformTargets, "instance"),
 		requireRoute("GET /api/v1/targets/{name}", targets.TargetPage, access.CapDeploymentRead, "instance"),
+		ownerRoute("GET /api/v1/targets/{name}/provider-association", targets.ProviderAssociation, "deployment.InspectProviderAssociation"),
+		ownerRoute("POST /api/v1/targets/{name}/provider-association", targets.AssociateProvider, "deployment.AssociateProvider"),
 		requireRoute("GET /api/v1/targets/{name}/capacity", targets.TargetCapacity, access.CapDeploymentRead, "instance"),
 		requireRoute("PATCH /api/v1/targets/{name}", targets.EditTarget, access.CapPlatformTargets, "instance"),
 		requireRoute("POST /api/v1/targets/{name}/check", targets.CheckTarget, access.CapPlatformTargets, "instance"),
