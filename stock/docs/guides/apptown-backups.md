@@ -210,3 +210,11 @@ must still be its own before it cleans up and before it releases it: an
 unreadable or different lock refuses cleanup, and a failed release is a
 failed rehearsal, even if the cut was already lifted. Inspect the host
 before using it again after a failed cleanup.
+
+New whole-AppTown archives record the observed PostgreSQL server and `pg_dump`
+client versions. This build refuses archives that record a server major other
+than the built-in PostgreSQL 16 before extracting their data. These observations
+do not certify cross-major restore compatibility. Older archives without this
+metadata remain readable through the existing restore path; their engine
+provenance is unknown. Older AppTown binaries ignore this additive metadata and
+do not enforce this refusal.

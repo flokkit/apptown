@@ -58,8 +58,9 @@ var keyFiles = []string{"runtime-token-key", "secrets.env", "db.env", "instance-
 
 // Manifest says what a whole-AppTown archive holds.
 type Manifest struct {
-	Format  string `json:"format"`
-	Version int    `json:"version"`
+	Database *DatabaseProvenance `json:"database,omitempty"`
+	Format   string              `json:"format"`
+	Version  int                 `json:"version"`
 	// Build is the apptownd that took it; Schema its database's version.
 	Build   string `json:"build"`
 	Schema  int    `json:"schema"`
@@ -311,6 +312,18 @@ func (s *Service) manifest(ctx context.Context, dump string, archived []Archived
 		m.Deployments = []ArchivedDeployment{}
 	}
 	var err error
+	var server int
+	if err = s.deps.DB.SQL().QueryRowContext(ctx, "SHOW server_version_num").Scan(&server); err != nil {
+		return m, fmt.Errorf("observing the backup database version: %w", err)
+	}
+	client, err := s.deps.Database.DumpClientVersion(ctx)
+	if err != nil {
+		return m, fmt.Errorf("observing the backup dump client: %w", err)
+	}
+	m.Database = &DatabaseProvenance{Engine: "postgres", ServerVersionNum: server, DumpClientVersion: client}
+	if err := m.Database.validate(); err != nil {
+		return m, err
+	}
 	if m.AppTown, err = identity.AppTownIDIn(ctx, s.deps.DB, now); err != nil {
 		return m, fmt.Errorf("reading AppTown's id: %w", err)
 	}

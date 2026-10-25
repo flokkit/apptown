@@ -266,10 +266,29 @@ func backupDataDirFixture(t *testing.T, dir string) {
 // daemon writes, with during told while pg_dump runs.
 func backupWorld(t *testing.T, during func()) *App {
 	t.Helper()
+	return backupWorldVersion(t, during, "pg_dump (PostgreSQL) 16.12", nil)
+}
+
+func backupWorldVersion(t *testing.T, during func(), clientVersion string, versionErr error) *App {
+	t.Helper()
 	dir := t.TempDir()
 	backupDataDirFixture(t, dir)
 	f := newFakeDocker()
-	f.command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+	results := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		if c.Container != "apptown-db" || c.Script != "pg_dump --version" {
+			return containerresulttest.Answer{}, false
+		}
+		if versionErr != nil {
+			return containerresulttest.Answer{Code: 1, Said: versionErr.Error()}, true
+		}
+		return containerresulttest.Answer{Answer: []byte(clientVersion + "\n")}, true
+	}}
+	var command dockerClientFunc
+	command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+		if out, err, ok := results.Run(req.Args); ok {
+			return out, err
+		}
+
 		if len(req.Args) > 4 && req.Args[0] == "exec" && strings.HasPrefix(containerresulttest.UnframeLine(req.Args[4]), "'pg_dump'") {
 			if during != nil {
 				during()
@@ -278,9 +297,10 @@ func backupWorld(t *testing.T, during func()) *App {
 			return nil, err
 		}
 		f.command = nil
-		defer func() { f.command = nil }()
+		defer func() { f.command = command }()
 		return f.Run(ctx, host, req)
 	}
+	f.command = command
 	a := testApp(t, Config{DataDir: dir, DockerClient: f, UsingBuiltinDB: true})
 	return a
 }
@@ -328,6 +348,9 @@ func TestABackupHoldsNewWorkAndTheBackupFilesAcrossTheDumpAndTheCopy(t *testing.
 		t.Fatalf("the backup files are still locked: %v", err)
 	} else {
 		l.Close()
+	}
+	if p := report.Manifest.Database; p == nil || p.ServerVersionNum == 0 || p.DumpClientVersion != "pg_dump (PostgreSQL) 16.12" {
+		t.Fatalf("missing observed database provenance: %+v", p)
 	}
 	if report.Manifest.ExternalSecrets == "" || !strings.Contains(report.Manifest.ExternalSecrets, "not the values") {
 		t.Fatalf("the manifest does not say the external store keeps its values: %q", report.Manifest.ExternalSecrets)
@@ -466,5 +489,32 @@ func TestAfterARestoreTheRecordsSayWhatTheFirstStartDoes(t *testing.T) {
 	}
 	if got := receiptsOf(t, a, ids.Nil, "instance.restored"); len(got) != 1 {
 		t.Fatalf("restore receipts: %d", len(got))
+	}
+}
+
+// Failed observations cannot publish a new archive or leave work held.
+func TestBackupRequiresObservedDumpClient(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, version string
+		err           error
+	}{
+		{"unreadable", "", errors.New("client unavailable")},
+		{"empty", "", nil},
+		{"malformed", "not a PostgreSQL version", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := backupWorldVersion(t, nil, tc.version, tc.err)
+			archive := filepath.Join(t.TempDir(), "refused.backup")
+			if _, err := a.Backups.Backup(t.Context(), instancebackup.Request{Archive: archive, Passphrase: backupPassphrase}); err == nil {
+				t.Fatal("backup published without provenance")
+			}
+			if _, err := os.Stat(archive); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("archive exists: %v", err)
+			}
+			if err := a.newWork.Wait(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

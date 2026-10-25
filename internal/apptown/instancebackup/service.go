@@ -19,6 +19,7 @@ import (
 type BuiltinDatabase interface {
 	Names() (container, database string, ok bool)
 	Dump(ctx context.Context, path string) error
+	DumpClientVersion(ctx context.Context) (string, error)
 	Ensure(ctx context.Context) (url string, err error)
 }
 

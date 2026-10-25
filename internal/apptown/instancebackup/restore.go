@@ -211,6 +211,22 @@ func readManifest(r *backuparchive.Reader) (*Manifest, error) {
 	if err := json.Unmarshal(raw, &m); err != nil {
 		return nil, fmt.Errorf("the archive's manifest does not read: %w", err)
 	}
+	// Absence is legacy evidence; an explicit null is malformed evidence.
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	if _, present := fields["database"]; present {
+		if m.Database == nil {
+			return nil, fmt.Errorf("the archive's database provenance is null")
+		}
+		if err := m.Database.validate(); err != nil {
+			return nil, err
+		}
+		if m.Database.ServerVersionNum/10000 != supportedRestoreMajor {
+			return nil, fmt.Errorf("the archive records PostgreSQL %d; this build restores PostgreSQL %d backups", m.Database.ServerVersionNum/10000, supportedRestoreMajor)
+		}
+	}
 	if m.Format != ArchiveFormat || m.Version > ArchiveVersion {
 		return nil, fmt.Errorf("the archive is %s version %d; this build restores %s version %d", m.Format, m.Version, ArchiveFormat, ArchiveVersion)
 	}

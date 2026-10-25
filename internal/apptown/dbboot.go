@@ -19,6 +19,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/dockerlabel"
 
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/durable"
@@ -340,4 +341,17 @@ func (b BuiltinDatabase) Dump(ctx context.Context, path string) error {
 // Ensure starts or makes the database and answers its URL.
 func (b BuiltinDatabase) Ensure(ctx context.Context) (string, error) {
 	return EnsureBuiltinDB(ctx, b.DataDir)
+}
+
+// DumpClientVersion observes the client in the container used by Dump.
+func (b BuiltinDatabase) DumpClientVersion(ctx context.Context) (string, error) {
+	container, _, ok := b.Names()
+	if !ok {
+		return "", errors.New("db.env names no built-in database")
+	}
+	raw, err := b.Docker.ExecResult(ctx, container, containerresult.Spec{Script: "pg_dump --version"})
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(raw)), nil
 }
