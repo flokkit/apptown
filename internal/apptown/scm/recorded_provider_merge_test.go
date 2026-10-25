@@ -1,7 +1,6 @@
 package scm
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
@@ -33,8 +32,10 @@ func TestARecordedProviderMergeCompletesItsLanding(t *testing.T) {
 	claim.source.Target = base
 	claim.source.MR = MergeRequest{Project: "p", IID: 1}
 	fake := gitlabtest.New(t)
-	fake.Put("p", gitlab.MergeRequest{IID: 1, State: "merged", SHA: candidate, MergeCommitSHA: candidate, SourceBranch: "change", TargetBranch: "main"})
-	drivers := GitDrivers{DataDir: t.TempDir(), Provider: func(context.Context) (*gitlab.Client, error) { return fake.Client() }}
+	fake.Put("71", gitlab.MergeRequest{IID: 1, State: "merged", SHA: candidate, MergeCommitSHA: candidate, SourceBranch: "change", TargetBranch: "main"})
+	identity, provider := fixtureProviderIdentity(t, fake, claim.source.ProjectID, remote)
+	claim.source.MR.Identity = *identity
+	drivers := GitDrivers{DataDir: t.TempDir(), Provider: provider}
 	ctx := authorized(NewEffect)
 	for _, phase := range []string{"enter ship", "complete landing"} {
 		result, err := service.Merge(ctx, claim.source.RunID, drivers.Driver())

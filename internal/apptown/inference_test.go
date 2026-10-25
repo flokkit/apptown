@@ -85,7 +85,7 @@ func TestInferenceRuntimeRejectsCredentialMetadata(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err := integration.New(db).Save(context.Background(), "paid", "model", "pi", string(config), "fixture"); err != nil {
+				if _, err := integration.NewWithClock(db, nil).Save(context.Background(), "paid", "model", "pi", string(config), "fixture"); err != nil {
 					t.Fatal(err)
 				}
 				raw, err := piModelConfiguration{catalog: catalog, baseURL: "http://host.docker.internal:7779"}.ModelsJSON(context.Background())

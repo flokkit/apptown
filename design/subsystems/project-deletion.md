@@ -155,10 +155,13 @@ authority again first:
 2. remove each backup set, its files on AppTown's disk or its objects in
    the backup store, then its record (`dataprotection.PurgeProjectBackups`);
 3. remove the hub repository, then rename the GitLab copy, named by its
-   permanent GitLab project id, to `<slug>-deleted-<AppTown project id>` and
+   saved connector/base/account and permanent GitLab project ID, to
+   `<slug>-deleted-<AppTown project id>` and
    archive it read-only: never destroyed, and never another project by
    slug. A later purge, the hub being gone, takes the copy the earlier
-   purge named;
+   purge named. A historical purge or cleanup without that provider scope
+   refuses remote effects; a current path lookup does not prove historical
+   ownership. Archive retries use one verified credential snapshot;
 4. in one transaction, remove the project's records (every owner's
    `RemoveProjectIn`, and the project row with the `project.deleted`
    receipt), write the `project.purged` receipt (binding, deleter, sets

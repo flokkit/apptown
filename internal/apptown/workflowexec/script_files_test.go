@@ -20,7 +20,7 @@ import (
 // the generated mise configuration, not the step's environment.
 func bindNodeMirror(t *testing.T, a *taskAppTown, url string) {
 	t.Helper()
-	if _, err := integration.New(a.db).Upsert(t.Context(), "node-mirror", "registry", "registry", `{"format":"node-dist","url":"`+url+`"}`, false); err != nil {
+	if _, err := integration.NewWithClock(a.db, nil).Upsert(t.Context(), "node-mirror", "registry", "registry", `{"format":"node-dist","url":"`+url+`"}`, false); err != nil {
 		t.Fatal(err)
 	}
 }

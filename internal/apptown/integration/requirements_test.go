@@ -18,7 +18,7 @@ func requiredAttachmentFixture(t *testing.T) (*database.DB, ids.ID) {
 	db := testDB(t)
 	first := createTestProject(t, db, "first", "First")
 	second := createTestProject(t, db, "second", "Second")
-	bindings := New(db)
+	bindings := NewWithClock(db, nil)
 	for _, binding := range [][3]string{{"git", "scm", "gitlab"}, {"errors", "errors", "glitchtip"}} {
 		if _, err := bindings.Save(context.Background(), binding[0], binding[1], binding[2], `{}`, "tester"); err != nil {
 			t.Fatal(err)

@@ -90,24 +90,25 @@ type App struct {
 	Adoption         *adoption.Service
 	Ways             *wow.Service
 
-	repositories  scm.RepositoryLocks
-	branches      *scm.Branches // the only writer of change branches; shares repositories' locks
-	tasks         *workflowexec.TaskRunner
-	conformance   *conformance.Service
-	evaluator     verification.Effects
-	scanners      *verification.Scanners
-	scanSteps     *verification.ScanSteps
-	guidance      *verification.Guidance
-	steering      *agentenv.Instructions
-	briefing      *conversation.Briefing
-	probe         *docker.Probe
-	health        *docker.HealthController
-	docker        docker.Scope
-	processRunner execution.Runner // its project processes go through projectProcesses
-	runTok        identity.RuntimeTokens
-	DB            *database.DB
-	Deployment    *deployment.Service // architecture.md §5.6; built once in New
-	Preview       *preview.Service    // previews of changes, runs and releases; built once in New
+	repositoryAttachments *scm.RepositoryAttachments
+	repositories          scm.RepositoryLocks
+	branches              *scm.Branches // the only writer of change branches; shares repositories' locks
+	tasks                 *workflowexec.TaskRunner
+	conformance           *conformance.Service
+	evaluator             verification.Effects
+	scanners              *verification.Scanners
+	scanSteps             *verification.ScanSteps
+	guidance              *verification.Guidance
+	steering              *agentenv.Instructions
+	briefing              *conversation.Briefing
+	probe                 *docker.Probe
+	health                *docker.HealthController
+	docker                docker.Scope
+	processRunner         execution.Runner // its project processes go through projectProcesses
+	runTok                identity.RuntimeTokens
+	DB                    *database.DB
+	Deployment            *deployment.Service // architecture.md §5.6; built once in New
+	Preview               *preview.Service    // previews of changes, runs and releases; built once in New
 	// DataProtection holds copies, restores, restored copies and take-downs; built once in New.
 	DataProtection *dataprotection.Service
 	// Deployment's shared records and collaborators (deployment.Dependencies).
@@ -264,8 +265,9 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Projects = project.NewWithClock(db, identity.Scoped(a.Access, "project"), cfg.clock.Now)
 	a.vhostRules = &vhostRules{db: db, projects: a.Projects, now: cfg.clock.Now}
 	a.Secrets = secret.NewService(db, secret.Config{DataDir: cfg.dataDir, Client: input.SecretsHTTPClient, Now: cfg.clock.Now})
+	a.repositoryAttachments = scm.NewRepositoryAttachments(db, scm.AttachmentDependencies{Projects: a.Projects, Authority: access.Checked{Authority: identity.Scoped(a.Access, "scm"), Projects: a.Projects}, Provider: repositoryProvider{bindings: integration.NewWithClock(db, cfg.clock.Now), secrets: a.Secrets}, Locks: &a.repositories, DataDir: cfg.dataDir, Now: cfg.clock.Now})
 	a.Dependencies = dependency.NewCatalog(db, cfg.clock.Now)
-	a.Integrations = integration.NewService(db, integration.Dependencies{Kinds: a.Dependencies, Projects: a.Projects, Secrets: a.Secrets, Now: cfg.clock.Now})
+	a.Integrations = integration.NewService(db, integration.Dependencies{Kinds: a.Dependencies, Projects: a.Projects, Secrets: a.Secrets, SCMRepositories: scmRepositoryTokens{a.repositoryAttachments}, Now: cfg.clock.Now})
 	a.workshop = agentenv.NewWorkshop(&a.docker, a.Integrations, &a.progress, cfg.dataDir, cfg.agentImage, images.PrivateDocker, cfg.clock.Now)
 	a.workshop.Limits = cfg.taskLimits
 	a.Usage = usage.NewService(db, access.Checked{Authority: identity.Scoped(a.Access, "usage"), Projects: a.Projects}, cfg.clock.Now)
@@ -286,7 +288,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	for _, ext := range piharness.Extensions() {
 		extensionNames = append(extensionNames, ext.Name)
 	}
-	a.lifecycle = projectlifecycle.New(db, projectlifecycle.Dependencies{Adoption: a.Adoption, Projects: a.Projects, Ways: a.Ways, Repositories: &a.repositories, Publisher: repositoryPublisher{secrets: a.Secrets, db: db, dataDir: cfg.dataDir, now: cfg.clock.Now}, Changes: changes, Secrets: a.Secrets}, projectlifecycle.Config{DataDir: cfg.dataDir, Extensions: extensionNames, Seeding: cfg.seeding, Now: cfg.clock.Now})
+	a.lifecycle = projectlifecycle.New(db, projectlifecycle.Dependencies{Adoption: a.Adoption, Projects: a.Projects, Ways: a.Ways, Repositories: &a.repositories, Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: db, now: cfg.clock.Now}, Changes: changes, Secrets: a.Secrets}, projectlifecycle.Config{DataDir: cfg.dataDir, Extensions: extensionNames, Seeding: cfg.seeding, Now: cfg.clock.Now})
 	a.conformance = conformance.New(db, access.Checked{Authority: identity.Scoped(a.Access, "conformance"), Projects: a.Projects}, verification.NewSource(a.Adoption, cfg.dataDir), cfg.clock.Now)
 	// Work consumes remediation's stateless budget participant. Remediation
 	// then consumes the fully constructed Work service.
@@ -301,7 +303,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 		ChooseModels(a.evalGate.AdmitModel).ChooseJudge(a.evalGate.AdmitJudge)
 	// Built before its users; the change console is built over it.
 	a.chatSaves = changeconsole.NewSaves(changeconsole.SavesDependencies{DB: db, Sessions: a.Console, Remote: a.workerChats, Branches: a.branches,
-		Publisher: repositoryPublisher{secrets: a.Secrets, db: db, dataDir: cfg.dataDir, now: cfg.clock.Now}, DataDir: cfg.dataDir, Now: cfg.clock.Now})
+		Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: db, now: cfg.clock.Now}, DataDir: cfg.dataDir, Now: cfg.clock.Now})
 	a.operations = operations.New(db, access.Checked{Authority: identity.Scoped(a.Access, "operations"), Projects: a.Projects}, a.Access, cfg.clock.Now)
 	// Deployment's records the shared collaborators write, and the
 	// collaborators themselves, are built once here and shared with every
@@ -341,7 +343,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Evals = evals.New(db, evalsDependencies(a))
 	a.briefing = conversation.NewBriefing(a.Ways, a.Adoption, conversation.BriefingConfig{DataDir: cfg.dataDir, PublicHost: cfg.publicHost, FrontDeskVerbs: consoleAllowedVerbs(false), WorkshopVerbs: consoleAllowedVerbs(true)})
 	a.changeActions = changeactions.New(a.Work, db)
-	a.repositoryEdits = repositoryedit.New(a.Work, a.Dependencies, repositoryPublisher{secrets: a.Secrets, db: db, dataDir: cfg.dataDir, now: cfg.clock.Now}, a.branches, a.lifecycle, db, cfg.dataDir)
+	a.repositoryEdits = repositoryedit.New(a.Work, a.Dependencies, repositoryPublisher{attachments: a.repositoryAttachments, db: db, now: cfg.clock.Now}, a.branches, a.lifecycle, db, cfg.dataDir)
 	a.narratives = narratives{builder: narrativeFor(a), db: db, engine: a.asEngine}
 	a.changeConsole = changeConsoleFor(a)
 	a.consoleAdmission = consoleAdmissionFor(a)

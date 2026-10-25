@@ -111,8 +111,8 @@ released under its original layout; do not edit its saved request or digest.
 
 If a deployment rebuild has already created database volumes, preserve those
 volumes and the restore diagnostics for recovery. A later rebuild refuses
-preexisting engine-data volumes; it does not assume they are empty or
-automatically import into them again.
+preexisting engine-data volumes; it does not assume they are empty or automatically
+import into them again.
 
 
 **What the first start does.**

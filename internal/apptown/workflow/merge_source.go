@@ -7,12 +7,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/database"
 )
 
 type MergeRequest struct {
-	IID     int
-	Project string
+	Identity scm.RepositoryIdentity
+	IID      int
+	Project  string
 }
 
 // Merge inputs are a database observation, not a bag of callbacks into App.
@@ -50,7 +52,17 @@ func ReadMergeSourceIn(ctx context.Context, db database.Queryer, run RunRef) (Me
 		if !ok || err != nil || iid <= 0 || strconv.Itoa(iid) != number || strings.TrimSpace(row.MrProject) == "" || !source.RepoBacked() {
 			return MergeSource{}, fmt.Errorf("run %d has an invalid recorded merge request", run.ID)
 		}
-		merged.MR = MergeRequest{iid, row.MrProject}
+		identity, err := scm.DecodeRepositoryIdentity(row.MrIdentity)
+		if err != nil {
+			return MergeSource{}, err
+		}
+		if identity != nil && identity.ProjectID != source.ProjectID {
+			return MergeSource{}, fmt.Errorf("merge request identity belongs to a different project")
+		}
+		merged.MR = MergeRequest{IID: iid, Project: row.MrProject}
+		if identity != nil {
+			merged.MR.Identity = *identity
+		}
 	}
 	return merged, nil
 }

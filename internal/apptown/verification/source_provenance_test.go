@@ -55,7 +55,7 @@ func (e *provenanceReports) Run(ctx context.Context, req execution.Request) exec
 func TestScanGateHoldsOnlyIntroducedFindings(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	if _, err := integration.New(db).Upsert(t.Context(), "semgrep", ScannerCapability, "tool",
+	if _, err := integration.NewWithClock(db, nil).Upsert(t.Context(), "semgrep", ScannerCapability, "tool",
 		`{"image":"semgrep/semgrep:test","command":["semgrep","/work"],"report":".apptown/semgrep.sarif","format":"sarif","target":"source","kind":"sast","appliesTo":["repository"]}`, true); err != nil {
 		t.Fatal(err)
 	}

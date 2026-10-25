@@ -36,3 +36,19 @@ describe('creating a project whose starter declares its services', () => {
     expect(lines.some((l) => l.warn && l.text.includes('services not added'))).toBe(true)
   })
 })
+
+
+describe('the independent upstream choice', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+  it('retains the draft request and explicit repository name', async () => {
+    const bodies: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/repo/remote')) bodies.push(JSON.parse(String(init?.body)))
+      return new Response('{}')
+    }))
+    const d = { ...newDraft(), name: 'Local Project', repositoryName: 'shared-library' }
+    await createProject(d, { remote: true, namespaceId: '42' }, () => {})
+    expect(bodies).toEqual([{ requestId: d.attachmentRequestId, repositoryName: 'shared-library', create: true, namespaceId: 42 }])
+    expect(d.attachmentRequestId).toMatch(/^[0-9a-f-]{36}$/)
+  })
+})

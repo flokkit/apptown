@@ -68,7 +68,7 @@ func TestNarrativeBuilderAccountsForRejectedAndEmptyResults(t *testing.T) {
 			// The call goes through the real gateway to a fake provider, so
 			// its spend is the gateway's line, written whatever publication
 			// then does.
-			pattern := fakeModelProvider(t, integration.New(db), func(q providerQuestion) (int, string) {
+			pattern := fakeModelProvider(t, integration.NewWithClock(db, nil), func(q providerQuestion) (int, string) {
 				calls++
 				if q.Model != "judge" || !strings.Contains(q.User, "LIVE EVIDENCE") || !strings.Contains(q.User, "TITLE: automatic") || !strings.Contains(q.User, "RUNS:") {
 					t.Errorf("model evidence: %q %q", q.Model, q.User)

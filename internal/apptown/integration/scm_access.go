@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -18,6 +17,18 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/gitlab"
 )
+
+// SCMRepository is one observed repository and its retained credential client.
+// IdentityJSON is the repository owner's canonical identity record; integration
+// stores and compares it without inventing another provider identity model.
+type SCMRepository struct {
+	IdentityJSON string
+	Project      gitlab.ProjectRef
+	Client       *gitlab.Client
+}
+type SCMRepositories interface {
+	Resolve(context.Context, ids.ID) (SCMRepository, error)
+}
 
 // Scoped SCM access for agent steps (design/subsystems/composition.md, multi-repo
 // position): a PROJECT-scoped GitLab access token, minted with the
@@ -49,57 +60,62 @@ type scmToken struct {
 // rotating as needed. Refresh is LAZY: every grant passes through here, so a
 // token near expiry (<24h) is replaced on use and an unused token simply
 // dies — no scheduler, minimal live-credential surface.
-func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, profile string) (*scmToken, string, error) {
+func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, _ string, profile string) (*scmToken, SCMRepository, error) {
 	if err := refusesIntegrations(ctx, s.Bindings.db, projectID); err != nil {
-		return nil, "", err
+		return nil, SCMRepository{}, err
 	}
 	prof, ok := scmProfiles[profile]
 	if !ok {
-		return nil, "", fmt.Errorf("unknown scm profile %q (read|write)", profile)
+		return nil, SCMRepository{}, fmt.Errorf("unknown scm profile %q (read|write)", profile)
 	}
 	// The recorded tokens are what a rotation revokes: only a project with
 	// no record mints its first; a record that cannot be read mints nothing,
 	// or the token it holds would be overwritten while still live.
 	tokens := map[string]*scmToken{}
+	recordedIdentity := ""
 	res, err := Resource(ctx, s.Bindings.db, projectID, CapSCM)
 	if found, err := database.Lookup(err); err != nil {
-		return nil, "", fmt.Errorf("reading the recorded tokens: %w; nothing new was minted", err)
+		return nil, SCMRepository{}, fmt.Errorf("reading the recorded tokens: %w; nothing new was minted", err)
 	} else if found {
 		var r struct {
 			Profiles map[string]*scmToken `json:"profiles"`
 			Path     string               `json:"gitlabProject"`
+			Identity string               `json:"repositoryIdentity"`
 		}
 		if err := json.Unmarshal([]byte(res), &r); err != nil {
-			return nil, "", fmt.Errorf("the recorded tokens could not be read: %w; nothing new was minted", err)
+			return nil, SCMRepository{}, fmt.Errorf("the recorded tokens could not be read: %w; nothing new was minted", err)
 		}
+		recordedIdentity = r.Identity
 		if r.Profiles != nil {
 			tokens = r.Profiles
 		}
 	}
+	if len(tokens) > 0 && recordedIdentity == "" {
+		return nil, SCMRepository{}, fmt.Errorf("recorded SCM tokens have no verified repository identity; inspect their original provider before reuse or rotation")
+	}
+	if s.scmRepositories == nil {
+		return nil, SCMRepository{}, fmt.Errorf("repository identity resolver is unavailable")
+	}
+	repository, err := s.scmRepositories.Resolve(ctx, projectID)
+	if err != nil {
+		return nil, SCMRepository{}, err
+	}
+	if repository.IdentityJSON == "" || repository.Client == nil || repository.Project.ID <= 0 {
+		return nil, SCMRepository{}, fmt.Errorf("repository identity observation is incomplete")
+	}
+	if recordedIdentity != "" && recordedIdentity != repository.IdentityJSON {
+		return nil, SCMRepository{}, fmt.Errorf("recorded SCM tokens belong to a different repository attachment; nothing was delivered or revoked")
+	}
+	gl, proj, path := repository.Client, repository.Project, repository.Project.PathNS
 	if t := tokens[profile]; t != nil && t.Token != "" {
 		if exp, err := time.Parse(time.RFC3339, t.ExpiresAt); err == nil && exp.Sub(s.now()) > 24*time.Hour {
-			return t, gitlabPathFromRemote(remote), nil
+			return t, repository, nil
 		}
 	}
 
-	gl, err := s.engineGitLab(ctx)
-	if err != nil {
-		return nil, "", err
-	}
-	path := gitlabPathFromRemote(remote)
-	if path == "" {
-		return nil, "", fmt.Errorf("project has no GitLab remote")
-	}
-	var proj struct {
-		ID            int64  `json:"id"`
-		DefaultBranch string `json:"default_branch"`
-	}
-	if err := gl.Do(ctx, "GET", "/projects/"+url.PathEscape(path), nil, &proj); err != nil {
-		return nil, "", err
-	}
 	if profile == "write" {
 		if err := pushProtected(ctx, gl, proj.ID, proj.DefaultBranch); err != nil {
-			return nil, "", err
+			return nil, SCMRepository{}, err
 		}
 	}
 	// Revoke the predecessor before minting its replacement. The record
@@ -109,7 +125,7 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 	if old := tokens[profile]; old != nil && old.TokenID != 0 {
 		var gone *gitlab.HTTPError
 		if err := gl.Do(ctx, "DELETE", fmt.Sprintf("/projects/%d/access_tokens/%d", proj.ID, old.TokenID), nil, nil); err != nil && !(errors.As(err, &gone) && gone.Status == http.StatusNotFound) {
-			return nil, "", fmt.Errorf("revoking the %s token it replaces: %w; nothing new was minted", profile, err)
+			return nil, SCMRepository{}, fmt.Errorf("revoking the %s token it replaces: %w; nothing new was minted", profile, err)
 		}
 	}
 	expires := s.now().Add(scmTokenTTL)
@@ -125,13 +141,13 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 		"access_level": prof.AccessLevel,
 		"expires_at":   expires.Format(time.DateOnly),
 	}, &tok); err != nil {
-		return nil, "", err
+		return nil, SCMRepository{}, err
 	}
 	nt := &scmToken{Token: tok.Token, TokenID: tok.ID, ExpiresAt: expires.Format(time.RFC3339)}
 	tokens[profile] = nt
-	resource, err := json.Marshal(map[string]any{"profiles": tokens, "gitlabProject": path})
+	resource, err := json.Marshal(map[string]any{"profiles": tokens, "gitlabProject": path, "repositoryIdentity": repository.IdentityJSON})
 	if err != nil {
-		return nil, "", err
+		return nil, SCMRepository{}, err
 	}
 	// GitLab has made the token: it is recorded though the caller stops, or
 	// a live token would exist that AppTown cannot rotate or revoke. One
@@ -146,27 +162,23 @@ func (s *Service) mintSCMToken(ctx context.Context, projectID ids.ID, remote, pr
 		if rerr := gl.Do(ctx, "DELETE", fmt.Sprintf("/projects/%d/access_tokens/%d", proj.ID, tok.ID), nil, nil); rerr != nil {
 			log.Printf("revoking the unrecorded SCM access token %d: %v", tok.ID, rerr)
 		}
-		return nil, "", err
+		return nil, SCMRepository{}, err
 	}
-	return nt, path, nil
+	return nt, repository, nil
 }
 
 // SCMEnvironment: the runtime contribution — glab/git env for a step that opted
 // in, at the requested profile. Empty (with a reason) when unavailable.
 func (s *Service) SCMEnvironment(ctx context.Context, projectID ids.ID, remote, profile string) ([]string, string) {
-	t, path, err := s.mintSCMToken(ctx, projectID, remote, profile)
-	if err != nil {
-		return nil, err.Error()
-	}
-	gl, err := s.engineGitLab(ctx)
+	t, repository, err := s.mintSCMToken(ctx, projectID, remote, profile)
 	if err != nil {
 		return nil, err.Error()
 	}
 	return []string{
 		// Full URL with scheme — glab treats a bare hostname as gitlab.com.
-		"GITLAB_HOST=" + gl.BaseURL(),
+		"GITLAB_HOST=" + repository.Client.BaseURL(),
 		"GITLAB_TOKEN=" + t.Token,
-		"GLAB_REPO=" + path,
+		"GLAB_REPO=" + repository.Project.PathNS,
 	}, ""
 }
 
@@ -191,21 +203,6 @@ func (g *SCMGrant) UnmarshalJSON(b []byte) error {
 		*g = SCMGrant(t)
 	}
 	return nil
-}
-
-func gitlabPathFromRemote(remote string) string {
-	u, err := url.Parse(remote)
-	if err != nil || u.Path == "" {
-		return ""
-	}
-	p := u.Path
-	if len(p) > 0 && p[0] == '/' {
-		p = p[1:]
-	}
-	if len(p) > 4 && p[len(p)-4:] == ".git" {
-		p = p[:len(p)-4]
-	}
-	return p
 }
 
 // Label describes the permissions promised by this declared grant.
@@ -294,14 +291,4 @@ func branchRuleMatches(rule, branch string) bool {
 		rest = rest[i+len(part):]
 	}
 	return strings.HasSuffix(rest, parts[len(parts)-1])
-}
-
-// engineGitLab is AppTown's own GitLab client, from GITLAB_URL and
-// GITLAB_TOKEN in its secrets; secrets that cannot be read are an error.
-func (s *Service) engineGitLab(ctx context.Context) (*gitlab.Client, error) {
-	values, err := s.secrets.WithContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("reading AppTown's GitLab credentials: %w", err)
-	}
-	return gitlab.New(values["GITLAB_URL"], values["GITLAB_TOKEN"])
 }

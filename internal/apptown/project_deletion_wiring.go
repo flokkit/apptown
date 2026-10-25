@@ -13,18 +13,17 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
-	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
 )
 
 func projectDeletionFor(a *App) *projectlifecycle.Deletion {
 	return projectlifecycle.NewDeletion(a.lifecycle, projectlifecycle.DeletionDependencies{Sessions: a.Console, Records: a.Deployment.Deployments,
-		Data: a.DataProtection, GitLab: gitlabProjects{a.Secrets}, Archive: projectCleanupFor(a), Queue: cleanupQueue{}, Operations: a.operations, Now: a.cfg.clock.Now, Evals: evalSources{&a.Evals},
+		Data: a.DataProtection, GitLab: a.repositoryAttachments, Archive: projectCleanupFor(a), Queue: cleanupQueue{}, Operations: a.operations, Now: a.cfg.clock.Now, Evals: evalSources{&a.Evals},
 		Authority: access.Checked{Authority: identity.Scoped(a.Access, "project"), Projects: a.Projects}})
 }
 
 func projectCleanupFor(a *App) projectlifecycle.Cleanup {
-	return projectlifecycle.Cleanup{Projects: a.Projects, Sessions: a.Console, Docker: &a.docker, Previews: a.Preview, GitLab: repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}, DB: a.DB, DataDir: a.cfg.dataDir, Now: a.cfg.clock.Now}
+	return projectlifecycle.Cleanup{Projects: a.Projects, Sessions: a.Console, Docker: &a.docker, Previews: a.Preview, GitLab: a.repositoryAttachments, DB: a.DB, DataDir: a.cfg.dataDir, Now: a.cfg.clock.Now}
 }
 
 // cleanupQueue queues a cleanup round in the deletion's own transaction.
@@ -44,18 +43,6 @@ func (cleanupQueue) LiveIn(ctx context.Context, tx *database.Tx, projectID ids.I
 		return false, err
 	}
 	return slices.Contains(keys, projectlifecycle.CleanupKey(projectID, round)), nil
-}
-
-// gitlabProjects looks a GitLab copy up by path for a deletion's plan.
-type gitlabProjects struct{ secrets *secret.Service }
-
-func (g gitlabProjects) ProjectID(ctx context.Context, pathNS string) (int64, error) {
-	gl, err := configuredGitLab(ctx, g.secrets)
-	if err != nil {
-		return 0, err
-	}
-	p, err := gl.Project(ctx, pathNS)
-	return p.ID, err
 }
 
 // evalSources reads the evals owner, built after the deletion it serves

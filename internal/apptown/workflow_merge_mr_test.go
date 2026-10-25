@@ -4,11 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -21,7 +30,7 @@ import (
 )
 
 // mergeRequestProject is the GitLab project the fixture's merge request is in.
-const mergeRequestProject = "group/project"
+const mergeRequestProject = "71"
 
 // mergeRequestWorld lands a checked landing through a fake GitLab that merges
 // by the project's merge method, as GitLab does: "ff" only fast-forwards,
@@ -32,7 +41,8 @@ func mergeRequestWorld(t *testing.T) (*App, workflow.MergeSource, *gitlabtest.Se
 	t.Helper()
 	a, source := mergeSettlementFixture(t)
 	testAdministrator(t, a, "bls")
-	if _, err := a.Work.AttachArtifact(asPerson("bls"), source.RunID, workflow.ArtifactDraft{Kind: "mr", Name: "!1", Body: mergeRequestProject}); err != nil {
+	artifact, err := a.Work.AttachArtifact(asPerson("bls"), source.RunID, workflow.ArtifactDraft{Kind: "mr", Name: "!1", Body: mergeRequestProject})
+	if err != nil {
 		t.Fatal(err)
 	}
 	run, err := workflow.ReadRunIn(context.Background(), a.DB, source.RunID)
@@ -95,6 +105,13 @@ func mergeRequestWorld(t *testing.T) (*App, workflow.MergeSource, *gitlabtest.Se
 	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("GITLAB_URL="+fake.URL+"\nGITLAB_TOKEN="+gitlabtest.Token+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	attachment := configureRepositoryProviderFixture(t, a, source.ProjectID, fake, remote)
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		return scm.RecordMergeRequestIdentityIn(t.Context(), tx, artifact, attachment.Identity)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	source = mergeSourceForTest(t, a, run)
 	return a, source, fake, provider
 }
 
@@ -357,85 +374,218 @@ func TestALandingIsAdmittedAgainWhenWhatItSaysChanged(t *testing.T) {
 // the change page. It names no approvals at open.
 func TestTheMergeRequestStepSaysWhoOpenedTheChange(t *testing.T) {
 	t.Parallel()
-	a := testApp(t, Config{PublicHost: "forge.example"})
-	projectID := plainTestProject(t, a.DB, "merge-request-step", "Merge request step")
-	p := a.projectByID(context.Background(), projectID)
-	if err := a.lifecycle.InitializeRepository(t.Context(), p, "", ""); err != nil {
+	for _, recordFailure := range []string{"", "-- name: InsertTextArtifact", "-- name: RecordMergeRequestIdentity"} {
+		t.Run(recordFailure, func(t *testing.T) {
+			a := testApp(t, Config{PublicHost: "forge.example"})
+			projectID := plainTestProject(t, a.DB, "merge-request-step", "Merge request step")
+			p := a.projectByID(context.Background(), projectID)
+			if err := a.lifecycle.InitializeRepository(t.Context(), p, "", ""); err != nil {
+				t.Fatal(err)
+			}
+			testAdministrator(t, a, "opener@corp.example")
+			spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
+				{Name: "review", Steps: []schema.Step{{Name: "open-mr", Uses: "scm/mr"}}},
+				{Name: "done", Steps: []schema.Step{{Name: "record", Uses: "approval", With: map[string]any{"means": "recorded"}}}},
+			}}
+			defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec})
+			a.lifecycle.SelectLane(t.Context(), projectID, "land", true, "fixture")
+			ctx := asPerson("opener@corp.example")
+			ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "Export CSV", Body: "/merge\n@all please"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := prepareChangeWorkspaceForTest(a, p, ch); err != nil {
+				t.Fatal(err)
+			}
+			workspace := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+			if err := os.WriteFile(filepath.Join(workspace, "work.txt"), []byte("work\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			gittest.Run(t, workspace, "add", "work.txt")
+			gittest.Run(t, workspace, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "work")
+			hub := filepath.Join(a.cfg.dataDir, "workspaces", "project-"+p.ID.String())
+			remote := filepath.Join(t.TempDir(), "group", "project.git")
+			gittest.Run(t, t.TempDir(), "clone", "-q", "--bare", hub, remote)
+			// What linking a remote does to the project's repository (POST
+			// /projects/{slug}/repo/remote); the run's workspace is left as the
+			// AppTown prepares it, with no remote.
+			gittest.Run(t, hub, "remote", "add", "origin", remote)
+			fake := gitlabtest.New(t)
+			if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("GITLAB_URL="+fake.URL+"\nGITLAB_TOKEN="+gitlabtest.Token+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			configureRepositoryProviderFixture(t, a, projectID, fake, remote)
+			a.Work.Stop()
+			run, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "land"})
+			if !errors.Is(err, workflow.ErrDispatchStopped) {
+				t.Fatal(err)
+			}
+			snapshot, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var step ids.ID
+			for _, s := range snapshot.Steps {
+				if s.Name == "open-mr" {
+					step = s.ID
+				}
+			}
+			restore := func() {}
+			if recordFailure != "" {
+				restore = a.DB.FailNextStatement(recordFailure)
+			}
+			if err := a.Work.ExecuteStep(a.asEngine(context.Background()), step); err != nil {
+				restore()
+				t.Fatal(err)
+			}
+			restore()
+			project := "71"
+			descriptions := fake.Descriptions(project, 1)
+			if len(descriptions) != 1 {
+				snapshot, _ := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+				t.Fatalf("no merge request opened in %s: %q (step %s %s)", project, descriptions, snapshot.Steps[0].Status, snapshot.Steps[0].Evidence)
+			}
+			if recordFailure != "" {
+				snapshot, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, observed := range snapshot.Steps {
+					if observed.ID == step && (observed.Status != workflow.StatusError || !strings.Contains(string(observed.Evidence), "was opened, but its record could not be written")) {
+						t.Fatalf("external MR record failure reported success: %s %s", observed.Status, observed.Evidence)
+					}
+				}
+				source, err := workflow.ReadMergeSourceIn(ctx, a.DB, workflow.RunRef{ID: run.ID, ProjectID: projectID})
+				if err != nil || source.MR.IID != 0 {
+					t.Fatalf("failed MR record left partial artifact: %+v %v", source.MR, err)
+				}
+				return
+			}
+			description := descriptions[0]
+			for _, want := range []string{
+				fmt.Sprintf("**AppTown change %d**, opened by an AppTown account (name withheld).", ch.Number),
+				// The run by its number in the project; its UUID is for trailers.
+				fmt.Sprintf(". Workflow `land@v1`, run %d.\n", run.Number),
+				"    Export CSV\n    \n    /merge\n    @ all please",
+				fmt.Sprintf("Waiting for approval in AppTown. Checks, approvals and the full change record: https://forge.example/changes/%d", ch.ID),
+			} {
+				if !strings.Contains(description, want) {
+					t.Errorf("opening description lacks %q:\n%s", want, description)
+				}
+			}
+			if run.Number == 0 || strings.Contains(description, run.ID.String()) || strings.Contains(description, "corp.example") || strings.Contains(description, "Approvals recorded") {
+				t.Fatalf("opening description:\n%s", description)
+			}
+			branch := fmt.Sprintf("apptown/change-%d", ch.ID)
+			if published, offered := gittest.Run(t, hub, "rev-parse", "refs/heads/"+branch), gittest.Run(t, remote, "rev-parse", "refs/heads/"+branch); offered != published {
+				t.Fatalf("the merge request offers %s, not the published branch %s", offered, published)
+			}
+		})
+	}
+}
+
+func configureRepositoryProviderFixture(t *testing.T, a *App, projectID ids.ID, fake *gitlabtest.Server, remote string) scm.VerifiedRepository {
+	t.Helper()
+	clone := fake.GitRepository(t, remote)
+	path := strings.TrimSuffix(strings.TrimPrefix(clone, fake.URL+"/"), ".git")
+	fake.Repository(gitlab.ProjectRef{ID: 71, HTTPURL: clone, PathNS: path, DefaultBranch: "main"})
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("GITLAB_URL="+fake.URL+"\nGITLAB_TOKEN="+gitlabtest.Token+"\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	testAdministrator(t, a, "opener@corp.example")
-	spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
-		{Name: "review", Steps: []schema.Step{{Name: "open-mr", Uses: "scm/mr"}}},
-		{Name: "done", Steps: []schema.Step{{Name: "record", Uses: "approval", With: map[string]any{"means": "recorded"}}}},
-	}}
-	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: spec})
-	a.lifecycle.SelectLane(t.Context(), projectID, "land", true, "fixture")
-	ctx := asPerson("opener@corp.example")
-	ch, err := a.Work.Create(ctx, workflow.ChangeDraft{ProjectID: projectID, Type: "feature", Title: "Export CSV", Body: "/merge\n@all please"})
+	if _, err := a.Integrations.Bindings.Save(t.Context(), "gitlab", integration.CapSCM, "gitlab", `{"urlFrom":"GITLAB_URL","tokenFrom":"GITLAB_TOKEN"}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	project, err := a.Projects.ByID(t.Context(), projectID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := prepareChangeWorkspaceForTest(a, p, ch); err != nil {
-		t.Fatal(err)
-	}
-	workspace := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
-	if err := os.WriteFile(filepath.Join(workspace, "work.txt"), []byte("work\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	gittest.Run(t, workspace, "add", "work.txt")
-	gittest.Run(t, workspace, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", "work")
-	hub := filepath.Join(a.cfg.dataDir, "workspaces", "project-"+p.ID.String())
-	remote := filepath.Join(t.TempDir(), "group", "project.git")
-	gittest.Run(t, t.TempDir(), "clone", "-q", "--bare", hub, remote)
-	// What linking a remote does to the project's repository (POST
-	// /projects/{slug}/repo/remote); the run's workspace is left as the
-	// AppTown prepares it, with no remote.
-	gittest.Run(t, hub, "remote", "add", "origin", remote)
-	fake := gitlabtest.New(t)
-	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("GITLAB_URL="+fake.URL+"\nGITLAB_TOKEN="+gitlabtest.Token+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	a.Work.Stop()
-	run, err := a.Work.StartRun(asLander(t, a), workflow.StartChangeRun{ChangeID: ch.ID, Workflow: "land"})
-	if !errors.Is(err, workflow.ErrDispatchStopped) {
-		t.Fatal(err)
-	}
-	snapshot, err := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
+	repo, err := project.Repository(a.cfg.dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var step ids.ID
-	for _, s := range snapshot.Steps {
-		if s.Name == "open-mr" {
-			step = s.ID
-		}
-	}
-	if err := a.Work.ExecuteStep(a.asEngine(context.Background()), step); err != nil {
+	gittest.Run(t, repo, "remote", "set-url", "origin", clone)
+	verified, err := a.repositoryAttachments.Resolve(t.Context(), projectID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	project := strings.TrimSuffix(strings.TrimPrefix(remote, "/"), ".git")
-	descriptions := fake.Descriptions(project, 1)
-	if len(descriptions) != 1 {
-		snapshot, _ := a.Work.Snapshot(ctx, run.ID, workflow.DetailView)
-		t.Fatalf("no merge request opened in %s: %q (step %s %s)", project, descriptions, snapshot.Steps[0].Status, snapshot.Steps[0].Evidence)
-	}
-	description := descriptions[0]
-	for _, want := range []string{
-		fmt.Sprintf("**AppTown change %d**, opened by an AppTown account (name withheld).", ch.Number),
-		// The run by its number in the project; its UUID is for trailers.
-		fmt.Sprintf(". Workflow `land@v1`, run %d.\n", run.Number),
-		"    Export CSV\n    \n    /merge\n    @ all please",
-		fmt.Sprintf("Waiting for approval in AppTown. Checks, approvals and the full change record: https://forge.example/changes/%d", ch.ID),
-	} {
-		if !strings.Contains(description, want) {
-			t.Errorf("opening description lacks %q:\n%s", want, description)
+	return verified
+}
+
+func TestRepositoryScopeChecksHostBeforeAuthAndRetainsCredentialSnapshot(t *testing.T) {
+	db := testDB(t)
+	dir := t.TempDir()
+	var foreignCalls atomic.Int64
+	foreign := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { foreignCalls.Add(1); fmt.Fprint(w, `{"id":41}`) }))
+	defer foreign.Close()
+	original := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("PRIVATE-TOKEN") != "original-token" {
+			t.Error("credential snapshot changed")
+		}
+		if r.URL.Path == "/api/v4/user" {
+			fmt.Fprint(w, `{"id":41}`)
+			return
+		}
+		fmt.Fprint(w, `{"id":71}`)
+	}))
+	defer original.Close()
+	credentials := func(base, token string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("GITLAB_URL="+base+"\nGITLAB_TOKEN="+token+"\n"), 0600); err != nil {
+			t.Fatal(err)
 		}
 	}
-	if run.Number == 0 || strings.Contains(description, run.ID.String()) || strings.Contains(description, "corp.example") || strings.Contains(description, "Approvals recorded") {
-		t.Fatalf("opening description:\n%s", description)
+	bindings := integration.NewWithClock(db, nil)
+	if _, err := bindings.Save(t.Context(), "gitlab", integration.CapSCM, "gitlab", `{"urlFrom":"GITLAB_URL","tokenFrom":"GITLAB_TOKEN"}`, "fixture"); err != nil {
+		t.Fatal(err)
 	}
-	branch := fmt.Sprintf("apptown/change-%d", ch.ID)
-	if published, offered := gittest.Run(t, hub, "rev-parse", "refs/heads/"+branch), gittest.Run(t, remote, "rev-parse", "refs/heads/"+branch); offered != published {
-		t.Fatalf("the merge request offers %s, not the published branch %s", offered, published)
+	binding, err := bindings.ByName(t.Context(), "gitlab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := repositoryProvider{bindings: bindings, secrets: secret.NewService(db, secret.Config{DataDir: dir})}
+	expected := scm.ProviderScope{ConnectionID: binding.ID, Kind: "gitlab", Base: original.URL, AccountID: 41}
+	credentials(foreign.URL, "replacement-token")
+	if _, err := provider.Snapshot(t.Context(), &expected); err == nil || foreignCalls.Load() != 0 {
+		t.Fatalf("host change received auth before identity refusal: err=%v calls=%d", err, foreignCalls.Load())
+	}
+	credentials(original.URL, "original-token")
+	snapshot, err := provider.Snapshot(t.Context(), &expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentials(foreign.URL, "replacement-token")
+	if repo, err := snapshot.Client.Project(t.Context(), "71"); err != nil || repo.ID != 71 {
+		t.Fatalf("snapshot was not retained: %+v %v", repo, err)
+	}
+	if foreignCalls.Load() != 0 {
+		t.Fatal("subsequent provider effect reread replacement host")
+	}
+}
+
+type refusedRepositoryMirror struct{ err error }
+
+func (m refusedRepositoryMirror) Push(context.Context, ids.ID, string) (scm.VerifiedRepository, error) {
+	return scm.VerifiedRepository{}, m.err
+}
+
+func TestRepositoryPublicationRecordsUnknownButNotAbsentUpstream(t *testing.T) {
+	db := testDB(t)
+	id, err := database.Transact(t.Context(), db, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "mirror"})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	publisher := repositoryPublisher{db: db, attachments: refusedRepositoryMirror{scm.ErrNoUpstream}}
+	publisher.PushBranch(t.Context(), id, "unused", "main")
+	entries, err := audit.Recent(t.Context(), db, audit.Filter{ProjectID: id, KindPrefix: "git.push.failed", Limit: 10})
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("absent mirror invented a failure: %v %v", entries, err)
+	}
+	publisher.attachments = refusedRepositoryMirror{fault.New(fault.Conflict, "upstream attachment is dispatched; its outcome is unknown")}
+	publisher.PushBranch(t.Context(), id, "unused", "main")
+	entries, err = audit.Recent(t.Context(), db, audit.Filter{ProjectID: id, KindPrefix: "git.push.failed", Limit: 10})
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("unknown mirror was silent: %v %v", entries, err)
 	}
 }

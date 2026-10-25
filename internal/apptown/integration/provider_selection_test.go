@@ -8,7 +8,7 @@ func TestErrorsConnectorKeepsBindingOrder(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	service := NewService(db, Dependencies{})
-	bindings := New(db)
+	bindings := NewWithClock(db, nil)
 	const raw = `{"url":"https://errors.invalid/","tokenFrom":["ERRORS_TOKEN"],"unknown":9007199254740993}`
 	for _, name := range []string{"z-first", "a-second"} {
 		if _, err := bindings.Upsert(t.Context(), name, CapErrors, "test", raw, false); err != nil {

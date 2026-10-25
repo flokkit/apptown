@@ -7,10 +7,48 @@ package scmsql
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 )
+
+const admitRepositoryAttachment = `-- name: AdmitRepositoryAttachment :execrows
+INSERT INTO repository_attachment_intents(id,request_id,project_id,actor_id,parameters,connection_id,provider_base,provider_account,prior_origin,phase,created_at,updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'intent',$10,$10) ON CONFLICT(project_id) DO NOTHING
+`
+
+type AdmitRepositoryAttachmentParams struct {
+	ID              ids.ID
+	RequestID       ids.ID
+	ProjectID       ids.ID
+	ActorID         ids.ID
+	Parameters      json.RawMessage
+	ConnectionID    ids.ID
+	ProviderBase    string
+	ProviderAccount int64
+	PriorOrigin     string
+	CreatedAt       time.Time
+}
+
+func (q *Queries) AdmitRepositoryAttachment(ctx context.Context, arg AdmitRepositoryAttachmentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, admitRepositoryAttachment,
+		arg.ID,
+		arg.RequestID,
+		arg.ProjectID,
+		arg.ActorID,
+		arg.Parameters,
+		arg.ConnectionID,
+		arg.ProviderBase,
+		arg.ProviderAccount,
+		arg.PriorOrigin,
+		arg.CreatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
 
 const advanceAuthority = `-- name: AdvanceAuthority :one
 UPDATE branch_authority SET generation=generation+1, holder=$1
@@ -169,6 +207,42 @@ func (q *Queries) BeginPublication(ctx context.Context, arg BeginPublicationPara
 	return id, err
 }
 
+const completeRepositoryAttachment = `-- name: CompleteRepositoryAttachment :execrows
+UPDATE repository_attachment_intents SET phase='attached',updated_at=$3 WHERE id=$1 AND project_id=$2 AND phase='identified'
+`
+
+type CompleteRepositoryAttachmentParams struct {
+	ID        ids.ID
+	ProjectID ids.ID
+	UpdatedAt time.Time
+}
+
+func (q *Queries) CompleteRepositoryAttachment(ctx context.Context, arg CompleteRepositoryAttachmentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, completeRepositoryAttachment, arg.ID, arg.ProjectID, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const dispatchRepositoryAttachment = `-- name: DispatchRepositoryAttachment :execrows
+UPDATE repository_attachment_intents SET phase='dispatched',updated_at=$3 WHERE id=$1 AND project_id=$2 AND phase='intent'
+`
+
+type DispatchRepositoryAttachmentParams struct {
+	ID        ids.ID
+	ProjectID ids.ID
+	UpdatedAt time.Time
+}
+
+func (q *Queries) DispatchRepositoryAttachment(ctx context.Context, arg DispatchRepositoryAttachmentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, dispatchRepositoryAttachment, arg.ID, arg.ProjectID, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const ensureAuthority = `-- name: EnsureAuthority :exec
 INSERT INTO branch_authority(project_id,branch,generation,holder) VALUES ($1,$2,1,'initial')
 ON CONFLICT(project_id,branch) DO NOTHING
@@ -182,6 +256,30 @@ type EnsureAuthorityParams struct {
 func (q *Queries) EnsureAuthority(ctx context.Context, arg EnsureAuthorityParams) error {
 	_, err := q.db.ExecContext(ctx, ensureAuthority, arg.ProjectID, arg.Branch)
 	return err
+}
+
+const identifyRepositoryAttachment = `-- name: IdentifyRepositoryAttachment :execrows
+UPDATE repository_attachment_intents SET phase='identified',provider_result=$3,updated_at=$4 WHERE id=$1 AND project_id=$2 AND phase IN ('intent','dispatched','unknown')
+`
+
+type IdentifyRepositoryAttachmentParams struct {
+	ID             ids.ID
+	ProjectID      ids.ID
+	ProviderResult []byte
+	UpdatedAt      time.Time
+}
+
+func (q *Queries) IdentifyRepositoryAttachment(ctx context.Context, arg IdentifyRepositoryAttachmentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, identifyRepositoryAttachment,
+		arg.ID,
+		arg.ProjectID,
+		arg.ProviderResult,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const insertMain = `-- name: InsertMain :execrows
@@ -243,6 +341,17 @@ func (q *Queries) MergeByRun(ctx context.Context, runID ids.ID) (RunMerge, error
 	return i, err
 }
 
+const mergeRequestIdentity = `-- name: MergeRequestIdentity :one
+SELECT identity_json FROM repository_mr_identities WHERE artifact_id=$1
+`
+
+func (q *Queries) MergeRequestIdentity(ctx context.Context, artifactID ids.ID) (json.RawMessage, error) {
+	row := q.db.QueryRowContext(ctx, mergeRequestIdentity, artifactID)
+	var identity_json json.RawMessage
+	err := row.Scan(&identity_json)
+	return identity_json, err
+}
+
 const pendingMerges = `-- name: PendingMerges :many
 SELECT run_id, state, operation, expected, result FROM run_merges WHERE state=$1 ORDER BY run_id
 `
@@ -300,6 +409,55 @@ func (q *Queries) PublicationForBranch(ctx context.Context, arg PublicationForBr
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const recordMergeRequestIdentity = `-- name: RecordMergeRequestIdentity :exec
+INSERT INTO repository_mr_identities(artifact_id,identity_json) VALUES ($1,$2)
+`
+
+type RecordMergeRequestIdentityParams struct {
+	ArtifactID   ids.ID
+	IdentityJson json.RawMessage
+}
+
+func (q *Queries) RecordMergeRequestIdentity(ctx context.Context, arg RecordMergeRequestIdentityParams) error {
+	_, err := q.db.ExecContext(ctx, recordMergeRequestIdentity, arg.ArtifactID, arg.IdentityJson)
+	return err
+}
+
+const recordRepositoryAttachment = `-- name: RecordRepositoryAttachment :execrows
+INSERT INTO repository_attachments(id,project_id,connection_id,provider_kind,provider_base,provider_account,provider_project,clone_url,project_path,verified_at)
+VALUES ($1,$2,$3,'gitlab',$4,$5,$6,$7,$8,$9) ON CONFLICT(project_id) DO NOTHING
+`
+
+type RecordRepositoryAttachmentParams struct {
+	ID              ids.ID
+	ProjectID       ids.ID
+	ConnectionID    ids.ID
+	ProviderBase    string
+	ProviderAccount int64
+	ProviderProject int64
+	CloneUrl        string
+	ProjectPath     string
+	VerifiedAt      time.Time
+}
+
+func (q *Queries) RecordRepositoryAttachment(ctx context.Context, arg RecordRepositoryAttachmentParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, recordRepositoryAttachment,
+		arg.ID,
+		arg.ProjectID,
+		arg.ConnectionID,
+		arg.ProviderBase,
+		arg.ProviderAccount,
+		arg.ProviderProject,
+		arg.CloneUrl,
+		arg.ProjectPath,
+		arg.VerifiedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const recordedMain = `-- name: RecordedMain :one
@@ -412,6 +570,53 @@ func (q *Queries) ReplaceMerge(ctx context.Context, arg ReplaceMergeParams) (int
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const repositoryAttachment = `-- name: RepositoryAttachment :one
+SELECT id, project_id, connection_id, provider_kind, provider_base, provider_account, provider_project, clone_url, project_path, verified_at FROM repository_attachments WHERE project_id=$1
+`
+
+func (q *Queries) RepositoryAttachment(ctx context.Context, projectID ids.ID) (RepositoryAttachment, error) {
+	row := q.db.QueryRowContext(ctx, repositoryAttachment, projectID)
+	var i RepositoryAttachment
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.ConnectionID,
+		&i.ProviderKind,
+		&i.ProviderBase,
+		&i.ProviderAccount,
+		&i.ProviderProject,
+		&i.CloneUrl,
+		&i.ProjectPath,
+		&i.VerifiedAt,
+	)
+	return i, err
+}
+
+const repositoryAttachmentIntent = `-- name: RepositoryAttachmentIntent :one
+SELECT id, request_id, project_id, actor_id, parameters, connection_id, provider_base, provider_account, prior_origin, phase, provider_result, created_at, updated_at FROM repository_attachment_intents WHERE project_id=$1
+`
+
+func (q *Queries) RepositoryAttachmentIntent(ctx context.Context, projectID ids.ID) (RepositoryAttachmentIntent, error) {
+	row := q.db.QueryRowContext(ctx, repositoryAttachmentIntent, projectID)
+	var i RepositoryAttachmentIntent
+	err := row.Scan(
+		&i.ID,
+		&i.RequestID,
+		&i.ProjectID,
+		&i.ActorID,
+		&i.Parameters,
+		&i.ConnectionID,
+		&i.ProviderBase,
+		&i.ProviderAccount,
+		&i.PriorOrigin,
+		&i.Phase,
+		&i.ProviderResult,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const settlePublication = `-- name: SettlePublication :execrows

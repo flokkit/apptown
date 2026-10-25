@@ -10,8 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/cgi"
 	"net/http/httptest"
 	"net/url"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,7 +48,9 @@ func (r *Refusal) Error() string { return fmt.Sprintf("HTTP %d: %s", r.Status, r
 // Server is the fake. Its hooks run with its lock held, so they may change
 // the merge request they are handed but must not call the server.
 type Server struct {
-	URL string
+	URL      string
+	git      map[string]http.Handler
+	projects map[string]gitlab.ProjectRef
 
 	mu           sync.Mutex
 	settings     gitlab.MergeSettings
@@ -80,6 +85,17 @@ func New(t testing.TB) *Server {
 	t.Cleanup(server.Close)
 	s.URL = server.URL
 	return s
+}
+
+// Repository records the provider identity returned by path or numeric ID.
+func (s *Server) Repository(p gitlab.ProjectRef) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.projects == nil {
+		s.projects = map[string]gitlab.ProjectRef{}
+	}
+	s.projects[p.PathNS] = p
+	s.projects[strconv.FormatInt(p.ID, 10)] = p
 }
 
 // Client is a provider client for this fake.
@@ -144,11 +160,54 @@ func (s *Server) RefuseDescriptions(r *Refusal) {
 
 func key(project string, iid int) string { return project + "!" + strconv.Itoa(iid) }
 
+// GitRepository serves a real bare repository over Git HTTP beside the fake API.
+// Tests retain responsibility for creating the repository and its refs.
+func (s *Server) GitRepository(t testing.TB, directory string) string {
+	t.Helper()
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix := "/fixture/" + filepath.Base(directory) + "/"
+	handler := &cgi.Handler{Root: "/fixture", Path: git, Args: []string{"http-backend"}, Env: []string{"GIT_PROJECT_ROOT=" + filepath.Dir(directory), "GIT_HTTP_EXPORT_ALL=1", "REMOTE_USER=apptown"}}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.git == nil {
+		s.git = map[string]http.Handler{}
+	}
+	s.git[prefix] = handler
+	return s.URL + strings.TrimSuffix(prefix, "/")
+}
+
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	var gitHandler http.Handler
+	for prefix, handler := range s.git {
+		if strings.HasPrefix(r.URL.Path, prefix) {
+			gitHandler = handler
+			break
+		}
+	}
+	s.mu.Unlock()
+	if gitHandler != nil {
+		_, password, ok := r.BasicAuth()
+		if !ok || password != Token {
+			w.Header().Set("WWW-Authenticate", `Basic realm="GitLab fixture"`)
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
+		gitHandler.ServeHTTP(w, r)
+		return
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if r.Header.Get("PRIVATE-TOKEN") != Token {
 		http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if r.URL.Path == "/api/v4/user" {
+		reply(w, map[string]any{"id": int64(41)})
 		return
 	}
 	parts := strings.Split(strings.TrimPrefix(r.URL.EscapedPath(), "/api/v4/projects/"), "/")
@@ -160,7 +219,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	rest := parts[1:]
 	switch {
 	case len(rest) == 0 && r.Method == http.MethodGet:
-		reply(w, s.settings)
+		reply(w, struct {
+			gitlab.MergeSettings
+			gitlab.ProjectRef
+		}{s.settings, s.projects[project]})
 	case len(rest) == 3 && rest[0] == "repository" && rest[1] == "branches" && r.Method == http.MethodGet:
 		branch, _ := url.PathUnescape(rest[2])
 		if s.OnBranch == nil {

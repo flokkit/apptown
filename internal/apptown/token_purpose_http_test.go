@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -235,8 +236,8 @@ func TestAnAgentCreatesAProjectWithTheOfferedPackItAskedFor(t *testing.T) {
 // Where a project's code is pushed is decided by a person with the project's
 // integration authority, not by roster membership: an administrator's agent
 // token cannot replace origin, and nothing changes before the refusal. The
-// same administrator's cli token gets past authorization (this fixture has
-// no GitLab, so its push then fails, after origin was replaced).
+// same administrator's cli token reaches provider validation. An incomplete
+// provider configuration still refuses before replacing origin.
 func TestAnAgentTokenCannotReplaceAProjectsRemote(t *testing.T) {
 	t.Parallel()
 	a, agent := mcpWriteFixture(t)
@@ -256,12 +257,15 @@ func TestAnAgentTokenCannotReplaceAProjectsRemote(t *testing.T) {
 	if !strings.Contains(origin(), "original.invalid") {
 		t.Fatalf("a refused attach replaced origin: %s", origin())
 	}
-	cli := tokenFor(t, a, "boss-cli", "boss", "admin", access.TokenCLI)
-	if w := bearerCall(a, cli, "POST", "/api/v1/projects/app/repo/remote", `{"url":"https://replacement.invalid/repo.git"}`); w.Code == 403 {
-		t.Fatalf("the person's cli token is refused: %d %s", w.Code, w.Body.String())
+	if _, err := a.Integrations.Bindings.Save(t.Context(), "gitlab", integration.CapSCM, "gitlab", `{}`, "fixture"); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(origin(), "replacement.invalid") {
-		t.Fatalf("the person's attach did not reach origin: %s", origin())
+	cli := tokenFor(t, a, "boss-cli", "boss", "admin", access.TokenCLI)
+	if w := bearerCall(a, cli, "POST", "/api/v1/projects/app/repo/remote", `{"url":"https://replacement.invalid/repo.git"}`); w.Code != 409 || !strings.Contains(w.Body.String(), "repository connection has no credential sources") {
+		t.Fatalf("the person's cli token did not reach provider validation: %d %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(origin(), "original.invalid") {
+		t.Fatalf("unverified provider configuration replaced origin: %s", origin())
 	}
 }
 

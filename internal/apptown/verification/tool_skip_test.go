@@ -16,7 +16,7 @@ import (
 func TestRunToolChecksExecImageIsNotApplicableWithoutAnImage(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	if _, err := integration.New(db).Upsert(t.Context(), "django-check-deploy", ScannerCapability, "tool", `{"command":["python","manage.py","check","--deploy"],"target":"exec-image","manual":true}`, true); err != nil {
+	if _, err := integration.NewWithClock(db, nil).Upsert(t.Context(), "django-check-deploy", ScannerCapability, "tool", `{"command":["python","manage.py","check","--deploy"],"target":"exec-image","manual":true}`, true); err != nil {
 		t.Fatal(err)
 	}
 	// No executor: looking for an image would fail the test.

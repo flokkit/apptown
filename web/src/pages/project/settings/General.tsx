@@ -1,3 +1,4 @@
+import { RepositoryAttachment } from './RepositoryAttachment'
 import { PRODUCT } from '../../../brand'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -299,6 +300,7 @@ export function RepoCard({ slug }: { slug: string }) {
         <a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>
         <span className="muted">the {data.repo.defaultBranch} branch and tags as a Git bundle; another {PRODUCT} can start a project from it</span>
       </div>
+      <RepositoryAttachment slug={slug} />
       {data.repo.cloneCmd && (
         <div className="row" style={{ marginTop: 8 }}>
           <code style={{ background: 'var(--code-bg)', padding: '6px 10px', borderRadius: 6, flex: 1 }}>

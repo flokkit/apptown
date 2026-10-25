@@ -29,8 +29,9 @@ const (
 )
 
 type MergeRequest struct {
-	Project string
-	IID     int
+	Identity RepositoryIdentity
+	Project  string
+	IID      int
 }
 type Source struct {
 	RunID, ProjectID ids.ID

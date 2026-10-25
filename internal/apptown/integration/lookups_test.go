@@ -8,7 +8,7 @@ import (
 func TestLookups(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
-	b := New(db)
+	b := NewWithClock(db, nil)
 	for _, r := range [][3]string{{"syd", "cloud-account", "digitalocean"}, {"nyc", "cloud-account", "digitalocean"}, {"hub", "cloud-account", "other"}, {"gitlab", "registry", "gitlab"}} {
 		if _, err := b.Save(context.Background(), r[0], r[1], r[2], `{"url":"https://x"}`, "tester"); err != nil {
 			t.Fatal(err)

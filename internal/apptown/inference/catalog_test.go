@@ -25,7 +25,7 @@ import (
 func TestIntegrationAdaptersPreserveOrderingAndErrors(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
-	bindings := integration.New(db)
+	bindings := integration.NewWithClock(db, nil)
 	catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))
 	t.Cleanup(db.FailNextStatement("-- name: Bindings :many"))
 	if got, err := catalog.providers(context.Background()); err == nil || got != nil {
@@ -67,7 +67,7 @@ func TestTheModelListIsTheGatewaysOwn(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"live"}]}`))
 	}))
 	defer server.Close()
-	bindings := integration.New(db)
+	bindings := integration.NewWithClock(db, nil)
 	save := func(pattern string) {
 		t.Helper()
 		raw, _ := json.Marshal(map[string]any{"model": pattern, "baseUrl": server.URL, "providerDef": map[string]any{"apiKey": "provider-key"}})
@@ -138,7 +138,7 @@ func TestAnUnreadModelListIsNotACurrentOne(t *testing.T) {
 	}))
 	defer server.Close()
 	raw, _ := json.Marshal(map[string]any{"baseUrl": server.URL, "providerDef": map[string]any{"apiKey": "provider-key"}})
-	if _, err := integration.New(db).Save(context.Background(), "provider", "model", "provider", string(raw), "fixture"); err != nil {
+	if _, err := integration.NewWithClock(db, nil).Save(context.Background(), "provider", "model", "provider", string(raw), "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	catalog := NewCatalog(db, secret.NewService(db, secret.Config{DataDir: t.TempDir()}))

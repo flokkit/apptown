@@ -73,6 +73,7 @@ func (s *Service) CommitGenesis(ctx context.Context, p *project.Project, message
 		return nil, fmt.Errorf("commit: %s", out)
 	}
 	recordErr := scm.RecordMain(ctx, s.db, dir, p.ID, p.DefaultBranch, scm.ViaGenesis, s.now())
+	release() // the upstream owner acquires this same repository lock
 	s.publisher.PushBranch(ctx, p.ID, dir, p.DefaultBranch)
 	if recordErr != nil {
 		// The commit stands; the older record stays, and the project's main

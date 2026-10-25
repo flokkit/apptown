@@ -1,11 +1,12 @@
 package workflowexec
 
 import (
+	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/database"
+	"strconv"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/gitexec"
-	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
 
@@ -33,38 +34,20 @@ func (a *Repositories) RunSCMMR(task *workflow.Execution) {
 		fail("project is not repo-backed")
 		return
 	}
-	repo, err := source.Repository(a.cfg.DataDir)
-	if err != nil {
-		fail(err.Error())
-		return
-	}
 	branch := source.Branch
-	_, pathNS, hasRemote := scm.Origin(task.Context(), repo)
-	if !hasRemote {
-		fail("project has no remote; POST /projects/{slug}/repo/remote first")
-		return
-	}
-	env, err := a.provider.AskpassEnv(task.Context())
+	verified, err := a.attachments.Push(task.Context(), run.ProjectID, branch)
 	if err != nil {
 		fail(err.Error())
 		return
 	}
-	// The request offers the branch as published in the project's
-	// repository, which holds the linked remote; a run's workspace is a
-	// self-contained clone with no remote (workflow.GitWorkspace), and its
-	// unpublished commits are not part of the change. Never forced: a
-	// GitLab branch with commits AppTown did not publish refuses the push.
-	ref := "refs/heads/" + branch
-	if out, err := gitexec.RunEnv(task.Context(), repo, env, "push", "origin", ref+":"+ref); err != nil {
-		fail("publishing the branch to the project's remote: " + strs.Truncate(out, 300))
-		return
-	}
-	gl, err := a.provider.Client(task.Context())
+	gl := verified.Provider.Client
+	providerID := strconv.FormatInt(verified.Identity.ProviderProjectID, 10)
+	pathNS := verified.Observed.PathNS
+	p, err := project.ByIDIn(task.Context(), a.db, run.ProjectID)
 	if err != nil {
 		fail(err.Error())
 		return
 	}
-	p, _ := project.ByIDIn(task.Context(), a.db, run.ProjectID)
 	db := p.DefaultBranch
 	// The description is AppTown's (scm.MergeRequestDescription): who
 	// opened the change and what it is for, from the change's own record. A
@@ -88,14 +71,21 @@ func (a *Repositories) RunSCMMR(task *workflow.Execution) {
 		page = changeactions.URL(a.cfg.PublicHost, run.ChangeID)
 	}
 	desc := scm.MergeRequestDescription(opening, page)
-	mr, err := gl.CreateMR(task.Context(), pathNS, branch, db, title, desc)
+	mr, err := gl.CreateMR(task.Context(), providerID, branch, db, title, desc)
 	if err != nil {
 		fail(err.Error())
 		return
 	}
 	// The merge request exists: its record is the step's evidence, written
 	// before the step passes.
-	if err := recordArtifact(task.Context(), a.db, run.ID, "mr", fmt.Sprintf("!%d", mr.IID), mr.WebURL, pathNS, a.now()); err != nil {
+	settle := context.WithoutCancel(task.Context())
+	if err := a.db.InTx(settle, func(tx *database.Tx) error {
+		artifact, err := workflow.AddArtifactIn(settle, tx, run.ID, "mr", fmt.Sprintf("!%d", mr.IID), mr.WebURL, pathNS, a.now())
+		if err != nil {
+			return err
+		}
+		return scm.RecordMergeRequestIdentityIn(settle, tx, artifact, verified.Identity)
+	}); err != nil {
 		fail(fmt.Sprintf("merge request %s was opened, but its record could not be written: %v", mr.WebURL, err))
 		return
 	}

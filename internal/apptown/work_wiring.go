@@ -34,7 +34,7 @@ import (
 func (a *App) workDependencies() workflow.Dependencies {
 	commands := workflowexec.NewCommands(a.DB, workflowexec.CommandDependencies{
 		Runner: projectProcesses(a), Progress: &a.progress,
-		Publisher: repositoryPublisher{secrets: a.Secrets, db: a.DB, dataDir: a.cfg.dataDir, now: a.cfg.clock.Now}, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
+		Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
 		Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Catalog: a.Dependencies, Now: a.cfg.clock.Now,
 	}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, HostScripts: a.cfg.hostScripts})
 	// An AppTown with a worker builds every release there
@@ -44,7 +44,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		builds = &workflowexec.ReleaseBuilds{Tasks: a.tasks, PrivateDocker: a.cfg.privateDocker}
 	}
 	shipping := workflowexec.NewShipping(a.DB, workflowexec.ShippingDependencies{Deployment: a.Deployment, Previews: a.Preview, Docker: &a.docker, Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Progress: &a.progress, Backups: backupRequests{db: a.DB, life: a.life}, ReleaseData: releaseData{a.DataProtection}, Builds: builds, Now: a.cfg.clock.Now, Screenshots: verification.NewScreenshots(checksFor(a), screenshotsAuthority(a.cfg.localTLS))}, workflowexec.ShippingConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Routing: a.cfg.routing()})
-	repositories := workflowexec.NewRepositories(a.DB, repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}, a.branches, workflowexec.RepositoryConfig{DataDir: a.cfg.dataDir, PublicHost: a.cfg.publicHost, Now: a.cfg.clock.Now})
+	repositories := workflowexec.NewRepositories(a.DB, a.repositoryAttachments, a.branches, workflowexec.RepositoryConfig{DataDir: a.cfg.dataDir, PublicHost: a.cfg.publicHost, Now: a.cfg.clock.Now})
 	runners := make(map[string]workflow.Runner)
 	runners[workflowexec.CallKind] = workflowexec.NewCalls(a.DB, jobReporter{}).Run
 	runners[workflowexec.MergeRequestKind] = repositories.RunSCMMR
@@ -103,9 +103,9 @@ func (p changePages) URL(id ids.ID) string { return changeactions.URL(p.host, id
 func mergeEffectsFor(a *App) workcommands.LandingEffects {
 	return workcommands.LandingEffects{
 		DB: a.DB, Contracts: a.Projects.Contracts(), DataDir: a.cfg.dataDir,
-		Drivers: scm.GitDrivers{Runner: a.processRunner, DataDir: a.cfg.dataDir, Provider: (repositoryProvider{secrets: a.Secrets, dataDir: a.cfg.dataDir}).Client,
+		Drivers: scm.GitDrivers{Runner: a.processRunner, DataDir: a.cfg.dataDir, Provider: a.repositoryAttachments.VerifyRecorded,
 			ChangeURL: changePages{host: a.cfg.publicHost}.URL},
-		Publisher: repositoryPublisher{secrets: a.Secrets, db: a.DB, dataDir: a.cfg.dataDir, now: a.cfg.clock.Now},
+		Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now},
 		Now:       a.cfg.clock.Now,
 	}
 }

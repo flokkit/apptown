@@ -760,6 +760,11 @@ sql:
         out: internal/apptown/scm/internal/scmsql
         sql_package: database/sql
         overrides:
+          - db_type: jsonb
+            nullable: true
+            go_type:
+              type: byte
+              slice: true
           - db_type: uuid
             go_type: github.com/flokkit/apptown/internal/ids.ID
           - db_type: uuid

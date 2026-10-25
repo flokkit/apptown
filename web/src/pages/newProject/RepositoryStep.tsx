@@ -57,6 +57,10 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
       </label>
       {remote && (
         <div className="row" style={{ margin: '4px 0 4px 24px' }}>
+          <label className="row" style={{ gap: 'var(--space-2)' }}>
+            <span className="muted small">Repository name</span>
+            <input value={d.repositoryName ?? slug} onChange={(e) => setRepo({ repositoryName: e.target.value })} />
+          </label>
           {namespaces.length > 0 ? (
             <label className="row" style={{ gap: 'var(--space-2)' }}>
               <span className="muted small">in group</span>

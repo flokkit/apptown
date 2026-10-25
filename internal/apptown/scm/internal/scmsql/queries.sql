@@ -64,3 +64,32 @@ UPDATE branch_publications SET repository=sqlc.arg(destination)
 WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id)
  AND branch=sqlc.arg(branch) AND expected=sqlc.arg(expected) AND proposed=sqlc.arg(proposed)
  AND repository IN (sqlc.arg(source),sqlc.arg(destination));
+
+-- name: RepositoryAttachment :one
+SELECT * FROM repository_attachments WHERE project_id=$1;
+
+-- name: RecordRepositoryAttachment :execrows
+INSERT INTO repository_attachments(id,project_id,connection_id,provider_kind,provider_base,provider_account,provider_project,clone_url,project_path,verified_at)
+VALUES ($1,$2,$3,'gitlab',$4,$5,$6,$7,$8,$9) ON CONFLICT(project_id) DO NOTHING;
+
+-- name: RepositoryAttachmentIntent :one
+SELECT * FROM repository_attachment_intents WHERE project_id=$1;
+
+-- name: AdmitRepositoryAttachment :execrows
+INSERT INTO repository_attachment_intents(id,request_id,project_id,actor_id,parameters,connection_id,provider_base,provider_account,prior_origin,phase,created_at,updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'intent',$10,$10) ON CONFLICT(project_id) DO NOTHING;
+
+-- name: DispatchRepositoryAttachment :execrows
+UPDATE repository_attachment_intents SET phase='dispatched',updated_at=$3 WHERE id=$1 AND project_id=$2 AND phase='intent';
+
+-- name: IdentifyRepositoryAttachment :execrows
+UPDATE repository_attachment_intents SET phase='identified',provider_result=$3,updated_at=$4 WHERE id=$1 AND project_id=$2 AND phase IN ('intent','dispatched','unknown');
+
+-- name: CompleteRepositoryAttachment :execrows
+UPDATE repository_attachment_intents SET phase='attached',updated_at=$3 WHERE id=$1 AND project_id=$2 AND phase='identified';
+
+-- name: RecordMergeRequestIdentity :exec
+INSERT INTO repository_mr_identities(artifact_id,identity_json) VALUES ($1,$2);
+
+-- name: MergeRequestIdentity :one
+SELECT identity_json FROM repository_mr_identities WHERE artifact_id=$1;

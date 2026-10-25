@@ -121,6 +121,40 @@ WHERE i.id = v.integration_id AND i.capability = 'scanner' AND jsonb_typeof(v.co
 		`UPDATE owned_repositories r SET connection_id=i.id FROM integrations i WHERE r.connector=i.name`,
 		`ALTER TABLE release_requests ADD COLUMN provider_binding_json JSONB`,
 	}},
+	{n: 172, note: "retain provider-scoped repository attachment and original merge request identity", stmts: []string{
+		`CREATE TABLE repository_attachments (
+  id UUID PRIMARY KEY,
+  project_id UUID NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+  connection_id UUID NOT NULL REFERENCES integrations(id),
+  provider_kind TEXT NOT NULL CHECK (provider_kind='gitlab'),
+  provider_base TEXT NOT NULL CHECK (provider_base<>''),
+  provider_account BIGINT NOT NULL CHECK (provider_account>0),
+  provider_project BIGINT NOT NULL CHECK (provider_project>0),
+  clone_url TEXT NOT NULL CHECK (clone_url<>''),
+  project_path TEXT NOT NULL CHECK (project_path<>''),
+  verified_at TIMESTAMPTZ NOT NULL
+)`,
+		`CREATE TABLE repository_attachment_intents (
+  id UUID PRIMARY KEY,
+  request_id UUID NOT NULL,
+  project_id UUID NOT NULL UNIQUE REFERENCES projects(id) ON DELETE CASCADE,
+  actor_id UUID NOT NULL,
+  parameters JSONB NOT NULL,
+  connection_id UUID NOT NULL REFERENCES integrations(id),
+  provider_base TEXT NOT NULL CHECK (provider_base<>''),
+  provider_account BIGINT NOT NULL CHECK (provider_account>0),
+  prior_origin TEXT NOT NULL,
+  phase TEXT NOT NULL CHECK (phase IN ('intent','dispatched','identified','attached','unknown')),
+  provider_result JSONB,
+  created_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL,
+  CHECK ((phase IN ('identified','attached')) = (provider_result IS NOT NULL))
+)`,
+		`CREATE TABLE repository_mr_identities (
+  artifact_id UUID PRIMARY KEY REFERENCES artifacts(id) ON DELETE CASCADE,
+  identity_json JSONB NOT NULL
+)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

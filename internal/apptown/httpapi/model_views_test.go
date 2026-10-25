@@ -94,7 +94,7 @@ func TestHandleModelSlotsMatrix(t *testing.T) {
 func TestHandleModelCatalog(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
-	bindings := integration.New(db)
+	bindings := integration.NewWithClock(db, nil)
 	handler := NewModelDiscovery(inference.NewCatalog(db, secret.NewService(db, secret.Config{})))
 
 	// A model binding with a default pattern and a curated list; no baseUrl,

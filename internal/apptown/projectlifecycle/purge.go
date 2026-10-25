@@ -90,9 +90,12 @@ func (d *Deletion) runPurge(ctx context.Context, op operations.Operation, log *o
 			return refused(err)
 		}
 		log.Begin(ctx, "archiving its GitLab copy at "+path)
-		id, _ := op.Input["gitlabProjectId"].(float64)
+		identity, err := purgeRepositoryIdentity(op.Input, op.ProjectID)
+		if err != nil {
+			return fail([]string{"the GitLab copy at " + path}, err.Error())
+		}
 		archive, _ := op.Input["gitlabArchive"].(string)
-		if err := d.deps.Archive.archiveGitLab(ctx, CleanupPlan{GitLabPath: path, GitLabProjectID: int64(id), GitLabArchive: archive}); err != nil {
+		if err := d.deps.Archive.archiveGitLab(ctx, CleanupPlan{RepositoryIdentity: identity, GitLabPath: path, GitLabProjectID: identity.ProviderProjectID, GitLabArchive: archive}); err != nil {
 			return fail([]string{"the GitLab copy at " + path}, err.Error())
 		}
 		log.End(ctx, "renamed to "+archive+" and archived", 0)

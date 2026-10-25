@@ -215,7 +215,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := integration.New(db).Upsert(t.Context(), "npm-mirror", "registry", "nexus", `{"format":"npm","url":"http://mirror.test/npm"}`, false); err != nil {
+	if _, err := integration.NewWithClock(db, nil).Upsert(t.Context(), "npm-mirror", "registry", "nexus", `{"format":"npm","url":"http://mirror.test/npm"}`, false); err != nil {
 		t.Fatal(err)
 	}
 

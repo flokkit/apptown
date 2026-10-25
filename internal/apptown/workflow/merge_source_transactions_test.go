@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -59,12 +60,19 @@ func TestMergeSourceBatchesAncestryRepositoryAdoptionAndMR(t *testing.T) {
 	if _, err := AddArtifactIn(context.Background(), store, child.ID, "mr", "!2", "", "old/project", time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := AddArtifactIn(context.Background(), store, child.ID, "mr", "!3", "", "child/project", time.Now()); err != nil {
+	identity := scm.RepositoryIdentity{AttachmentID: idstest.N(8101), ProjectID: child.ProjectID, Scope: scm.ProviderScope{ConnectionID: idstest.N(8102), Kind: "gitlab", Base: "https://git.example", AccountID: 41}, ProviderProjectID: 71, CloneURL: "https://git.example/child/project.git", Path: "child/project"}
+	if err := store.InTx(context.Background(), func(tx *database.Tx) error {
+		artifact, err := AddArtifactIn(context.Background(), tx, child.ID, "mr", "!3", "", "child/project", time.Now())
+		if err != nil {
+			return err
+		}
+		return scm.RecordMergeRequestIdentityIn(context.Background(), tx, artifact, identity)
+	}); err != nil {
 		t.Fatal(err)
 	}
 	counted := &countedQueries{Handle: store.SQL()}
 	source, err := readMergeSourceForRun(context.Background(), counted, child)
-	if err != nil || counted.reads != 1 || source.RootRunID != root.ID || source.ChangeID != root.ChangeID || source.RunID != child.ID || source.Branch != "feature/kept" || source.MR.IID != 3 || source.MR.Project != "child/project" || source.AdoptionRevision != 3 || source.ExpectedRevision != 2 {
+	if err != nil || counted.reads != 1 || source.RootRunID != root.ID || source.ChangeID != root.ChangeID || source.RunID != child.ID || source.Branch != "feature/kept" || source.MR.Identity != identity || source.MR.IID != 3 || source.MR.Project != "child/project" || source.AdoptionRevision != 3 || source.ExpectedRevision != 2 {
 		t.Fatalf("source %+v reads=%d %v", source, counted.reads, err)
 	}
 	if source.UpliftRefusal() == "" {

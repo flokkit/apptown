@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/scm"
+	"github.com/flokkit/apptown/internal/gitlab"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -68,13 +70,11 @@ func (g *fakeGitLab) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 // gitlabIDs names the copy at team/p as GitLab project 100.
-type gitlabIDs struct{}
+type gitlabIDs struct{ base string }
 
-func (gitlabIDs) ProjectID(ctx context.Context, path string) (int64, error) {
-	if path != "team/p" {
-		return 0, fmt.Errorf("no GitLab project at %s", path)
-	}
-	return 100, nil
+func (g gitlabIDs) ResolveForDeletion(ctx context.Context, projectID ids.ID) (scm.VerifiedRepository, error) {
+	identity := fixtureCleanupIdentity(g.base, projectID, "team/p")
+	return scm.VerifiedRepository{Identity: *identity, Observed: gitlab.ProjectRef{ID: 100, PathNS: "team/p", HTTPURL: identity.CloneURL}}, nil
 }
 
 // leftoverSets leaves the named set behind while left is set.
@@ -111,6 +111,11 @@ type purgeWorld struct {
 func newPurgeWorld(t *testing.T) *purgeWorld {
 	t.Helper()
 	w := &purgeWorld{deletionWorld: newDeletionWorld(t, "main"), gitlab: &fakeGitLab{path: "team/p"}}
+	// This fixture owns a repository; preserve the catalogue's repo-backed
+	// marker as well as its Git files when exercising purge admission.
+	if err := project.New(w.db, nil).SetDefaultBranch(t.Context(), w.project, "main"); err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(http.HandlerFunc(w.gitlab.serve))
 	t.Cleanup(server.Close)
 	if err := jobs.Migrate(context.Background(), w.db.Pool()); err != nil {
@@ -131,7 +136,7 @@ func newPurgeWorld(t *testing.T) *purgeWorld {
 		}
 	}
 	w.d = NewDeletion(w.d.lifecycle, DeletionDependencies{Sessions: w.d.deps.Sessions, Records: w.deps, Data: w.sets, Queue: noQueue{},
-		Authority: allowAll{}, Operations: w.ops, GitLab: gitlabIDs{}, Archive: Cleanup{GitLab: gitlabAt(server.URL)}, Now: func() time.Time { return w.clock }})
+		Authority: allowAll{}, Operations: w.ops, GitLab: gitlabIDs{server.URL}, Archive: Cleanup{GitLab: gitlabAt(server.URL)}, Now: func() time.Time { return w.clock }})
 	if _, err := w.d.Request(context.Background(), w.project); err != nil {
 		t.Fatal(err)
 	}
