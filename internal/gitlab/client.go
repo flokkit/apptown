@@ -29,7 +29,9 @@ func New(base, token string) (*Client, error) {
 	if base == "" || token == "" {
 		return nil, fmt.Errorf("%w: set GITLAB_URL and GITLAB_TOKEN (secrets.env or Infisical)", ErrNotConfigured)
 	}
-	return &Client{base: base, token: token, http: &http.Client{Timeout: 30 * time.Second}}, nil
+	return &Client{base: base, token: token, http: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return errors.New("GitLab API redirect refused: configure the final API URL")
+	}}}, nil
 }
 
 // Do is DoContext for AppTown's own calls. A write, once sent, is

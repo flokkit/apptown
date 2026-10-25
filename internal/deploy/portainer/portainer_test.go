@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy"
@@ -234,6 +235,79 @@ func TestTakeDownDeletesAppTownsStackAndKeepsItsVolumes(t *testing.T) {
 			}
 			if !reflect.DeepEqual(left, []string{"volume shop-lan_forge-data-shop", "volume shop-uploads"}) {
 				t.Fatalf("kept volumes: %v", left)
+			}
+		})
+	}
+}
+
+// Not parallel: the downgrade case installs only its test server's transport.
+func TestPortainerCredentialsStayAtTheConfiguredEndpoint(t *testing.T) {
+	cases := []struct {
+		name            string
+		status          int
+		sameOrigin, tls bool
+	}{
+		{"success", http.StatusOK, false, false},
+		{"provider-failure", http.StatusForbidden, false, false},
+		{"same-origin-loop", http.StatusFound, true, false},
+		{"https-downgrade", http.StatusFound, false, true},
+	}
+	for _, status := range []int{301, 302, 303, 307, 308} {
+		cases = append(cases, struct {
+			name            string
+			status          int
+			sameOrigin, tls bool
+		}{fmt.Sprintf("cross-origin-%d", status), status, false, false})
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var destinationCalls, sourceCalls atomic.Int32
+			destination := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				destinationCalls.Add(1)
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer destination.Close()
+			source := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				sourceCalls.Add(1)
+				if got := r.Header.Get("X-API-Key"); got != "fixture-secret" {
+					t.Errorf("initial credential = %q", got)
+				}
+				if tc.status >= 300 && tc.status < 400 {
+					target := destination.URL + "/redirected"
+					if tc.sameOrigin {
+						target = r.URL.Path
+					}
+					w.Header().Set("Location", target)
+				}
+				w.WriteHeader(tc.status)
+			}))
+			if tc.tls {
+				source.StartTLS()
+			} else {
+				source.Start()
+			}
+			defer source.Close()
+			previous := http.DefaultTransport
+			if tc.tls {
+				http.DefaultTransport = source.Client().Transport
+				defer func() { http.DefaultTransport = previous }()
+			}
+			status, _, err := JSON(t.Context(), &Target{PortainerURL: source.URL, PortainerKey: "fixture-secret"}, http.MethodPost, "/api/stacks", map[string]any{"name": "fixture"})
+			redirect := tc.status >= 300 && tc.status < 400
+			if redirect {
+				if err == nil {
+					t.Error("redirect reported success")
+				}
+			} else {
+				if err != nil || status != tc.status {
+					t.Fatalf("provider response: status=%d err=%v", status, err)
+				}
+			}
+			if got := destinationCalls.Load(); got != 0 {
+				t.Errorf("redirect destination received %d requests", got)
+			}
+			if got := sourceCalls.Load(); got != 1 {
+				t.Errorf("configured endpoint received %d requests; want one", got)
 			}
 		})
 	}

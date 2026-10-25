@@ -59,7 +59,9 @@ func JSON(ctx context.Context, cfg *Target, method, path string, body any) (int,
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := (&http.Client{Timeout: 90 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: 90 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return errors.New("Portainer API redirect refused: configure the final API URL")
+	}}).Do(req)
 	if err != nil {
 		return 0, nil, err
 	}
