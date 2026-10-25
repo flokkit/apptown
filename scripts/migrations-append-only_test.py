@@ -1,4 +1,5 @@
 """Exercise the actual gate against released locks in isolated Git repositories."""
+import os
 import pathlib
 import shutil
 import subprocess
@@ -10,6 +11,21 @@ RELEASED = "baseline 147\n148 aaaa\n149 bbbb\n150 cccc\n"
 
 
 class MigrationLockTest(unittest.TestCase):
+    def test_unavailable_base_tree_is_not_an_absent_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            bindir = root / "bin"
+            bindir.mkdir()
+            git = bindir / "git"
+            git.write_text('#!/bin/sh\ncase "$1" in rev-parse) exit 0;; ls-tree) exit "$TREE_STATUS";; *) exit 99;; esac\n')
+            git.chmod(0o755)
+            for status in (0, 128):
+                with self.subTest(status=status):
+                    env = {**os.environ, "PATH": str(bindir) + os.pathsep + os.environ["PATH"], "TREE_STATUS": str(status)}
+                    result = subprocess.run(["sh", str(SCRIPT), "fixture"], env=env, capture_output=True, text=True)
+                    self.assertEqual(result.returncode == 0, status == 0, result.stdout + result.stderr)
+                    self.assertEqual("has no lock yet: ok" in result.stdout, status == 0)
+
     def test_released_suffix_is_immutable(self):
         cases = {
             "unchanged": (RELEASED, True),

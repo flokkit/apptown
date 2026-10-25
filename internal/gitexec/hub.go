@@ -50,7 +50,7 @@ func homeCommand(ctx context.Context, args []string) (cmd *exec.Cmd, done func()
 		return nil, func() {}, err
 	}
 	cmd = Command(ctx, home, []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null"}, args...)
-	return cmd, func() { _ = os.RemoveAll(home) }, nil
+	return cmd, func() { _ = os.RemoveAll(home) }, nil // unchecked-error: temporary isolated HOME may remain; cleanup is not a Git outcome receipt.
 }
 
 // answer reads a query's exit: success is yes, exit status 1 with nothing

@@ -85,11 +85,11 @@ func (t *Transaction) Commit() error {
 	t.done = true
 	defer t.home()
 	if _, err := io.WriteString(t.stdin, "commit\n"); err != nil {
-		_ = t.cmd.Wait()
+		_ = t.cmd.Wait() // unchecked-error: send failure is returned as unknown outcome; reaping does not claim the ref committed.
 		return fmt.Errorf("sending commit: %w", err)
 	}
 	reply := t.expect("commit: ok")
-	_ = t.stdin.Close()
+	_ = t.stdin.Close() // unchecked-error: the reply and process exit are checked; closing input is not commit evidence.
 	if err := t.cmd.Wait(); err != nil {
 		return fmt.Errorf("git update-ref: %w: %s", err, strings.TrimSpace(t.stderr.String()))
 	}
@@ -109,8 +109,8 @@ func (t *Transaction) expect(want string) error {
 
 func (t *Transaction) refused(cause error) error {
 	t.done = true
-	_ = t.stdin.Close()
-	_ = t.cmd.Wait()
+	_ = t.stdin.Close() // unchecked-error: refusal occurred before commit was sent; closing input preserves that refusal.
+	_ = t.cmd.Wait()    // unchecked-error: refusal occurred before commit was sent; reaping preserves that refusal.
 	t.home()
 	detail := strings.TrimSpace(t.stderr.String())
 	if detail == "" {

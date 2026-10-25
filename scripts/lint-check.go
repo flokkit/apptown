@@ -1,6 +1,6 @@
 //go:build ignore
 
-// lint-check runs golangci-lint (.golangci.yml: forbidigo's house rules) and
+// lint-check runs golangci-lint (.golangci.yml: typed house rules) and
 // holds what it finds to scripts/lint-baseline.json: for each rule, a count
 // per package of the violations that predate it. A package may fall below
 // its count and may not rise above it, and a package with no count may have
@@ -26,6 +26,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"go/build"
+	"go/parser"
+	"go/token"
 	"os"
 	"os/exec"
 	"path"
@@ -37,7 +40,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// rules names each forbidigo rule by what its message says. A hard rule
+// rules names each rule; markers identify forbidigo messages, while unchecked
+// comes from errcheck. A hard rule
 // has no baseline: every violation fails, and a count for it in the
 // baseline file is refused, so none can be written back in.
 var rules = []struct {
@@ -48,6 +52,9 @@ var rules = []struct {
 	{"clock", `forbidden because "clock rule:`, true},
 	{"absence", `forbidden because "absence rule:`, false},
 	{"context", `forbidden because "context rule:`, true},
+	{"receipt", `forbidden because "receipt rule:`, true},
+	{"settlement", `forbidden because "settlement rule:`, true},
+	{"unchecked", "", true},
 }
 
 type report struct {
@@ -72,7 +79,7 @@ func main() {
 	issuesFile := flag.String("issues", "", "golangci-lint's JSON report, instead of running it")
 	verbose := flag.Bool("v", false, "list every violation")
 	tighten := flag.Bool("tighten", false, "lower the baseline to the counts that fell")
-	stale := flag.Bool("stale", true, "check the absence and context allow-lists in .golangci.yml name live sites, each with its reason")
+	stale := flag.Bool("stale", true, "check the boundary allow-lists in .golangci.yml name live sites, each with its reason")
 	flag.Parse()
 	if *stale {
 		if problems, err := allowListProblems(".golangci.yml"); err != nil {
@@ -179,23 +186,151 @@ func classify(raw []byte) ([]issue, error) {
 	for _, i := range r.Issues {
 		// Anything but a house rule (a type-check error, say) means the run
 		// could not see the code it judges.
-		if i.FromLinter != "forbidigo" {
+		if i.FromLinter != "forbidigo" && i.FromLinter != "errcheck" {
 			return nil, fmt.Errorf("%s:%d: %s: %s", i.Pos.Filename, i.Pos.Line, i.FromLinter, i.Text)
 		}
 		rule := ""
 		for _, r := range rules {
-			if strings.Contains(i.Text, r.marker) {
+			if r.marker != "" && strings.Contains(i.Text, r.marker) {
 				rule = r.name
 				break
 			}
 		}
+		file := filepath.ToSlash(i.Pos.Filename)
+		if i.FromLinter == "errcheck" {
+			var err error
+			file, err = reportFile(file)
+			if err != nil {
+				return nil, err
+			}
+			if !uncheckedScope(file) {
+				return nil, fmt.Errorf("%s: errcheck outside its declared production scope", file)
+			}
+			rule = "unchecked"
+		}
 		if rule == "" {
 			return nil, fmt.Errorf("%s:%d: a forbidigo rule this check does not know: %s", i.Pos.Filename, i.Pos.Line, i.Text)
 		}
-		file := filepath.ToSlash(i.Pos.Filename)
 		found = append(found, issue{rule: rule, pkg: path.Dir(file), pos: fmt.Sprintf("%s:%d", file, i.Pos.Line), text: i.Text})
 	}
-	return found, nil
+	allowed, err := uncheckedDeclarations(found)
+	if err != nil {
+		return nil, err
+	}
+	kept := found[:0]
+	for _, i := range found {
+		if i.rule != "unchecked" || !allowed[i.pos] {
+			kept = append(kept, i)
+		}
+	}
+	return kept, nil
+}
+
+// uncheckedScope is deliberately two direct production packages, not their
+// helper subpackages. Keep the errcheck path exclusion in .golangci.yml aligned.
+func uncheckedScope(file string) bool {
+	dir := path.Dir(filepath.ToSlash(file))
+	return (dir == "internal/database" || dir == "internal/gitexec") && strings.HasSuffix(file, ".go") && !strings.HasSuffix(file, "_test.go")
+}
+
+func reportFile(file string) (string, error) {
+	if filepath.IsAbs(file) {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		file, err = filepath.Rel(cwd, file)
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.ToSlash(filepath.Clean(file)), nil
+}
+
+// uncheckedDeclarations binds a reason to one actual analyzer diagnostic, not
+// a function or a count allowance. Parse Go comments so strings cannot declare
+// exceptions. Enumerate the analyzed files even when there are no diagnostics,
+// so an obsolete declaration or nolint cannot disappear behind a green report.
+func uncheckedDeclarations(found []issue) (map[string]bool, error) {
+	counts := map[string]int{}
+	for _, i := range found {
+		if i.rule == "unchecked" {
+			counts[i.pos]++
+		}
+	}
+	raw, err := os.ReadFile(".golangci.yml")
+	if err != nil {
+		return nil, err
+	}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil, err
+	}
+	ctx := build.Default
+	if tags := lookup(&doc, "run", "build-tags"); tags != nil {
+		for _, tag := range tags.Content {
+			ctx.BuildTags = append(ctx.BuildTags, tag.Value)
+		}
+	}
+	allowed := map[string]bool{}
+	for _, dir := range []string{"internal/database", "internal/gitexec"} {
+		entries, err := os.ReadDir(dir)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			file := path.Join(dir, entry.Name())
+			if entry.IsDir() || !uncheckedScope(file) {
+				continue
+			}
+			match, err := ctx.MatchFile(dir, entry.Name())
+			if err != nil {
+				return nil, err
+			}
+			if !match {
+				continue
+			}
+			set := token.NewFileSet()
+			tree, err := parser.ParseFile(set, file, nil, parser.ParseComments)
+			if err != nil {
+				return nil, err
+			}
+			for _, group := range tree.Comments {
+				for _, comment := range group.List {
+					text := strings.TrimSpace(strings.TrimPrefix(comment.Text, "//"))
+					pos := fmt.Sprintf("%s:%d", file, set.Position(comment.Pos()).Line)
+					nolint := strings.TrimLeft(comment.Text, "/ ")
+					if strings.HasPrefix(nolint, "nolint") {
+						directive, _, _ := strings.Cut(nolint, "//")
+						// Match golangci's generic/all and case-insensitive linter names.
+						forbidden := !strings.HasPrefix(directive, "nolint:") || strings.HasPrefix(directive, "nolint:all")
+						for _, name := range strings.Split(strings.TrimPrefix(directive, "nolint:"), ",") {
+							name = strings.ToLower(strings.TrimSpace(name))
+							forbidden = forbidden || name == "all" || name == "errcheck"
+						}
+						if forbidden {
+							return nil, fmt.Errorf("%s: errcheck requires an unchecked-error site reason, not nolint", pos)
+						}
+					}
+					const marker = "unchecked-error:"
+					if !strings.HasPrefix(text, marker) {
+						continue
+					}
+					if strings.TrimSpace(strings.TrimPrefix(text, marker)) == "" {
+						return nil, fmt.Errorf("%s: unchecked-error has no reason", pos)
+					}
+					if counts[pos] != 1 || allowed[pos] {
+						return nil, fmt.Errorf("%s: unchecked-error needs exactly one diagnostic on its line, found %d", pos, counts[pos])
+					}
+					allowed[pos] = true
+				}
+			}
+		}
+	}
+	return allowed, nil
 }
 
 func compare(baseline map[string]map[string]int, found []issue, verbose, tighten bool) bool {
@@ -263,9 +398,12 @@ func compare(baseline map[string]map[string]int, found []issue, verbose, tighten
 var allowLists = []struct {
 	marker string
 	calls  []string
+	exact  bool
 }{
-	{"absence rule:", []string{"polltest.Holds("}},
-	{"context rule:", []string{"context.Background(", "context.TODO("}},
+	{"absence rule:", []string{"polltest.Holds("}, false},
+	{"context rule:", []string{"context.Background(", "context.TODO("}, false},
+	{"receipt rule:", []string{".BestEffort"}, true},
+	{"settlement rule:", []string{".Retry"}, true},
 }
 
 // testsOnly is the exclusion that takes tests and their helper packages out
@@ -298,9 +436,11 @@ func allowListProblems(config string) ([]string, error) {
 			fields[rule.Content[i].Value] = rule.Content[i+1].Value
 		}
 		var calls []string
+		exact := false
 		for _, l := range allowLists {
 			if strings.Contains(fields["text"], l.marker) {
 				calls = l.calls
+				exact = l.exact
 			}
 		}
 		if calls == nil || (fields["source"] == "" && fields["path"] == testsOnly) {
@@ -312,12 +452,20 @@ func allowListProblems(config string) ([]string, error) {
 		}
 		path := strings.TrimPrefix(fields["path"], "^")
 		if fields["source"] == "" {
+			if exact {
+				problems = append(problems, where+": requires an exact file and source")
+				continue
+			}
 			if st, err := os.Stat(strings.TrimSuffix(path, "/")); err != nil || !st.IsDir() {
 				problems = append(problems, where+": names no directory that exists")
 			}
 			continue
 		}
 		file := strings.ReplaceAll(strings.TrimSuffix(path, "$"), `\.`, ".")
+		if exact && fields["path"] != "^"+regexp.QuoteMeta(file)+"$" {
+			problems = append(problems, where+": path is not one exact file")
+			continue
+		}
 		source, err := regexp.Compile(fields["source"])
 		if err != nil {
 			problems = append(problems, where+": its source is no regexp: "+err.Error())
@@ -332,7 +480,11 @@ func allowListProblems(config string) ([]string, error) {
 		for _, line := range strings.Split(string(body), "\n") {
 			for _, call := range calls {
 				if strings.Contains(line, call) && source.MatchString(line) {
-					sites++
+					if exact {
+						sites += strings.Count(line, call)
+					} else {
+						sites++
+					}
 					break
 				}
 			}

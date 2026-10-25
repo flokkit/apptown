@@ -1,4 +1,4 @@
-# golangci-lint runs forbidigo alone: the house rules below, not a style set.
+# golangci-lint runs the typed house rules below, not a style set.
 # make check-lint runs it through scripts/lint-check.go, which holds the
 # violations that predate a rule to a per-package count in
 # scripts/lint-baseline.json that may fall and may not rise. The check asks
@@ -12,7 +12,16 @@ linters:
   default: none
   enable:
     - forbidigo
+    - errcheck
   settings:
+    errcheck:
+      check-blank: true
+      verbose: true
+      disable-default-exclusions: true
+      # These methods return a nil error; no file/stream/formatting exclusions.
+      exclude-functions:
+        - '(*strings.Builder).WriteString'
+        - '(*strings.Builder).WriteByte'
     forbidigo:
       # Resolve names by type, so a renamed import of time is caught too.
       analyze-types: true
@@ -36,10 +45,23 @@ linters:
         - pattern: '^context\.(Background|TODO)$'
           pkg: '^context$'
           msg: "context rule: use the caller's context (context.WithoutCancel(ctx) for work that must finish though the caller stops); only an entry point makes a fresh one, allow-listed by site in .golangci.yml"
+        # Informational receipts and settlement retries require reviewed sites.
+        - pattern: '^audit\.At\.BestEffort$'
+          pkg: '/internal/apptown/audit$'
+          msg: "receipt rule: informational receipt failures need an exact reviewed site and failure contract in .golangci.yml"
+        - pattern: '^workflow\.Settlement\.Retry$'
+          pkg: '/internal/apptown/workflow$'
+          msg: "settlement rule: repeated writes need an exact reviewed site, bound and terminal failure contract in .golangci.yml"
   exclusions:
     # Generated production code is held to the rules too; none breaks them.
     generated: disable
     rules:
+      # First ignored-error owner slice: direct DB/Git production files only.
+      # Other production owners and tests remain unactivated, not approved.
+      - path-except: '^internal/(database|gitexec)/[^/]+\.go$'
+        linters: [errcheck]
+      - path: '_test\.go$'
+        linters: [errcheck]
       # The clock rule is for production code. Tests, and the helper packages
       # only tests import, may read the wall clock (testing/synctest fakes
       # it inside a bubble). time.Sleep is forbidden in tests too.
@@ -54,6 +76,14 @@ linters:
       - path: '(_test\.go$|(test|fake)/[^/]+\.go$)'
         linters: [forbidigo]
         text: '^use of .* forbidden because "context rule:'
+
+      # A test may exercise the receipt and retry APIs directly.
+      - path: '(_test\.go$|(test|fake)/[^/]+\.go$)'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+      - path: '(_test\.go$|(test|fake)/[^/]+\.go$)'
+        linters: [forbidigo]
+        text: 'forbidden because "settlement rule:'
 
       # The one place the real clock is named.
       - path: '^internal/clock/'
@@ -117,3 +147,337 @@ linters:
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'context\.WithCancel\(context\.Background\(\)\)'
+
+      # Reviewed informational receipt sites; each source matches one occurrence.
+
+      # This records an observation of drift; the returned drift evidence remains authoritative.
+      - path: '^internal/apptown/adoption/verify\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.adoptions\.now\(\)\)\.BestEffort\(ctx, s\.db, "apptown-system", projectID, "adoption\.drift", fmt\.Sprintf\("r%d", prior\.Revision\), map\[string\]any\{"diff": diff\}\)$'
+
+      # No change is created for this skip; firing-write failure is logged, and the informational skip note may also be lost.
+      - path: '^internal/apptown/changeactions/schedules\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(now\)\.BestEffort\(ctx, s\.DB, "apptown-system", c\.projectID, "trigger\.skipped", c\.workflow,$'
+
+      # The created change/run retain admitted work; the later firing-write failure is logged separately, and this summary may be lost.
+      - path: '^internal/apptown/changeactions/schedules\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(now\)\.BestEffort\(ctx, s\.DB, "apptown-system", c\.projectID, "change\.triggered", title,$'
+
+      # The admitted run/change rows retain initiation; landing authority remains in the run gates.
+      - path: '^internal/apptown/changeactions/service\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, who, p\.ID, "change\.landing", fmt\.Sprintf\("change %d run %d", ch\.ID, run\.ID\), nil\)$'
+
+      # This narrates an isolated rehearsal observation; chat delivery and narration can fail, and neither is qualification evidence.
+      - path: '^internal/apptown/changeconsole/service\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(c\.saves\.now\(\)\)\.BestEffort\(ctx, c\.db, "apptown-system", conversation\.Of\(s\)\.ProjectID, "change\.boot-check", fmt\.Sprintf\("%d", conversation\.Of\(s\)\.ChangeID\), map\[string\]any\{"ok": false, "error": bootErr\.Error\(\), "delivered": delivered\}\)$'
+
+      # This narrates an isolated rehearsal observation; chat delivery and narration can fail, and neither is qualification evidence.
+      - path: '^internal/apptown/changeconsole/service\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(c\.saves\.now\(\)\)\.BestEffort\(ctx, c\.db, "apptown-system", conversation\.Of\(s\)\.ProjectID, "change\.boot-check", fmt\.Sprintf\("%d", conversation\.Of\(s\)\.ChangeID\), map\[string\]any\{"ok": true\}\)$'
+
+      # This narrates an isolated rehearsal observation; chat delivery and narration can fail, and neither is qualification evidence.
+      - path: '^internal/apptown/changeconsole/worker_saves\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(c\.saves\.now\(\)\)\.BestEffort\(ctx, c\.db, "apptown-system", scope\.ProjectID, "change\.boot-check", fmt\.Sprintf\("%d", scope\.ChangeID\), map\[string\]any\{"ok": false, "error": bootErr\.Error\(\), "delivered": delivered, "commit": commit\}\)$'
+
+      # This narrates an isolated rehearsal observation; chat delivery and narration can fail, and neither is qualification evidence.
+      - path: '^internal/apptown/changeconsole/worker_saves\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(c\.saves\.now\(\)\)\.BestEffort\(ctx, c\.db, "apptown-system", scope\.ProjectID, "change\.boot-check", fmt\.Sprintf\("%d", scope\.ChangeID\), map\[string\]any\{"ok": true, "commit": commit\}\)$'
+
+      # The console session metadata retains chat state; this dynamic-kind wrapper narrates chat acts, not required authority receipts.
+      - path: '^internal/apptown/conversation/acting\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(c\.Now\)\(\)\)\.BestEffort\(ctx, c\.DB, actor, Of\(s\)\.ProjectID, kind, s\.ID, out\)$'
+
+      # The session metadata retains the followed model; this line narrates the change.
+      - path: '^internal/apptown/conversation/environment\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(e\.clock\)\(\)\)\.BestEffort\(ctx, e\.db, s\.Actor, Of\(s\)\.ProjectID, "console\.model-followed", s\.ID, map\[string\]any\{"from": model, "to": want\}\)$'
+
+      # The console session metadata retains the opened chat; this line narrates its start.
+      - path: '^internal/apptown/conversation/open\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(c\.clock\)\(\)\)\.BestEffort\(ctx, c\.db, s\.Actor, p\.ID, "console\.start", s\.ID, map\[string\]any\{"model": s\.Model\}\)$'
+
+      # The backup operation returns this failure regardless of whether its activity note can be appended.
+      - path: '^internal/apptown/database_dump\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(b\.now\)\(\)\)\.BestEffort\(ctx, b\.db, "apptown-system", ids\.Nil, "db\.backup-failed", name, map\[string\]any\{"error": namesErr\.Error\(\)\}\)$'
+
+      # The backup operation returns this failure regardless of whether its activity note can be appended.
+      - path: '^internal/apptown/database_dump\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(b\.now\)\(\)\)\.BestEffort\(ctx, b\.db, "apptown-system", ids\.Nil, "db\.backup-failed", name, map\[string\]any\{"error": err\.Error\(\)\}\)$'
+
+      # The consumed ticket and Git branch retain the push decision; this is an activity summary.
+      - path: '^internal/apptown/githttp\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*at\.BestEffort\(ctx, db, ticket\.User\+" via git ticket", projectID, "change\.revision-pushed", fmt\.Sprintf\("change %d", ticket\.ChangeID\),$'
+
+      # The consumed ticket and Git branch retain the push decision; this is an activity summary.
+      - path: '^internal/apptown/githttp\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*at\.BestEffort\(ctx, db, ticket\.User\+" via git ticket", projectID, "change\.ticket-already-spent", fmt\.Sprintf\("change %d", ticket\.ChangeID\),$'
+
+      # Canonical publication already succeeded; mirror failure narration may be lost and is not returned to its caller.
+      - path: '^internal/apptown/gitlab\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(p\.now\)\(\)\)\.BestEffort\(ctx, p\.db, "apptown-system", projectID, "git\.push\.failed", branch, map\[string\]any\{"error": strs\.Truncate\(err\.Error\(\), 300\)\}\)$'
+
+      # The preview record retains this isolated preview; the note is not release authorization.
+      - path: '^internal/apptown/httpapi/change_previews\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), out\.ProjectID, "change\.preview", fmt\.Sprintf\("%d", id\), map\[string\]any\{"url": out\.URL, "commit": response\.Commit\}\)$'
+
+      # The preview record retains this isolated preview; the note is not release authorization.
+      - path: '^internal/apptown/httpapi/change_previews\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), out\.ProjectID, "change\.preview", fmt\.Sprintf\("%d", id\), map\[string\]any\{"url": out\.URL, "restart": true\}\)$'
+
+      # The admitted run/change records retain initiation and actor; this is an activity summary.
+      - path: '^internal/apptown/httpapi/changes\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "change\.run-started", fmt\.Sprintf\("change %d run %d \(%s\)", ch\.ID, run\.ID, in\.Workflow\), nil\)$'
+
+      # The admitted run retains the console invocation; this line narrates it.
+      - path: '^internal/apptown/httpapi/console_invocation\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(ctx, h\.db, s\.Actor\+" via "\+via, p\.ID, "console\.invoke", fmt\.Sprintf\("run-%d", run\.ID\),$'
+
+      # The preview record retains this isolated preview; the note is not release authorization.
+      - path: '^internal/apptown/httpapi/console_preview\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, s\.Actor\+" via console/"\+s\.ID, out\.ProjectID, "change\.preview", fmt\.Sprintf\("%d", id\), map\[string\]any\{"url": out\.URL, "from": "console"\}\)$'
+
+      # The new run retains the restart; gates still govern consequential landing.
+      - path: '^internal/apptown/httpapi/landing_restart\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "landing\.restarted", fmt\.Sprintf\("run %d -> %d", run\.ID, fresh\.ID\), nil\)$'
+
+      # The project setting retains the selected model profile; the note is not credential admission.
+      - path: '^internal/apptown/httpapi/model_slots\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "model-profile\.set", in\.Profile, map\[string\]any\{"project": p\.Slug\}\)$'
+
+      # The published pack version retains content; this line is activity narration.
+      - path: '^internal/apptown/httpapi/pack_library\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), ids\.Nil, "pack\.saved", in\.Name, map\[string\]any\{$'
+
+      # The published pack/adoption records retain content; this is an activity summary.
+      - path: '^internal/apptown/httpapi/pack_pull\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "pack\.pulled", pack\.Name, map\[string\]any\{$'
+
+      # The preview record retains this isolated preview; the note is not release authorization.
+      - path: '^internal/apptown/httpapi/release_operations\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "release\.preview", fmt\.Sprintf\("release %d", n\), map\[string\]any\{"ref": out\.Image, "source": out\.Revision\}\)$'
+
+      # The remediation/change/run records retain the admitted work; this is an activity summary.
+      - path: '^internal/apptown/httpapi/remediation_changes\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), p\.ID, "conformance\.remediation-opened", fmt\.Sprintf\("%d", item\.ID\),$'
+
+      # The model setting retains configuration; the separate secret operation requires its own receipt.
+      - path: '^internal/apptown/httpapi/setup_model\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(r\.Context\(\), h\.db, Actor\(r\), ids\.Nil, "setup\.model", in\.Provider, map\[string\]any\{"model": model, "secret": secretName\}\)$'
+
+      # PutGrant records grant.added in its transaction; this activity line summarizes that grant.
+      - path: '^internal/apptown/identity/project_members\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(s\.now\)\(\)\)\.BestEffort\(ctx, s\.db, by, projectID, "project\.member-added", grantee, map\[string\]any\{"role": role\}\)$'
+
+      # The registry binding records the project association; this is remote project creation narration, not proof of successful binding.
+      - path: '^internal/apptown/integration/registry_integration\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.Bindings\.db, who, p\.ID, "registry\.project-created", group\+"/"\+p\.Slug, nil\)$'
+
+      # The admitted run/change records retain initiation and actor; this is an activity summary.
+      - path: '^internal/apptown/mcpapi/lane_commands\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(c\.Context, h\.db, c\.actor\(\), p\.ID, "change\.run-started", fmt\.Sprintf\("change %d run %d \(%s\)", ch\.ID, run\.ID, lane\), map\[string\]any\{"via": "mcp"\}\)$'
+
+      # The preview record retains this isolated preview; the note is not release authorization.
+      - path: '^internal/apptown/mcpapi/previews\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(ctx, h\.db, c\.actor\(\), p\.ID, "change\.preview", fmt\.Sprintf\("%d", ch\.ID\), map\[string\]any\{"url": out\.URL, "via": "mcp"\}\)$'
+
+      # The repository commit and recorded main revision retain initialization; this line summarizes it.
+      - path: '^internal/apptown/mcpapi/project_creation\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(h\.now\)\(\)\)\.BestEffort\(c\.Context, h\.db, c\.actor\(\), p\.ID, "project\.repo\.initialized", p\.Slug, map\[string\]any\{"defaultBranch": p\.DefaultBranch, "via": "mcp"\}\)$'
+
+      # SettleDeletionAttempt retains pending/done state and detail; failed narration cannot complete cleanup.
+      - path: '^internal/apptown/projectlifecycle/cleanup\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(c\.Now\)\(\)\)\.BestEffort\(ctx, c\.DB, d\.RequestedBy, ids\.Nil, "project\.cleanup", plan\.Slug, map\[string\]any\{"projectId": id, "state": state, "detail": detail, "round": round\}\)$'
+
+      # ReplaceGuidance retains the adoption revision; this is an activity summary.
+      - path: '^internal/apptown/projectlifecycle/guidance\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, by, p\.ID, "guidance\.manifest\.saved", p\.Slug, map\[string\]any\{"hash": hash, "imports": pins\}\)$'
+
+      # The adoption revision or seeded commit retains the content; this is an activity summary.
+      - path: '^internal/apptown/projectlifecycle/packs\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, who, p\.ID, "pack\.applied", pack\.Name,$'
+
+      # The adoption revision or seeded commit retains the content; this is an activity summary.
+      - path: '^internal/apptown/projectlifecycle/packs\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, who, p\.ID, "project\.toolchain\.seeded", p\.Slug, map\[string\]any\{"toolchain": name\}\)$'
+
+      # The repository commit and recorded main revision retain initialization; this is an activity summary.
+      - path: '^internal/apptown/projectlifecycle/repository\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, receiptActor, p\.ID, "project\.repo\.initialized", p\.Slug, map\[string\]any\{"defaultBranch": p\.DefaultBranch\}\)$'
+
+      # The seeded commit and recorded main revision retain content; this is an activity summary.
+      - path: '^internal/apptown/projectlifecycle/seed\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, who, p\.ID, "project\.repo\.seeded", p\.Slug, source\)$'
+
+      # The project row retains the settings; this summary confers no authority.
+      - path: '^internal/apptown/projectlifecycle/settings\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, actor, id, "project\.renamed", after\.Slug, details\)$'
+
+      # The save record and Git branch retain the outcome; failed activity narration does not change that outcome.
+      - path: '^internal/apptown/repositoryedit/chat_save\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(now\)\.BestEffort\(ctx, db, "chat/"\+chat\.Session, p\.ID, "change\.save-refused", fmt\.Sprintf\("change %d", ch\.ID\),$'
+
+      # The save record and Git branch retain the outcome; failed activity narration does not change that outcome.
+      - path: '^internal/apptown/repositoryedit/chat_save\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(now\)\.BestEffort\(ctx, db, "chat/"\+chat\.Session, p\.ID, "change\.saved", fmt\.Sprintf\("change %d", ch\.ID\),$'
+
+      # The consumed ticket and branch/holder records retain the decision; this line summarizes it.
+      - path: '^internal/apptown/repositoryedit/contribution\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(c\.now\(\)\)\.BestEffort\(ctx, c\.db, caller\.Receipt, p\.ID, "change\.revision-synced", fmt\.Sprintf\("change %d", ch\.ID\),$'
+
+      # The consumed ticket and branch/holder records retain the decision; this line summarizes it.
+      - path: '^internal/apptown/repositoryedit/contribution\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(c\.now\(\)\)\.BestEffort\(ctx, c\.db, ticket\.User\+" via git ticket", p\.ID, "change\.revision-refused", fmt\.Sprintf\("change %d", ch\.ID\),$'
+
+      # The authored commit and trailers retain the service edit; this line is activity narration.
+      - path: '^internal/apptown/repositoryedit/service\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(editor\.now\(\)\)\.BestEffort\(ctx, editor\.db, in\.Actor, p\.ID, "project\.services-seed", p\.Slug, map\[string\]any\{"needs": needNames\(in\.Needs\)\}\)$'
+
+      # The authored commit and trailers retain the service edit; this line is activity narration.
+      - path: '^internal/apptown/repositoryedit/service\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(editor\.now\(\)\)\.BestEffort\(ctx, editor\.db, in\.Actor, p\.ID, "change\.services-edit", fmt\.Sprintf\("change %d", ch\.ID\), map\[string\]any\{"needs": needNames\(in\.Needs\)\}\)$'
+
+      # Stock sync rows retain the changes; this callback narrates their dynamic event kinds, not authorization evidence.
+      - path: '^internal/apptown/setup\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(a\.cfg\.clock\.Now\(\)\)\.BestEffort\(ctx, db, "apptown-system", ids\.Nil, k, name, payload\)$'
+
+      # Only setup image status, MCP session narration and refused admin login use this wrapper; the rule cannot classify future dynamic event kinds.
+      - path: '^internal/apptown/store\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(a\.cfg\.clock\.Now\(\)\)\.BestEffort\(ctx, a\.DB, actor, projectID, kind, subject, payload\)$'
+
+      # The refusal and returned drift evidence retain this observation; failed narration does not admit landing.
+      - path: '^internal/apptown/workcommands/landing\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(clock\.Or\(m\.Now\)\(\)\)\.BestEffort\(ctx, m\.DB, "apptown-system", result\.Source\.ProjectID, "integrity\.out-of-band-edits", "detected", struct \{$'
+
+      # The create-only attachment file retains the upload; destructive removal requires separate mandatory receipts.
+      - path: '^internal/apptown/workflow/attachments\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "receipt rule:'
+        source: '^[[:space:]]*audit\.At\(a\.changes\.now\(\)\)\.BestEffort\(ctx, a\.changes\.db, who\.Receipt, project, "change\.attachment-added", fmt\.Sprintf\("change %d: %s", id, name\), map\[string\]any\{"sha256": digest, "bytes": len\(body\)\}\)$'
+
+      # Reviewed Settlement write-retry sites; no generic retry-loop heuristic.
+
+      # Repeat only Finish under its attempt fence with the default wait/try bound; a terminal failure leaves the step for startup repair.
+      - path: '^internal/apptown/workflow/settle\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "settlement rule:'
+        source: '^[[:space:]]*return Settlement\{\}\.Retry\(e\.ctx, func\(\) error \{ return e\.Finish\(outcome, nil\) \}\)$'
+
+      # Repeat only the fenced outcome write with Settlement limits, never the invocation/publication; the terminal failure is returned or recorded as an error outcome.
+      - path: '^internal/apptown/workflowexec/settle\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "settlement rule:'
+        source: '^[[:space:]]*err = s\.Retry\(ctx, finish\)$'
+
+      # Repeat only the fenced outcome write with Settlement limits, never the invocation/publication; the terminal failure is returned or recorded as an error outcome.
+      - path: '^internal/apptown/workflowexec/settle\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "settlement rule:'
+        source: '^[[:space:]]*if ferr := s\.Retry\(ctx, func\(\) error \{ return fallback\(reason\) \}\); ferr != nil \{$'
+
+      # Repeat transcript store-and-record with the same attempt identity and Settlement limits; terminal failure prevents more session work and success settlement.
+      - path: '^internal/apptown/workflowexec/transcript\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "settlement rule:'
+        source: '^[[:space:]]*if err := a\.Settle\.Retry\(ctx, func\(\) error \{$'
+
+      # Repeat only attempt settlement with configured tries and poll wait; attempt loss or final write failure is returned to recovery.
+      - path: '^internal/apptown/workflowexec/script_task\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "settlement rule:'
+        source: '^[[:space:]]*return workflow\.Settlement\{Tries: r\.SettleTries, Wait: r\.poll\(\)\}\.Retry\(task\.Context\(\), settle\)$'

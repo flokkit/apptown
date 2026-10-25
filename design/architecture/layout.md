@@ -13,6 +13,16 @@ fails when a measured count grows. Tighten the baseline after deleting bypasses;
 do not hide bypasses behind helpers. Additional independent persistence assertions
 may increase `testreads`, with their guarantee and reason stated at the site.
 
+Literal shell success suppression has a separate hard rule: tracked `.sh` files
+using `|| true` or `|| :` need a nonempty failure contract in
+`scripts/shell-suppression-sites.json`, keyed by exact file and physical source
+line. Stale, duplicate and ambiguous declarations fail; no count baseline or
+`--tighten` allowance applies. This is a conservative text check, including
+quoted traps and remote payloads, not a shell parser. Full-line comments are
+excluded; split-line operators, other success commands, conditionals and scripts
+embedded only in other file types are not covered. A reason explains the actual
+failure consequence; it cannot turn unavailable evidence into success.
+
 The checks have specific limits. `fields` counts exported fields on registered
 subsystem Service types, not fields on App. `constructors` checks registered
 subsystem construction outside App.New and forbidden App `sync.Once` fields; it
@@ -92,6 +102,28 @@ Work that must finish though its caller stops takes
 (`.golangci.yml`, `make check-lint`). The clock and context rules are hard:
 any violation fails and `scripts/lint-baseline.json` may hold no count for
 them; what predates the others is held to per-package counts there.
+
+Informational audit notes (`audit.At.BestEffort`) and repeated settlement
+writes (`workflow.Settlement.Retry`) also require exact production sites
+in `.golangci.yml`, with a reason naming the retained evidence or the
+repeat/failure contract. These are hard rules without count baselines.
+The checker rejects missing or ambiguous sites and directory exemptions;
+tests and test helpers may exercise the APIs directly. The declarations
+require human review: they do not prove a dynamic event kind is informational,
+an arbitrary callback is safe to repeat, or all discarded errors and shell
+suppression are covered. Other APIs named Retry are not this rule.
+
+Ignored error returns in the direct production files of `internal/database`
+and `internal/gitexec` are checked by errcheck, including bare calls and blank
+assignments. Only the infallible strings.Builder WriteString and WriteByte
+methods are excluded. An intentional discarded error needs a same-line
+`// unchecked-error: <failure contract>` comment: the driver matches it to
+exactly one analyzer diagnostic. Empty, stale, ambiguous or function-wide
+reasons and broad nolint directives fail. The scan honors the analyzed build's
+file selection. Reasons require human review; moving a declared call is not
+semantic proof that its reason remains true. This first scope excludes tests,
+helper subpackages and other production owners; it introduces no count
+allowance and does not certify those unactivated areas or generated output.
 
 ## The three places code lives
 

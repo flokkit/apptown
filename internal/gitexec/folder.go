@@ -213,7 +213,7 @@ func CheckFolder(ctx context.Context, folder string) error {
 			return err
 		}
 		if !d.Type().IsRegular() && !d.IsDir() {
-			rel, _ := filepath.Rel(folder, path)
+			rel, _ := filepath.Rel(folder, path) // unchecked-error: only shortens the diagnostic name; the special entry is refused regardless.
 			return refuse("%s is a link or special file", rel)
 		}
 		return nil
@@ -326,7 +326,7 @@ func initCore(ctx context.Context, dir string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer os.RemoveAll(probe)
+	defer os.RemoveAll(probe) // unchecked-error: temporary init probe may remain; the Git result is independently checked.
 	cmd, done, err := homeCommand(ctx, []string{"init", "--quiet", "--template=", probe})
 	defer done()
 	if err != nil {

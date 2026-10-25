@@ -38,7 +38,7 @@ if name == 'cat' and args == [lock]:
 if name == 'rm' and lock in args and os.environ.get('FAIL_LOCK_REMOVE') == '1': sys.exit(1)
 if name in ('cat','rm'):
     os.execv('/bin/'+name,[name]+args)
-if name == 'pgrep': sys.exit(1) # No restored AppTown process in this fixture.
+if name == 'pgrep': sys.exit(int(os.environ.get('PGREP_STATUS', '1')))
 if name == 'sed':
     if args[0] == '-i':
         p=Path(args[-1]);p.write_text(''.join(x for x in p.read_text().splitlines(True) if '# apptown-recovery-rehearsal' not in x))
@@ -108,6 +108,19 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
             self.assertTrue((root/'remote/opt/forge-restore'/('before.'+kind)).exists())
         self.assertIn('# apptown-recovery-rehearsal',(root/'remote/etc/hosts').read_text())
 
+    def test_unavailable_process_inventory_preserves_resources_cut_and_lock(self):
+        for status in ('2', '127'):
+            with self.subTest(status=status):
+                result,root,calls=self.run_cleanup(PGREP_STATUS=status)
+                self.assertNotEqual(result.returncode,0,result.stdout+result.stderr)
+                self.assertIn('cannot list AppTown processes',result.stderr)
+                self.assertFalse(any(c['remote'] and c['command'] in ('docker','nft','rm','sed') for c in calls),calls)
+                self.assertEqual((root/'remote/root/.lab-lock').read_text(),LOCK+'\n')
+                self.assertTrue((root/'firewall').exists())
+                for kind in ('container','network','volume'):
+                    self.assertEqual((root/(kind+'.current')).read_text(),'existing-'+kind+'\ncreated-'+kind+'\n')
+                    self.assertTrue((root/'remote/opt/forge-restore'/('before.'+kind)).exists())
+
     def test_success_releases_the_entire_multiword_lock(self):
         result,root,_=self.run_cleanup()
         self.assertEqual(result.returncode,0,result.stderr)
@@ -152,6 +165,29 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
         result,root,calls=self.run_cleanup(SSH_FAILURE='1')
         self.assertNotEqual(result.returncode,0)
         self.assert_no_remote_cleanup(root,calls)
+
+
+class RecoveryResetRequiresProcessInventory(unittest.TestCase):
+    def test_reset_distinguishes_no_process_from_unavailable_inventory(self):
+        source=SCRIPT.read_text()
+        reset=source[source.index('if [ "${RESET_TARGET:-}" = 1 ]; then'):]
+        program=reset.split("<<'EOF'\n",1)[1].split('\nEOF',1)[0]
+        for status in (1,2,127):
+            with self.subTest(status=status), tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp)
+                calls=root/'removal'
+                for name,body in {
+                    'ls':'exit 1',
+                    'pgrep':f'exit {status}',
+                    'rm':'printf reached > '+shlex.quote(str(calls)),
+                }.items():
+                    stub=root/name
+                    stub.write_text('#!/bin/sh\n'+body+'\n')
+                    stub.chmod(0o755)
+                env={**os.environ,'PATH':str(root)+os.pathsep+os.environ['PATH']}
+                result=subprocess.run(['bash','-s','--','unused'],input=program,text=True,capture_output=True,env=env,timeout=30)
+                self.assertEqual(result.returncode==0,status==1,result.stderr)
+                self.assertEqual(calls.exists(),status==1,'reset removed files without confirming process absence')
 
 
 class RecoveryNeedsItsDestination(unittest.TestCase):

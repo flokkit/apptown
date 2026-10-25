@@ -15,7 +15,8 @@ cd "$(dirname "$0")/.."
 git rev-parse --verify -q "$base^{commit}" >/dev/null || { echo "migrations-append-only: $base is not here to compare with; fetch it" >&2; exit 2; }
 # The base's lock is found by its name, not by this tree's path, so a move
 # of the package that holds it is still compared with what was released.
-base_lock=$(git ls-tree -r --name-only "$base" | grep '/dbschema/migrations\.lock$' || :)
+base_tree=$(git ls-tree -r --name-only "$base") || { echo "migrations-append-only: cannot read $base tree" >&2; exit 2; }
+base_lock=$(printf '%s\n' "$base_tree" | awk '/\/dbschema\/migrations\.lock$/ { print }')
 case $base_lock in
 "") echo "migrations-append-only: $base has no lock yet: ok"; exit 0 ;;
 *"
