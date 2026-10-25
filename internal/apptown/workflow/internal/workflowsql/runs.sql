@@ -110,16 +110,9 @@ WHERE a.run_id IN (SELECT id FROM scoped)
 AND a.kind IN (SELECT s.config_json->>'of' FROM steps s WHERE s.run_id IN (SELECT id FROM scoped) AND s.type='agent/review' AND COALESCE(s.config_json->>'of','')<>'')
 ORDER BY a.id DESC LIMIT 1;
 
--- name: DispatchNeedsPreparation :one
-SELECT EXISTS(SELECT 1 FROM run_starts WHERE run_id=$1 AND NOT ready);
-
--- name: ExecutionReadiness :one
-SELECT EXISTS(SELECT 1 FROM run_starts rs WHERE rs.run_id=sqlc.arg(run_id) AND NOT rs.ready) AS unready,
-(SELECT COUNT(*) FROM run_events re WHERE re.run_id=sqlc.arg(run_id) AND re.kind='step.rework') AS reworks
+-- name: ExecutionReworks :one
+SELECT (SELECT COUNT(*) FROM run_events re WHERE re.run_id=sqlc.arg(run_id) AND re.kind='step.rework') AS reworks
 FROM changes c WHERE c.id=sqlc.arg(change_id) AND c.project_id=sqlc.arg(project_id);
-
--- name: RunPreparationPending :one
-SELECT EXISTS(SELECT 1 FROM run_starts s JOIN runs r ON r.id=s.run_id WHERE s.run_id=$1 AND NOT s.ready AND r.status=$2);
 
 -- name: ActiveChangeRun :one
 SELECT (SELECT id FROM runs
@@ -146,8 +139,8 @@ SELECT r.id FROM runs r JOIN steps s ON s.run_id=r.id AND s.stage=r.current_stag
 WHERE r.status='running' AND s.type=ANY($1::text[])
 GROUP BY r.id HAVING bool_or(s.status='pending' OR (s.status='error' AND s.evidence_json->>'reason'='orphaned by apptownd restart'))
 OR bool_and(s.status IN ('pass','skipped','not_applicable'))
-UNION SELECT r.id FROM run_starts st JOIN runs r ON r.id=st.run_id
-WHERE r.status='running' AND (NOT st.ready OR (r.parent_run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type=ANY($1::text[]))))
+UNION SELECT r.id FROM runs r LEFT JOIN run_starts st ON r.id=st.run_id
+WHERE r.status='running' AND (st.run_id IS NULL OR NOT st.ready OR (r.parent_run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type=ANY($1::text[]))))
 ORDER BY id;
 
 -- A landing whose merge SCM has recorded can no longer move main: what is

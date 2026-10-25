@@ -13,6 +13,7 @@ import (
 func TestRefreshAssertionsOwnsSelectionAndContinuesAfterFailure(t *testing.T) {
 	t.Parallel()
 	q, run, _ := activityFixture(t)
+	storedReadyStart(t, q.db, run.ID)
 	s := newServiceWithAuthority(q.db, Dependencies{}, allowProject(run.ProjectID))
 	broken := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "broken", Type: "artifact/require", ConfigJson: []byte(`{"kind":[]}`), Status: StatusPending.String()})
 	ready := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "ready", Type: "artifact/require", Status: StatusPending.String()})
@@ -50,6 +51,7 @@ func TestRefreshAssertionsOwnsSelectionAndContinuesAfterFailure(t *testing.T) {
 func TestStaleVerdictReopens(t *testing.T) {
 	t.Parallel()
 	q, run, _ := activityFixture(t)
+	storedReadyStart(t, q.db, run.ID)
 	// sql-guarantee: stale-verdict recovery starts after the prior stage rows are removed; no owner command deletes every step of a live run.
 	completionExec(t, q.db, `DELETE FROM steps WHERE run_id=?`, run.ID)
 	dispatched := map[ids.ID]bool{}
@@ -108,6 +110,7 @@ func TestAssertionWaitsForItsStageWorkBeforeFailing(t *testing.T) {
 		t.Run(sibling.String(), func(t *testing.T) {
 			t.Parallel()
 			q, run, _ := activityFixture(t)
+			storedReadyStart(t, q.db, run.ID)
 			s := newServiceWithAuthority(q.db, Dependencies{}, allowProject(run.ProjectID))
 			insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "deploy", Type: "deploy", Status: sibling.String()})
 			release := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "release-exists", Type: "artifact/require", ConfigJson: []byte(`{"kind":"release"}`), Status: StatusPending.String()})

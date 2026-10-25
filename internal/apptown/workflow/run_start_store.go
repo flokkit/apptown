@@ -118,12 +118,8 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 		if !parent.AdoptionID.IsZero() {
 			expectedAdoption = parent.AdoptionID
 		}
-		start, err := queries.RunStartByID(ctx, req.ParentRunID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err := requireRunReady(ctx, tx, req.ParentRunID); err != nil {
 			return nil, err
-		}
-		if err == nil && !start.Ready {
-			return nil, fmt.Errorf("parent run %d is not ready", req.ParentRunID)
 		}
 		if !req.ParentStepID.IsZero() {
 			step, err := stepResult(queries.StepForUpdate(ctx, workflowsql.StepForUpdateParams{ID: req.ParentStepID, RunID: req.ParentRunID}))
@@ -320,14 +316,21 @@ func (s runStartStore) createIn(ctx context.Context, tx *database.Tx, req StartR
 }
 
 func (s runStartStore) pendingPreparation(ctx context.Context, id ids.ID) (*Run, error) {
-	pending, err := workflowsql.New(s.db.SQL()).RunPreparationPending(ctx, workflowsql.RunPreparationPendingParams{RunID: id, Status: RunRunning.String()})
+	run, err := readRun(ctx, s.db, id)
+	if err != nil {
+		return nil, err
+	}
+	if run.Status != RunRunning {
+		return nil, nil
+	}
+	pending, err := runNeedsPreparation(ctx, s.db, id)
 	if err != nil {
 		return nil, err
 	}
 	if !pending {
 		return nil, nil
 	}
-	return readRun(ctx, s.db, id)
+	return run, nil
 }
 func (s runStartStore) prepared(ctx context.Context, id ids.ID) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {

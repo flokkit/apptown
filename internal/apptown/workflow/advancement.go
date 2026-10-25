@@ -37,6 +37,9 @@ func newAdvancer(db *database.DB, runtime advanceRuntime) *advancer {
 	owner := advanceStore{db, runtime.Stages, runtime.Completion, runtime.clocked}
 	return &advancer{advanceEngine{records: owner, carry: runtime.Carry, endNothing: runtime.EndNothing,
 		refreshLaw: func(ctx context.Context, run *Run) error {
+			if err := requireRunReady(ctx, db, run.ID); err != nil {
+				return err
+			}
 			if runtime.Checks == nil {
 				return fmt.Errorf("current advancement checks are unavailable")
 			}

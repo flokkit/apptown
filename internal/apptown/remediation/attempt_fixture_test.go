@@ -205,6 +205,8 @@ func (f *attemptScenario) item(t *testing.T, id ids.ID) Item {
 
 func (f *attemptScenario) execute(t *testing.T, item Item, status workflow.StepState) {
 	t.Helper()
+	// Execution follows actual preparation, even when dispatch is stopped.
+	f.prepare(t, item.RunID)
 	f.result = status
 	snap, err := f.work.Snapshot(f.ctx, item.RunID, workflow.DetailView)
 	if err != nil {
@@ -223,9 +225,14 @@ func (f *attemptScenario) execute(t *testing.T, item Item, status workflow.StepS
 
 func (f *attemptScenario) prepare(t *testing.T, runID ids.ID) {
 	t.Helper()
+	prepareRemediationRun(t, f.db, runID)
+}
+
+func prepareRemediationRun(t *testing.T, db *database.DB, runID ids.ID) {
+	t.Helper()
 	var reported error
 	locks := &scm.RepositoryLocks{}
-	work := workflow.New(context.Background(), f.db, workflow.Dependencies{Git: attemptGit{t.TempDir()}, Repositories: locks, Report: func(err error) { reported = err }})
+	work := workflow.New(context.Background(), db, workflow.Dependencies{Git: attemptGit{t.TempDir()}, Repositories: locks, Report: func(err error) { reported = err }})
 	if err := work.DispatchStarted(runID); err != nil {
 		t.Fatal(err)
 	}

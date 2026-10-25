@@ -31,6 +31,8 @@ func retryStageFixture(t *testing.T) (stepRetries, *Run, ids.ID, ids.ID, ids.ID)
 func TestWorkflowRetryCompletedSendBack(t *testing.T) {
 	t.Parallel()
 	s, source, agent := completedSendBackFixture(t)
+	// sql-guarantee: RC7 can retain completed history without start records; continuation must not invent readiness for that source.
+	completionExec(t, s.db, `DELETE FROM run_starts WHERE run_id=?`, source.ID)
 	review := admittedStepID(t, queries{db: s.db}, source, "review")
 	retryScopeStep(t, s.db, review, json.RawMessage(`{}`))
 	recordScopeStep(t, s.db, workflowsql.RecordApprovalParams{At: time.Now(), ID: review, Status: "pass"})
@@ -81,7 +83,19 @@ func TestWorkflowRetryCompletedSendBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := newStepAttempts(s.db, func(kind string) bool { return kind == "agent/pi" || kind == "agent/review" }).Start(context.Background(), step, "agent/pi"); err != nil {
+	attempts := newStepAttempts(s.db, func(kind string) bool { return kind == "agent/pi" || kind == "agent/review" })
+	if _, err := attempts.Start(context.Background(), step, "agent/pi"); err == nil {
+		t.Fatal("continuation executed before preparation")
+	}
+	prepared := 0
+	preparer := &starter{records: runStartStore{db: s.db}, runtime: startRuntime{Prepare: func(context.Context, *Run) error { prepared++; return nil }}}
+	if err := preparer.Prepare(context.Background(), next.ID); err != nil || prepared != 1 {
+		t.Fatalf("continuation preparation: %d %v", prepared, err)
+	}
+	if _, exists := seenRunStart(t, s.db, source.ID); exists {
+		t.Fatal("historical source gained readiness")
+	}
+	if _, err := attempts.Start(context.Background(), step, "agent/pi"); err != nil {
 		t.Fatalf("the continued agent was not admitted: %v", err)
 	}
 	observed, err := AgentSessionIn(context.Background(), s.db, RunRef{ID: next.ID, ProjectID: next.ProjectID}, step.ID, RetryContinue)

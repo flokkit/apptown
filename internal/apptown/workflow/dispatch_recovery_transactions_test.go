@@ -45,6 +45,7 @@ func persistedRecoveryFixture(t *testing.T, stage schema.Stage, scanners []Scann
 	// Recovery starts with a precisely pinned historical record. Direct
 	// persistence here is the owner's representation guarantee.
 	runID := insertStoredRun(t, db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: projectID, WorkflowName: "test", WorkflowVersion: 1, Kind: "pipeline", CurrentStage: stage.Name, DefinitionJson: []byte(mustJSON(spec)), Status: RunRunning.String()}).ID
+	storedReadyStart(t, db, runID)
 	tx, err := db.Begin(context.Background())
 	if err != nil {
 		t.Fatal(err)

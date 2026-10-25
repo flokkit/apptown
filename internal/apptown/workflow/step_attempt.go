@@ -46,6 +46,9 @@ func (s stepAttempts) start(ctx context.Context, snapshot *Step, kind string, pr
 		if (!projectID.IsZero() && run.ProjectID != projectID) || !s.automatic(current.Type) || run.Status != RunRunning || run.CurrentStage != current.Stage || current.Status != StatusPending || current.OverrideBy != "" || current.RunID != snapshot.RunID || current.Type != snapshot.Type || current.Attempt != snapshot.Attempt || !bytes.Equal(current.Config, snapshot.Config) || (kind != "" && kind != current.Type) {
 			return nil, fmt.Errorf("step %d: %w", snapshot.ID, ErrStepAttemptLost)
 		}
+		if err := requireRunReady(ctx, tx, run.ID); err != nil {
+			return nil, err
+		}
 		if _, err := current.Status.Transition(MoveStepStart, StatusRunning); err != nil {
 			return nil, err
 		}

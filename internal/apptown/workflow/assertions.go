@@ -73,6 +73,9 @@ func (s Assertions) evaluate(ctx context.Context, request Assertion, expected *a
 		if expected != nil && !expected.matches(run, step) {
 			return assertionScope{}, errAssertionChanged
 		}
+		if err := requireRunReady(ctx, tx, run.ID); err != nil {
+			return assertionScope{}, err
+		}
 		scope := assertionScope{run: run, step: step}
 		if step.Type == "scm/merged" && step.OverrideBy == "" {
 			scope.source, err = readMergeSourceForRun(ctx, tx, run)

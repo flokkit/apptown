@@ -75,14 +75,20 @@ func ObserveExecutionIn(ctx context.Context, tx *database.Tx, in ExecutionSelect
 		return nil, nil
 	}
 	out := &ExecutionObservation{Run: *run}
-	readiness, err := workflowsql.New(tx.SQL()).ExecutionReadiness(ctx, workflowsql.ExecutionReadinessParams{RunID: id, ChangeID: in.Change.ID, ProjectID: in.Change.ProjectID})
+	readiness, err := workflowsql.New(tx.SQL()).ExecutionReworks(ctx, workflowsql.ExecutionReworksParams{RunID: id, ChangeID: in.Change.ID, ProjectID: in.Change.ProjectID})
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	out.Unready, out.Reworks = readiness.Unready, int(readiness.Reworks)
+	out.Reworks = int(readiness)
+	if run.Status == RunRunning {
+		out.Unready, err = runNeedsPreparation(ctx, tx, id)
+		if err != nil {
+			return nil, err
+		}
+	}
 	out.Steps, err = readStageSteps(ctx, tx, id, run.CurrentStage)
 	if err != nil {
 		return nil, err

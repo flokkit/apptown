@@ -41,7 +41,9 @@ func reconcileScenario(t *testing.T, action Action, result workflow.StepState) (
 	if action == ActionBackoff || action == ActionRecheckLanding {
 		f.reason = "429"
 	}
-	f.execute(t, item, result)
+	if action != ActionPrepare {
+		f.execute(t, item, result)
+	}
 	if action == ActionLanded {
 		f.moveChange(t, item, workflow.ShipChange)
 	}
@@ -69,7 +71,7 @@ func observeRemediation(t *testing.T, store Reconciliation, item Item) Observati
 func TestRemediationReadFailuresNeverBecomeDecisions(t *testing.T) {
 	t.Parallel()
 	// sql-guarantee: statement fragments for failNextStatement, not reads
-	for _, fragment := range []string{"SET TRANSACTION", "FROM remediation_items WHERE id", "FROM changes WHERE id", "FROM runs WHERE id", "SELECT EXISTS(SELECT 1 FROM run_starts", "FROM steps WHERE run_id"} {
+	for _, fragment := range []string{"SET TRANSACTION", "FROM remediation_items WHERE id", "FROM changes WHERE id", "FROM runs WHERE id", "-- name: RunStartByID", "FROM steps WHERE run_id"} {
 		t.Run(fragment, func(t *testing.T) {
 			t.Parallel()
 			db, store, item := reconcileFixture(t)
@@ -354,7 +356,7 @@ func TestRemediationDecisionCannotUndoManualStepRetry(t *testing.T) {
 	f, _, item, _ := outcomeFixture(t)
 	finished := make(chan struct{})
 	dispatchErrors := make(chan error, 1)
-	prepared := workflow.New(context.Background(), f.db, workflow.Dependencies{Authority: reconcileActor{}, Abandonment: attemptEffects{}, Automatic: []string{"script"}, Git: remediationPreparationGit{}, Repositories: &scm.RepositoryLocks{}, Report: func(err error) { dispatchErrors <- err }, Runners: map[string]workflow.Runner{"script": func(e *workflow.Execution) {
+	prepared := workflow.New(context.Background(), f.db, workflow.Dependencies{Authority: reconcileActor{}, Abandonment: attemptEffects{}, Automatic: []string{"script"}, Git: remediationPreparationGit{dir: t.TempDir()}, Repositories: &scm.RepositoryLocks{}, Report: func(err error) { dispatchErrors <- err }, Runners: map[string]workflow.Runner{"script": func(e *workflow.Execution) {
 		if _, err := e.Claim(); err != nil {
 			t.Fatal(err)
 		}
@@ -374,15 +376,30 @@ func TestRemediationDecisionCannotUndoManualStepRetry(t *testing.T) {
 	if err := prepared.DispatchStarted(item.RunID); err != nil {
 		t.Fatal(err)
 	}
-	awaitRemediationSignal(t, finished)
-	prepared.Wait()
+	var dispatchErr error
 	select {
-	case err := <-dispatchErrors:
-		if !strings.Contains(err.Error(), "current advancement checks are unavailable") {
-			t.Fatalf("unexpected dispatch error: %v", err)
+	case <-finished:
+	case dispatchErr = <-dispatchErrors:
+		// Dispatch may already have reported the expected advancement error
+		// after the runner closed finished. Preserve that error for validation.
+		select {
+		case <-finished:
+		default:
+			t.Fatalf("dispatch failed before the runner finished: %v", dispatchErr)
 		}
-	default:
-		t.Fatal("failed step did not report its expected unavailable advancement")
+	case <-time.After(30 * time.Second):
+		t.Fatal("worker did not reach the expected boundary")
+	}
+	prepared.Wait()
+	if dispatchErr == nil {
+		select {
+		case dispatchErr = <-dispatchErrors:
+		default:
+			t.Fatal("failed step did not report its expected unavailable advancement")
+		}
+	}
+	if !strings.Contains(dispatchErr.Error(), "current advancement checks are unavailable") {
+		t.Fatalf("unexpected dispatch error: %v", dispatchErr)
 	}
 	prepared.Stop()
 	f.work = prepared
@@ -421,10 +438,10 @@ func TestRemediationDecisionCannotUndoManualStepRetry(t *testing.T) {
 	}
 }
 
-type remediationPreparationGit struct{}
+type remediationPreparationGit struct{ dir string }
 
-func (remediationPreparationGit) EnsureClone(context.Context, workflow.CloneRequest) (workflow.WorkspaceResult, error) {
-	return workflow.WorkspaceResult{Tip: "original-sha"}, nil
+func (g remediationPreparationGit) EnsureClone(context.Context, workflow.CloneRequest) (workflow.WorkspaceResult, error) {
+	return workflow.WorkspaceResult{Path: g.dir, Tip: "original-sha"}, nil
 }
 func (remediationPreparationGit) SyncAttachments(context.Context, ids.ID, string) error { return nil }
 func (remediationPreparationGit) BringToBranch(context.Context, string, string, string) error {
@@ -436,7 +453,7 @@ func (remediationPreparationGit) BranchTip(context.Context, string, string) (str
 func (remediationPreparationGit) MergeBase(context.Context, string, string, string) (string, error) {
 	return "original-sha", nil
 }
-func (remediationPreparationGit) Paths() workflow.Layout { return workflow.Layout{} }
+func (g remediationPreparationGit) Paths() workflow.Layout { return workflow.Layout{DataDir: g.dir} }
 
 // This command-only double deliberately cannot authorize aggregate reads.
 func (reconcileActor) VisibleProjects(context.Context, access.Capability) ([]ids.ID, error) {

@@ -20,6 +20,7 @@ func settlementFixture(t *testing.T, spec schema.Spec) (*database.DB, *Run) {
 	t.Helper()
 	db, change := changeEditFixture(t, ChangeDraft{Title: "A change"})
 	run := insertStoredRun(t, db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "test", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: spec.Stages[0].Name, DefinitionJson: json.RawMessage(mustJSON(spec))})
+	storedReadyStart(t, db, run.ID)
 	return db, run
 }
 

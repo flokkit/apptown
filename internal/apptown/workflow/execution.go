@@ -258,6 +258,9 @@ func (s *Service) runExecution(ctx context.Context, step *Step, scope RunRef) er
 	if step.Status != StatusPending || step.OverrideBy != "" || run.Status != RunRunning || run.CurrentStage != step.Stage {
 		return ErrStepAttemptLost
 	}
+	if err := requireRunReady(ctx, s.db, run.ID); err != nil {
+		return err
+	}
 	runner := s.runners[step.Type]
 	if runner == nil {
 		return fmt.Errorf("no runner for %s", step.Type)

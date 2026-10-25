@@ -40,6 +40,9 @@ func TestExecutionObservationUsesCanonicalScopedRecords(t *testing.T) {
 			case "latest landing":
 				insertStoredRun(t, q.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: "land", WorkflowVersion: 1, Kind: "pipeline", CurrentStage: "finish", ParentRunID: run.ID, DefinitionJson: []byte(`{}`), Status: RunRunning.String()})
 				wantID = insertStoredRun(t, q.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, ChangeID: run.ChangeID, WorkflowName: "land", WorkflowVersion: 1, Kind: "pipeline", CurrentStage: "finish", DefinitionJson: []byte(`{}`), Status: RunRunning.String()}).ID
+				if _, err := workflowsql.New(q.db.SQL()).InsertRunStart(context.Background(), wantID); err != nil {
+					t.Fatal(err)
+				}
 				in.RunID, in.LatestLanding = ids.Nil, true
 			case "foreign project":
 				in.Change.ProjectID = idstest.N(999999)
@@ -118,6 +121,9 @@ func TestExecutionObservationComparisonDetectsChangedRecords(t *testing.T) {
 		t.Run(mutation, func(t *testing.T) {
 			t.Parallel()
 			q, run, stepID := activityFixture(t)
+			if _, err := workflowsql.New(q.db.SQL()).InsertRunStart(context.Background(), run.ID); err != nil {
+				t.Fatal(err)
+			}
 			read := func() *ExecutionObservation {
 				t.Helper()
 				out, err := database.Transact(context.Background(), q.db, func(tx *database.Tx) (*ExecutionObservation, error) {
@@ -144,8 +150,8 @@ func TestExecutionObservationComparisonDetectsChangedRecords(t *testing.T) {
 					t.Fatalf("change config: changed=%d %v", changed, err)
 				}
 			case "run start":
-				if _, err := workflowsql.New(q.db.SQL()).InsertRunStart(context.Background(), run.ID); err != nil {
-					t.Fatal(err)
+				if n, err := workflowsql.New(q.db.SQL()).MarkRunReady(context.Background(), run.ID); err != nil || n != 1 {
+					t.Fatalf("readiness change: %d %v", n, err)
 				}
 			case "rework event":
 				insertRunEventForTest(t, q.db, run.ID, "step.rework", nil)

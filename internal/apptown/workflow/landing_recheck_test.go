@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -21,11 +21,9 @@ func (f landingRetryBudgetFunc) ChargeIn(ctx context.Context, tx *database.Tx, p
 }
 func landingRecheckOwnerFixture(t *testing.T) (queries, *Run, ids.ID) {
 	t.Helper()
-	db, change := changeEditFixture(t, ChangeDraft{Title: "Landing recheck"})
-	q := queries{db: db}
-	run := insertStoredRun(t, db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(`{"kind":"pipeline","role":"landing","stages":[{"name":"finish","steps":[{"name":"scan","uses":"scan"}]}]}`)})
-	transitionScopeChange(t, q.db, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, State: "landing"})
-	id := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "scan", Type: "scan", Status: StatusPending.String(), ConfigJson: json.RawMessage(`{}`)})
+	q, run := admitLandingSpec(t, schema.Spec{Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "scan", Uses: "scan"}}}}})
+	db := q.db
+	id := admittedStepID(t, q, run, "scan")
 	attempts := newStepAttempts(db, func(kind string) bool { return kind == "scan" })
 	step, err := readStep(context.Background(), db, id)
 	if err != nil {
@@ -62,7 +60,7 @@ func TestLandingRecheckBudgetAndResetCommitTogether(t *testing.T) {
 	if got, err := owner.Recheck(ctx, in); err == nil || len(got.Names) != 0 {
 		t.Fatalf("suppressed receipt: %+v %v", got, err)
 	}
-	wantEventCount(t, q.db, 2, anyEvent)
+	wantEventCount(t, q.db, 6, anyEvent)
 	wantStepState(t, q.db, id, StatusFail)
 	wantRetryRevision(t, q.db, run.ID, 0)
 	completionExec(t, q.db, `DROP TRIGGER veto_landing_retry ON run_events`)
@@ -109,5 +107,5 @@ func TestLandingRecheckRechecksChangeProjectAfterLock(t *testing.T) {
 		t.Fatalf("changed scope: %v", err)
 	}
 	wantStepState(t, q.db, id, StatusFail)
-	wantEventCount(t, q.db, 2, anyEvent)
+	wantEventCount(t, q.db, 6, anyEvent)
 }

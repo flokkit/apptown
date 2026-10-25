@@ -29,6 +29,7 @@ func TestAdvanceServiceDoesNotPublishMovedProjectResults(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			q, run, _ := activityFixture(t)
+			storedReadyStart(t, q.db, run.ID)
 			other := workflowTestProject(t, q.db, "other", "Other", "")
 			checks := advancementScopeChecks{refresh: func(context.Context, *Run) error {
 				// sql-guarantee: No owner mutation rehomes an existing run; move its project during refresh to fence both advancement and fallback publication.

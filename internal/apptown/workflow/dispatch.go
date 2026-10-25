@@ -86,7 +86,7 @@ func (w dispatchPlans) Plan(ctx context.Context, runID ids.ID) (DispatchPlan, er
 		return plan, tx.Commit()
 	}
 	plan.AdvanceEmpty = !run.ParentRunID.IsZero()
-	plan.NeedsPreparation, err = workflowsql.New(tx.SQL()).DispatchNeedsPreparation(ctx, runID)
+	plan.NeedsPreparation, err = runNeedsPreparation(ctx, tx, runID)
 	if err != nil {
 		return plan, err
 	}

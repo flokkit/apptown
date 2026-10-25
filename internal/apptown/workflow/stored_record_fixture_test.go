@@ -85,3 +85,20 @@ func insertStoredCall(t *testing.T, db *database.DB, runID ids.ID, stage, name s
 	}
 	return id
 }
+
+// storedReadyStart supplies only the persisted readiness fact to an independent
+// storage fixture. These callers deliberately construct historical stage/attempt
+// shapes and omit admission's ledger to test exact settlement or recovery writes;
+// Create/Prepared would add unrelated stages and receipts to those assertions.
+// Ordinary execution fixtures use admission instead. Never use this to repair
+// the dedicated missing-start tests or as a production recovery operation.
+func storedReadyStart(t *testing.T, db *database.DB, id ids.ID) {
+	t.Helper()
+	q := workflowsql.New(db.SQL())
+	if row, err := q.InsertRunStart(context.Background(), id); err != nil || row.RunID != id || row.Ready {
+		t.Fatalf("stored start: %+v %v", row, err)
+	}
+	if n, err := q.MarkRunReady(context.Background(), id); err != nil || n != 1 {
+		t.Fatalf("stored readiness: %d %v", n, err)
+	}
+}

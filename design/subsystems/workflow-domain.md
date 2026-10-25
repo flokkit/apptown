@@ -40,6 +40,18 @@ to mutate the records or an entire eagerly loaded object graph.
    runner owner. `Execution.Finish` accepts only the admitted claim and records
    the outcome and required receipts transactionally.
 
+An active run needs its own recorded start before workspace preparation, and
+committed readiness before runner invocation, claims, assertion observation,
+child admission, retries or advancement. An unready start runs actual preparation
+and pins before recording readiness. Missing start evidence refuses these acts;
+it never authorizes reconstructing preparation or fabricating `run.ready`.
+Abandon such an active run and start new work through the ordinary operations.
+Completed historical runs remain readable and can supply a new continuation or
+accepted landing. The new run has its own start and preparation; its source
+history is unchanged. Settlement of an already-admitted outcome remains possible;
+if readiness prevents follow-on rework, the outcome is kept and that refusal is
+reported without resetting the agent.
+
 An ordinary row read cannot manufacture a valid claim. A failed settlement is an
 error, not evidence that a desired status persisted. Telemetry observes this
 result; it is not the authoritative work record.

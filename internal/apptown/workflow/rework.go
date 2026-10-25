@@ -20,6 +20,7 @@ type reworkStore struct {
 type reworkedResult struct {
 	RunID   ids.ID
 	AgentID ids.ID
+	refusal error
 }
 
 // requestIn records a single continuation. Pending agent state is the durable
@@ -63,6 +64,16 @@ func (s reworkStore) requestIn(ctx context.Context, tx *database.Tx, run *Run, s
 		if source.FinishedAt.Before(agent.FinishedAt) {
 			return result, nil
 		}
+	}
+	if err := requireRunReady(ctx, tx, run.ID); err != nil {
+		var refused runReadinessError
+		if !errors.As(err, &refused) {
+			return result, err
+		}
+		// Keep the already-admitted outcome. A new revision needs readiness;
+		// report its refusal after commit rather than rolling back that outcome.
+		result.refusal = err
+		return result, nil
 	}
 	if human {
 		if err := resetApprovalIn(ctx, tx, source); err != nil {
@@ -215,6 +226,10 @@ type reworkReceipt struct {
 // Only committed commands schedule rework. DispatchAgain coalesces a request
 // made by a still-running stage, and never extends the shutdown wait bound.
 func (s *Service) dispatchRework(result reworkedResult) {
+	if result.refusal != nil {
+		s.dispatcher.report(result.refusal)
+		return
+	}
 	if !result.AgentID.IsZero() {
 		s.dispatcher.DispatchAgain(DispatchPlan{RunID: result.RunID, Steps: []ReadyStep{{ID: result.AgentID, Type: "agent/pi"}}})
 	}
