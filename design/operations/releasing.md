@@ -29,9 +29,11 @@ How a Flokkit release is made, in order. The release script is
 3. **The tag.** `git tag -a v<version>` on that commit, once it is on
    `main` (the notes land by their pull request first), and
    push the tag. Its images and archives are built only when a `heavy.yml`
-   run on that commit passed on its first attempt ([GitHub](github.md)); a
-   run that passed only on a re-run does not count. Wait for main's run
-   before pushing the tag. When it failed, fix the cause in a new commit,
+   full execution run on that exact commit passed on its first attempt
+   ([GitHub](github.md)); a run that passed only on a re-run does not count.
+   Wait for the merge-queue run or a manual heavy run to complete before
+   pushing the tag. PR admission and main cache warming are not release
+   evidence. When execution failed, fix the cause in a new commit,
    or, when the failure was not the code's, start a new run by hand on the
    commit (not a re-run).
 4. **The build.** `sh scripts/release.sh <version>` from a clean checkout at

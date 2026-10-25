@@ -2,9 +2,9 @@
 # tier, the journeys, the opt-in browser, pi and inference_docker tiers, and
 # the race detector.
 #
-# They run on every pull request to main, once per pushed commit, and on
-# every push to main, so each landed commit gets its own result; any branch
-# can be run by hand. A release tag's images are built only for a commit
+# They execute on the merge queue and manual dispatch. PRs report admission
+# only; main warms caches in heavy-cache.yml without executing tests.
+# A release tag's images are built only for a commit
 # with a run that passed on its first attempt (images.yml, heavy-evidence).
 # The main ruleset requires heavy-ok, so a red run blocks merging. No label
 # changes what runs.
@@ -19,14 +19,12 @@ name: heavy
 on:
   merge_group:
     types: [checks_requested]
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
-# A pull request's newer run replaces its older one. Main's runs are each
-# kept: every landed commit needs its own result.
+# A pull request's newer run replaces its older admission run. Queue and
+# manual runs are kept by commit for exact-SHA execution evidence.
 concurrency:
   group: heavy-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -50,7 +48,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: report qualification inputs (all tests still execute)
+      - name: report qualification inputs
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || '' }}
@@ -62,6 +60,7 @@ jobs:
           retention-days: 7
 
   web:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -83,6 +82,7 @@ jobs:
           include-hidden-files: true
 
   tier:
+    if: github.event_name != 'pull_request'
     needs: web
     runs-on: ubuntu-24.04
     timeout-minutes: 75
@@ -182,6 +182,7 @@ jobs:
           key: ${{ steps.gobuild.outputs.cache-primary-key }}
 
   race:
+    if: github.event_name != 'pull_request'
     strategy:
       fail-fast: false
       matrix:
@@ -227,17 +228,17 @@ jobs:
           key: ${{ steps.gobuild.outputs.cache-primary-key }}
 
   # A check the main ruleset requires, beside ci.yml's ci-ok: it passes only
-  # when every job above succeeded, so a job added or renamed here (or a
-  # matrix entry) cannot drop out of what a merge needs. It runs even when a
-  # job failed or was skipped, and then fails: skipped is not passed.
+  # when queue/manual execution succeeded; PRs report admission separately.
+  # It runs even when a job failed or was skipped. Skipped execution cannot
+  # qualify a queue/manual commit.
   heavy-ok:
     if: always()
     needs: [qualification-report, web, tier, race]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
-        run: |
-          echo "job results: $RESULTS"
-          for r in $RESULTS; do [ "$r" = success ] || { echo "::error::a required job did not succeed ($r)"; exit 1; }; done
+          REPORT_RESULT: ${{ needs.qualification-report.result }}
+          RESULTS: ${{ format('{0} {1} {2}', needs.web.result, needs.tier.result, needs.race.result) }}
+        run: sh scripts/heavy-result.sh

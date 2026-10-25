@@ -149,8 +149,9 @@ API comments. Current code and tests establish implementation; the
 requirements (and the maintainers' position documents) establish intent. When they differ, identify the gap rather than
 silently changing the promise.
 
-Changes land on `main` as one pull request per change, squash-merged after
-the required `ci-ok` and `heavy-ok` checks pass. The pull request's title and
+Changes land through the `main` merge queue as one pull request per change,
+squash-merged after `ci-ok` and `heavy-ok` pass on the queued commit. A PR
+heavy check is admission to that queue; it is not heavy execution evidence. The pull request's title and
 description are the public record: they say what changed and why, not how the
 work went.
 The maintainers plan and independently review changes in a separate private

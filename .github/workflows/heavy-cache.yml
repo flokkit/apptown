@@ -1,0 +1,179 @@
+# Main-only compilation and image caches. No tests execute; this is not qualification evidence.
+name: heavy-cache
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: heavy-cache-${{ github.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  GOFLAGS: -buildvcs=false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  web:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+      - run: npx vite build
+        working-directory: web
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+          retention-days: 1
+          include-hidden-files: true
+
+  tier:
+    needs: web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: integration-root
+            args: compile integration root
+            require: ""
+          - name: integration-dependency
+            args: compile integration dependency
+            require: ""
+          - name: integration-worker
+            args: compile integration worker
+            require: ""
+          - name: integration-rest
+            args: compile integration rest
+            require: ""
+          # The era-upgrade suite is not part of this run: it was retired
+          # with the SQLite format (design/architecture/testing-map.md §5).
+          - name: journeys
+            args: compile journeys
+            require: ""
+          # Compile opt-in packages with their execution tags. No browser,
+          # Pi process or test binary starts in this workflow.
+          - name: opt-in-tiers
+            args: compile opt-in-tiers
+            require: ""
+    name: ${{ matrix.name }}
+    env:
+      CI_HEAVY_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.name }}
+      CI_HEAVY_REQUIRE: ${{ matrix.require }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+      - name: configure host compilation caches
+        run: |
+          echo "CI_HEAVY_GOMOD=$HOME/go/pkg/mod" >> "$GITHUB_ENV"
+          echo "CI_HEAVY_GOCACHE=$HOME/.cache/go-build" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gobuild
+        with:
+          path: ~/.cache/go-build
+          key: go-build-heavy-${{ matrix.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-${{ github.sha }}
+          restore-keys: go-build-heavy-${{ matrix.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: runner image inputs
+        id: image-inputs
+        run: echo "pi=$(sed -n 's/^ARG PI_VERSION=//p' deploy/apptown-agent/Dockerfile)" >> "$GITHUB_OUTPUT"
+      - name: build agent image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/apptown-agent
+          load: true
+          tags: apptown-agent
+          cache-from: type=gha,version=2,scope=ci-heavy-agent-linux-amd64
+          cache-to: ${{ github.ref == 'refs/heads/main' && matrix.name == 'integration-root' && 'type=gha,version=2,scope=ci-heavy-agent-linux-amd64,mode=min' || '' }}
+      - name: build test runner image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: deploy/ci-heavy
+          file: deploy/ci-heavy/Dockerfile
+          build-args: PI_VERSION=${{ steps.image-inputs.outputs.pi }}
+          load: true
+          tags: apptown-ci-heavy
+          cache-from: type=gha,version=2,scope=ci-heavy-runner-linux-amd64
+          cache-to: ${{ github.ref == 'refs/heads/main' && matrix.name == 'integration-root' && 'type=gha,version=2,scope=ci-heavy-runner-linux-amd64,mode=min' || '' }}
+      - name: compile only (${{ matrix.name }})
+        env:
+          CI_HEAVY_PREBUILT: "1"
+        run: eval "sh scripts/ci-heavy.sh ${{ matrix.args }}"
+      - if: always()
+        run: sh scripts/ci-heavy.sh cleanup
+
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: ${{ steps.gobuild.outputs.cache-primary-key }}
+
+  race:
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [root, backup, workflow, rest]
+    name: race-${{ matrix.group }}
+    needs: web
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+      # Go's module and build caches: restored by prefix from main's, saved
+      # only on main (as in ci.yml); each successful commit refreshes compilation. ci.yml's
+      # checks job saves the modules.
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gomod
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gobuild
+        with:
+          path: ~/.cache/go-build
+          key: go-build-race-${{ matrix.group }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
+          restore-keys: go-build-race-${{ matrix.group }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-
+      - run: sh scripts/ci-compile.sh race "${{ matrix.group }}"
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: ${{ steps.gobuild.outputs.cache-primary-key }}
+

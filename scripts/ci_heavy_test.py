@@ -82,9 +82,18 @@ class RequiredTests(unittest.TestCase):
             env["CI_HEAVY_REQUIRE"] = require
         env["STUB_CALLS"] = os.path.join(self.dir.name, "calls")
         args = (["test", "./..."] if mode == "test" else
-                ["test-partition", "integration", "root"] if mode == "test-partition" else [mode])
+                [mode, "integration", "root"] if mode in ("test-partition", "compile") else [mode])
         return subprocess.run(["sh", SCRIPT] + args, env=env, capture_output=True, text=True,
                               cwd=os.path.dirname(os.path.dirname(SCRIPT)))
+
+    def test_compile_mode_uses_linux_compiler_without_test_execution_command(self):
+        calls = os.path.join(self.dir.name, 'compile-mode')
+        r = self.run_job('', require=None, mode='compile', STUB_ALL_CALLS=calls)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(calls) as f:
+            commands = f.read()
+        self.assertIn('apptown-ci-heavy sh scripts/ci-compile.sh integration root', commands)
+        self.assertNotIn('apptown-ci-heavy go test', commands)
 
     def test_prebuilt_images_execute_tests_without_rebuilding(self):
         calls = os.path.join(self.dir.name, 'prebuilt')
