@@ -883,6 +883,34 @@ func listTree(t *testing.T, dir string) []string {
 // resources and steering written into the folder it is given.
 func TestAnAgentOnAppTownIsSteeredToTheFolder(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil)
+	// Unlike pure request composition, writing steering now requires a real
+	// admitted run to own its artifact. Keep the existing guidance fixture.
+	if err := identity.New(f.exec.db, identity.Config{Projects: project.NewCatalogue(f.exec.db)}).SeedAdministrator(t.Context(), taskAppTownAdministrator); err != nil {
+		t.Fatal(err)
+	}
+	if err := project.New(f.exec.db, nil).SetDefaultBranch(t.Context(), f.call.run.ProjectID, "main"); err != nil {
+		t.Fatal(err)
+	}
+	var with map[string]any
+	if err := json.Unmarshal(f.call.step.Config, &with); err != nil {
+		t.Fatal(err)
+	}
+	owner := startTaskAppTown(t, f.exec.db, f.dir, "apptown-agent", map[string]schema.Spec{"build": {Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "work", Steps: []schema.Step{{Name: "implement", Uses: AgentKind, With: with}}}}}})
+	owner.projectID = f.call.run.ProjectID
+	owner.work.Stop()
+	f.call.run = owner.startChangeRun(t, "build", owner.ctx)
+	snapshot, err := owner.work.Snapshot(owner.ctx, f.call.run.ID, workflow.DetailView)
+	if err != nil || len(snapshot.Steps) != 1 {
+		t.Fatalf("admitted steering step: %v %v", snapshot, err)
+	}
+	f.call.step = snapshot.Steps[0]
+	attachments := (workflow.GitWorkspace{DataDir: f.dir}).AttachmentDir(f.call.run.ChangeID)
+	if err := os.MkdirAll(attachments, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(attachments, "spec.txt"), []byte("a supplied spec"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	ws := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown", "resources"), 0o755); err != nil {
 		t.Fatal(err)
