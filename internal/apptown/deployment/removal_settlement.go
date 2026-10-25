@@ -186,7 +186,11 @@ func removeRecordedIn(ctx context.Context, tx *database.Tx, dep *Deployment, s R
 	if err != nil {
 		return nil, err
 	}
-	stayed, err := retainTakenDownIn(ctx, tx, dep, who, s.Taken.Left, s.At)
+	left, err := retainStorageIn(ctx, tx, dep, s.Taken.Left)
+	if err != nil {
+		return nil, err
+	}
+	stayed, err := retainTakenDownIn(ctx, tx, dep, who, left, s.At)
 	if err != nil {
 		return nil, err
 	}

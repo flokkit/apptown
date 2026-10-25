@@ -331,6 +331,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/projects/{slug}/deployments/{name}/check", deployments.CheckAgain, access.CapDeploymentOperate, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/deployments/{name}/ai-models", deployments.AIModels, access.CapDeploymentRead, "project-slug"),
 		ownerRoute("GET /api/v1/projects/{slug}/deployments/{name}/resources", deployments.DeploymentResources, "deployments.DeploymentResources"),
+		ownerRoute("GET /api/v1/projects/{slug}/deployments/{name}/storage-bindings", deployments.DeploymentStorageBindings, "deployments.DeploymentStorageBindings"),
+		ownerRoute("POST /api/v1/projects/{slug}/deployments/{name}/storage-bindings", deployments.AdoptDeploymentStorageBindings, "deployments.AdoptDeploymentStorageBindings"),
 		ownerRoute("GET /api/v1/projects/{slug}/deployments/{name}/diagnostics", deployments.DeploymentDiagnostics, "deployments.DeploymentDiagnostics"),
 		ownerRoute("GET /api/v1/projects/{slug}/deployments/{name}/logs", deployments.DeploymentLog, "deployments.DeploymentLog"),
 		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{name}/resources", deployments.SetResourceOverride, "deployments.SetResourceOverride"),

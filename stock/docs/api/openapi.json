@@ -487,6 +487,9 @@
           "database": {
             "type": "string"
           },
+          "engineImageID": {
+            "type": "string"
+          },
           "error": {
             "type": "string"
           },
@@ -9435,6 +9438,82 @@
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/projects/{slug}/deployments/{name}/storage-bindings": {
+      "get": {
+        "operationId": "getProjectsSlugDeploymentsNameStorageBindings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.DeploymentStorageBindings",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      },
+      "post": {
+        "operationId": "postProjectsSlugDeploymentsNameStorageBindings",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "projects"
+        ],
+        "x-apptown-access": {
+          "contract": "deployments.AdoptDeploymentStorageBindings",
+          "kind": "owner"
         },
         "x-apptown-stability": "experimental"
       }

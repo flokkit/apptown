@@ -148,9 +148,12 @@ func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan
 		if !ok || s.filler == nil {
 			return RebuildResult{}, fmt.Errorf("%w: %s waits for its data, and this AppTown cannot fill it", ErrReleaseRefused, dep.Name)
 		}
-		if dd.Fill, err = s.filler.Fill(ctx, dep, t); err != nil {
+		fill, err := s.filler.Fill(ctx, dep, t)
+		if err != nil {
 			return RebuildResult{}, fmt.Errorf("%w: %v", ErrReleaseRefused, err)
 		}
+		dd.Fill = fill.Run
+		dd.RestoreStorage = storageRestoreRecorder{storageRecorder: storageRecorder{db: s.db, deployment: dep.ID, now: s.clock}, needs: fill.Copies}
 	}
 	running, err := s.providers.Running(ctx, d, dep)
 	if err != nil {

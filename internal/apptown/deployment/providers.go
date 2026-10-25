@@ -170,6 +170,7 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 		Registry: func() (*docker.RegistryCredential, error) { return p.env.ReleaseLogin(ctx, dep.ProjectID) },
 		Scratch:  p.hosts.BootScratch(),
 		Owner:    ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock},
+		Storage:  storageRecorder{db: p.db, deployment: dep.ID, now: p.clock},
 		Owned: func(ctx context.Context) ([]deploy.Owned, error) {
 			return ownedIn(ctx, deploymentsql.New(p.db.SQL()), dep.ID)
 		},

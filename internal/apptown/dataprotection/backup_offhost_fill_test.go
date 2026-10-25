@@ -53,6 +53,7 @@ func TestAMixedDockerSetIsRefusedByAManagedStart(t *testing.T) {
 				t.Fatal(err)
 			}
 			plan := []backupPlanItem{needItem(pg, "postgres", "c-pg")}
+			daemon := copyingDaemon()
 			want := "the app's files"
 			if other == "files" {
 				plan = append(plan, backupPlanItem{Kind: "volume", Name: "apptown-data-apptown-env-ledger-old", File: "data.tar.gz", How: "tar of /data", Copy: CopyFiles,
@@ -62,9 +63,13 @@ func TestAMixedDockerSetIsRefusedByAManagedStart(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				plan, want = append(plan, needItem(redis, "redis", "c-redis")), "redis (a copy with no portable format)"
+				physical := needItem(redis, "redis", "c-redis")
+				physical.Volume = "redis-data"
+				daemon.SetRunning("c-redis", true)
+				daemon.SetStorageContainer("c-redis", redis.ResolveLocal(nil, "", nil).Image, physical.Volume, redis.Local.Data)
+				plan, want = append(plan, physical), "redis (a copy with no portable format)"
 			}
-			set, err := w.s.takeSet(ctx, docker.Scope{Client: copyingDaemon()}, w.project, "ledger", "old", plan, TriggerTakeDown, "alice")
+			set, err := w.s.takeSet(ctx, docker.Scope{Client: daemon}, w.project, "ledger", "old", plan, TriggerTakeDown, "alice")
 			if err != nil || set.Status != BackupOK || set.Store != StoreBackupStore || set.GoodCopy("need", "postgres").Format != "pg-custom" {
 				t.Fatalf("the Docker final set: %+v %v", set, err)
 			}

@@ -3684,6 +3684,7 @@ export type CheckReading = {
 }
 
 export type BackupItem = {
+  engineImageID?: string
   kind: string
   name: string
   file: string

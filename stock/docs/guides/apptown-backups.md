@@ -109,6 +109,12 @@ or resolve the named ownership/configuration problem if relocation refuses. An
 admitted task that retains a local path being moved must first be settled and
 released under its original layout; do not edit its saved request or digest.
 
+If a deployment rebuild has already created database volumes, preserve those
+volumes and the restore diagnostics for recovery. A later rebuild refuses
+preexisting engine-data volumes; it does not assume they are empty or
+automatically import into them again.
+
+
 **What the first start does.**
 
 - **Apps on AppTown's own Docker host** are rebuilt from their last release,
@@ -236,3 +242,24 @@ do not certify cross-major restore compatibility. RC7 archives without this
 metadata remain readable through the existing restore path; their engine
 provenance is unknown. Older AppTown binaries ignore this additive metadata and
 do not enforce this refusal.
+
+
+**Deployment database engines.** A restored database needs evidence of the engine
+that may open its files. New physical backup items record the actual immutable
+source engine, observed before export from the exact source container and volume.
+A physical restore (including Redis RDB) requires that observation to match the
+source storage binding carried in the archive and requires the exact image to be
+available. The restore creates a new target volume and records its incarnation
+before starting the engine. A logical copy uses its declared supported engine and
+also requires a newly created target. No existing engine-data volume is overwritten
+by this first-start path.
+
+Older physical items, including Redis copies in RC7 archives, do not carry this
+immutable engine evidence. Their files remain usable for independently verified
+recovery, but automatic first-start database fill refuses them with a missing
+source-engine-provenance diagnosis. Preserve the archive and original host's
+container/image/volume evidence, establish the exact engine that produced the
+copy, and use a separately verified recovery procedure. Do not try engine tags
+against retained data. RC7 whole-instance automatic restore parity is not promised
+for this physical-copy subset; logical database copies retain their supported
+restore path.

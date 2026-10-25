@@ -2,8 +2,11 @@ package apptown
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -348,6 +351,109 @@ func TestARestoredDeploymentIsRebuiltWithItsDataBeforeItsAppStarts(t *testing.T)
 				if fill.State != dataprotection.FillFailed || !strings.Contains(fill.Detail, want) {
 					t.Fatalf("fill %+v, want failed naming %q", fill, want)
 				}
+			}
+		})
+	}
+}
+
+func TestRestoredDatabaseBindsNewStorageBeforeEngineAndImport(t *testing.T) {
+	for _, scenario := range []string{"fresh", "source-volume-remains", "bad-file"} {
+		t.Run(scenario, func(t *testing.T) {
+			a, f := bootWorld(t)
+			runID, stepID := deployRun(t, a)
+			run, err := workflow.ReadRunIn(t.Context(), a.DB, runID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
+			if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
+				t.Fatal(err)
+			}
+			a.Work.ExecuteStep(a.asEngine(t.Context()), stepID)
+			dep, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+			if err != nil || dep.ObservedGeneration != 1 {
+				step, _ := workflow.ReadStepIn(t.Context(), a.DB, stepID)
+				t.Fatalf("initial deployment: %+v %v step=%+v calls=%s", dep, err, step, strings.Join(f.joined(), "\n"))
+			}
+			names := mainNames(t, a)
+			volume := docker.Current.NeedVolume(names.Stack(), "postgres")
+			container := docker.Current.Service(names.Stack(), "postgres")
+			owner := a.Deployment.Deployments.StorageOf(dep)
+			source, found, err := owner.Get(t.Context(), "postgres", volume)
+			if err != nil || !found {
+				t.Fatalf("source binding: %+v %t %v", source, found, err)
+			}
+			dir := t.TempDir()
+			data := []byte("logical database fixture")
+			if err := os.WriteFile(filepath.Join(dir, "postgres.dump"), data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			digest := sha256.Sum256(data)
+			item := dataprotection.BackupItem{Kind: "need", Name: "postgres", Volume: volume, File: "postgres.dump", SHA256: hex.EncodeToString(digest[:]), Copy: dataprotection.CopyDeclared, Restore: "restore fixture"}
+			if scenario == "bad-file" {
+				item.SHA256 = strings.Repeat("0", 64)
+			}
+			b := &dataprotection.Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: "2026-10-25T00:00:00Z", Trigger: dataprotection.TriggerAppTownBackup, Path: dir, Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk, Items: []dataprotection.BackupItem{item}}
+			set, err := dataprotection.NewBackups(a.DB).Record(t.Context(), b, "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := a.DataProtection.RecordFill(t.Context(), dep.ID, set, "", true); err != nil {
+				t.Fatal(err)
+			}
+			if err := a.Deployment.Deployments.HoldForFill(t.Context(), []ids.ID{dep.ID}); err != nil {
+				t.Fatal(err)
+			}
+			for _, name := range []string{names.App(), container} {
+				if _, err := f.run("rm", "-f", name); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if scenario != "source-volume-remains" {
+				if _, err := f.run("volume", "rm", volume); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f.reply = func(args []string) (string, error, bool) {
+				line := strings.Join(args, " ")
+				if strings.Contains(line, ".Mounts") {
+					if strings.Contains(line, ".Source") {
+						return "volume\t" + volume + "\t/fixture\t/var/lib/postgresql/data\n", nil, true
+					}
+					return volume + "\t/var/lib/postgresql/data\n", nil, true
+				}
+				if strings.Contains(line, "{{json .Config}}") {
+					return `{ "Image":"postgres:16-alpine", "Env":["POSTGRES_USER=app","POSTGRES_PASSWORD=test","POSTGRES_DB=app"] }`, nil, true
+				}
+				if strings.Contains(line, ".Config.Env") {
+					return "POSTGRES_USER=app\nPOSTGRES_PASSWORD=test\nPOSTGRES_DB=app\n", nil, true
+				}
+				return "", nil, false
+			}
+			starts, imports := 0, 0
+			f.command = func(ctx context.Context, _ string, req docker.Command) ([]byte, error) {
+				if len(req.Args) > 0 && req.Args[0] == "run" && containerNameOf(strings.Join(req.Args, " ")) == container {
+					starts++
+					binding, ok, err := owner.Get(ctx, "postgres", volume)
+					if err != nil || !ok || binding.Origin != "restored" || binding.VolumeCreated.Equal(source.VolumeCreated) {
+						t.Errorf("engine started before target binding: %+v %t %v", binding, ok, err)
+					}
+				}
+				if req.Stdin != nil {
+					imports++
+					_, err := io.Copy(io.Discard, req.Stdin)
+					return nil, err
+				}
+				return f.run(req.Args...)
+			}
+			f.reset()
+			_, err = deploymentJobsForTest(a).Rebuild(t.Context(), "p/main", map[string]any{"deployment": dep.ID, "generation": 1})
+			if scenario == "fresh" {
+				if err != nil || starts != 1 || imports != 1 {
+					t.Fatalf("fresh restore: starts=%d imports=%d err=%v", starts, imports, err)
+				}
+			} else if starts != 0 || imports != 0 {
+				t.Fatalf("refused restore had effects: starts=%d imports=%d err=%v", starts, imports, err)
 			}
 		})
 	}

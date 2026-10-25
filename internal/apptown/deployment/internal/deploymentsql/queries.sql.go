@@ -887,6 +887,44 @@ func (q *Queries) EnsureStanding(ctx context.Context, arg EnsureStandingParams) 
 	return i, err
 }
 
+const establishStorageBinding = `-- name: EstablishStorageBinding :exec
+INSERT INTO deployment_storage_bindings (id, deployment_id, need, volume, data_path, declared_image, image_id, repo_digest, volume_created, volume_driver, origin, recorded_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+`
+
+type EstablishStorageBindingParams struct {
+	ID            ids.ID
+	DeploymentID  ids.ID
+	Need          string
+	Volume        string
+	DataPath      string
+	DeclaredImage string
+	ImageID       string
+	RepoDigest    string
+	VolumeCreated string
+	VolumeDriver  string
+	Origin        string
+	RecordedAt    time.Time
+}
+
+func (q *Queries) EstablishStorageBinding(ctx context.Context, arg EstablishStorageBindingParams) error {
+	_, err := q.db.ExecContext(ctx, establishStorageBinding,
+		arg.ID,
+		arg.DeploymentID,
+		arg.Need,
+		arg.Volume,
+		arg.DataPath,
+		arg.DeclaredImage,
+		arg.ImageID,
+		arg.RepoDigest,
+		arg.VolumeCreated,
+		arg.VolumeDriver,
+		arg.Origin,
+		arg.RecordedAt,
+	)
+	return err
+}
+
 const finishAttempt = `-- name: FinishAttempt :execrows
 UPDATE deployment_attempts SET status=$1, terminal=$2, observed_json=$3, finished_at=$4 WHERE id=$5
 `
@@ -3305,6 +3343,21 @@ func (q *Queries) RetainedResources(ctx context.Context, arg RetainedResourcesPa
 	return items, nil
 }
 
+const retireStorageBinding = `-- name: RetireStorageBinding :exec
+DELETE FROM deployment_storage_bindings WHERE deployment_id=$1 AND need=$2 AND volume=$3
+`
+
+type RetireStorageBindingParams struct {
+	DeploymentID ids.ID
+	Need         string
+	Volume       string
+}
+
+func (q *Queries) RetireStorageBinding(ctx context.Context, arg RetireStorageBindingParams) error {
+	_, err := q.db.ExecContext(ctx, retireStorageBinding, arg.DeploymentID, arg.Need, arg.Volume)
+	return err
+}
+
 const retireTarget = `-- name: RetireTarget :one
 UPDATE targets SET status=$1, updated_at=$2 WHERE id=$3 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision
 `
@@ -3539,6 +3592,76 @@ func (q *Queries) StandingCount(ctx context.Context, arg StandingCountParams) (i
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const storageBinding = `-- name: StorageBinding :one
+SELECT id, deployment_id, need, volume, data_path, declared_image, image_id, repo_digest, volume_created, volume_driver, origin, recorded_at FROM deployment_storage_bindings WHERE deployment_id=$1 AND need=$2 AND volume=$3
+`
+
+type StorageBindingParams struct {
+	DeploymentID ids.ID
+	Need         string
+	Volume       string
+}
+
+func (q *Queries) StorageBinding(ctx context.Context, arg StorageBindingParams) (DeploymentStorageBinding, error) {
+	row := q.db.QueryRowContext(ctx, storageBinding, arg.DeploymentID, arg.Need, arg.Volume)
+	var i DeploymentStorageBinding
+	err := row.Scan(
+		&i.ID,
+		&i.DeploymentID,
+		&i.Need,
+		&i.Volume,
+		&i.DataPath,
+		&i.DeclaredImage,
+		&i.ImageID,
+		&i.RepoDigest,
+		&i.VolumeCreated,
+		&i.VolumeDriver,
+		&i.Origin,
+		&i.RecordedAt,
+	)
+	return i, err
+}
+
+const storageBindings = `-- name: StorageBindings :many
+SELECT id, deployment_id, need, volume, data_path, declared_image, image_id, repo_digest, volume_created, volume_driver, origin, recorded_at FROM deployment_storage_bindings WHERE deployment_id=$1 ORDER BY need, volume
+`
+
+func (q *Queries) StorageBindings(ctx context.Context, deploymentID ids.ID) ([]DeploymentStorageBinding, error) {
+	rows, err := q.db.QueryContext(ctx, storageBindings, deploymentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DeploymentStorageBinding
+	for rows.Next() {
+		var i DeploymentStorageBinding
+		if err := rows.Scan(
+			&i.ID,
+			&i.DeploymentID,
+			&i.Need,
+			&i.Volume,
+			&i.DataPath,
+			&i.DeclaredImage,
+			&i.ImageID,
+			&i.RepoDigest,
+			&i.VolumeCreated,
+			&i.VolumeDriver,
+			&i.Origin,
+			&i.RecordedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const supersedeAttempts = `-- name: SupersedeAttempts :execrows

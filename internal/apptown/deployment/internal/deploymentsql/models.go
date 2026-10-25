@@ -102,6 +102,21 @@ type DeploymentOwned struct {
 	Note         string
 }
 
+type DeploymentStorageBinding struct {
+	ID            ids.ID
+	DeploymentID  ids.ID
+	Need          string
+	Volume        string
+	DataPath      string
+	DeclaredImage string
+	ImageID       string
+	RepoDigest    string
+	VolumeCreated string
+	VolumeDriver  string
+	Origin        string
+	RecordedAt    time.Time
+}
+
 type NeedInstance struct {
 	ID             ids.ID
 	DeploymentID   ids.ID

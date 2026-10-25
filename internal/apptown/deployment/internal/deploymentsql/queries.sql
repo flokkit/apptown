@@ -429,3 +429,16 @@ WHERE id=sqlc.arg(id) AND restore_check=sqlc.arg(current);
 UPDATE deployments SET handle_json=handle_json || sqlc.arg(handle_patch)::jsonb,
   release_sha='', restore_check=sqlc.arg(next), updated_at=sqlc.arg(updated_at)
 WHERE id=sqlc.arg(id) AND restore_check=sqlc.arg(current);
+
+-- name: StorageBinding :one
+SELECT * FROM deployment_storage_bindings WHERE deployment_id=sqlc.arg(deployment_id) AND need=sqlc.arg(need) AND volume=sqlc.arg(volume);
+
+-- name: StorageBindings :many
+SELECT * FROM deployment_storage_bindings WHERE deployment_id=sqlc.arg(deployment_id) ORDER BY need, volume;
+
+-- name: EstablishStorageBinding :exec
+INSERT INTO deployment_storage_bindings (id, deployment_id, need, volume, data_path, declared_image, image_id, repo_digest, volume_created, volume_driver, origin, recorded_at)
+VALUES (sqlc.arg(id), sqlc.arg(deployment_id), sqlc.arg(need), sqlc.arg(volume), sqlc.arg(data_path), sqlc.arg(declared_image), sqlc.arg(image_id), sqlc.arg(repo_digest), sqlc.arg(volume_created), sqlc.arg(volume_driver), sqlc.arg(origin), sqlc.arg(recorded_at));
+
+-- name: RetireStorageBinding :exec
+DELETE FROM deployment_storage_bindings WHERE deployment_id=sqlc.arg(deployment_id) AND need=sqlc.arg(need) AND volume=sqlc.arg(volume);

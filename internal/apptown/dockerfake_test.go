@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -27,17 +28,20 @@ import (
 // boot and reaper tests assert the recorded sequence: the argv order IS the
 // behaviour.
 type fakeDocker struct {
-	command dockerClientFunc
-	mu      sync.Mutex
-	calls   [][]string
-	started map[string]bool
-	objects map[string]bool              // networks and volumes a create made ("network n", "volume v"), until rm
-	labels  map[string]map[string]string // a started container's --label pairs
-	browser map[string]string            // a started container's browser values, as it was given them
-	ids     map[string]string            // a container's ID when a test replaces it; the one its create printed otherwise
-	names   map[string]string            // a printed container ID -> the name it was made under
-	limits  map[string]string            // a started container's "memory nanocpus", as its run and updates set them
-	entry   map[string][2][]string       // a container started by its own entrypoint: that entrypoint and its arguments
+	command           dockerClientFunc
+	mu                sync.Mutex
+	calls             [][]string
+	started           map[string]bool
+	volumeCreated     map[string]time.Time
+	volumeSequence    int64
+	storageContainers map[string]map[string]any
+	objects           map[string]bool              // networks and volumes a create made ("network n", "volume v"), until rm
+	labels            map[string]map[string]string // a started container's --label pairs
+	browser           map[string]string            // a started container's browser values, as it was given them
+	ids               map[string]string            // a container's ID when a test replaces it; the one its create printed otherwise
+	names             map[string]string            // a printed container ID -> the name it was made under
+	limits            map[string]string            // a started container's "memory nanocpus", as its run and updates set them
+	entry             map[string][2][]string       // a container started by its own entrypoint: that entrypoint and its arguments
 	// reply scripts an answer for a call; ok=false falls through to the
 	// defaults below (a running, healthy world that maps one port).
 	reply func(args []string) (out string, err error, ok bool)
@@ -114,7 +118,7 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 	// The disk admission's df container is a read of a host with room
 	// unless the test scripts it; it is not recorded with the commands the
 	// sequence tests compare.
-	if dockerfake.IsDiskRead(args) {
+	if dockerfake.IsDiskRead(args) && !(len(args) > 0 && args[0] == "image") {
 		if f.reply != nil {
 			if out, err, ok := f.reply(args); ok {
 				return []byte(out), err
@@ -138,6 +142,10 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 		case "run":
 			if n := containerNameOf(strings.Join(args, " ")); n != "" {
 				f.started[n] = true
+				if f.storageContainers == nil {
+					f.storageContainers = map[string]map[string]any{}
+				}
+				f.storageContainers[n] = dockerfake.StorageContainer(args)
 				// Real docker keeps a container's labels; so does the fake,
 				// for the source label the preview reuse check asks about.
 				if f.labels == nil {
@@ -185,7 +193,15 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			delete(f.started, args[len(args)-1])
 		case "network", "volume":
 			if len(args) > 2 && args[1] == "create" {
-				f.objects[args[0]+" "+args[len(args)-1]] = true
+				name := args[len(args)-1]
+				if args[0] == "volume" && !f.objects["volume "+name] {
+					if f.volumeCreated == nil {
+						f.volumeCreated = map[string]time.Time{}
+					}
+					f.volumeSequence++
+					f.volumeCreated[name] = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(f.volumeSequence))
+				}
+				f.objects[args[0]+" "+name] = true
 			}
 			if len(args) > 2 && args[1] == "rm" {
 				delete(f.objects, args[0]+" "+args[len(args)-1])
@@ -210,6 +226,15 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 		}
 		return []byte("linux x86_64\n"), nil
 	case "network", "volume":
+		if args[0] == "volume" && slices.Contains(args, "{{json .}}") {
+			name := args[len(args)-1]
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			if !f.objects["volume "+name] {
+				return []byte("No such volume: " + name), errFakeExit
+			}
+			return json.Marshal(map[string]any{"Name": name, "Driver": "local", "CreatedAt": f.volumeCreated[name]})
+		}
 		// A network or volume exists once a create made it, as the
 		// daemon answers.
 		if len(args) == 3 && args[1] == "inspect" {
@@ -238,6 +263,13 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			}
 		}
 		switch {
+		case tmpl == "{{json .}}":
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			if v := f.storageContainers[name]; v != nil {
+				return json.Marshal(v)
+			}
+			return nil, fmt.Errorf("fixture container %s has no image/mount evidence", name)
 		case tmpl == docker.BrowserValuesFormat:
 			f.mu.Lock()
 			values, ok := f.browser[name]
@@ -294,6 +326,9 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 		}
 		return []byte(""), nil
 	case "image":
+		if slices.Contains(args, "{{json .}}") {
+			return json.Marshal(map[string]any{"Id": dockerfake.ImageID(args[len(args)-1])})
+		}
 		if strings.Contains(strings.Join(args, " "), "{{.Config.User}}") {
 			return []byte("\n"), nil // no USER declared: the volume is left alone
 		}

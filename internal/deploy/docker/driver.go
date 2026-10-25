@@ -29,7 +29,9 @@ type Driver struct {
 	Scratch  string
 	// Owner records what the deployment's boot creates on the host; nil
 	// records nothing, and then a take-down deletes only the container.
-	Owner deploy.Owner
+	Owner          deploy.Owner
+	Storage        deploy.StorageBindings
+	RestoreStorage deploy.StorageRestore
 	// Owned reads the deployment's list, so a boot resets only what the
 	// AppTown recorded making; nil reads nothing.
 	Owned func(context.Context) ([]deploy.Owned, error)
@@ -93,7 +95,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 		Log:  logf,
 		Name: name, StackID: names.Stack(), Slug: slug, Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
-		Identity: &id, Services: SourceServices(art), Revision: source.Revision, Fill: d.Fill,
+		Identity: &id, Services: SourceServices(art), Revision: source.Revision, Fill: d.Fill, Storage: d.Storage, RestoreStorage: d.RestoreStorage,
 	}
 	if d.Owner != nil {
 		req.Record = func(o deploy.Owned) error { return d.Owner.Created(ctx, o) }
@@ -182,7 +184,7 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 	if err != nil {
 		return out, err
 	}
-	rest := TearDownOwned(ctx, dk, td.Owned, serving, td.BackedUp || td.Synthetic)
+	rest := TearDownOwned(ctx, dk, td.Owned, serving, td.BackedUp || td.Synthetic, d.Storage)
 	if serving != "" {
 		out.Deleted = append(out.Deleted, "container "+p.Container)
 	}

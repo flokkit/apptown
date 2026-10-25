@@ -97,7 +97,9 @@ type BootRequest struct {
 	// built), as each is created: its take-down deletes exactly that. nil
 	// records nothing (previews and runs have their own cleanup). A
 	// creation that cannot be recorded fails the boot.
-	Record func(deploy.Owned) error
+	Record         func(deploy.Owned) error
+	Storage        deploy.StorageBindings
+	RestoreStorage deploy.StorageRestore
 	// Owned is the deployment's list before this boot (Ownership.Recorded).
 	Owned []deploy.Owned
 	// Sealed boots a restore rehearsal: no address outside its host, its
@@ -384,7 +386,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		return res, &BootError{Phase: PhaseSecrets, Err: err}
 	}
 	res.Stack = rs
-	t.own = Ownership{Record: t.Record, Needs: map[string]string{}, Recorded: t.Owned, Persistent: t.Persistent}
+	t.own = Ownership{Storage: t.Storage, RestoreStorage: t.RestoreStorage, Record: t.Record, Needs: map[string]string{}, Recorded: t.Owned, Persistent: t.Persistent}
 	if t.Persistent {
 		t.own.Info = dockerlabel.Informational(t.Slug, t.Deployment)
 	}

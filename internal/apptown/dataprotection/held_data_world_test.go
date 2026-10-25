@@ -85,6 +85,7 @@ func standRelease(t *testing.T, s *both, slug, deployment, yaml string) string {
 			t.Fatal(err)
 		}
 		local := d.ResolveLocal(c.NeedParams[need], "", generated)
+		client.SetStorageContainer(svc, local.Image, names.NeedVolume(need), d.Local.Data)
 		cfg := struct {
 			Image string
 			Env   []string

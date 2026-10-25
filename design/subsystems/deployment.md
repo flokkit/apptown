@@ -1261,13 +1261,82 @@ start (converting a server whose app user is the superuser) and sets the
 AppTown's password; the servers started beside AppTown's own steps make the user a
 superuser (`stepEnv`, `dependency.LocalRuntime.Steps`).
 
-### Retained engine data without its container
+### Database engine and volume evidence
 
-A standing Docker need whose data depends on its engine image cannot start when
-its service container is absent but its named data volume remains. The requested
-image is not evidence of the engine that wrote those files. An unreadable volume
-inspection also refuses the start. This applies to synthetic data too; the
-refusal grants no permission to delete it. New volumes and existing service
-containers retain their normal lifecycle. Recovery requires establishing the
-previous engine or using a verified backup through a supported restore path;
-AppTown does not probe the retained files with a candidate engine.
+A standing Docker need whose kind declares `keepsImage` records its actual
+immutable engine image, data mount destination and volume incarnation in `deployment_storage_bindings`.
+Deployment owns these records separately from `deployment_owned`: knowing which
+engine may open data grants no permission to delete it. The incarnation is the
+named volume's daemon creation timestamp (preserved without rounding) and driver,
+within the deployment's target. It detects ordinary same-name replacement; it is
+not protection against a privileged administrator forging daemon state.
+
+Before starting even an existing stopped engine, or removing a container to
+change configuration or limits, Docker compares the actual mount, image and
+volume incarnation with this evidence. A matching binding permits recreation
+without the old container, using the exact recorded image ID. The requested
+image declaration must remain unchanged. A moved mutable tag never chooses new
+engine bytes. An unavailable exact local image refuses recovery; there is no tag
+fallback or automatic engine upgrade.
+
+An unbound existing volume requires a matching existing container to witness its
+actual image and mount. The owner records that observation before any writable
+start or container removal. Without that witness, retained data refuses a start,
+including synthetic data. New storage requires a witnessed absence, creation and
+complete volume/image inspection, then a committed binding before engine start.
+Unreadable Docker or database evidence refuses the operation. A successful
+idempotent volume-create command by itself does not prove storage was new.
+
+Confirmed owned-volume deletion retires its binding; failed deletion preserves
+it. Deployment removal transfers every surviving binding into retained-resource
+handles in the same transaction before deleting the deployment, including
+observed volumes that AppTown never owned. Failed transfer prevents settlement.
+
+For a whole-instance logical restore, data protection checks the recorded whole
+backup and file digests before boot. Only its admitted `filling` rebuild receives
+the separate storage-transition collaborator. Every engine-data target must be
+absent before any needs start. This boot creates and inspects the targets, and the
+owner compares the source binding and records source/target provenance in the
+same transaction that establishes the new engine and incarnation. Logical import
+then runs before the application starts. Ordinary reconcile cannot make this
+transition. Physical copies additionally require the copy-time immutable engine observation
+to match the source binding, and use that exact engine. The copied need and volume
+must match the source; a mutable client image reference is not evidence. Older
+physical copies without this provenance refuse automatic fill.
+
+A custom catalogue change cannot discard an existing binding by clearing its
+engine flag or data path. Standing-service preflight refuses that change before
+provider effects, and administrative preview reports the conflicting binding.
+Recovery also compares a nonempty changed mount destination with the recorded
+path, including when the original container is gone. Physical restore preserves
+that source path before creating its target; logical import records its explicit
+fresh target's intended path. Ordinary unbound non-engine stores remain outside
+this engine binding contract. Application dataDir uses a separate named-volume
+identity and cannot select a need's retained volume.
+
+Existing running engines can be inventoried with
+`GET /api/v1/projects/{slug}/deployments/{name}/storage-bindings` and adopted with
+`POST` to the same path (an empty body or `{}`). Preview needs deployment-read;
+adoption needs deployment-operate and records the authenticated actor. Adoption
+accepts no supplied engine evidence or override. It re-reads the exact settled
+source revision and observes every persistent engine's actual image, mounted
+volume and incarnation. A missing resource or conflicting observation refuses the
+whole adoption. Preview never establishes bindings; repeated matching adoption
+is idempotent, including containers started by their bound image ID.
+
+Both operations require a settled Docker deployment with no open attempt,
+release in flight, restore hold or take-down. Project and deployment admission
+locks remain held during bounded inspection and atomic recording. They do not
+start, pull, create, stop or delete Docker resources. Before upgrading an existing
+instance, preserve a paired controller database/files recovery point and inventory
+its persistent needs. Qualifying an installed candidate requires adoption and
+readback of every applicable deployment before resuming writable reconciliation;
+a restart that skips running containers is not adoption evidence. Conflicts retain
+the original data and require explicit operator diagnosis.
+
+A failed restore or process exit after target creation can leave storage requiring
+explicit operator recovery. A later restore boot refuses preexisting engine-data
+volumes, even one matching the source or an earlier target. It does not silently
+reimport into, delete or rebind that data. Preserve the volume and source/target
+audit evidence when diagnosing such a failure; retry requires an independently
+verified recovery procedure.

@@ -463,6 +463,54 @@ func ServiceDrift(ctx context.Context, dk Scope, cname string, svc deploy.Servic
 // names another, fails "password authentication failed". Synthetic data is
 // replaced; anything else is refused with the words, never silently replaced.
 func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs []deploy.ServiceSpec, dataClass string, own Ownership) (string, error) {
+	// A changed catalogue selector cannot discard a previously witnessed engine.
+	if own.Storage != nil {
+		for _, svc := range svcs {
+			if svc.KeepsImage && own.Needs[svc.Name] != "" {
+				continue
+			}
+			_, found, err := own.Storage.Get(ctx, svc.Name, Current.NeedVolume(stackID, svc.Name))
+			if err != nil {
+				return "", err
+			}
+			if found {
+				return "", fmt.Errorf("the %s service has a storage binding but no longer declares its persistent engine; preserve its data and restore the recorded declaration", svc.Name)
+			}
+		}
+	}
+	// A logical fill requires empty targets for every engine, not only the first
+	// service reached by the start loop. No engine starts on partial admission.
+	if own.RestoreStorage != nil {
+		if own.Storage == nil {
+			return "", errors.New("restore has no storage evidence owner")
+		}
+		for _, svc := range svcs {
+			if !svc.KeepsImage || own.Needs[svc.Name] == "" {
+				continue
+			}
+			volume := Current.NeedVolume(stackID, svc.Name)
+			exists, err := dk.Exists(ctx, "volume", "inspect", volume)
+			if err != nil {
+				return "", err
+			}
+			if exists {
+				return "", fmt.Errorf("restore refuses preexisting engine-data volume %s; recover it explicitly before retrying", volume)
+			}
+			binding, found, err := own.Storage.Get(ctx, svc.Name, volume)
+			if err != nil {
+				return "", err
+			}
+			var source *deploy.StorageBinding
+			if found {
+				source = &binding
+			}
+			if _, _, err := restoreEngine(ctx, dk, svc, own.Needs[svc.Name], source, own.RestoreStorage); err != nil {
+				return "", err
+			}
+
+		}
+	}
+
 	if len(svcs) == 0 {
 		return "", nil
 	}
@@ -479,9 +527,16 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			return network, fmt.Errorf("the standing %s service: %w", svc.Name, err)
 		}
 		path := own.Needs[svc.Name]
+		runImage := svc.Image
+		if svc.KeepsImage && path != "" && own.Storage != nil {
+			runImage, err = bindService(ctx, dk, stackID, cname, path, svc, there, own)
+			if err != nil {
+				return network, fmt.Errorf("admitting the %s engine: %w", svc.Name, err)
+			}
+		}
 		// Without the container, the requested image is not evidence of the
 		// engine that wrote retained data. Refuse before any writable start.
-		if !there && svc.KeepsImage && path != "" {
+		if !there && svc.KeepsImage && path != "" && own.Storage == nil {
 			vol := Current.NeedVolume(stackID, svc.Name)
 			retained, err := dk.Exists(ctx, "volume", "inspect", vol)
 			if err != nil {
@@ -518,6 +573,18 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 				if err := replaceDrifted(ctx, dk, stackID, cname, svc, drift, dataClass, own); err != nil {
 					return network, err
 				}
+				if svc.KeepsImage && path != "" && own.Storage != nil {
+					exists, err := dk.Exists(ctx, "volume", "inspect", Current.NeedVolume(stackID, svc.Name))
+					if err != nil {
+						return network, err
+					}
+					if !exists {
+						runImage, err = bindService(ctx, dk, stackID, cname, path, svc, false, own)
+						if err != nil {
+							return network, err
+						}
+					}
+				}
 			}
 		}
 		{
@@ -543,7 +610,7 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 				args = append(args, "-v", vol+":"+path)
 			}
 			args = append(args, svc.EntrypointFlag()...)
-			args = append(args, svc.Image)
+			args = append(args, runImage)
 			args = append(args, svc.RunArgs()...)
 			// A service that did not start fails the boot: the app would run
 			// without it, and its size would read as applied.
@@ -779,6 +846,11 @@ func replaceDrifted(ctx context.Context, dk Scope, stackID, cname string, svc de
 		// old parameters would keep them.
 		if err := dk.RemoveVolume(ctx, vol); err != nil {
 			return fmt.Errorf("removing the %s service's data volume %s to recreate it: %w", svc.Name, vol, err)
+		}
+		if own.Storage != nil {
+			if err := own.Storage.Retire(ctx, svc.Name, vol); err != nil {
+				return fmt.Errorf("retiring the deleted %s volume's engine evidence: %w", svc.Name, err)
+			}
 		}
 	}
 	return nil

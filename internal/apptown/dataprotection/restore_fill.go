@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dataprotection/internal/protectionsql"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -94,29 +95,44 @@ func (s *core) FillsOf(ctx context.Context, deploymentIDs []ids.ID) (map[ids.ID]
 // Fill is the fill a filling deployment's rebuild boots with
 // (deployment.RestoreFiller). It refuses, before anything of the app
 // starts, a deployment the archive held no whole set for.
-func (s *core) Fill(ctx context.Context, dep *deployment.Deployment, t *deployment.Target) (func(network string) error, error) {
+func (s *core) Fill(ctx context.Context, dep *deployment.Deployment, t *deployment.Target) (deployment.RestoreFill, error) {
 	row, err := protectionsql.New(s.db.SQL()).RestoreFillOf(ctx, dep.ID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("%s waits for its data, and no fill is recorded for it", dep.Name)
+		return deployment.RestoreFill{}, fmt.Errorf("%s waits for its data, and no fill is recorded for it", dep.Name)
 	}
 	if err != nil {
-		return nil, err
+		return deployment.RestoreFill{}, err
 	}
 	if row.State != FillWaiting {
-		return nil, fmt.Errorf("%s's fill already %s", dep.Name, row.State)
+		return deployment.RestoreFill{}, fmt.Errorf("%s's fill already %s", dep.Name, row.State)
 	}
-	return func(string) error { return s.fill(ctx, dep, t, row) }, nil
+	b, err := s.fillBackup(ctx, dep, row)
+	if err != nil {
+		return deployment.RestoreFill{}, err
+	}
+	copies := map[string]deploy.StorageCopy{}
+	for _, it := range b.Items {
+		if it.Error != "" || it.SHA256 == "" || it.File == "" || fileSHA256(filepath.Join(b.Path, it.File)) != it.SHA256 {
+			return deployment.RestoreFill{}, fmt.Errorf("set %s has no verified file for %s", b.ID, it.Name)
+		}
+		if it.Kind == "need" && it.Copy == CopyDeclared && it.Restore != "" {
+			copies[it.Name] = deploy.StorageCopy{Volume: it.Volume, Physical: it.RestoreStopped, EngineImageID: it.EngineImageID}
+		}
+	}
+	return deployment.RestoreFill{Run: func(string) error { return s.fill(ctx, dep, t, row) }, Copies: copies}, nil
 }
 
-func (s *core) fill(ctx context.Context, dep *deployment.Deployment, t *deployment.Target, row protectionsql.RestoreFill) error {
-	// The fill's volume writes run in one snapshot's shell image.
-	sh := s.env.ToolVersions().Images.Sh
+func (s *core) fillBackup(ctx context.Context, dep *deployment.Deployment, row protectionsql.RestoreFill) (Backup, error) {
+
 	if row.BackupID.IsZero() {
-		return fmt.Errorf("AppTown's backup holds no set of %s's data (%s); its app is not started on empty data", dep.Name, orElse(row.Detail, "no reason recorded"))
+		return Backup{}, fmt.Errorf("AppTown's backup holds no set of %s's data (%s); its app is not started on empty data", dep.Name, orElse(row.Detail, "no reason recorded"))
 	}
 	b, err := backupRecord(protectionsql.New(s.db.SQL()).BackupByIDAnywhere(ctx, row.BackupID))
 	if err != nil {
-		return fmt.Errorf("reading set %s: %w", row.BackupID, err)
+		return Backup{}, fmt.Errorf("reading set %s: %w", row.BackupID, err)
+	}
+	if b.ProjectID != dep.ProjectID || b.Deployment != dep.Name {
+		return Backup{}, fmt.Errorf("set %s belongs to a different deployment", b.ID)
 	}
 	if b.Status != BackupOK {
 		var bad []string
@@ -125,10 +141,19 @@ func (s *core) fill(ctx context.Context, dep *deployment.Deployment, t *deployme
 				bad = append(bad, it.Kind+" "+it.Name+": "+it.Error)
 			}
 		}
-		return fmt.Errorf("set %s of %s is %s (%s); its app is not started on part of its data", b.ID, dep.Name, b.Status, strings.Join(bad, "; "))
+		return Backup{}, fmt.Errorf("set %s of %s is %s (%s); its app is not started on part of its data", b.ID, dep.Name, b.Status, strings.Join(bad, "; "))
 	}
 	if b.Store != StoreAppTownDisk {
-		return fmt.Errorf("set %s is not on AppTown's disk, where a restore of AppTown puts it", b.ID)
+		return Backup{}, fmt.Errorf("set %s is not on AppTown's disk, where a restore of AppTown puts it", b.ID)
+	}
+	return b, nil
+}
+
+func (s *core) fill(ctx context.Context, dep *deployment.Deployment, t *deployment.Target, row protectionsql.RestoreFill) error {
+	sh := s.env.ToolVersions().Images.Sh
+	b, err := s.fillBackup(ctx, dep, row)
+	if err != nil {
+		return err
 	}
 	p, err := project.ByIDIn(ctx, s.db, dep.ProjectID)
 	if err != nil {

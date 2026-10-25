@@ -24,8 +24,11 @@ import (
 // Needs names the need services and where each keeps its data ("" keeps
 // none).
 type Ownership struct {
-	Record func(deploy.Owned) error
-	Needs  map[string]string
+	// Storage records engine identity separately from deletion ownership.
+	Storage        deploy.StorageBindings
+	RestoreStorage deploy.StorageRestore
+	Record         func(deploy.Owned) error
+	Needs          map[string]string
 	// Recorded is the deployment's list as it stood before this boot: what
 	// AppTown may delete (a synthetic need's volume, when its parameters
 	// moved). Nothing else is ever deleted.
@@ -109,9 +112,18 @@ func recordService(out []byte, cname, service string, own Ownership) error {
 // this create made it. need names the need whose data it holds ("" is the
 // app's own).
 func ensureVolume(ctx context.Context, dk Scope, volume, stackID, need string, own Ownership) error {
-	if dk.OK(ctx, "volume", "inspect", volume) {
+	exists, err := dk.Exists(ctx, "volume", "inspect", volume)
+	if err != nil {
+		return err
+	}
+	if exists {
 		return nil
 	}
+	return createVolume(ctx, dk, volume, stackID, need, own)
+}
+
+// createVolume follows a successful absence observation under deployment serialization.
+func createVolume(ctx context.Context, dk Scope, volume, stackID, need string, own Ownership) error {
 	if out, err := dk.Run(ctx, append(append([]string{"volume", "create", "--label", dockerlabel.Owner + "=" + stackID}, own.Info...), volume)...); err != nil {
 		return fmt.Errorf("volume create %s: %v: %s", volume, err, strings.TrimSpace(string(out)))
 	}
@@ -125,7 +137,7 @@ func ensureVolume(ctx context.Context, dk Scope, volume, stackID, need string, o
 // what it cannot be asked about, and a failed delete, is reported Left,
 // never hidden. A container goes without its anonymous volumes: only a
 // volume the list names is ever deleted.
-func TearDownOwned(ctx context.Context, dk Scope, owned []deploy.Owned, serving string, backedUp bool) deploy.TakenDown {
+func TearDownOwned(ctx context.Context, dk Scope, owned []deploy.Owned, serving string, backedUp bool, storage deploy.StorageBindings) deploy.TakenDown {
 	var out deploy.TakenDown
 	left := func(o deploy.Owned, why string) {
 		name := o.Name
@@ -151,6 +163,11 @@ func TearDownOwned(ctx context.Context, dk Scope, owned []deploy.Owned, serving 
 				continue
 			}
 			if !there {
+				if kind == "volume" && storage != nil {
+					if err := storage.Retire(ctx, o.Need, o.ID); err != nil {
+						left(o, "volume is gone but engine evidence could not be retired: "+err.Error())
+					}
+				}
 				continue // the daemon says it is gone
 			}
 			switch kind {
@@ -173,6 +190,12 @@ func TearDownOwned(ctx context.Context, dk Scope, owned []deploy.Owned, serving 
 			if err != nil {
 				left(o, err.Error())
 				continue
+			}
+			if kind == "volume" && storage != nil {
+				if err := storage.Retire(ctx, o.Need, o.ID); err != nil {
+					left(o, "volume was deleted but engine evidence could not be retired: "+err.Error())
+					continue
+				}
 			}
 			out.Deleted = append(out.Deleted, o.Label())
 		}

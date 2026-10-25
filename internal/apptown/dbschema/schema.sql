@@ -1628,6 +1628,22 @@ CREATE TABLE IF NOT EXISTS deployment_limit_events (
 );
 CREATE INDEX IF NOT EXISTS deployment_limit_events_at ON deployment_limit_events(deployment_id, at);
 
+CREATE TABLE IF NOT EXISTS deployment_storage_bindings (
+  id UUID PRIMARY KEY,
+  deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
+  need TEXT NOT NULL CHECK (need <> ''),
+  volume TEXT NOT NULL CHECK (volume <> ''),
+  data_path TEXT NOT NULL CHECK (data_path <> ''),
+  declared_image TEXT NOT NULL CHECK (declared_image <> ''),
+  image_id TEXT NOT NULL CHECK (image_id <> ''),
+  repo_digest TEXT NOT NULL DEFAULT '',
+  volume_created TEXT NOT NULL CHECK (volume_created <> ''),
+  volume_driver TEXT NOT NULL CHECK (volume_driver <> ''),
+  origin TEXT NOT NULL CHECK (origin IN ('created', 'observed', 'restored')),
+  recorded_at TIMESTAMPTZ NOT NULL,
+  UNIQUE (deployment_id, need, volume)
+);
+
 -- Source: internal/apptown/preview/schema.sql
 -- What AppTown created for a preview, by the preview's name: today the
 -- AI models key a preview of an app needing llm gets
