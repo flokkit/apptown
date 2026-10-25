@@ -61,14 +61,16 @@ const (
 )
 
 type BackupItem struct {
-	Kind    string `json:"kind"` // volume | need
-	Name    string `json:"name"` // the volume, or the need (postgres)
-	File    string `json:"file"` // the file inside the set's directory
-	Bytes   int64  `json:"bytes"`
-	SHA256  string `json:"sha256"`
-	Error   string `json:"error,omitempty"`
-	How     string `json:"how"`               // the command or "tar of <path>"
-	Restore string `json:"restore,omitempty"` // the command that puts it back (needs)
+	// EngineImageID is the physical copy writer observed at export time.
+	EngineImageID string `json:"engineImageID,omitempty"`
+	Kind          string `json:"kind"` // volume | need
+	Name          string `json:"name"` // the volume, or the need (postgres)
+	File          string `json:"file"` // the file inside the set's directory
+	Bytes         int64  `json:"bytes"`
+	SHA256        string `json:"sha256"`
+	Error         string `json:"error,omitempty"`
+	How           string `json:"how"`               // the command or "tar of <path>"
+	Restore       string `json:"restore,omitempty"` // the command that puts it back (needs)
 	// Volume is the recorded volume a take-down's final copy was taken
 	// from: the copy certifies that volume and no other.
 	Volume string `json:"volume,omitempty"`

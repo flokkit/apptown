@@ -103,7 +103,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 		t.Fatalf("the need never wrote its data: %s", data)
 	}
 
-	out := TearDownOwned(context.Background(), dk, owned, "", false)
+	out := TearDownOwned(context.Background(), dk, owned, "", false, nil)
 	if dk.OK(context.Background(), "inspect", Current.Service(stack, "store")) || dk.OK(context.Background(), "inspect", Current.Service(stack, "worker")) || dk.OK(context.Background(), "network", "inspect", Current.Network(stack)) {
 		t.Fatalf("containers or network left after take-down: %+v", out)
 	}
@@ -115,7 +115,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 		t.Fatalf("the kept volume lost its data: %v %s", err, check)
 	}
 
-	out = TearDownOwned(context.Background(), dk, owned, "", true)
+	out = TearDownOwned(context.Background(), dk, owned, "", true, nil)
 	if dk.OK(context.Background(), "volume", "inspect", Current.NeedVolume(stack, "store")) || len(out.Left) != 0 {
 		t.Fatalf("the backed-up volume stayed: %+v", out)
 	}
@@ -134,7 +134,7 @@ func TestIntegrationTakeDownDeletesExactlyWhatTheBootRecorded(t *testing.T) {
 	if slices.ContainsFunc(owned, func(o deploy.Owned) bool { return o.Kind == "network" }) {
 		t.Fatalf("a network the boot did not make was recorded: %+v", owned)
 	}
-	TearDownOwned(context.Background(), dk, owned, "", true)
+	TearDownOwned(context.Background(), dk, owned, "", true, nil)
 	if !dk.OK(context.Background(), "network", "inspect", Current.Network(stack)) {
 		t.Fatal("a network AppTown did not make was deleted")
 	}
@@ -155,7 +155,7 @@ func TestIntegrationTakeDownKeepsAContainersUnrecordedAnonymousVolume(t *testing
 	if vol == "" {
 		t.Fatal("no anonymous volume")
 	}
-	taken := TearDownOwned(context.Background(), dk, []deploy.Owned{{Kind: "container", ID: id, Name: name}}, "", true)
+	taken := TearDownOwned(context.Background(), dk, []deploy.Owned{{Kind: "container", ID: id, Name: name}}, "", true, nil)
 	if dk.OK(context.Background(), "inspect", id) || len(taken.Deleted) != 1 {
 		t.Fatalf("the listed container: %+v", taken)
 	}

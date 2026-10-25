@@ -202,10 +202,15 @@ func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID i
 			it.Error = p.Unresolved
 		default:
 			var err error
-			if p.Declared != nil {
-				it.Client, it.AsUser, err = exportDeclared(ctx, dk, p, path)
-			} else {
-				err = stepToFile(ctx, dk, path, p.Step)
+			if p.Kind == "need" && p.RestoreStopped {
+				p, it.EngineImageID, err = physicalCopySource(ctx, dk, p)
+			}
+			if err == nil {
+				if p.Declared != nil {
+					it.Client, it.AsUser, err = exportDeclared(ctx, dk, p, path)
+				} else {
+					err = stepToFile(ctx, dk, path, p.Step)
+				}
 			}
 			if err != nil {
 				it.Error = strs.Truncate(err.Error(), 300)
@@ -845,4 +850,18 @@ type BackupPlanItem struct {
 	Volume string `json:"volume,omitempty"`
 	How    string `json:"how"`
 	Caveat string `json:"caveat,omitempty"`
+}
+
+// physicalCopySource pins the exporter to the exact observed container. The
+// later instance SQL dump cannot certify which engine wrote these bytes.
+func physicalCopySource(ctx context.Context, dk docker.Scope, p backupPlanItem) (backupPlanItem, string, error) {
+	if p.Declared == nil {
+		return p, "", fmt.Errorf("the %s physical copy has no declared source", p.Name)
+	}
+	id, image, err := docker.ObserveStorageEngine(ctx, dk, p.Container, p.Declared.Local.Data, p.Volume)
+	if err != nil {
+		return p, "", err
+	}
+	p.Container = id
+	return p, image, nil
 }

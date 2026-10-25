@@ -296,3 +296,33 @@ func (h Deployments) resourceOverride(w http.ResponseWriter, r *http.Request, se
 		WriteJSON(w, 200, out)
 	})
 }
+
+// DeploymentStorageBindings previews only fresh existing-engine evidence.
+func (h Deployments) DeploymentStorageBindings(w http.ResponseWriter, r *http.Request) {
+	p, ok := ProjectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	out, err := h.deployment.PreviewStorage(r.Context(), p.ID, r.PathValue("name"))
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, out)
+}
+
+// AdoptDeploymentStorageBindings accepts no supplied or overriding evidence.
+func (h Deployments) AdoptDeploymentStorageBindings(w http.ResponseWriter, r *http.Request) {
+	p, ok := ProjectFromPath(h.projects, w, r)
+	if !ok {
+		return
+	}
+	jsonCommand(w, r, jsonBody{optional: true, strict: true}, func(_ struct{}) {
+		out, err := h.deployment.AdoptStorage(r.Context(), p.ID, r.PathValue("name"))
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, out)
+	})
+}

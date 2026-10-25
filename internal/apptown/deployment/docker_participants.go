@@ -109,6 +109,7 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 	}
 	request := docker.BootRequest{Docker: dk, Name: names.App(), StackID: names.Stack(), Workspace: in.Source.Workspace, Slug: p.Slug, Deployment: dep.Name, DataClass: in.DataClass, HostPort: in.HostPort, Persistent: true, Services: in.Services, Probe: 90 * time.Second, PageCheck: true, Revision: in.Source.Revision}
 	owner := s.Deployments.OwnerOf(dep)
+	request.Storage = s.Deployments.StorageOf(dep)
 	request.Log = in.Log
 	request.Record = func(o deploy.Owned) error { return owner.Created(ctx, o) }
 	if request.Owned, err = s.Deployments.Owned(ctx, dep.ID); err != nil {

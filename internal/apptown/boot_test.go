@@ -358,7 +358,19 @@ func TestRunDeployReusesStandingNeeds(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.markStartedAs(pg, kind.ResolveLocal(nil, "", nil).Spec()) // the env's postgres from the last release, data and all
+	local := kind.ResolveLocal(nil, "", nil)
+	f.markStartedAs(pg, local.Spec())
+	// The previous engine actually has its declared data volume and mount.
+	volume := names.NeedVolume("postgres")
+	if _, err := f.Run(t.Context(), "", docker.Command{Args: []string{"volume", "create", volume}}); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	if f.storageContainers == nil {
+		f.storageContainers = map[string]map[string]any{}
+	}
+	f.storageContainers[pg] = dockerfake.StorageContainer([]string{"run", "--name", pg, "-v", volume + ":" + local.Data, local.Image})
+	f.mu.Unlock()
 
 	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 
@@ -400,7 +412,13 @@ func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	f.reset()
 	f.mu.Lock()
 	f.started = map[string]bool{}
-	f.objects = map[string]bool{} // the host lost its networks and volumes too
+	// Container/network loss retains the database and app data. Missing bound
+	// volumes are refused (TestStorageAdmissionRequiresObservedEngineAndIncarnation).
+	for object := range f.objects {
+		if !strings.HasPrefix(object, "volume ") {
+			delete(f.objects, object)
+		}
+	}
 	f.labels = map[string]map[string]string{}
 	f.mu.Unlock()
 

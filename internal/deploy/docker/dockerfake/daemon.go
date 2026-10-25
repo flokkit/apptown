@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 
@@ -23,26 +24,29 @@ import (
 )
 
 type Daemon struct {
-	mu           sync.Mutex
-	commands     [][]string
-	running      map[string]bool
-	volumes      map[string]bool
-	stopped      map[string]bool // stopped by a command, still present
-	restarts     map[string]int  // Docker's restart-policy counter
-	exitCodes    map[string]int  // the last exit code
-	oomKilled    map[string]bool // the last exit was the kernel's out-of-memory kill
-	labels       map[string]map[string]string
-	started      map[string][2][]string // a container started by its own entrypoint: that entrypoint and its arguments
-	limits       map[string][2]int64    // the memory and NanoCPUs Docker holds a container to
-	host         string                 // docker info's memory, CPUs and data folder
-	disk         string                 // what df says of the data folder's filesystem
-	port         int
-	reply        func([]string) ([]byte, error, bool)
-	results      *containerresulttest.Daemon
-	commandReply func(docker.Command) ([]byte, error, bool)
-	configs      []string              // each command's --config, "" for the ambient one
-	published    map[string]*published // nil: every container answers at port (PublishPorts)
-	names        map[string]string     // a created container's ID -> its name
+	mu                sync.Mutex
+	commands          [][]string
+	running           map[string]bool
+	volumes           map[string]bool
+	volumeCreated     map[string]time.Time
+	volumeSequence    int64
+	storageContainers map[string]map[string]any
+	stopped           map[string]bool // stopped by a command, still present
+	restarts          map[string]int  // Docker's restart-policy counter
+	exitCodes         map[string]int  // the last exit code
+	oomKilled         map[string]bool // the last exit was the kernel's out-of-memory kill
+	labels            map[string]map[string]string
+	started           map[string][2][]string // a container started by its own entrypoint: that entrypoint and its arguments
+	limits            map[string][2]int64    // the memory and NanoCPUs Docker holds a container to
+	host              string                 // docker info's memory, CPUs and data folder
+	disk              string                 // what df says of the data folder's filesystem
+	port              int
+	reply             func([]string) ([]byte, error, bool)
+	results           *containerresulttest.Daemon
+	commandReply      func(docker.Command) ([]byte, error, bool)
+	configs           []string              // each command's --config, "" for the ambient one
+	published         map[string]*published // nil: every container answers at port (PublishPorts)
+	names             map[string]string     // a created container's ID -> its name
 }
 
 // published is one container's published port: fixed is the host port its
@@ -192,7 +196,7 @@ func (d *Daemon) SetVolume(name string, exists bool) {
 	if d.volumes == nil {
 		d.volumes = map[string]bool{}
 	}
-	d.volumes[name] = exists
+	d.setVolume(name, exists)
 }
 
 func (d *Daemon) SetRunning(name string, running bool) {
@@ -269,6 +273,10 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		for i := range args {
 			if args[i] == "--name" && i+1 < len(args) {
 				d.running[args[i+1]] = true
+				if d.storageContainers == nil {
+					d.storageContainers = map[string]map[string]any{}
+				}
+				d.storageContainers[args[i+1]] = StorageContainer(args)
 				d.labels[args[i+1]] = make(map[string]string)
 				delete(d.started, args[i+1])
 				if d.published != nil {
@@ -352,14 +360,17 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 			if d.volumes == nil {
 				d.volumes = map[string]bool{}
 			}
-			d.volumes[name] = true
+			d.setVolume(name, true)
 			return []byte(name + "\n"), nil
 		case "inspect", "rm":
 			if !d.volumes[name] {
 				return []byte("Error: No such volume: " + name), fmt.Errorf("volume %s absent", name)
 			}
 			if args[1] == "rm" {
-				delete(d.volumes, name)
+				d.setVolume(name, false)
+			}
+			if args[1] == "inspect" && slices.Contains(args, "{{json .}}") {
+				return json.Marshal(map[string]any{"Name": name, "Driver": "local", "CreatedAt": d.volumeCreated[name]})
 			}
 			return nil, nil
 		}
@@ -388,6 +399,16 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		return []byte(fmt.Sprintf("%d %d\n", l[0], l[1])), nil
 	}
 	if args[0] == "inspect" && len(args) >= 4 && args[1] == "--format" {
+		if args[2] == "{{json .}}" {
+			name := args[len(args)-1]
+			if !d.running[name] && !d.stopped[name] {
+				return []byte("No such object: " + name), fmt.Errorf("container %s absent", name)
+			}
+			if v := d.storageContainers[name]; v != nil {
+				return json.Marshal(v)
+			}
+			return nil, fmt.Errorf("fixture container %s has no engine/mount evidence", name)
+		}
 		name := args[len(args)-1]
 		status := "exited"
 		if d.running[name] {
@@ -427,6 +448,9 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		return nil, nil
 	}
 	if args[0] == "image" {
+		if len(args) > 3 && args[1] == "inspect" && slices.Contains(args, "{{json .}}") {
+			return json.Marshal(map[string]any{"Id": ImageID(args[len(args)-1])})
+		}
 		return []byte("sha256:built\n"), nil
 	}
 	if IsDiskRead(args) {
@@ -663,4 +687,70 @@ func DiskReadAnswer(args []string, df string) []byte {
 		return []byte(df)
 	}
 	return nil
+}
+
+// setVolume changes incarnation only when an absent volume is created.
+func (d *Daemon) setVolume(name string, exists bool) {
+	if d.volumes == nil {
+		d.volumes = map[string]bool{}
+	}
+	if d.volumeCreated == nil {
+		d.volumeCreated = map[string]time.Time{}
+	}
+	if exists && !d.volumes[name] {
+		d.volumeSequence++
+		d.volumeCreated[name] = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(d.volumeSequence))
+	}
+	d.volumes[name] = exists
+	if !exists {
+		delete(d.volumeCreated, name)
+	}
+}
+
+// ImageID is the immutable image the fixture resolves a reference to.
+func ImageID(ref string) string {
+	if strings.HasPrefix(ref, "sha256:") && len(ref) == 71 {
+		return ref
+	}
+	sum := sha256.Sum256([]byte("image " + ref))
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// StorageContainer is the image/mount observation of a recorded docker run.
+func StorageContainer(args []string) map[string]any {
+	image, name := "", ""
+	var mounts []map[string]string
+	for i := 1; i < len(args); i++ {
+		a := args[i]
+		if a == "--name" && i+1 < len(args) {
+			name = args[i+1]
+		}
+		if a == "-v" && i+1 < len(args) {
+			parts := strings.Split(args[i+1], ":")
+			if len(parts) >= 2 {
+				mounts = append(mounts, map[string]string{"Type": "volume", "Name": parts[0], "Destination": parts[1]})
+			}
+		}
+		if strings.HasPrefix(a, "-") {
+			if a == "-d" || a == "--rm" || a == "--init" || a == "--read-only" || a == "-i" || a == "-t" || strings.Contains(a, "=") {
+				continue
+			}
+			i++
+			continue
+		}
+		image = a
+		break
+	}
+	return map[string]any{"Id": ContainerID(name), "Image": ImageID(image), "Config": map[string]string{"Image": image}, "Mounts": mounts}
+}
+
+// SetStorageContainer supplies a fixture's observed engine and named data mount.
+// SetRunning alone does not invent compatibility evidence for retained data.
+func (d *Daemon) SetStorageContainer(name, image, volume, path string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.storageContainers == nil {
+		d.storageContainers = map[string]map[string]any{}
+	}
+	d.storageContainers[name] = map[string]any{"Id": d.created(name), "Image": ImageID(image), "Config": map[string]string{"Image": image}, "Mounts": []map[string]string{{"Type": "volume", "Name": volume, "Destination": path}}}
 }

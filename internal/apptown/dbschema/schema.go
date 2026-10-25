@@ -96,6 +96,23 @@ FROM integrations i
 WHERE i.id = v.integration_id AND i.capability = 'scanner' AND jsonb_typeof(v.config_json) = 'object' AND NOT jsonb_exists(v.config_json, 'appliesTo')
   AND COALESCE(v.config_json->'manual', 'false'::jsonb) <> 'true'::jsonb`,
 	}},
+	{n: 170, note: "record observed database engine and volume incarnation separately from deletion ownership", stmts: []string{
+		`CREATE TABLE IF NOT EXISTS deployment_storage_bindings (
+  id UUID PRIMARY KEY,
+  deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
+  need TEXT NOT NULL CHECK (need <> ''),
+  volume TEXT NOT NULL CHECK (volume <> ''),
+  data_path TEXT NOT NULL CHECK (data_path <> ''),
+  declared_image TEXT NOT NULL CHECK (declared_image <> ''),
+  image_id TEXT NOT NULL CHECK (image_id <> ''),
+  repo_digest TEXT NOT NULL DEFAULT '',
+  volume_created TEXT NOT NULL CHECK (volume_created <> ''),
+  volume_driver TEXT NOT NULL CHECK (volume_driver <> ''),
+  origin TEXT NOT NULL CHECK (origin IN ('created', 'observed', 'restored')),
+  recorded_at TIMESTAMPTZ NOT NULL,
+  UNIQUE (deployment_id, need, volume)
+)`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

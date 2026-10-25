@@ -98,7 +98,7 @@ func setBackupDockerCommand(client *dockerfake.Daemon, reply func(docker.Command
 	client.SetCommandReply(func(req docker.Command) ([]byte, error, bool) {
 		// How a container was started, whether it runs, and whether a
 		// container or volume is there, are the daemon's to answer.
-		if len(req.Args) > 2 && req.Args[0] == "inspect" && req.Args[2] == "{{json .Config}}" ||
+		if len(req.Args) > 2 && req.Args[0] == "inspect" && (req.Args[2] == "{{json .Config}}" || req.Args[2] == "{{json .}}") ||
 			len(req.Args) == 4 && req.Args[0] == "inspect" && req.Args[2] == "{{.State.Running}}" ||
 			len(req.Args) == 2 && req.Args[0] == "inspect" || len(req.Args) == 3 && req.Args[0] == "volume" && req.Args[1] == "inspect" {
 			return nil, nil, false

@@ -188,7 +188,7 @@ func TestTearDownDeletesExactlyTheList(t *testing.T) {
 			h.unknown["volume unreachable"] = true // unknown is not gone
 			h.inUse["reg/shop@sha256:bb"] = true
 			h.refuse["network apptown-net-env-shop-main"] = true
-			out := TearDownOwned(context.Background(), h.scope(), list, "serving", backedUp)
+			out := TearDownOwned(context.Background(), h.scope(), list, "serving", backedUp, nil)
 			wantRemoved := []string{"container pg", "image reg/shop@sha256:aa"}
 			wantDeleted := []string{"container apptown-svc-env-shop-main-postgres", "image reg/shop@sha256:aa"}
 			if backedUp {

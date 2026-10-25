@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 )
 
 // fileCopyKind is a custom kind that keeps local data and declares a copy
@@ -111,7 +112,7 @@ func TestABackupSaysHowEachItemWasCopied(t *testing.T) {
 			t.Fatalf("the s3 copy is never given the gateway's root key or the catalogue's constants (%s): %q", never, env)
 		}
 	}
-	if !strings.Contains(strings.Join(ran, "\n"), "exec "+deployedNames(t, s, pid, "main", "bwc").Service("redis")+" sh -c [ \"$(redis-cli SAVE)\" = OK ] && cat /data/dump.rdb") {
+	if !strings.Contains(strings.Join(ran, "\n"), "exec "+dockerfake.ContainerID(deployedNames(t, s, pid, "main", "bwc").Service("redis"))+" sh -c [ \"$(redis-cli SAVE)\" = OK ] && cat /data/dump.rdb") {
 		t.Fatalf("Redis is made to save before its snapshot is copied:\n%s", strings.Join(ran, "\n"))
 	}
 	// The record, read back, keeps how and how to put it back.
@@ -119,7 +120,14 @@ func TestABackupSaysHowEachItemWasCopied(t *testing.T) {
 	if err != nil || len(sets) != 1 {
 		t.Fatal(sets, err)
 	}
+	redis, err := s.catalog.ByCapability(t.Context(), "redis")
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, it := range sets[0].Items {
+		if it.Name == "redis" && it.EngineImageID != dockerfake.ImageID(redis.ResolveLocal(nil, "", nil).Image) {
+			t.Fatalf("physical copy lacks its observed engine: %+v", it)
+		}
 		if it.Name == "redis" && (it.Copy != CopyDeclared || !it.RestoreStopped || it.Verify == "") {
 			t.Fatalf("the redis item carries its restore mode and check: %+v", it)
 		}

@@ -92,8 +92,13 @@ func (e *Deployment) TakeDownHeldAfterRestore() error {
 // rebuild: the fill its boot runs after the needs and before anything of
 // the app (docker.BootRequest.Fill), and the settling of that fill once the
 // rebuild has ended (why "" when its data is back).
+type RestoreFill struct {
+	Run    func(network string) error
+	Copies map[string]deploy.StorageCopy
+}
+
 type RestoreFiller interface {
-	Fill(ctx context.Context, dep *Deployment, t *Target) (func(network string) error, error)
+	Fill(ctx context.Context, dep *Deployment, t *Target) (RestoreFill, error)
 	Filled(ctx context.Context, deploymentID ids.ID, why string) error
 }
 
