@@ -80,8 +80,12 @@ reservation, before the backend is asked for anything, in
 `<data>/tasks/<operation>/request.json` (0600, written whole, never
 replaced). Every later send of it (after a lost reply, or by a restarted
 AppTown) sends those bytes, never a request rebuilt from settings that may have
-changed since; its digest must still be the recorded one. A task recorded
-before requests were kept has its request rebuilt and refused if it changed.
+changed since; its digest must still be the recorded one. Reservation precedes
+file persistence: a crash between them leaves no saved request. Recovery fails
+that work instead of reconstructing it, and confirms owned cleanup through the
+existing backend protocol. If a completed remote script has an uncollected
+result, its workspace stays held until that result is kept; a missing request
+never authorizes discarding the only copy.
 
 A settled task is released (its container, and its own workspace, removed)
 and the release recorded only once the backend confirms it. One it does not
