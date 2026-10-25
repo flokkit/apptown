@@ -33,6 +33,7 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 env:
   GOFLAGS: -buildvcs=false
@@ -42,6 +43,24 @@ defaults:
     shell: bash
 
 jobs:
+  qualification-report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: report qualification inputs (all tests still execute)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || '' }}
+        run: python3 scripts/heavy-qualification.py --repository "$GITHUB_REPOSITORY" --base "$BASE_SHA" --candidate "$GITHUB_SHA" --output heavy-qualification.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: heavy-qualification
+          path: heavy-qualification.json
+          retention-days: 7
+
   web:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -213,7 +232,7 @@ jobs:
   # job failed or was skipped, and then fails: skipped is not passed.
   heavy-ok:
     if: always()
-    needs: [web, tier, race]
+    needs: [qualification-report, web, tier, race]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
