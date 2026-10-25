@@ -112,6 +112,7 @@ func TestAcceptanceCountsOnlyWhereTheAccepterCouldApprove(t *testing.T) {
 func TestAcceptanceCarriesIntoALaterApprovalStage(t *testing.T) {
 	t.Parallel()
 	store, work, landing, _ := landingAcceptanceFixture(t)
+	storedReadyStart(t, store.db, landing.ID)
 	if _, err := store.apply(context.Background(), work.ID, landing.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -136,6 +137,7 @@ func TestAcceptanceCarriesIntoALaterApprovalStage(t *testing.T) {
 func TestAcceptanceWithheldFromALaterStageLeavesItWaiting(t *testing.T) {
 	t.Parallel()
 	store, work, landing, _ := landingAcceptanceFixture(t)
+	storedReadyStart(t, store.db, landing.ID)
 	store.eligible = denyStep("review")
 	if _, err := store.apply(context.Background(), work.ID, landing.ID); err != nil {
 		t.Fatal(err)

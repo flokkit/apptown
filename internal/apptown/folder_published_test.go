@@ -134,6 +134,23 @@ exit 0
 			t.Fatal(err)
 		}
 	}
+	if !onChange {
+		// Complete actual run preparation without dispatching its script;
+		// this fixture starts each worker task explicitly below.
+		var reported error
+		work := workflow.New(context.Background(), a.DB, workflow.Dependencies{
+			Git: workflow.GitWorkspace{DataDir: a.cfg.dataDir}, Repositories: &scm.RepositoryLocks{},
+			Report: func(err error) { reported = err },
+		})
+		if err := work.DispatchStarted(run.ID); err != nil {
+			t.Fatal(err)
+		}
+		work.Wait()
+		work.Stop()
+		if reported != nil {
+			t.Fatal(reported)
+		}
+	}
 	w.given = gittest.Run(t, w.ws, "rev-parse", "HEAD")
 	if refuse {
 		gittest.Run(t, w.ws, "config", "review.note", "example")

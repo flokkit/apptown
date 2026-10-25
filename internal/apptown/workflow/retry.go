@@ -194,6 +194,9 @@ func (s stepRetries) retryLocked(ctx context.Context, tx *database.Tx, req retry
 	if (!req.RunID.IsZero() && req.RunID != run.ID) || run.Status != RunRunning || run.CurrentStage != step.Stage {
 		return Retried{}, &RetryError{RetryConflict, "this step is no longer in an active stage; use the change's send-back action to request more work"}
 	}
+	if err := requireRunReady(ctx, tx, run.ID); err != nil {
+		return Retried{}, err
+	}
 	if err := s.retryIn(ctx, tx, run, step, req, now); err != nil {
 		return Retried{}, err
 	}

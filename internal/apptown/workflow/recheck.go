@@ -34,6 +34,9 @@ func (s reworkStore) refresh(ctx context.Context, RunID ids.ID) (bool, error) {
 	if run.ProjectID != projectID {
 		return false, ErrRunMoved
 	}
+	if err := requireRunReady(ctx, tx, run.ID); err != nil {
+		return false, err
+	}
 	work, err := q.LatestFinishedAgentWork(ctx, workflowsql.LatestFinishedAgentWorkParams{RunID: RunID, Stage: run.CurrentStage})
 	if err != nil {
 		return false, err

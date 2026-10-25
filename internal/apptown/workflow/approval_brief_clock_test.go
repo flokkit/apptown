@@ -45,6 +45,7 @@ func TestAKeptBriefIsStaleOnceAStepFinishesAfterItWhateverTheDatabasesClock(t *t
 		t.Run(skew, func(t *testing.T) {
 			t.Parallel()
 			q, run, approval := activityFixture(t)
+			storedReadyStart(t, q.db, run.ID)
 			ctx := context.Background()
 			moveDatabaseClock(t, q.db, skew)
 			if _, err := AddArtifactIn(ctx, q.db, run.ID, "approval-brief", fmt.Sprintf("step-%d", approval), "", "kept", time.Now()); err != nil {

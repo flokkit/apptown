@@ -371,6 +371,25 @@ func (f *taskAppTown) admitRunWithoutAChange(t *testing.T, pid ids.ID, with map[
 	return run
 }
 
+// prepareTestsRun records real preparation with automatic execution disabled;
+// each test retains control of when its tests step runs.
+func (f *taskAppTown) prepareTestsRun(t *testing.T, run *workflow.Run) {
+	t.Helper()
+	var reported error
+	work := workflow.New(context.Background(), f.db, workflow.Dependencies{
+		Git: workflow.GitWorkspace{DataDir: f.dir}, Repositories: &scm.RepositoryLocks{},
+		Report: func(err error) { reported = err },
+	})
+	if err := work.DispatchStarted(run.ID); err != nil {
+		t.Fatal(err)
+	}
+	work.Wait()
+	work.Stop()
+	if reported != nil {
+		t.Fatal(reported)
+	}
+}
+
 // A run without a change tests its own folder's HEAD; without that folder
 // it reads its branch as published, and with no branch published either it
 // is an error.
@@ -398,9 +417,10 @@ func TestARunWithoutAChangeTestsItsFolder(t *testing.T) {
 	if !run.ChangeID.IsZero() {
 		t.Fatalf("run %d belongs to change %d", run.ID, run.ChangeID)
 	}
-	// Fixture: the run's folder, cloned as workspace preparation would.
+	// Actual preparation clones the run's branch; its unpublished commit
+	// then belongs to this run, rather than to a clone still on main.
+	f.prepareTestsRun(t, run)
 	folder := filepath.Join(f.dir, "workspaces", fmt.Sprintf("run-%d", run.ID))
-	gittest.Run(t, filepath.Dir(folder), "clone", "-q", hub, folder)
 	head := writeMarker(t, folder, "folder")
 	step := f.execute(t, run, "tests")
 	if ev := stepEvidence(t, step); step.Status != workflow.StatusPass || ev["commit"] != head || strings.Join(seen.all(), ",") != "folder" {
@@ -458,6 +478,7 @@ func TestATestsStepWithoutADefaultBranchStillReadsACommit(t *testing.T) {
 					writeMarker(t, folder, "committed")
 					want, executions = workflow.StatusFail, 1
 				}
+				f.prepareTestsRun(t, run)
 				step := f.execute(t, run, "tests")
 				if step.Status != want || len(seen.all()) != executions {
 					t.Fatalf("status=%s evidence=%s executions=%d; want %s with %d executions", step.Status, step.Evidence, len(seen.all()), want, executions)

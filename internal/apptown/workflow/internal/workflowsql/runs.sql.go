@@ -450,24 +450,13 @@ func (q *Queries) DeleteProjectRuns(ctx context.Context, projectID ids.ID) error
 	return err
 }
 
-const dispatchNeedsPreparation = `-- name: DispatchNeedsPreparation :one
-SELECT EXISTS(SELECT 1 FROM run_starts WHERE run_id=$1 AND NOT ready)
-`
-
-func (q *Queries) DispatchNeedsPreparation(ctx context.Context, runID ids.ID) (bool, error) {
-	row := q.db.QueryRowContext(ctx, dispatchNeedsPreparation, runID)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
-}
-
 const dispatchRestartCandidates = `-- name: DispatchRestartCandidates :many
 SELECT r.id FROM runs r JOIN steps s ON s.run_id=r.id AND s.stage=r.current_stage
 WHERE r.status='running' AND s.type=ANY($1::text[])
 GROUP BY r.id HAVING bool_or(s.status='pending' OR (s.status='error' AND s.evidence_json->>'reason'='orphaned by apptownd restart'))
 OR bool_and(s.status IN ('pass','skipped','not_applicable'))
-UNION SELECT r.id FROM run_starts st JOIN runs r ON r.id=st.run_id
-WHERE r.status='running' AND (NOT st.ready OR (r.parent_run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type=ANY($1::text[]))))
+UNION SELECT r.id FROM runs r LEFT JOIN run_starts st ON r.id=st.run_id
+WHERE r.status='running' AND (st.run_id IS NULL OR NOT st.ready OR (r.parent_run_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM steps s WHERE s.run_id=r.id AND s.stage=r.current_stage AND s.type=ANY($1::text[]))))
 ORDER BY id
 `
 
@@ -494,28 +483,22 @@ func (q *Queries) DispatchRestartCandidates(ctx context.Context, dollar_1 []stri
 	return items, nil
 }
 
-const executionReadiness = `-- name: ExecutionReadiness :one
-SELECT EXISTS(SELECT 1 FROM run_starts rs WHERE rs.run_id=$1 AND NOT rs.ready) AS unready,
-(SELECT COUNT(*) FROM run_events re WHERE re.run_id=$1 AND re.kind='step.rework') AS reworks
+const executionReworks = `-- name: ExecutionReworks :one
+SELECT (SELECT COUNT(*) FROM run_events re WHERE re.run_id=$1 AND re.kind='step.rework') AS reworks
 FROM changes c WHERE c.id=$2 AND c.project_id=$3
 `
 
-type ExecutionReadinessParams struct {
+type ExecutionReworksParams struct {
 	RunID     ids.ID
 	ChangeID  ids.ID
 	ProjectID ids.ID
 }
 
-type ExecutionReadinessRow struct {
-	Unready bool
-	Reworks int64
-}
-
-func (q *Queries) ExecutionReadiness(ctx context.Context, arg ExecutionReadinessParams) (ExecutionReadinessRow, error) {
-	row := q.db.QueryRowContext(ctx, executionReadiness, arg.RunID, arg.ChangeID, arg.ProjectID)
-	var i ExecutionReadinessRow
-	err := row.Scan(&i.Unready, &i.Reworks)
-	return i, err
+func (q *Queries) ExecutionReworks(ctx context.Context, arg ExecutionReworksParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, executionReworks, arg.RunID, arg.ChangeID, arg.ProjectID)
+	var reworks int64
+	err := row.Scan(&reworks)
+	return reworks, err
 }
 
 const hasActiveLanding = `-- name: HasActiveLanding :one
@@ -1193,22 +1176,6 @@ func (q *Queries) RunLandingAuthority(ctx context.Context, id ids.ID) (RunLandin
 	var i RunLandingAuthorityRow
 	err := row.Scan(&i.ParentRunID, &i.LandingAuthority)
 	return i, err
-}
-
-const runPreparationPending = `-- name: RunPreparationPending :one
-SELECT EXISTS(SELECT 1 FROM run_starts s JOIN runs r ON r.id=s.run_id WHERE s.run_id=$1 AND NOT s.ready AND r.status=$2)
-`
-
-type RunPreparationPendingParams struct {
-	RunID  ids.ID
-	Status string
-}
-
-func (q *Queries) RunPreparationPending(ctx context.Context, arg RunPreparationPendingParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, runPreparationPending, arg.RunID, arg.Status)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
 }
 
 const runProjectMeta = `-- name: RunProjectMeta :one

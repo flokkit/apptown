@@ -12,6 +12,7 @@ import (
 func recheckFixture(t *testing.T) (reworkStore, *Run) {
 	t.Helper()
 	w, run, _ := completionFixture(t, "working")
+	storedReadyStart(t, w, run.ID)
 	// sql-guarantee: Seed checks on both sides of the producer's historical finish time, including an override; no step mutation accepts finished_at.
 	completionExec(t, w, `INSERT INTO steps(id,run_id,stage,name,type,status,evidence_json,finished_at,override_by) VALUES
 		(?,?,'finish','work','agent/pi','pass','{}',now()-interval '1 minute',''),

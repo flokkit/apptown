@@ -14,15 +14,31 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 )
 
+// Recheck fixtures need a genuinely admitted and prepared landing, while their
+// individual checks can retain deliberate historical evidence shapes.
+func admitLandingSpec(t *testing.T, spec schema.Spec) (queries, *Run) {
+	t.Helper()
+	db, change := changeEditFixture(t, ChangeDraft{Title: "Landing recheck"})
+	spec.Kind, spec.Role = "pipeline", "landing"
+	admissions := newRunAdmissions(db, NewStages(nil, func(string) bool { return true }), nil)
+	run, err := admissions.Create(context.Background(), StartRequest{ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", InputsJSON: "{}", RequestedBy: "operator"}, PreparedRun{Workflow: DefinitionRef{Name: "land", Version: 1}, Spec: spec})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := admissions.Prepared(context.Background(), run.ID); err != nil {
+		t.Fatal(err)
+	}
+	return queries{db: db}, run
+}
+
 func landingRecheckFixture(t *testing.T) (landingRechecks, *Run, map[string]ids.ID) {
 	t.Helper()
 	spec := schema.Spec{Role: "landing", Stages: []schema.Stage{{Name: "finish", OnEnter: []schema.Step{
 		{Name: "image", Uses: "scan"}, {Name: "deploy", Uses: "deploy"}, {Name: "optional", Uses: "scan"},
 	}}}}
-	w, change := changeEditFixture(t, ChangeDraft{Title: "Landing recheck"})
-	run := insertStoredRun(t, w, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: change.ProjectID, ChangeID: change.ID, WorkflowName: "land", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(mustJSON(spec))})
+	q, run := admitLandingSpec(t, spec)
+	w := q.db
 	owner := newLandingRechecks(w, []string{"scan", "deploy", "tests"}, nil)
-	transitionScopeChange(t, w, workflowsql.TransitionChangeParams{At: time.Now(), ID: run.ChangeID, State: "landing"})
 	stepIDs := map[string]ids.ID{}
 	for _, step := range []struct{ name, typ, status, evidence, override, stage string }{
 		{"image", "scan", "fail", `{"reason":"provider overloaded"}`, "", "finish"},
@@ -35,7 +51,13 @@ func landingRecheckFixture(t *testing.T) (landingRechecks, *Run, map[string]ids.
 		{"require", "artifact/require", "fail", `{}`, "", "finish"},
 		{"old", "scan", "fail", `{"reason":"old stage"}`, "", "earlier"},
 	} {
-		id := insertStoredStep(t, w, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: step.stage, Name: step.name, Type: step.typ, Status: StatusPending.String(), ConfigJson: json.RawMessage(`{}`)})
+		var id ids.ID
+		if step.name == "image" || step.name == "deploy" || step.name == "optional" {
+			id = admittedStepID(t, q, run, step.name)
+		} else {
+			// Selection needs extra historical rows beyond the declared entry checks.
+			id = insertStoredStep(t, w, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: step.stage, Name: step.name, Type: step.typ, Status: StatusPending.String(), ConfigJson: json.RawMessage(`{}`)})
+		}
 		wq := workflowsql.New(w.SQL())
 		if step.override != "" {
 			// The historical row retains a failing result beside an override. Use the
@@ -131,7 +153,7 @@ func TestLandingRecheckRejectsChangedOrBusyWork(t *testing.T) {
 			if _, err := owner.Recheck(context.Background(), LandingRecheck{ChangeID: run.ChangeID, Who: "alice"}); err == nil {
 				t.Fatal("changed work accepted")
 			}
-			wantEventCount(t, owner.db, 0, anyEvent)
+			wantEventCount(t, owner.db, 4, anyEvent)
 			wantStepCount(t, owner.db, 0, func(s *Step) bool { return s.Status == StatusPending })
 		})
 	}

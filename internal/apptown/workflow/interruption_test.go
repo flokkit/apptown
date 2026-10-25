@@ -20,6 +20,7 @@ func TestInterruptedStepsPreservesOnlyOwnedLiveChildCalls(t *testing.T) {
 		t.Run(mismatch, func(t *testing.T) {
 			t.Parallel()
 			db, run, _ := completionFixture(t, "working")
+			storedReadyStart(t, db, run.ID)
 			q := queries{db: db}
 			insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "accept", Type: "script", Status: StatusRunning.String()})
 			call := insertStoredCall(t, q.db, run.ID, "finish", "child", 2, nil)
@@ -133,6 +134,7 @@ func TestInterruptedStepsRefusesSuppressedWritesAndRollsBack(t *testing.T) {
 func TestARestartEndsAStepItDoesNotContinue(t *testing.T) {
 	t.Parallel()
 	db, run, _ := completionFixture(t, "working")
+	storedReadyStart(t, db, run.ID)
 	deploy := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "ship", Type: "deploy", Status: StatusRunning.String()})
 	script := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "make", Type: "script", Status: StatusRunning.String()})
 	if _, err := database.Transact(context.Background(), db, func(tx *database.Tx) (InterruptedSteps, error) {
@@ -181,6 +183,7 @@ func TestAStepThatFailsWhileAppTownStopsIsRunAgainAfterTheRestart(t *testing.T) 
 			t.Parallel()
 			ctx := context.Background()
 			db, run, _ := completionFixture(t, "working")
+			storedReadyStart(t, db, run.ID)
 			scan := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "scan-source:semgrep", Type: "scan", Status: StatusPending.String()})
 			entered, release := make(chan struct{}), make(chan struct{})
 			settled := make(chan error, 1)

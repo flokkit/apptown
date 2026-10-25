@@ -48,11 +48,28 @@ type LandingWork interface {
 // RecheckLanding re-runs a landing's gates for the change; the actor is
 // whoever the context names, never the request.
 func (s *Service) RecheckLanding(ctx context.Context, in LandingRecheck) (LandingRechecked, error) {
-	_, actor, err := s.changeScope(ctx, in.ChangeID, actionRequestLanding)
+	projectID, actor, err := s.changeScope(ctx, in.ChangeID, actionRequestLanding)
 	if err != nil {
 		return LandingRechecked{}, err
 	}
 	in.Who = actor.Receipt
+	// Publication is an effect too: refuse an unprepared landing before Git,
+	// then recheck under the reset transaction's locks below.
+	if err := s.db.InTx(ctx, func(tx *database.Tx) error {
+		run, err := runRecord(workflowsql.New(tx.SQL()).ActiveLandingForUpdate(ctx, workflowsql.ActiveLandingForUpdateParams{ChangeID: in.ChangeID, ProjectID: projectID, Status: RunRunning.String()}))
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("change %d has no landing in progress — start one with apptown land", in.ChangeID)
+		}
+		if err != nil {
+			return err
+		}
+		if !in.RunID.IsZero() && run.ID != in.RunID {
+			return ErrRunMoved
+		}
+		return requireRunReady(ctx, tx, run.ID)
+	}); err != nil {
+		return LandingRechecked{}, err
+	}
 	// The fix the chat committed reaches the branch before the recheck picks
 	// its candidate; the landing itself only reads the branch.
 	if s.landingWork != nil {
@@ -141,6 +158,9 @@ func (s landingRechecks) recheckIn(ctx context.Context, tx *database.Tx, req Lan
 		return result, fmt.Errorf("change %d has no landing in progress — start one with apptown land", req.ChangeID)
 	}
 	if err != nil {
+		return result, err
+	}
+	if err := requireRunReady(ctx, tx, run.ID); err != nil {
 		return result, err
 	}
 	result.RunID = run.ID

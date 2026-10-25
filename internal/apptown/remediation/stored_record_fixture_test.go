@@ -98,6 +98,7 @@ func admitPageRun(t *testing.T, db *database.DB, projectID ids.ID, name string, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	prepareRemediationRun(t, db, run.ID)
 	snapshot, err := work.Snapshot(ctx, run.ID, workflow.DetailView)
 	if err != nil {
 		t.Fatal(err)

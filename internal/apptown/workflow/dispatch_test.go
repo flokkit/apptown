@@ -18,6 +18,7 @@ import (
 func dispatchFixture(t *testing.T) (dispatchPlans, *Run, ids.ID) {
 	t.Helper()
 	db, run, _ := completionFixture(t, "working")
+	storedReadyStart(t, db, run.ID)
 	q := queries{db: db}
 	id := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "accept", Type: "script", Status: StatusPending.String()})
 	return newDispatchPlans(q.db, []string{"script", "scan", "agent/pi"}), run, id
@@ -25,6 +26,7 @@ func dispatchFixture(t *testing.T) (dispatchPlans, *Run, ids.ID) {
 func TestDispatchPlanKeepsHistoricalRowsAndRegistry(t *testing.T) {
 	t.Parallel()
 	db, run, _ := completionSpecFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish", OnEnter: []schema.Step{{Name: "image", Uses: "scan", With: map[string]any{"on": "image"}}}, Steps: []schema.Step{{Name: "image:explicit", Uses: "scan"}}}}})
+	storedReadyStart(t, db, run.ID)
 	kinds := []string{"script", "scan"}
 	owner := newDispatchPlans(db, kinds)
 	kinds[0] = "approval"
@@ -57,6 +59,7 @@ func TestDispatchPlanKeepsHistoricalRowsAndRegistry(t *testing.T) {
 func TestDispatchPlanUsesOneSnapshot(t *testing.T) {
 	t.Parallel()
 	db, run, _ := completionSpecFixture(t, schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "finish"}, {Name: "later"}}})
+	storedReadyStart(t, db, run.ID)
 	owner := newDispatchPlans(db, []string{"script"})
 	id := insertStoredStep(t, db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "finish", Name: "accept", Type: "script", Status: StatusPending.String()})
 	gate, err := owner.db.Begin(context.Background())
@@ -111,6 +114,7 @@ func TestDispatchTransitionsRequireCurrentScopeAndExplicitRestart(t *testing.T) 
 				t.Run(state, func(t *testing.T) {
 					t.Parallel()
 					db, run, _ := completionFixture(t, "working")
+					storedReadyStart(t, db, run.ID)
 					owner := newDispatchPlans(db, []string{"script", "scan", "agent/pi"})
 					typ := "script"
 					if state == "manual step" {
@@ -197,6 +201,7 @@ func TestDispatchTransitionsRequireWritesAndReceipts(t *testing.T) {
 			t.Run(operation+"/"+failure, func(t *testing.T) {
 				t.Parallel()
 				db, run, _ := completionFixture(t, "working")
+				storedReadyStart(t, db, run.ID)
 				owner := newDispatchPlans(db, []string{"script", "scan", "agent/pi"})
 				before, after := StatusPending, StatusSkipped
 				if operation == "resume" {
