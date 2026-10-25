@@ -1,0 +1,147 @@
+[
+  {
+    "file": "deploy/apptown-start.sh",
+    "source": "\tagent_tag=$(cat /opt/apptown/agent-tag 2>/dev/null || :)",
+    "reason": "The optional agent-tag file selects a prebuilt agent. An absent or unreadable tag falls back to the existing local agent build; reading it does not certify that build."
+  },
+  {
+    "file": "deploy/apptown-start.sh",
+    "source": "\t\tgateway=$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}} {{end}}' | tr ' ' '\\n' | grep -E '^[0-9.]+$' | head -n 1 || :)",
+    "reason": "An empty gateway result is refused immediately below. Failed discovery cannot become a usable gateway."
+  },
+  {
+    "file": "deploy/apptown-start.sh",
+    "source": "\tif [ -n \"$apptownd_pid\" ]; then kill -TERM \"$apptownd_pid\" 2>/dev/null || :; fi",
+    "reason": "Shutdown attempts to signal the owned child even if it has already exited. This signal is not evidence of successful application work."
+  },
+  {
+    "file": "deploy/apptown-start.sh",
+    "source": "\t\tkill -TERM \"$dockerd_pid\" 2>/dev/null || :",
+    "reason": "Shutdown signals the owned Docker daemon even if it has already exited; this cleanup does not certify daemon termination."
+  },
+  {
+    "file": "deploy/apptown-start.sh",
+    "source": "\t\twait \"$dockerd_pid\" 2>/dev/null || :",
+    "reason": "Shutdown reaps the owned Docker child without replacing the application exit status with its cleanup status."
+  },
+  {
+    "file": "deploy/apptown-start.sh",
+    "source": "if [ -n \"$stopping\" ]; then kill -TERM \"$apptownd_pid\" 2>/dev/null || :; fi",
+    "reason": "A stop received during startup is forwarded to the newly recorded child; the subsequent wait supplies its exit status."
+  },
+  {
+    "file": "eval/greenfield/run.sh",
+    "source": "[ -f mise.toml ] && mise install -y -q 2>/dev/null || true",
+    "reason": "Optional tool installation is attempted before the actual build, start and HTTP evaluation; this command is not setup or application success evidence."
+  },
+  {
+    "file": "eval/greenfield/run.sh",
+    "source": "  bin=$(ls ./'\"$app\"' 2>/dev/null || true)",
+    "reason": "Binary discovery may be empty; the subsequent explicit empty check refuses before attempting to start a missing application."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "nft delete table inet forge_rehearsal 2>/dev/null || true",
+    "reason": "Deleting an old firewall table is preparation for the checked installation immediately below, not proof that isolation was installed."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "\t\tfill=$(ssh \"$tgt\" \"docker exec $db psql -U postgres -d $dbname -At -c \\\"SELECT f.state || ' ' || f.detail FROM restore_fills f JOIN deployments d ON d.id=f.deployment_id JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\\\"\" 2>/dev/null || true)",
+    "reason": "A transient restore-state read failure leaves this bounded poll unsatisfied. Success still requires filled state and a successful HTTP response; exhaustion fails."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "\t\tcontainer=$(ssh \"$tgt\" \"docker exec $db psql -U postgres -d $dbname -At -c \\\"SELECT d.container FROM deployments d JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\\\"\" 2>/dev/null || true)",
+    "reason": "A transient container read failure leaves this bounded poll without a usable endpoint. Success still requires filled state and a successful HTTP response; exhaustion fails."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "\t\thostport=$(ssh \"$tgt\" \"docker port ${container:-none} 2>/dev/null | sed -n 's/.*127.0.0.1:\\([0-9]*\\)$/\\1/p' | head -1\" || true)",
+    "reason": "A transient port read failure leaves this bounded poll without a usable endpoint. Success still requires filled state and a successful HTTP response; exhaustion fails."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "\t\t[ -n \"$hostport\" ] && code=$(ssh \"$tgt\" \"curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:$hostport/\" || true)",
+    "reason": "An unsuccessful HTTP poll is not readiness. The loop requires the expected successful response and fails on exhaustion."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "\t\t\tdiff \"$out/data.src\" \"$work/data.tgt\" >&2 || true",
+    "reason": "The data mismatch already fails this rehearsal. A diagnostic diff cannot replace or suppress that failure."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "p=$(cat $d/pid 2>/dev/null || true)",
+    "reason": "The PID file is only an optional hint for stopping the recorded process. Checked process inventory below must still establish absence before resource cleanup."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "\t\tssh \"$tgt\" \"[ \\\"\\$(cat /root/.lab-lock 2>/dev/null)\\\" = '$lock' ] && rm -f /root/.lab-lock\" || true",
+    "reason": "Before Docker ownership is recorded, exit cleanup attempts to remove only its matching lock. Failure may leave that lock for inspection; no completed target cleanup is claimed."
+  },
+  {
+    "file": "scripts/ci-heavy.sh",
+    "source": "\t[ -z \"$probe_client\" ] || docker rm -f \"$probe_client\" >/dev/null 2>&1 || true",
+    "reason": "Exit cleanup attempts removal of the owned probe client even if already absent. It does not establish successful test execution or confirmed container absence."
+  },
+  {
+    "file": "scripts/ci-heavy.sh",
+    "source": "\t[ -z \"$probe_server\" ] || docker rm -f \"$probe_server\" >/dev/null 2>&1 || true",
+    "reason": "Exit cleanup attempts removal of the owned probe server even if already absent. It does not establish successful test execution or confirmed container absence."
+  },
+  {
+    "file": "scripts/ci-heavy.sh",
+    "source": "\tdocker rm -f \"$name\" >/dev/null 2>&1 || true",
+    "reason": "Exit cleanup attempts removal of the owned test runner without replacing the captured test exit status. It does not certify container absence."
+  },
+  {
+    "file": "scripts/migrations-append-only.sh",
+    "source": "printf '%s\\n' \"$released\" | diff - \"$lock\" >&2 || true",
+    "reason": "The migration comparison already failed. The following exit 1 is unconditional; diagnostic diff failure cannot admit the change."
+  },
+  {
+    "file": "scripts/reachability-check.sh",
+    "source": "COUNT=$(grep -c \"unreachable func\" \"$OUT\" || true)",
+    "reason": "grep returns 1 when it counts zero matches. Its numeric output is still checked below; no empty or malformed count is accepted as zero."
+  },
+  {
+    "file": "scripts/release.sh",
+    "source": "at=$(git describe --tags --exact-match HEAD 2>/dev/null || true)",
+    "reason": "A missing exact tag produces an empty value which the following release-tag check refuses."
+  },
+  {
+    "file": "scripts/release.sh",
+    "source": "previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD^ 2>/dev/null || true)",
+    "reason": "Without a discoverable previous release, only the optional prior-API comparison is omitted. This is not proof that no API changed."
+  },
+  {
+    "file": "scripts/stranger-install.sh",
+    "source": "apptown version 2>/dev/null | head -1 || true",
+    "reason": "The version line is optional diagnostic output; install and subsequent daemon checks provide their own evidence."
+  },
+  {
+    "file": "scripts/stranger-install.sh",
+    "source": "trap 'kill \"$apptownd_pid\" 2>/dev/null; wait \"$apptownd_pid\" 2>/dev/null || true' EXIT",
+    "reason": "Exit cleanup reaps the test-owned daemon even if it already exited. It does not certify successful startup or change the main test outcome."
+  },
+  {
+    "file": "scripts/trial-check.sh",
+    "source": "trap 'docker rm -f \"$name\" >/dev/null 2>&1; docker volume rm \"$name\" >/dev/null 2>&1 || :' EXIT",
+    "reason": "Exit cleanup attempts removal of the test-owned container and volume. It does not certify resource absence or replace the main test result."
+  },
+  {
+    "file": "site/try.sh",
+    "source": "\t\topen \"$1\" >/dev/null 2>&1 || :",
+    "reason": "Opening a browser is optional convenience; the usable URL is printed independently."
+  },
+  {
+    "file": "site/try.sh",
+    "source": "\t\txdg-open \"$1\" >/dev/null 2>&1 || :",
+    "reason": "Opening a browser is optional convenience; the usable URL is printed independently."
+  },
+  {
+    "file": "site/try.sh",
+    "source": "\tfor image in $(printf '%s\\n' \"$images\" | grep '^ghcr.io/flokkit/apptown' || :); do",
+    "reason": "The image inventory was checked before this filter. grep may find no AppTown image; that means there is no matching image to remove."
+  }
+]

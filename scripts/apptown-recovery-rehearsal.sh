@@ -167,7 +167,11 @@ set -u
 if ls /opt/forge-restore/before.* > /dev/null 2>&1; then
 	echo "an earlier rehearsal did not finish its cleanup (/opt/forge-restore/before.* remain): recover by hand" >&2; exit 1
 fi
-for p in $(pgrep -x apptownd || true); do [ "$(readlink /proc/$p/exe)" = /opt/forge-restore/apptownd ] && { echo "a rehearsal AppTown ($p) still runs" >&2; exit 1; }; done
+processes=$(pgrep -x apptownd) || {
+	status=$?
+	[ "$status" = 1 ] || { echo "cannot list AppTown processes; reset refused" >&2; exit 1; }
+}
+for p in $processes; do [ "$(readlink /proc/$p/exe)" = /opt/forge-restore/apptownd ] && { echo "a rehearsal AppTown ($p) still runs" >&2; exit 1; }; done
 rm -rf "$1" /opt/forge-restore
 EOF
 	fi
@@ -337,7 +341,11 @@ p=$(cat $d/pid 2>/dev/null || true)
 if [ -n "$p" ] && [ "$(readlink /proc/$p/exe 2>/dev/null)" = "$d/apptownd" ]; then
 	kill "$p"; for _ in $(seq 1 60); do kill -0 "$p" 2>/dev/null || break; sleep 1; done
 fi
-for p in $(pgrep -x apptownd || true); do [ "$(readlink /proc/$p/exe)" = "$d/apptownd" ] && fail "the restored AppTown ($p) still runs"; done
+processes=$(pgrep -x apptownd) || {
+	status=$?
+	[ "$status" = 1 ] || fail "cannot list AppTown processes"
+}
+for p in $processes; do [ "$(readlink /proc/$p/exe)" = "$d/apptownd" ] && fail "the restored AppTown ($p) still runs"; done
 for kind in container network volume; do
 	[ -f $d/before.$kind ] || fail "no record of the target's $kind""s before the rehearsal"
 	now=$(listing $kind) || fail "cannot list Docker $kind""s"

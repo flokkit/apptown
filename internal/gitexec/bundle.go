@@ -43,7 +43,7 @@ func BundleCommit(ctx context.Context, repo, commit, branch, dest string) error 
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir) // unchecked-error: temporary scratch may remain; bundle creation has its own checked result.
 	if err := scratch(ctx, repo, dir); err != nil {
 		return err
 	}
@@ -68,7 +68,7 @@ func BundleCommits(ctx context.Context, repo string, commits []string, dest stri
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
+	defer os.RemoveAll(dir) // unchecked-error: temporary scratch may remain; bundle creation has its own checked result.
 	if err := scratch(ctx, repo, dir); err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func Quarantine(ctx context.Context, repo, bundle, branch, as, base string) (dir
 	if err != nil {
 		return "", "", func() {}, err
 	}
-	cleanup = func() { _ = os.RemoveAll(dir) }
+	cleanup = func() { _ = os.RemoveAll(dir) } // unchecked-error: temporary quarantine may remain; validation and publication are separately checked.
 	fail := func(err error) (string, string, func(), error) {
 		cleanup()
 		return "", "", func() {}, err
@@ -150,7 +150,7 @@ func indexStrict(ctx context.Context, dir, bundle string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer f.Close() // unchecked-error: read-only handle cleanup; reads and indexing establish the result, not output durability.
 	r := bufio.NewReader(f)
 	for {
 		line, err := r.ReadString('\n')

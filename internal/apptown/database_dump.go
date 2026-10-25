@@ -104,9 +104,9 @@ func (b databaseBackup) take(ctx context.Context) error {
 	}
 	names, ok := readBuiltinDBNames(b.dataDir)
 	if !ok {
-		err := errors.New("db.env names no built-in database container, volume or database")
-		audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup-failed", name, map[string]any{"error": err.Error()})
-		return err
+		namesErr := errors.New("db.env names no built-in database container, volume or database")
+		audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup-failed", name, map[string]any{"error": namesErr.Error()})
+		return namesErr
 	}
 	if err := dumpBuiltinDatabase(ctx, b.docker, names, name); err != nil {
 		audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup-failed", name, map[string]any{"error": err.Error()})

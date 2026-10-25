@@ -25,6 +25,8 @@ Rules over the Go tree, each producing a count of violations:
   historycomments  production comments that narrate review history (reviewer, round, finding
                 id, date) or cite design/plans and design/reviews
 A facade may import only AppTown packages its ALLOWED entry lists.
+Literal shell success suppressions require exact reviewed reasons, independently
+of count baselines (scripts/shell-suppression-sites.json).
 
 Exit 0 when every count is at or below scripts/shape-baseline.json; exit 1 otherwise,
 or when the baseline is above the counts by more than zero and --tighten was not passed
@@ -773,6 +775,63 @@ def test_exec_fixtures(root=None):
             for m in EXEC_FIXTURE.finditer(text)]
 
 
+# This is a literal review trigger, not a shell parser. It deliberately includes
+# quoted traps and remote/heredoc payloads; split lines and other success commands
+# are outside its scope. Each physical line has one exact reviewed declaration.
+SHELL_SUPPRESSION = re.compile(r"\|\|[ \t]*(?:true|:)(?=$|[\s;|&()<>\"'])")
+
+
+def shell_suppressions(root=None):
+    root = root or ROOT
+    manifest = os.path.join(root, "scripts", "shell-suppression-sites.json")
+    try:
+        tracked = subprocess.run(["git", "ls-files", "-z", "--", "*.sh"], cwd=root,
+                                 capture_output=True, text=True, check=True).stdout
+        sites = {}
+        for file in tracked.split("\0"):
+            if not file:
+                continue
+            with open(os.path.join(root, file)) as source:
+                for number, line in enumerate(source.read().splitlines(), 1):
+                    if not line.lstrip().startswith("#") and SHELL_SUPPRESSION.search(line):
+                        sites.setdefault((file, line), []).append(number)
+        with open(manifest) as source:
+            declarations = json.load(source)
+        if not isinstance(declarations, list):
+            raise ValueError("declarations must be a list")
+        found, declared = [], set()
+        for index, item in enumerate(declarations, 1):
+            if (not isinstance(item, dict) or set(item) != {"file", "source", "reason"}
+                    or any(not isinstance(item[key], str) or not item[key].strip()
+                           for key in ("file", "source", "reason"))):
+                found.append(f"shell suppression declaration {index}: file, source and reason must be nonempty strings")
+                continue
+            key = item["file"], item["source"]
+            if key in declared:
+                found.append(f"{item['file']}: duplicate shell suppression declaration")
+            declared.add(key)
+            matches = sites.get(key, [])
+            if len(matches) != 1:
+                found.append(f"{item['file']}: shell suppression declaration matches {len(matches)} lines (requires exactly one): {item['source']}")
+        for (file, line), numbers in sites.items():
+            if (file, line) not in declared:
+                found.extend(f"{file}:{number}: unexplained shell suppression: {line}" for number in numbers)
+        return found
+    except (OSError, UnicodeError, ValueError, subprocess.CalledProcessError) as error:
+        return [f"cannot check shell suppression declarations: {error}"]
+
+
+def check_shell_suppressions(baseline, root=None):
+    found = shell_suppressions(root)
+    # This rule cannot acquire a count allowance, including through --tighten.
+    if "shellsuppressions" in baseline:
+        found.append("shellsuppressions is a hard rule; remove its count baseline")
+    print(f"shape shellsuppressions {len(found):4}  required    0  {'WORSE' if found else 'ok'}")
+    for line in found:
+        print("   ", line)
+    return not found
+
+
 def main():
     tighten = "--tighten" in sys.argv
     verbose = "-v" in sys.argv
@@ -782,7 +841,8 @@ def main():
     counts = {"layering": layering(), "doors": doors(), "transport": transport(), "methods": methods(), "fields": fields(), "constructors": constructors(), "aliases": aliases(), "standalone": standalone(), "callbacks": callbacks(), "handwritten": handwritten(), "testwrites": test_writes, "testreads": test_reads, "agentpolicy": agents["policy"], "harnesswork": agents["settlement"], "testhomes": testhomes(), "harnessimports": harness_imports(), "jsondecode": requests["jsondecode"], "routepolicies": requests["routepolicies"], "rootfiles": root_files(), "roottests": root_files(tests=True), "transportaudit": transport_audit(), "transportdb": transport_db(), "hubpaths": hub_paths(), "kindbranches": kind_branches(), "historycomments": history_comments(), "testexecwrites": test_exec_writes(), "testexecfixtures": test_exec_fixtures(), "droppederrors": dropped_decodes(), "workflowexports": workflow_exports()}
     path = os.path.join(ROOT, "scripts", "shape-baseline.json")
     baseline = json.load(open(path)) if os.path.exists(path) else {}
-    ok = True
+    shell_ok = check_shell_suppressions(baseline)
+    ok = shell_ok
     for rule, found in counts.items():
         n, b = len(found), baseline.get(rule)
         mark = "ok" if b is None or n <= b else "WORSE"
@@ -795,7 +855,7 @@ def main():
         if verbose or (b is not None and n > b and rule not in HINTS):
             for line in found:
                 print("   ", line)
-    if tighten or not baseline:
+    if shell_ok and (tighten or not baseline):
         json.dump({k: len(v) for k, v in counts.items()}, open(path, "w"), indent=2)
         print("baseline written:", os.path.relpath(path, ROOT))
     sys.exit(0 if ok else 1)

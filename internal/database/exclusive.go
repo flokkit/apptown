@@ -23,11 +23,11 @@ func (d *DB) HoldExclusive(ctx context.Context, key int64) (release func(), err 
 	}
 	var held bool
 	if err := conn.QueryRowContext(ctx, `SELECT pg_try_advisory_lock($1)`, key).Scan(&held); err != nil {
-		_ = conn.Close()
+		_ = conn.Close() // unchecked-error: lock admission already failed; this only returns its connection to the pool.
 		return nil, fmt.Errorf("database: taking the exclusive lock: %w", err)
 	}
 	if !held {
-		_ = conn.Close()
+		_ = conn.Close() // unchecked-error: lock admission is refused; this only returns its connection to the pool.
 		return nil, ErrHeldElsewhere
 	}
 	// Releasing must finish even after the caller's context ends.
@@ -41,6 +41,6 @@ func (d *DB) HoldExclusive(ctx context.Context, key int64) (release func(), err 
 		if _, err := conn.ExecContext(detached, `SELECT pg_advisory_unlock($1)`, key); err != nil {
 			log.Printf("database: the exclusive lock may still be held: unlocking failed: %v", err)
 		}
-		_ = conn.Close()
+		_ = conn.Close() // unchecked-error: unlock failure is logged above; returning the pooled connection does not certify unlock.
 	}, nil
 }

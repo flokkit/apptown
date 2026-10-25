@@ -367,5 +367,217 @@ class LintCheckTest(unittest.TestCase):
         self.assertIn("matches 0 calls of context.Background( or context.TODO(", out.stdout)
 
 
+    def boundary_tree(self, body='receipt.At(0).BestEffort(); flow.Settlement{}.Retry()', allow=''):
+        self.write('internal/poll/polltest/polltest.go', self.HOLDS)
+        self.write('internal/apptown/audit/audit.go', '''\
+            package audit
+            type At int
+            func (At) BestEffort() {}
+        ''')
+        self.write('internal/apptown/workflow/settle.go', '''\
+            package workflow
+            type Settlement struct{}
+            func (Settlement) Retry() {}
+        ''')
+        self.write('internal/a/a.go', '''\
+            package a
+            import receipt "example.com/m/internal/apptown/audit"
+            import flow "example.com/m/internal/apptown/workflow"
+            var _ receipt.At
+            var _ flow.Settlement
+            type Other struct{}
+            func (Other) BestEffort() {}
+            func (Other) Retry() {}
+            func Work() {
+        ''' + body + '\n}\n')
+        with open(self.root / '.golangci.yml', 'a') as f:
+            f.write(allow)
+
+    @staticmethod
+    def boundary_allow(rule, source, path=r'^internal/a/a\.go$', reason=True):
+        comment = '      # This fixture repeats an owned informational fact.\n' if reason else ''
+        return '\n' + comment + f'''      - path: '{path}'
+        linters: [forbidigo]
+        text: 'forbidden because "{rule} rule:'
+        source: '{source}'
+'''
+
+    def test_typed_receipt_and_settlement_boundaries_require_sites(self):
+        self.boundary_tree('''receipt.At(0).BestEffort()
+var note receipt.At
+note.BestEffort()
+flow.Settlement{}.Retry()
+Other{}.BestEffort()
+Other{}.Retry()''')
+        self.write('internal/a/a_test.go', '''\
+            package a
+            import "example.com/m/internal/apptown/audit"
+            import "example.com/m/internal/apptown/workflow"
+            func permitted() { audit.At(0).BestEffort(); workflow.Settlement{}.Retry() }
+        ''')
+        out = self.check('-v', '-stale=true')
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn('lint receipt internal/a 2 baseline 0 WORSE', ' '.join(out.stdout.split()))
+        self.assertIn('lint settlement internal/a 1 baseline 0 WORSE', ' '.join(out.stdout.split()))
+        self.assertNotIn('a_test.go:', out.stdout)
+        self.assertNotIn('Other{}', out.stdout)
+
+    def test_reviewed_exact_boundary_sites_pass(self):
+        allow = self.boundary_allow('receipt', r'receipt\.At\(0\)\.BestEffort\(')
+        allow += self.boundary_allow('settlement', r'flow\.Settlement\{\}\.Retry\(')
+        self.boundary_tree(allow=allow)
+        out = self.check('-stale=true')
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+
+    def test_boundary_entries_need_live_single_occurrences_and_reasons(self):
+        cases = [
+            ('missing', 'Other().BestEffort()', r'receipt\.At\(0\)\.BestEffort\(', True, 'matches 0'),
+            ('twice', 'receipt.At(0).BestEffort(); receipt.At(0).BestEffort()', r'receipt\.At\(0\)\.BestEffort\(', True, 'matches 2'),
+            ('reason', 'receipt.At(0).BestEffort()', r'receipt\.At\(0\)\.BestEffort\(', False, 'no reason'),
+        ]
+        for name, body, source, reason, message in cases:
+            with self.subTest(name=name):
+                self.setUp()
+                self.boundary_tree(body, self.boundary_allow('receipt', source, reason=reason))
+                out = self.check('-stale=true', issues=[])
+                self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+                self.assertIn(message, out.stdout)
+
+    def test_boundary_entries_cannot_exempt_a_directory_or_pattern(self):
+        for path, source, message in [
+            ('^internal/a/', '', 'requires an exact file'),
+            (r'^internal/a/.*\.go$', r'\.BestEffort\(', 'path is not one exact file'),
+            (r'internal/a/a\.go', r'\.BestEffort\(', 'path is not one exact file'),
+        ]:
+            with self.subTest(path=path):
+                self.setUp()
+                self.boundary_tree('receipt.At(0).BestEffort()', self.boundary_allow('receipt', source, path))
+                out = self.check('-stale=true', issues=[])
+                self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+                self.assertIn(message, out.stdout)
+
+    def test_boundary_rules_admit_no_baselines(self):
+        for rule in ['receipt', 'settlement', 'unchecked']:
+            with self.subTest(rule=rule):
+                self.baseline({rule: {'internal/a': 1}})
+                out = self.check(issues=[])
+                self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+                self.assertIn(f'the {rule} rule admits no baseline', out.stderr)
+
+
+    def unchecked_tree(self, body='fail()', package='database', before=''):
+        self.write(f'internal/{package}/owner.go', f'''\
+            package {package}
+            import errsource "errors"
+            import "strings"
+            func fail() error {{ return errsource.New("failed") }}
+            var _ strings.Builder
+            {before}
+            func Work() {{
+        ''' + body + '\n}\n')
+
+    def test_typed_ignored_errors_are_checked_in_both_direct_owners(self):
+        for package in ['database', 'gitexec']:
+            self.unchecked_tree('''fail()
+_ = fail()
+next := fail
+next()
+errsource.New("discarded under an alias")
+var b strings.Builder
+b.WriteString("cannot fail")
+b.WriteByte('x')
+if err := fail(); err != nil { return }''', package)
+        self.write('internal/elsewhere/elsewhere.go', '''\
+            package elsewhere
+            import "errors"
+            func ignored() { errors.New("outside this slice") }
+        ''')
+        self.write('internal/database/owner_test.go', '''\
+            package database
+            func fixture() { fail() }
+        ''')
+        out = self.check('-v')
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        lines = ' '.join(out.stdout.split())
+        for package in ['database', 'gitexec']:
+            self.assertIn(f'lint unchecked internal/{package} 4 baseline 0 WORSE', lines)
+        self.assertNotIn('elsewhere.go:', out.stdout)
+        self.assertNotIn('owner_test.go:', out.stdout)
+
+    def test_new_owner_files_cannot_discard_errors(self):
+        for package in ['database', 'gitexec']:
+            self.unchecked_tree('if err := fail(); err != nil { return }', package)
+        self.assertEqual(self.check().returncode, 0)
+        for package in ['database', 'gitexec']:
+            self.write(f'internal/{package}/fresh.go', f'package {package}\nfunc Fresh() {{ fail() }}\n')
+        out = self.check('-v')
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn('internal/database/fresh.go:', out.stdout)
+        self.assertIn('internal/gitexec/fresh.go:', out.stdout)
+
+    def test_a_reason_is_bound_to_one_real_ignored_error(self):
+        self.unchecked_tree('fail() // unchecked-error: temporary cleanup may leave scratch files.')
+        out = self.check()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.unchecked_tree('fail(); fail() // unchecked-error: temporary cleanup may leave scratch files.')
+        out = self.check()
+        self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+        self.assertIn('exactly one diagnostic on its line, found 2', out.stderr)
+
+    def test_error_declarations_cannot_be_empty_stale_or_function_wide(self):
+        for body, before, wanted in [
+            ('fail() // unchecked-error:', '', 'has no reason'),
+            ('_ = 1 // unchecked-error: no error exists here.', '', 'found 0'),
+            ('fail()', '// unchecked-error: a whole function is not a site.', 'found 0'),
+        ]:
+            with self.subTest(wanted=wanted, body=body):
+                self.setUp()
+                self.unchecked_tree(body, before=before)
+                out = self.check()
+                self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+                self.assertIn(wanted, out.stderr)
+
+    def test_a_string_does_not_declare_an_ignored_error(self):
+        self.unchecked_tree('fail(); _ = "// unchecked-error: this is data"')
+        out = self.check('-v')
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn('lint unchecked', out.stdout)
+
+    def test_nolint_cannot_hide_a_covered_error(self):
+        for directive in ['nolint', 'nolint:errcheck', 'nolint:all', 'nolint:all,forbidigo', 'nolint:forbidigo,errcheck', 'nolint:ERRCHECK', 'nolint:forbidigo, all', 'nolint:allExtra', '/nolint:errcheck', ' / nolint:errcheck']:
+            with self.subTest(directive=directive):
+                self.setUp()
+                self.unchecked_tree('fail() //'+directive)
+                out = self.check()
+                self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+                self.assertIn('not nolint', out.stderr)
+
+    def test_inactive_build_files_do_not_create_false_stale_errors(self):
+        self.unchecked_tree('if err := fail(); err != nil { return }')
+        self.write('internal/database/inactive.go', '''\
+            //go:build inactive_fixture
+
+            package database
+            func Inactive() { _ = 1 } // unchecked-error: not in the analyzed build.
+        ''')
+        out = self.check()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        config = self.root / '.golangci.yml'
+        config.write_text(config.read_text().replace('build-tags: [', 'build-tags: [inactive_fixture, '))
+        out = self.check()
+        self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+        self.assertIn('found 0', out.stderr)
+
+    def test_unchecked_report_scope_and_analysis_failure_are_not_success(self):
+        self.unchecked_tree('if err := fail(); err != nil { return }')
+        out = self.check(issues=[self.issue('internal/elsewhere/x.go', 'ignored error', 'errcheck')])
+        self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+        self.assertIn('outside its declared', out.stderr)
+        self.write('failed.json', json.dumps({'Report': {'Error': 'analysis incomplete'}, 'Issues': []}))
+        out = self.check('-issues', str(self.root / 'failed.json'))
+        self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+        self.assertIn('analysis incomplete', out.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -253,7 +253,7 @@ func ExtractCommit(ctx context.Context, repo, revision, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(scratch)
+	defer os.RemoveAll(scratch) // unchecked-error: temporary archive may remain; archive creation and extraction results are checked.
 	archive := filepath.Join(scratch, "tree.tar")
 	if out, err := command(ctx, repo, Environ(), nil, []string{"archive", "--format=tar", "--output", archive, "--end-of-options", revision}).CombinedOutput(); err != nil {
 		if ctx.Err() != nil {

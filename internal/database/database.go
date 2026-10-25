@@ -268,7 +268,7 @@ func (d *DB) ReadSnapshot(ctx context.Context) (*Tx, error) {
 	}
 	snapshot := &Tx{tx: tx, faults: &d.faults}
 	if _, err := snapshot.SQL().ExecContext(ctx, `SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`); err != nil {
-		_ = snapshot.Rollback()
+		_ = snapshot.Rollback() // unchecked-error: setup already failed; rollback cleanup does not establish a successful snapshot.
 		return nil, err
 	}
 	return snapshot, nil
@@ -449,7 +449,7 @@ func (d *DB) InTx(ctx context.Context, fn func(*Tx) error) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = tx.Rollback() }()
+	defer func() { _ = tx.Rollback() }() // unchecked-error: callback/commit supplies the outcome; deferred rollback also runs after a completed transaction.
 	if err := fn(tx); err != nil {
 		return err
 	}
@@ -487,7 +487,7 @@ func OpenWith(url string, dial pgconn.DialFunc) (*DB, error) {
 		return nil, err
 	}
 	if err := pool.Ping(); err != nil {
-		_ = pool.Close()
+		_ = pool.Close() // unchecked-error: ping failure is returned; closing the unusable pool cannot make opening succeed.
 		return nil, fmt.Errorf("database: %w", err)
 	}
 	return Wrap(pool), nil

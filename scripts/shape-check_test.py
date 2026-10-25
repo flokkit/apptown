@@ -734,5 +734,108 @@ class StandaloneTest(unittest.TestCase):
                          ["./internal/check/... links internal/workflow"])
 
 
+class ShellSuppressionsTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location("shape", Path(__file__).with_name("shape-check.py"))
+        cls.shape = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.shape)
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        (self.root/'scripts').mkdir()
+        subprocess.run(['git','init','-q',str(self.root)],check=True)
+        self.manifest = self.root/'scripts/shell-suppression-sites.json'
+        self.manifest.write_text('[]')
+
+    def script(self, text, name='scripts/example.sh'):
+        p=self.root/name
+        p.write_text(text)
+        subprocess.run(['git','add','--',name],cwd=self.root,check=True)
+
+    def declare(self, source='check || true', reason='Diagnostic only; the operation has already failed.'):
+        item={'file':'scripts/example.sh','source':source,'reason':reason}
+        self.manifest.write_text(json.dumps([item]))
+        return item
+
+    def test_new_changed_and_removed_sites_require_exact_current_reasons(self):
+        self.script('check || true\n')
+        self.assertIn('unexplained', '\n'.join(self.shape.shell_suppressions(self.root)))
+        self.declare()
+        self.assertEqual(self.shape.shell_suppressions(self.root),[])
+        self.script('other || true\n')
+        result='\n'.join(self.shape.shell_suppressions(self.root))
+        self.assertIn('matches 0',result)
+        self.assertIn('unexplained',result)
+        self.script('check\n')
+        self.assertIn('matches 0','\n'.join(self.shape.shell_suppressions(self.root)))
+
+    def test_duplicate_ambiguous_and_empty_declarations_fail(self):
+        self.script('check || true\n')
+        item=self.declare()
+        self.manifest.write_text(json.dumps([item,item]))
+        self.assertIn('duplicate','\n'.join(self.shape.shell_suppressions(self.root)))
+        self.declare(reason=' ')
+        self.assertIn('nonempty','\n'.join(self.shape.shell_suppressions(self.root)))
+        self.declare()
+        self.script('check || true\ncheck || true\n')
+        self.assertIn('matches 2','\n'.join(self.shape.shell_suppressions(self.root)))
+
+    def test_quoted_traps_and_payloads_are_in_scope_but_other_spellings_are_not(self):
+        for text in ('trap "cleanup || true" EXIT','ssh host "check || :"', 'check ||true;', 'check || :\t'):
+            with self.subTest(text=text):
+                self.script(text+'\n')
+                self.assertTrue(self.shape.shell_suppressions(self.root))
+                self.declare(text)
+                self.assertEqual(self.shape.shell_suppressions(self.root),[])
+                self.manifest.write_text('[]')
+        self.script('# comment || true\ncheck || trueish\ncheck || :prefix\ncheck ||\ntrue\ncheck || command true\n')
+        self.assertEqual(self.shape.shell_suppressions(self.root),[])
+        self.script("ssh host sh <<'EOF'\ncheck || true\nEOF\n")
+        self.assertIn(':2: unexplained','\n'.join(self.shape.shell_suppressions(self.root)))
+
+    def test_inventory_read_and_malformed_manifest_fail_closed(self):
+        self.script('check || true\n')
+        self.declare()
+        (self.root/'scripts/example.sh').unlink()
+        self.assertIn('cannot check','\n'.join(self.shape.shell_suppressions(self.root)))
+        self.script('check || true\n')
+        self.manifest.write_text('{')
+        self.assertIn('cannot check','\n'.join(self.shape.shell_suppressions(self.root)))
+        self.manifest.write_text('{}')
+        self.assertIn('must be a list','\n'.join(self.shape.shell_suppressions(self.root)))
+        with mock.patch.object(self.shape.subprocess,'run',side_effect=subprocess.CalledProcessError(128,['git'])):
+            self.assertIn('cannot check','\n'.join(self.shape.shell_suppressions(self.root)))
+
+    def test_hard_rule_cannot_be_paid_by_a_baseline_or_tighten(self):
+        # Exercise main's actual result and baseline-write path, with unrelated
+        # Go inventories empty so this remains a file-only shell contract test.
+        self.script('check || true\n')
+        baseline=self.root/'scripts/shape-baseline.json'
+        baseline.write_text('{"shellsuppressions": 100}\n')
+        before=baseline.read_bytes()
+        from contextlib import ExitStack
+        names=('layering doors transport methods fields constructors aliases standalone callbacks handwritten '
+               'testhomes harness_imports root_files transport_audit transport_db hub_paths kind_branches '
+               'history_comments test_exec_writes test_exec_fixtures dropped_decodes workflow_exports').split()
+        with ExitStack() as stack:
+            stack.enter_context(mock.patch.object(self.shape,'ROOT',str(self.root)))
+            stack.enter_context(mock.patch.object(self.shape.sys,'argv',['shape-check.py','--tighten']))
+            for name in names:
+                stack.enter_context(mock.patch.object(self.shape,name,return_value=[]))
+            stack.enter_context(mock.patch.object(self.shape,'test_sql',return_value=([],[])))
+            stack.enter_context(mock.patch.object(self.shape,'agent_boundaries',return_value={'policy':[],'settlement':[]}))
+            stack.enter_context(mock.patch.object(self.shape,'request_boundaries',return_value={'jsondecode':[],'routepolicies':[]}))
+            with self.assertRaises(SystemExit) as failure:
+                self.shape.main()
+            self.assertEqual(failure.exception.code,1)
+        self.assertEqual(baseline.read_bytes(),before)
+        self.declare()
+        self.assertFalse(self.shape.check_shell_suppressions({'shellsuppressions':0},self.root))
+        self.assertTrue(self.shape.check_shell_suppressions({},self.root))
+
+
 if __name__ == "__main__":
     unittest.main()

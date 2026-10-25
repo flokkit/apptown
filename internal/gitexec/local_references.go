@@ -140,9 +140,9 @@ func changedConfig(ctx context.Context, raw []byte, changes []URLChange) ([]byte
 		return nil, err
 	}
 	path := f.Name()
-	defer os.Remove(path)
+	defer os.Remove(path) // unchecked-error: temporary config may remain; its read/write and Git validation errors are checked.
 	if _, err := f.Write(raw); err != nil {
-		_ = f.Close()
+		_ = f.Close() // unchecked-error: write failure is already returned; successful-write Close below remains checked.
 		return nil, err
 	}
 	if err := f.Close(); err != nil {
