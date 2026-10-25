@@ -200,9 +200,9 @@ func TestOAuthFlowMintsBoundedTokens(t *testing.T) {
 	if w.Code != 401 {
 		t.Errorf("an MCP token must not open the JSON API: %d", w.Code)
 	}
-	id := a.resolveOAuthToken(context.Background(), accessToken, identity.AudienceUser)
-	if id == nil || id.Via != "oauth" || id.User != "boss" {
-		t.Fatalf("resolve: %+v", id)
+	id, err := a.resolveOAuthToken(context.Background(), accessToken, identity.AudienceUser)
+	if err != nil || id == nil || id.Via != "oauth" || id.User != "boss" {
+		t.Fatalf("resolve: %+v %v", id, err)
 	}
 	pr := principalOf(id, "")
 	p, _ := a.Projects.BySlug(context.Background(), "p")

@@ -21,6 +21,12 @@ open identity. Otherwise authentication checks the mode's identity source. In
 internal mode, console/run session tokens have their own bounded instrument path.
 MCP, Git, OAuth and the inference listener each verify their protocol credentials.
 
+A failed personal-token, browser-session or MCP OAuth identity lookup returns
+503. It does not become an invalid-credential response, an anonymous request or
+a fallback to another identity source. MCP sends no authentication challenge
+for this unavailable state; browser OAuth issues no consent or code. Unknown,
+revoked and disabled credentials retain their normal refusal behavior.
+
 `--auth-header` names the trusted proxy user header. `--auth-proxy-secret-env`
 names the environment variable containing its shared secret. Configure these with
 an actual trusted proxy boundary. Open-mode attribution does not protect an

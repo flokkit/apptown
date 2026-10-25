@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -29,20 +28,24 @@ import (
 
 const sessionCookie = httpapi.SessionCookie
 
-// resolveSession returns the identity behind a session cookie, or nil.
-func (a *App) resolveSession(r *http.Request) *authIdentity {
+// resolveSession returns the identity behind a session cookie, or nil for an
+// absent/invalid cookie. Lookup failures are returned separately.
+func (a *App) resolveSession(r *http.Request) (*authIdentity, error) {
 	c, err := r.Cookie(a.sessionCookieName(r))
 	if err != nil || c.Value == "" {
-		return nil
+		return nil, nil
 	}
 	pr, err := a.Access.SessionIdentity(r.Context(), c.Value)
 	if err != nil {
-		log.Printf("resolving a session: %v", err)
+		if errors.Is(err, identity.ErrAccountDisabled) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	if pr.Name == "" {
-		return nil
+		return nil, nil
 	}
-	return &authIdentity{PrincipalID: pr.ID, User: pr.Name, Role: pr.Role, Via: pr.Via, Credential: pr.Credential}
+	return &authIdentity{PrincipalID: pr.ID, User: pr.Name, Role: pr.Role, Via: pr.Via, Credential: pr.Credential}, nil
 }
 
 // authOpenPaths are reachable without identity in internal mode: the login

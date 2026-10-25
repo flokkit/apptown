@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -144,10 +145,22 @@ func (a *App) mcpIdentity(w http.ResponseWriter, r *http.Request) *authIdentity 
 		tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		// An OAuth access token audience-bound to this door (oauth.go) is the
 		// designed path; an agent token is the bootstrap/compatibility one.
-		if id := a.resolveOAuthToken(r.Context(), tok, identity.AudienceUser); id != nil {
+		id, err := a.resolveOAuthToken(r.Context(), tok, identity.AudienceUser)
+		if err != nil {
+			log.Printf("resolving an MCP OAuth identity: %v", err)
+			writeErr(w, 503, "could not verify your identity; try again later")
+			return nil
+		}
+		if id != nil {
 			return id
 		}
-		if id := a.resolveBearer(r); id != nil {
+		id, err = a.resolveBearer(r)
+		if err != nil {
+			log.Printf("resolving an MCP token identity: %v", err)
+			writeErr(w, 503, "could not verify your identity; try again later")
+			return nil
+		}
+		if id != nil {
 			// A request here is an agent's. A cli token acts with its
 			// person's full authority wherever it is presented, so it is
 			// refused here: an agent holding one could take that authority

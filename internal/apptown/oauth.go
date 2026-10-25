@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -111,7 +112,7 @@ func (a *App) handleOAuthRegister(w http.ResponseWriter, r *http.Request) {
 func (a *App) browserIdentity(r *http.Request) (*authIdentity, error) {
 	switch a.cfg.authMode {
 	case "internal":
-		return a.resolveSession(r), nil
+		return a.resolveSession(r)
 	case "trusted-header":
 		if a.cfg.authProxySecret != "" &&
 			subtle.ConstantTimeCompare([]byte(r.Header.Get("X-AppTown-Proxy-Secret")), []byte(a.cfg.authProxySecret)) == 1 {
@@ -161,7 +162,8 @@ func (a *App) handleOAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 		if fault.KindOf(err) == fault.Invalid {
 			http.Error(w, fault.Message(err), http.StatusUnauthorized)
 		} else {
-			http.Error(w, "could not record your account; try again later", http.StatusServiceUnavailable)
+			log.Printf("resolving an OAuth browser identity: %v", err)
+			http.Error(w, "could not verify your identity; try again later", http.StatusServiceUnavailable)
 		}
 		return
 	}
@@ -402,19 +404,20 @@ func (a *App) delegationByID(ctx context.Context, id ids.ID) *identity.Delegatio
 	return d
 }
 
-// resolveOAuthToken: an access token for the given audience, or nil. The
+// resolveOAuthToken returns an access token identity for the audience, nil for
+// an invalid credential, and an error when lookup is unavailable. The
 // person's CURRENT role and standing answer; the token contributes only the
 // delegation's bounds (§10).
-func (a *App) resolveOAuthToken(ctx context.Context, tok, audience string) *authIdentity {
+func (a *App) resolveOAuthToken(ctx context.Context, tok, audience string) (*authIdentity, error) {
 	resolved, err := a.Access.ResolveOAuth(ctx, tok, audience)
 	if err != nil {
-		if !errors.Is(err, identity.ErrOAuthCredential) {
-			readOK(err)
+		if errors.Is(err, identity.ErrOAuthCredential) {
+			return nil, nil
 		}
-		return nil
+		return nil, err
 	}
 	pr := resolved.Principal
-	return &authIdentity{PrincipalID: pr.ID, User: pr.Name, Role: pr.Role, Via: pr.Via, DelegationID: pr.DelegationID, ClientID: resolved.ClientID, Scopes: pr.Scopes, Credential: pr.Credential}
+	return &authIdentity{PrincipalID: pr.ID, User: pr.Name, Role: pr.Role, Via: pr.Via, DelegationID: pr.DelegationID, ClientID: resolved.ClientID, Scopes: pr.Scopes, Credential: pr.Credential}, nil
 }
 
 // --- the person's connected agents ---------------------------------------------------------

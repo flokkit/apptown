@@ -103,15 +103,26 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		var id *authIdentity
+		var err error
 		if hasBearer(r) {
-			id = a.resolveBearer(r)
+			id, err = a.resolveBearer(r)
+			if err != nil {
+				log.Printf("resolving a token: %v", err)
+				writeErr(w, 503, "could not verify your identity; try again later")
+				return
+			}
 			if id == nil {
 				writeErr(w, 401, "invalid token")
 				return
 			}
 		}
 		if id == nil && a.cfg.authMode == "internal" {
-			id = a.resolveSession(r)
+			id, err = a.resolveSession(r)
+			if err != nil {
+				log.Printf("resolving a session: %v", err)
+				writeErr(w, 503, "could not verify your identity; try again later")
+				return
+			}
 			if id == nil {
 				// Console containers hold a per-session token, not a cookie.
 				// Attribution keeps the console provenance string, and no
@@ -202,22 +213,22 @@ func hasBearer(r *http.Request) bool {
 }
 
 // resolveBearer resolves a personal access token to an identity, or nil for
-// an unknown/revoked token. Shared by the /api middleware and the MCP
+// an unknown/revoked token. Lookup failures are returned separately. Shared by the /api middleware and the MCP
 // endpoint (mcp_server.go), which live outside the middleware's path prefix.
-func (a *App) resolveBearer(r *http.Request) *authIdentity {
+func (a *App) resolveBearer(r *http.Request) (*authIdentity, error) {
 	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	pr, err := a.Access.PersonalTokenIdentity(r.Context(), tok, a.cfg.proxies.ClientIP(r))
 	if err != nil {
 		var denied *identity.AdministratorDenied
-		if !errors.As(err, &denied) && !errors.Is(err, identity.ErrAccountDisabled) {
-			log.Printf("resolving a token: %v", err)
+		if errors.As(err, &denied) || errors.Is(err, identity.ErrAccountDisabled) {
+			return nil, nil
 		}
-		return nil
+		return nil, err
 	}
 	if pr.Name == "" {
-		return nil
+		return nil, nil
 	}
-	return &authIdentity{PrincipalID: pr.ID, User: pr.Name, Role: pr.Role, Via: pr.Via, Purpose: pr.Purpose, Credential: pr.Credential}
+	return &authIdentity{PrincipalID: pr.ID, User: pr.Name, Role: pr.Role, Via: pr.Via, Purpose: pr.Purpose, Credential: pr.Credential}, nil
 }
 
 // handleMe: GET /api/v1/me
