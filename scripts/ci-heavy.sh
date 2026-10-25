@@ -76,15 +76,40 @@ cleanup)
 	cleanup
 	exit 0
 	;;
-test | tour)
+test | test-partition | tour)
 	mode=$1
 	shift
 	;;
 *)
-	echo "usage: $0 test <go test arguments...> | tour | cleanup | pull" >&2
+	echo "usage: $0 test <go test arguments...> | test-partition integration <group> | tour | cleanup | pull" >&2
 	exit 2
 	;;
 esac
+
+# CI restores these host paths with actions/cache. Local runs keep named
+# volumes; the two stores never contain database or Docker daemon state.
+gomod=${CI_HEAVY_GOMOD:-apptown-ci-gomod}
+gocache=${CI_HEAVY_GOCACHE:-apptown-ci-gocache}
+for cache_path in "${CI_HEAVY_GOMOD:-}" "${CI_HEAVY_GOCACHE:-}"; do
+	[ -n "$cache_path" ] || continue
+	case "$cache_path" in
+	/*) ;;
+	*) echo "ci-heavy: cache path must be absolute" >&2; exit 2 ;;
+	esac
+	case "$cache_path" in
+	/ | *:* | *','* | *'
+'*) echo "ci-heavy: invalid cache path" >&2; exit 2 ;;
+	esac
+	mkdir -p "$cache_path"
+done
+
+cache_owner() {
+	for cache_path in "${CI_HEAVY_GOMOD:-}" "${CI_HEAVY_GOCACHE:-}"; do
+		[ -n "$cache_path" ] || continue
+		docker run --rm -v "$cache_path:/cache" "$probe_image" \
+			chown -R "$(id -u):$(id -g)" /cache || return $?
+	done
+}
 
 # A Linux runner must reach the same published loopback ports as AppTown.
 # Docker Desktop requires its opt-in host networking for this path. Prove it
@@ -149,19 +174,23 @@ if [ "$mode" = tour ]; then
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-v "$PWD:$PWD" -w "$PWD" \
 		-v "$tmp:$tmp" -e TMPDIR="$tmp" \
-		-v apptown-ci-gomod:/root/go/pkg/mod -v apptown-ci-gocache:/root/.cache/go-build \
+		-v "$gomod:/root/go/pkg/mod" -v "$gocache:/root/.cache/go-build" \
 		-e GOFLAGS="${GOFLAGS:-}" -e OWNER="$(id -u):$(id -g)" \
 		apptown-ci-heavy sh -c 'status=0; make tour || status=$?; chown -R "$OWNER" web/node_modules web/dist site/tour 2>/dev/null; exit $status'
 	exit
 fi
+case "$mode" in
+ test) set -- go test "$@" ;;
+ test-partition) set -- sh scripts/ci-test-partition.sh "$@" ;;
+esac
 status=0
 { docker run --rm --name "$name" --init --network host \
 	-v /var/run/docker.sock:/var/run/docker.sock \
 	-v "$PWD:$PWD:ro" -w "$PWD" \
 	-v "$tmp:$tmp" -e TMPDIR="$tmp" \
-	-v apptown-ci-gomod:/root/go/pkg/mod -v apptown-ci-gocache:/root/.cache/go-build \
+	-v "$gomod:/root/go/pkg/mod" -v "$gocache:/root/.cache/go-build" \
 	-e GOFLAGS="${GOFLAGS:-}" -e GOMAXPROCS="${GOMAXPROCS:-4}" \
-	apptown-ci-heavy go test "$@" || echo $? >"$tmp/.ci-heavy-status"; } | tee "$tmp/.ci-heavy-go-test.log"
+	apptown-ci-heavy "$@" || echo $? >"$tmp/.ci-heavy-status"; } | tee "$tmp/.ci-heavy-go-test.log"
 [ -f "$tmp/.ci-heavy-status" ] && status=$(cat "$tmp/.ci-heavy-status")
 missing=
 for t in ${CI_HEAVY_REQUIRE:-}; do
@@ -171,4 +200,5 @@ if [ -n "$missing" ]; then
 	echo "ci-heavy: required tests did not pass (skipped, absent or failed):$missing" >&2
 	[ "$status" -ne 0 ] || status=1
 fi
+cache_owner
 exit "$status"

@@ -35,7 +35,7 @@ port)
     [ "${STUB_NETWORK_FAIL:-}" != mapping ] || exit 1
     if [ "${STUB_NETWORK_FAIL:-}" = malformed ]; then echo 43210
     else echo 127.0.0.1:43210; fi ;;
-run) case "$*" in *busybox*) exit 0 ;; esac
+run) case "$*" in *busybox*chown*) exit "${STUB_CHOWN_STATUS:-0}" ;; *busybox*) exit 0 ;; esac
 	[ -z "${STUB_CALLS:-}" ] || printf '%s\n' "$*" >>"$STUB_CALLS"
 	printf '%s' "$STUB_OUTPUT"
 	exit "${STUB_STATUS:-0}" ;;
@@ -79,9 +79,60 @@ class RequiredTests(unittest.TestCase):
         if require is not None:
             env["CI_HEAVY_REQUIRE"] = require
         env["STUB_CALLS"] = os.path.join(self.dir.name, "calls")
-        args = ["test", "./..."] if mode == "test" else [mode]
+        args = (["test", "./..."] if mode == "test" else
+                ["test-partition", "integration", "root"] if mode == "test-partition" else [mode])
         return subprocess.run(["sh", SCRIPT] + args, env=env, capture_output=True, text=True,
                               cwd=os.path.dirname(os.path.dirname(SCRIPT)))
+
+    def test_partition_runs_in_linux_and_propagates_failure(self):
+        for status in ('0', '9'):
+            calls = os.path.join(self.dir.name, 'partition-' + status)
+            r = self.run_job('', status=int(status), require=None,
+                             mode='test-partition', STUB_ALL_CALLS=calls)
+            self.assertEqual(r.returncode, int(status), r.stderr)
+            with open(calls) as f:
+                commands = f.read()
+            self.assertIn('apptown-ci-heavy sh scripts/ci-test-partition.sh integration root', commands)
+            self.assertIn('--network host', commands)
+            self.assertIn('rm -f apptown-ci-', commands)
+
+    def test_host_cache_mounts_and_ownership(self):
+        calls = os.path.join(self.dir.name, 'cache-calls')
+        gomod = os.path.join(self.dir.name, 'modules')
+        gocache = os.path.join(self.dir.name, 'compiled')
+        r = self.run_job('', require=None, STUB_ALL_CALLS=calls,
+                         CI_HEAVY_GOMOD=gomod, CI_HEAVY_GOCACHE=gocache)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(calls) as f:
+            commands = f.read()
+        self.assertIn('-v ' + gomod + ':/root/go/pkg/mod', commands)
+        self.assertIn('-v ' + gocache + ':/root/.cache/go-build', commands)
+        self.assertIn('-v ' + gomod + ':/cache', commands)
+        self.assertIn('chown -R ', commands)
+
+    def test_cache_ownership_failure_is_not_success(self):
+        r = self.run_job('', require=None, CI_HEAVY_GOCACHE=self.dir.name,
+                         STUB_CHOWN_STATUS='7')
+        self.assertEqual(r.returncode, 7, r.stdout + r.stderr)
+
+    def test_local_default_cache_mounts_are_retained(self):
+        calls = os.path.join(self.dir.name, 'default-cache')
+        r = self.run_job('', require=None, STUB_ALL_CALLS=calls,
+                         CI_HEAVY_GOMOD='', CI_HEAVY_GOCACHE='')
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(calls) as f:
+            commands = f.read()
+        self.assertIn('-v apptown-ci-gomod:/root/go/pkg/mod', commands)
+        self.assertIn('-v apptown-ci-gocache:/root/.cache/go-build', commands)
+        self.assertNotIn('chown -R', commands)
+
+    def test_invalid_host_cache_path_never_starts_tests(self):
+        for path in ('relative', '/', '/tmp/cache:rw', '/tmp/cache,other'):
+            calls = os.path.join(self.dir.name, 'invalid-cache')
+            r = self.run_job('', require=None, STUB_ALL_CALLS=calls, CI_HEAVY_GOCACHE=path)
+            self.assertNotEqual(r.returncode, 0)
+            self.assertIn('cache path', r.stderr)
+            self.assertFalse(os.path.exists(calls))
 
     def test_make_journeys_builds_and_runs_in_linux_without_a_job_id(self):
         native = os.path.join(self.dir.name, "bin", "go")

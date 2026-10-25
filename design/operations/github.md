@@ -121,19 +121,27 @@ pull request restores. Jobs:
   so its `needs:` list names every job, and a job added to `ci.yml` is added
   there too.
 
-**Caches.** GitHub keeps 10 GB of Actions caches per repository and evicts
-the least recently used beyond that. A cache saved on a pull request's ref
-can be restored only by that pull request, and one saved on a tag only by
-that tag; one saved on `main` is restored by every run. So only `main`
-saves, and every run restores by prefix: Go's modules (`go-mod-*`, saved by
-`checks`), one Go build cache per job (`go-build-<job>-*`: `checks`, each
-`test` part and `race`, since each compiles different packages or flags),
-and the analyzers `make tools` installs (`go-tools-*`). The Go keys change
-with `go.mod` and `go.sum`; the superseded cache goes unused and is evicted
-or expires after seven days. setup-node's npm cache, keyed by the lockfile,
-is the one exception: a pull request that changes the lockfile saves its own
-copy. Release builds (`images.yml`) use no Actions cache, since a tag's
-cache could serve only that tag.
+**Caches.** Main publishes Go module and compilation caches; pull requests
+restore them without publishing. Modules (`go-mod-*`) use dependency hashes.
+Compilation keys include platform, architecture, dependencies and commit; each
+successful main job publishes its current compilation cache, and later runs
+restore the newest compatible prefix. Container-tier keys also include the
+runner Dockerfile and tier. Each compilation archive retains at most 256 MiB
+of its newest files (`scripts/ci-cache-trim.py`); older generations compete for
+the repository's Actions cache budget and may be evicted. Eviction causes
+recompilation, never omission of tests. Tests run with `-count=1`.
+
+The container tiers restore the same host module path as the producer and mount
+it with their compilation cache into the Linux runner. `CI_HEAVY_GOMOD` and
+`CI_HEAVY_GOCACHE` select absolute host paths; local runs default to the existing
+named Docker volumes. The runner restores host ownership before archiving.
+Neither database state nor Docker daemon state is cached. Docker image builds
+currently use only the runner's local layer cache.
+
+The analyzers (`go-tools-*`) use the Makefile hash. setup-node's npm cache uses
+the lockfile; a pull request that changes it can save its own copy. Release
+builds (`images.yml`) use no Actions cache, since a tag's cache could serve only
+that tag.
 
 **`heavy.yml`** runs the Docker integration tier, the journeys, the opt-in
 browser, pi and inference_docker tests (each must pass; a skip fails the
@@ -153,8 +161,12 @@ their own images; a registry outage there still fails that test. Its last
 job, `heavy-ok`, passes only when `web`, every `tier` entry and `race`
 succeeded, and the ruleset requires it, so a red heavy run blocks merging.
 As with `ci-ok`, a job added to `heavy.yml` is added to its `needs:` list.
-The heavy tiers take from a few minutes (journeys) to about an hour
-(integration, at its limit).
+Race uses four package partitions: the root package, backup/data protection,
+workflow execution, and the rest. Integration uses four: root, dependencies,
+worker, and the rest. `scripts/ci-test-partition.sh` lists packages with the
+execution build tags and assigns every package to exactly one partition; new
+packages default to the rest. Every matrix entry must succeed. Local
+`make check-race` still runs the entire race suite.
 
 **`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`
 (`scripts/heavy-evidence.py`), asks the API for a `heavy.yml` run (on
