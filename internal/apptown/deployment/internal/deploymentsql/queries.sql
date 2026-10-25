@@ -443,6 +443,11 @@ VALUES (sqlc.arg(id), sqlc.arg(deployment_id), sqlc.arg(need), sqlc.arg(volume),
 -- name: RetireStorageBinding :exec
 DELETE FROM deployment_storage_bindings WHERE deployment_id=sqlc.arg(deployment_id) AND need=sqlc.arg(need) AND volume=sqlc.arg(volume);
 
+-- A release belongs to a placement identity; reused display names cannot
+-- establish current attribution or select another placement's history.
+-- name: LatestReleasedForDeployment :one
+SELECT * FROM releases WHERE deployment_id=sqlc.arg(deployment_id) AND state=sqlc.arg(state) ORDER BY number DESC LIMIT 1;
+
 -- name: AssociateTargetProvider :one
 UPDATE targets SET connection_id=sqlc.arg(connection_id), provider=sqlc.arg(provider), provider_scope_json=sqlc.arg(provider_scope_json),
   settings_revision=settings_revision+1, updated_at=sqlc.arg(at)

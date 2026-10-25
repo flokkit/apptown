@@ -83,9 +83,9 @@ func (e *Deployment) DeployableByHand() error {
 // DeployableByHandAt is DeployableByHand for a deploy of bundle, given the
 // bundle the deployment is known to run (0: not known, see runningBundle). A
 // landing-fed deployment takes by hand only that bundle: deploying what runs
-// again changes nothing a landing would choose, and it records the release's
-// rebuild inputs, which a release made before they were recorded lacks
-// (stock/docs/guides/apptown-backups.md).
+// again changes nothing a landing would choose. The caller may also supply the
+// explicitly recorded recovery bundle selected by handBundle after a restore.
+// Historical software without either provenance remains unknown.
 func (e *Deployment) DeployableByHandAt(bundle, running ids.ID) error {
 	err := e.DeployableByHand()
 	if errors.Is(err, ErrFedByLanding) && !running.IsZero() && bundle == running {

@@ -42,9 +42,7 @@ func TestDeployableByHand(t *testing.T) {
 }
 
 // A landing-fed deployment takes by hand only the bundle it is known to run:
-// deploying what runs again is what lets a deployment released before rebuild
-// inputs were recorded record them. Another bundle, or a running bundle that
-// is not known, is still landing's.
+// another bundle, or software without recorded provenance, remains landing's.
 func TestDeployableByHandAtTheBundleItRuns(t *testing.T) {
 	main := &Deployment{Kind: Standing, Name: "main", Feed: "landing"}
 	if err := main.DeployableByHandAt(idstest.N(5), idstest.N(5)); err != nil {

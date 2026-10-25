@@ -303,49 +303,39 @@ func TestAReleaseTagsItsDigestsAndATagFailureNeverFailsIt(t *testing.T) {
 	}
 }
 
-// A deployment released before attempts recorded their inputs, now fed by
-// landing, is released again by hand with the bundle it runs: the release
-// completes and its attempt records the inputs a rebuild needs. The request's
-// own queued release does not hide what runs.
-//
-// Kills: a legacy lookup reading the newest release of any state, which found
-// the request's own release when executing it and refused it (RD-03).
-func TestALegacyLandingFedDeploymentIsReleasedAgainAndRecordsItsInputs(t *testing.T) {
+// A landing-fed deployment without recorded inputs cannot establish which
+// bundle it runs. Historical release metadata does not authorize a manual
+// redeploy, even when the requested bundle matches that metadata.
+func TestALegacyLandingFedDeploymentCannotInferItsRunningBundle(t *testing.T) {
 	t.Parallel()
 	w := newDigestWorld(t, "", nil)
 	b := w.publish(t)
 	w.mainOf(t, b)
-	if rel, err := w.promote(t, b.ID, "staging", w.lab2); err != nil || rel.State != Released {
-		t.Fatalf("first release: %+v %v", rel, err)
+	first, err := w.promote(t, b.ID, "staging", w.lab2)
+	if err != nil || first.State != Released {
+		t.Fatalf("first release: %+v %v", first, err)
 	}
 	dep, err := w.s.Deployments.ByName(t.Context(), w.project, "staging")
 	if err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: a generation settled before 8 September 2026 recorded no attempt inputs and its release no generation; no operation writes that shape now.
+	// sql-guarantee: historical generations can lack inputs and release generation metadata; no operation writes that shape now.
 	mustExec(t, w.db, `DELETE FROM deployment_attempt_inputs USING deployment_attempts a WHERE a.id=attempt_id AND a.deployment_id=$1`, dep.ID)
-	// sql-guarantee: the legacy shape (no attempt inputs, a release without a generation) that no operation writes now.
+	// sql-guarantee: preserve the historical release metadata while removing its generation association.
 	mustExec(t, w.db, `UPDATE releases SET generation=0, commit_sha='' WHERE deployment_id=$1`, dep.ID)
 	mutateStoredDeployment(t, w.db, w.project, "staging", func(r *deploymentsql.Deployment) { r.Feed = "landing" })
 
-	accepted, err := w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", BundleID: b.ID})
-	if err != nil {
-		t.Fatalf("the bundle it runs, again: %v", err)
+	_, err = w.s.RequestRelease(t.Context(), DeploySelection{ProjectID: w.project, DeploymentName: "staging", BundleID: b.ID})
+	if !errors.Is(err, ErrFedByLanding) {
+		t.Fatalf("unknown running bundle must refuse manual release: %v", err)
 	}
-	if err := w.s.ExecuteRelease(t.Context(), accepted.ID); err != nil {
-		t.Fatalf("the release ran: %v", err)
+	last, err := w.s.Releases.Last(t.Context(), w.project, "staging")
+	if err != nil || last.ID != first.ID || last.State != Released || last.Generation != 0 {
+		t.Fatalf("refusal must preserve historical release: %+v %v", last, err)
 	}
-	rel, err := w.s.Releases.Last(t.Context(), w.project, "staging")
-	if err != nil || rel.ID != accepted.ID || rel.State != Released {
-		t.Fatalf("the release completed: %+v %v", rel, err)
-	}
-	dep, err = w.s.Deployments.ByName(t.Context(), w.project, "staging")
-	if err != nil {
-		t.Fatal(err)
-	}
-	in, err := w.s.Outcomes.InputsAtGeneration(t.Context(), dep.ID, dep.ObservedGeneration)
-	if err != nil || in.Revision != b.ContractRevision || (in.BundleID != b.ID && in.ReleaseID != accepted.ID) {
-		t.Fatalf("the new generation records what a rebuild needs: %+v %v", in, err)
+	after, err := w.s.Deployments.ByName(t.Context(), w.project, "staging")
+	if err != nil || after.ObservedGeneration != dep.ObservedGeneration || after.DesiredGeneration != dep.DesiredGeneration {
+		t.Fatalf("refusal must preserve deployment generation: %+v %v", after, err)
 	}
 }
 

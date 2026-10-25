@@ -205,10 +205,10 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 // run, and that release runs; another bundle at the same revision (whose
 // images can differ), a bundle while a newer deploy is under way, and a
 // bundle whose deployment's running bundle is not known are refused. A
-// release made before attempts recorded their inputs names what runs.
+// historical release without generation inputs cannot establish what runs.
 //
-// Kills: a landing-fed deployment refusing every deploy by hand (no way to
-// record a legacy release's rebuild inputs); matching by revision alone
+// Kills: a landing-fed deployment refusing every known-bundle redeploy;
+// matching by revision alone
 // (RD-01); matching a last-success revision while a landing runs (RD-02).
 func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 	type world struct {
@@ -283,6 +283,19 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 			t.Fatalf("an unknown running bundle is not a match: %+v %v", got, err)
 		}
 	})
+	t.Run("an unreadable generation is not an unknown success", func(t *testing.T) {
+		t.Parallel()
+		w := setup(t, true)
+		restore := w.s.db.FailNextStatement("-- name: CompletedAttempt")
+		bundle, err := w.s.runningBundle(t.Context(), w.dep)
+		restore()
+		if err == nil || !bundle.IsZero() {
+			t.Fatalf("generation read failure: bundle=%s error=%v", bundle, err)
+		}
+		if bundle, err := w.s.runningBundle(t.Context(), w.dep); err != nil || bundle != w.running.ID {
+			t.Fatalf("restored generation read: bundle=%s error=%v", bundle, err)
+		}
+	})
 	t.Run("a release made before attempts recorded inputs", func(t *testing.T) {
 		t.Parallel()
 		w := setup(t, false)
@@ -290,8 +303,15 @@ func TestALandingFedDeploymentTakesTheBundleItRuns(t *testing.T) {
 		mustExec(t, w.s.db, `DELETE FROM deployment_attempt_inputs USING deployment_attempts a WHERE a.id=attempt_id AND a.deployment_id=$1`, w.dep.ID)
 		// sql-guarantee: the legacy shape (no attempt inputs, a release without a generation) that no operation writes now.
 		mustExec(t, w.s.db, `INSERT INTO releases(id,project_id,number,state,deployment,approved_by,created_at,released_at,notes,commit_sha,source_sha,bundle_id,deployment_id) VALUES ($5,$1,1,'released',$2,'bls','2026-09-08T00:00:00Z','2026-09-08T00:00:00Z','','','',$3,$4)`, w.in.ProjectID, w.in.DeploymentName, w.running.ID, w.dep.ID, ids.New(time.Now()))
-		if got, err := w.s.RequestRelease(t.Context(), w.in); err != nil || got.ID.IsZero() {
-			t.Fatalf("the legacy release names what runs: %+v %v", got, err)
+		w.s.copyCheck = copyCheckSays("copy provider unavailable")
+		if why, _, err := w.s.uncopiedData(t.Context(), w.dep, nil, w.running.ID, false, "alice"); err != nil || why == "" {
+			t.Fatalf("unknown software waived uncopied data: why=%q err=%v", why, err)
+		}
+		if why, note, err := w.s.uncopiedData(t.Context(), w.dep, nil, w.running.ID, true, "alice"); err != nil || why != "" || note == "" {
+			t.Fatalf("explicit uncopied data acceptance: why=%q note=%q err=%v", why, note, err)
+		}
+		if got, err := w.s.RequestRelease(t.Context(), w.in); !errors.Is(err, ErrFedByLanding) || !got.ID.IsZero() {
+			t.Fatalf("historical release without generation inputs cannot establish what runs: %+v %v", got, err)
 		}
 	})
 }

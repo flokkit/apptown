@@ -9,16 +9,10 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// runningBundle is the bundle a settled deployment runs, or Nil when that is
-// not known. Settled: its observed generation is its desired one and it reads
-// reconciled, so no newer deploy (a landing, say) is under way. The bundle is
-// the one the completed attempt at that generation ran (generationBundle:
-// a pinned bundle, its release's, or its landing run's); for a release made
-// before attempts recorded their inputs, it is the deployment's newest
-// released release, when its bundle is at the revision it runs (those
-// releases did not always record their revision). Unknown is
-// never read as a match: deploying "what runs" by hand needs to know what
-// runs.
+// runningBundle is the bundle recorded for the settled observed generation,
+// or Nil when it is not known. Missing attempt inputs cannot be reconstructed
+// from release names or matching revisions: those do not identify applied images.
+// Unknown is never a match for a manual redeploy or a data-copy exemption.
 func (s *Service) runningBundle(ctx context.Context, dep *Deployment) (ids.ID, error) {
 	if dep.ReleaseSHA == "" || dep.ObservedGeneration == 0 || dep.ObservedGeneration != dep.DesiredGeneration || dep.Readiness != Reconciled {
 		return ids.Nil, nil
@@ -41,25 +35,6 @@ func (s *Service) runningBundle(ctx context.Context, dep *Deployment) (ids.ID, e
 			}
 			return b.ID, nil
 		}
-	}
-	// The newest release that was released, not the newest of any state: a
-	// request queued or failed after it (this one, being executed) admitted
-	// no attempt and changes nothing about what runs.
-	released, err := q.LatestReleasedOn(ctx, deploymentsql.LatestReleasedOnParams{Deployment: dep.Name, State: Released.String()})
-	if err != nil {
-		return ids.Nil, err
-	}
-	// Such a release recorded its bundle but not always its revision, so the
-	// bundle's own revision must be the one that runs.
-	for _, r := range released {
-		if r.ProjectID != dep.ProjectID || r.BundleID.IsZero() {
-			continue
-		}
-		b, err := lookupBundle(s.Bundles.ByID(ctx, r.BundleID))
-		if err != nil || b == nil || b.ProjectID != dep.ProjectID || b.ContractRevision != dep.ReleaseSHA {
-			return ids.Nil, err
-		}
-		return b.ID, nil
 	}
 	return ids.Nil, nil
 }

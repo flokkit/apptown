@@ -817,3 +817,35 @@ func TestAPreviewBootRefusesTheNeedsAReleaseRefuses(t *testing.T) {
 		t.Fatalf("a preview boot with a password parameter: %v", err)
 	}
 }
+
+// A historical release is not a substitute for the generation's missing inputs.
+func TestOverrideKeepsUnknownRunningSoftwareDistinctFromAnEmptyDeployment(t *testing.T) {
+	t.Parallel()
+	w, _ := profiledWorld(t)
+	b := w.publish(t)
+	if _, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "prod", w.lab.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"}); err != nil {
+		t.Fatal(err)
+	}
+	if rel, err := w.promote(t, b.ID, "prod", w.lab); err != nil || rel.State != Released {
+		t.Fatalf("release: %+v %v", rel, err)
+	}
+	dep := mustDeployment(t, w, "prod")
+	before, err := w.s.Releases.ForProject(t.Context(), w.project, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: historical completed generations can lack inputs; current admission always writes them.
+	mustExec(t, w.db, `DELETE FROM deployment_attempt_inputs USING deployment_attempts a WHERE a.id=attempt_id AND a.deployment_id=$1`, dep.ID)
+	out, err := w.s.SetOverride(t.Context(), OverrideChange{ProjectID: w.project, Deployment: "prod", Part: "worker", Resources: appcontract.Resources{MemoryBytes: 2 << 30}, Reason: "adjust the next deployment"})
+	if err != nil || out.Override == nil || out.Release != nil || out.NotYet != "the running software could not be established; the override is saved for the next deployment, and no redeploy was started" {
+		t.Fatalf("unknown software override: %+v %v", out, err)
+	}
+	saved, err := w.s.Overrides(t.Context(), dep.ID)
+	if err != nil || saved["worker"].Resources.MemoryBytes != 2<<30 {
+		t.Fatalf("saved override: %+v %v", saved, err)
+	}
+	after, err := w.s.Releases.ForProject(t.Context(), w.project, 100)
+	if err != nil || !reflect.DeepEqual(before, after) {
+		t.Fatalf("unknown software requested a release: before=%+v after=%+v err=%v", before, after, err)
+	}
+}
