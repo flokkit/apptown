@@ -146,7 +146,9 @@ service, never a mock.
   tiers and the race tier on merge-group commits and by hand. Pull requests
   report admission only; main warms compilation caches without executing tests.
   Its `heavy-ok` job, which the main ruleset requires, fails on queue/manual
-  runs unless every heavy job passed, so a red result blocks merging. A release
+  execution unless every heavy job passed. Queue-only reuse for narrow
+  documentation changes requires complete base execution; it never supplies
+  release evidence (see [GitHub operations](../operations/github.md)). A release
   tag's images and archives are built only for a commit with a run that
   passed on its first attempt (`images.yml`, `heavy-evidence`). The
   heavy jobs first pull the images their tests start

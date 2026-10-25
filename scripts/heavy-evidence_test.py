@@ -10,6 +10,8 @@ import sys
 import tempfile
 import unittest
 
+from heavy_execution import EXECUTION_JOBS
+
 SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "heavy-evidence.py")
 REPO = "flokkit/apptown"
 SHA = "0123456789abcdef0123456789abcdef01234567"
@@ -51,6 +53,16 @@ class HeavyEvidence(unittest.TestCase):
     def runs(self, *runs):
         self.record(f"repos/{REPO}/actions/workflows/heavy.yml/runs?head_sha={SHA}&per_page=100",
                     {"total_count": len(runs), "workflow_runs": list(runs)})
+
+        for run in runs:
+            for attempt in {1, run['run_attempt']}:
+                self.jobs(run['id'], attempt)
+
+    def jobs(self, id, attempt=1, jobs=None, total=None):
+        if jobs is None:
+            jobs = [{'name': name, 'status': 'completed', 'conclusion': 'success'} for name in EXECUTION_JOBS]
+        self.record(f"repos/{REPO}/actions/runs/{id}/attempts/{attempt}/jobs?per_page=100",
+                    {'total_count': len(jobs) if total is None else total, 'jobs': jobs})
 
     def first_attempt(self, id, conclusion):
         self.record(f"repos/{REPO}/actions/runs/{id}/attempts/1",
@@ -135,6 +147,31 @@ class HeavyEvidence(unittest.TestCase):
                 self.runs(dict(run(10, event=event), head_branch=branch))
                 code, out = self.check()
                 self.assertEqual(code, 1, out)
+
+    def test_release_refuses_reuse_partial_duplicate_and_truncated_execution(self):
+        full = [{'name': name, 'status': 'completed', 'conclusion': 'success'} for name in EXECUTION_JOBS]
+        for jobs, total in [(full[:-1], None), (full + [full[0]], None), (full, len(full) + 1),
+                            ([dict(job, conclusion='skipped') if job['name'] != 'heavy-ok' else job for job in full], None)]:
+            with self.subTest(jobs=jobs, total=total):
+                self.runs(run(10, event='merge_group'))
+                self.jobs(10, jobs=jobs, total=total)
+                code, out = self.check()
+                self.assertEqual(code, 1, out)
+                self.assertIn('lacks full successful execution', out)
+
+    def test_both_first_and_latest_rerun_require_complete_execution(self):
+        for incomplete in [1, 2]:
+            self.runs(run(10, event='workflow_dispatch', attempt=2))
+            self.first_attempt(10, 'success')
+            self.jobs(10, incomplete, jobs=[])
+            code, out = self.check()
+            self.assertEqual(code, 1, out)
+
+    def test_truncated_runs_refuse_even_when_visible_run_passed(self):
+        self.runs(run(10))
+        self.record(f"repos/{REPO}/actions/workflows/heavy.yml/runs?head_sha={SHA}&per_page=100",
+                    {'total_count': 101, 'workflow_runs': [run(10)]})
+        self.assertEqual(self.check()[0], 1)
 
     def test_no_run_is_not_evidence(self):
         self.runs()

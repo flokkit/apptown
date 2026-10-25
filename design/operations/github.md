@@ -150,8 +150,8 @@ that tag.
 **`heavy.yml`** executes the Docker integration tier, journeys, opt-in browser,
 pi and inference_docker tests, and the race detector on `merge_group` and
 manual dispatch. A pull request runs the qualification report and reports
-admission-only `heavy-ok`; its tests execute on the actual queue commit before
-merging. Skipped jobs cannot pass the queue or manual aggregate. No label
+admission-only `heavy-ok`; the queue qualifies the actual commit before
+merging. Manual runs always execute every heavy job. No label
 changes what executes. Each job first pulls the images its tests start, listed in
 `deploy/ci-heavy/test-images.txt` (`scripts/ci-heavy.sh pull`, three
 attempts each), so a registry error while fetching them fails that step,
@@ -160,8 +160,10 @@ the list. Tests can still reach a registry: AppTown's own deliberate pulls
 (a selected image, an image preview, a Portainer stack), BuildKit resolving
 a Dockerfile's FROM tag, and private Docker daemons inside a test pulling
 their own images; a registry outage there still fails that test. Its last
-job, `heavy-ok`, on queue/manual events passes only when the report, `web`,
-every `tier` entry and `race` succeeded, and the ruleset requires it, so a red heavy run blocks merging.
+job, `heavy-ok`, requires the qualification job to succeed. Execution requires
+`web`, every `tier` entry and `race` to succeed; queue reuse requires all three
+groups to be skipped. Partial execution fails. The ruleset requires the
+aggregate, so a red heavy run blocks merging.
 As with `ci-ok`, a job added to `heavy.yml` is added to its `needs:` list.
 Race uses four package partitions: the root package, backup/data protection,
 workflow execution, and the rest. Integration uses four: root, dependencies,
@@ -170,13 +172,17 @@ execution build tags and assigns every package to exactly one partition; new
 packages default to the rest. Every matrix entry must succeed. Local
 `make check-race` still runs the entire race suite.
 
-The heavy workflow also publishes a report-only qualification artifact. It
-compares exact Git inputs for non-executable Markdown changes under `design/`
-and `releases/`, and names a prior complete first-attempt successful main or
-queue run when one exists. Embedded docs, deployment files and unknown paths
-remain inputs. Missing or uncertain evidence reports full execution. Every
-queue/manual heavy test still executes regardless of this report; it is neither a skipped
-test result nor release evidence.
+The queue can reuse full heavy execution only when its exact base and candidate
+have identical inputs apart from regular non-executable Markdown under
+`design/` and `releases/`. Embedded docs, deployment files, workflow changes,
+executable files and every other path remain inputs. The newest applicable
+main, queue or manual run on the exact base must have complete successful
+first-attempt execution. Reuse-only runs cannot supply another reuse; a newer
+failure or unfinished run prevents an older green source from winning.
+Missing or uncertain evidence selects execution. The qualification artifact
+records the candidate, source commit/run, input digest, policy and decision.
+PR reports do not activate reuse, and manual dispatch always executes. Reuse
+qualifies a queue landing but supplies no release execution evidence.
 
 Both CI workflows handle `merge_group: checks_requested`; a PR check alone
 is never release evidence. `heavy-cache.yml` runs on main pushes to compile
@@ -189,7 +195,10 @@ compilation, never omission of qualification.
 **`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`
 (`scripts/heavy-evidence.py`), asks the API for a `heavy.yml` run (on
 `main`, its merge queue, or by hand) on the exact tagged commit that passed on its first attempt,
-and builds nothing without one: CI must pass, not pass eventually. The newest
+and builds nothing without one: CI must pass, not pass eventually. Both its
+first and latest attempt must contain the complete successful execution jobs;
+a green admission or reuse aggregate does not qualify. A reused commit needs
+a full manual run before release images or archives can be published. The newest
 applicable run decides; an older success never hides a newer failure or a run
 still executing. A queue result must name the tagged SHA; matching trees do not
 count. A run

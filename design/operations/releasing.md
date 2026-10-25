@@ -33,7 +33,8 @@ How a Flokkit release is made, in order. The release script is
    ([GitHub](github.md)); a run that passed only on a re-run does not count.
    Wait for the merge-queue run or a manual heavy run to complete before
    pushing the tag. PR admission and main cache warming are not release
-   evidence. When execution failed, fix the cause in a new commit,
+   evidence. If the queue reused earlier execution, run heavy manually on
+   this commit before tagging. When execution failed, fix the cause in a new commit,
    or, when the failure was not the code's, start a new run by hand on the
    commit (not a re-run).
 4. **The build.** `sh scripts/release.sh <version>` from a clean checkout at
