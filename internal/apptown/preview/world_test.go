@@ -121,7 +121,7 @@ func newWorld(t *testing.T, publicHost, secretsEnv string) *world {
 		Needs: w.catalog, Probe: &docker.Probe{Settle: time.Millisecond}, Routes: deployment.Routing{PublicHost: publicHost}, Projects: w.projects}
 	targets := deployment.NewTargets(db, nil)
 	w.records = deployment.New(context.Background(), db, deployment.Dependencies{Targets: targets, Projects: w.projects,
-		Hosts: deployment.NewHosts(targets, w.secrets, w.host), Environment: deployment.NewEnvironment(targets, w.env)})
+		Hosts: deployment.NewHosts(targets, w.secrets, w.host), Environment: deployment.NewEnvironment(w.env)})
 	if _, err := w.records.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func newWorld(t *testing.T, publicHost, secretsEnv string) *world {
 // service is the preview owner over the world, with deps' ports.
 func (w *world) service(deps Dependencies) *Service {
 	deps.Hosts = deployment.NewHosts(w.records.Targets, w.secrets, w.host)
-	deps.Environment = deployment.NewEnvironment(w.records.Targets, w.env)
+	deps.Environment = deployment.NewEnvironment(w.env)
 	deps.Targets, deps.Deployments, deps.Releases = w.records.Targets, w.records.Deployments, w.records.Releases
 	deps.Bundles, deps.Retained = w.records.Bundles, w.records.Retained
 	deps.Projects, deps.Integrations, deps.DataDir = w.projects, w.env.Integrations, w.dir
@@ -148,7 +148,7 @@ func (w *world) reconfigure(s *Service, host func(*deployment.HostSettings), env
 		env(&w.env)
 	}
 	s.hosts = deployment.NewHosts(w.records.Targets, w.secrets, w.host)
-	s.env = deployment.NewEnvironment(w.records.Targets, w.env)
+	s.env = deployment.NewEnvironment(w.env)
 }
 
 // previewBootWorld is the preview owner on the world's Docker.

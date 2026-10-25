@@ -31,7 +31,7 @@ func TestRevealSecretIsRecorded(t *testing.T) {
 	req.SetPathValue("deployment", "main")
 	req.SetPathValue("name", "DJANGO_SUPERUSER_PASSWORD")
 	rec := httptest.NewRecorder()
-	NewSecrets(service, nil, projects, nil, db, "", nil).RevealSecret(rec, req)
+	NewSecrets(service, projects, nil, db, "", nil).RevealSecret(rec, req)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"value":"hunter2"`) {
 		t.Fatalf("reveal: %d %s", rec.Code, rec.Body.String())
 	}

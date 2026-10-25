@@ -543,6 +543,14 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	// sql-guarantee: imported unresolved setup and saved policy are archive evidence, not fresh provider verification.
+	if _, err := db.Exec(`INSERT INTO project_release_settings(project_id,revision,legacy_setup_json) VALUES($1,9,'{"version":1,"integrationId":null,"integrationName":"legacy-connection","targetId":null,"deploymentName":"customer-test","configuration":{"kept":"archived"}}')`, pid); err != nil {
+		t.Fatal(err)
+	}
+	// sql-guarantee: preserve the archived policy revision rather than regenerate it during startup.
+	if _, err := db.Exec(`UPDATE deployments SET require_promotion=true,policy_revision=7 WHERE id=$1`, addressDep.ID); err != nil {
+		t.Fatal(err)
+	}
 	addressSnapshot := deployment.AddressSnapshot{DeploymentID: addressDep.ID, TargetID: addressTarget.ID, Revision: 4, Ingress: deploy.Ingress{Hosts: []string{"legacy.apps.example", "customer.example"}, URL: "https://customer.example", CertificateDomain: "apps.example"}}
 	addressJSON, err := json.Marshal(addressSnapshot)
 	if err != nil {
@@ -567,7 +575,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		t.Fatal(err)
 	}
 	// sql-guarantee: an already-admitted historical request must retain its exact immutable ingress across the archive boundary.
-	if _, err := db.Exec(`INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,ingress_json) VALUES($1,$2,0,'{}',$3)`, addressRelease.ID, addressTarget.ID, addressJSON); err != nil {
+	if _, err := db.Exec(`INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,ingress_json,require_promotion) VALUES($1,$2,0,'{}',$3,true)`, addressRelease.ID, addressTarget.ID, addressJSON); err != nil {
 		t.Fatal(err)
 	}
 	addressAttempt, _, err := app.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: addressDep.ID, TargetID: addressTarget.ID, Key: "address-archive", Inputs: deployment.Inputs{ReleaseID: addressRelease.ID, Revision: mainSHA, ArtifactHash: "retained-address-artifact", Address: &addressSnapshot}})
@@ -581,7 +589,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		t.Helper()
 		var facts string
 		// sql-guarantee: archive identity covers raw legacy evidence and every retained claim, not only public desired-address projection.
-		if err := db.SQL().QueryRowContext(ctx, `SELECT jsonb_build_object('settings',(SELECT to_jsonb(s) FROM deployment_address_settings s WHERE deployment_id=$1),'claims',(SELECT jsonb_agg(hostname ORDER BY hostname) FROM deployment_hostname_claimants WHERE deployment_id=$1),'request',(SELECT ingress_json FROM release_requests WHERE release_id=$2),'attempt',(SELECT ingress_json FROM deployment_attempt_inputs WHERE attempt_id=$3))::text`, addressDep.ID, addressRelease.ID, addressAttempt.ID).Scan(&facts); err != nil {
+		if err := db.SQL().QueryRowContext(ctx, `SELECT jsonb_build_object('settings',(SELECT to_jsonb(s) FROM deployment_address_settings s WHERE deployment_id=$1),'claims',(SELECT jsonb_agg(hostname ORDER BY hostname) FROM deployment_hostname_claimants WHERE deployment_id=$1),'request',(SELECT jsonb_build_object('ingress',ingress_json,'requirePromotion',require_promotion,'authority',authority_json) FROM release_requests WHERE release_id=$2),'releaseDefault',(SELECT to_jsonb(r) FROM project_release_settings r WHERE project_id=$4),'attempt',(SELECT ingress_json FROM deployment_attempt_inputs WHERE attempt_id=$3))::text`, addressDep.ID, addressRelease.ID, addressAttempt.ID, pid).Scan(&facts); err != nil {
 			t.Fatal(err)
 		}
 		return facts
@@ -681,8 +689,8 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		t.Fatalf("archive changed address ownership, evidence, claims or admitted snapshots: before %s after %s", retainedAddressFacts, got)
 	}
 	addressHeld, err := deployment.NewDeployments(restored).ByID(ctx, addressDep.ID)
-	if err != nil || addressHeld.RestoreCheck != deployment.RestoreUnconfirmed {
-		t.Fatalf("restored address owner lost activation hold: %+v %v", addressHeld, err)
+	if err != nil || addressHeld.RestoreCheck != deployment.RestoreUnconfirmed || !addressHeld.RequirePromotion || addressHeld.PolicyRevision != 7 {
+		t.Fatalf("restored address owner lost activation hold or policy: %+v %v", addressHeld, err)
 	}
 	receipts, err := audit.Recent(ctx, restored, audit.Filter{KindPrefix: "instance.restored"})
 	if err != nil || len(receipts) != 1 {

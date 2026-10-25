@@ -133,7 +133,6 @@ export type AuthMe = {
   role?: string
   via?: string
   from?: string
-  can?: AuthMeCan | null
 }
 
 export type AuthzExplanation = {
@@ -535,6 +534,8 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  requirePromotion?: boolean
+  policyRevision?: number
   id: string | null
   displayLabel: string
   deploymentPolicy?: string
@@ -1173,6 +1174,7 @@ export type RecheckStarted = {
 }
 
 export type ReleaseDefault = {
+  legacySetup?: LegacyReleaseSetup | null
   eligibilityIssue?: string
   projectId: string | null
   deploymentId?: string | null
@@ -1214,6 +1216,9 @@ export type ReleaseListed = {
 }
 
 export type ReleasePlan = {
+  deploymentId?: string | null
+  deploymentLabel?: string
+  defaultRevision: number
   address?: DeploymentAddress | null
   configured: boolean
   deployment: string
@@ -1742,11 +1747,6 @@ export type AttachmentView = {
   docs?: string
   lastEvent?: string
   wire?: IntegrationWire | null
-}
-
-export type AuthMeCan = {
-  amend: boolean
-  release: boolean
 }
 
 export type Decision = {
@@ -3217,6 +3217,9 @@ export type DeclaredNeed = {
 }
 
 export type OfferedTarget = {
+  displayLabel?: string
+  id?: string | null
+  settingsRevision: number
   name: string
   kind: string
   kindInfo: KindInfo
@@ -3235,6 +3238,15 @@ export type workflowSummary = {
   trigger?: string
   flow: string
   stages: workflowStageSummary[]
+}
+
+export type LegacyReleaseSetup = {
+  version: number
+  integrationId: string | null
+  integrationName: string
+  targetId: string | null
+  deploymentName: string
+  evidence: unknown
 }
 
 export type Release = {
@@ -4258,6 +4270,8 @@ export type OfferCaps = {
 }
 
 export type TierApp = {
+  deploymentId?: string | null
+  deploymentLabel?: string
   deploymentPolicy?: string
   slug: string
   name: string

@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -15,12 +16,23 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
+// LegacyReleaseSetup is imported intent, not a verified provider association.
+type LegacyReleaseSetup struct {
+	Version         int             `json:"version"`
+	IntegrationID   ids.ID          `json:"integrationId"`
+	IntegrationName string          `json:"integrationName"`
+	TargetID        ids.ID          `json:"targetId"`
+	DeploymentName  string          `json:"deploymentName"`
+	Evidence        json.RawMessage `json:"evidence"`
+}
+
 // ReleaseDefault is an explicit project choice, separate from landing and labels.
 type ReleaseDefault struct {
-	EligibilityIssue string `json:"eligibilityIssue,omitempty"`
-	ProjectID        ids.ID `json:"projectId"`
-	DeploymentID     ids.ID `json:"deploymentId,omitzero"`
-	Revision         int64  `json:"revision"`
+	LegacySetup      *LegacyReleaseSetup `json:"legacySetup,omitempty"`
+	EligibilityIssue string              `json:"eligibilityIssue,omitempty"`
+	ProjectID        ids.ID              `json:"projectId"`
+	DeploymentID     ids.ID              `json:"deploymentId,omitzero"`
+	Revision         int64               `json:"revision"`
 }
 
 // ReadReleaseDefault reads only the recorded choice. An absent choice stays absent.
@@ -40,6 +52,14 @@ func (s *Service) ReadReleaseDefault(ctx context.Context, projectID ids.ID) (Rel
 		return out, err
 	}
 	out.DeploymentID, out.Revision = row.DefaultDeploymentID, row.Revision
+	if row.LegacySetupJson != nil {
+		var setup LegacyReleaseSetup
+		if err := json.Unmarshal(*row.LegacySetupJson, &setup); err != nil {
+			return out, err
+		}
+		setup.Evidence = append(json.RawMessage(nil), (*row.LegacySetupJson)...)
+		out.LegacySetup = &setup
+	}
 	if !out.DeploymentID.IsZero() {
 		q := deploymentsql.New(s.db.SQL())
 		dep, err := deploymentRecord(q.DeploymentByID(ctx, out.DeploymentID))
@@ -133,9 +153,6 @@ func (s *Service) defaultEligible(ctx context.Context, q *deploymentsql.Queries,
 	if !target.Status.Offerable() {
 		return fault.New(fault.Conflict, "default release target is unavailable; choose an eligible deployment")
 	}
-	if err := target.refusesNamedDeployment(dep); err != nil {
-		return err
-	}
 	if err := s.refusesPlacement(ctx, projectID, target); err != nil {
 		return err
 	}
@@ -174,8 +191,85 @@ func preserveDefaultConfiguration(ctx context.Context, tx *database.Tx, dep *Dep
 	if err != nil {
 		return err
 	}
-	if !target.Status.Offerable() || target.refusesNamedDeployment(dep) != nil {
+	if !target.Status.Offerable() {
 		return fault.New(fault.Conflict, "clear or replace the release default before changing to this target")
 	}
 	return nil
+}
+
+var (
+	ErrNoReleaseDefault      = fault.New(fault.Unprocessable, "choose a release environment in project settings before releasing")
+	ErrReleaseDefaultChanged = fault.New(fault.Conflict, "release environment changed; reload before releasing")
+)
+
+// DefaultReleaseSelection keeps address and data acknowledgements identical to
+// named admission, while the environment comes only from the recorded UUID.
+type DefaultReleaseSelection struct {
+	ProjectID           ids.ID
+	ExpectedRevision    *int64
+	AddressRevision     *int64
+	CustomHostname      *string
+	AcceptUncopiedData  bool
+	AcceptUncheckedCopy bool
+}
+
+// RequestDefaultRelease selects once, then uses the named release's admission
+// transaction and durable execution. A concurrent default edit refuses this
+// request; a later edit cannot retarget the admitted release.
+func (s *Service) RequestDefaultRelease(ctx context.Context, in DefaultReleaseSelection) (AcceptedRelease, error) {
+	if s.configuration.Projects == nil || s.release.Authority == nil {
+		return AcceptedRelease{}, errors.New("release default configuration is not configured")
+	}
+	if _, err := s.requireDeploy(ctx, in.ProjectID, "", false, "deployment.request-default"); err != nil {
+		return AcceptedRelease{}, err
+	}
+	if in.ExpectedRevision != nil && *in.ExpectedRevision < 0 {
+		return AcceptedRelease{}, fault.New(fault.Invalid, "default settings revision must not be negative")
+	}
+	row, err := deploymentsql.New(s.db.SQL()).ProjectReleaseSettings(ctx, in.ProjectID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return AcceptedRelease{}, err
+	}
+	if errors.Is(err, sql.ErrNoRows) || row.DefaultDeploymentID.IsZero() {
+		return AcceptedRelease{}, ErrNoReleaseDefault
+	}
+	if in.ExpectedRevision != nil && row.Revision != *in.ExpectedRevision {
+		return AcceptedRelease{}, ErrReleaseDefaultChanged
+	}
+	selected := ReleaseDefault{ProjectID: in.ProjectID, DeploymentID: row.DefaultDeploymentID, Revision: row.Revision}
+	return s.requestRelease(ctx, DeploySelection{ProjectID: in.ProjectID, AddressRevision: in.AddressRevision, CustomHostname: in.CustomHostname, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy}, &selected)
+}
+
+// ReleaseDestination describes the explicit default without configuring it or
+// inferring an address for a provider that does not own deployment addresses.
+type ReleaseDestination struct {
+	Default ReleaseDefault
+	Name    string
+	Label   string
+	Address *AddressReading
+}
+
+func (s *Service) ReadReleaseDestination(ctx context.Context, projectID ids.ID) (ReleaseDestination, error) {
+	selected, err := s.ReadReleaseDefault(ctx, projectID)
+	out := ReleaseDestination{Default: selected}
+	if err != nil || selected.DeploymentID.IsZero() {
+		return out, err
+	}
+	dep, err := s.Deployments.ByID(ctx, selected.DeploymentID)
+	if err != nil {
+		return out, err
+	}
+	out.Name, out.Label = dep.Name, dep.DisplayLabel
+	target, err := s.Targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		return out, err
+	}
+	if target.Kind == KindPortainer {
+		address, err := s.ReadAddress(ctx, projectID, dep.ID)
+		if err != nil {
+			return out, err
+		}
+		out.Address = &address
+	}
+	return out, nil
 }

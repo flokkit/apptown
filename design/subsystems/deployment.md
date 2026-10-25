@@ -199,20 +199,16 @@ It has one of two forms.
   in different repositories. The driver also refuses such a spec
   before asking for the app;
 - Portainer, by promotion: the stack names every part and init image by
-  digest. Released by name (`apptown release <project> lan`, or Deploy on the
-  deployment's card) or by the intranet release, it is the same stack: one
-  builder (`Environment.portainerStack`) renders the app's needs as on a
-  Docker host (each need's `provides:`, Postgres's ordinary owner with the
-  AppTown's password, data on a volume the deploy made and the deployment
-  owns), and the release asks for a backup once it is live. The named door
-  also refuses images by ID and a platform that is unknown or not the
-  bundle's. A project has one deployment on a Portainer target, named by the
-  target's tier (`lan` for a target attached without one), because the stack,
-  its volumes and its route are named for the project; another name is
-  refused before a release is numbered. Naming them per deployment is not
-  built. The intranet release refuses a need AppTown fills by registering (an
-  AI models key), which it could not revoke, and names the door that can: a
-  release by name;
+  digest. Named and project-default releases use the same durable admission
+  and execution. `Environment.portainerStack` renders the app's needs as on a
+  Docker host, with persistent data and registered credentials owned by the
+  deployment. Both paths refuse image IDs and unknown or mismatched platforms,
+  record the admitted address, and ask for a backup after a successful release.
+  A default release selects the project's explicit deployment UUID and checks
+  its revision during admission. Configuration is a separate action; releasing
+  does not create an implicit environment. Portainer deployment names remain
+  restricted to the target's configured tier; another name is refused before
+  a release is numbered;
 - release previews, booted where change previews boot.
 
 A release's detail (`GET /api/v1/projects/{slug}/releases/{number}` and its
@@ -354,8 +350,8 @@ deployed by hand, also on a landing-fed deployment (`handBundle`).
 
 A release can change the data a deployment holds (a migration, code that
 rewrites stored objects), and nothing in the contract says whether it will.
-So before a release onto a deployment is admitted, through either door
-(`RequestRelease`, and the intranet's `ReleaseLAN`), Deployment asks data
+Before admitting a named or default release through the shared
+`RequestRelease` admission, Deployment asks data
 protection whether it can copy what that deployment holds now
 (`DataCopyCheck`, answered by `dataprotection` `CannotCopy`). It cannot when
 the held-data plan cannot be read, when an item in it cannot be copied (a
@@ -1416,3 +1412,76 @@ resources are resolved. Unverified legacy inventories block acquisition of new
 custom hostnames; they do not block fresh UUID-generated addresses. Old pending
 release inputs without an address snapshot require a new release after the
 inventory is confirmed. Historical release records remain readable.
+
+### Release preference setup and permission policy
+
+A project with no recorded preference is different from one whose preference
+was explicitly cleared. A cleared preference stays cleared. Older installations
+can retain their configured release destination as an unverified setup choice,
+including its original deployment name. Conflicting or unavailable environment
+information requires an explicit choice; no provider is selected by list order.
+
+Setup records the standing placement, its promotion policy and the preferred
+UUID in one transaction. It requires current binding authority and, when adding
+a promotion requirement, promotion authority. It does not start a release. A
+later refused release leaves the saved preference visible as settings only.
+
+The explicit promotion requirement is separate from data classification.
+Changing it in either direction requires both binding and promotion authority,
+a current policy revision and an audit receipt. Named releases and redeploy overrides require
+deployment permission; protected data/audiences or explicit policy additionally
+require promotion permission. Queued execution retains the admitted requirement
+and also checks current policy. Relaxing policy cannot erase the gate of an
+already admitted request.
+
+The tier map is a runtime view of current deployment placements, not the release
+ledger. Main and each customer standing deployment use their own target's runtime
+observation and current address. Each customer placement appears with its own
+UUID and display label, including multiple placements of the same project.
+Unknown or unavailable observations are distinct from stopped deployments;
+removed placements no longer appear. A replacement under the same name has its
+own observation. Release numbers and historical addresses remain on the
+departures board, rather than implying present runtime state in the tier map.
+
+### Explicit release setup from clients
+
+The release page offers setup when no usable default is selected. Its setup form
+shows imported choices and customer environment labels, retains the revisions it
+started from, and saves the preference as a separate action. Saving setup does
+not start a release. If a later release is refused, the saved preference remains
+configured and the refusal is shown separately. A cleared preference is never
+refilled by reading the release page or requesting a release.
+
+`apptown release-setup <project>` reads the current preference and offered
+customer environments. `--target <UUID> --name <deployment> --save` explicitly
+saves setup without releasing; `--require-promotion` adds the promotion policy.
+An imported choice supplies only its recorded target and deployment name, and
+retains its required promotion policy. An unavailable imported target requires an
+explicit replacement. The command sends the default and target revisions it
+read, and reports a conflict instead of choosing a different environment.
+
+`apptown release <project>` reads the selected default's plan and sends that
+revision with the release request. It never saves setup. A custom hostname also
+carries the displayed address revision. Both data-copy acknowledgements apply
+to default and named releases; customer labels are presentation, not identity.
+
+### Shared container inventory placement
+
+Docker and Portainer inventories capture the verified daemon identity with each
+resource observation. Portainer also retains the observed stack name. Cached
+observations retain that identity; response shaping never assigns them a newer one.
+A compose stack matching a current deployment is attributed to another environment
+only after its recorded Portainer connection verifies the same daemon. Customer
+environment labels describe that placement. Missing or changed provider scope is
+unavailable evidence, not an orphan. Ambiguous generated stack identities refuse.
+
+Direct Docker and Portainer orphan removal requires a fresh, uniquely matching
+observed resource and the same placement check before audit admission or deletion.
+Portainer requires both the observed stack name and its ID, and uses one verified
+configuration and credential snapshot for the inventory read and deletion. Recorded resources
+and verified shared placements must be retired through their deployment. An item
+missing from the filtered observation is not eligible for removal through this door.
+
+Docker apps trust the configured built-in origin patterns and their actual attached
+host's routed domain. Portainer apps use their admitted deployment ingress hosts;
+unrelated Portainer connection domains do not expand Docker app trust.

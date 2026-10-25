@@ -323,3 +323,42 @@ func TestPortainerCredentialsStayAtTheConfiguredEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestPortainerInventoryCapturesVerifiedStackScope(t *testing.T) {
+	var lists atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/stacks" {
+			t.Errorf("unexpected inventory request %s", r.URL)
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		lists.Add(1)
+		fmt.Fprint(w, `[{"Id":7,"Name":"owned-stack","EndpointId":3},{"Id":8,"Name":"other-endpoint","EndpointId":4}]`)
+	}))
+	defer server.Close()
+	cfg := &Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, PortainerKey: "key"}
+	inventory := Inventory{Config: func(context.Context) (*Target, error) { return cfg, nil }}
+	resources, err := inventory.Inventory(t.Context())
+	if err != nil || len(resources) != 1 {
+		t.Fatalf("inventory: %+v %v", resources, err)
+	}
+	if resources[0].Stack != "owned-stack" || resources[0].ObservedDaemonID != "fixture-daemon" || resources[0].ID != "7" {
+		t.Fatalf("inventory lost exact stack scope: %+v", resources[0])
+	}
+	body, err := json.Marshal(resources)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "fixture-daemon") {
+		t.Fatal("private daemon identity escaped in JSON")
+	}
+	for _, scope := range []*Scope{nil, {Version: 1, APIBase: server.URL, EndpointID: 3}} {
+		cfg.Scope = scope
+		if _, err := inventory.Inventory(t.Context()); err == nil {
+			t.Fatal("unknown inventory scope returned an orphan list")
+		}
+	}
+	if lists.Load() != 1 {
+		t.Fatalf("unverified inventory reached provider %d times", lists.Load())
+	}
+}

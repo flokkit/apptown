@@ -13,7 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/preview"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
@@ -22,17 +21,16 @@ import (
 )
 
 type Tiers struct {
-	projects     *project.Projects
-	integrations *integration.Service
-	deployment   *deployment.Service
-	previews     *preview.Service
-	work         *workflow.Service
-	db           *database.DB
-	dataDir      string
+	projects   *project.Projects
+	deployment *deployment.Service
+	previews   *preview.Service
+	work       *workflow.Service
+	db         *database.DB
+	dataDir    string
 }
 
-func NewTiers(projects *project.Projects, integrations *integration.Service, deployment *deployment.Service, previews *preview.Service, work *workflow.Service, db *database.DB, dataDir string) Tiers {
-	return Tiers{projects: projects, integrations: integrations, deployment: deployment, previews: previews, work: work, db: db, dataDir: dataDir}
+func NewTiers(projects *project.Projects, deployment *deployment.Service, previews *preview.Service, work *workflow.Service, db *database.DB, dataDir string) Tiers {
+	return Tiers{projects: projects, deployment: deployment, previews: previews, work: work, db: db, dataDir: dataDir}
 }
 
 // Tiers: GET /api/v1/tiers — the runtime picture of the projects the
@@ -109,37 +107,35 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 		main.Apps = append(main.Apps, app)
 	}
 
-	relEnv, err := h.releaseDeployment(r.Context())
-	if err != nil {
-		WriteFaultOr(w, err, http.StatusServiceUnavailable)
-		return
-	}
-	lan := TierView{Name: relEnv, Title: "Intranet", Onward: "someday", Apps: []TierApp{},
-		Gloss: "released for everyone on the intranet — survives reboots, lives on the platform"}
-	releaseDeployments, err := h.deployment.Deployments.Named(r.Context(), relEnv)
+	released := TierView{Name: "release", Title: "Released environments", Apps: []TierApp{},
+		Gloss: "each project's customer environments, observed on their own targets"}
+	releaseDeployments, err := h.deployment.Deployments.All(r.Context())
 	if err != nil {
 		WriteFaultOr(w, err, http.StatusServiceUnavailable)
 		return
 	}
 	for _, e := range releaseDeployments {
+		if e.Kind != deployment.Standing || e.Name == "main" {
+			continue
+		}
 		p := projects[e.ProjectID]
 		if p == nil || (!onlyID.IsZero() && p.ID != onlyID) {
 			continue
 		}
-		lan.Apps = append(lan.Apps, h.runtimeApp(r.Context(), p, &e.Deployment))
+		released.Apps = append(released.Apps, h.runtimeApp(r.Context(), p, &e.Deployment))
 	}
 
 	net := TierView{Name: "net", Title: "Internet", Future: true, Apps: []TierApp{},
 		Gloss: "available to the world — not built yet"}
 
-	WriteJSON(w, 200, TierMap{Tiers: []TierView{preview, main, lan, net}})
+	WriteJSON(w, 200, TierMap{Tiers: []TierView{preview, main, released, net}})
 }
 
 // runtimeApp projects the current placement, independently of release history.
 // The caller filters project visibility before reaching or observing its target.
 func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment.Deployment) TierApp {
 	reach := h.deployment.Reach(ctx, p.Slug, d)
-	app := TierApp{DeploymentPolicy: d.UpdatePolicy(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: reach.URL, HostOnly: reach.HostOnly}
+	app := TierApp{DeploymentID: d.ID, DeploymentLabel: d.DisplayLabel, DeploymentPolicy: d.UpdatePolicy(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: reach.URL, HostOnly: reach.HostOnly}
 	switch o := h.deployment.ObserveContainer(ctx, d); o.State {
 	case deployment.ContainerUnavailable, deployment.ContainerUnknown:
 		app.Observed = o.State.String()
@@ -154,21 +150,6 @@ func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment
 // by the button, failed attempts included) plus the previews alive right
 // now. The departures board reading of the same world the tier map draws.
 func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
-	relEnv, err := h.releaseDeployment(r.Context())
-	if err != nil {
-		WriteFaultOr(w, err, http.StatusServiceUnavailable)
-		return
-	}
-	// The destination is a deployment, named with its kind: a bare "MAIN"
-	// read as the branch (sweep 7).
-	tierName := func(env string) string {
-		switch env {
-		case relEnv:
-			return "intranet deployment"
-		default:
-			return env + " deployment"
-		}
-	}
 	projects, err := h.visible(r.Context())
 	if err != nil {
 		WriteFault(w, err)
@@ -186,7 +167,7 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		d := Departure{At: r.At(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, Who: r.ApprovedBy, State: r.State.String(),
-			Tier: tierName(r.Deployment), Label: fmt.Sprintf("release #%d", r.Number)}
+			Tier: r.Deployment + " deployment", Label: fmt.Sprintf("release #%d", r.Number)}
 		if r.State == deployment.Released && strings.HasPrefix(r.Notes, "http") {
 			d.URL = r.Notes
 		}
@@ -221,6 +202,8 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 }
 
 type TierApp struct {
+	DeploymentID     ids.ID                      `json:"deploymentId,omitzero"`
+	DeploymentLabel  string                      `json:"deploymentLabel,omitempty"`
 	DeploymentPolicy deployment.DeploymentPolicy `json:"deploymentPolicy,omitempty"`
 	Slug             string                      `json:"slug"`
 	Name             string                      `json:"name"`
@@ -321,21 +304,4 @@ func (h Tiers) visible(ctx context.Context) (map[ids.ID]*project.Project, error)
 		out[rows[i].ID] = &rows[i]
 	}
 	return out, nil
-}
-
-// releaseDeployment is the intranet's release deployment: the one its
-// settings name, "lan" when it is not wired up or names none. Settings that
-// cannot be read are an error, never "lan".
-func (h Tiers) releaseDeployment(ctx context.Context) (string, error) {
-	t, err := h.integrations.PortainerTarget(ctx)
-	if errors.Is(err, integration.ErrIntranetNotWired) {
-		return "lan", nil
-	}
-	if err != nil {
-		return "", fmt.Errorf("reading the intranet's settings: %w", err)
-	}
-	if t.ReleaseDeployment == "" {
-		return "lan", nil
-	}
-	return t.ReleaseDeployment, nil
 }

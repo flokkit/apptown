@@ -32,6 +32,14 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
+	identity, err := dk.Run(ctx, "info", "--format", "{{.ID}}")
+	if err != nil {
+		return nil, fmt.Errorf("reading inventory daemon identity: %w", err)
+	}
+	daemonID := strings.TrimSpace(string(identity))
+	if daemonID == "" {
+		return nil, fmt.Errorf("Docker did not identify the inventory daemon")
+	}
 	// AppTown's containers are known by their names (names.go), which
 	// predate the labels: a service made before labelling would read as
 	// missing under a label filter. AppTown's own database is asked for
@@ -127,6 +135,9 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		for _, ref := range present {
 			res = append(res, deploy.Resource{Kind: "image", Name: ref, ID: ref, Status: "present"})
 		}
+	}
+	for n := range res {
+		res[n].ObservedDaemonID = daemonID
 	}
 	return res, nil
 }

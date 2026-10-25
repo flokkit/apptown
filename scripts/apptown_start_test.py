@@ -23,8 +23,10 @@ SCRIPT = os.path.join(HERE, "..", "deploy", "apptown-start.sh")
 HANG_GUARD = 60
 
 STUBS = {
-    "dind": r"""echo "dind $*" >> "$CALLS"
-trap 'echo dind-term >> "$CALLS"; exit 0' TERM
+    # Trial Docker cannot answer until its daemon can handle shutdown.
+    "dind": r"""trap 'rm -f "$STUB_DIR/dind-ready"; echo dind-term >> "$CALLS"; exit 0' TERM
+echo "dind $*" >> "$CALLS"
+touch "$STUB_DIR/dind-ready"
 while [ -d "$STUB_DIR" ]; do sleep 0.1; done
 """,
     # The host's Docker, as the one-server branch asks it: this container's
@@ -32,7 +34,7 @@ while [ -d "$STUB_DIR" ]; do sleep 0.1; done
     "docker": r"""case "$1" in
 inspect) case "$3" in *NetworkMode*) echo "${STUB_NETWORK:-host}" ;; *Mounts*) echo "${STUB_MOUNT:-}" ;; esac ;;
 network) echo "172.17.0.1 fd00::1 " ;;
-*) [ -e "$STUB_DIR/docker-ready" ] ;;
+*) [ -e "$STUB_DIR/docker-ready" ] && { [ "${APPTOWN_ONE_SERVER:-}" = true ] || [ -e "$STUB_DIR/dind-ready" ]; } ;;
 esac""",
     # The health check: records how it was asked (last call wins).
     "curl": r"""echo "$*" > "$STUB_DIR/curl-args"; [ -e "$STUB_DIR/apptownd-ready" ]""",

@@ -419,7 +419,10 @@ func TestApproveJSONNeedsYes(t *testing.T) {
 
 // release, complain, new and version print their documents.
 func TestTheOtherCoreCommandsPrintTheirDocuments(t *testing.T) {
-	jsonAppTown(t, func(_, _ string) (int, string) {
+	jsonAppTown(t, func(_, path string) (int, string) {
+		if path == "/projects/shop/release/plan" {
+			return 200, `{"configured":true,"deployment":"office","defaultRevision":4}`
+		}
 		return 202, `{"ok":true,"number":7,"url":"http://shop.lan","state":"releasing"}`
 	})
 	out, err := run(t, "release", "shop", "--json")

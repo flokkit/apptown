@@ -154,7 +154,7 @@ func TestPreviewCommandChecksCurrentAuthorityAndTransports(t *testing.T) {
 	// published on the host's loopback, which its container cannot reach.
 	domained := environmentDependenciesFor(a)
 	domained.Routes.PreviewScheme, domained.Routes.PreviewDomain = "https", "preview.example"
-	deps.Environment = deployment.NewEnvironment(deps.Targets, domained)
+	deps.Environment = deployment.NewEnvironment(domained)
 	a.Preview = preview.New(a.DB, deps)
 	rebuildConsoleOwners(a)
 	response = httptest.NewRecorder()

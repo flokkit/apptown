@@ -35,7 +35,7 @@ func backupHTTPFixture(t *testing.T, slug string) (Backups, ids.ID, *dataprotect
 		t.Fatal(err)
 	}
 	targets := deployment.NewTargets(db, nil)
-	hosts, environment := deployment.NewHosts(targets, nil, deployment.HostSettings{DataDir: dir}), deployment.NewEnvironment(targets, deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Needs: catalog, Projects: projects})
+	hosts, environment := deployment.NewHosts(targets, nil, deployment.HostSettings{DataDir: dir}), deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Needs: catalog, Projects: projects})
 	starter := dataprotection.NewStarter(db, dataprotection.StarterDependencies{Targets: targets, Hosts: hosts, Environment: environment, Catalog: catalog, DataDir: dir})
 	svc := deployment.New(context.Background(), db, deployment.Dependencies{Targets: targets, Hosts: hosts, Environment: environment, CopyStarter: starter})
 	data := dataprotection.New(starter, dataprotection.Dependencies{Deployments: svc.Deployments, Releases: svc.Releases, Bundles: svc.Bundles, Retained: svc.Retained, Outcomes: svc.Outcomes, Projects: projects})

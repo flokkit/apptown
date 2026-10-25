@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 )
@@ -23,7 +22,7 @@ func TestSecretsAPI(t *testing.T) {
 	secrets := secret.NewService(db, secret.Config{DataDir: dir})
 	projects := project.New(db, nil)
 	projectID := httpTestProject(t, db, "p", "Project")
-	h := NewSecrets(secrets, integration.NewService(db, integration.Dependencies{Secrets: secrets}), projects, nil, db, dir, nil)
+	h := NewSecrets(secrets, projects, nil, db, dir, nil)
 	repo := filepath.Join(dir, "workspaces", "project-"+projectID.String())
 	if err := os.MkdirAll(filepath.Join(repo, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)

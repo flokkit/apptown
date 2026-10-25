@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 
@@ -22,17 +21,16 @@ import (
 )
 
 type Secrets struct {
-	secrets      *secret.Service
-	integrations *integration.Service
-	projects     *project.Projects
-	deployments  DeploymentLister
-	db           *database.DB
-	dataDir      string
-	now          func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
+	secrets     *secret.Service
+	projects    *project.Projects
+	deployments DeploymentLister
+	db          *database.DB
+	dataDir     string
+	now         func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewSecrets(secrets *secret.Service, integrations *integration.Service, projects *project.Projects, deployments DeploymentLister, db *database.DB, dataDir string, now func() time.Time) Secrets {
-	return Secrets{secrets: secrets, integrations: integrations, projects: projects, deployments: deployments, db: db, dataDir: dataDir, now: now}
+func NewSecrets(secrets *secret.Service, projects *project.Projects, deployments DeploymentLister, db *database.DB, dataDir string, now func() time.Time) Secrets {
+	return Secrets{secrets: secrets, projects: projects, deployments: deployments, db: db, dataDir: dataDir, now: now}
 }
 
 // DeploymentLister names a project's deployments: the deployment owner's
@@ -49,7 +47,7 @@ type DeploymentLister interface {
 // secretDeployments: the deployments a project can bind secrets for and
 // choose a profile for. Bindings are keyed by deployment NAME
 // (deployment.md §2.3): the previews, main, every standing deployment the
-// project has, and the intranet tier when a release target is configured.
+// project has.
 // A listing that cannot be read is an error, never a shorter list.
 func (h Secrets) secretDeployments(ctx context.Context, projectID ids.ID) ([]string, error) {
 	out := []string{"preview", "main"}
@@ -70,13 +68,6 @@ func (h Secrets) secretDeployments(ctx context.Context, projectID ids.ID) ([]str
 				add(d.Name)
 			}
 		}
-	}
-	t, err := h.integrations.PortainerTarget(ctx)
-	if err != nil && !errors.Is(err, integration.ErrIntranetNotWired) {
-		return nil, fmt.Errorf("reading the intranet's settings: %w", err)
-	}
-	if t != nil {
-		add(t.ReleaseDeployment)
 	}
 	return out, nil
 }

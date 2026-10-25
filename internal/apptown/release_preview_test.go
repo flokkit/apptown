@@ -65,7 +65,7 @@ func TestReleasePreviewUsesSelectedTreeAndOriginalImage(t *testing.T) {
 	r.SetPathValue("number", "1")
 	r = testRequestAs(r, "preview-owner")
 	w := httptest.NewRecorder()
-	httpapi.NewReleaseOperations(a.Projects, a.Access, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, releaseTargetName, nil).ReleasePreview(w, r.WithContext(callerContext(r)))
+	httpapi.NewReleaseOperations(a.Projects, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, nil).ReleasePreview(w, r.WithContext(callerContext(r)))
 	if w.Code != 200 {
 		t.Fatalf("release preview: %d %s", w.Code, w.Body.String())
 	}
@@ -106,7 +106,7 @@ func TestReleasePreviewUsesSelectedTreeAndOriginalImage(t *testing.T) {
 	}
 	r.SetPathValue("number", fmt.Sprint(failedCut.Number))
 	failed := httptest.NewRecorder()
-	httpapi.NewReleaseOperations(a.Projects, a.Access, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, releaseTargetName, nil).ReleasePreview(failed, r.WithContext(callerContext(r)))
+	httpapi.NewReleaseOperations(a.Projects, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, nil).ReleasePreview(failed, r.WithContext(callerContext(r)))
 	if failed.Code != 502 || f.isStarted(failedName) {
 		t.Fatalf("failed preview not cleaned: %d %s", failed.Code, failed.Body.String())
 	}

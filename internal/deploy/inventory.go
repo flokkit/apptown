@@ -7,16 +7,18 @@ import "github.com/flokkit/apptown/internal/stamp"
 // Resource is one thing at a target, in the same words whatever the
 // provider. A driver reports what it sees; the caller lays its records over it.
 type Resource struct {
-	Kind    string   `json:"kind"` // app | database | registry | container | volume | network | image | stack | bucket
-	Name    string   `json:"name"`
-	ID      string   `json:"id,omitempty"`
-	Status  string   `json:"status,omitempty"`
-	Region  string   `json:"region,omitempty"`
-	Size    string   `json:"size,omitempty"`
-	Version string   `json:"version,omitempty"` // engine + version for a database
-	URL     string   `json:"url,omitempty"`
-	Detail  string   `json:"detail,omitempty"`
-	Tags    []string `json:"tags,omitempty"`
+	// ObservedDaemonID belongs to this exact Docker or Portainer inventory snapshot, including cached observations.
+	ObservedDaemonID string   `json:"-"`
+	Kind             string   `json:"kind"` // app | database | registry | container | volume | network | image | stack | bucket
+	Name             string   `json:"name"`
+	ID               string   `json:"id,omitempty"`
+	Status           string   `json:"status,omitempty"`
+	Region           string   `json:"region,omitempty"`
+	Size             string   `json:"size,omitempty"`
+	Version          string   `json:"version,omitempty"` // engine + version for a database
+	URL              string   `json:"url,omitempty"`
+	Detail           string   `json:"detail,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
 	// What the caller knows about it.
 	Record   string         `json:"record"`             // RecordRecorded | RecordUnrecorded | RecordMissing
 	Owner    string         `json:"owner,omitempty"`    // AppTown.owner label: which stack made it

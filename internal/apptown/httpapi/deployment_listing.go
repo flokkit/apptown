@@ -58,7 +58,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 	out := make([]DeploymentView, 0, len(summaries))
 	for _, e := range summaries {
 		v := DeploymentView{ID: e.ID, DisplayLabel: e.DisplayLabel, DeploymentPolicy: e.DeploymentPolicy, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
-			Feed: e.Feed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
+			Feed: e.Feed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, RequirePromotion: e.RequirePromotion, PolicyRevision: e.PolicyRevision, Generation: e.Generation,
 			Readiness: e.Readiness.String(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.State.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
 		if e.Observation.Err != nil {
 			v.ObservationIssue = "Runtime status is unavailable"
@@ -82,6 +82,8 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 // DeploymentView is one row of GET /projects/{slug}/deployments: a
 // deployment as the project's pages show it.
 type DeploymentView struct {
+	RequirePromotion bool                        `json:"requirePromotion,omitempty"`
+	PolicyRevision   int64                       `json:"policyRevision,omitempty"`
 	ID               ids.ID                      `json:"id"`
 	DisplayLabel     string                      `json:"displayLabel"`
 	DeploymentPolicy deployment.DeploymentPolicy `json:"deploymentPolicy,omitempty"`

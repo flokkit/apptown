@@ -323,9 +323,8 @@ func TestWaitOperationExitsByHowItEnded(t *testing.T) {
 }
 
 // apptown release names the deployment it releases to: named, the release
-// goes through that deployment's deploy route; unnamed, to the intranet as
-// before. Either way the CLI follows that release's log until it settles.
-func TestReleaseGoesToTheNamedDeploymentOrTheIntranet(t *testing.T) {
+// goes through that deployment's deploy route; unnamed, to the explicit default. Either way the CLI follows that release's log until it settles.
+func TestReleaseGoesToTheNamedDeploymentOrTheChosenDefault(t *testing.T) {
 	for _, c := range []struct {
 		args []string
 		post string
@@ -340,6 +339,9 @@ func TestReleaseGoesToTheNamedDeploymentOrTheIntranet(t *testing.T) {
 				posted = append(posted, path)
 				return 202, `{"ok":true,"number":5,"url":"https://shop.intranet.example"}`
 			}
+			if path == "/projects/shop/release/plan" {
+				return 200, `{"configured":true,"deployment":"office","deploymentLabel":"Office tools","defaultRevision":3}`
+			}
 			if path == "/projects/shop/releases/5" {
 				return 200, `{"release":{"state":"released"},"events":[]}`
 			}
@@ -350,10 +352,10 @@ func TestReleaseGoesToTheNamedDeploymentOrTheIntranet(t *testing.T) {
 			t.Fatalf("%v: posted %v, err %v\n%s", c.args, posted, err, out)
 		}
 	}
-	// -domain is the intranet's hostname; the deploy route has none, so with
+	// -domain edits the default deployment; the deploy route has none, so with
 	// a deployment named it is refused before anything is sent.
 	seen := fakeAppTown(t, func(_, _ string) (int, string) { return 202, `{"ok":true,"number":5}` })
-	if _, err := run(t, "release", "shop", "staging", "-domain", "x.example"); err == nil || !strings.Contains(err.Error(), "intranet's") || len(*seen) != 0 {
+	if _, err := run(t, "release", "shop", "staging", "-domain", "x.example"); err == nil || !strings.Contains(err.Error(), "default deployment") || len(*seen) != 0 {
 		t.Fatalf("-domain with a named deployment: %v after %d requests", err, len(*seen))
 	}
 }
@@ -362,7 +364,7 @@ func TestReleaseHostnameCarriesTheObservedAddressRevision(t *testing.T) {
 	for _, c := range []struct {
 		plan     string
 		revision float64
-	}{{`{"address":{"revision":7}}`, 7}, {`{}`, 0}} {
+	}{{`{"configured":true,"defaultRevision":4,"address":{"revision":7}}`, 7}, {`{"configured":true,"defaultRevision":4}`, 0}} {
 		seen := jsonAppTown(t, func(method, path string) (int, string) {
 			if method == "GET" && path == "/projects/shop/release/plan" {
 				return 200, c.plan

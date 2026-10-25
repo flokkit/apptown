@@ -128,7 +128,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		if projects == nil {
 			projects = project.New(db, nil)
 		}
-		env = NewEnvironment(targets, EnvironmentDependencies{Projects: projects})
+		env = NewEnvironment(EnvironmentDependencies{Projects: projects})
 	}
 	providers := deps.Providers
 	if providers == nil {
@@ -162,6 +162,7 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		Needs:              NewNeedStore(db, nil),
 		Inventory:          NewInventory(db, deps.Declared),
 	}
+	s.Inventory.targets, s.Inventory.providers = targets, providers
 	s.setClock(deps.Now)
 	return s
 }

@@ -18,7 +18,7 @@ Which name reaches which deployment, by target:
 | AppTown's own Docker host | `<serving label>.<main tier domain>`, through apptownd's front door (VHost); without a main tier domain, AppTown's host and the published port | AppTown's host and its published port |
 | An attached Docker host with an ingress domain | `<serving label>.<domain>`, through the host's own Traefik | the host's address and its published port; it carries no Traefik route |
 | An attached Docker host without a domain | the host's address and its published port | the same |
-| Portainer | one deployment per project on the target, named for its configured release tier, with retained deployment-owned addresses | other deployment names are refused |
+| Portainer | customer-named deployments, each with its own immutable stack, volumes and admitted address | endpoint scope and deployment ownership must be verified before effects |
 | App Platform | the platform's own name for each app | the same |
 
 A project's serving label is captured from its initial address and stays fixed.

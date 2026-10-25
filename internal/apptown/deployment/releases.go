@@ -142,6 +142,12 @@ func (s *Releases) Last(ctx context.Context, projectID ids.ID, deployment string
 	return releaseRecord(deploymentsql.New(s.db.SQL()).LastRelease(ctx, deploymentsql.LastReleaseParams{ProjectID: projectID, Deployment: deployment}))
 }
 
+// LastReleasedForDeployment reads successful history for this immutable
+// placement. A replacement using its old name does not inherit that history.
+func (s *Releases) LastReleasedForDeployment(ctx context.Context, deploymentID ids.ID) (*Release, error) {
+	return releaseRecord(deploymentsql.New(s.db.SQL()).LatestReleasedForDeployment(ctx, deploymentsql.LatestReleasedForDeploymentParams{DeploymentID: deploymentID, State: Released.String()}))
+}
+
 // Live reports whether a release is the newest released on its recorded
 // deployment identity while that deployment still stands. Historical releases
 // without a recorded identity remain history; a name cannot establish liveness.

@@ -13,10 +13,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/preview"
 
-	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/clock"
@@ -26,27 +24,28 @@ import (
 
 type ReleaseOperations struct {
 	projects   *project.Projects
-	access     *identity.Service
 	deployment *deployment.Service
 	previews   *preview.Service
 	work       *workflow.Service
 	db         *database.DB
 	dataDir    string
-	target     string
 	now        func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewReleaseOperations(projects *project.Projects, access *identity.Service, deployment *deployment.Service, previews *preview.Service, work *workflow.Service, db *database.DB, dataDir string, target string, now func() time.Time) ReleaseOperations {
-	return ReleaseOperations{projects: projects, access: access, deployment: deployment, previews: previews, work: work, db: db, dataDir: dataDir, target: target, now: now}
+func NewReleaseOperations(projects *project.Projects, deployment *deployment.Service, previews *preview.Service, work *workflow.Service, db *database.DB, dataDir string, now func() time.Time) ReleaseOperations {
+	return ReleaseOperations{projects: projects, deployment: deployment, previews: previews, work: work, db: db, dataDir: dataDir, now: now}
 }
 
 // ReleasePlan is what would ship if the release button were pressed now.
 type ReleasePlan struct {
-	Address     *deployment.AddressReading `json:"address,omitempty"`
-	Configured  bool                       `json:"configured"`
-	Deployment  string                     `json:"deployment"`
-	ConfigError string                     `json:"configError,omitempty"`
-	URL         string                     `json:"url,omitempty"`
+	DeploymentID    ids.ID                     `json:"deploymentId,omitzero"`
+	DeploymentLabel string                     `json:"deploymentLabel,omitempty"`
+	DefaultRevision int64                      `json:"defaultRevision"`
+	Address         *deployment.AddressReading `json:"address,omitempty"`
+	Configured      bool                       `json:"configured"`
+	Deployment      string                     `json:"deployment"`
+	ConfigError     string                     `json:"configError,omitempty"`
+	URL             string                     `json:"url,omitempty"`
 	// Published is whether the project's latest bundle is in its container
 	// registry by digest: only such a bundle is released to the intranet.
 	Published bool `json:"published"`
@@ -83,31 +82,27 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out := ReleasePlan{Deployment: "lan"}
-	cfg, cfgErr := h.deployment.IntranetConfig(r.Context())
-	if cfgErr != nil {
-		out.ConfigError = cfgErr.Error()
+	out := ReleasePlan{}
+	destination, err := h.deployment.ReadReleaseDestination(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	selected := destination.Default
+	out.DefaultRevision = selected.Revision
+	if selected.DeploymentID.IsZero() {
+		out.ConfigError = "Choose a release environment in project settings."
 	} else {
-		out.Configured = true
-		out.Deployment = cfg.ReleaseDeployment
-		dep, err := h.deployment.Deployments.ByName(r.Context(), p.ID, cfg.ReleaseDeployment)
-		found, err := database.Lookup(err)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		if found {
-			address, err := h.deployment.ReadAddress(r.Context(), p.ID, dep.ID)
-			if err != nil {
-				WriteFault(w, err)
-				return
+		out.DeploymentID, out.Deployment, out.DeploymentLabel = selected.DeploymentID, destination.Name, destination.Label
+		out.ConfigError = selected.EligibilityIssue
+		out.Configured = selected.EligibilityIssue == ""
+		out.Address = destination.Address
+		if address := out.Address; address != nil && address.Verified {
+			host := address.GeneratedHostname
+			if address.CustomHostname != "" {
+				host = address.CustomHostname
 			}
-			out.Address = &address
-			if address.Verified {
-				host := address.GeneratedHostname
-				if address.CustomHostname != "" {
-					host = address.CustomHostname
-				}
+			if host != "" {
 				out.URL = "https://" + host
 			}
 		}
@@ -118,8 +113,8 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rev := p.DefaultBranch
-	if bundle != nil && bundle.ByDigest() {
-		out.Published, rev = true, bundle.ContractRevision
+	if bundle != nil {
+		out.Published, rev = bundle.ByDigest(), bundle.ContractRevision
 	}
 	repo, err := p.Repository(h.dataDir)
 	if err != nil {
@@ -133,10 +128,9 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	relEnv := out.Deployment
 	var lastNum int64
 	var lastAt string
-	last, err := h.deployment.Releases.Last(r.Context(), p.ID, relEnv)
+	last, err := h.deployment.Releases.LastReleasedForDeployment(r.Context(), out.DeploymentID)
 	if found, err := database.Lookup(err); err != nil {
 		WriteFault(w, err)
 		return
@@ -166,40 +160,24 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, out)
 }
 
-// LANRelease: POST /projects/{slug}/release — the button/CLI verb.
-// Gate: promotion only promotes what is already LANDED on the default
-// branch (landing gates were the quality bar; release is distribution).
-// Anyone holding release:promote on the project may press it; the audit
-// row records who.
+// LANRelease retains the existing default-release endpoint. Deployment owns
+// selection, current authority and the durable request; execution is a job.
 func (h ReleaseOperations) LANRelease(w http.ResponseWriter, r *http.Request) {
 	p, ok := ProjectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
-	authorityResource, err := h.resource(r.Context(), p)
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	if _, ok := AuthorizeRequest(h.access, w, r, access.CapReleasePromote, authorityResource, access.Context{}); !ok {
-		return
-	}
 	jsonCommand(w, r, jsonBody{optional: true}, func(in ReleaseRequest) {
-		// A release, once begun, finishes though the request ends. A vanity
-		// domain belongs to the deployment once the release is admitted;
-		// DNS for it is platform-owned (IaC) — AppTown only labels the
-		// stack. A refused release changes nothing.
-		d := strings.TrimSpace(in.Domain)
-		res, code, err := h.deployment.ReleaseLAN(context.WithoutCancel(r.Context()), p, Actor(r), deployment.LANReleaseRequest{Domain: d, AddressRevision: in.AddressRevision, AcceptUncopiedData: in.AcceptUncopiedData})
+		var custom *string
+		if domain := strings.TrimSpace(in.Domain); domain != "" {
+			custom = &domain
+		}
+		accepted, err := h.deployment.RequestDefaultRelease(r.Context(), deployment.DefaultReleaseSelection{ProjectID: p.ID, ExpectedRevision: in.DefaultRevision, AddressRevision: in.AddressRevision, CustomHostname: custom, AcceptUncopiedData: in.AcceptUncopiedData, AcceptUncheckedCopy: in.AcceptUncheckedCopy})
 		if err != nil {
-			if code == 0 {
-				WriteFault(w, err)
-			} else {
-				WriteError(w, code, "%v", err)
-			}
+			WriteFault(w, err)
 			return
 		}
-		WriteJSON(w, http.StatusAccepted, res)
+		WriteJSON(w, http.StatusAccepted, deployment.LANReleaseStarted{OK: true, Number: accepted.Number, URL: accepted.URL, State: accepted.State})
 	})
 }
 
@@ -249,20 +227,13 @@ func writeReleasePreviewError(w http.ResponseWriter, err error) {
 	}
 }
 
-func (h ReleaseOperations) resource(ctx context.Context, p *project.Project) (access.Resource, error) {
-	res, err := h.projects.AuthorityResource(ctx, p.ID)
-	if err != nil {
-		return access.Resource{}, err
-	}
-	res.Type, res.ID = "release-target", h.target
-	return res, nil
-}
-
 // ReleaseRequest is POST /projects/{slug}/release: an optional hostname to
 // serve the release on, kept for later releases.
 type ReleaseRequest struct {
-	AddressRevision *int64 `json:"addressRevision,omitempty"`
-	Domain          string `json:"domain"`
+	DefaultRevision     *int64 `json:"defaultRevision,omitempty"`
+	AcceptUncheckedCopy bool   `json:"acceptUncheckedCopy,omitempty"`
+	AddressRevision     *int64 `json:"addressRevision,omitempty"`
+	Domain              string `json:"domain"`
 	// AcceptUncopiedData is a person's choice to release onto an intranet
 	// deployment holding data AppTown cannot copy now; the release
 	// records it.

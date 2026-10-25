@@ -29,7 +29,7 @@ func TestSecretUnbindHTTPDistinguishesReadFailureFromAbsence(t *testing.T) {
 		r.SetPathValue("deployment", b.Deployment)
 		r.SetPathValue("name", b.Name)
 		w := httptest.NewRecorder()
-		NewSecrets(secrets, nil, projects, nil, db, "", nil).UnbindSecret(w, r)
+		NewSecrets(secrets, projects, nil, db, "", nil).UnbindSecret(w, r)
 		return w
 	}
 	t.Cleanup(db.FailNextStatement("-- name: BindingByName :one"))

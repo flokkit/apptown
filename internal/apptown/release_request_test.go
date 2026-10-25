@@ -218,7 +218,7 @@ func TestReleaseRefusalLadder(t *testing.T) {
 	}
 	// An ungranted person is refused before connector configuration is read.
 	w = authzCall(h, "outsider", "POST", "/api/v1/projects/p/release", `{}`)
-	if w.Code != 403 || !strings.Contains(w.Body.String(), "release") {
+	if w.Code != 403 || !strings.Contains(w.Body.String(), "ship a bundle") {
 		t.Fatalf("ungranted release: %d %s", w.Code, w.Body.String())
 	}
 

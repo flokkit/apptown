@@ -16,7 +16,7 @@ func TestADockerReleaseCarriesTheDeploymentsDataClass(t *testing.T) {
 	db := testDB(t)
 	pid := createTestProject(t, db, "data-class", "Data Class")
 	targets := NewTargets(db, nil)
-	env := NewEnvironment(targets, EnvironmentDependencies{ToolVersions: stock.Versions()})
+	env := NewEnvironment(EnvironmentDependencies{ToolVersions: stock.Versions()})
 	p := NewProviders(context.Background(), db, ProviderRecords{Targets: targets}, NewHosts(targets, nil, HostSettings{}), env, ProviderDependencies{})
 	for _, class := range []string{"production", "non-production", "synthetic"} {
 		d, err := p.dockerDriver(context.Background(), &Target{Name: "local", Kind: KindDockerHost}, &Deployment{ProjectID: pid, Name: "staging", DataClass: class})

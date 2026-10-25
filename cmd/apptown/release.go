@@ -7,29 +7,24 @@ import (
 	"time"
 )
 
-// cmdRelease releases what landed on main. Named, it goes to that
-// deployment through its deploy route (a landing-fed deployment is refused
-// by name: every landing already deploys it); unnamed, to the intranet
-// (design/subsystems/lan-release.md): image from the committed tree →
-// registry → Portainer stack behind Traefik. The gates ran at landing; this
-// is distribution. Either way the CLI follows the release's log until it
-// settles.
+// cmdRelease releases to the named deployment or the explicitly selected default.
+// Configuration is a separate release-setup command; this command only admits and follows a release.
 func cmdRelease(args []string) error {
 	fs := newFlags("release")
-	domain := fs.String("domain", "", "intranet only: an extra hostname to serve on (kept for later releases; DNS is managed by the platform)")
+	domain := fs.String("domain", "", "default deployment: an extra hostname to serve on (kept for later releases)")
 	asJSON := fs.Bool("json", false, "print the release as JSON once AppTown accepts it (no following)")
 	acceptUncopied := fs.Bool("accept-uncopied-data", false, "release though AppTown cannot copy the data the deployment holds now (the release records your choice): a change this release makes to that data has no copy to go back to")
 	acceptUnchecked := fs.Bool("accept-unchecked-copy", false, "a deployment's first release that starts from a copy: fill it though an item of the copy was not shown to come back by its last check (the release records your choice)")
 	args = parseArgs(fs, args)
 	if len(args) < 1 || len(args) > 2 {
-		return usagef("usage: apptown release <project-slug> <deployment>, or apptown release <project-slug> [-domain host] for the intranet (either with --json)")
+		return usagef("usage: apptown release <project-slug> [<deployment>] [-domain host] [--json]")
 	}
 	slug := args[0]
 	var number int64
 	var where, url, state string
 	if len(args) == 2 {
 		if *domain != "" {
-			return usagef("-domain is the intranet's; a named deployment keeps its own address")
+			return usagef("-domain edits the default deployment; a named deployment keeps its own address")
 		}
 		where = args[1]
 		var out struct {
@@ -48,25 +43,33 @@ func cmdRelease(args []string) error {
 		}
 		number, state = out.Number, out.State
 	} else {
-		where = "the intranet"
+		var plan struct {
+			Configured      bool   `json:"configured"`
+			ConfigError     string `json:"configError"`
+			Deployment      string `json:"deployment"`
+			DeploymentLabel string `json:"deploymentLabel"`
+			DefaultRevision int64  `json:"defaultRevision"`
+			Address         *struct {
+				Revision int64 `json:"revision"`
+			} `json:"address"`
+		}
+		if err := api.get("/projects/"+slug+"/release/plan", &plan); err != nil {
+			return err
+		}
+		if !plan.Configured {
+			return fmt.Errorf("release not started: %s; inspect apptown release-setup %s and explicitly save your choice", plan.ConfigError, slug)
+		}
+		where = plan.DeploymentLabel
+		if where == "" {
+			where = plan.Deployment
+		}
 		var out struct {
 			Number int64  `json:"number"`
 			URL    string `json:"url"`
 			State  string `json:"state"`
 		}
-		if *acceptUnchecked {
-			return usagef("--accept-unchecked-copy is for a deployment that starts from a copy; the intranet does not")
-		}
-		body := map[string]any{"domain": *domain}
+		body := map[string]any{"domain": *domain, "defaultRevision": plan.DefaultRevision}
 		if *domain != "" {
-			var plan struct {
-				Address *struct {
-					Revision int64 `json:"revision"`
-				} `json:"address"`
-			}
-			if err := api.get("/projects/"+slug+"/release/plan", &plan); err != nil {
-				return err
-			}
 			revision := int64(0)
 			if plan.Address != nil {
 				revision = plan.Address.Revision
@@ -76,6 +79,10 @@ func cmdRelease(args []string) error {
 		if *acceptUncopied {
 			body["acceptUncopiedData"] = true
 		}
+		if *acceptUnchecked {
+			body["acceptUncheckedCopy"] = true
+		}
+
 		if err := api.post("/projects/"+slug+"/release", body, &out); err != nil {
 			return err
 		}

@@ -266,9 +266,8 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 
 // --- the Portainer target ------------------------------------------------------------------
 
-// Driver is the intranet rail given its name (§8.2): the stack
-// is the handle; Portainer owns liveness. The intranet release keeps its
-// own flow (runLANRelease) and records through the deployment.
+// Driver reconciles an admitted deployment through its owned stack.
+// Portainer owns runtime liveness; AppTown records release outcomes.
 type Driver struct {
 	TargetID ids.ID // AppTown's target record
 	Config   func(context.Context, ids.ID) (*Target, error)
@@ -727,6 +726,9 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.Scope == nil || cfg.Scope.DaemonID == "" {
+		return nil, errors.New("Portainer inventory has no verified daemon identity")
+	}
 	endpointID, err := EndpointID(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -753,7 +755,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		if st.Status == 2 {
 			status = "inactive"
 		}
-		res = append(res, deploy.Resource{Kind: "stack", Name: st.Name, ID: fmt.Sprint(st.ID), Status: status})
+		res = append(res, deploy.Resource{Kind: "stack", Name: st.Name, ID: fmt.Sprint(st.ID), Status: status, Stack: st.Name, ObservedDaemonID: cfg.Scope.DaemonID})
 	}
 	return res, nil
 }

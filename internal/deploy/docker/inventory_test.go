@@ -20,6 +20,8 @@ func inventoryFixture(t *testing.T, fail string) ([]deploy.Resource, error) {
 			return nil, errors.New("listing unavailable")
 		}
 		switch {
+		case strings.HasPrefix(line, "info "):
+			return []byte("daemon-a\n"), nil
 		case strings.HasPrefix(line, "ps -a"):
 			if strings.Contains(line, "name=^apptown-dep-") {
 				return []byte("apptown-dep-k1\tUp 1 hour\tapp\tdep-k1\t\n"), nil
@@ -63,6 +65,9 @@ func TestInventoryConfirmsNeedVolumesNetworksAndExactImageReferences(t *testing.
 	}
 	var got []string
 	for _, r := range out {
+		if r.ObservedDaemonID != "daemon-a" {
+			t.Fatalf("inventory lost its daemon: %+v", r)
+		}
 		got = append(got, r.Kind+":"+r.Name)
 	}
 	for _, want := range []string{"container:apptown-dep-k1", "volume:apptown-data-shop", "volume:apptown-need-shop", "volume:0a1b2c", "network:apptown-net-dep-k1", "image:reg/shop@sha256:aaa", "image:reg/shop@sha256:bbb",
@@ -102,7 +107,7 @@ func TestInventoryConfirmsNeedVolumesNetworksAndExactImageReferences(t *testing.
 
 func TestInventoryNeverPublishesAPartialSuccessfulListing(t *testing.T) {
 	t.Parallel()
-	for _, command := range []string{"ps -a", "volume ls", "network ls", "image inspect"} {
+	for _, command := range []string{"info", "ps -a", "volume ls", "network ls", "image inspect"} {
 		t.Run(command, func(t *testing.T) {
 			out, err := inventoryFixture(t, command)
 			if err == nil || out != nil {
@@ -114,7 +119,14 @@ func TestInventoryNeverPublishesAPartialSuccessfulListing(t *testing.T) {
 
 func TestInventoryEmptyHostIsAnAnswer(t *testing.T) {
 	t.Parallel()
-	out, err := (Inventory{Scope: func(context.Context) (Scope, error) { return Scope{Client: &fakeClient{}}, nil }}).Inventory(t.Context())
+	out, err := (Inventory{Scope: func(context.Context) (Scope, error) {
+		return Scope{Client: &fakeClient{reply: func(req Command) ([]byte, error) {
+			if req.Args[0] == "info" {
+				return []byte("empty-host"), nil
+			}
+			return nil, nil
+		}}}, nil
+	}}).Inventory(t.Context())
 	if err != nil || len(out) != 0 {
 		t.Fatalf("%+v %v", out, err)
 	}
@@ -136,6 +148,9 @@ func TestInventoryListsContainersOnceWithEveryName(t *testing.T) {
 	}
 	psCalls := 0
 	client := &fakeClient{reply: func(req Command) ([]byte, error) {
+		if len(req.Args) > 0 && req.Args[0] == "info" {
+			return []byte("daemon-a"), nil
+		}
 		if len(req.Args) < 2 || req.Args[0] != "ps" {
 			return nil, nil
 		}
@@ -202,6 +217,8 @@ func inspectInventory(t *testing.T, recorded []string, found []string, errs ...s
 	t.Helper()
 	client := &fakeClient{reply: func(req Command) ([]byte, error) {
 		switch line := strings.Join(req.Args, " "); {
+		case strings.HasPrefix(line, "info "):
+			return []byte("daemon-a"), nil
 		case strings.HasPrefix(line, "image inspect"):
 			return inspectAnswer(req, found, errs...)
 		case strings.HasPrefix(line, "image ls"):
@@ -269,5 +286,19 @@ func TestInventoryNeverReadsAnUnansweredImageAsMissing(t *testing.T) {
 				t.Fatalf("read as %+v, %v", out, err)
 			}
 		})
+	}
+}
+
+func TestInventoryRefusesAnUnidentifiedDaemon(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{reply: func(req Command) ([]byte, error) {
+		if req.Args[0] != "info" {
+			t.Errorf("listed resources before daemon identity: %v", req.Args)
+		}
+		return []byte(" \n"), nil
+	}}
+	resources, err := (Inventory{Scope: func(context.Context) (Scope, error) { return Scope{Client: client}, nil }}).Inventory(t.Context())
+	if err == nil || resources != nil {
+		t.Fatalf("blank identity published inventory: %+v %v", resources, err)
 	}
 }

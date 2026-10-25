@@ -356,8 +356,8 @@ SELECT COUNT(*) FROM deployments WHERE project_id=sqlc.arg(project_id) AND targe
 SELECT COUNT(*) FROM retained_resources WHERE target_id=sqlc.arg(target_id) AND disposition=sqlc.arg(disposition);
 
 -- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json,authority_json)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *;
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json,authority_json,require_promotion)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *;
 
 -- name: ReleaseStartFrom :one
 SELECT start_from_backup FROM release_requests WHERE release_id=sqlc.arg(release_id);
@@ -485,6 +485,9 @@ WHERE id=sqlc.arg(id) AND display_label=sqlc.arg(expected_label) RETURNING *;
 UPDATE deployments SET display_label=sqlc.arg(display_label)
 WHERE project_id=sqlc.arg(project_id) AND id=sqlc.arg(id) AND display_label=sqlc.arg(expected_label) RETURNING *;
 
+-- name: LockProjectReleaseSettings :one
+SELECT * FROM project_release_settings WHERE project_id=$1 FOR UPDATE;
+
 -- name: ProjectReleaseSettings :one
 SELECT * FROM project_release_settings WHERE project_id=$1;
 
@@ -492,13 +495,13 @@ SELECT * FROM project_release_settings WHERE project_id=$1;
 INSERT INTO project_release_settings(project_id, default_deployment_id, revision)
 SELECT sqlc.arg(project_id), sqlc.narg(default_deployment_id)::uuid, 1
 WHERE sqlc.arg(expected_revision)::bigint=0
-ON CONFLICT(project_id) DO UPDATE SET default_deployment_id=excluded.default_deployment_id,
+ON CONFLICT(project_id) DO UPDATE SET default_deployment_id=excluded.default_deployment_id, legacy_setup_json=NULL,
  revision=project_release_settings.revision+1
 WHERE project_release_settings.revision=sqlc.arg(expected_revision)
 RETURNING *;
 
 -- name: UpdateDefaultDeployment :one
-UPDATE project_release_settings SET default_deployment_id=sqlc.narg(default_deployment_id)::uuid, revision=revision+1
+UPDATE project_release_settings SET default_deployment_id=sqlc.narg(default_deployment_id)::uuid, legacy_setup_json=NULL, revision=revision+1
 WHERE project_id=sqlc.arg(project_id) AND revision=sqlc.arg(expected_revision) RETURNING *;
 
 -- name: ClearRemovedDefault :exec
@@ -544,3 +547,7 @@ DELETE FROM deployment_hostname_claims c WHERE c.hostname=$1 AND NOT EXISTS(SELE
 
 -- name: HasUnverifiedAddressInventory :one
 SELECT EXISTS(SELECT 1 FROM deployment_address_settings WHERE verification_state='legacy-unverified')::boolean;
+
+-- name: EditPromotionPolicy :one
+UPDATE deployments SET require_promotion=sqlc.arg(require_promotion), policy_revision=policy_revision+1
+WHERE id=sqlc.arg(id) AND policy_revision=sqlc.arg(expected_revision) RETURNING *;

@@ -1,5 +1,5 @@
 import { DeploymentAddressEdit } from './DeploymentAddress'
-import { ReleaseDefaultPicker } from './ReleaseDefault'
+import { ReleaseDefaultPicker, PromotionPolicyEdit } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
 import { AppAddress, RuntimeStatus } from '../../../runtime'
@@ -46,7 +46,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         promotion: it ships the latest thing that landed when someone deploys it. Each runs on a
         deployment target offered to this project.
       </p>
-      <ReleaseDefaultPicker slug={slug} deployments={envs} />
+      <ReleaseDefaultPicker slug={slug} deployments={envs} offered={offered} />
       <div className="conn-grid">
         {envs.map((e) => <EnvCard key={e.name} slug={slug} env={e} onChanged={load} />)}
       </div>
@@ -144,6 +144,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         </div>
       )}
       {e.target?.kind === 'portainer' && e.id && <DeploymentAddressEdit slug={slug} id={e.id} />}
+      {e.kind === 'standing' && e.id && <PromotionPolicyEdit slug={slug} deployment={e} />}
       {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
       {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
       {e.generation ? <DiagnosticsLines slug={slug} name={e.name} /> : null}

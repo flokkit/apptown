@@ -164,7 +164,7 @@ func (p exceptionalPolicy) validate() error {
 func (exceptionalPolicy) allows(*App, http.ResponseWriter, *http.Request, string) bool { return true }
 func validateResolver(resolver string) error {
 	switch resolver {
-	case "instance", "project-slug", "console-session", "adr", "disposition", "change", "run", "step", "release":
+	case "instance", "project-slug", "console-session", "adr", "disposition", "change", "run", "step":
 		return nil
 	}
 	return fmt.Errorf("unknown resource resolver %q", resolver)
@@ -211,7 +211,7 @@ func (a *App) resolveRouteResource(r *http.Request, resolver string) (access.Res
 	var p project.Project
 	var res access.Resource
 	var err error
-	if resolver == "project-slug" || resolver == "release" {
+	if resolver == "project-slug" {
 		p, err = a.Projects.BySlug(ctx, r.PathValue("slug"))
 	} else if resolver == "console-session" {
 		session, e := a.Console.Get(ctx, r.PathValue("sid"))
@@ -288,14 +288,8 @@ func (a *App) resolveRouteResource(r *http.Request, resolver string) (access.Res
 		scope.Type, scope.ID, scope.ChangeID, scope.RunID = res.Type, res.ID, res.ChangeID, res.RunID
 	}
 	res = scope
-	if resolver == "release" {
-		res.Type, res.ID = "release-target", releaseTargetName
-	}
 	return res, &p, nil
 }
-
-// The promotion resource remains the existing LAN/intranet target.
-const releaseTargetName = "lan"
 
 func (a *App) Handler() http.Handler {
 	a.routes.once.Do(func() {

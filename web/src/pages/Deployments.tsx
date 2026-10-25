@@ -10,7 +10,7 @@ import { BackupsView } from './Backups'
 import type { ProjectRow } from '../wire.gen'
 
 // Deployments: where software runs. The tiers are the promotion
-// ladder (design/subsystems/deployment.md) — PREVIEW → MAIN → INTRANET → INTERNET —
+// stages (design/subsystems/deployment.md), with independently named customer placements,
 // and they read left to right as COLUMNS, one row per app. A picture of
 // four lanes was lovely at five apps and a forty-screen scroll at a
 // hundred; a matrix is the same ladder, and 500 apps is 500 rows behind a
@@ -71,7 +71,7 @@ function DeparturesBoard() {
           <tr key={i}>
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(d.at)}</td>
             <td className="stack-lead"><span aria-hidden style={{ marginRight: 6 }}>{d.icon}</span><Link className="tap-open" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></td>
-            <td data-label="to">{d.tier === 'intranet deployment' ? '🏢 ' : ''}{d.tier}</td>
+            <td data-label="to">{d.tier}</td>
             <td className="muted small">
               {d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.label}</a> : d.label}
             </td>
@@ -117,7 +117,7 @@ function FleetTable() {
   const q = filter.trim().toLowerCase()
   const all = [...rows.values()].sort((a, b) => a.name.localeCompare(b.name))
   const shown = all.filter((r) =>
-    (!q || [r.name, r.slug, ...Object.values(r.cells).flat().map((a) => a.detail ?? '')].join(' ').toLowerCase().includes(q)) &&
+    (!q || [r.name, r.slug, ...Object.values(r.cells).flat().map((a) => [a.deploymentLabel ?? '', a.detail ?? ''].join(' '))].join(' ').toLowerCase().includes(q)) &&
     (show === 'all' || (show === 'running' && runningIn(r)) || (show === 'stopped' && stoppedIn(r)) || (show === 'nowhere' && !anywhere(r))))
   const counts: Record<Show, number> = {
     all: all.length, running: all.filter(runningIn).length,
@@ -141,7 +141,8 @@ function FleetTable() {
     return (
       <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {apps.map((a, i) => (
-          <span key={i} className="row" style={{ gap: 6 }}>
+          <span key={a.deploymentId ?? i} className="row" style={{ gap: 6 }}>
+            {a.deploymentLabel && <span className="small">{a.deploymentLabel}</span>}
             <span className={`chip ${a.running ? 'pass' : a.observed ? 'unknown' : ''}`} title={a.running ? 'running' : a.observed ?? 'stopped'}>{a.running ? '●' : a.observed ? '?' : '○'}</span>
             {a.url
               ? <AppAddress url={a.url} hostOnly={a.hostOnly} className="small" title={a.url}>

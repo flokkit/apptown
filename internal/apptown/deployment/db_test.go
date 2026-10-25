@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -145,25 +144,6 @@ func storedBundleFixture(t *testing.T, db *database.DB, p deploymentsql.InsertBu
 		t.Fatal(err)
 	}
 	return row.ID
-}
-
-// publishedBundleFixture records a bundle of parts by digest in a registry,
-// built for linux/amd64, at revision. Written directly: publishing one
-// needs a registry and a deploy step's attempt, which the tests using this
-// do not exercise.
-func publishedBundleFixture(t *testing.T, db *database.DB, projectID ids.ID, revision string, parts map[string]string) *ReleaseBundle {
-	t.Helper()
-	raw, err := json.Marshal(parts)
-	if err != nil {
-		t.Fatal(err)
-	}
-	id := storedBundleFixture(t, db, deploymentsql.InsertBundleParams{ID: ids.New(time.Now()), ProjectID: projectID, ContractRevision: revision, PartsJson: raw,
-		Registry: "registry.example/team/app", Platform: "linux/amd64", StepID: ids.New(time.Now()), Attempt: 1})
-	b, err := NewBundles(db).ByID(t.Context(), id)
-	if err != nil || !b.ByDigest() {
-		t.Fatalf("the published bundle fixture: %+v %v", b, err)
-	}
-	return b
 }
 
 // Preserve all unselected fields, including the timestamp, in fence probes.

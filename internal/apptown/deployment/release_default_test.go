@@ -96,3 +96,92 @@ func TestRemovalClearsDefaultOnlyWithCommittedSettlement(t *testing.T) {
 		t.Fatalf("committed settlement retained default: %+v %v", current, err)
 	}
 }
+
+// Default release uses the same durable admission as a named release, but
+// selects the recorded UUID and refuses a moved default before committing.
+func TestDefaultReleasePinsItsSelectedEnvironment(t *testing.T) {
+	for _, scenario := range []string{"current", "absent", "cleared", "stale", "changed during admission", "label changed", "denied", "changed after admission"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			s, in, authority, sources := requestFixture(t)
+			s.configuration.Authority, s.configuration.Projects = authority, sources
+			dep, err := s.Deployments.ByName(t.Context(), in.ProjectID, in.DeploymentName)
+			if err != nil {
+				t.Fatal(err)
+			}
+			target, err := s.Targets.ByID(t.Context(), dep.TargetID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The generic request fixture names main; a default deliberately
+			// selects a separately released standing environment.
+			dep, err = s.Deployments.EnsureStanding(t.Context(), in.ProjectID, "chosen", target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			in.DeploymentName = dep.Name
+			if err := s.Targets.Offer(t.Context(), target, "*", OfferCaps{}, "fixture"); err != nil {
+				t.Fatal(err)
+			}
+			var selected ReleaseDefault
+			if scenario != "absent" {
+				selected, err = s.SetReleaseDefault(t.Context(), in.ProjectID, dep.ID, 0)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			var want error
+			revision := selected.Revision
+			switch scenario {
+			case "absent":
+				want = ErrNoReleaseDefault
+			case "cleared":
+				if _, err := s.SetReleaseDefault(t.Context(), in.ProjectID, ids.Nil, selected.Revision); err != nil {
+					t.Fatal(err)
+				}
+				want = ErrNoReleaseDefault
+			case "stale":
+				revision--
+				want = ErrReleaseDefaultChanged
+			case "changed during admission":
+				sources.before = func() {
+					if _, err := s.SetReleaseDefault(t.Context(), in.ProjectID, ids.Nil, selected.Revision); err != nil {
+						t.Fatal(err)
+					}
+				}
+				want = ErrReleaseDefaultChanged
+			case "label changed":
+				sources.before = func() {
+					if _, err := s.EditDeploymentLabel(t.Context(), in.ProjectID, dep.ID, dep.DisplayLabel, "Customer choice"); err != nil {
+						t.Fatal(err)
+					}
+				}
+			case "denied":
+				want = errors.New("release denied")
+				authority.deny = want
+			}
+			accepted, err := s.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: in.ProjectID, ExpectedRevision: &revision})
+			if want != nil {
+				if !errors.Is(err, want) || !accepted.ID.IsZero() {
+					t.Fatalf("refused default: %+v %v want %v", accepted, err, want)
+				}
+				wantN(t, "releases", everyRelease(t, s.db), 0)
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if scenario == "changed after admission" {
+				if _, err := s.SetReleaseDefault(t.Context(), in.ProjectID, ids.Nil, selected.Revision); err != nil {
+					t.Fatal(err)
+				}
+			}
+			recorded, err := s.Releases.ByNumber(t.Context(), in.ProjectID, accepted.Number)
+			if err != nil || recorded.DeploymentID != dep.ID || accepted.Deployment != dep.Name {
+				t.Fatalf("default retargeted: %+v %+v %v", accepted, recorded, err)
+			}
+			releaseRequest(t, s.db, accepted.ID)
+			wantN(t, "releases", everyRelease(t, s.db), 1)
+		})
+	}
+}

@@ -183,11 +183,11 @@ func TestReleaseTierObservesCurrentDeploymentInsteadOfReleaseHistory(t *testing.
 					t.Fatalf("tiers: %d %s %v", w.Code, w.Body.String(), err)
 				}
 				for _, tier := range out.Tiers {
-					if tier.Name == "lan" {
+					if tier.Name == "release" {
 						return tier.Apps
 					}
 				}
-				t.Fatal("missing configured release tier")
+				t.Fatal("missing released environments tier")
 				return nil
 			}
 			apps := read("owner", "/api/v1/tiers?project=game")
@@ -241,5 +241,82 @@ func TestTierDeploymentInventoryFailureIsNotAnEmptyRuntimeMap(t *testing.T) {
 	w := authzCall(a.Handler(), "owner", "GET", "/api/v1/tiers?project=game", "")
 	if w.Code != 503 {
 		t.Fatalf("unavailable deployment inventory: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
+	t.Parallel()
+	fake := newFakeDocker()
+	inspected := map[string]int{}
+	fake.reply = func(args []string) (string, error, bool) {
+		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat {
+			inspected[args[3]]++
+			if args[3] == "customer-b" {
+				return "", errors.New("provider unavailable"), true
+			}
+			return `{"running":true}`, nil, true
+		}
+		return "", nil, false
+	}
+	a := authzActors(t, Config{DockerClient: fake})
+	revokeReadingForAll(t, a)
+	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: "customer-tier", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idsByName := map[string]ids.ID{}
+	for _, name := range []string{"customer-a", "customer-b"} {
+		dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), name, target.ID, (deployment.Attributes{}).WithDefaults())
+		if err != nil {
+			t.Fatal(err)
+		}
+		idsByName[name] = dep.ID
+		at, _, err := a.Deployment.Outcomes.Admit(t.Context(), deployment.Start{DeploymentID: dep.ID, TargetID: target.ID, Key: name})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Outcomes.Complete(t.Context(), deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", URL: "https://" + name + ".example", Handle: map[string]any{"container": name}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	read := func(who string) []httpapi.TierApp {
+		t.Helper()
+		w := authzCall(a.Handler(), who, "GET", "/api/v1/tiers", "")
+		var out httpapi.TierMap
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 200 {
+			t.Fatalf("tier response: %d %s %v", w.Code, w.Body.String(), err)
+		}
+		for _, tier := range out.Tiers {
+			if tier.Name == "release" {
+				return tier.Apps
+			}
+		}
+		t.Fatal("released environments column missing")
+		return nil
+	}
+	apps := read("owner")
+	if len(apps) != 2 {
+		t.Fatalf("customer placements missing: %+v", apps)
+	}
+	for _, app := range apps {
+		if app.DeploymentID != idsByName[app.DeploymentLabel] {
+			t.Fatalf("placement identity/label mismatch: %+v", app)
+		}
+		if app.DeploymentLabel == "customer-a" && (!app.Running || app.Observed != "") {
+			t.Fatalf("first placement: %+v", app)
+		}
+		if app.DeploymentLabel == "customer-b" && (app.Running || app.Observed != "unknown") {
+			t.Fatalf("second placement: %+v", app)
+		}
+	}
+	beforeA, beforeB := inspected["customer-a"], inspected["customer-b"]
+	if beforeA == 0 || beforeB == 0 {
+		t.Fatalf("each target was not observed: %v", inspected)
+	}
+	if got := read("outsider"); len(got) != 0 {
+		t.Fatalf("foreign placement exposed: %+v", got)
+	}
+	if inspected["customer-a"] != beforeA || inspected["customer-b"] != beforeB {
+		t.Fatal("foreign placement observed before visibility check")
 	}
 }

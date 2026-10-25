@@ -14,8 +14,10 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"gopkg.in/yaml.v3"
 )
 
@@ -205,7 +207,7 @@ func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 		t.Fatalf("backups asked: %v", a)
 	}
 	// The intranet door gives the same stack for the same bundle.
-	p.releaseLAN(t)
+	p.releaseDefault(t)
 	intranet, m := p.lastStack(t)
 	if m != n+1 || intranet != named {
 		t.Fatalf("the doors' stacks differ:\nnamed:\n%s\nintranet:\n%s", named, intranet)
@@ -242,39 +244,138 @@ func TestANamedPortainerReleaseRecordsTheAddressItRoutes(t *testing.T) {
 	}
 }
 
-// A project has one deployment on a Portainer target, the target's tier
-// (lan for one attached with none), since its stack and volumes are named
-// for the project: another name is refused before a release is numbered.
-//
-// Kills: no refusal (two deployments share one stack); the attached
-// target's missing tier read as no name allowed.
-func TestAProjectHasOneDeploymentOnAPortainerTarget(t *testing.T) {
-	t.Parallel()
-	p, b, _ := newPortainerNeeds(t)
-	seeded := p.target(t, IntranetTargetName)
-	attached, err := p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: "office", EndpointID: 3, Environment: DefaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "office.example"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, c := range []struct{ target *Target }{{seeded}, {attached}} {
-		other := "other-" + c.target.Name
-		if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, other, c.target.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"}); err != nil {
-			t.Fatal(err)
-		}
-		before, _ := p.s.Releases.ForProject(context.Background(), p.project, 50)
-		_, err := p.releaseByName(t, other, b)
-		if !errors.Is(err, ErrReleaseRefused) || !strings.Contains(err.Error(), "a project has one deployment on "+c.target.Name+", lan") {
-			t.Fatalf("%s on %s: %v", other, c.target.Name, err)
-		}
-		if after, _ := p.s.Releases.ForProject(context.Background(), p.project, 50); len(after) != len(before) {
-			t.Fatalf("a refused release was numbered on %s", c.target.Name)
-		}
-	}
-	if _, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", attached.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"}); err != nil {
-		t.Fatal(err)
-	}
-	if rel, err := p.releaseByName(t, "lan", b); err != nil || rel.State != Released {
-		t.Fatalf("lan on the attached target: %v", err)
+// Customer placements share neither provider resources nor admitted routing, even
+// when the independently attached targets resolve to the same endpoint.
+func TestCustomerPortainerDeploymentsKeepIndependentReleaseOwnership(t *testing.T) {
+	for _, separate := range []bool{false, true} {
+		t.Run(map[bool]string{false: "same target", true: "separate connections"}[separate], func(t *testing.T) {
+			p, b, asked := newPortainerNeeds(t)
+			firstTarget := p.target(t, IntranetTargetName)
+			secondTarget := firstTarget
+			if separate {
+				var err error
+				secondTarget, err = p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: "customer-office", EndpointID: 3, Environment: DefaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "office.example"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := p.s.OfferTarget(t.Context(), secondTarget.Name, "*", OfferCaps{}); err != nil {
+					t.Fatal(err)
+				}
+				if secondTarget.ConnectionID == firstTarget.ConnectionID {
+					t.Fatal("fixture did not establish distinct connection identities")
+				}
+			}
+			deps := make([]*Deployment, 2)
+			addresses := make([]AddressSnapshot, 2)
+			releases := make([]*Release, 2)
+			passwords := make([]string, 2)
+			for i, target := range []*Target{firstTarget, secondTarget} {
+				name := []string{"customer-a", "customer-b"}[i]
+				var err error
+				deps[i], err = p.s.Deployments.EnsureStanding(t.Context(), p.project, name, target.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				addresses[i], err = p.s.EditAddress(t.Context(), p.project, deps[i].ID, 0, name+".example")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if i == 0 {
+					current, readErr := p.s.ReadReleaseDefault(t.Context(), p.project)
+					if readErr != nil {
+						t.Fatal(readErr)
+					}
+					selected, selectErr := p.s.SetReleaseDefault(t.Context(), p.project, deps[i].ID, current.Revision)
+					if selectErr != nil {
+						t.Fatal(selectErr)
+					}
+					accepted, admitErr := p.s.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: p.project, ExpectedRevision: &selected.Revision})
+					if admitErr != nil {
+						t.Fatal(admitErr)
+					}
+					err = p.s.ExecuteRelease(t.Context(), accepted.ID)
+					var readErr2 error
+					releases[i], readErr2 = p.s.Releases.Last(t.Context(), p.project, name)
+					if readErr2 != nil {
+						t.Fatal(readErr2)
+					}
+				} else {
+					releases[i], err = p.releaseByName(t, name, b)
+				}
+				if err != nil || releases[i] == nil || releases[i].State != Released {
+					t.Fatalf("customer release %s: %+v %v", name, releases[i], err)
+				}
+				passwords[i], err = p.s.env.NeedCredentials(NeedSecretsScope(deps[i].ID))(t.Context(), "postgres", "password")
+				if err != nil || passwords[i] == "" {
+					t.Fatalf("need password: %v", err)
+				}
+			}
+			if passwords[0] == passwords[1] {
+				t.Fatal("deployments shared database credentials")
+			}
+			p.mu.Lock()
+			snapshots := make(map[int64]promotionStack, len(p.stackRecords))
+			for id, st := range p.stackRecords {
+				snapshots[id] = st
+			}
+			p.mu.Unlock()
+			if len(snapshots) != 2 {
+				t.Fatalf("two releases made %d stacks", len(snapshots))
+			}
+			for i, dep := range deps {
+				owned, err := p.s.Deployments.Owned(t.Context(), dep.ID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				stackFound, volumeFound := false, false
+				for _, o := range owned {
+					if o.Kind == "stack" {
+						for _, st := range snapshots {
+							if st.Name == o.Name {
+								stackFound = true
+								for _, want := range []string{dep.ID.String(), addresses[i].Ingress.URL, passwords[i]} {
+									if !strings.Contains(st.Compose, want) {
+										t.Fatalf("stack %s missing its ownership or input %q", st.Name, want)
+									}
+								}
+								if strings.Contains(st.Compose, addresses[1-i].Ingress.URL) || strings.Contains(st.Compose, passwords[1-i]) {
+									t.Fatal("stack contains another deployment's address or password")
+								}
+							}
+						}
+					}
+					if o.Kind == "volume" && o.Need == "postgres" && strings.Contains(o.Name, deploy.HostKey(dep.ID)) {
+						volumeFound = true
+					}
+				}
+				if !stackFound || !volumeFound {
+					t.Fatalf("deployment %s lacks independently recorded stack/volume: %+v", dep.Name, owned)
+				}
+			}
+			if got := asked.of(); len(got) != 2 || got[0] != deps[0].Name || got[1] != deps[1].Name {
+				t.Fatalf("backup attribution: %v", got)
+			}
+			if _, err := p.s.EditAddress(t.Context(), p.project, deps[0].ID, addresses[0].Revision, "changed.customer.example"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := p.releaseByName(t, deps[0].Name, b); err != nil {
+				t.Fatal(err)
+			}
+			p.mu.Lock()
+			defer p.mu.Unlock()
+			if len(p.stackRecords) != 2 {
+				t.Fatal("rerelease created a replacement stack")
+			}
+			for id, st := range snapshots {
+				if strings.Contains(st.Compose, addresses[1].Ingress.URL) && p.stackRecords[id] != st {
+					t.Fatal("editing first deployment changed second provider stack")
+				}
+			}
+			last, err := p.s.Releases.Last(t.Context(), p.project, deps[1].Name)
+			if err != nil || last.ID != releases[1].ID {
+				t.Fatalf("second release identity changed: %+v %v", last, err)
+			}
+		})
 	}
 }
 
@@ -330,19 +431,39 @@ func sourceOf(t *testing.T, p *promotionTargets, b *ReleaseBundle) deploy.Source
 	return deploy.Source{Slug: "p", Revision: b.ContractRevision, Contract: c, Images: b.Parts, Init: b.Init, Published: b.ByDigest(), Platform: b.BuiltFrom.Platform}
 }
 
-// The intranet door cannot revoke a key AppTown registers for an app (an
-// AI models key), so it refuses such an app and says the door that can:
-// releasing the deployment by name.
-func TestTheIntranetDoorNamesTheDoorForARegisteredNeed(t *testing.T) {
+// Default release admission uses the same owned registered key as a named
+// release; another release reuses it instead of leaking a new credential.
+func TestADefaultPortainerReleaseOwnsAndReusesItsRegisteredKey(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargetsWith(t, false, strings.Replace(digestAppYAML, "init:\n", "needs:\n  llm: {}\ninit:\n", 1))
 	p.publish(t)
-	proj, err := p.projects.ByID(context.Background(), p.project)
+	values, err := p.s.env.secrets.WithContext(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, code, err := p.s.ReleaseLAN(t.Context(), &proj, "boss", LANReleaseRequest{}); code != 422 || err == nil || !strings.Contains(err.Error(), "this app needs llm") || !strings.Contains(err.Error(), "release it with apptown release p lan") {
-		t.Fatalf("the intranet door: %d %v", code, err)
+	provider := withLLM(t, p.s, p.project, true)
+	for name, value := range values {
+		if err := p.s.env.secrets.SetBootstrap(t.Context(), name, value, "fixture"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	first := p.releaseDefault(t)
+	if first.State != Released {
+		t.Fatalf("default release: %+v", first)
+	}
+	owned := heldKeys(mustOwned(t, p.s, first.DeploymentID))
+	if len(owned) != 1 || provider.CallsOf("POST") != 1 {
+		t.Fatalf("default release key ownership: %+v", owned)
+	}
+	key := provider.Keys()[owned[0].Hash]
+	stack, _ := p.lastStack(t)
+	if key.Value == "" || !strings.Contains(stack, "LLM_API_KEY") || !strings.Contains(stack, key.Value) || strings.Contains(stack, llmProvisioningSentinel) {
+		t.Fatal("the default release did not deliver only its owned key")
+	}
+	second := p.releaseDefault(t)
+	retained := heldKeys(mustOwned(t, p.s, second.DeploymentID))
+	if second.State != Released || second.ID == first.ID || len(retained) != 1 || retained[0].Hash != owned[0].Hash || provider.CallsOf("POST") != 1 {
+		t.Fatalf("repeat default release did not reuse its owned key: %+v %+v", second, retained)
 	}
 }
 
@@ -412,7 +533,7 @@ func TestAPortainerStackGivesTheAppItsIntegrationValues(t *testing.T) {
 			t.Errorf("%s: the log does not name the values given: %+v", door, events)
 		}
 	}
-	rel := p.releaseLAN(t)
+	rel := p.releaseDefault(t)
 	check("the intranet release", rel, nil)
 	rel, err := p.releaseByName(t, "lan", b)
 	check("the release by name", rel, err)
@@ -442,5 +563,23 @@ func TestANamedPortainerReleaseOfAnUnpublishedBundleIsRefusedWhenAsked(t *testin
 	}
 	if after, err := p.s.Releases.ForProject(context.Background(), p.project, 50); err != nil || len(after) != len(before) {
 		t.Fatalf("a refused release was numbered: %d before, %d after (%v)", len(before), len(after), err)
+	}
+}
+
+// The concrete driver returns active on success and a non-active observation
+// on failure; the wrapper must never request a backup of that failed rollout.
+func TestPortainerReconcileFailureDoesNotRequestBackup(t *testing.T) {
+	t.Parallel()
+	asked := &backupsAsked{}
+	entered := false
+	failure := errors.New("provider unavailable")
+	d := &portainerRelease{Driver: &portainer.Driver{Config: func(context.Context, ids.ID) (*portainer.Target, error) { entered = true; return nil, failure }}, providers: &Providers{afterRelease: asked.ask}, target: &Target{ID: idstest.N(9)}, dep: &Deployment{ID: idstest.N(8), ProjectID: idstest.N(7), Name: "customer-blue"}}
+	ingress := &deploy.Ingress{Hosts: []string{"blue.apps.example"}, CertificateDomain: "apps.example", URL: "https://blue.apps.example"}
+	observation, err := d.Reconcile(t.Context(), deploy.Placement{ID: d.dep.ID}, 1, deploy.Artifact{Kind: "compose", Source: &deploy.Source{Ingress: ingress}}, "request", func(string, ...any) {}, nil)
+	if !entered || err == nil || !strings.Contains(err.Error(), failure.Error()) || observation.Rollout == "active" {
+		t.Fatalf("driver failure not exercised: %+v %v", observation, err)
+	}
+	if got := asked.of(); len(got) != 0 {
+		t.Fatalf("failed/non-active rollout requested backups: %v", got)
 	}
 }

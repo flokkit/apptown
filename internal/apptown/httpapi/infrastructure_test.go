@@ -41,7 +41,7 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	h := Infrastructure{deployment: d, projects: projects, db: db, intranet: "lan"}
+	h := Infrastructure{deployment: d, projects: projects, db: db}
 	if _, err := d.Targets.Put(context.Background(), &deployment.Target{Name: "lan", Kind: deployment.KindPortainer, Provider: "portainer-deploy", Origin: deployment.OriginAttached,
 		Address: map[string]any{}, Capabilities: deployment.TargetCapabilities{}, Ingress: map[string]any{}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
@@ -67,12 +67,12 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 		{Kind: "volume", Name: stack + "_apptown-data-x", Record: "unrecorded", Stack: stack},
 		{Kind: "container", Name: names.App(), Record: "recorded"},
 	}
-	out, note, err := h.attributeLeftovers(t.Context(), host, res)
+	if _, _, err := h.attributeLeftovers(t.Context(), host, res); err == nil {
+		t.Fatal("legacy unverified stack was treated as removable or shared")
+	}
+	out, _, err := h.attributeLeftovers(t.Context(), host, []deploy.Resource{res[0], res[2]})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if len(out) != 2 || note == "" || !strings.Contains(note, "intranet") {
-		t.Fatalf("the intranet's volume is left out and said in words: %d %q", len(out), note)
 	}
 	if out[0].Retained == nil || out[0].Retained.Project != p.Slug || out[0].Retained.Deployment != "cloud" || !strings.Contains(out[0].Retained.Reason, "now runs on do-syd") {
 		t.Fatalf("the cloud deployment's leftover names it and why: %+v", out[0].Retained)
@@ -112,7 +112,7 @@ func TestALeftoverIsAttributedToTheDeploymentItsOwnerLabelNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := Infrastructure{deployment: d, projects: projects, db: db, intranet: "lan"}
+	h := Infrastructure{deployment: d, projects: projects, db: db}
 	res := []deploy.Resource{
 		{Kind: "container", Name: names.Service("postgres"), Record: "unrecorded", Owner: names.Stack()},
 		{Kind: "volume", Name: names.DataVolume(), Record: "unrecorded", Owner: names.App()},
@@ -325,6 +325,7 @@ func TestOwnedResourcesTheHostHoldsArePresent(t *testing.T) {
 	tag := docker.Current.BuildTag("apptown-env-shop-main-g1-app")
 	anon := strings.Repeat("ab", 32)
 	daemon := daemonReplies{
+		"info":          "test-daemon\n",
 		"image inspect": `["` + tag + `:latest"]` + "\t[]\t" + `"sha256:1"` + "\n",
 		"volume ls":     anon + "\t\t\nsomeone-elses-data\t\t\n",
 	}
@@ -359,7 +360,7 @@ func TestALeftoverIsCalledTornDownOnlyWhenItsDeploymentIsNotThere(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	h := Infrastructure{deployment: d, projects: project.New(db, nil), db: db, intranet: "lan"}
+	h := Infrastructure{deployment: d, projects: project.New(db, nil), db: db}
 	if got := h.leftoverReason(t.Context(), host, "gone", "main"); got != "the deployment was torn down" {
 		t.Fatalf("a project that is not there: %q", got)
 	}

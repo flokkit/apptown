@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -92,6 +93,22 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	t.Parallel()
 	w := newTargetHTTPWorld(t)
 	w.docker.SetVolume("apptown-data-apptown-env-old-main", true)
+	w.docker.SetRunning("apptown-dep-orphan", true)
+	// This fixture's fake supports label-filtered ps, while inventory asks
+	// name filters and volume listings. Supply the seeded orphan observations and
+	// retain the existing daemon for removal and command evidence.
+	w.setDockerClient(targetDockerClientFunc(func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
+		if len(req.Args) > 1 && req.Args[0] == "ps" && req.Args[1] == "-a" {
+			if w.docker.Running("apptown-dep-orphan") {
+				return []byte("apptown-dep-orphan\tUp 1 hour\tsha256:orphan\t\t\n"), nil
+			}
+			return nil, nil
+		}
+		if len(req.Args) > 1 && req.Args[0] == "volume" && req.Args[1] == "ls" {
+			return []byte("apptown-data-apptown-env-old-main\t\t\n"), nil
+		}
+		return w.docker.Run(ctx, host, req)
+	}))
 	builtin := w.seedBuiltin(t)
 	pid := w.createProject(t, "ri")
 	env, err := w.deployment.Deployments.EnsureStanding(t.Context(), pid, "main", builtin.ID, (deployment.Attributes{}).WithDefaults())
@@ -141,19 +158,25 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 		t.Fatal("the infrastructure page read its records as complete when they could not be read")
 	}
 	restore()
-	if code, _ := call(`{"kind":"container","name":"apptown-env-old-main","confirm":"other"}`); code != 400 {
+	if code, _ := call(`{"kind":"container","name":"apptown-dep-orphan","confirm":"other"}`); code != 400 {
 		t.Fatalf("confirmation: %d", code)
 	}
 	// A removal cannot be undone: without its request on the record, Docker
 	// is not asked.
 	w.docker.ResetCommands()
 	restore = w.db.FailNextStatement("-- name: AppendReceipt")
-	code, out := call(`{"kind":"container","name":"apptown-env-old-main","confirm":"apptown-env-old-main"}`)
+	code, out := call(`{"kind":"container","name":"apptown-dep-orphan","confirm":"apptown-dep-orphan"}`)
 	restore()
-	if code != 503 || len(w.docker.Commands()) != 0 {
+	removed := false
+	for _, command := range w.docker.Commands() {
+		if len(command) > 0 && command[0] == "rm" {
+			removed = true
+		}
+	}
+	if code != 503 || removed {
 		t.Fatalf("a removal whose request was not recorded: %d %v, docker %v", code, out, w.docker.Commands())
 	}
-	if code, out := call(`{"kind":"container","name":"apptown-env-old-main","confirm":"apptown-env-old-main"}`); code != 200 {
+	if code, out := call(`{"kind":"container","name":"apptown-dep-orphan","confirm":"apptown-dep-orphan"}`); code != 200 {
 		t.Fatalf("unrecorded container: %d %v", code, out)
 	}
 	if got, err := audit.Recent(t.Context(), w.db, audit.Filter{KindPrefix: "infrastructure.remove"}); err != nil || len(got) != 2 || got[0].Kind != "infrastructure.removed" || got[1].Kind != "infrastructure.remove-requested" {
@@ -167,7 +190,7 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 		calls = append(calls, strings.Join(args, " "))
 	}
 	joined := strings.Join(calls, "\n")
-	if !strings.Contains(joined, "rm -f apptown-env-old-main") || !strings.Contains(joined, "volume rm apptown-data-apptown-env-old-main") {
+	if !strings.Contains(joined, "rm -f apptown-dep-orphan") || !strings.Contains(joined, "volume rm apptown-data-apptown-env-old-main") {
 		t.Fatalf("docker removal:\n%s", joined)
 	}
 }

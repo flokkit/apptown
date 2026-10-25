@@ -2,11 +2,13 @@ package deployment
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -42,7 +44,15 @@ type promotionTargets struct {
 	stacks   []string // the compose files Portainer was given
 	// volumes are the Docker volumes the environment holds: a stack's
 	// create makes those its file declares.
-	volumes map[string]bool
+	volumes      map[string]bool
+	stackRecords map[int64]promotionStack
+}
+
+type promotionStack struct {
+	ID         int64  `json:"Id"`
+	Name       string `json:"Name"`
+	EndpointID int64  `json:"EndpointId"`
+	Compose    string `json:"-"`
 }
 
 func asJSON(v any) string {
@@ -61,7 +71,7 @@ func newPromotionTargets(t *testing.T, noLocalDocker bool) *promotionTargets {
 // newPromotionTargetsWith is newPromotionTargets whose app is appYAML.
 func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *promotionTargets {
 	t.Helper()
-	p := &promotionTargets{do: &dofake.API{}, docr: newDigestRegistry(t, "apptown", digestDOToken), volumes: map[string]bool{}}
+	p := &promotionTargets{do: &dofake.API{}, docr: newDigestRegistry(t, "apptown", digestDOToken), volumes: map[string]bool{}, stackRecords: map[int64]promotionStack{}}
 	p.do.ServeFrontDoor(false)
 	amd64 := `{"Os":"linux","Arch":"amd64"}`
 	p.platform.Store(&amd64)
@@ -78,7 +88,13 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		case "/api/endpoints/3/docker/info":
 			fmt.Fprint(w, `{"ID":"promotion-engine","MemTotal":17179869184,"NCPU":4}`)
 		case "/api/stacks":
-			fmt.Fprint(w, `[]`)
+			p.mu.Lock()
+			rows := make([]promotionStack, 0, len(p.stackRecords))
+			for _, st := range p.stackRecords {
+				rows = append(rows, st)
+			}
+			p.mu.Unlock()
+			fmt.Fprint(w, asJSON(rows))
 		case "/api/stacks/create/standalone/string":
 			var body map[string]any
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -92,12 +108,46 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 			}
 			p.mu.Lock()
 			p.stacks = append(p.stacks, compose)
+			id := int64(len(p.stackRecords) + 1)
+			p.stackRecords[id] = promotionStack{ID: id, Name: name, EndpointID: 3, Compose: compose}
 			for _, v := range vols {
 				p.volumes[v.Name] = true
 			}
 			p.mu.Unlock()
-			fmt.Fprint(w, `{"Id":1}`)
+			fmt.Fprintf(w, `{"Id":%d}`, id)
 		default:
+			if raw, ok := strings.CutPrefix(r.URL.Path, "/api/stacks/"); ok {
+				idText, isFile := strings.CutSuffix(raw, "/file")
+				id, parseErr := strconv.ParseInt(idText, 10, 64)
+				p.mu.Lock()
+				defer p.mu.Unlock()
+				st, exists := p.stackRecords[id]
+				if parseErr != nil || !exists {
+					http.NotFound(w, r)
+					return
+				}
+				if isFile && r.Method == http.MethodGet {
+					fmt.Fprint(w, asJSON(map[string]string{"StackFileContent": st.Compose}))
+					return
+				}
+				if r.Method == http.MethodPut {
+					var body struct {
+						Compose string `json:"stackFileContent"`
+					}
+					if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+						t.Error(err)
+						w.WriteHeader(400)
+						return
+					}
+					st.Compose = body.Compose
+					p.stackRecords[id] = st
+					p.stacks = append(p.stacks, body.Compose)
+					fmt.Fprint(w, asJSON(st))
+					return
+				}
+				http.Error(w, "unexpected stack operation", 500)
+				return
+			}
 			if name, ok := strings.CutPrefix(r.URL.Path, "/api/endpoints/3/docker/volumes/"); ok && r.Method == http.MethodGet {
 				p.mu.Lock()
 				there := p.volumes[name]
@@ -151,26 +201,45 @@ func (p *promotionTargets) target(t *testing.T, name string) *Target {
 	return target
 }
 
-// releaseLAN starts an intranet release and waits for it to end.
-func (p *promotionTargets) releaseLAN(t *testing.T) *Release {
+// chooseDefault explicitly configures or selects the fixture's Portainer
+// deployment, as an operator does before asking for a default release.
+func (p *promotionTargets) chooseDefault(t *testing.T) ReleaseDefault {
 	t.Helper()
-	proj, err := p.projects.ByID(context.Background(), p.project)
+	selected, err := p.s.ReadReleaseDefault(t.Context(), p.project)
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, code, err := p.s.ReleaseLAN(t.Context(), &proj, "boss", LANReleaseRequest{})
-	if err != nil || code != 202 {
-		t.Fatalf("an intranet release: %d %v", code, err)
+	if !selected.DeploymentID.IsZero() {
+		return selected
 	}
-	var rel *Release
-	if !poll.Until(context.Background(), 10*time.Second, 10*time.Millisecond, func() bool {
-		var err error
-		if rel, err = p.s.Releases.ByNumber(context.Background(), p.project, out.Number); err != nil {
-			t.Fatal(err)
-		}
-		return rel.State != Releasing
-	}) {
-		t.Fatalf("release %d is still releasing", rel.Number)
+	target := p.target(t, IntranetTargetName)
+	dep, err := p.s.Deployments.ByName(t.Context(), p.project, "lan")
+	if errors.Is(err, sql.ErrNoRows) {
+		selected, err = p.s.SetupReleaseDefault(t.Context(), p.project, ReleaseSetup{TargetID: target.ID, TargetRevision: &target.SettingsRevision, DeploymentName: "lan", ExpectedRevision: selected.Revision, RequirePromotion: true})
+	} else if err == nil {
+		selected, err = p.s.SetReleaseDefault(t.Context(), p.project, dep.ID, selected.Revision)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return selected
+}
+
+// releaseDefault admits through the durable owner and runs its queued work.
+func (p *promotionTargets) releaseDefault(t *testing.T) *Release {
+	t.Helper()
+	selected := p.chooseDefault(t)
+	out, err := p.s.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: p.project, ExpectedRevision: &selected.Revision})
+	if err != nil {
+		t.Fatalf("default release admission: %v", err)
+	}
+	executionErr := p.s.ExecuteRelease(t.Context(), out.ID)
+	rel, err := p.s.Releases.ByNumber(t.Context(), p.project, out.Number)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rel.State == Releasing || (executionErr != nil && rel.State != ReleaseFailed) {
+		t.Fatalf("release did not settle: %+v %v", rel, executionErr)
 	}
 	return rel
 }
@@ -421,7 +490,7 @@ func TestAnIntranetReleaseNamesEveryImageByDigest(t *testing.T) {
 	b := p.land(t)
 	admittedAt := time.Date(2026, 10, 26, 1, 2, 3, 0, time.UTC)
 	p.s.setClock(func() time.Time { return admittedAt })
-	rel := p.releaseLAN(t)
+	rel := p.releaseDefault(t)
 	if rel.State != Released || rel.BundleID != b.ID {
 		events, _ := p.s.Releases.Events(context.Background(), rel.ID)
 		t.Fatalf("the intranet release: %+v\n%+v", rel, events)
@@ -486,7 +555,7 @@ func TestAnIntranetReleaseRefusesAnUnknownOrOtherPlatform(t *testing.T) {
 	p.land(t)
 	for answer, words := range map[string]string{`{}`: "names no known platform", `{"Os":"linux","Arch":"arm64"}`: "built for linux/amd64"} {
 		p.platform.Store(&answer)
-		rel := p.releaseLAN(t)
+		rel := p.releaseDefault(t)
 		events, _ := p.s.Releases.Events(context.Background(), rel.ID)
 		if rel.State != ReleaseFailed || !strings.Contains(fmt.Sprint(events), words) {
 			t.Errorf("endpoint %s: %+v %+v", answer, rel, events)
@@ -511,7 +580,7 @@ func TestInTheNoLocalDockerModeADigestBundleGoesToAppPlatformAndPortainer(t *tes
 	if rel, err := p.promote(t, b.ID, "cloud", p.target(t, "do-syd")); err != nil || rel.State != Released {
 		t.Fatalf("App Platform: %+v %v", rel, err)
 	}
-	if rel := p.releaseLAN(t); rel.State != Released {
+	if rel := p.releaseDefault(t); rel.State != Released {
 		t.Fatalf("Portainer: %+v", rel)
 	}
 	builtIn, err := p.s.Targets.Put(context.Background(), &Target{Name: "local", Kind: KindDockerHost, Origin: OriginBuiltIn, Status: TargetReady})
@@ -552,7 +621,7 @@ func TestAnIntranetReleaseAnswersOnTheTargetsDomain(t *testing.T) {
 	if d := p.target(t, IntranetTargetName).Ingress["domain"]; d != "lan.example.org" {
 		t.Fatalf("a restart changed the intranet domain to %v", d)
 	}
-	if rel := p.releaseLAN(t); rel.State != Released {
+	if rel := p.releaseDefault(t); rel.State != Released {
 		events, _ := p.s.Releases.Events(ctx, rel.ID)
 		t.Fatalf("the intranet release: %+v\n%+v", rel, events)
 	}
@@ -567,7 +636,7 @@ func TestAnIntranetReleaseAnswersOnTheTargetsDomain(t *testing.T) {
 	}
 
 	edit("")
-	if rel := p.releaseLAN(t); rel.State != Released {
+	if rel := p.releaseDefault(t); rel.State != Released {
 		t.Fatalf("clearing the target domain broke admitted routing: %+v", rel)
 	}
 	p.mu.Lock()
@@ -589,27 +658,23 @@ func TestAnIntranetReleaseAnswersOnTheTargetsDomain(t *testing.T) {
 func TestAnIntranetReleaseOfAnUnpublishedLandingIsRefusedWithoutABuild(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
-	proj, err := p.projects.ByID(context.Background(), p.project)
-	if err != nil {
-		t.Fatal(err)
-	}
-	refused := func(what string) {
+	selected := p.chooseDefault(t)
+	refused := func(what string, want error) {
 		t.Helper()
 		before, err := p.s.Releases.ForProject(context.Background(), p.project, 50)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, code, err := p.s.ReleaseLAN(t.Context(), &proj, "boss", LANReleaseRequest{}); code != 422 || !errors.Is(err, ErrReleaseRefused) ||
-			!strings.Contains(err.Error(), "intranet pulls every image from the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change") {
-			t.Fatalf("%s: %d %v", what, code, err)
+		if _, err := p.s.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: p.project, ExpectedRevision: &selected.Revision}); !errors.Is(err, want) || (errors.Is(want, ErrReleaseRefused) && !strings.Contains(err.Error(), "intranet pulls every image from the project's container registry, and this release was not published there. Attach a container registry to the project, then land a change")) {
+			t.Fatalf("%s: %v", what, err)
 		}
 		if after, err := p.s.Releases.ForProject(context.Background(), p.project, 50); err != nil || len(after) != len(before) {
 			t.Fatalf("%s: a refused release made one: %d before, %d after (%v)", what, len(before), len(after), err)
 		}
 	}
-	refused("no bundle")
+	refused("no bundle", ErrNoBundle)
 	cutBundleFixture(t, p.db, p.project, p.revision, BundleOrigin{})
-	refused("a bundle of image IDs")
+	refused("a bundle of image IDs", ErrReleaseRefused)
 	p.expectAppTownDockerIdle(t)
 	if _, n := p.lastStack(t); n != 0 {
 		t.Fatal("Portainer was given a stack")

@@ -13,7 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/complaint"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
@@ -135,9 +134,9 @@ func appRoutes(a *App) []routeSpec {
 		docs = docsForRoutes(a.cfg.browserSession().PublicOrigin)
 		runs = httpapi.NewRuns(a.Work, a.operations)
 		findings = httpapi.NewFindings(a.Projects, a.Work, a.conformance, a.DB, a.cfg.dataDir)
-		tiers = httpapi.NewTiers(a.Projects, a.Integrations, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir)
+		tiers = httpapi.NewTiers(a.Projects, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir)
 		repositoryViews = httpapi.NewRepositoryViews(a.Projects, a.Access, a.DB, a.cfg.dataDir, repositoryedit.NewIntegrity(&a.repositories, a.processRunner, repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, a.DB, a.cfg.dataDir, a.cfg.clock.Now), a.Deployment.Releases)
-		releaseOperations = httpapi.NewReleaseOperations(a.Projects, a.Access, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, releaseTargetName, a.cfg.clock.Now)
+		releaseOperations = httpapi.NewReleaseOperations(a.Projects, a.Deployment, a.Preview, a.Work, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		projectAttachments = httpapi.NewProjectAttachments(a.Projects, a.Integrations, a.Access, a.changeActions, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
 		integrationListing = httpapi.NewIntegrationListing(a.Integrations, a.Deployment, connectorHealthFor(a), &a.docker, agentenv.RegistryFormats(), a.cfg.clock.Now)
 		connectors = httpapi.NewConnectors(a.Integrations, a.Access, a.Deployment, connectorHealthFor(a), a.DB, agentenv.RegistryFormats())
@@ -151,7 +150,7 @@ func appRoutes(a *App) []routeSpec {
 		browserErrors = httpapi.NewBrowserErrors(selfErrorsFor(a))
 		setupModel = httpapi.NewSetupModel(a.Secrets, a.Integrations, a.Models, a.DB, a.cfg.clock.Now)
 		setupStatus = httpapi.NewSetupStatus(&a.setup, a.modelSelection, a.authModeName() == "open" && a.cfg.listenAddr != "" && !loopbackAddr(a.cfg.listenAddr))
-		infrastructure = httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Volume, deployment.IntranetTargetName, a.cfg.clock.Now)
+		infrastructure = httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Volume, a.cfg.clock.Now)
 		disks = httpapi.NewDisks(a.disks)
 		deploymentListing = httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir, a.DataProtection.FillsOf)
 		targets = httpapi.NewTargets(a.Deployment, a.targetProviders, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
@@ -207,7 +206,7 @@ func appRoutes(a *App) []routeSpec {
 		accounts = httpapi.NewAccounts(a.Access)
 		invites = httpapi.NewInvites(a.Access, a.cfg.browserSession(), a.cfg.proxies, a.cfg.authMode == "internal")
 		authorization = httpapi.NewAuthorization(a.Access, a.Projects)
-		secrets = httpapi.NewSecrets(a.Secrets, a.Integrations, a.Projects, a.Deployment, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
+		secrets = httpapi.NewSecrets(a.Secrets, a.Projects, a.Deployment, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
 		configuration = httpapi.NewConfiguration(a.Dependencies, a.cfg.stock.Tools)
 		health = httpapi.NewHealth(a.DB.Pool().PingContext)
 		deployments = httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects)
@@ -328,6 +327,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/deployments", deploymentListing.Deployments, access.CapDeploymentRead, "project-slug"),
 		ownerRoute("GET /api/v1/projects/{slug}/release/default", deployments.ReleaseDefault, "deployments.ReleaseDefault"),
 		ownerRoute("PUT /api/v1/projects/{slug}/release/default", deployments.SetReleaseDefault, "deployments.SetReleaseDefault"),
+		ownerRoute("POST /api/v1/projects/{slug}/release/default/setup", deployments.SetupReleaseDefault, "deployments.SetupReleaseDefault"),
+		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{id}/promotion-policy", deployments.SetPromotionPolicy, "deployments.SetPromotionPolicy"),
 		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{id}/label", deployments.EditDeploymentLabel, "deployments.EditDeploymentLabel"),
 		ownerRoute("GET /api/v1/projects/{slug}/deployments/{id}/address", deployments.DeploymentAddress, "deployments.DeploymentAddress"),
 		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{id}/address", deployments.EditDeploymentAddress, "deployments.EditDeploymentAddress"),
@@ -407,7 +408,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/projects/{slug}/members", members.Add, access.CapProjectManageMembers, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/changes", changeAdmission.CreateChange, access.CapChangeCreate, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/releases", releaseHistory.ListReleases, access.CapReleaseRead, "project-slug"),
-		requireRoute("POST /api/v1/projects/{slug}/release", releaseOperations.LANRelease, access.CapReleasePromote, "release"),
+		ownerRoute("POST /api/v1/projects/{slug}/release", releaseOperations.LANRelease, "deployment.RequestDefaultRelease"),
 		requireRoute("GET /api/v1/projects/{slug}/release/plan", releaseOperations.ReleasePlan, access.CapReleaseRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/releases/{number}", releaseHistory.ReleaseDetail, access.CapReleaseRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/releases/{number}/preview", releaseOperations.ReleasePreview, access.CapDeploymentOperate, "project-slug"),

@@ -102,33 +102,61 @@ func requestFixture(t *testing.T) (*Service, DeploySelection, *requestAuthority,
 	return s, DeploySelection{ProjectID: draft.ProjectID, DeploymentName: draft.Deployment, BundleID: draft.BundleID}, authority, sources
 }
 func TestRequestReleaseAtomicQueue(t *testing.T) {
-	for _, table := range []string{"releases", "release_changes", "release_events", "release_requests", "test_release_queue"} {
-		t.Run(table, func(t *testing.T) {
-			t.Parallel()
-			s, in, _, _ := requestFixture(t)
-			change := shippedChangeFixture(t, s.db, in.ProjectID)
-			in.BundleID = cutBundleFixture(t, s.db, in.ProjectID, "selected", BundleOrigin{})
-			mustExec(t, s.db, `CREATE FUNCTION veto_request() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
-			mustExec(t, s.db, `CREATE TRIGGER veto_request BEFORE INSERT ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_request()`)
-			got, err := s.RequestRelease(context.Background(), in)
-			if err == nil || !got.ID.IsZero() {
-				t.Fatalf("suppressed %s admitted: %+v %v", table, got, err)
-			}
-			// Changes, events, requests and the queue row all reference their
-			// release, so no release on the instance means none was left behind.
-			wantN(t, "releases", everyRelease(t, s.db), 0)
-			mustExec(t, s.db, `DROP TRIGGER veto_request ON `+table)
-			got, err = s.RequestRelease(context.Background(), in)
-			if err != nil || got.Number != 1 || got.State != Releasing {
-				t.Fatalf("retry: %+v %v", got, err)
-			}
-			wantN(t, "releases", everyRelease(t, s.db), 1)
-			wantN(t, "release events", releaseEvents(t, s.db, got.ID), 1)
-			wantN(t, "releases carrying the shipped change", changeReleases(t, s.db, in.ProjectID, change), 1)
-			releaseRequest(t, s.db, got.ID)
-			// sql-guarantee: test_release_queue is this test's own queue double; no owner reads it.
-			dbtest.Count(t, s.db, 1, `SELECT COUNT(*) FROM test_release_queue`)
-		})
+	for _, path := range []string{"named", "default"} {
+		for _, table := range []string{"releases", "release_changes", "release_events", "release_requests", "test_release_queue"} {
+			t.Run(path+"/"+table, func(t *testing.T) {
+				t.Parallel()
+				s, in, authority, sources := requestFixture(t)
+				request := func() (AcceptedRelease, error) { return s.RequestRelease(t.Context(), in) }
+				if path == "default" {
+					s.configuration.Authority, s.configuration.Projects = authority, sources
+					original, err := s.Deployments.ByName(t.Context(), in.ProjectID, in.DeploymentName)
+					if err != nil {
+						t.Fatal(err)
+					}
+					target, err := s.Targets.ByID(t.Context(), original.TargetID)
+					if err != nil {
+						t.Fatal(err)
+					}
+					chosen, err := s.Deployments.EnsureStanding(t.Context(), in.ProjectID, "chosen", target.ID, Attributes{Feed: "promotion", Audience: "team", DataClass: "synthetic"})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := s.Targets.Offer(t.Context(), target, "*", OfferCaps{}, "fixture"); err != nil {
+						t.Fatal(err)
+					}
+					selected, err := s.SetReleaseDefault(t.Context(), in.ProjectID, chosen.ID, 0)
+					if err != nil {
+						t.Fatal(err)
+					}
+					request = func() (AcceptedRelease, error) {
+						return s.RequestDefaultRelease(t.Context(), DefaultReleaseSelection{ProjectID: in.ProjectID, ExpectedRevision: &selected.Revision})
+					}
+				}
+				change := shippedChangeFixture(t, s.db, in.ProjectID)
+				in.BundleID = cutBundleFixture(t, s.db, in.ProjectID, "selected", BundleOrigin{})
+				mustExec(t, s.db, `CREATE FUNCTION veto_request() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
+				mustExec(t, s.db, `CREATE TRIGGER veto_request BEFORE INSERT ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_request()`)
+				got, err := request()
+				if err == nil || !got.ID.IsZero() {
+					t.Fatalf("suppressed %s admitted: %+v %v", table, got, err)
+				}
+				// Changes, events, requests and the queue row all reference their
+				// release, so no release on the instance means none was left behind.
+				wantN(t, "releases", everyRelease(t, s.db), 0)
+				mustExec(t, s.db, `DROP TRIGGER veto_request ON `+table)
+				got, err = request()
+				if err != nil || got.Number != 1 || got.State != Releasing {
+					t.Fatalf("retry: %+v %v", got, err)
+				}
+				wantN(t, "releases", everyRelease(t, s.db), 1)
+				wantN(t, "release events", releaseEvents(t, s.db, got.ID), 1)
+				wantN(t, "releases carrying the shipped change", changeReleases(t, s.db, in.ProjectID, change), 1)
+				releaseRequest(t, s.db, got.ID)
+				// sql-guarantee: test_release_queue is this test's own queue double; no owner reads it.
+				dbtest.Count(t, s.db, 1, `SELECT COUNT(*) FROM test_release_queue`)
+			})
+		}
 	}
 }
 func TestRequestReleaseCheckedSelection(t *testing.T) {
@@ -196,8 +224,15 @@ func TestRequestReleaseCheckedSelection(t *testing.T) {
 			}
 			got, err := s.RequestRelease(ctx, in)
 			if want == nil {
-				if err != nil || got.ID.IsZero() || len(authority.seen) != 2 || authority.seen[0].Resource.ProjectID != in.ProjectID || authority.seen[1].Capability != access.CapReleasePromote || authority.seen[1].Resource.ID != in.DeploymentName {
+				if err != nil || got.ID.IsZero() || len(authority.seen) != 4 {
 					t.Fatalf("protected selection: %+v %+v %v", got, authority.seen, err)
+				}
+				// Check the initial selection and the locked admission independently.
+				for phase := 0; phase < 2; phase++ {
+					deploy, promote := authority.seen[2*phase], authority.seen[2*phase+1]
+					if deploy.Capability != access.CapDeploymentDeploy || deploy.Resource.Type != "project" || deploy.Resource.ProjectID != in.ProjectID || deploy.Resource.ID != in.ProjectID.String() || promote.Capability != access.CapReleasePromote || promote.Resource.Type != "release-target" || promote.Resource.ProjectID != in.ProjectID || promote.Resource.ID != in.DeploymentName {
+						t.Fatalf("protected selection authority phase %d: %+v %+v", phase, deploy, promote)
+					}
 				}
 			} else {
 				if !errors.Is(err, want) || !got.ID.IsZero() {

@@ -26,7 +26,7 @@ func TestInfrastructureInventoryIsCachedAndDroppedByAppTownActs(t *testing.T) {
 	env, _ := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", tg.ID, deployment.Attributes{Feed: "promotion", Audience: "team", DataClass: "non-production"})
 	asks := func() int { return f.Snapshot().ListRequests }
 	read := func(q string) infrastructureResponse {
-		w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, deployment.IntranetTargetName, nil).Infrastructure, "GET", "/api/v1/infrastructure"+q, "", nil)
+		w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure"+q, "", nil)
 		var out struct {
 			Targets []infrastructureResponse `json:"targets"`
 		}

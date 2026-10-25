@@ -10,26 +10,6 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 )
 
-// portainerTier is the one deployment name a project has on a Portainer
-// target: the target's tier, and lan for one attached with none (the
-// integration's own default). Stacks, volumes and routes are named for the
-// project, so a second deployment there would take the first one's.
-func portainerTier(t *Target) string {
-	if tier, _ := t.Address["tier"].(string); tier != "" {
-		return tier
-	}
-	return "lan"
-}
-
-// refusesNamedDeployment is the placement restriction shared by release admission
-// and explicit default selection until independently named ingress is supported.
-func (t *Target) refusesNamedDeployment(dep *Deployment) error {
-	if t.Kind == KindPortainer && dep.Name != portainerTier(t) {
-		return refused("a project has one deployment on %s, %s, because its stack and volumes are named for the project; release that one", t.Name, portainerTier(t))
-	}
-	return nil
-}
-
 // portainerRelease is the Portainer driver a deployment released by name is
 // given: it renders the stack the intranet release renders
 // (Environment.portainerStack), runs it at the address its hosts route, and
@@ -59,9 +39,6 @@ type integrationsGiver interface {
 func (d *portainerRelease) givesIntegrations() {}
 
 func (d *portainerRelease) refusesRelease(bundle *ReleaseBundle) error {
-	if err := d.target.refusesNamedDeployment(d.dep); err != nil {
-		return err
-	}
 	if bundle == nil || !bundle.ByDigest() {
 		return notPublished(d.target.Name)
 	}
@@ -69,9 +46,6 @@ func (d *portainerRelease) refusesRelease(bundle *ReleaseBundle) error {
 }
 
 func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src deploy.Source, _ deploy.NeedBindings, secrets deploy.ConsumerSecrets, logf deploy.Logf) (deploy.Artifact, error) {
-	if tier := portainerTier(d.target); d.dep.Name != tier {
-		return deploy.Artifact{}, refused("a project has one deployment on %s, %s, because its stack and volumes are named for the project; release that one", d.target.Name, tier)
-	}
 	if !src.Published {
 		return deploy.Artifact{}, notPublished(d.target.Name)
 	}

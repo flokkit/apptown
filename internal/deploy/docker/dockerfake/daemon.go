@@ -456,6 +456,9 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if IsDiskRead(args) {
 		return DiskReadAnswer(args, d.disk), nil
 	}
+	if args[0] == "info" && len(args) == 3 && args[2] == "{{.ID}}" {
+		return []byte("fake-daemon"), nil
+	}
 	if args[0] == "info" && len(args) == 3 && strings.Contains(args[2], "MemTotal") {
 		return []byte(d.host + "\n"), nil
 	}

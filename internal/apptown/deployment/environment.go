@@ -46,7 +46,6 @@ type MemoryDefaults interface {
 // It keeps no state: the owners it reads answer for their own records.
 type Environment struct {
 	memoryDefaults MemoryDefaults
-	targets        *Targets
 	secrets        *secret.Service
 	integrations   *integration.Service
 	needs          *dependency.Catalog
@@ -75,13 +74,12 @@ type EnvironmentDependencies struct {
 	Projects *project.Projects
 }
 
-// NewEnvironment prepares boots from deps; the targets are read for the
-// intranet's domain, among the origins an app trusts.
-func NewEnvironment(targets *Targets, deps EnvironmentDependencies) *Environment {
+// NewEnvironment prepares boots from the configured deployment dependencies.
+func NewEnvironment(deps EnvironmentDependencies) *Environment {
 	if deps.Routes.Scheme == "" {
 		deps.Routes.Scheme = "http"
 	}
-	return &Environment{memoryDefaults: deps.MemoryDefaults, targets: targets, secrets: deps.Secrets, integrations: deps.Integrations, needs: deps.Needs,
+	return &Environment{memoryDefaults: deps.MemoryDefaults, secrets: deps.Secrets, integrations: deps.Integrations, needs: deps.Needs,
 		probe: deps.Probe, tools: deps.ToolVersions, routes: deps.Routes, projects: deps.Projects}
 }
 
@@ -139,11 +137,6 @@ func (e *Environment) PublicOrigins(ctx context.Context) string {
 	}
 	if r.EvalDomain != "" {
 		add(r.EvalScheme + "://*." + r.EvalDomain)
-	}
-	if t, err := e.targets.ByName(ctx, IntranetTargetName); err == nil && t.Status.Available() == nil {
-		if domain, _ := t.Ingress["domain"].(string); domain != "" {
-			add("https://*." + domain)
-		}
 	}
 	return strings.Join(out, ",")
 }

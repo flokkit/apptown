@@ -63,3 +63,63 @@ it('retains the selected identity and starting revision across a refreshed prefe
     vi.unstubAllGlobals()
   }
 })
+
+it('keeps the legacy destination and accepts an exact zero environment revision', async () => {
+  const sent: unknown[] = []
+  const current = { projectId: 'project', revision: 1, legacySetup: { version: 1, integrationId: 'connection', integrationName: 'old', targetId: 'host', deploymentName: 'customer-test', evidence: {} } }
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') { sent.push(JSON.parse(String(init.body))); return new Response('{"error":"binding permission required"}', { status: 403 }) }
+    return new Response(JSON.stringify(current))
+  }))
+  const el = document.createElement('div'); document.body.appendChild(el)
+  const root = createRoot(el); const client = newQueryClient()
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><ReleaseDefaultPicker slug="sample" deployments={[]} offered={[{ id: 'host', name: 'customer-host', settingsRevision: 0 } as import('../../../wire.gen').OfferedTarget]} /></QueryClientProvider>) })
+    await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/sample/release/default') }); await new Promise(resolve => setTimeout(resolve, 0)) })
+    const form = el.querySelector('form')!
+    expect(form.querySelector('input')!.value).toBe('customer-test')
+    expect(form.querySelector('button')!.disabled).toBe(false)
+    await act(async () => { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
+    await vi.waitFor(async () => { await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) }); expect(el.textContent).toContain('binding permission required') })
+    expect(sent).toEqual([{ targetId: 'host', targetRevision: 0, deploymentName: 'customer-test', expectedRevision: 1, requirePromotion: true }])
+    expect(el.textContent).not.toContain('Default saved; release not started.')
+    expect(form.querySelector('input')!.value).toBe('customer-test')
+  } finally {
+    await act(async () => root.unmount()); client.clear(); el.remove(); vi.unstubAllGlobals()
+  }
+})
+
+it('keeps edited setup revisions across refresh and a refused save', async () => {
+  let current: import('../../../wire.gen').ReleaseDefault = { projectId: 'project', revision: 1, legacySetup: { version: 1, integrationId: 'connection', integrationName: 'old', targetId: 'host', deploymentName: 'customer-test', evidence: {} } }
+  const sent: unknown[] = []
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') { sent.push(JSON.parse(String(init.body))); return new Response('{"error":"default changed"}', { status: 409 }) }
+    return new Response(JSON.stringify(current))
+  }))
+  const el = document.createElement('div'); document.body.appendChild(el)
+  const root = createRoot(el); const client = newQueryClient()
+  const offered = ['host', 'replacement'].map(id => ({ id, name: id, settingsRevision: 1 }) as import('../../../wire.gen').OfferedTarget)
+  try {
+    await act(async () => { root.render(<QueryClientProvider client={client}><ReleaseDefaultPicker slug="sample" deployments={[]} offered={offered} /></QueryClientProvider>) })
+    await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/sample/release/default') }); await new Promise(resolve => setTimeout(resolve, 0)) })
+    await act(async () => {
+      const select = el.querySelector('select')!
+      select.value = 'replacement'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
+    expect(el.querySelector('select')!.value).toBe('replacement')
+    current = { projectId: 'project', revision: 2 }
+    await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/sample/release/default') }); await new Promise(resolve => setTimeout(resolve, 0)) })
+    expect(el.querySelector('select')!.value).toBe('replacement')
+    current = { projectId: 'project', revision: 3, deploymentId: 'elsewhere' }
+    offered[1].settingsRevision = 8
+    await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/sample/release/default') }); await new Promise(resolve => setTimeout(resolve, 0)) })
+    expect(el.querySelector('select')!.value).toBe('replacement')
+    await act(async () => { el.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
+    await vi.waitFor(async () => { await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) }); expect(el.textContent).toContain('default changed') })
+    expect(sent).toEqual([{ targetId: 'replacement', targetRevision: 1, deploymentName: 'customer-test', expectedRevision: 1, requirePromotion: true }])
+    expect(el.querySelector('select')!.value).toBe('replacement')
+  } finally {
+    await act(async () => root.unmount()); client.clear(); el.remove(); vi.unstubAllGlobals()
+  }
+})
