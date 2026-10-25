@@ -248,6 +248,17 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 			return AcceptedRelease{}, err
 		}
 	}
+	if !actor.Verified {
+		return AcceptedRelease{}, errReleaseAuthority
+	}
+	authority, err := json.Marshal(operations.AuthorityOf(actor.Principal))
+	if err != nil {
+		return AcceptedRelease{}, err
+	}
+	if _, err := releasePrincipal(authority); err != nil {
+		return AcceptedRelease{}, err
+	}
+	captured := json.RawMessage(authority)
 	var admitted AcceptedRelease
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
 		rel, err := startReleaseIn(ctx, tx, ReleaseDraft{Source: ReleaseFromBundle, ProjectID: in.ProjectID, DeploymentID: dep.ID, BundleID: bundle.ID, Deployment: dep.Name, Revision: revision, Actor: actor.Principal.Name, At: s.now()}, fmt.Sprintf("to %s started by %s — bundle %d (tree %s) on %s", dep.Name, actor.Principal.Name, bundle.ID, strs.ShortSHA(revision), t.Name)+accepted+uncheckedNote)
@@ -298,7 +309,7 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		if err != nil {
 			return err
 		}
-		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding, IngressJson: ingress}); err != nil {
+		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: &captured}); err != nil {
 			return err
 		}
 		if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {

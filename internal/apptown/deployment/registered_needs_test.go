@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/integration"
@@ -374,4 +375,77 @@ func mustOwned(t *testing.T, s *Service, id ids.ID) []deploy.Owned {
 		t.Fatal(err)
 	}
 	return owned
+}
+
+// This checked port changes permission at an observable external effect,
+// rather than depending on how many internal rechecks execute.
+type registeredReleaseAuthority struct {
+	denied func() bool
+}
+
+func (a registeredReleaseAuthority) RequireStill(ctx context.Context, principal access.Principal, permission access.Permission) error {
+	if err := (&requestAuthority{}).RequireStill(ctx, principal, permission); err != nil {
+		return err
+	}
+	if a.denied() {
+		return errors.New("release permission withdrawn")
+	}
+	return nil
+}
+
+// Withdrawing authority after key issuance must not lose its owner, create
+// managed needs, or deliver the key to an application. A newly authorized
+// request reuses that exact key, proving the failed attempt left recoverable
+// ownership rather than an untracked external credential.
+func TestAReleaseDeniedAfterKeyIssuanceKeepsItsKeyOwned(t *testing.T) {
+	t.Parallel()
+	for _, phase := range []string{"before key", "after key"} {
+		t.Run(phase, func(t *testing.T) {
+			t.Parallel()
+			service, provider, _, pid, dep, bundle := doReleaseWorldNeeding(t, "  llm:\n    limit: 4\n")
+			f := withLLM(t, service, pid, true)
+			service.release.Still = registeredReleaseAuthority{denied: func() bool { return phase == "before key" || f.CallsOf("POST") > 0 }}
+			accepted := doAcceptRelease(t, service, pid, dep, bundle)
+			if err := service.ExecuteRelease(t.Context(), accepted.ID); err == nil {
+				t.Fatal("withdrawn release permission still executed")
+			}
+			rel, err := service.Releases.ByNumber(t.Context(), pid, accepted.Number)
+			if err != nil || rel.State != ReleaseFailed {
+				t.Fatalf("failed release: %+v %v", rel, err)
+			}
+			state := provider.Snapshot()
+			if len(state.Databases) != 0 || len(state.Apps) != 0 {
+				t.Fatal("provider effects followed withdrawal")
+			}
+			held := heldKeys(mustOwned(t, service, dep.ID))
+			if phase == "before key" {
+				if len(held) != 0 || f.CallsOf("POST") != 0 {
+					t.Fatal("key issued before permission")
+				}
+			} else {
+				if len(held) != 1 || f.CallsOf("POST") != 1 {
+					t.Fatalf("issued key lost its owner: %+v", held)
+				}
+				if _, ok := f.Keys()[held[0].Hash]; !ok {
+					t.Fatal("owned key does not identify issued key")
+				}
+			}
+			service.release.Still = &requestAuthority{}
+			retried := doAcceptRelease(t, service, pid, dep, bundle)
+			if err := service.ExecuteRelease(t.Context(), retried.ID); err != nil {
+				t.Fatal(err)
+			}
+			rel, err = service.Releases.ByNumber(t.Context(), pid, retried.Number)
+			if err != nil || rel.State != Released {
+				t.Fatalf("authorized retry: %+v %v", rel, err)
+			}
+			recovered := heldKeys(mustOwned(t, service, dep.ID))
+			if len(recovered) != 1 || f.CallsOf("POST") != 1 {
+				t.Fatalf("retry leaked a second key: %+v", recovered)
+			}
+			if phase == "after key" && recovered[0].Hash != held[0].Hash {
+				t.Fatal("retry replaced the retained key")
+			}
+		})
+	}
 }

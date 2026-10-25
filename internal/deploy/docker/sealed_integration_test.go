@@ -34,7 +34,7 @@ func (sealedNeeds) Data(context.Context, string) (string, error) { return "", ni
 
 type sealedSecrets struct{}
 
-func (sealedSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract) (Delivery, error) {
+func (sealedSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract, func(context.Context) error) (Delivery, error) {
 	return Delivery{}, nil
 }
 

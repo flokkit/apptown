@@ -391,3 +391,79 @@ func TestADrillWhoseDatabaseMayHaveBeenMadeIsUnknown(t *testing.T) {
 		t.Fatal("the fake did not make the database whose answer it lost")
 	}
 }
+
+// Queued copy-start releases retain restore authority over both projects.
+// A denial before execution makes no provider resources; a denial during
+// provisioning prevents filling or deploying, while preserving failed-release
+// attribution. The current-authority control proves the same copy can start.
+func TestQueuedCopyStartRechecksBothProjectsBeforeEffects(t *testing.T) {
+	t.Parallel()
+	for _, when := range []string{"current", "source before execution", "destination before execution", "source after cluster", "destination after cluster"} {
+		t.Run(when, func(t *testing.T) {
+			t.Parallel()
+			w, _, _ := releasedProd(t)
+			ctx := t.Context()
+			op, err := w.s.RequestCopy(ctx, w.project, "prod")
+			if err != nil {
+				t.Fatal(err)
+			}
+			copied := w.run(op)
+			raw, _ := copied.Result["backup"].(string)
+			set, err := ids.Parse(raw)
+			if err != nil || set.IsZero() {
+				t.Fatalf("copy: %+v", copied)
+			}
+			destination := createTestProject(t, w.db, "copy-destination", "Copy destination")
+			dep, err := w.bind(destination, "copy", "production", set)
+			if err != nil {
+				t.Fatal(err)
+			}
+			bundle, err := w.s.Bundles.Cut(ctx, destination, w.bundle.ContractRevision, map[string]string{"web": "sha256:web"}, nil, w.contract, deployment.BundleOrigin{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			accepted, err := w.s.RequestRelease(ctx, deployment.DeploySelection{ProjectID: destination, DeploymentName: dep.Name, BundleID: bundle, AcceptUncheckedCopy: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := w.api.Snapshot()
+			filled := false
+			w.clusters.atFill = func() { filled = true }
+			revoke := func() {
+				project := w.project
+				if strings.HasPrefix(when, "destination") {
+					project = destination
+				}
+				w.auth.set("alice", "deployment:restore@"+project.String())
+			}
+			if strings.HasSuffix(when, "before execution") {
+				revoke()
+			}
+			w.mu.Lock()
+			w.onRequest = func(req string) {
+				if strings.HasSuffix(when, "after cluster") && req == "POST /v2/databases" {
+					revoke()
+				}
+			}
+			w.mu.Unlock()
+			_ = w.s.ExecuteRelease(ctx, accepted.ID)
+			release, err := w.s.Releases.ByNumber(ctx, destination, accepted.Number)
+			if err != nil {
+				t.Fatal(err)
+			}
+			after := w.api.Snapshot()
+			if when == "current" {
+				if release.State != deployment.Released || !filled || len(after.Apps) != len(before.Apps)+1 {
+					t.Fatalf("current authority failed: release=%+v filled=%v", release, filled)
+				}
+			} else {
+				if release.State != deployment.ReleaseFailed || filled || len(after.Apps) != len(before.Apps) {
+					t.Fatalf("denied restore continued: release=%+v filled=%v", release, filled)
+				}
+				if strings.HasSuffix(when, "before execution") && len(after.Databases) != len(before.Databases) {
+					t.Fatal("made a cluster after restore authority was withdrawn")
+				}
+			}
+		})
+	}
+}

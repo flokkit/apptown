@@ -34,6 +34,8 @@ import (
 // BootRequest names what a boot is for. Everything the sequence needs beyond
 // the contract itself.
 type BootRequest struct {
+	// Allowed is the caller's current permission check, repeated before effects.
+	Allowed func(context.Context) error
 	// Log reports phase entry. It receives no environment values or command output.
 	// Nil disables progress reporting without changing boot behavior.
 	Log          deploy.Logf
@@ -344,6 +346,13 @@ func (e redactedError) Unwrap() error { return e.err }
 // boot is Boot before its failure is redacted.
 func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract) (BootResult, error) {
 	var res BootResult
+	allowed := t.Allowed
+	if allowed == nil {
+		allowed = func(context.Context) error { return nil }
+	}
+	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseResolve, Err: err}
+	}
 	if err := t.requireServingLabel(); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
@@ -385,7 +394,10 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		env = "preview"
 	}
 	t.logf("Resolving the app's secret bindings for %s", env)
-	rs.Secrets, err = h.deps.Secrets.Resolve(ctx, t.Slug, env, t.Workspace, c)
+	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseSecrets, Err: err}
+	}
+	rs.Secrets, err = h.deps.Secrets.Resolve(ctx, t.Slug, env, t.Workspace, c, t.Allowed)
 	if err != nil {
 		return res, &BootError{Phase: PhaseSecrets, Err: err}
 	}
@@ -426,6 +438,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	// New work on a daemon short of disk is refused before anything is
 	// pulled, built or started (AdmitDisk), after every other refusal that
 	// needs no Docker; what runs now is not touched.
+	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseResolve, Err: err}
+	}
 	if err := AdmitDisk(ctx, t.Docker, h.deps.DFImage); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
@@ -439,6 +454,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		}
 	}
 
+	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseNeeds, Err: err}
+	}
 	network := ""
 	if len(rs.Services) > 0 {
 		t.logf("Starting or reusing %d dependency services", len(rs.Services))
@@ -464,6 +482,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		}
 	}
 	res.Network = network
+	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseFill, Err: err}
+	}
 	if t.Sealed != nil {
 		// A sealed stack always has its own network, made here when no
 		// need made one, and its needs are filled before anything reads
@@ -482,6 +503,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		}
 		plan = plan.PublicOnly()
 	}
+	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseFill, Err: err}
+	}
 	if t.Fill != nil {
 		t.logf("Putting the deployment's data back before the app starts")
 		if err := t.Fill(network); err != nil {
@@ -492,6 +516,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	// needs are up → init containers run to completion (migrations) → the
 	// non-public parts start; only the execution plan receives built images.
 	t.logf("Running initialization steps and starting background app parts")
+	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseParts, Err: err}
+	}
 	plan, network, err = bringUpParts(ctx, t.Docker, t.StackID, t.Name, t.Workspace, network, plan, rs.Secrets, t.own)
 	if err != nil {
 		return res, &BootError{Phase: PhaseParts, Err: err}
@@ -499,6 +526,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	res.Network, res.Stack.Plan = network, plan
 
 	t.logf("Starting the public app container (%s)", plan.PublicPart().Name)
+	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseApp, Err: err}
+	}
 	hostPort, err := h.StartAppContainer(ctx, t, plan.PublicPart(), network,
 		rs.Secrets.EnvFor(plan.PublicPart().Name))
 	if err != nil {

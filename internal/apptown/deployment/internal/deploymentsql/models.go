@@ -215,6 +215,7 @@ type ReleaseRequest struct {
 	StartFromBackup     ids.ID
 	ProviderBindingJson *json.RawMessage
 	IngressJson         *json.RawMessage
+	AuthorityJson       *json.RawMessage
 }
 
 type RetainedResource struct {

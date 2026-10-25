@@ -356,8 +356,8 @@ SELECT COUNT(*) FROM deployments WHERE project_id=sqlc.arg(project_id) AND targe
 SELECT COUNT(*) FROM retained_resources WHERE target_id=sqlc.arg(target_id) AND disposition=sqlc.arg(disposition);
 
 -- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json)
-VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *;
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json,authority_json)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *;
 
 -- name: ReleaseStartFrom :one
 SELECT start_from_backup FROM release_requests WHERE release_id=sqlc.arg(release_id);

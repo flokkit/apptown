@@ -28,7 +28,7 @@ func (a *App) deploymentDependencies(changes workflow.Changes) deployment.Depend
 		Providers:     a.targetProviders,
 		Projects:      a.Projects,
 		Configuration: deployment.ConfigurationDependencies{Authority: authority, Projects: sources, Contracts: sources},
-		Releases:      deployment.ReleaseDependencies{Authority: authority, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}},
+		Releases:      deployment.ReleaseDependencies{Authority: authority, Still: a.Access, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}},
 		Followups:     jobQueue{},
 		Declared:      sources,
 		Applied:       a.inventory.Invalidate,
@@ -39,7 +39,7 @@ func (a *App) deploymentDependencies(changes workflow.Changes) deployment.Depend
 // shared records and collaborators, built before Deployment's service (the
 // need records are given by the caller).
 func starterDependenciesFor(a *App) dataprotection.StarterDependencies {
-	return dataprotection.StarterDependencies{Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Targets: a.targets,
+	return dataprotection.StarterDependencies{Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Still: a.Access, Projects: a.Projects, Targets: a.targets,
 		Hosts: a.hosts, Environment: a.environment, Providers: a.targetProviders,
 		Catalog: a.Dependencies, Deployments: a.deployments, Sources: projectSources{projects: a.Projects, dataDir: a.cfg.dataDir},
 		Secrets: a.Secrets, DataDir: a.cfg.dataDir, Now: a.cfg.clock.Now}

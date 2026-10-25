@@ -176,7 +176,7 @@ func (noNeeds) Data(context.Context, string) (string, error) { return "", nil }
 
 type noSecrets struct{}
 
-func (noSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract) (docker.Delivery, error) {
+func (noSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract, func(context.Context) error) (docker.Delivery, error) {
 	return docker.Delivery{}, nil
 }
 

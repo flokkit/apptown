@@ -115,7 +115,7 @@ func assembled(db *database.DB, rt testRuntime, deps deployment.Dependencies) *b
 	deps.Providers = deployment.NewProviders(ctx, db, deployment.ProviderRecords{Targets: deps.Targets, Deployments: deps.Deployments}, deps.Hosts, deps.Environment,
 		deployment.ProviderDependencies{Projects: rt.Projects, Secrets: rt.Secrets, Integrations: rt.Integrations, DigitalOcean: rt.DigitalOcean, S3Bucket: rt.S3Bucket,
 			Drivers: rt.Drivers, Inventories: rt.Inventories, AfterRelease: rt.AfterRelease, DatabaseContainer: rt.DatabaseContainer, Applied: deps.Applied, Now: deps.Now})
-	starter := NewStarter(db, StarterDependencies{Authority: deps.Authority, Targets: deps.Targets, Hosts: deps.Hosts,
+	starter := NewStarter(db, StarterDependencies{Authority: deps.Authority, Still: deps.Releases.Still, Projects: rt.Projects, Targets: deps.Targets, Hosts: deps.Hosts,
 		Environment: deps.Environment, Providers: deps.Providers, Catalog: rt.Needs, Deployments: deps.Deployments, Sources: deps.Releases.Sources, Secrets: rt.Secrets, DataDir: rt.DataDir, Now: deps.Now})
 	deps.CopyStarter = starter
 	deps.CopyCheck = starter

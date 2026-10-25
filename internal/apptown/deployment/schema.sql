@@ -282,7 +282,8 @@ CREATE TABLE IF NOT EXISTS release_requests (
   -- from (0: none); the release fills that copy or nothing.
   start_from_backup UUID,
   provider_binding_json JSONB,
-  ingress_json JSONB
+  ingress_json JSONB,
+  authority_json JSONB
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,

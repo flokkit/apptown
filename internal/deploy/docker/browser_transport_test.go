@@ -154,7 +154,7 @@ func (reviewNoNeeds) Data(context.Context, string) (string, error) { return "", 
 
 type reviewNoSecrets struct{}
 
-func (reviewNoSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract) (Delivery, error) {
+func (reviewNoSecrets) Resolve(context.Context, string, string, string, *appcontract.Contract, func(context.Context) error) (Delivery, error) {
 	return Delivery{}, nil
 }
 

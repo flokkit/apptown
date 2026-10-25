@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -25,6 +26,7 @@ type ReleaseSecrets interface {
 }
 type ReleaseDependencies struct {
 	Authority access.Authorizer
+	Still     operations.Authorities
 	Sources   ReleaseSources
 	Secrets   ReleaseSecrets
 	Queue     ReleaseQueue
@@ -75,6 +77,18 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	fail := func(cause error) error {
 		_, err := s.Outcomes.FailUnstartedRelease(ctx, id, cause)
 		return errors.Join(cause, err)
+	}
+	var rawAuthority json.RawMessage
+	if placement.AuthorityJson != nil {
+		rawAuthority = *placement.AuthorityJson
+	}
+	captured, err := releasePrincipal(rawAuthority)
+	if err != nil {
+		return fail(err)
+	}
+	allowed := func(ctx context.Context) error { return s.requireReleaseAuthority(ctx, captured, rel.DeploymentID) }
+	if err := allowed(ctx); err != nil {
+		return fail(err)
 	}
 	var attrs Attributes
 	if err := json.Unmarshal(placement.AttributesJson, &attrs); err != nil {
@@ -150,7 +164,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if why, err := s.env.RefusesBrowserValues(ctx, t.Kind, rel.ProjectID, c); err != nil || why != "" {
 		return fail(errors.Join(err, refusal(why)))
 	}
-	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration}
+	req := preparedRelease{Allowed: allowed, Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration}
 	req.Address = address
 	if address != nil {
 		ingress := address.Ingress.Clone()
@@ -209,6 +223,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		return fail(err)
 	}
 	req.Source.Contract = effective
+	if err := allowed(ctx); err != nil {
+		return fail(err)
+	}
 	req.Secrets, req.SecretNames, err = s.release.Secrets.ResolveRelease(ctx, project.Application, dep.Name, staged, req.Source.Contract)
 	if err != nil {
 		return fail(err)
@@ -217,7 +234,7 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	// registers them as its boot reads the app's values; any other target
 	// is given them with the app's secrets.
 	if t.Kind != KindDockerHost {
-		registered, err := s.env.registerNeeds(ctx, req.Source.Contract, deploymentKeys(s.db, s.clock, dep, project.Slug))
+		registered, err := s.env.registerNeedsChecked(ctx, req.Source.Contract, deploymentKeys(s.db, s.clock, dep, project.Slug), allowed)
 		if err != nil {
 			return fail(err)
 		}
@@ -229,6 +246,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		// an app with a runtime its attached integrations' values; a static
 		// site is given them as browser values where it can be at all
 		// (RefusesBrowserValues).
+		if err := allowed(ctx); err != nil {
+			return fail(err)
+		}
 		if _, gives := d.(integrationsGiver); !gives && !StaticOnly(req.Source.Contract) {
 			if err := s.noteUndeliveredIntegrations(ctx, rel.ID, rel.ProjectID, t); err != nil {
 				return fail(err)

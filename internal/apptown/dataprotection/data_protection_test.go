@@ -45,10 +45,11 @@ import (
 // denies, each in one project ("deployment:restore@12") or in all
 // ("deployment:restore"); it remembers what it was asked.
 type grants struct {
-	mu   sync.Mutex
-	who  string
-	deny map[string]bool
-	seen []access.Permission
+	mu         sync.Mutex
+	who        string
+	deny       map[string]bool
+	seen       []access.Permission
+	principals map[string]ids.ID
 	// via is how the caller came ("session" for a browser), "" for none.
 	via string
 	// revoked are credentials withdrawn since they asked (token:alice).
@@ -91,7 +92,13 @@ func (g *grants) Require(ctx context.Context, p access.Permission) (access.Calle
 	if c, ok := access.CallerFrom(ctx); ok && c.Principal.Via == "gate-ticket" {
 		who = c.Principal.Name // AppTown asking again, as the person a ticket names
 	}
-	return access.Caller{Principal: access.Principal{Kind: "user", Name: who, Via: g.via, Credential: "token:" + who}, Verified: true}, nil
+	if g.principals == nil {
+		g.principals = map[string]ids.ID{}
+	}
+	if g.principals[who].IsZero() {
+		g.principals[who] = ids.New(time.Now())
+	}
+	return access.Caller{Principal: access.Principal{ID: g.principals[who], Kind: "user", Name: who, Via: g.via, Credential: "token:" + who}, Verified: true}, nil
 }
 
 func (g *grants) set(who string, deny ...string) {
@@ -381,7 +388,7 @@ func newDataWorldWith(t *testing.T, opts dataWorldOptions) *dataWorld {
 			return digest, nil
 		}}
 	w.ops = operations.New(db, w.auth, w.auth, opts.opsNow)
-	w.s = assembled(db, testRuntime{Scope: docker.Scope{Client: client}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, ChownImage: "test-helper", BuiltInTarget: "local", DigitalOcean: options}, deployment.Dependencies{Operations: w.ops, Authority: w.auth, Followups: recoveryJobFollowups{}, Configuration: deployment.ConfigurationDependencies{Authority: w.auth, Projects: sources, Contracts: sources}, Releases: deployment.ReleaseDependencies{Authority: w.auth, Sources: sources, Secrets: doReleaseSecrets{}, Queue: doReleaseQueue{}}})
+	w.s = assembled(db, testRuntime{Scope: docker.Scope{Client: client}, DataDir: dir, Projects: projects, Secrets: secrets, Integrations: integrations, Needs: catalog, ChownImage: "test-helper", BuiltInTarget: "local", DigitalOcean: options}, deployment.Dependencies{Operations: w.ops, Authority: w.auth, Followups: recoveryJobFollowups{}, Configuration: deployment.ConfigurationDependencies{Authority: w.auth, Projects: sources, Contracts: sources}, Releases: deployment.ReleaseDependencies{Authority: w.auth, Still: w.auth, Sources: sources, Secrets: doReleaseSecrets{}, Queue: doReleaseQueue{}}})
 	if _, err := w.s.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
 	}

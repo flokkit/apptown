@@ -465,6 +465,10 @@ var injectRef = regexp.MustCompile(`\$\{([a-z_]+)\}`)
 // returns the variables the needs inject, rendered from each kind's inject
 // templates. Nothing for an app that has no such need.
 func (e *Environment) registerNeeds(ctx context.Context, c *appcontract.Contract, o KeyOwner) (map[string]string, error) {
+	return e.registerNeedsChecked(ctx, c, o, nil)
+}
+
+func (e *Environment) registerNeedsChecked(ctx context.Context, c *appcontract.Contract, o KeyOwner, allowed func(context.Context) error) (map[string]string, error) {
 	needs, err := e.registrableNeeds(ctx, c)
 	if err != nil || len(needs) == 0 {
 		return nil, err
@@ -478,6 +482,11 @@ func (e *Environment) registerNeeds(ctx context.Context, c *appcontract.Contract
 		req := integration.KeyRequest{ProjectID: o.ProjectID, Name: o.Name, Scope: o.Scope, Preview: o.Preview, Params: c.NeedParams[n.name]}
 		if len(held) > 0 {
 			req.Held = &held[0]
+		}
+		if allowed != nil {
+			if err := allowed(ctx); err != nil {
+				return nil, err
+			}
 		}
 		values, err := e.integrations.RegisterLLMKey(ctx, req, o.Keys)
 		if err != nil {
@@ -611,7 +620,7 @@ type hostSecrets struct {
 // Resolve is the app's secrets for a boot and, when the host was built for
 // an owner, the values its registered needs inject: the key is made (or
 // kept) here, as the boot reads its values.
-func (s hostSecrets) Resolve(ctx context.Context, slug, deployment, ws string, c *appcontract.Contract) (docker.Delivery, error) {
+func (s hostSecrets) Resolve(ctx context.Context, slug, deployment, ws string, c *appcontract.Contract, allowed func(context.Context) error) (docker.Delivery, error) {
 	d, err := s.secrets.Resolve(ctx, s.project, slug, deployment, ws, c)
 	if err != nil {
 		return docker.Delivery{}, err
@@ -619,7 +628,7 @@ func (s hostSecrets) Resolve(ctx context.Context, slug, deployment, ws string, c
 	if s.keys == nil {
 		return d.Docker(), nil
 	}
-	env, err := s.env.registerNeeds(ctx, c, s.keys(slug))
+	env, err := s.env.registerNeedsChecked(ctx, c, s.keys(slug), allowed)
 	if err != nil {
 		return docker.Delivery{}, err
 	}

@@ -27,15 +27,17 @@ import (
 // The Starter is it, so Deployment's release execution can fill a
 // deployment started from a copy; the Service shares the same instance.
 type core struct {
-	db        *database.DB
-	authority access.Authorizer
-	targets   *deployment.Targets
-	needs     deployment.NeedStore
-	hosts     *deployment.Hosts
-	env       *deployment.Environment
-	providers *deployment.Providers
-	catalog   *dependency.Catalog
-	secrets   *secret.Service
+	db                *database.DB
+	authority         access.Authorizer
+	still             operations.Authorities
+	authorityProjects access.ProjectResources
+	targets           *deployment.Targets
+	needs             deployment.NeedStore
+	hosts             *deployment.Hosts
+	env               *deployment.Environment
+	providers         *deployment.Providers
+	catalog           *dependency.Catalog
+	secrets           *secret.Service
 	// owned reads a deployment's owned list: its object storage bucket is
 	// recorded there, never as a managed need instance.
 	owned *deployment.Deployments
@@ -96,6 +98,8 @@ func (s *core) manifest(ctx context.Context, b Backup) ([]byte, error) {
 // StarterDependencies are what a fill from a copy runs on.
 type StarterDependencies struct {
 	Authority   access.Authorizer
+	Still       operations.Authorities
+	Projects    access.ProjectResources
 	Targets     *deployment.Targets
 	Hosts       *deployment.Hosts
 	Environment *deployment.Environment
@@ -126,7 +130,7 @@ func NewStarter(db *database.DB, deps StarterDependencies) *Starter {
 	if owned == nil {
 		owned = deployment.NewDeployments(db) // a reader only: it stamps nothing
 	}
-	return &Starter{&core{db: db, authority: deps.Authority, targets: deps.Targets, needs: deployment.NewNeedStore(db, deps.Now), hosts: deps.Hosts, env: deps.Environment,
+	return &Starter{&core{db: db, authority: deps.Authority, still: deps.Still, authorityProjects: deps.Projects, targets: deps.Targets, needs: deployment.NewNeedStore(db, deps.Now), hosts: deps.Hosts, env: deps.Environment,
 		providers: deps.Providers, catalog: deps.Catalog, secrets: deps.Secrets, owned: owned, sources: deps.Sources, dataDir: deps.DataDir, clock: deps.Now}}
 }
 

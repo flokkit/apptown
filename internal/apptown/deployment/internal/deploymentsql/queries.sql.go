@@ -1647,8 +1647,8 @@ func (q *Queries) InsertReconciliation(ctx context.Context, arg InsertReconcilia
 }
 
 const insertReleaseRequest = `-- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json)
-VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup, provider_binding_json, ingress_json
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json,authority_json)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup, provider_binding_json, ingress_json, authority_json
 `
 
 type InsertReleaseRequestParams struct {
@@ -1659,6 +1659,7 @@ type InsertReleaseRequestParams struct {
 	StartFromBackup     ids.ID
 	ProviderBindingJson *json.RawMessage
 	IngressJson         *json.RawMessage
+	AuthorityJson       *json.RawMessage
 }
 
 func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseRequestParams) (ReleaseRequest, error) {
@@ -1670,6 +1671,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		arg.StartFromBackup,
 		arg.ProviderBindingJson,
 		arg.IngressJson,
+		arg.AuthorityJson,
 	)
 	var i ReleaseRequest
 	err := row.Scan(
@@ -1681,6 +1683,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		&i.StartFromBackup,
 		&i.ProviderBindingJson,
 		&i.IngressJson,
+		&i.AuthorityJson,
 	)
 	return i, err
 }
@@ -3766,7 +3769,7 @@ func (q *Queries) RepositoryOwned(ctx context.Context, arg RepositoryOwnedParams
 }
 
 const requestedReleaseForUpdate = `-- name: RequestedReleaseForUpdate :one
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json, q.ingress_json FROM releases r JOIN release_requests q ON q.release_id=r.id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json, q.ingress_json, q.authority_json FROM releases r JOIN release_requests q ON q.release_id=r.id
 WHERE r.id=$1 FOR UPDATE OF q
 `
 
@@ -3805,6 +3808,7 @@ func (q *Queries) RequestedReleaseForUpdate(ctx context.Context, id ids.ID) (Req
 		&i.ReleaseRequest.StartFromBackup,
 		&i.ReleaseRequest.ProviderBindingJson,
 		&i.ReleaseRequest.IngressJson,
+		&i.ReleaseRequest.AuthorityJson,
 	)
 	return i, err
 }
