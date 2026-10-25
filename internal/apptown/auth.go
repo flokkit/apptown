@@ -77,13 +77,13 @@ func (a *App) SeedAdministrators(ctx context.Context, adminSeed []string) {
 	}
 }
 
-func (a *App) ensureUser(ctx context.Context, username string) (string, ids.ID) {
+func (a *App) ensureUser(ctx context.Context, username string) (string, ids.ID, error) {
 	account, err := a.Access.EnsurePerson(ctx, username)
 	if err != nil {
 		log.Printf("recording user %s: %v", username, err)
-		return "member", ids.Nil
+		return "", ids.Nil, err
 	}
-	return account.Role, account.PrincipalID
+	return account.Role, account.PrincipalID, nil
 }
 
 // AuthMiddleware resolves identity for every /api request. Resolution order:
@@ -162,7 +162,11 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 						writeErr(w, 401, "the identity provider's user name is not usable here: %s", fault.Message(err))
 						return
 					}
-					role, person := a.ensureUser(r.Context(), user)
+					role, person, err := a.ensureUser(r.Context(), user)
+					if err != nil {
+						writeErr(w, http.StatusServiceUnavailable, "could not record your account; try again later")
+						return
+					}
 					id = &authIdentity{PrincipalID: person, User: user, Role: role, Via: "proxy"}
 				}
 			}
@@ -180,7 +184,11 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 				writeErr(w, 401, "X-AppTown-Actor is not usable as a name: %s", fault.Message(err))
 				return
 			}
-			role, person := a.ensureUser(r.Context(), user)
+			role, person, err := a.ensureUser(r.Context(), user)
+			if err != nil {
+				writeErr(w, http.StatusServiceUnavailable, "could not record your account; try again later")
+				return
+			}
 			id = &authIdentity{PrincipalID: person, User: user, Role: role, Via: "open"}
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), authCtxKey{}, id)))

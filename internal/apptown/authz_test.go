@@ -827,3 +827,32 @@ func TestAChatOfADisabledPersonIsRefused(t *testing.T) {
 		t.Errorf("an unreadable account admitted or refused the chat as policy: %d %s", w.Code, w.Body)
 	}
 }
+
+// Failed person persistence is unavailable, never an invented member identity.
+func TestPersonPersistenceFailureStopsAPIAdmission(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []string{"open", "trusted-header"} {
+		t.Run(mode, func(t *testing.T) {
+			a := testApp(t, Config{AuthMode: mode, AuthHeader: "X-Test-User", AuthProxySecret: "test-proxy-secret"})
+			var seen *authIdentity
+			h := a.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { seen = identityFrom(r); w.WriteHeader(204) }))
+			call := func() *httptest.ResponseRecorder {
+				r := httptest.NewRequest("GET", "/api/v1/me", nil)
+				r.Header.Set("X-AppTown-Actor", "person")
+				r.Header.Set("X-Test-User", "person")
+				r.Header.Set("X-AppTown-Proxy-Secret", "test-proxy-secret")
+				w := httptest.NewRecorder()
+				h.ServeHTTP(w, r)
+				return w
+			}
+			restore := a.DB.FailNextStatement("-- name: TouchUser")
+			defer restore()
+			if w := call(); w.Code != 503 || seen != nil {
+				t.Fatalf("failed persistence admitted identity: %d %+v", w.Code, seen)
+			}
+			if w := call(); w.Code != 204 || seen == nil || seen.PrincipalID.IsZero() || seen.User != "person" || seen.Role != "member" {
+				t.Fatalf("successful persistence lost identity: %d %+v", w.Code, seen)
+			}
+		})
+	}
+}
