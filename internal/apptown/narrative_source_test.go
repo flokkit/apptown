@@ -31,7 +31,7 @@ func TestNarrativeDiffReadsWorkspaceWithoutPublishingAndFallsBackAfterRemoval(t 
 	}
 	gittest.Run(t, workspace, "add", "game.txt")
 	gittest.Run(t, workspace, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-qm", "playable")
-	source := workflow.NarrativeSource{Change: &workflow.Change{ID: idstest.N(1), Branch: "change", BaseSHA: base}, Slug: "game", DefaultBranch: "main"}
+	source := workflow.NarrativeSource{Change: &workflow.Change{ID: idstest.N(1), ProjectID: idstest.N(2), Branch: "change", BaseSHA: base}, Slug: "game", DefaultBranch: "main"}
 	refs := gittest.Run(t, repo, "show-ref")
 	before, err := narrativeDiff(context.Background(), dir, source)
 	if err != nil || !strings.Contains(before.Text, "DIFF STAT:") || !strings.Contains(before.Text, "+historical game") {
@@ -85,7 +85,7 @@ func TestEmptyNarrativeComparisonIgnoresDirtyWorkAndLaterMainCommits(t *testing.
 	}
 	gittest.Run(t, repo, "add", ".")
 	gittest.Run(t, repo, "commit", "-qm", "main moved")
-	source := workflow.NarrativeSource{Change: &workflow.Change{ID: idstest.N(1), Branch: "change", BaseSHA: base}, Slug: "game", DefaultBranch: "main"}
+	source := workflow.NarrativeSource{Change: &workflow.Change{ID: idstest.N(1), ProjectID: idstest.N(2), Branch: "change", BaseSHA: base}, Slug: "game", DefaultBranch: "main"}
 	got, err := narrativeDiff(context.Background(), dir, source)
 	if err != nil || !got.Empty || got.Text != "" {
 		t.Fatalf("empty committed comparison: %+v %v", got, err)

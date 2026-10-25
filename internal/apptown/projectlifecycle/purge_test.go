@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -401,5 +402,73 @@ func TestAnEvalCopyIsPurgedWithoutAKeptPeriod(t *testing.T) {
 	st, err := w.d.Status(context.Background(), w.project)
 	if err != nil || st.State != project.Deleted || st.Purge == nil || !st.KeptUntil.Time.Equal(st.DeletedAt.Time) {
 		t.Fatalf("an eval copy after one pass: %+v %v", st, err)
+	}
+}
+
+// An operation's old display slug cannot redirect removal or poison the
+// retained deletion ownership used after the project row is gone.
+func TestPurgeResolvesRepositoryAndDeletionByImmutableProjectID(t *testing.T) {
+	t.Parallel()
+	w := newPurgeWorld(t)
+	neighbor := hubDir(w.d.lifecycle.dataDir, "neighbor")
+	if err := os.MkdirAll(neighbor, 0755); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(neighbor, "keep")
+	if err := os.WriteFile(sentinel, []byte("neighbor's work"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	w.clock = w.clock.Add(DefaultKeptDays*24*time.Hour + time.Hour)
+	if _, err := w.d.PurgePass(t.Context(), "", nil); err != nil {
+		t.Fatal(err)
+	}
+	st, err := w.d.Status(t.Context(), w.project)
+	if err != nil || st.Purge == nil {
+		t.Fatalf("purge admission: %+v %v", st, err)
+	}
+	// sql-guarantee: forge a stale operation slug; admission always records the current slug and cannot make this state.
+	if _, err := w.db.Exec(`UPDATE operations SET input=jsonb_set(input, '{slug}', '"neighbor"') WHERE id=?`, st.Purge.ID); err != nil {
+		t.Fatal(err)
+	}
+	op, err := w.ops.RunHere(t.Context(), st.Purge.ID)
+	if err != nil || op.State != operations.Succeeded {
+		t.Fatalf("purge: %+v %v", op, err)
+	}
+	if _, err := os.Stat(w.hub); !os.IsNotExist(err) {
+		t.Fatalf("owned hub remains: %v", err)
+	}
+	if raw, err := os.ReadFile(sentinel); err != nil || string(raw) != "neighbor's work" {
+		t.Fatalf("wrong project touched: %s %v", raw, err)
+	}
+	d, err := w.d.lifecycle.projects.Deletion(t.Context(), w.project)
+	var plan CleanupPlan
+	if err != nil || json.Unmarshal(d.Plan, &plan) != nil || d.Slug != "p" || plan.Slug != "p" {
+		t.Fatalf("poisoned delayed cleanup: %+v %+v %v", d, plan, err)
+	}
+}
+
+func TestPurgeOwnerReadFailureLeavesRepositoryAndBackupsUntouched(t *testing.T) {
+	t.Parallel()
+	w := newPurgeWorld(t)
+	w.clock = w.clock.Add(DefaultKeptDays*24*time.Hour + time.Hour)
+	if _, err := w.d.PurgePass(t.Context(), "", nil); err != nil {
+		t.Fatal(err)
+	}
+	st, err := w.d.Status(t.Context(), w.project)
+	if err != nil || st.Purge == nil {
+		t.Fatalf("purge admission: %+v %v", st, err)
+	}
+	touched := false
+	w.sets.after = func() { touched = true }
+	t.Cleanup(w.db.FailNextStatement("ProjectByID"))
+	op, err := w.ops.RunHere(t.Context(), st.Purge.ID)
+	if err != nil || op.State != operations.Failed {
+		t.Fatalf("purge: %+v %v", op, err)
+	}
+	if touched || w.gitlab.mutations != 0 {
+		t.Fatal("owner read failure allowed effects")
+	}
+	if _, err := os.Stat(w.hub); err != nil {
+		t.Fatalf("owned repository lost: %v", err)
 	}
 }

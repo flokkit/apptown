@@ -36,7 +36,11 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 	// repo card
 	var repo *OverviewRepo
 	if p.DefaultBranch != "" {
-		dir := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+		dir, err := p.Repository(h.dataDir)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
 		remote, _, hasRemote := scm.Origin(ctx, dir)
 		sha, _ := gitexec.Run(ctx, dir, "rev-parse", "--short", "HEAD")
 		subject, _ := gitexec.Run(ctx, dir, "log", "-1", "--format=%s")

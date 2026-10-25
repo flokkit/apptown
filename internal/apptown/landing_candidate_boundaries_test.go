@@ -52,7 +52,7 @@ func TestAnEarlierCheckInvalidatedByANewCandidateHoldsTheMerge(t *testing.T) {
 	source = mergeSourceForTest(t, a, run)
 	result, err := mergeEffectForTest(t, a, source)
 	if err == nil && result.Merged {
-		t.Fatalf("merged %q with earlier required source-check still %s", gittest.Run(t, source.Repository(a.cfg.dataDir), "show", "HEAD:value.txt"), saved.Status)
+		t.Fatalf("merged %q with earlier required source-check still %s", gittest.Run(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "show", "HEAD:value.txt"), saved.Status)
 	}
 }
 
@@ -68,7 +68,7 @@ func TestACheckedLandingDoesNotMergeOnACalledWorkflowsChecks(t *testing.T) {
 			}}},
 			workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "source-check", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "verify", Uses: "script", With: map[string]any{"run": `test "$(cat value.txt)" = good; result=$?; git checkout -- value.txt; exit "$result"`}}}}}}})
 	})
-	if err := os.WriteFile(filepath.Join(source.Workspace(a.cfg.dataDir), "value.txt"), []byte("good\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "value.txt"), []byte("good\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	call := reviewExecute(t, a, run, "call")
@@ -101,7 +101,7 @@ func TestACheckedLandingDoesNotMergeOnACalledWorkflowsChecks(t *testing.T) {
 	}
 	result, err := mergeEffectForTest(t, a, mergeSourceForTest(t, a, run))
 	if err == nil && result.Merged {
-		t.Fatalf("landed %q after child checked live good bytes with evidence %s", gittest.Run(t, source.Repository(a.cfg.dataDir), "show", "HEAD:value.txt"), check.Evidence)
+		t.Fatalf("landed %q after child checked live good bytes with evidence %s", gittest.Run(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "show", "HEAD:value.txt"), check.Evidence)
 	}
 }
 
@@ -131,7 +131,7 @@ func TestAProviderSettingChangeCannotLandAnUncheckedTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repo := source.Repository(a.cfg.dataDir)
+	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	before := gittest.Run(t, repo, "rev-parse", "refs/heads/"+source.DefaultBranch)
 	result, err := seam.execute(context.Background(), advanceWorkflowMerge(run, source))
 	if err == nil || result.Merged {
@@ -184,7 +184,7 @@ func TestAnAcceptanceCarriesOnlyToTheCommitItWasGivenOn(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := workflowSourceForTest(t, a, work)
-	ws := source.Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	writeCommit := func(body string) {
 		t.Helper()
 		if err := os.WriteFile(filepath.Join(ws, "work.txt"), []byte(body), 0644); err != nil {
@@ -192,7 +192,7 @@ func TestAnAcceptanceCarriesOnlyToTheCommitItWasGivenOn(t *testing.T) {
 		}
 		gittest.Run(t, ws, "add", "work.txt")
 		gittest.Run(t, ws, "commit", "-qm", body)
-		if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: pid, Repository: source.Repository(a.cfg.dataDir), Branch: source.Branch, From: ws, Grant: scm.Grant{Holder: scm.RunHolder(work.ID)}}); err != nil {
+		if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: pid, Repository: requireLocation(t)(source.Repository(a.cfg.dataDir)), Branch: source.Branch, From: ws, Grant: scm.Grant{Holder: scm.RunHolder(work.ID)}}); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -56,7 +57,11 @@ func (w workspaces) PrepareChange(ctx context.Context, ref ChangeRef) error {
 	if before.DefaultBranch == "" || before.Branch == "" {
 		return nil
 	}
-	result, err := w.git.EnsureClone(ctx, CloneRequest{Repository: w.git.Paths().Repository(before.Slug), Workspace: w.git.Paths().ChangeWorkspace(ref.ID), Branch: before.Branch, DefaultBranch: before.DefaultBranch, RequireBranch: before.BaseSHA != ""})
+	repository, err := w.git.Paths().Repository(project.RepositoryRef{ID: ref.ProjectID, Slug: before.Slug})
+	if err != nil {
+		return err
+	}
+	result, err := w.git.EnsureClone(ctx, CloneRequest{Repository: repository, Workspace: w.git.Paths().ChangeWorkspace(ref.ID), Branch: before.Branch, DefaultBranch: before.DefaultBranch, RequireBranch: before.BaseSHA != ""})
 	if err != nil {
 		return err
 	}
@@ -65,7 +70,7 @@ func (w workspaces) PrepareChange(ctx context.Context, ref ChangeRef) error {
 	// A diverged folder is left for the chat to merge: the caller says so.
 	var diverged error
 	if !result.Created {
-		if err := w.git.BringToBranch(ctx, result.Path, w.git.Paths().Repository(before.Slug), before.Branch); errors.Is(err, ErrFolderDiverged) {
+		if err := w.git.BringToBranch(ctx, result.Path, repository, before.Branch); errors.Is(err, ErrFolderDiverged) {
 			diverged = err
 		} else if err != nil {
 			return err
@@ -186,7 +191,15 @@ func (w workspaces) PrepareRun(ctx context.Context, ref RunRef) error {
 	}
 	// A writing run works in its change's folder; a landing in a copy of
 	// its own. A run already under way requires its branch.
-	result, err := w.git.EnsureClone(ctx, CloneRequest{Repository: before.Repository(w.git.Paths().DataDir), Workspace: before.Workspace(w.git.Paths().DataDir), Branch: before.Branch, DefaultBranch: before.DefaultBranch,
+	repository, err := before.Repository(w.git.Paths().DataDir)
+	if err != nil {
+		return err
+	}
+	workspace, err := before.Workspace(w.git.Paths().DataDir)
+	if err != nil {
+		return err
+	}
+	result, err := w.git.EnsureClone(ctx, CloneRequest{Repository: repository, Workspace: workspace, Branch: before.Branch, DefaultBranch: before.DefaultBranch,
 		RequireBranch: before.ChangeBaseSHA != "" || before.RunBaseSHA != ""})
 	if err != nil {
 		return err
@@ -203,7 +216,7 @@ func (w workspaces) PrepareRun(ctx context.Context, ref RunRef) error {
 	// fixes its restart point: a restart never rewinds past work the run did
 	// not make. A diverged folder refuses the run.
 	if !result.Created && !before.ChangeID.IsZero() && before.RootRole != "landing" && before.RunBaseSHA == "" {
-		if err := w.git.BringToBranch(ctx, result.Path, before.Repository(w.git.Paths().DataDir), before.Branch); err != nil {
+		if err := w.git.BringToBranch(ctx, result.Path, repository, before.Branch); err != nil {
 			return err
 		}
 		tip, err := w.git.BranchTip(ctx, result.Path, before.Branch)
@@ -263,7 +276,7 @@ func (w workspaces) PrepareRun(ctx context.Context, ref RunRef) error {
 		return err
 	}
 	if !before.ChangeID.IsZero() {
-		return w.git.SyncAttachments(ctx, before.ChangeID, before.Workspace(w.git.Paths().DataDir))
+		return w.git.SyncAttachments(ctx, before.ChangeID, workspace)
 	}
 	return nil
 }

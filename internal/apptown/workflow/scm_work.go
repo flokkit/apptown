@@ -66,12 +66,12 @@ func (w SCMWork) Prepare(ctx context.Context, purpose scm.Purpose, id ids.ID) (s
 	if err != nil {
 		return nil, err
 	}
-	return w.claim(*run, source, nil, nil), nil
+	return w.claim(*run, source, nil, nil)
 }
 
 // claim binds one operation to its admitted snapshot. attribution is what
 // the admission read; nil for an inspection, which merges nothing.
-func (w SCMWork) claim(run Run, source MergeSource, call *MergeCall, attribution *scm.Attribution) *scmClaim {
+func (w SCMWork) claim(run Run, source MergeSource, call *MergeCall, attribution *scm.Attribution) (*scmClaim, error) {
 	if call != nil {
 		snapshot := *call
 		snapshot.Step.Config = slices.Clone(call.Step.Config)
@@ -81,9 +81,18 @@ func (w SCMWork) claim(run Run, source MergeSource, call *MergeCall, attribution
 	selected := scm.Source{RunID: source.RunID, RunNumber: run.Number, ProjectID: source.ProjectID, Branch: source.Branch, WorkflowName: source.WorkflowName, WorkflowVersion: source.WorkflowVersion, MR: scm.MergeRequest{Project: source.MR.Project, IID: source.MR.IID},
 		Candidate: source.Landing.Candidate, Target: source.Landing.Target, PinRequired: source.PinRequired, Attribution: attribution}
 	if source.RepoBacked() {
-		selected.Repository, selected.Workspace, selected.DefaultBranch = source.Repository(w.dataDir), source.Workspace(w.dataDir), source.DefaultBranch
+		var err error
+		selected.Repository, err = source.Repository(w.dataDir)
+		if err != nil {
+			return nil, err
+		}
+		selected.Workspace, err = source.Workspace(w.dataDir)
+		if err != nil {
+			return nil, err
+		}
+		selected.DefaultBranch = source.DefaultBranch
 	}
-	return &scmClaim{w.rules, w.db, run, source, selected, call, w.evals, w.clocked}
+	return &scmClaim{w.rules, w.db, run, source, selected, call, w.evals, w.clocked}, nil
 }
 func (c *scmClaim) Source() scm.Source { return c.selected }
 func (c *scmClaim) CheckIn(ctx context.Context, tx *database.Tx, purpose scm.Purpose) (scm.Refusal, error) {

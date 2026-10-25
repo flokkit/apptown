@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"log"
 	"net/http"
 	"strings"
@@ -86,11 +87,15 @@ func (h ApprovalBriefs) diffStat(ctx context.Context, inputs workflow.ApprovalBr
 	if err != nil {
 		return "could not be read: " + err.Error()
 	}
-	repo, err := changeRepository(ctx, h.dataDir, source.Slug, ch.ID)
+	repo, err := changeRepository(ctx, h.dataDir, project.RepositoryRef{ID: source.ProjectID, Slug: source.Slug}, ch.ID)
 	if err != nil {
 		return "could not be read: " + err.Error()
 	}
-	comparison, err := scm.ReadChangeDiff(ctx, source.Repository(h.dataDir), repo, source.DefaultBranch, ch.BaseSHA, ch.Branch)
+	hub, err := source.Repository(h.dataDir)
+	if err != nil {
+		return "could not be read: " + err.Error()
+	}
+	comparison, err := scm.ReadChangeDiff(ctx, hub, repo, source.DefaultBranch, ch.BaseSHA, ch.Branch)
 	if err != nil {
 		return "could not be read: " + err.Error()
 	}

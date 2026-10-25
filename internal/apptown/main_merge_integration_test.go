@@ -26,7 +26,7 @@ import (
 func TestIntegrationAppTownMergesMainBeforeAWorkerStep(t *testing.T) {
 	t.Parallel()
 	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `test -f later.txt && echo "saw main" > saw-main.txt; say "done"`})
-	hub := w.source.Repository(w.a.cfg.dataDir)
+	hub := requireLocation(t)(w.source.Repository(w.a.cfg.dataDir))
 	if err := os.WriteFile(filepath.Join(hub, "later.txt"), []byte("main moved\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestIntegrationAppTownMergesMainBeforeAWorkerStep(t *testing.T) {
 func TestIntegrationMainThatConflictsIsShownOnTheChange(t *testing.T) {
 	t.Parallel()
 	w := newAgentWorkerWorld(t, nil, map[string]string{"app.txt": "the change's app\n", "fake-pi.sh": `say "done"`})
-	hub := w.source.Repository(w.a.cfg.dataDir)
+	hub := requireLocation(t)(w.source.Repository(w.a.cfg.dataDir))
 	if err := os.WriteFile(filepath.Join(hub, "app.txt"), []byte("main's app\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

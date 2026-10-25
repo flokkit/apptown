@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -373,7 +374,7 @@ func TestAnEndedChatsPicturesStayVisibleToItsReaders(t *testing.T) {
 		}
 	}
 
-	if failed := projectCleanupFor(a).Clean(t.Context(), idstest.N(1), projectlifecycle.CleanupPlan{Slug: "game"}); len(failed) != 0 {
+	if failed := projectCleanupFor(a).Clean(t.Context(), project.RepositoryRef{ID: idstest.N(1), Slug: "game"}, projectlifecycle.CleanupPlan{Slug: "game"}); len(failed) != 0 {
 		t.Fatalf("cleanup: %v", failed)
 	}
 	for _, chat := range []string{projectChat, changeChat, moved.ID} {

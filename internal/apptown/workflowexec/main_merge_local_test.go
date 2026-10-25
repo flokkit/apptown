@@ -37,7 +37,7 @@ func TestALocalAgentStepStartsOnMainMergedIn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub, folder := source.Repository(a.dir), source.Workspace(a.dir)
+	hub, folder := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
 	// Main moves after the change's branch was made from it.
 	if err := os.WriteFile(filepath.Join(hub, "later.txt"), []byte("main moved\n"), 0o644); err != nil {
 		t.Fatal(err)

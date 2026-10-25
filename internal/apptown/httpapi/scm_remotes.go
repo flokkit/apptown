@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -97,7 +96,11 @@ func (h SCMRemotes) AttachRemote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{}, func(in RemoteRequest) {
-		repoDir := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+		repoDir, err := p.Repository(h.dataDir)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
 		remoteURL := in.URL
 		if in.Create {
 			gl, err := h.provider.Client(r.Context())

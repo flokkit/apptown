@@ -92,8 +92,8 @@ func TestWorkflowSourcePreservesWorkspacePathsAndBatchesFacts(t *testing.T) {
 			defer cancel()
 			counted := &countedQueries{Handle: store.SQL()}
 			source, err := ReadSourceIn(ctx, counted, RunRef{ID: run.ID, ProjectID: run.ProjectID})
-			if err != nil || counted.reads != 1 || source.Workspace("/forge") != want || source.RootRunID != root || source.RootBaseSHA != "root-base" {
-				t.Fatalf("ownership: %+v path=%s want=%s reads=%d %v", source, source.Workspace("/forge"), want, counted.reads, err)
+			if err != nil || counted.reads != 1 || requireLocation(t)(source.Workspace("/forge")) != want || source.RootRunID != root || source.RootBaseSHA != "root-base" {
+				t.Fatalf("ownership: %+v path=%s want=%s reads=%d %v", source, requireLocation(t)(source.Workspace("/forge")), want, counted.reads, err)
 			}
 			if id != root && (source.RunBaseSHA != "child-base" || source.Depth != MaxCallDepth) {
 				t.Fatalf("lost child facts: %+v", source)

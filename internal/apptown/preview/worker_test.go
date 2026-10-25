@@ -241,7 +241,7 @@ func TestAWorkerPreviewRestartsAndPinsAsAsked(t *testing.T) {
 	}
 	w.err = nil
 
-	repo := s.hosts.ProjectRepository("p")
+	repo := filepath.Join(s.dataDir, "workspaces", "project-p")
 	writePreviewBootFixture(t, repo)
 	commit := gitCommitAll(t, repo, "saved")
 	if _, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: projectID, Pinned: commit}, false); err != nil {

@@ -24,7 +24,6 @@ import (
 // in one transaction with the deletion record that releases the slug once
 // the cleanup of previews and workspaces is done.
 func (d *Deletion) runPurge(ctx context.Context, op operations.Operation, log *operations.StepLog) operations.Outcome {
-	slug, _ := op.Input["slug"].(string)
 	fail := func(left []string, why string) operations.Outcome {
 		log.Fail(ctx, why)
 		detail := "purge incomplete: " + why
@@ -35,6 +34,16 @@ func (d *Deletion) runPurge(ctx context.Context, op operations.Operation, log *o
 	}
 	// err says "authority withdrawn" and why.
 	refused := func(err error) operations.Outcome { return fail(nil, err.Error()) }
+
+	p, err := project.ByIDIn(ctx, d.lifecycle.db, op.ProjectID)
+	if err != nil {
+		return fail(nil, err.Error())
+	}
+	repo, err := p.Repository(d.lifecycle.dataDir)
+	if err != nil {
+		return fail(nil, err.Error())
+	}
+	slug := p.Slug
 
 	log.Begin(ctx, "checking the project is deleted and idle")
 	l, err := project.LifecycleIn(ctx, d.lifecycle.db, op.ProjectID)
@@ -71,7 +80,7 @@ func (d *Deletion) runPurge(ctx context.Context, op operations.Operation, log *o
 		return refused(err)
 	}
 	log.Begin(ctx, "removing its hub repository")
-	if err := os.RemoveAll(hubDir(d.lifecycle.dataDir, slug)); err != nil {
+	if err := os.RemoveAll(repo); err != nil {
 		return fail([]string{"the hub repository of " + slug}, err.Error())
 	}
 	log.End(ctx, "", 0)

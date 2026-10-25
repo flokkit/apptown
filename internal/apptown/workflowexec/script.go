@@ -139,7 +139,14 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 	if err != nil {
 		return scriptPlan{}, err
 	}
-	ws := source.Workspace(a.cfg.DataDir)
+	ws, err := source.Workspace(a.cfg.DataDir)
+	if err != nil {
+		return scriptPlan{}, err
+	}
+	repository, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		return scriptPlan{}, err
+	}
 	_ = os.MkdirAll(ws, 0o755)
 	candidate, pinned, err := workflow.LandingCandidateIn(ctx, a.db, run.ID)
 	if err != nil {
@@ -147,7 +154,7 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 	}
 	cleanup := func() {}
 	if pinned {
-		staged, remove, err := scm.StageTreeAt(ctx, source.Repository(a.cfg.DataDir), candidate.Candidate)
+		staged, remove, err := scm.StageTreeAt(ctx, repository, candidate.Candidate)
 		if err != nil {
 			return scriptPlan{}, fmt.Errorf("staging the landing's candidate %s: %w", candidate.Candidate, err)
 		}
@@ -200,7 +207,7 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 		runCmd = containerScript(cfg.Run, agentenv.DeclaresToolchain(ws))
 	}
 	return scriptPlan{cache: agentenv.CacheVolume(ctx), cfg: cfg, executor: executor, timeout: timeout, ambient: amb, ws: ws, candidate: candidate.Candidate, cleanup: cleanup,
-		repository: source.Repository(a.cfg.DataDir), request: execution.Request{
+		repository: repository, request: execution.Request{
 			Workspace: ws,
 			Argv:      []string{"sh", "-c", runCmd},
 			Env:       env,
@@ -389,7 +396,7 @@ func (a *Commands) stepFolder(ctx context.Context, run *workflow.Run) (string, e
 	if err != nil {
 		return "", err
 	}
-	return source.Workspace(a.cfg.DataDir), nil
+	return source.Workspace(a.cfg.DataDir)
 }
 
 // folderClear refuses a script while anything else may still write its

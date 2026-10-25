@@ -42,8 +42,8 @@ func TestAChangeDiffGitCannotReadIsAnError(t *testing.T) {
 	}
 	gittest.Run(t, hub, "add", "fix.go")
 	gittest.RunAsTester(t, hub, "commit", "-q", "-m", "fix")
-	p := &project.Project{Slug: "p", DefaultBranch: "main"}
-	ch := &workflow.Change{ID: idstest.N(1), Branch: "change", BaseSHA: base}
+	p := &project.Project{ID: idstest.N(2), Slug: "p", DefaultBranch: "main"}
+	ch := &workflow.Change{ID: idstest.N(1), ProjectID: idstest.N(2), Branch: "change", BaseSHA: base}
 	if patch, err := changePatch(t.Context(), dataDir, p, ch); err != nil || !strings.Contains(patch, "+package fix") {
 		t.Fatalf("a readable diff: %q %v", patch, err)
 	}

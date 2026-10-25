@@ -2,7 +2,6 @@ package projectlifecycle
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -42,7 +41,10 @@ func (s *Service) initializeHeld(ctx context.Context, p *project.Project, defaul
 	if defaultBranch == "" {
 		defaultBranch = "main"
 	}
-	dir := hubDir(s.dataDir, p.Slug)
+	dir, err := p.Repository(s.dataDir)
+	if err != nil {
+		return err
+	}
 	if err := scm.InitializeRepository(ctx, dir, defaultBranch); err != nil {
 		return err
 	}
@@ -60,8 +62,4 @@ func (s *Service) initializeHeld(ctx context.Context, p *project.Project, defaul
 	}
 	p.DefaultBranch = defaultBranch
 	return nil
-}
-
-func hubDir(dataDir, slug string) string {
-	return filepath.Join(dataDir, "workspaces", "project-"+slug)
 }

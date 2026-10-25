@@ -93,7 +93,10 @@ func (c *Contributions) Checkout(ctx context.Context, changeID ids.ID) (Checkout
 	if err := c.authorize(ctx, "checkout_change", ch); err != nil {
 		return Checkout{}, err
 	}
-	hub := filepath.Join(c.dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(c.dataDir)
+	if err != nil {
+		return Checkout{}, err
+	}
 	// Who holds the change is read before anything is minted: another
 	// holder refuses the checkout, and the caller's own earlier ticket is
 	// replaced (a renewal), not handed over.
@@ -205,7 +208,10 @@ func (c *Contributions) Sync(ctx context.Context, changeID ids.ID, pushed, expec
 	}
 	pushed = strings.TrimSpace(pushed)
 	expected = strings.TrimSpace(expected)
-	hub := filepath.Join(c.dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(c.dataDir)
+	if err != nil {
+		return SyncedRevision{}, err
+	}
 	ref := "refs/heads/" + ch.Branch
 	hubTip := scm.Ref(ctx, hub, ref)
 	if hubTip == "" || !strings.HasPrefix(hubTip, pushed) {
@@ -309,7 +315,10 @@ func (c *Contributions) PublishPush(ctx context.Context, ticket *identity.Ticket
 	if err != nil {
 		return err
 	}
-	hub := filepath.Join(c.dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(c.dataDir)
+	if err != nil {
+		return err
+	}
 	incoming := scm.IncomingRef(ticket.ID)
 	pushed := scm.Ref(ctx, hub, incoming)
 	if pushed == "" {
@@ -365,14 +374,17 @@ func changePatch(ctx context.Context, dataDir string, p *project.Project, ch *wo
 	if ch.Branch == "" {
 		return "", contributionRefusal("change %s#%d has no branch yet, so there is nothing to diff", p.Slug, ch.Number)
 	}
-	repo := filepath.Join(dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(dataDir)
+	if err != nil {
+		return "", err
+	}
+	repo := hub
 	if ws := filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID)); ch.BaseSHA != "" && gitexec.IsRepo(ws) {
 		repo = ws
 	}
 	if _, err := gitexec.Run(ctx, repo, "rev-parse", "--verify", ch.Branch); err != nil {
 		return "", contributionRefusal("branch %s of change %s#%d is gone from the repository", ch.Branch, p.Slug, ch.Number)
 	}
-	hub := filepath.Join(dataDir, "workspaces", "project-"+p.Slug)
 	comparison, err := scm.ReadChangeDiff(ctx, hub, repo, p.DefaultBranch, ch.BaseSHA, ch.Branch)
 	if err != nil {
 		return "", err

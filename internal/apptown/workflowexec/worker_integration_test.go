@@ -29,7 +29,7 @@ func TestIntegrationAScriptStepRunsOnAWorkerInItsOwnContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := a.source(t, run)
-	hub, ws := source.Repository(a.dir), source.Workspace(a.dir)
+	hub, ws := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
 	if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
 		t.Fatal(err)
 	}

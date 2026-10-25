@@ -96,7 +96,10 @@ func TestSCMWorkReceiptAndChangeSourceAreAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	owner := NewSCMWork(q.db, t.TempDir(), nil)
-	claim := owner.claim(*run, source, nil, nil)
+	claim, err := owner.claim(*run, source, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	receipt := scm.Receipt{Kind: scm.Completed, Operation: "test-merge", Branch: source.Branch, SHA: "new-source"}
 	completionExec(t, q.db, `CREATE FUNCTION veto_merge_receipt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	completionExec(t, q.db, `CREATE TRIGGER veto_merge_receipt BEFORE INSERT ON run_events FOR EACH ROW EXECUTE FUNCTION veto_merge_receipt()`)

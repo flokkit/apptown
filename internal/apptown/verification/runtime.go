@@ -22,7 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -67,8 +67,8 @@ func NewRuntime(d RuntimeDependencies) *Runtime {
 }
 
 // repo is a project's repository in this AppTown's data directory.
-func (o Runtime) repo(slug string) string {
-	return filepath.Join(o.dataDir, "workspaces", "project-"+slug)
+func (o Runtime) repo(t Target) (string, error) {
+	return (project.RepositoryRef{ID: t.ProjectID, Slug: t.Slug}).Path(o.dataDir)
 }
 
 // browserExpectation is what the browser-env check judges against, from
@@ -88,7 +88,11 @@ func (o Runtime) browserExpectation(ctx context.Context, t Target) (check.Browse
 	case t.Slug != "" && t.ReleaseSHA == "":
 		return check.BrowserExpectation{}, "this deployment does not record which revision it runs, so whether it is a static site is not known; deploy it again"
 	case t.Slug != "":
-		c, err = docker.ReadContractAt(ctx, o.repo(t.Slug), t.ReleaseSHA)
+		repo, pathErr := o.repo(t)
+		if pathErr != nil {
+			return check.BrowserExpectation{}, pathErr.Error()
+		}
+		c, err = docker.ReadContractAt(ctx, repo, t.ReleaseSHA)
 	default:
 		return check.BrowserExpectation{}, "the app's contract is not known, so whether it is a static site is not known"
 	}
@@ -240,7 +244,10 @@ func (o Runtime) mainAt(ctx context.Context, projectID ids.ID) (t Target, commit
 // declaredReadinessPath is the public part's declared readiness HTTP path at
 // the commit the deployment serves (falling back to the repo head).
 func (o Runtime) declaredReadinessPath(ctx context.Context, t Target) (string, bool) {
-	repo := o.repo(t.Slug)
+	repo, pathErr := o.repo(t)
+	if pathErr != nil {
+		return "", false
+	}
 	var c *appcontract.Contract
 	var err error
 	if t.ReleaseSHA != "" {
@@ -301,7 +308,11 @@ func (o Runtime) Observe(ctx context.Context, projectID ids.ID, source, probe st
 		// A deployment AppTown cannot run because the app declares no
 		// contract is the app's gap, not AppTown's inability.
 		if ps.Readiness && t.Slug != "" && t.Container != "" {
-			if _, err := docker.ReadWorkspaceContract(o.repo(t.Slug)); err == docker.ErrNoContract {
+			repo, pathErr := o.repo(t)
+			if pathErr != nil {
+				return conformance.CannotAssess, pathErr.Error()
+			}
+			if _, err := docker.ReadWorkspaceContract(repo); err == docker.ErrNoContract {
 				return conformance.DoesNotConform, undeclaredReadiness
 			}
 		}

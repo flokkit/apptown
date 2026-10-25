@@ -35,7 +35,7 @@ type targetTestConnectors struct{}
 
 type targetTestDeclarations struct{}
 
-func (targetTestDeclarations) Declared(string) (deployment.Declared, bool) {
+func (targetTestDeclarations) Declared(context.Context, ids.ID) (deployment.Declared, bool) {
 	return deployment.Declared{}, false
 }
 

@@ -145,12 +145,12 @@ func TestRecoveryPublishesWorkCommittedBeforeACrash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := source.Workspace(a.dir)
+	ws := requireLocation(t)(source.Workspace(a.dir))
 	recovered, err := a.work.RecoverExecution(a.ctx, step.ID, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: run.ProjectID, Repository: source.Repository(a.dir), Branch: source.Branch, From: ws, Grant: scm.Grant{Generation: recovered.Step().SourceGeneration()}}); err != nil {
+	if _, err := a.branches.Publish(context.Background(), scm.Publication{ProjectID: run.ProjectID, Repository: requireLocation(t)(source.Repository(a.dir)), Branch: source.Branch, From: ws, Grant: scm.Grant{Generation: recovered.Step().SourceGeneration()}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(ws, "result.txt"), []byte("task result"), 0644); err != nil {
@@ -159,7 +159,7 @@ func TestRecoveryPublishesWorkCommittedBeforeACrash(t *testing.T) {
 	if _, committed, err := scm.CommitWorkspace(recovered.Context(), ws, "task commit before crash"); err != nil || !committed {
 		t.Fatalf("commit: %t %v", committed, err)
 	}
-	before, err := gitexec.Run(recovered.Context(), source.Repository(a.dir), "rev-parse", source.Branch)
+	before, err := gitexec.Run(recovered.Context(), requireLocation(t)(source.Repository(a.dir)), "rev-parse", source.Branch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +169,7 @@ func TestRecoveryPublishesWorkCommittedBeforeACrash(t *testing.T) {
 	}
 	restarted(t, a)
 	awaitStep(t, a, step.ID, workflow.StatusPass)
-	after, err := gitexec.Run(recovered.Context(), source.Repository(a.dir), "rev-parse", source.Branch)
+	after, err := gitexec.Run(recovered.Context(), requireLocation(t)(source.Repository(a.dir)), "rev-parse", source.Branch)
 	if err != nil {
 		t.Fatalf("step passed, but its canonical branch does not exist: %v", err)
 	}

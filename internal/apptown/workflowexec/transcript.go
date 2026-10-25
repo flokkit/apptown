@@ -119,7 +119,13 @@ func (a *Executor) BackfillTranscripts(ctx context.Context) {
 				}
 				sources[p.Run.ID] = source
 			}
-			raw, reason = piharness.StepTranscript(sessionDir(source.Workspace(a.cfg.DataDir)), p.Session)
+			workspace, pathErr := source.Workspace(a.cfg.DataDir)
+			if pathErr != nil {
+				log.Printf("startup repair: selecting run %d workspace: %v", p.Run.ID, pathErr)
+				failed++
+				continue
+			}
+			raw, reason = piharness.StepTranscript(sessionDir(workspace), p.Session)
 			if reason != "" {
 				reason = "it ran before transcripts were kept, and its folder's history could not be: " + reason
 			}

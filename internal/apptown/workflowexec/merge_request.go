@@ -33,7 +33,12 @@ func (a *Repositories) RunSCMMR(task *workflow.Execution) {
 		fail("project is not repo-backed")
 		return
 	}
-	repo, branch := source.Repository(a.cfg.DataDir), source.Branch
+	repo, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		fail(err.Error())
+		return
+	}
+	branch := source.Branch
 	_, pathNS, hasRemote := scm.Origin(task.Context(), repo)
 	if !hasRemote {
 		fail("project has no remote; POST /projects/{slug}/repo/remote first")

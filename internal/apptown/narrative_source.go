@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
@@ -17,7 +18,10 @@ func narrativeDiff(ctx context.Context, dataDir string, source workflow.Narrativ
 	if ch.Branch == "" {
 		return narrativeEvidence{}, fmt.Errorf("change has no branch to compare")
 	}
-	hub := filepath.Join(dataDir, "workspaces", "project-"+source.Slug)
+	hub, err := (project.RepositoryRef{ID: ch.ProjectID, Slug: source.Slug}).Path(dataDir)
+	if err != nil {
+		return narrativeEvidence{}, err
+	}
 	workspace := filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
 	repo, err := scm.ComparisonRepository(ctx, hub, workspace)
 	if err != nil {

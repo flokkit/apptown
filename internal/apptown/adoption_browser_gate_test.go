@@ -130,7 +130,7 @@ func runBrowserGate(t *testing.T, lane browserLane, installed, served, page stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := source.Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -36,7 +36,10 @@ func (a *Preparation) PublishChangeFolder(ctx context.Context, p *project.Projec
 			uncommitted = append(uncommitted, line[3:])
 		}
 	}
-	hub := filepath.Join(a.dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(a.dataDir)
+	if err != nil {
+		return nil, err
+	}
 	tip := scm.Ref(ctx, ws, "refs/heads/"+ch.Branch)
 	if tip == "" {
 		return uncommitted, nil

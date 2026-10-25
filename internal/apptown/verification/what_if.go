@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -270,7 +269,11 @@ func (f Fleet) whatIfProject(ctx context.Context, run *conformance.WhatIfRun, in
 	}
 	outcomes := map[key]treeAssessment{}
 	if len(distinct) > 0 {
-		src, cleanup, err := scm.StageTreeAt(ctx, projectRepo(f, p), head.SHA)
+		repo, err := (project.RepositoryRef{ID: p.ID, Slug: p.Slug}).Path(f.dataDir)
+		if err != nil {
+			return whole(head.SHA, conformance.NotAssessedNoMain, err.Error()), spend, nil
+		}
+		src, cleanup, err := scm.StageTreeAt(ctx, repo, head.SHA)
 		if err != nil {
 			return whole(head.SHA, conformance.NotAssessedNoMain, "could not read main: "+strs.Truncate(err.Error(), 200)), spend, nil
 		}
@@ -439,9 +442,4 @@ func (f Fleet) whatIfJudge(ctx context.Context, run *conformance.WhatIfRun, in c
 		}
 		return by, meta, err
 	}, "", nil
-}
-
-// projectRepo is where a project's repository lives, as the review reads it.
-func projectRepo(f Fleet, p conformance.Project) string {
-	return filepath.Join(f.dataDir, "workspaces", "project-"+p.Slug)
 }

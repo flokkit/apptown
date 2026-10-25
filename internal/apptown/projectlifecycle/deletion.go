@@ -707,7 +707,11 @@ func (d *Deletion) admitPurge(ctx context.Context, projectID ids.ID, authority a
 	// The GitLab copy is named by its permanent id before anything is
 	// removed, and archived under a name no later project can take.
 	input := map[string]any{"slug": p.Slug, "now": now}
-	if _, pathNS, ok := scm.Origin(ctx, hubDir(d.lifecycle.dataDir, p.Slug)); ok && pathNS != "" {
+	repo, err := p.Repository(d.lifecycle.dataDir)
+	if err != nil {
+		return nil, err
+	}
+	if _, pathNS, ok := scm.Origin(ctx, repo); ok && pathNS != "" {
 		id, err := d.deps.GitLab.ProjectID(ctx, pathNS)
 		if err != nil {
 			return nil, fmt.Errorf("the GitLab copy at %s could not be looked up, so the purge cannot archive it; try again: %w", pathNS, err)

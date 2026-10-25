@@ -78,7 +78,7 @@ func mergeSettlementFixture(t *testing.T) (*App, workflow.MergeSource) {
 func TestMergeReceiptFailureRequiresExplicitRetry(t *testing.T) {
 	t.Parallel()
 	a, source := mergeSettlementFixture(t)
-	repo := source.Repository(a.cfg.dataDir)
+	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	before := gittest.Run(t, repo, "rev-parse", "HEAD")
 	completionExec(t, a.DB, `ALTER TABLE run_events ADD CONSTRAINT refuse_merge_receipt CHECK(kind<>'merge.completed')`)
 	result, err := mergeEffectForTest(t, a, source)
@@ -129,11 +129,11 @@ func TestALandingAdmittedBeforePinningMergesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	source = mergeSourceForTest(t, a, run)
-	main := gittest.Run(t, source.Repository(a.cfg.dataDir), "rev-parse", "refs/heads/"+source.DefaultBranch)
+	main := gittest.Run(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "rev-parse", "refs/heads/"+source.DefaultBranch)
 	if result, err := mergeEffectForTest(t, a, source); err == nil || result.Merged || !strings.Contains(err.Error(), "restart it to land") {
 		t.Fatalf("an old landing's merge: %+v %v", result, err)
 	}
-	if after := gittest.Run(t, source.Repository(a.cfg.dataDir), "rev-parse", "refs/heads/"+source.DefaultBranch); after != main {
+	if after := gittest.Run(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "rev-parse", "refs/heads/"+source.DefaultBranch); after != main {
 		t.Fatal("an old landing merged")
 	}
 }
@@ -151,7 +151,7 @@ func TestStartupMergeInspectionLeavesAMergeWithoutItsReadsOrReceiptPending(t *te
 			beforeEvents, beforeAudits := workEventCount(t, a, nil), auditTotal(t, a.DB)
 			switch failure {
 			case "missing repo":
-				if err := os.RemoveAll(source.Repository(a.cfg.dataDir)); err != nil {
+				if err := os.RemoveAll(requireLocation(t)(source.Repository(a.cfg.dataDir))); err != nil {
 					t.Fatal(err)
 				}
 			case "receipt":
@@ -178,14 +178,14 @@ func TestLocalMergeObservationDistinguishesNewWorkFromUnrelatedHistory(t *testin
 			if result, err := mergeEffectForTest(t, a, source); err != nil || !result.Merged {
 				t.Fatalf("initial merge: %+v %v", result, err)
 			}
-			repo := source.Repository(a.cfg.dataDir)
+			repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 			selected := gittest.Run(t, repo, "rev-parse", "HEAD")
 			later := ""
 			if newWork {
 				// New work in the change workspace is not part of this landing:
 				// the merge stays the pinned candidate's, and repeating the
 				// merge assertion neither publishes nor merges it.
-				workspace := source.Workspace(a.cfg.dataDir)
+				workspace := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 				gittest.Run(t, workspace, "commit", "--allow-empty", "-qm", "additional work")
 				later = gittest.Run(t, workspace, "rev-parse", "HEAD")
 			} else {
@@ -245,12 +245,12 @@ func TestAScriptStepPublishesItsCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := mergeSourceForTest(t, a, run)
-	workspace := source.Workspace(a.cfg.dataDir)
+	workspace := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	head := gittest.Run(t, workspace, "rev-parse", "HEAD")
 	if msg := gittest.Run(t, workspace, "log", "-1", "--format=%B"); !strings.Contains(msg, "AppTown-Step: make") {
 		t.Fatalf("the script step did not commit its work: %s", msg)
 	}
-	if got := scm.Ref(ctx, source.Repository(a.cfg.dataDir), "refs/heads/"+source.Branch); got != head {
+	if got := scm.Ref(ctx, requireLocation(t)(source.Repository(a.cfg.dataDir)), "refs/heads/"+source.Branch); got != head {
 		t.Fatalf("hub branch = %s after the script step, want its commit %s", got, head)
 	}
 }
@@ -277,7 +277,7 @@ func TestACommitAfterTheGatesIsNotMerged(t *testing.T) {
 	if source.Landing.Candidate == "" || !source.PinRequired {
 		t.Fatalf("a fresh landing has no pinned candidate: %+v", source.Landing)
 	}
-	workspace, repo := source.Workspace(a.cfg.dataDir), source.Repository(a.cfg.dataDir)
+	workspace, repo := requireLocation(t)(source.Workspace(a.cfg.dataDir)), requireLocation(t)(source.Repository(a.cfg.dataDir))
 	if err := os.WriteFile(filepath.Join(workspace, "late.txt"), []byte("typed after the gates\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +301,7 @@ func TestACommitAfterTheGatesIsNotMerged(t *testing.T) {
 func TestALandingIsRefusedWhenMainMovedAfterItsChecks(t *testing.T) {
 	t.Parallel()
 	a, source := mergeSettlementFixture(t)
-	repo := source.Repository(a.cfg.dataDir)
+	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	if err := os.WriteFile(filepath.Join(repo, "other.txt"), []byte("another change landed\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

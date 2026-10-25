@@ -309,15 +309,15 @@ func TestARestartRetryPublishesItsReplacementWork(t *testing.T) {
 	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
 		t.Fatal(err)
 	}
-	first := gittest.Run(t, source.Repository(a.dir), "rev-parse", source.Branch)
+	first := gittest.Run(t, requireLocation(t)(source.Repository(a.dir)), "rev-parse", source.Branch)
 	if _, err := a.work.RetryStep(a.ctx, workflow.RetryCommand{StepID: stepID, Mode: workflow.RetryRestart}); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {
 		t.Fatal(err)
 	}
-	want := gittest.Run(t, source.Workspace(a.dir), "rev-parse", "HEAD")
-	got := gittest.Run(t, source.Repository(a.dir), "rev-parse", source.Branch)
+	want := gittest.Run(t, requireLocation(t)(source.Workspace(a.dir)), "rev-parse", "HEAD")
+	got := gittest.Run(t, requireLocation(t)(source.Repository(a.dir)), "rev-parse", source.Branch)
 	if got != want {
 		t.Fatalf("restart result not published: hub=%s (old=%s), replacement=%s", got, first, want)
 	}
@@ -451,7 +451,7 @@ func TestAReworkUpdatesTheStepsEarlierReport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	report := filepath.Join(source.Workspace(a.dir), ".apptown", "CHANGE.md")
+	report := filepath.Join(requireLocation(t)(source.Workspace(a.dir)), ".apptown", "CHANGE.md")
 	var found, told bool
 	installFakePi(a, func(n int, req execution.Request) execution.Outcome {
 		if n == 1 {

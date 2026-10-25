@@ -46,14 +46,23 @@ func (h Workspaces) Workspace(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	ws := source.Workspace(h.dataDir)
+	ws, err := source.Workspace(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	hub, err := source.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	if _, err := os.Stat(ws); err != nil {
 		WriteError(w, 404, "run has no workspace")
 		return
 	}
 	// A folder behind its published branch (scm.Behind) is not shown as the
 	// work: the change's diff shows the branch.
-	if behind, err := scm.Behind(r.Context(), ws, source.Repository(h.dataDir)); err != nil {
+	if behind, err := scm.Behind(r.Context(), ws, hub); err != nil {
 		WriteFault(w, err)
 		return
 	} else if behind {

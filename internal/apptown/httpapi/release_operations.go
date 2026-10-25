@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -101,7 +100,11 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 	if bundle != nil && bundle.ByDigest() {
 		out.Published, rev = true, bundle.ContractRevision
 	}
-	repo := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	if rev != "" {
 		if head, err := gitexec.Run(r.Context(), repo, "log", "-1", "--format=%H%x00%s", rev, "--"); err == nil {
 			if sha, subject, ok := strings.Cut(head, "\x00"); ok {

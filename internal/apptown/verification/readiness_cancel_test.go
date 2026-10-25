@@ -2,6 +2,7 @@ package verification
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/check"
@@ -15,7 +16,7 @@ func TestAStoppedReadinessReadIsNotAnUndeclaredReadiness(t *testing.T) {
 	r := Runtime{dataDir: t.TempDir()}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	target := Target{Slug: "shop", ReleaseSHA: "0123456789abcdef0123456789abcdef01234567"}
+	target := Target{ProjectID: idstest.N(1), Slug: "shop", ReleaseSHA: "0123456789abcdef0123456789abcdef01234567"}
 
 	if v := r.Probe(ctx, target, "readiness"); v.Outcome != check.CannotAssess || v.Detail != readinessReadStopped {
 		t.Errorf("gate probe after its caller stopped: %+v, want cannot assess", v)

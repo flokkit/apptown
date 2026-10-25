@@ -126,7 +126,7 @@ exit 0
 		}
 	}
 	w := folderRun{a: a, fake: fake, run: run, source: workflowSourceForTest(t, a, run), scanned: scanned, state: state}
-	w.hub, w.ws = w.source.Repository(a.cfg.dataDir), w.source.Workspace(a.cfg.dataDir)
+	w.hub, w.ws = requireLocation(t)(w.source.Repository(a.cfg.dataDir)), requireLocation(t)(w.source.Workspace(a.cfg.dataDir))
 	if !onChange {
 		// The run's folder, made by AppTown's own clone as a run's
 		// preparation makes it.

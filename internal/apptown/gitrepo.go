@@ -12,13 +12,9 @@ import (
 
 // Git-backed state, phase G1 (design/architecture/git-state.md): local-authoritative repos.
 // A project with default_branch != '' is repo-backed: every run gets branch
-// apptown/run-<id> checked out as a worktree; the engine commits per completed
+// apptown/run-<id> checked out as a workspace; the engine commits per completed
 // step with AppTown-Run-Id trailers; run completion merges --no-ff into the
 // default branch. No remote required for any of it.
-
-func (a *App) projectRepoPath(slug string) string {
-	return projectRepository(a.cfg.dataDir, slug)
-}
 
 // --- workspaces are self-contained clones ------------------------------------
 //
@@ -27,8 +23,8 @@ func (a *App) projectRepoPath(slug string) string {
 // host-absolute gitdir — dead inside every container, so agents lived with
 // "git doesn't work here" and fell back to memory-based file lists
 // (complaint #9). A clone is self-contained: containers get real
-// status/diff/log/commit. Local clones hardlink objects, so they cost
-// almost nothing on the same filesystem.
+// status/diff/log/commit. Current clones use --no-hardlinks, so they
+// do not borrow their hub's object store.
 //
 // The hub holds each change's branch; it moves only through scm.Branches,
 // which checks who holds the branch and moves it forward from the value it

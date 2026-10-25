@@ -443,7 +443,7 @@ func TestATestsStepWithoutADefaultBranchStillReadsACommit(t *testing.T) {
 				if source.RepoBacked() {
 					t.Fatal("fixture unexpectedly repository-backed")
 				}
-				folder := source.Workspace(f.dir)
+				folder := requireLocation(t)(source.Workspace(f.dir))
 				if _, err := os.Stat(folder); !os.IsNotExist(err) {
 					t.Fatalf("fixture source should initially be absent: %v", err)
 				}

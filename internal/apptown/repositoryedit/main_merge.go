@@ -88,7 +88,14 @@ func PublishMainMerge(ctx context.Context, db *database.DB, dataDir string, bran
 	if err != nil {
 		return err
 	}
-	repo, wt := source.Repository(dataDir), source.Workspace(dataDir)
+	repo, err := source.Repository(dataDir)
+	if err != nil {
+		return err
+	}
+	wt, err := source.Workspace(dataDir)
+	if err != nil {
+		return err
+	}
 	if folder == nil || folder.Path() != filepath.Clean(wt) {
 		return fmt.Errorf("publishing the merge of %s needs the run's folder %s locked", source.DefaultBranch, wt)
 	}

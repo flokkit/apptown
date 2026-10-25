@@ -59,7 +59,7 @@ func (a FollowUps) Abandon(ctx context.Context, key string, args map[string]any)
 		for _, runID := range runIDs {
 			failed = append(failed, a.Resources.Run(ctx, runID))
 		}
-		failed = append(failed, a.Chats.EndChangeChats(ctx, p.ID, ch.ID), a.Resources.Change(ctx, p.Slug, ch.ID))
+		failed = append(failed, a.Chats.EndChangeChats(ctx, p.ID, ch.ID), a.Resources.Change(ctx, ch.ID))
 		if err := errors.Join(failed...); err != nil {
 			return nil, err
 		}

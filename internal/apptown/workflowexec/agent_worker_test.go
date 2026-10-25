@@ -230,7 +230,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 	}
 
 	source := workflow.Source{RunID: idstest.N(5), ProjectID: projectID, RootRunID: idstest.N(5), ChangeID: changeID, Slug: "agents", DefaultBranch: "main", Branch: "change-00000000-0029-7000-8000-000000000000", WorkflowName: "build", WorkflowVersion: 1}
-	hub := source.Repository(dir)
+	hub := requireLocation(t)(source.Repository(dir))
 	commit := hubCommit(t, hub, map[string]string{"README.md": "hello\n"})
 
 	cli := filepath.Join(dir, "apptown-linux")
@@ -373,7 +373,7 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 	f := agentOnWorkerFixture(t, nil)
 	req := f.build(t)
 	spec := req.spec
-	folder := f.call.source.Workspace(f.dir)
+	folder := requireLocation(t)(f.call.source.Workspace(f.dir))
 
 	if spec.Key != "step-00000000-0009-7000-8000-000000000000-attempt-2-agent" || spec.SharedWorkspace != "step-00000000-0009-7000-8000-000000000000-a2" || spec.Image != workerAgentImageName {
 		t.Fatalf("identity: key %q workspace %q image %q", spec.Key, spec.SharedWorkspace, spec.Image)
@@ -634,7 +634,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 			if f.worker.imageReads != 0 {
 				t.Error("the worker was asked for its image")
 			}
-			if _, err := os.Lstat(f.call.source.Workspace(f.dir)); !errors.Is(err, os.ErrNotExist) {
+			if _, err := os.Lstat(requireLocation(t)(f.call.source.Workspace(f.dir))); !errors.Is(err, os.ErrNotExist) {
 				t.Errorf("the run's folder was made: %v", err)
 			}
 		})
@@ -832,7 +832,7 @@ func TestAFolderLinkChangesNothingInTheRequest(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	folder := f.call.source.Workspace(f.dir)
+	folder := requireLocation(t)(f.call.source.Workspace(f.dir))
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -4,10 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"log"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -53,7 +51,12 @@ func sweepScratchIn(ctx context.Context, db *database.DB, hub string) (int, erro
 // step's once its outcome is recorded. A failure is logged; the sweep
 // tries again.
 func (a *Executor) dropSettledScratch(ctx context.Context, source workflow.Source) {
-	if _, err := sweepScratchIn(context.WithoutCancel(ctx), a.db, source.Repository(a.cfg.DataDir)); err != nil {
+	hub, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		log.Printf("run %d: resolving scratch repository: %v", source.RunID, err)
+		return
+	}
+	if _, err := sweepScratchIn(context.WithoutCancel(ctx), a.db, hub); err != nil {
 		log.Printf("removing settled scratch refs: %v; the sweep tries again", err)
 	}
 }
@@ -63,21 +66,14 @@ func (a *Executor) dropSettledScratch(ctx context.Context, source workflow.Sourc
 // a failed removal left. It returns how many it removed, and the first
 // error met; other repositories are still swept.
 func SweepScratchRefs(ctx context.Context, db *database.DB, dataDir string) (int, error) {
-	root := filepath.Join(dataDir, "workspaces")
-	entries, err := os.ReadDir(root)
-	if errors.Is(err, os.ErrNotExist) {
-		return 0, nil
-	}
+	repositories, err := project.RepositoriesOnDisk(dataDir)
 	if err != nil {
 		return 0, err
 	}
 	var removed int
 	var firstErr error
-	for _, e := range entries {
-		if !e.IsDir() || !strings.HasPrefix(e.Name(), "project-") {
-			continue
-		}
-		n, err := sweepScratchIn(ctx, db, filepath.Join(root, e.Name()))
+	for _, repo := range repositories {
+		n, err := sweepScratchIn(ctx, db, repo)
 		removed += n
 		if err != nil && firstErr == nil {
 			firstErr = err

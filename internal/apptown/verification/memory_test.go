@@ -1,6 +1,7 @@
 package verification
 
 import (
+	"github.com/flokkit/apptown/internal/ids/idstest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
-	"github.com/flokkit/apptown/internal/ids"
 )
 
 // memory-declared reads the contract as AppTown parses it: each part the
@@ -167,10 +167,10 @@ func TestMemoryDeclaredInAReviewReadsTheDefaultBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	o := Runtime{dataDir: dataDir}
-	if v := o.Probe(t.Context(), Target{Slug: "demo", Revision: "main"}, "memory-declared"); v.Outcome != check.Conforms || !strings.Contains(v.Detail, "web 64M") {
+	if v := o.Probe(t.Context(), Target{ProjectID: idstest.N(1), Slug: "demo", Revision: "main"}, "memory-declared"); v.Outcome != check.Conforms || !strings.Contains(v.Detail, "web 64M") {
 		t.Fatalf("the default branch's contract: %+v", v)
 	}
-	if v := o.Probe(t.Context(), Target{Slug: "demo"}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "which commit to judge is not known") {
+	if v := o.Probe(t.Context(), Target{ProjectID: idstest.N(1), Slug: "demo"}, "memory-declared"); v.Outcome != check.CannotAssess || !strings.Contains(v.Detail, "which commit to judge is not known") {
 		t.Fatalf("no branch to read is unknown: %+v", v)
 	}
 }
@@ -194,7 +194,7 @@ func TestAFailingContractCheckIsComparedWithTheBaseCommit(t *testing.T) {
 		base string
 		want check.Outcome
 	}{{shas[0], check.Conforms}, {shas[1], check.DoesNotConform}} {
-		got := a.runtimeBaseline(t.Context(), ids.Nil, "demo", []conformance.DeclaredCheck{sc}, []conformance.Finding{finding}, tc.base)
+		got := a.runtimeBaseline(t.Context(), idstest.N(1), "demo", []conformance.DeclaredCheck{sc}, []conformance.Finding{finding}, tc.base)
 		if len(got) != 1 || got[0].Outcome != tc.want {
 			t.Errorf("base %s: %+v", tc.base[:7], got)
 		}

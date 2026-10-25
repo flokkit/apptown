@@ -140,7 +140,7 @@ say "built, ran and reached the service"`,
 				t.Fatalf("the implementation step is %s: %v", status, ev)
 			}
 			source := workflowSourceForTest(t, a, run)
-			hub := source.Repository(a.cfg.dataDir)
+			hub := requireLocation(t)(source.Repository(a.cfg.dataDir))
 			for file, want := range map[string]string{"built.txt": "hello from a nested build", "nested.txt": "nested", "kv.txt": "reached", "url.txt": "redis://kv/sourdough"} {
 				if got := gittest.Run(t, hub, "show", scm.Ref(ctx, hub, "refs/heads/"+source.Branch)+":"+file); got != want {
 					t.Errorf("%s on the change's branch: %q, want %q", file, got, want)

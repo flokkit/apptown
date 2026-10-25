@@ -275,7 +275,14 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 			evidence["base"] = "the commit this change is compared with could not be read: " + baseErr.Error() // the failure stands
 		}
 		if base != "" {
-			switch carried, why := testsFailOnBase(task.Context(), a.cfg.DataDir, source.Repository(a.cfg.DataDir), base, command, detected, runIn); {
+			hub, pathErr := source.Repository(a.cfg.DataDir)
+			carried, why := false, ""
+			if pathErr != nil {
+				why = pathErr.Error()
+			} else {
+				carried, why = testsFailOnBase(task.Context(), a.cfg.DataDir, hub, base, command, detected, runIn)
+			}
+			switch {
 			case carried:
 				short := base[:min(8, len(base))]
 				evidence["carried"] = "the same tests fail on the base commit " + short + " — the estate's debt, not this change's; it is reported, not gating"

@@ -163,7 +163,12 @@ func (a *Executor) Review(task *workflow.Execution) {
 		attempt.settle("unclaimed")
 		return
 	}
-	ws := source.Workspace(a.cfg.DataDir)
+	ws, err := source.Workspace(a.cfg.DataDir)
+	if err != nil {
+		log.Printf("run %d step %d: selecting workspace: %v; not started", run.ID, step.ID, err)
+		attempt.settle("unclaimed")
+		return
+	}
 	folder := gitexec.LockFolder(ws)
 	defer folder.Release()
 	if claim, err := task.Claim(); err != nil {
@@ -195,7 +200,12 @@ func (a *Executor) Review(task *workflow.Execution) {
 		}
 		reviewed = strings.TrimSpace(reviewed)
 	}
-	base, err := reviewBase(task.Context(), source.Repository(a.cfg.DataDir), source, reviewed)
+	hub, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
+	base, err := reviewBase(task.Context(), hub, source, reviewed)
 	if err != nil && source.RepoBacked() {
 		finish(workflow.StatusError, map[string]any{"reason": "reading the change's base for the reviewer: " + err.Error()})
 		return

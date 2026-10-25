@@ -136,7 +136,7 @@ func TestAStaleVerdictThatCannotBeRemovedStopsTheReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	// An earlier verdict that os.Remove cannot remove: a non-empty directory.
-	if err := os.MkdirAll(filepath.Join(source.Workspace(a.dir), ".apptown", "review.json", "kept"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(requireLocation(t)(source.Workspace(a.dir)), ".apptown", "review.json", "kept"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.work.ExecuteStep(a.ctx, stepID); err != nil {

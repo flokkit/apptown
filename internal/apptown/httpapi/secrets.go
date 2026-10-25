@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -40,10 +39,6 @@ func NewSecrets(secrets *secret.Service, integrations *integration.Service, proj
 // listing.
 type DeploymentLister interface {
 	List(ctx context.Context, projectID ids.ID) ([]deployment.Summary, error)
-}
-
-func (h Secrets) projectRepoPath(slug string) string {
-	return filepath.Join(h.dataDir, "workspaces", "project-"+slug)
 }
 
 // The Settings → Secrets surface: what the app
@@ -175,7 +170,11 @@ func (h Secrets) ProjectSecrets(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ws := h.projectRepoPath(p.Slug)
+	ws, err := p.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	stores, err := h.secrets.Stores()
 	if err != nil {
 		WriteFaultOr(w, err, http.StatusServiceUnavailable)
@@ -323,7 +322,11 @@ func (h Secrets) SetSecretProfile(w http.ResponseWriter, r *http.Request) {
 		}
 		// The deployment's one profile, for app.yaml and secretspec.toml
 		// alike: default (the base) or a name either file declares at main.
-		ws := h.projectRepoPath(p.Slug)
+		ws, err := p.Repository(h.dataDir)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
 		c, err := docker.ReadWorkspaceContract(ws)
 		if err != nil && err != docker.ErrNoContract {
 			WriteError(w, 409, "the app's contract cannot be read: %v", err)

@@ -50,7 +50,7 @@ func TestAScriptOnAWorkerPublishesWhatItMade(t *testing.T) {
 		}
 	})
 	source := a.source(t, run)
-	hub, ws := source.Repository(a.dir), source.Workspace(a.dir)
+	hub, ws := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
 	given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 	// The worker keeps each workspace's Git directory apart from its files.
 	workerGit := filepath.Join(filepath.Dir(filepath.Dir(remote)), "git", filepath.Base(remote)+".git")
@@ -105,7 +105,7 @@ func TestAStaleWorkerResultIsRefused(t *testing.T) {
 			t.Parallel()
 			a, fake, step, run, remote := startOnWorker(t)
 			source := a.source(t, run)
-			hub, ws := source.Repository(a.dir), source.Workspace(a.dir)
+			hub, ws := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
 			given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 			switch how {
 			case "handed over":
@@ -150,7 +150,7 @@ func TestAnIsolatedAppTownRunsNoScriptOnItsHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := a.source(t, run).Workspace(a.dir)
+	ws := requireLocation(t)(a.source(t, run).Workspace(a.dir))
 	if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestAWorkerResultChangingNonSourceIsRefused(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			a, fake, step, run, remote := startOnWorker(t)
 			source := a.source(t, run)
-			hub := source.Repository(a.dir)
+			hub := requireLocation(t)(source.Repository(a.dir))
 			given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 			for name, body := range tc.files {
 				if err := os.MkdirAll(filepath.Dir(filepath.Join(remote, name)), 0o755); err != nil {
@@ -284,7 +284,7 @@ func TestAnAppTownRunsNoScriptOnItsHostUnlessAllowed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := a.source(t, run).Workspace(a.dir)
+	ws := requireLocation(t)(a.source(t, run).Workspace(a.dir))
 	if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
 		t.Fatal(err)
 	}

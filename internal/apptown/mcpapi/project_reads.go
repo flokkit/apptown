@@ -2,7 +2,6 @@ package mcpapi
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -179,7 +178,10 @@ func (h projectReads) getApplicationContract(c *Call, args map[string]any) (any,
 	if p.DefaultBranch == "" {
 		return nil, refuse("project %q is not repo-backed, so there is no contract to read", p.Slug)
 	}
-	repo := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(h.dataDir)
+	if err != nil {
+		return nil, err
+	}
 	raw, err := gitexec.Run(c.Context, repo, "show", p.DefaultBranch+":.apptown/app.yaml")
 	if err != nil {
 		return nil, refuse("project %q has no .apptown/app.yaml committed on %s", p.Slug, p.DefaultBranch)

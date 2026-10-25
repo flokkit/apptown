@@ -310,7 +310,15 @@ func (p landingPins) acceptedTip(ctx context.Context, run RunRef) (string, error
 	// branch, moves on: the folder first, then the hub. A branch neither
 	// holds is a change with no commit of its own yet, which accepts none.
 	ref := "refs/heads/" + source.Branch
-	for _, repo := range []string{source.Workspace(p.dataDir), source.Repository(p.dataDir)} {
+	workspace, err := source.Workspace(p.dataDir)
+	if err != nil {
+		return "", err
+	}
+	hub, err := source.Repository(p.dataDir)
+	if err != nil {
+		return "", err
+	}
+	for _, repo := range []string{workspace, hub} {
 		if _, err := os.Stat(repo); errors.Is(err, os.ErrNotExist) {
 			continue
 		} else if err != nil {
@@ -339,7 +347,10 @@ func (p landingPins) pinPrepared(ctx context.Context, run *Run) error {
 		return err
 	}
 	// A landing publishes nothing: its candidate is the branch as published.
-	hub := source.Repository(p.dataDir)
+	hub, err := source.Repository(p.dataDir)
+	if err != nil {
+		return err
+	}
 	// A repository with no default branch yet has no target: the candidate
 	// lands as the first history. With neither, there is nothing to land and
 	// nothing to pin; the landing's gates and merge refuse.

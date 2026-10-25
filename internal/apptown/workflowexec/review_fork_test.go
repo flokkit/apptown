@@ -44,7 +44,7 @@ func TestAReviewOfACaughtUpChangeHoldsNothingOfMains(t *testing.T) {
 	git("commit", "-q", "-m", "main advances")
 	git("checkout", "-q", "change")
 	git("merge", "-q", "--ff-only", "main")
-	source := workflow.Source{ChangeID: idstest.N(1), Slug: "review", DefaultBranch: "main", Branch: "change", ChangeBaseSHA: recorded}
+	source := workflow.Source{ProjectID: idstest.N(2), ChangeID: idstest.N(1), Slug: "review", DefaultBranch: "main", Branch: "change", ChangeBaseSHA: recorded}
 	_, files, err := hubScope(repo, source, git("rev-parse", "HEAD"))(t.Context())
 	if err != nil || len(files) != 0 {
 		t.Fatalf("a caught-up change with no work of its own holds %+v (%v)", files, err)

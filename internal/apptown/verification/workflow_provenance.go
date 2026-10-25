@@ -19,5 +19,9 @@ func WorkflowProvenanceBase(ctx context.Context, dataDir string, source workflow
 	if source.ChangeID.IsZero() || !source.RepoBacked() {
 		return "", nil
 	}
-	return scm.ForkBase(ctx, source.Repository(dataDir), source.DefaultBranch, tip, source.ChangeBaseSHA)
+	hub, err := source.Repository(dataDir)
+	if err != nil {
+		return "", err
+	}
+	return scm.ForkBase(ctx, hub, source.DefaultBranch, tip, source.ChangeBaseSHA)
 }

@@ -3,6 +3,7 @@ package preview
 import (
 	"context"
 	"fmt"
+	projectrepo "github.com/flokkit/apptown/internal/apptown/project"
 	"log"
 	"time"
 
@@ -33,7 +34,11 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 		return ReleaseResult{}, err
 	}
 	n := selected.Number
-	tree, cleanup, err := (deploy.SelectedSource{Repository: s.hosts.ProjectRepository(p.Slug), Revision: selected.SourceRevision}).Stage(ctx, "")
+	repository, err := s.hosts.ProjectRepository(projectrepo.RepositoryRef{ID: p.ID, Slug: p.Slug})
+	if err != nil {
+		return ReleaseResult{}, err
+	}
+	tree, cleanup, err := (deploy.SelectedSource{Repository: repository, Revision: selected.SourceRevision}).Stage(ctx, "")
 	staged := tree.Directory
 	if err != nil {
 		return ReleaseResult{}, &ReleaseSourceError{Cause: fmt.Errorf("reading this release's selected source: %w", err)}

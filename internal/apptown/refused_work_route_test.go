@@ -96,7 +96,7 @@ func TestARefusedResultIsKeptForItsDownload(t *testing.T) {
 			t.Parallel()
 			a, fake, step, run, remote := startOnWorker(t)
 			source := workflowSourceForTest(t, a, run)
-			hub, ws := source.Repository(a.cfg.dataDir), source.Workspace(a.cfg.dataDir)
+			hub, ws := requireLocation(t)(source.Repository(a.cfg.dataDir)), requireLocation(t)(source.Workspace(a.cfg.dataDir))
 			given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 			files := map[string]string{"made.txt": "refused work\n"}
 			why := ""

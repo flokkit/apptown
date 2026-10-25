@@ -3,7 +3,6 @@ package repositoryedit
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -46,7 +45,10 @@ func (editor *Integrity) Resolve(ctx context.Context, p *project.Project, action
 	if action != "adopt" && action != "discard" {
 		return IntegrityResult{}, fmt.Errorf("unsupported integrity action %q", action)
 	}
-	repo := filepath.Join(editor.dataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(editor.dataDir)
+	if err != nil {
+		return IntegrityResult{}, err
+	}
 	release, err := editor.locks.Acquire(ctx, p.ID)
 	if err != nil {
 		return IntegrityResult{}, fmt.Errorf("acquiring repository: %w", err)

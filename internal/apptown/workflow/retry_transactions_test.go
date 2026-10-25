@@ -74,7 +74,7 @@ func TestWorkflowRetryCompletedSendBack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if nextSource.Workspace("test-data") != originalSource.Workspace("test-data") {
+	if requireLocation(t)(nextSource.Workspace("test-data")) != requireLocation(t)(originalSource.Workspace("test-data")) {
 		t.Fatal("continuation lost the source workspace")
 	}
 	step, err := readStep(context.Background(), s.db, result.StepID)

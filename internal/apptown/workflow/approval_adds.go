@@ -221,8 +221,16 @@ func (a approvalAdds) forStep(ctx context.Context, run *Run, step *Step) (*Chang
 	if err != nil {
 		return nil, err
 	}
-	q := AddsQuestion{ProjectID: run.ProjectID, ChangeID: source.ChangeID, Head: head, DefaultBranch: source.DefaultBranch, Hub: source.Repository(a.pins.dataDir)}
-	q.Repositories = []string{source.Workspace(a.pins.dataDir), q.Hub}
+	hub, err := source.Repository(a.pins.dataDir)
+	if err != nil {
+		return nil, err
+	}
+	workspace, err := source.Workspace(a.pins.dataDir)
+	if err != nil {
+		return nil, err
+	}
+	q := AddsQuestion{ProjectID: run.ProjectID, ChangeID: source.ChangeID, Head: head, DefaultBranch: source.DefaultBranch, Hub: hub}
+	q.Repositories = []string{workspace, q.Hub}
 	if !source.ChangeID.IsZero() {
 		change, err := readChange(ctx, a.pins.db, source.ChangeID)
 		if err != nil {

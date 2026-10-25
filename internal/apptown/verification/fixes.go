@@ -10,7 +10,6 @@ package verification
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -50,11 +49,13 @@ func (f Fleet) prepareVerdictFix(ctx context.Context, prev, next conformance.Ver
 // when none can be named; commits then carries the range for the record.
 func (f Fleet) changesLandedBetween(ctx context.Context, projectID ids.ID, from, to string) ([]ids.ID, string, error) {
 	slugMeta, slugErr := project.ByIDIn(ctx, f.db, projectID)
-	slug := slugMeta.Slug
 	if slugErr != nil {
 		return nil, "", slugErr
 	}
-	repo := filepath.Join(f.dataDir, "workspaces", "project-"+slug)
+	repo, err := slugMeta.Repository(f.dataDir)
+	if err != nil {
+		return nil, "", err
+	}
 	if !gitexec.IsRepo(repo) || from == "" || to == "" || from == to {
 		return nil, "", nil
 	}

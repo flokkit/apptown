@@ -165,7 +165,7 @@ func requireKept(t *testing.T, a *taskAppTown, step *workflow.Step, run *workflo
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub := a.source(t, run).Repository(a.dir)
+	hub := requireLocation(t)(a.source(t, run).Repository(a.dir))
 	kept, found, err := repositoryedit.FindCandidate(context.Background(), hub, step.ID, 1, attempt.Source)
 	if err != nil || !found {
 		t.Fatalf("no result kept: %v", err)
@@ -209,7 +209,7 @@ func failSettlementOnce(db **database.DB) func(int, http.ResponseWriter, *httpte
 // candidate, named by the evidence, one commit.created and no refusal.
 func requirePublishedOnce(t *testing.T, a *taskAppTown, step, settled *workflow.Step, run *workflow.Run) {
 	t.Helper()
-	hub := a.source(t, run).Repository(a.dir)
+	hub := requireLocation(t)(a.source(t, run).Repository(a.dir))
 	branch := scm.Ref(t.Context(), hub, "refs/heads/"+a.source(t, run).Branch)
 	result := requireKept(t, a, settled, run, false)
 	if result.Ref != repositoryedit.CandidateRef(step.ID, 1) || result.Commit != branch {
@@ -241,7 +241,7 @@ func TestACrashAfterAnUnsettledPublicationFinishesIt(t *testing.T) {
 	a.tasks.AbandonAt = nil
 	requireRunning(t, a, fake, step)
 	source := a.source(t, run)
-	hub := source.Repository(a.dir)
+	hub := requireLocation(t)(source.Repository(a.dir))
 	published := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 	if published != scm.Ref(t.Context(), hub, repositoryedit.CandidateRef(step.ID, 1)) {
 		t.Fatalf("the branch %s did not move to the candidate", published)
@@ -304,7 +304,7 @@ func TestARefusalsEvidenceNamesTheRefusedRef(t *testing.T) {
 			if result.Ref != repositoryedit.RefusedStepRef(step.ID, 1) {
 				t.Fatalf("the evidence names %s", result.Ref)
 			}
-			if c := scm.Ref(t.Context(), a.source(t, run).Repository(a.dir), repositoryedit.CandidateRef(step.ID, 1)); c != "" {
+			if c := scm.Ref(t.Context(), requireLocation(t)(a.source(t, run).Repository(a.dir)), repositoryedit.CandidateRef(step.ID, 1)); c != "" {
 				t.Fatalf("the refused result is still a candidate: %s", c)
 			}
 			awaitReleased(t, settler, fake, key)
@@ -319,7 +319,7 @@ func TestAReplayedResultReadsTheBranchBeforeItsRefusal(t *testing.T) {
 	t.Parallel()
 	a, fake, step, run, remote := startOnWorker(t)
 	source := a.source(t, run)
-	hub, ws := source.Repository(a.dir), source.Workspace(a.dir)
+	hub, ws := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
 	handOver(t, a, run, source.Branch)
 	writeRemote(t, remote, map[string]string{"kept.txt": "work\n"})
 	fake.Exit(taskKeyOf(step), 0)
@@ -372,7 +372,7 @@ func TestTheWorkersOnlyCopySurvivesAHoldThatCannotBeRecorded(t *testing.T) {
 	}
 	awaitStep(t, a, step.ID, workflow.StatusError)
 	for _, ref := range []string{repositoryedit.CandidateRef(step.ID, 1), repositoryedit.RefusedStepRef(step.ID, 1)} {
-		if tip := scm.Ref(t.Context(), source.Repository(a.dir), ref); tip != "" {
+		if tip := scm.Ref(t.Context(), requireLocation(t)(source.Repository(a.dir)), ref); tip != "" {
 			t.Fatalf("unexpected kept work %s", tip)
 		}
 	}
@@ -406,7 +406,7 @@ func TestALostOutputReadKeepsUncollectedWork(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hub := a.source(t, run).Repository(a.dir)
+	hub := requireLocation(t)(a.source(t, run).Repository(a.dir))
 	candidate, beforeKept, err := repositoryedit.FindCandidate(context.Background(), hub, step.ID, 1, attempt.Source)
 	if err != nil {
 		t.Fatal(err)

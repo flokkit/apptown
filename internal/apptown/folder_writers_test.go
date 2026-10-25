@@ -317,7 +317,7 @@ func TestAWriterThatOutlivedItsStepKeepsTheNextOneOut(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					ws := source.Workspace(a.cfg.dataDir)
+					ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 					var survived string
 					calls := 0
 					installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
@@ -505,7 +505,7 @@ func TestRecoveryDoesNotStartAScriptBesideAWriterOrAfterItsRunStopped(t *testing
 					t.Fatal(err)
 				}
 			} else {
-				daemon.live["left-writer"] = []string{docker.WritesLabel + "=" + source.Workspace(a.cfg.dataDir)}
+				daemon.live["left-writer"] = []string{docker.WritesLabel + "=" + requireLocation(t)(source.Workspace(a.cfg.dataDir))}
 			}
 			a.tasks.AbandonAt = nil
 			a.workDependencies().Recoverers["script"](e)
@@ -551,7 +551,7 @@ func TestAWriterLeftMarkedRunningKeepsEveryNextWriterOut(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				ws := source.Workspace(a.cfg.dataDir)
+				ws := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 				var survivor string
 				calls := 0
 				runPi := func(_ int, req ExecRequest) ExecOutcome {
@@ -662,7 +662,7 @@ func TestRemoteRecoveryDoesNotPublishBesideASurvivingWriter(t *testing.T) {
 			a.tasks.AbandonAt = nil
 			a.workDependencies().Recoverers["script"](e)
 			source := workflowSourceForTest(t, a, snap.Run)
-			made := filepath.Join(source.Workspace(a.cfg.dataDir), "remote-made.txt")
+			made := filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "remote-made.txt")
 			if _, err := os.Stat(made); err == nil || !daemon.has(survivor) {
 				t.Fatalf("recovery fast-forwarded the shared folder while %s still writes it (survivor live: %v)", kind, daemon.has(survivor))
 			}
@@ -999,7 +999,7 @@ func TestAWriterWhoseStepIsGoneIsRemovedOrRefusesTheAttempt(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			d.survive(ExecRequest{Name: "orphan-writer", Labels: []string{docker.WritesLabel + "=" + source.Workspace(a.cfg.dataDir), "apptown.step=9999999"}})
+			d.survive(ExecRequest{Name: "orphan-writer", Labels: []string{docker.WritesLabel + "=" + requireLocation(t)(source.Workspace(a.cfg.dataDir)), "apptown.step=9999999"}})
 			calls := 0
 			installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome { calls++; return ExecOutcome{Output: piSays("done")} })
 			if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
@@ -1041,7 +1041,7 @@ func TestAWriterWithNoStepIsRemovedBeforeAnAttempt(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			d.survive(ExecRequest{Name: "no-step-label", Labels: []string{docker.WritesLabel + "=" + source.Workspace(a.cfg.dataDir)}})
+			d.survive(ExecRequest{Name: "no-step-label", Labels: []string{docker.WritesLabel + "=" + requireLocation(t)(source.Workspace(a.cfg.dataDir))}})
 			calls := 0
 			installFakePi(t, a, func(_ int, _ ExecRequest) ExecOutcome { calls++; return ExecOutcome{Output: piSays("done")} })
 			if err := a.Work.ExecuteStep(a.asEngine(context.Background()), stepID); err != nil {
@@ -1128,7 +1128,7 @@ func TestARestartWaitsForASiblingStepLeftWritingTheFolder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	marker := filepath.Join(source.Workspace(a.cfg.dataDir), "reviewer-work.txt")
+	marker := filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "reviewer-work.txt")
 	if err = os.WriteFile(marker, []byte("still being written"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -1275,7 +1275,7 @@ func TestAStepLeftMarkedRunningDoesNotShieldItsContainer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	marker := filepath.Join(source.Workspace(a.cfg.dataDir), "old-review-work.txt")
+	marker := filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "old-review-work.txt")
 	if err := os.WriteFile(marker, []byte("still writing"), 0600); err != nil {
 		t.Fatal(err)
 	}

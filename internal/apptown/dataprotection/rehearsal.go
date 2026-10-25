@@ -28,7 +28,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/operations"
-	"github.com/flokkit/apptown/internal/apptown/project"
+	projectrepo "github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/database"
@@ -379,7 +379,7 @@ func (s *Service) RequestRehearsal(ctx context.Context, projectID ids.ID, name s
 	if err != nil {
 		return nil, err
 	}
-	if err := project.RefuseUnlessActive(ctx, s.db, projectID); err != nil {
+	if err := projectrepo.RefuseUnlessActive(ctx, s.db, projectID); err != nil {
 		return nil, err
 	}
 	p, err := s.planRehearsal(ctx, projectID, name, set)
@@ -676,7 +676,11 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 	if err != nil {
 		return fail(step, "the project could not be read")
 	}
-	tree, cleanup, err := (deploy.SelectedSource{Repository: s.hosts.ProjectRepository(proj.Slug), Revision: p.bundle.ContractRevision}).Stage(ctx, "")
+	repository, err := s.hosts.ProjectRepository(projectrepo.RepositoryRef{ID: proj.ID, Slug: proj.Slug})
+	if err != nil {
+		return fail(step, err.Error())
+	}
+	tree, cleanup, err := (deploy.SelectedSource{Repository: repository, Revision: p.bundle.ContractRevision}).Stage(ctx, "")
 	if err != nil {
 		return fail(step, "the release's source could not be staged")
 	}

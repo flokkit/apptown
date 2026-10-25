@@ -87,7 +87,7 @@ exit 1
 		t.Fatal(err)
 	}
 	commits := source.Landing.Target + ".." + source.Landing.Candidate
-	repository := source.Repository(a.cfg.dataDir) + ":/history:ro"
+	repository := requireLocation(t)(source.Repository(a.cfg.dataDir)) + ":/history:ro"
 	if got := string(recorded); !strings.Contains(got, "git /history --log-opts "+commits) || !strings.Contains(got, repository) || strings.Contains(got, "--no-git") {
 		t.Fatalf("the landing's scan did not read the commits it adds (%s, %s):\n%s", commits, repository, got)
 	}

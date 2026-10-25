@@ -181,7 +181,13 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 	defer a.dropSettledScratch(ctx, source)
 	// Publication brings the run's folder forward: it is locked for the
 	// attempt, as for a script, and waited for before the claim.
-	folder := gitexec.LockFolder(source.Workspace(a.cfg.DataDir))
+	workspace, err := source.Workspace(a.cfg.DataDir)
+	if err != nil {
+		log.Printf("run %d: resolving workspace: %v; not started", run.ID, err)
+		attempt.settle("unclaimed")
+		return
+	}
+	folder := gitexec.LockFolder(workspace)
 	defer folder.Release()
 	claim, err := task.Claim()
 	if err != nil {
@@ -243,7 +249,11 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 		}
 	}
 	if review != nil {
-		hub := source.Repository(a.cfg.DataDir)
+		hub, err := source.Repository(a.cfg.DataDir)
+		if err != nil {
+			refuse(err)
+			return
+		}
 		diff, err := hubReviewDiff(ctx, hub, source, call.commit)
 		if err == nil {
 			review.brief, err = a.reviewBrief(ctx, run, source, review.cfg, diff, hubScope(hub, source, call.commit))
@@ -354,7 +364,12 @@ func (a *Executor) RecoverAgent(task *workflow.Execution) {
 		return
 	}
 	defer a.dropSettledScratch(ctx, source)
-	folder := gitexec.LockFolder(source.Workspace(a.cfg.DataDir))
+	workspace, err := source.Workspace(a.cfg.DataDir)
+	if err != nil {
+		log.Printf("run %d: resolving workspace: %v; its invocation stays recorded", run.ID, err)
+		return
+	}
+	folder := gitexec.LockFolder(workspace)
 	defer folder.Release()
 	// It may have waited for the folder: the attempt must still be current.
 	// Only a confirmed loss stops its invocation.
@@ -732,7 +747,11 @@ func (a *Executor) keepWorkerTranscript(ctx context.Context, w *workerAttempt, m
 // decided leaves everything recorded for a restarted AppTown.
 func (a *Executor) finishAttempt(ctx context.Context, w *workerAttempt, inv tasks.Attempt, ref execution.TaskRef, res invocationResult, code int, meta agentAdmission) {
 	r := a.worker.Tasks
-	hub := w.source.Repository(a.cfg.DataDir)
+	hub, err := w.source.Repository(a.cfg.DataDir)
+	if err != nil {
+		log.Printf("run %d: resolving repository: %v; result remains recorded", w.run.ID, err)
+		return
+	}
 	// A review's verdict and scope are judged from what was recorded and
 	// the candidate before anything is published.
 	// A review publishes nothing (discardReviewerChanges): its candidate is
@@ -757,7 +776,6 @@ func (a *Executor) finishAttempt(ctx context.Context, w *workerAttempt, inv task
 	}
 	w.obs.harness(res.piResult)
 	var settled string
-	var err error
 	if meta.Review != nil {
 		settled, err = a.settleReview(w.task, review.verdict, review.failure, review.evidence(r.backend(), inv.Source, candidate))
 	} else {

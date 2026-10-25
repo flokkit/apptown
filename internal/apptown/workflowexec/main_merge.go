@@ -54,7 +54,12 @@ func (a *Executor) mergeMainFirst(ctx context.Context, run *workflow.Run, step *
 	message := trailer.Message(repositoryedit.MergeTitle(source.DefaultBranch, source.Branch),
 		fmt.Sprintf("AppTown merged %s into this change before step %s of run %d: the branch was behind %s and the merge had no conflicts.", source.DefaultBranch, step.Name, run.Number, source.DefaultBranch),
 		trailer.Line{Key: trailer.RunID, Value: run.ID.String()}, trailer.Line{Key: trailer.Step, Value: step.Name}) + "\n"
-	merge, err := scm.MergeMain(ctx, source.Repository(a.cfg.DataDir), commit, source.DefaultBranch, message)
+	hub, err := source.Repository(a.cfg.DataDir)
+	if err != nil {
+		log.Printf("run %d: resolving repository for main merge: %v", run.ID, err)
+		return scm.MainMerge{}
+	}
+	merge, err := scm.MergeMain(ctx, hub, commit, source.DefaultBranch, message)
 	if err != nil {
 		log.Printf("run %d step %s: main is not merged in: %v", run.ID, step.Name, err)
 		return scm.MainMerge{}
@@ -105,7 +110,11 @@ func (a *Executor) mergeMainInFolder(ctx context.Context, run *workflow.Run, ste
 	}
 	holds, err := gitexec.FolderHolds(ctx, folder.Path(), source.Branch, start)
 	if err == nil && !holds {
-		if err = folder.FastForward(ctx, source.Repository(a.cfg.DataDir), source.Branch); err == nil {
+		hub, pathErr := source.Repository(a.cfg.DataDir)
+		if pathErr != nil {
+			return pathErr
+		}
+		if err = folder.FastForward(ctx, hub, source.Branch); err == nil {
 			holds, err = gitexec.FolderHolds(ctx, folder.Path(), source.Branch, start)
 		}
 	}

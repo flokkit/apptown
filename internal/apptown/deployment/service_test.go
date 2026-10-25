@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/ids"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ type (
 func (noFollowups) EnqueueIn(context.Context, *database.Tx, jobs.Request) error {
 	return nil
 }
-func (noDeclaration) Declared(string) (Declared, bool) { return Declared{}, false }
+func (noDeclaration) Declared(context.Context, ids.ID) (Declared, bool) { return Declared{}, false }
 func (noRetirement) RetireUnusedConnector(context.Context, *database.Tx, string, string, string, time.Time) error {
 	return nil
 }

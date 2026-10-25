@@ -40,7 +40,7 @@ func mergeRequestWorld(t *testing.T) (*App, workflow.MergeSource, *gitlabtest.Se
 		t.Fatal(err)
 	}
 	source = mergeSourceForTest(t, a, run)
-	repo := source.Repository(a.cfg.dataDir)
+	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	remote := filepath.Join(t.TempDir(), "remote.git")
 	gittest.Run(t, t.TempDir(), "clone", "--bare", repo, remote)
 	gittest.Run(t, repo, "remote", "add", "origin", remote)
@@ -119,7 +119,7 @@ func TestAMergeRequestLandsExactlyTheCheckedCandidate(t *testing.T) {
 			if err != nil || !result.Merged {
 				t.Fatalf("merge request did not land: %+v %v", result, err)
 			}
-			repo := source.Repository(a.cfg.dataDir)
+			repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 			landed := gittest.Run(t, repo, "rev-parse", "refs/heads/"+source.DefaultBranch)
 			if method == "ff" && landed != source.Landing.Candidate {
 				t.Fatalf("fast-forward landed %s, not the candidate %s", landed, source.Landing.Candidate)
@@ -172,7 +172,7 @@ func TestAMergeRequestMovesMainOnlyToTheCheckedLanding(t *testing.T) {
 	if err != nil {
 		return
 	}
-	repo := source.Repository(a.cfg.dataDir)
+	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	actual := gittest.Run(t, repo, "rev-parse", source.DefaultBranch+"^{tree}")
 	checked := gittest.Run(t, repo, "rev-parse", source.Landing.Candidate+"^{tree}")
 	if result.Merged && actual != checked {
@@ -227,7 +227,7 @@ func TestAMergeWithOtherHistoryIsNotRecordedAsLanded(t *testing.T) {
 	}
 	result, err := seam.execute(context.Background(), advanceWorkflowMerge(run, source))
 	if err == nil && result.Merged {
-		gittest.Run(t, source.Repository(a.cfg.dataDir), "merge-base", "--is-ancestor", extra, "HEAD")
+		gittest.Run(t, requireLocation(t)(source.Repository(a.cfg.dataDir)), "merge-base", "--is-ancestor", extra, "HEAD")
 		t.Fatalf("same-tree merge recorded despite additional unscanned history %s", extra)
 	}
 }
@@ -318,7 +318,7 @@ func TestALandingIsAdmittedAgainWhenWhatItSaysChanged(t *testing.T) {
 	t.Parallel()
 	a, source := mergeSettlementFixture(t)
 	testAdministrator(t, a, "bls")
-	repo := source.Repository(a.cfg.dataDir)
+	repo := requireLocation(t)(source.Repository(a.cfg.dataDir))
 	before := gittest.Run(t, repo, "rev-parse", "refs/heads/"+source.DefaultBranch)
 	seam := mergesFor(a)
 	approved := false

@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -36,8 +37,8 @@ type Git interface {
 // Layout is where a project's repository and a workspace live.
 type Layout struct{ DataDir string }
 
-func (l Layout) Repository(slug string) string {
-	return filepath.Join(l.DataDir, "workspaces", "project-"+slug)
+func (l Layout) Repository(ref project.RepositoryRef) (string, error) {
+	return ref.Path(l.DataDir)
 }
 func (l Layout) ChangeWorkspace(changeID ids.ID) string {
 	return filepath.Join(l.DataDir, "workspaces", fmt.Sprintf("change-%d", changeID))
@@ -121,18 +122,21 @@ func (i changeImporter) Import(ctx context.Context, in ImportBranch, who string)
 	created, err := func() (CreatedChange, error) {
 		defer release()
 		source := importSource{projectID: in.ProjectID, branch: in.Branch}
-		project, err := workflowsql.New(i.creator.records.db.SQL()).ProjectByID(ctx, in.ProjectID)
+		p, err := workflowsql.New(i.creator.records.db.SQL()).ProjectByID(ctx, in.ProjectID)
 		if err != nil {
 			return CreatedChange{}, err
 		}
-		source.slug, source.defaultBranch = project.Slug, project.DefaultBranch
+		source.slug, source.defaultBranch = p.Slug, p.DefaultBranch
 		if source.defaultBranch == "" {
 			return CreatedChange{}, fmt.Errorf("project %q is not repo-backed", source.slug)
 		}
 		if err := gitexec.CheckBranchName(in.Branch); err != nil {
 			return CreatedChange{}, fmt.Errorf("invalid branch: %w", err)
 		}
-		repo := i.git.Paths().Repository(source.slug)
+		repo, err := i.git.Paths().Repository(project.RepositoryRef{ID: source.projectID, Slug: source.slug})
+		if err != nil {
+			return CreatedChange{}, err
+		}
 		source.tip, err = i.git.BranchTip(ctx, repo, in.Branch)
 		if err != nil {
 			return CreatedChange{}, fmt.Errorf("branch %q not found in the project repo: %w", in.Branch, err)
@@ -154,14 +158,14 @@ func (i changeImporter) Import(ctx context.Context, in ImportBranch, who string)
 func (s changeStore) importBranch(ctx context.Context, in ImportBranch, source importSource, who string) (CreatedChange, error) {
 	now := s.now()
 	return database.Transact(ctx, s.db, func(tx *database.Tx) (CreatedChange, error) {
-		project, err := workflowsql.New(tx.SQL()).ProjectForUpdate(ctx, in.ProjectID)
+		p, err := workflowsql.New(tx.SQL()).ProjectForUpdate(ctx, in.ProjectID)
 		if err != nil {
 			return CreatedChange{}, err
 		}
 		if err := refuseUnlessActive(ctx, tx, in.ProjectID); err != nil {
 			return CreatedChange{}, err
 		}
-		current := CreatedChange{Slug: project.Slug, DefaultBranch: project.DefaultBranch}
+		current := CreatedChange{Slug: p.Slug, DefaultBranch: p.DefaultBranch}
 		if source.projectID != in.ProjectID || source.branch != in.Branch || current.Slug != source.slug || current.DefaultBranch != source.defaultBranch || source.base == "" || source.tip == "" {
 			return CreatedChange{}, fmt.Errorf("project or import source changed; inspect and import again")
 		}

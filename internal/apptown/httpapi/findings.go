@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/flokkit/apptown/internal/strs"
 	"net/http"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -154,7 +153,11 @@ func (h Findings) ProjectFindings(w http.ResponseWriter, r *http.Request) {
 	// scan? (Approximate — compares commit time to scan time.)
 	repoState := FindingsRepoState{}
 	if p.DefaultBranch != "" {
-		dir := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+		dir, err := p.Repository(h.dataDir)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
 		if sha, err := gitexec.Run(r.Context(), dir, "rev-parse", "--short", "HEAD"); err == nil {
 			when, _ := gitexec.Run(r.Context(), dir, "log", "-1", "--format=%cI")
 			subject, _ := gitexec.Run(r.Context(), dir, "log", "-1", "--format=%s")

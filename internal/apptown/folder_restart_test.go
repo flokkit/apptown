@@ -41,7 +41,7 @@ func newRestartWorld(t *testing.T) restartWorld {
 		t.Fatal(err)
 	}
 	w := restartWorld{a: a, run: run, source: workflowSourceForTest(t, a, run), stepID: stepID, seen: &[]string{}}
-	w.hub, w.ws, w.base = w.source.Repository(a.cfg.dataDir), w.source.Workspace(a.cfg.dataDir), w.source.RunBaseSHA
+	w.hub, w.ws, w.base = requireLocation(t)(w.source.Repository(a.cfg.dataDir)), requireLocation(t)(w.source.Workspace(a.cfg.dataDir)), w.source.RunBaseSHA
 	installFakePi(t, a, func(n int, req ExecRequest) ExecOutcome {
 		if n > 1 {
 			_, err := os.Stat(filepath.Join(req.Workspace, "stray.txt"))

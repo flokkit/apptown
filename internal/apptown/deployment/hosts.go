@@ -17,6 +17,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -81,8 +82,8 @@ func (h *Hosts) BootScratch() string { return filepath.Join(h.settings.DataDir, 
 
 // ProjectRepository is AppTown's clone of a project's repository, which
 // boots and copies read a selected revision from.
-func (h *Hosts) ProjectRepository(slug string) string {
-	return filepath.Join(h.settings.DataDir, "workspaces", "project-"+slug)
+func (h *Hosts) ProjectRepository(ref project.RepositoryRef) (string, error) {
+	return ref.Path(h.settings.DataDir)
 }
 
 var sshHostRe = regexp.MustCompile(`^ssh://([a-z_][a-z0-9_.-]*)@([A-Za-z0-9.-]+)(?::(\d{1,5}))?$`)

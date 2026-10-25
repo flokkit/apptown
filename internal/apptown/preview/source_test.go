@@ -94,7 +94,7 @@ func TestALandedChangePreviewsItsLandedCommitAndAnOpenOneItsFolder(t *testing.T)
 	if _, err := s.targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
 	}
-	repo := s.hosts.ProjectRepository("game")
+	repo := filepath.Join(dir, "workspaces", "project-game")
 	write := func(dir, image string) {
 		t.Helper()
 		if err := os.MkdirAll(filepath.Join(dir, ".apptown"), 0755); err != nil {

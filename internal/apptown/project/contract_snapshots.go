@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/flokkit/apptown/internal/ids"
 	"log"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -38,11 +37,14 @@ func (c *Contracts) RecordCommit(ctx context.Context, dataDir string, projectID 
 // resolveSnapshotAt distinguishes an absent declaration from unreadable source.
 func (c *Contracts) resolveSnapshotAt(ctx context.Context, dataDir string, projectID ids.ID, sha string) (status, format, appYAML, errMsg string) {
 	slugMeta, slugErr := ByIDIn(ctx, c.db, projectID)
-	slug := slugMeta.Slug
 	if slugErr != nil {
 		return "invalid", "none", "", "project not found"
 	}
-	raw, err := docker.ContractBytesAt(ctx, filepath.Join(dataDir, "workspaces", "project-"+slug), sha)
+	repo, err := slugMeta.Repository(dataDir)
+	if err != nil {
+		return "invalid", "none", "", err.Error()
+	}
+	raw, err := docker.ContractBytesAt(ctx, repo, sha)
 	if errors.Is(err, docker.ErrNoContract) {
 		return "absent", "none", "", ""
 	}

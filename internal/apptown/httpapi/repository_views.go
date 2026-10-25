@@ -45,7 +45,11 @@ func (h RepositoryViews) RepoIntegrity(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	repo := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+	repo, err := p.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	if !repositoryExists(repo) {
 		WriteError(w, 422, "project is not repo-backed")
 		return
@@ -89,8 +93,18 @@ func (h RepositoryViews) RunDiff(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 422, "project is not repo-backed")
 		return
 	}
-	repo, branch := source.Repository(h.dataDir), source.Branch
-	repo, err = scm.ComparisonRepository(r.Context(), repo, source.Workspace(h.dataDir))
+	repo, err := source.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	workspace, err := source.Workspace(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	branch := source.Branch
+	repo, err = scm.ComparisonRepository(r.Context(), repo, workspace)
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -155,7 +169,11 @@ func (h RepositoryViews) ChangeDiff(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	hub := filepath.Join(h.dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(h.dataDir)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	if noCode && !branchPublished(r.Context(), hub, ch.Branch) {
 		cmp, comparison, read := shippedComparison(r.Context(), h.releases, hub, ch)
 		if !read {
@@ -169,7 +187,7 @@ func (h RepositoryViews) ChangeDiff(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 404, "change has no branch")
 		return
 	}
-	repo, err := changeRepository(r.Context(), h.dataDir, p.Slug, ch.ID)
+	repo, err := changeRepository(r.Context(), h.dataDir, project.RepositoryRef{ID: p.ID, Slug: p.Slug}, ch.ID)
 	if err != nil {
 		WriteFault(w, err)
 		return
@@ -202,8 +220,12 @@ func (h RepositoryViews) writeDiff(w http.ResponseWriter, r *http.Request, repo 
 
 // changeRepository is where a change's committed work is read: its folder
 // when that holds the published branch, else the project's repository.
-func changeRepository(ctx context.Context, dataDir, slug string, changeID ids.ID) (string, error) {
-	return scm.ComparisonRepository(ctx, filepath.Join(dataDir, "workspaces", "project-"+slug), filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", changeID)))
+func changeRepository(ctx context.Context, dataDir string, owner project.RepositoryRef, changeID ids.ID) (string, error) {
+	hub, err := owner.Path(dataDir)
+	if err != nil {
+		return "", err
+	}
+	return scm.ComparisonRepository(ctx, hub, filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", changeID)))
 }
 
 func repositoryExists(dir string) bool {

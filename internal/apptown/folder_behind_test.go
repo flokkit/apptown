@@ -193,7 +193,7 @@ func TestALandingsOwnCopyIsAlwaysItsCandidate(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := workflowSourceForTest(t, w.a, run)
-	if got := gittest.Run(t, source.Workspace(w.a.cfg.dataDir), "rev-parse", "HEAD"); got != first {
+	if got := gittest.Run(t, requireLocation(t)(source.Workspace(w.a.cfg.dataDir)), "rev-parse", "HEAD"); got != first {
 		t.Fatalf("landing clone %s != %s", got, first)
 	}
 	filePath := fmt.Sprintf("/api/v1/runs/%d/workspace/candidate.txt", run.ID)

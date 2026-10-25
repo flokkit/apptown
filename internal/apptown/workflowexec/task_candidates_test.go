@@ -199,7 +199,7 @@ func TestAMalformedResultIsKeptNowhere(t *testing.T) {
 				pass(w, reply)
 			})
 			source := a.source(t, run)
-			hub := source.Repository(a.dir)
+			hub := requireLocation(t)(source.Repository(a.dir))
 			given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 			settled := awaitStep(t, a, step.ID, workflow.StatusError)
 			if !strings.Contains(string(settled.Evidence), "result not kept") {
@@ -237,7 +237,7 @@ func TestARefusedResultThatCannotBeKeptHoldsTheWorkspace(t *testing.T) {
 	t.Parallel()
 	a, fake, step, run, remote := startOnWorker(t)
 	source := a.source(t, run)
-	hub := source.Repository(a.dir)
+	hub := requireLocation(t)(source.Repository(a.dir))
 	handOver(t, a, run, source.Branch)
 	lock := filepath.Join(hub, ".git", repositoryedit.RefusedStepRef(step.ID, 1)+".lock")
 	if err := os.MkdirAll(filepath.Dir(lock), 0o755); err != nil {
@@ -275,7 +275,7 @@ func TestANoChangeAttemptsCandidateIsItsSource(t *testing.T) {
 	t.Parallel()
 	a, fake, step, run, _ := startOnWorker(t)
 	source := a.source(t, run)
-	hub := source.Repository(a.dir)
+	hub := requireLocation(t)(source.Repository(a.dir))
 	given := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 	fake.Exit(taskKeyOf(step), 0)
 	settled := awaitStep(t, a, step.ID, workflow.StatusPass)
@@ -310,7 +310,7 @@ func TestALostCollectionReplyIsAskedAgainAndPublishedOnce(t *testing.T) {
 		pass(w, reply)
 	})
 	source := a.source(t, run)
-	hub := source.Repository(a.dir)
+	hub := requireLocation(t)(source.Repository(a.dir))
 	awaitStep(t, a, step.ID, workflow.StatusPass)
 	tip := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 	if body := inRepo(t, hub, "show", tip+":made.txt"); body != "made once" {
@@ -339,7 +339,7 @@ func TestARestartAfterPublicationPublishesOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := a.source(t, run)
-	hub := source.Repository(a.dir)
+	hub := requireLocation(t)(source.Repository(a.dir))
 	given := branchOrDefault(t, hub, source)
 	a.tasks.AbandonAt = func(s string) bool { return s == "published" }
 	executed := make(chan error, 1)
@@ -399,7 +399,7 @@ func TestALandingRunPublishesNothing(t *testing.T) {
 	if source.RootRole != "landing" {
 		t.Fatalf("the run's role is %q", source.RootRole)
 	}
-	hub := source.Repository(a.dir)
+	hub := requireLocation(t)(source.Repository(a.dir))
 	before := scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 	executed := make(chan error, 1)
 	go func() { executed <- a.work.ExecuteStep(a.ctx, step.ID) }()
@@ -436,7 +436,7 @@ func TestAHostileFolderAheadIsNeverFetchedFrom(t *testing.T) {
 		t.Fatal(err)
 	}
 	source := a.source(t, run)
-	hub, ws := source.Repository(a.dir), source.Workspace(a.dir)
+	hub, ws := requireLocation(t)(source.Repository(a.dir)), requireLocation(t)(source.Workspace(a.dir))
 	given, before := branchOrDefault(t, hub, source), scm.Ref(t.Context(), hub, "refs/heads/"+source.Branch)
 	inRepo(t, ws, "commit", "-q", "--allow-empty", "-m", "the folder's own commit")
 	ahead := inRepo(t, ws, "rev-parse", "HEAD")

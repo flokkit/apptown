@@ -231,7 +231,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	onlyOnTheWorker(t, a)
 	build, review := steps["build"], steps["review"]
 	source := workflowSourceForTest(t, a, run)
-	hub, folder := source.Repository(a.cfg.dataDir), source.Workspace(a.cfg.dataDir)
+	hub, folder := requireLocation(t)(source.Repository(a.cfg.dataDir)), requireLocation(t)(source.Workspace(a.cfg.dataDir))
 	mu.Lock()
 	runRef = workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID}
 	mu.Unlock()

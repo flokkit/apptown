@@ -127,7 +127,10 @@ func SaveChat(ctx context.Context, db *database.DB, dataDir string, branches *sc
 	if authority.Holder != holder {
 		return ChatSave{At: now, Outcome: ChatSaveSkipped, Reason: fmt.Sprintf("this chat no longer holds change %s#%d", p.Slug, ch.Number)}
 	}
-	hub := filepath.Join(dataDir, "workspaces", "project-"+p.Slug)
+	hub, err := p.Repository(dataDir)
+	if err != nil {
+		return unknown(err)
+	}
 	// The chat builds on the branch's tip; before anything is published the
 	// branch is not in the repository yet, and the chat builds on the
 	// change's fork point, where the branch then begins.
@@ -289,8 +292,12 @@ func LastChatSave(dir string) (ChatSave, bool, error) {
 // since the change's branch, to w: the download of a refused last save.
 // Anyone who clones or fetches it gets the commits AppTown refused and
 // can repair them; nothing about it is published.
-func BundleRefusedChatSave(ctx context.Context, dataDir, projectSlug, branch, chat string, w io.Writer) error {
-	return bundleKept(ctx, hubOf(dataDir, projectSlug), branch, RefusedChatRef(chat), errNoRefusedSave, w)
+func BundleRefusedChatSave(ctx context.Context, dataDir string, p project.RepositoryRef, branch, chat string, w io.Writer) error {
+	hub, err := p.Path(dataDir)
+	if err != nil {
+		return err
+	}
+	return bundleKept(ctx, hub, branch, RefusedChatRef(chat), errNoRefusedSave, w)
 }
 
 var errNoRefusedSave = fault.New(fault.NotFound, "no refused save is kept for this chat")

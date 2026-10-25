@@ -250,7 +250,7 @@ func TestAWorkflowALandingCallsChecksItsCandidate(t *testing.T) {
 			workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "checks", Steps: []schema.Step{{Name: "call", Uses: "workflow/call", With: map[string]any{"workflow": "child"}}}}}}},
 			workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "child", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{{Name: "verify", Uses: "script", With: map[string]any{"run": "test \"$(cat value.txt)\" = candidate"}}}}}}})
 	})
-	if err := os.WriteFile(filepath.Join(source.Workspace(a.cfg.dataDir), "value.txt"), []byte("previous scratch write\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(requireLocation(t)(source.Workspace(a.cfg.dataDir)), "value.txt"), []byte("previous scratch write\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	call := reviewExecute(t, a, run, "call")

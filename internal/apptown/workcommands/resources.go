@@ -3,6 +3,7 @@ package workcommands
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"os"
 	"path/filepath"
 
@@ -41,7 +42,19 @@ func (a Resources) Run(ctx context.Context, runID ids.ID) error {
 
 // Change removes a Change's worktree once it is shipped or
 // abandoned. The branch stays (merged or forensic); the workspace is cattle.
-func (a Resources) Change(ctx context.Context, projectSlug string, changeID ids.ID) error {
+func (a Resources) Change(ctx context.Context, changeID ids.ID) error {
+	change, err := workflow.ReadChangeIn(ctx, a.DB, changeID)
+	if err != nil {
+		return err
+	}
+	p, err := project.ByIDIn(ctx, a.DB, change.ProjectID)
+	if err != nil {
+		return err
+	}
+	repo, err := p.Repository(a.DataDir)
+	if err != nil {
+		return err
+	}
 	previewErr := a.Previews.DiscardChangePreview(ctx, changeID)
 	wt := filepath.Join(a.DataDir, "workspaces", fmt.Sprintf("change-%d", changeID))
 	if err := os.RemoveAll(wt); err != nil {
@@ -57,7 +70,6 @@ func (a Resources) Change(ctx context.Context, projectSlug string, changeID ids.
 	}
 	// Pruning registrations is safe to repeat. Non-repository projects have
 	// no registrations to prune; the forensic branch itself is retained.
-	repo := filepath.Join(a.DataDir, "workspaces", "project-"+projectSlug)
 	if _, err := os.Stat(filepath.Join(repo, ".git")); err == nil {
 		if _, err := gitexec.Run(ctx, repo, "worktree", "prune"); err != nil {
 			return err

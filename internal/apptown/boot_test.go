@@ -220,7 +220,7 @@ func TestRunPreviewSequence(t *testing.T) {
 	a, f := bootWorld(t)
 	run, stepID := bootRun(t, a, "working", "preview")
 	runID := run.ID
-	ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 	writeBootFixture(t, ws)
 	commitFolder(t, ws) // a run's preview boots the run's commit
 
@@ -277,7 +277,7 @@ func deployRun(t *testing.T, a *App) (runID, stepID ids.ID) {
 	a.SeedTargets(t.Context()) // The daemon establishes target bindings before workflow dispatch.
 	run, stepID := bootRun(t, a, "landing", "deploy")
 	runID = run.ID
-	ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 	writeBootFixture(t, ws)
 	// A standing deployment identifies committed source before contacting Docker.
 	for _, args := range [][]string{{"init", "-q"}, {"add", "."}, {"-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qm", "deployment fixture"}} {
@@ -387,7 +387,7 @@ func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+	ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 	if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
 		t.Fatal(err)
 	}
@@ -662,7 +662,7 @@ func upgradeReads(t *testing.T, a *App, s upgradeSubjects) map[string]any {
 		if err != nil {
 			t.Fatal(err)
 		}
-		folder := source.Workspace(a.cfg.dataDir)
+		folder := requireLocation(t)(source.Workspace(a.cfg.dataDir))
 		resolved, err := gitexec.ResolveCommit(t.Context(), folder, candidate)
 		if err != nil {
 			t.Fatalf("the accepted commit %q in the change's folder: %v", candidate, err)
@@ -1046,7 +1046,7 @@ func TestAFailedBootsEvidenceHoldsNoNeedCredential(t *testing.T) {
 			} else {
 				var run *workflow.Run
 				run, stepID = bootRun(t, a, "working", "preview")
-				ws := workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir)
+				ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
 				writeBootFixture(t, ws)
 				commitFolder(t, ws)
 			}

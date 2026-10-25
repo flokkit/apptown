@@ -2,7 +2,6 @@ package apptown
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -28,7 +27,11 @@ func (d projectSources) Project(ctx context.Context, id ids.ID) (deployment.Rele
 	if err != nil {
 		return deployment.ReleaseProject{}, err
 	}
-	return deployment.ReleaseProject{Application: deployment.Application{ID: p.ID, Slug: p.Slug}, Repository: projectRepository(d.dataDir, p.Slug), OwnerGroup: p.OwnerGroup}, nil
+	repo, err := p.Repository(d.dataDir)
+	if err != nil {
+		return deployment.ReleaseProject{}, err
+	}
+	return deployment.ReleaseProject{Application: deployment.Application{ID: p.ID, Slug: p.Slug}, Repository: repo, OwnerGroup: p.OwnerGroup}, nil
 }
 func (projectSources) Contract(ctx context.Context, p deployment.ReleaseProject, revision string) (*appcontract.Contract, string, error) {
 	if err := ctx.Err(); err != nil {
@@ -52,21 +55,33 @@ func (d projectSources) CurrentContract(ctx context.Context, slug string) (*appc
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	c, err := docker.ReadWorkspaceContract(projectRepository(d.dataDir, slug))
+	p, err := d.projects.BySlug(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	repo, err := p.Repository(d.dataDir)
+	if err != nil {
+		return nil, err
+	}
+	c, err := docker.ReadWorkspaceContract(repo)
 	if err != nil {
 		return nil, err
 	}
 	return c, ctx.Err()
 }
 
-func (d projectSources) Declared(project string) (deployment.Declared, bool) {
-	c, err := docker.ReadWorkspaceContract(projectRepository(d.dataDir, project))
+func (d projectSources) Declared(ctx context.Context, id ids.ID) (deployment.Declared, bool) {
+	p, err := d.projects.ByID(ctx, id)
+	if err != nil {
+		return deployment.Declared{}, false
+	}
+	repo, err := p.Repository(d.dataDir)
+	if err != nil {
+		return deployment.Declared{}, false
+	}
+	c, err := docker.ReadWorkspaceContract(repo)
 	if err != nil {
 		return deployment.Declared{}, false
 	}
 	return deployment.Declared{KeepsData: c.PublicPart().DataDir != "", Needs: c.Needs}, true
-}
-
-func projectRepository(dataDir, slug string) string {
-	return filepath.Join(dataDir, "workspaces", "project-"+slug)
 }
