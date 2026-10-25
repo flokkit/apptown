@@ -204,3 +204,34 @@ func TestOAuthConsentStorageErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestOAuthUnavailableSessionDoesNotIssueConsentOrCode(t *testing.T) {
+	t.Parallel()
+	a, h, who := oauthFixture(t)
+	q := consentRequest(registerClient(t, h))
+	prepareConsent(t, h, who, q)
+	q.Set("decision", "allow")
+	for _, marker := range []string{"-- name: SessionByHash", "-- name: TouchUser"} {
+		for _, method := range []string{"GET", "POST"} {
+			t.Run(method+marker, func(t *testing.T) {
+				r := httptest.NewRequest("GET", "/oauth/authorize?"+q.Encode(), nil)
+				if method == "POST" {
+					r = httptest.NewRequest("POST", "/oauth/authorize", strings.NewReader(q.Encode()))
+					r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				}
+				r.AddCookie(who)
+				restore := a.DB.FailNextStatement(marker)
+				w := httptest.NewRecorder()
+				h.ServeHTTP(w, r)
+				restore()
+				if w.Code != http.StatusServiceUnavailable || w.Header().Get("Location") != "" || strings.Contains(w.Body.String(), `name="consent_token"`) || strings.Contains(w.Body.String(), "Sign in to connect") {
+					t.Fatalf("unavailable identity became consent/login/code: %d %v %s", w.Code, w.Header(), w.Body)
+				}
+			})
+		}
+	}
+	// A failed POST leaves the existing consent available for the real decision.
+	if w := postConsent(h, q, who); w.Code != http.StatusFound || !strings.Contains(w.Header().Get("Location"), "code=") {
+		t.Fatalf("unavailable identity consumed consent: %d %v %s", w.Code, w.Header(), w.Body)
+	}
+}
