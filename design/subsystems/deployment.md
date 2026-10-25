@@ -1341,6 +1341,14 @@ reimport into, delete or rebind that data. Preserve the volume and source/target
 audit evidence when diagnosing such a failure; retry requires an independently
 verified recovery procedure.
 
+The tier map is a runtime view of current deployment placements, not the release
+ledger. Main and the configured release deployment use their own target's runtime
+observation and current address. Unknown or unavailable observations are distinct
+from stopped deployments; removed placements no longer appear. A replacement
+under the same name has its own observation. Release numbers and historical
+addresses remain on the departures board, rather than implying present runtime
+state in the tier map.
+
 ## Customer names and release preferences
 
 Connections, targets and deployments have a display label separate from their
