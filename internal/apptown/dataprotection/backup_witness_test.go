@@ -319,6 +319,10 @@ func TestABackupNamesDeclaredNeedsItCannotRead(t *testing.T) {
 		t.Fatalf("the broken kind: %v", err)
 	}
 	releaseMain(t, s, "bwu", "app:\n  web:\n    image: registry.example/bwu:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n  kv: {}\n  quantum: {}\n")
+	names := hostNamesOf(t, mainOf(t, s, pid), "bwu")
+	for _, need := range []string{"kv", "quantum"} {
+		client.SetVolume(names.NeedVolume(need), true)
+	}
 	var writes []string
 	setBackupDockerCommand(client, func(req docker.Command) ([]byte, error) {
 		if req.Stdin != nil {

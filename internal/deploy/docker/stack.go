@@ -479,6 +479,18 @@ func EnsureStandingServices(ctx context.Context, dk Scope, stackID string, svcs 
 			return network, fmt.Errorf("the standing %s service: %w", svc.Name, err)
 		}
 		path := own.Needs[svc.Name]
+		// Without the container, the requested image is not evidence of the
+		// engine that wrote retained data. Refuse before any writable start.
+		if !there && svc.KeepsImage && path != "" {
+			vol := Current.NeedVolume(stackID, svc.Name)
+			retained, err := dk.Exists(ctx, "volume", "inspect", vol)
+			if err != nil {
+				return network, fmt.Errorf("reading the standing %s service's data volume %s: %w", svc.Name, vol, err)
+			}
+			if retained {
+				return network, fmt.Errorf("the standing %s service has no container, but its data volume %s remains; its previous engine is unknown, so AppTown will not start an engine on that data: establish the previous engine before recovering the service", svc.Name, vol)
+			}
+		}
 		if there {
 			drift, err := ServiceDrift(ctx, dk, cname, svc)
 			if err != nil {

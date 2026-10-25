@@ -62,3 +62,59 @@ func hasStandingCall(calls [][]string, prefix string) bool {
 	}
 	return false
 }
+
+// Container loss must not let a newly requested engine open retained files.
+func TestStandingEngineWithoutContainerRefusesRetainedData(t *testing.T) {
+	t.Parallel()
+	const stack = "env-retained-main"
+	vol := Current.NeedVolume(stack, "postgres")
+	svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:17-alpine", KeepsImage: true, ConfigAtStart: true}
+	own := Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}}
+	for _, class := range []string{"production", "synthetic", ""} {
+		for _, unreadable := range []bool{false, true} {
+			t.Run(class+map[bool]string{false: "/retained", true: "/unreadable"}[unreadable], func(t *testing.T) {
+				h := newOwnedHost("network "+Current.Network(stack), "volume "+vol)
+				h.unknown["volume "+vol] = unreadable
+				_, err := EnsureStandingServices(t.Context(), h.scope(), stack, []deploy.ServiceSpec{svc}, class, own)
+				if err == nil || !strings.Contains(err.Error(), vol) {
+					t.Fatalf("retained/unknown volume admitted: %v", err)
+				}
+				if len(h.runs) != 0 || len(h.created) != 0 || len(h.removed) != 0 {
+					t.Fatalf("refusal wrote resources: runs=%v created=%v removed=%v", h.runs, h.created, h.removed)
+				}
+			})
+		}
+	}
+	h := newOwnedHost("network " + Current.Network(stack))
+	if _, err := EnsureStandingServices(t.Context(), h.scope(), stack, []deploy.ServiceSpec{svc}, "production", own); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.runs) != 1 || !h.objects["volume "+vol] {
+		t.Fatalf("new storage did not start: %+v", h)
+	}
+}
+
+func TestStandingEngineWithContainerKeepsExistingLifecycle(t *testing.T) {
+	const stack = "env-witnessed-main"
+	vol := Current.NeedVolume(stack, "postgres")
+	h := newOwnedHost("network "+Current.Network(stack), "volume "+vol, "container "+Current.Service(stack, "postgres"))
+	client := &fakeClient{reply: func(req Command) ([]byte, error) {
+		line := strings.Join(req.Args, " ")
+		switch {
+		case strings.Contains(line, ".HostConfig.Memory"):
+			return []byte("0 0"), nil
+		case strings.Contains(line, ".Config.Image"):
+			return []byte("postgres:16-alpine"), nil
+		case strings.Contains(line, ".State.Running"):
+			return []byte("true"), nil
+		}
+		return h.reply(req)
+	}}
+	svc := deploy.ServiceSpec{Name: "postgres", Image: "postgres:16-alpine", KeepsImage: true}
+	if _, err := EnsureStandingServices(t.Context(), Scope{Client: client}, stack, []deploy.ServiceSpec{svc}, "production", Ownership{Needs: map[string]string{"postgres": "/var/lib/postgresql/data"}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.runs) != 0 || len(h.created) != 0 || len(h.removed) != 0 {
+		t.Fatalf("existing service replaced: %+v", h)
+	}
+}

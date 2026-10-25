@@ -60,6 +60,9 @@ func takeDownWorldFor(t *testing.T, purpose project.Purpose, slug string) (*both
 		{Kind: "volume", ID: names.DataVolume(), Data: true},
 		{Kind: "container", ID: "c-web", Name: names.App()},
 	} {
+		if o.Kind == "volume" {
+			client.SetVolume(o.ID, true)
+		}
 		if err := s.Deployments.OwnerOf(dep).Created(context.Background(), o); err != nil {
 			t.Fatal(err)
 		}
@@ -187,6 +190,7 @@ func TestATakeDownWhoseFinalBackupFallsShortRemovesNothing(t *testing.T) {
 					return nil, nil, false
 				})
 			case "older volume":
+				client.SetVolume("old-anonymous-pg", true)
 				// An older recorded Postgres volume that no running
 				// container mounts is not covered by a dump of the current one.
 				if err := s.Deployments.OwnerOf(dep).Created(context.Background(), deploy.Owned{Kind: "volume", ID: "old-anonymous-pg", Data: true, Need: "postgres"}); err != nil {
@@ -795,6 +799,7 @@ func TestOffListDataIsRetainedAsWhatTheHostHolds(t *testing.T) {
 			s, client, dep := takeDownWorld(t, slug)
 			standRelease(t, s, slug, "staging", "app:\n  web:\n    image: x:1\n    public: true\nneeds:\n  quantum: {}\n")
 			vol := hostNamesOf(t, dep, slug).NeedVolume("quantum")
+			client.SetVolume(vol, there)
 			hostReplies(client, func(line string) ([]byte, error, bool) {
 				if line == "volume inspect "+vol && !there {
 					return []byte("Error: No such volume"), errors.New("exit 1"), true

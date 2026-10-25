@@ -1260,3 +1260,14 @@ The stock Postgres script makes the app's user an ordinary owner at every
 start (converting a server whose app user is the superuser) and sets the
 AppTown's password; the servers started beside AppTown's own steps make the user a
 superuser (`stepEnv`, `dependency.LocalRuntime.Steps`).
+
+### Retained engine data without its container
+
+A standing Docker need whose data depends on its engine image cannot start when
+its service container is absent but its named data volume remains. The requested
+image is not evidence of the engine that wrote those files. An unreadable volume
+inspection also refuses the start. This applies to synthetic data too; the
+refusal grants no permission to delete it. New volumes and existing service
+containers retain their normal lifecycle. Recovery requires establishing the
+previous engine or using a verified backup through a supported restore path;
+AppTown does not probe the retained files with a candidate engine.

@@ -68,7 +68,7 @@ func mustDeployment(t *testing.T, w *dataWorld, name string) *deployment.Deploym
 // could be read of it.
 func TestADockerHostDeploymentWithAnUnreadNeedCannotBeCopied(t *testing.T) {
 	t.Parallel()
-	s, _, _, _, pid := backupWorld(t, "cc", answeringPort(t))
+	s, _, client, _, pid := backupWorld(t, "cc", answeringPort(t))
 	local, err := s.Targets.ByName(context.Background(), "local")
 	if err != nil {
 		t.Fatal(err)
@@ -85,6 +85,7 @@ func TestADockerHostDeploymentWithAnUnreadNeedCannotBeCopied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	client.SetVolume(hostNamesOf(t, dep, "cc").NeedVolume("quantum"), true)
 	target, err := s.Targets.ByID(context.Background(), dep.TargetID)
 	if err != nil {
 		t.Fatal(err)

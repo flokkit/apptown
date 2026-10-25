@@ -26,6 +26,7 @@ type Daemon struct {
 	mu           sync.Mutex
 	commands     [][]string
 	running      map[string]bool
+	volumes      map[string]bool
 	stopped      map[string]bool // stopped by a command, still present
 	restarts     map[string]int  // Docker's restart-policy counter
 	exitCodes    map[string]int  // the last exit code
@@ -184,6 +185,16 @@ func (d *Daemon) SetCommandReply(reply func(docker.Command) ([]byte, error, bool
 	d.mu.Unlock()
 }
 
+// SetVolume supplies an existing or absent named volume in a host fixture.
+func (d *Daemon) SetVolume(name string, exists bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.volumes == nil {
+		d.volumes = map[string]bool{}
+	}
+	d.volumes[name] = exists
+}
+
 func (d *Daemon) SetRunning(name string, running bool) {
 	d.mu.Lock()
 	d.running[name] = running
@@ -330,6 +341,27 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if d.commandReply != nil {
 		if out, err, ok := d.commandReply(req); ok {
 			return d.printID(args, out, err), err
+		}
+	}
+	// Named volumes exist only after creation, unless a test explicitly
+	// supplies an inspection response above. Unknown objects are not present.
+	if args[0] == "volume" && len(args) >= 3 {
+		name := args[len(args)-1]
+		switch args[1] {
+		case "create":
+			if d.volumes == nil {
+				d.volumes = map[string]bool{}
+			}
+			d.volumes[name] = true
+			return []byte(name + "\n"), nil
+		case "inspect", "rm":
+			if !d.volumes[name] {
+				return []byte("Error: No such volume: " + name), fmt.Errorf("volume %s absent", name)
+			}
+			if args[1] == "rm" {
+				delete(d.volumes, name)
+			}
+			return nil, nil
 		}
 	}
 	if args[0] == "ps" && len(args) > 1 && args[1] == "-aq" {

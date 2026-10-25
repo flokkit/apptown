@@ -260,6 +260,7 @@ func twoOfEachWorld(t *testing.T, slug string, port int) (*both, *dockerfake.Dae
 		deploy.Owned{Kind: "volume", ID: "apptown-data-old", Data: true},
 		deploy.Owned{Kind: "container", ID: "c-oldpg", Need: "postgres"},
 		deploy.Owned{Kind: "volume", ID: "apptown-need-old-postgres", Data: true, Need: "postgres"})
+	client.SetVolume("apptown-data-old", true)
 	client.SetRunning("c-oldpg", true)
 	names := hostNamesOf(t, dep, slug)
 	hostMounts(client, map[string]string{

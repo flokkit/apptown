@@ -64,6 +64,11 @@ func standRelease(t *testing.T, s *both, slug, deployment, yaml string) string {
 	}
 	client := s.hosts.Local().Client.(*dockerfake.Daemon)
 	names := hostNamesOf(t, dep, slug)
+	for _, part := range c.Parts {
+		if part.DataDir != "" {
+			client.SetVolume(names.DataVolume(), true)
+		}
+	}
 	mounts, started := map[string]string{}, map[string]string{}
 	for _, need := range c.Needs {
 		d, err := s.catalog.ByCapability(t.Context(), need)
@@ -141,6 +146,13 @@ func runRelease(t *testing.T, s *both, dep *deployment.Deployment, revision, yam
 // fake daemon does not model (container → "volume\tpath" lines), after
 // extra, which a test uses to script a failure.
 func hostMounts(client *dockerfake.Daemon, mounts map[string]string, extra func(line string) ([]byte, error, bool)) {
+	for _, lines := range mounts {
+		for _, line := range strings.Split(lines, "\n") {
+			if volume, _, ok := strings.Cut(line, "\t"); ok && volume != "" {
+				client.SetVolume(volume, true)
+			}
+		}
+	}
 	client.SetReply(func(args []string) ([]byte, error, bool) {
 		line := strings.Join(args, " ")
 		if extra != nil {
