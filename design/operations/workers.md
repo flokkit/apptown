@@ -653,7 +653,8 @@ With a worker configured, every agent step (`agent/pi`) and review step
   the output could not be read whole, and "usage unknown" (nothing
   recorded) when it could not be read at all. A delegate's (subagent's)
   calls are not in it, and the record says so ("delegated calls not
-  included").
+  included"). A failed usage write makes the step an error and prevents any
+  further invocation, even when its review report says pass.
 
 **`apptown check` inside a step** checks the agent's committed HEAD. The
 AppTown does not have that commit until the step's work is collected, so the

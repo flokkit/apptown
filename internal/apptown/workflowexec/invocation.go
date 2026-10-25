@@ -79,6 +79,8 @@ type piResult struct {
 	// invocations may be lower than what was spent (its transcript could
 	// not be read whole); "" when every invocation's was complete.
 	UsageIncomplete string
+	// UsageError prevents a verdict or further invocation when accounting failed.
+	UsageError error
 }
 
 // piInvoke runs pi once (twice on an empty turn when RetryEmpty) through the
@@ -163,8 +165,14 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		} else {
 			r.Events = events
 			r.Text, r.Model, r.Provider, r.Usage = piharness.ParseOutput(events)
-			if incomplete := a.recordInvocationUsage(ctx, c, name, r); incomplete != "" && usageIncomplete == "" {
+			incomplete, usageErr := a.recordInvocationUsage(ctx, c, name, r)
+			if incomplete != "" && usageIncomplete == "" {
 				usageIncomplete = name + ": " + incomplete
+			}
+			if usageErr != nil {
+				r.UsageError = usageErr
+				r.RunErr = errors.Join(r.RunErr, usageErr)
+				usageIncomplete = name + ": " + usageErr.Error()
 			}
 		}
 		if historyErr != nil {
@@ -199,10 +207,10 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 // every one counts and a replay of the same invocation counts nothing more.
 // A transcript that could not be read whole is recorded as incomplete, even
 // when no usage survived, and the reason is returned for the evidence.
-func (a *Executor) recordInvocationUsage(ctx context.Context, c piCall, name string, r piResult) string {
+func (a *Executor) recordInvocationUsage(ctx context.Context, c piCall, name string, r piResult) (string, error) {
 	spent := sumPiUsage(r.Events)
 	if spent.Totals.Total == 0 && spent.Incomplete == "" {
-		return ""
+		return "", nil
 	}
 	um, up := spent.Model, spent.Provider
 	if um == "" {
@@ -211,9 +219,9 @@ func (a *Executor) recordInvocationUsage(ctx context.Context, c piCall, name str
 	source := c.Source
 	key := fmt.Sprintf("step:%d:a%d:%s", c.Step.ID, c.Step.Attempt, name)
 	if err := a.ledger.RecordOnce(ctx, key, usage.Entry{Kind: "step", ProjectID: source.ProjectID, RunID: source.RunID, RootRunID: source.RootRunID, StepID: c.Step.ID, WorkflowName: source.WorkflowName, WorkflowVersion: int64(source.WorkflowVersion), Provider: up, Model: um}, spent.Totals, spent.Incomplete); err != nil {
-		log.Printf("recording step %d usage (%s): %v", c.Step.ID, name, err)
+		return spent.Incomplete, fmt.Errorf("recording step usage: %w", err)
 	}
-	return spent.Incomplete
+	return spent.Incomplete, nil
 }
 
 // stepAgentsGone removes what is left of a step's earlier containers (those

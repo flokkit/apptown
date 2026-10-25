@@ -284,7 +284,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 		"durationMs": a.now().Sub(start).Milliseconds(), "queuedMs": queuedMs,
 		"reviewedReport": cfg.Of,
 	}
-	v, failure := a.readReviewVerdict(stepID, verdictPath, model, outcome.TimedOut, pi, evidence)
+	v, failure := a.readReviewVerdict(stepID, verdictPath, model, outcome, pi, evidence)
 	// The reviewer has run: what it left is judged and settled though the
 	// caller stops, so a stop is never read as an unassessed scope.
 	settling := context.WithoutCancel(task.Context())
@@ -633,15 +633,29 @@ func undecidedFindingsNote(steps []*workflow.Step) string {
 // verdict file is a paragraph — a resumed session writes it in one turn from
 // work already done. The same net catches a clean exit that forgot the file:
 // the reviewer did the work, just never wrote the verdict.
-func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, timedOut bool, pi func([]string, time.Duration, string) piResult, evidence map[string]any) (reviewVerdict, string) {
+func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, outcome piResult, pi func([]string, time.Duration, string) piResult, evidence map[string]any) (reviewVerdict, string) {
+	usageFailure := func(result piResult) string {
+		if result.UsageIncomplete != "" {
+			evidence["usageIncomplete"] = result.UsageIncomplete
+		}
+		if result.UsageError != nil {
+			return result.UsageError.Error()
+		}
+		return ""
+	}
+	if failure := usageFailure(outcome); failure != "" {
+		return reviewVerdict{}, failure
+	}
 	if _, statErr := os.Stat(verdictPath); statErr != nil {
 		a.progress.Append(stepID, "⏸ no verdict yet — resuming session to write it")
-		pi(piharness.ReviewArgs(model, "", true, reviewWrapUp), followUps[reviewWrapUpInvocation].allowance, fmt.Sprintf("apptown-review-%d-resume", stepID))
+		if failure := usageFailure(pi(piharness.ReviewArgs(model, "", true, reviewWrapUp), followUps[reviewWrapUpInvocation].allowance, fmt.Sprintf("apptown-review-%d-resume", stepID))); failure != "" {
+			return reviewVerdict{}, failure
+		}
 		evidence["resumed"] = true
 	}
 	raw, err := os.ReadFile(verdictPath)
 	if err != nil {
-		if timedOut {
+		if outcome.TimedOut {
 			return reviewVerdict{}, "review timed out (no verdict even after wrap-up resume)"
 		}
 		return reviewVerdict{}, "reviewer produced no .apptown/review.json verdict"
@@ -651,7 +665,9 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, t
 		// Exists-but-invalid is the third face of the same failure (a
 		// review.json truncated mid-write). One resume, same wrap-up.
 		a.progress.Append(stepID, "⏸ verdict file invalid — resuming session to rewrite it")
-		pi(piharness.ReviewArgs(model, "", true, reviewFixUp), followUps[reviewFixUpInvocation].allowance, fmt.Sprintf("apptown-review-%d-fixup", stepID))
+		if failure := usageFailure(pi(piharness.ReviewArgs(model, "", true, reviewFixUp), followUps[reviewFixUpInvocation].allowance, fmt.Sprintf("apptown-review-%d-fixup", stepID))); failure != "" {
+			return reviewVerdict{}, failure
+		}
 		evidence["resumed"] = true
 		if raw2, err2 := os.ReadFile(verdictPath); err2 == nil {
 			if v2, ok2 := parseReviewVerdict(raw2); ok2 {

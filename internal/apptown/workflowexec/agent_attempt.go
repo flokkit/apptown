@@ -619,25 +619,7 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 		res.Events = out
 		a.summarize(w.step.ID, piharness.EventsAfter(out, summarized))
 		res.Text, res.Model, res.Provider, res.Usage = piharness.ParseOutput(out)
-		spent := sumPiUsage(out)
-		incomplete := spent.Incomplete
-		if incomplete == "" && meta.Delegated {
-			// The pinned runtime's stream carries no usage for the
-			// subagents the steering promised: their calls are not in it.
-			incomplete = "delegated calls not included"
-		}
-		model, provider := spent.Model, spent.Provider
-		if model == "" {
-			model, provider = res.Model, res.Provider
-		}
-		source := w.source
-		if err := a.ledger.RecordOnce(ctx, inv.Operation, usage.Entry{Kind: "step", ProjectID: source.ProjectID, RunID: source.RunID, RootRunID: source.RootRunID, StepID: w.step.ID,
-			WorkflowName: source.WorkflowName, WorkflowVersion: int64(source.WorkflowVersion), Provider: provider, Model: model}, spent.Totals, incomplete); err != nil {
-			log.Printf("recording step %d usage (%s): %v", w.step.ID, inv.Operation, err)
-		}
-		if incomplete != "" {
-			res.UsageIncomplete = meta.Invocation + ": " + incomplete
-		}
+		a.recordWorkerUsage(ctx, w, inv, meta, &res)
 		if perr := piharness.LastModelError(out); perr != "" && strings.TrimSpace(res.Text) == "" {
 			res.ProviderError = perr
 			a.progress.Append(w.step.ID, "✗ the model provider refused: "+strs.Truncate(perr, 200))
@@ -645,6 +627,31 @@ func (a *Executor) readInvocation(ctx context.Context, w *workerAttempt, inv tas
 	}
 	// The transcript is kept before anything later runs in the session.
 	return res, a.keepWorkerTranscript(ctx, w, meta, res.results, res.resultsErr)
+}
+
+// recordWorkerUsage keeps the invocation's spend before its result can count.
+func (a *Executor) recordWorkerUsage(ctx context.Context, w *workerAttempt, inv tasks.Attempt, meta agentAdmission, res *invocationResult) {
+	spent := sumPiUsage(res.Events)
+	incomplete := spent.Incomplete
+	if incomplete == "" && meta.Delegated {
+		// The pinned runtime's stream carries no usage for the
+		// subagents the steering promised: their calls are not in it.
+		incomplete = "delegated calls not included"
+	}
+	model, provider := spent.Model, spent.Provider
+	if model == "" {
+		model, provider = res.Model, res.Provider
+	}
+	source := w.source
+	if err := a.ledger.RecordOnce(ctx, inv.Operation, usage.Entry{Kind: "step", ProjectID: source.ProjectID, RunID: source.RunID, RootRunID: source.RootRunID, StepID: w.step.ID,
+		WorkflowName: source.WorkflowName, WorkflowVersion: int64(source.WorkflowVersion), Provider: provider, Model: model}, spent.Totals, incomplete); err != nil {
+		res.UsageError = fmt.Errorf("recording step usage: %w", err)
+		res.RunErr = errors.Join(res.RunErr, res.UsageError)
+		incomplete = res.UsageError.Error()
+	}
+	if incomplete != "" {
+		res.UsageIncomplete = meta.Invocation + ": " + incomplete
+	}
 }
 
 // readLog reads an invocation's log, page by page, as far as
