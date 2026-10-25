@@ -6,7 +6,7 @@ River manages its own tables/migrations through the jobs integration.
 
 New databases are initialized from the assembled schema. Existing databases must
 meet the supported baseline before normal migrations run. The baseline is
-schema 147, the 1.0 baseline ([schema ownership](../architecture/schema-ownership.md));
+schema 167, 1.0.0-rc.7 ([schema ownership](../architecture/schema-ownership.md));
 normal startup refuses an older database rather than upgrading it. AppTown refuses
 SQLite data rather than silently starting a new database beside it.
 

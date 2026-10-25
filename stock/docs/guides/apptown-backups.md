@@ -75,6 +75,11 @@ On a host with Docker and no AppTown:
 apptownd -data /srv/apptown/data restore /root/apptown-2026-10-23.backup
 ```
 
+This build restores archives from 1.0.0-rc.7 (schema 167) or newer, up to
+its own schema version. Archives below that floor, including an archive
+without a schema version, are refused before files are extracted or the
+built-in database is created. A newer schema needs a build that supports it.
+
 1. It refuses a host that already has an AppTown: a data directory that is
    not empty, AppTown's database container, or any container AppTown made.
 2. It unpacks the archive into the data directory and checks that the key
@@ -214,7 +219,7 @@ before using it again after a failed cleanup.
 New whole-AppTown archives record the observed PostgreSQL server and `pg_dump`
 client versions. This build refuses archives that record a server major other
 than the built-in PostgreSQL 16 before extracting their data. These observations
-do not certify cross-major restore compatibility. Older archives without this
+do not certify cross-major restore compatibility. RC7 archives without this
 metadata remain readable through the existing restore path; their engine
 provenance is unknown. Older AppTown binaries ignore this additive metadata and
 do not enforce this refusal.

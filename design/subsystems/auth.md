@@ -241,3 +241,9 @@ unimplemented controls.
 - [internal/apptown/identity/visibility.go](../../internal/apptown/identity/visibility.go)
 - [internal/apptown/routes.go](../../internal/apptown/routes.go)
 - [internal/apptown/route_table.go](../../internal/apptown/route_table.go)
+
+Project and change admission resolves the current project resource before a
+permission decision. Missing project records remain distinct from unavailable
+reads; an unavailable lookup never becomes an empty owner group, an instance
+scope or a smaller successful capability list. Instance-authorized cleanup of a
+grant for a confirmed missing project remains available.

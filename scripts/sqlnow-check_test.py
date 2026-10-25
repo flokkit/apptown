@@ -59,6 +59,17 @@ class SQLNowCheckTest(unittest.TestCase):
         self.assertNotEqual(out.returncode, 2, out.stderr)
         return [tuple(line.strip().split(": ", 1)) for line in out.stdout.splitlines() if line.startswith("    ")]
 
+    def test_working_papers_are_not_product_input(self):
+        self.write("private/design/reviews/audit.sql", "SELECT current_timestamp;")
+        self.assertEqual(self.run_check().returncode, 0)
+        self.write("private/scripts/maintenance.sql", "SELECT current_timestamp;")
+        self.write("internal/a/queries.sql", "SELECT current_timestamp;")
+        self.assertEqual(self.reads(), [
+            ("internal/a/queries.sql:1", "current_timestamp"),
+            ("private/scripts/maintenance.sql:1", "current_timestamp"),
+        ])
+        self.assertEqual(self.run_check().returncode, 1)
+
     def test_a_column_default_counts(self):
         self.write("internal/a/schema.sql", """
             CREATE TABLE t (

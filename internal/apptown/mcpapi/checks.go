@@ -33,7 +33,11 @@ func (h checks) runChangeChecks(c *Call, args map[string]any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := h.scope.authorize(c, "run_change_checks", access.CapChangeRunChecks, workflow.ChangeResource(c.Context, h.scope.projects, ch)); err != nil {
+	authorityResource, err := workflow.ChangeResource(c.Context, h.scope.projects, ch)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.scope.authorize(c, "run_change_checks", access.CapChangeRunChecks, authorityResource); err != nil {
 		return nil, err
 	}
 	out, err := h.verification.Check(c.Context, ch, verification.Selection{}) // the change's latest commit on AppTown (a chat on a worker saving first); the answer names it

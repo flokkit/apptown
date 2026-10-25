@@ -280,13 +280,16 @@ func (a *App) resolveRouteResource(r *http.Request, resolver string) (access.Res
 	if err != nil {
 		return res, nil, err
 	}
-	scope := a.resourceProject(ctx, &p)
+	scope, err := a.Projects.AuthorityResource(ctx, p.ID)
+	if err != nil {
+		return access.Resource{}, nil, err
+	}
 	if res.Type != "" {
 		scope.Type, scope.ID, scope.ChangeID, scope.RunID = res.Type, res.ID, res.ChangeID, res.RunID
 	}
 	res = scope
 	if resolver == "release" {
-		res = a.resourceReleaseTarget(ctx, releaseTargetName, &p)
+		res.Type, res.ID = "release-target", releaseTargetName
 	}
 	return res, &p, nil
 }

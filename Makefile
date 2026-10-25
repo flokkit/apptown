@@ -156,7 +156,8 @@ tour: web                ## the UI tour's screenshots and page, from site/tour/t
 	@if command -v oxipng >/dev/null 2>&1; then oxipng -q -o 4 --strip safe site/tour/*.png; else echo "tour: oxipng not on PATH; the shots are not compressed (brew install oxipng)"; fi
 	python3 scripts/tour-check.py --shots
 
-check-migrations:       ## a released migration keeps its number and statements: the lock only grows from origin/main's
+check-migrations:       ## preserve released migrations above the supported baseline
+	python3 scripts/migrations-append-only_test.py
 	sh scripts/migrations-append-only.sh
 
 check-reachability: check-stock-embed ## what apptownd's main can never reach, against scripts/reachability-baseline

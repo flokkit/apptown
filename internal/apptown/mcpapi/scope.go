@@ -24,7 +24,11 @@ func (s Scope) bySlug(ctx context.Context, slug string) (*project.Project, error
 	return &p, err
 }
 func (s Scope) mayRead(c *Call, p *project.Project) (bool, error) {
-	dec, err := s.authority.Explain(c.Context, c.principal(), access.Permission{Capability: access.CapProjectRead, Resource: project.ObservedResource(c.Context, s.projects, p)})
+	res, err := s.projects.AuthorityResource(c.Context, p.ID)
+	if err != nil {
+		return false, err
+	}
+	dec, err := s.authority.Explain(c.Context, c.principal(), access.Permission{Capability: access.CapProjectRead, Resource: res})
 	return dec.Allow, err
 }
 

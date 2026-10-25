@@ -7,7 +7,6 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
@@ -61,11 +60,15 @@ func (h laneCommands) createChange(c *Call, args map[string]any) (any, error) {
 	if title == "" {
 		return nil, refuse("give the Change a title")
 	}
-	if err := h.scope.authorize(c, "create_change", access.CapChangeCreate, project.ObservedResource(c.Context, h.scope.projects, p)); err != nil {
+	authorityResource, err := h.scope.projects.AuthorityResource(c.Context, p.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.scope.authorize(c, "create_change", access.CapChangeCreate, authorityResource); err != nil {
 		return nil, err
 	}
 	if lane != "" {
-		if err := h.scope.authorize(c, "create_change", access.CapChangeInvokeLane, project.ObservedResource(c.Context, h.scope.projects, p)); err != nil {
+		if err := h.scope.authorize(c, "create_change", access.CapChangeInvokeLane, authorityResource); err != nil {
 			return nil, err
 		}
 		if selected, err := h.adoption.LaneSelected(c.Context, p.ID, lane); err != nil {
@@ -104,7 +107,11 @@ func (h laneCommands) startChangeLane(c *Call, args map[string]any) (any, error)
 	} else if !selected {
 		return nil, refuse("%s is not a lane %s can run; get_project lists them", lane, p.Name)
 	}
-	if err := h.scope.authorize(c, "start_change_lane", access.CapChangeInvokeLane, workflow.ChangeResource(c.Context, h.scope.projects, ch)); err != nil {
+	authorityResource, err := workflow.ChangeResource(c.Context, h.scope.projects, ch)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.scope.authorize(c, "start_change_lane", access.CapChangeInvokeLane, authorityResource); err != nil {
 		return nil, err
 	}
 	run, err := h.work.StartRun(c.Context, workflow.StartChangeRun{ChangeID: ch.ID, Workflow: lane})

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -12,7 +13,7 @@ import (
 
 func TestSchemaBaselineRefusesUnsupportedStateWithoutMutation(t *testing.T) {
 	t.Parallel()
-	for _, version := range []string{"missing-table", "missing-row", "duplicate-row", "88", "146", "999"} {
+	for _, version := range []string{"missing-table", "missing-row", "duplicate-row", "88", "146", "166", "999"} {
 		t.Run(version, func(t *testing.T) {
 			db := emptyDB(t)
 			if _, err := db.Exec(`CREATE TABLE sentinel (value TEXT)`); err != nil {
@@ -28,7 +29,7 @@ func TestSchemaBaselineRefusesUnsupportedStateWithoutMutation(t *testing.T) {
 				switch version {
 				case "missing-row":
 				case "duplicate-row":
-					if _, err := db.Exec(`INSERT INTO schema_version VALUES (147),(147)`); err != nil {
+					if _, err := db.Exec(`INSERT INTO schema_version VALUES (167),(167)`); err != nil {
 						t.Fatal(err)
 					}
 				default:
@@ -49,6 +50,8 @@ func TestSchemaBaselineRefusesUnsupportedStateWithoutMutation(t *testing.T) {
 			}
 			if _, err := Migrate(context.Background(), db); err == nil {
 				t.Fatal("unsupported schema accepted")
+			} else if version == "166" && !strings.Contains(err.Error(), "version 166 is unsupported") {
+				t.Fatalf("old schema reached migration instead of admission refusal: %v", err)
 			}
 			if version != "missing-table" {
 				if err := db.QueryRow(`SELECT COALESCE(jsonb_agg(version ORDER BY version)::text,'[]') FROM schema_version`).Scan(&versionsAfter); err != nil {

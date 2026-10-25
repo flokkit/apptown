@@ -18,6 +18,7 @@ func TestArchiveProvenanceRefusesBeforeExtraction(t *testing.T) {
 		accept         bool
 	}{
 		{"legacy", "", true},
+		{"missing schema", "", false},
 		{"current", `{"engine":"postgres","serverVersionNum":160012,"dumpClientVersion":"pg_dump (PostgreSQL) 16.12"}`, true},
 		{"null", `null`, false},
 		{"empty", `{}`, false},
@@ -29,7 +30,10 @@ func TestArchiveProvenanceRefusesBeforeExtraction(t *testing.T) {
 		{"older major", `{"engine":"postgres","serverVersionNum":150001,"dumpClientVersion":"pg_dump (PostgreSQL) 15.1"}`, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			raw := map[string]any{"format": ArchiveFormat, "version": ArchiveVersion}
+			raw := map[string]any{"format": ArchiveFormat, "version": ArchiveVersion, "schema": 167}
+			if tc.name == "missing schema" {
+				delete(raw, "schema")
+			}
 			if tc.database != "" {
 				raw["database"] = json.RawMessage(tc.database)
 			}

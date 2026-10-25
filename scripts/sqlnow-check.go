@@ -45,7 +45,8 @@
 //
 // Tests are not held to it, as the clock rule does not hold them: _test.go
 // files and the test helper packages (a directory ending in test or fake),
-// and testdata. SQL comments (-- and /* */) and other string literals in SQL
+// and testdata. Dated working papers under private/design are documentary
+// evidence, not product input; private scripts remain scanned. SQL comments (-- and /* */) and other string literals in SQL
 // are not read as SQL; a dollar-quoted body is, since it is code.
 //
 // Frozen migrations are history and are not counted. A database upgrades
@@ -310,7 +311,7 @@ func scan(root string, f frozen, ms migrationList) (map[string][]read, error) {
 		}
 		if d.IsDir() {
 			name := d.Name()
-			if path != root && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" || name == "vendor" || name == "node_modules") {
+			if path != root && (strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") || name == "testdata" || name == "vendor" || name == "node_modules" || path == filepath.Join(root, "private", "design")) {
 				return filepath.SkipDir
 			}
 			return nil
