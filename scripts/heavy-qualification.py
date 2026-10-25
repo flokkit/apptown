@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""Report whether narrow Markdown changes could reuse complete heavy evidence.
+"""Qualify narrow Markdown changes against complete base-commit execution.
 
-Report-only: this script never suppresses a test or supplies release evidence.
+Only merge-group events may reuse; manual dispatch always executes.
 """
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
 
-EXECUTION_JOBS = {'web', 'heavy-ok', 'journeys', 'opt-in-tiers'} | {
-    'race-' + part for part in ('root', 'backup', 'workflow', 'rest')} | {
-    'integration-' + part for part in ('root', 'dependency', 'worker', 'rest')}
+from heavy_execution import EXECUTION_JOBS, complete, complete_page
 
 
 def command(args):
@@ -59,6 +58,7 @@ def source_run(runs, sha):
     if any(run['head_sha'] != sha for run in runs):
         raise ValueError('source lookup returned a different SHA')
     eligible = [run for run in runs if
+                run['event'] == 'workflow_dispatch' or
                 (run['event'] == 'push' and run['head_branch'] == 'main') or
                 (run['event'] == 'merge_group' and run['head_branch'].startswith('gh-readonly-queue/main/'))]
     latest = max(eligible, key=lambda run: (run['created_at'], run['id']), default=None)
@@ -67,21 +67,15 @@ def source_run(runs, sha):
     return latest
 
 
-def complete(jobs):
-    by_name = {job['name']: job for job in jobs}
-    return all(name in by_name and by_name[name]['status'] == 'completed' and
-               by_name[name]['conclusion'] == 'success' for name in EXECUTION_JOBS)
-
-
 def api(path):
     return json.loads(command(['gh', 'api', path]))
 
 
-def report(repo, base_sha, candidate_sha):
-    result = {'mode': 'report-only', 'decision': 'execute', 'candidate_sha': candidate_sha,
-              'base_sha': base_sha, 'policy': 1}
+def report(repo, base_sha, candidate_sha, event=''):
+    result = {'mode': 'queue-reuse' if event == 'merge_group' else 'report-only', 'decision': 'execute', 'candidate_sha': candidate_sha,
+              'base_sha': base_sha, 'policy': 2}
     try:
-        if not base_sha:
+        if not base_sha or event == 'workflow_dispatch':
             result['reason'] = 'this event requires full execution'
             return result
         base, candidate = tree(base_sha), tree(candidate_sha)
@@ -89,15 +83,18 @@ def report(repo, base_sha, candidate_sha):
         if not equivalent(base, candidate):
             result['reason'] = 'changes are outside the narrow Markdown contract'
             return result
-        run = source_run(api(f'repos/{repo}/actions/workflows/heavy.yml/runs?head_sha={base_sha}&per_page=100')['workflow_runs'], base_sha)
+        page = api(f'repos/{repo}/actions/workflows/heavy.yml/runs?head_sha={base_sha}&per_page=100')
+        if page['total_count'] != len(page['workflow_runs']):
+            raise ValueError('incomplete source run listing')
+        run = source_run(page['workflow_runs'], base_sha)
         if run is None:
             result['reason'] = 'newest source run is not complete first-attempt success'
             return result
         jobs = api(f'repos/{repo}/actions/runs/{run["id"]}/jobs?filter=latest&per_page=100')
-        if jobs['total_count'] > len(jobs['jobs']) or not complete(jobs['jobs']):
+        if not complete_page(jobs):
             result['reason'] = 'source lacks complete execution jobs; admission/reuse is not a source'
             return result
-        result.update(decision='would-reuse', reason='unchanged inputs and complete source execution',
+        result.update(decision='reuse' if event == 'merge_group' else 'would-reuse', reason='unchanged inputs and complete source execution',
                       source_run_id=run['id'], source_sha=base_sha, source_url=run['html_url'])
     except (RuntimeError, ValueError, KeyError, TypeError, AttributeError, subprocess.TimeoutExpired) as error:
         result['reason'] = 'cannot establish reuse: ' + str(error)
@@ -110,7 +107,11 @@ if __name__ == '__main__':
     parser.add_argument('--base', default='')
     parser.add_argument('--candidate', required=True)
     parser.add_argument('--output', required=True)
+    parser.add_argument('--event', default='')
     args = parser.parse_args()
-    result = report(args.repository, args.base, args.candidate)
+    result = report(args.repository, args.base, args.candidate, args.event)
     Path(args.output).write_text(json.dumps(result, indent=2) + '\n')
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+            output.write('decision=' + result['decision'] + '\n')
     print(json.dumps(result))

@@ -36,7 +36,8 @@ defaults:
 jobs:
   # Images and archives are built only for a commit the heavy tiers passed
   # on first time: a heavy.yml run on main or by hand on the tag's commit
-  # whose first attempt succeeded (scripts/heavy-evidence.py). A run that
+  # whose first and latest attempts have full successful execution jobs
+  # (scripts/heavy-evidence.py). Reuse/admission is insufficient. A run that
   # passed only on a re-run, no run, a red one, or a lookup that fails is not
   # evidence, and nothing is built. Fix the cause in a new commit, or start a
   # new heavy.yml run by hand on the commit, then re-run this workflow.

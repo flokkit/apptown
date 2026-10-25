@@ -81,8 +81,8 @@ func TestCompiled(t *testing.T) {}
 
 
 class EventBoundary(unittest.TestCase):
-    def result(self, event, results, report='success'):
-        return subprocess.run(['sh', str(HERE / 'heavy-result.sh')], env=dict(os.environ, GITHUB_EVENT_NAME=event, RESULTS=results, REPORT_RESULT=report), capture_output=True, text=True)
+    def result(self, event, results, report='success', decision='execute'):
+        return subprocess.run(['sh', str(HERE / 'heavy-result.sh')], env=dict(os.environ, GITHUB_EVENT_NAME=event, RESULTS=results, REPORT_RESULT=report, DECISION=decision), capture_output=True, text=True)
 
     def test_pr_only_admits_and_queue_manual_require_actual_success(self):
         r = self.result('pull_request', 'skipped skipped skipped')
@@ -94,6 +94,17 @@ class EventBoundary(unittest.TestCase):
                 self.assertNotEqual(self.result(event, 'success success ' + bad).returncode, 0)
         self.assertNotEqual(self.result('push', 'success success success').returncode, 0)
         self.assertNotEqual(self.result('merge_group', 'success success success', 'failure').returncode, 0)
+
+    def test_queue_reuse_requires_exact_decision_and_all_execution_skipped(self):
+        self.assertEqual(self.result('merge_group', 'skipped skipped skipped', decision='reuse').returncode, 0)
+        for event in ['workflow_dispatch', 'push']:
+            self.assertNotEqual(self.result(event, 'skipped skipped skipped', decision='reuse').returncode, 0)
+        for decision in ['', 'would-reuse', 'unknown']:
+            self.assertNotEqual(self.result('merge_group', 'skipped skipped skipped', decision=decision).returncode, 0)
+        for results in ['success skipped skipped', 'skipped failure skipped', 'skipped skipped cancelled', 'skipped skipped']:
+            self.assertNotEqual(self.result('merge_group', results, decision='reuse').returncode, 0)
+        self.assertNotEqual(self.result('merge_group', 'skipped skipped skipped', report='failure', decision='reuse').returncode, 0)
+        self.assertNotEqual(self.result('workflow_dispatch', 'success success success', decision='reuse').returncode, 0)
 
     def test_warm_and_execution_workflows_keep_cache_and_partition_agreement(self):
         heavy = (ROOT / '.github/workflows/heavy.yml').read_text()

@@ -12,7 +12,8 @@ re-run does not count: a re-run of failed jobs keeps the green jobs' results
 and replaces the failure inside one run. A new run started by hand on the
 same commit is a complete run of its own. The newest applicable run decides;
 an older success cannot hide a newer failure or unfinished run. Each run must
-name the exact commit; tree equivalence is not evidence.
+name the exact commit and have complete execution jobs on both the first and
+latest attempt; admission and reuse are not release evidence.
 
 The API is read with `gh api` (GH_TOKEN). A lookup that fails is not
 evidence: this exits non-zero.
@@ -22,11 +23,13 @@ import json
 import subprocess
 import sys
 
+from heavy_execution import complete_page
+
 EVENTS = ("push", "workflow_dispatch", "merge_group")
 
 
 def api(path):
-    r = subprocess.run(["gh", "api", path], capture_output=True, text=True)
+    r = subprocess.run(["gh", "api", path], capture_output=True, text=True, timeout=60)
     if r.returncode != 0:
         raise RuntimeError(f"gh api {path} failed ({r.returncode}): {r.stderr.strip()}")
     return json.loads(r.stdout)
@@ -38,7 +41,10 @@ def main(argv):
         return 2
     repo, sha = argv[1], argv[2]
     try:
-        runs = api(f"repos/{repo}/actions/workflows/heavy.yml/runs?head_sha={sha}&per_page=100")["workflow_runs"]
+        page = api(f"repos/{repo}/actions/workflows/heavy.yml/runs?head_sha={sha}&per_page=100")
+        runs = page["workflow_runs"]
+        if page["total_count"] != len(runs):
+            raise RuntimeError("incomplete heavy run listing")
         passed, refused = [], []
         passed_ids, applicable = set(), []
         for run in runs:
@@ -68,7 +74,18 @@ def main(argv):
                     passed_ids.add(run["id"])
                 else:
                     refused.append(f"{url}: attempt 1 {first}; passed only on re-run {run['run_attempt']}")
-    except (RuntimeError, KeyError, ValueError) as e:
+        # A green admission/reuse aggregate is not release execution evidence.
+        for run in applicable:
+            if run['id'] not in passed_ids:
+                continue
+            attempts = {1, run['run_attempt']}
+            if not all(complete_page(api(f"repos/{repo}/actions/runs/{run['id']}/attempts/{attempt}/jobs?per_page=100"))
+                       for attempt in sorted(attempts)):
+                passed_ids.remove(run['id'])
+                refused.append(f"{run['html_url']}: lacks full successful execution jobs")
+        passed = [message for message in passed if any(
+            run['id'] in passed_ids and (message == run['html_url'] or message.startswith(run['html_url'] + ' (')) for run in applicable)]
+    except (RuntimeError, KeyError, ValueError, TypeError, subprocess.TimeoutExpired) as e:
         print(f"::error::cannot read heavy.yml's runs on {sha}: {e}")
         return 1
     for r in refused:

@@ -2,7 +2,8 @@
 # tier, the journeys, the opt-in browser, pi and inference_docker tiers, and
 # the race detector.
 #
-# They execute on the merge queue and manual dispatch. PRs report admission
+# They execute on the merge queue unless narrow documentation reuse qualifies,
+# and always on manual dispatch. PRs report admission
 # only; main warms caches in heavy-cache.yml without executing tests.
 # A release tag's images are built only for a commit
 # with a run that passed on its first attempt (images.yml, heavy-evidence).
@@ -44,15 +45,18 @@ jobs:
   qualification-report:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    outputs:
+      decision: ${{ steps.qualification.outputs.decision }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: report qualification inputs
+      - name: qualify heavy inputs
+        id: qualification
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.merge_group.base_sha || github.event.pull_request.base.sha || '' }}
-        run: python3 scripts/heavy-qualification.py --repository "$GITHUB_REPOSITORY" --base "$BASE_SHA" --candidate "$GITHUB_SHA" --output heavy-qualification.json
+        run: python3 scripts/heavy-qualification.py --repository "$GITHUB_REPOSITORY" --base "$BASE_SHA" --candidate "$GITHUB_SHA" --output heavy-qualification.json --event "$GITHUB_EVENT_NAME"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: heavy-qualification
@@ -60,7 +64,8 @@ jobs:
           retention-days: 7
 
   web:
-    if: github.event_name != 'pull_request'
+    needs: qualification-report
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'merge_group' && needs.qualification-report.outputs.decision == 'execute')
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -82,8 +87,8 @@ jobs:
           include-hidden-files: true
 
   tier:
-    if: github.event_name != 'pull_request'
-    needs: web
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'merge_group' && needs.qualification-report.outputs.decision == 'execute')
+    needs: [qualification-report, web]
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     strategy:
@@ -182,13 +187,13 @@ jobs:
           key: ${{ steps.gobuild.outputs.cache-primary-key }}
 
   race:
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'merge_group' && needs.qualification-report.outputs.decision == 'execute')
     strategy:
       fail-fast: false
       matrix:
         group: [root, backup, workflow, rest]
     name: race-${{ matrix.group }}
-    needs: web
+    needs: [qualification-report, web]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -228,9 +233,8 @@ jobs:
           key: ${{ steps.gobuild.outputs.cache-primary-key }}
 
   # A check the main ruleset requires, beside ci.yml's ci-ok: it passes only
-  # when queue/manual execution succeeded; PRs report admission separately.
-  # It runs even when a job failed or was skipped. Skipped execution cannot
-  # qualify a queue/manual commit.
+  # when execution succeeds or explicit queue reuse skips every execution
+  # group. PR admission and manual full execution have separate contracts.
   heavy-ok:
     if: always()
     needs: [qualification-report, web, tier, race]
@@ -239,6 +243,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - env:
+          DECISION: ${{ needs.qualification-report.outputs.decision }}
           REPORT_RESULT: ${{ needs.qualification-report.result }}
           RESULTS: ${{ format('{0} {1} {2}', needs.web.result, needs.tier.result, needs.race.result) }}
         run: sh scripts/heavy-result.sh
