@@ -171,6 +171,14 @@ execution build tags and assigns every package to exactly one partition; new
 packages default to the rest. Every matrix entry must succeed. Local
 `make check-race` still runs the entire race suite.
 
+The heavy workflow also publishes a report-only qualification artifact. It
+compares exact Git inputs for non-executable Markdown changes under `design/`
+and `releases/`, and names a prior complete first-attempt successful main or
+queue run when one exists. Embedded docs, deployment files and unknown paths
+remain inputs. Missing or uncertain evidence reports full execution. Every
+heavy test still executes regardless of this report; it is neither a skipped
+test result nor release evidence.
+
 Both CI workflows also handle `merge_group: checks_requested`, running
 all their checks against the queue commit. Repository queue settings control
 whether pull requests use that path; a PR check alone is never release evidence.
