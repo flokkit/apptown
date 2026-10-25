@@ -165,7 +165,7 @@ docker info >/dev/null 2>&1 || fail "Docker is not running. Start Docker Desktop
 
 case ${1:-start} in
 stop)
-	if ! present inspect "$NAME"; then
+	if ! present container inspect "$NAME"; then
 		say "not installed; nothing to stop."
 		exit 0
 	fi
@@ -183,7 +183,7 @@ uninstall)
 	left=''
 	# Each step checks that its thing is there first, so only a real failure
 	# to delete is reported, never something that was already gone.
-	if present inspect "$NAME"; then
+	if present container inspect "$NAME"; then
 		out=$(docker rm -f "$NAME" 2>&1) || {
 			say "could not remove the container: $out" >&2
 			left="$left container"
@@ -230,7 +230,7 @@ uninstall)
 	exit 0
 	;;
 trust)
-	present inspect "$NAME" || fail "not installed; start it first."
+	present container inspect "$NAME" || fail "not installed; start it first."
 	trust_ca
 	exit 0
 	;;
@@ -250,8 +250,8 @@ fi
 # Only this start's log counts: a stopped trial's log still holds its last ready line.
 started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 state=none
-if present inspect "$NAME"; then
-	state=$(docker inspect -f '{{.State.Status}}' "$NAME")
+if present container inspect "$NAME"; then
+	state=$(docker container inspect -f '{{.State.Status}}' "$NAME")
 fi
 case $state in
 running)
@@ -276,7 +276,7 @@ esac
 since=$(date +%s)
 link=''
 while [ -z "$link" ]; do
-	if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" != true ]; then
+	if [ "$(docker container inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null)" != true ]; then
 		say "AppTown stopped while starting. Its log ends:"
 		docker logs --tail 20 "$NAME" >&2
 		exit 1
