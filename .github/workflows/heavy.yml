@@ -69,13 +69,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: integration
-            args: -tags=integration ./internal/... -run '^TestIntegration' -count=1 -timeout 60m -v
+          - name: integration-root
+            args: test-partition integration root
+            require: ""
+          - name: integration-dependency
+            args: test-partition integration dependency
+            require: ""
+          - name: integration-worker
+            args: test-partition integration worker
+            require: ""
+          - name: integration-rest
+            args: test-partition integration rest
             require: ""
           # The era-upgrade suite is not part of this run: it was retired
           # with the SQLite format (design/architecture/testing-map.md §5).
           - name: journeys
-            args: -tags=journey ./internal/apptown/ -run TestJourney -count=1 -timeout 30m -v
+            args: test -tags=journey ./internal/apptown/ -run TestJourney -count=1 -timeout 30m -v
             require: ""
           # The test image carries Playwright's Chromium and the pinned Pi.
           # A skip is not evidence: the job fails unless each test passed.
@@ -83,7 +92,7 @@ jobs:
           # and a container the console test starts adds a host interface,
           # which aborts a navigation in flight (ERR_NETWORK_CHANGED).
           - name: opt-in-tiers
-            args: -tags=browser,pi,inference_docker -p 1 ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -count=1 -timeout 20m -v
+            args: test -tags=browser,pi,inference_docker -p 1 ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -count=1 -timeout 20m -v
             require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary
     name: ${{ matrix.name }}
     env:
@@ -95,16 +104,44 @@ jobs:
         with:
           name: web-dist
           path: web/dist/
+      - name: configure host compilation caches
+        run: |
+          echo "CI_HEAVY_GOMOD=$HOME/go/pkg/mod" >> "$GITHUB_ENV"
+          echo "CI_HEAVY_GOCACHE=$HOME/.cache/go-build" >> "$GITHUB_ENV"
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/go/pkg/mod
+          key: go-mod-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
+          restore-keys: go-mod-${{ runner.os }}-
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: gobuild
+        with:
+          path: ~/.cache/go-build
+          key: go-build-heavy-${{ matrix.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-${{ github.sha }}
+          restore-keys: go-build-heavy-${{ matrix.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-
       # The tests' images (deploy/ci-heavy/test-images.txt), before the
       # tests: a registry error fails this step, not a test.
       - name: pull test images
         run: sh scripts/ci-heavy.sh pull
       - name: go test (${{ matrix.name }})
-        run: eval "sh scripts/ci-heavy.sh test ${{ matrix.args }}"
+        run: eval "sh scripts/ci-heavy.sh ${{ matrix.args }}"
       - if: always()
         run: sh scripts/ci-heavy.sh cleanup
 
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/go-build
+          key: ${{ steps.gobuild.outputs.cache-primary-key }}
+
   race:
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [root, backup, workflow, rest]
+    name: race-${{ matrix.group }}
     needs: web
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -119,7 +156,7 @@ jobs:
           name: web-dist
           path: web/dist/
       # Go's module and build caches: restored by prefix from main's, saved
-      # only on main (as in ci.yml), so each holds one cache; ci.yml's
+      # only on main (as in ci.yml); each successful commit refreshes compilation. ci.yml's
       # checks job saves the modules.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: gomod
@@ -131,11 +168,13 @@ jobs:
         id: gobuild
         with:
           path: ~/.cache/go-build
-          key: go-build-race-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
-          restore-keys: go-build-race-${{ runner.os }}-
+          key: go-build-race-${{ matrix.group }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
+          restore-keys: go-build-race-${{ matrix.group }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-
       - name: pull test images
         run: sh scripts/ci-heavy.sh pull
-      - run: make check-race
+      - run: sh scripts/ci-test-partition.sh race "${{ matrix.group }}"
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
       - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

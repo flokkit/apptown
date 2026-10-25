@@ -89,7 +89,7 @@ jobs:
           name: web-dist
           path: web/dist/
       # Go's module and build caches: restored by prefix from main's, saved
-      # only on main (see the top of this file), so each holds one cache.
+      # only on main. Compilation is refreshed per commit, restored by compatible prefix.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: gomod
         with:
@@ -100,8 +100,8 @@ jobs:
         id: gobuild
         with:
           path: ~/.cache/go-build
-          key: go-build-checks-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
-          restore-keys: go-build-checks-${{ runner.os }}-
+          key: go-build-checks-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
+          restore-keys: go-build-checks-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-
       # The analyzers the Makefile pins, by the Makefile's hash.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: tools
@@ -129,6 +129,8 @@ jobs:
           path: ~/go/pkg/mod
           key: ${{ steps.gomod.outputs.cache-primary-key }}
       - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/go-build
@@ -155,7 +157,7 @@ jobs:
           name: web-dist
           path: web/dist/
       # Go's module and build caches: restored by prefix from main's, saved
-      # only on main (see the top of this file), so each holds one cache.
+      # only on main. Compilation is refreshed per commit, restored by compatible prefix.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: gomod
         with:
@@ -166,8 +168,8 @@ jobs:
         id: gobuild
         with:
           path: ~/.cache/go-build
-          key: go-build-test-${{ matrix.part }}-${{ runner.os }}-${{ hashFiles('go.mod', 'go.sum') }}
-          restore-keys: go-build-test-${{ matrix.part }}-${{ runner.os }}-
+          key: go-build-test-${{ matrix.part }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
+          restore-keys: go-build-test-${{ matrix.part }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-
       - name: go test (${{ matrix.part }})
         run: |
           root=github.com/flokkit/apptown/internal/apptown
@@ -177,6 +179,8 @@ jobs:
           subsystems) go list ./internal/apptown/... | grep -vx "$root" | xargs go test -count=1 ;;
           rest) go list ./... | grep -vE "^$root(/|\$)" | xargs go test -count=1 ;;
           esac
+      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
+        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
       - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
