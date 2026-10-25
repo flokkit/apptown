@@ -225,7 +225,7 @@ func changeRepository(ctx context.Context, dataDir string, owner project.Reposit
 	if err != nil {
 		return "", err
 	}
-	return scm.ComparisonRepository(ctx, hub, filepath.Join(dataDir, "workspaces", fmt.Sprintf("change-%d", changeID)))
+	return scm.ComparisonRepository(ctx, hub, (workflow.Layout{DataDir: dataDir}).ChangeWorkspace(changeID))
 }
 
 func repositoryExists(dir string) bool {

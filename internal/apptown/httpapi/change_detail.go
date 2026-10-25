@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -127,7 +125,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 			commits = commitsBetween(r.Context(), hub, diff.Base, diff.Head)
 		}
 	} else if item.Branch != "" && slug != "" {
-		workspace := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", id))
+		workspace := (workflow.Layout{DataDir: h.dataDir}).ChangeWorkspace(id)
 		var diff scm.CommittedDiff
 		repo, readErr := scm.ComparisonRepository(r.Context(), hub, workspace)
 		if readErr == nil {
@@ -173,7 +171,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	// at session end) — without this, a change being actively edited says
 	// "no edits yet", which reads as broken.
 	editing := 0
-	if ws := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", id)); hasGitDirectory(ws) {
+	if ws := (workflow.Layout{DataDir: h.dataDir}).ChangeWorkspace(id); hasGitDirectory(ws) {
 		if out, err := gitexec.Run(r.Context(), ws, "status", "--porcelain"); err == nil {
 			for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
 				if l != "" && !strings.Contains(l, ".apptown/") {

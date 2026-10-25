@@ -73,7 +73,7 @@ ALLOWED = {
     "model":       {"integration", "project"},
     "integration": {"project", "secret"},
     "deployment":  {"project", "secret", "integration"},
-    "preview":     {"deployment", "project", "integration"},
+    "preview":     {"deployment", "project", "integration", "workflow"},
     "dataprotection": {"deployment", "project", "integration", "secret"},
     # Facades.
     "changeconsole":    {"console", "conversation", "integration", "preview", "project", "repositoryedit", "scm",

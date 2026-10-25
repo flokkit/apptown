@@ -160,7 +160,7 @@ func (c Cleanup) Clean(ctx context.Context, owner project.RepositoryRef, plan Cl
 			note(c.Docker.RemoveDisposable(ctx, docker.PreviewRunName(run)))
 			failed = append(failed, maintenance.RemoveBuildImages(ctx, *c.Docker, docker.PreviewRunName(run))...)
 		}
-		note(os.RemoveAll(filepath.Join(c.DataDir, "workspaces", fmt.Sprintf("run-%d", run))))
+		note(os.RemoveAll((workflow.Layout{DataDir: c.DataDir}).RunWorkspace(run)))
 		// The snapshots the run's preview was served from, as for a change.
 		note(os.RemoveAll(filepath.Join(c.DataDir, "workspaces", fmt.Sprintf("asof-run-%d", run))))
 	}
@@ -179,7 +179,7 @@ func (c Cleanup) Clean(ctx context.Context, owner project.RepositoryRef, plan Cl
 			failed = append(failed, maintenance.RemoveBuildImages(ctx, *c.Docker, docker.PreviewChangeName(change))...)
 			note(c.Docker.RemoveDisposableStack(ctx, docker.ChangeStackID(change)))
 		}
-		note(os.RemoveAll(filepath.Join(c.DataDir, "workspaces", fmt.Sprintf("change-%d", change))))
+		note(os.RemoveAll((workflow.Layout{DataDir: c.DataDir}).ChangeWorkspace(change)))
 		note(os.RemoveAll(filepath.Join(c.DataDir, "workspaces", fmt.Sprintf("asof-change-%d", change))))
 	}
 	// The GitLab copy is never destroyed: it is renamed out of the way,

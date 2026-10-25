@@ -151,7 +151,7 @@ func (h Attachments) DeleteAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	settle := context.WithoutCancel(r.Context())
-	wt := filepath.Join(h.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	wt := (workflow.Layout{DataDir: h.dataDir}).ChangeWorkspace(ch.ID)
 	for _, path := range []string{filepath.Join((workflow.GitWorkspace{DataDir: h.dataDir}).AttachmentDir(ch.ID), name), filepath.Join(wt, ".apptown", "attachments", name)} {
 		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			why := err.Error()

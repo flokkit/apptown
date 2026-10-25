@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"log"
 	"net/http/httputil"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -213,7 +213,7 @@ func (s *Service) observeChange(ctx context.Context, projectID, changeID ids.ID,
 	}
 	missing := false
 	if inProgress {
-		ws := filepath.Join(s.dataDir, "workspaces", fmt.Sprintf("change-%d", changeID))
+		ws := (workflow.Layout{DataDir: s.dataDir}).ChangeWorkspace(changeID)
 		_, err := docker.ReadWorkspaceContract(ws)
 		missing = err == docker.ErrNoContract
 	}

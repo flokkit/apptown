@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -244,7 +243,7 @@ func (v *Changes) checkedCommit(ctx context.Context, ch *workflow.Change, sel Se
 	if err != nil {
 		return "", "", false, err
 	}
-	ws := filepath.Join(v.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID))
+	ws := (workflow.Layout{DataDir: v.dataDir}).ChangeWorkspace(ch.ID)
 	commit := sel.Commit
 	if sel.Published {
 		if commit != "" {

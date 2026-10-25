@@ -26,6 +26,12 @@ it does not adopt those directories as identified projects. Enumeration neither
 moves nor removes an unowned directory. The `hubpaths` architecture gate admits
 no production layout constructors outside the project owner.
 
+`workflow.Layout` owns ordinary `change-<UUID>` and `run-<UUID>` workspace
+locations. Readers, writers and cleanup use the same owner. `workflow.Source`
+selects which workspace a run uses from its checked change, root-run and
+continuation facts; location calculation does not choose that ownership.
+Preview snapshots retain their separate `asof-change` and `asof-run` namespaces.
+
 ## Active references and storage boundaries
 
 These are current writers and readers of locations. A change to hub layout or

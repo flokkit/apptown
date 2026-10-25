@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	projectrepo "github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -49,7 +49,7 @@ func (s *Service) prepareChange(ctx context.Context, ch Change) (changeBoot, err
 		return changeBoot{}, err
 	}
 	b := changeBoot{slug: project.Slug, source: deploy.PreviewSource{
-		Worktree:  filepath.Join(s.dataDir, "workspaces", fmt.Sprintf("change-%d", ch.ID)),
+		Worktree:  (workflow.Layout{DataDir: s.dataDir}).ChangeWorkspace(ch.ID),
 		History:   deploy.SelectedSource{Repository: repository, Revision: ch.SourceRevision},
 		Snapshots: s.changeSnapshots(ch.ID),
 	}}

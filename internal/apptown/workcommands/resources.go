@@ -56,7 +56,7 @@ func (a Resources) Change(ctx context.Context, changeID ids.ID) error {
 		return err
 	}
 	previewErr := a.Previews.DiscardChangePreview(ctx, changeID)
-	wt := filepath.Join(a.DataDir, "workspaces", fmt.Sprintf("change-%d", changeID))
+	wt := (workflow.Layout{DataDir: a.DataDir}).ChangeWorkspace(changeID)
 	if err := os.RemoveAll(wt); err != nil {
 		return fmt.Errorf("removing change %d workspace: %w", changeID, err)
 	}
