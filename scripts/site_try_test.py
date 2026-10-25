@@ -20,6 +20,7 @@ DONE = 'removed the container, its data, its image and the trust in its certific
 
 DOCKER = '''#!/bin/sh
 printf '%s\\n' "$*" >> "$CALLS"
+[ "$1" != container ] || shift
 case "$1" in
 info) [ "$#" = 1 ] || echo 17179869184 ;;
 inspect)
@@ -149,6 +150,32 @@ class TryScript(unittest.TestCase):
                 self.assertEqual(status, 0, out)
                 self.assertIn('AppTown is ready: http://localhost:7777/?setup=abc123', out)
                 self.assertIn('?setup=abc123', (self.base / 'browser').read_text())
+
+    def test_retained_volume_is_reused_when_container_is_missing(self):
+        # Untyped inspect finds the retained volume; only container inspect
+        # can establish whether the trial itself is installed.
+        self.stub('docker', DOCKER.replace('[ "$1" != container ] || shift', """
+if [ ! -f "$CALLS.container" ]; then
+  case "$1 $2" in
+  'container inspect') echo 'Error: no such container: apptown' >&2; exit 1 ;;
+  'inspect -f') echo 'template: map has no entry for key "State"' >&2; exit 1 ;;
+  'inspect apptown') echo '[{"Name":"apptown"}]'; exit 0 ;;
+  'run -d') touch "$CALLS.container" ;;
+  esac
+fi
+[ "$1" != container ] || shift
+"""))
+        for shell in SHELLS:
+            with self.subTest(shell=shell):
+                (self.base / 'calls').unlink(missing_ok=True)
+                (self.base / 'calls.container').unlink(missing_ok=True)
+                status, out = self.run_script(shell)
+                self.assertEqual(status, 0, out)
+                calls = (self.base / 'calls').read_text()
+                self.assertIn('run -d --name apptown', calls)
+                self.assertIn('-v apptown:/var/lib/apptown', calls)
+                self.assertNotIn('volume rm', calls)
+                self.assertNotIn('start apptown', calls)
 
     def test_stopped_container_restarts_and_uses_ready_link(self):
         self.env['INITIAL_STATE'] = 'exited'
