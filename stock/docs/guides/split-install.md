@@ -72,7 +72,10 @@ the split install.
 2. **The worker.** A machine with Docker, running `apptown-worker` as root.
    Unpack the same release archive to `/opt/apptown-worker` ([downloading a
    release](server-setup.md)); its example unit is
-   `deploy/systemd/apptown-worker.service`.
+   `deploy/systemd/apptown-worker.service`. The unit sets
+   `DOCKER_CONFIG=/root/.docker`; override it in
+   `/etc/apptown-worker/apptown-worker.env` if the worker uses another
+   Docker configuration location.
    You issue its server certificate and AppTown's client certificate; the
    client certificate's Common Name is the worker's `-installation`. On a
    cloud machine, block the metadata service (below).

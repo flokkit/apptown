@@ -11,6 +11,8 @@ Wants=network-online.target
 Requires=docker.service
 
 [Service]
+# Root system services need an explicit Docker configuration location.
+Environment=DOCKER_CONFIG=/root/.docker
 WorkingDirectory=/opt/apptown-worker
 EnvironmentFile=/etc/apptown-worker/apptown-worker.env
 ExecStart=/opt/apptown-worker/bin/apptown-worker -installation ${INSTALLATION} \
