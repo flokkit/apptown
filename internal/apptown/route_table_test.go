@@ -481,6 +481,7 @@ type described struct {
 // check every request its --json commands send is one of these (jsonAppTown
 // in cmd/apptown/output_test.go).
 var cliOperations = map[string]described{
+	"GET /api/v1/projects/{slug}/release/plan":               {status: 200, response: httpapi.ReleasePlan{}},
 	"GET /api/v1/projects":                                   {status: 200, response: []httpapi.ProjectRow{}, also: httpapi.ProjectPage{}, alsoWhen: "with limit, offset or q"},
 	"POST /api/v1/projects":                                  {request: httpapi.ProjectDraft{}, status: 201, response: project.Project{}},
 	"POST /api/v1/projects/{slug}/repo":                      {request: httpapi.RepositoryStart{}, status: 200, response: project.Project{}},

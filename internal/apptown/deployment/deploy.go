@@ -46,6 +46,7 @@ type preparedRelease struct {
 	// the record. SecretNames is what the record says was delivered.
 	Secrets        deploy.ConsumerSecrets
 	SecretNames    []string
+	Address        *AddressSnapshot
 	Actor          string
 	BaseGeneration *int64
 }
@@ -68,6 +69,9 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 			logf("could not record the preparation failure: %v (preparation: %v)", err, cause)
 		}
 		return cause
+	}
+	if err := s.checkAddressSnapshot(ctx, dep, t, req.Address); err != nil {
+		return ExecutionResult{}, fail("%v", err)
 	}
 	d, err := s.providers.Driver(ctx, t, dep)
 	if err != nil {
@@ -113,6 +117,10 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	logf("rendered the %s artifact (%s)", art.Kind, art.Hash)
 	key := fmt.Sprintf("release-%d", rel.ID)
 	inputs := Inputs{ReleaseID: rel.ID, Revision: req.Source.Revision, ArtifactHash: art.Hash, Applied: applied}
+	if req.Address != nil {
+		address := req.Address.clone()
+		inputs.Address = &address
+	}
 	if req.Bundle != nil && req.Source.Contract != nil {
 		inputs.ImageDigest = req.Bundle.Parts[req.Source.Contract.PublicPart().Name]
 	}

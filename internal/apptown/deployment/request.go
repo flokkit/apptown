@@ -24,7 +24,10 @@ const ReleaseJob = "deployment-release"
 type DeploySelection struct {
 	ProjectID      ids.ID
 	DeploymentName string
-	BundleID       ids.ID
+	// Address edits require bind authority and the revision the caller saw.
+	AddressRevision *int64
+	CustomHostname  *string
+	BundleID        ids.ID
 	// AcceptUncopiedData is a person's choice to release onto a deployment
 	// holding data AppTown cannot copy now (DataCopyCheck); the release
 	// records it with who and why.
@@ -129,6 +132,14 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 	}
 	if actor.Principal.Name == "" {
 		return AcceptedRelease{}, errors.New("release caller required")
+	}
+	if in.CustomHostname != nil {
+		if in.AddressRevision == nil || *in.AddressRevision < 0 {
+			return AcceptedRelease{}, fault.New(fault.Invalid, "send the address revision the edit started from")
+		}
+		if _, err := s.addressAuthority(ctx, in.ProjectID, true); err != nil {
+			return AcceptedRelease{}, err
+		}
 	}
 	// A landing-fed deployment may still take the bundle it runs, named
 	// explicitly; that is decided once the bundle is known
@@ -243,6 +254,14 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		if err != nil {
 			return err
 		}
+		q := deploymentsql.New(tx.SQL())
+		lockedTarget, err := targetRecord(q.TargetByNameForUpdate(ctx, t.Name))
+		if err != nil {
+			return err
+		}
+		if lockedTarget.ID != t.ID || lockedTarget.SettingsRevision != t.SettingsRevision {
+			return ErrTargetSettingsMoved
+		}
 		current, err := LockDeploymentIn(ctx, tx, dep.ID)
 		if err != nil {
 			return err
@@ -259,6 +278,18 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		if current.StartFrom != dep.StartFrom || current.StartedFrom.Valid != dep.StartedFrom.Valid {
 			return ErrPlacementChanged
 		}
+		address, err := s.admitAddressIn(ctx, tx, current, lockedTarget, in.AddressRevision, in.CustomHostname, actor.Principal.Name)
+		if err != nil {
+			return err
+		}
+		var ingress *json.RawMessage
+		if address != nil {
+			raw, err := addressSnapshotJSON(address)
+			if err != nil {
+				return err
+			}
+			ingress = &raw
+		}
 		startFrom := ids.ID(ids.Nil)
 		if !dep.StartedFrom.Valid {
 			startFrom = dep.StartFrom
@@ -267,7 +298,7 @@ func (s *Service) RequestRelease(ctx context.Context, in DeploySelection) (Accep
 		if err != nil {
 			return err
 		}
-		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding}); err != nil {
+		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding, IngressJson: ingress}); err != nil {
 			return err
 		}
 		if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {

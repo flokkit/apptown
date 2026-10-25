@@ -75,12 +75,15 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	if !src.Published {
 		return deploy.Artifact{}, notPublished(d.target.Name)
 	}
+	if src.Ingress == nil {
+		return deploy.Artifact{}, refused("release has no admitted deployment address")
+	}
+	if err := (AddressSnapshot{DeploymentID: d.dep.ID, TargetID: d.target.ID, Revision: 1, Ingress: *src.Ingress}).valid(); err != nil {
+		return deploy.Artifact{}, err
+	}
 	cfg, err := d.Config(ctx, d.TargetID)
 	if err != nil {
 		return deploy.Artifact{}, err
-	}
-	if cfg.AppsDomain == "" {
-		return deploy.Artifact{}, refused("the %s target names no domain to answer on: set one in its settings", d.target.Name)
 	}
 	endpointID, err := portainer.EndpointID(ctx, cfg)
 	if err != nil {
@@ -91,10 +94,9 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 		return deploy.Artifact{}, err
 	}
 	logf("%s runs %s", d.target.Name, platform)
-	vanity := releaseProject(ctx, d.providers.db, d.dep.ProjectID).ReleaseDomain
-	hosts, _ := IntranetAddress(src.Slug, cfg.AppsDomain, vanity)
-	if vanity != "" {
-		logf("also answering on %s (DNS for it is platform-owned — needs its record applied)", vanity)
+	hosts := src.Ingress.Hosts
+	if len(hosts) > 1 {
+		logf("also answering on %s (DNS for it is platform-owned — needs its record applied)", hosts[1])
 	}
 	if secrets == nil {
 		secrets = secret.Delivery{} // the app declares none
@@ -103,7 +105,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 		logf("the app's secrets go as stack environment — Portainer keeps a copy with the stack definition")
 	}
 	prefix, base := portainer.StackNames(d.dep.ID)
-	compose, err := d.providers.env.portainerStack(ctx, portainerStackOf{Base: base, Prefix: prefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: src.Contract, Revision: src.Revision,
+	compose, err := d.providers.env.portainerStack(ctx, portainerStackOf{Base: base, Prefix: prefix, Hosts: hosts, Domain: src.Ingress.CertificateDomain, Contract: src.Contract, Revision: src.Revision,
 		Images: stackImages{Parts: src.Images, Init: src.Init}, Secrets: secrets, Project: d.dep.ProjectID, Deployment: d.dep.ID}, logf)
 	if err != nil {
 		return deploy.Artifact{}, err
@@ -111,17 +113,15 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	return deploy.Artifact{Kind: "compose", Body: []byte(compose), Hash: deploy.ConfigHash(strings.TrimSpace(compose))}, nil
 }
 
-// Reconcile runs the stack at the address its hosts route: right for a
-// first release, which has none recorded, and after the apps domain or the
-// release domain changes.
+// Reconcile uses the immutable address carried by the admitted artifact.
 func (d *portainerRelease) Reconcile(ctx context.Context, pl deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {
-	if art.Source != nil {
-		cfg, err := d.Config(ctx, d.TargetID)
-		if err != nil {
-			return deploy.Observation{}, deploy.Terminal(err)
-		}
-		_, pl.URL = IntranetAddress(art.Source.Slug, cfg.AppsDomain, releaseProject(ctx, d.providers.db, d.dep.ProjectID).ReleaseDomain)
+	if art.Source == nil || art.Source.Ingress == nil {
+		return deploy.Observation{}, deploy.Terminal(refused("release has no admitted deployment address"))
 	}
+	if err := (AddressSnapshot{DeploymentID: d.dep.ID, TargetID: d.target.ID, Revision: 1, Ingress: *art.Source.Ingress}).valid(); err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
+	}
+	pl.URL = art.Source.Ingress.URL
 	o, err := d.Driver.Reconcile(ctx, pl, generation, art, key, logf, checkpoint)
 	if err == nil && o.Rollout == "active" && d.providers.afterRelease != nil {
 		d.providers.afterRelease(d.dep.ProjectID, d.dep.Name)

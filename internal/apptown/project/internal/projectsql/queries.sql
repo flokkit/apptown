@@ -22,9 +22,6 @@ VALUES (sqlc.arg(id), sqlc.arg(slug), sqlc.arg(name), sqlc.arg(namespace), sqlc.
 -- name: ProjectPurpose :one
 SELECT purpose FROM projects WHERE id = $1;
 
--- name: SetProjectReleaseDomain :exec
-UPDATE projects SET release_domain = $2 WHERE id=$1;
-
 -- name: SetProjectModelProfile :exec
 UPDATE projects SET model_profile = $2 WHERE id=$1;
 

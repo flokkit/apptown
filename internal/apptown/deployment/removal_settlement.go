@@ -198,6 +198,9 @@ func removeRecordedIn(ctx context.Context, tx *database.Tx, dep *Deployment, s R
 	if err := takeDownReleaseIn(ctx, tx, dep, s.Target, who, s.At); err != nil {
 		return nil, err
 	}
+	if err := releaseAddressClaimsIn(ctx, deploymentsql.New(tx.SQL()), dep.ID); err != nil {
+		return nil, err
+	}
 	if err := deploymentsql.New(tx.SQL()).ClearRemovedDefault(ctx, dep.ID); err != nil {
 		return nil, err
 	}

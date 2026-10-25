@@ -29,6 +29,23 @@ export type ADRRecord = {
 
 export type ADRState = "draft" | "proposed" | "accepted" | "rejected" | "deprecated" | "superseded"
 
+export type AddressObservation = {
+  deploymentId: string | null
+  targetId: string | null
+  revision: number
+  ingress: Ingress
+  scope: Scope
+  stack: StackAssociation
+  targetRevision: number
+}
+
+export type AddressSnapshot = {
+  deploymentId: string | null
+  targetId: string | null
+  revision: number
+  ingress: Ingress
+}
+
 export type AdministratorNetworksView = {
   networks: string[]
   you: string
@@ -430,6 +447,19 @@ export type DependencyList = {
 
 export type DeploymentAIModels = {
   keys: AIModelsKey[]
+}
+
+export type DeploymentAddress = {
+  deploymentId: string | null
+  targetId: string | null
+  generatedHostname: string
+  customHostname: string
+  certificateDomain: string
+  revision: number
+  verified: boolean
+  servingURL: string
+  reservedHosts: string[]
+  legacyEvidence?: unknown
 }
 
 export type DeploymentBackups = {
@@ -1184,6 +1214,7 @@ export type ReleaseListed = {
 }
 
 export type ReleasePlan = {
+  address?: DeploymentAddress | null
   configured: boolean
   deployment: string
   configError?: string
@@ -1599,6 +1630,26 @@ export type WorkflowTiming = {
   runs: number
   totalMedianMs: number
   steps: StepTiming[]
+}
+
+export type Ingress = {
+  hosts: string[]
+  url: string
+  certificateDomain: string
+}
+
+export type Scope = {
+  version: number
+  apiBase: string
+  endpointId: number
+  daemonId: string
+}
+
+export type StackAssociation = {
+  deploymentId: string | null
+  scope: Scope
+  stackId: number
+  stackName: string
 }
 
 export type Candidate = {

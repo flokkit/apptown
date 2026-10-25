@@ -31,7 +31,10 @@ each `$` in an environment value, command, healthcheck or mount path as `$$`
 
 A deployment on Portainer can also be released by name through the general
 release door (`RequestRelease`). Both doors render the same stack, needs
-included, with one builder; see
+included, with one builder. Both admit deployment-owned hostname claims and an
+immutable ingress snapshot in the release transaction; neither writes a
+project-wide hostname. The optional CLI hostname includes the address revision
+it read before submission. See
 [deployment.md](deployment.md#release-bundles).
 
 Release records and logs provide the selected source and observed result. Provider

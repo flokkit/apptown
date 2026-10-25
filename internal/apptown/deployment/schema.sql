@@ -165,7 +165,8 @@ CREATE TABLE IF NOT EXISTS deployment_attempt_inputs (
   -- override (deployment.Applied): its profile, each part's resources and
   -- the environment the profile changed, and what each part runs on. A
   -- rebuild reapplies it; '{}' is a generation from before it was kept.
-  applied JSONB NOT NULL DEFAULT '{}'::jsonb
+  applied JSONB NOT NULL DEFAULT '{}'::jsonb,
+  ingress_json JSONB
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_deployment_inputs_release ON deployment_attempt_inputs(release_id) WHERE release_id IS NOT NULL;
 -- One need of one project fulfilled in one deployment (§2.5).
@@ -280,7 +281,8 @@ CREATE TABLE IF NOT EXISTS release_requests (
   -- The copy the release's caller was authorised to fill a new deployment
   -- from (0: none); the release fills that copy or nothing.
   start_from_backup UUID,
-  provider_binding_json JSONB
+  provider_binding_json JSONB,
+  ingress_json JSONB
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,
@@ -342,4 +344,25 @@ CREATE TABLE IF NOT EXISTS project_release_settings (
   revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
   CONSTRAINT project_release_default_membership FOREIGN KEY(project_id, default_deployment_id)
     REFERENCES deployments(project_id, id) DEFERRABLE INITIALLY DEFERRED
+);
+
+-- Desired ingress and retained exact-host memberships belong to Deployment.
+-- A single claimant owns a host; multiple claimants retain a legacy conflict.
+CREATE TABLE IF NOT EXISTS deployment_address_settings (
+  deployment_id UUID PRIMARY KEY REFERENCES deployments(id) ON DELETE CASCADE,
+  generated_hostname TEXT NOT NULL DEFAULT '',
+  custom_hostname TEXT NOT NULL DEFAULT '',
+  certificate_domain TEXT NOT NULL DEFAULT '',
+  revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
+  verification_state TEXT NOT NULL CONSTRAINT deployment_address_verification CHECK (verification_state IN ('ready','legacy-unverified')),
+  legacy_evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT deployment_address_ready_fields CHECK (verification_state='legacy-unverified' OR (generated_hostname<>'' AND certificate_domain<>''))
+);
+CREATE TABLE IF NOT EXISTS deployment_hostname_claims (
+  hostname TEXT PRIMARY KEY
+);
+CREATE TABLE IF NOT EXISTS deployment_hostname_claimants (
+  hostname TEXT NOT NULL REFERENCES deployment_hostname_claims(hostname) ON DELETE CASCADE,
+  deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE RESTRICT,
+  PRIMARY KEY(hostname,deployment_id)
 );

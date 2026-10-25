@@ -1,3 +1,4 @@
+import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
@@ -142,6 +143,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
           <Link className="small" to="/deployments/infrastructure">see the infrastructure</Link>
         </div>
       )}
+      {e.target?.kind === 'portainer' && e.id && <DeploymentAddressEdit slug={slug} id={e.id} />}
       {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
       {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
       {e.generation ? <DiagnosticsLines slug={slug} name={e.name} /> : null}

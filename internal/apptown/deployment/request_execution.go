@@ -103,6 +103,16 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	if err := matchesProviderBinding(t, placement.ProviderBindingJson); err != nil {
 		return fail(err)
 	}
+	var address *AddressSnapshot
+	if placement.IngressJson != nil {
+		address, err = addressSnapshotFrom(*placement.IngressJson)
+		if err != nil {
+			return fail(err)
+		}
+	}
+	if err := s.checkAddressSnapshot(ctx, dep, t, address); err != nil {
+		return fail(err)
+	}
 	bundle, err := s.Bundles.ByID(ctx, rel.BundleID)
 	if err != nil {
 		return fail(err)
@@ -141,6 +151,11 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 		return fail(errors.Join(err, refusal(why)))
 	}
 	req := preparedRelease{Bundle: bundle, Source: deploy.Source{Revision: revision, Slug: project.Slug, Contract: c, Images: bundle.Parts, Init: bundle.Init, Published: bundle.ByDigest(), Platform: bundle.BuiltFrom.Platform}, Actor: rel.ApprovedBy, BaseGeneration: &placement.BaseGeneration}
+	req.Address = address
+	if address != nil {
+		ingress := address.Ingress.Clone()
+		req.Source.Ingress = &ingress
+	}
 	var staged string
 	var cleanup func()
 	docked := false // a standing deployment on a Docker host: booted at its recorded port

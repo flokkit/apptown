@@ -18,15 +18,24 @@ Which name reaches which deployment, by target:
 | AppTown's own Docker host | `<slug>.<main tier domain>`, through apptownd's front door (VHost); without a main tier domain, AppTown's host and the published port | AppTown's host and its published port |
 | An attached Docker host with an ingress domain | `<slug>.<domain>`, through the host's own Traefik | the host's address and its published port; it carries no Traefik route |
 | An attached Docker host without a domain | the host's address and its published port | the same |
-| Portainer | one deployment per project, named for the target's tier, at the project's name | refused |
+| Portainer | one deployment per project on the target, named for its configured release tier, with retained deployment-owned addresses | other deployment names are refused |
 | App Platform | the platform's own name for each app | the same |
 
 The project's name belongs to `main` on every Docker host
 (`docker.Scope.RoutesDeployment`). Traefik joins every container that
 declares one router into one service and splits requests between them, so a
 second deployment carrying main's route would take about half of main's
-visitors. A name of its own for each other deployment is not built (nor on
-Portainer).
+visitors. Other Docker deployments have no hostname route of their own.
+Portainer retains its fixed tier-name restriction; its address owner separates
+routing from project and environment display names.
+
+Portainer address admission records a UUID-derived hostname and optional customer
+hostname. Existing observed legacy addresses are preserved after explicit
+confirmation. Rendering uses immutable admitted host and certificate inputs, including exact
+HTTPS origins for every admitted hostname;
+changing a target domain does not move an existing deployment. See
+[deployment addresses](deployment.md#deployment-addresses) for claims and restore
+behavior.
 
 Every standing deployment on a Docker host is published at one host port,
 picked and recorded before its first start, whether a landing or a release

@@ -58,6 +58,21 @@ func cmdRelease(args []string) error {
 			return usagef("--accept-unchecked-copy is for a deployment that starts from a copy; the intranet does not")
 		}
 		body := map[string]any{"domain": *domain}
+		if *domain != "" {
+			var plan struct {
+				Address *struct {
+					Revision int64 `json:"revision"`
+				} `json:"address"`
+			}
+			if err := api.get("/projects/"+slug+"/release/plan", &plan); err != nil {
+				return err
+			}
+			revision := int64(0)
+			if plan.Address != nil {
+				revision = plan.Address.Revision
+			}
+			body["addressRevision"] = revision
+		}
 		if *acceptUncopied {
 			body["acceptUncopiedData"] = true
 		}

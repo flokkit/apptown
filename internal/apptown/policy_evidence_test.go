@@ -20,10 +20,14 @@ import (
 // either as its own top-level test or, for a helper, through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
-	"deployments.ReleaseDefault":      TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
-	"deployments.SetReleaseDefault":   TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
-	"deployments.EditDeploymentLabel": TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
-	"targets.EditTargetLabel":         TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
+	"deployments.ReleaseDefault":           TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
+	"deployments.SetReleaseDefault":        TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
+	"deployments.EditDeploymentLabel":      TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
+	"deployments.DeploymentAddress":        TestDeploymentAddressHTTPChecksCurrentAuthorityAndRevision,
+	"deployments.EditDeploymentAddress":    TestDeploymentAddressHTTPChecksCurrentAuthorityAndRevision,
+	"deployments.InspectDeploymentAddress": TestDeploymentAddressHTTPChecksCurrentAuthorityAndRevision,
+	"deployments.ConfirmDeploymentAddress": TestDeploymentAddressHTTPChecksCurrentAuthorityAndRevision,
+	"targets.EditTargetLabel":              TestEnvironmentLabelsAndDefaultHTTPUseCurrentAuthorityAndStableIdentity,
 
 	"dashboard.Dashboard":       checkFilteredHTTPPolicies,
 	"projectViews.ListProjects": checkFilteredHTTPPolicies,

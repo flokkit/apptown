@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -48,8 +49,16 @@ func deploymentInputsIn(ctx context.Context, tx *database.Tx, at Attempt) (Input
 	if err != nil {
 		return Inputs{}, database.QueryError(err, "DeploymentInputs")
 	}
+	var raw json.RawMessage
+	if r.IngressJson != nil {
+		raw = *r.IngressJson
+	}
+	address, err := addressSnapshotFrom(raw)
+	if err != nil {
+		return Inputs{}, err
+	}
 	applied, err := appliedFrom(r.Applied)
-	return Inputs{ReleaseID: r.ReleaseID, ReleaseRun: r.ReleaseRun, Revision: r.Revision,
+	return Inputs{Address: address, ReleaseID: r.ReleaseID, ReleaseRun: r.ReleaseRun, Revision: r.Revision,
 		ImageDigest: r.ImageDigest, ArtifactHash: r.ArtifactHash, DockerSource: r.DockerSource, Rebuild: r.Rebuild, BundleID: r.BundleID, Applied: applied}, err
 }
 
@@ -58,10 +67,18 @@ func insertDeploymentInputsIn(ctx context.Context, tx *database.Tx, at Attempt, 
 	if err != nil {
 		return err
 	}
+	address, err := addressSnapshotJSON(in.Address)
+	if err != nil {
+		return err
+	}
+	var addressInput *json.RawMessage
+	if address != nil {
+		addressInput = &address
+	}
 	n, err := releasesql.New(tx.SQL()).InsertDeploymentInputs(ctx, releasesql.InsertDeploymentInputsParams{
 		AttemptID: at.ID, ReleaseID: in.ReleaseID, ReleaseRun: in.ReleaseRun, Revision: in.Revision,
 		ImageDigest: in.ImageDigest, ArtifactHash: in.ArtifactHash, DockerSource: in.DockerSource, Rebuild: in.Rebuild, BundleID: in.BundleID,
-		Applied: applied,
+		Applied: applied, IngressJson: addressInput,
 	})
 	if err != nil {
 		return err

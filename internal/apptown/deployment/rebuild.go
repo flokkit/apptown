@@ -136,6 +136,15 @@ func (s *Service) Rebuild(ctx context.Context, dep *Deployment, plan RebuildPlan
 	if err != nil {
 		return RebuildResult{}, err
 	}
+	if err := s.checkAddressSnapshot(ctx, dep, t, inputs.Address); err != nil {
+		return RebuildResult{}, err
+	}
+	if inputs.Address != nil {
+		source := *art.Source
+		ingress := inputs.Address.Ingress.Clone()
+		source.Ingress = &ingress
+		art.Source = &source
+	}
 	d, err := s.providers.Driver(ctx, t, dep)
 	if err != nil {
 		return RebuildResult{}, err

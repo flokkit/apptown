@@ -108,6 +108,12 @@ sql:
         out: internal/apptown/deployment/internal/releasesql
         sql_package: database/sql
         overrides:
+          - db_type: jsonb
+            nullable: true
+            go_type:
+              import: encoding/json
+              type: RawMessage
+              pointer: true
           - db_type: uuid
             go_type: github.com/flokkit/apptown/internal/ids.ID
           - db_type: uuid

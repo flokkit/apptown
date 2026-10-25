@@ -41,6 +41,16 @@ type Deployment struct {
 	DisplayLabel       string
 }
 
+type DeploymentAddressSetting struct {
+	DeploymentID       ids.ID
+	GeneratedHostname  string
+	CustomHostname     string
+	CertificateDomain  string
+	Revision           int64
+	VerificationState  string
+	LegacyEvidenceJson json.RawMessage
+}
+
 type DeploymentAttempt struct {
 	ID             ids.ID
 	DeploymentID   ids.ID
@@ -65,6 +75,7 @@ type DeploymentAttemptInput struct {
 	Rebuild      bool
 	BundleID     ids.ID
 	Applied      json.RawMessage
+	IngressJson  *json.RawMessage
 }
 
 type DeploymentLimitEvent struct {
@@ -203,6 +214,7 @@ type ReleaseRequest struct {
 	ClaimedAt           sql.NullTime
 	StartFromBackup     ids.ID
 	ProviderBindingJson *json.RawMessage
+	IngressJson         *json.RawMessage
 }
 
 type RetainedResource struct {

@@ -14,7 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
-	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -50,7 +50,7 @@ func (s *Service) relLog(relID ids.ID, format string, args ...any) {
 // target's configuration through PortainerConfig, so it answers on the
 // target's domain setting. The release plan shows the same, so what the
 // page promises is where the release goes. Refused while the target is not
-// recorded or names no domain.
+// recorded. Address admission validates the domain for a new placement.
 func (s *Service) IntranetConfig(ctx context.Context) (*portainer.Target, error) {
 	intranet, err := s.Targets.ByName(ctx, IntranetTargetName)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -63,9 +63,6 @@ func (s *Service) IntranetConfig(ctx context.Context) (*portainer.Target, error)
 	if err != nil {
 		return nil, err
 	}
-	if cfg.AppsDomain == "" {
-		return nil, refusal(fmt.Sprintf("the %s target names no domain to answer on: set one in its settings", IntranetTargetName))
-	}
 	return cfg, nil
 }
 
@@ -74,6 +71,7 @@ func (s *Service) IntranetConfig(ctx context.Context) (*portainer.Target, error)
 // the release is admitted), and the choice to release over data AppTown
 // cannot copy (DataCopyCheck).
 type LANReleaseRequest struct {
+	AddressRevision    *int64
 	Domain             string
 	AcceptUncopiedData bool
 }
@@ -137,17 +135,16 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 	if _, err := s.env.ResolveDockerStack(ctx, c, nil, nil); err != nil {
 		return nil, 422, err // an unknown need fails at the door, before a number is minted
 	}
-	var vanity string
-	rec, err := project.ByIDIn(ctx, s.db, p.ID)
-	vanity = rec.ReleaseDomain
-	if _, err := database.Lookup(err); err != nil {
-		return nil, 0, err
+	var custom *string
+	if domain := strings.TrimSpace(in.Domain); domain != "" {
+		if in.AddressRevision == nil || *in.AddressRevision < 0 {
+			return nil, 422, refusal("send the address revision the edit started from")
+		}
+		if _, err := s.addressAuthority(ctx, p.ID, true); err != nil {
+			return nil, 0, err
+		}
+		custom = &domain
 	}
-	domain := strings.TrimSpace(in.Domain)
-	if domain != "" {
-		vanity = domain
-	}
-	_, url := IntranetAddress(p.Slug, cfg.AppsDomain, vanity)
 	lanEnv, err := s.intranetDeployment(ctx, p.ID, cfg)
 	if err != nil {
 		return nil, 500, fmt.Errorf("naming the intranet deployment: %w", err)
@@ -164,31 +161,63 @@ func (s *Service) releaseLANOf(ctx context.Context, p *project.Project, who stri
 		return nil, 422, refusal(refused)
 	}
 	draft := ReleaseDraft{Source: ReleaseFromBundle, BundleID: bundle.ID, ProjectID: p.ID, DeploymentID: lanEnv.ID,
-		Deployment: cfg.ReleaseDeployment, Revision: head, Actor: who, Notes: url}
+		Deployment: cfg.ReleaseDeployment, Revision: head, Actor: who, At: s.now()}
 	description := fmt.Sprintf("started by %s — shipping bundle %d (%s as of %s)", who, bundle.ID, p.DefaultBranch, releaseShort(head))
-	r, err := s.Releases.Start(ctx, draft, description+accepted)
+	var address *AddressSnapshot
+	r, err := database.Transact(ctx, s.db, func(tx *database.Tx) (NumberedRelease, error) {
+		r, err := startReleaseIn(ctx, tx, draft, description+accepted)
+		if err != nil {
+			return r, err
+		}
+		q := deploymentsql.New(tx.SQL())
+		currentTarget, err := targetRecord(q.TargetByNameForUpdate(ctx, intranet.Name))
+		if err != nil {
+			return r, err
+		}
+		if currentTarget.ID != intranet.ID || currentTarget.SettingsRevision != intranet.SettingsRevision {
+			return r, ErrTargetSettingsMoved
+		}
+		current, err := LockDeploymentIn(ctx, tx, lanEnv.ID)
+		if err != nil {
+			return r, err
+		}
+		if current.TargetID != intranet.ID || current.DesiredGeneration != lanEnv.DesiredGeneration {
+			return r, ErrPlacementChanged
+		}
+		address, err = s.admitAddressIn(ctx, tx, current, currentTarget, in.AddressRevision, custom, who)
+		if err != nil {
+			return r, err
+		}
+		raw, err := addressSnapshotJSON(address)
+		if err != nil {
+			return r, err
+		}
+		attrs, err := json.Marshal(current.releaseAttributes())
+		if err != nil {
+			return r, err
+		}
+		binding, err := providerBindingOf(currentTarget)
+		if err != nil {
+			return r, err
+		}
+		if _, err := q.InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: r.ID, TargetID: currentTarget.ID, BaseGeneration: current.DesiredGeneration, AttributesJson: attrs, ProviderBindingJson: binding, IngressJson: &raw}); err != nil {
+			return r, err
+		}
+		_, err = q.ClaimReleaseRequest(ctx, deploymentsql.ClaimReleaseRequestParams{ReleaseID: r.ID, ClaimedAt: sql.NullTime{Time: s.now(), Valid: true}})
+		return r, err
+	})
 	if err != nil {
 		if errors.Is(err, ErrReleaseInFlight) {
 			return nil, 409, err
 		}
-		return nil, 500, err
+		return nil, 0, err
 	}
 	relID, number := r.ID, r.Number
-	// A new hostname is this release's (it is given to the run, which
-	// labels the stack with it), and the project's for later releases once
-	// saved: only after the release is admitted, never by one refused. A
-	// save that fails is said, and no receipt claims it.
-	if domain != "" {
-		if err := s.projects.SetReleaseDomain(ctx, p.ID, domain); err != nil {
-			s.relLog(relID, "the hostname %s is this release's but was not saved for later releases: %v", domain, err)
-		} else {
-			audit.At(s.now()).BestEffort(ctx, s.db, who, p.ID, "project.release-domain", domain, nil)
-		}
-	}
+	url := address.Ingress.URL
 	s.projects.Contracts().RecordCommit(ctx, s.hosts.settings.DataDir, p.ID, head) // record the contract as of the release commit
 
 	// The release runs on in the background after the request answers.
-	go s.runLANRelease(context.WithoutCancel(ctx), relID, p, cfg, who, head, number, url, vanity, bundle)
+	go s.runLANRelease(context.WithoutCancel(ctx), relID, p, cfg, who, head, number, address, bundle)
 	return &LANReleaseStarted{OK: true, Number: number, URL: url, State: Releasing}, 202, nil
 }
 
@@ -205,7 +234,7 @@ type LANReleaseStarted struct {
 // each step logged with its timestamp. Any failure marks the release failed
 // with the log showing exactly where it died; a failed release is a numbered
 // record, not a vanished toast.
-func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Project, cfg *portainer.Target, who, head string, number int64, url, vanity string, bundle *ReleaseBundle) {
+func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Project, cfg *portainer.Target, who, head string, number int64, address *AddressSnapshot, bundle *ReleaseBundle) {
 	store := s.Outcomes
 	fail := func(format string, args ...any) {
 		cause := fmt.Errorf(format, args...)
@@ -242,6 +271,16 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 		fail("naming the deployment: %v", err)
 		return
 	}
+	target, err := s.Targets.ByID(ctx, dep.TargetID)
+	if err != nil {
+		fail("reading target: %v", err)
+		return
+	}
+	if err := s.checkAddressSnapshot(ctx, dep, target, address); err != nil {
+		fail("%v", err)
+		return
+	}
+	url := address.Ingress.URL
 	c, applied, err := s.effectiveContract(ctx, dep, staged, committed)
 	if err != nil {
 		fail("%v", err)
@@ -275,10 +314,7 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	// hold Portainer admin). The credential just exists.
 	stackPrefix, stackBase := portainer.StackNames(dep.ID)
 	stackName := portainer.StackName(stackPrefix, stackBase)
-	hosts, _ := IntranetAddress(p.Slug, cfg.AppsDomain, vanity)
-	if vanity != "" {
-		s.relLog(relID, "also answering on %s (DNS for it is platform-owned — needs its record applied)", vanity)
-	}
+	hosts := slices.Clone(address.Ingress.Hosts)
 	// Secrets for the intranet tier: delivered as
 	// stack environment, which Portainer stores with the stack definition
 	// — a copy in the target's own keeping, said out loud in the log.
@@ -295,13 +331,13 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 		s.relLog(relID, "delivering the app's secrets (%s) as stack environment — Portainer keeps a copy with the stack definition", strings.Join(names, ", "))
 	}
 	logf := func(format string, args ...any) { s.relLog(relID, format, args...) }
-	compose, err := s.env.portainerStack(ctx, portainerStackOf{Base: stackBase, Prefix: stackPrefix, Hosts: hosts, Domain: cfg.AppsDomain, Contract: c, Revision: head,
+	compose, err := s.env.portainerStack(ctx, portainerStackOf{Base: stackBase, Prefix: stackPrefix, Hosts: hosts, Domain: address.Ingress.CertificateDomain, Contract: c, Revision: head,
 		Images: stackImages{Parts: bundle.Parts, Init: bundle.Init}, Secrets: secrets, Project: p.ID, Deployment: dep.ID}, logf)
 	if err != nil {
 		fail("%v", err)
 		return
 	}
-	inputs := Inputs{ReleaseID: relID, Revision: strings.TrimSpace(head), ImageDigest: imageRef, ArtifactHash: deploy.ConfigHash(strings.TrimSpace(compose)), Applied: applied, BundleID: bundle.ID}
+	inputs := Inputs{ReleaseID: relID, Revision: strings.TrimSpace(head), ImageDigest: imageRef, ArtifactHash: deploy.ConfigHash(strings.TrimSpace(compose)), Applied: applied, BundleID: bundle.ID, Address: address}
 	result, err := (Runner{Store: store, Applied: s.applied}).Run(ctx,
 		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("release-%d", relID), Inputs: inputs},
 		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
@@ -333,19 +369,6 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	}
 	s.tagRelease(ctx, number, bundle, logf)
 	s.clearCommittedOverrides(ctx, dep, committed, applied, strings.TrimSpace(head), logf)
-}
-
-// IntranetAddress is the hosts a project's Portainer stack routes and the
-// address a release there is reached at: <slug>.<apps domain> always, and
-// the project's release domain beside it, which is then the address.
-func IntranetAddress(slug, appsDomain, releaseDomain string) (hosts []string, url string) {
-	hosts = []string{slug + "." + appsDomain}
-	url = "https://" + hosts[0]
-	if releaseDomain != "" {
-		hosts = append(hosts, releaseDomain)
-		url = "https://" + releaseDomain
-	}
-	return hosts, url
 }
 
 // stackImages is what a Portainer stack runs: a published bundle's part
@@ -397,8 +420,12 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 	if err != nil {
 		return "", err
 	}
+	origins := make([]string, len(in.Hosts))
+	for i, host := range in.Hosts {
+		origins[i] = "https://" + host
+	}
 	st := deploy.IntranetStack{Base: in.Base, Prefix: in.Prefix, Hosts: in.Hosts, Domain: in.Domain, Image: in.Images.Parts[c.PublicPart().Name], Command: plan.PublicPart().Command, Resources: plan.PublicPart().Resources, Port: c.PublicPart().Port,
-		Env: plan.PublicPart().Env, Integrations: given, BrowserEnv: browser, DataDir: plan.PublicPart().DataDir, Origins: e.PublicOrigins(ctx), Init: plan.Init, Needs: docker.IntranetNeeds(rs.Needs),
+		Env: plan.PublicPart().Env, Integrations: given, BrowserEnv: browser, DataDir: plan.PublicPart().DataDir, Origins: strings.Join(origins, ","), Init: plan.Init, Needs: docker.IntranetNeeds(rs.Needs),
 		Secrets: in.Secrets, PublicPart: c.PublicPart().Name, Release: c.PublicRelease(strings.TrimSpace(in.Revision)),
 		// Portainer's machines are not this one: the extra certificates
 		// without this machine's local authority.
@@ -504,14 +531,6 @@ func (s *Service) intranetDeployment(ctx context.Context, projectID ids.ID, cfg 
 	if err != nil {
 		return nil, err
 	}
-	if dep.URL == "" {
-		p := releaseProject(ctx, s.db, projectID)
-		_, url := IntranetAddress(p.Slug, cfg.AppsDomain, p.ReleaseDomain)
-		if err := s.Deployments.RecordAddress(ctx, dep.ID, url); err != nil {
-			log.Printf("recording the intranet deployment's address: %v", err)
-		}
-		dep.URL = url
-	}
 	return dep, nil
 }
 
@@ -523,11 +542,4 @@ func releaseShort(s string) string {
 		return "(none)"
 	}
 	return s
-}
-func releaseProject(ctx context.Context, db database.Queryer, id ids.ID) project.Project {
-	p, err := project.ByIDIn(ctx, db, id)
-	if _, err := database.Lookup(err); err != nil {
-		log.Printf("read failed: %v", err)
-	}
-	return p
 }

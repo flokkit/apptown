@@ -176,6 +176,47 @@ WHERE p.purpose='ordinary' AND NOT EXISTS(SELECT 1 FROM project_lifecycle l WHER
   AND d.name=COALESCE(NULLIF(t.address_json->>'tier',''),'lan')
   AND d.kind='standing' AND d.feed<>'landing' AND d.name<>'main'`,
 	}},
+	{n: 174, note: "retain deployment ingress evidence and restrictive exact-host claims", stmts: []string{
+		`CREATE TABLE deployment_address_settings (
+  deployment_id UUID PRIMARY KEY REFERENCES deployments(id) ON DELETE CASCADE,
+  generated_hostname TEXT NOT NULL DEFAULT '',
+  custom_hostname TEXT NOT NULL DEFAULT '',
+  certificate_domain TEXT NOT NULL DEFAULT '',
+  revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
+  verification_state TEXT NOT NULL CONSTRAINT deployment_address_verification CHECK (verification_state IN ('ready','legacy-unverified')),
+  legacy_evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT deployment_address_ready_fields CHECK (verification_state='legacy-unverified' OR (generated_hostname<>'' AND certificate_domain<>''))
+)`,
+		`CREATE TABLE deployment_hostname_claims (
+  hostname TEXT PRIMARY KEY
+)`,
+		`CREATE TABLE deployment_hostname_claimants (
+  hostname TEXT NOT NULL REFERENCES deployment_hostname_claims(hostname) ON DELETE CASCADE,
+  deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE RESTRICT,
+  PRIMARY KEY(hostname,deployment_id)
+)`,
+		`ALTER TABLE release_requests ADD COLUMN ingress_json JSONB`,
+		`ALTER TABLE deployment_attempt_inputs ADD COLUMN ingress_json JSONB`,
+		`INSERT INTO deployment_address_settings(deployment_id,verification_state,legacy_evidence_json)
+SELECT d.id,'legacy-unverified',jsonb_build_object('projectSlug',p.slug,'projectReleaseDomain',p.release_domain,'targetDomain',t.ingress_json->>'domain','storedURL',d.url)
+FROM deployments d JOIN projects p ON p.id=d.project_id JOIN targets t ON t.id=d.target_id WHERE t.kind='portainer'`,
+		`CREATE TEMP TABLE apptown_legacy_hostname_candidates ON COMMIT DROP AS
+WITH raw AS (
+  SELECT s.deployment_id, unnest(ARRAY[
+    CASE WHEN s.legacy_evidence_json->>'targetDomain'<>'' THEN (s.legacy_evidence_json->>'projectSlug')||'.'||(s.legacy_evidence_json->>'targetDomain') END,
+    s.legacy_evidence_json->>'projectReleaseDomain',
+    (regexp_match(s.legacy_evidence_json->>'storedURL','^https{0,1}://([A-Za-z0-9.-]+)(:[0-9]+){0,1}/{0,1}$'))[1]
+  ]) AS hostname FROM deployment_address_settings s
+), normalized AS (
+  SELECT deployment_id,regexp_replace(lower(btrim(hostname)),'\.$','') AS hostname FROM raw
+)
+SELECT DISTINCT deployment_id,hostname FROM normalized
+WHERE length(hostname)<=253
+  AND hostname ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]){0,1}(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]){0,1})*$'
+  AND hostname !~ '^([0-9]+|0x[0-9a-f]+)(\.([0-9]+|0x[0-9a-f]+))*$'`,
+		`INSERT INTO deployment_hostname_claims(hostname) SELECT DISTINCT hostname FROM apptown_legacy_hostname_candidates`,
+		`INSERT INTO deployment_hostname_claimants(hostname,deployment_id) SELECT hostname,deployment_id FROM apptown_legacy_hostname_candidates`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

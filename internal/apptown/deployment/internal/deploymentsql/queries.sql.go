@@ -15,6 +15,20 @@ import (
 	"github.com/lib/pq"
 )
 
+const addHostnameClaimant = `-- name: AddHostnameClaimant :exec
+INSERT INTO deployment_hostname_claimants(hostname,deployment_id) VALUES($1,$2) ON CONFLICT DO NOTHING
+`
+
+type AddHostnameClaimantParams struct {
+	Hostname     string
+	DeploymentID ids.ID
+}
+
+func (q *Queries) AddHostnameClaimant(ctx context.Context, arg AddHostnameClaimantParams) error {
+	_, err := q.db.ExecContext(ctx, addHostnameClaimant, arg.Hostname, arg.DeploymentID)
+	return err
+}
+
 const admitGeneration = `-- name: AdmitGeneration :execrows
 UPDATE deployments SET desired_generation=$1, readiness=$2, updated_at=$3 WHERE id=$4
 `
@@ -196,7 +210,7 @@ func (q *Queries) AttemptForUpdate(ctx context.Context, arg AttemptForUpdatePara
 }
 
 const attemptInputs = `-- name: AttemptInputs :one
-SELECT i.attempt_id, i.release_id, i.release_run, i.revision, i.image_digest, i.artifact_hash, i.docker_source, i.rebuild, i.bundle_id, i.applied FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id WHERE a.id=$1 AND a.deployment_id=$2 AND a.generation=$3
+SELECT i.attempt_id, i.release_id, i.release_run, i.revision, i.image_digest, i.artifact_hash, i.docker_source, i.rebuild, i.bundle_id, i.applied, i.ingress_json FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id WHERE a.id=$1 AND a.deployment_id=$2 AND a.generation=$3
 `
 
 type AttemptInputsParams struct {
@@ -219,6 +233,7 @@ func (q *Queries) AttemptInputs(ctx context.Context, arg AttemptInputsParams) (D
 		&i.Rebuild,
 		&i.BundleID,
 		&i.Applied,
+		&i.IngressJson,
 	)
 	return i, err
 }
@@ -601,6 +616,44 @@ func (q *Queries) DeleteDeploymentOverride(ctx context.Context, arg DeleteDeploy
 	return result.RowsAffected()
 }
 
+const deploymentAddressSettings = `-- name: DeploymentAddressSettings :one
+SELECT deployment_id, generated_hostname, custom_hostname, certificate_domain, revision, verification_state, legacy_evidence_json FROM deployment_address_settings WHERE deployment_id=$1
+`
+
+func (q *Queries) DeploymentAddressSettings(ctx context.Context, deploymentID ids.ID) (DeploymentAddressSetting, error) {
+	row := q.db.QueryRowContext(ctx, deploymentAddressSettings, deploymentID)
+	var i DeploymentAddressSetting
+	err := row.Scan(
+		&i.DeploymentID,
+		&i.GeneratedHostname,
+		&i.CustomHostname,
+		&i.CertificateDomain,
+		&i.Revision,
+		&i.VerificationState,
+		&i.LegacyEvidenceJson,
+	)
+	return i, err
+}
+
+const deploymentAddressSettingsForUpdate = `-- name: DeploymentAddressSettingsForUpdate :one
+SELECT deployment_id, generated_hostname, custom_hostname, certificate_domain, revision, verification_state, legacy_evidence_json FROM deployment_address_settings WHERE deployment_id=$1 FOR UPDATE
+`
+
+func (q *Queries) DeploymentAddressSettingsForUpdate(ctx context.Context, deploymentID ids.ID) (DeploymentAddressSetting, error) {
+	row := q.db.QueryRowContext(ctx, deploymentAddressSettingsForUpdate, deploymentID)
+	var i DeploymentAddressSetting
+	err := row.Scan(
+		&i.DeploymentID,
+		&i.GeneratedHostname,
+		&i.CustomHostname,
+		&i.CertificateDomain,
+		&i.Revision,
+		&i.VerificationState,
+		&i.LegacyEvidenceJson,
+	)
+	return i, err
+}
+
 const deploymentByID = `-- name: DeploymentByID :one
 
 SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, restore_check, display_label FROM deployments WHERE id=$1
@@ -722,6 +775,33 @@ func (q *Queries) DeploymentForUpdate(ctx context.Context, id ids.ID) (Deploymen
 		&i.DisplayLabel,
 	)
 	return i, err
+}
+
+const deploymentHostnameClaims = `-- name: DeploymentHostnameClaims :many
+SELECT hostname FROM deployment_hostname_claimants WHERE deployment_id=$1 ORDER BY hostname
+`
+
+func (q *Queries) DeploymentHostnameClaims(ctx context.Context, deploymentID ids.ID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, deploymentHostnameClaims, deploymentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var hostname string
+		if err := rows.Scan(&hostname); err != nil {
+			return nil, err
+		}
+		items = append(items, hostname)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deploymentOverrides = `-- name: DeploymentOverrides :many
@@ -1006,6 +1086,15 @@ func (q *Queries) EndReconciliation(ctx context.Context, arg EndReconciliationPa
 	return result.RowsAffected()
 }
 
+const ensureHostnameClaim = `-- name: EnsureHostnameClaim :exec
+INSERT INTO deployment_hostname_claims(hostname) VALUES($1) ON CONFLICT DO NOTHING
+`
+
+func (q *Queries) EnsureHostnameClaim(ctx context.Context, hostname string) error {
+	_, err := q.db.ExecContext(ctx, ensureHostnameClaim, hostname)
+	return err
+}
+
 const ensureStanding = `-- name: EnsureStanding :one
 
 INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, promote_after, host_port, updated_at)
@@ -1234,6 +1323,17 @@ func (q *Queries) HasOpenAttempt(ctx context.Context, arg HasOpenAttemptParams) 
 	return exists, err
 }
 
+const hasUnverifiedAddressInventory = `-- name: HasUnverifiedAddressInventory :one
+SELECT EXISTS(SELECT 1 FROM deployment_address_settings WHERE verification_state='legacy-unverified')::boolean
+`
+
+func (q *Queries) HasUnverifiedAddressInventory(ctx context.Context) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasUnverifiedAddressInventory)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const holdStandingAfterRestore = `-- name: HoldStandingAfterRestore :many
 UPDATE deployments d SET restore_check=$1, updated_at=$2
 FROM targets t WHERE t.id=d.target_id AND d.kind=$3 AND t.kind=ANY($4::text[])
@@ -1272,6 +1372,33 @@ func (q *Queries) HoldStandingAfterRestore(ctx context.Context, arg HoldStanding
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const hostnameClaimants = `-- name: HostnameClaimants :many
+SELECT deployment_id FROM deployment_hostname_claimants WHERE hostname=$1 ORDER BY deployment_id
+`
+
+func (q *Queries) HostnameClaimants(ctx context.Context, hostname string) ([]ids.ID, error) {
+	rows, err := q.db.QueryContext(ctx, hostnameClaimants, hostname)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ids.ID
+	for rows.Next() {
+		var deployment_id ids.ID
+		if err := rows.Scan(&deployment_id); err != nil {
+			return nil, err
+		}
+		items = append(items, deployment_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -1384,6 +1511,38 @@ func (q *Queries) InsertBundle(ctx context.Context, arg InsertBundleParams) (Rel
 	return i, err
 }
 
+const insertDeploymentAddressSettings = `-- name: InsertDeploymentAddressSettings :one
+INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain,verification_state)
+VALUES($1,$2,$3,$4,'ready') RETURNING deployment_id, generated_hostname, custom_hostname, certificate_domain, revision, verification_state, legacy_evidence_json
+`
+
+type InsertDeploymentAddressSettingsParams struct {
+	DeploymentID      ids.ID
+	GeneratedHostname string
+	CustomHostname    string
+	CertificateDomain string
+}
+
+func (q *Queries) InsertDeploymentAddressSettings(ctx context.Context, arg InsertDeploymentAddressSettingsParams) (DeploymentAddressSetting, error) {
+	row := q.db.QueryRowContext(ctx, insertDeploymentAddressSettings,
+		arg.DeploymentID,
+		arg.GeneratedHostname,
+		arg.CustomHostname,
+		arg.CertificateDomain,
+	)
+	var i DeploymentAddressSetting
+	err := row.Scan(
+		&i.DeploymentID,
+		&i.GeneratedHostname,
+		&i.CustomHostname,
+		&i.CertificateDomain,
+		&i.Revision,
+		&i.VerificationState,
+		&i.LegacyEvidenceJson,
+	)
+	return i, err
+}
+
 const insertProviderTarget = `-- name: InsertProviderTarget :one
 INSERT INTO targets(id,name,display_label,kind,provider,connection_id,provider_scope_json,address_json,origin,capabilities_json,ingress_json,needs_mode,secrets_delivery,status,created_at,updated_at)
 VALUES($1,$2,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)
@@ -1488,8 +1647,8 @@ func (q *Queries) InsertReconciliation(ctx context.Context, arg InsertReconcilia
 }
 
 const insertReleaseRequest = `-- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json)
-VALUES ($1,$2,$3,$4,$5,$6) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup, provider_binding_json
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json,ingress_json)
+VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup, provider_binding_json, ingress_json
 `
 
 type InsertReleaseRequestParams struct {
@@ -1499,6 +1658,7 @@ type InsertReleaseRequestParams struct {
 	AttributesJson      json.RawMessage
 	StartFromBackup     ids.ID
 	ProviderBindingJson *json.RawMessage
+	IngressJson         *json.RawMessage
 }
 
 func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseRequestParams) (ReleaseRequest, error) {
@@ -1509,6 +1669,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		arg.AttributesJson,
 		arg.StartFromBackup,
 		arg.ProviderBindingJson,
+		arg.IngressJson,
 	)
 	var i ReleaseRequest
 	err := row.Scan(
@@ -1519,6 +1680,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		&i.ClaimedAt,
 		&i.StartFromBackup,
 		&i.ProviderBindingJson,
+		&i.IngressJson,
 	)
 	return i, err
 }
@@ -1963,6 +2125,16 @@ func (q *Queries) LimitEventsSince(ctx context.Context, arg LimitEventsSincePara
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockHostnameClaim = `-- name: LockHostnameClaim :one
+SELECT hostname FROM deployment_hostname_claims WHERE hostname=$1 FOR UPDATE
+`
+
+func (q *Queries) LockHostnameClaim(ctx context.Context, hostname string) (string, error) {
+	row := q.db.QueryRowContext(ctx, lockHostnameClaim, hostname)
+	err := row.Scan(&hostname)
+	return hostname, err
 }
 
 const lockTargets = `-- name: LockTargets :exec
@@ -3432,6 +3604,24 @@ func (q *Queries) ReleasingCount(ctx context.Context, state string) (int64, erro
 	return count, err
 }
 
+const removeDeploymentHostnameClaims = `-- name: RemoveDeploymentHostnameClaims :exec
+DELETE FROM deployment_hostname_claimants WHERE deployment_id=$1
+`
+
+func (q *Queries) RemoveDeploymentHostnameClaims(ctx context.Context, deploymentID ids.ID) error {
+	_, err := q.db.ExecContext(ctx, removeDeploymentHostnameClaims, deploymentID)
+	return err
+}
+
+const removeEmptyHostnameClaim = `-- name: RemoveEmptyHostnameClaim :exec
+DELETE FROM deployment_hostname_claims c WHERE c.hostname=$1 AND NOT EXISTS(SELECT 1 FROM deployment_hostname_claimants h WHERE h.hostname=c.hostname)
+`
+
+func (q *Queries) RemoveEmptyHostnameClaim(ctx context.Context, hostname string) error {
+	_, err := q.db.ExecContext(ctx, removeEmptyHostnameClaim, hostname)
+	return err
+}
+
 const removeProjectDeployments = `-- name: RemoveProjectDeployments :execrows
 DELETE FROM deployments WHERE project_id=$1
 `
@@ -3576,7 +3766,7 @@ func (q *Queries) RepositoryOwned(ctx context.Context, arg RepositoryOwnedParams
 }
 
 const requestedReleaseForUpdate = `-- name: RequestedReleaseForUpdate :one
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json FROM releases r JOIN release_requests q ON q.release_id=r.id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json, q.ingress_json FROM releases r JOIN release_requests q ON q.release_id=r.id
 WHERE r.id=$1 FOR UPDATE OF q
 `
 
@@ -3614,6 +3804,7 @@ func (q *Queries) RequestedReleaseForUpdate(ctx context.Context, id ids.ID) (Req
 		&i.ReleaseRequest.ClaimedAt,
 		&i.ReleaseRequest.StartFromBackup,
 		&i.ReleaseRequest.ProviderBindingJson,
+		&i.ReleaseRequest.IngressJson,
 	)
 	return i, err
 }
@@ -4387,5 +4578,39 @@ func (q *Queries) UpdateDefaultDeployment(ctx context.Context, arg UpdateDefault
 	row := q.db.QueryRowContext(ctx, updateDefaultDeployment, arg.DefaultDeploymentID, arg.ProjectID, arg.ExpectedRevision)
 	var i ProjectReleaseSetting
 	err := row.Scan(&i.ProjectID, &i.DefaultDeploymentID, &i.Revision)
+	return i, err
+}
+
+const updateDeploymentAddressSettings = `-- name: UpdateDeploymentAddressSettings :one
+UPDATE deployment_address_settings SET generated_hostname=$1,custom_hostname=$2,certificate_domain=$3,verification_state='ready',revision=revision+1
+WHERE deployment_id=$4 AND revision=$5 RETURNING deployment_id, generated_hostname, custom_hostname, certificate_domain, revision, verification_state, legacy_evidence_json
+`
+
+type UpdateDeploymentAddressSettingsParams struct {
+	GeneratedHostname string
+	CustomHostname    string
+	CertificateDomain string
+	DeploymentID      ids.ID
+	ExpectedRevision  int64
+}
+
+func (q *Queries) UpdateDeploymentAddressSettings(ctx context.Context, arg UpdateDeploymentAddressSettingsParams) (DeploymentAddressSetting, error) {
+	row := q.db.QueryRowContext(ctx, updateDeploymentAddressSettings,
+		arg.GeneratedHostname,
+		arg.CustomHostname,
+		arg.CertificateDomain,
+		arg.DeploymentID,
+		arg.ExpectedRevision,
+	)
+	var i DeploymentAddressSetting
+	err := row.Scan(
+		&i.DeploymentID,
+		&i.GeneratedHostname,
+		&i.CustomHostname,
+		&i.CertificateDomain,
+		&i.Revision,
+		&i.VerificationState,
+		&i.LegacyEvidenceJson,
+	)
 	return i, err
 }

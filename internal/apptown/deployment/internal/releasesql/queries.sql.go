@@ -111,7 +111,7 @@ func (q *Queries) CreateRelease(ctx context.Context, arg CreateReleaseParams) (C
 }
 
 const deploymentInputs = `-- name: DeploymentInputs :one
-SELECT release_id, release_run, revision, image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied
+SELECT release_id, release_run, revision, image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json
 FROM deployment_attempt_inputs WHERE attempt_id = $1
 `
 
@@ -125,6 +125,7 @@ type DeploymentInputsRow struct {
 	Rebuild      bool
 	BundleID     ids.ID
 	Applied      json.RawMessage
+	IngressJson  *json.RawMessage
 }
 
 func (q *Queries) DeploymentInputs(ctx context.Context, attemptID ids.ID) (DeploymentInputsRow, error) {
@@ -140,6 +141,7 @@ func (q *Queries) DeploymentInputs(ctx context.Context, attemptID ids.ID) (Deplo
 		&i.Rebuild,
 		&i.BundleID,
 		&i.Applied,
+		&i.IngressJson,
 	)
 	return i, err
 }
@@ -203,7 +205,7 @@ func (q *Queries) HasReleaseAttempt(ctx context.Context, releaseID ids.ID) (bool
 
 const insertDeploymentInputs = `-- name: InsertDeploymentInputs :execrows
 INSERT INTO deployment_attempt_inputs(attempt_id, release_id, release_run, revision,
-  image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+  image_digest, artifact_hash, docker_source, rebuild, bundle_id, applied, ingress_json) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
 type InsertDeploymentInputsParams struct {
@@ -217,6 +219,7 @@ type InsertDeploymentInputsParams struct {
 	Rebuild      bool
 	BundleID     ids.ID
 	Applied      json.RawMessage
+	IngressJson  *json.RawMessage
 }
 
 func (q *Queries) InsertDeploymentInputs(ctx context.Context, arg InsertDeploymentInputsParams) (int64, error) {
@@ -231,6 +234,7 @@ func (q *Queries) InsertDeploymentInputs(ctx context.Context, arg InsertDeployme
 		arg.Rebuild,
 		arg.BundleID,
 		arg.Applied,
+		arg.IngressJson,
 	)
 	if err != nil {
 		return 0, err

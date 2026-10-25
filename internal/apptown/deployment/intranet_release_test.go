@@ -121,7 +121,7 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 	}
 	cfg.Scope = &scope
 
-	if _, err := owner.Targets.Put(context.Background(), &Target{Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached, Status: TargetReady}); err != nil {
+	if _, err := owner.Targets.Put(context.Background(), &Target{Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached, Status: TargetReady, Ingress: map[string]any{"domain": "apps.example"}}); err != nil {
 		t.Fatal(err)
 	}
 	dep, err := owner.intranetDeployment(t.Context(), p.ID, cfg)
@@ -136,7 +136,19 @@ func TestLANReleaseStagesSelectedCommitAfterBranchAdvances(t *testing.T) {
 		t.Fatalf("first release number: %d", cut.Number)
 	}
 	bundle := publishedBundleFixture(t, db, p.ID, selected, map[string]string{"web": "registry.example/team/app@sha256:" + strings.Repeat("a", 64)})
-	owner.runLANRelease(context.Background(), cut.ID, p, cfg, "alice", selected, cut.Number, "https://p.apps.example", "", bundle)
+	target, err := owner.Targets.ByID(t.Context(), dep.TargetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var address *AddressSnapshot
+	if err := owner.db.InTx(t.Context(), func(tx *database.Tx) error {
+		var err error
+		address, err = owner.admitAddressIn(t.Context(), tx, dep, target, nil, nil, "alice")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	owner.runLANRelease(context.Background(), cut.ID, p, cfg, "alice", selected, cut.Number, address, bundle)
 	composeMu.Lock()
 	defer composeMu.Unlock()
 	if !strings.Contains(compose, "original") || strings.Contains(compose, "later") {

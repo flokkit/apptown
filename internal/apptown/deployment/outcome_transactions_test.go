@@ -311,6 +311,7 @@ func TestDeploymentReleaseAdmissionPersistsImmutableInputs(t *testing.T) {
 	f, dep := deploymentOutcomeFixture(t)
 	s := f.outcomes
 	start := deploymentStartFor(dep, "immutable", "selected")
+	start.Inputs.Address = &AddressSnapshot{DeploymentID: dep.ID, TargetID: dep.TargetID, Revision: 1, Ingress: deploy.Ingress{Hosts: []string{"selected.apps.example"}, URL: "https://selected.apps.example", CertificateDomain: "apps.example"}}
 	dbtest.FailNextStatement(t, f.db, "INSERT INTO deployment_attempt_inputs")
 	if _, _, err := s.Admit(context.Background(), start); !errors.Is(err, database.ErrInjectedFailure) {
 		t.Fatalf("input persistence failure: %v", err)
@@ -323,6 +324,14 @@ func TestDeploymentReleaseAdmissionPersistsImmutableInputs(t *testing.T) {
 	}
 	if inputs, err := s.InputsFor(context.Background(), at); err != nil || !inputs.Same(start.Inputs) {
 		t.Fatalf("admitted inputs: %+v %v", inputs, err)
+	}
+	changed := start
+	address := start.Inputs.Address.clone()
+	address.Ingress.Hosts[0] = "changed.apps.example"
+	address.Ingress.URL = "https://changed.apps.example"
+	changed.Inputs.Address = &address
+	if _, _, err := s.Admit(context.Background(), changed); err == nil {
+		t.Fatal("one key accepted different ingress inputs")
 	}
 	start.Inputs.Revision = "changed"
 	if _, _, err := s.Admit(context.Background(), start); err == nil {

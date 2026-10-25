@@ -171,10 +171,6 @@ func CreateAt(ctx context.Context, tx *database.Tx, at time.Time, in Spec) (ids.
 	return r.ID, nil
 }
 
-func (s *Projects) SetReleaseDomain(ctx context.Context, id ids.ID, domain string) error {
-	return queries(s.db).SetProjectReleaseDomain(ctx, projectsql.SetProjectReleaseDomainParams{ID: id, ReleaseDomain: domain})
-}
-
 // Remove deletes the row once every domain has purged its own; a row
 // that was not there is ErrNotDeleted, never a silent success.
 func (s *Projects) Remove(ctx context.Context, id ids.ID) error {

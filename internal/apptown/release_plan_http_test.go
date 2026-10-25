@@ -75,29 +75,40 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	}
 	w = read()
 	plan.ConfigError = ""
-	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || !plan.Configured || plan.Deployment != "lan" || plan.URL != "https://game.apps.example" {
+	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || !plan.Configured || plan.Deployment != "lan" || plan.URL != "" {
 		t.Fatalf("configured plan: %d %s %v", w.Code, w.Body.String(), err)
 	}
 	if strings.Contains(w.Body.String(), "never-expose-this-key") {
 		t.Fatal("plan leaked provider key")
 	}
-	// The saved custom domain is the same primary address the release selects.
-	for _, domain := range []string{"game.example.org", ""} {
-		if err := a.Projects.SetReleaseDomain(t.Context(), game.ID, domain); err != nil {
-			t.Fatal(err)
+	target, err := a.Deployment.Targets.ByName(t.Context(), deployment.IntranetTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deployment.Targets.Offer(t.Context(), target, "*", deployment.OfferCaps{}, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	dep, err := a.Deployment.Deployments.EnsureStanding(t.Context(), game.ID, "lan", target.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	generated := "https://app-" + strings.ReplaceAll(dep.ID.String(), "-", "") + ".apps.example"
+	for revision, domain := range []string{"game.example.org", ""} {
+		path := "/api/v1/projects/game/deployments/" + dep.ID.String() + "/address"
+		response := authzCall(h, "boss", http.MethodPut, path, fmt.Sprintf(`{"expectedRevision":%d,"customHostname":%q}`, revision, domain))
+		if response.Code != http.StatusOK {
+			t.Fatalf("address edit: %d %s", response.Code, response.Body)
 		}
-		want := "https://game.apps.example"
+		want := generated
 		if domain != "" {
 			want = "https://game.example.org"
 		}
 		w = read()
 		if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || plan.URL != want {
-			t.Fatalf("plan for custom domain %q: %d %s %v", domain, w.Code, w.Body.String(), err)
+			t.Fatalf("plan for deployment address %q: %d %s %v", domain, w.Code, w.Body.String(), err)
 		}
 	}
-	// The plan promises the intranet target's domain, as the release uses
-	// it: an edited domain, kept when a restart reads configuration naming
-	// another; a cleared one is unconfigured with the release's refusal.
+	// Existing desired addresses survive target domain edits and restarts.
 	editDomain := func(domain string) {
 		t.Helper()
 		intranet, err := a.Deployment.Targets.ByName(t.Context(), deployment.IntranetTargetName)
@@ -114,13 +125,12 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	}
 	a.SeedTargets(t.Context())
 	w = read()
-	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || !plan.Configured || plan.URL != "https://game.lan.example.org" {
+	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || !plan.Configured || plan.URL != generated {
 		t.Fatalf("plan after a domain edit and a restart: %d %s %v", w.Code, w.Body.String(), err)
 	}
 	editDomain("")
-	plan.URL = ""
 	w = read()
-	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || plan.Configured || plan.URL != "" || !strings.Contains(plan.ConfigError, "names no domain") {
+	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || !plan.Configured || plan.URL != generated {
 		t.Fatalf("plan with the domain cleared: %d %s %v", w.Code, w.Body.String(), err)
 	}
 	if w := authzCall(h, "owner", "GET", "/api/v1/projects/missing/release/plan", ""); w.Code != 404 {
