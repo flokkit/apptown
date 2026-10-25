@@ -156,10 +156,21 @@ cleanup_probes
 # change to deploy/apptown-agent is what is tested), and the test image.
 # A runner's Docker layer cache, where it has one, keeps both between jobs.
 # The tour runs no step container, so it builds no agent image.
-[ "$mode" = tour ] || docker build -q -t apptown-agent deploy/apptown-agent
-docker build -q -t apptown-ci-heavy \
-	--build-arg PI_VERSION="$(sed -n 's/^ARG PI_VERSION=//p' deploy/apptown-agent/Dockerfile)" \
-	- <deploy/ci-heavy/Dockerfile
+case "${CI_HEAVY_PREBUILT:-0}" in
+0 | 1) ;;
+*) echo "ci-heavy: CI_HEAVY_PREBUILT must be 0 or 1" >&2; exit 2 ;;
+esac
+if [ "${CI_HEAVY_PREBUILT:-0}" = 1 ] && [ "$mode" != tour ]; then
+	# CI sets this only after current-checkout builds have loaded both tags
+	# into this disposable runner. Missing images are errors, never skips.
+	docker image inspect apptown-agent >/dev/null
+	docker image inspect apptown-ci-heavy >/dev/null
+else
+	[ "$mode" = tour ] || docker build -q -t apptown-agent deploy/apptown-agent
+	docker build -q -t apptown-ci-heavy \
+		--build-arg PI_VERSION="$(sed -n 's/^ARG PI_VERSION=//p' deploy/apptown-agent/Dockerfile)" \
+		- <deploy/ci-heavy/Dockerfile
+fi
 
 mkdir -p "$tmp"
 trap cleanup EXIT

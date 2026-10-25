@@ -17,6 +17,8 @@ SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ci-heavy.sh")
 DOCKER_STUB = """#!/bin/sh
 [ -z "${STUB_ALL_CALLS:-}" ] || printf '%s\\n' "$*" >>"$STUB_ALL_CALLS"
 case "$1" in
+image) case "$*" in *"${STUB_MISSING_IMAGE:-no-missing-image}"*) exit 8 ;; esac
+    exit "${STUB_IMAGE_STATUS:-0}" ;;
 create)
     case "$*" in
     *network-server*) [ "${STUB_NETWORK_FAIL:-}" != server ] || exit 1; echo preflight-server ;;
@@ -83,6 +85,40 @@ class RequiredTests(unittest.TestCase):
                 ["test-partition", "integration", "root"] if mode == "test-partition" else [mode])
         return subprocess.run(["sh", SCRIPT] + args, env=env, capture_output=True, text=True,
                               cwd=os.path.dirname(os.path.dirname(SCRIPT)))
+
+    def test_prebuilt_images_execute_tests_without_rebuilding(self):
+        calls = os.path.join(self.dir.name, 'prebuilt')
+        r = self.run_job('', require=None, CI_HEAVY_PREBUILT='1', STUB_ALL_CALLS=calls)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(calls) as f:
+            commands = f.read()
+        self.assertIn('image inspect apptown-agent', commands)
+        self.assertIn('image inspect apptown-ci-heavy', commands)
+        self.assertNotIn('build -q', commands)
+        self.assertIn('apptown-ci-heavy go test ./...', commands)
+        self.assertIn('rm -f apptown-ci-', commands)
+
+    def test_missing_runner_image_refuses_after_agent_image_passes(self):
+        calls = os.path.join(self.dir.name, 'missing-runner')
+        r = self.run_job('', require=None, CI_HEAVY_PREBUILT='1',
+                         STUB_MISSING_IMAGE='apptown-ci-heavy', STUB_ALL_CALLS=calls)
+        self.assertEqual(r.returncode, 8, r.stderr)
+        with open(calls) as f:
+            commands = f.read()
+        self.assertIn('image inspect apptown-agent', commands)
+        self.assertIn('image inspect apptown-ci-heavy', commands)
+        self.assertNotIn('go test', commands)
+
+    def test_missing_prebuilt_image_or_invalid_flag_refuses_execution(self):
+        for flag, image_status in [('1', '8'), ('invalid', '0')]:
+            calls = os.path.join(self.dir.name, 'prebuilt-' + flag)
+            r = self.run_job('', require=None, CI_HEAVY_PREBUILT=flag,
+                             STUB_IMAGE_STATUS=image_status, STUB_ALL_CALLS=calls)
+            self.assertNotEqual(r.returncode, 0)
+            with open(calls) as f:
+                commands = f.read()
+            self.assertNotIn('go test', commands)
+            self.assertNotIn('build -q', commands)
 
     def test_partition_runs_in_linux_and_propagates_failure(self):
         for status in ('0', '9'):
