@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/execfile"
 )
 
 // Remote is an https Git repository outside AppTown, for a project that
@@ -62,7 +63,7 @@ func remoteCommand(ctx context.Context, dir string, r Remote, args []string) (*e
 	cmd.Env = append(append(cmd.Env, "GIT_TERMINAL_PROMPT=0"), trustEnv()...)
 	if r.Password != "" {
 		helper := filepath.Join(envValue(cmd.Env, "HOME"), "askpass")
-		if err := os.WriteFile(helper, []byte(askpass), 0o700); err != nil {
+		if err := execfile.Write(helper, []byte(askpass), 0o700); err != nil {
 			done()
 			return nil, func() {}, err
 		}
