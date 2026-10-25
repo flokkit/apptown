@@ -198,7 +198,7 @@ func appRoutes(a *App) []routeSpec {
 		packs = httpapi.NewPacks(a.Ways, a.DB, httpapi.NewSteeringInventory(a.steering, piHomeFor(a), httpapi.PlatformSteering{Complaints: complaint.AgentInstructions, Hygiene: agentenv.WorkspaceHygiene, Runtime: agentenv.RuntimeContractInstructions, Docker: agentenv.DockerInstructions}))
 		guidance = httpapi.NewGuidance(a.Ways, a.Adoption, a.Projects, a.lifecycle, httpapi.NewSteeringInventory(a.steering, piHomeFor(a), httpapi.PlatformSteering{Complaints: complaint.AgentInstructions, Hygiene: agentenv.WorkspaceHygiene, Runtime: agentenv.RuntimeContractInstructions, Docker: agentenv.DockerInstructions}))
 		guidanceBlocks = httpapi.NewGuidanceBlocks(a.Ways, a.Adoption, a.Access)
-		attachments = httpapi.NewAttachments(a.DB, a.cfg.dataDir, a.cfg.clock.Now)
+		attachments = httpapi.NewAttachments(a.attachments, a.cfg.dataDir)
 		packPull = httpapi.NewPackPull(a.Adoption, a.Projects, a.Access, a.Ways, a.DB, a.cfg.clock.Now)
 		fleet = httpapi.NewFleet(a.Adoption, a.Ways)
 		adoptionCommands = httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle)

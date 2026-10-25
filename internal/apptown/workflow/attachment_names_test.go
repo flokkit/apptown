@@ -1,4 +1,4 @@
-package httpapi
+package workflow
 
 import "testing"
 
@@ -15,7 +15,7 @@ func TestSafeAttachmentName(t *testing.T) {
 		"../../etc/passwd": "passwd",
 	}
 	for in, want := range cases {
-		if got := safeAttachmentName(in); got != want {
+		if got, err := attachmentName(in); got != want || (err != nil) != (want == "") {
 			t.Errorf("safeAttachmentName(%q) = %q, want %q", in, got, want)
 		}
 	}

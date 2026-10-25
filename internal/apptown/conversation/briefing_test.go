@@ -1,6 +1,8 @@
 package conversation
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -65,11 +67,31 @@ func TestConsoleSteeringFrames(t *testing.T) {
 func TestChangeBriefingAsksForShortfallsFirst(t *testing.T) {
 	t.Parallel()
 	steering := NewBriefing(nil, nil, BriefingConfig{DataDir: t.TempDir()})
-	text := steering.Change(&workflow.Change{ID: idstest.N(7), Title: "heading", Branch: "change-7"})
+	text, err := steering.Change(&workflow.Change{ID: idstest.N(7), Title: "heading", Branch: "change-7"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, want := range []string{"measure the work against what was ASKED", "say that FIRST", `Never say
   "done" or "verified"`} {
 		if !strings.Contains(text, want) {
 			t.Errorf("change briefing must contain %q", want)
 		}
+	}
+}
+
+func TestChangeBriefingRefusesUnavailableAttachments(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	id := idstest.N(7)
+	dir := (workflow.GitWorkspace{DataDir: root}).AttachmentDir(id)
+	if err := os.MkdirAll(filepath.Dir(dir), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir, []byte("unavailable"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	steering := NewBriefing(nil, nil, BriefingConfig{DataDir: root})
+	if text, err := steering.Change(&workflow.Change{ID: id}); err == nil || text != "" {
+		t.Fatalf("unavailable attachments became a briefing: %q %v", text, err)
 	}
 }

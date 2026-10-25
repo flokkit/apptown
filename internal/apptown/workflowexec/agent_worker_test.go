@@ -1029,3 +1029,20 @@ func TestPrivateDockerRecordsWhetherItsProfileIsQualified(t *testing.T) {
 		t.Errorf("a qualified profile without the opt-in: %v", err)
 	}
 }
+
+func TestSteeringRefusesUnavailableAttachments(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	id := idstest.N(7)
+	dir := (workflow.GitWorkspace{DataDir: root}).AttachmentDir(id)
+	if err := os.MkdirAll(filepath.Dir(dir), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir, []byte("unavailable"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	executor := &Executor{cfg: Config{DataDir: root}}
+	if _, err := executor.buildSteering(t.Context(), &workflow.Run{ChangeID: id}, nil, nil, root, agentKnobs{}); err == nil || !strings.Contains(err.Error(), "reading change attachments") {
+		t.Fatalf("unavailable attachments not refused before steering: %v", err)
+	}
+}

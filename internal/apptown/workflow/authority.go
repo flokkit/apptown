@@ -24,6 +24,7 @@ const (
 	actionReadProject
 	actionReadEvidence
 	actionAttachEvidence
+	actionAttachChange
 	actionReadChange
 	actionListChanges
 	actionCreateChange
@@ -287,7 +288,7 @@ func (s *Service) stepAct(ctx context.Context, stepID ids.ID, act commandAction)
 }
 
 func operationCapability(action commandAction) (access.Capability, bool) {
-	capability, ok := map[commandAction]access.Capability{actionReadProject: access.CapProjectRead, actionReadRun: access.CapRunRead, actionReadEvidence: access.CapEvidenceRead, actionAttachEvidence: access.CapEvidenceAttach, actionReadChange: access.CapChangeRead, actionListChanges: access.CapChangeList, actionCreateChange: access.CapChangeCreate, actionEditBrief: access.CapChangeUpdateBrief, actionPublishNarrative: access.CapChangeNarrative, actionBeginChange: access.CapChangeInvokeLane, actionImportChange: access.CapProjectImport, actionOpenUplift: access.CapProjectWayOfWorking, actionStartRun: access.CapChangeInvokeLane, actionRequestLanding: access.CapChangeRequestLand, actionLandUnassented: access.CapChangeLand, actionStopRun: access.CapRunOperate, actionInterruptStep: access.CapChangeInvokeLane, actionRetryAttempt: access.CapRunOperate, actionCloseChange: access.CapChangeAbandon}[action]
+	capability, ok := map[commandAction]access.Capability{actionReadProject: access.CapProjectRead, actionReadRun: access.CapRunRead, actionReadEvidence: access.CapEvidenceRead, actionAttachEvidence: access.CapEvidenceAttach, actionAttachChange: access.CapChangeAttach, actionReadChange: access.CapChangeRead, actionListChanges: access.CapChangeList, actionCreateChange: access.CapChangeCreate, actionEditBrief: access.CapChangeUpdateBrief, actionPublishNarrative: access.CapChangeNarrative, actionBeginChange: access.CapChangeInvokeLane, actionImportChange: access.CapProjectImport, actionOpenUplift: access.CapProjectWayOfWorking, actionStartRun: access.CapChangeInvokeLane, actionRequestLanding: access.CapChangeRequestLand, actionLandUnassented: access.CapChangeLand, actionStopRun: access.CapRunOperate, actionInterruptStep: access.CapChangeInvokeLane, actionRetryAttempt: access.CapRunOperate, actionCloseChange: access.CapChangeAbandon}[action]
 	if action == actionSendBackChange {
 		capability, ok = access.CapChangeSendBack, true
 	}

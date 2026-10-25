@@ -54,7 +54,11 @@ type steeringResource struct {
 func (a *Executor) buildSteering(ctx context.Context, run *workflow.Run, step *workflow.Step, cfg *agentConfig, ws string, k agentKnobs) (steeringFile, error) {
 	var attachments []string
 	if !run.ChangeID.IsZero() {
-		attachments = (workflow.GitWorkspace{DataDir: a.cfg.DataDir}).AttachmentNames(run.ChangeID)
+		var err error
+		attachments, err = (workflow.GitWorkspace{DataDir: a.cfg.DataDir}).AttachmentNames(run.ChangeID)
+		if err != nil {
+			return steeringFile{}, fmt.Errorf("reading change attachments: %w", err)
+		}
 	}
 	// Delegation (pihome.go): only promised where it exists — the docker
 	// executor's generated pi-home carries the baked extension; a local run

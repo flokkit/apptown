@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -31,7 +33,7 @@ func workflowAttachmentRequest(f workflowHTTPFixture, dataDir string, method str
 		r.SetPathValue("id", fmt.Sprint(changeID))
 		r.Header.Set("Content-Type", mw.FormDataContentType())
 		w := httptest.NewRecorder()
-		NewAttachments(f.DB, dataDir, nil).UploadAttachment(w, r)
+		NewAttachments(workflow.NewAttachments(f.DB, access.Checked{Authority: identity.Scoped(f.Access, "workflow"), Projects: f.Projects}, workflow.GitWorkspace{DataDir: dataDir}, nil), dataDir).UploadAttachment(w, r)
 		if r.MultipartForm != nil {
 			_ = r.MultipartForm.RemoveAll()
 		}
@@ -44,7 +46,7 @@ func workflowAttachmentRequest(f workflowHTTPFixture, dataDir string, method str
 	r.SetPathValue("id", fmt.Sprint(changeID))
 	r.SetPathValue("name", name)
 	w := httptest.NewRecorder()
-	h := NewAttachments(f.DB, dataDir, nil)
+	h := NewAttachments(workflow.NewAttachments(f.DB, access.Checked{Authority: identity.Scoped(f.Access, "workflow"), Projects: f.Projects}, workflow.GitWorkspace{DataDir: dataDir}, nil), dataDir)
 	switch method {
 	case "GET":
 		if name == "" {
@@ -82,7 +84,7 @@ func TestAttachmentUploadListGetDelete(t *testing.T) {
 	if b, err := os.ReadFile(filepath.Join(attachments.AttachmentDir(f.ChangeID), "data.csv")); err != nil || !bytes.Equal(b, body) {
 		t.Fatalf("canonical copy: %v", err)
 	}
-	if names := attachments.AttachmentNames(f.ChangeID); len(names) != 1 || names[0] != "data.csv" {
+	if names, err := attachments.AttachmentNames(f.ChangeID); err != nil || len(names) != 1 || names[0] != "data.csv" {
 		t.Fatalf("attachment names: %v", names)
 	}
 	w = workflowAttachmentRequest(f, dataDir, "GET", f.ChangeID, "", nil)
@@ -127,8 +129,11 @@ func TestAttachmentUploadListGetDelete(t *testing.T) {
 	if got, err := audit.Recent(t.Context(), f.DB, audit.Filter{ProjectID: f.ProjectID, KindPrefix: "change.attachment-remove"}); err != nil || len(got) != 2 || got[0].Kind != "change.attachment-removed" || got[1].Kind != "change.attachment-remove-requested" {
 		t.Fatalf("a removal's request and outcome: %+v %v", got, err)
 	}
-	if names := attachments.AttachmentNames(f.ChangeID); len(names) != 0 {
+	if names, err := attachments.AttachmentNames(f.ChangeID); err != nil || len(names) != 0 {
 		t.Fatalf("survived delete: %v", names)
+	}
+	if w := workflowAttachmentRequest(f, dataDir, "DELETE", f.ChangeID, "data.csv", nil); w.Code != 200 {
+		t.Fatalf("missing delete not idempotent: %d %s", w.Code, w.Body.String())
 	}
 	if _, err := os.Stat(filepath.Join(attachments.AttachmentDir(f.ChangeID), "data.csv")); !os.IsNotExist(err) {
 		t.Fatalf("canonical copy survived: %v", err)
@@ -174,5 +179,132 @@ func TestAttachmentLimitRejectsOverwriteWithoutLosingExistingFile(t *testing.T) 
 	w = workflowAttachmentRequest(f, dir, "GET", f.ChangeID, "notes.txt", nil)
 	if w.Code != 200 || w.Body.String() != "keep this" {
 		t.Fatalf("rejected overwrite lost data: %d %q", w.Code, w.Body.String())
+	}
+}
+
+func TestAttachmentUnavailableListingIsNotEmpty(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"directory", "entry"} {
+		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
+			f := newWorkflowHTTPFixture(t, false)
+			root := t.TempDir()
+			dir := (workflow.GitWorkspace{DataDir: root}).AttachmentDir(f.ChangeID)
+			if w := workflowAttachmentRequest(f, root, "GET", f.ChangeID, "", nil); w.Code != 200 || w.Body.String() != "[]\n" {
+				t.Fatalf("missing should be empty: %d %s", w.Code, w.Body.String())
+			}
+			if kind == "directory" {
+				if err := os.MkdirAll(filepath.Dir(dir), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(dir, []byte("not a directory"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.MkdirAll(dir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(filepath.Join(root, "gone"), filepath.Join(dir, "reference.txt")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if w := workflowAttachmentRequest(f, root, "GET", f.ChangeID, "", nil); w.Code != 500 {
+				t.Fatalf("unavailable listing returned %d %s", w.Code, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestAttachmentRemovalReceiptsDescribePartialEffects(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"request", "partial", "outcome"} {
+		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
+			f := newWorkflowHTTPFixture(t, false)
+			root := t.TempDir()
+			name := "reference.txt"
+			if w := workflowAttachmentRequest(f, root, "POST", f.ChangeID, name, []byte("original")); w.Code != 201 {
+				t.Fatal(w.Body.String())
+			}
+			canonical := filepath.Join((workflow.GitWorkspace{DataDir: root}).AttachmentDir(f.ChangeID), name)
+			copied := filepath.Join((workflow.Layout{DataDir: root}).ChangeWorkspace(f.ChangeID), ".apptown", "attachments", name)
+			if err := os.MkdirAll(filepath.Dir(copied), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if kind == "partial" {
+				if err := os.MkdirAll(copied, 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(copied, "hold"), []byte("keep"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.WriteFile(copied, []byte("original"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			wantCode := 500
+			wantKind := "change.attachment-remove-failed"
+			if kind == "request" {
+				t.Cleanup(f.DB.FailNextStatement("-- name: AppendReceipt"))
+				wantCode = 503
+			}
+			if kind == "outcome" {
+				t.Cleanup(f.DB.FailStatementAfter("-- name: AppendReceipt", 1))
+				wantKind = "change.attachment-remove-requested"
+			}
+			w := workflowAttachmentRequest(f, root, "DELETE", f.ChangeID, name, nil)
+			if w.Code != wantCode {
+				t.Fatalf("%s: %d %s", kind, w.Code, w.Body.String())
+			}
+			for _, path := range []string{canonical, copied} {
+				_, err := os.Stat(path)
+				wantPresent := kind == "request" || (kind == "partial" && path == copied)
+				if wantPresent && err != nil || !wantPresent && !os.IsNotExist(err) {
+					t.Fatalf("path %s present=%t: %v", path, wantPresent, err)
+				}
+			}
+			events, err := audit.Recent(t.Context(), f.DB, audit.Filter{ProjectID: f.ProjectID, KindPrefix: "change.attachment-remove"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if kind == "request" {
+				if len(events) != 0 {
+					t.Fatalf("unrecorded request produced outcomes: %+v", events)
+				}
+			} else if len(events) == 0 || events[0].Kind != wantKind {
+				t.Fatalf("wrong removal evidence: %+v", events)
+			}
+		})
+	}
+}
+
+func TestAttachmentOwnerChecksAuthorityBeforeFiles(t *testing.T) {
+	t.Parallel()
+	f := newWorkflowHTTPAuthorityFixture(t)
+	root := t.TempDir()
+	owner := workflow.NewAttachments(f.DB, access.Checked{Authority: identity.Scoped(f.Access, "workflow"), Projects: f.Projects}, workflow.GitWorkspace{DataDir: root}, nil)
+	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: "outsider", Via: "session"}, Verified: true})
+	if _, err := owner.Add(ctx, f.ChangeID, "reference.txt", []byte("not allowed")); err == nil {
+		t.Fatal("unscoped add accepted")
+	}
+	if _, err := os.Stat(filepath.Join(root, "changes")); !os.IsNotExist(err) {
+		t.Fatalf("denied add reached files: %v", err)
+	}
+	if _, err := owner.Add(f.Context, f.ChangeID, "reference.txt", []byte("keep")); err != nil {
+		t.Fatal(err)
+	}
+	if err := owner.Remove(ctx, f.ChangeID, "reference.txt"); err == nil {
+		t.Fatal("unscoped remove accepted")
+	}
+	if _, err := owner.List(ctx, f.ChangeID); err == nil {
+		t.Fatal("unscoped list accepted")
+	}
+	if _, err := owner.File(ctx, f.ChangeID, "reference.txt"); err == nil {
+		t.Fatal("unscoped file accepted")
+	}
+	path := filepath.Join((workflow.GitWorkspace{DataDir: root}).AttachmentDir(f.ChangeID), "reference.txt")
+	if body, err := os.ReadFile(path); err != nil || string(body) != "keep" {
+		t.Fatalf("denied remove reached files: %q %v", body, err)
 	}
 }
