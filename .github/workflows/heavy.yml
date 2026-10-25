@@ -17,6 +17,8 @@
 name: heavy
 
 on:
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [main]
   pull_request:
