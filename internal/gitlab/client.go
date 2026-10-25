@@ -54,33 +54,51 @@ func (g *Client) Do(ctx context.Context, method, path string, body any, out any)
 }
 
 func (g *Client) DoContext(ctx context.Context, method, path string, body any, out any) error {
-	var rd io.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		rd = bytes.NewReader(b)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, g.base+"/api/v4"+path, rd)
+	status, raw, err := g.Raw(ctx, method, path, body)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("PRIVATE-TOKEN", g.token)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := g.http.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
-	if res.StatusCode >= 400 {
-		return &HTTPError{Status: res.StatusCode, Text: fmt.Sprintf("gitlab %s %s: HTTP %d: %s", method, path, res.StatusCode, strs.Truncate(string(raw), 300))}
+	if status >= 400 {
+		return &HTTPError{Status: status, Text: fmt.Sprintf("gitlab %s %s: HTTP %d: %s", method, path, status, strs.Truncate(string(raw), 300))}
 	}
 	if out != nil {
 		return json.Unmarshal(raw, out)
 	}
 	return nil
+}
+
+// Raw sends JSON to an API-relative path and returns the complete bounded response.
+// It honors ctx without detaching cancellation. Status remains available if reading
+// fails; an incomplete response does not establish the outcome of a provider write.
+func (g *Client) Raw(ctx context.Context, method, path string, body any) (int, []byte, error) {
+	var rd io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			return 0, nil, err
+		}
+		rd = bytes.NewReader(b)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, g.base+"/api/v4"+path, rd)
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("PRIVATE-TOKEN", g.token)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := g.http.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer res.Body.Close()
+	const limit = 1 << 20
+	raw, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
+	if err != nil {
+		return res.StatusCode, nil, fmt.Errorf("reading GitLab response: %w", err)
+	}
+	if len(raw) > limit {
+		return res.StatusCode, nil, fmt.Errorf("GitLab response exceeds %d bytes", limit)
+	}
+	return res.StatusCode, raw, nil
 }
 
 // CreateProject creates a private project and returns its clone URL and path.

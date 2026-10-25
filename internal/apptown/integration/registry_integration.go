@@ -1,12 +1,9 @@
 package integration
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -14,6 +11,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/database"
 
+	"github.com/flokkit/apptown/internal/gitlab"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
@@ -153,8 +151,7 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 			return nil, 0, fmt.Errorf("the registry attachment could not be read: %w; nothing new was minted", err)
 		}
 		if old["token_id"] != nil {
-			status, body, err := gitlabJSON("DELETE", fmt.Sprintf("%s/api/v4/projects/%s%%2F%s/deploy_tokens/%v",
-				strings.TrimSuffix(base, "/"), group, p.Slug, old["token_id"]), tok, nil)
+			status, body, err := gitlabJSON(ctx, base, tok, "DELETE", fmt.Sprintf("/projects/%s%%2F%s/deploy_tokens/%v", group, p.Slug, old["token_id"]), nil)
 			if err == nil && status >= 400 && status != http.StatusNotFound {
 				err = fmt.Errorf("HTTP %d: %s", status, strs.Truncate(strings.TrimSpace(string(body)), 200))
 			}
@@ -165,9 +162,8 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 	}
 
 	mint := func() (int, []byte, error) {
-		return gitlabJSON("POST",
-			fmt.Sprintf("%s/api/v4/projects/%s%%2F%s/deploy_tokens", strings.TrimSuffix(base, "/"), group, p.Slug),
-			tok, map[string]any{
+		return gitlabJSON(ctx, base, tok, "POST",
+			fmt.Sprintf("/projects/%s%%2F%s/deploy_tokens", group, p.Slug), map[string]any{
 				"name":   "apptown-registry-" + p.Slug,
 				"scopes": []string{"read_registry", "write_registry"},
 			})
@@ -180,8 +176,7 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 		// AppTown-born project with no GitLab repo yet: the registry hangs off
 		// a GitLab project, so provisioning creates one (empty repo is fine —
 		// the registry works regardless, and a later SCM attach adopts it).
-		gcode, graw, gerr := gitlabJSON("GET",
-			fmt.Sprintf("%s/api/v4/groups/%s", strings.TrimSuffix(base, "/"), group), tok, nil)
+		gcode, graw, gerr := gitlabJSON(ctx, base, tok, "GET", fmt.Sprintf("/groups/%s", group), nil)
 		if gerr != nil || gcode != 200 {
 			return nil, 502, fmt.Errorf("resolving group %q: HTTP %d %v", group, gcode, gerr)
 		}
@@ -189,7 +184,7 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 			ID int64 `json:"id"`
 		}
 		_ = json.Unmarshal(graw, &g)
-		ccode, craw, cerr := gitlabJSON("POST", strings.TrimSuffix(base, "/")+"/api/v4/projects", tok,
+		ccode, craw, cerr := gitlabJSON(ctx, base, tok, "POST", "/projects",
 			map[string]any{"name": p.Slug, "path": p.Slug, "namespace_id": g.ID, "visibility": "private"})
 		if cerr != nil || (ccode != 200 && ccode != 201) {
 			return nil, 502, fmt.Errorf("creating GitLab project %s/%s: HTTP %d %v: %s",
@@ -227,27 +222,14 @@ func (s *Service) ProvisionRegistry(ctx context.Context, p *project.Project, con
 		"provenance": "provisioned", "repo": resource["repo"]}, 200, nil
 }
 
-func gitlabJSON(method, url, token string, body map[string]any) (int, []byte, error) {
-	var rdr io.Reader
-	if body != nil {
-		b, _ := json.Marshal(body)
-		rdr = bytes.NewReader(b)
-	}
-	req, err := http.NewRequest(method, url, rdr)
+// Each provider effect gets its own deadline and is answered even after the
+// caller leaves, so provisioning can record what the provider actually did.
+func gitlabJSON(ctx context.Context, base, token, method, path string, body map[string]any) (int, []byte, error) {
+	client, err := gitlab.New(base, token)
 	if err != nil {
 		return 0, nil, err
 	}
-	req.Header.Set("PRIVATE-TOKEN", token)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := (&http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
-		return errors.New("GitLab API redirect refused: configure the final API URL")
-	}}).Do(req)
-	if err != nil {
-		return 0, nil, err
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	return resp.StatusCode, raw, nil
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
+	defer cancel()
+	return client.Raw(ctx, method, path, body)
 }
