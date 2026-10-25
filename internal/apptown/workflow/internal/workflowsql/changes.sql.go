@@ -906,17 +906,6 @@ func (q *Queries) ProjectHasChange(ctx context.Context, projectID ids.ID) (bool,
 	return exists, err
 }
 
-const projectIDBySlugMeta = `-- name: ProjectIDBySlugMeta :one
-SELECT id FROM projects WHERE slug=$1
-`
-
-func (q *Queries) ProjectIDBySlugMeta(ctx context.Context, slug string) (ids.ID, error) {
-	row := q.db.QueryRowContext(ctx, projectIDBySlugMeta, slug)
-	var id ids.ID
-	err := row.Scan(&id)
-	return id, err
-}
-
 const projectWorkBusy = `-- name: ProjectWorkBusy :one
 SELECT (EXISTS(SELECT 1 FROM changes WHERE changes.project_id=$1 AND changes.state=$2) OR
  EXISTS(SELECT 1 FROM runs WHERE runs.project_id=$1 AND runs.status=$3 AND (runs.change_id IS DISTINCT FROM $4 OR runs.change_id IS NULL)) OR

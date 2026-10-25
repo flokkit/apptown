@@ -281,6 +281,10 @@ func (h Authorization) AuthzExplain(w http.ResponseWriter, r *http.Request) {
 func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 	pr := Principal(r)
 	out := AuthzHoldings{User: pr.Name}
+	// Stable UI context for retained drafts, never a grant of authority.
+	if caller, ok := access.CallerFrom(r.Context()); ok && caller.Verified && pr.Kind == "user" && !pr.ID.IsZero() {
+		out.ActorID = &pr.ID
+	}
 	inst := map[string]bool{}
 	// The instance reads say which instance-wide pages the person can open,
 	// so the menu can leave the others out.
@@ -362,6 +366,7 @@ type AuthzExplanation struct {
 // project is present when one was asked about and exists.
 type AuthzHoldings struct {
 	User         string          `json:"user"`
+	ActorID      *ids.ID         `json:"actorId,omitempty"`
 	Instance     map[string]bool `json:"instance"`
 	CreateIn     *[]string       `json:"createIn,omitempty"`
 	DefaultGroup *string         `json:"defaultGroup,omitempty"`

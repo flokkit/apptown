@@ -56,7 +56,7 @@ type Project struct {
 var (
 	slugRe        = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 	ErrSlug       = fault.New(fault.Invalid, "slug must be lowercase letters, digits and dashes, starting with a letter or digit")
-	ErrSlugTaken  = fault.New(fault.Conflict, "a project with that slug already exists")
+	ErrSlugTaken  = fault.New(fault.Conflict, "that project address has already been assigned")
 	ErrNotDeleted = errors.New("the project row was not deleted")
 )
 
@@ -170,15 +170,15 @@ func CreateAt(ctx context.Context, tx *database.Tx, at time.Time, in Spec) (ids.
 	if id.IsZero() {
 		id = ids.New(at.UTC())
 	}
+	if err := ClaimAddressIn(ctx, tx, id, in.Slug); err != nil {
+		return ids.Nil, err
+	}
 	r, err := queries(tx).InsertProject(ctx, projectsql.InsertProjectParams{ID: id, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, OwnerGroup: in.OwnerGroup, DefaultApprovers: in.DefaultApprovers, CreatedAt: at.UTC(), Purpose: string(in.Purpose), ServingLabel: in.Slug})
 	if err != nil {
 		var state interface{ SQLState() string }
 		if errors.As(err, &state) && state.SQLState() == "23505" {
 			return ids.Nil, ErrSlugTaken
 		}
-		return ids.Nil, err
-	}
-	if err := requireSlugFreeIn(ctx, tx, in.Slug); err != nil {
 		return ids.Nil, err
 	}
 	return r.ID, nil

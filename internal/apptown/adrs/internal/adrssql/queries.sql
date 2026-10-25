@@ -14,7 +14,6 @@ SELECT project_id FROM adrs WHERE id=$1;
 SELECT sqlc.embed(a), p.slug, p.name, COALESCE(c.number,0)::bigint AS change_number FROM adrs a JOIN projects p ON p.id=a.project_id LEFT JOIN changes c ON c.id=a.change_id AND c.project_id=a.project_id
 WHERE a.project_id=ANY(sqlc.arg(project_ids)::uuid[])
 AND (sqlc.narg(project_id)::uuid IS NULL OR a.project_id=sqlc.narg(project_id))
-AND (sqlc.arg(project_slug)::text='' OR p.slug=sqlc.arg(project_slug))
 AND (sqlc.arg(status)::text='' OR a.status=sqlc.arg(status))
 AND (sqlc.arg(tag)::text='' OR (','||a.tags||',') LIKE sqlc.arg(tag))
 AND (sqlc.arg(query)::text='' OR a.title LIKE sqlc.arg(query) OR a.body_md LIKE sqlc.arg(query))

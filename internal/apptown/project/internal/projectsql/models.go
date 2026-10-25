@@ -31,6 +31,16 @@ type Project struct {
 	ServingLabel               string
 }
 
+type ProjectCreationRequest struct {
+	ID            ids.ID
+	ActorID       ids.ID
+	RequestID     ids.ID
+	ProjectID     ids.ID
+	InputHash     sql.NullString
+	ResolvedGroup sql.NullString
+	ResultJson    *json.RawMessage
+}
+
 type ProjectDeletion struct {
 	ProjectID            ids.ID
 	Slug                 string
@@ -60,4 +70,13 @@ type ProjectLifecycle struct {
 	DeletedAt            sql.NullTime
 	KeptUntil            sql.NullTime
 	PurgeStartedAt       sql.NullTime
+}
+
+type ProjectRenameRequest struct {
+	ID         ids.ID
+	ActorID    ids.ID
+	RequestID  ids.ID
+	ProjectID  ids.ID
+	InputHash  string
+	ResultJson *json.RawMessage
 }

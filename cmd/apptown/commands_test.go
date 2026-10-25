@@ -329,7 +329,7 @@ func TestAFailedProjectLookupKeepsItsExitCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Chdir(dir)
-	fakeAppTown(t, func(string, string) (int, string) { return 200, `[{"slug":"shop"}]` })
+	fakeAppTown(t, func(string, string) (int, string) { return 200, `{"slug":"shop"}` })
 	if slug, err := resolveProject(""); err != nil || slug != "shop" {
 		t.Fatalf("the directory names the project: %q, %v", slug, err)
 	}
@@ -339,7 +339,7 @@ func TestAFailedProjectLookupKeepsItsExitCode(t *testing.T) {
 			t.Fatalf("lookup answered %d: exit %d (%v), want %d", status, exitCode(err), err, want)
 		}
 	}
-	fakeAppTown(t, func(string, string) (int, string) { return 200, `[{"slug":"other"}]` })
+	fakeAppTown(t, func(string, string) (int, string) { return 404, `{"error":"project not found"}` })
 	if _, err := run(t, "quick", "--json", "add a footer"); exitCode(err) != exitUsage {
 		t.Fatalf("no project of this directory's name: exit %d (%v), want %d", exitCode(err), err, exitUsage)
 	}
@@ -815,6 +815,8 @@ func TestDeleteAsksForTheSlugAndFollowsTheDeletion(t *testing.T) {
 	reads := 0
 	seen := fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
+		case path == "/projects/shop" && method == "GET":
+			return 200, `{"slug":"shop"}`
 		case path == "/projects/shop/deployments":
 			return 200, `[{"name":"main"}]`
 		case method == "DELETE" && path == "/projects/shop":
@@ -857,6 +859,8 @@ func TestDeleteThatStopsSaysWhyAndHowToGoOn(t *testing.T) {
 	stalled := "review could not be taken down: the final backup fell short"
 	fakeAppTown(t, func(method, path string) (int, string) {
 		switch {
+		case path == "/projects/shop" && method == "GET":
+			return 200, `{"slug":"shop"}`
 		case path == "/projects/shop/deployments":
 			return 200, `[{"name":"main"},{"name":"review"}]`
 		case method == "DELETE" && path == "/projects/shop":

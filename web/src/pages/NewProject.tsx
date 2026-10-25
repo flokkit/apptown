@@ -1,18 +1,20 @@
 import { PRODUCT } from '../brand'
-import { useReducer, useState } from 'react'
+import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { post } from '../api'
-import { useAction } from '../data'
-import type { CreatedChange, ProjectManifestView } from '../wire.gen'
-import { draftReducer, newDraft, slugOf } from './newProject/draft'
-import { createProject, type ProgressLine } from './newProject/create'
+import { useAction, useGet } from '../data'
+import type { AuthzHoldings, ProjectManifestView } from '../wire.gen'
+import { draftReducer, newDraft } from './newProject/draft'
+import { buildFirstVersion, continueCreation, createProject, leaveSubmittedCreation, type CreationContext, type ProgressLine } from './newProject/create'
+import { readCreation, type RetainedCreation } from './newProject/retained'
+import { ReadStatus } from '../ReadGate'
+import { RepositoryAttachment } from './project/settings/RepositoryAttachment'
 import { NameStep } from './newProject/NameStep'
 import { WayOfWorkingStep } from './newProject/WayOfWorkingStep'
 import { RepositoryStep } from './newProject/RepositoryStep'
 
 // The new-project wizard: next → next → done, ONE
 // decision per screen, defaults that are almost always right.
-//   1. Name — the slug derives quietly (editable, but never looks required).
+//   1. Description — a working name and address follow, with optional overrides.
 //   2. Way of working — "pick for me" leads; the card wall only appears if
 //      someone asks to choose themselves.
 //   3. Repository — every project GETS a repo (not a question); the only
@@ -26,33 +28,75 @@ import { RepositoryStep } from './newProject/RepositoryStep'
 type Manifest = ProjectManifestView
 
 export default function NewProject() {
+  const identity = useGet<AuthzHoldings>('/authz/me')
+  const [confirmed, setConfirmed] = useState<string | null>(null)
+  useEffect(() => { if (identity.current) setConfirmed(identity.data?.actorId ?? null) }, [identity.current, identity.data?.actorId])
+  const actorId = identity.current ? identity.data?.actorId : confirmed && confirmed === identity.data?.actorId ? confirmed : null
+  if (!actorId) return <>
+    {!identity.current && identity.data && !identity.err && <p role="status">Reading your current account…</p>}
+    <ReadStatus q={identity} what="your current account" />
+    {identity.current && <div className="error">Sign in as a person before creating a project.</div>}
+  </>
+  return <>
+    {!identity.current && <ReadStatus q={identity} what="your current account" />}
+    <fieldset disabled={!identity.current} style={{ border: 0, padding: 0, margin: 0 }}>
+      <ProjectSetup key={actorId} actorId={actorId} identityCurrent={identity.current} />
+    </fieldset>
+  </>
+}
+
+function ProjectSetup({ actorId, identityCurrent }: { actorId: string; identityCurrent: boolean }) {
   const nav = useNavigate()
-  const [d, act] = useReducer(draftReducer, undefined, () => newDraft())
+  const [initial] = useState(() => {
+    try { return { saved: readCreation(sessionStorage, actorId), error: '' } }
+    catch (e) { return { saved: null, error: (e as Error).message } }
+  })
+  const [saved, setSaved] = useState<RetainedCreation | null>(initial.saved)
+  const [storageError, setStorageError] = useState(initial.error)
+  const [file, setFile] = useState<File | null>(null)
+  const [d, act] = useReducer(draftReducer, undefined, () => initial.saved ? { ...initial.saved.draft, bundleFile: null } : newDraft())
+  const active = useRef(false)
+  useLayoutEffect(() => { active.current = identityCurrent; return () => { active.current = false } }, [identityCurrent])
+  const context = (): CreationContext => ({ actorId, storage: sessionStorage, file: file ?? d.bundleFile, assertActive: () => {
+    if (!active.current) throw new Error('Read your current account again before continuing setup.')
+  } })
+  const refreshSaved = () => {
+    if (!active.current) return
+    try { setSaved(readCreation(sessionStorage, actorId)) }
+    catch (e) { setStorageError((e as Error).message) }
+  }
   // The assembly log: what was wired (ok) and what was skipped (warn).
   const [progress, setProgress] = useState<ProgressLine[]>([])
   const [showManifest, setShowManifest] = useState(false)
   const [manifest, setManifest] = useState<Manifest | null>(null)
   const { run, busy, err } = useAction()
-  const slug = slugOf(d)
 
   const create = (where: { remote: boolean; namespaceId: string }) => {
     setProgress([])
-    void run(async () => setManifest(await createProject(d, where, (line) => setProgress((p) => [...p, line]))))
-  }
-
-  // The assembly log is worth reading (what got wired, what got skipped) —
-  // don't yank it away the moment the manifest arrives; let the person say
-  // when they're done with it.
-  // "Build the first version": the wizard's own description IS the v0 intent —
-  // open a Change carrying it, drop into its workshop, and kick off, so the
-  // distance from "created" to "try it" is one click.
-  const buildV0 = () => run(async () => {
-    const s = manifest!.project.slug
-    const r = await post<CreatedChange>(`/projects/${s}/changes`, {
-      title: 'First version', type: 'feature', body: d.description.trim(), workflow: '',
+    void run(async () => {
+      try { setManifest(await createProject(d, where, (line) => setProgress((p) => [...p, line]), context())) }
+      finally { refreshSaved() }
     })
-    nav(`/projects/${s}/console?change=${r.change.id}&kickoff=1`)
+  }
+  const resume = () => void run(async () => {
+    try { setManifest(await continueCreation(context(), (line) => setProgress((p) => [...p, line]))) }
+    finally { refreshSaved() }
   })
+  const another = () => void run(async () => {
+    await leaveSubmittedCreation(context())
+    const fresh = newDraft()
+    act({ type: 'restore', draft: saved?.pending === 'rejected'
+      ? { ...saved.draft, creationRequestId: fresh.creationRequestId, attachmentRequestId: fresh.attachmentRequestId, step: 1, bundleFile: file ?? d.bundleFile }
+      : fresh })
+    setSaved(null); setFile(null); setProgress([]); setManifest(null); setShowManifest(false)
+  })
+  const buildV0 = () => run(async () => {
+    try {
+      const result = await buildFirstVersion(context())
+      nav(`/projects/${result.slug}/console?change=${result.change.change.id}&kickoff=1`)
+    } finally { refreshSaved() }
+  })
+  if (storageError) return <div className="error">{storageError} The saved setup has not been replaced.</div>
   if (manifest && showManifest) {
     return <>
       <ManifestView m={manifest} onBuildV0={() => void buildV0()} onConsole={() => nav(`/projects/${manifest.project.slug}/console`)} />
@@ -62,7 +106,7 @@ export default function NewProject() {
   if (manifest) {
     return (
       <div style={{ maxWidth: 760 }}>
-        <h1>{d.name || slug} <span className="chip pass">created</span></h1>
+        <h1>{manifest.project.name || manifest.project.slug} <span className="chip pass">created</span></h1>
         <div className="card mt-3">
           <ProgressLog lines={progress} />
         </div>
@@ -74,9 +118,28 @@ export default function NewProject() {
     )
   }
 
+  if (saved) return <div style={{ maxWidth: 720 }}>
+    <h1>Saved project setup</h1>
+    <p><strong>{saved.draft.name}</strong> — {saved.draft.description}</p>
+    {saved.project ? <p>Project <Link to={`/projects/${saved.project.slug}`}>{saved.project.slug}</Link> exists.</p>
+      : <p>{saved.pending === 'rejected' ? 'Creation was refused. Your submitted choices are kept.' : 'Check the original creation request before starting another project.'}</p>}
+    {saved.pending && !['project', 'canonical', 'manifest', 'services-read', 'rejected'].includes(saved.pending) && <p>Check {saved.pending} setup in the project. Its outcome will not be guessed or repeated automatically.</p>}
+    {saved.draft.origin === 'bundle' && (!saved.project || saved.pending === 'canonical') && <label>Original Git bundle
+      <input type="file" disabled={busy} accept=".bundle,application/x-git-bundle" aria-label="Original Git bundle" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+    </label>}
+    {saved.project && saved.pending === 'upstream' && <RepositoryAttachment slug={saved.project.slug} />}
+    <ProgressLog lines={progress} />
+    <div className="row mt-3">
+      {saved.pending !== 'rejected' && <button className="primary" disabled={busy} onClick={resume}>Check saved setup</button>}
+      {(saved.project || saved.pending === 'rejected' || saved.pending === null) && <button disabled={busy} onClick={another}>{saved.pending === 'rejected' ? 'Edit choices for a new request' : 'Start another project'}</button>}
+    </div>
+    {err && <div className="error">{err}</div>}
+  </div>
+
   return (
     <div style={{ maxWidth: 720 }}>
       <h1>New project</h1>
+      <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
       <StepChips step={d.step} />
       {d.step === 1 && <NameStep d={d} act={act} />}
       {d.step === 2 && <WayOfWorkingStep d={d} act={act} />}
@@ -89,6 +152,7 @@ export default function NewProject() {
           )}
         </RepositoryStep>
       )}
+      </fieldset>
       {err && <div className="error">{err}</div>}
     </div>
   )
@@ -99,7 +163,7 @@ export default function NewProject() {
 function StepChips({ step }: { step: number }) {
   return (
     <div className="row" style={{ marginBottom: 18 }}>
-      {['Name', 'Way of working', 'Repository'].map((label, i) => (
+      {['Software', 'Way of working', 'Repository'].map((label, i) => (
         <span key={label} className={`chip ${step === i + 1 ? 'running' : step > i + 1 ? 'pass' : ''}`}>
           {step > i + 1 ? '✓ ' : `${i + 1} · `}{label}
         </span>

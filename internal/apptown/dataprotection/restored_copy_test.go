@@ -275,7 +275,11 @@ type restoredWorld struct {
 
 func newRestoredWorld(t *testing.T, contract []byte) *restoredWorld {
 	t.Helper()
-	w := &restoredWorld{dataWorld: newDataWorldWith(t, dataWorldOptions{contract: contract})}
+	return newRestoredWorldWith(t, dataWorldOptions{contract: contract})
+}
+func newRestoredWorldWith(t *testing.T, opts dataWorldOptions) *restoredWorld {
+	t.Helper()
+	w := &restoredWorld{dataWorld: newDataWorldWith(t, opts)}
 	// The people tickets are issued to have accounts, so each ticket names
 	// a principal.
 	people := identity.New(w.db, identity.Config{})

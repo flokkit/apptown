@@ -22,14 +22,8 @@ import (
 // cluster.
 func TestATakeDownNeverDeletesAnotherProjectsAppOfTheSameName(t *testing.T) {
 	t.Parallel()
-	w := newRestoredWorld(t, nil)
+	w := newRestoredWorldWith(t, dataWorldOptions{projectSlug: "ledger-pay"})
 	ctx := context.Background()
-	// This world creates "ledger"; model a project originally created as
-	// "ledger-pay" so another project can own the independent "ledger" label.
-	// sql-guarantee: no operation rewrites initial identity; set both original slug and retained serving label for this collision fixture.
-	if _, err := w.db.Exec(`UPDATE projects SET slug='ledger-pay', serving_label='ledger-pay' WHERE id=$1`, w.project); err != nil {
-		t.Fatal(err)
-	}
 	other := createTestProject(t, w.db, "ledger", "Other Ledger")
 	otherDep, err := w.bind(other, "pay-copy-1", "synthetic", ids.Nil)
 	if err != nil {

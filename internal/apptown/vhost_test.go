@@ -3,6 +3,8 @@ package apptown
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/database"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -363,8 +365,15 @@ func TestTLSAskAllowsOnlyNamesAppTownsRecordsBound(t *testing.T) {
 	if _, err := a.Deployment.Releases.Start(t.Context(), deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: shop.ID, Deployment: "main", Revision: "first", Actor: "bls"}, "a release to look at"); err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: simulate future canonical rename to prove separate certificate identity.
-	if _, err := a.DB.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, shop.ID); err != nil {
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		held, err := project.ByIDIn(t.Context(), tx, shop.ID)
+		if err != nil {
+			return err
+		}
+		next := "renamed"
+		_, err = project.UpdateSettingsIn(t.Context(), tx, shop.ID, held.Slug, project.SettingsPatch{ExpectedRevision: &held.SettingsRevision, Slug: &next})
+		return err
+	}); err != nil {
 		t.Fatal(err)
 	}
 	h := a.Handler()
@@ -417,8 +426,15 @@ func TestAMainHostnameReachesTheContainerItsDeploymentRecords(t *testing.T) {
 	const container = "apptown-dep-recorded"
 	shop := engineProject(t, a, "shop")
 	recordServing(t, a, shop.ID, container)
-	// sql-guarantee: model a later canonical-address update without changing the captured serving identity.
-	if _, err := a.DB.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, shop.ID); err != nil {
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		held, err := project.ByIDIn(t.Context(), tx, shop.ID)
+		if err != nil {
+			return err
+		}
+		next := "renamed"
+		_, err = project.UpdateSettingsIn(t.Context(), tx, shop.ID, held.Slug, project.SettingsPatch{ExpectedRevision: &held.SettingsRevision, Slug: &next})
+		return err
+	}); err != nil {
 		t.Fatal(err)
 	}
 	a.vhostMu.Lock()
@@ -459,8 +475,15 @@ func TestServingIdentityDoesNotFollowCanonicalProjectAddress(t *testing.T) {
 	t.Parallel()
 	a := testApp(t, Config{})
 	id := plainTestProject(t, a.DB, "original", "Original")
-	// sql-guarantee: simulate the future canonical-address operation, which current settings deliberately refuses.
-	if _, err := a.DB.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, id); err != nil {
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		held, err := project.ByIDIn(t.Context(), tx, id)
+		if err != nil {
+			return err
+		}
+		next := "renamed"
+		_, err = project.UpdateSettingsIn(t.Context(), tx, id, held.Slug, project.SettingsPatch{ExpectedRevision: &held.SettingsRevision, Slug: &next})
+		return err
+	}); err != nil {
 		t.Fatal(err)
 	}
 	rules := vhostRules{db: a.DB, projects: a.Projects}

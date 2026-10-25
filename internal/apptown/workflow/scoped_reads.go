@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
 )
@@ -206,17 +207,18 @@ func (s *Service) Runs(ctx context.Context, in RunQuery) ([]RunSummary, error) {
 		return nil, fmt.Errorf("invalid Work list bounds")
 	}
 	if in.ProjectSlug != "" {
-		project, err := workflowsql.New(s.db.SQL()).ProjectIDBySlugMeta(ctx, in.ProjectSlug)
+		projectID, err := project.IDByAddressIn(ctx, s.db, in.ProjectSlug)
 		if errors.Is(err, sql.ErrNoRows) {
 			return []RunSummary{}, nil
 		}
 		if err != nil {
 			return nil, err
 		}
-		if !in.ProjectID.IsZero() && in.ProjectID != project {
+		if !in.ProjectID.IsZero() && in.ProjectID != projectID {
 			return []RunSummary{}, nil
 		}
-		in.ProjectID = project
+		in.ProjectID = projectID
+		in.ProjectSlug = ""
 	}
 	var err error
 	in.projects, err = s.visibleProjects(ctx, actionReadRun, in.ProjectID)

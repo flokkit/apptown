@@ -41,7 +41,7 @@ func TestSettingsPatchIsAtomicAndPreservesOmissions(t *testing.T) {
 	ctx := context.Background()
 	rev := int64(0)
 	changed, taken := "new", "taken"
-	if err := patchSettings(db, id, "settings", SettingsPatch{ExpectedRevision: &rev, Slug: &taken, Icon: &changed, Blurb: &changed}); !errors.Is(err, ErrSlugFixed) {
+	if err := patchSettings(db, id, "settings", SettingsPatch{ExpectedRevision: &rev, Slug: &taken, Icon: &changed, Blurb: &changed}); !errors.Is(err, ErrSlugTaken) {
 		t.Fatalf("a rename: %v", err)
 	}
 	before, err := ByIDIn(ctx, db, id)

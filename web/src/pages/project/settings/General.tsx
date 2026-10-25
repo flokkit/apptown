@@ -3,12 +3,12 @@ import { PRODUCT } from '../../../brand'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { HttpError, Project as ProjectT, del, patch, post } from '../../../api'
+import { HttpError, Project as ProjectT, del, get, patch, post } from '../../../api'
 import { FieldRow } from '../../../FieldRow'
 import { firstErr, getKey, useAction, useGet } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import type { OverviewData } from '../../../parts/runActivity'
-import type { DeploymentView } from '../../../wire.gen'
+import type { ProjectDetail, DeploymentView } from '../../../wire.gen'
 import type { ChangeEnvelope, Lifecycle, ProjectDeletionState, ProjectRow } from '../../../wire.gen'
 import { fmtDay, fmtStamp } from '../../../format'
 import { QuietConfirm } from '../../../QuietConfirm'
@@ -132,11 +132,11 @@ export function LifecycleNote({ slug, lifecycle }: { slug: string; lifecycle?: L
 // a branch, and deleting it. Everything about the project AS a thing, in
 // one place — the header stays a header.
 
-type Face = { name: string; namespace: string; icon: string; blurb: string }
-const faceOf = (p: ProjectT): Face => ({ name: p.name, namespace: p.namespace ?? '', icon: p.icon ?? '', blurb: p.blurb ?? '' })
+type Face = { slug: string; name: string; namespace: string; icon: string; blurb: string }
+const faceOf = (p: ProjectT): Face => ({ slug: p.slug, name: p.name, namespace: p.namespace ?? '', icon: p.icon ?? '', blurb: p.blurb ?? '' })
 // said quotes a value for a sentence, and names an empty one.
 const said = (v: string) => (v === '' ? 'empty' : `“${v}”`)
-const faceLabels: Record<keyof Face, string> = { name: 'Name', icon: 'Icon', blurb: 'One line about it', namespace: 'Group' }
+const faceLabels: Record<keyof Face, string> = { slug: 'Address', name: 'Name', icon: 'Icon', blurb: 'One line about it', namespace: 'Group' }
 
 // The form follows the project as the page reads it until someone edits a
 // field; from then on the draft is theirs and survives refreshes and failed
@@ -154,6 +154,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
   const [draft, setDraft] = useState<Face | null>(null)
   const [conflict, setConflict] = useState(false)
   const [msg, setMsg] = useState('')
+  const addressRequest = useRef<{ fingerprint: string; id: string } | null>(null)
   useEffect(() => {
     if (!current || draft) return
     setBase((held) => (held && held.revision > project.settingsRevision) ? held : { face: faceOf(project), revision: project.settingsRevision })
@@ -179,7 +180,22 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
     setConflict(false)
     const body: Record<string, unknown> = { expectedRevision: base.revision }
     for (const k of changed) body[k] = draft[k]
-    const p = await runSave(() => patch<ProjectT>(`/projects/${project.slug}`, body))
+    const addressChanged = changed.includes('slug')
+    if (addressChanged) {
+      const fingerprint = JSON.stringify({ projectId: project.id, ...body })
+      if (addressRequest.current?.fingerprint !== fingerprint) addressRequest.current = { fingerprint, id: crypto.randomUUID() }
+      body.requestId = addressRequest.current.id
+    }
+    const p = await runSave(async () => {
+      const committed = await patch<ProjectT>(`/projects/${project.slug}`, body)
+      if (committed.id !== project.id) throw new Error('The saved settings identify a different project.')
+      if (!addressChanged) return committed
+      // A replay returns its original result. Resolve its permanent alias to
+      // read the current canonical address before navigating or caching it.
+      const current = await get<ProjectDetail>(`/projects/${committed.slug}`)
+      if (current.id !== project.id || current.lifecycle.state !== 'active') throw new Error('The project is no longer active at this address.')
+      return current
+    })
     if (!p) return
     // The answer is the committed record: it is the new starting point, and
     // the project's view shows it without waiting for a refresh.
@@ -187,7 +203,12 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
     setBase({ face: faceOf(p), revision: p.settingsRevision })
     setDraft(null)
     setMsg('saved')
+    addressRequest.current = null
     onChanged()
+    if (addressChanged) {
+      void client.invalidateQueries({ queryKey: getKey(`/projects/${project.slug}`) })
+      nav(`/projects/${p.slug}/settings/general`, { replace: true })
+    }
   }
   // A refused save means the page's reading is old: read the settings again
   // so the person sees what changed before choosing.
@@ -225,8 +246,8 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
           <FieldRow label="Group" help="how projects are grouped on the front page">
             <input value={shown?.namespace ?? ''} onChange={(e) => edit('namespace')(e.target.value)} list="known-namespaces" placeholder="(none)" style={{ width: 200 }} />
           </FieldRow>
-          <FieldRow label="Address" help="the short name in links, fixed when the project was made">
-            <code>{project.slug}</code>
+          <FieldRow label="Address" help="the short name in project links; previous addresses remain reserved for this project. Running apps keep their addresses.">
+            <input aria-label="Address" value={shown?.slug ?? ''} onChange={(e) => edit('slug')(e.target.value)} />
           </FieldRow>
         </div>
         </fieldset>

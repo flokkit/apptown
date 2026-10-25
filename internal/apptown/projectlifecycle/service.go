@@ -40,6 +40,9 @@ func (e *nameBusy) Unwrap() error { return ErrNameBusy }
 
 // Draft is the project declaration and receipt attribution after authorization.
 type Draft struct {
+	RequestID        ids.ID
+	AutomaticAddress bool
+	Setup            *CreationSetup
 	// ID is the id the caller chose (project.Spec.ID); Nil mints one.
 	ID                                               ids.ID
 	Slug, Name, Namespace, Blurb, Icon, Group, Actor string
@@ -54,6 +57,7 @@ type Publisher interface {
 	PushBranch(ctx context.Context, projectID ids.ID, repoDir, branch string)
 }
 type Dependencies struct {
+	Identity     *identity.Service
 	Adoption     *adoption.Service
 	Projects     *project.Projects
 	Ways         *wow.Service
@@ -76,6 +80,7 @@ type Config struct {
 	Now func() time.Time
 }
 type Service struct {
+	identity     *identity.Service
 	now          func() time.Time
 	ways         *wow.Service
 	repositories *scm.RepositoryLocks
@@ -95,7 +100,7 @@ type Service struct {
 }
 
 func New(db *database.DB, deps Dependencies, cfg Config) *Service {
-	return &Service{db: db, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.Resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
+	return &Service{db: db, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.Resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
 }
 
 // Create is the application command behind the wizard, `apptown new` and the
@@ -104,6 +109,12 @@ func New(db *database.DB, deps Dependencies, cfg Config) *Service {
 // owner role. The repo and the pack are separate
 // acts the caller may add; a pack the draft names must be offered.
 func (s *Service) Create(ctx context.Context, in Draft) (*project.Project, error) {
+	if !in.RequestID.IsZero() {
+		return s.createRequested(ctx, in)
+	}
+	if in.AutomaticAddress || in.Setup != nil {
+		return nil, project.ErrRequestRequired
+	}
 	group := in.Group
 	if !project.ValidSlug(in.Slug) {
 		return nil, ErrInvalidSlug
@@ -127,56 +138,62 @@ func (s *Service) Create(ctx context.Context, in Draft) (*project.Project, error
 	var p project.Project
 	now := s.now()
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
-		if group == "" {
-			var err error
-			group, err = identity.SovereignGroupIn(ctx, tx, now)
-			if err != nil {
-				return err
-			}
-		}
-		if group != "" {
-			if err := identity.RequireLiveGroupIn(ctx, tx, group); err != nil {
-				return err
-			}
-		}
-		id, err := project.CreateAt(ctx, tx, now, project.Spec{ID: in.ID, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon,
-			OwnerGroup: group, DefaultApprovers: "role:" + access.RoleProjectApprover + ",role:" + access.RoleProjectOwner})
-		if err != nil {
-			return err
-		}
-		if err := adoption.InitializeIn(ctx, tx, id, 0, "", ""); err != nil {
-			return err
-		}
-		// The first revision: what a new project is on, recorded with its
-		// receipt by the package that owns revisions.
-		if err := adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "project created", receipt, in.Actor, now); err != nil {
-			return err
-		}
-		// The project belongs to the person who created it, by principal:
-		// through a chat it is the chat's opener.
-		opener, err := identity.ActorIn(ctx, tx, in.Actor)
-		if err != nil {
-			return err
-		}
-		creator := in.Actor
-		if !opener.Principal.IsZero() {
-			if creator, err = identity.PersonNameIn(ctx, tx, opener.Principal); err != nil {
-				return err
-			}
-		}
-		if err := identity.ProjectOwnershipIn(ctx, tx, id, creator, now); err != nil {
-			return err
-		}
-		if err := audit.At(now).RecordIn(ctx, tx, in.Actor, id, "project.created", in.Slug, map[string]any{"ownerGroup": group}); err != nil {
-			return err
-		}
-		p, err = project.ByIDIn(ctx, tx, id)
+		var err error
+		p, err = s.createIn(ctx, tx, in, group, receipt, now)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &p, nil
+}
+
+// createIn composes the same local creation participants for ordinary and replayable commands.
+func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group string, receipt adoption.Receipt, now time.Time) (project.Project, error) {
+	var out project.Project
+	if group == "" {
+		var err error
+		group, err = identity.SovereignGroupIn(ctx, tx, now)
+		if err != nil {
+			return out, err
+		}
+	}
+	if group != "" {
+		if err := identity.RequireLiveGroupIn(ctx, tx, group); err != nil {
+			return out, err
+		}
+	}
+	id, err := project.CreateAt(ctx, tx, now, project.Spec{ID: in.ID, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, OwnerGroup: group, DefaultApprovers: "role:" + access.RoleProjectApprover + ",role:" + access.RoleProjectOwner})
+	if err != nil {
+		return out, err
+	}
+	if err := adoption.InitializeIn(ctx, tx, id, 0, "", ""); err != nil {
+		return out, err
+	}
+	if err := adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "project created", receipt, in.Actor, now); err != nil {
+		return out, err
+	}
+	opener, err := identity.ActorIn(ctx, tx, in.Actor)
+	if err != nil {
+		return out, err
+	}
+	creator := in.Actor
+	if !opener.Principal.IsZero() {
+		creator, err = identity.PersonNameIn(ctx, tx, opener.Principal)
+		if err != nil {
+			return out, err
+		}
+		if creator == "" {
+			return out, access.ErrPrincipalRequired
+		}
+	}
+	if err := identity.ProjectOwnershipIn(ctx, tx, id, creator, now); err != nil {
+		return out, err
+	}
+	if err := audit.At(now).RecordIn(ctx, tx, in.Actor, id, "project.created", in.Slug, map[string]any{"ownerGroup": group}); err != nil {
+		return out, err
+	}
+	return project.ByIDIn(ctx, tx, id)
 }
 
 // OfferedPack is the pack a new project may be given by this name: one the
@@ -199,6 +216,9 @@ func (s *Service) OfferedPack(ctx context.Context, name string) (*wow.Pack, erro
 // while the deleted project's post-commit cleanup still owns them. They never
 // hold the mutex across SQL, git or Docker operations.
 func (s *Service) ReserveNames(slugs ...string) (func(), error) {
+	slugs = slices.Clone(slugs)
+	slices.Sort(slugs)
+	slugs = slices.Compact(slugs)
 	s.namesMu.Lock()
 	defer s.namesMu.Unlock()
 	for _, slug := range slugs {

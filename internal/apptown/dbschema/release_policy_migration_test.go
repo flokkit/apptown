@@ -10,8 +10,14 @@ import (
 
 func TestMigration177PreservesLegacySetupWithoutRefillingClearedDefaults(t *testing.T) {
 	db := releaseDB(t)
-	index := len(migrations) - 1
-	if migrations[index].n != 177 {
+	index := -1
+	for i, m := range migrations {
+		if m.n == 177 {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
 		t.Fatal("expected migration177 suffix")
 	}
 	if _, err := applyMigrations(t.Context(), db, migrations[:index]); err != nil {
@@ -64,7 +70,7 @@ func TestMigration177PreservesLegacySetupWithoutRefillingClearedDefaults(t *test
 	if err := db.QueryRow(`SELECT authority_json::text FROM release_requests WHERE release_id=$1`, requests[0].id).Scan(&authorityBefore); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := applyMigrations(t.Context(), db, migrations); err != nil {
+	if _, err := applyMigrations(t.Context(), db, migrations[:index+1]); err != nil {
 		t.Fatal(err)
 	}
 

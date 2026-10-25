@@ -249,6 +249,17 @@ WHERE i.name='portainer-deploy' AND i.capability='deploy'
  AND p.purpose='ordinary' AND NOT EXISTS(SELECT 1 FROM project_lifecycle l WHERE l.project_id=p.id)
  AND NOT EXISTS(SELECT 1 FROM project_release_settings s WHERE s.project_id=p.id)`,
 	}},
+	{n: 178, note: "retain permanent project addresses and atomic local request results", stmts: []string{
+		`CREATE TABLE project_addresses (address TEXT PRIMARY KEY CHECK (address ~ '^[a-z0-9][a-z0-9-]*$'), project_id UUID, UNIQUE(address,project_id))`,
+		`INSERT INTO project_addresses(address,project_id) SELECT slug,id FROM projects`,
+		`INSERT INTO project_addresses(address,project_id)
+SELECT d.slug,CASE WHEN count(DISTINCT d.project_id)=1 THEN min(d.project_id::text)::uuid ELSE NULL END
+FROM project_deletions d WHERE NOT EXISTS(SELECT 1 FROM project_addresses a WHERE a.address=d.slug)
+GROUP BY d.slug`,
+		`ALTER TABLE projects ADD CONSTRAINT projects_address_owner FOREIGN KEY(slug,id) REFERENCES project_addresses(address,project_id) DEFERRABLE INITIALLY DEFERRED`,
+		`CREATE TABLE project_creation_requests (id UUID PRIMARY KEY,actor_id UUID NOT NULL,request_id UUID NOT NULL,project_id UUID NOT NULL,input_hash TEXT,resolved_group TEXT,result_json JSONB,UNIQUE(actor_id,request_id))`,
+		`CREATE TABLE project_rename_requests (id UUID PRIMARY KEY,actor_id UUID NOT NULL,request_id UUID NOT NULL,project_id UUID NOT NULL,input_hash TEXT NOT NULL,result_json JSONB,UNIQUE(actor_id,request_id))`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

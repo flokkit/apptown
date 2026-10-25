@@ -2,7 +2,10 @@ package adrs
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"math"
 	"strings"
 	"time"
@@ -48,6 +51,19 @@ func readRecords(ctx context.Context, db database.Queryer, f Filter, idList []id
 	if f.Limit < 0 || f.Limit > math.MaxInt32 {
 		return nil, ErrInput
 	}
+	if f.ProjectSlug != "" {
+		id, err := project.IDByAddressIn(ctx, db, f.ProjectSlug)
+		if errors.Is(err, sql.ErrNoRows) {
+			return []Record{}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !f.ProjectID.IsZero() && f.ProjectID != id {
+			return []Record{}, nil
+		}
+		f.ProjectID = id
+	}
 	state := ""
 	if f.State != 0 {
 		if _, e := f.State.Value(); e != nil {
@@ -55,7 +71,7 @@ func readRecords(ctx context.Context, db database.Queryer, f Filter, idList []id
 		}
 		state = f.State.String()
 	}
-	rows, e := queries(db).ADRsMatching(ctx, adrssql.ADRsMatchingParams{ProjectIds: idList, ProjectID: f.ProjectID, ProjectSlug: f.ProjectSlug, Status: state, Tag: likeTag(f.Tag), Query: likeText(f.Query), ChangeID: f.ChangeID, Recent: f.Recent, LimitCount: int32(f.Limit)})
+	rows, e := queries(db).ADRsMatching(ctx, adrssql.ADRsMatchingParams{ProjectIds: idList, ProjectID: f.ProjectID, Status: state, Tag: likeTag(f.Tag), Query: likeText(f.Query), ChangeID: f.ChangeID, Recent: f.Recent, LimitCount: int32(f.Limit)})
 	if e != nil {
 		return nil, e
 	}

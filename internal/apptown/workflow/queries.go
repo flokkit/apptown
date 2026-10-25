@@ -2,7 +2,10 @@ package workflow
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"math"
 	"time"
 
@@ -69,6 +72,19 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 	if query.Limit < 0 || query.Limit > math.MaxInt32 {
 		return nil, fmt.Errorf("invalid workflow list bounds")
 	}
+	if query.ProjectSlug != "" {
+		id, err := project.IDByAddressIn(ctx, db, query.ProjectSlug)
+		if errors.Is(err, sql.ErrNoRows) {
+			return []RunSummary{}, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !query.ProjectID.IsZero() && query.ProjectID != id {
+			return []RunSummary{}, nil
+		}
+		query.ProjectID = id
+	}
 	status := ""
 	if query.State != 0 {
 		status = query.State.String()
@@ -76,7 +92,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 			return nil, err
 		}
 	}
-	stored, err := workflowsql.New(db.SQL()).WorkflowSummaries(ctx, workflowsql.WorkflowSummariesParams{ProjectID: query.ProjectID, ProjectSlug: query.ProjectSlug, Status: status, RootsOnly: query.RootsOnly, ProjectIds: query.projects, LimitCount: int32(query.Limit)})
+	stored, err := workflowsql.New(db.SQL()).WorkflowSummaries(ctx, workflowsql.WorkflowSummariesParams{ProjectID: query.ProjectID, Status: status, RootsOnly: query.RootsOnly, ProjectIds: query.projects, LimitCount: int32(query.Limit)})
 	if err != nil {
 		return nil, err
 	}

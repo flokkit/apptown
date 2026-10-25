@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gitexec"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -45,6 +46,18 @@ func TestGitHTTPScoped(t *testing.T) {
 	_, _ = gitexec.Run(t.Context(), wt, "commit", "-m", "private")
 	mirrorBranchForTest(hub, wt, "apptown/change-00000000-0001-7000-8000-000000000000")
 
+	// Existing Git addresses remain valid after a canonical-address change.
+	held, err := project.ByIDIn(t.Context(), a.DB, pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical := "renamed-git"
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		_, err := project.UpdateSettingsIn(t.Context(), tx, pid, slug, project.SettingsPatch{ExpectedRevision: &held.SettingsRevision, Slug: &canonical})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	tok, err := a.Access.RuntimePullToken(context.Background(), pid)
 	if err != nil {
 		t.Fatal(err)
@@ -150,6 +163,9 @@ func TestGitHTTPScoped(t *testing.T) {
 	if out, err := gitexec.Run(t.Context(), chat, "-c", header, "push", plain, "HEAD:refs/heads/main"); err == nil {
 		t.Fatalf("a push through the read-only listener must be refused: %s", out)
 	}
+	// The backend can emit diagnostics without a trailing newline. End its
+	// output before the test runner reports this scoped-access result.
+	t.Log("retained-address Git scope and read-only listener checks complete")
 }
 
 // The service a git request runs is read as git's backend reads it, from

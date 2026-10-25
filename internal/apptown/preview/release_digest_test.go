@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/worker"
 	"maps"
 	"path/filepath"
@@ -117,8 +118,15 @@ func releasePreviewWorldWithSize(t *testing.T, size bool) (s *Service, w *fakePr
 func TestAPublishedReleasesPreviewBootsOnTheWorkerFromItsDigests(t *testing.T) {
 	t.Parallel()
 	s, w, local, b, published, _ := releasePreviewWorld(t)
-	// sql-guarantee: a future canonical rename must not name a second historical preview or change its provider/credential scope.
-	if _, err := s.db.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, b.ProjectID); err != nil {
+	if err := s.db.InTx(t.Context(), func(tx *database.Tx) error {
+		held, err := project.ByIDIn(t.Context(), tx, b.ProjectID)
+		if err != nil {
+			return err
+		}
+		next := "renamed"
+		_, err = project.UpdateSettingsIn(t.Context(), tx, b.ProjectID, held.Slug, project.SettingsPatch{ExpectedRevision: &held.SettingsRevision, Slug: &next})
+		return err
+	}); err != nil {
 		t.Fatal(err)
 	}
 	out, err := s.RequestReleasePreview(context.Background(), ReleaseSelection{ProjectID: b.ProjectID, Number: published})
@@ -312,8 +320,15 @@ func TestALocalReleasePreviewIsReplacedWhenItsSecretChanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: preserve original preview resources and recorded secret bindings after a future canonical-address update.
-	if _, err := s.db.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, wd.projectID); err != nil {
+	if err := s.db.InTx(t.Context(), func(tx *database.Tx) error {
+		held, err := project.ByIDIn(t.Context(), tx, wd.projectID)
+		if err != nil {
+			return err
+		}
+		next := "renamed"
+		_, err = project.UpdateSettingsIn(t.Context(), tx, wd.projectID, held.Slug, project.SettingsPatch{ExpectedRevision: &held.SettingsRevision, Slug: &next})
+		return err
+	}); err != nil {
 		t.Fatal(err)
 	}
 	scope := secret.Scope("p", "preview", "")

@@ -11,6 +11,19 @@ A new project's repository may start from existing code (a Git bundle or an
 https repository): only its default branch and tags come, and every record
 starts fresh ([procedure](../operations/start-from-existing-code.md)).
 
+The creation wizard starts with a software description and suggests an editable
+working name locally. An explicit name or address survives later description
+edits. Imported code can supply the untouched working name; its upstream
+repository name is a separate choice. A way of working can be chosen manually
+without a model. Suggested addresses remain proposals checked during creation.
+Submitted setup choices and operation IDs are kept for same-tab recovery under
+the current person's UUID. Setup uses the returned project identity and a current
+canonical read. An uncertain import or pack result is shown with the known
+project for recovery; creating another project is not a retry. Current service
+declaration equality can resolve an uncertain service update without another
+write. A first-version request is explicit and an unknown response is not
+automatically repeated.
+
 Visible project reads resolve current authority before querying the visible set,
 counts or pages. Idle projects remain visible even without runs. Empty visibility
 means no projects, not an unfiltered query. Dashboard runtime badges use Deployment's

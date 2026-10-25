@@ -18,10 +18,12 @@ func TestServingIdentityIsCapturedAndSeparateFromSettings(t *testing.T) {
 	if err := patchSettings(db, id, "settings", SettingsPatch{ExpectedRevision: &revision, Name: &name}); err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: simulate a future canonical rename while current settings deliberately refuses slug changes.
-	if _, err := db.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, id); err != nil {
+	next := "renamed"
+	revision++
+	if err := patchSettings(db, id, "settings", SettingsPatch{ExpectedRevision: &revision, Slug: &next}); err != nil {
 		t.Fatal(err)
 	}
+
 	got, err := projects.ByServingLabel(t.Context(), "settings")
 	if err != nil || got.ID != id || got.Slug != "renamed" || got.ServingLabel != "settings" || got.Name != name {
 		t.Fatalf("serving lookup changed: %+v %v", got, err)

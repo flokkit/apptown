@@ -7,8 +7,14 @@ import (
 
 func TestMigration177LeavesConflictingLegacyTargetUnresolved(t *testing.T) {
 	db := releaseDB(t)
-	index := len(migrations) - 1
-	if migrations[index].n != 177 {
+	index := -1
+	for i, m := range migrations {
+		if m.n == 177 {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
 		t.Fatal("expected migration 177")
 	}
 	if _, err := applyMigrations(t.Context(), db, migrations[:index]); err != nil {
@@ -24,7 +30,7 @@ func TestMigration177LeavesConflictingLegacyTargetUnresolved(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO projects(id,slug,name,purpose,serving_label,created_at) VALUES ($1,'c2-review','C2 review','ordinary','c2-review','2026-10-26T00:00:00Z')`, idstest.N(800004)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := applyMigrations(t.Context(), db, migrations); err != nil {
+	if _, err := applyMigrations(t.Context(), db, migrations[:index+1]); err != nil {
 		t.Fatal(err)
 	}
 	var usable bool

@@ -14,23 +14,12 @@ describe('the new-project draft', () => {
     expect(slugOf(d)).toBe('eggs')
   })
 
-  // The box starts empty under a fixed example; each 🎲 puts a freshly
-  // rolled name in it.
-  it('starts empty and rolls a name into the box', () => {
-    let d = newDraft()
-    expect(d.name).toBe('')
-    d = play(d, { type: 'roll', next: 'Brave Comet' })
-    expect(d.name).toBe('Brave Comet')
-    d = play(d, { type: 'roll', next: 'Turbo Pickle' })
-    expect(d.name).toBe('Turbo Pickle')
-  })
-
   // A step is left only once its one decision is made: an address, then a
   // way of working (bare counts).
   it('moves on only once each step is decided', () => {
     let d = play(newDraft(), { type: 'step', step: 2 })
     expect(d.step).toBe(1)
-    d = play(d, { type: 'name', name: 'shop' }, { type: 'step', step: 3 })
+    d = play(d, { type: 'describe', description: 'shop' }, { type: 'step', step: 3 })
     expect(d.step).toBe(1)
     d = play(d, { type: 'step', step: 2 }, { type: 'step', step: 3 })
     expect(d.step).toBe(2)
@@ -68,5 +57,54 @@ describe('the new-project draft', () => {
     expect(d.services.map((n) => n.capability)).toEqual(['postgres', 'redis'])
     d = play(d, { type: 'proposed', services: [] })
     expect(d.services.map((n) => n.capability)).toEqual(['postgres', 'redis'])
+  })
+})
+
+
+describe('description-first project identity', () => {
+  it('proposes a usable name without a model and preserves explicit choices', () => {
+    let d = play(newDraft(), { type: 'describe', description: 'Lunch orders for the office' })
+    expect(d.name).toBe('Lunch orders for the office')
+    expect(slugOf(d)).toBe('lunch-orders-for-the-office')
+    d = play(d, { type: 'name', name: 'Our kitchen' }, { type: 'address', address: 'kitchen' },
+      { type: 'describe', description: 'Dinner orders instead' })
+    expect(d.name).toBe('Our kitchen')
+    expect(slugOf(d)).toBe('kitchen')
+  })
+  it('keeps separate stable local and upstream operation identities', () => {
+    const d = newDraft()
+    expect(d.creationRequestId).toMatch(/^[0-9a-f-]{36}$/)
+    expect(d.creationRequestId).not.toBe(d.attachmentRequestId)
+    const edited = play(d, { type: 'describe', description: 'A library' }, { type: 'name', name: 'Books' })
+    expect(edited.creationRequestId).toBe(d.creationRequestId)
+    expect(edited.attachmentRequestId).toBe(d.attachmentRequestId)
+  })
+})
+
+
+describe('working name and interview boundaries', () => {
+  it('keeps a usable automatic address for non-ASCII descriptions', () => {
+    const d = play(newDraft(), { type: 'describe', description: '図書館' })
+    expect(d.name).toBe('図書館')
+    expect(slugOf(d)).toBe('new-project')
+    expect(play(d, { type: 'step', step: 2 }).step).toBe(2)
+  })
+  it('suggests the selected repository name without replacing an override', () => {
+    let d = play(newDraft(), { type: 'describe', description: 'Improve our library' },
+      { type: 'repo', set: { origin: 'url', sourceURL: 'https://example.test/team/books.git' } })
+    expect(d.name).toBe('books')
+    d = play(d, { type: 'name', name: 'Our library' },
+      { type: 'repo', set: { sourceURL: 'https://example.test/team/other.git' } })
+    expect(d.name).toBe('Our library')
+  })
+  it('refuses a late interview choice after newer input or a manual choice', () => {
+    const original = play(newDraft(), { type: 'describe', description: 'Lunch orders' })
+    const reply: DraftAct = { type: 'pack', pack: 'late', why: '', services: [], revision: original.interviewRevision }
+    const changed = play(original, { type: 'describe', description: 'Dinner orders' }, reply)
+    expect(changed.pack).toBeNull()
+    const chosen = play(original, { type: 'pack', pack: '', why: '', services: [] }, reply)
+    expect(chosen.pack).toBe('')
+    const backed = play(original, { type: 'step', step: 1 }, reply)
+    expect(backed.pack).toBeNull()
   })
 })

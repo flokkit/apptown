@@ -3,6 +3,7 @@ package httpapi
 import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/wiregen"
@@ -11,6 +12,10 @@ import (
 // The ways-of-working and project routes' responses.
 func init() {
 	registerWire(
+		wiregen.Named{Name: "ProjectDraft", Value: ProjectDraft{}},
+		wiregen.Named{Name: "ProjectCreationSetup", Value: projectlifecycle.CreationSetup{}},
+		wiregen.Named{Name: "ProjectCreationService", Value: projectlifecycle.CreationService{}},
+		wiregen.Named{Name: "ProjectCreationUpstream", Value: projectlifecycle.CreationUpstream{}},
 		wiregen.Named{Name: "AdoptionUpliftOpened", Value: AdoptionUpliftOpened{}},
 		wiregen.Named{Name: "InAdvanceQuestion", Value: workflow.InAdvanceQuestion{}},
 		wiregen.Named{Name: "AdoptionApplied", Value: AdoptionApplied{}},

@@ -162,9 +162,6 @@ SELECT p.id,COALESCE(c.changes,0)::bigint AS changes,COALESCE(c.active_items,0):
 FROM projects p LEFT JOIN change_counts c ON c.project_id=p.id LEFT JOIN run_counts r ON r.project_id=p.id
 WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[]);
 
--- name: ProjectIDBySlugMeta :one
-SELECT id FROM projects WHERE slug=$1;
-
 -- Scope enumeration does not need project documents or configuration payloads.
 -- Transitional Delivery membership observation: releases and release_changes
 -- are Delivery-owned. Preserve the one-statement project/release scope and

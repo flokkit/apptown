@@ -637,6 +637,11 @@ func TestDescribedRequestsRequireNoField(t *testing.T) {
 			t.Errorf("%s: the request %s requires fields", pattern, name)
 		}
 	}
+	for _, nested := range requestOnlyDescriptions {
+		if _, ok := schemas[nested.Name]["required"]; ok {
+			t.Errorf("nested request %s requires fields", nested.Name)
+		}
+	}
 	if n == 0 {
 		t.Fatal("no request described")
 	}
@@ -656,6 +661,16 @@ func apiDescription() (map[string]any, error) {
 		return nil, err
 	}
 	schemas.Map(workflow.OptionalRunState{}, map[string]any{"anyOf": []any{runState, map[string]any{"const": ""}}})
+	// These are request-only nested inputs, explicitly described apart from
+	// response records so optional request fields cannot weaken response schemas.
+	for _, n := range requestOnlyDescriptions {
+		if _, err := schemas.Named(n.Name, n.Value); err != nil {
+			return nil, err
+		}
+		if _, err := requestRef(schemas, n.Value); err != nil {
+			return nil, err
+		}
+	}
 	// Types whose Go names collide take the names the web types give them.
 	for _, n := range []wiregen.Named{{Name: "ADRChangeSummary", Value: adrs.ChangeSummary{}}, {Name: "ADRState", Value: adrs.State(0)}, {Name: "ADRRecord", Value: adrs.Record{}}} {
 		if _, err := schemas.Named(n.Name, n.Value); err != nil {
@@ -810,8 +825,46 @@ func apiDescription() (map[string]any, error) {
 
 // requestRef is a request body's schema. encoding/json decodes a body with
 // any field missing, so a request requires no field: what a handler needs,
-// it refuses in words. A request type that reaches another named type would
-// share that type's required fields with its responses, so it is refused.
+// it refuses in words. Nested types must be explicitly request-only; an
+// undescribed named type could share required fields with responses and is refused.
+var requestOnlyDescriptions = []wiregen.Named{
+	{Name: "ProjectCreationService", Value: projectlifecycle.CreationService{}},
+	{Name: "ProjectCreationUpstream", Value: projectlifecycle.CreationUpstream{}},
+	{Name: "ProjectCreationSetup", Value: projectlifecycle.CreationSetup{}},
+}
+
+// hasUndescribedRequestReference preserves the refusal for arbitrary response
+// records, including references inside arrays and nullable schema alternatives.
+func hasUndescribedRequestReference(value any) bool {
+	switch schema := value.(type) {
+	case map[string]any:
+		if ref, ok := schema["$ref"].(string); ok {
+			described := false
+			for _, n := range requestOnlyDescriptions {
+				if ref == "#/components/schemas/"+n.Name {
+					described = true
+					break
+				}
+			}
+			if !described {
+				return true
+			}
+		}
+		for _, child := range schema {
+			if hasUndescribedRequestReference(child) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range schema {
+			if hasUndescribedRequestReference(child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func requestRef(schemas *wiregen.Schemas, v any) (map[string]any, error) {
 	ref, err := schemas.Ref(v)
 	if err != nil {
@@ -821,7 +874,7 @@ func requestRef(schemas *wiregen.Schemas, v any) (map[string]any, error) {
 	body := schemas.Components[name]
 	delete(body, "required")
 	for prop, schema := range body["properties"].(map[string]any) {
-		if strings.Contains(fmt.Sprint(schema), "$ref") {
+		if hasUndescribedRequestReference(schema) {
 			return nil, fmt.Errorf("%s.%s reaches a named type; describe it as a request of its own", name, prop)
 		}
 	}
@@ -1026,5 +1079,14 @@ func TestTheBacklogIsGone(t *testing.T) {
 	id := createReadTestChange(t, a, pid, "Open work")
 	if w := authzCall(a.Handler(), "bls", "POST", fmt.Sprintf("/api/v1/changes/%s/start", id), ""); w.Code != 404 {
 		t.Fatalf("starting an open change: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRequestDescriptionStillRefusesUndescribedResponseReferences(t *testing.T) {
+	type responseRecord struct{ Value string }
+	type requestBody struct{ Response []responseRecord }
+	schemas := wiregen.NewSchemas("#/components/schemas/")
+	if _, err := requestRef(schemas, requestBody{}); err == nil || !strings.Contains(err.Error(), "describe it as a request of its own") {
+		t.Fatalf("undescribed response reference accepted: %v", err)
 	}
 }

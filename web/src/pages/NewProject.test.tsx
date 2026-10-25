@@ -18,12 +18,13 @@ function stubAppTown(admin: boolean) {
     const method = init?.method ?? 'GET'
     calls.push({ method, path, body: init?.body })
     const json = (v: unknown) => new Response(JSON.stringify(v))
-    if (path === '/authz/me') return json({ user: 'u', instance: { 'identity:manage-auth': admin } })
+    if (path === '/projects/moved' || path === '/projects/shop') return new Response(JSON.stringify({ id: '00000000-0002-7000-8000-000000000000', slug: path.split('/').at(-1), lifecycle: { state: 'active' } }))
+    if (path === '/authz/me') return json({ user: 'u', actorId: '00000000-0001-7000-8000-000000000000', instance: { 'identity:manage-auth': admin } })
     if (path === '/packs') return json([])
     if (path === '/dependencies') return json({ dependencies: [] })
     if (path === '/scm/namespaces') return json({ configured: false, namespaces: [] })
     if (path === '/secrets/names') return json({ names: ['GITLAB_TOKEN'], stores: { GITLAB_TOKEN: 'secrets.env' } })
-    if (method === 'POST' && path === '/projects') return json({ slug: 'moved' })
+    if (method === 'POST' && path === '/projects') return json({ id: '00000000-0002-7000-8000-000000000000', slug: 'moved' })
     if (method === 'POST' && path.startsWith('/projects/moved/repo/from-')) return json({ slug: 'moved', defaultBranch: 'main' })
     if (path === '/projects/moved/secrets') return json({ declared: true, secrets: [{ name: 'STRIPE_KEY' }, { name: 'SESSION_SECRET', generate: true }] })
     if (path === '/projects/moved/manifest') return json({ project: { slug: 'moved' } })
@@ -44,9 +45,9 @@ async function mount() {
 }
 const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)) })
 const button = (el: HTMLElement, text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent?.trim() === text)
-async function type(input: HTMLInputElement, value: string) {
+async function type(input: HTMLInputElement | HTMLTextAreaElement, value: string) {
   await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+    Object.getOwnPropertyDescriptor(input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype, 'value')!.set!.call(input, value)
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
 }
@@ -54,6 +55,7 @@ const radio = (el: HTMLElement, label: string) => [...el.querySelectorAll('label
 
 // Through the steps to "Where does the code live?", as a bare project.
 async function toStep3(el: HTMLElement) {
+  await type(el.querySelector('textarea') as HTMLTextAreaElement, 'Move existing software')
   await type(el.querySelector('input') as HTMLInputElement, 'moved')
   await act(async () => { button(el, 'Next →')!.click() })
   await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
@@ -63,7 +65,7 @@ async function toStep3(el: HTMLElement) {
 }
 
 describe('new project from existing code', () => {
-  afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = '' })
+  afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ''; sessionStorage.clear() })
 
   // A chosen bundle is sent as the whole body of the bundle door, the empty
   // repository is not made, and the secrets the code declares are named.
@@ -125,7 +127,7 @@ describe('new project from existing code', () => {
 // waits for the catalog (review web-readgate-2026-10-08, W-02: the defaults
 // were dropped for good).
 describe('a pack picked before the service catalog arrives', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => { vi.unstubAllGlobals(); sessionStorage.clear() })
   it('takes the pack\'s services when the catalog answers', async () => {
     const server = { name: 'web-server', description: 'a server', guidance: [], workflows: [], policies: [], services: [{ name: 'postgres', image: 'postgres:16-alpine' }], origin: 'stock', enabled: true, requires: [], guidanceBytes: 0, generatedBytes: 0, declaration: {} }
     const postgres = { capability: 'postgres', title: 'PostgreSQL', local: { image: 'postgres:16-alpine' }, defaults: { version: '16' } }
@@ -133,13 +135,15 @@ describe('a pack picked before the service catalog arrives', () => {
     const catalog = new Promise<Response>((r) => { deliver = r })
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       const path = url.replace(/^\/api\/v1/, '')
-      if (path === '/authz/me') return new Response(JSON.stringify({ user: 'u', instance: {} }))
+      if (path === '/projects/moved' || path === '/projects/shop') return new Response(JSON.stringify({ id: '00000000-0002-7000-8000-000000000000', slug: path.split('/').at(-1), lifecycle: { state: 'active' } }))
+    if (path === '/authz/me') return new Response(JSON.stringify({ user: 'u', actorId: '00000000-0001-7000-8000-000000000000', instance: {} }))
       if (path === '/packs') return new Response(JSON.stringify([server]))
       if (path === '/dependencies') return catalog
       return new Response(JSON.stringify({ error: 'no route ' + path }), { status: 404 })
     }))
     const { el, root } = await mount()
     try {
+      await type(el.querySelector('textarea') as HTMLTextAreaElement, 'a shop')
       await type(el.querySelector('input') as HTMLInputElement, 'shop')
       await act(async () => { button(el, 'Next →')!.click() })
       await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
@@ -162,7 +166,7 @@ describe('a pack picked before the service catalog arrives', () => {
 // list, so leaving the step waits for it, and the project is created with
 // the services the pack proposes (review web-readgate-r2, W2-01).
 describe('an interview that answers before the pack list', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => { vi.unstubAllGlobals(); sessionStorage.clear() })
   it('waits for the pack list, then creates the project with the pack\'s services', async () => {
     const server = { name: 'web-server', description: 'a server', guidance: [], workflows: [], policies: [], services: [{ name: 'postgres', image: 'postgres:16-alpine' }], origin: 'stock', enabled: true, requires: [], guidanceBytes: 0, generatedBytes: 0, declaration: {} }
     const postgres = { capability: 'postgres', title: 'PostgreSQL', local: { image: 'postgres:16-alpine' }, defaults: { version: '16' } }
@@ -174,20 +178,23 @@ describe('an interview that answers before the pack list', () => {
       const method = init?.method ?? 'GET'
       calls.push({ method, path, body: init?.body })
       const json = (v: unknown) => new Response(JSON.stringify(v))
-      if (path === '/authz/me') return json({ user: 'u', instance: {} })
+      if (path === '/projects/moved' || path === '/projects/shop') return new Response(JSON.stringify({ id: '00000000-0002-7000-8000-000000000000', slug: path.split('/').at(-1), lifecycle: { state: 'active' } }))
+    if (path === '/authz/me') return json({ user: 'u', actorId: '00000000-0001-7000-8000-000000000000', instance: {} })
       if (path === '/packs') return packList
       if (path === '/dependencies') return json({ dependencies: [postgres] })
       if (path === '/packs/interview') return json({ pack: 'web-server', why: 'it has a server' })
       if (path === '/scm/namespaces') return json({ configured: false, namespaces: [] })
-      if (method === 'POST' && path === '/projects') return json({ slug: 'shop' })
+      if (method === 'POST' && path === '/projects') return json({ id: '00000000-0002-7000-8000-000000000000', slug: 'shop' })
       if (method === 'POST' && path === '/projects/shop/repo') return json({ slug: 'shop', defaultBranch: 'main' })
       if (method === 'POST' && path === '/projects/shop/pack') return json({ guidanceImports: 0, workflowsInstalled: [], missing: [] })
+      if (method === 'GET' && path === '/projects/shop/services') return json({ needs: [] })
       if (method === 'POST' && path === '/projects/shop/services') return json({})
       if (path === '/projects/shop/manifest') return json({ project: { slug: 'shop' } })
       return new Response(JSON.stringify({ error: 'no route ' + path }), { status: 404 })
     }))
     const { el, root } = await mount()
     try {
+      await type(el.querySelector('textarea') as HTMLTextAreaElement, 'a shop')
       await type(el.querySelector('input') as HTMLInputElement, 'shop')
       await act(async () => { button(el, 'Next →')!.click() })
       await act(async () => {
@@ -242,13 +249,14 @@ describe('the new project summary', () => {
 // An interview that cannot decide decides nothing: its reason is shown and
 // the person is given the ways of working to choose from, with none chosen.
 describe('an interview that cannot decide', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => { vi.unstubAllGlobals(); sessionStorage.clear() })
   it('shows why and opens the chooser', async () => {
     const pack = { name: 'go-small', description: 'a small Go app', guidance: [], workflows: [], policies: [], services: [], origin: 'stock', enabled: true, requires: [], guidanceBytes: 0, generatedBytes: 0, declaration: {} }
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       const path = url.replace(/^\/api\/v1/, '')
       const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status })
-      if (path === '/authz/me') return json({ user: 'u', instance: {} })
+      if (path === '/projects/moved' || path === '/projects/shop') return new Response(JSON.stringify({ id: '00000000-0002-7000-8000-000000000000', slug: path.split('/').at(-1), lifecycle: { state: 'active' } }))
+    if (path === '/authz/me') return json({ user: 'u', actorId: '00000000-0001-7000-8000-000000000000', instance: {} })
       if (path === '/packs') return json([pack])
       if (path === '/dependencies') return json({ dependencies: [] })
       if (path === '/scm/namespaces') return json({ configured: false, namespaces: [] })
@@ -257,6 +265,7 @@ describe('an interview that cannot decide', () => {
     }))
     const { el, root } = await mount()
     try {
+      await type(el.querySelector('textarea') as HTMLTextAreaElement, 'a shop')
       await type(el.querySelector('input') as HTMLInputElement, 'shop')
       await act(async () => { button(el, 'Next →')!.click() })
       await act(async () => {
@@ -273,5 +282,119 @@ describe('an interview that cannot decide', () => {
     } finally {
       act(() => root.unmount())
     }
+  })
+})
+
+
+describe('description-first creation', () => {
+  afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ''; sessionStorage.clear() })
+  it('reaches manual setup without naming or invoking a model', async () => {
+    const calls = stubAppTown(false)
+    const { el, root } = await mount()
+    try {
+      const area = el.querySelector('#project-description') as HTMLTextAreaElement
+      expect(el.querySelector('label[for="project-description"]')?.textContent).toContain('What would you like to build?')
+      await type(area, 'Lunch orders')
+      expect((el.querySelector('input') as HTMLInputElement).value).toBe('Lunch orders')
+      expect(el.textContent).toContain('/lunch-orders')
+      await act(async () => { button(el, 'Next →')!.click() })
+      await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
+      await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('none (bare)')) as HTMLElement).click() })
+      await act(async () => { button(el, 'Next →')!.click() })
+      expect(el.textContent).toContain('Creating: Lunch orders')
+      expect(calls.filter((c) => c.path === '/packs/interview')).toEqual([])
+      await act(async () => { button(el, '← back')!.click() })
+      await act(async () => { button(el, '← back')!.click() })
+      expect((el.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Lunch orders')
+    } finally { act(() => root.unmount()) }
+  })
+})
+
+
+describe('a late way-of-working suggestion', () => {
+  afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = ''; sessionStorage.clear() })
+  it.each(['description', 'manual choice'] as const)('cannot replace a newer %s', async (edit) => {
+    stubAppTown(false)
+    const ordinary = globalThis.fetch
+    let deliver!: (r: Response) => void
+    const answer = new Promise<Response>((resolve) => { deliver = resolve })
+    vi.stubGlobal('fetch', vi.fn((...args: Parameters<typeof fetch>) =>
+      String(args[0]).endsWith('/packs/interview') ? answer : ordinary(...args)))
+    const { el, root } = await mount()
+    try {
+      await type(el.querySelector('textarea') as HTMLTextAreaElement, 'Lunch orders')
+      await act(async () => { button(el, 'Next →')!.click() })
+      await act(async () => { button(el, 'Next →')!.click() })
+      if (edit === 'description') {
+        await type(el.querySelector('textarea') as HTMLTextAreaElement, 'Dinner orders')
+      } else {
+        await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
+        await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('none (bare)')) as HTMLElement).click() })
+      }
+      await act(async () => { deliver(new Response(JSON.stringify({ pack: 'late-choice', why: 'stale recommendation' }))) })
+      await settle()
+      expect(el.textContent).not.toContain('late-choice')
+      expect(el.textContent).not.toContain('stale recommendation')
+      if (edit === 'description') expect((el.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Dinner orders')
+      else expect(el.textContent).toContain('bare project')
+    } finally { act(() => root.unmount()) }
+  })
+})
+
+
+describe('retained creation on navigation', () => {
+  afterEach(() => { vi.unstubAllGlobals(); sessionStorage.clear(); document.body.innerHTML = '' })
+  it('resumes the identical local request after remounting instead of making a fresh intent', async () => {
+    stubAppTown(false)
+    const normal = globalThis.fetch
+    let lose = true
+    const requests: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]).endsWith('/projects') && args[1]?.method === 'POST') {
+        requests.push(JSON.parse(String(args[1]?.body)))
+        if (lose) { lose = false; throw new Error('creation response lost') }
+      }
+      return normal(...args)
+    }))
+    let m = await mount()
+    await toStep3(m.el)
+    await act(async () => { button(m.el, 'Create project')!.click() })
+    await settle()
+    expect(m.el.textContent).toContain('Saved project setup')
+    expect(m.el.textContent).toContain('creation response lost')
+    act(() => m.root.unmount()); document.body.innerHTML = ''
+    m = await mount()
+    try {
+      expect(m.el.textContent).toContain('Saved project setup')
+      await act(async () => { button(m.el, 'Check saved setup')!.click() })
+      await settle()
+      expect(requests).toHaveLength(2)
+      expect(requests[1]).toEqual(requests[0])
+      expect(m.el.textContent).toContain('created')
+    } finally { act(() => m.root.unmount()) }
+  })
+  it('does not recover a previous actor’s intent under a reused display name', async () => {
+    stubAppTown(false)
+    const normal = globalThis.fetch
+    let actorId = '00000000-0001-7000-8000-000000000000'
+    let creates = 0
+    vi.stubGlobal('fetch', vi.fn(async (...args: Parameters<typeof fetch>) => {
+      if (String(args[0]).endsWith('/authz/me')) return new Response(JSON.stringify({ actorId, user: 'u', instance: {} }))
+      if (String(args[0]).endsWith('/projects') && args[1]?.method === 'POST') { creates++; throw new Error('response lost') }
+      return normal(...args)
+    }))
+    let m = await mount()
+    await toStep3(m.el)
+    await act(async () => { button(m.el, 'Create project')!.click() })
+    await settle()
+    act(() => m.root.unmount()); document.body.innerHTML = ''
+    actorId = '00000000-0003-7000-8000-000000000000'
+    m = await mount()
+    try {
+      expect(m.el.textContent).not.toContain('Saved project setup')
+      expect((m.el.querySelector('textarea') as HTMLTextAreaElement).value).toBe('')
+      expect(creates).toBe(1)
+      expect(sessionStorage.length).toBe(1)
+    } finally { act(() => m.root.unmount()) }
   })
 })

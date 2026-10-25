@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -347,5 +349,60 @@ func TestRouteGatesSeparatePairedPermissions(t *testing.T) {
 		if w := callAs(t, mux, tc.who, "POST", tc.path, []byte(`{}`)); w.Code != tc.want {
 			t.Errorf("%s %s: %d %s, want %d", tc.who.User, tc.path, w.Code, w.Body.String(), tc.want)
 		}
+	}
+}
+
+func TestAuthorizationCurrentActorUsesVerifiedIdentity(t *testing.T) {
+	t.Parallel()
+	a := workAuthorityFixture(t)
+	owner := testPrincipalOf(t, a.DB, "owner")
+	outsider := testPrincipalOf(t, a.DB, "outsider")
+	h := httpapi.NewAuthorization(a.Access, a.Projects)
+	for _, tc := range []struct {
+		name   string
+		caller *access.Caller
+		want   ids.ID
+	}{
+		{"verified", &access.Caller{Verified: true, Principal: access.Principal{Kind: "user", ID: owner, Name: "owner"}}, owner},
+		{"same display different identity", &access.Caller{Verified: true, Principal: access.Principal{Kind: "user", ID: outsider, Name: "owner"}}, outsider},
+		{"unverified", &access.Caller{Principal: access.Principal{Kind: "user", ID: owner, Name: "owner"}}, ids.Nil},
+		{"missing", nil, ids.Nil},
+		{"zero", &access.Caller{Verified: true, Principal: access.Principal{Kind: "user", Name: "owner"}}, ids.Nil},
+		{"instrument", &access.Caller{Verified: true, Principal: access.Principal{Kind: "agent", ID: owner, Name: "owner", Instrument: "run"}}, ids.Nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/authz/me", nil)
+			if tc.caller != nil {
+				req = req.WithContext(access.WithCaller(req.Context(), *tc.caller))
+			}
+			out := httptest.NewRecorder()
+			h.AuthzMe(out, req)
+			if out.Code != http.StatusOK {
+				t.Fatalf("current actor: %d %s", out.Code, out.Body.String())
+			}
+			var got map[string]json.RawMessage
+			if err := json.Unmarshal(out.Body.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			raw, exists := got["actorId"]
+			if tc.want.IsZero() {
+				if exists {
+					t.Fatalf("unverified or nonhuman actor exposed: %s", raw)
+				}
+			} else {
+				var id ids.ID
+				if !exists || json.Unmarshal(raw, &id) != nil || id != tc.want {
+					t.Fatalf("actorId = %s; want %s", raw, tc.want)
+				}
+			}
+		})
+	}
+	// Actual protocol admission agrees with the identity owned by the account.
+	out := authzCall(a.Handler(), "owner", "GET", "/api/v1/authz/me", "")
+	var current struct {
+		ActorID ids.ID `json:"actorId"`
+	}
+	if out.Code != 200 || json.Unmarshal(out.Body.Bytes(), &current) != nil || current.ActorID != owner {
+		t.Fatalf("admitted actor identity: %d %s", out.Code, out.Body.String())
 	}
 }

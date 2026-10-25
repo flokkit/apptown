@@ -268,6 +268,7 @@ type dataWorld struct {
 // Docker client for the copy runner and the provider's hand-over of a new
 // database to its user.
 type dataWorldOptions struct {
+	projectSlug string
 	docker      docker.Client
 	ownDatabase func(context.Context, string, string, string) error
 	// contract replaces the app's .apptown/app.yaml.
@@ -322,7 +323,11 @@ func newDataWorldWith(t *testing.T, opts dataWorldOptions) *dataWorld {
 	t.Cleanup(srv.Close)
 	w.store = s3fake.New(t, "STOREKEY")
 	w.store.AddBucket("forge-copies")
-	w.project = createTestProject(t, db, "ledger", "Ledger")
+	slug := opts.projectSlug
+	if slug == "" {
+		slug = "ledger"
+	}
+	w.project = createTestProject(t, db, slug, "Ledger")
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "secrets.env"), []byte("DIGITALOCEAN_ACCESS_TOKEN=dop_v1_test\nSTORE_KEY=STOREKEY\nSTORE_SECRET=storesecret\n"), 0o600); err != nil {
 		t.Fatal(err)
