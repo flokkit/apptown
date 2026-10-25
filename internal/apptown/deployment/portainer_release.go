@@ -83,7 +83,7 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	}
 	logf("%s runs %s", d.target.Name, platform)
 	vanity := releaseProject(ctx, d.providers.db, d.dep.ProjectID).ReleaseDomain
-	hosts, _ := portainerAddress(src.Slug, cfg.AppsDomain, vanity)
+	hosts, _ := IntranetAddress(src.Slug, cfg.AppsDomain, vanity)
 	if vanity != "" {
 		logf("also answering on %s (DNS for it is platform-owned — needs its record applied)", vanity)
 	}
@@ -111,7 +111,7 @@ func (d *portainerRelease) Reconcile(ctx context.Context, pl deploy.Placement, g
 		if err != nil {
 			return deploy.Observation{}, deploy.Terminal(err)
 		}
-		_, pl.URL = portainerAddress(art.Source.Slug, cfg.AppsDomain, releaseProject(ctx, d.providers.db, d.dep.ProjectID).ReleaseDomain)
+		_, pl.URL = IntranetAddress(art.Source.Slug, cfg.AppsDomain, releaseProject(ctx, d.providers.db, d.dep.ProjectID).ReleaseDomain)
 	}
 	o, err := d.Driver.Reconcile(ctx, pl, generation, art, key, logf, checkpoint)
 	if err == nil && o.Rollout == "active" && d.providers.afterRelease != nil {

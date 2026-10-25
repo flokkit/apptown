@@ -115,3 +115,26 @@ func TestAnIntranetReleaseServesItsHostnameThoughItWasNotSaved(t *testing.T) {
 		t.Fatalf("a receipt claims the hostname was saved: %+v %v", receipts, err)
 	}
 }
+
+func TestIntranetDeploymentInitialAddressUsesSavedDomain(t *testing.T) {
+	t.Parallel()
+	p := newPromotionTargets(t, false)
+	if err := p.projects.SetReleaseDomain(t.Context(), p.project, "feedback.example"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := p.s.IntranetConfig(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := p.s.intranetDeployment(t.Context(), p.project, cfg)
+	if err != nil || dep.URL != "https://feedback.example" {
+		t.Fatalf("initial address: %+v %v", dep, err)
+	}
+	if err := p.projects.SetReleaseDomain(t.Context(), p.project, "changed.example"); err != nil {
+		t.Fatal(err)
+	}
+	dep, err = p.s.intranetDeployment(t.Context(), p.project, cfg)
+	if err != nil || dep.URL != "https://feedback.example" {
+		t.Fatalf("existing deployment address changed: %+v %v", dep, err)
+	}
+}
