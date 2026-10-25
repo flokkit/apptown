@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -240,7 +241,9 @@ func gitlabJSON(method, url, token string, body map[string]any) (int, []byte, er
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+		return errors.New("GitLab API redirect refused: configure the final API URL")
+	}}).Do(req)
 	if err != nil {
 		return 0, nil, err
 	}

@@ -49,6 +49,11 @@ Docker scope is resolved for the selected target. Remote host routing, credentia
 and daemon reachability must come from that target's configuration rather than
 an implicit global Docker client.
 
+Portainer API requests refuse redirects so the API key stays at the configured
+endpoint. Configure the final Portainer URL; even a redirect within the same
+origin is refused. This rule applies to API requests, not response forwarding
+through the Portainer Docker proxy.
+
 ## Driver differences
 
 Docker runs the prepared application and local needs. Portainer applies the

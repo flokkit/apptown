@@ -5,6 +5,10 @@ This guide explains how configuration reaches applications and agents. The
 attachments and service-kind rendering; the [secret package](../../internal/apptown/secret/doc.go)
 owns stored values, application declarations and provider resolution.
 
+GitLab API requests, including registry provisioning, refuse redirects so the
+provider token stays at the configured endpoint. Configure the final GitLab URL;
+even a redirect within the same origin is refused.
+
 ## From configuration to runtime
 
 1. An administrator configures a provider binding for a capability. The project
