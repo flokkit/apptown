@@ -261,7 +261,11 @@ func (s *Briefing) mutationsLine(workshop bool) string {
 // Change is the workshop addendum for a Change console: the
 // worktree rules, landing protocol, the runtime contract and preview access.
 // Appended after Workshop.
-func (s *Briefing) Change(change *workflow.Change) string {
+func (s *Briefing) Change(change *workflow.Change) (string, error) {
+	attachments, err := attachmentSteer(s.dataDir, change.ID)
+	if err != nil {
+		return "", err
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, `
 
@@ -322,7 +326,7 @@ func (s *Briefing) Change(change *workflow.Change) string {
   directions. This change's page (approvals, checks, the record) for the
   operator is: %s
 %s`, change.ID, change.Title, console.WorkMount, change.Branch, console.WorkMount, console.WorkMount,
-		change.ID, change.ID, change.ID, intentLine(change), changeactions.URL(s.publicHost, change.ID), attachmentSteer(s.dataDir, change.ID))
+		change.ID, change.ID, change.ID, intentLine(change), changeactions.URL(s.publicHost, change.ID), attachments)
 	// A change console is an implementation surface — the same engine
 	// topology run agents get (agent.go) applies here, or the helper
 	// builds apps AppTown cannot run (change 97: a whole Django app,
@@ -379,13 +383,16 @@ You can look at the RUNNING app, not just its code:
   instead. Is that what you meant?"), and ask how to go on. Never say
   "done" or "verified" for something you did not do or did not see.
 `, ".apptown/app.yaml", console.WorkMount)
-	return b.String()
+	return b.String(), nil
 }
 
-func attachmentSteer(dataDir string, changeID ids.ID) string {
-	names := (workflow.GitWorkspace{DataDir: dataDir}).AttachmentNames(changeID)
+func attachmentSteer(dataDir string, changeID ids.ID) (string, error) {
+	names, err := (workflow.GitWorkspace{DataDir: dataDir}).AttachmentNames(changeID)
+	if err != nil {
+		return "", err
+	}
 	if len(names) == 0 {
-		return ""
+		return "", nil
 	}
 	out := "- Attached reference material (read it): "
 	for i, n := range names {
@@ -394,7 +401,7 @@ func attachmentSteer(dataDir string, changeID ids.ID) string {
 		}
 		out += ".apptown/attachments/" + n
 	}
-	return out + "\n"
+	return out + "\n", nil
 }
 
 // intentLine: what the briefing says the change is for. An empty body is

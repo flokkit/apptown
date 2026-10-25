@@ -14,6 +14,12 @@
 // settle stages with prepared-source/revision fences. dispatcher
 // owns concurrent stage execution and synchronous shutdown admission closure.
 //
+// Attachments owns human-supplied Change files. Each operation checks current
+// authority; removal records its request before deleting either copy and reports
+// partial effects or an unrecorded outcome as failures. Upload copy/receipt work
+// remains best effort. Missing attachment directories are empty; unavailable
+// directories or selected entries are errors, including when building steering.
+//
 // Stores and SQLC queries stay private. Named transaction participants allow
 // Deployment, jobs, policy and adoption owners to contribute their own receipts or
 // observations without giving Work a general repository or an App dependency.
