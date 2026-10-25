@@ -1,3 +1,4 @@
+import { DisplayLabelEdit } from '../DisplayLabel'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -250,7 +251,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                           <div className="int-who">
                             <ConnIcon name={iconForBinding(b)} size={13} />
                             <div style={{ minWidth: 0 }}>
-                              <Link to={to} className="int-name tap-open" onClick={(e) => e.stopPropagation()}>{b.name}</Link>
+                              <Link to={to} className="int-name tap-open" onClick={(e) => e.stopPropagation()}>{b.displayLabel || b.name}</Link>
                               <div className="int-kind">{kindOf(b, spec)}{b.managed ? ' · managed' : ''}</div>
                             </div>
                           </div>
@@ -343,7 +344,8 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
       <div className="int-detail-head">
         <ConnIcon name={iconForBinding(b)} size={22} />
         <div style={{ minWidth: 0, flex: 1 }}>
-          <h1>{b.name}</h1>
+          <h1>{b.displayLabel || b.name}</h1>
+ <DisplayLabelEdit value={b.displayLabel || b.name} machineKey={b.name} path={`/integrations/${b.id}/label`} />
           <div className="int-sub">{kindOf(b, spec)} · {usedFor(b, spec)}</div>
         </div>
         {b.managed && <span className="chip" title={`Configured by ${PRODUCT}; it re-syncs with each release.`}>managed by {PRODUCT}</span>}

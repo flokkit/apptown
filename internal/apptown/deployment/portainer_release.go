@@ -21,6 +21,15 @@ func portainerTier(t *Target) string {
 	return "lan"
 }
 
+// refusesNamedDeployment is the placement restriction shared by release admission
+// and explicit default selection until independently named ingress is supported.
+func (t *Target) refusesNamedDeployment(dep *Deployment) error {
+	if t.Kind == KindPortainer && dep.Name != portainerTier(t) {
+		return refused("a project has one deployment on %s, %s, because its stack and volumes are named for the project; release that one", t.Name, portainerTier(t))
+	}
+	return nil
+}
+
 // portainerRelease is the Portainer driver a deployment released by name is
 // given: it renders the stack the intranet release renders
 // (Environment.portainerStack), runs it at the address its hosts route, and
@@ -50,8 +59,8 @@ type integrationsGiver interface {
 func (d *portainerRelease) givesIntegrations() {}
 
 func (d *portainerRelease) refusesRelease(bundle *ReleaseBundle) error {
-	if tier := portainerTier(d.target); d.dep.Name != tier {
-		return refused("a project has one deployment on %s, %s, because its stack and volumes are named for the project; release that one", d.target.Name, tier)
+	if err := d.target.refusesNamedDeployment(d.dep); err != nil {
+		return err
 	}
 	if bundle == nil || !bundle.ByDigest() {
 		return notPublished(d.target.Name)

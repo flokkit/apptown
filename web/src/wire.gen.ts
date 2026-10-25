@@ -505,6 +505,8 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  id: string | null
+  displayLabel: string
   deploymentPolicy?: string
   name: string
   kind: string
@@ -1138,6 +1140,13 @@ export type RecheckStarted = {
   runId: string | null
   rerun: string[]
   message: string
+}
+
+export type ReleaseDefault = {
+  eligibilityIssue?: string
+  projectId: string | null
+  deploymentId?: string | null
+  revision: number
 }
 
 export type ReleaseDetail = {
@@ -1881,6 +1890,7 @@ export type ChatHistoryEntry = {
 }
 
 export type Target = {
+  displayLabel: string
   connectionId?: string | null
   providerScope?: unknown
   id: string | null
@@ -2400,6 +2410,7 @@ export type LimitCount = {
 }
 
 export type DeploymentTargetView = {
+  displayLabel: string
   name: string
   kind: string
   origin: string
@@ -2675,6 +2686,7 @@ export type ActivityDeployment = {
 }
 
 export type IntegrationEntry = {
+  displayLabel: string
   id: string | null
   name: string
   capability: string
@@ -3497,6 +3509,7 @@ export type Figure = {
 export type TargetState = "ready" | "unreachable" | "retired"
 
 export type TargetView = {
+  displayLabel: string
   connectionId?: string | null
   providerScope?: unknown
   id: string | null

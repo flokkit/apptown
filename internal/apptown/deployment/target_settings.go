@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -165,11 +164,9 @@ func (s *Targets) EditSettings(ctx context.Context, name string, in TargetSettin
 		}
 		before, after := map[string]any{}, map[string]any{}
 		if in.Domain != nil {
-			d := strings.TrimSpace(strings.TrimPrefix(*in.Domain, "*."))
-			if d != "" {
-				if _, err := url.Parse("https://" + d); err != nil || strings.ContainsAny(d, "/ ") {
-					return nil, ErrTargetDomain
-				}
+			d, err := NormalizeTargetDomain(*in.Domain)
+			if err != nil {
+				return nil, err
 			}
 			if t.Ingress == nil {
 				t.Ingress = map[string]any{}

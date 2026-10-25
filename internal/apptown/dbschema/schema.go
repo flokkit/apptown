@@ -155,6 +155,27 @@ WHERE i.id = v.integration_id AND i.capability = 'scanner' AND jsonb_typeof(v.co
   identity_json JSONB NOT NULL
 )`,
 	}},
+	{n: 173, note: "separate customer display labels and explicit project release defaults from stable identities", stmts: []string{
+		`ALTER TABLE integrations ADD COLUMN display_label TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE targets ADD COLUMN display_label TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE deployments ADD COLUMN display_label TEXT NOT NULL DEFAULT ''`,
+		`UPDATE integrations SET display_label=name`,
+		`UPDATE targets SET display_label=name`,
+		`UPDATE deployments SET display_label=name`,
+		`ALTER TABLE deployments ADD CONSTRAINT deployments_project_identity UNIQUE(project_id,id)`,
+		`CREATE TABLE project_release_settings (
+  project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+  default_deployment_id UUID,
+  revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
+  CONSTRAINT project_release_default_membership FOREIGN KEY(project_id, default_deployment_id)
+    REFERENCES deployments(project_id, id) DEFERRABLE INITIALLY DEFERRED
+)`,
+		`INSERT INTO project_release_settings(project_id, default_deployment_id)
+SELECT d.project_id, d.id FROM deployments d JOIN targets t ON t.id=d.target_id JOIN projects p ON p.id=d.project_id
+WHERE p.purpose='ordinary' AND NOT EXISTS(SELECT 1 FROM project_lifecycle l WHERE l.project_id=p.id) AND t.name='intranet' AND t.kind='portainer' AND t.status='ready'
+  AND d.name=COALESCE(NULLIF(t.address_json->>'tier',''),'lan')
+  AND d.kind='standing' AND d.feed<>'landing' AND d.name<>'main'`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

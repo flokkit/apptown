@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -50,11 +49,9 @@ func (s *Service) AttachPortainerTarget(ctx context.Context, in PortainerAttachm
 	if !project.ValidSlug(in.Name) {
 		return nil, fault.New(fault.Invalid, "target name must be a slug")
 	}
-	in.Domain = strings.TrimSpace(strings.TrimPrefix(in.Domain, "*."))
-	if in.Domain != "" {
-		if _, err := url.Parse("https://" + in.Domain); err != nil || strings.ContainsAny(in.Domain, "/ ") {
-			return nil, fault.New(fault.Invalid, "target domain must be a bare hostname")
-		}
+	in.Domain, err = NormalizeTargetDomain(in.Domain)
+	if err != nil {
+		return nil, err
 	}
 	if !in.ConnectionID.IsZero() && (in.URLFrom != "" || in.APIKeyFrom != "") {
 		return nil, fault.New(fault.Invalid, "choose a connection or explicit credential references, not both")

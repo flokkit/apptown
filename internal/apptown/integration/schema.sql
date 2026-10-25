@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS integrations (
   version     BIGINT NOT NULL DEFAULT 1,
   managed     BOOLEAN NOT NULL DEFAULT false,
   created_at  TIMESTAMPTZ NOT NULL,
-  updated_at  TIMESTAMPTZ NOT NULL
+  updated_at  TIMESTAMPTZ NOT NULL,
+  display_label TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS integration_versions (
   id UUID PRIMARY KEY,

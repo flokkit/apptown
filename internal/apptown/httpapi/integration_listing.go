@@ -48,7 +48,7 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 	}
 	var list []IntegrationEntry
 	for _, b := range bindings {
-		e := IntegrationEntry{IntegrationView: IntegrationView{ID: b.ID, Name: b.Name, Capability: b.Capability, Provider: b.Provider, Version: b.Version, UpdatedAt: b.UpdatedAt}, Managed: b.Managed,
+		e := IntegrationEntry{IntegrationView: IntegrationView{ID: b.ID, Name: b.Name, DisplayLabel: b.DisplayLabel, Capability: b.Capability, Provider: b.Provider, Version: b.Version, UpdatedAt: b.UpdatedAt}, Managed: b.Managed,
 			UsedBy: IntegrationUse{Projects: projects[b.Name], Deployments: deployments[b.Name]}}
 		if e.UsedBy.Projects == nil {
 			e.UsedBy.Projects = []integration.AttachedProject{}
@@ -141,11 +141,12 @@ type IntegrationList struct {
 }
 
 type IntegrationView struct {
-	ID         ids.ID         `json:"id"`
-	Name       string         `json:"name"`
-	Capability string         `json:"capability"`
-	Provider   string         `json:"provider"`
-	Config     map[string]any `json:"config"`
-	Version    int            `json:"version"`
-	UpdatedAt  string         `json:"updatedAt"`
+	DisplayLabel string         `json:"displayLabel"`
+	ID           ids.ID         `json:"id"`
+	Name         string         `json:"name"`
+	Capability   string         `json:"capability"`
+	Provider     string         `json:"provider"`
+	Config       map[string]any `json:"config"`
+	Version      int            `json:"version"`
+	UpdatedAt    string         `json:"updatedAt"`
 }

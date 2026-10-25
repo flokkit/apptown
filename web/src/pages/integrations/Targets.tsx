@@ -1,11 +1,12 @@
+import { offerTarget, targetOffer } from '../../targetCommands'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { del, post } from '../../api'
+import { del } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
-import { AUDIENCES, DATA_CLASSES, FAMILY_TITLE, OfferCaps, TargetView, capsWords, familyRank, placeOf } from '../../targets'
+import { AUDIENCES, DATA_CLASSES, FAMILY_TITLE, TargetView, capsWords, familyRank, placeOf } from '../../targets'
 import type { TargetList } from '../../wire.gen'
 
 // Deploy targets (design/subsystems/deployment.md §2.2, §15.7): the places this AppTown
@@ -75,7 +76,7 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
     <div className="conn-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontWeight: 700 }}><Link to={`/infrastructure/${t.name}`}>{t.name}</Link></div>
+          <div style={{ fontWeight: 700 }}><Link to={`/infrastructure/${t.name}`}>{t.displayLabel || t.name}</Link></div>
           <div className="muted small">{placeOf(t.kindInfo, t.address)}{domain ? ` · *.${domain}` : ''}</div>
         </div>
         <span className={`chip ${t.status === 'ready' ? 'pass' : 'pending'}`}>{t.status}</span>
@@ -125,7 +126,7 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
   )
 }
 
-function OfferForm({ target, groups, onDone }: { target: string; groups: string[]; onDone: (saved: boolean) => void }) {
+export function OfferForm({ target, groups, onDone }: { target: string; groups: string[]; onDone: (saved: boolean) => void }) {
   const [group, setGroup] = useState('*')
   const [maxStanding, setMaxStanding] = useState('')
   const [audiences, setAudiences] = useState<string[]>([])
@@ -133,11 +134,7 @@ function OfferForm({ target, groups, onDone }: { target: string; groups: string[
   const { run, busy, err } = useAction()
   const toggle = (list: string[], set: (v: string[]) => void, x: string) => set(list.includes(x) ? list.filter((y) => y !== x) : [...list, x])
   const save = async () => {
-    const caps: OfferCaps & { group: string } = { group }
-    if (maxStanding.trim()) caps.maxStanding = Number(maxStanding)
-    if (audiences.length) caps.audiences = audiences
-    if (data.length) caps.data = data
-    const r = await run(() => post(`/targets/${target}/offers`, caps))
+    const r = await run(() => offerTarget(target, targetOffer(group, maxStanding, audiences, data)))
     if (r) onDone(true)
   }
   return (

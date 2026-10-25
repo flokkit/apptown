@@ -57,7 +57,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]DeploymentView, 0, len(summaries))
 	for _, e := range summaries {
-		v := DeploymentView{DeploymentPolicy: e.DeploymentPolicy, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
+		v := DeploymentView{ID: e.ID, DisplayLabel: e.DisplayLabel, DeploymentPolicy: e.DeploymentPolicy, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
 			Feed: e.Feed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
 			Readiness: e.Readiness.String(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.State.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
 		if e.Observation.Err != nil {
@@ -72,7 +72,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 		}
 		if t := e.Target; t != nil {
 			k := deployment.DescribeTarget(&deployment.Target{Kind: t.Kind, Origin: t.Origin})
-			v.Target = &DeploymentTargetView{Name: t.Name, Kind: t.Kind, Origin: t.Origin, Title: k.Title, Vendor: k.Vendor, Family: k.Family, Region: t.Region}
+			v.Target = &DeploymentTargetView{Name: t.Name, DisplayLabel: t.DisplayLabel, Kind: t.Kind, Origin: t.Origin, Title: k.Title, Vendor: k.Vendor, Family: k.Family, Region: t.Region}
 		}
 		out = append(out, v)
 	}
@@ -82,6 +82,8 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 // DeploymentView is one row of GET /projects/{slug}/deployments: a
 // deployment as the project's pages show it.
 type DeploymentView struct {
+	ID               ids.ID                      `json:"id"`
+	DisplayLabel     string                      `json:"displayLabel"`
 	DeploymentPolicy deployment.DeploymentPolicy `json:"deploymentPolicy,omitempty"`
 	Name             string                      `json:"name"`
 	Kind             string                      `json:"kind"`
@@ -126,11 +128,12 @@ type DeploymentNeedView struct {
 
 // DeploymentTargetView is the deployment target a deployment runs on.
 type DeploymentTargetView struct {
-	Name   string `json:"name"`
-	Kind   string `json:"kind"`
-	Origin string `json:"origin"`
-	Title  string `json:"title"`
-	Vendor string `json:"vendor"`
-	Family string `json:"family"`
-	Region string `json:"region"`
+	DisplayLabel string `json:"displayLabel"`
+	Name         string `json:"name"`
+	Kind         string `json:"kind"`
+	Origin       string `json:"origin"`
+	Title        string `json:"title"`
+	Vendor       string `json:"vendor"`
+	Family       string `json:"family"`
+	Region       string `json:"region"`
 }

@@ -123,8 +123,8 @@ LOCK TABLE targets IN SHARE ROW EXCLUSIVE MODE;
 -- Writes: named operations preserve their guards and affected-row receipts.
 
 -- name: EnsureStanding :one
-INSERT INTO deployments (id, project_id, name, kind, target_id, feed, audience, data_class, promote_after, host_port, updated_at)
-  VALUES (sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(target_id),sqlc.arg(feed),sqlc.arg(audience),sqlc.arg(data_class),sqlc.arg(promote_after),0,sqlc.arg(updated_at))
+INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, promote_after, host_port, updated_at)
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(target_id),sqlc.arg(feed),sqlc.arg(audience),sqlc.arg(data_class),sqlc.arg(promote_after),0,sqlc.arg(updated_at))
   ON CONFLICT (project_id, name) DO UPDATE SET target_id=excluded.target_id, feed=excluded.feed, audience=excluded.audience,
   data_class=excluded.data_class, promote_after=excluded.promote_after, updated_at=excluded.updated_at
   WHERE (deployments.desired_generation=0 AND deployments.observed_generation=0)
@@ -133,14 +133,20 @@ INSERT INTO deployments (id, project_id, name, kind, target_id, feed, audience, 
   OR (excluded.audience NOT IN ('partners','public') AND excluded.data_class!='production'))) RETURNING *;
 
 -- name: RecordPreview :one
-INSERT INTO deployments (id, project_id, name, kind, change_id, target_id, handle_json, host_port, container, url, feed, audience, data_class, observed_generation, desired_generation, updated_at)
-  VALUES (sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(change_id),sqlc.arg(target_id),sqlc.arg(handle_json),sqlc.arg(host_port),sqlc.arg(container),sqlc.arg(url),'landing','team','synthetic',1,1,sqlc.arg(updated_at))
+INSERT INTO deployments (display_label, id, project_id, name, kind, change_id, target_id, handle_json, host_port, container, url, feed, audience, data_class, observed_generation, desired_generation, updated_at)
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(change_id),sqlc.arg(target_id),sqlc.arg(handle_json),sqlc.arg(host_port),sqlc.arg(container),sqlc.arg(url),'landing','team','synthetic',1,1,sqlc.arg(updated_at))
   ON CONFLICT (project_id, name) DO UPDATE SET handle_json=excluded.handle_json, host_port=excluded.host_port, container=excluded.container,
   url=excluded.url, desired_generation=deployments.desired_generation+1, observed_generation=deployments.desired_generation+1, updated_at=excluded.updated_at RETURNING *;
 
+-- name: InsertTarget :one
+INSERT INTO targets (display_label, id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at)
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(created_at),sqlc.arg(updated_at))
+  ON CONFLICT (name) DO NOTHING
+  RETURNING *;
+
 -- name: PutTarget :one
-INSERT INTO targets (id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at)
-  VALUES (sqlc.arg(id), sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(created_at),sqlc.arg(updated_at))
+INSERT INTO targets (display_label, id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at)
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(created_at),sqlc.arg(updated_at))
   ON CONFLICT (name) DO UPDATE SET kind=excluded.kind, provider=excluded.provider, address_json=excluded.address_json,
   capabilities_json=excluded.capabilities_json, ingress_json=excluded.ingress_json, needs_mode=excluded.needs_mode,
   secrets_delivery=excluded.secrets_delivery,
@@ -373,8 +379,8 @@ WHERE d.kind<>'restored-copy' AND (sqlc.narg(project_ids)::uuid[] IS NULL OR d.p
 ORDER BY d.kind DESC,d.id;
 
 -- name: InsertRestoredCopyDeployment :one
-INSERT INTO deployments (id, project_id, name, kind, target_id, feed, audience, data_class, start_from_backup, updated_at)
-  VALUES (sqlc.arg(id), sqlc.arg(project_id), sqlc.arg(name), 'restored-copy', sqlc.arg(target_id), 'promotion', 'team', sqlc.arg(data_class), sqlc.arg(backup_id), sqlc.arg(at))
+INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, start_from_backup, updated_at)
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id), sqlc.arg(name), 'restored-copy', sqlc.arg(target_id), 'promotion', 'team', sqlc.arg(data_class), sqlc.arg(backup_id), sqlc.arg(at))
   RETURNING *;
 
 -- name: DeploymentOverrides :many
@@ -463,10 +469,40 @@ WHERE id=sqlc.arg(id) AND target_id=sqlc.arg(target_id) AND desired_generation=s
  AND handle_json=sqlc.arg(expected_handle)::jsonb;
 
 -- name: InsertProviderTarget :one
-INSERT INTO targets(id,name,kind,provider,connection_id,provider_scope_json,address_json,origin,capabilities_json,ingress_json,needs_mode,secrets_delivery,status,created_at,updated_at)
-VALUES(sqlc.arg(id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(connection_id),sqlc.arg(provider_scope_json),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(at),sqlc.arg(at))
+INSERT INTO targets(id,name,display_label,kind,provider,connection_id,provider_scope_json,address_json,origin,capabilities_json,ingress_json,needs_mode,secrets_delivery,status,created_at,updated_at)
+VALUES(sqlc.arg(id),sqlc.arg(name),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(connection_id),sqlc.arg(provider_scope_json),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(at),sqlc.arg(at))
 ON CONFLICT(name) DO NOTHING RETURNING *;
 
 -- name: ConnectorHasRetainedIdentity :one
 SELECT (EXISTS(SELECT 1 FROM targets WHERE provider=sqlc.arg(provider) AND connection_id IS NOT NULL)
  OR EXISTS(SELECT 1 FROM owned_repositories WHERE connector=sqlc.arg(provider) AND connection_id IS NOT NULL))::boolean AS referenced;
+
+-- name: EditTargetDisplayLabel :one
+UPDATE targets SET display_label=sqlc.arg(display_label)
+WHERE id=sqlc.arg(id) AND display_label=sqlc.arg(expected_label) RETURNING *;
+
+-- name: EditDeploymentDisplayLabel :one
+UPDATE deployments SET display_label=sqlc.arg(display_label)
+WHERE project_id=sqlc.arg(project_id) AND id=sqlc.arg(id) AND display_label=sqlc.arg(expected_label) RETURNING *;
+
+-- name: ProjectReleaseSettings :one
+SELECT * FROM project_release_settings WHERE project_id=$1;
+
+-- name: ChooseDefaultDeployment :one
+INSERT INTO project_release_settings(project_id, default_deployment_id, revision)
+SELECT sqlc.arg(project_id), sqlc.narg(default_deployment_id)::uuid, 1
+WHERE sqlc.arg(expected_revision)::bigint=0
+ON CONFLICT(project_id) DO UPDATE SET default_deployment_id=excluded.default_deployment_id,
+ revision=project_release_settings.revision+1
+WHERE project_release_settings.revision=sqlc.arg(expected_revision)
+RETURNING *;
+
+-- name: UpdateDefaultDeployment :one
+UPDATE project_release_settings SET default_deployment_id=sqlc.narg(default_deployment_id)::uuid, revision=revision+1
+WHERE project_id=sqlc.arg(project_id) AND revision=sqlc.arg(expected_revision) RETURNING *;
+
+-- name: ClearRemovedDefault :exec
+UPDATE project_release_settings SET default_deployment_id=NULL, revision=revision+1 WHERE default_deployment_id=$1;
+
+-- name: TargetHasReleaseDefault :one
+SELECT EXISTS(SELECT 1 FROM project_release_settings s JOIN deployments d ON d.id=s.default_deployment_id WHERE d.target_id=$1);

@@ -38,6 +38,7 @@ type Deployment struct {
 	StartFromBackup    ids.ID
 	StartedFromAt      sql.NullTime
 	RestoreCheck       string
+	DisplayLabel       string
 }
 
 type DeploymentAttempt struct {
@@ -127,6 +128,12 @@ type NeedInstance struct {
 	HandleJson     json.RawMessage
 	Status         string
 	UpdatedAt      time.Time
+}
+
+type ProjectReleaseSetting struct {
+	ProjectID           ids.ID
+	DefaultDeploymentID ids.ID
+	Revision            int64
 }
 
 type Reconciliation struct {
@@ -235,6 +242,7 @@ type Target struct {
 	SettingsRevision  int64
 	ConnectionID      ids.ID
 	ProviderScopeJson *json.RawMessage
+	DisplayLabel      string
 }
 
 type TargetOffer struct {

@@ -22,14 +22,15 @@ import (
 // capability adapters decode their own configuration, and doors redact
 // what must not leave the engine.
 type Binding struct {
-	ID         ids.ID
-	Name       string
-	Capability string
-	Provider   string
-	ConfigJSON string
-	Version    int
-	Managed    bool // AppTown's own, re-synced from configuration; not a person's to edit
-	UpdatedAt  string
+	DisplayLabel string
+	ID           ids.ID
+	Name         string
+	Capability   string
+	Provider     string
+	ConfigJSON   string
+	Version      int
+	Managed      bool // AppTown's own, re-synced from configuration; not a person's to edit
+	UpdatedAt    string
 }
 
 var (
@@ -46,8 +47,8 @@ var (
 type Bindings struct {
 	db    *database.DB
 	clock func() time.Time // AppTown's clock, which stamps versions; nil is the real one
-	// committed runs once a save's binding has committed, before its
-	// receipt: a test stops the caller there.
+	// committed runs after a save's binding and receipt have committed:
+	// a test stops the caller there.
 	committed func()
 }
 
@@ -60,7 +61,7 @@ func NewWithClock(db *database.DB, now func() time.Time) *Bindings {
 func (s *Bindings) now() time.Time { return clock.Or(s.clock)().UTC() }
 
 func bindingRecord(r integrationsql.Integration) Binding {
-	return Binding{ID: r.ID, Name: r.Name, Capability: r.Capability, Provider: r.Provider, ConfigJSON: string(r.ConfigJson), Version: int(r.Version), Managed: r.Managed, UpdatedAt: r.UpdatedAt.Format(time.RFC3339Nano)}
+	return Binding{ID: r.ID, Name: r.Name, DisplayLabel: r.DisplayLabel, Capability: r.Capability, Provider: r.Provider, ConfigJSON: string(r.ConfigJson), Version: int(r.Version), Managed: r.Managed, UpdatedAt: r.UpdatedAt.Format(time.RFC3339Nano)}
 }
 
 func (s *Bindings) ByName(ctx context.Context, name string) (*Binding, error) {
@@ -216,6 +217,29 @@ func (s *Bindings) Save(ctx context.Context, name, capability, provider, configJ
 		s.committed()
 	}
 	return version, nil
+}
+
+// CreateIn creates an unmanaged binding, its initial version and its receipt
+// in the caller's transaction. Any existing name is a conflict; this never
+// edits a binding. The caller owns commit and rollback.
+func (s *Bindings) CreateIn(ctx context.Context, tx *database.Tx, name, capability, provider, configJSON, who string) error {
+	if err := validateConfig(capability, configJSON); err != nil {
+		return err
+	}
+	now := s.now()
+	q := integrationsql.New(tx.SQL())
+	binding, err := q.CreateBinding(ctx, integrationsql.CreateBindingParams{ID: ids.New(now), Name: name, Capability: capability, Provider: provider,
+		ConfigJson: json.RawMessage(configJSON), Managed: false, CreatedAt: now, UpdatedAt: now})
+	if errors.Is(err, sql.ErrNoRows) {
+		return fault.New(fault.Conflict, fmt.Sprintf("a binding named %q already exists", name))
+	}
+	if err != nil {
+		return err
+	}
+	if _, err = q.InsertBindingVersion(ctx, integrationsql.InsertBindingVersionParams{ID: ids.New(now), IntegrationID: binding.ID, Version: 1, ConfigJson: json.RawMessage(configJSON), CreatedAt: now}); err != nil {
+		return err
+	}
+	return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": capability, "provider": provider})
 }
 
 // Delete removes a person's binding with its receipt: managed bindings

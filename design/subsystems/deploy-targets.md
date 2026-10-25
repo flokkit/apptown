@@ -21,6 +21,18 @@ A retired target keeps its name with its history, and nothing revives it:
 attaching another target under that name is refused with a 409 that says the
 target was retired and a new name is needed.
 
+Attaching a Docker host, Portainer target or bucket website creates a new record;
+concurrent attachments under one name cannot replace the winner's configuration.
+The attachment and check receipts commit only with that new record. An unavailable
+name lookup stops attachment before provider probing.
+
+Attaching a DigitalOcean account creates its connector and target, initial
+connector version and receipts in one transaction. Either existing name refuses
+the operation, including an unchanged or managed connector and a retired target.
+Use connector editing and its configuration sync to refresh an existing account;
+attachment never overwrites it. Account and registry probes precede admission,
+and a dry run writes neither record.
+
 A target's record holds two kinds of fact. Its configuration comes from where
 the target is declared: AppTown itself for the built-in host, the
 cloud-account connector for an App Platform target (region, registry, sizes),

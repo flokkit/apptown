@@ -15,6 +15,9 @@
 // check authority; trusted queue/execution operations and the exposed record APIs
 // do not independently authenticate users. Start manual deployment through
 // [Service.RequestRelease], not by constructing rows or calling a driver directly.
+// [Service.AttachTarget] owns attachment admission, provider checks and create-only
+// receipts; [Service.OfferTarget] owns checked group and offer admission. Transports
+// decode these commands and render their results without constructing target policy.
 //
 // Three concrete collaborators hold the implementation releases share with
 // previews and copies: [Hosts] reaches Docker daemons, [Environment] prepares

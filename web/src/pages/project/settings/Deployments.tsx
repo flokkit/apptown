@@ -1,3 +1,5 @@
+import { ReleaseDefaultPicker } from './ReleaseDefault'
+import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
 import { AppAddress, RuntimeStatus } from '../../../runtime'
 import { useEffect, useState } from 'react'
@@ -43,6 +45,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         promotion: it ships the latest thing that landed when someone deploys it. Each runs on a
         deployment target offered to this project.
       </p>
+      <ReleaseDefaultPicker slug={slug} deployments={envs} />
       <div className="conn-grid">
         {envs.map((e) => <EnvCard key={e.name} slug={slug} env={e} onChanged={load} />)}
       </div>
@@ -107,10 +110,11 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontWeight: 700 }}>
-            {e.name}
+            {e.displayLabel || e.name}
             {e.protected && <span className="chip overridden" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data — deploys need the release grant">protected</span>}
           </div>
-          <div className="muted small">{place}{e.target ? ` (${e.target.name})` : ''}</div>
+          <DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} />
+ <div className="muted small">{place}{e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}</div>
         </div>
         <span className="row" style={{ gap: 6 }}>
           <RuntimeStatus observation={e} />

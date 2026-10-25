@@ -193,7 +193,7 @@ func (q *Queries) BindingAttachmentCount(ctx context.Context, binding string) (i
 }
 
 const bindingByID = `-- name: BindingByID :one
-SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations WHERE id=$1
+SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label FROM integrations WHERE id=$1
 `
 
 func (q *Queries) BindingByID(ctx context.Context, id ids.ID) (Integration, error) {
@@ -209,12 +209,13 @@ func (q *Queries) BindingByID(ctx context.Context, id ids.ID) (Integration, erro
 		&i.Managed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisplayLabel,
 	)
 	return i, err
 }
 
 const bindingByIDForShare = `-- name: BindingByIDForShare :one
-SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations WHERE id=$1 FOR SHARE
+SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label FROM integrations WHERE id=$1 FOR SHARE
 `
 
 func (q *Queries) BindingByIDForShare(ctx context.Context, id ids.ID) (Integration, error) {
@@ -230,12 +231,13 @@ func (q *Queries) BindingByIDForShare(ctx context.Context, id ids.ID) (Integrati
 		&i.Managed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisplayLabel,
 	)
 	return i, err
 }
 
 const bindingByName = `-- name: BindingByName :one
-SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations WHERE name=$1
+SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label FROM integrations WHERE name=$1
 `
 
 // Bindings are a small instance catalog. Whole records are filtered in Go for
@@ -253,12 +255,13 @@ func (q *Queries) BindingByName(ctx context.Context, name string) (Integration, 
 		&i.Managed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisplayLabel,
 	)
 	return i, err
 }
 
 const bindingByNameForUpdate = `-- name: BindingByNameForUpdate :one
-SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations WHERE name=$1 FOR UPDATE
+SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label FROM integrations WHERE name=$1 FOR UPDATE
 `
 
 // Locks preserve the operation's existing choreography.
@@ -275,6 +278,7 @@ func (q *Queries) BindingByNameForUpdate(ctx context.Context, name string) (Inte
 		&i.Managed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisplayLabel,
 	)
 	return i, err
 }
@@ -324,7 +328,7 @@ func (q *Queries) BindingUsers(ctx context.Context) ([]BindingUsersRow, error) {
 }
 
 const bindings = `-- name: Bindings :many
-SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations ORDER BY capability, name
+SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label FROM integrations ORDER BY capability, name
 `
 
 func (q *Queries) Bindings(ctx context.Context) ([]Integration, error) {
@@ -346,6 +350,7 @@ func (q *Queries) Bindings(ctx context.Context) ([]Integration, error) {
 			&i.Managed,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DisplayLabel,
 		); err != nil {
 			return nil, err
 		}
@@ -361,7 +366,7 @@ func (q *Queries) Bindings(ctx context.Context) ([]Integration, error) {
 }
 
 const bindingsForShare = `-- name: BindingsForShare :many
-SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations ORDER BY id FOR SHARE
+SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label FROM integrations ORDER BY id FOR SHARE
 `
 
 func (q *Queries) BindingsForShare(ctx context.Context) ([]Integration, error) {
@@ -383,6 +388,7 @@ func (q *Queries) BindingsForShare(ctx context.Context) ([]Integration, error) {
 			&i.Managed,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DisplayLabel,
 		); err != nil {
 			return nil, err
 		}
@@ -395,6 +401,49 @@ func (q *Queries) BindingsForShare(ctx context.Context) ([]Integration, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const createBinding = `-- name: CreateBinding :one
+INSERT INTO integrations (id, name, capability, provider, config_json, version, managed, created_at, updated_at)
+VALUES ($1, $2,$3,$4,$5,1,$6,$7,$8) ON CONFLICT (name) DO NOTHING RETURNING id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label
+`
+
+type CreateBindingParams struct {
+	ID         ids.ID
+	Name       string
+	Capability string
+	Provider   string
+	ConfigJson json.RawMessage
+	Managed    bool
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+}
+
+func (q *Queries) CreateBinding(ctx context.Context, arg CreateBindingParams) (Integration, error) {
+	row := q.db.QueryRowContext(ctx, createBinding,
+		arg.ID,
+		arg.Name,
+		arg.Capability,
+		arg.Provider,
+		arg.ConfigJson,
+		arg.Managed,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i Integration
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Capability,
+		&i.Provider,
+		&i.ConfigJson,
+		&i.Version,
+		&i.Managed,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisplayLabel,
+	)
+	return i, err
 }
 
 const deleteBinding = `-- name: DeleteBinding :execrows
@@ -450,14 +499,43 @@ func (q *Queries) DetachIntegration(ctx context.Context, arg DetachIntegrationPa
 	return result.RowsAffected()
 }
 
+const editBindingDisplayLabel = `-- name: EditBindingDisplayLabel :one
+UPDATE integrations SET display_label=$1
+WHERE id=$2 AND display_label=$3 RETURNING id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label
+`
+
+type EditBindingDisplayLabelParams struct {
+	DisplayLabel  string
+	ID            ids.ID
+	ExpectedLabel string
+}
+
+func (q *Queries) EditBindingDisplayLabel(ctx context.Context, arg EditBindingDisplayLabelParams) (Integration, error) {
+	row := q.db.QueryRowContext(ctx, editBindingDisplayLabel, arg.DisplayLabel, arg.ID, arg.ExpectedLabel)
+	var i Integration
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Capability,
+		&i.Provider,
+		&i.ConfigJson,
+		&i.Version,
+		&i.Managed,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisplayLabel,
+	)
+	return i, err
+}
+
 const insertBinding = `-- name: InsertBinding :one
-INSERT INTO integrations (id, name, capability, provider, config_json, version, managed, created_at, updated_at)
-VALUES ($1, $2,$3,$4,$5,1,$6,$7,$8) RETURNING id, name, capability, provider, config_json, version, managed, created_at, updated_at
+INSERT INTO integrations (display_label, id, name, capability, provider, config_json, version, managed, created_at, updated_at)
+VALUES ($1, $2, $1,$3,$4,$5,1,$6,$7,$8) RETURNING id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label
 `
 
 type InsertBindingParams struct {
-	ID         ids.ID
 	Name       string
+	ID         ids.ID
 	Capability string
 	Provider   string
 	ConfigJson json.RawMessage
@@ -468,8 +546,8 @@ type InsertBindingParams struct {
 
 func (q *Queries) InsertBinding(ctx context.Context, arg InsertBindingParams) (Integration, error) {
 	row := q.db.QueryRowContext(ctx, insertBinding,
-		arg.ID,
 		arg.Name,
+		arg.ID,
 		arg.Capability,
 		arg.Provider,
 		arg.ConfigJson,
@@ -488,6 +566,7 @@ func (q *Queries) InsertBinding(ctx context.Context, arg InsertBindingParams) (I
 		&i.Managed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisplayLabel,
 	)
 	return i, err
 }
@@ -726,7 +805,7 @@ func (q *Queries) ServiceKinds(ctx context.Context) ([]ServiceKind, error) {
 
 const setBindingConfiguration = `-- name: SetBindingConfiguration :one
 UPDATE integrations SET config_json=$1, version=$2, updated_at=$3
-WHERE id=$4 RETURNING id, name, capability, provider, config_json, version, managed, created_at, updated_at
+WHERE id=$4 RETURNING id, name, capability, provider, config_json, version, managed, created_at, updated_at, display_label
 `
 
 type SetBindingConfigurationParams struct {
@@ -754,6 +833,7 @@ func (q *Queries) SetBindingConfiguration(ctx context.Context, arg SetBindingCon
 		&i.Managed,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisplayLabel,
 	)
 	return i, err
 }

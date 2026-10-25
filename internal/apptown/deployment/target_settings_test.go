@@ -99,3 +99,33 @@ func TestVerifiedPortainerEndpointCannotBeRetargetedBySettings(t *testing.T) {
 		t.Fatalf("Docker environment: %v", err)
 	}
 }
+
+func TestTargetDomainEditRejectsURLComponentsWithoutChangingSettings(t *testing.T) {
+	_, targets, target := targetRetirementFixture(t)
+	valid := "*.apps.example"
+	changed, err := targets.EditSettings(t.Context(), target.Name, TargetSettingsEdit{ExpectedRevision: &target.SettingsRevision, Domain: &valid}, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, domain := range []string{"apps.example?x=1", "apps.example#fragment", "person@apps.example"} {
+		_, err := targets.EditSettings(t.Context(), target.Name, TargetSettingsEdit{ExpectedRevision: &changed.SettingsRevision, Domain: &domain}, "alice")
+		if !errors.Is(err, ErrTargetDomain) {
+			t.Fatalf("invalid domain %q accepted: %v", domain, err)
+		}
+		current, err := targets.ByName(t.Context(), target.Name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if current.SettingsRevision != changed.SettingsRevision || current.Ingress["domain"] != "apps.example" {
+			t.Fatalf("rejected domain changed settings: %+v", current)
+		}
+	}
+	empty := ""
+	cleared, err := targets.EditSettings(t.Context(), target.Name, TargetSettingsEdit{ExpectedRevision: &changed.SettingsRevision, Domain: &empty}, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := cleared.Ingress["domain"]; exists {
+		t.Fatal("empty domain did not clear setting")
+	}
+}

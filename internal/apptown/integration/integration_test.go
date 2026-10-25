@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
@@ -179,4 +180,81 @@ func TestBindingVersionFailureRollsBackConfiguration(t *testing.T) {
 	}
 	// sql-guarantee: The append-only version history is the guarantee, and no owner read lists integration_versions rows.
 	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM integration_versions`)
+}
+
+func TestCreateBindingParticipatesInCallerTransaction(t *testing.T) {
+	t.Parallel()
+	for _, scenario := range []string{"success", "rollback", "version-failure", "receipt-failure", "existing", "managed"} {
+		t.Run(scenario, func(t *testing.T) {
+			db := testDB(t)
+			bindings := NewWithClock(db, nil)
+			called := false
+			bindings.committed = func() { called = true }
+			var before *Binding
+			wantVersions := 0
+			if scenario == "existing" || scenario == "managed" {
+				if _, err := bindings.Upsert(t.Context(), "account", "cloud-account", "digitalocean", `{"region":"original"}`, scenario == "managed"); err != nil {
+					t.Fatal(err)
+				}
+				var err error
+				before, err = bindings.ByName(t.Context(), "account")
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantVersions = 1
+			}
+			if scenario == "version-failure" {
+				t.Cleanup(db.FailNextStatement("-- name: InsertBindingVersion"))
+			}
+			if scenario == "receipt-failure" {
+				t.Cleanup(db.FailNextStatement("-- name: AppendReceipt"))
+			}
+			rollback := errors.New("caller refused")
+			err := db.InTx(t.Context(), func(tx *database.Tx) error {
+				if err := bindings.CreateIn(t.Context(), tx, "account", "cloud-account", "digitalocean", `{"region":"replacement"}`, "fixture"); err != nil {
+					return err
+				}
+				if scenario == "rollback" {
+					return rollback
+				}
+				return nil
+			})
+			if scenario == "success" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantVersions = 1
+			} else if err == nil {
+				t.Fatal("failed admission succeeded")
+			}
+			if before != nil && fault.KindOf(err) != fault.Conflict {
+				t.Fatalf("duplicate: %v", err)
+			}
+			after, readErr := bindings.ByName(t.Context(), "account")
+			switch {
+			case before != nil:
+				if readErr != nil || !reflect.DeepEqual(before, after) {
+					t.Fatalf("existing binding changed: before=%+v after=%+v err=%v", before, after, readErr)
+				}
+			case scenario == "success":
+				if readErr != nil || after.Version != 1 || after.Managed || !sameJSON(after.ConfigJSON, `{"region":"replacement"}`) {
+					t.Fatalf("created binding: %+v %v", after, readErr)
+				}
+			default:
+				if !errors.Is(readErr, sql.ErrNoRows) {
+					t.Fatalf("rolled-back binding: %+v %v", after, readErr)
+				}
+			}
+			// sql-guarantee: The caller's rollback must also remove the independent version ledger; no owner reader lists it.
+			dbtest.Count(t, db, wantVersions, `SELECT COUNT(*) FROM integration_versions`)
+			receipts := integrationReceipts(t, db, "integration.saved", "account")
+			wantReceipts := 0
+			if scenario == "success" {
+				wantReceipts = 1
+			}
+			if len(receipts) != wantReceipts || called {
+				t.Fatalf("receipts=%+v postcommit hook=%v", receipts, called)
+			}
+		})
+	}
 }
