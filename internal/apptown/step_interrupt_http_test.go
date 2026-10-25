@@ -85,3 +85,45 @@ func TestStepInterruptStopsTheStepsContainers(t *testing.T) {
 		t.Fatalf("a finished step: %d %s", w.Code, w.Body.String())
 	}
 }
+
+// A failed local effect must reach the caller and must not become evidence
+// that the person successfully interrupted the step.
+func TestStepInterruptFailureDoesNotRecordSuccess(t *testing.T) {
+	t.Parallel()
+	for _, failure := range []string{"ps", "rm"} {
+		t.Run(failure, func(t *testing.T) {
+			t.Parallel()
+			f := newFakeDocker()
+			a := agentTestApp(t, Config{DockerClient: f})
+			testAdministrator(t, a, "bls")
+			runID, stepID := admittedRunnerStep(t, a, "interrupt-failure", "review", "agent/review", false)
+			f.reply = func(args []string) (string, error, bool) {
+				if args[0] == failure {
+					return "", fmt.Errorf("injected %s failure", failure), true
+				}
+				if args[0] == "ps" {
+					if strings.Contains(strings.Join(args, " "), "name=apptown-review-") {
+						return fmt.Sprintf("apptown-review-%d-63865\n", stepID), nil, true
+					}
+					return "", nil, true
+				}
+				return "", nil, false
+			}
+			w := authzCall(a.Handler(), "bls", "POST", fmt.Sprintf("/api/v1/steps/%d/interrupt", stepID), `{}`)
+			if w.Code != 502 || strings.Contains(w.Body.String(), `"ok":true`) {
+				t.Fatalf("failed interruption reported success: %d %s", w.Code, w.Body.String())
+			}
+			if failure == "ps" && f.indexOf("rm -f -v ") >= 0 {
+				t.Fatalf("failed inventory reached removal: %v", f.joined())
+			}
+			snap, err := a.Work.Snapshot(asPerson("bls"), runID, workflow.DetailView)
+			if err != nil {
+				t.Fatal(err)
+			}
+			event, err := a.Work.LatestChangeEvent(asPerson("bls"), snap.Run.ChangeID, "step.interrupted")
+			if err != nil || event != nil {
+				t.Fatalf("failed interruption recorded success: %+v %v", event, err)
+			}
+		})
+	}
+}
