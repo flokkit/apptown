@@ -30,7 +30,7 @@ func (h Targets) Targets(w http.ResponseWriter, r *http.Request) {
 func (h Targets) OfferTarget(w http.ResponseWriter, r *http.Request) {
 	t, err := h.deployment.Targets.ByName(r.Context(), r.PathValue("name"))
 	if err != nil {
-		WriteError(w, 404, "no target named %q", r.PathValue("name"))
+		writeReadFault(w, err, "no target named %q", r.PathValue("name"))
 		return
 	}
 	if h.deployment.Targets.OfferedByConstruction(t) {
@@ -82,7 +82,7 @@ func (h Targets) OfferTarget(w http.ResponseWriter, r *http.Request) {
 func (h Targets) RevokeOffer(w http.ResponseWriter, r *http.Request) {
 	t, err := h.deployment.Targets.ByName(r.Context(), r.PathValue("name"))
 	if err != nil {
-		WriteError(w, 404, "no target named %q", r.PathValue("name"))
+		writeReadFault(w, err, "no target named %q", r.PathValue("name"))
 		return
 	}
 	id, _ := PathID(r, "id")
