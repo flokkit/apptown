@@ -61,6 +61,14 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 	if err != nil || got == nil || got.Repo != "registry.example/team/shop-copy" || got.Username != "robot" || got.Token != "forge-held" {
 		t.Fatalf("the copy's own repository: %+v %v", got, err)
 	}
+	// A single-label host is interpreted as a Docker Hub namespace by OCI;
+	// its connector credential must not be offered there under another host.
+	if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", `{"url":"localhost","group":"team","tokenFrom":"REGISTRY_PASSWORD"}`, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.EvalPublication(t.Context(), copy); err == nil || got != nil {
+		t.Fatalf("ambiguous eval destination admitted: %+v %v", got, err)
+	}
 	// A project Project cannot read is given nothing either.
 	if err := s.Attachments.Attach(t.Context(), idstest.N(999999), CapErrors, "errors", `{}`, Entered, "someone", nil); err == nil {
 		t.Fatal("an attachment for a project Project cannot read")

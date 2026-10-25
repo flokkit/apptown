@@ -86,7 +86,7 @@ func (d *Driver) pushImage(ctx context.Context, c *Client, registry, repo, local
 func (d *Driver) copyImage(ctx context.Context, c *Client, registry, repo, ref, tag string, logf func(string, ...any)) (string, error) {
 	from := oci.Source{Reference: ref}
 	if d.ReleaseLogin != nil {
-		cred, err := d.ReleaseLogin()
+		cred, err := d.ReleaseLogin(ref)
 		if err != nil {
 			return "", fmt.Errorf("the credential the release's images are read with: %w", err)
 		}

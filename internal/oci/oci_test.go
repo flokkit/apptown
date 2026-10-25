@@ -532,3 +532,29 @@ func TestADeletedImageIsGone(t *testing.T) {
 		t.Fatalf("deleting again: %v", err)
 	}
 }
+
+func TestRegistryMatchesAliasesWithoutCrossingAuthorities(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		host, reference string
+		want            bool
+	}{
+		{"index.docker.io", "docker.io/team/app:tag", true},
+		{"index.docker.io", "DOCKER.IO/team/app:tag", true},
+		{"docker.io", "index.docker.io/team/app:tag", true},
+		{"docker.io", "team/app:tag", true},
+		{"registry.example", "REGISTRY.EXAMPLE/team/app:tag", true},
+		{"registry.example:5000", "registry.example:5000/team/app@sha256:" + strings.Repeat("a", 64), true},
+		{"[::1]:5000", "[::1]:5000/team/app:tag", true},
+		{"registry.example:5000", "registry.example:5001/team/app:tag", false},
+		{"registry.example", "registry.example.evil/team/app:tag", false},
+		{"registry.example", "other.example/team/app:tag", false},
+		{"registry.example", "registry.example/team/app@sha256:abc", false},
+		{"https://registry.example", "registry.example/team/app:tag", false},
+		{"", "docker.io/team/app:tag", false},
+	} {
+		if got := RegistryMatches(c.host, c.reference); got != c.want {
+			t.Errorf("RegistryMatches(%q,%q)=%t want%t", c.host, c.reference, got, c.want)
+		}
+	}
+}

@@ -130,6 +130,22 @@ func repositoryOf(s string) (name.Repository, error) {
 	return r, nil
 }
 
+// RegistryMatches reports whether an image reference selects the given
+// registry authority. It follows OCI aliases and DNS case, keeps explicit
+// ports distinct, and never matches malformed input.
+func RegistryMatches(host, reference string) bool {
+	registry, err := name.NewRegistry(strings.ToLower(host), name.StrictValidation)
+	if err != nil {
+		return false
+	}
+	ref, err := name.ParseReference(reference)
+	if err != nil {
+		return false
+	}
+	actual, err := name.NewRegistry(strings.ToLower(ref.Context().RegistryStr()), name.StrictValidation)
+	return err == nil && registry.RegistryStr() == actual.RegistryStr()
+}
+
 // RefusedBy is the host that refused a request with 401 or 403, from the
 // response itself: a copy reads its source lazily while it writes, so which
 // step failed does not say which registry refused. ok is false when err is

@@ -88,6 +88,9 @@ func (s *Service) evalRegistry(ctx context.Context, projectID ids.ID) (*Registry
 		return nil, fmt.Errorf("the container-registry connector %s names no url", connector.Name)
 	}
 	info := &Registry{Host: host, Repo: strings.Join(slices.DeleteFunc([]string{strings.TrimSuffix(host, "/"), strings.Trim(group, "/"), p.Slug}, func(s string) bool { return s == "" }), "/")}
+	if info.Host, err = registryDestination(info.Repo, host); err != nil {
+		return nil, err
+	}
 	if from := ConfigStrings(cfg["tokenFrom"]); len(from) > 0 {
 		info.Username, _ = cfg["username"].(string)
 		if info.Token, err = s.registryToken(ctx, from); err != nil {

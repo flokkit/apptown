@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 	"github.com/flokkit/apptown/internal/deploy/staticsite"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/oci"
 )
 
 const (
@@ -423,3 +425,46 @@ var siteMainID = func() ids.ID {
 	}
 	return id
 }()
+
+func TestStaticPublicationSelectsCredentialBeforeReadingItsActualReference(t *testing.T) {
+	t.Parallel()
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	ref := strings.TrimPrefix(server.URL, "http://") + "/site@sha256:" + strings.Repeat("a", 64)
+	failure := errors.New("credential unavailable")
+	called := false
+	d := NewDriver(Dependencies{ReleaseLogin: func(actual string) (oci.Credential, error) {
+		called = true
+		if actual != ref {
+			t.Fatalf("credential reference=%q want=%q", actual, ref)
+		}
+		return oci.Credential{}, failure
+	}}, Options{})
+	_, err := d.publish(t.Context(), ref, "release", nil)
+	if !called || !errors.Is(err, failure) || requests.Load() != 0 {
+		t.Fatalf("selection called=%v requests=%d err=%v", called, requests.Load(), err)
+	}
+}
+
+func TestStaticPublicationPassesTheSourceReferenceAndKeepsAnonymousReads(t *testing.T) {
+	t.Parallel()
+	w := newWorld(t)
+	ref := w.image(map[string]string{"index.html": "<html>old public site</html>"})
+	d := w.driver()
+	called := false
+	d.ReleaseLogin = func(actual string) (oci.Credential, error) {
+		called = true
+		if actual != ref {
+			t.Fatalf("credential reference=%q want=%q", actual, ref)
+		}
+		return oci.Credential{}, nil
+	}
+	set, err := d.publish(t.Context(), ref, "release-1", nil)
+	if !called || err != nil || set.Digest == "" {
+		t.Fatalf("anonymous publication: called=%v digest=%s err=%v", called, set.Digest, err)
+	}
+}

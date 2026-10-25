@@ -89,3 +89,19 @@ release images from the project's container registry; the registry's own
 retention decides how long a release can be
 deployed again. The repository's `design/operations/workers.md` ("Releases
 built on the worker") has the full procedure.
+
+Registry resolution checks the attached repository against the connector's
+registry host before reading its credential. Use a host (optionally with a
+port), without a URL scheme or path. Credentials may rotate at that same host;
+changing the connector to another registry does not move existing attachments.
+Restore its host or explicitly replace the attachment with the intended
+repository and credential. A connector credential requires an explicit host.
+A directly attached repository with its own credential remains self-contained.
+Docker Hub aliases use the same registry authority; explicit ports remain distinct.
+
+After a project changes registries, historical release images on a different
+registry are read anonymously. Private historical images need an appropriate
+current registry attachment. Readable release tags are skipped when their
+historical registry is outside the current credential's scope; the recorded
+image digest remains the release identity. Eval-copy credentials remain limited
+to the copy's own publication repository.

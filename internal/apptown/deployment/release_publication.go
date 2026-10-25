@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/oci"
+	"github.com/google/go-containerregistry/pkg/name"
 )
 
 // Releases built on the worker (design/operations/workers.md, "Releases
@@ -180,6 +181,15 @@ func (s *Service) tagRelease(ctx context.Context, number int64, b *ReleaseBundle
 		logf("not tagging release #%d's images: %v", number, err)
 		return
 	}
+	purpose, err := s.env.Purpose(ctx, b.ProjectID)
+	if err != nil {
+		logf("not tagging release #%d's images: %v", number, err)
+		return
+	}
+	if !releaseCredentialAllows(repo, b.BuiltFrom.Registry, !purpose.Integrations()) {
+		logf("not tagging release #%d's images: their registry is outside the current credential's scope", number)
+		return
+	}
 	repo.Name = b.BuiltFrom.Registry
 	for _, images := range []struct {
 		prefix string
@@ -237,10 +247,6 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 	if err != nil {
 		return nil, err
 	}
-	login, err := s.env.ReleaseLogin(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
 	purpose, err := s.env.Purpose(ctx, projectID)
 	if err != nil {
 		return nil, err
@@ -259,7 +265,7 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 		if img.Source != "" {
 			// An image of the project's own registry is read with its
 			// credential, as a Docker host pulls it (docker.LoginRegistry).
-			from := oci.Source{Reference: img.Source, Credential: sourceCredential(withheld, login, repo, img.Source)}
+			from := oci.Source{Reference: img.Source, Credential: sourceCredential(withheld, repo, img.Source)}
 			got, err = oci.Copy(ctx, from, repo, tag, in.Platform)
 		} else if layout := in.Built[img.Name]; layout == nil {
 			err = fmt.Errorf("the build left no image %s", img.Name)
@@ -295,8 +301,9 @@ func (s *Service) PublishRelease(ctx context.Context, in ReleasePublication) (*R
 // names its images, so for a project given no credentials (withheld)
 // nothing is read with one: AppTown's credential reaches the copy's own
 // repository and no other.
-func sourceCredential(withheld bool, login *docker.RegistryCredential, repo oci.Repository, source string) oci.Credential {
-	if withheld || login == nil || login.Host == "" || !strings.HasPrefix(source, login.Host+"/") {
+func sourceCredential(withheld bool, repo oci.Repository, source string) oci.Credential {
+	registry, err := name.NewRepository(repo.Name)
+	if withheld || err != nil || !oci.RegistryMatches(registry.RegistryStr(), source) {
 		return oci.Credential{}
 	}
 	return repo.Credential
@@ -372,4 +379,18 @@ func (s *Service) PublishLanded(ctx context.Context, landed LandingResult, in Re
 		in.Built[img.Name] = layout
 	}
 	return s.PublishRelease(ctx, in)
+}
+
+// releaseCredentialAllows keeps ordinary registry credentials on their authority
+// and eval publication credentials on the copy's own repository.
+func releaseCredentialAllows(repo oci.Repository, ref string, ownRepositoryOnly bool) bool {
+	r, err := name.NewRepository(repo.Name)
+	if err != nil || !oci.RegistryMatches(r.RegistryStr(), ref) {
+		return false
+	}
+	if !ownRepositoryOnly {
+		return true
+	}
+	source, err := name.ParseReference(ref)
+	return err == nil && source.Context().RepositoryStr() == r.RepositoryStr()
 }
