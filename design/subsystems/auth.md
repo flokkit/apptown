@@ -10,6 +10,11 @@ There are three configured authentication modes, selected by `apptownd --auth`:
 | `trusted-header` | A configured proxy username header plus the configured shared proxy secret |
 | `open` (default) | Caller-supplied `X-AppTown-Actor`, or anonymous attribution; this is not authentication of that name |
 
+Open-mode and trusted-header API requests record the person before admitting
+application work. If that persistence fails, the request receives 503 and no
+caller identity is constructed. Trusted-header OAuth browser admission applies
+the same rule before consent or code creation; invalid names remain a 401.
+
 Personal bearer tokens work alongside these modes. On `/api/`, a
 present but invalid bearer token is refused; it does not fall back to a cookie or
 open identity. Otherwise authentication checks the mode's identity source. In

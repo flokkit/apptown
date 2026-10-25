@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/fault"
 )
 
 // The embedded OAuth authorization server for the MCP door (design/subsystems/mcp.md,
@@ -107,20 +108,26 @@ func (a *App) handleOAuthRegister(w http.ResponseWriter, r *http.Request) {
 // the session cookie in internal mode, the proxy's header in trusted-header
 // mode. Never a bearer token (a token must not mint tokens) and never the
 // open-mode actor header.
-func (a *App) browserIdentity(r *http.Request) *authIdentity {
+func (a *App) browserIdentity(r *http.Request) (*authIdentity, error) {
 	switch a.cfg.authMode {
 	case "internal":
-		return a.resolveSession(r)
+		return a.resolveSession(r), nil
 	case "trusted-header":
 		if a.cfg.authProxySecret != "" &&
 			subtle.ConstantTimeCompare([]byte(r.Header.Get("X-AppTown-Proxy-Secret")), []byte(a.cfg.authProxySecret)) == 1 {
 			if user := r.Header.Get(a.cfg.authHeader); user != "" {
-				role, person := a.ensureUser(r.Context(), user)
-				return &authIdentity{PrincipalID: person, User: user, Role: role, Via: "proxy"}
+				if err := identity.ValidName(user); err != nil {
+					return nil, err
+				}
+				role, person, err := a.ensureUser(r.Context(), user)
+				if err != nil {
+					return nil, err
+				}
+				return &authIdentity{PrincipalID: person, User: user, Role: role, Via: "proxy"}, nil
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func parseAuthorizeReq(r *http.Request) identity.AuthorizationRequest {
@@ -149,7 +156,15 @@ func (a *App) handleOAuthAuthorize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := view.Client
-	id := a.browserIdentity(r)
+	id, err := a.browserIdentity(r)
+	if err != nil {
+		if fault.KindOf(err) == fault.Invalid {
+			http.Error(w, fault.Message(err), http.StatusUnauthorized)
+		} else {
+			http.Error(w, "could not record your account; try again later", http.StatusServiceUnavailable)
+		}
+		return
+	}
 	if id == nil {
 		a.renderOAuthPage(w, r, oauthPageData{Client: client.Name, NeedsLogin: true, Query: r.URL.RawQuery, Mode: a.authModeName()})
 		return

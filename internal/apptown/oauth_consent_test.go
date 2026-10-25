@@ -131,6 +131,19 @@ func TestOAuthProxyConsentBoundToBrowserAndPerson(t *testing.T) {
 		h.ServeHTTP(w, r)
 		return w
 	}
+	restore := a.DB.FailNextStatement("-- name: TouchUser")
+	defer restore()
+	if w := call("GET", "boss", nil); w.Code != 503 || len(w.Result().Cookies()) != 0 || w.Header().Get("Location") != "" {
+		t.Fatalf("failed person write showed consent: %d %s", w.Code, w.Body.String())
+	}
+	var consents int
+	// sql-guarantee: failed admission must not persist an OAuth consent; no public owner list exposes pending consents.
+	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM oauth_consents`).Scan(&consents); err != nil || consents != 0 {
+		t.Fatalf("failed admission wrote consent: %d %v", consents, err)
+	}
+	if w := call("GET", "run/1", nil); w.Code != 401 {
+		t.Fatalf("invalid proxy name: %d", w.Code)
+	}
 	w := call("GET", "boss", nil)
 	q.Set("consent_token", consentToken(t, w))
 	q.Set("decision", "allow")
@@ -146,6 +159,16 @@ func TestOAuthProxyConsentBoundToBrowserAndPerson(t *testing.T) {
 	}
 	if w := call("POST", "someone-else", cookie); w.Code != 403 {
 		t.Fatalf("different proxy user accepted: %d", w.Code)
+	}
+	restorePost := a.DB.FailNextStatement("-- name: TouchUser")
+	defer restorePost()
+	if w := call("POST", "boss", cookie); w.Code != 503 || w.Header().Get("Location") != "" {
+		t.Fatalf("failed person write issued authorization: %d %s", w.Code, w.Body.String())
+	}
+	var codes int
+	// sql-guarantee: failed admission cannot mint an OAuth code; codes have no public listing operation.
+	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM oauth_codes`).Scan(&codes); err != nil || codes != 0 {
+		t.Fatalf("failed admission minted code: %d %v", codes, err)
 	}
 	if w := call("POST", "boss", cookie); w.Code != 302 {
 		t.Fatalf("legitimate proxy consent failed: %d %s", w.Code, w.Body.String())
