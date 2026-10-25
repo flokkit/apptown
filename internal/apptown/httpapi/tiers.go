@@ -87,31 +87,26 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 
 	main := TierView{Name: "main", Title: "Main", Onward: "release", Apps: []TierApp{},
 		Gloss: "the standing copy of each project's main branch — where the team tests"}
-	if envs, err := h.deployment.Deployments.Named(r.Context(), "main"); err == nil {
-		for _, e := range envs {
-			p := projects[e.ProjectID]
-			if p == nil || (!onlyID.IsZero() && p.ID != onlyID) {
-				continue
-			}
-			reach := h.deployment.Reach(r.Context(), p.Slug, &e.Deployment)
-			app := TierApp{DeploymentPolicy: e.UpdatePolicy(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: reach.URL, HostOnly: reach.HostOnly}
-			// Observed on its own target, by the deployment owner.
-			switch o := h.deployment.ObserveContainer(r.Context(), &e.Deployment); o.State {
-			case deployment.ContainerUnavailable, deployment.ContainerUnknown:
-				app.Observed = o.State.String()
-			default:
-				app.Running = o.State == deployment.ContainerRunning
-			}
-			repository, err := p.Repository(h.dataDir)
-			if err != nil {
-				WriteFault(w, err)
-				return
-			}
-			if c, err := docker.ReadWorkspaceContract(repository); err == nil && c.PublicPart().IsStatic() {
-				app.Static = true
-			}
-			main.Apps = append(main.Apps, app)
+	envs, err := h.deployment.Deployments.Named(r.Context(), "main")
+	if err != nil {
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
+		return
+	}
+	for _, e := range envs {
+		p := projects[e.ProjectID]
+		if p == nil || (!onlyID.IsZero() && p.ID != onlyID) {
+			continue
 		}
+		app := h.runtimeApp(r.Context(), p, &e.Deployment)
+		repository, err := p.Repository(h.dataDir)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		if c, err := docker.ReadWorkspaceContract(repository); err == nil && c.PublicPart().IsStatic() {
+			app.Static = true
+		}
+		main.Apps = append(main.Apps, app)
 	}
 
 	relEnv, err := h.releaseDeployment(r.Context())
@@ -121,24 +116,37 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 	}
 	lan := TierView{Name: relEnv, Title: "Intranet", Onward: "someday", Apps: []TierApp{},
 		Gloss: "released for everyone on the intranet — survives reboots, lives on the platform"}
-	released, err := h.deployment.Releases.LatestReleasedOn(r.Context(), relEnv)
+	releaseDeployments, err := h.deployment.Deployments.Named(r.Context(), relEnv)
 	if err != nil {
-		WriteFault(w, err)
+		WriteFaultOr(w, err, http.StatusServiceUnavailable)
 		return
 	}
-	for _, r := range released {
-		p := projects[r.ProjectID]
+	for _, e := range releaseDeployments {
+		p := projects[e.ProjectID]
 		if p == nil || (!onlyID.IsZero() && p.ID != onlyID) {
 			continue
 		}
-		lan.Apps = append(lan.Apps, TierApp{Slug: p.Slug, Name: p.Name, Icon: p.Icon,
-			DeploymentPolicy: deployment.CompatibleUpdate, URL: r.Notes, Running: true, Detail: fmt.Sprintf("release #%d", r.Number)})
+		lan.Apps = append(lan.Apps, h.runtimeApp(r.Context(), p, &e.Deployment))
 	}
 
 	net := TierView{Name: "net", Title: "Internet", Future: true, Apps: []TierApp{},
 		Gloss: "available to the world — not built yet"}
 
 	WriteJSON(w, 200, TierMap{Tiers: []TierView{preview, main, lan, net}})
+}
+
+// runtimeApp projects the current placement, independently of release history.
+// The caller filters project visibility before reaching or observing its target.
+func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment.Deployment) TierApp {
+	reach := h.deployment.Reach(ctx, p.Slug, d)
+	app := TierApp{DeploymentPolicy: d.UpdatePolicy(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: reach.URL, HostOnly: reach.HostOnly}
+	switch o := h.deployment.ObserveContainer(ctx, d); o.State {
+	case deployment.ContainerUnavailable, deployment.ContainerUnknown:
+		app.Observed = o.State.String()
+	default:
+		app.Running = o.State == deployment.ContainerRunning
+	}
+	return app
 }
 
 // Departures: GET /api/v1/tiers/departures — movement through the
