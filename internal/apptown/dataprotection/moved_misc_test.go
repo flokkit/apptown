@@ -171,7 +171,13 @@ func TestNoLocalDockerBacksUpAttachedTargetsOnly(t *testing.T) {
 	t.Parallel()
 	w := noLocalDockerWorld(t, "app:\n  web:\n    image: example/game:1\n    ports: [\"8080\"]\n    public: true\n    dataDir: /data\n")
 	s := w.service(true)
-	runRelease(t, s, w.deployment(t, s, "main", w.remote), w.revision, "")
+	dep := w.deployment(t, s, "main", w.remote)
+	runRelease(t, s, dep, w.revision, "")
+	names, err := dep.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.daemon.SetVolume(names.DataVolume(), true)
 	local, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)

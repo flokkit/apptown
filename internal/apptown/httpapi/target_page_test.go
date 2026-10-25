@@ -91,6 +91,7 @@ func TestTargetCheckAndRetire(t *testing.T) {
 func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	t.Parallel()
 	w := newTargetHTTPWorld(t)
+	w.docker.SetVolume("apptown-data-apptown-env-old-main", true)
 	builtin := w.seedBuiltin(t)
 	pid := w.createProject(t, "ri")
 	env, err := w.deployment.Deployments.EnsureStanding(t.Context(), pid, "main", builtin.ID, (deployment.Attributes{}).WithDefaults())
