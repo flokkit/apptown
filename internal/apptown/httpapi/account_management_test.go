@@ -25,7 +25,7 @@ func accountManagementFixture(t *testing.T) (*database.DB, http.Handler) {
 	mux.HandleFunc("DELETE /api/v1/users/{name}", h.DeleteUser)
 	mux.HandleFunc("POST /api/v1/groups", h.SaveGroup)
 	return db, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r = r.WithContext(access.WithCaller(r.Context(), access.Caller{Principal: access.Principal{Kind: "user", Name: "boss", Via: "session"}, Verified: true, Receipt: "boss"}))
+		r = r.WithContext(access.WithCaller(r.Context(), access.Caller{Principal: testAdmittedPrincipal(t, service, "boss"), Verified: true, Receipt: "boss"}))
 		mux.ServeHTTP(w, r)
 	})
 }

@@ -122,7 +122,7 @@ func (h CatalogChanges) CatalogApply(w http.ResponseWriter, r *http.Request) {
 			writeReadFault(w, err, "no such project %q", in.Project)
 			return
 		}
-		if !RequireProjectMember(h.access, h.authMode, w, r, p.ID, p.Slug) {
+		if !RequireProjectMember(h.access, w, r, p.ID, p.Slug) {
 			return
 		}
 		item, run, err := h.actions.ApplyCatalog(r.Context(), p, c, in.Params, Actor(r))

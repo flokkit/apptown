@@ -204,7 +204,7 @@ func TestOAuthFlowMintsBoundedTokens(t *testing.T) {
 	if err != nil || id == nil || id.Via != "oauth" || id.User != "boss" {
 		t.Fatalf("resolve: %+v %v", id, err)
 	}
-	pr := principalOf(id, "")
+	pr := principalOf(id)
 	p, _ := a.Projects.BySlug(context.Background(), "p")
 	holds := func(c access.Capability) bool {
 		t.Helper()

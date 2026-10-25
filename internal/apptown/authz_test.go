@@ -299,14 +299,14 @@ func TestAuthzTokenReadsCurrentAuthority(t *testing.T) {
 		t.Fatalf("admin token: %d %s", w.Code, w.Body.String())
 	}
 	testAdministrator(t, a, "second")
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "boss", Role: "member"}, access.Principal{Kind: "user", Name: "second", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "boss", Role: "member"}, access.Principal{ID: testPrincipalOf(t, a.DB, "second"), Kind: "user", Name: "second", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if w := call(); !strings.Contains(w.Body.String(), `"role":"member"`) {
 		t.Errorf("demotion should constrain the token immediately: %s", w.Body.String())
 	}
 	disabled := true
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "boss", Disabled: &disabled}, access.Principal{Kind: "user", Name: "second", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "boss", Disabled: &disabled}, access.Principal{ID: testPrincipalOf(t, a.DB, "second"), Kind: "user", Name: "second", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if w := call(); w.Code != 401 {
@@ -330,7 +330,7 @@ func TestAuthzApprovalEligibility(t *testing.T) {
 	if !a.projectMember(idstest.N(1), "kid", "member") {
 		t.Fatal("an approver works here for the roster's purposes")
 	}
-	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "parents", Members: []string{"owner"}}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "parents", Members: []string{"owner"}}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	a.audit(context.Background(), "owner", idstest.N(1), "change.created", "t", map[string]any{"changeId": 1})
@@ -804,7 +804,7 @@ func TestAChatOfADisabledPersonIsRefused(t *testing.T) {
 		t.Fatalf("owner's chat complains before the disable: %d", code)
 	}
 	disabled := true
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range paths {

@@ -198,7 +198,7 @@ func TestAdministratorRevocationAndSavingAreAtomic(t *testing.T) {
 				t.Fatalf("failed revocation lost the grant: %v %v", found, err)
 			}
 			drop()
-			if err := s.SaveUser(context.Background(), AccountChange{Username: "boss", Role: "member"}, testPrincipal("second")); err != nil {
+			if err := s.SaveUser(context.Background(), AccountChange{Username: "boss", Role: "member"}, admittedPrincipal(t, s, "second")); err != nil {
 				t.Fatal(err)
 			}
 			if err := s.EnsureDefaults(context.Background(), false); err != nil {
@@ -218,7 +218,7 @@ func TestAdministratorRevocationAndSavingAreAtomic(t *testing.T) {
 		t.Fatal(err)
 	}
 	results := identityRace(2, func(i int) int {
-		err := s.SaveUser(context.Background(), AccountChange{Username: []string{"boss", "second"}[i], Role: "member"}, testPrincipal([]string{"boss", "second"}[i]))
+		err := s.SaveUser(context.Background(), AccountChange{Username: []string{"boss", "second"}[i], Role: "member"}, admittedPrincipal(t, s, []string{"boss", "second"}[i]))
 		if err == nil {
 			return 1
 		}
@@ -257,7 +257,7 @@ func TestUserSaveRequiresPromotionAndSessionRemoval(t *testing.T) {
 			if _, err := s.EnsureUser(context.Background(), "kid"); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.SaveUser(context.Background(), AccountChange{Username: "kid", Password: "initial-password"}, testPrincipal("boss")); err != nil {
+			if err := s.SaveUser(context.Background(), AccountChange{Username: "kid", Password: "initial-password"}, admittedPrincipal(t, s, "boss")); err != nil {
 				t.Fatal(err)
 			}
 			var signedIn []string
@@ -279,7 +279,7 @@ func TestUserSaveRequiresPromotionAndSessionRemoval(t *testing.T) {
 			}
 			drop := vetoIdentityWrite(t, s.db, table, op, body)
 			edit := AccountChange{Username: "kid", Role: "admin", Password: "new-test-password"}
-			if err := s.SaveUser(context.Background(), edit, testPrincipal("boss")); err == nil {
+			if err := s.SaveUser(context.Background(), edit, admittedPrincipal(t, s, "boss")); err == nil {
 				t.Fatal("accepted incomplete user change")
 			}
 			if after, err := queries(s.db).UserByName(context.Background(), "kid"); err != nil || after.PasswordHash != before.PasswordHash {
@@ -293,7 +293,7 @@ func TestUserSaveRequiresPromotionAndSessionRemoval(t *testing.T) {
 			// sql-guarantee: No owner read lists an account's sessions; the account's total must stay exactly two, not merely keep the two known tokens.
 			identityCount(t, s.db, 2, `SELECT COUNT(*) FROM sessions_named WHERE username='kid'`)
 			drop()
-			if err := s.SaveUser(context.Background(), edit, testPrincipal("boss")); err != nil {
+			if err := s.SaveUser(context.Background(), edit, admittedPrincipal(t, s, "boss")); err != nil {
 				t.Fatal(err)
 			}
 			for _, token := range signedIn {

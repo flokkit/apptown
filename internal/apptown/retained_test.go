@@ -116,7 +116,7 @@ func TestRetainedSettlementChecksAuthorityAndHTTPOutcome(t *testing.T) {
 		t.Fatalf("repeat: %d %s", w.Code, w.Body.String())
 	}
 	disabled := true
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.Deployment.SettleRetained(ctx, in); err == nil || errors.Is(err, deployment.ErrRetainedMissing) {

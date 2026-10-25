@@ -88,8 +88,12 @@ func TestDeploymentConfigurationRequiresInternalAuthority(t *testing.T) {
 		t.Fatalf("authorized configuration: %+v %v", result, err)
 	}
 	wantN(t, "bound receipts by owner", receipts(t, db, "deployment.bound", byActor("owner")), 1)
+	boss, err := identity.ActorIn(context.Background(), db, "boss")
+	if err != nil || boss.Principal.IsZero() {
+		t.Fatalf("fixture administrator: %v", err)
+	}
 	disabled := true
-	if err := a.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{ID: boss.Principal, Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	in.Name = "second"
@@ -155,8 +159,12 @@ func TestReleaseRequestChecksInternalAuthority(t *testing.T) {
 	if _, err := s.RequestRelease(owner, in); !errors.Is(err, ErrNoBundle) {
 		t.Fatalf("promoter: %v", err)
 	}
+	boss, err := identity.ActorIn(context.Background(), db, "boss")
+	if err != nil || boss.Principal.IsZero() {
+		t.Fatalf("fixture administrator: %v", err)
+	}
 	disabled := true
-	if err := a.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{ID: boss.Principal, Kind: "user", Name: "boss", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.RequestRelease(owner, in); err == nil || errors.Is(err, ErrNoBundle) {

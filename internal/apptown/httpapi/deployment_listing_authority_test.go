@@ -39,7 +39,7 @@ func TestDeploymentListingChecksInternalAuthorityAndHTTPUnknown(t *testing.T) {
 	}
 	// Disabled accounts are denied before any provider observation.
 	disabledOutsider := true
-	if err := a.identity.SaveUser(context.Background(), identity.AccountChange{Username: "outsider", Disabled: &disabledOutsider}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.identity.SaveUser(context.Background(), identity.AccountChange{Username: "outsider", Disabled: &disabledOutsider}, testAdmittedPrincipal(t, a.identity, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	h := NewDeploymentListing(a.projects, a.service, t.TempDir(), nil)
@@ -83,7 +83,7 @@ func TestDeploymentListingChecksInternalAuthorityAndHTTPUnknown(t *testing.T) {
 		t.Fatalf("missing stored facts: %d %s", w.Code, w.Body.String())
 	}
 	disabled := true
-	if err := a.identity.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.identity.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.identity, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.service.List(ctx, a.project); err == nil {

@@ -26,7 +26,7 @@ func TestWorkloadAccountsFailClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	yes := true
-	if err := dir.SaveUser(context.Background(), identity.AccountChange{Username: "bob", Disabled: &yes}, access.Principal{Kind: "user", Name: "ops", Via: "session"}); err != nil {
+	if err := dir.SaveUser(context.Background(), identity.AccountChange{Username: "bob", Disabled: &yes}, testAdmittedPrincipal(t, dir, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	a := Identity{DB: db}
@@ -74,7 +74,7 @@ func TestAWorkloadStaysThePersonItWasStartedBy(t *testing.T) {
 	if _, err := dir.PutGrant(ctx, identity.Spec{SubjectType: "user", Subject: "ops", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "fixture"}); err != nil {
 		t.Fatal(err)
 	}
-	ops := access.Principal{Kind: "user", Name: "ops", Via: "session"}
+	ops := testAdmittedPrincipal(t, dir, "ops")
 	alice, err := identity.ActorIn(ctx, db, "alice")
 	if err != nil {
 		t.Fatal(err)

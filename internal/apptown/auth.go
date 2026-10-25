@@ -137,7 +137,7 @@ func (a *App) AuthMiddleware(next http.Handler) http.Handler {
 					// disabled it makes no new request, here as at inference,
 					// including acts no capability decision covers (a
 					// complaint). The chat itself stays with its change.
-					if err := a.Access.RequireEnabled(r.Context(), principalOf(id, "")); err != nil {
+					if err := a.Access.RequireEnabled(r.Context(), principalOf(id)); err != nil {
 						var denied *access.Denied
 						if errors.As(err, &denied) {
 							writeErr(w, 403, "%s", denied.Reason)

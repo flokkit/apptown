@@ -190,7 +190,7 @@ func TestStepApprovalEnforcesAuthorityWithoutHTTP(t *testing.T) {
 	}
 	caller := access.Principal{Kind: "user", Name: "owner", Via: "token"}
 	disabled := true
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	_, err := a.Work.Approve(stepVerifiedContext(context.Background(), caller), Approval{StepID: a.StepID, Decision: VoteApprove, Comment: ""})
@@ -199,7 +199,7 @@ func TestStepApprovalEnforcesAuthorityWithoutHTTP(t *testing.T) {
 		t.Fatalf("disabled caller: %v", err)
 	}
 	disabled = false
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	wantEventCount(t, a.DB, 0, ofKind("approval"))
@@ -241,12 +241,12 @@ func TestStepApprovalChecksCurrentApproverMembership(t *testing.T) {
 				approvers = []string{"reviewers"}
 			}
 			a := stepAuthorityFixture(t, ApprovalConfig{Approvers: approvers})
-			if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "reviewers", Members: []string{"owner"}}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+			if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "reviewers", Members: []string{"owner"}}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 				t.Fatal(err)
 			}
 			switch membership {
 			case "revoked":
-				if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "reviewers"}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+				if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "reviewers"}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 					t.Fatal(err)
 				}
 			case "expired":
@@ -278,7 +278,7 @@ func TestStepApprovalRequiredAuthorityReadsFailClosed(t *testing.T) {
 		t.Run(statement, func(t *testing.T) {
 			t.Parallel()
 			a := stepAuthorityFixture(t, ApprovalConfig{Approvers: []string{"group:reviewers", "role:project-approver"}})
-			if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "reviewers"}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+			if err := a.Access.SaveGroup(context.Background(), identity.GroupChange{Name: "reviewers"}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 				t.Fatal(err)
 			}
 			dbtest.FailNextStatement(t, a.DB, statement)
@@ -387,14 +387,14 @@ func TestStepOverrideEnforcesAuthorityWithoutHTTP(t *testing.T) {
 	wantEventCount(t, a.DB, eventsBefore, anyEvent)
 	caller := access.Principal{Kind: "user", Name: "owner", Via: "token"}
 	disabled := true
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.Work.Override(stepVerifiedContext(context.Background(), caller), Override{StepID: a.OverrideStepID, Reason: "reviewed"}); err == nil {
 		t.Fatal("disabled actor retained access")
 	}
 	disabled = false
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, a.DB, "-- name: UserByName :one")

@@ -15,6 +15,12 @@ application work. If that persistence fails, the request receives 503 and no
 caller identity is constructed. Trusted-header OAuth browser admission applies
 the same rule before consent or code creation; invalid names remain a 401.
 
+An absent admitted identity remains anonymous for route authorization, even if an
+actor header supplies receipt attribution. Project membership guards require
+transport verification. Identity administration reads the admitted person by
+immutable principal ID and refuses a name-only caller; names remain available
+for directory queries and historical attribution.
+
 Personal bearer tokens work alongside these modes. On `/api/`, a
 present but invalid bearer token is refused; it does not fall back to a cookie or
 open identity. Otherwise authentication checks the mode's identity source. In

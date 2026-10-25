@@ -16,17 +16,13 @@ import (
 // resources with their containing scopes, the facts the rule reads, the
 // receipt, and the HTTP glue.
 
-// principalOf turns the auth layer's identity into a kernel principal. In
-// open mode a bare actor header is a user principal; that is the design's
-// stated incompatibility (mcp.md §3), tolerated on the legacy HTTP surface
-// only until the bootstrap owner exists.
-func principalOf(id *authIdentity, fallbackActor string) access.Principal {
+// principalOf converts an admitted identity into an authorization principal.
+// Receipt attribution never supplies a missing identity.
+func principalOf(id *authIdentity) access.Principal {
 	if id == nil {
-		if fallbackActor == "" || fallbackActor == "anonymous" {
-			return access.Principal{Kind: "anonymous", Name: "anonymous", Via: "open"}
-		}
-		return access.Principal{Kind: "user", Name: fallbackActor, Via: "open", Credential: identity.HeaderCredential(fallbackActor)}
+		return access.Principal{Kind: "anonymous", Name: "anonymous", Via: "open"}
 	}
+
 	switch id.Via {
 	case "console":
 		person, _, _ := strings.Cut(id.User, " via console/")

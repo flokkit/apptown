@@ -33,7 +33,7 @@ func mcp_token(t *testing.T, a *App, name, user, role string) string {
 	if _, err := a.Access.EnsureUser(context.Background(), user); err != nil {
 		t.Fatal(err)
 	}
-	issued, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: access.TokenAgent, Name: name, User: user, Role: role}, access.Principal{Kind: "user", Name: "boss", Via: "session"})
+	issued, err := a.Access.IssueToken(context.Background(), identity.NewToken{Purpose: access.TokenAgent, Name: name, User: user, Role: role}, access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"})
 	if err != nil {
 		t.Fatal(err)
 	}

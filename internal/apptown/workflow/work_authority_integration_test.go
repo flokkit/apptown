@@ -46,7 +46,7 @@ func TestWorkAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 		}
 	}
 	disabled := true
-	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	for _, read := range readers {
@@ -55,7 +55,7 @@ func TestWorkAuthorityAppliesWithoutRouteGuards(t *testing.T) {
 		}
 	}
 	disabled = false
-	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	for _, read := range readers {
@@ -110,14 +110,14 @@ func TestChangeSendBackAuthorityWithoutRoute(t *testing.T) {
 	}
 	svc := a.Work
 	disabled := true
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := svc.SendBack(stepVerifiedContext(context.Background(), access.Principal{Kind: "user", Name: "owner", Via: "token"}), SendBack{ChangeID: a.ChangeID, Note: "again"}); err == nil {
 		t.Fatal("disabled user admitted")
 	}
 	disabled = false
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 		t.Fatal(err)
 	}
 	grants, err := a.Access.GrantsAt(context.Background(), access.ScopeProject, fmt.Sprint(a.ProjectID))
@@ -393,7 +393,7 @@ func TestUpliftAuthorityWithoutDispatcher(t *testing.T) {
 				t.Fatalf("failed authority lookup: %+v %v", ch, err)
 			}
 			disabled := true
-			if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+			if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 				t.Fatal(err)
 			}
 			if ch, err := open(owner, in); ch != nil || err == nil {
@@ -402,7 +402,7 @@ func TestUpliftAuthorityWithoutDispatcher(t *testing.T) {
 			// sql-guarantee: a refused uplift must leave no uplift Change in any project; no workflow read enumerates Changes across projects.
 			completionCount(t, a.DB, 0, `SELECT count(*) FROM changes WHERE type='uplift'`)
 			disabled = false
-			if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, access.Principal{Kind: "user", Name: "boss", Via: "session"}); err != nil {
+			if err := a.Access.SaveUser(ctx, identity.AccountChange{Username: "owner", Disabled: &disabled}, testAdmittedPrincipal(t, a.Access, "boss")); err != nil {
 				t.Fatal(err)
 			}
 			ch, err := open(owner, in)

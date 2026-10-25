@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/identity/internal/accesssql"
 
 	"github.com/flokkit/apptown/internal/database"
 )
@@ -30,6 +29,9 @@ func (s *Service) requireAdministration(ctx context.Context, q database.Queryer,
 	if pr.Kind != "user" {
 		return denied
 	}
+	if pr.ID.IsZero() {
+		return access.ErrPrincipalRequired
+	}
 	switch pr.Via {
 	case "open":
 		if !open {
@@ -45,16 +47,8 @@ func (s *Service) requireAdministration(ctx context.Context, q database.Queryer,
 	if !access.CredentialCovers(pr, cap) {
 		return &access.Denied{Code: access.DenyDelegationNarrow, Reason: access.CredentialNarrowReason(pr, "administer this resource")}
 	}
-	// The admitted account by its principal: a rename keeps it, and a later
-	// holder of its old name is someone else. A caller named only (open or
-	// header modes before admission recorded principals) by its name.
-	var row accesssql.User
-	var err error
-	if pr.ID.IsZero() {
-		row, err = queries(q).UserByName(ctx, pr.Name)
-	} else {
-		row, err = queries(q).UserByPrincipal(ctx, pr.ID)
-	}
+	// Authority stays with the admitted person across renames and name reuse.
+	row, err := queries(q).UserByPrincipal(ctx, pr.ID)
 	found, err := database.Lookup(err)
 	if err != nil {
 		return err

@@ -68,7 +68,7 @@ func TestConformanceServiceEnforcesCurrentCapabilitiesAndProjectScope(t *testing
 	}
 	testAdministrator(t, a, "other-admin")
 	disabled := true
-	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "boss", Role: "admin", Disabled: &disabled}, access.Principal{Kind: "user", Name: "other-admin", Via: "session"}); err != nil {
+	if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "boss", Role: "admin", Disabled: &disabled}, access.Principal{ID: testPrincipalOf(t, a.DB, "other-admin"), Kind: "user", Name: "other-admin", Via: "session"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.conformance.Dispositions(boss, idstest.N(1), true); err == nil {

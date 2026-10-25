@@ -17,19 +17,21 @@ func TestRootMembershipChangesPreserveAnEnabledAdministrator(t *testing.T) {
 	if err := s.SeedAdministrator(ctx, "backup"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveGroup(ctx, GroupChange{Name: "operators", Members: []string{"alice"}}, testPrincipal("backup")); err != nil {
+	if err := s.SaveGroup(ctx, GroupChange{Name: "operators", Members: []string{"alice"}}, admittedPrincipal(t, s, "backup")); err != nil {
 		t.Fatal(err)
 	}
 	id, err := s.Grant(ctx, Spec{SubjectType: "group", Subject: "operators", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "backup"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveUser(ctx, AccountChange{Username: "backup", Role: "member"}, testPrincipal("backup")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "backup", Role: "member"}, admittedPrincipal(t, s, "backup")); err != nil {
 		t.Fatal(err)
 	}
 	for _, command := range []func() error{
-		func() error { return s.SaveGroup(ctx, GroupChange{Name: "operators"}, testPrincipal("alice")) },
-		func() error { return s.DeleteGroup(ctx, "operators", testPrincipal("alice")) },
+		func() error {
+			return s.SaveGroup(ctx, GroupChange{Name: "operators"}, admittedPrincipal(t, s, "alice"))
+		},
+		func() error { return s.DeleteGroup(ctx, "operators", admittedPrincipal(t, s, "alice")) },
 		func() error { _, err := s.Revoke(ctx, id, "alice"); return err },
 	} {
 		if err := command(); !errors.Is(err, ErrLastAdministrator) {
@@ -43,7 +45,7 @@ func TestRootMembershipChangesPreserveAnEnabledAdministrator(t *testing.T) {
 	if err := s.SeedAdministrator(ctx, "backup"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveGroup(ctx, GroupChange{Name: "operators"}, testPrincipal("backup")); err != nil {
+	if err := s.SaveGroup(ctx, GroupChange{Name: "operators"}, admittedPrincipal(t, s, "backup")); err != nil {
 		t.Fatal(err)
 	}
 	if root, err := RootIn(ctx, s.db, "alice", time.Now()); err != nil || root {

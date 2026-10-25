@@ -28,7 +28,7 @@ func TestAppTownsClockDecidesWhatExpires(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	s := testInviteService(t)
-	if _, err := s.Invite(ctx, NewInvite{Username: "kim", Label: "Kim Lee"}, testPrincipal("ops")); err != nil {
+	if _, err := s.Invite(ctx, NewInvite{Username: "kim", Label: "Kim Lee"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	c, err := s.RegisterOAuthClient(ctx, Registration{Name: "agent", RedirectURIs: []string{"http://localhost:1/cb"}})
@@ -66,7 +66,7 @@ func TestAppTownsClockDecidesWhatExpires(t *testing.T) {
 	}
 
 	moveDatabaseClock(t, s.db, "40 days")
-	if pending, err := s.Invites(ctx, testPrincipal("ops")); err != nil || len(pending) != 1 || pending[0].State != "pending" {
+	if pending, err := s.Invites(ctx, admittedPrincipal(t, s, "ops")); err != nil || len(pending) != 1 || pending[0].State != "pending" {
 		t.Fatalf("a pending invite by AppTown's clock: %+v %v", pending, err)
 	}
 	if err := s.oauth.SweepExpired(context.Background()); err != nil {
@@ -170,7 +170,7 @@ func TestEveryLifetimeIsJudgedByAppTownsClock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	invited, err := s.Invite(ctx, NewInvite{Username: "kim", Label: "Kim Lee"}, testPrincipal("ops"))
+	invited, err := s.Invite(ctx, NewInvite{Username: "kim", Label: "Kim Lee"}, admittedPrincipal(t, s, "ops"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +355,7 @@ func TestAnOperationsReceiptCarriesItsRecordsTime(t *testing.T) {
 	s := New(testDB(t), Config{SessionTTL: time.Hour, Now: clk.Now})
 	testAccounts(t, s.db, "alice", "ops")
 	testGrantRoot(t, s, "ops")
-	ops := testPrincipal("ops")
+	ops := admittedPrincipal(t, s, "ops")
 	receiptAt := func(kind string) time.Time {
 		t.Helper()
 		got := receipts(t, s, kind)

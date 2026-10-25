@@ -54,7 +54,7 @@ func TestAccountCommandOwnsPasswordAndDefaults(t *testing.T) {
 	testGrantRoot(t, s, "ops")
 	group := "  family  "
 	in := AccountChange{Username: "alice", Password: "new-password", DefaultGroup: &group}
-	if err := s.SaveUser(ctx, in, testOpenPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, in, admittedOpenPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	if group != "  family  " {
@@ -75,13 +75,13 @@ func TestAccountCommandOwnsPasswordAndDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveUser(ctx, AccountChange{Username: "alice"}, testOpenPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "alice"}, admittedOpenPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	if pr, err := s.SessionIdentity(ctx, signed.Token); err != nil || pr.Name != "alice" {
 		t.Fatalf("omitted password ended the session: %v", err)
 	}
-	if err := s.SaveUser(ctx, AccountChange{Username: "alice", Password: "replacement-password"}, testOpenPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "alice", Password: "replacement-password"}, admittedOpenPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	if pr, err := s.SessionIdentity(ctx, signed.Token); err != nil || pr.Name != "" {
@@ -193,11 +193,11 @@ func TestOperatorPasswordResetIsTheAccountChange(t *testing.T) {
 	ctx := context.Background()
 	s := New(testDB(t), Config{})
 	testGrantRoot(t, s, "ops")
-	if err := s.SaveUser(ctx, AccountChange{Username: "root", Password: "forgotten-password", Role: "admin"}, testPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "root", Password: "forgotten-password", Role: "admin"}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	disabled := true
-	if err := s.SaveUser(ctx, AccountChange{Username: "away", Password: "away-password", Disabled: &disabled}, testPrincipal("ops")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "away", Password: "away-password", Disabled: &disabled}, admittedPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	signed, err := s.SignIn(ctx, PasswordLogin{Username: "root", Password: "forgotten-password"})
@@ -255,17 +255,17 @@ func TestAccountStateChangeWithoutRoleKeepsAuthority(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"alice", "dana"} {
-		if err := s.SaveUser(ctx, AccountChange{Username: name, Password: "long-enough-1"}, testPrincipal("backup")); err != nil {
+		if err := s.SaveUser(ctx, AccountChange{Username: name, Password: "long-enough-1"}, admittedPrincipal(t, s, "backup")); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := s.SaveGroup(ctx, GroupChange{Name: "operators", Members: []string{"alice"}}, testPrincipal("backup")); err != nil {
+	if err := s.SaveGroup(ctx, GroupChange{Name: "operators", Members: []string{"alice"}}, admittedPrincipal(t, s, "backup")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.Grant(ctx, Spec{SubjectType: "group", Subject: "operators", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, By: "backup"}, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.SaveUser(ctx, AccountChange{Username: "dana", Role: "admin"}, testPrincipal("backup")); err != nil {
+	if err := s.SaveUser(ctx, AccountChange{Username: "dana", Role: "admin"}, admittedPrincipal(t, s, "backup")); err != nil {
 		t.Fatal(err)
 	}
 	direct := func(name string) int {
@@ -286,7 +286,7 @@ func TestAccountStateChangeWithoutRoleKeepsAuthority(t *testing.T) {
 		direct int
 	}{{"alice", 0}, {"dana", 1}} {
 		for _, disabled := range []bool{true, false} {
-			if err := s.SaveUser(ctx, AccountChange{Username: c.name, Disabled: &disabled}, testPrincipal("backup")); err != nil {
+			if err := s.SaveUser(ctx, AccountChange{Username: c.name, Disabled: &disabled}, admittedPrincipal(t, s, "backup")); err != nil {
 				t.Fatalf("%s disabled=%v: %v", c.name, disabled, err)
 			}
 			if got := direct(c.name); got != c.direct {

@@ -35,7 +35,7 @@ func TestGroupCommandReplacesMembersAndRecordsInput(t *testing.T) {
 	s := New(testDB(t), Config{OpenInstance: true})
 	testGrantRoot(t, s, "ops")
 	in := GroupChange{Name: "kids", Description: "first", Members: []string{"zoe", "Bad Name", "amy", "zoe"}}
-	if err := s.SaveGroup(ctx, in, testOpenPrincipal("ops")); err != nil {
+	if err := s.SaveGroup(ctx, in, admittedOpenPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	groups, err := s.Groups(ctx)
@@ -53,14 +53,14 @@ func TestGroupCommandReplacesMembersAndRecordsInput(t *testing.T) {
 	if payload := string(saved[0].Payload); payload != `{"members":["zoe","amy","zoe"]}` {
 		t.Fatalf("receipt changed normalized input order or duplicates: %s", payload)
 	}
-	if err := s.SaveGroup(ctx, GroupChange{Name: "kids", Description: "second", Members: []string{"zoe"}}, testOpenPrincipal("ops")); err != nil {
+	if err := s.SaveGroup(ctx, GroupChange{Name: "kids", Description: "second", Members: []string{"zoe"}}, admittedOpenPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	groups, err = s.Groups(ctx)
 	if err != nil || len(groups) != 1 || groups[0].Description != "second" || !reflect.DeepEqual(groups[0].Members, []string{"zoe"}) {
 		t.Fatalf("replacement: %+v %v", groups, err)
 	}
-	if err := s.SaveGroup(ctx, GroupChange{Name: "kids"}, testOpenPrincipal("ops")); err != nil {
+	if err := s.SaveGroup(ctx, GroupChange{Name: "kids"}, admittedOpenPrincipal(t, s, "ops")); err != nil {
 		t.Fatal(err)
 	}
 	groups, err = s.Groups(ctx)

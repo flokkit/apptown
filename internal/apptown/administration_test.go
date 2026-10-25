@@ -54,7 +54,7 @@ func TestAdministrativeCommandsPreserveOpenAndProxyModes(t *testing.T) {
 			}
 			testAdministrator(t, a, "backup")
 			disabled := true
-			if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "boss", Disabled: &disabled}, access.Principal{Kind: "user", Name: "backup", Via: "session"}); err != nil {
+			if err := a.Access.SaveUser(context.Background(), identity.AccountChange{Username: "boss", Disabled: &disabled}, access.Principal{ID: testPrincipalOf(t, a.DB, "backup"), Kind: "user", Name: "backup", Via: "session"}); err != nil {
 				t.Fatal(err)
 			}
 			if w := call("boss", mode == "trusted-header"); w.Code != 403 {
