@@ -40,6 +40,28 @@ defaults:
     shell: bash
 
 jobs:
+  # Go embeds this artifact; frontend validation runs independently below.
+  web-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+        working-directory: web
+      - run: npx vite build
+        working-directory: web
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-dist
+          path: web/dist/
+          retention-days: 1
+          include-hidden-files: true
+
   web:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -56,8 +78,6 @@ jobs:
       - run: make check-docs
       - run: npx tsc --noEmit
         working-directory: web
-      - run: npx vite build
-        working-directory: web
       - run: npm run lint
         working-directory: web
       - run: npm test
@@ -65,18 +85,12 @@ jobs:
       # The registry's advisory service, for web/ and the starter seeds:
       # high or critical fails, and so does a report npm could not get.
       - run: make check-npm-audit
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: web-dist
-          path: web/dist/
-          retention-days: 1
-          include-hidden-files: true
 
   # The checker stages of make check-go-gate, the pin, npm install-script and build-artifact
   # checks, and govulncheck. Vet and every analyzer load web/, which embeds
   # web/dist, so this needs the web build.
   checks:
-    needs: web
+    needs: web-build
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -140,7 +154,7 @@ jobs:
   # The Go unit tests, partitioned: the root package's two halves (as the
   # gate splits it), the rest of internal/apptown, and everything else.
   test:
-    needs: web
+    needs: web-build
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
@@ -220,7 +234,7 @@ jobs:
   # failed or was skipped, and then fails: skipped is not passed.
   ci-ok:
     if: always()
-    needs: [web, checks, test, public, sql-writes]
+    needs: [web-build, web, checks, test, public, sql-writes]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
