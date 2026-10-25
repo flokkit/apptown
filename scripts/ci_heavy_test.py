@@ -236,6 +236,17 @@ class RequiredTests(unittest.TestCase):
         self.assertIn('http://127.0.0.1:43210/', commands)
         self.assertLess(commands.index('rm -f preflight-server'), commands.index('build -q'))
 
+    def test_external_cleanup_removes_preflight_names_without_create_results(self):
+        calls = os.path.join(self.dir.name, 'external-cleanup')
+        r = self.run_job('', require=None, mode='cleanup', STUB_ALL_CALLS=calls)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with open(calls) as f:
+            commands = f.read().splitlines()
+        name = f'apptown-ci-citest{os.getpid()}-{self.job}'
+        for suffix in ('', '-network-server', '-network-client'):
+            self.assertIn('rm -f ' + name + suffix, commands)
+        self.assertFalse(any(c.startswith(('create ', 'build ')) for c in commands))
+
     def test_every_required_test_passing_passes(self):
         r = self.run_job("--- PASS: TestA (0.01s)\n    --- PASS: TestB (1.20s)\nok\n")
         self.assertEqual(r.returncode, 0, r.stderr)

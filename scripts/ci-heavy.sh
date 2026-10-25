@@ -74,6 +74,9 @@ cleanup() {
 
 case "${1:-}" in
 cleanup)
+	# A fresh shell has no create results from an interrupted preflight.
+	probe_server=$name-network-server
+	probe_client=$name-network-client
 	cleanup
 	exit 0
 	;;
