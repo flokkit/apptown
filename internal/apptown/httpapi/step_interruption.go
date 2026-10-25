@@ -45,7 +45,7 @@ func (h StepInterruption) StepInterrupt(w http.ResponseWriter, r *http.Request) 
 		if err != nil || found {
 			return stopped, err
 		}
-		return h.docker.StopStep(ctx, step.ID), nil
+		return h.docker.StopStep(ctx, step.ID)
 	})
 	if err != nil {
 		WriteFaultOr(w, err, 502)
