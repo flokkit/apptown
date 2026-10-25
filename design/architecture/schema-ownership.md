@@ -38,13 +38,16 @@ identity: `TestNoNewIntegerIdentity` refuses one, and
 `internal/apptown/dbschema/integer-identity-baseline.txt` is empty: no integer
 identity remains.
 
-The migration chain only appends. Schema 147 is the 1.0 baseline: the
-migrations up to it are folded into the fragments. A written migration keeps its number and statements:
-`migrations.lock` records each, `TestMigrationsMatchTheirLock` holds the
-chain to it, and `make check-migrations` (a local stage of `make check`, run
-before landing) refuses a lock that changes a line `origin/main` released.
-The only exception it admits is a later baseline collapse, a lock that is
-one `baseline N` line at the last released version.
+Schema 167 (1.0.0-rc.7) is the oldest supported installation. Earlier
+migrations are folded into the fragments; their history remains in Git.
+Migrations above the baseline only append: a released migration keeps its
+number and statements. `migrations.lock` records each,
+`TestMigrationsMatchTheirLock` holds the chain to it, and
+`make check-migrations` compares the lock with `origin/main` before landing.
+A deliberate baseline advance may retire a released prefix, but must retain
+every released migration above the new baseline verbatim and in order.
+The baseline must itself be a released version; new migrations may follow
+the retained suffix. The gate's isolated Git tests cover these boundaries.
 
 The Go initializer and its supported migration baseline remain central. Startup
 changes each migration's DDL, data and version together. River's own migration

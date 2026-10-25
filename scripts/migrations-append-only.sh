@@ -3,8 +3,9 @@
 # TestMigrationsMatchTheirLock): every line released on <base> (default
 # origin/main) is still there, in order, so no released migration is
 # renumbered, rewritten or removed. The one exception is a baseline
-# collapse: a lock that is only "baseline N", where N is the last version
-# <base> reaches, folds every released migration into the schema.
+# collapse: a baseline can advance to a released version while preserving
+# every released migration above it, in order and byte-for-byte. New
+# migrations may follow that retained suffix.
 #
 #   sh scripts/migrations-append-only.sh [base]
 set -eu
@@ -26,11 +27,22 @@ case $current in
 "$released"|"$released
 "*) echo "migrations-append-only: ok"; exit 0 ;;
 esac
-# A collapse: the lock is one baseline line at the last version released.
-last=$(printf '%s\n' "$released" | awk 'NR == 1 {n = $2} NR > 1 {n = $1} END {print n}')
-if [ "$current" = "baseline $last" ]; then
-	echo "migrations-append-only: a baseline collapse at $last: ok"
-	exit 0
+# Advancing the floor retires only a released prefix. The retained suffix
+# must remain verbatim; a collapse cannot hide edits to newer migrations.
+floor=$(printf '%s\n' "$current" | sed -n '1s/^baseline \([0-9][0-9]*\)$/\1/p')
+if [ -n "$floor" ]; then
+	prefix=$(printf '%s\n' "$released" | awk -v floor="$floor" '
+		NR == 1 { old = $2; if (floor == old) found = 1; next }
+		$1 == floor { found = 1 }
+		$1 > floor { suffix = suffix "\n" $0 }
+		END { if (found && floor >= old) printf "baseline %d%s\n", floor, suffix }
+	')
+	if [ -n "$prefix" ]; then
+		case $current in
+		"$prefix"|"$prefix
+"*) echo "migrations-append-only: baseline $floor with released suffix preserved: ok"; exit 0 ;;
+		esac
+	fi
 fi
 echo "migrations-append-only: $lock changes what $base released; a released migration keeps its number and statements (add a new one):" >&2
 printf '%s\n' "$released" | diff - "$lock" >&2 || true

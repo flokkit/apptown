@@ -230,6 +230,9 @@ func readManifest(r *backuparchive.Reader) (*Manifest, error) {
 	if m.Format != ArchiveFormat || m.Version > ArchiveVersion {
 		return nil, fmt.Errorf("the archive is %s version %d; this build restores %s version %d", m.Format, m.Version, ArchiveFormat, ArchiveVersion)
 	}
+	if m.Schema < dbschema.Baseline() {
+		return nil, fmt.Errorf("the archive's database is at schema %d; this build restores schema %d or newer (1.0.0-rc.7 or newer)", m.Schema, dbschema.Baseline())
+	}
 	if m.Schema > dbschema.Latest() {
 		return nil, fmt.Errorf("the archive's database is at schema %d, newer than this build's %d: restore it with %s or newer", m.Schema, dbschema.Latest(), m.Build)
 	}

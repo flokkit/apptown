@@ -9,11 +9,11 @@ import (
 	"github.com/flokkit/apptown/internal/dbtest"
 )
 
-// releaseDB is an AppTown as the 1.0 baseline release left it (the root
-// package's upgrade fixture), at schema 147 and not yet upgraded.
+// releaseDB is an AppTown as the 1.0.0-rc.7 release left it (the root
+// package's upgrade fixture), at schema 167 and not yet upgraded.
 func releaseDB(t *testing.T) *database.DB {
 	t.Helper()
-	dir := filepath.Join("..", "testdata", "upgrade", "1.0-baseline")
+	dir := filepath.Join("..", "testdata", "upgrade", "1.0.0-rc.7")
 	schemaSQL, err := os.ReadFile(filepath.Join(dir, "release-schema.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -28,61 +28,6 @@ func releaseDB(t *testing.T) *database.DB {
 		t.Fatal(err)
 	}
 	return db
-}
-
-// Migration 148 marks the one change that was closed by hand, before the
-// engine's nothing-to-change close was live, for exactly that reason
-// (one change on an early installation), by its id and only while it
-// is abandoned. Another abandoned change, with the same reason's words,
-// stays unmarked: the label comes from the record, never from the text.
-//
-// Kills: a migration that marks by reason text, marks every abandoned
-// change, or marks the change whatever its state.
-func TestMigration148MarksOnlyTheChangeClosedByHandForNothingToChange(t *testing.T) {
-	t.Parallel()
-	db := releaseDB(t)
-	const project = "00000000-0001-7000-8000-000000000000"
-	// sql-guarantee: the release's records before the migration; the 1.0
-	// build that wrote them is not this one, so no owner operation can.
-	for _, row := range []struct{ id, state string }{
-		{"01a0f60c-aaae-7000-9de8-0b5d465313ba", "abandoned"},
-		{"01a0f60c-aaae-7000-9de8-0b5d465313bb", "abandoned"},
-	} {
-		if _, err := db.Exec(`INSERT INTO changes (id, project_id, number, type, title, state, created_at, closed_at) VALUES (?, ?, (SELECT COALESCE(MAX(number),0)+1 FROM changes WHERE project_id = ?), 'change', 'Update dependencies', ?, '2026-10-13T00:00:00Z', '2026-10-13T00:00:00Z')`, row.id, project, project, row.state); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if _, err := Migrate(t.Context(), db); err != nil {
-		t.Fatal(err)
-	}
-	closedAs := map[string]string{}
-	rows, err := db.Query(`SELECT id::text, closed_as FROM changes`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id, as string
-		if err := rows.Scan(&id, &as); err != nil {
-			t.Fatal(err)
-		}
-		closedAs[id] = as
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	for id, as := range closedAs {
-		want := ""
-		if id == "01a0f60c-aaae-7000-9de8-0b5d465313ba" {
-			want = "nothing-to-change"
-		}
-		if as != want {
-			t.Errorf("change %s closed_as %q after migration 148, want %q", id, as, want)
-		}
-	}
-	if len(closedAs) < 3 {
-		t.Fatalf("the release's changes and the two added were not all read: %d", len(closedAs))
-	}
 }
 
 // An AppTown upgraded from a release has the shape a fresh AppTown is created
@@ -139,5 +84,27 @@ WHERE ns.nspname = 'public' AND con.contype = 'c'`)
 		if !want[line] {
 			t.Errorf("the upgraded AppTown has %s, which a fresh one does not", line)
 		}
+	}
+}
+
+// Both supported RC8 entry states work: a partially upgraded installation
+// applies only its remaining migration, and reopening the latest is a no-op.
+func TestSupportedIntermediateSchemaAndLatestReplay(t *testing.T) {
+	t.Parallel()
+	db := releaseDB(t)
+	if _, err := applyMigrations(t.Context(), db, migrations[:1]); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := schemaVersion(db); err != nil || v != 168 {
+		t.Fatalf("intermediate schema %d: %v", v, err)
+	}
+	if _, err := Migrate(t.Context(), db); err != nil {
+		t.Fatal(err)
+	}
+	if v, err := schemaVersion(db); err != nil || v != Latest() {
+		t.Fatalf("upgraded schema %d: %v", v, err)
+	}
+	if _, err := Migrate(t.Context(), db); err != nil {
+		t.Fatal(err)
 	}
 }

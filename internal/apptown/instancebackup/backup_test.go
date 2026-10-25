@@ -113,6 +113,31 @@ func TestAnArchiveUnpacksWhatItHoldsAndHoldsItToItsManifest(t *testing.T) {
 	if _, _, err := unpack(write(func(m *Manifest) { m.Schema = dbschema.Latest() + 1 }), backupPassphrase); err == nil || !strings.Contains(err.Error(), "newer than this build") {
 		t.Fatalf("a newer database: %v", err)
 	}
+	// RC7 archives predate database provenance; they remain valid archives.
+	if m, _, err := unpack(write(func(m *Manifest) { m.Schema = 167; m.Database = nil }), backupPassphrase); err != nil || m.Schema != 167 || m.Database != nil {
+		t.Fatalf("RC7 archive without provenance: %+v, %v", m, err)
+	}
+	for _, schema := range []int{0, 166} {
+		archive := write(func(m *Manifest) { m.Schema = schema })
+		if _, dst, err := unpack(archive, backupPassphrase); err == nil || !strings.Contains(err.Error(), "schema 167 or newer") {
+			t.Fatalf("unsupported schema %d: %v", schema, err)
+		} else if entries, err := os.ReadDir(dst); err != nil || len(entries) != 0 {
+			t.Fatalf("archive extracted before refusal: %v, %v", entries, err)
+		}
+		dst := t.TempDir()
+		dk := docker.Scope{Client: dockerClientFunc(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+			if len(req.Args) == 0 || req.Args[0] != "ps" {
+				t.Fatalf("restore changed Docker before refusal: %v", req.Args)
+			}
+			return nil, nil
+		})}
+		if _, err := Restore(t.Context(), RestoreRequest{DataDir: dst, Archive: archive, Passphrase: backupPassphrase, Docker: dk, Database: forbiddenRestoreDatabase{t: t}}); err == nil || !strings.Contains(err.Error(), "schema 167 or newer") {
+			t.Fatalf("Restore unsupported schema %d: %v", schema, err)
+		}
+		if entries, err := os.ReadDir(dst); err != nil || len(entries) != 0 {
+			t.Fatalf("Restore extracted before refusal: %v, %v", entries, err)
+		}
+	}
 	if _, _, err := unpack(write(nil), "another passphrase entirely"); !errors.Is(err, backuparchive.ErrPassphrase) {
 		t.Fatalf("another passphrase: %v", err)
 	}
@@ -223,4 +248,24 @@ func TestAHoldHoldsUntilReleased(t *testing.T) {
 	if err := h.Wait(t.Context()); err != nil {
 		t.Fatal("released, and Wait still waited")
 	}
+}
+
+// No provider operation is permitted before the archive's schema is accepted.
+type forbiddenRestoreDatabase struct{ t *testing.T }
+
+func (d forbiddenRestoreDatabase) Names() (string, string, bool) {
+	d.t.Fatal("Names before archive acceptance")
+	return "", "", false
+}
+func (d forbiddenRestoreDatabase) Dump(context.Context, string) error {
+	d.t.Fatal("Dump during restore")
+	return nil
+}
+func (d forbiddenRestoreDatabase) DumpClientVersion(context.Context) (string, error) {
+	d.t.Fatal("DumpClientVersion during restore")
+	return "", nil
+}
+func (d forbiddenRestoreDatabase) Ensure(context.Context) (string, error) {
+	d.t.Fatal("Ensure before archive acceptance")
+	return "", nil
 }
