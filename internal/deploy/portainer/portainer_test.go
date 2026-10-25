@@ -2,6 +2,7 @@ package portainer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -73,6 +74,10 @@ func TestObserveAsksPortainerWhetherEachStacksAppRuns(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/endpoints":
 			_, _ = w.Write([]byte(`[{"Id":3,"Name":"lan"}]`))
+		case "/api/stacks":
+			fmt.Fprint(w, `[{"Id":7,"Name":"apptown-snake","EndpointId":3},{"Id":8,"Name":"apptown-racer","EndpointId":3}]`)
+		case "/api/stacks/7/file", "/api/stacks/8/file":
+			_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}")})
 		case "/api/endpoints/3/docker/containers/json":
 			lists++
 			if failing {
@@ -92,10 +97,10 @@ func TestObserveAsksPortainerWhetherEachStacksAppRuns(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	cfg := &Target{PortainerURL: server.URL, PortainerKey: "k", EnvName: "lan"}
-	inv := Inventory{Config: func() (*Target, error) { return cfg, nil }}
+	cfg := &Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, PortainerKey: "k", EnvName: "lan"}
+	inv := Inventory{Config: func(context.Context) (*Target, error) { return cfg, nil }}
 	placed := func(stack string) deploy.Placement {
-		return deploy.Placement{Generation: 4, URL: "https://" + stack, Handle: map[string]any{"stack": stack}}
+		return deploy.Placement{ID: idstest.N(7), Generation: 4, URL: "https://" + stack, Handle: map[string]any{"stack": stack}}
 	}
 	ps := []deploy.Placement{placed("apptown-snake"), placed("apptown-racer"), placed("apptown-gone"),
 		{Generation: 4, URL: "https://old", Handle: map[string]any{}}, {Handle: map[string]any{}}}
@@ -121,7 +126,7 @@ func TestObserveAsksPortainerWhetherEachStacksAppRuns(t *testing.T) {
 	if lists != 1 {
 		t.Errorf("Portainer was asked for its containers %d times for one target", lists)
 	}
-	d := &Driver{TargetID: idstest.N(2), Config: func(ids.ID) (*Target, error) { return cfg, nil }}
+	d := &Driver{TargetID: idstest.N(2), Config: func(context.Context, ids.ID) (*Target, error) { return cfg, nil }}
 	if o, err := d.Observe(context.Background(), placed("apptown-snake")); err != nil || o.Rollout != "active" {
 		t.Fatalf("one deployment: %+v %v", o, err)
 	}
@@ -129,7 +134,7 @@ func TestObserveAsksPortainerWhetherEachStacksAppRuns(t *testing.T) {
 	if got, err := inv.ObserveAll(context.Background(), ps); err == nil {
 		t.Fatalf("a failed list was read as %+v", got)
 	}
-	if _, err := d.Teardown(context.Background(), deploy.Placement{Generation: 4}, 4, deploy.TakeDown{}); err == nil || !strings.Contains(err.Error(), "did not record creating") {
+	if _, err := d.Teardown(context.Background(), deploy.Placement{ID: idstest.N(7), Generation: 4}, 4, deploy.TakeDown{}); err == nil || !strings.Contains(err.Error(), "did not record creating") {
 		t.Fatalf("a stack AppTown did not make was taken down: %v", err)
 	}
 	if c := d.Controls(); !c.Liveness || !c.Rollout {
@@ -161,6 +166,8 @@ func TestOnlyAStackAppTownCreatedIsRecorded(t *testing.T) {
 					} else {
 						fmt.Fprint(w, `[]`)
 					}
+				case r.Method == "GET" && r.URL.Path == "/api/stacks/7/file":
+					_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}")})
 				case r.Method == "PUT" && r.URL.Path == "/api/stacks/7":
 					fmt.Fprint(w, `{"Id":7}`)
 				case r.Method == "POST" && r.URL.Path == "/api/stacks/create/standalone/string":
@@ -172,7 +179,7 @@ func TestOnlyAStackAppTownCreatedIsRecorded(t *testing.T) {
 			}))
 			defer server.Close()
 			book := &stackBook{}
-			_, err := (Execution{Config: Target{PortainerURL: server.URL, EnvName: "lan"}, EndpointID: 3, Stack: "shop-lan", Compose: "services: {}", Owner: book, Log: func(string, ...any) {}}).
+			_, err := (Execution{DeploymentID: idstest.N(7), Config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "lan"}, EndpointID: 3, Stack: "shop-lan", Compose: scopeFixtureCompose("services: {}"), Owner: book, Log: func(string, ...any) {}}).
 				Execute(context.Background(), 1, func(map[string]any) error { return nil })
 			if err != nil {
 				t.Fatal(err)
@@ -200,8 +207,10 @@ func TestTakeDownDeletesAppTownsStackAndKeepsItsVolumes(t *testing.T) {
 				switch {
 				case r.URL.Path == "/api/endpoints":
 					fmt.Fprint(w, `[{"Id":3,"Name":"lan"}]`)
+				case r.Method == "GET" && r.URL.Path == "/api/stacks":
+					fmt.Fprint(w, `[{"Id":12,"Name":"shop-lan","EndpointId":3}]`)
 				case r.Method == "GET" && r.URL.Path == "/api/stacks/12/file":
-					fmt.Fprint(w, `{"StackFileContent":"services: {}\nvolumes:\n  forge-data-shop: {}\n  named:\n    name: shop-uploads\n  shared:\n    external: true\n"}`)
+					_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}\nvolumes:\n  forge-data-shop: {}\n  named:\n    name: shop-uploads\n  shared:\n    external: true\n")})
 				case r.Method == "DELETE" && r.URL.Path == "/api/stacks/12":
 					if scenario == "refused" {
 						http.Error(w, "no", 500)
@@ -215,8 +224,10 @@ func TestTakeDownDeletesAppTownsStackAndKeepsItsVolumes(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			d := &Driver{TargetID: idstest.N(2), Config: func(ids.ID) (*Target, error) { return &Target{PortainerURL: server.URL, EnvName: "lan"}, nil }}
-			out, err := d.Teardown(context.Background(), deploy.Placement{Generation: 1}, 1, deploy.TakeDown{Owned: []deploy.Owned{{Kind: "stack", ID: "12", Name: "shop-lan"}}})
+			d := &Driver{TargetID: idstest.N(2), Config: func(context.Context, ids.ID) (*Target, error) {
+				return &Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "lan"}, nil
+			}}
+			out, err := d.Teardown(context.Background(), deploy.Placement{ID: idstest.N(7), Generation: 1}, 1, deploy.TakeDown{Owned: []deploy.Owned{{Kind: "stack", ID: "12", Name: "shop-lan"}}})
 			if scenario == "refused" {
 				if err == nil {
 					t.Fatal("a stack Portainer kept was reported deleted")

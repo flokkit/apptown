@@ -113,6 +113,14 @@ WHERE i.id = v.integration_id AND i.capability = 'scanner' AND jsonb_typeof(v.co
   UNIQUE (deployment_id, need, volume)
 )`,
 	}},
+	{n: 171, note: "bind provider targets and repositories to connection identities without inventing remote scope", stmts: []string{
+		`ALTER TABLE targets ADD COLUMN connection_id UUID REFERENCES integrations(id) ON DELETE RESTRICT, ADD COLUMN provider_scope_json JSONB`,
+		`UPDATE targets t SET connection_id=i.id FROM integrations i WHERE t.provider<>'' AND t.provider=i.name`,
+		`UPDATE targets t SET connection_id=i.id FROM integrations i WHERE t.kind='portainer' AND t.name='intranet' AND t.provider='' AND i.name='portainer-deploy' AND i.capability='deploy' AND i.provider='portainer' AND NOT jsonb_exists(t.address_json, 'urlFrom') AND NOT jsonb_exists(t.address_json, 'apiKeyFrom')`,
+		`ALTER TABLE owned_repositories ADD COLUMN connection_id UUID REFERENCES integrations(id) ON DELETE RESTRICT`,
+		`UPDATE owned_repositories r SET connection_id=i.id FROM integrations i WHERE r.connector=i.name`,
+		`ALTER TABLE release_requests ADD COLUMN provider_binding_json JSONB`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

@@ -192,6 +192,48 @@ func (q *Queries) BindingAttachmentCount(ctx context.Context, binding string) (i
 	return count, err
 }
 
+const bindingByID = `-- name: BindingByID :one
+SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations WHERE id=$1
+`
+
+func (q *Queries) BindingByID(ctx context.Context, id ids.ID) (Integration, error) {
+	row := q.db.QueryRowContext(ctx, bindingByID, id)
+	var i Integration
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Capability,
+		&i.Provider,
+		&i.ConfigJson,
+		&i.Version,
+		&i.Managed,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const bindingByIDForShare = `-- name: BindingByIDForShare :one
+SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations WHERE id=$1 FOR SHARE
+`
+
+func (q *Queries) BindingByIDForShare(ctx context.Context, id ids.ID) (Integration, error) {
+	row := q.db.QueryRowContext(ctx, bindingByIDForShare, id)
+	var i Integration
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Capability,
+		&i.Provider,
+		&i.ConfigJson,
+		&i.Version,
+		&i.Managed,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const bindingByName = `-- name: BindingByName :one
 SELECT id, name, capability, provider, config_json, version, managed, created_at, updated_at FROM integrations WHERE name=$1
 `

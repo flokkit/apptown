@@ -3,6 +3,8 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -53,10 +55,24 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	if w := read(); json.Unmarshal(w.Body.Bytes(), &plan) != nil || plan.Published == nil || *plan.Published {
 		t.Fatalf("a plan over a bundle of image IDs: %d %s", w.Code, w.Body.String())
 	}
-	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=never-expose-this-key\nAPPTOWN_APPS_DOMAIN=apps.example\n"), 0600); err != nil {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/endpoints/3":
+			fmt.Fprint(w, `{"Id":3,"Name":"lan","Type":1}`)
+		case "/api/endpoints/3/docker/info":
+			fmt.Fprint(w, `{"ID":"plan-engine"}`)
+		default:
+			t.Errorf("unexpected provider request %s", r.URL)
+			w.WriteHeader(404)
+		}
+	}))
+	defer server.Close()
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL="+server.URL+"\nPORTAINER_API_KEY=never-expose-this-key\nAPPTOWN_APPS_DOMAIN=apps.example\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	a.SeedTargets(t.Context()) // a restart records the intranet target from the configuration
+	if response := authzCall(h, "boss", "POST", "/api/v1/targets", `{"name":"intranet","kind":"portainer","endpointId":3,"environment":"lan","urlFrom":"PORTAINER_URL","apiKeyFrom":"PORTAINER_API_KEY","domain":"apps.example"}`); response.Code != 200 {
+		t.Fatalf("verified attachment: %d %s", response.Code, response.Body)
+	}
 	w = read()
 	plan.ConfigError = ""
 	if err := json.Unmarshal(w.Body.Bytes(), &plan); err != nil || w.Code != 200 || !plan.Configured || plan.Deployment != "lan" || plan.URL != "https://game.apps.example" {
@@ -93,7 +109,7 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 		}
 	}
 	editDomain("lan.example.org")
-	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL=https://portainer.invalid\nPORTAINER_API_KEY=never-expose-this-key\nAPPTOWN_APPS_DOMAIN=other.example\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("PORTAINER_URL="+server.URL+"\nPORTAINER_API_KEY=never-expose-this-key\nAPPTOWN_APPS_DOMAIN=other.example\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	a.SeedTargets(t.Context())

@@ -31,6 +31,7 @@ import (
 // its key resolved at use time, the endpoint's name, the apps domain, and
 // the tier name release rows carry.
 type Target struct {
+	Scope             *Scope // verified by the resolving owner; endpoint name is presentation only
 	PortainerURL      string
 	PortainerKey      string
 	AppsDomain        string
@@ -114,6 +115,12 @@ func PlatformText(ctx context.Context, cfg *Target, endpointID int64) string {
 const endpointsPath = "/api/endpoints?excludeSnapshots=true"
 
 func EndpointID(ctx context.Context, cfg *Target) (int64, error) {
+	if cfg.Scope != nil {
+		if cfg.Scope.Version != 1 || cfg.Scope.EndpointID <= 0 {
+			return 0, errors.New("Portainer endpoint scope is invalid")
+		}
+		return cfg.Scope.EndpointID, nil
+	}
 	code, raw, err := JSON(ctx, cfg, "GET", endpointsPath, nil)
 	if err != nil {
 		return 0, fmt.Errorf("listing Portainer endpoints: %w", err)
@@ -128,10 +135,17 @@ func EndpointID(ctx context.Context, cfg *Target) (int64, error) {
 	if err := json.Unmarshal(raw, &eps); err != nil {
 		return 0, err
 	}
+	var selected int64
 	for _, e := range eps {
 		if e.Name == cfg.EnvName {
-			return e.ID, nil
+			if selected != 0 {
+				return 0, errors.New("Portainer environment name is ambiguous; select its endpoint ID")
+			}
+			selected = e.ID
 		}
+	}
+	if selected > 0 {
+		return selected, nil
 	}
 	return 0, fmt.Errorf("Portainer has no environment named %q — is the platform's forge-env applied?", cfg.EnvName)
 }
@@ -156,6 +170,9 @@ func ListStacks(ctx context.Context, cfg *Target) ([]Stack, error) {
 	if err := json.Unmarshal(raw, &stacks); err != nil {
 		return nil, fmt.Errorf("decoding Portainer stacks: %w", err)
 	}
+	if stacks == nil {
+		return nil, errors.New("Portainer stack list is null")
+	}
 	return stacks, nil
 }
 
@@ -167,13 +184,16 @@ type StackApplied struct {
 }
 
 // DeployStack updates the endpoint's stack of that name, or creates it.
-func DeployStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string) (StackApplied, error) {
+func DeployStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, deploymentID ids.ID, associations []StackAssociation) (StackApplied, error) {
 	var applied StackApplied
-	err := deployStack(ctx, cfg, endpointID, name, compose, &applied)
+	err := deployStack(ctx, cfg, endpointID, name, compose, deploymentID, associations, &applied)
 	return applied, err
 }
 
-func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, applied *StackApplied) error {
+func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compose string, deploymentID ids.ID, associations []StackAssociation, applied *StackApplied) error {
+	if cfg.Scope == nil || cfg.Scope.EndpointID != endpointID || deploymentID.IsZero() {
+		return errors.New("Portainer mutation requires scoped deployment identity")
+	}
 	code, raw, err := JSON(ctx, cfg, "GET", "/api/stacks", nil)
 	if err != nil {
 		return fmt.Errorf("listing stacks: %w", err)
@@ -197,6 +217,16 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 			return errors.New("Portainer stack list contains an incomplete identity")
 		}
 		if st.Name == name && st.EndpointID == endpointID {
+			var legacy *StackAssociation
+			for i := range associations {
+				if associations[i].StackID == st.ID {
+					legacy = &associations[i]
+					break
+				}
+			}
+			if err := VerifyStackAssociation(ctx, *cfg, Stack{ID: st.ID, Name: st.Name, EndpointID: st.EndpointID}, deploymentID, legacy); err != nil {
+				return err
+			}
 			code, raw, err = JSON(ctx, cfg, "PUT",
 				fmt.Sprintf("/api/stacks/%d?endpointId=%d", st.ID, endpointID),
 				map[string]any{"stackFileContent": compose, "pullImage": true, "prune": true})
@@ -240,7 +270,7 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 // own flow (runLANRelease) and records through the deployment.
 type Driver struct {
 	TargetID ids.ID // AppTown's target record
-	Config   func(targetID ids.ID) (*Target, error)
+	Config   func(context.Context, ids.ID) (*Target, error)
 	// Owner records the stack when AppTown creates it; nil records
 	// nothing, and then take-down deletes no stack.
 	Owner deploy.Owner
@@ -256,7 +286,7 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
-	cfg, err := d.Config(d.TargetID)
+	cfg, err := d.Config(ctx, d.TargetID)
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
@@ -277,14 +307,14 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if stack == "" {
 		return deploy.Observation{}, deploy.Terminal(errors.New("the deployment's handle names no stack"))
 	}
-	return (Execution{Config: *cfg, EndpointID: endpointID, Stack: stack, Prefix: prefix, Compose: string(art.Body),
+	return (Execution{Config: *cfg, DeploymentID: p.ID, EndpointID: endpointID, Stack: stack, Prefix: prefix, Compose: string(art.Body),
 		URL: p.URL, Handle: p.Handle, Log: logf, Owner: d.Owner}).Execute(ctx, generation, checkpoint)
 }
 
 // Observe asks Portainer whether the deployment's stack's app container
 // runs (observeStacks).
 func (d *Driver) Observe(ctx context.Context, p deploy.Placement) (deploy.Observation, error) {
-	cfg, err := d.Config(d.TargetID)
+	cfg, err := d.Config(ctx, d.TargetID)
 	if err != nil {
 		return deploy.Observation{}, err
 	}
@@ -335,6 +365,10 @@ func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]d
 	if err != nil {
 		return nil, err
 	}
+	stacks, err := ListStacks(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
 	apps, err := appContainers(ctx, cfg, endpointID)
 	if err != nil {
 		return nil, err
@@ -344,7 +378,34 @@ func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]d
 		if stack == "" {
 			continue
 		}
+		associations, err := SavedAssociations(p.Handle)
+		if err != nil {
+			return nil, err
+		}
+		found := false
+		for _, remote := range stacks {
+			if remote.Name != stack || remote.EndpointID != endpointID {
+				continue
+			}
+			if found {
+				return nil, errors.New("Portainer stack identity is ambiguous")
+			}
+			found = true
+			var legacy *StackAssociation
+			for j := range associations {
+				if associations[j].StackID == remote.ID {
+					legacy = &associations[j]
+					break
+				}
+			}
+			if err := VerifyStackAssociation(ctx, *cfg, remote, p.ID, legacy); err != nil {
+				return nil, err
+			}
+		}
 		app := apps[strings.ToLower(stack)]
+		if !found && app.running {
+			return nil, errors.New("Portainer app runs without an associated stack record")
+		}
 		if app.running {
 			out[i].Rollout, out[i].Health = "active", "healthy"
 		} else {
@@ -424,11 +485,22 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 	if len(stacks) == 0 {
 		return out, errors.New("AppTown did not record creating this deployment's stack, so taking it down is done in Portainer by its owner")
 	}
-	cfg, err := d.Config(d.TargetID)
+	cfg, err := d.Config(ctx, d.TargetID)
 	if err != nil {
 		return out, err
 	}
+	if cfg.Scope == nil || cfg.Scope.Version != 1 || p.ID.IsZero() {
+		return out, errors.New("Portainer teardown requires scoped deployment identity")
+	}
 	endpointID, err := EndpointID(ctx, cfg)
+	if err != nil {
+		return out, err
+	}
+	actual, err := ListStacks(ctx, cfg)
+	if err != nil {
+		return out, err
+	}
+	associations, err := SavedAssociations(p.Handle)
 	if err != nil {
 		return out, err
 	}
@@ -439,13 +511,37 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 		}
 	}
 	for _, st := range stacks {
+		present := false
+		for _, remote := range actual {
+			if fmt.Sprint(remote.ID) != st.ID {
+				continue
+			}
+			present = true
+			if remote.Name != st.Name || remote.EndpointID != endpointID {
+				return out, errors.New("owned Portainer stack now identifies a different resource")
+			}
+			var legacy *StackAssociation
+			for i := range associations {
+				if associations[i].StackID == remote.ID {
+					legacy = &associations[i]
+					break
+				}
+			}
+			if err := VerifyStackAssociation(ctx, *cfg, remote, p.ID, legacy); err != nil {
+				return out, err
+			}
+		}
 		vols, verr := stackVolumes(ctx, cfg, st)
 		for name := range listed {
 			if !slices.Contains(vols, name) {
 				vols = append(vols, name) // a volume an earlier release made
 			}
 		}
-		code, raw, err := JSON(ctx, cfg, "DELETE", fmt.Sprintf("/api/stacks/%s?endpointId=%d", url.PathEscape(st.ID), endpointID), nil)
+		code := http.StatusNotFound
+		var raw []byte
+		if present {
+			code, raw, err = JSON(ctx, cfg, "DELETE", fmt.Sprintf("/api/stacks/%s?endpointId=%d", url.PathEscape(st.ID), endpointID), nil)
+		}
 		if err != nil {
 			return out, fmt.Errorf("deleting stack %s: %w", st.Name, err)
 		}
@@ -536,6 +632,7 @@ func (d *Driver) Controls() deploy.Controls {
 // Both bundle and intranet releases execute this prepared request. Config is
 // execution-only; checkpoints contain provider identity, never credentials.
 type Execution struct {
+	DeploymentID        ids.ID
 	Config              Target
 	EndpointID          int64
 	Stack, Compose, URL string
@@ -553,10 +650,21 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
+	if p.DeploymentID.IsZero() || p.Config.Scope == nil || p.Config.Scope.EndpointID != p.EndpointID {
+		return deploy.Observation{}, deploy.Terminal(errors.New("Portainer execution requires verified deployment and endpoint identity"))
+	}
+	associations, err := SavedAssociations(p.Handle)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
+	}
+	marker, err := composeDeployment(p.Compose)
+	if err != nil || marker != p.DeploymentID.String() {
+		return deploy.Observation{}, deploy.Terminal(errors.New("Portainer artifact has no matching deployment marker"))
+	}
 	if p.Stack == "" || p.EndpointID <= 0 {
 		return deploy.Observation{}, deploy.Terminal(errors.New("Portainer execution requires a stack and endpoint"))
 	}
-	if err := checkpoint(map[string]any{"stack": p.Stack, "endpoint": p.Config.EnvName, "endpointId": p.EndpointID}); err != nil {
+	if err := checkpoint(map[string]any{"stack": p.Stack, "endpoint": p.Config.EnvName, "endpointId": p.EndpointID, "providerScope": p.Config.Scope, "deploymentId": p.DeploymentID}); err != nil {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("recording Portainer identity: %w", err))
 	}
 	if err := ctx.Err(); err != nil {
@@ -574,7 +682,7 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 		}
 	}
 	p.Log("asking Portainer to run generation %d (stack %s on %s)", generation, p.Stack, p.Config.EnvName)
-	applied, err := DeployStack(ctx, &p.Config, p.EndpointID, p.Stack, p.Compose)
+	applied, err := DeployStack(ctx, &p.Config, p.EndpointID, p.Stack, p.Compose, p.DeploymentID, associations)
 	if err != nil {
 		return deploy.Observation{}, err
 	}
@@ -599,6 +707,8 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 		handle[key] = value
 	}
 	handle["stack"], handle["endpoint"] = p.Stack, p.Config.EnvName
+	handle["providerScope"] = *p.Config.Scope
+	handle["stackId"] = applied.ID
 	return deploy.Observation{Generation: generation, Rollout: "active", Health: "unknown", URL: p.URL, Handle: handle}, nil
 }
 
@@ -606,13 +716,13 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 // as Portainer reports them for the target's endpoint. Built for a target,
 // it can look, never deploy.
 type Inventory struct {
-	Config func() (*Target, error)
+	Config func(context.Context) (*Target, error)
 }
 
 var _ deploy.Inventorier = Inventory{}
 
 func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
-	cfg, err := i.Config()
+	cfg, err := i.Config(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -650,7 +760,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 // ObserveAll observes every listed deployment on the target with one list
 // of its app containers (observeStacks).
 func (i Inventory) ObserveAll(ctx context.Context, ps []deploy.Placement) ([]deploy.Observation, error) {
-	cfg, err := i.Config()
+	cfg, err := i.Config(ctx)
 	if err != nil {
 		return nil, err
 	}

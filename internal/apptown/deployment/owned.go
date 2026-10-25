@@ -73,26 +73,27 @@ func ownedIn(ctx context.Context, q *deploymentsql.Queries, deployment ids.ID) (
 // repositoryRecorder is the digitalocean.RepositoryOwner for one project on
 // one connector (one account): the repositories AppTown created there.
 type repositoryRecorder struct {
-	db        *database.DB
-	project   ids.ID
-	connector string
-	now       func() time.Time // AppTown's clock
+	db         *database.DB
+	project    ids.ID
+	connector  string
+	connection ids.ID
+	now        func() time.Time // AppTown's clock
 }
 
 func (r repositoryRecorder) Owns(ctx context.Context, registry, repository string) (bool, error) {
-	return deploymentsql.New(r.db.SQL()).RepositoryOwned(ctx, deploymentsql.RepositoryOwnedParams{ProjectID: r.project, Connector: r.connector, Registry: registry, Repository: repository})
+	return deploymentsql.New(r.db.SQL()).RepositoryOwned(ctx, deploymentsql.RepositoryOwnedParams{ProjectID: r.project, ConnectionID: r.connection, Registry: registry, Repository: repository})
 }
 
 func (r repositoryRecorder) Created(ctx context.Context, registry, repository string) error {
-	return recordRepository(ctx, r.db, r.project, r.connector, registry, repository, "", clock.Or(r.now)())
+	return recordRepository(ctx, r.db, r.project, r.connection, r.connector, registry, repository, "", clock.Or(r.now)())
 }
 
-func recordRepository(ctx context.Context, db *database.DB, project ids.ID, connector, registry, repository, note string, at time.Time) error {
-	if project.IsZero() || registry == "" || repository == "" {
+func recordRepository(ctx context.Context, db *database.DB, project, connection ids.ID, connector, registry, repository, note string, at time.Time) error {
+	if project.IsZero() || connection.IsZero() || registry == "" || repository == "" {
 		return errors.New("a repository needs its project, registry and name")
 	}
 	_, err := deploymentsql.New(db.SQL()).RecordRepository(ctx, deploymentsql.RecordRepositoryParams{ID: ids.New(at.UTC()),
-		ProjectID: project, Connector: connector, Registry: registry, Repository: repository, RecordedAt: at.UTC(), Note: note,
+		ProjectID: project, ConnectionID: connection, Connector: connector, Registry: registry, Repository: repository, RecordedAt: at.UTC(), Note: note,
 	})
 	return err
 }

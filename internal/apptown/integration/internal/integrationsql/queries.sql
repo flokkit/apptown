@@ -115,3 +115,9 @@ FROM project_integrations p
 JOIN integrations i ON i.name=p.binding AND i.capability=p.capability
 JOIN projects pr ON pr.id=p.project_id
 WHERE p.provenance<>'' ORDER BY i.name, pr.slug;
+
+-- name: BindingByID :one
+SELECT * FROM integrations WHERE id=$1;
+
+-- name: BindingByIDForShare :one
+SELECT * FROM integrations WHERE id=$1 FOR SHARE;

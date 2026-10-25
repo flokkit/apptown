@@ -305,7 +305,7 @@ func (s *Service) runLANRelease(ctx context.Context, relID ids.ID, p *project.Pr
 	result, err := (Runner{Store: store, Applied: s.applied}).Run(ctx,
 		Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("release-%d", relID), Inputs: inputs},
 		func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
-			return (portainer.Execution{Config: *cfg, EndpointID: endpointID, Stack: stackName, Prefix: stackPrefix, Compose: compose, URL: url, Owner: s.Deployments.OwnerOf(dep),
+			return (portainer.Execution{Config: *cfg, DeploymentID: dep.ID, Handle: dep.Handle, EndpointID: endpointID, Stack: stackName, Prefix: stackPrefix, Compose: compose, URL: url, Owner: s.Deployments.OwnerOf(dep),
 				Log: func(format string, args ...any) { s.relLog(relID, format, args...) }}).Execute(ctx, at.Generation, checkpoint)
 		})
 	if err != nil {
@@ -427,7 +427,7 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 	for _, it := range c.Init {
 		logf("init step %q runs to completion before the app starts", it.Name)
 	}
-	return deploy.IntranetCompose(st), nil
+	return portainer.MarkCompose(deploy.IntranetCompose(st), in.Deployment)
 }
 
 // integrationValues is what a Docker host gives c's public part from the

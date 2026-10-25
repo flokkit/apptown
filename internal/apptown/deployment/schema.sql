@@ -99,7 +99,9 @@ CREATE TABLE IF NOT EXISTS targets (
   -- Advances when the capabilities, ingress or needs mode change, never with
   -- a status check, so an edit started from an older reading is refused
   -- without routine checks causing conflicts.
-  settings_revision BIGINT NOT NULL DEFAULT 0
+  settings_revision BIGINT NOT NULL DEFAULT 0,
+  connection_id UUID REFERENCES integrations(id) ON DELETE RESTRICT,
+  provider_scope_json JSONB
 );
 -- A release bundle (§2.8): the immutable thing that ships, committed once
 -- by a landing's deploy step attempt.
@@ -221,6 +223,7 @@ CREATE TABLE IF NOT EXISTS owned_repositories (
   repository  TEXT NOT NULL,
   recorded_at TIMESTAMPTZ NOT NULL,
   note        TEXT NOT NULL DEFAULT '',
+  connection_id UUID REFERENCES integrations(id) ON DELETE RESTRICT,
   UNIQUE(connector, registry, repository)
 );
 -- An offer (§15.7): this target is available to this group, or to
@@ -273,7 +276,8 @@ CREATE TABLE IF NOT EXISTS release_requests (
   claimed_at TIMESTAMPTZ,
   -- The copy the release's caller was authorised to fill a new deployment
   -- from (0: none); the release fills that copy or nothing.
-  start_from_backup UUID
+  start_from_backup UUID,
+  provider_binding_json JSONB
 );
 -- An operator's override of one part's resources on one deployment
 -- (design/subsystems/deployment.md): set as a recorded act,

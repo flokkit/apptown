@@ -2,6 +2,7 @@ package portainer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -45,7 +46,7 @@ func (e *environment) handler(t *testing.T) http.Handler {
 			}
 			fmt.Fprint(w, `{"Id":12}`)
 		case r.Method == "GET" && r.URL.Path == "/api/stacks/12/file":
-			fmt.Fprint(w, `{"StackFileContent":"services: {}\nvolumes:\n  forge-data-shop: {}\n  forge-need-shop-postgres: {}\n"}`)
+			_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}\nvolumes:\n  forge-data-shop: {}\n  forge-need-shop-postgres: {}\n")})
 		case r.Method == "DELETE" && r.URL.Path == "/api/stacks/12":
 			w.WriteHeader(204)
 		case isVolume && r.Method == "GET":
@@ -78,7 +79,7 @@ func TestADeployRecordsTheVolumesItMade(t *testing.T) {
 	server := httptest.NewServer(e.handler(t))
 	defer server.Close()
 	book := &stackBook{}
-	_, err := (Execution{Config: Target{PortainerURL: server.URL, EnvName: "lan"}, EndpointID: 3, Stack: "forge-shop", Prefix: "forge-", Compose: shopCompose, Owner: book, Log: func(string, ...any) {}}).
+	_, err := (Execution{DeploymentID: idstest.N(7), Config: Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "lan"}, EndpointID: 3, Stack: "forge-shop", Prefix: "forge-", Compose: scopeFixtureCompose(shopCompose), Owner: book, Log: func(string, ...any) {}}).
 		Execute(context.Background(), 1, func(map[string]any) error { return nil })
 	if err != nil {
 		t.Fatal(err)
@@ -99,9 +100,11 @@ func TestTakeDownDeletesOnlyTheListedVolumesItMayDelete(t *testing.T) {
 			e := &environment{volumes: map[string]bool{"forge-shop_forge-data-shop": true, "forge-shop_forge-need-shop-postgres": true}}
 			server := httptest.NewServer(e.handler(t))
 			defer server.Close()
-			d := &Driver{TargetID: idstest.N(2), Config: func(ids.ID) (*Target, error) { return &Target{PortainerURL: server.URL, EnvName: "lan"}, nil }}
+			d := &Driver{TargetID: idstest.N(2), Config: func(context.Context, ids.ID) (*Target, error) {
+				return &Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, EnvName: "lan"}, nil
+			}}
 			td.Owned = []deploy.Owned{{Kind: "stack", ID: "12", Name: "forge-shop"}, {Kind: "volume", ID: "forge-shop_forge-need-shop-postgres", Data: true, Need: "postgres"}}
-			out, err := d.Teardown(context.Background(), deploy.Placement{Generation: 1}, 1, td)
+			out, err := d.Teardown(context.Background(), deploy.Placement{ID: idstest.N(7), Generation: 1}, 1, td)
 			if err != nil {
 				t.Fatal(err)
 			}

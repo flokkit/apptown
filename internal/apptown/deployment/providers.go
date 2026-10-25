@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -230,6 +231,10 @@ func (p *Providers) DigitalOceanConfig(ctx context.Context, provider string) (di
 	if cfg == nil {
 		return digitalocean.Config{}, fmt.Errorf("no cloud-account connector named %q", provider)
 	}
+	return digitalOceanConfiguration(cfg), nil
+}
+
+func digitalOceanConfiguration(cfg map[string]any) digitalocean.Config {
 	str := func(k, def string) string {
 		if v, _ := cfg[k].(string); v != "" {
 			return v
@@ -242,7 +247,7 @@ func (p *Providers) DigitalOceanConfig(ctx context.Context, provider string) (di
 		Registry:     str("registry", ""),
 		InstanceSize: str("instanceSize", "basic-xxs"),
 		DBSize:       str("dbSize", "db-s-1vcpu-1gb"),
-	}, nil
+	}
 }
 
 // DigitalOceanClient resolves the named credential for this operation and context.
@@ -258,48 +263,36 @@ func (p *Providers) DigitalOceanClient(ctx context.Context, cfg digitalocean.Con
 	return digitalocean.NewClient(tok, p.digitalOcean.APIBase), nil
 }
 
-// PortainerConfig is a Portainer target's own configuration: the secret
-// names its row carries (a target attached by hand), resolved at use time;
-// a target with none — the seeded intranet — reads its connection from the
-// portainer-deploy binding. The apps domain and the Portainer environment are
-// always the target's own settings: configuration names them only when the
-// target is created, and an administrator owns them after
-// (Target.keepSettings). A target that names no environment is refused.
-func (p *Providers) PortainerConfig(ctx context.Context, t *Target) (*portainer.Target, error) {
-	urlFrom, _ := t.Address["urlFrom"].(string)
-	keyFrom, _ := t.Address["apiKeyFrom"].(string)
-	domain, _ := t.Ingress["domain"].(string)
-	endpointName, _ := t.Address[AddressEnvironment].(string)
-	if urlFrom == "" || keyFrom == "" {
-		configured, err := p.integrations.PortainerTarget(ctx)
-		if err != nil {
-			return nil, err
-		}
-		cfg := *configured
-		cfg.AppsDomain, cfg.EnvName = domain, endpointName
-		if cfg.EnvName == "" {
-			return nil, errNoPortainerEnvironment
-		}
-		return &cfg, nil
+// PortainerConfig resolves one connection snapshot and verifies the pinned
+// destination before returning credentials to any provider operation.
+func (p *Providers) PortainerConfig(ctx context.Context, target *Target) (*portainer.Target, error) {
+	if target == nil || target.ID.IsZero() {
+		return nil, errors.New("Portainer target has no recorded association")
 	}
-	secrets, err := p.secrets.WithContext(ctx)
+	t, err := p.targets.ByID(ctx, target.ID)
 	if err != nil {
-		return nil, fmt.Errorf("reading the Portainer target's secrets: %w", err)
+		return nil, err
 	}
-	cfg := &portainer.Target{PortainerURL: strings.TrimRight(secrets[urlFrom], "/"), PortainerKey: secrets[keyFrom], AppsDomain: domain, EnvName: endpointName}
-	var missing []string
-	if cfg.PortainerURL == "" {
-		missing = append(missing, urlFrom)
+	if t.Kind != KindPortainer || t.ConnectionID.IsZero() || len(t.ProviderScope) == 0 {
+		return nil, errors.New("Portainer target needs an explicit provider association before use")
 	}
-	if cfg.PortainerKey == "" {
-		missing = append(missing, keyFrom)
+	var scope portainer.Scope
+	if err := json.Unmarshal(t.ProviderScope, &scope); err != nil {
+		return nil, errors.New("Portainer target scope is malformed")
 	}
-	if len(missing) > 0 {
-		return nil, fmt.Errorf("these secret names don't resolve: %s (add them in Infisical or secrets.env)", strings.Join(missing, ", "))
+	cfg, err := p.integrations.PortainerConnection(ctx, t.ConnectionID)
+	if err != nil {
+		return nil, err
 	}
-	if cfg.EnvName == "" {
-		return nil, errNoPortainerEnvironment
+	// VerifyScope rejects changed URL locally before the first authenticated GET.
+	if err := portainer.VerifyScope(ctx, *cfg, scope); err != nil {
+		return nil, err
 	}
+	cfg.PortainerURL = scope.APIBase
+	cfg.Scope = &scope
+	cfg.AppsDomain, _ = t.Ingress["domain"].(string)
+	cfg.EnvName, _ = t.Address[AddressEnvironment].(string)
+	cfg.ReleaseDeployment = portainerTier(t)
 	return cfg, nil
 }
 
@@ -328,7 +321,10 @@ func (p *Providers) PortainerDataScope(ctx context.Context, t *Target) (docker.S
 	defer p.portainerMu.Unlock()
 	proxy := p.portainerProxies[key]
 	if proxy == nil {
-		dir, err := os.MkdirTemp("", "forge-portainer-")
+		// This socket is local IPC for the Docker CLI, never a container bind mount.
+		// Keep it on the process filesystem and below Unix socket path limits,
+		// independently of a host-shared or network-mounted TMPDIR.
+		dir, err := os.MkdirTemp("/tmp", "forge-portainer-")
 		if err != nil {
 			return docker.Scope{}, err
 		}
@@ -341,6 +337,9 @@ func (p *Providers) PortainerDataScope(ctx context.Context, t *Target) (docker.S
 			return p.PortainerConfig(ctx, current)
 		})
 		if err != nil {
+			if cleanupErr := os.RemoveAll(dir); cleanupErr != nil {
+				err = errors.Join(err, fmt.Errorf("removing failed proxy directory: %w", cleanupErr))
+			}
 			return docker.Scope{}, err
 		}
 		if p.portainerProxies == nil {
@@ -429,9 +428,16 @@ func (p *Providers) newDOAppDriver(ctx context.Context, t *Target, dep *Deployme
 	if err != nil {
 		return nil, err
 	}
+	connection, err := p.integrations.Bindings.ByName(ctx, t.Provider)
+	if err != nil {
+		return nil, fmt.Errorf("reading deployment connection: %w", err)
+	}
+	if !t.ConnectionID.IsZero() && t.ConnectionID != connection.ID {
+		return nil, errors.New("deployment connection identity changed")
+	}
 	return digitalocean.NewDriver(digitalocean.Dependencies{
 		Docker: doDocker{p.hosts.settings.Scope},
-		Client: p.cloudClientFor(t.Provider),
+		Client: p.cloudClientForID(connection.ID),
 		Slug:   proj.Slug,
 		Needs:  p.needs,
 		// The deployment's bucket and Spaces key are on its owned list; the
@@ -459,7 +465,7 @@ func (p *Providers) newDOAppDriver(ctx context.Context, t *Target, dep *Deployme
 			}
 			return repo.Credential, nil
 		},
-		Repository: repositoryRecorder{db: p.db, project: dep.ProjectID, connector: t.Provider, now: p.clock},
+		Repository: repositoryRecorder{db: p.db, project: dep.ProjectID, connector: t.Provider, connection: connection.ID, now: p.clock},
 	}, p.digitalOcean), nil
 }
 
@@ -485,12 +491,26 @@ func (p *Providers) cloudClientFor(provider string) func(context.Context) (*digi
 	}
 }
 
+// cloudClientForID keeps a deployment's credential reads on its selected
+// connection even if its former machine name is later reused.
+func (p *Providers) cloudClientForID(connection ids.ID) func(context.Context) (*digitalocean.Client, digitalocean.Config, error) {
+	return func(ctx context.Context) (*digitalocean.Client, digitalocean.Config, error) {
+		config, err := p.integrations.ConnectorConfigByID(ctx, connection, digitalocean.CapCloudAccount)
+		if err != nil {
+			return nil, digitalocean.Config{}, deploy.Terminal(err)
+		}
+		cfg := digitalOceanConfiguration(config)
+		client, err := p.DigitalOceanClient(ctx, cfg)
+		return client, cfg, err
+	}
+}
+
 // configureProviders binds provider drivers to Deployment's own stores. Credentials
 // are resolved on use, and explicit factory overrides are preserved.
 func (p *Providers) configureProviders(ctx context.Context) {
 	if p.drivers[KindPortainer] == nil {
 		p.drivers[KindPortainer] = func(ctx context.Context, t *Target, dep *Deployment) (deploy.Driver, error) {
-			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(id ids.ID) (*portainer.Target, error) {
+			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(ctx context.Context, id ids.ID) (*portainer.Target, error) {
 				target, err := p.targets.ByID(ctx, id)
 				if err != nil {
 					return nil, fmt.Errorf("resolving Portainer target %d: %w", id, err)
@@ -519,7 +539,7 @@ func (p *Providers) configureProviders(ctx context.Context) {
 	}
 	if p.inventories[KindPortainer] == nil {
 		p.inventories[KindPortainer] = func(t *Target) (deploy.Inventorier, error) {
-			return portainer.Inventory{Config: func() (*portainer.Target, error) { return p.PortainerConfig(ctx, t) }}, nil
+			return portainer.Inventory{Config: func(ctx context.Context) (*portainer.Target, error) { return p.PortainerConfig(ctx, t) }}, nil
 		}
 	}
 	if p.inventories[KindDOApp] == nil {

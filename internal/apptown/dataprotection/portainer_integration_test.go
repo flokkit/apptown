@@ -15,6 +15,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -36,7 +38,34 @@ func localPortainer(t *testing.T, name string) (string, string) {
 	if out, err := dockertest.CombinedOutput("run", "-d", "--name", name, "-p", "127.0.0.1::9000", "-v", "/var/run/docker.sock:/var/run/docker.sock", portainerCE); err != nil {
 		t.Fatalf("starting Portainer: %v %s", err, out)
 	}
-	t.Cleanup(func() { _ = dockertest.Run("rm", "-f", name) })
+	var dataVolume string
+	t.Cleanup(func() {
+		if out, err := dockertest.CombinedOutput("rm", "-f", "-v", name); err != nil {
+			t.Errorf("removing fixture Portainer: %v %s", err, out)
+			return
+		}
+		if dataVolume != "" {
+			out, err := dockertest.Output("volume", "ls", "--filter", "name="+dataVolume, "--format", "{{.Name}}")
+			if err != nil {
+				t.Errorf("checking fixture data volume cleanup: %v", err)
+				return
+			}
+			for _, remaining := range strings.Fields(string(out)) {
+				if remaining == dataVolume {
+					t.Error("fixture Portainer data volume remains after cleanup")
+				}
+			}
+		}
+	})
+	volume, err := dockertest.Output("inspect", "--format", `{{range .Mounts}}{{if eq .Destination "/data"}}{{.Name}}{{end}}{{end}}`, name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataVolume = strings.TrimSpace(string(volume))
+	if dataVolume == "" {
+		t.Fatal("fixture Portainer has no anonymous data volume to verify")
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
 	port, err := dockertest.Output("port", name, "9000/tcp")
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +80,7 @@ func localPortainer(t *testing.T, name string) (string, string) {
 			if auth != "" {
 				req.Header.Set("Authorization", "Bearer "+auth)
 			}
-			resp, err := http.DefaultClient.Do(req)
+			resp, err := client.Do(req)
 			if err != nil {
 				return false
 			}
@@ -61,7 +90,7 @@ func localPortainer(t *testing.T, name string) (string, string) {
 			raw = raw[:n]
 			return resp.StatusCode < 300
 		}) {
-			t.Fatalf("Portainer %s %s: %s", method, path, raw)
+			t.Fatalf("Portainer fixture %s %s did not succeed before deadline", method, path)
 		}
 		_ = json.Unmarshal(raw, &out)
 		return out
@@ -73,11 +102,73 @@ func localPortainer(t *testing.T, name string) (string, string) {
 	req, _ := http.NewRequest("POST", base+"/api/endpoints", strings.NewReader("Name=lan&EndpointCreationType=1"))
 	req.Header.Set("Authorization", "Bearer "+jwt)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if resp, err := http.DefaultClient.Do(req); err != nil || resp.StatusCode >= 300 {
-		t.Fatalf("making the environment: %v %v", resp, err)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("making the fixture environment: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		t.Fatalf("making the fixture environment: HTTP %d", resp.StatusCode)
 	}
 	key, _ := call("POST", "/api/users/1/tokens", map[string]string{"description": "forge", "password": password}, jwt)["rawAPIKey"].(string)
 	return base, key
+}
+
+// Separate Portainer servers may report the same endpoint number and backing
+// daemon. Neither value identifies the Portainer server's stack registry.
+func TestIntegrationPortainerScopeObservationsAcrossConnections(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	name := fmt.Sprintf("apptown-it-scope-%d", time.Now().UnixNano())
+	firstURL, firstKey := localPortainer(t, name+"-a")
+	secondURL, secondKey := localPortainer(t, name+"-b")
+	if firstURL == secondURL {
+		t.Fatal("independent servers must have distinct API origins")
+	}
+	first := &portainer.Target{PortainerURL: firstURL, PortainerKey: firstKey, EnvName: "lan"}
+	second := &portainer.Target{PortainerURL: secondURL, PortainerKey: secondKey, EnvName: "lan"}
+	read := func(cfg *portainer.Target) (int64, string) {
+		t.Helper()
+		endpoint, err := portainer.EndpointID(ctx, cfg)
+		if err != nil {
+			t.Fatalf("resolving owned fixture endpoint: %v", err)
+		}
+		status, body, err := portainer.JSON(ctx, cfg, "GET", fmt.Sprintf("/api/endpoints/%d/docker/info", endpoint), nil)
+		if err != nil || status != http.StatusOK {
+			t.Fatalf("reading fixture daemon identity: HTTP %d, %v", status, err)
+		}
+		var info struct{ ID string }
+		if err := json.Unmarshal(body, &info); err != nil {
+			t.Fatalf("decoding fixture daemon identity: %v", err)
+		}
+		if info.ID == "" {
+			t.Fatal("fixture Docker info returned no daemon identity")
+		}
+		return endpoint, info.ID
+	}
+	firstEndpoint, firstDaemon := read(first)
+	secondEndpoint, secondDaemon := read(second)
+	if firstEndpoint != secondEndpoint {
+		t.Fatalf("fresh independent servers did not expose colliding endpoint IDs: %d and %d", firstEndpoint, secondEndpoint)
+	}
+	if firstDaemon != secondDaemon {
+		t.Fatal("servers attached to the same Docker socket reported different daemon identities")
+	}
+	for _, cfg := range []*portainer.Target{first, second} {
+		endpoint, daemon := read(cfg)
+		if endpoint != firstEndpoint || daemon != firstDaemon {
+			t.Fatal("repeated observation changed endpoint or daemon identity")
+		}
+	}
+	wrong := *second
+	wrong.PortainerKey = firstKey
+	status, _, err := portainer.JSON(ctx, &wrong, "GET", "/api/endpoints", nil)
+	if err != nil {
+		t.Fatalf("checking wrong-server authentication: %v", err)
+	}
+	if status != http.StatusUnauthorized && status != http.StatusForbidden {
+		t.Fatalf("wrong-server key must be refused, got HTTP %d", status)
+	}
 }
 
 // noStackSecrets is a stack whose parts have no secrets.
@@ -121,12 +212,13 @@ func TestIntegrationAPortainerDeploymentIsBackedUpRestoredAndTakenDown(t *testin
 	if _, _, err := catalog.SyncStock(ctx, stock.FS, "dependencies"); err != nil {
 		t.Fatal(err)
 	}
-	s := assembled(db, testRuntime{Scope: docker.Scope{Client: docker.CLI{Binary: "docker"}}, DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), ChownImage: stock.Images().Sh, BuiltInTarget: "local"},
-		deployment.Dependencies{Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
-	// The take-down is a person's act: alice may.
-	s.authority = &grants{who: "alice", deny: map[string]bool{}}
-	target, err := s.Targets.Put(ctx, &deployment.Target{Name: "lan", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady,
-		Address: map[string]any{"urlFrom": "PORTAINER_URL", "apiKeyFrom": "PORTAINER_KEY", "environment": "lan"}, Ingress: map[string]any{"domain": "lan"}})
+	secrets := secret.NewService(db, secret.Config{DataDir: dir})
+	projects := project.New(db, nil)
+	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secrets})
+	authority := &grants{who: "alice", deny: map[string]bool{}}
+	s := assembled(db, testRuntime{Scope: docker.Scope{Client: docker.CLI{Binary: "docker"}}, DataDir: dir, Needs: catalog, Secrets: secrets, Projects: projects, Integrations: integrations, ChownImage: stock.Images().Sh, BuiltInTarget: "local"},
+		deployment.Dependencies{Authority: authority, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
+	target, err := s.AttachPortainerTarget(ctx, deployment.PortainerAttachment{Name: "lan", Environment: "lan", URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_KEY", Domain: "lan"})
 	if err != nil {
 		t.Fatal(err)
 	}

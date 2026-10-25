@@ -114,6 +114,8 @@ export function TargetPage() {
           </div>
         )}
 
+
+        {t.kindInfo.environment && !t.providerScope && <p className="small error">Provider association required. An administrator must inspect and confirm this target's provider association before {PRODUCT} uses it.</p>}
         {data.registry && <RegistryLine r={data.registry} />}
 
         {!retired && (
@@ -306,7 +308,8 @@ export function EditTarget({ t, current = true, onSaved }: { t: TargetView; curr
         )}
         {t.kindInfo.environment && (
           <label className="small" title="The Portainer environment this target releases to, as Portainer lists it.">
-            Portainer environment <input value={draft.environment} disabled={busy} onChange={(e) => set('environment', e.target.value)} placeholder="local" style={{ width: 140 }} />
+            Portainer environment <input value={draft.environment} disabled={busy || Boolean(t.providerScope)} onChange={(e) => set('environment', e.target.value)} placeholder="local" style={{ width: 140 }} />
+            {Boolean(t.providerScope) && <span className="muted"> Verified endpoint; attach another target to change it.</span>}
           </label>
         )}
         {t.kind === 'docker-host' && t.origin === 'attached' && (

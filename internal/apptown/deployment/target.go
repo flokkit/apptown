@@ -37,6 +37,8 @@ const (
 
 // Target is one row of the targets table.
 type Target struct {
+	ConnectionID    ids.ID             `json:"connectionId,omitempty"`
+	ProviderScope   json.RawMessage    `json:"providerScope,omitempty"`
 	ID              ids.ID             `json:"id"`
 	Name            string             `json:"name"`
 	Kind            string             `json:"kind"`
@@ -124,7 +126,10 @@ func targetRecord(r deploymentsql.Target, err error) (*Target, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &Target{ID: r.ID, Name: r.Name, Kind: r.Kind, Provider: r.Provider, Address: jsonMap(string(r.AddressJson)), Origin: r.Origin, Ingress: jsonMap(string(r.IngressJson)), NeedsMode: r.NeedsMode, SecretsDelivery: r.SecretsDelivery, SettingsRevision: r.SettingsRevision}
+	t := &Target{ID: r.ID, Name: r.Name, Kind: r.Kind, Provider: r.Provider, ConnectionID: r.ConnectionID, Address: jsonMap(string(r.AddressJson)), Origin: r.Origin, Ingress: jsonMap(string(r.IngressJson)), NeedsMode: r.NeedsMode, SecretsDelivery: r.SecretsDelivery, SettingsRevision: r.SettingsRevision}
+	if r.ProviderScopeJson != nil {
+		t.ProviderScope = *r.ProviderScopeJson
+	}
 	if err := t.Status.Scan(r.Status); err != nil {
 		return nil, err
 	}
@@ -482,6 +487,13 @@ func (s *Targets) Retire(ctx context.Context, name, who string) error {
 				return err
 			}
 			if !used {
+				referenced, err := deploymentsql.New(tx.SQL()).ConnectorHasRetainedIdentity(ctx, t.Provider)
+				if err != nil {
+					return err
+				}
+				if referenced {
+					return nil
+				}
 				return s.connectors.RetireUnusedConnector(ctx, tx, t.Provider, name, who, now)
 			}
 		}

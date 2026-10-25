@@ -70,6 +70,53 @@ func (q *Queries) AdoptAfterRestore(ctx context.Context, arg AdoptAfterRestorePa
 	return result.RowsAffected()
 }
 
+const associateTargetProvider = `-- name: AssociateTargetProvider :one
+UPDATE targets SET connection_id=$1, provider=$2, provider_scope_json=$3,
+  settings_revision=settings_revision+1, updated_at=$4
+WHERE id=$5 AND settings_revision=$6 AND provider_scope_json IS NULL
+RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json
+`
+
+type AssociateTargetProviderParams struct {
+	ConnectionID      ids.ID
+	Provider          string
+	ProviderScopeJson *json.RawMessage
+	At                time.Time
+	ID                ids.ID
+	ExpectedRevision  int64
+}
+
+func (q *Queries) AssociateTargetProvider(ctx context.Context, arg AssociateTargetProviderParams) (Target, error) {
+	row := q.db.QueryRowContext(ctx, associateTargetProvider,
+		arg.ConnectionID,
+		arg.Provider,
+		arg.ProviderScopeJson,
+		arg.At,
+		arg.ID,
+		arg.ExpectedRevision,
+	)
+	var i Target
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Kind,
+		&i.Provider,
+		&i.AddressJson,
+		&i.Origin,
+		&i.CapabilitiesJson,
+		&i.IngressJson,
+		&i.NeedsMode,
+		&i.SecretsDelivery,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
+	)
+	return i, err
+}
+
 const attemptByID = `-- name: AttemptByID :one
 SELECT id, deployment_id, generation, idempotency_key, status, terminal, observed_json, superseded_by, started_at, finished_at FROM deployment_attempts WHERE id=$1
 `
@@ -322,7 +369,7 @@ func (q *Queries) BundleOfRun(ctx context.Context, arg BundleOfRunParams) (Relea
 }
 
 const checkTarget = `-- name: CheckTarget :one
-UPDATE targets SET status=$1, updated_at=$2 WHERE id=$3 AND status<>$4 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision
+UPDATE targets SET status=$1, updated_at=$2 WHERE id=$3 AND status<>$4 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json
 `
 
 type CheckTargetParams struct {
@@ -355,6 +402,8 @@ func (q *Queries) CheckTarget(ctx context.Context, arg CheckTargetParams) (Targe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
@@ -419,6 +468,18 @@ func (q *Queries) CompletedAttempt(ctx context.Context, arg CompletedAttemptPara
 		&i.FinishedAt,
 	)
 	return i, err
+}
+
+const connectorHasRetainedIdentity = `-- name: ConnectorHasRetainedIdentity :one
+SELECT (EXISTS(SELECT 1 FROM targets WHERE provider=$1 AND connection_id IS NOT NULL)
+ OR EXISTS(SELECT 1 FROM owned_repositories WHERE connector=$1 AND connection_id IS NOT NULL))::boolean AS referenced
+`
+
+func (q *Queries) ConnectorHasRetainedIdentity(ctx context.Context, provider string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, connectorHasRetainedIdentity, provider)
+	var referenced bool
+	err := row.Scan(&referenced)
+	return referenced, err
 }
 
 const contradictorySettlements = `-- name: ContradictorySettlements :many
@@ -750,7 +811,7 @@ func (q *Queries) DeploymentsHeldAfterRestore(ctx context.Context, held string) 
 const editTargetSettings = `-- name: EditTargetSettings :one
 UPDATE targets SET capabilities_json=$1, ingress_json=$2, needs_mode=$3,
   address_json=$4, settings_revision=settings_revision+1, updated_at=$5
-WHERE id=$6 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision
+WHERE id=$6 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json
 `
 
 type EditTargetSettingsParams struct {
@@ -787,6 +848,8 @@ func (q *Queries) EditTargetSettings(ctx context.Context, arg EditTargetSettings
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
@@ -1194,6 +1257,68 @@ func (q *Queries) InsertBundle(ctx context.Context, arg InsertBundleParams) (Rel
 	return i, err
 }
 
+const insertProviderTarget = `-- name: InsertProviderTarget :one
+INSERT INTO targets(id,name,kind,provider,connection_id,provider_scope_json,address_json,origin,capabilities_json,ingress_json,needs_mode,secrets_delivery,status,created_at,updated_at)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$14)
+ON CONFLICT(name) DO NOTHING RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json
+`
+
+type InsertProviderTargetParams struct {
+	ID                ids.ID
+	Name              string
+	Kind              string
+	Provider          string
+	ConnectionID      ids.ID
+	ProviderScopeJson *json.RawMessage
+	AddressJson       json.RawMessage
+	Origin            string
+	CapabilitiesJson  json.RawMessage
+	IngressJson       json.RawMessage
+	NeedsMode         string
+	SecretsDelivery   string
+	Status            string
+	At                time.Time
+}
+
+func (q *Queries) InsertProviderTarget(ctx context.Context, arg InsertProviderTargetParams) (Target, error) {
+	row := q.db.QueryRowContext(ctx, insertProviderTarget,
+		arg.ID,
+		arg.Name,
+		arg.Kind,
+		arg.Provider,
+		arg.ConnectionID,
+		arg.ProviderScopeJson,
+		arg.AddressJson,
+		arg.Origin,
+		arg.CapabilitiesJson,
+		arg.IngressJson,
+		arg.NeedsMode,
+		arg.SecretsDelivery,
+		arg.Status,
+		arg.At,
+	)
+	var i Target
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Kind,
+		&i.Provider,
+		&i.AddressJson,
+		&i.Origin,
+		&i.CapabilitiesJson,
+		&i.IngressJson,
+		&i.NeedsMode,
+		&i.SecretsDelivery,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
+	)
+	return i, err
+}
+
 const insertReconciliation = `-- name: InsertReconciliation :one
 INSERT INTO reconciliations (id, deployment_id, kind, status, actor, actor_principal, actor_via, started_at) VALUES ($1, $2,'reconcile',$3,$4,$5,$6,$7) RETURNING id, deployment_id, kind, status, receipt_json, actor, actor_principal, actor_via, started_at, finished_at
 `
@@ -1235,16 +1360,17 @@ func (q *Queries) InsertReconciliation(ctx context.Context, arg InsertReconcilia
 }
 
 const insertReleaseRequest = `-- name: InsertReleaseRequest :one
-INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup)
-VALUES ($1,$2,$3,$4,$5) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup
+INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,start_from_backup,provider_binding_json)
+VALUES ($1,$2,$3,$4,$5,$6) RETURNING release_id, target_id, base_generation, attributes_json, claimed_at, start_from_backup, provider_binding_json
 `
 
 type InsertReleaseRequestParams struct {
-	ReleaseID       ids.ID
-	TargetID        ids.ID
-	BaseGeneration  int64
-	AttributesJson  json.RawMessage
-	StartFromBackup ids.ID
+	ReleaseID           ids.ID
+	TargetID            ids.ID
+	BaseGeneration      int64
+	AttributesJson      json.RawMessage
+	StartFromBackup     ids.ID
+	ProviderBindingJson *json.RawMessage
 }
 
 func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseRequestParams) (ReleaseRequest, error) {
@@ -1254,6 +1380,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		arg.BaseGeneration,
 		arg.AttributesJson,
 		arg.StartFromBackup,
+		arg.ProviderBindingJson,
 	)
 	var i ReleaseRequest
 	err := row.Scan(
@@ -1263,6 +1390,7 @@ func (q *Queries) InsertReleaseRequest(ctx context.Context, arg InsertReleaseReq
 		&i.AttributesJson,
 		&i.ClaimedAt,
 		&i.StartFromBackup,
+		&i.ProviderBindingJson,
 	)
 	return i, err
 }
@@ -2152,6 +2280,59 @@ func (q *Queries) ProjectDigestBundles(ctx context.Context, projectID ids.ID) ([
 	return items, nil
 }
 
+const providerDeploymentsOnTarget = `-- name: ProviderDeploymentsOnTarget :many
+SELECT id, project_id, name, host_label, host_port, container, release_run, updated_at, release_sha, image_digest, kind, change_id, target_id, handle_json, desired_generation, observed_generation, readiness, feed, audience, data_class, promote_after, url, start_from_backup, started_from_at, restore_check FROM deployments WHERE target_id=$1 ORDER BY id
+`
+
+func (q *Queries) ProviderDeploymentsOnTarget(ctx context.Context, targetID ids.ID) ([]Deployment, error) {
+	rows, err := q.db.QueryContext(ctx, providerDeploymentsOnTarget, targetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Deployment
+	for rows.Next() {
+		var i Deployment
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.HostLabel,
+			&i.HostPort,
+			&i.Container,
+			&i.ReleaseRun,
+			&i.UpdatedAt,
+			&i.ReleaseSha,
+			&i.ImageDigest,
+			&i.Kind,
+			&i.ChangeID,
+			&i.TargetID,
+			&i.HandleJson,
+			&i.DesiredGeneration,
+			&i.ObservedGeneration,
+			&i.Readiness,
+			&i.Feed,
+			&i.Audience,
+			&i.DataClass,
+			&i.PromoteAfter,
+			&i.Url,
+			&i.StartFromBackup,
+			&i.StartedFromAt,
+			&i.RestoreCheck,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const providerHasLiveTargets = `-- name: ProviderHasLiveTargets :one
 SELECT EXISTS(SELECT 1 FROM targets WHERE provider=$1 AND status<>$2)
 `
@@ -2267,7 +2448,7 @@ INSERT INTO targets (id, name, kind, provider, address_json, origin, capabilitie
   status=CASE WHEN targets.status=$14 THEN targets.status ELSE excluded.status END, updated_at=excluded.updated_at,
   settings_revision=targets.settings_revision + CASE WHEN (targets.capabilities_json, targets.ingress_json, targets.needs_mode)
     IS DISTINCT FROM (excluded.capabilities_json, excluded.ingress_json, excluded.needs_mode) THEN 1 ELSE 0 END
-  RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision
+  RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json
 `
 
 type PutTargetParams struct {
@@ -2320,6 +2501,8 @@ func (q *Queries) PutTarget(ctx context.Context, arg PutTargetParams) (Target, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
@@ -2655,25 +2838,27 @@ func (q *Queries) RecordPreview(ctx context.Context, arg RecordPreviewParams) (D
 }
 
 const recordRepository = `-- name: RecordRepository :execrows
-INSERT INTO owned_repositories (id, project_id, connector, registry, repository, recorded_at, note)
-  VALUES ($1, $2,$3,$4,$5,$6,$7)
+INSERT INTO owned_repositories (id, project_id, connection_id, connector, registry, repository, recorded_at, note)
+  VALUES ($1, $2,$3,$4,$5,$6,$7,$8)
   ON CONFLICT (connector, registry, repository) DO NOTHING
 `
 
 type RecordRepositoryParams struct {
-	ID         ids.ID
-	ProjectID  ids.ID
-	Connector  string
-	Registry   string
-	Repository string
-	RecordedAt time.Time
-	Note       string
+	ID           ids.ID
+	ProjectID    ids.ID
+	ConnectionID ids.ID
+	Connector    string
+	Registry     string
+	Repository   string
+	RecordedAt   time.Time
+	Note         string
 }
 
 func (q *Queries) RecordRepository(ctx context.Context, arg RecordRepositoryParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, recordRepository,
 		arg.ID,
 		arg.ProjectID,
+		arg.ConnectionID,
 		arg.Connector,
 		arg.Registry,
 		arg.Repository,
@@ -2690,7 +2875,7 @@ const refreshTarget = `-- name: RefreshTarget :one
 UPDATE targets SET kind=$1, provider=$2, address_json=$3, capabilities_json=$4,
   ingress_json=$5, needs_mode=$6, secrets_delivery=$7,
   settings_revision=settings_revision+1, updated_at=$8
-WHERE id=$9 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision
+WHERE id=$9 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json
 `
 
 type RefreshTargetParams struct {
@@ -2733,6 +2918,8 @@ func (q *Queries) RefreshTarget(ctx context.Context, arg RefreshTargetParams) (T
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
@@ -3120,20 +3307,20 @@ func (q *Queries) RepairInterruptedReleases(ctx context.Context, arg RepairInter
 }
 
 const repositoryOwned = `-- name: RepositoryOwned :one
-SELECT EXISTS(SELECT 1 FROM owned_repositories WHERE project_id=$1 AND connector=$2 AND registry=$3 AND repository=$4)
+SELECT EXISTS(SELECT 1 FROM owned_repositories WHERE project_id=$1 AND connection_id=$2 AND registry=$3 AND repository=$4)
 `
 
 type RepositoryOwnedParams struct {
-	ProjectID  ids.ID
-	Connector  string
-	Registry   string
-	Repository string
+	ProjectID    ids.ID
+	ConnectionID ids.ID
+	Registry     string
+	Repository   string
 }
 
 func (q *Queries) RepositoryOwned(ctx context.Context, arg RepositoryOwnedParams) (bool, error) {
 	row := q.db.QueryRowContext(ctx, repositoryOwned,
 		arg.ProjectID,
-		arg.Connector,
+		arg.ConnectionID,
 		arg.Registry,
 		arg.Repository,
 	)
@@ -3143,7 +3330,7 @@ func (q *Queries) RepositoryOwned(ctx context.Context, arg RepositoryOwnedParams
 }
 
 const requestedReleaseForUpdate = `-- name: RequestedReleaseForUpdate :one
-SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup FROM releases r JOIN release_requests q ON q.release_id=r.id
+SELECT r.id, r.project_id, r.number, r.state, r.deployment, r.external_ref, r.approved_by, r.run_id, r.created_at, r.released_at, r.notes, r.commit_sha, r.source_sha, r.bundle_id, r.deployment_id, r.generation, r.artifact_hash, r.origin,q.release_id, q.target_id, q.base_generation, q.attributes_json, q.claimed_at, q.start_from_backup, q.provider_binding_json FROM releases r JOIN release_requests q ON q.release_id=r.id
 WHERE r.id=$1 FOR UPDATE OF q
 `
 
@@ -3180,6 +3367,7 @@ func (q *Queries) RequestedReleaseForUpdate(ctx context.Context, id ids.ID) (Req
 		&i.ReleaseRequest.AttributesJson,
 		&i.ReleaseRequest.ClaimedAt,
 		&i.ReleaseRequest.StartFromBackup,
+		&i.ReleaseRequest.ProviderBindingJson,
 	)
 	return i, err
 }
@@ -3359,7 +3547,7 @@ func (q *Queries) RetireStorageBinding(ctx context.Context, arg RetireStorageBin
 }
 
 const retireTarget = `-- name: RetireTarget :one
-UPDATE targets SET status=$1, updated_at=$2 WHERE id=$3 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision
+UPDATE targets SET status=$1, updated_at=$2 WHERE id=$3 RETURNING id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json
 `
 
 type RetireTargetParams struct {
@@ -3386,6 +3574,8 @@ func (q *Queries) RetireTarget(ctx context.Context, arg RetireTargetParams) (Tar
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
@@ -3475,6 +3665,34 @@ func (q *Queries) RuntimeDeployments(ctx context.Context, projectIds []ids.ID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const setProviderAssociationHandle = `-- name: SetProviderAssociationHandle :execrows
+UPDATE deployments SET handle_json=handle_json || jsonb_build_object('portainerAssociations',$1::jsonb)
+WHERE id=$2 AND target_id=$3 AND desired_generation=$4
+ AND handle_json=$5::jsonb
+`
+
+type SetProviderAssociationHandleParams struct {
+	Associations   json.RawMessage
+	ID             ids.ID
+	TargetID       ids.ID
+	Generation     int64
+	ExpectedHandle json.RawMessage
+}
+
+func (q *Queries) SetProviderAssociationHandle(ctx context.Context, arg SetProviderAssociationHandleParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setProviderAssociationHandle,
+		arg.Associations,
+		arg.ID,
+		arg.TargetID,
+		arg.Generation,
+		arg.ExpectedHandle,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const setReadiness = `-- name: SetReadiness :execrows
@@ -3693,7 +3911,7 @@ func (q *Queries) SupersedeAttempts(ctx context.Context, arg SupersedeAttemptsPa
 }
 
 const targetByID = `-- name: TargetByID :one
-SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision FROM targets WHERE id=$1
+SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json FROM targets WHERE id=$1
 `
 
 func (q *Queries) TargetByID(ctx context.Context, id ids.ID) (Target, error) {
@@ -3714,12 +3932,14 @@ func (q *Queries) TargetByID(ctx context.Context, id ids.ID) (Target, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
 
 const targetByName = `-- name: TargetByName :one
-SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision FROM targets WHERE name=$1
+SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json FROM targets WHERE name=$1
 `
 
 func (q *Queries) TargetByName(ctx context.Context, name string) (Target, error) {
@@ -3740,12 +3960,14 @@ func (q *Queries) TargetByName(ctx context.Context, name string) (Target, error)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
 
 const targetByNameForUpdate = `-- name: TargetByNameForUpdate :one
-SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision FROM targets WHERE name=$1 FOR UPDATE
+SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json FROM targets WHERE name=$1 FOR UPDATE
 `
 
 func (q *Queries) TargetByNameForUpdate(ctx context.Context, name string) (Target, error) {
@@ -3766,12 +3988,14 @@ func (q *Queries) TargetByNameForUpdate(ctx context.Context, name string) (Targe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
 
 const targetForShare = `-- name: TargetForShare :one
-SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision FROM targets WHERE id=$1 FOR SHARE
+SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json FROM targets WHERE id=$1 FOR SHARE
 `
 
 func (q *Queries) TargetForShare(ctx context.Context, id ids.ID) (Target, error) {
@@ -3792,12 +4016,14 @@ func (q *Queries) TargetForShare(ctx context.Context, id ids.ID) (Target, error)
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.SettingsRevision,
+		&i.ConnectionID,
+		&i.ProviderScopeJson,
 	)
 	return i, err
 }
 
 const targets = `-- name: Targets :many
-SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision FROM targets WHERE ($1::uuid[] IS NULL OR id=ANY($1::uuid[])) ORDER BY id
+SELECT id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at, settings_revision, connection_id, provider_scope_json FROM targets WHERE ($1::uuid[] IS NULL OR id=ANY($1::uuid[])) ORDER BY id
 `
 
 func (q *Queries) Targets(ctx context.Context, argIds []ids.ID) ([]Target, error) {
@@ -3824,6 +4050,8 @@ func (q *Queries) Targets(ctx context.Context, argIds []ids.ID) ([]Target, error
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SettingsRevision,
+			&i.ConnectionID,
+			&i.ProviderScopeJson,
 		); err != nil {
 			return nil, err
 		}

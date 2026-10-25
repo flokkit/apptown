@@ -12670,6 +12670,66 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/targets/{name}/provider-association": {
+      "get": {
+        "operationId": "getTargetsNameProviderAssociation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "targets"
+        ],
+        "x-apptown-access": {
+          "contract": "deployment.InspectProviderAssociation",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      },
+      "post": {
+        "operationId": "postTargetsNameProviderAssociation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "targets"
+        ],
+        "x-apptown-access": {
+          "contract": "deployment.AssociateProvider",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/targets/{name}/retire": {
       "post": {
         "operationId": "postTargetsNameRetire",
