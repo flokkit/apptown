@@ -12,6 +12,8 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/oidclogin"
 	"golang.org/x/time/rate"
 )
 
@@ -52,7 +54,7 @@ func (a *App) resolveSession(r *http.Request) (*authIdentity, error) {
 // door itself, and the stateless local-compose rendering.
 func authOpenPath(method, path string) bool {
 	switch {
-	case path == "/api/v1/auth/login", path == "/api/v1/auth/me",
+	case path == "/api/v1/auth/external/start", path == "/api/v1/auth/external/callback", path == "/api/v1/auth/login", path == "/api/v1/auth/me",
 		path == "/api/v1/auth/bootstrap":
 		return true
 	// An invite link is opened before its holder has an account; the
@@ -92,6 +94,15 @@ func (a *App) handleAuthMe(w http.ResponseWriter, r *http.Request) {
 	if a.cfg.authMode == "internal" {
 		needs := a.needsBootstrap(r.Context())
 		out.NeedsBootstrap = &needs
+		provider, err := a.Access.ExternalProvider(r.Context())
+		if err != nil {
+			writeErr(w, 503, "external sign-in settings could not be read")
+			return
+		}
+		if provider != nil && provider.Enabled {
+			out.External = &httpapi.ExternalProviderSummary{DisplayName: provider.DisplayName, AllowSignup: provider.AllowSignup}
+		}
+
 	}
 	if id := identityFrom(r); id != nil {
 		out.User, out.Role, out.Via = id.User, id.Role, id.Via
@@ -246,4 +257,91 @@ func (l *credentialLimiter) door(proxies proxyPolicy, h http.HandlerFunc) http.H
 		}
 		h(w, r)
 	}
+}
+
+func (a *App) externalCookieName(r *http.Request) string {
+	if a.secureBrowser(r) {
+		return "__Host-apptown_external"
+	}
+	return "apptown_external"
+}
+func (a *App) externalCookie(w http.ResponseWriter, r *http.Request, value string, age int) {
+	http.SetCookie(w, &http.Cookie{Name: a.externalCookieName(r), Value: value, Path: "/", HttpOnly: true, Secure: a.secureBrowser(r), SameSite: http.SameSiteLaxMode, MaxAge: age})
+}
+func (a *App) handleExternalStart(w http.ResponseWriter, r *http.Request) {
+	if a.cfg.authMode != "internal" {
+		writeErr(w, 404, "not in internal auth mode")
+		return
+	}
+	var in httpapi.ExternalStartRequest
+	if e := readJSON(r, &in); e != nil {
+		writeErr(w, 400, "invalid external sign-in request")
+		return
+	}
+	flow, e := a.Access.BeginExternal(r.Context(), identity.ExternalStart{Name: in.Name, ReturnPath: in.ReturnPath, Password: in.Password, Link: in.Link, Principal: httpapi.Principal(r), From: a.cfg.proxies.ClientIP(r)})
+	if e != nil {
+		externalError(w, e)
+		return
+	}
+	a.externalCookie(w, r, flow.BrowserSecret, 600)
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, 200, httpapi.ExternalRedirect{URL: flow.Redirect})
+}
+func externalError(w http.ResponseWriter, e error) {
+	code := http.StatusUnauthorized
+	if errors.Is(e, oidclogin.ErrUnavailable) {
+		code = http.StatusServiceUnavailable
+	}
+	if errors.Is(e, identity.ErrExternalUnbound) {
+		code = http.StatusForbidden
+	}
+	writeErr(w, code, "external sign-in could not complete; check the provider or start again")
+}
+func (a *App) handleExternalCallback(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if a.cfg.authMode != "internal" {
+		writeErr(w, 404, "not in internal auth mode")
+		return
+	}
+	cookie, e := r.Cookie(a.externalCookieName(r))
+	a.externalCookie(w, r, "", -1)
+	if e != nil || r.URL.Query().Get("error") != "" {
+		http.Redirect(w, r, "/?signin=failed", http.StatusSeeOther)
+		return
+	}
+	signed, e := a.Access.CompleteExternal(r.Context(), r.URL.Query().Get("state"), cookie.Value, r.URL.Query().Get("code"), a.cfg.proxies.ClientIP(r))
+	if e != nil {
+		failure := "failed"
+		if errors.Is(e, oidclogin.ErrUnavailable) {
+			failure = "unavailable"
+		}
+		if errors.Is(e, identity.ErrExternalUnbound) {
+			failure = "unbound"
+		}
+		var accountInput *identity.AccountInputError
+		if errors.As(e, &accountInput) {
+			failure = "name-unavailable"
+		}
+		http.Redirect(w, r, "/?signin="+failure, http.StatusSeeOther)
+		return
+	}
+	a.cfg.browserSession().StartFor(w, r, signed.Token, signed.Lifetime)
+	http.Redirect(w, r, signed.ReturnPath, http.StatusSeeOther)
+}
+
+func (a *App) handleExternalUnlink(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Password string `json:"password"`
+	}
+	id, e := ids.Parse(r.PathValue("id"))
+	if e != nil || readJSON(r, &in) != nil {
+		writeErr(w, 400, "invalid unlink request")
+		return
+	}
+	if e := a.Access.UnlinkExternal(r.Context(), id, in.Password, httpapi.Principal(r), a.cfg.proxies.ClientIP(r)); e != nil {
+		externalError(w, e)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

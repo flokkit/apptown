@@ -64,6 +64,53 @@ type DelegationsNamed struct {
 	Username          string
 }
 
+type ExternalSigninBinding struct {
+	ID          ids.ID
+	ProviderID  ids.ID
+	Issuer      string
+	Subject     string
+	PrincipalID ids.ID
+	CreatedBy   ids.ID
+	CreatedAt   time.Time
+	RevokedAt   sql.NullTime
+}
+
+type ExternalSigninProvider struct {
+	ID             ids.ID
+	CurrentSlot    bool
+	Revision       int64
+	Issuer         string
+	DisplayName    string
+	ClientID       string
+	SecretRef      string
+	CallbackOrigin string
+	Enabled        bool
+	AllowSignup    bool
+	InitialGroup   string
+	CreatedBy      ids.ID
+	UpdatedBy      ids.ID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type ExternalSigninTransaction struct {
+	ID               ids.ID
+	StateHash        string
+	ProviderID       ids.ID
+	ProviderRevision int64
+	VerifierHash     string
+	NonceHash        string
+	Purpose          string
+	LocalSessionID   ids.ID
+	PrincipalID      ids.ID
+	ProposedName     string
+	Callback         string
+	ReturnPath       string
+	CreatedAt        time.Time
+	ExpiresAt        time.Time
+	ConsumedAt       sql.NullTime
+}
+
 type GitPullToken struct {
 	TokenHash string
 	ProjectID ids.ID

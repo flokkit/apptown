@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/identity"
 )
@@ -61,8 +62,13 @@ func (b BrowserSession) CookieName(r *http.Request) string {
 
 // Start hands the browser a committed session.
 func (b BrowserSession) Start(w http.ResponseWriter, r *http.Request, token string) {
+	b.StartFor(w, r, token, identity.SessionTTL)
+}
+
+// StartFor gives a committed session its owner-selected browser lifetime.
+func (b BrowserSession) StartFor(w http.ResponseWriter, r *http.Request, token string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
 		Name: b.CookieName(r), Value: token, Path: "/", HttpOnly: true, Secure: b.Secure(r),
-		SameSite: http.SameSiteLaxMode, MaxAge: int(identity.SessionTTL.Seconds()),
+		SameSite: http.SameSiteLaxMode, MaxAge: int(ttl.Seconds()),
 	})
 }

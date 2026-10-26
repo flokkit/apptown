@@ -51,6 +51,7 @@ func appRoutes(a *App) []routeSpec {
 	var secrets httpapi.Secrets
 	var authorization httpapi.Authorization
 	var accounts httpapi.Accounts
+	var external httpapi.ExternalSignIn
 	var invites httpapi.Invites
 	var complaints httpapi.Complaints
 	var workflowLibrary httpapi.WorkflowLibrary
@@ -207,6 +208,7 @@ func appRoutes(a *App) []routeSpec {
 		workflowLibrary = httpapi.NewWorkflowLibrary(a.Ways, a.Access, a.Projects)
 		complaints = httpapi.NewComplaints(a.Complaints, a.Access, complaint.AgentInstructions, complaint.ConsoleRules)
 		accounts = httpapi.NewAccounts(a.Access)
+		external = httpapi.NewExternalSignIn(a.Access)
 		invites = httpapi.NewInvites(a.Access, a.cfg.browserSession(), a.cfg.proxies, a.cfg.authMode == "internal")
 		authorization = httpapi.NewAuthorization(a.Access, a.Projects)
 		secrets = httpapi.NewSecrets(a.Secrets, a.Projects, a.Deployment, a.DB, a.cfg.dataDir, a.cfg.clock.Now)
@@ -490,6 +492,16 @@ func appRoutes(a *App) []routeSpec {
 		publicRoute("GET /api/v1/guidance/blocks", guidanceBlocks.ListBlocks, "guidanceBlocks.ListBlocks: shared guidance library"),
 		ownerRoute("GET /api/v1/guidance/generated", guidance.GeneratedGuidance, "guidance.GeneratedGuidance"), // a named project needs project:read
 		publicRoute("GET /api/v1/me", a.handleMe, "a.handleMe: current verified caller self-view"),
+		protocolRoute("POST /api/v1/auth/external/start", credentialDoor(a, a.handleExternalStart), "a.handleExternalStart: browser-bound external authentication"),
+		protocolRoute("GET /api/v1/auth/external/callback", credentialDoor(a, a.handleExternalCallback), "a.handleExternalCallback: one-use external authentication evidence"),
+		requireRoute("GET /api/v1/auth/external/provider", external.Provider, access.CapIdentityUsers, "instance"),
+		ownerRoute("PUT /api/v1/auth/external/provider", external.Save, "external.Save"),
+		ownerRoute("POST /api/v1/auth/external/enabled", external.Enabled, "external.Enabled"),
+		ownerRoute("POST /api/v1/auth/external/test", external.Test, "external.Test"),
+		ownerRoute("GET /api/v1/auth/external/bindings", external.Bindings, "external.Bindings"),
+		ownerRoute("POST /api/v1/auth/external/bindings/{id}/unlink", credentialDoor(a, a.handleExternalUnlink), "a.handleExternalUnlink"),
+		ownerRoute("POST /api/v1/auth/external/bindings", external.Bind, "external.Bind"),
+		ownerRoute("DELETE /api/v1/auth/external/bindings/{id}", external.Revoke, "external.Revoke"),
 		publicRoute("GET /api/v1/auth/me", a.handleAuthMe, "a.handleAuthMe: current authentication self-view"),
 		protocolRoute("POST /api/v1/auth/login", credentialDoor(a, a.handleAuthLogin), "a.handleAuthLogin: credential verification"),
 		protocolRoute("POST /api/v1/auth/logout", a.handleAuthLogout, "a.handleAuthLogout: credential verification"),

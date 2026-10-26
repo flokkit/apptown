@@ -29,6 +29,7 @@ type Config struct {
 	// SetupTokenPath is where the first administrator's setup token is
 	// kept while no account exists (setup_token.go); "" checks none.
 	SetupTokenPath string
+	External       *ExternalDependencies
 }
 
 // Service is the Access subsystem. Its stores are private implementation details;
@@ -132,6 +133,9 @@ func (s *Service) Disconnect(ctx context.Context, id ids.ID, by string) error {
 }
 
 func (s *Service) Sweep(ctx context.Context) error {
+	if err := queries(s.db).SweepExternalTransactions(ctx, s.now()); err != nil {
+		return err
+	}
 	return s.oauth.SweepExpired(ctx)
 }
 

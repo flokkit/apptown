@@ -4,7 +4,8 @@ package httpapi
 // is when the request carries an identity. The web reads it to decide whether
 // to show the sign-in page; what a caller may do is read from /authz/me.
 type AuthMe struct {
-	Mode string `json:"mode"`
+	Mode     string                   `json:"mode"`
+	External *ExternalProviderSummary `json:"external,omitempty"`
 	// NeedsBootstrap is said only under AppTown's own sign-in: no account
 	// exists yet, so the first one made is the administrator.
 	NeedsBootstrap *bool  `json:"needsBootstrap,omitempty"`

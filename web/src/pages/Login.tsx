@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { post } from '../api'
+import { externalSignInFailure } from './ExternalSignIn'
+import type { ExternalProviderSummary, ExternalRedirect, ExternalStartRequest } from '../wire.gen'
 import { PRODUCT } from '../brand'
 import { LocalTrialNote, takeSetupToken } from '../LocalTrialNote'
 
@@ -7,14 +9,15 @@ import { LocalTrialNote, takeSetupToken } from '../LocalTrialNote'
 // so the same screen creates the first one (as admin), with the setup token
 // AppTown wrote on its host — bootstrap is refused by the server without
 // it, and the moment any account exists.
-export default function Login({ needsBootstrap, onSignedIn }: {
+export default function Login({ needsBootstrap, onSignedIn, external }: {
   needsBootstrap: boolean
   onSignedIn: () => void
+  external?: ExternalProviderSummary | null
 }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [setupToken, setSetupToken] = useState(takeSetupToken)
-  const [err, setErr] = useState('')
+  const [err, setErr] = useState(externalSignInFailure(new URLSearchParams(window.location.search).get('signin')))
   const [busy, setBusy] = useState(false)
 
   const submit = async (e: React.FormEvent) => {
@@ -29,6 +32,15 @@ export default function Login({ needsBootstrap, onSignedIn }: {
     } finally {
       setBusy(false)
     }
+  }
+
+  const externalSignIn = async () => {
+    setBusy(true); setErr('')
+    try {
+      const input: ExternalStartRequest = { name: username, returnPath: '/', password: '', link: false }
+      const result = await post<ExternalRedirect>('/auth/external/start', input)
+      window.location.assign(result.url)
+    } catch (e) { setErr((e as Error).message); setBusy(false) }
   }
 
   return (
@@ -60,6 +72,10 @@ export default function Login({ needsBootstrap, onSignedIn }: {
               autoComplete="off" spellCheck={false} style={{ width: '100%' }} />
           </label>
         )}
+        {!needsBootstrap && external && <>
+          {external.allowSignup && <p className="small muted">For a new external account, enter your chosen {PRODUCT} username above.</p>}
+          <button type="button" disabled={busy} onClick={() => { void externalSignIn() }}>Sign in with {external.displayName}</button>
+        </>}
         {err && <div className="small" style={{ color: 'var(--bad)' }}>{err}</div>}
         <button className="primary" disabled={busy || !username || !password || (needsBootstrap && !setupToken)}>
           {needsBootstrap ? 'Create account' : 'Sign in'}

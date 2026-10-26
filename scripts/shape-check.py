@@ -40,7 +40,7 @@ APP = MOD + "apptown"     # the App, the composition root; AppTown's subsystems 
 DOMAIN = APP + "/"
 # Libraries sit at internal/<x>: they know nothing of AppTown and could be lifted into another
 # program. A library may not import the App or anything under it.
-LIBRARIES = {"access", "backuparchive", "toolversions", "stockupdate", "check", "clock", "console", "containerresult", "database", "dbtest", "deploy", "diskspace", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "routinechange", "localtls", "stamp", "trust", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
+LIBRARIES = {"oidclogin", "access", "backuparchive", "toolversions", "stockupdate", "check", "clock", "console", "containerresult", "database", "dbtest", "deploy", "diskspace", "dockerlabel", "durable", "enum", "execfile", "execution", "fault", "gitexec", "gitlab", "hostmem", "ids", "oci", "poll", "progress", "routinechange", "localtls", "stamp", "trust", "strs", "telemetry", "testreport", "trailer", "wiregen", "worker"}
 
 # A kernel is a subsystem every other subsystem may import, and which may import
 # only leaves, libraries and kernels. access is no longer one: the rule and its

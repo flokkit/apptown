@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/oidclogin/oidcfake"
 )
 
 func internalApp(t *testing.T, configs ...Config) (*App, http.Handler) {
@@ -853,4 +855,223 @@ func grantedCapability(t *testing.T, a *App, user, role string, capability acces
 		t.Fatal(err)
 	}
 	return decision.Allow
+}
+
+func TestExternalHTTPCallbackBindsBrowserAndStartsOnlyCommittedSession(t *testing.T) {
+	origin := "http://127.0.0.1:51234"
+	provider := oidcfake.New(t, nil)
+	a, h := internalApp(t, Config{PublicHost: origin})
+	w := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "boss", "correct-horse"))
+	if w.Code != 200 {
+		t.Fatalf("bootstrap: %d %s", w.Code, w.Body.String())
+	}
+	adminCookie := sessionFrom(t, w)
+	if e := a.Secrets.SetInstance(t.Context(), "OIDC_SECRET", "client-secret", "boss"); e != nil {
+		t.Fatal(e)
+	}
+	request := func(method, path string, body any, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+		raw, _ := json.Marshal(body)
+		r := httptest.NewRequest(method, origin+path, bytes.NewReader(raw))
+		r.Header.Set("Origin", origin)
+		r.Header.Set("Content-Type", "application/json")
+		for _, c := range cookies {
+			r.AddCookie(c)
+		}
+		out := httptest.NewRecorder()
+		h.ServeHTTP(out, r)
+		return out
+	}
+	w = request("PUT", "/api/v1/auth/external/provider", identity.ExternalProviderChange{Issuer: provider.URL, DisplayName: "Synthetic issuer", ClientID: "client", SecretRef: "OIDC_SECRET", AllowSignup: true}, adminCookie)
+	if w.Code != 200 {
+		t.Fatalf("configure: %d %s", w.Code, w.Body.String())
+	}
+	var p identity.ExternalProvider
+	if e := json.Unmarshal(w.Body.Bytes(), &p); e != nil {
+		t.Fatal(e)
+	}
+	w = request("POST", "/api/v1/auth/external/enabled", httpapi.ExternalEnableRequest{Revision: p.Revision, Enabled: true}, adminCookie)
+	if w.Code != 200 {
+		t.Fatalf("enable: %d %s", w.Code, w.Body.String())
+	}
+	begin := func(name string) (*url.URL, *http.Cookie) {
+		w := request("POST", "/api/v1/auth/external/start", httpapi.ExternalStartRequest{Name: name, ReturnPath: "/"})
+		if w.Code != 200 {
+			t.Fatalf("start: %d %s", w.Code, w.Body.String())
+		}
+		var redirect httpapi.ExternalRedirect
+		json.Unmarshal(w.Body.Bytes(), &redirect)
+		var flowCookie *http.Cookie
+		for _, c := range w.Result().Cookies() {
+			if c.Name == "apptown_external" {
+				flowCookie = c
+			}
+		}
+		if flowCookie == nil || !flowCookie.HttpOnly || flowCookie.MaxAge != 600 {
+			t.Fatalf("missing browser binding: %+v", flowCookie)
+		}
+		client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		auth, e := client.Get(redirect.URL)
+		if e != nil {
+			t.Fatal(e)
+		}
+		auth.Body.Close()
+		callback, e := url.Parse(auth.Header.Get("Location"))
+		if e != nil {
+			t.Fatal(e)
+		}
+		return callback, flowCookie
+	}
+	collision, binding := begin("boss")
+	w = request("GET", collision.RequestURI(), nil, binding)
+	if w.Code != 303 || w.Header().Get("Location") != "/?signin=name-unavailable" {
+		t.Fatalf("occupied name did not give safe recovery: %d %s", w.Code, w.Header().Get("Location"))
+	}
+	for _, c := range w.Result().Cookies() {
+		if c.Name == adminCookie.Name && c.Value != "" {
+			t.Fatal("occupied-name callback issued a session")
+		}
+	}
+	callback, flowCookie := begin("first-person")
+	w = request("GET", callback.RequestURI(), nil)
+	if w.Code != 303 || !strings.Contains(w.Header().Get("Location"), "failed") {
+		t.Fatalf("unbound browser admitted: %d %s", w.Code, w.Body.String())
+	}
+	w = request("GET", callback.RequestURI(), nil, flowCookie)
+	if w.Code != 303 || w.Header().Get("Location") != "/" {
+		t.Fatalf("callback: %d %s location=%s", w.Code, w.Body.String(), w.Header().Get("Location"))
+	}
+	cookie := sessionFrom(t, w)
+	if cookie.MaxAge != 3600 || !cookie.HttpOnly {
+		t.Fatalf("wrong external lease: %+v", cookie)
+	}
+	w = request("GET", "/api/v1/auth/me", nil, cookie)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"user":"first-person"`) {
+		t.Fatalf("signed account: %d %s", w.Code, w.Body.String())
+	}
+	w = request("GET", callback.RequestURI(), nil, flowCookie)
+	if w.Code != 303 || !strings.Contains(w.Header().Get("Location"), "failed") {
+		t.Fatalf("replay admitted: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// Every owner-authorized external route has both allowed and refused HTTP
+// evidence; a member's self-view is distinct from provider administration.
+func TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership(t *testing.T) {
+	origin := "http://127.0.0.1:51236"
+	provider := oidcfake.New(t, nil)
+	a, h := internalApp(t, Config{PublicHost: origin})
+	w := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "boss", "correct-horse"))
+	if w.Code != 200 {
+		t.Fatal("bootstrap failed")
+	}
+	admin := sessionFrom(t, w)
+	request := func(method, path string, body any, cookie *http.Cookie) *httptest.ResponseRecorder {
+		raw, e := json.Marshal(body)
+		if e != nil {
+			t.Fatal(e)
+		}
+		r := httptest.NewRequest(method, origin+path, bytes.NewReader(raw))
+		r.Header.Set("Origin", origin)
+		r.Header.Set("Content-Type", "application/json")
+		r.Header.Set("X-AppTown-Actor", "boss")
+		if cookie != nil {
+			r.AddCookie(cookie)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	check := func(w *httptest.ResponseRecorder, status int) {
+		t.Helper()
+		if w.Code != status {
+			t.Fatalf("HTTP status=%d want=%d body=%s", w.Code, status, w.Body.String())
+		}
+	}
+	w = request("POST", "/api/v1/users", identity.AccountChange{Username: "member", Password: "member-password"}, admin)
+	check(w, 200)
+	w = request("POST", "/api/v1/auth/login", map[string]string{"username": "member", "password": "member-password"}, nil)
+	check(w, 200)
+	member := sessionFrom(t, w)
+	memberPrincipal, e := a.Access.SessionIdentity(t.Context(), member.Value)
+	if e != nil || memberPrincipal.ID.IsZero() {
+		t.Fatal("member identity missing")
+	}
+	if e := a.Secrets.SetInstance(t.Context(), "OIDC_AUTHORITY_SECRET", "client-secret", "boss"); e != nil {
+		t.Fatal(e)
+	}
+	change := identity.ExternalProviderChange{Issuer: provider.URL, DisplayName: "Example", ClientID: "client", SecretRef: "OIDC_AUTHORITY_SECRET"}
+	check(request("PUT", "/api/v1/auth/external/provider", change, member), 403)
+	w = request("PUT", "/api/v1/auth/external/provider", change, admin)
+	check(w, 200)
+	var p identity.ExternalProvider
+	if e := json.Unmarshal(w.Body.Bytes(), &p); e != nil {
+		t.Fatal(e)
+	}
+	enable := httpapi.ExternalEnableRequest{Revision: p.Revision, Enabled: true}
+	check(request("POST", "/api/v1/auth/external/enabled", enable, member), 403)
+	w = request("POST", "/api/v1/auth/external/enabled", enable, admin)
+	check(w, 200)
+	if e := json.Unmarshal(w.Body.Bytes(), &p); e != nil {
+		t.Fatal(e)
+	}
+	check(request("POST", "/api/v1/auth/external/test", nil, member), 403)
+	check(request("POST", "/api/v1/auth/external/test", nil, admin), 200)
+	bind := httpapi.ExternalBindRequest{ProviderID: p.ID, PrincipalID: memberPrincipal.ID, Subject: "owned-member"}
+	check(request("POST", "/api/v1/auth/external/bindings", bind, member), 403)
+	check(request("POST", "/api/v1/auth/external/bindings", bind, admin), 200)
+	bind.Subject = "second-member"
+	check(request("POST", "/api/v1/auth/external/bindings", bind, admin), 200)
+	check(request("GET", "/api/v1/auth/external/bindings?all=true", nil, member), 403)
+	readBindings := func(cookie *http.Cookie, path string) []identity.ExternalBindingView {
+		t.Helper()
+		w := request("GET", path, nil, cookie)
+		check(w, 200)
+		var out httpapi.ExternalBindingList
+		if e := json.Unmarshal(w.Body.Bytes(), &out); e != nil {
+			t.Fatal(e)
+		}
+		return out.Bindings
+	}
+	rows := readBindings(member, "/api/v1/auth/external/bindings")
+	if len(rows) != 2 {
+		t.Fatalf("member self-view count=%d", len(rows))
+	}
+	for _, row := range rows {
+		if row.PrincipalID != memberPrincipal.ID || row.Revoked {
+			t.Fatal("member self-view crossed ownership or changed binding")
+		}
+	}
+	if got := readBindings(admin, "/api/v1/auth/external/bindings"); len(got) != 0 {
+		t.Fatal("administrator self-view leaked another person's bindings")
+	}
+	if got := readBindings(admin, "/api/v1/auth/external/bindings?all=true"); len(got) != 2 {
+		t.Fatal("administrator all-view missing bindings")
+	}
+	path := "/api/v1/auth/external/bindings/" + rows[0].ID.String()
+	check(request("DELETE", path, nil, member), 403)
+	check(request("POST", path+"/unlink", map[string]string{"password": "correct-horse"}, admin), 403)
+	check(request("POST", path+"/unlink", map[string]string{"password": "wrong-password"}, member), 401)
+	if got := readBindings(member, "/api/v1/auth/external/bindings"); got[0].Revoked || got[1].Revoked {
+		t.Fatal("refused unlink/revoke changed binding")
+	}
+	check(request("POST", path+"/unlink", map[string]string{"password": "member-password"}, member), 204)
+	check(request("DELETE", "/api/v1/auth/external/bindings/"+rows[1].ID.String(), nil, admin), 200)
+	finalBindings := readBindings(member, "/api/v1/auth/external/bindings")
+	if len(finalBindings) != 2 {
+		t.Fatal("revocation lost retained binding history")
+	}
+	for _, row := range finalBindings {
+		if !row.Revoked {
+			t.Fatal("successful unlink/revoke did not persist")
+		}
+	}
+	w = request("GET", "/api/v1/auth/external/provider", nil, admin)
+	check(w, 200)
+	var current identity.ExternalProvider
+	if e := json.Unmarshal(w.Body.Bytes(), &current); e != nil {
+		t.Fatal(e)
+	}
+	if current.ID != p.ID || current.Revision != p.Revision || !current.Enabled {
+		t.Fatal("refused member administration changed provider")
+	}
 }

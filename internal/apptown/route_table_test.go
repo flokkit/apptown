@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -481,6 +482,14 @@ type described struct {
 // check every request its --json commands send is one of these (jsonAppTown
 // in cmd/apptown/output_test.go).
 var cliOperations = map[string]described{
+	"GET /api/v1/auth/external/provider":         {status: 200, response: identity.ExternalProvider{}},
+	"PUT /api/v1/auth/external/provider":         {status: 200, request: identity.ExternalProviderChange{}, response: identity.ExternalProvider{}},
+	"POST /api/v1/auth/external/enabled":         {status: 200, request: httpapi.ExternalEnableRequest{}, response: identity.ExternalProvider{}},
+	"POST /api/v1/auth/external/test":            {status: 200, response: map[string]bool{}},
+	"GET /api/v1/auth/external/bindings":         {query: []string{"all"}, status: 200, response: httpapi.ExternalBindingList{}},
+	"POST /api/v1/auth/external/bindings":        {status: 200, request: httpapi.ExternalBindRequest{}, response: httpapi.Done{}},
+	"DELETE /api/v1/auth/external/bindings/{id}": {status: 200, response: httpapi.Done{}},
+
 	"GET /api/v1/standing-approvals":                         {query: []string{"projectId"}, status: 200, response: []workflow.StandingStatus{}},
 	"GET /api/v1/standing-approvals/{id}/history":            {status: 200, response: []workflow.StandingRevision{}},
 	"POST /api/v1/standing-approvals/preview":                {request: workflow.StandingDefinition{}, status: 200, response: workflow.StandingQuestion{}},

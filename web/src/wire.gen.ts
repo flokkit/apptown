@@ -128,6 +128,7 @@ export type AttachmentList = {
 
 export type AuthMe = {
   mode: string
+  external?: ExternalProviderSummary | null
   needsBootstrap?: boolean | null
   user?: string
   role?: string
@@ -642,6 +643,69 @@ export type EvalStartForm = {
   profiles: string[]
   packs: PackChoice[]
   maxChanges: number
+}
+
+export type ExternalBindRequest = {
+  providerId: string | null
+  principalId: string | null
+  subject: string
+}
+
+export type ExternalBindingList = {
+  bindings: ExternalBindingView[]
+}
+
+export type ExternalBindingView = {
+  id: string | null
+  providerId: string | null
+  principalId: string | null
+  issuer: string
+  subject: string
+  revoked: boolean
+}
+
+export type ExternalEnableRequest = {
+  revision: number
+  enabled: boolean
+}
+
+export type ExternalProvider = {
+  id: string | null
+  revision: number
+  issuer: string
+  displayName: string
+  clientId: string
+  secretRef: string
+  callbackOrigin: string
+  enabled: boolean
+  allowSignup: boolean
+  initialGroup: string
+}
+
+export type ExternalProviderChange = {
+  revision: number
+  issuer: string
+  displayName: string
+  clientId: string
+  secretRef: string
+  allowSignup: boolean
+  initialGroup: string
+}
+
+export type ExternalProviderSummary = {
+  displayName: string
+  allowSignup: boolean
+}
+
+export type ExternalRedirect = {
+  url: string
+}
+
+export type ExternalStartRequest = {
+  name: string
+  returnPath: string
+  password: string
+  link: boolean
 }
 
 export type FinalCopies = {

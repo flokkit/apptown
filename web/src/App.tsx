@@ -27,6 +27,7 @@ import { InfrastructureNew } from './pages/InfrastructureNew'
 import Conformance from './pages/Conformance'
 import UsagePage from './pages/Usage'
 import People from './pages/People'
+import { MyExternalSignIn, externalSignInFailure } from './pages/ExternalSignIn'
 import Login from './pages/Login'
 import InvitePage from './pages/Invite'
 // Docs (mermaid and its diagram libraries) and the console (xterm) are the
@@ -88,6 +89,7 @@ export function SidebarNav() {
       <NavLink to="/packs" className={() => 'nav' + (wow ? ' active' : '')}>Ways of working</NavLink>
       {mayOpen('evals') && <NavLink to="/evals" className={cls}>Evals</NavLink>}
       {mayOpen('integrations') && <NavLink to="/integrations" className={cls}>Integrations</NavLink>}
+      <NavLink to="/account" className={cls}>Your account</NavLink>
       {mayOpen('people') && <NavLink to="/people" className={cls}>People</NavLink>}
       <NavLink to="/usage" className={cls}>Usage</NavLink>
  {mayUpdate && <NavLink to="/updates" className={cls}>Updates</NavLink>}
@@ -144,7 +146,7 @@ export default function App() {
   const invite = routePath.match(/^\/invite(?:\/([^/]+))?\/?$/)
   if (invite) return <InvitePage token={invite[1] ? decodeURIComponent(invite[1]) : ''} />
   if (me && me.mode === 'internal' && !me.user) {
-    return <Login needsBootstrap={!!me.needsBootstrap} onSignedIn={loadMe} />
+    return <Login needsBootstrap={!!me.needsBootstrap} onSignedIn={loadMe} external={me.external} />
   }
   return (
     <div className="layout">
@@ -173,6 +175,7 @@ export default function App() {
         </div>
       </nav>
       <main className="main">
+        {externalSignInFailure(new URLSearchParams(window.location.search).get('signin')) && <p className="error">{externalSignInFailure(new URLSearchParams(window.location.search).get('signin'))}</p>}
         {meQ.err && <div className="error small" style={{ marginBottom: 10 }}>{PRODUCT} could not say who you are: {meQ.err}</div>}
         <UpdateNote />
  <ReleaseAvailabilityNote />
@@ -227,6 +230,7 @@ export default function App() {
           <Route path="/policies" element={<WaysOfWorking tab="policies" />} />
           <Route path="/packs" element={<WaysOfWorking tab="packs" />} />
           <Route path="/packs/:name" element={<PackPage />} />
+          <Route path="/account" element={<MyExternalSignIn />} />
           <Route path="/people" element={<InstanceGate page="people"><People /></InstanceGate>} />
           <Route path="/usage" element={<UsagePage />} />
           <Route path="/evals" element={<InstanceGate page="evals"><EvalsPage /></InstanceGate>} />
