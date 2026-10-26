@@ -42,9 +42,10 @@ type Component struct {
 	// InternalPorts are a service's ports on the app's private network
 	// only: a gated app's public part has these and no http_port, so the
 	// platform gives it no route.
-	InternalPorts []int          `json:"internal_ports,omitempty"`
-	HealthCheck   *doHealthCheck `json:"health_check,omitempty"`
-	Envs          []doEnv        `json:"envs,omitempty"`
+	InternalPorts       []int          `json:"internal_ports,omitempty"`
+	HealthCheck         *doHealthCheck `json:"health_check,omitempty"`
+	LivenessHealthCheck *doHealthCheck `json:"liveness_health_check,omitempty"`
+	Envs                []doEnv        `json:"envs,omitempty"`
 }
 
 type doImage struct {
@@ -61,6 +62,7 @@ type doHealthCheck struct {
 	PeriodSeconds       int    `json:"period_seconds,omitempty"`
 	TimeoutSeconds      int    `json:"timeout_seconds,omitempty"`
 	FailureThreshold    int    `json:"failure_threshold,omitempty"`
+	SuccessThreshold    int    `json:"success_threshold,omitempty"`
 }
 
 type doEnv struct {
@@ -270,10 +272,10 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 			return deploy.Artifact{}, err
 		}
 		comp := Component{Name: p.Name, Image: img, InstanceSizeSlug: sizes[p.Name], InstanceCount: 1,
-			RunCommand: strings.Join(p.Command, " "), Envs: envs}
+			RunCommand: strings.Join(p.Command, " "), Envs: envs, LivenessHealthCheck: health[p.Name].liveness}
 		if p.Port > 0 {
 			comp.HTTPPort = p.Port
-			comp.HealthCheck = health[p.Name]
+			comp.HealthCheck = health[p.Name].readiness
 			if p.Public {
 				public, publicPort = p.Name, p.Port
 				if gate != nil {
@@ -359,46 +361,81 @@ func blankSecrets(spec AppSpec) string {
 
 // serviceHealth is shared by preflight and rendering: unsupported declarations
 // must be refused before need provisioning as well as image publication.
-func serviceHealth(c *appcontract.Contract, gated bool) (map[string]*doHealthCheck, error) {
-	health := make(map[string]*doHealthCheck)
+type renderedHealth struct{ readiness, liveness *doHealthCheck }
+
+func serviceHealth(c *appcontract.Contract, gated bool) (map[string]renderedHealth, error) {
+	health := make(map[string]renderedHealth)
 	if c == nil {
 		return health, nil
 	}
 	for _, part := range c.Parts {
-		if part.Port <= 0 || (gated && !part.Public) {
+		if gated && !part.Public {
 			continue
 		}
-		probe, err := doHealth(&part)
+		var intent appcontract.Health
+		if part.Intent != nil {
+			intent = *part.Intent
+		}
+		if part.Port <= 0 {
+			if intent.Readiness != nil || intent.Liveness != nil {
+				return nil, deploy.Terminal(fmt.Errorf("part %s: App Platform HTTP health requires a declared service port; worker health is not supported by this probe", part.Name))
+			}
+			continue
+		}
+		ready, err := renderProbe(&part, intent.Readiness, "readiness")
 		if err != nil {
 			return nil, deploy.Terminal(fmt.Errorf("part %s readiness: %w", part.Name, err))
 		}
-		health[part.Name] = probe
+		var live *doHealthCheck
+		if intent.Liveness != nil {
+			live, err = renderProbe(&part, intent.Liveness, "liveness")
+			if err != nil {
+				return nil, deploy.Terminal(fmt.Errorf("part %s liveness: %w", part.Name, err))
+			}
+		}
+		health[part.Name] = renderedHealth{ready, live}
 	}
 	return health, nil
 }
 
-// doHealth renders a part's readiness intent as the platform's probe.
-func doHealth(p *appcontract.Part) (*doHealthCheck, error) {
-	hc := &doHealthCheck{Port: p.Port, InitialDelaySeconds: 5, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 6}
-	if p.Intent != nil && p.Intent.Readiness != nil && p.Intent.Readiness.HTTP != "" {
-		hc.HTTPPath = p.Intent.Readiness.HTTP
+func readinessDefaults() appcontract.HealthPolicy {
+	return appcontract.HealthPolicy{Period: 10 * time.Second, Timeout: 5 * time.Second, StartupGrace: 5 * time.Second, FailureThreshold: 6, SuccessThreshold: 1}
+}
+
+func renderProbe(part *appcontract.Part, probe *appcontract.Probe, purpose string) (*doHealthCheck, error) {
+	defaults := readinessDefaults()
+	if purpose == "liveness" {
+		defaults.Timeout = time.Second
+		defaults.FailureThreshold = 18
 	}
-	if p.Intent != nil && p.Intent.Readiness != nil && p.Intent.Readiness.StartupGrace != "" {
-		grace, err := appcontract.ParseHealthDuration(p.Intent.Readiness.StartupGrace)
-		if err != nil {
+	policy, err := appcontract.NormalizeHealthPolicy(probe, purpose, defaults)
+	if err != nil {
+		return nil, err
+	}
+	if probe != nil && (probe.HTTP == "" || probe.TCP != 0 || len(probe.Exec) > 0) {
+		return nil, errors.New("App Platform supports declared HTTP health here; TCP and exec require another supported capability")
+	}
+	if purpose == "liveness" && (policy.SuccessThreshold != 1 || (probe != nil && probe.Expect != 0)) {
+		return nil, errors.New("App Platform liveness requires successThreshold 1 and cannot enforce an exact HTTP status")
+	}
+	if purpose == "readiness" && part.Public {
+		if err := policy.CheckBootFit(); err != nil {
 			return nil, err
 		}
-		if grace > time.Hour {
-			return nil, errors.New("startupGrace exceeds App Platform's 3600-second limit")
-		}
-		// The contract is a floor; the platform accepts whole seconds.
-		seconds := grace / time.Second
-		if grace%time.Second != 0 {
-			seconds++
-		}
-		if int(seconds) > hc.InitialDelaySeconds {
-			hc.InitialDelaySeconds = int(seconds)
-		}
+	}
+	if policy.StartupGrace > time.Hour {
+		return nil, errors.New("startupGrace exceeds App Platform's 3600-second limit")
+	}
+	seconds := policy.StartupGrace / time.Second
+	if policy.StartupGrace%time.Second != 0 {
+		seconds++
+	}
+	hc := &doHealthCheck{Port: part.Port, InitialDelaySeconds: int(seconds), PeriodSeconds: int(policy.Period / time.Second), TimeoutSeconds: int(policy.Timeout / time.Second), FailureThreshold: policy.FailureThreshold}
+	if policy.Explicit {
+		hc.SuccessThreshold = policy.SuccessThreshold
+	}
+	if probe != nil {
+		hc.HTTPPath = probe.HTTP
 	}
 	return hc, nil
 }

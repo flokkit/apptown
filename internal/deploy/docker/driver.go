@@ -17,6 +17,7 @@ import (
 // this daemon, or images by digest it pulls), and
 // runs it as the placement's container, through the stack boot it is given.
 type Driver struct {
+	Now func() time.Time // completion time of a current readiness sample
 	// Allowed rechecks the caller before boot phases; nil is an unguarded caller.
 	Allowed      func(context.Context) error
 	ServingLabel string                                                 // immutable owner-supplied routing label, independent of source.Slug

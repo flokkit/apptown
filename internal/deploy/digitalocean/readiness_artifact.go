@@ -15,9 +15,10 @@ import (
 const appSpecV2 = "do-app-spec-v2"
 
 type readinessSnapshot struct {
-	Version int    `json:"version"`
-	Path    string `json:"path"`
-	Expect  int    `json:"expect"`
+	Version int                       `json:"version"`
+	Path    string                    `json:"path"`
+	Expect  int                       `json:"expect"`
+	Policy  *appcontract.HealthPolicy `json:"policy,omitempty"`
 }
 
 type appArtifactEnvelope struct {
@@ -53,6 +54,17 @@ func readinessFor(c *appcontract.Contract, gated bool) (readinessSnapshot, error
 		if part.Public {
 			out.Path = probe.HTTP
 			out.Expect = probe.Expect
+			policy, err := appcontract.NormalizeHealthPolicy(probe, "readiness", readinessDefaults())
+			if err != nil {
+				return out, deploy.Terminal(err)
+			}
+			if err := policy.CheckBootFit(); err != nil {
+				return out, deploy.Terminal(err)
+			}
+			if policy.Explicit {
+				out.Version = 2
+				out.Policy = &policy
+			}
 		}
 	}
 	return out, nil
@@ -132,9 +144,10 @@ func strictRead(body []byte, into any) error {
 
 func decodeReadiness(body []byte) (readinessSnapshot, error) {
 	var fields struct {
-		Version *int    `json:"version"`
-		Path    *string `json:"path"`
-		Expect  *int    `json:"expect"`
+		Version *int                      `json:"version"`
+		Path    *string                   `json:"path"`
+		Expect  *int                      `json:"expect"`
+		Policy  *appcontract.HealthPolicy `json:"policy"`
 	}
 	var out readinessSnapshot
 	if err := strictRead(body, &fields); err != nil {
@@ -143,11 +156,35 @@ func decodeReadiness(body []byte) (readinessSnapshot, error) {
 	if fields.Version == nil || fields.Path == nil || fields.Expect == nil {
 		return out, errors.New("recorded readiness is incomplete")
 	}
-	out = readinessSnapshot{Version: *fields.Version, Path: *fields.Path, Expect: *fields.Expect}
-	if out.Version != 1 || (out.Path != "" && !strings.HasPrefix(out.Path, "/")) || (out.Expect != 0 && (out.Expect < 200 || out.Expect > 299 || out.Path == "")) {
+	out = readinessSnapshot{Version: *fields.Version, Path: *fields.Path, Expect: *fields.Expect, Policy: fields.Policy}
+	if (out.Version != 1 && out.Version != 2) || (out.Path != "" && !strings.HasPrefix(out.Path, "/")) || (out.Expect != 0 && (out.Expect < 200 || out.Expect > 299 || out.Path == "")) {
 		return out, errors.New("recorded readiness is unsupported")
 	}
+	if out.Version == 1 && out.Policy != nil {
+		return out, errors.New("legacy readiness cannot carry explicit policy")
+	}
+	if out.Version == 2 {
+		if out.Policy == nil || !out.Policy.Explicit || out.Path == "" {
+			return out, errors.New("explicit readiness policy is incomplete")
+		}
+		p := out.Policy
+		probe := &appcontract.Probe{Period: p.Period.String(), Timeout: p.Timeout.String(), StartupGrace: p.StartupGrace.String(), FailureThreshold: p.FailureThreshold, SuccessThreshold: p.SuccessThreshold, ChecksDeps: p.ChecksDeps}
+		canonical, err := appcontract.NormalizeHealthPolicy(probe, "readiness", readinessDefaults())
+		if err != nil || canonical != *p || canonical.CheckBootFit() != nil {
+			return out, errors.New("recorded readiness policy is invalid")
+		}
+	}
 	return out, nil
+}
+
+func sameReadiness(a, b readinessSnapshot) bool {
+	if a.Version != b.Version || a.Path != b.Path || a.Expect != b.Expect {
+		return false
+	}
+	if a.Policy == nil || b.Policy == nil {
+		return a.Policy == nil && b.Policy == nil
+	}
+	return *a.Policy == *b.Policy
 }
 
 func checkpointReadiness(noted map[string]any) (readinessSnapshot, error) {

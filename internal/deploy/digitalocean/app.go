@@ -219,13 +219,21 @@ func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep 
 	// path, or served this release's identity. Neither asked is unknown,
 	// whatever the platform's own probe says.
 	witnessed := false
-	if path := question.Path; path != "" && url != "" {
+	if question.Policy != nil {
+		if err := d.explicitColdReadiness(ctx, c, appID, dep.ID, url, question, release); err != nil {
+			return deploy.Observation{}, err
+		}
+		witnessed = true
+	}
+	if path := question.Path; path != "" && url != "" && question.Policy == nil {
 		if err := d.options.ProbeFrontDoor(ctx, strings.TrimRight(url, "/")+path, question.Expect, until, logf); err != nil {
 			return deploy.Observation{}, err
 		}
 		witnessed = true
 	}
 	switch {
+	case question.Policy != nil:
+		// The exact release witness shared each explicit probe timeout above.
 	case url == "":
 		logf("the platform names no URL for the app: which release it serves is not witnessed")
 	case release == "":
@@ -283,7 +291,7 @@ func (d *Driver) resume(ctx context.Context, p deploy.Placement, generation int6
 			return deploy.Observation{}, deploy.Terminal(err)
 		}
 		release, _ := noted["release"].(string)
-		if receipt.Readiness != question || receipt.Release != release {
+		if !sameReadiness(receipt.Readiness, question) || receipt.Release != release {
 			return deploy.Observation{}, deploy.Terminal(errors.New("recorded health receipt disagrees with readiness question"))
 		}
 	}

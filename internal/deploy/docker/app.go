@@ -389,6 +389,49 @@ func (p *Probe) Check(ctx context.Context, dk Scope, container, url string, time
 // cadence both go through wait, which production gives poll.Wait. A test
 // that reads only what an answer is judged to be can return at once.
 func (p *Probe) check(ctx context.Context, dk Scope, container, url string, timeout time.Duration, probe RenderedProbe, wait func(context.Context, time.Duration) error) (bool, string) {
+	if probe.PolicyError != nil {
+		return false, probe.PolicyError.Error()
+	}
+	if probe.Policy != nil {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		stop := context.AfterFunc(dk.lifetime(ctx), cancel)
+		defer stop()
+
+		target := strings.TrimRight(url, "/") + "/" + strings.TrimLeft(probe.Path, "/")
+		client := &http.Client{Transport: check.ProbeTransport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		ready := probe.Path != "" && coldPolicyReady(ctx, probe.Policy, max(timeout, probe.Grace), func(one context.Context) (string, bool) {
+			return coldSample(one, dk, container, func(one context.Context) bool {
+				one, stop := context.WithTimeout(one, probe.Policy.Timeout)
+				defer stop()
+				req, err := http.NewRequestWithContext(one, http.MethodGet, target, nil)
+				if err != nil {
+					return false
+				}
+				for k, v := range probe.Headers {
+					req.Header.Set(k, v)
+				}
+				resp, err := client.Do(req)
+				if err != nil {
+					return false
+				}
+				defer drainAndClose(resp.Body)
+				if probe.Expect != 0 && resp.StatusCode != probe.Expect {
+					return false
+				}
+				if probe.Body != "" {
+					body, err := io.ReadAll(io.LimitReader(resp.Body, int64(len(probe.Body))+1))
+					return err == nil && string(body) == probe.Body
+				}
+				return true
+			})
+		})
+		if ready {
+			return true, ""
+		}
+		return false, containerLogTail(ctx, dk, container)
+	}
+
 	// Do NOT auto-follow redirects: a behind-proxy-hardened app 301s a naked hit
 	// to https://, and the default client would follow it into a TLS handshake
 	// against a plain-HTTP listener, error, and read the boot as dead — the

@@ -320,13 +320,20 @@ readiness `requestContext` (`frontDoor`, the default, or `direct`). A
 liveness probe restarts the part, so it should not check other services:
 restarting it for a database's fault makes things worse.
 
-`period`, `timeout`, `failureThreshold`, `successThreshold`, `checksDeps`,
-and a `tcp` or `exec` readiness are refused: no target uses them yet.
+`period` accepts whole seconds from 5 through 300, `timeout` from 1 through
+10, and `failureThreshold` and `successThreshold` from 1 through 50. Omitted
+fields keep the target and phase defaults. Explicit cold readiness must fit its
+consecutive success checks within the greater of 90 seconds and `startupGrace`.
+`checksDeps` is an application assertion, not verified dependency health; it
+cannot be true for liveness. TCP and exec readiness remain refused.
 
 A part that is not public may also declare `healthcheck:`, a shell command
 run in its container (exit 0 is healthy): its container health check on a
-Docker host and on Portainer. Its `health` block is used only on App
-Platform, as the readiness path of a part with a port.
+Docker host and on Portainer. Structured nonpublic `health` is supported only
+for App Platform services with a declared port. Docker and Portainer refuse
+nonpublic structured declarations on fresh deployment, including declarations
+that were previously ignored. Running workloads and retained artifacts are not
+rewritten; remove an unsupported declaration or select a supporting target.
 
 What each target uses:
 
@@ -338,17 +345,23 @@ What each target uses:
   container (exit 0 is alive), and a `tcp` liveness, or none declared,
   connects to the part's port. For any HTTP probe, with `expect` the
   answer must be exactly that status, without it any HTTP answer counts,
-  and redirects are not followed.
+  and redirects are not followed. Explicit cold and maintained readiness require
+  consecutive answers from the same container start; liveness uses its declared
+  cadence, timeout and thresholds while preserving bounded restart backoff.
 - **Portainer.** Public HTTP readiness uses the declared path, `expect`,
-  `startupGrace` and request context, with `/` when no path is declared.
+  `startupGrace`, execution policy and request context, with `/` when no path is
+  declared. Consecutive answers belong to the exact deployed container start.
   An owned diagnostic checks the exact deployed container; a running
   container alone is not healthy. Other parts retain their native
-  `healthcheck:` checks. This does not add a liveness restart controller.
+  `healthcheck:` checks. Structured liveness and nonpublic structured health are
+  refused; this does not add a liveness restart controller.
 - **App Platform.** The readiness path and `startupGrace`, with a port check
   when no path is declared. The startup delay is at least five seconds and
   at least the declared grace, rounded up to whole seconds; declarations
-  above 3600 seconds are refused before provider effects. Other timings
-  remain fixed. A public HTTP readiness probe may require an exact `expect`
+  above 3600 seconds are refused before provider effects. Declared HTTP policy is
+  rendered for services with ports; liveness successThreshold must be 1. Worker
+  readiness, exec probes and worker HTTP liveness without a declared port are
+  refused. A public HTTP readiness probe may require an exact `expect`
   from 200 through 299. AppTown checks that status at the front door after
   native readiness succeeds; it does not follow redirects for that exact
   check. Omitted expectations retain the target's successful-response and
@@ -356,8 +369,10 @@ What each target uses:
   200–299, is refused before provider effects. A restored copy's checks
   remain behind its access gate.
 
-The readiness answer should not touch the database: use `rehearsal`
-checks for that.
+Readiness can declare that it checks dependencies; this does not replace the
+separate `rehearsal` checks. Liveness must remain independent of downstream
+availability. A missed or unavailable maintained check removes positive health
+evidence; tolerated failures do not make stale evidence healthy.
 
 ## Static sites
 

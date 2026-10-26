@@ -44,21 +44,24 @@ func TestAHungPartsBackoffIsTheControllersClocks(t *testing.T) {
 		Record:     func(context.Context, Watched, string, map[string]any) {},
 		Now:        func() time.Time { return at },
 	})
-	sweeps := func() {
-		for range HealthFailThreshold {
+	sweeps := func(advance bool) {
+		for i := range HealthFailThreshold {
+			if advance && i > 0 {
+				at = at.Add(HealthTick)
+			}
 			hc.Sweep(context.Background())
 		}
 	}
-	sweeps()
+	sweeps(true)
 	if restarts != 1 {
 		t.Fatalf("a hung part was restarted %d times, want once", restarts)
 	}
-	sweeps()
+	sweeps(false)
 	if restarts != 1 {
 		t.Fatalf("restarted again inside its backoff: %d", restarts)
 	}
 	at = at.Add(HealthBackoffCap) // the backoff has passed on the controller's clock
-	sweeps()
+	sweeps(true)
 	if restarts != 2 {
 		t.Fatalf("not restarted after its backoff on the controller's clock: %d", restarts)
 	}

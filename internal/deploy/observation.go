@@ -1,9 +1,17 @@
 package deploy
 
-import "time"
+import (
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"time"
+)
 
 // Observation records what a provider sees for a deployment generation.
 type Observation struct {
+	// RuntimeToken is an ephemeral probe incarnation (container ID and start
+	// time, or provider deployment ID). It is never restored from a receipt.
+	RuntimeToken string `json:"-"`
+	// ReadinessPolicy comes from the admitted artifact, never a saved observation.
+	ReadinessPolicy *appcontract.HealthPolicy `json:"-"`
 	// HealthObservedAt and ArtifactHash identify a fresh exact-release health
 	// witness. Zero/empty means the provider has supplied no such evidence.
 	HealthObservedAt time.Time `json:"healthObservedAt,omitempty"`
