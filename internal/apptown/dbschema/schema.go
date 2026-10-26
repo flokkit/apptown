@@ -260,6 +260,10 @@ GROUP BY d.slug`,
 		`CREATE TABLE project_creation_requests (id UUID PRIMARY KEY,actor_id UUID NOT NULL,request_id UUID NOT NULL,project_id UUID NOT NULL,input_hash TEXT,resolved_group TEXT,result_json JSONB,UNIQUE(actor_id,request_id))`,
 		`CREATE TABLE project_rename_requests (id UUID PRIMARY KEY,actor_id UUID NOT NULL,request_id UUID NOT NULL,project_id UUID NOT NULL,input_hash TEXT NOT NULL,result_json JSONB,UNIQUE(actor_id,request_id))`,
 	}},
+	{n: 179, note: "retain explicit standing approval revisions", stmts: []string{
+		`CREATE TABLE standing_rules (id UUID PRIMARY KEY, current_revision BIGINT NOT NULL CHECK(current_revision > 0))`,
+		`CREATE TABLE standing_rule_revisions (rule_id UUID NOT NULL REFERENCES standing_rules(id), revision BIGINT NOT NULL CHECK(revision > 0), enabled BOOLEAN NOT NULL, record_json JSONB NOT NULL, PRIMARY KEY(rule_id,revision))`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

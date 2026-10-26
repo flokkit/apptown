@@ -187,3 +187,7 @@ CREATE INDEX IF NOT EXISTS steps_run_stage ON steps(run_id, stage);
 
 -- Dashboard active work is bounded by recency, independently of project totals.
 CREATE INDEX IF NOT EXISTS runs_status_updated ON runs(status, updated_at DESC, id DESC);
+
+-- Standing consent survives project/account deletion as immutable evidence.
+CREATE TABLE IF NOT EXISTS standing_rules (id UUID PRIMARY KEY, current_revision BIGINT NOT NULL CHECK(current_revision > 0));
+CREATE TABLE IF NOT EXISTS standing_rule_revisions (rule_id UUID NOT NULL REFERENCES standing_rules(id), revision BIGINT NOT NULL CHECK(revision > 0), enabled BOOLEAN NOT NULL, record_json JSONB NOT NULL, PRIMARY KEY(rule_id,revision));

@@ -318,3 +318,8 @@ everything; revoking that grant makes each project readable by its members
 only ([People, invites, roles and grants](people-and-roles.md)).
 
 **Member (project)** — a person or group granted a role on a project.
+
+**Janitor** — the named actor for governed routine maintenance. Standing consent
+records who authorized bounded update classes and their exact project and delivery
+scope. Consent management is available; automatic processing is not. Saving a
+rule does not update running software.

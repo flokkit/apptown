@@ -9,6 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -45,6 +46,10 @@ func TestResolveWorkflowFromLibrary(t *testing.T) {
 	}
 	if !strings.HasPrefix(rw.Origin, "stock/quick-change@") || rw.Version < 1 || rw.System {
 		t.Fatalf("lane receipt wrong: %+v", rw)
+	}
+	dbtest.FailNextStatement(t, db, "-- name: CurrentAdoption :one")
+	if _, err := f.lifecycle.SelectedWorkflow(t.Context(), &p, "quick-change"); err == nil {
+		t.Fatal("unavailable adoption receipt silently selected a workflow")
 	}
 	// A system workflow needs no selection and says it is one.
 	rw, err = f.lifecycle.SelectedWorkflow(t.Context(), &p, "land")

@@ -244,3 +244,10 @@ func (r releaseData) BeforeRelease(ctx context.Context, projectID ids.ID, deploy
 	}
 	return w, nil
 }
+
+type standingDestinations struct{}
+
+func (standingDestinations) StandingDestination(ctx context.Context, q database.Queryer, projectID ids.ID, in workflow.StandingEnvironment) (workflow.StandingDestination, error) {
+	s, err := deployment.ReadStandingConsentSelection(ctx, q, projectID, in.DeploymentID, in.TargetID)
+	return workflow.StandingDestination{Resource: s.Resource, PromotionResource: s.PromotionResource, PromotionRequired: s.PromotionRequired}, err
+}

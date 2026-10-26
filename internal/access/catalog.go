@@ -43,13 +43,15 @@ const (
 	CapInstanceReadPublic Capability = "instance:read-public"
 	CapInstitutionRead    Capability = "institution:read-structure"
 
-	CapProjectList          Capability = "project:list"
-	CapProjectRead          Capability = "project:read"
-	CapProjectCreate        Capability = "project:create"
-	CapProjectConfigure     Capability = "project:configure"
-	CapProjectDelete        Capability = "project:delete"
-	CapProjectManageMembers Capability = "project:manage-members"
-	CapProjectImport        Capability = "project:import"
+	CapProjectList              Capability = "project:list"
+	CapProjectRead              Capability = "project:read"
+	CapProjectCreate            Capability = "project:create"
+	CapProjectConfigure         Capability = "project:configure"
+	CapProjectStandingApproval  Capability = "project:manage-standing-approval"
+	CapInstanceStandingApproval Capability = "instance:manage-standing-approval"
+	CapProjectDelete            Capability = "project:delete"
+	CapProjectManageMembers     Capability = "project:manage-members"
+	CapProjectImport            Capability = "project:import"
 
 	CapChangeList        Capability = "change:list"
 	CapChangeRead        Capability = "change:read"
@@ -145,13 +147,15 @@ var Definitions = map[Capability]Definition{
 	CapInstanceReadPublic: {"read the explicitly public instance surface", readInherits, "read"},
 	CapInstitutionRead:    {"see users, groups, roles and grants", nil, "read"},
 
-	CapProjectList:          {"discover visible projects", readInherits, "read"},
-	CapProjectRead:          {"read one project's source-facing state", readInherits, "read"},
-	CapProjectCreate:        {"create a project for an allowed owning group", []ScopeKind{ScopeGroup}, "mutate"},
-	CapProjectConfigure:     {"change ordinary project metadata", nil, "mutate"},
-	CapProjectDelete:        {"permanently remove a project", nil, "admin"},
-	CapProjectManageMembers: {"change a project's roster and project roles", nil, "admin"},
-	CapProjectImport:        {"import an external branch or tree", nil, "mutate"},
+	CapProjectList:              {"discover visible projects", readInherits, "read"},
+	CapProjectRead:              {"read one project's source-facing state", readInherits, "read"},
+	CapProjectCreate:            {"create a project for an allowed owning group", []ScopeKind{ScopeGroup}, "mutate"},
+	CapProjectConfigure:         {"change ordinary project metadata", nil, "mutate"},
+	CapProjectStandingApproval:  {"manage explicit standing approvals for a project", nil, "approve"},
+	CapInstanceStandingApproval: {"manage explicit standing approvals across projects", nil, "admin"},
+	CapProjectDelete:            {"permanently remove a project", nil, "admin"},
+	CapProjectManageMembers:     {"change a project's roster and project roles", nil, "admin"},
+	CapProjectImport:            {"import an external branch or tree", nil, "mutate"},
 
 	CapChangeList:          {"list changes", readInherits, "read"},
 	CapChangeRead:          {"read a change", readInherits, "read"},
@@ -298,7 +302,7 @@ var (
 		CapProjectWayOfWorking, CapProjectImport, CapConformanceFix, CapConformanceAI,
 		CapProjectManageMembers, CapSecretBind, CapDeploymentDeploy)
 	OwnerCaps = append(append([]Capability{}, MaintainerCaps...),
-		CapProjectConfigure, CapProjectDelete, CapProjectModelProfile, CapDeploymentBind, CapDeploymentTeardown, CapDeploymentRestore)
+		CapProjectStandingApproval, CapProjectConfigure, CapProjectDelete, CapProjectModelProfile, CapDeploymentBind, CapDeploymentTeardown, CapDeploymentRestore)
 	// Administration capabilities summarized by the account menu.
 	AmenderCaps = []Capability{CapStandardsGuidance, CapStandardsPacks, CapStandardsPolicies,
 		CapExecWorkflows, CapIntegrationServices, CapIntegrationDeps}

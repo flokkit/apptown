@@ -1,3 +1,4 @@
+import Janitor from './pages/Janitor'
 import { PRODUCT } from './brand'
 import { NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './ErrorBoundary'
@@ -69,6 +70,7 @@ export function SidebarNav() {
         <NavLink to={`/projects/${slug}`} end className={cls}>Overview</NavLink>
         <NavLink to={`/projects/${slug}/console`} className={cls}>Chat ▸</NavLink>
         <NavLink to={`/projects/${slug}/security`} className={cls}>Security</NavLink>
+        <NavLink to={`/projects/${slug}/janitor`} className={cls}>Janitor</NavLink>
         <NavLink to={`/projects/${slug}/settings`} className={cls}>Settings</NavLink>
       </>
     )
@@ -197,6 +199,8 @@ export default function App() {
           <Route path="/conformance/ways" element={<InstanceGate page="conformance"><Conformance tab="ways" /></InstanceGate>} />
           <Route path="/conformance/remediations/:remId" element={<InstanceGate page="conformance"><Conformance tab="remediation" /></InstanceGate>} />
           <Route path="/projects/_new" element={<NewProject />} />
+          <Route path="/janitor" element={<Janitor />} />
+          <Route path="/projects/:slug/janitor" element={<Janitor />} />
           <Route path="/projects/:slug" element={<Project />} />
           <Route path="/operations/:id" element={<OperationPage />} />
           <Route path="/projects/:slug/:tab" element={<Project />} />

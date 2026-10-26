@@ -481,6 +481,11 @@ type described struct {
 // check every request its --json commands send is one of these (jsonAppTown
 // in cmd/apptown/output_test.go).
 var cliOperations = map[string]described{
+	"GET /api/v1/standing-approvals":                         {query: []string{"projectId"}, status: 200, response: []workflow.StandingStatus{}},
+	"GET /api/v1/standing-approvals/{id}/history":            {status: 200, response: []workflow.StandingRevision{}},
+	"POST /api/v1/standing-approvals/preview":                {request: workflow.StandingDefinition{}, status: 200, response: workflow.StandingQuestion{}},
+	"POST /api/v1/standing-approvals":                        {request: workflow.StandingCommand{}, status: 200, response: workflow.StandingRevision{}},
+	"POST /api/v1/standing-approvals/{id}/disable":           {request: httpapi.StandingDisable{}, status: 200, response: workflow.StandingRevision{}},
 	"GET /api/v1/projects/{slug}/release/default":            {status: 200, response: deployment.ReleaseDefault{}},
 	"GET /api/v1/projects/{slug}/targets":                    {status: 200, response: httpapi.ProjectTargets{}},
 	"POST /api/v1/projects/{slug}/release/default/setup":     {request: deployment.ReleaseSetup{}, status: 200, response: deployment.ReleaseDefault{}},
@@ -828,6 +833,11 @@ func apiDescription() (map[string]any, error) {
 // it refuses in words. Nested types must be explicitly request-only; an
 // undescribed named type could share required fields with responses and is refused.
 var requestOnlyDescriptions = []wiregen.Named{
+	{Name: "StandingCategories", Value: workflow.StandingCategories{}},
+	{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
+	{Name: "StandingProject", Value: workflow.StandingProject{}},
+	{Name: "StandingDefinition", Value: workflow.StandingDefinition{}},
+
 	{Name: "ProjectCreationService", Value: projectlifecycle.CreationService{}},
 	{Name: "ProjectCreationUpstream", Value: projectlifecycle.CreationUpstream{}},
 	{Name: "ProjectCreationSetup", Value: projectlifecycle.CreationSetup{}},

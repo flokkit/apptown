@@ -17,7 +17,7 @@ import (
 var stepOptions = map[string][]string{
 	"agent/pi":             {"prompt", "model", "thinking", "executor", "image", "scm", "skills", "resources", "requires", "services", "needs", "docker", "mayChangeNothing", "output", "timeoutMinutes"},
 	"agent/review":         {"of", "prompt", "question", "model", "thinking", "timeoutMinutes"},
-	"approval":             {"approvers", "quorum", "means", "instructions", "inAdvance", "inAdvanceAdmitsNotApplicable"},
+	"approval":             {"approvers", "quorum", "means", "instructions", "inAdvance", "inAdvanceAdmitsNotApplicable", "standing"},
 	"artifact/require":     {"kind", "name"},
 	"adr/require":          {"status", "tags"},
 	"preview":              {"services"},

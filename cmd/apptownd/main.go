@@ -5,6 +5,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/clock"
 	"log"
 	"net"
 	"net/http"
@@ -271,6 +273,12 @@ func main() {
 	db, err := apptown.OpenURL(ctx, o.dbURL)
 	if err != nil {
 		log.Fatalf("open db: %v", err)
+	}
+
+	if restored != nil {
+		if err := workflow.DisableRestoredStandingRules(ctx, db, clock.Or(nil)()); err != nil {
+			log.Fatalf("disable restored standing approvals: %v", err)
+		}
 	}
 
 	if o.holdsDatabase() {

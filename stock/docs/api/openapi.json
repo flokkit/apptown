@@ -169,6 +169,27 @@
         ],
         "type": "object"
       },
+      "Actor": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "principal": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "via": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "AddressReading": {
         "properties": {
           "certificateDomain": {
@@ -1896,6 +1917,13 @@
               }
             ]
           },
+          "targetId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "updatedAt": {
             "type": "string"
           },
@@ -1904,6 +1932,7 @@
           }
         },
         "required": [
+          "targetId",
           "id",
           "displayLabel",
           "name",
@@ -4180,6 +4209,277 @@
             "type": "integer"
           }
         },
+        "type": "object"
+      },
+      "StandingCategories": {
+        "properties": {
+          "baseImages": {
+            "type": "boolean"
+          },
+          "dependencies": {
+            "type": "string"
+          },
+          "securityFixes": {
+            "type": "boolean"
+          },
+          "waysOfWorking": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "StandingCommand": {
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/StandingDefinition"
+          },
+          "expectedRevision": {
+            "type": "integer"
+          },
+          "ruleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shownDigest": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StandingDefinition": {
+        "properties": {
+          "administrative": {
+            "type": "boolean"
+          },
+          "categories": {
+            "$ref": "#/components/schemas/StandingCategories"
+          },
+          "delivery": {
+            "type": "string"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/StandingProject"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "StandingDisable": {
+        "properties": {
+          "expectedRevision": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "StandingEnvironment": {
+        "properties": {
+          "deploymentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "promotion": {
+            "type": "boolean"
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "StandingProcedure": {
+        "properties": {
+          "acceptance": {
+            "$ref": "#/components/schemas/StandingPurpose"
+          },
+          "landing": {
+            "$ref": "#/components/schemas/StandingPurpose"
+          }
+        },
+        "required": [
+          "acceptance",
+          "landing"
+        ],
+        "type": "object"
+      },
+      "StandingProject": {
+        "properties": {
+          "environments": {
+            "items": {
+              "$ref": "#/components/schemas/StandingEnvironment"
+            },
+            "type": "array"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "workflow": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StandingProjectMeaning": {
+        "properties": {
+          "procedure": {
+            "$ref": "#/components/schemas/StandingProcedure"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "projectId",
+          "procedure"
+        ],
+        "type": "object"
+      },
+      "StandingPurpose": {
+        "properties": {
+          "approvers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "means": {
+            "type": "string"
+          },
+          "step": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "workflow": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow",
+          "version",
+          "step",
+          "means",
+          "approvers"
+        ],
+        "type": "object"
+      },
+      "StandingQuestion": {
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/StandingDefinition"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/StandingProjectMeaning"
+            },
+            "type": "array"
+          },
+          "shown": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "definition",
+          "projects",
+          "shown",
+          "digest"
+        ],
+        "type": "object"
+      },
+      "StandingRevision": {
+        "properties": {
+          "changedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "changedBy": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "enabledAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "issuer": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "question": {
+            "$ref": "#/components/schemas/StandingQuestion"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "ruleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "ruleId",
+          "revision",
+          "enabled",
+          "question",
+          "issuer",
+          "enabledAt",
+          "changedBy",
+          "changedAt",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "StandingStatus": {
+        "properties": {
+          "eligible": {
+            "type": "boolean"
+          },
+          "processingAvailable": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "rule": {
+            "$ref": "#/components/schemas/StandingRevision"
+          }
+        },
+        "required": [
+          "rule",
+          "eligible",
+          "reason",
+          "processingAvailable"
+        ],
         "type": "object"
       },
       "State": {
@@ -13247,6 +13547,214 @@
           "scope": "instance"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/standing-approvals": {
+      "get": {
+        "operationId": "getStandingApprovals",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "projectId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StandingStatus"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "standing-approvals"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.List",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      },
+      "post": {
+        "operationId": "postStandingApprovals",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StandingCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandingRevision"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "standing-approvals"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.Enable",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/standing-approvals/preview": {
+      "post": {
+        "operationId": "postStandingApprovalsPreview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StandingDefinition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandingQuestion"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "standing-approvals"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.Preview",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/standing-approvals/{id}/disable": {
+      "post": {
+        "operationId": "postStandingApprovalsIdDisable",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StandingDisable"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandingRevision"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "standing-approvals"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.Disable",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/standing-approvals/{id}/history": {
+      "get": {
+        "operationId": "getStandingApprovalsIdHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StandingRevision"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "standing-approvals"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.History",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/steps/{id}/approve": {

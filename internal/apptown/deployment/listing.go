@@ -61,6 +61,7 @@ type NeedSummary struct {
 	Status                                NeedState
 }
 type Summary struct {
+	TargetID         ids.ID
 	DisplayLabel     string
 	DeploymentPolicy DeploymentPolicy
 	ID               ids.ID
@@ -208,7 +209,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 			}
 		}
 		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{DisplayLabel: e.DisplayLabel,
-			DeploymentPolicy: e.UpdatePolicy(), ID: e.ID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
+			DeploymentPolicy: e.UpdatePolicy(), ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), RequirePromotion: e.RequirePromotion, PolicyRevision: e.PolicyRevision, Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,
 		}}
