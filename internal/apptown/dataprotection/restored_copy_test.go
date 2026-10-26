@@ -1031,3 +1031,26 @@ func TestARestoredCopyPreflightsOnlyTheServicesItWillStart(t *testing.T) {
 		}
 	}
 }
+
+func TestARestoredCopyRetainsItsDeclaredReadinessStatus(t *testing.T) {
+	t.Parallel()
+	w := newRestoredWorld(t, []byte(`app:
+  web:
+    build: .
+    public: true
+    health: {readiness: {http: /healthz, expect: 201}}
+needs:
+  postgres: {version: "16"}
+`))
+	w.platform.answer["/healthz"] = http.StatusOK
+	op, c := w.start(RestoredCopyRequest{})
+	if op.State != operations.Failed || c.FailedAt != "asking the app through the gate" || c.Outcome != RehearsalFailed || !c.EndedAt.Valid {
+		t.Fatalf("wrong status accepted by restored owner: %s %+v", op.State, c)
+	}
+	if !slices.ContainsFunc(c.Facts.Checks, func(check RehearsalCheck) bool {
+		return check.Name == "readiness" && check.Status == 200 && !check.Passed
+	}) {
+		t.Fatalf("missing failed exact-status fact: %+v", c.Facts.Checks)
+	}
+	w.noSecretIn("the failed-status operation", op)
+}

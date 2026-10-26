@@ -41,7 +41,7 @@ func TestAppPlatformGivesEveryContainerTheExtraCertificates(t *testing.T) {
 			t.Fatal(err)
 		}
 		var spec AppSpec
-		if err := json.Unmarshal(art.Body, &spec); err != nil {
+		if err := json.Unmarshal(renderedSpecBody(t, art), &spec); err != nil {
 			t.Fatal(err)
 		}
 		for _, comps := range [][]Component{spec.Services, spec.Workers, spec.Jobs} {

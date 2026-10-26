@@ -60,7 +60,7 @@ func TestTheReleaseWitnessIsTheSelectedPublicStaticPart(t *testing.T) {
 			}
 			d := NewDriver(Dependencies{Slug: "shop", Client: func(context.Context) (*Client, Config, error) {
 				return NewClient("test", server.URL), Config{Region: "syd", Registry: "forge-test"}, nil
-			}}, Options{PushImage: push, PollInterval: time.Millisecond, ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil }})
+			}}, Options{PushImage: push, PollInterval: time.Millisecond, ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { return nil }})
 			var log []string
 			logf := func(f string, a ...any) { log = append(log, fmt.Sprintf(f, a...)) }
 			art, err := d.Render(context.Background(), deploy.Placement{Name: "cloud"}, src, nil, scopedRenderSecrets{}, logf)
@@ -138,7 +138,7 @@ func TestAppPlatformAsksTheFrontDoorOnlyWhenTheContractSaysWhat(t *testing.T) {
 			asked := 0
 			d := NewDriver(Dependencies{Slug: "shop", Client: func(context.Context) (*Client, Config, error) {
 				return NewClient("test", server.URL), Config{Region: "syd", Registry: "forge-test"}, nil
-			}}, Options{PushImage: push, PollInterval: time.Millisecond, ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { asked++; return nil }})
+			}}, Options{PushImage: push, PollInterval: time.Millisecond, ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { asked++; return nil }})
 			var log []string
 			logf := func(f string, a ...any) { log = append(log, fmt.Sprintf(f, a...)) }
 			art, err := d.Render(context.Background(), deploy.Placement{Name: "cloud"}, src, nil, scopedRenderSecrets{}, logf)

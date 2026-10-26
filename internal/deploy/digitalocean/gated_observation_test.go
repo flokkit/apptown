@@ -44,7 +44,7 @@ func resumeOn(t *testing.T, srv *httptest.Server, p deploy.Placement, probed *[]
 	t.Helper()
 	d := NewDriver(Dependencies{Slug: "orders", Client: func(context.Context) (*Client, Config, error) {
 		return &Client{Base: srv.URL, HTTP: srv.Client()}, Config{Region: "syd"}, nil
-	}}, Options{PollInterval: time.Millisecond, ProbeFrontDoor: func(_ context.Context, url string, _ time.Time, _ func(string, ...any)) error {
+	}}, Options{PollInterval: time.Millisecond, ProbeFrontDoor: func(_ context.Context, url string, _ int, _ time.Time, _ func(string, ...any)) error {
 		*probed = append(*probed, url)
 		return nil
 	}})

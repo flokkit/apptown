@@ -48,7 +48,7 @@ init:
 		t.Fatal(err)
 	}
 	var spec AppSpec
-	if err := json.Unmarshal(artifact.Body, &spec); err != nil {
+	if err := json.Unmarshal(renderedSpecBody(t, artifact), &spec); err != nil {
 		t.Fatal(err)
 	}
 	if len(spec.Services) != 1 || spec.Services[0].HTTPPort != 8080 || len(spec.Workers) != 1 || len(spec.Jobs) != 1 {
@@ -81,4 +81,23 @@ init:
 	if string(after) != string(before) {
 		t.Fatal("provider rendering mutated declaration")
 	}
+}
+
+// The test reader intentionally inspects the wire envelope rather than using
+// the production decoder, so render tests still check the actual provider spec.
+func renderedSpecBody(t testing.TB, artifact deploy.Artifact) []byte {
+	t.Helper()
+	if artifact.Kind != "do-app-spec-v2" {
+		t.Fatalf("rendered artifact kind %q", artifact.Kind)
+	}
+	var envelope struct {
+		Spec json.RawMessage `json:"spec"`
+	}
+	if err := json.Unmarshal(artifact.Body, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if len(envelope.Spec) == 0 {
+		t.Fatal("rendered artifact has no provider spec")
+	}
+	return envelope.Spec
 }

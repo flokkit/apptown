@@ -1510,7 +1510,7 @@ func newPromotionTargets(t *testing.T, configure func(*Config)) *promotionTarget
 	t.Cleanup(portainer.Close)
 	p.releaseWorld = newReleaseWorld(t, func(c *Config) {
 		c.DigitalOcean = digitalocean.Options{APIBase: api.URL, RegistryHost: p.docr.host, PollInterval: 10 * time.Millisecond, DBPoll: 10 * time.Millisecond,
-			ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil }}
+			ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { return nil }}
 		if configure != nil {
 			configure(c)
 		}

@@ -171,7 +171,7 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 	secrets := fmt.Sprintf("DIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nAPPTOWN_APPS_DOMAIN=apps.example\n", digestDOToken, portainerAPI.URL)
 	p.digestWorld = newDigestWorldWith(t, secrets, appYAML, func(w *digestWorld, deps *testRuntime) {
 		deps.DigitalOcean = digitalocean.Options{APIBase: api.URL, RegistryHost: p.docr.host, PollInterval: 10 * time.Millisecond, DBPoll: 10 * time.Millisecond,
-			ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil }}
+			ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { return nil }}
 		deps.OfferedByConstruction = []string{IntranetTargetName}
 		if noLocalDocker {
 			// As an AppTown started with -no-local-docker: its own daemon refuses.

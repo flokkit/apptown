@@ -339,13 +339,22 @@ What each target uses:
   connects to the part's port. For any HTTP probe, with `expect` the
   answer must be exactly that status, without it any HTTP answer counts,
   and redirects are not followed.
-- **Portainer.** No `health` block is used; another part's `healthcheck:`
-  is.
+- **Portainer.** Public HTTP readiness uses the declared path, `expect`,
+  `startupGrace` and request context, with `/` when no path is declared.
+  An owned diagnostic checks the exact deployed container; a running
+  container alone is not healthy. Other parts retain their native
+  `healthcheck:` checks. This does not add a liveness restart controller.
 - **App Platform.** The readiness path and `startupGrace`, with a port check
   when no path is declared. The startup delay is at least five seconds and
   at least the declared grace, rounded up to whole seconds; declarations
   above 3600 seconds are refused before provider effects. Other timings
-  remain fixed. `expect` is not used.
+  remain fixed. A public HTTP readiness probe may require an exact `expect`
+  from 200 through 299. AppTown checks that status at the front door after
+  native readiness succeeds; it does not follow redirects for that exact
+  check. Omitted expectations retain the target's successful-response and
+  redirect behavior. An exact status on a private service, or outside
+  200–299, is refused before provider effects. A restored copy's checks
+  remain behind its access gate.
 
 The readiness answer should not touch the database: use `rehearsal`
 checks for that.

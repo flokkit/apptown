@@ -382,7 +382,7 @@ func newDataWorldWith(t *testing.T, opts dataWorldOptions) *dataWorld {
 	w.api.ServeSpaces(w.store)
 	options := digitalocean.Options{APIBase: srv.URL, PollInterval: time.Millisecond, DBPoll: time.Millisecond,
 		SpacesEndpoint: func(string) string { return w.store.API.URL }, BucketSuffix: func() string { return "b0b0b0b0" },
-		ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil },
+		ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { return nil },
 		OwnDatabase:    own,
 		PushImage: func(*digitalocean.Driver, context.Context, *digitalocean.Client, string, string, string, string, func(string, ...any)) (string, error) {
 			return "sha256:" + strings.Repeat("a", 64), nil

@@ -59,9 +59,10 @@ type Options struct {
 	// source, tag) and answers the digest DOCR holds.
 	CopyImage   func(*Driver, context.Context, *Client, string, string, oci.Source, string, func(string, ...any)) (string, error)
 	OwnDatabase func(context.Context, string, string, string) error
-	// ProbeFrontDoor asks a URL until it answers; until is the end of the
+	// ProbeFrontDoor asks a URL for expect (zero retains successful-response
+	// semantics); until is the end of the
 	// platform's new name's grace (zero: none).
-	ProbeFrontDoor func(ctx context.Context, url string, until time.Time, logf func(string, ...any)) error
+	ProbeFrontDoor func(ctx context.Context, url string, expect int, until time.Time, logf func(string, ...any)) error
 	// Resolve looks a host name up in DNS; nil is the system resolver.
 	Resolve func(ctx context.Context, host string) error
 	// Dial opens the front door checks' connections (host:port); nil is a
@@ -118,8 +119,8 @@ func NewDriver(deps Dependencies, options Options) *Driver {
 	}
 	if options.ProbeFrontDoor == nil {
 		interval, now := options.PollInterval, options.Now
-		options.ProbeFrontDoor = func(ctx context.Context, url string, until time.Time, logf func(string, ...any)) error {
-			return probeFrontDoor(ctx, frontDoor, url, until, logf, interval, now)
+		options.ProbeFrontDoor = func(ctx context.Context, url string, expect int, until time.Time, logf func(string, ...any)) error {
+			return probeFrontDoor(ctx, frontDoor, url, expect, until, logf, interval, now)
 		}
 	}
 	if options.Resolve == nil {

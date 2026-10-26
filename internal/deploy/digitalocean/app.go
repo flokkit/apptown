@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -95,25 +94,16 @@ func (d *Driver) findApp(ctx context.Context, c *Client, name string) (*doApp, e
 // deployment to be ACTIVE. Admission permits one execution for the key;
 // subsequent recovery uses Resume with the recorded provider identifiers.
 func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {
-	if art.Kind != "do-app-spec" {
-		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("the App Platform driver deploys app specs, not %s", art.Kind))
+	decoded, err := decodeAppArtifact(art)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	c, _, err := d.Client(ctx)
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	var spec map[string]any
-	if err := json.Unmarshal(art.Body, &spec); err != nil {
-		return deploy.Observation{}, deploy.Terminal(err)
-	}
-	var typed AppSpec
-	if err := json.Unmarshal(art.Body, &typed); err != nil {
-		return deploy.Observation{}, deploy.Terminal(err)
-	}
-	if err := oneVersionPerRepository(typed); err != nil {
-		return deploy.Observation{}, err
-	}
-	name, _ := spec["name"].(string)
+	spec := decoded.Wire
+	name := decoded.Spec.Name
 	app, err := d.findApp(ctx, c, name)
 	if err != nil {
 		return deploy.Observation{}, err
@@ -146,8 +136,13 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if app.ID == "" {
 		return deploy.Observation{}, errors.New("the platform accepted the spec without naming its app; provider inspection is required")
 	}
-	readinessPath := readinessPathOf(typed)
-	ids := map[string]any{"appId": app.ID, "appName": name, "readinessPath": readinessPath}
+	question := decoded.Readiness
+	ids := map[string]any{"appId": app.ID, "appName": name, "artifactKind": art.Kind}
+	if question.Version == 0 {
+		ids["readinessPath"] = question.Path
+	} else {
+		ids["readiness"] = question
+	}
 	release := expectedRelease(art.Source)
 	if release != "" {
 		ids["release"] = release
@@ -166,7 +161,7 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	return d.finish(ctx, c, app.ID, name, dep, generation, readinessPath, release, p.Gate != nil, logf)
+	return d.finish(ctx, c, app.ID, name, dep, generation, question, release, p.Gate != nil, logf)
 }
 
 // finish: after the deployment is ACTIVE, re-read the app, refuse a cut-over
@@ -179,7 +174,7 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 // anyone without a credential: it is not asked here. AppTown's own checks
 // ask the app through the gate with the gate secret, and record only status
 // codes; nothing here reads a response body of a gated deployment.
-func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep *doDeployment, generation int64, readinessPath, release string, gated bool, logf func(string, ...any)) (deploy.Observation, error) {
+func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep *doDeployment, generation int64, question readinessSnapshot, release string, gated bool, logf func(string, ...any)) (deploy.Observation, error) {
 	var got struct {
 		App doApp `json:"app"`
 	}
@@ -213,8 +208,8 @@ func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep 
 	// path, or served this release's identity. Neither asked is unknown,
 	// whatever the platform's own probe says.
 	witnessed := false
-	if path := readinessPath; path != "" && url != "" {
-		if err := d.options.ProbeFrontDoor(ctx, strings.TrimRight(url, "/")+path, until, logf); err != nil {
+	if path := question.Path; path != "" && url != "" {
+		if err := d.options.ProbeFrontDoor(ctx, strings.TrimRight(url, "/")+path, question.Expect, until, logf); err != nil {
 			return deploy.Observation{}, err
 		}
 		witnessed = true
@@ -229,6 +224,17 @@ func (d *Driver) finish(ctx context.Context, c *Client, appID, name string, dep 
 			return deploy.Observation{}, err
 		}
 		witnessed = true
+	}
+	if witnessed {
+		var current struct {
+			App doApp `json:"app"`
+		}
+		if err := c.Call(ctx, "GET", "/v2/apps/"+appID, nil, &current); err != nil {
+			return deploy.Observation{}, err
+		}
+		if current.App.ID != appID || activeID(&current.App) != dep.ID {
+			return deploy.Observation{}, errors.New("the app's active deployment changed during readiness observation")
+		}
 	}
 	health := "unknown"
 	if witnessed {
@@ -250,6 +256,10 @@ func (d *Driver) resume(ctx context.Context, p deploy.Placement, generation int6
 	if depID == "" {
 		return deploy.Observation{}, errors.New("AppTown has no recorded deployment identity; cannot adopt the app's current or pending deployment")
 	}
+	question, err := checkpointReadiness(noted)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
+	}
 	c, _, err := d.Client(ctx)
 	if err != nil {
 		return deploy.Observation{}, fmt.Errorf("reading provider access during recovery: %w", err)
@@ -259,9 +269,8 @@ func (d *Driver) resume(ctx context.Context, p deploy.Placement, generation int6
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	path, _ := noted["readinessPath"].(string)
 	release, _ := noted["release"].(string)
-	return d.finish(ctx, c, appID, name, dep, generation, path, release, p.Gate != nil, logf)
+	return d.finish(ctx, c, appID, name, dep, generation, question, release, p.Gate != nil, logf)
 }
 
 func activeID(app *doApp) string {
@@ -413,9 +422,16 @@ func (d *Driver) awaitProviderName(ctx context.Context, rawURL string, until tim
 }
 
 // probeFrontDoor asks the real front door for the readiness path: six
-// tries, ten seconds apart by default, any 2xx is reachable. Before until,
+// tries, ten seconds apart by default. An explicit status must match without
+// following redirects; omitted expectations retain the successful-response
+// predicate and redirect policy. Before until,
 // a try the platform's new name did not answer is not counted (notYet).
-func probeFrontDoor(ctx context.Context, client *http.Client, url string, until time.Time, logf func(string, ...any), interval time.Duration, now func() time.Time) error {
+func probeFrontDoor(ctx context.Context, client *http.Client, url string, expect int, until time.Time, logf func(string, ...any), interval time.Duration, now func() time.Time) error {
+	if expect != 0 {
+		copy := *client
+		copy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+		client = &copy
+	}
 	var last string
 	waiting := false
 	for tries := 0; tries < 6; {
@@ -429,7 +445,7 @@ func probeFrontDoor(ctx context.Context, client *http.Client, url string, until 
 		}
 		if err == nil {
 			res.Body.Close()
-			if res.StatusCode < 300 {
+			if (expect == 0 && res.StatusCode < 300) || (expect != 0 && res.StatusCode == expect) {
 				logf("the front door answers %s (%d)", url, res.StatusCode)
 				return nil
 			}
