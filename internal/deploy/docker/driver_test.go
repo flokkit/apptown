@@ -96,7 +96,7 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	body := []byte(`{"version":1,"revision":"abc"}`)
 	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 		Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c}}
-	place := deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}
+	place := deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main", HostPort: 41233}
 	ctx := context.Background()
 	quiet := func(string, ...any) {}
 
@@ -361,7 +361,7 @@ func TestDriverBootsTheImagesItsSourceNames(t *testing.T) {
 		daemon := &fakeDaemon{}
 		boot := &fakeBoot{daemon: daemon}
 		d := &Driver{ServingLabel: "stable-serving", Scope: func(context.Context) (Scope, error) { return Scope{Client: daemon}, nil }, Boot: boot,
-			URL: func(_, _ string, port int) string { return fmt.Sprint(port) }, AfterRelease: func(deploy.Placement) {}}
+			URL: func(_, _ string, port int) string { return "https://stable-serving.example" }, AfterRelease: func(deploy.Placement) {}}
 		art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 			Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c, Images: images, Init: map[string]string{}}}
 		if _, err := d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil }); err != nil {
@@ -425,7 +425,7 @@ func TestDriverKeepsServingIdentitySeparateFromDisplayAddress(t *testing.T) {
 			if remote {
 				want = "https://original.apps.example"
 			}
-			if err != nil || out.URL != want || observedLabel != "original" || boot.req.ServingLabel != "original" || boot.req.Slug != "renamed" {
+			if err != nil || out.URL != want || observedLabel != "original" || boot.req.ServingLabel != "original" || boot.req.Slug != "renamed" || boot.req.ExactOrigins == nil || *boot.req.ExactOrigins != want {
 				t.Fatalf("serving/display boundary: out=%+v callback=%q request=%+v err=%v", out, observedLabel, boot.req, err)
 			}
 		})

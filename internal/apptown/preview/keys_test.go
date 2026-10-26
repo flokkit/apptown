@@ -97,7 +97,7 @@ func TestAPreviewsKeyLivesWhileItBootsOrStands(t *testing.T) {
 	ctx := context.Background()
 	c, ws := llmContract(t, llmAppFixture)
 	name := docker.PreviewChangeName(idstest.N(7))
-	prepared, err := s.preparePreview(ctx, projectID, "p", name, ws, c, nil)
+	prepared, err := s.preparePreview(ctx, projectID, "p", name, "change-1", ws, c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestAPreviewWithoutTheAttachmentGetsNoKey(t *testing.T) {
 	t.Parallel()
 	s, _, projectID, f := llmBootWorld(t, false)
 	c, ws := llmContract(t, llmAppFixture)
-	prepared, err := s.preparePreview(t.Context(), projectID, "p", "apptown-preview-change-1", ws, c, nil)
+	prepared, err := s.preparePreview(t.Context(), projectID, "p", "apptown-preview-change-1", "change-1", ws, c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +267,7 @@ func TestAWorkerBootFinishingDuringTheSweepKeepsItsKey(t *testing.T) {
 	s, w, _, dir, pid := onWorker(t, lw)
 	c, _ := llmContract(t, llmAppFixture)
 	name := docker.PreviewChangeName(idstest.N(7))
-	prepared, err := s.preparePreview(t.Context(), pid, "p", name, dir, c, nil)
+	prepared, err := s.preparePreview(t.Context(), pid, "p", name, "change-1", dir, c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +305,7 @@ func TestAPreviewOpenedAgainDuringTheSweepHasALiveKey(t *testing.T) {
 	s, w, _, dir, pid := onWorker(t, lw)
 	c, _ := llmContract(t, llmAppFixture)
 	name := docker.PreviewChangeName(idstest.N(7))
-	prepared, err := s.preparePreview(t.Context(), pid, "p", name, dir, c, nil)
+	prepared, err := s.preparePreview(t.Context(), pid, "p", name, "change-1", dir, c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,7 +358,7 @@ func TestAStoppedRevocationRetainsNothing(t *testing.T) {
 	ctx := context.Background()
 	c, ws := llmContract(t, llmAppFixture)
 	name := docker.PreviewChangeName(idstest.N(7))
-	prepared, err := s.preparePreview(ctx, projectID, "p", name, ws, c, nil)
+	prepared, err := s.preparePreview(ctx, projectID, "p", name, "change-1", ws, c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +399,7 @@ func TestAKeyThatCannotBeRetainedStaysThePreviews(t *testing.T) {
 	ctx := context.Background()
 	c, ws := llmContract(t, llmAppFixture)
 	name := docker.PreviewChangeName(idstest.N(7))
-	prepared, err := s.preparePreview(ctx, projectID, "p", name, ws, c, nil)
+	prepared, err := s.preparePreview(ctx, projectID, "p", name, "change-1", ws, c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

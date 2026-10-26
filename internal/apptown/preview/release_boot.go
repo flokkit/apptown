@@ -64,7 +64,7 @@ func (h releaseBoots) BootReleasePreview(ctx context.Context, selected Release) 
 	// values, as on the worker. A running look is kept only as that
 	// identity: one booted with other values (a secret or attachment
 	// changed since) is replaced.
-	prepared, err := s.preparePreview(ctx, p.ID, p.Slug, name, staged, committed, nil)
+	prepared, err := s.preparePreview(ctx, p.ID, p.Slug, name, label, staged, committed, nil)
 	if err != nil {
 		return ReleaseResult{}, err
 	}
@@ -120,7 +120,7 @@ func (s *Service) bootReleaseOnWorker(ctx context.Context, projectID ids.ID, slu
 	name := docker.PreviewLabelName(label)
 	defer s.holdPreview(name)()
 	discards := s.discardsSoFar(name)
-	prepared, err := s.preparePreview(ctx, projectID, slug, name, tree, c, nil)
+	prepared, err := s.preparePreview(ctx, projectID, slug, name, label, tree, c, nil)
 	if err != nil {
 		return ReleaseResult{}, err
 	}

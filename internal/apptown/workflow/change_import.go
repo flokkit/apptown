@@ -75,7 +75,7 @@ func (g GitWorkspace) command(ctx context.Context, dir string, args ...string) e
 	if runner == nil {
 		runner = execution.Runner{}
 	}
-	return runner.Run(ctx, execution.Local, execution.Request{Workspace: dir, Argv: append([]string{"git"}, args...), Timeout: 10 * time.Minute})
+	return runner.Run(ctx, execution.Local, execution.Request{Workspace: dir, Argv: gitexec.Argv(args...), Timeout: 10 * time.Minute})
 }
 func (g GitWorkspace) git(ctx context.Context, dir string, args ...string) (string, error) {
 	out := g.command(ctx, dir, args...)

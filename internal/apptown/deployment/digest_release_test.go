@@ -42,10 +42,18 @@ func (w *digestWorld) landMain(t *testing.T, ctx context.Context, b *ReleaseBund
 		t.Fatal(err)
 	}
 	defer cleanup()
+	names, err := dep.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := w.s.Deployments.StablePort(t.Context(), w.project, dep.Name, names.App())
+	if err != nil {
+		t.Fatal(err)
+	}
 	runID := b.BuiltFrom.RunID
 	return w.s.RunLanding(ctx, landingClaim{w.project, runID}, LandingInput{
 		Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("run-%d-deploy", runID), Inputs: Inputs{ReleaseRun: runID, Revision: w.revision, ArtifactHash: art.Hash, DockerSource: string(art.Body), BundleID: b.ID}},
-		Source: *art.Source, DataClass: "synthetic", Bundle: b,
+		Source: *art.Source, HostPort: port, DataClass: "synthetic", Bundle: b,
 	})
 }
 

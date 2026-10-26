@@ -102,7 +102,7 @@ func (s *Service) RunPreview(ctx context.Context, claim deployment.ClaimedExecut
 	if err != nil {
 		return RunResult{}, &ContractError{Commit: tree.Revision, Cause: err}
 	}
-	prepared, err := s.preparePreview(ctx, projectID, p.Slug, name, tree.Directory, c, in.Services)
+	prepared, err := s.preparePreview(ctx, projectID, p.Slug, name, fmt.Sprintf("run-%d", runID), tree.Directory, c, in.Services)
 	if err != nil {
 		return RunResult{}, err
 	}

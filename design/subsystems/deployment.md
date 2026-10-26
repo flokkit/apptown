@@ -1506,9 +1506,14 @@ configuration and credential snapshot for the inventory read and deletion. Recor
 and verified shared placements must be retired through their deployment. An item
 missing from the filtered observation is not eligible for removal through this door.
 
-Docker apps trust the configured built-in origin patterns and their actual attached
-host's routed domain. Portainer apps use their admitted deployment ingress hosts;
-unrelated Portainer connection domains do not expand Docker app trust.
+New Docker standing boots receive the exact owner-produced front-door origin,
+using the immutable serving label or reserved direct port. Newly prepared previews
+capture their exact configured route before their public digest and worker request
+are formed; domainless local previews have no configured origin. Existing admitted
+requests keep their captured bytes, and sealed rehearsals keep the source origin.
+Portainer apps use their admitted deployment ingress hosts. Fresh preparation
+intentionally removes prior wildcard trust of sibling projects; management aliases
+do not add application hosts.
 
 ### App Platform readiness evidence
 

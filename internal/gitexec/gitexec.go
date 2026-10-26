@@ -8,8 +8,8 @@
 // own commands and tests' alike (gittest builds on it). Callers that need a
 // timeout, streamed output or a container for a long operation (merge,
 // fetch, a lane's workspace) keep using execution.Runner with argv
-// "git ...": that adds something real, and it starts processes with Environ
-// too. Everything else uses this.
+// from Argv: that retains the foreground-maintenance policy, and the runner
+// starts processes with Environ too. Everything else uses this.
 //
 // No GIT_* variable AppTown inherited reaches the git it starts, and
 // neither does the machine's system or global git config (Environ): the
@@ -32,7 +32,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -95,7 +94,8 @@ var RepositoryConfigOnly = []string{"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=
 // the whole group, as execution.Runner does: killing git alone would leave
 // a helper running, holding git's pipes or still talking to a remote.
 func Command(ctx context.Context, dir string, env []string, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "git", append(slices.Clone(foreground), args...)...)
+	argv := Argv(args...)
+	cmd := exec.CommandContext(ctx, "git", argv[1:]...)
 	ownGroup(cmd)
 	// Only a cancellable call bounds its pipes. An uncancellable one waits for
 	// them as a plain exec would: a push can leave a helper holding a pipe
@@ -106,6 +106,14 @@ func Command(ctx context.Context, dir string, env []string, args ...string) *exe
 	cmd.Dir = dir
 	cmd.Env = append([]string{}, env...)
 	return cmd
+}
+
+// Argv constructs an independent command line for execution.Runner callers.
+// It shares Command's maintenance policy without replacing the runner's
+// timeout, cancellation or process-group ownership.
+func Argv(args ...string) []string {
+	argv := append([]string{"git"}, foreground...)
+	return append(argv, args...)
 }
 
 // foreground keeps git's automatic maintenance inside the command that

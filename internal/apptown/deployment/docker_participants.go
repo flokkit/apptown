@@ -134,6 +134,11 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 		}
 		return routes.PublicURL(port)
 	}
+	origin, err := docker.ExactOrigin(reached(in.HostPort))
+	if err != nil {
+		return fail(err)
+	}
+	request.ExactOrigins = &origin
 	request.VisitorHost = docker.VisitorHost(reached(in.HostPort))
 	executor := landingDeploymentExecution{label: dep.Label(), target: request, contract: effective, artifact: in.Start.Inputs.ArtifactHash, boot: s.env.Host(projectID, s.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(s.db, s.clock, dep, slug) }).Boot,
 		url: reached}

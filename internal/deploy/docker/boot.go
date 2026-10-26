@@ -39,12 +39,13 @@ type BootRequest struct {
 	// Log reports phase entry. It receives no environment values or command output.
 	// Nil disables progress reporting without changing boot behavior.
 	Log          deploy.Logf
-	Slug         string // the application's current display address; not routing identity
-	ServingLabel string // immutable label for a standing host route; separate from secret scope
-	DataClass    string // what a standing deployment holds; "" or "synthetic" lets a moved service be recreated
-	Name         string // the public app container: apptown-preview-change-7, <prefix>env-<slug>-main
-	StackID      string // owner of its stack (services, init, network): pvsnap-change-7, pv<step>, env-<slug>-<env>
-	Workspace    string // the tree to boot: a worktree, a run workspace, the project checkout
+	Slug         string  // the application's current display address; not routing identity
+	ExactOrigins *string // nil retains captured route context; non-nil is the owner's exact browser origin (empty means none).
+	ServingLabel string  // immutable label for a standing host route; separate from secret scope
+	DataClass    string  // what a standing deployment holds; "" or "synthetic" lets a moved service be recreated
+	Name         string  // the public app container: apptown-preview-change-7, <prefix>env-<slug>-main
+	StackID      string  // owner of its stack (services, init, network): pvsnap-change-7, pv<step>, env-<slug>-<env>
+	Workspace    string  // the tree to boot: a worktree, a run workspace, the project checkout
 	// HostPort pins a standing deployment's stable port; 0 lets docker pick
 	// (previews).
 	HostPort int
@@ -351,6 +352,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		allowed = func(context.Context) error { return nil }
 	}
 	if err := allowed(ctx); err != nil {
+		return res, &BootError{Phase: PhaseResolve, Err: err}
+	}
+	if err := t.validateOrigins(); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
 	if err := t.requireServingLabel(); err != nil {

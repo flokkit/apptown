@@ -120,23 +120,20 @@ func TestAnAppPortIsPublishedWhereItsProbeReachesIt(t *testing.T) {
 	}
 }
 
-// An app is told every origin a browser reaches it at: this AppTown's tiers
-// and, when an attached host's Traefik routes it, that host's ingress
-// domain. Given only the preview tier, a framework that checks the host
-// (Rails) refuses every page at <slug>.apps.<domain>.
-func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
+// A new standing boot trusts its exact owner-produced route, never sibling
+// projects or unrelated tiers retained in the ambient route context.
+func TestARoutedAppTrustsOnlyItsOwnOrigin(t *testing.T) {
 	t.Parallel()
-	for _, tc := range []struct {
-		name, domain, want string
-	}{
-		{"routed by the attached host", "apps.example.com", "APPTOWN_ORIGINS=https://change-1.previews.example,https://*.apps.example.com "},
-		{"an attached host with no ingress domain", "", "APPTOWN_ORIGINS=https://change-1.previews.example "},
+	for _, tc := range []struct{ name, domain, origin string }{
+		{"attached main", "apps.example.com", "https://original.apps.example.com"},
+		{"attached direct port", "", "http://droplet.example:42100"},
+		{"built in main", "", "https://original.main.example"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			client := &remoteAppClient{}
 			dk := (Scope{Client: client}).WithHost("ssh://apptown-target-droplet", "droplet.example", tc.domain)
-			if _, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "waypoint", ServingLabel: "waypoint", Deployment: "main", Workspace: t.TempDir(), Persistent: true},
-				&appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil); err != nil {
+			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Routes: liveRoutes{}}).StartAppContainer(t.Context(), BootRequest{Docker: dk, Name: "apptown-env-waypoint-main", Slug: "renamed", ServingLabel: "original", Deployment: "main", Workspace: t.TempDir(), Persistent: true, HostPort: 42100, ExactOrigins: &tc.origin}, &appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil)
+			if err != nil {
 				t.Fatal(err)
 			}
 			var started string
@@ -145,8 +142,20 @@ func TestARoutedAppTrustsItsAttachedHostsDomain(t *testing.T) {
 					started = call.command
 				}
 			}
-			if !strings.Contains(started, "-e "+tc.want) {
-				t.Fatalf("container started without %q:\n%s", tc.want, started)
+			if !strings.Contains(started, "-e APPTOWN_ORIGINS="+tc.origin+" ") || strings.Contains(started, "https://*.") || strings.Contains(started, "change-1.previews.example") {
+				t.Fatalf("wrong origin scope: %s", started)
+			}
+		})
+	}
+}
+
+func TestInvalidExactOriginRefusesBeforeContainerReplacement(t *testing.T) {
+	for _, origin := range []string{"https://*.apps.example", "https://user:secret@app.example", "http://host:0", "https://app.example/path", "https://app.example?token=secret", "https://app.example#fragment", "not a URL"} {
+		t.Run(origin, func(t *testing.T) {
+			client := &remoteAppClient{}
+			_, err := NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF}).StartAppContainer(t.Context(), BootRequest{Docker: Scope{Client: client}, Name: "owned", Workspace: t.TempDir(), ExactOrigins: &origin}, &appcontract.Part{Image: "example/site:1", Port: 8080}, "", nil)
+			if err == nil || len(client.calls) != 0 || strings.Contains(err.Error(), "secret") {
+				t.Fatalf("invalid origin reached effects or leaked: calls=%v err=%v", client.calls, err)
 			}
 		})
 	}

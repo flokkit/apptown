@@ -142,6 +142,9 @@ func TestAPublishedReleasesPreviewBootsOnTheWorkerFromItsDigests(t *testing.T) {
 		t.Fatalf("the worker was asked %d boots", len(w.boots))
 	}
 	spec, prepared := w.boots[0], w.prepared[0]
+	if prepared.Origins != "https://"+label+".preview.example" {
+		t.Fatalf("renamed historical preview origins: %q", prepared.Origins)
+	}
 	if spec.Name != name || spec.StackID != docker.ReleaseStackID("p", published) || spec.Images == nil ||
 		!maps.Equal(spec.Images.Parts, b.Parts) || !maps.Equal(spec.Images.Init, b.Init) {
 		t.Fatalf("the worker was asked %+v", spec)
@@ -196,6 +199,10 @@ func TestALocalReleasePreviewIsNotRoutedToTheWorker(t *testing.T) {
 	}
 	if len(local()) == 0 || len(w.boots) != 0 {
 		t.Fatal("fixture: the preview did not boot here")
+	}
+	wantOrigin := "APPTOWN_ORIGINS=https://" + docker.ReleasePreviewLabel("p", recorded) + ".preview.example"
+	if !strings.Contains(strings.Join(local(), "\n"), wantOrigin) || strings.Contains(strings.Join(local(), "\n"), "https://*.preview.example") {
+		t.Fatalf("local historical preview origins: %v", local())
 	}
 	if name := docker.PreviewLabelName(docker.ReleasePreviewLabel("p", recorded)); s.ServedOnWorker(name) {
 		t.Fatalf("%s is routed to the worker", name)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -66,6 +67,9 @@ func (t BootRequest) requireServingLabel() error {
 
 func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontract.Part, network string, secretEnv map[string]string) (int, error) {
 	dk, name, ws, hostPort, persistent := t.Docker, t.Name, t.Workspace, t.HostPort, t.Persistent
+	if err := t.validateOrigins(); err != nil {
+		return 0, err
+	}
 	if err := t.requireServingLabel(); err != nil {
 		return 0, err
 	}
@@ -250,10 +254,13 @@ func (h *Host) StartAppContainer(ctx context.Context, t BootRequest, c *appcontr
 			"-l", fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port=%d", router, c.Port),
 		)
 	}
-	// Where the app is reached from a browser (every tier, as wildcards):
-	// frameworks trust their front door from this instead of a hand-typed
-	// hostname that is wrong in the next deployment.
-	if o := appOrigins(h.origins(ctx), dk, routed); o != "" {
+	// New standing boots carry their owner's exact route. Prepared previews
+	// and sealed rehearsals retain the route context captured by their owner.
+	origins := h.origins(ctx)
+	if t.ExactOrigins != nil {
+		origins = *t.ExactOrigins
+	}
+	if o := origins; o != "" {
 		args = append(args, "-e", "APPTOWN_ORIGINS="+o)
 	}
 	// Attached-integration runtime contributions: the errors DSN plus every attached
@@ -597,23 +604,23 @@ func StaleEndpoint(out string) bool {
 	return strings.Contains(out, "endpoint with name") && strings.Contains(out, "already exists in network")
 }
 
-// appOrigins is the APPTOWN_ORIGINS an app is given: this AppTown's tiers and,
-// for an app routed by an attached host's own Traefik, that host's ingress
-// domain, where its visitors actually arrive. Without it an app on such a
-// host trusts only the preview tier, and a framework that checks the host
-// (Rails) refuses every page at <slug>.<domain>.
-func appOrigins(tiers string, dk Scope, routed bool) string {
-	if !routed {
-		return tiers
+// ExactOrigin validates an owner-produced browser origin before replacement.
+// Empty means no configured route, as for a domainless local preview.
+func ExactOrigin(raw string) (string, error) {
+	if raw == "" {
+		return "", nil
 	}
-	own := "https://*." + dk.Domain
-	for _, o := range strings.Split(tiers, ",") {
-		if o == own {
-			return tiers
-		}
+	u, err := url.Parse(raw)
+	if err != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") || strings.Contains(u.Host, "*") || u.Port() == "0" {
+		return "", errors.New("the deployment has an invalid browser origin")
 	}
-	if tiers == "" {
-		return own
+	return u.Scheme + "://" + u.Host, nil
+}
+
+func (t BootRequest) validateOrigins() error {
+	if t.ExactOrigins == nil {
+		return nil
 	}
-	return tiers + "," + own
+	_, err := ExactOrigin(*t.ExactOrigins)
+	return err
 }

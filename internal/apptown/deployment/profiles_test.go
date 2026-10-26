@@ -461,9 +461,17 @@ func landAs(t *testing.T, w *digestWorld, b *ReleaseBundle, run ids.ID) {
 		t.Fatal(err)
 	}
 	defer cleanup()
+	names, err := dep.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := w.s.Deployments.StablePort(t.Context(), w.project, dep.Name, names.App())
+	if err != nil {
+		t.Fatal(err)
+	}
 	out, err := w.s.RunLanding(context.Background(), landingClaim{w.project, run}, LandingInput{
 		Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("run-%d-deploy", run), Inputs: Inputs{ReleaseRun: run, Revision: w.revision, ArtifactHash: art.Hash, DockerSource: string(art.Body), BundleID: b.ID}},
-		Source: *art.Source, DataClass: "synthetic", Bundle: b,
+		Source: *art.Source, HostPort: port, DataClass: "synthetic", Bundle: b,
 	})
 	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
 		t.Fatalf("landing by run %s: %+v %v %v", run, out.Execution, err, out.Boot.Err)
