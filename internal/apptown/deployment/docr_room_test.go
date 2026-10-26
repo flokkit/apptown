@@ -84,7 +84,7 @@ func newDOCRWorld(t *testing.T) *docrWorld {
 	}
 	sources := noLocalSources{repo: repo, yaml: string(contract)}
 	options := digitalocean.Options{APIBase: srv.URL, PollInterval: 10 * time.Millisecond, DBPoll: 10 * time.Millisecond,
-		ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil },
+		ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { return nil },
 		OwnDatabase:    func(context.Context, string, string, string) error { return nil },
 		PushImage: func(_ *digitalocean.Driver, _ context.Context, _ *digitalocean.Client, registry, repo, local, tag string, logf func(string, ...any)) (string, error) {
 			logf("pushed %s as %s/%s:%s (fake)", local, registry, repo, tag)

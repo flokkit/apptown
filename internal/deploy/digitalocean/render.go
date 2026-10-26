@@ -107,6 +107,10 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 			return deploy.Artifact{}, deploy.Terminal(err)
 		}
 	}
+	question, err := readinessFor(c, gate != nil)
+	if err != nil {
+		return deploy.Artifact{}, err
+	}
 	health, err := serviceHealth(c, gate != nil)
 	if err != nil {
 		return deploy.Artifact{}, err
@@ -330,13 +334,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	if err := oneVersionPerRepository(spec); err != nil {
 		return deploy.Artifact{}, err
 	}
-	body, err := json.Marshal(spec)
-	if err != nil {
-		return deploy.Artifact{}, err
-	}
-	// The receipt hashes the spec with secret values blanked: references
-	// and shape, never values (§2.4).
-	return deploy.Artifact{Kind: "do-app-spec", Body: body, Hash: configHash(blankSecrets(spec))}, nil
+	return encodeAppArtifact(spec, question)
 }
 
 func blankSecrets(spec AppSpec) string {

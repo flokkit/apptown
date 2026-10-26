@@ -1509,3 +1509,24 @@ missing from the filtered observation is not eligible for removal through this d
 Docker apps trust the configured built-in origin patterns and their actual attached
 host's routed domain. Portainer apps use their admitted deployment ingress hosts;
 unrelated Portainer connection domains do not expand Docker app trust.
+
+### App Platform readiness evidence
+
+App Platform artifacts contain the provider spec and a versioned public
+readiness predicate. The canonical hash includes the predicate; only the provider
+spec is sent to DigitalOcean. Existing recorded `do-app-spec` artifacts keep their
+recorded provider spec and historical successful-response checks.
+
+The driver checkpoints the artifact format and readiness predicate with the exact
+provider deployment identity. Recovery refuses malformed new records instead of
+falling back to a weaker check. A public explicit HTTP expectation must be a 2xx
+status and match without redirects after native readiness succeeds. Private-service
+exact predicates are refused because the provider does not express them and the
+public ingress does not reach those services. Omitted and historical predicates
+retain their redirect behavior. A post-probe provider read must still name the
+same active deployment; successful apply or a changed deployment is not proof.
+
+Gated copies remain checked by Data Protection through their access gate. Their
+driver observation remains unknown; provider ACTIVE does not replace the gate,
+readiness, page or data checks. These release-time samples do not establish
+maintained fresh App Platform health for unattended release decisions.

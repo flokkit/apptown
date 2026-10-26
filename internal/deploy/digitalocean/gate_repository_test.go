@@ -29,7 +29,7 @@ func gateRepositoryDriver(t *testing.T, api *dofake.API) (*Driver, map[string]st
 	}
 	d := NewDriver(Dependencies{Slug: "orders", Client: func(context.Context) (*Client, Config, error) {
 		return &Client{Base: server.URL, HTTP: server.Client()}, Config{Region: "syd", Registry: "forge-test", InstanceSize: "apps-s-1vcpu-0.5gb"}, nil
-	}}, Options{CopyImage: copyImage, PollInterval: time.Millisecond, ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil }})
+	}}, Options{CopyImage: copyImage, PollInterval: time.Millisecond, ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { return nil }})
 	return d, into
 }
 
@@ -66,7 +66,7 @@ func TestGatedAppNamesTheGateFromItsOwnRepository(t *testing.T) {
 		t.Fatalf("copied into %v; want the gate in %s and the release in orders", into, GateRepository)
 	}
 	var spec AppSpec
-	if err := json.Unmarshal(art.Body, &spec); err != nil {
+	if err := json.Unmarshal(renderedSpecBody(t, art), &spec); err != nil {
 		t.Fatal(err)
 	}
 	repos := map[string]string{}

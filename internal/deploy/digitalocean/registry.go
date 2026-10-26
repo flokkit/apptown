@@ -321,6 +321,9 @@ func (d *Driver) Preflight(ctx context.Context, p deploy.Placement, src deploy.S
 	if err := unrewritable(src.Contract, secrets); err != nil {
 		return err
 	}
+	if _, err := readinessFor(src.Contract, p.Gate != nil); err != nil {
+		return err
+	}
 	if _, err := serviceHealth(src.Contract, p.Gate != nil); err != nil {
 		return err
 	}

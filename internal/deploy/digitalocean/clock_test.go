@@ -54,7 +54,7 @@ func TestAFrontDoorTryCountsOnceTheGraceIsOverByTheDriversClock(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	ended := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
-	err := probeFrontDoor(ctx, client, "https://"+providerHost+"/up", ended, func(string, ...any) {}, time.Millisecond, stepping(0))
+	err := probeFrontDoor(ctx, client, "https://"+providerHost+"/up", 0, ended, func(string, ...any) {}, time.Millisecond, stepping(0))
 	if err == nil || errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("six tries after the grace, on the driver's clock: %v", err)
 	}

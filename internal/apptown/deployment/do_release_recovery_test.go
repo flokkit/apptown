@@ -98,7 +98,7 @@ func doReleaseWorldNeeding(t *testing.T, more string) (*Service, *dofake.API, *d
 			return "sha256:" + strings.Repeat("a", 64), nil
 		},
 		OwnDatabase:    func(context.Context, string, string, string) error { return nil },
-		ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil },
+		ProbeFrontDoor: func(context.Context, string, int, time.Time, func(string, ...any)) error { return nil },
 	}
 	var service *Service
 	service = New(context.Background(), db, assembled(db, testRuntime{DataDir: dir, Needs: catalog, Secrets: secret.NewService(db, secret.Config{DataDir: dir}), Drivers: map[string]DriverFactory{KindDOApp: func(context.Context, *Target, *Deployment) (deploy.Driver, error) {

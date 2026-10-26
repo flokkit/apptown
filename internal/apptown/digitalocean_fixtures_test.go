@@ -32,7 +32,7 @@ func doWorld(t *testing.T) (*App, *digitalOceanWorld, *project.Project, *deploym
 	t.Cleanup(srv.Close)
 	options := digitalocean.Options{APIBase: srv.URL, PollInterval: 10 * time.Millisecond, DBPoll: 10 * time.Millisecond}
 	var probed []string
-	options.ProbeFrontDoor = func(ctx context.Context, url string, _ time.Time, logf func(string, ...any)) error {
+	options.ProbeFrontDoor = func(ctx context.Context, url string, _ int, _ time.Time, logf func(string, ...any)) error {
 		probed = append(probed, url)
 		return nil
 	}
