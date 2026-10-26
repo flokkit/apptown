@@ -28,7 +28,7 @@ func TestProjectHTTPSettingsRejectBeforeWritingAndReturnSavedMetadata(t *testing
 	}{
 		{"owner", `{"expectedRevision":0,"name":"Unauthorized"}`, "", 403}, {"boss", `{`, "", 400},
 		{"boss", `{"expectedRevision":0,"slug":"INVALID","icon":"changed","blurb":"changed"}`, "", 400},
-		// A project's slug is fixed: a patch that changes it is refused whole.
+		// An address change requires a stable request identity.
 		{"boss", `{"expectedRevision":0,"slug":"open","icon":"changed","namespace":"changed"}`, "", 400},
 		// An edit must say which reading it started from, and that reading must be current.
 		{"boss", `{"icon":"changed"}`, "", 400},
@@ -296,5 +296,53 @@ func TestProjectListSaysWhetherAProjectHasADeployment(t *testing.T) {
 	}
 	if got := deployed(); !got["game"] {
 		t.Fatalf("a project with a main deployment was listed as not deployed: %v", got)
+	}
+}
+
+func TestProjectHTTPAddressRequestsReturnCanonicalMetadataThroughAliases(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t)
+	h := a.Handler()
+	body := `{"requestId":"00000000-0100-7000-8000-000000000000","slug":"requested","name":"Requested","setup":{"origin":"empty","services":[]}}`
+	first := authzCall(h, "boss", "POST", "/api/v1/projects", body)
+	var made project.Project
+	if err := json.Unmarshal(first.Body.Bytes(), &made); err != nil || first.Code != 201 || made.ID.IsZero() {
+		t.Fatalf("create: %d %s %v", first.Code, first.Body.String(), err)
+	}
+	rename := fmt.Sprintf(`{"requestId":"00000000-0101-7000-8000-000000000000","expectedRevision":%d,"slug":"canonical-requested"}`, made.SettingsRevision)
+	edited := authzCall(h, "boss", "PATCH", "/api/v1/projects/requested", rename)
+	if edited.Code != 200 {
+		t.Fatalf("rename: %d %s", edited.Code, edited.Body.String())
+	}
+	retry := authzCall(h, "boss", "POST", "/api/v1/projects", body)
+	var replay project.Project
+	if err := json.Unmarshal(retry.Body.Bytes(), &replay); err != nil || retry.Code != 201 || replay.ID != made.ID || replay.Slug != "requested" {
+		t.Fatalf("replay: %d %s %v", retry.Code, retry.Body.String(), err)
+	}
+	read := authzCall(h, "boss", "GET", "/api/v1/projects/requested", "")
+	var current project.Project
+	if err := json.Unmarshal(read.Body.Bytes(), &current); err != nil || read.Code != 200 || current.ID != made.ID || current.Slug != "canonical-requested" {
+		t.Fatalf("alias metadata: %d %s %v", read.Code, read.Body.String(), err)
+	}
+	wrong := authzCall(h, "owner", "PATCH", "/api/v1/projects/requested", rename)
+	if wrong.Code != 403 {
+		t.Fatalf("alias changed admission: %d %s", wrong.Code, wrong.Body.String())
+	}
+}
+
+func TestProjectCreationRequestReplaysALostResponse(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t)
+	h := a.Handler()
+	body := `{"requestId":"00000000-0200-7000-8000-000000000000","slug":"lost-response","name":"One project"}`
+	first := authzCall(h, "boss", "POST", "/api/v1/projects", body)
+	var made project.Project
+	if err := json.Unmarshal(first.Body.Bytes(), &made); err != nil || first.Code != 201 || made.ID.IsZero() {
+		t.Fatalf("first creation: %d %s %v", first.Code, first.Body.String(), err)
+	}
+	retry := authzCall(h, "boss", "POST", "/api/v1/projects", body)
+	var repeated project.Project
+	if err := json.Unmarshal(retry.Body.Bytes(), &repeated); err != nil || retry.Code != 201 || repeated.ID != made.ID {
+		t.Fatalf("lost response retry must identify the committed project: %d %s %v", retry.Code, retry.Body.String(), err)
 	}
 }

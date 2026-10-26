@@ -28,16 +28,17 @@ func resolveProject(flagVal string) (string, error) {
 	cwd, err := os.Getwd()
 	if err == nil {
 		base := filepath.Base(cwd)
-		var ps []struct{ Slug string }
-		// A lookup AppTown refused or could not answer is that error, not
-		// a command line without a project.
-		if err := api.get("/projects", &ps); err != nil {
-			return "", fmt.Errorf("finding the project named after this directory: %w", err)
-		}
-		for _, p := range ps {
-			if p.Slug == base {
-				return base, nil
+		var p struct{ Slug string }
+		if err := api.get("/projects/"+url.PathEscape(base), &p); err != nil {
+			var refused *httpError
+			if !errors.As(err, &refused) || refused.Status != 404 {
+				return "", fmt.Errorf("finding the project named after this directory: %w", err)
 			}
+		} else {
+			if p.Slug == "" {
+				return "", fmt.Errorf("AppTown's project answer has no canonical address")
+			}
+			return p.Slug, nil
 		}
 	}
 	return "", usagef("no project: pass -p <slug>, set APPTOWN_PROJECT, or run from a directory named after the project")
@@ -408,6 +409,14 @@ func cmdDelete(args []string) error {
 		fmt.Printf("%s the deletion of %s is cancelled; it is %s\n", green("✓"), slug, st.State)
 		return nil
 	}
+	var current struct{ Slug string }
+	if err := api.get("/projects/"+url.PathEscape(slug), &current); err != nil {
+		return err
+	}
+	if current.Slug == "" {
+		return fmt.Errorf("AppTown's project answer has no canonical address")
+	}
+	slug = current.Slug
 	var deps []struct{ Name string }
 	if err := api.get("/projects/"+slug+"/deployments", &deps); err != nil {
 		return err

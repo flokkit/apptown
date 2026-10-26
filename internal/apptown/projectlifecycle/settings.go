@@ -13,9 +13,15 @@ import (
 // UpdateSettings is the complete settings edit. Its caller authorizes the edit;
 // lifecycle coordinates names with creation and purge, project owns persistence.
 func (s *Service) UpdateSettings(ctx context.Context, id ids.ID, in project.SettingsPatch, actor string) (*project.Project, error) {
+	if !in.RequestID.IsZero() {
+		return s.renameRequested(ctx, id, in)
+	}
 	observed, err := s.projects.ByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if in.Slug != nil && *in.Slug != observed.Slug {
+		return nil, project.ErrRequestRequired
 	}
 	release, err := s.ReserveNames(observed.Slug)
 	if err != nil {

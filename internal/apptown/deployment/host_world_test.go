@@ -157,8 +157,15 @@ func TestDockerAddressesUseCapturedServingIdentityAndRefuseUnavailableIdentity(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: simulate future canonical rename; current settings deliberately refuses it before serving identity is separated.
-	if _, err := db.Exec(`UPDATE projects SET slug='renamed' WHERE id=$1`, pid); err != nil {
+	if err := db.InTx(t.Context(), func(tx *database.Tx) error {
+		held, err := project.ByIDIn(t.Context(), tx, pid)
+		if err != nil {
+			return err
+		}
+		next := "renamed"
+		_, err = project.UpdateSettingsIn(t.Context(), tx, pid, held.Slug, project.SettingsPatch{ExpectedRevision: &held.SettingsRevision, Slug: &next})
+		return err
+	}); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {

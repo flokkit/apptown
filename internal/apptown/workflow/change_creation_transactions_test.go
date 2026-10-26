@@ -190,8 +190,11 @@ func TestChangeCreationReadsCurrentProjectFactsAndCancelsLockWait(t *testing.T) 
 			dbtest.WaitForLock(t, c.records.db, "-- name: ProjectForUpdate")
 			switch mode {
 			case "rename":
-				// sql-guarantee: the competing project edit must commit through the transaction already holding the project lock; Projects setters use a separate transaction and cannot preserve this lock race.
-				_, err = gate.Exec(`UPDATE projects SET slug='renamed',default_branch='current' WHERE id=?`, draft.ProjectID)
+				err = project.ClaimAddressIn(ctx, gate, draft.ProjectID, "renamed")
+				if err == nil {
+					// sql-guarantee: commit the competing metadata edit through the transaction already holding the project lock, after the address owner has reserved its destination.
+					_, err = gate.Exec(`UPDATE projects SET slug='renamed',default_branch='current' WHERE id=?`, draft.ProjectID)
+				}
 			case "remove repository":
 				// sql-guarantee: the competing project edit must commit through the transaction already holding the project lock; Projects setters use a separate transaction and cannot preserve this lock race.
 				_, err = gate.Exec(`UPDATE projects SET default_branch='' WHERE id=?`, draft.ProjectID)

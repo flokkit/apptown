@@ -69,6 +69,7 @@ LEAVES = {"database", "audit", "enum", "fault", "gitexec", "localtls", "stamp", 
 ALLOWED = {
     "agentenv":    {"integration", "project"},
     "adoption":    {"wow", "integration"},
+    "adrs":        {"project"},
     "workflow":    {"project", "adoption", "integration", "scm", "adrs"},
     "scm":         {"project"},
     "conformance": set(),

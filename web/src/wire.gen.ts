@@ -144,6 +144,7 @@ export type AuthzExplanation = {
 
 export type AuthzHoldings = {
   user: string
+  actorId?: string | null | null
   instance: Record<string, boolean>
   createIn?: string[] | null
   defaultGroup?: string | null
@@ -994,6 +995,28 @@ export type ProjectCleanupList = {
   cleanups: Deletion[]
 }
 
+export type ProjectCreationService = {
+  capability: string
+  params: Record<string, string>
+}
+
+export type ProjectCreationSetup = {
+  origin: string
+  sourceURL: string
+  sourceBranch: string
+  credentialSecret: string
+  bundleSHA256: string
+  services: ProjectCreationService[]
+  upstream: ProjectCreationUpstream
+}
+
+export type ProjectCreationUpstream = {
+  enabled: boolean
+  namespaceId: number
+  repositoryName: string
+  attachmentRequestId: string | null
+}
+
 export type ProjectDeletionState = {
   projectId: string | null
   state: string
@@ -1030,6 +1053,19 @@ export type ProjectDetail = {
   requireIndependentApproval: boolean
   settingsRevision: number
   lifecycle: Lifecycle
+}
+
+export type ProjectDraft = {
+  requestId?: string | null
+  automaticAddress?: boolean
+  setup?: ProjectCreationSetup | null
+  slug: string
+  name: string
+  namespace: string
+  blurb: string
+  icon: string
+  group: string
+  pack: string
 }
 
 export type ProjectFindingsView = {

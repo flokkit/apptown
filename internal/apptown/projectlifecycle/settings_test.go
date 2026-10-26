@@ -40,12 +40,9 @@ func TestSettingsSharesNameReservationsAndKeepsBestEffortAudit(t *testing.T) {
 	}
 }
 
-// A project's slug names its repository's folder and its outside resources,
-// none of which a rename moves. Renaming was allowed, and left the folder
-// behind for the next project given the old slug to adopt (source and
-// history). The slug is now fixed; the display name still changes, and a
-// patch may repeat the slug it already has.
-func TestAProjectsSlugCannotChange(t *testing.T) {
+// An address change requires a replayable request; legacy clients may still
+// update display settings while repeating the current address.
+func TestAddressChangesRequireARequest(t *testing.T) {
 	t.Parallel()
 	f := newOwnerFixture(t, false)
 	ctx := t.Context()
@@ -64,7 +61,7 @@ func TestAProjectsSlugCannotChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	next, rev := "renamed-shop", a.SettingsRevision
-	if _, err := f.lifecycle.UpdateSettings(ctx, a.ID, project.SettingsPatch{ExpectedRevision: &rev, Slug: &next}, "alice"); !errors.Is(err, project.ErrSlugFixed) {
+	if _, err := f.lifecycle.UpdateSettings(ctx, a.ID, project.SettingsPatch{ExpectedRevision: &rev, Slug: &next}, "alice"); !errors.Is(err, project.ErrRequestRequired) {
 		t.Fatalf("a slug change: %v", err)
 	}
 	if _, err := f.lifecycle.Create(ctx, Draft{Slug: "shop", Name: "Different shop", Actor: "alice"}); !errors.Is(err, project.ErrSlugTaken) {

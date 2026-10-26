@@ -11,6 +11,7 @@ import (
 )
 
 type SettingsPatch struct {
+	RequestID ids.ID `json:"requestId,omitempty"`
 	// ExpectedRevision is the settings revision the edit started from. It is
 	// required: without it an edit could overwrite changes it never saw.
 	ExpectedRevision *int64  `json:"expectedRevision"`
@@ -25,10 +26,6 @@ type SettingsChange struct{ Before, After Project }
 var (
 	ErrSettingsChanged          = fault.New(fault.Conflict, "project name changed; retry the edit")
 	ErrSettingsRevisionRequired = fault.New(fault.Invalid, "send the settings revision the edit started from (expectedRevision)")
-	// ErrSlugFixed refuses changing a project's AppTown address. Address
-	// changes require permanent alias ownership across every reference;
-	// the display name is independently editable.
-	ErrSlugFixed = fault.New(fault.Invalid, "a project's address (its slug) is fixed when the project is made; change its name instead")
 	// ErrSettingsMoved carries a code so a client can tell it from other
 	// conflicts, such as a taken slug, and offer the person the new values.
 	ErrSettingsMoved error = settingsMoved{}
@@ -70,10 +67,11 @@ func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedS
 	if *in.ExpectedRevision != held.SettingsRevision {
 		return result, ErrSettingsMoved
 	}
-	// A patch may repeat the slug (a form sends what it shows); it may not
-	// change it.
 	if in.Slug != nil && *in.Slug != held.Slug {
-		return result, ErrSlugFixed
+		if err := ClaimAddressIn(ctx, tx, id, *in.Slug); err != nil {
+			return result, err
+		}
+		held.Slug = *in.Slug
 	}
 	if in.Name != nil && *in.Name != "" {
 		held.Name = *in.Name

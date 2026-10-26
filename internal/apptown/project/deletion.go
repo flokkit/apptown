@@ -14,17 +14,13 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// A deleted project's cleanup moves through these states. Pending holds the
-// slug; done releases it; needs-attention holds it until a person retries.
+// A deleted project's cleanup moves through these states. Pending awaits
+// cleanup; address ownership is permanent, independently of cleanup status.
 const (
 	CleanupPending        = "pending"
 	CleanupDone           = "done"
 	CleanupNeedsAttention = "needs-attention"
 )
-
-// ErrSlugHeldByCleanup refuses a slug whose previous project is still being
-// cleaned up: its containers, volumes and paths are named by that slug.
-var ErrSlugHeldByCleanup = fault.New(fault.Conflict, "a deleted project with that address is still being cleaned up; the address is free once its cleanup is done")
 
 // ErrCleanupNotRetryable refuses a retry of a cleanup that is not waiting
 // for a person.
@@ -62,27 +58,15 @@ func deletionRecord(r projectsql.ProjectDeletion) Deletion {
 // at is the caller's clock; who is the requester as the caller resolved
 // them (identity.ActorIn), since identity's tests build on this package.
 func RecordDeletionIn(ctx context.Context, tx *database.Tx, id ids.ID, slug string, who access.Actor, plan any, at time.Time) error {
+	if err := ClaimAddressIn(ctx, tx, id, slug); err != nil {
+		return err
+	}
 	raw, err := json.Marshal(plan)
 	if err != nil {
 		return err
 	}
 	return queries(tx).InsertProjectDeletion(ctx, projectsql.InsertProjectDeletionParams{
 		ProjectID: id, Slug: slug, RequestedBy: who.Name, RequestedByPrincipal: who.Principal, RequestedByVia: who.Via, RequestedAt: at.UTC(), Plan: raw})
-}
-
-// requireSlugFreeIn runs after a write that claimed a slug, in its
-// transaction. Checked after rather than before: a claim racing a deletion
-// waits on the slug's unique index until the deletion commits, and only a
-// statement after that wait sees the deletion's cleanup holding the name.
-func requireSlugFreeIn(ctx context.Context, q database.Queryer, slug string) error {
-	held, err := queries(q).SlugHeldByDeletion(ctx, slug)
-	if err != nil {
-		return err
-	}
-	if held {
-		return ErrSlugHeldByCleanup
-	}
-	return nil
 }
 
 // Deletion reads one deleted project's cleanup.

@@ -1889,19 +1889,18 @@ const workflowSummaries = `-- name: WorkflowSummaries :many
 SELECT r.id,r.number,r.status,r.current_stage,r.workflow_name,r.workflow_version,r.kind,r.change_id,
 COALESCE(c.number,0)::bigint AS change_number,COALESCE(c.title,'')::text AS item_title,p.slug AS project_slug,r.created_at,r.updated_at
 FROM runs r JOIN projects p ON p.id=r.project_id LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
-WHERE ($1::uuid IS NULL OR r.project_id=$1) AND ($2::text='' OR p.slug=$2)
-AND ($3::text='' OR r.status=$3) AND (NOT $4::boolean OR r.parent_run_id IS NULL)
-AND ($5::uuid[] IS NULL OR r.project_id=ANY($5::uuid[]))
-ORDER BY r.updated_at DESC,r.id DESC LIMIT NULLIF($6::integer,0)
+WHERE ($1::uuid IS NULL OR r.project_id=$1)
+AND ($2::text='' OR r.status=$2) AND (NOT $3::boolean OR r.parent_run_id IS NULL)
+AND ($4::uuid[] IS NULL OR r.project_id=ANY($4::uuid[]))
+ORDER BY r.updated_at DESC,r.id DESC LIMIT NULLIF($5::integer,0)
 `
 
 type WorkflowSummariesParams struct {
-	ProjectID   ids.ID
-	ProjectSlug string
-	Status      string
-	RootsOnly   bool
-	ProjectIds  []ids.ID
-	LimitCount  int32
+	ProjectID  ids.ID
+	Status     string
+	RootsOnly  bool
+	ProjectIds []ids.ID
+	LimitCount int32
 }
 
 type WorkflowSummariesRow struct {
@@ -1924,7 +1923,6 @@ type WorkflowSummariesRow struct {
 func (q *Queries) WorkflowSummaries(ctx context.Context, arg WorkflowSummariesParams) ([]WorkflowSummariesRow, error) {
 	rows, err := q.db.QueryContext(ctx, workflowSummaries,
 		arg.ProjectID,
-		arg.ProjectSlug,
 		arg.Status,
 		arg.RootsOnly,
 		pq.Array(arg.ProjectIds),

@@ -622,8 +622,8 @@ func TestProjectDeletionIsRefusedWhenAFinalBackupFallsShort(t *testing.T) {
 
 // A deletion's cleanup is recorded with it and survives failure: a Docker
 // error is retried, exhausted retries wait for a person without releasing
-// the name, and a deliberate retry finishes the job; only then may a new
-// project take the address.
+// the name, and a deliberate retry finishes the job. The address remains
+// reserved even after cleanup so old links never identify another project.
 func TestProjectCleanupSurvivesFailureAndHoldsItsName(t *testing.T) {
 	t.Parallel()
 	a, f, paths := purgeFixture(t)
@@ -657,7 +657,7 @@ func TestProjectCleanupSurvivesFailureAndHoldsItsName(t *testing.T) {
 	nameHeld := func() bool {
 		t.Helper()
 		_, err := a.lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "game", Name: "Replacement", Actor: "boss"})
-		if err != nil && !errors.Is(err, project.ErrSlugHeldByCleanup) {
+		if err != nil && !errors.Is(err, project.ErrSlugTaken) {
 			t.Fatalf("create: %v", err)
 		}
 		return err != nil
@@ -697,15 +697,15 @@ func TestProjectCleanupSurvivesFailureAndHoldsItsName(t *testing.T) {
 	if d := cleanup(); d.State != project.CleanupDone || d.Round != 1 || d.FinishedAt == nil {
 		t.Fatalf("retried cleanup: %+v", d)
 	}
-	if nameHeld() {
-		t.Fatal("the name stayed held after its cleanup finished")
+	if !nameHeld() {
+		t.Fatal("cleanup completion reassigned a permanent project address")
 	}
 }
 
 // The queue can give up on a cleanup's job before the cleanup records its last
 // attempt: an attempt whose settlement failed still spends one of the queue's
 // tries. A cleanup left pending with no job running is shown as needing
-// attention and can be retried, so its name is not held for ever.
+// attention and can be retried to complete the promised resource removal.
 func TestProjectCleanupTheQueueGaveUpOnCanBeRetried(t *testing.T) {
 	t.Parallel()
 	a, f, _ := purgeFixture(t)

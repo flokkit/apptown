@@ -291,7 +291,7 @@ LEFT JOIN repository_mr_identities mr_identity ON mr_identity.artifact_id=mr.id;
 SELECT r.id,r.number,r.status,r.current_stage,r.workflow_name,r.workflow_version,r.kind,r.change_id,
 COALESCE(c.number,0)::bigint AS change_number,COALESCE(c.title,'')::text AS item_title,p.slug AS project_slug,r.created_at,r.updated_at
 FROM runs r JOIN projects p ON p.id=r.project_id LEFT JOIN changes c ON c.id=r.change_id AND c.project_id=r.project_id
-WHERE (sqlc.narg(project_id)::uuid IS NULL OR r.project_id=sqlc.narg(project_id)) AND (sqlc.arg(project_slug)::text='' OR p.slug=sqlc.arg(project_slug))
+WHERE (sqlc.narg(project_id)::uuid IS NULL OR r.project_id=sqlc.narg(project_id))
 AND (sqlc.arg(status)::text='' OR r.status=sqlc.arg(status)) AND (NOT sqlc.arg(roots_only)::boolean OR r.parent_run_id IS NULL)
 AND (sqlc.arg(project_ids)::uuid[] IS NULL OR r.project_id=ANY(sqlc.arg(project_ids)::uuid[]))
 ORDER BY r.updated_at DESC,r.id DESC LIMIT NULLIF(sqlc.arg(limit_count)::integer,0);

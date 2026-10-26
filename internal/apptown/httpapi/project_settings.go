@@ -18,10 +18,7 @@ func NewProjectSettings(projects *project.Projects, access *identity.Service, li
 	return ProjectSettings{projects: projects, access: access, lifecycle: lifecycle}
 }
 
-// PatchProject edits a project's settings: its display name, icon, line
-// and group. Its slug is fixed (project.ErrSlugFixed): it names the
-// repository's folder and resources outside AppTown, which a rename would
-// not move.
+// PatchProject edits settings; changing its address retains every old address.
 func (h ProjectSettings) PatchProject(w http.ResponseWriter, r *http.Request) {
 	if !RequireAdmin(h.access, w, r) {
 		return

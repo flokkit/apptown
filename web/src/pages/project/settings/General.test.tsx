@@ -23,10 +23,11 @@ function type(input: HTMLInputElement, value: string) {
 }
 
 // mount renders the form in a page; `answer` is what the next save gets.
-function mount(answer: () => Response, onChanged: () => void = () => {}) {
+function mount(answer: () => Response, onChanged: () => void = () => {}, read?: () => Response) {
   const sent: Record<string, unknown>[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     if (init?.method === 'PATCH') { sent.push(JSON.parse(String(init.body))); return answer() }
+    if (read && url.endsWith('/projects/renamed')) return read()
     return new Response(url.endsWith('/projects') || url.endsWith('/deployments') ? '[]' : '{}')
   }))
   const client = newQueryClient()
@@ -121,6 +122,41 @@ describe('project settings form', () => {
     expect(f.button('Save')!.disabled).toBe(false)
     act(() => f.root.unmount())
   })
+  it('retries an address request with the same identity and resolves its current canonical address', async () => {
+    let attempts = 0
+    const committed = { ...project('ours', 'Shop', 2), slug: 'renamed' }
+    const current = { ...committed, slug: 'latest', settingsRevision: 3, lifecycle: { state: 'active' } }
+    const f = mount(() => ++attempts === 1
+      ? new Response(JSON.stringify({ error: 'response unavailable' }), { status: 503 })
+      : new Response(JSON.stringify(committed)), () => {}, () => new Response(JSON.stringify(current)))
+    await f.render(project('ours'))
+    await act(async () => { type(f.el.querySelector<HTMLInputElement>('[aria-label="Address"]')!, 'renamed') })
+    await act(async () => { f.button('Save')!.click() })
+    await vi.waitFor(() => expect(f.button('Save')?.disabled).toBe(false))
+    await act(async () => { f.button('Save')!.click() })
+    expect(f.sent).toHaveLength(2)
+    expect(f.sent[0]).toEqual({ expectedRevision: 1, slug: 'renamed', requestId: expect.any(String) })
+    expect(f.sent[1]).toEqual(f.sent[0])
+    expect((f.el.querySelector('[aria-label="Address"]') as HTMLInputElement).value).toBe('latest')
+    expect(f.el.textContent).toContain('saved')
+    act(() => f.root.unmount())
+  })
+
+  it('keeps the same address request after the canonical read fails', async () => {
+    let reads = 0
+    const committed = { ...project('ours', 'Shop', 2), slug: 'renamed' }
+    const f = mount(() => new Response(JSON.stringify(committed)), () => {}, () => ++reads === 1
+      ? new Response(JSON.stringify({ error: 'read unavailable' }), { status: 503 })
+      : new Response(JSON.stringify({ ...committed, lifecycle: { state: 'active' } })))
+    await f.render(project('ours'))
+    await act(async () => { type(f.el.querySelector<HTMLInputElement>('[aria-label="Address"]')!, 'renamed') })
+    await act(async () => { f.button('Save')!.click() })
+    await vi.waitFor(() => expect(f.el.textContent).toContain('read unavailable'))
+    await act(async () => { f.button('Save')!.click() })
+    expect(f.sent[1]).toEqual(f.sent[0])
+    act(() => f.root.unmount())
+  })
+
 })
 
 describe('deleting a project', () => {

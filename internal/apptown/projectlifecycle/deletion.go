@@ -58,8 +58,8 @@ var ErrCleanupStillRunning = fault.New(fault.Conflict, "that project's cleanup i
 // CleanupPlan is everything a purge commits to remove outside the database
 // once the records are gone: the identifiers a cleanup needs are read
 // before their rows are deleted. Change and run idList are never reused; the
-// slug-named resources are safe because the slug stays held until the
-// cleanup is done (project.ErrSlugHeldByCleanup). The purge itself removes
+// recorded resource names remain owned: project addresses are never reassigned.
+// The purge itself removes
 // the hub repository and archives the GitLab copy before the records go, so
 // a plan made by a purge names neither.
 type CleanupPlan struct {

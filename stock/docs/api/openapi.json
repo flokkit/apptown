@@ -2856,8 +2856,75 @@
         ],
         "type": "object"
       },
+      "ProjectCreationService": {
+        "properties": {
+          "capability": {
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "ProjectCreationSetup": {
+        "properties": {
+          "bundleSHA256": {
+            "type": "string"
+          },
+          "credentialSecret": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "services": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectCreationService"
+            },
+            "type": "array"
+          },
+          "sourceBranch": {
+            "type": "string"
+          },
+          "sourceURL": {
+            "type": "string"
+          },
+          "upstream": {
+            "$ref": "#/components/schemas/ProjectCreationUpstream"
+          }
+        },
+        "type": "object"
+      },
+      "ProjectCreationUpstream": {
+        "properties": {
+          "attachmentRequestId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "namespaceId": {
+            "type": "integer"
+          },
+          "repositoryName": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "ProjectDraft": {
         "properties": {
+          "automaticAddress": {
+            "type": "boolean"
+          },
           "blurb": {
             "type": "string"
           },
@@ -2875,6 +2942,23 @@
           },
           "pack": {
             "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "setup": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectCreationSetup"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "slug": {
             "type": "string"

@@ -1,5 +1,5 @@
 import { PRODUCT } from '../../brand'
-import { useEffect, useMemo, useState, type Dispatch } from 'react'
+import { useEffect, useMemo, useRef, useState, type Dispatch } from 'react'
 import { Link } from 'react-router-dom'
 import { post } from '../../api'
 import { useAction, useGet } from '../../data'
@@ -14,6 +14,11 @@ import { servicesFor, type Draft, type DraftAct } from './draft'
 export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct> }) {
   const [inspecting, setInspecting] = useState<PackView | null>(null)
   const { run, busy: pickBusy, err } = useAction()
+  const currentInterview = useRef<number | null>(d.interviewRevision)
+  useEffect(() => {
+    currentInterview.current = d.interviewRevision
+    return () => { currentInterview.current = null }
+  }, [d.interviewRevision])
 
   // Only packs the instance has turned on are offered here (Ways of working → Packs).
   const packsQ = useGet<PackView[]>('/packs', { kind: 'config' })
@@ -31,35 +36,36 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
   // shown here); a read still on its way never counts as an empty proposal
   // (the interview can pick a pack before the pack list has answered).
   const readsKnown = (!!packsQ.data || !!packsQ.err) && (!!catQ.data || !!catQ.err)
-  const pick = (p: string, why = '', icon?: string) => act({ type: 'pack', pack: p, why, icon, services: servicesFor(p, packs, catalog) })
+  const pick = (p: string, why = '', icon?: string, revision?: number) => act({ type: 'pack', pack: p, why, icon, revision, services: servicesFor(p, packs, catalog) })
   // An interview that cannot decide answers why and decides nothing: the
   // reason is shown and the person chooses from the ways of working.
   const interview = (withAnswers: boolean) => run(async () => {
+    const revision = d.interviewRevision
     const body: Record<string, unknown> = { description: (name ? name + ' — ' : '') + d.description }
     if (withAnswers) body.answers = questions.map((q) => ({ question: q, answer: answers[q] ?? 'not sure' }))
     let r: PackInterviewPick | PackInterviewQuestions
     try {
       r = await post<PackInterviewPick | PackInterviewQuestions>('/packs/interview', body)
     } catch (e) {
-      act({ type: 'choosing', on: true })
+      if (currentInterview.current !== revision) return
+      act({ type: 'choosing', on: true, revision })
       throw e
     }
-    if ('pack' in r) pick(r.pack ?? '', r.why ?? '', r.icon ?? '')
-    else act({ type: 'asked', questions: r.questions ?? [] })
+    if ('pack' in r) pick(r.pack ?? '', r.why ?? '', r.icon ?? '', revision)
+    else act({ type: 'asked', questions: r.questions ?? [], revision })
   })
   const selected = packs.find((p) => p.name === pack)
   const unbound = selected?.requires.filter((r) => !r.bound) ?? []
 
   return (
     <div className="card" style={{ padding: 'var(--space-5)' }}>
-      <div className="mb-2"><strong>{choosing ? 'Choose a way of working' : pack !== null ? 'Way of working' : `What is ${name || 'it'} for?`}</strong></div>
+      <div className="mb-2"><strong>{choosing ? 'Choose a way of working' : 'Way of working'}</strong></div>
       {pack === null && !choosing && questions.length === 0 && (
         <>
           <div className="muted small mb-3">
-            A few sentences about what {name || 'the project'} is and does. {PRODUCT} uses this to
-            suggest a way of working, and may ask a question or two.
+            {PRODUCT} can use your description to suggest a way of working, or you can choose one yourself.
           </div>
-          <textarea className="prose" rows={3} value={d.description} onChange={(e) => act({ type: 'describe', description: e.target.value })} autoFocus
+          <textarea aria-label="Software description" className="prose" rows={3} value={d.description} onChange={(e) => act({ type: 'describe', description: e.target.value })} autoFocus
             placeholder={`e.g. "a game where you catch falling eggs and try to beat your high score"`}
             style={{ width: '100%', boxSizing: 'border-box', fontSize: 'var(--fs-base)' }} />
           <div className="row mt-3">

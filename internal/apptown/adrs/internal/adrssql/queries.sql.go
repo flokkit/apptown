@@ -228,26 +228,24 @@ const aDRsMatching = `-- name: ADRsMatching :many
 SELECT a.id, a.project_id, a.number, a.title, a.status, a.body_md, a.tags, a.supersedes_id, a.change_id, a.created_at, a.updated_at, p.slug, p.name, COALESCE(c.number,0)::bigint AS change_number FROM adrs a JOIN projects p ON p.id=a.project_id LEFT JOIN changes c ON c.id=a.change_id AND c.project_id=a.project_id
 WHERE a.project_id=ANY($1::uuid[])
 AND ($2::uuid IS NULL OR a.project_id=$2)
-AND ($3::text='' OR p.slug=$3)
-AND ($4::text='' OR a.status=$4)
-AND ($5::text='' OR (','||a.tags||',') LIKE $5)
-AND ($6::text='' OR a.title LIKE $6 OR a.body_md LIKE $6)
-AND ($7::uuid IS NULL OR a.change_id=$7)
-ORDER BY CASE WHEN $8::boolean THEN a.updated_at END DESC,
-CASE WHEN NOT $8::boolean THEN p.slug END,a.number DESC,a.id DESC
-LIMIT NULLIF($9::integer,0)
+AND ($3::text='' OR a.status=$3)
+AND ($4::text='' OR (','||a.tags||',') LIKE $4)
+AND ($5::text='' OR a.title LIKE $5 OR a.body_md LIKE $5)
+AND ($6::uuid IS NULL OR a.change_id=$6)
+ORDER BY CASE WHEN $7::boolean THEN a.updated_at END DESC,
+CASE WHEN NOT $7::boolean THEN p.slug END,a.number DESC,a.id DESC
+LIMIT NULLIF($8::integer,0)
 `
 
 type ADRsMatchingParams struct {
-	ProjectIds  []ids.ID
-	ProjectID   ids.ID
-	ProjectSlug string
-	Status      string
-	Tag         string
-	Query       string
-	ChangeID    ids.ID
-	Recent      bool
-	LimitCount  int32
+	ProjectIds []ids.ID
+	ProjectID  ids.ID
+	Status     string
+	Tag        string
+	Query      string
+	ChangeID   ids.ID
+	Recent     bool
+	LimitCount int32
 }
 
 type ADRsMatchingRow struct {
@@ -261,7 +259,6 @@ func (q *Queries) ADRsMatching(ctx context.Context, arg ADRsMatchingParams) ([]A
 	rows, err := q.db.QueryContext(ctx, aDRsMatching,
 		pq.Array(arg.ProjectIds),
 		arg.ProjectID,
-		arg.ProjectSlug,
 		arg.Status,
 		arg.Tag,
 		arg.Query,

@@ -54,6 +54,11 @@ cannot read is left out of the menu and says "not available to you" when
 reached by its address (`web/src/instancePages.tsx`). When the browser is offline the app says so
 once, at the top of the page.
 
+The authorization response exposes `actorId` only for a verified person with a
+stable principal UUID. The display user name is not a durable identity. An absent
+actor ID supplies no identity for recovering a retained personal draft; capability
+checks remain separate and current.
+
 ## Editors
 
 A form that saves server state follows these rules. General project settings

@@ -114,9 +114,9 @@ release, an operation) is identified by a UUID, and a link to a record uses
 it. A project's changes and runs are also numbered within the project and
 shown as `slug#12`; you can type that form where a change or a run is expected.
 Where a command takes either (`apptown wait`), the form names a change; give a
-run by its UUID. A project's slug is fixed when the project is made (its
-display name can change), so a `slug#12` written down keeps naming the same
-record. Names AppTown has already given things outside itself (branches,
+run by its UUID. A project's address can change. Every previous address stays
+reserved for that project, including after purge, so a `slug#12` written down
+never names another project's record. Names AppTown has already given things outside itself (branches,
 backup paths, containers) keep the names they were given. How AppTown names
 and labels what it makes from now on (containers, volumes, networks,
 Portainer stacks, Docker labels, App Platform apps, buckets) is not promised:

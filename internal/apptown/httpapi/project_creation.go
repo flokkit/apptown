@@ -6,6 +6,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 type ProjectCreation struct {
@@ -18,6 +19,15 @@ func NewProjectCreation(lifecycle *projectlifecycle.Service, authority *identity
 }
 func (h ProjectCreation) Create(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{}, func(in ProjectDraft) {
+		if !in.RequestID.IsZero() || in.AutomaticAddress || in.Setup != nil {
+			p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{RequestID: in.RequestID, AutomaticAddress: in.AutomaticAddress, Setup: in.Setup, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: in.Group, Pack: in.Pack})
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+			WriteJSON(w, 201, p)
+			return
+		}
 		caller, _ := access.CallerFrom(r.Context())
 		pr := caller.Principal
 		group, err := h.access.OwningGroupFor(r.Context(), pr, in.Group)
@@ -41,12 +51,15 @@ func (h ProjectCreation) Create(w http.ResponseWriter, r *http.Request) {
 
 // ProjectDraft is POST /projects: the project to create.
 type ProjectDraft struct {
-	Slug      string `json:"slug"`
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	Blurb     string `json:"blurb"`
-	Icon      string `json:"icon"`
-	Group     string `json:"group"`
+	RequestID        ids.ID                          `json:"requestId,omitempty"`
+	AutomaticAddress bool                            `json:"automaticAddress,omitempty"`
+	Setup            *projectlifecycle.CreationSetup `json:"setup,omitempty"`
+	Slug             string                          `json:"slug"`
+	Name             string                          `json:"name"`
+	Namespace        string                          `json:"namespace"`
+	Blurb            string                          `json:"blurb"`
+	Icon             string                          `json:"icon"`
+	Group            string                          `json:"group"`
 	// Pack is the pack the caller applies next; one not offered refuses
 	// the creation before anything is made.
 	Pack string `json:"pack"`
