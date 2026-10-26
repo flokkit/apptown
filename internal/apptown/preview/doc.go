@@ -38,6 +38,13 @@
 // or a boot; the last one is this package's preview_views record. Every
 // stop removes the whole stack (docker.RemovePreview).
 //
+// Permanent project cleanup passes retained run, change and preview-step IDs
+// to Preview. RemoveRunForGood, RemoveChangeForGood and RemoveRunStepsForGood
+// own their disposable local/worker resources and snapshots, without reading
+// deleted source rows. Project lifecycle retains the inventory and retry
+// evidence and removes ordinary workflow workspaces separately. Independent
+// effects are attempted after a failure; an error never confirms retirement.
+//
 // # Keys and records
 //
 // A preview of an app that needs AI models gets its own key, recorded on

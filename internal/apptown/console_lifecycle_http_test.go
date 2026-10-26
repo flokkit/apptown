@@ -374,7 +374,7 @@ func TestAnEndedChatsPicturesStayVisibleToItsReaders(t *testing.T) {
 		}
 	}
 
-	if failed := projectCleanupFor(a).Clean(t.Context(), project.RepositoryRef{ID: idstest.N(1), Slug: "game"}, projectlifecycle.CleanupPlan{Slug: "game"}); len(failed) != 0 {
+	if failed := projectCleanupFor(a).Clean(t.Context(), project.RepositoryRef{ID: idstest.N(1), Slug: "game"}, projectlifecycle.CleanupPlan{ReleasePreviews: &projectlifecycle.ReleasePreviewInventory{Version: 1, ProjectID: idstest.N(1), ServingLabel: "game"}, Slug: "game"}); len(failed) != 0 {
 		t.Fatalf("cleanup: %v", failed)
 	}
 	for _, chat := range []string{projectChat, changeChat, moved.ID} {

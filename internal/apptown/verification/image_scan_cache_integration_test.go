@@ -4,7 +4,6 @@ package verification
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/check"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/stock"
 )
@@ -49,8 +49,8 @@ func TestIntegrationStockImageScansDoNotWaitOnAnotherScansCache(t *testing.T) {
 		return strings.TrimSpace(string(out))
 	}
 
-	slug := fmt.Sprintf("scan-cache-%d", time.Now().UnixNano())
-	volume := agentenv.ProjectCache(slug)
+	projectID := ids.New(time.Now())
+	volume := agentenv.ProjectCache(projectID)
 	run("volume", "create", volume)
 	t.Cleanup(func() {
 		_, _ = cli.Run(context.Background(), "", docker.Command{Args: []string{"volume", "rm", "-f", volume}})
@@ -70,7 +70,7 @@ func TestIntegrationStockImageScansDoNotWaitOnAnotherScansCache(t *testing.T) {
 	}
 
 	image := run("image", "inspect", "-f", "{{.Id}}", stock.Images().Sh)
-	scoped := agentenv.WithCacheScope(ctx, slug)
+	scoped := agentenv.WithCacheScope(ctx, projectID)
 	for _, s := range scanners {
 		t.Run(s.Name, func(t *testing.T) {
 			ws := t.TempDir()

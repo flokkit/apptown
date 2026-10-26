@@ -29,7 +29,7 @@ func TestAStepsContainersAgeOnAppTownsClock(t *testing.T) {
 	clockNow := func() time.Time { return made }
 
 	// The step's container, as a recorded task decorates it.
-	step := agentenv.Decorate(execution.Request{Name: "apptown-step-00000000-03e7-7000-8000-000000000000-a1"}, made, agentenv.ProjectCache("p"))
+	step := agentenv.Decorate(execution.Request{Name: "apptown-step-00000000-03e7-7000-8000-000000000000-a1"}, made, agentenv.ProjectCache(idstest.N(1)))
 	// The step's private daemon, as the workshop starts it.
 	var mu sync.Mutex
 	var dindRun []string

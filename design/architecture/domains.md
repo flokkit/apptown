@@ -95,3 +95,9 @@ substitute for testing through the correct owner.
    receipts, jobs, execution, models, secrets, configuration and logging reach a
    subsystem as a package it imports or a value it is constructed with.
 8. **Uneven by design.** The shape follows the domain rather than a template.
+
+Project package-cache names, discovery and precise retirement belong to
+`agentenv`. `projectlifecycle` calls that owner with the retained deletion's
+project UUID; `maintenance` asks it for current cache names before pruning closed
+work's toolchain entries. These owner-directed imports do not authorize either
+consumer to infer cache ownership from a slug.

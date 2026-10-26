@@ -110,7 +110,8 @@ func (d *Deletion) runPurge(ctx context.Context, op operations.Operation, log *o
 		who = l.RequestedBy
 	}
 	plan := CleanupPlan{Slug: slug}
-	removal, err := d.lifecycle.removeRecords(ctx, op.ProjectID, who, func(tx *database.Tx, removal workflow.ProjectRemoval) error {
+	removal, err := d.lifecycle.removeRecords(ctx, op.ProjectID, who, func(tx *database.Tx, removal projectRemoval) error {
+		plan.ReleasePreviews = removal.ReleasePreviews
 		plan.RunIDs, plan.ChangeIDs, plan.PreviewSteps, plan.Transcripts = removal.RunIDs, removal.ChangeIDs, removal.PreviewStepIDs, removal.Transcripts
 		at := d.now()
 		// The deletion's requester is recorded with their principal at the

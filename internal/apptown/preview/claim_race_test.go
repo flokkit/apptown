@@ -59,7 +59,7 @@ func TestARecoveryClaimKeepsALaterBootsRecord(t *testing.T) {
 	}
 	claimDone := make(chan error, 1)
 	go func() {
-		claimDone <- s.RemovePreviewForGood(context.Background(), "apptown-preview-run-00000000-03e7-7000-8000-000000000000")
+		claimDone <- s.RemoveRunForGood(context.Background(), idstest.N(999))
 	}()
 	select {
 	case err := <-bootDone:

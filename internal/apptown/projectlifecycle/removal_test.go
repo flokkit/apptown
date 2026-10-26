@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/apptown/workflow"
+
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -23,13 +23,13 @@ func TestProjectPurgeInventoryIsInsideRollback(t *testing.T) {
 	s := New(db, Dependencies{}, Config{})
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := s.removeRecords(ctx, projectID, "boss", func(*database.Tx, workflow.ProjectRemoval) error { return nil }); err == nil {
+	if _, err := s.removeRecords(ctx, projectID, "boss", func(*database.Tx, projectRemoval) error { return nil }); err == nil {
 		t.Fatal("cancelled purge succeeded")
 	}
 	if _, err := project.ByIDIn(t.Context(), db, projectID); err != nil {
 		t.Fatalf("cancelled removal lost project: %v", err)
 	}
-	if _, err := s.removeRecords(context.Background(), projectID, "", func(*database.Tx, workflow.ProjectRemoval) error { return nil }); err == nil {
+	if _, err := s.removeRecords(context.Background(), projectID, "", func(*database.Tx, projectRemoval) error { return nil }); err == nil {
 		t.Fatal("purge without receipt actor succeeded")
 	}
 }

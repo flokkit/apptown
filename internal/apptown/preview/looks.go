@@ -345,12 +345,9 @@ func (s *Service) removeUnlookedOne(ctx context.Context, changeID ids.ID) {
 	}
 }
 
-// RemovePreviewForGood removes everything of one preview for a cleanup
-// that must know it worked (a deleted project's): on the worker its whole
-// stack and the build images it kept, and its look. Nothing is kept for a
-// reopen. Without a worker its stack and images on this machine are the
-// caller's, as AppTown's own Docker is.
-func (s *Service) RemovePreviewForGood(ctx context.Context, name string) error {
+// removePreviewForGood removes the worker resources and then their look. A
+// worker failure keeps the look; its caller still attempts local retirement.
+func (s *Service) removePreviewForGood(ctx context.Context, name string) error {
 	if s.PreviewsOnWorker() {
 		if err := s.removeOnWorker(ctx, name); err != nil {
 			return err

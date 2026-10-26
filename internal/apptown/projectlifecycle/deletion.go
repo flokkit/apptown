@@ -62,16 +62,27 @@ var ErrCleanupStillRunning = fault.New(fault.Conflict, "that project's cleanup i
 // The purge itself removes
 // the hub repository and archives the GitLab copy before the records go, so
 // a plan made by a purge names neither.
+// ReleasePreviewInventory is the complete release preview namespace captured
+// before project and release rows disappear. Nil inventory means an older plan
+// cannot establish its historical release ownership.
+type ReleasePreviewInventory struct {
+	Version      int     `json:"version"`
+	ProjectID    ids.ID  `json:"projectId"`
+	ServingLabel string  `json:"servingLabel"`
+	Numbers      []int64 `json:"numbers"`
+}
+
 type CleanupPlan struct {
-	RepositoryIdentity *scm.RepositoryIdentity `json:"repositoryIdentity,omitempty"`
-	Slug               string                  `json:"slug"`
-	RunIDs             []ids.ID                `json:"runIds"`
-	ChangeIDs          []ids.ID                `json:"changeIds"`
-	PreviewSteps       []ids.ID                `json:"previewSteps"`              // run-step preview stacks, by step
-	Transcripts        []string                `json:"transcripts,omitempty"`     // kept agent transcripts, by digest
-	GitLabPath         string                  `json:"gitlabPath,omitempty"`      // where the GitLab copy was
-	GitLabProjectID    int64                   `json:"gitlabProjectId,omitempty"` // which GitLab project it is, for ever
-	GitLabArchive      string                  `json:"gitlabArchive,omitempty"`   // the name it is archived under
+	ReleasePreviews    *ReleasePreviewInventory `json:"releasePreviews,omitempty"`
+	RepositoryIdentity *scm.RepositoryIdentity  `json:"repositoryIdentity,omitempty"`
+	Slug               string                   `json:"slug"`
+	RunIDs             []ids.ID                 `json:"runIds"`
+	ChangeIDs          []ids.ID                 `json:"changeIds"`
+	PreviewSteps       []ids.ID                 `json:"previewSteps"`              // run-step preview stacks, by step
+	Transcripts        []string                 `json:"transcripts,omitempty"`     // kept agent transcripts, by digest
+	GitLabPath         string                   `json:"gitlabPath,omitempty"`      // where the GitLab copy was
+	GitLabProjectID    int64                    `json:"gitlabProjectId,omitempty"` // which GitLab project it is, for ever
+	GitLabArchive      string                   `json:"gitlabArchive,omitempty"`   // the name it is archived under
 }
 
 // GitLabProjects observes the repository identity owned by a deleted project.

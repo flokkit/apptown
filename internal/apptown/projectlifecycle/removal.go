@@ -19,19 +19,33 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
+type projectRemoval struct {
+	workflow.ProjectRemoval
+	ReleasePreviews *ReleasePreviewInventory
+}
+
 // removeRecords composes the owners, never their table names. Work locks
 // admission first; the root and its required receipt settle last.
-func (s *Service) removeRecords(ctx context.Context, projectID ids.ID, who string, record func(*database.Tx, workflow.ProjectRemoval) error) (workflow.ProjectRemoval, error) {
-	var removal workflow.ProjectRemoval
+func (s *Service) removeRecords(ctx context.Context, projectID ids.ID, who string, record func(*database.Tx, projectRemoval) error) (projectRemoval, error) {
+	var removal projectRemoval
 	if who == "" {
 		return removal, fmt.Errorf("project deletion requires a receipt actor")
 	}
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {
 		var err error
-		removal, err = workflow.ProjectRemovalIn(ctx, tx, projectID)
+		removal.ProjectRemoval, err = workflow.ProjectRemovalIn(ctx, tx, projectID)
 		if err != nil {
 			return err
 		}
+		owner, err := project.ByIDIn(ctx, tx, projectID)
+		if err != nil {
+			return err
+		}
+		numbers, err := deployment.ReleaseNumbersIn(ctx, tx, projectID)
+		if err != nil {
+			return err
+		}
+		removal.ReleasePreviews = &ReleasePreviewInventory{Version: 1, ProjectID: projectID, ServingLabel: owner.ServingLabel, Numbers: numbers}
 		for _, participant := range []struct {
 			name   string
 			remove func(context.Context, *database.Tx, ids.ID) error
@@ -60,7 +74,7 @@ func (s *Service) removeRecords(ctx context.Context, projectID ids.ID, who strin
 		return record(tx, removal)
 	})
 	if err != nil {
-		return workflow.ProjectRemoval{}, err
+		return projectRemoval{}, err
 	}
 	return removal, nil
 }

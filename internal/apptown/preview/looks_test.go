@@ -367,7 +367,7 @@ func TestRemovingAPreviewForGoodTakesItsBuildAndItsLook(t *testing.T) {
 	if _, err := s.RehearseChange(context.Background(), Change{ID: idstest.N(9), ProjectID: pid}, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RemovePreviewForGood(context.Background(), name); err != nil {
+	if err := s.RemoveChangeForGood(context.Background(), idstest.N(9)); err != nil {
 		t.Fatal(err)
 	}
 	if f.holds(name) || !slices.Equal(f.images, []string{name}) || !lookAt(t, s, name).IsZero() {

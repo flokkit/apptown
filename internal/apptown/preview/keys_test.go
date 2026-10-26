@@ -239,7 +239,7 @@ func TestAWorkerPreviewRemovedWithItsProjectLosesItsKey(t *testing.T) {
 		t.Fatalf("a preview standing on the worker keeps its key: %v", err)
 	}
 	name := docker.PreviewChangeName(idstest.N(7))
-	if err := s.RemovePreviewForGood(context.Background(), name); err != nil {
+	if err := s.RemoveChangeForGood(context.Background(), idstest.N(7)); err != nil {
 		t.Fatal(err)
 	}
 	if w.holds(name) {

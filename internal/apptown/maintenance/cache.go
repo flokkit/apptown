@@ -9,6 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/strs"
 
+	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
@@ -66,6 +67,12 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 			volumes = append(volumes, v)
 		}
 	}
+	projectCaches, err := agentenv.ProjectCaches(ctx, r.docker)
+	if err != nil {
+		log.Printf("reaper: project package caches not read: %v", err)
+		return nil
+	}
+	volumes = append(volumes, projectCaches...)
 	runStatus := func(id ids.ID) workflow.RunState {
 		r, err := workflow.ReadRunIn(ctx, r.db, id)
 		if err != nil || r == nil {

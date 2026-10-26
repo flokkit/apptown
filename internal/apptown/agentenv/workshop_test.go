@@ -179,13 +179,13 @@ func TestAStepsPrivateDockerIsBoundedAndSharesOnlyItsProjectsCache(t *testing.T)
 	if err := os.MkdirAll(filepath.Join(ws, ".apptown"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	_, _, cleanup, err := workshop.StartStep(WithCacheScope(t.Context(), "game"), idstest.N(92), ws, "", ".apptown/home/.docker")
+	_, _, cleanup, err := workshop.StartStep(WithCacheScope(t.Context(), idstest.N(1)), idstest.N(92), ws, "", ".apptown/home/.docker")
 	if err != nil {
 		t.Fatal(err)
 	}
 	cleanup()
 	<-client.preload
-	if !client.ran("-v apptown-cache-game:/apptown-cache --cpus 3 --memory 2147483648 --memory-swap 2147483648 --pids-limit 512") {
+	if !client.ran("-v apptown-project-cache-00000000-0001-7000-8000-000000000000:/apptown-cache --cpus 3 --memory 2147483648 --memory-swap 2147483648 --pids-limit 512") {
 		t.Fatal("the private Docker runs without its project's cache or its limits")
 	}
 	if client.ran(" forge-cache:/apptown-cache") {

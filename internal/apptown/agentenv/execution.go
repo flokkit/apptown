@@ -3,7 +3,10 @@ package agentenv
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/ids"
 	"time"
 
 	"github.com/flokkit/apptown/internal/execution"
@@ -28,24 +31,60 @@ func Execute(runner execution.Runner, ctx context.Context, backend string, req e
 
 type cacheScopeKey struct{}
 
-// WithCacheScope says work under ctx is the named project's: its steps and
+// WithCacheScope says work under ctx is the identified project's: its steps and
 // checks share that project's cache volume and no other project's.
-func WithCacheScope(ctx context.Context, slug string) context.Context {
-	return context.WithValue(ctx, cacheScopeKey{}, slug)
+func WithCacheScope(ctx context.Context, projectID ids.ID) context.Context {
+	return context.WithValue(ctx, cacheScopeKey{}, projectID)
 }
 
 // CacheVolume is the cache volume for work under ctx: the project's own
-// (apptown-cache-<slug>), or "" when ctx names no project, which mounts none.
+// (apptown-project-cache-<UUID>), or "" when ctx names no project, which mounts none.
 func CacheVolume(ctx context.Context) string {
-	if slug, _ := ctx.Value(cacheScopeKey{}).(string); slug != "" {
-		return ProjectCache(slug)
+	if id, _ := ctx.Value(cacheScopeKey{}).(ids.ID); !id.IsZero() {
+		return ProjectCache(id)
 	}
 	return ""
 }
 
+const projectCachePrefix = "apptown-project-cache-"
+
 // ProjectCache is a project's cache volume. One project's agents and checks
 // write their package caches there; another project's never see it.
-func ProjectCache(slug string) string { return "apptown-cache-" + slug }
+func ProjectCache(projectID ids.ID) string {
+	if projectID.IsZero() {
+		return ""
+	}
+	return projectCachePrefix + projectID.String()
+}
+
+// RemoveProjectCache retires only this project's disposable local package cache.
+// Absence is success; an unavailable daemon or a volume still in use is an error.
+func RemoveProjectCache(ctx context.Context, dk docker.Scope, projectID ids.ID) error {
+	if projectID.IsZero() {
+		return fmt.Errorf("retiring a project cache requires its identity")
+	}
+	return dk.RemoveVolume(ctx, ProjectCache(projectID))
+}
+
+// ProjectCaches lists only canonical UUID project caches. Legacy slug caches,
+// console caches and unknown names are not owned by this inventory.
+func ProjectCaches(ctx context.Context, dk docker.Scope) ([]string, error) {
+	volumes, err := dk.List(ctx, "volume", "ls", "--format", "{{.Name}}", "--filter", "name="+projectCachePrefix)
+	if err != nil {
+		return nil, err
+	}
+	var owned []string
+	for _, volume := range volumes {
+		if len(volume) <= len(projectCachePrefix) {
+			continue
+		}
+		id, err := ids.Parse(volume[len(projectCachePrefix):])
+		if err == nil && !id.IsZero() && ProjectCache(id) == volume {
+			owned = append(owned, volume)
+		}
+	}
+	return owned, nil
+}
 
 // Decorate applies the cache volume, labels and host routing to a Docker
 // step request, for a caller that runs it as a recorded task. An empty

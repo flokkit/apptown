@@ -408,7 +408,7 @@ func TestEndingAPreviewRemovesItOnTheWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	workResourcesFor(a).Run(context.Background(), idstest.N(41))
-	if failed := projectCleanupFor(a).Clean(context.Background(), project.RepositoryRef{ID: idstest.N(1), Slug: "game"}, projectlifecycle.CleanupPlan{Slug: "game", RunIDs: []ids.ID{idstest.N(42)}, ChangeIDs: []ids.ID{idstest.N(43)}}); len(failed) != 0 {
+	if failed := projectCleanupFor(a).Clean(context.Background(), project.RepositoryRef{ID: idstest.N(1), Slug: "game"}, projectlifecycle.CleanupPlan{ReleasePreviews: &projectlifecycle.ReleasePreviewInventory{Version: 1, ProjectID: idstest.N(1), ServingLabel: "game"}, Slug: "game", RunIDs: []ids.ID{idstest.N(42)}, ChangeIDs: []ids.ID{idstest.N(43)}}); len(failed) != 0 {
 		t.Fatalf("cleanup: %q", failed)
 	}
 	a.ReapPreviewOrphans(context.Background())

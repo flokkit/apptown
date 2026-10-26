@@ -184,6 +184,8 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 	daemon.SetReply(func(args []string) ([]byte, error, bool) {
 		line := strings.Join(args, " ")
 		switch {
+		case strings.HasPrefix(line, "volume ls") && strings.Contains(line, "name=apptown-project-cache-"):
+			return []byte("apptown-project-cache-00000000-0001-7000-8000-000000000000\napptown-project-cache-unknown\n"), nil, true
 		case strings.HasPrefix(line, "volume ls") && strings.Contains(line, "name=apptown-cache-"):
 			return []byte("apptown-cache-game\napptown-cache-console-c1\napptown-cache-shop\n"), nil, true
 		case strings.Contains(line, "rm -rf"):
@@ -195,7 +197,7 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 	if reaped := r.Cache(t.Context(), false); len(reaped) != 0 {
 		t.Fatalf("reaped %v with no listing", reaped)
 	}
-	if strings.Join(listed, ",") != "apptown-cache,apptown-cache-game,apptown-cache-shop" {
+	if strings.Join(listed, ",") != "apptown-cache,apptown-cache-game,apptown-cache-shop,apptown-project-cache-00000000-0001-7000-8000-000000000000" {
 		t.Fatalf("swept %v", listed)
 	}
 }
@@ -227,5 +229,21 @@ func TestACacheSweepStoppedMidwayAsksDockerNothingMore(t *testing.T) {
 	made, removed := daemon.Matching("create "), daemon.Matching("rm ")
 	if len(made) != 1 || len(removed) != 1 || removed[0][len(removed[0])-1] != made[0][slices.Index(made[0], "--name")+1] {
 		t.Fatalf("made %v, removed %v; want the one read in flight removed and nothing else asked", made, removed)
+	}
+}
+
+func TestUnavailableProjectCacheDiscoveryStartsNoSweep(t *testing.T) {
+	t.Parallel()
+	d := dockerfake.New()
+	d.SetReply(func(args []string) ([]byte, error, bool) {
+		if len(args) > 1 && args[0] == "volume" && args[1] == "ls" {
+			return nil, errors.New("daemon unavailable"), true
+		}
+		t.Errorf("sweep acted after unavailable inventory: %v", args)
+		return nil, nil, true
+	})
+	r := &Reaper{docker: docker.Scope{Client: d}, tools: stock.Versions()}
+	if got := r.Cache(t.Context(), false); len(got) != 0 {
+		t.Fatalf("unavailable sweep claimed %v", got)
 	}
 }
