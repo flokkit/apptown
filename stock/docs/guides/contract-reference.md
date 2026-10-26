@@ -202,8 +202,14 @@ and run its workers and its deployment targets on it. App Platform runs
 ## The environment an app gets
 
 Each part, and each init step, gets its own `environment`, with the
-connection variables of its needs set over it, and then the secrets its
-scope names. AppTown adds a few values of its own, which differ by target:
+connection variables of its needs set over it, and the secrets its scope
+names. A scoped secret may not reuse a name supplied by a need to that consumer,
+even when the values happen to match: their rotation and ownership differ.
+Preparation names the conflicting consumer and variable, never either value.
+Remove the redundant secret or use a distinct application variable with explicit
+need wiring. Running apps and recorded artifacts stay unchanged; a fresh boot or
+preparation of an ambiguous declaration refuses before replacing the application.
+AppTown adds a few values of its own, which differ by target:
 
 | Value | Docker host | Portainer | App Platform |
 | --- | --- | --- | --- |
@@ -212,7 +218,7 @@ scope names. AppTown adds a few values of its own, which differ by target:
 | `DATA_DIR` | public part, when it has a `dataDir`, set last | public part, the same | — (no `dataDir`) |
 | `APPTOWN_TRUST` | every part and init step but a static site's, when the server is given extra certificate authorities: a script the start command runs (`eval "${APPTOWN_TRUST:-}"`) to trust them | the same | the same |
 | attached integrations: `SENTRY_DSN` (error reporting); `FEEDBACK_URL` and `FEEDBACK_APP_KEY` (customer feedback, Experimental) | public part | public part, the same | not delivered; the release records it |
-| order of precedence | secrets over connections over the part's own `environment` | the same | the same, then the needs' credentials over the part's secrets |
+| order of precedence | need values and scoped secrets over the part's own `environment`; a name shared by both is refused | the same | the same |
 
 So that an app runs the same everywhere:
 

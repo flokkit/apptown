@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -478,5 +479,53 @@ func TestAReleaseDeniedAfterKeyIssuanceKeepsItsKeyOwned(t *testing.T) {
 				t.Fatal("retry replaced the retained key")
 			}
 		})
+	}
+}
+
+func TestRegisteredNeedRefusesOriginalScopedDeliveryBeforeRegistration(t *testing.T) {
+	s, db, client, pid, f := llmWorld(t, true)
+	dep := llmDeployment(t, s, db, pid, "prod")
+	c, ws := llmContract(t, llmAppFixture)
+	c.Parts = append(c.Parts, appcontract.Part{Name: "worker", Image: "app:1"})
+	c.Init = append(c.Init, appcontract.InitContainer{Name: "migrate", Image: "app:1"})
+	owner := deploymentKeys(s.db, s.clock, dep, "p")
+	for _, consumer := range []string{"web", "worker", "init-migrate"} {
+		for _, name := range []string{"LLM_API_KEY", "LLM_BASE_URL"} {
+			for _, value := range []string{"manual-sentinel", "", f.Base} {
+				p := docker.Prepared{Contract: c, Secrets: map[string]map[string]string{consumer: {name: value}}}
+				before, _ := json.Marshal(p)
+				got, err := s.env.WithRegistered(t.Context(), p, owner)
+				after, _ := json.Marshal(got)
+				if err == nil || !strings.Contains(err.Error(), consumer) || !strings.Contains(err.Error(), name) || strings.Contains(err.Error(), "sentinel") || string(before) != string(after) {
+					t.Fatalf("original %s/%s lost or accepted: %v", consumer, name, err)
+				}
+			}
+		}
+	}
+	if f.CallsOf("POST") != 0 {
+		t.Fatal("ambiguous original delivery reached registration")
+	}
+	// Exercise the actual local secret resolver and boot, not only the
+	// prepared-value path. The configured secret exists and is in web scope.
+	if err := os.WriteFile(filepath.Join(ws, secret.SpecFile), []byte("[project]\nname='p'\nrevision='1.0'\n[profiles.default]\nLLM_API_KEY={description='manual'}\n[scopes.web]\nsecrets=['LLM_API_KEY']\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	v, err := s.env.secrets.Vault.Put(t.Context(), "collision", "LLM_API_KEY", "manual-sentinel", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.env.secrets.Bindings.Put(t.Context(), pid, secret.Binding{Deployment: dep.Name, Name: "LLM_API_KEY", Store: secret.StoreInternal, Ref: "collision", Version: fmt.Sprint(v), UpdatedBy: "test"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bootDeployment(s, client, dep, c, ws); err == nil || !strings.Contains(err.Error(), "LLM_API_KEY") || strings.Contains(err.Error(), "manual-sentinel") {
+		t.Fatalf("local boot accepted ambiguous registration: %v", err)
+	}
+	if f.CallsOf("POST") != 0 || len(client.Matching("run ")) != 0 {
+		t.Fatal("ambiguous local boot reached provider or app")
+	}
+	// Ordinary noncolliding preparation still delivers both authorities.
+	p, err := s.env.WithRegistered(t.Context(), docker.Prepared{Contract: c, Secrets: map[string]map[string]string{"web": {"OTHER_KEY": "kept"}}}, owner)
+	if err != nil || p.Secrets["web"]["OTHER_KEY"] != "kept" || p.Secrets["web"]["LLM_API_KEY"] == "" || f.CallsOf("POST") != 1 {
+		t.Fatalf("noncolliding registration: %v", err)
 	}
 }

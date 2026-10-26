@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -407,8 +408,13 @@ func TestAChatIsNotOpenedOnAWorkerThatCannotReachItsRegistry(t *testing.T) {
 				}
 				return *cfg
 			})
-			closed, down := listenLocalAppTown(t)
-			closed.Close()
+			// Keep the address reserved: a closed listener's port can be reused
+			// by another parallel test before the worker probes it.
+			registry := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				panic(http.ErrAbortHandler) // no HTTP response counts as unreachable
+			}))
+			t.Cleanup(registry.Close)
+			down := registry.URL
 			if _, err := w.a.Integrations.Bindings.Upsert(t.Context(), "npm-mirror", "registry", "registry", `{"format":"npm","url":"`+down+`"}`, false); err != nil {
 				t.Fatal(err)
 			}

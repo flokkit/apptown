@@ -249,11 +249,15 @@ func (e *Environment) secretsFingerprint(ctx context.Context, secrets map[string
 // WithRegistered gives a prepared boot the values its registered needs
 // inject, its AI models key among them, made for (or kept by) owner.
 func (e *Environment) WithRegistered(ctx context.Context, p docker.Prepared, owner KeyOwner) (docker.Prepared, error) {
+	delivery := docker.Delivery{Env: func(consumer string) map[string]string { return p.Secrets[consumer] }, Receipts: p.Receipts}
+	if err := e.refuseRegisteredSecretCollisions(ctx, p.Contract, delivery); err != nil {
+		return p, err
+	}
 	env, err := e.registerNeeds(ctx, p.Contract, owner)
 	if err != nil || len(env) == 0 {
 		return p, err
 	}
-	d := withRegistered(docker.Delivery{Env: func(consumer string) map[string]string { return p.Secrets[consumer] }, Receipts: p.Receipts}, env, p.Contract)
+	d := withRegistered(delivery, env, p.Contract)
 	secrets := map[string]map[string]string{}
 	for _, consumer := range consumersOf(p.Contract) {
 		secrets[consumer] = d.EnvFor(consumer)
@@ -620,6 +624,9 @@ func (s hostSecrets) Resolve(ctx context.Context, slug, deployment, ws string, c
 	}
 	if s.keys == nil {
 		return d.Docker(), nil
+	}
+	if err := s.env.refuseRegisteredSecretCollisions(ctx, c, d); err != nil {
+		return docker.Delivery{}, err
 	}
 	env, err := s.env.registerNeedsChecked(ctx, c, s.keys(slug), allowed)
 	if err != nil {

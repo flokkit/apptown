@@ -236,6 +236,9 @@ func (s *Service) ExecuteRelease(ctx context.Context, id ids.ID) error {
 	// registers them as its boot reads the app's values; any other target
 	// is given them with the app's secrets.
 	if t.Kind != KindDockerHost {
+		if err := s.env.refuseRegisteredSecretCollisions(ctx, req.Source.Contract, req.Secrets); err != nil {
+			return fail(err)
+		}
 		registered, err := s.env.registerNeedsChecked(ctx, req.Source.Contract, deploymentKeys(s.db, s.clock, dep, project.Slug), allowed)
 		if err != nil {
 			return fail(err)
