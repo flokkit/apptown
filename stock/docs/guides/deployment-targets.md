@@ -35,7 +35,8 @@ down, is in [Previews and deployments](container-lifecycle.md).
     a number of CPUs makes the sum "at least", and the rest of the bar "not
     read";
   - **disk**: used and free where Docker keeps its data, the folder it is,
-    and when it was read. Below a tenth free it says so; below the floor
+    and when it was read. Below the warning threshold (a tenth free, capped at 40 GiB and never below
+    the refusal floor) it shows the threshold; below the floor
     new work needs (see "Disk space" below) it says new releases are
     refused, and each deployment's card on that host says deploys are
     refused. A disk it could not read says why.

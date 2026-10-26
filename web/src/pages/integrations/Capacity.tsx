@@ -108,7 +108,7 @@ const diskLabel = (d: DiskCapacity) => `disk (Docker's data${d.path ? `, ${d.pat
 // floor (a release or preview reads it again when it starts), or low.
 function DiskState({ d }: { d: DiskCapacity }) {
   if (d.refuses) return <span className="chip failed" title="a new release or preview on this host reads the disk again when it starts">new releases refused: under {fmtBytes(d.floor ?? 0)} free</span>
-  if (d.low) return <span className="chip pending">less than a tenth free</span>
+  if (d.low) return <span className="chip pending">{d.warning ? `low: under ${fmtBytes(d.warning)} free` : 'disk space low'}</span>
   return null
 }
 

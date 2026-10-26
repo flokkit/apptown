@@ -86,8 +86,9 @@ type ResourceCapacity struct {
 type DiskCapacity struct {
 	Total Figure `json:"total"`
 	Free  Figure `json:"free"`
-	// Low says less than a tenth is free: a warning.
-	Low bool `json:"low"`
+	// Low reports pressure below the shared disk warning threshold.
+	Low     bool  `json:"low"`
+	Warning int64 `json:"warning,omitempty"`
 	// Refuses says less than Floor is free: a new release or preview on
 	// this host is refused until space is freed. It is read again when one
 	// starts (docker.AdmitDisk); this reading may be minutes old (ReadAt).
@@ -341,6 +342,7 @@ func (s *Service) disk(ctx context.Context, targetID ids.ID, dk docker.Scope, ro
 	} else {
 		out.Total, out.Free = known(float64(d.TotalBytes)), known(float64(d.FreeBytes))
 		out.Low, out.Refuses, out.Floor = d.Low(), d.Refuses(), d.Floor()
+		out.Warning = d.Warning()
 	}
 	s.capacity.mu.Lock()
 	if s.capacity.disk == nil {

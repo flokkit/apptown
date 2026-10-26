@@ -32,6 +32,12 @@ describe("this AppTown's disks", () => {
     expect(html).toContain('refused: not read')
     expect(html).toMatch(/ago<\/td>/)
   })
+  it('shows the owner warning threshold without claiming controller refusal', () => {
+    const html = render({ disks: [{ what: "this AppTown's data folder", totalBytes: 4096 * 2 ** 30, freeBytes: 30 * 2 ** 30, warningBytes: 40 * 2 ** 30, refuses: false, low: true, readAt: '2026-10-10T01:00:00Z' }] })
+    expect(html).toContain('low: under 40.00 GB free')
+    expect(html).not.toContain('refused')
+    expect(html).not.toContain('tenth')
+  })
   it("says a worker that did not answer was not read, not that it refuses", () => {
     const html = render({ disks: [{ what: "the worker's disks", refuses: false, low: false, unknown: 'the worker could not be reached', readAt: '2026-10-10T01:00:00Z' }] })
     expect(html).toContain('>not read<')

@@ -2791,6 +2791,7 @@ export type Reading = {
   totalBytes?: number
   freeBytes?: number
   floorBytes?: number
+  warningBytes?: number
   refuses: boolean
   low: boolean
   unknown?: string
@@ -3824,6 +3825,7 @@ export type DiskCapacity = {
   total: Figure
   free: Figure
   low: boolean
+  warning?: number
   refuses: boolean
   floor?: number
   path?: string

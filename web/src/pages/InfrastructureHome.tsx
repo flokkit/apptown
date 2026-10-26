@@ -142,7 +142,7 @@ export function OwnDisks() {
 function DiskChip({ d }: { d: Reading }) {
   if (d.refuses) return <span className="chip fail">{d.unknown ? 'refused: not read' : `refused: under ${fmtBytes(d.floorBytes ?? 0)} free`}</span>
   if (d.unknown) return <span className="chip pending">not read</span>
-  if (d.low) return <span className="chip pending">less than a tenth free</span>
+  if (d.low) return <span className="chip pending">{d.warningBytes ? `low: under ${fmtBytes(d.warningBytes)} free` : 'disk space low'}</span>
   return <span className="chip pass">room</span>
 }
 

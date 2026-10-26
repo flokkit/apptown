@@ -2,6 +2,7 @@ package diskspace
 
 import (
 	"errors"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -28,7 +29,7 @@ func TestTheDiskIsReadAsDFReportsIt(t *testing.T) {
 
 // New work is refused below the floor, 5% of the filesystem but at least
 // 1 GiB and at most 20 GiB, and admitted at it; a filesystem not read is refused with the reason;
-// a tenth free is only a warning.
+// advisory warnings are capped and never fall below the refusal floor.
 //
 // Kills: the floor as 5% alone (a small disk admits work with 250 MiB
 // free); as 1 GiB alone (a large disk admits with 1.1 GiB of 2 TiB); the
@@ -44,12 +45,18 @@ func TestNewWorkIsRefusedBelowTheFloorAndWhenUnread(t *testing.T) {
 	}{
 		{"a small disk above 1 GiB", Space{5 * gib, gib + 1}, false, false},
 		{"a small disk at exactly 1 GiB", Space{5 * gib, gib}, false, false},
-		{"a small disk below 1 GiB, though over 5%", Space{5 * gib, gib - 1}, true, false},
+		{"a small disk below 1 GiB, though over 5%", Space{5 * gib, gib - 1}, true, true},
 		{"a mid-size disk at exactly 5%", Space{200 * gib, 10 * gib}, false, true},
 		{"a mid-size disk below 5%, though over 1 GiB", Space{200 * gib, 10*gib - 1}, true, true},
 		{"a large disk with 20 GiB free, under 5%", Space{4096 * gib, 20 * gib}, false, true},
 		{"a large disk below 20 GiB, though over 1 GiB", Space{4096 * gib, 20*gib - 1}, true, true},
 		{"a disk between 5% and 10%", Space{100 * gib, 7 * gib}, false, true},
+		{"large disk at warning cap", Space{4096 * gib, 40 * gib}, false, false},
+		{"large disk below warning cap", Space{4096 * gib, 40*gib - 1}, false, true},
+		{"large disk with ample space under ten percent", Space{4096 * gib, 100 * gib}, false, false},
+		{"mid-size disk at warning threshold", Space{200 * gib, 20 * gib}, false, false},
+		{"mid-size disk below warning threshold", Space{200 * gib, 20*gib - 1}, false, true},
+		{"huge healthy disk without arithmetic overflow", Space{math.MaxInt64, math.MaxInt64}, false, false},
 	} {
 		err := Admit("the disk", c.s, nil)
 		if refused := errors.Is(err, ErrRefused); refused != c.refused || c.s.Refuses() != c.refused || c.s.Low() != c.low {

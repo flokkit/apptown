@@ -6,7 +6,7 @@
 // 1 GiB and at most 20 GiB), and a filesystem that could not be read is refused too, with
 // the reason. Work admitted above the floor can still fill the disk (two
 // admissions at once, an image larger than it looked); what fails then fails
-// as it always did. Low, a tenth free, is a warning only.
+// as it always did. Low is a warning only: a tenth free, capped at 40 GiB and never below Floor.
 package diskspace
 
 import (
@@ -37,8 +37,12 @@ const MaxFloor = 20 << 30
 // twentieth of the filesystem, but at least MinFloor and at most MaxFloor.
 func (s Space) Floor() int64 { return max(MinFloor, min(MaxFloor, s.TotalBytes/20)) }
 
-// Low says less than a tenth is free: a warning, not a refusal.
-func (s Space) Low() bool { return s.FreeBytes*10 < s.TotalBytes }
+// Warning is the free space below which a warning is shown. Large filesystems
+// warn below 40 GiB; small ones never warn later than their refusal floor.
+func (s Space) Warning() int64 { return max(s.Floor(), min(int64(40<<30), s.TotalBytes/10)) }
+
+// Low reports advisory pressure. It does not change admission.
+func (s Space) Low() bool { return s.FreeBytes < s.Warning() }
 
 // Refuses says new work is refused on s.
 func (s Space) Refuses() bool { return s.FreeBytes < s.Floor() }
@@ -114,15 +118,16 @@ func ParseDF(out []byte) (Space, error) {
 // read. A filesystem not read is Unknown with the reason and refuses new
 // work; it is never shown as empty or full.
 type Reading struct {
-	What       string    `json:"what"`
-	Path       string    `json:"path,omitempty"`
-	TotalBytes int64     `json:"totalBytes,omitempty"`
-	FreeBytes  int64     `json:"freeBytes,omitempty"`
-	FloorBytes int64     `json:"floorBytes,omitempty"`
-	Refuses    bool      `json:"refuses"`
-	Low        bool      `json:"low"`
-	Unknown    string    `json:"unknown,omitempty"`
-	ReadAt     time.Time `json:"readAt"`
+	What         string    `json:"what"`
+	Path         string    `json:"path,omitempty"`
+	TotalBytes   int64     `json:"totalBytes,omitempty"`
+	FreeBytes    int64     `json:"freeBytes,omitempty"`
+	FloorBytes   int64     `json:"floorBytes,omitempty"`
+	WarningBytes int64     `json:"warningBytes,omitempty"`
+	Refuses      bool      `json:"refuses"`
+	Low          bool      `json:"low"`
+	Unknown      string    `json:"unknown,omitempty"`
+	ReadAt       time.Time `json:"readAt"`
 }
 
 // NewReading is what was read of the filesystem holding path at at: s, or
@@ -134,6 +139,7 @@ func NewReading(what, path string, s Space, err error, at time.Time) Reading {
 		return r
 	}
 	r.TotalBytes, r.FreeBytes, r.FloorBytes = s.TotalBytes, s.FreeBytes, s.Floor()
+	r.WarningBytes = s.Warning()
 	r.Refuses, r.Low = s.Refuses(), s.Low()
 	return r
 }
