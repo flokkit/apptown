@@ -119,7 +119,8 @@ COPY --from=docker /usr/local/libexec/docker/cli-plugins/docker-compose /usr/loc
 FROM base AS server
 RUN apt-get update && apt-get install -y --no-install-recommends iptables \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=dockerd /usr/local/bin/dockerd /usr/local/bin/containerd /usr/local/bin/containerd-shim-runc-v2 \
+# The pinned daemon embeds containerd; nested containers still need its shim.
+COPY --from=dockerd /usr/local/bin/dockerd /usr/local/bin/containerd-shim-runc-v2 \
      /usr/local/bin/runc /usr/local/bin/docker-init /usr/local/bin/docker-proxy /usr/local/bin/dind /usr/local/bin/
 WORKDIR /opt/apptown
 COPY --from=go /out/bin/apptownd /out/bin/apptown /out/bin/apptown-linux bin/

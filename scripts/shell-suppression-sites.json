@@ -125,11 +125,6 @@
     "reason": "Exit cleanup reaps the test-owned daemon even if it already exited. It does not certify successful startup or change the main test outcome."
   },
   {
-    "file": "scripts/trial-check.sh",
-    "source": "trap 'docker rm -f \"$name\" >/dev/null 2>&1; docker volume rm \"$name\" >/dev/null 2>&1 || :' EXIT",
-    "reason": "Exit cleanup attempts removal of the test-owned container and volume. It does not certify resource absence or replace the main test result."
-  },
-  {
     "file": "site/try.sh",
     "source": "\t\topen \"$1\" >/dev/null 2>&1 || :",
     "reason": "Opening a browser is optional convenience; the usable URL is printed independently."
