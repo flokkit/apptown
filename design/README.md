@@ -22,6 +22,7 @@ You should not need a plan to understand the current system.
 | How do I change tables and queries? | [Schema ownership](architecture/schema-ownership.md) |
 | How do I build and test? | [Repository README](../README.md), [test guidance](architecture/testing.md), Makefile and CI |
 | Who may do what? | [Authentication and authority](subsystems/auth.md) |
+| What does explicit routine-update consent mean? | [Janitor standing consent](subsystems/janitor.md) |
 | How does work start, finish, retry and recover? | [Workflow](subsystems/workflow-domain.md), [Jobs](subsystems/jobs.md) and [daemon lifecycle](subsystems/daemon-lifecycle.md) |
 | What do chats and agent steps receive? | [Console ownership](subsystems/console.md) and [runtime environment guide](../stock/docs/guides/runtime-environments.md) |
 | How are models selected and usage recorded? | [Model package](../internal/apptown/model/doc.go) and [Usage package](../internal/apptown/usage/doc.go) |

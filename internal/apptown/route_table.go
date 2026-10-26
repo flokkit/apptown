@@ -57,6 +57,7 @@ func appRoutes(a *App) []routeSpec {
 	var fleet httpapi.Fleet
 	var packPull httpapi.PackPull
 	var attachments httpapi.Attachments
+	var standingApprovals httpapi.StandingApprovals
 	var guidanceBlocks httpapi.GuidanceBlocks
 	var guidance httpapi.Guidance
 	var packs httpapi.Packs
@@ -198,6 +199,7 @@ func appRoutes(a *App) []routeSpec {
 		guidance = httpapi.NewGuidance(a.Ways, a.Adoption, a.Projects, a.lifecycle, httpapi.NewSteeringInventory(a.steering, piHomeFor(a), httpapi.PlatformSteering{Complaints: complaint.AgentInstructions, Hygiene: agentenv.WorkspaceHygiene, Runtime: agentenv.RuntimeContractInstructions, Docker: agentenv.DockerInstructions}))
 		guidanceBlocks = httpapi.NewGuidanceBlocks(a.Ways, a.Adoption, a.Access)
 		attachments = httpapi.NewAttachments(a.attachments, a.cfg.dataDir)
+		standingApprovals = httpapi.NewStandingApprovals(a.standingRules)
 		packPull = httpapi.NewPackPull(a.Adoption, a.Projects, a.Access, a.Ways, a.DB, a.cfg.clock.Now)
 		fleet = httpapi.NewFleet(a.Adoption, a.Ways)
 		adoptionCommands = httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle)
@@ -424,6 +426,11 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/transcript/{chat}/pictures/{name}", chatHistory.ProjectPicture, access.CapEvidenceRead, "project-slug"),
 		requireRoute("POST /api/v1/changes/{id}/runs", changes.StartChangeRun, access.CapChangeInvokeLane, "change"),
 		requireRoute("POST /api/v1/changes/{id}/sendback", changes.SendBack, access.CapChangeSendBack, "change"),
+		ownerRoute("GET /api/v1/standing-approvals", standingApprovals.List, "standingApprovals.List"),
+		ownerRoute("POST /api/v1/standing-approvals/preview", standingApprovals.Preview, "standingApprovals.Preview"),
+		ownerRoute("POST /api/v1/standing-approvals", standingApprovals.Enable, "standingApprovals.Enable"),
+		ownerRoute("GET /api/v1/standing-approvals/{id}/history", standingApprovals.History, "standingApprovals.History"),
+		ownerRoute("POST /api/v1/standing-approvals/{id}/disable", standingApprovals.Disable, "standingApprovals.Disable"),
 		requireRoute("POST /api/v1/changes/{id}/attachments", attachments.UploadAttachment, access.CapChangeAttach, "change"),
 		requireRoute("GET /api/v1/changes/{id}/attachments", attachments.ListAttachments, access.CapChangeRead, "change"),
 		requireRoute("GET /api/v1/changes/{id}/attachments/{name}", attachments.GetAttachment, access.CapChangeRead, "change"),

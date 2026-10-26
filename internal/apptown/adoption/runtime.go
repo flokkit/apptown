@@ -244,7 +244,7 @@ func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWo
 			return nil, err
 		}
 		if !selected {
-			return nil, fmt.Errorf("%q is not one of %s's ways of working — add it under Settings › Way of working", name, in.ProjectSlug)
+			return nil, fault.New(fault.Conflict, fmt.Sprintf("%q is not one of %s's ways of working — add it under Settings › Way of working", name, in.ProjectSlug))
 		}
 	}
 	violations, err := s.CheckWorkflow(ctx, s.db, in.Source.ProjectID, name, &doc.Spec)
@@ -252,7 +252,7 @@ func (s *Service) Workflow(ctx context.Context, in WorkflowRequest) (*ResolvedWo
 		return nil, err
 	}
 	if len(violations) > 0 {
-		return nil, fmt.Errorf("policy violation: %s", FormatViolations(violations))
+		return nil, fault.New(fault.Conflict, fmt.Sprintf("policy violation: %s", FormatViolations(violations)))
 	}
 	prefix := "lib"
 	if metadata.Origin == "stock" {

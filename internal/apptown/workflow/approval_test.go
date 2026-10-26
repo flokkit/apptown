@@ -319,3 +319,22 @@ func TestAssentIsJudgedByTheWayAVoteWasGiven(t *testing.T) {
 		}
 	}
 }
+
+func TestStandingApprovalDeclarationCannotLowerTheHumanBar(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{
+		`{"standing":{"class":"anything","means":"trust me"}}`,
+		`{"standing":{"class":"routine-update","means":" "}}`,
+		`{"quorum":2,"standing":{"class":"routine-update","means":"bounded routine updates"}}`,
+		`{"standing":"routine-update"}`,
+	} {
+		if _, err := ReadApprovalConfig([]byte(raw)); err == nil {
+			t.Errorf("unsupported standing declaration admitted: %s", raw)
+		}
+	}
+	for _, raw := range []string{`{}`, `{"quorum":2}`, `{"standing":{"class":"routine-update","means":"bounded routine updates after all checks pass"}}`} {
+		if _, err := ReadApprovalConfig([]byte(raw)); err != nil {
+			t.Errorf("supported human/standing configuration %s: %v", raw, err)
+		}
+	}
+}

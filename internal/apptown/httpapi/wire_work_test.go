@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -11,6 +12,19 @@ import (
 func init() {
 	registerWireMapped(workflow.ScheduleOutcome(""), `"opened" | "skipped" | "failed" | "unknown"`)
 	registerWire(
+		wiregen.Named{Name: "StandingCategories", Value: workflow.StandingCategories{}},
+		wiregen.Named{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
+		wiregen.Named{Name: "StandingProject", Value: workflow.StandingProject{}},
+		wiregen.Named{Name: "StandingDefinition", Value: workflow.StandingDefinition{}},
+		wiregen.Named{Name: "StandingPurpose", Value: workflow.StandingPurpose{}},
+		wiregen.Named{Name: "StandingProcedure", Value: workflow.StandingProcedure{}},
+		wiregen.Named{Name: "StandingProjectMeaning", Value: workflow.StandingProjectMeaning{}},
+		wiregen.Named{Name: "StandingQuestion", Value: workflow.StandingQuestion{}},
+		wiregen.Named{Name: "StandingCommand", Value: workflow.StandingCommand{}},
+		wiregen.Named{Name: "StandingRevision", Value: workflow.StandingRevision{}},
+		wiregen.Named{Name: "StandingStatus", Value: workflow.StandingStatus{}},
+		wiregen.Named{Name: "StandingActor", Value: access.Actor{}},
+		wiregen.Named{Name: "StandingDisable", Value: StandingDisable{}},
 		wiregen.Named{Name: "ChangeRun", Value: ChangeRun{}},
 		wiregen.Named{Name: "ScheduleList", Value: ScheduleList{}},
 		wiregen.Named{Name: "ChangeEnvelope", Value: ChangeEnvelope{}},

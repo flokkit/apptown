@@ -70,6 +70,8 @@ var sections = []section{
 	{
 		heading: "not promised in 1.x (a 1.x release may change these):",
 		commands: []command{
+			{[]string{"janitor"}, `  janitor <list|preview|enable|disable|history>
+                                        manage explicit standing consent; does not run updates`, cmdJanitor},
 			{[]string{"release-setup"}, `  release-setup <project> [--target UUID --name name] [--require-promotion] [--save] [--json]
                                         inspect choices; --save records setup without starting a release`, cmdReleaseSetup},
 			{[]string{"uplift"}, `  uplift [-p proj]                      dependency uplift (dependency-uplift workflow)`, verb("uplift")},

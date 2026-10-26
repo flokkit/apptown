@@ -12,7 +12,12 @@ import (
 )
 
 func (s *Projects) AuthorityResource(ctx context.Context, id ids.ID) (access.Resource, error) {
-	row, err := projectsql.New(s.db.SQL()).ProjectByID(ctx, id)
+	return AuthorityResourceIn(ctx, s.db, id)
+}
+
+// AuthorityResourceIn resolves the current containing scopes in an owner transaction.
+func AuthorityResourceIn(ctx context.Context, q database.Queryer, id ids.ID) (access.Resource, error) {
+	row, err := projectsql.New(q.SQL()).ProjectByID(ctx, id)
 	if err != nil {
 		err = database.Missing(err)
 		if fault.KindOf(err) != fault.NotFound {

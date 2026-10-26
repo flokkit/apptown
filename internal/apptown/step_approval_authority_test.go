@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -142,4 +144,153 @@ func TestApproverEnforcementHTTP(t *testing.T) {
 // This command-only double deliberately cannot authorize aggregate reads.
 func (workPermissionFunc) VisibleProjects(context.Context, access.Capability) ([]ids.ID, error) {
 	return nil, access.ErrAuthorityUnavailable
+}
+
+func TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer(t *testing.T) {
+	a := authzActors(t)
+	a.Ways.SyncStockWorkflows(t.Context())
+	var workingYAML string
+	for _, kind := range []string{"working", "landing"} {
+		name := "janitor-work"
+		system := "false"
+		if kind == "landing" {
+			name = "janitor-land"
+			system = "true"
+		}
+		body := fmt.Sprintf(`apiVersion: apptown.dev/v1
+kind: Workflow
+metadata: {name: %s, system: %s}
+spec:
+  kind: pipeline
+  role: %s
+  stages:
+    - name: accept
+      steps:
+        - name: approve
+          uses: approval
+          with:
+            means: I reviewed this change
+            standing: {class: routine-update, means: Bounded routine updates after all required checks pass}
+`, name, system, kind)
+		if kind == "working" {
+			workingYAML = body
+		}
+		if _, _, err := a.Ways.PublishWorkflow(t.Context(), body, "boss"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := a.Ways.BindSystemWorkflow(t.Context(), "land", "janitor-land", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := a.Projects.BySlug(t.Context(), "game")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectID := p.ID
+	if err := a.Adoption.SelectLane(t.Context(), projectID, "janitor-work", true, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Adoption.RecordCurrent(t.Context(), projectID, adoption.AdoptionEdit, "explicit standing declaration fixture", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	definition := fmt.Sprintf(`{"projects":[{"projectId":%q,"workflow":"janitor-work","environments":[]}],"categories":{"dependencies":"patch","securityFixes":true},"delivery":"land-only"}`, projectID.String())
+	h := a.Handler()
+	refused := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/preview", definition)
+	if refused.Code != http.StatusForbidden {
+		t.Fatalf("unscoped actor reached consent: %d %s", refused.Code, refused.Body)
+	}
+	question := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/preview", definition)
+	if question.Code != http.StatusOK {
+		t.Fatalf("declared meaning preview: %d %s", question.Code, question.Body)
+	}
+	var preview struct {
+		Digest string
+		Shown  string
+	}
+	if err := json.Unmarshal(question.Body.Bytes(), &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview.Digest == "" || !strings.Contains(preview.Shown, "Running software remains unchanged") {
+		t.Fatalf("wrong meaning: %+v", preview)
+	}
+	saved := authzCall(h, "boss", "POST", "/api/v1/standing-approvals", fmt.Sprintf(`{"definition":%s,"shownDigest":%q,"issuer":"outsider"}`, definition, preview.Digest))
+	if saved.Code != http.StatusOK {
+		t.Fatalf("save: %d %s", saved.Code, saved.Body)
+	}
+	var consent struct {
+		RuleID   ids.ID
+		Revision int64
+		Issuer   struct{ Name string }
+	}
+	if err := json.Unmarshal(saved.Body.Bytes(), &consent); err != nil {
+		t.Fatal(err)
+	}
+	if consent.RuleID.IsZero() || consent.Revision != 1 || consent.Issuer.Name != "boss" {
+		t.Fatalf("stored issuer followed untrusted input: %+v", consent)
+	}
+	// This fixture seeds transparent instance reads. Remove that explicit
+	// grant before asserting the unscoped-reader case; names alone are not scope.
+	grants, err := a.Access.AllGrants(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, grant := range grants {
+		if grant.Subject == identity.GroupAllUsers && grant.RoleName == access.RoleAuditor && grant.ScopeType == access.ScopeInstance {
+			if _, err := a.Access.Revoke(t.Context(), grant.ID, "boss"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	for _, route := range []string{"/api/v1/standing-approvals", "/api/v1/standing-approvals/" + consent.RuleID.String() + "/history"} {
+		read := authzCall(h, "boss", "GET", route, "")
+		if read.Code != http.StatusOK || !strings.Contains(read.Body.String(), consent.RuleID.String()) {
+			t.Fatalf("owner read: %d %s", read.Code, read.Body)
+		}
+		other := authzCall(h, "outsider", "GET", route, "")
+		if strings.Contains(other.Body.String(), consent.RuleID.String()) || other.Code != http.StatusOK && other.Code != http.StatusForbidden {
+			t.Fatalf("unscoped read: %d %s", other.Code, other.Body)
+		}
+	}
+	otherDisable := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/disable", `{"expectedRevision":1}`)
+	if otherDisable.Code != http.StatusForbidden {
+		t.Fatalf("unscoped disable: %d %s", otherDisable.Code, otherDisable.Body)
+	}
+	disabled := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/disable", `{"expectedRevision":1}`)
+	if disabled.Code != http.StatusOK {
+		t.Fatalf("disable: %d %s", disabled.Code, disabled.Body)
+	}
+	// A selected declaration alone is insufficient: its real lifecycle role
+	// must still supply working acceptance after a governed version update.
+	if _, _, err := a.Ways.PublishWorkflow(t.Context(), strings.Replace(strings.Replace(workingYAML, "role: working", "role: record", 1), "name: janitor-work", "name: janitor-record", 1), "boss"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Adoption.SelectLane(t.Context(), projectID, "janitor-record", true, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Adoption.RecordCurrent(t.Context(), projectID, adoption.AdoptionEdit, "record workflow is not working acceptance", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	wrongRole := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/preview", strings.Replace(definition, "janitor-work", "janitor-record", 1))
+	if wrongRole.Code != http.StatusConflict || !strings.Contains(wrongRole.Body.String(), "working role") {
+		t.Fatalf("record purpose admitted as working acceptance: %d %s", wrongRole.Code, wrongRole.Body)
+	}
+
+	if err := a.Adoption.SelectLane(t.Context(), projectID, "janitor-work", false, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	withdrawn := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/preview", definition)
+	if withdrawn.Code != http.StatusUnprocessableEntity || !strings.Contains(withdrawn.Body.String(), "ways of working") {
+		t.Fatalf("withdrawn selection was not a known refusal: %d %s", withdrawn.Code, withdrawn.Body)
+	}
+	if err := a.Adoption.SelectLane(t.Context(), projectID, "janitor-work", true, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Adoption.InstallPolicy(t.Context(), projectID, "standing-needs-check", "Check before acceptance", "requireStepBefore", map[string]any{"uses": "approval", "requires": "checks"}, "fixture", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	lawRefusal := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/preview", definition)
+	if lawRefusal.Code != http.StatusConflict || !strings.Contains(lawRefusal.Body.String(), "standing-needs-check") {
+		t.Fatalf("current law ignored: %d %s", lawRefusal.Code, lawRefusal.Body)
+	}
+
 }

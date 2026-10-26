@@ -120,6 +120,13 @@ type RunStart struct {
 	Ready bool
 }
 
+type StandingRuleRevision struct {
+	RuleID     ids.ID
+	Revision   int64
+	Enabled    bool
+	RecordJson json.RawMessage
+}
+
 type Step struct {
 	Attempt             int64
 	ID                  ids.ID

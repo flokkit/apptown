@@ -140,10 +140,18 @@ type ApprovalEvidence struct {
 	EvalAuthorised string `json:"evalAuthorised,omitempty"`
 }
 
+// StandingApproval names the bounded alternative an approval purpose permits.
+// Declaring it supplies no consent and never casts a human vote.
+type StandingApproval struct {
+	Class string `json:"class"`
+	Means string `json:"means"`
+}
+
 type ApprovalConfig struct {
-	Quorum    int      `json:"quorum"`
-	Means     string   `json:"means"`
-	Approvers []string `json:"approvers"`
+	Standing  *StandingApproval `json:"standing,omitempty"`
+	Quorum    int               `json:"quorum"`
+	Means     string            `json:"means"`
+	Approvers []string          `json:"approvers"`
 	// InAdvance is what a yes given before the work exists means, on the
 	// condition AppTown witnesses (in_advance.go). A step without it takes
 	// no yes in advance.
@@ -181,6 +189,14 @@ func (cfg ApprovalConfig) normalized() (ApprovalConfig, error) {
 	}
 	if cfg.Quorum == 0 {
 		cfg.Quorum = 1
+	}
+	if cfg.Standing != nil {
+		if cfg.Standing.Class != "routine-update" || strings.TrimSpace(cfg.Standing.Means) == "" {
+			return cfg, fmt.Errorf("standing approval requires the routine-update class and its meaning")
+		}
+		if cfg.Quorum != 1 {
+			return cfg, fmt.Errorf("standing approval does not replace a multiple-person quorum")
+		}
 	}
 	return cfg, nil
 }

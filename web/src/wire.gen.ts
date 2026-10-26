@@ -535,6 +535,7 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  targetId: string | null
   requirePromotion?: boolean
   policyRevision?: number
   id: string | null
@@ -1497,6 +1498,93 @@ export type SpecStep = {
   name: string
   uses: string
   with?: Record<string, unknown>
+}
+
+export type StandingActor = {
+  principal?: string | null
+  name: string
+  via?: string
+}
+
+export type StandingCategories = {
+  dependencies: string
+  baseImages: boolean
+  securityFixes: boolean
+  waysOfWorking: boolean
+}
+
+export type StandingCommand = {
+  ruleId: string | null
+  expectedRevision: number
+  definition: StandingDefinition
+  shownDigest: string
+}
+
+export type StandingDefinition = {
+  administrative: boolean
+  projects: StandingProject[]
+  categories: StandingCategories
+  delivery: string
+}
+
+export type StandingDisable = {
+  expectedRevision: number
+}
+
+export type StandingEnvironment = {
+  deploymentId: string | null
+  targetId: string | null
+  promotion: boolean
+}
+
+export type StandingProcedure = {
+  acceptance: StandingPurpose
+  landing: StandingPurpose
+}
+
+export type StandingProject = {
+  workflow: string
+  projectId: string | null
+  environments: StandingEnvironment[]
+}
+
+export type StandingProjectMeaning = {
+  projectId: string | null
+  procedure: StandingProcedure
+}
+
+export type StandingPurpose = {
+  workflow: string
+  version: number
+  step: string
+  means: string
+  approvers: string[]
+}
+
+export type StandingQuestion = {
+  definition: StandingDefinition
+  projects: StandingProjectMeaning[]
+  shown: string
+  digest: string
+}
+
+export type StandingRevision = {
+  ruleId: string | null
+  revision: number
+  enabled: boolean
+  question: StandingQuestion
+  issuer: StandingActor
+  enabledAt: string
+  changedBy: StandingActor
+  changedAt: string
+  reason: string
+}
+
+export type StandingStatus = {
+  rule: StandingRevision
+  eligible: boolean
+  reason: string
+  processingAvailable: boolean
 }
 
 export type StepInterrupted = {

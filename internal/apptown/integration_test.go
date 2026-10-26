@@ -18,10 +18,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/datalayout"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -595,6 +597,32 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		return facts
 	}
 	retainedAddressFacts := addressFacts(db)
+
+	// Admit real consent through its owner before archiving. The fixed procedure
+	// collaborator isolates restore provenance from workflow selection (covered
+	// separately); identity, grant checks, revision storage and archive are real.
+	if _, err := app.Access.Grant(ctx, identity.Spec{SubjectType: "user", Subject: "restore-fixture", Role: access.RoleInstanceAdmin, Scope: access.ScopeInstance, Origin: "fixture", By: "restore-fixture"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	consentCtx := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, db, "restore-fixture"), Kind: "user", Name: "restore-fixture", Via: "session"}})
+	consentOwner := workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: access.Checked{Authority: app.Access, Projects: app.Projects}, Identity: app.Access, Procedures: restoreStandingProcedure{}})
+	consentInput := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: pid, Workflow: "restore-fixture"}}, Categories: workflow.StandingCategories{Dependencies: "patch"}, Delivery: "land-only"}
+	question, err := consentOwner.Preview(consentCtx, consentInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consent, err := consentOwner.Enable(consentCtx, workflow.StandingCommand{Definition: consentInput, ShownDigest: question.Digest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	refuseRestoreWrite := layout == 1 && !changedRoot
+	if refuseRestoreWrite {
+		// sql-guarantee: test-only archive fault injection. The constraint allows
+		// existing history to restore but refuses the daemon's disabled revision.
+		if _, err := db.Exec(`ALTER TABLE standing_rule_revisions ADD CONSTRAINT test_restore_standing_write CHECK (revision = 1)`); err != nil {
+			t.Fatal(err)
+		}
+	}
 	backupPath := filepath.Join(source, "backups", "restore-project", "main", "recorded-set")
 	if err := os.MkdirAll(backupPath, 0o700); err != nil {
 		t.Fatal(err)
@@ -636,6 +664,33 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		t.Fatal(err)
 	}
 	out := (execution.Runner{}).Run(ctx, execution.Local, execution.Request{Argv: []string{binary, "-data", target, "-shipped", shipped, "restore", archive}, Env: []string{"APPTOWN_BACKUP_PASSPHRASE_FILE=" + passFile}, Timeout: 3 * time.Minute})
+	if refuseRestoreWrite {
+		if out.Exited0() || !strings.Contains(string(out.Output), "disable restored standing approvals") {
+			t.Fatalf("restore write failure was not a startup refusal: %+v", out)
+		}
+		if pending, err := instancebackup.ReadPendingRestore(target); err != nil || pending == nil {
+			t.Fatalf("failed disabling lost loaded continuation: %+v %v", pending, err)
+		}
+		marker, err := os.ReadFile(filepath.Join(target, "layout"))
+		if err != nil || strings.TrimSpace(string(marker)) != "1" {
+			t.Fatalf("layout advanced before restored consent was disabled: %q %v", marker, err)
+		}
+		if _, err := os.Stat(filepath.Join(target, "workspaces", "project-"+pid.String())); !os.IsNotExist(err) {
+			t.Fatalf("repository migration crossed disabling refusal: %v", err)
+		}
+		repair, err := OpenURL(ctx, url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// sql-guarantee: remove only this test's fault after observing the real
+		// daemon refusal, allowing its loaded-intent restart to retry normally.
+		_, repairErr := repair.Exec(`ALTER TABLE standing_rule_revisions DROP CONSTRAINT test_restore_standing_write`)
+		closeErr := repair.Close()
+		if repairErr != nil || closeErr != nil {
+			t.Fatalf("remove injected fault: %v %v", repairErr, closeErr)
+		}
+		out = (execution.Runner{}).Run(ctx, execution.Local, execution.Request{Argv: []string{binary, "-data", target, "-shipped", shipped}, Timeout: 3 * time.Minute})
+	}
 	if !out.Exited0() {
 		t.Fatalf("restored daemon: %v (exit %d)\n%s", out.RunErr, out.ExitCode, out.Output)
 	}
@@ -660,6 +715,13 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	owner, err := project.New(restored, nil).ByID(ctx, pid)
 	if err != nil || owner.Slug != "restore-project" || owner.ServingLabel != "restore-project" {
 		t.Fatalf("project rows lost: %+v %v", owner, err)
+	}
+
+	restoredIdentity := identity.New(restored, identity.Config{Projects: project.NewCatalogue(restored)})
+	restoredConsent := workflow.NewStandingRules(restored, workflow.StandingDependencies{Authority: access.Checked{Authority: restoredIdentity, Projects: project.New(restored, nil)}, Identity: restoredIdentity})
+	history, err := restoredConsent.History(consentCtx, consent.RuleID)
+	if err != nil || len(history) != 2 || !history[0].Enabled || history[1].Enabled || history[1].ChangedBy.Name != "restore" || history[1].Issuer.Principal != consent.Issuer.Principal || history[0].Question.Shown != history[1].Question.Shown {
+		t.Fatalf("restored standing consent not disabled with provenance preserved: %+v %v", history, err)
 	}
 	main, found, err := scm.ReadMain(ctx, restored, pid)
 	if err != nil || !found || main.SHA != mainSHA {
@@ -704,4 +766,12 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if _, err := os.Stat(filepath.Join(retired, "workspaces", hubName, "tracked")); err != nil {
 		t.Fatal("retired source evidence lost", err)
 	}
+}
+
+// The restore test supplies declarations only; the real owner still requires
+// verified current human authority and writes immutable consent itself.
+type restoreStandingProcedure struct{}
+
+func (restoreStandingProcedure) StandingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
+	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "restore-fixture", Version: 1, Step: "accept", Means: "accept bounded updates after required checks"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
 }
