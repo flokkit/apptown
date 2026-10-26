@@ -129,7 +129,7 @@ func TestInTheNoLocalDockerModeMaintenanceAndHealthAskNoLocalDocker(t *testing.T
 func TestInTheNoLocalDockerModeProjectCleanupCompletes(t *testing.T) {
 	t.Parallel()
 	a := infrastructureModeApp(t)
-	plan := projectlifecycle.CleanupPlan{Slug: "gone", RunIDs: []ids.ID{idstest.N(100)}, ChangeIDs: []ids.ID{idstest.N(100)}, PreviewSteps: []ids.ID{idstest.N(100)}}
+	plan := projectlifecycle.CleanupPlan{ReleasePreviews: &projectlifecycle.ReleasePreviewInventory{Version: 1, ProjectID: idstest.N(100), ServingLabel: "gone"}, Slug: "gone", RunIDs: []ids.ID{idstest.N(100)}, ChangeIDs: []ids.ID{idstest.N(100)}, PreviewSteps: []ids.ID{idstest.N(100)}}
 	if err := a.DB.InTx(context.Background(), func(tx *database.Tx) error {
 		return project.RecordDeletionIn(context.Background(), tx, idstest.N(100), "gone", access.Actor{Name: "boss"}, plan, time.Now())
 	}); err != nil {

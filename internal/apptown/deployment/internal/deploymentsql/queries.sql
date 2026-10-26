@@ -548,6 +548,9 @@ DELETE FROM deployment_hostname_claims c WHERE c.hostname=$1 AND NOT EXISTS(SELE
 -- name: HasUnverifiedAddressInventory :one
 SELECT EXISTS(SELECT 1 FROM deployment_address_settings WHERE verification_state='legacy-unverified')::boolean;
 
+-- name: ReleaseNumbersForProject :many
+SELECT number FROM releases WHERE project_id=sqlc.arg(project_id) ORDER BY number;
+
 -- name: EditPromotionPolicy :one
 UPDATE deployments SET require_promotion=sqlc.arg(require_promotion), policy_revision=policy_revision+1
 WHERE id=sqlc.arg(id) AND policy_revision=sqlc.arg(expected_revision) RETURNING *;

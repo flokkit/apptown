@@ -218,9 +218,9 @@ func projectCacheScope(db *database.DB) func(context.Context, ids.ID) context.Co
 	return func(ctx context.Context, projectID ids.ID) context.Context {
 		p, err := project.ByIDIn(ctx, db, projectID)
 		if err != nil {
-			return ctx
+			return agentenv.WithCacheScope(ctx, ids.Nil)
 		}
-		return agentenv.WithCacheScope(ctx, p.Slug)
+		return agentenv.WithCacheScope(ctx, p.ID)
 	}
 }
 

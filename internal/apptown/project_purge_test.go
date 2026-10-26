@@ -16,8 +16,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 
@@ -514,7 +516,8 @@ func TestProjectDeletionTakesEachDeploymentDownAndPurgesNothingByName(t *testing
 		}
 	}
 	for _, call := range f.calls {
-		if (call[0] == "volume" && call[1] == "rm" && !strings.Contains(call[2], "preview")) || (call[0] == "rm" && strings.Contains(call[len(call)-1], "env-game")) {
+		ownedCache := slices.Equal(call, []string{"volume", "rm", "apptown-project-cache-" + idstest.N(1).String()})
+		if (call[0] == "volume" && call[1] == "rm" && !strings.Contains(call[2], "preview") && !ownedCache) || (call[0] == "rm" && strings.Contains(call[len(call)-1], "env-game")) {
 			t.Errorf("project deletion removed by name: %v", call)
 		}
 	}
@@ -535,7 +538,8 @@ func TestProjectDeletionTakesEachDeploymentDownAndPurgesNothingByName(t *testing
 
 // Project deletion takes main down the way any deployment is taken down:
 // the container AppTown recorded goes without -v, and a container and
-// volume it did not record stay, whatever their names.
+// volume it did not record stay, whatever their names. The separately owned
+// project package cache is retired by its exact retained UUID.
 func TestProjectDeletionRemovesOnlyWhatTheDeploymentRecorded(t *testing.T) {
 	t.Parallel()
 	a, f, _ := purgeFixture(t)
@@ -569,7 +573,8 @@ func TestProjectDeletionRemovesOnlyWhatTheDeploymentRecorded(t *testing.T) {
 		if call[0] == "rm" && call[len(call)-1] == need {
 			t.Errorf("an unrecorded need container was removed: %v", call)
 		}
-		if call[0] == "volume" && call[1] == "rm" && !strings.Contains(call[2], "preview") {
+		ownedCache := slices.Equal(call, []string{"volume", "rm", "apptown-project-cache-" + idstest.N(1).String()})
+		if call[0] == "volume" && call[1] == "rm" && !strings.Contains(call[2], "preview") && !ownedCache {
 			t.Errorf("an unrecorded volume was removed: %v", call)
 		}
 	}
@@ -1122,5 +1127,179 @@ func TestADeletionsDockerTakeDownIsAnOperationUnderItsBinding(t *testing.T) {
 	}
 	if after := passDeletion(t, a, idstest.N(1)); after.State != project.Deleting || after.Stalled == "" {
 		t.Fatalf("after the refused take-down: %+v", after)
+	}
+}
+
+func TestRemovedProjectCannotSupplyAnotherProjectsPackageCache(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	create := func(slug string) ids.ID {
+		t.Helper()
+		id, err := database.Transact(t.Context(), a.DB, func(tx *database.Tx) (ids.ID, error) {
+			return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: slug, Name: "Cache reused"})
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	old := create("cache-reused")
+	scope := projectCacheScope(a.DB)
+	oldVolume := agentenv.CacheVolume(scope(t.Context(), old))
+	if oldVolume == "" {
+		t.Fatal("original project had no cache scope")
+	}
+	if err := a.DB.InTx(t.Context(), func(tx *database.Tx) error {
+		if err := project.RecordDeletionIn(t.Context(), tx, old, "cache-reused", access.Actor{Name: "fixture"}, projectlifecycle.CleanupPlan{Slug: "cache-reused"}, time.Now()); err != nil {
+			return err
+		}
+		return project.RemoveIn(t.Context(), tx, old, "", nil, time.Now())
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if settled, err := a.Projects.SettleDeletionAttempt(t.Context(), old, 0, project.CleanupDone, ""); err != nil || !settled {
+		t.Fatalf("settled=%v err=%v", settled, err)
+	}
+	_, err := database.Transact(t.Context(), a.DB, func(tx *database.Tx) (ids.ID, error) {
+		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "cache-reused"})
+	})
+	if !errors.Is(err, project.ErrSlugTaken) {
+		t.Fatalf("purged address reservation lost: %v", err)
+	}
+	current := create("cache-new")
+	newVolume := agentenv.CacheVolume(scope(t.Context(), current))
+	if current == old || newVolume == "" || newVolume == oldVolume {
+		t.Fatalf("another project reused package cache: old=%s new=%s", oldVolume, newVolume)
+	}
+	if gone := agentenv.CacheVolume(scope(scope(t.Context(), current), old)); gone != "" {
+		t.Fatalf("removed project retained scope %s", gone)
+	}
+	inherited := scope(t.Context(), current)
+	dbtest.FailNextStatement(t, a.DB, "FROM projects WHERE id =")
+	if unavailable := agentenv.CacheVolume(scope(inherited, current)); unavailable != "" {
+		t.Fatalf("unavailable project inherited another cache scope %s", unavailable)
+	}
+}
+
+// A recorded historical release remains a preview resource after its project
+// records are removed; the durable cleanup must own its exact retirement.
+func TestProjectPurgeRetiresRecordedHistoricalReleasePreview(t *testing.T) {
+	t.Parallel()
+	for _, scenario := range []string{"historical", "renamed-retry", "inventory-failure"} {
+		t.Run(scenario, func(t *testing.T) { historicalReleasePurge(t, scenario) })
+	}
+}
+
+func historicalReleasePurge(t *testing.T, scenario string) {
+	t.Helper()
+	a, f, _ := purgeFixture(t)
+	dep, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel, err := a.Deployment.Releases.Start(t.Context(), deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: idstest.N(1), DeploymentID: dep.ID, Deployment: "main", Revision: "recorded", Actor: "boss"}, "historical preview fixture")
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcomes := deployment.NewOutcomes(a.DB, nil)
+	attempt, _, err := outcomes.Admit(t.Context(), deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "historical-preview-fixture", Inputs: deployment.Inputs{ReleaseID: rel.ID, Revision: "recorded", ImageDigest: "recorded-image"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := outcomes.Complete(t.Context(), deployment.Completion{Attempt: attempt, Observed: deploy.Observation{Generation: attempt.Generation, Rollout: "active", URL: "http://fixture"}}); err != nil {
+		t.Fatal(err)
+	}
+	owned := fmt.Sprintf("apptown-preview-game-release-%d", rel.Number)
+	const neighbor = "apptown-preview-open-release-1"
+	f.markStarted(owned)
+	f.markStarted(neighbor)
+	a.Preview.Viewed(t.Context(), owned)
+	canonical := "game"
+	if scenario == "renamed-retry" {
+		p, err := a.Projects.ByID(t.Context(), idstest.N(1))
+		if err != nil {
+			t.Fatal(err)
+		}
+		body := fmt.Sprintf(`{"requestId":%q,"expectedRevision":%d,"slug":"renamed-game"}`, ids.New(time.Now()).String(), p.SettingsRevision)
+		result := authzCall(a.Handler(), "boss", "PATCH", "/api/v1/projects/game", body)
+		if result.Code != 200 {
+			t.Fatalf("rename: %d %s", result.Code, result.Body.String())
+		}
+		canonical = "renamed-game"
+		p, err = a.Projects.ByID(t.Context(), idstest.N(1))
+		if err != nil || p.ServingLabel != "game" || p.Slug != canonical {
+			t.Fatalf("captured serving identity: %+v %v", p, err)
+		}
+	}
+	if st := deleteProject(t, a, canonical); st.State != project.Deleted {
+		t.Fatalf("delete: %+v", st)
+	}
+	if scenario == "inventory-failure" {
+		dbtest.FailNextStatement(t, a.DB, "-- name: ReleaseNumbersForProject")
+		if op := purgeProject(t, a, canonical); op.State != operations.Failed {
+			t.Fatalf("inventory failure purge: %+v", op)
+		}
+		if _, err := a.Projects.ByID(t.Context(), idstest.N(1)); err != nil {
+			t.Fatalf("inventory failure lost project: %v", err)
+		}
+		if _, err := a.Deployment.Releases.ByNumber(t.Context(), idstest.N(1), rel.Number); err != nil {
+			t.Fatalf("inventory failure lost release: %v", err)
+		}
+		if _, err := a.Projects.Deletion(t.Context(), idstest.N(1)); fault.KindOf(err) != fault.NotFound {
+			t.Fatalf("failed inventory published cleanup: %v", err)
+		}
+	}
+	if op := purgeProject(t, a, canonical); op.State != operations.Succeeded {
+		t.Fatalf("purge: %+v", op)
+	}
+	if _, err := a.Projects.ByID(t.Context(), idstest.N(1)); fault.KindOf(err) != fault.NotFound {
+		t.Fatalf("purge kept project: %v", err)
+	}
+	retained, err := a.Projects.Deletion(t.Context(), idstest.N(1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan projectlifecycle.CleanupPlan
+	if err := json.Unmarshal(retained.Plan, &plan); err != nil {
+		t.Fatal(err)
+	}
+	inv := plan.ReleasePreviews
+	if inv == nil || inv.Version != 1 || inv.ProjectID != idstest.N(1) || inv.ServingLabel != "game" || !slices.Equal(inv.Numbers, []int64{rel.Number}) {
+		t.Fatalf("retained exact inventory: %+v", inv)
+	}
+	if scenario == "renamed-retry" {
+		f.reply = func(args []string) (string, error, bool) {
+			if len(args) > 1 && args[0] == "rm" && slices.Contains(args, owned) {
+				return "permission denied", errors.New("denied"), true
+			}
+			return "", nil, false
+		}
+		runCleanup(t, a, idstest.N(1), 0)
+		d, err := a.Projects.Deletion(t.Context(), idstest.N(1))
+		if err != nil || d.State != project.CleanupPending || !strings.Contains(d.Detail, "permission denied") {
+			t.Fatalf("failed retirement was complete: %+v %v", d, err)
+		}
+		f.reply = nil
+	}
+	runCleanup(t, a, idstest.N(1), 0)
+	d, err := a.Projects.Deletion(t.Context(), idstest.N(1))
+	if err != nil || d.State != project.CleanupDone {
+		t.Fatalf("cleanup: %+v %v", d, err)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	removed := false
+	for _, call := range f.calls {
+		if len(call) > 0 && call[0] == "rm" {
+			if slices.Contains(call, neighbor) {
+				t.Fatalf("neighbor removed: %v", call)
+			}
+			if slices.Contains(call, owned) {
+				removed = true
+			}
+		}
+	}
+	if !removed {
+		t.Fatal("cleanup reported done while recorded historical release preview survived")
 	}
 }

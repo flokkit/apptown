@@ -178,8 +178,14 @@ fresh purge, its own row. Usage, the ledger and receipts are kept.
 
 The `project-cleanup` job (key `project/<id>/<round>`) carries out the plan
 the purge recorded: each run's and Change's preview container, preview
-stack, workspace and data volume, their build images, the project's
-console sessions and its kept agent transcripts. Every effect treats an
+stack, workspace and disposable data, their build images, historical release
+previews, the project's UUID package cache, console sessions and kept agent
+transcripts. Before removing release rows, the same transaction captures every
+release number with the project UUID and its immutable serving label. Retirement
+uses those retained identities after the source records are gone, including
+when the project's address changed. Release retirement and boots share Preview's
+exclusive runtime key; a waiting boot checks that the project is active before
+effects. Every effect treats an
 already-absent resource as done. A failure is retried up to five times;
 after the fifth the cleanup **needs attention**: the Infrastructure page
 lists it with what failed, and an administrator's **Try again** starts a
@@ -187,6 +193,14 @@ new round (its job, its receipt and the round commit together). A pending
 cleanup whose round has no job queued or running is shown as needing
 attention and may be retried; while its job is live, a retry is refused.
 The outcome is a `project.cleanup` receipt.
+
+An older cleanup plan without a captured release inventory needs attention:
+its deleted records cannot establish historical ownership. Inspection is required;
+**Try again** alone cannot reconstruct the missing identities. Cleanup never
+substitutes the current address or deletes resources by a broad name prefix.
+Preview keys are released only after observing the preview absent. A failed key
+revocation transfers into the existing visible retained-resource obligation;
+failure to observe or record that transfer remains a cleanup error.
 
 Docker's answer that an object is already gone counts as removed only when
 it comes from the daemon; a failure to reach Docker at all is a failure.

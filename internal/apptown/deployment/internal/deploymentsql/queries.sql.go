@@ -3512,6 +3512,33 @@ func (q *Queries) ReleaseEvents(ctx context.Context, releaseID ids.ID) ([]Releas
 	return items, nil
 }
 
+const releaseNumbersForProject = `-- name: ReleaseNumbersForProject :many
+SELECT number FROM releases WHERE project_id=$1 ORDER BY number
+`
+
+func (q *Queries) ReleaseNumbersForProject(ctx context.Context, projectID ids.ID) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, releaseNumbersForProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var number int64
+		if err := rows.Scan(&number); err != nil {
+			return nil, err
+		}
+		items = append(items, number)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const releaseStartFrom = `-- name: ReleaseStartFrom :one
 SELECT start_from_backup FROM release_requests WHERE release_id=$1
 `

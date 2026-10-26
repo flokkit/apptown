@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -57,5 +58,55 @@ func TestRemoveProjectInKeepsOtherProjects(t *testing.T) {
 		if count(a) != 0 || count(b) != 1 {
 			t.Fatalf("%s: a=%d b=%d", what, count(a), count(b))
 		}
+	}
+}
+
+func TestReleaseRetirementInventoryHasNoDisplayLimitOrStateFilter(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	own := createTestProject(t, db, "inventory", "Inventory")
+	other := createTestProject(t, db, "neighbor", "Neighbor")
+	for _, pid := range []ids.ID{own, other} {
+		dep := storedDeploymentFixture(t, db, deploymentsql.EnsureStandingParams{ID: ids.New(time.Now()), ProjectID: pid, Name: "main"})
+		count := 105
+		if pid == other {
+			count = 1
+		}
+		for i := 0; i < count; i++ {
+			rel, err := NewReleases(db).Start(t.Context(), ReleaseDraft{Source: ReleaseFromBranch, ProjectID: pid, DeploymentID: dep, Deployment: "main"}, "inventory fixture")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if i < count-1 {
+				if _, err := NewOutcomes(db, nil).FailUnstartedRelease(t.Context(), rel.ID, fmt.Errorf("partial release")); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	err := db.InTx(t.Context(), func(tx *database.Tx) error {
+		numbers, err := ReleaseNumbersIn(t.Context(), tx, own)
+		if err != nil {
+			return err
+		}
+		if len(numbers) != 105 {
+			t.Fatalf("truncated inventory: %d", len(numbers))
+		}
+		for i, n := range numbers {
+			if n != int64(i+1) {
+				t.Fatalf("inventory omitted/reordered number: %v", numbers)
+			}
+		}
+		neighbor, err := ReleaseNumbersIn(t.Context(), tx, other)
+		if err != nil {
+			return err
+		}
+		if len(neighbor) != 1 || neighbor[0] != 1 {
+			t.Fatalf("other ownership: %v", neighbor)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 }

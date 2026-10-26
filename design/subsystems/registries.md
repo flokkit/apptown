@@ -21,7 +21,7 @@ installs from it into its own folder. On a worker it is one folder mounted
 into every task, check and chat container
 ([tool_cache.go](../../internal/worker/tool_cache.go)). On an AppTown's own Docker
 the same path lies inside a cache volume: the project's
-(`apptown-cache-<slug>`) for its steps and checks, and each chat's own
+(`apptown-project-cache-<project UUID>`) for its steps and checks, and each chat's own
 (`apptown-cache-console-<session>`) for chats.
 
 Accepted limit for now: an AppTown's own Docker downloads again for each chat
@@ -95,3 +95,16 @@ step's private Docker is logged in to no registry, with or without a worker. See
 - [internal/apptown/agentenv/registries.go](../../internal/apptown/agentenv/registries.go)
 - [internal/apptown/agentenv/workshop.go](../../internal/apptown/agentenv/workshop.go)
 - [internal/apptown/deployment/release_publication.go](../../internal/apptown/deployment/release_publication.go)
+
+Project package caches belong to the immutable project UUID. Completed project
+cleanup retires that exact local volume; a failed removal keeps cleanup pending.
+New work never adopts the old `apptown-cache-<slug>` or shared `apptown-cache`
+volumes. These disposable legacy caches can be removed explicitly by an operator
+after old work has settled and no containers use them. Exclude the separately
+owned `apptown-cache-console-*` volumes. Neither a reused slug nor
+its deletion proves ownership of their contents. Console and worker tool caches
+keep their separate lifecycles.
+
+Already-admitted tasks retain their saved request and cache mount. An older task
+without a kept request can be refused if reconstruction changes its admitted
+digest; cache upgrades do not rewrite requests or silently execute changed work.

@@ -48,12 +48,16 @@ import (
 // database and directory. The composition root keeps the test that its own
 // startup does the same (TestARestartNeverStartsARecordedTaskAgain).
 type taskAppTown struct {
-	db       *database.DB
-	dir      string
-	image    string
-	work     *workflow.Service
-	tasks    *TaskRunner
-	branches *scm.Branches
+	// Historical-request tests admit a legacy plan through the real task owner,
+	// then restart with the current cache scope; production has no override.
+	scriptRunner workflow.Runner
+	cacheProject ids.ID
+	db           *database.DB
+	dir          string
+	image        string
+	work         *workflow.Service
+	tasks        *TaskRunner
+	branches     *scm.Branches
 	// ctx is the administrator the fixture acts as: it runs steps and reads
 	// runs, as AppTown's engine does for itself.
 	ctx         context.Context
@@ -139,12 +143,24 @@ func startTaskAppTown(t *testing.T, db *database.DB, dir, image string, definiti
 			}
 			return workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: req.WorkflowName, Version: 1}, Spec: spec, AdoptionID: source.AdoptionID}, nil
 		},
+		StepContext: func(ctx context.Context, _ ids.ID) context.Context {
+			if f.cacheProject.IsZero() {
+				return ctx
+			}
+			return agentenv.WithCacheScope(ctx, f.cacheProject)
+		},
 		Laws: noLaws{},
 		Merge: workcommands.LandingEffects{DB: db, Contracts: project.New(db, nil).Contracts(), DataDir: dir,
 			Drivers: scm.GitDrivers{Runner: execution.Runner{Scratch: filepath.Join(dir, "generated")}, DataDir: dir}, Publisher: noPublisher{}},
 		Abandonment: noEffects{},
 		Completion:  noEffects{},
-		Runners: map[string]workflow.Runner{ScriptKind: commands.RunScript, TestsKind: commands.RunTests,
+		Runners: map[string]workflow.Runner{ScriptKind: func(task *workflow.Execution) {
+			if f.scriptRunner != nil {
+				f.scriptRunner(task)
+				return
+			}
+			commands.RunScript(task)
+		}, TestsKind: commands.RunTests,
 			AgentKind: f.agents.Run, ReviewKind: f.agents.Review},
 		Recoverers:   map[string]workflow.Runner{ScriptKind: commands.RecoverScript, AgentKind: f.agents.RecoverAgent, ReviewKind: f.agents.RecoverAgent},
 		Git:          workflow.GitWorkspace{DataDir: dir},

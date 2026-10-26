@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -130,6 +131,9 @@ func (s *Service) RequestReleasePreview(ctx context.Context, in ReleaseSelection
 		return out, err
 	}
 	defer func() { boot.Finish(err) }()
+	if err = project.RefuseUnlessActive(ctx, s.db, in.ProjectID); err != nil {
+		return out, err
+	}
 	out, err = s.releaseHost.BootReleasePreview(ctx, selected)
 	if err != nil {
 		return ReleaseResult{}, &ExecutionError{Cause: err}

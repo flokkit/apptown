@@ -17,8 +17,10 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker/workertest"
+	"slices"
 )
 
 // recordingDriver keeps every request sent to Ensure, as bytes, and the
@@ -127,6 +129,28 @@ func TestARecoveredTaskIsSentTheRequestItWasAdmittedWith(t *testing.T) {
 			if backend == "worker" {
 				a.onWorker(t, fake)
 			}
+			if backend != "worker" {
+				// Model the previously supported admission, without rewriting a
+				// kept request or its digest after it has been admitted.
+				a.scriptRunner = func(task *workflow.Execution) {
+					step, err := task.Claim()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					commands := a.tasks.commands
+					plan, err := commands.planScript(task.Context(), step, task.Run())
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					defer plan.cleanup()
+					plan.cache = "apptown-cache-game"
+					plan.folder = gitexec.LockFolder(plan.ws)
+					defer plan.folder.Release()
+					commands.runScriptTask(task, step, task.Run(), plan)
+				}
+			}
 			driver := &recordingDriver{TaskDriver: a.tasks.Driver}
 			a.tasks.Driver, a.tasks.AbandonAt = driver, func(s string) bool { return s == "created" }
 			if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
@@ -138,6 +162,7 @@ func TestARecoveredTaskIsSentTheRequestItWasAdmittedWith(t *testing.T) {
 				t.Fatal("no request was kept for the task")
 			}
 			b := startTaskAppTown(t, a.db, a.dir, "another-agent-image", a.definitions)
+			b.cacheProject = a.projectID
 			b.tasks.Driver, b.tasks.Remote, b.tasks.Profile, b.tasks.Backend, b.tasks.Poll = driver, a.tasks.Remote, a.tasks.Profile, a.tasks.Backend, a.tasks.Poll
 			b.recover(t)
 			awaitStep(t, b, step.ID, workflow.StatusPass)
@@ -148,6 +173,9 @@ func TestARecoveredTaskIsSentTheRequestItWasAdmittedWith(t *testing.T) {
 			var spec execution.TaskSpec
 			if err := json.Unmarshal(sent[1], &spec); err != nil || spec.Image != "apptown-agent" {
 				t.Fatalf("the recovered request's image: %q %v", spec.Image, err)
+			}
+			if backend != "worker" && !slices.Contains(spec.Mounts, "apptown-cache-game:/apptown-cache") {
+				t.Fatalf("legacy cache mount changed during recovery: %v", spec.Mounts)
 			}
 			if ids[0] != ids[1] || fake.Starts(key) != 1 {
 				t.Fatalf("tasks %v, started %d times", ids, fake.Starts(key))

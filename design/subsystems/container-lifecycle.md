@@ -145,3 +145,25 @@ bounded in size.
 - [internal/apptown/maintenance/README.md](../../internal/apptown/maintenance/README.md)
 - [internal/apptown/preview/worker.go](../../internal/apptown/preview/worker.go)
 - [internal/apptown/preview/looks.go](../../internal/apptown/preview/looks.go)
+
+## Deleted projects' previews
+
+Project lifecycle retains run, change and preview-step IDs, and the complete
+historical release inventory (project UUID, immutable serving label and release
+numbers), before deleting source records. Preview retires the disposable containers, stacks, build images,
+looks and snapshots named by that inventory, on the worker and local Docker as
+applicable. These operations require no source-row lookup. Application volumes
+are outside this preview retirement.
+
+Cleanup attempts independent effects even when another fails. The retained
+inventory and failure detail drive retries; a missing snapshot does not mean
+that a container was removed. Ordinary workflow workspaces and shared transcripts
+remain separate lifecycle phases. Images still used by another container stay;
+image removal never forces them.
+
+Historical release retirement serializes with release boots and uses the retained
+label even after an address change. It retires the exact local release stack and
+worker preview, kept images and look, then observes absence before releasing its
+keys. Shared images and standing application data remain protected. Missing
+historical inventory is unknown ownership, requiring inspection rather than an
+inferred successful cleanup.

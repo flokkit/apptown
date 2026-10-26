@@ -6,17 +6,16 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
+	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
-	"github.com/flokkit/apptown/internal/apptown/maintenance"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -47,10 +46,13 @@ type CleanupSessions interface {
 	RemoveEnded(m console.Match) error
 }
 
-// WorkerPreviews removes everything of one preview for good: on the
-// worker, when AppTown has one, its stack and its build images; its look.
-type WorkerPreviews interface {
-	RemovePreviewForGood(ctx context.Context, name string) error
+// CleanupPreviews retires the previews named by the frozen cleanup inventory.
+// None of these operations requires the deleted run or change records.
+type CleanupPreviews interface {
+	RemoveReleaseForGood(context.Context, ids.ID, string, int64) error
+	RemoveRunForGood(context.Context, ids.ID) error
+	RemoveRunStepsForGood(context.Context, []ids.ID) error
+	RemoveChangeForGood(context.Context, ids.ID) error
 }
 
 // GitLabClient verifies the saved identity using one current credential snapshot.
@@ -66,9 +68,10 @@ type GitLabClient interface {
 type Cleanup struct {
 	Projects *project.Projects
 	Sessions CleanupSessions
-	Docker   *docker.Scope
-	// Previews reaches previews on the worker, when AppTown has them.
-	Previews WorkerPreviews
+	// Docker is used only by the project-cache owner; Preview owns preview resources.
+	Docker *docker.Scope
+	// Previews owns local and worker preview resources and their snapshots.
+	Previews CleanupPreviews
 	GitLab   GitLabClient
 	DB       *database.DB
 	DataDir  string
@@ -136,6 +139,18 @@ func (c Cleanup) Clean(ctx context.Context, owner project.RepositoryRef, plan Cl
 	if err != nil {
 		return []string{err.Error()}
 	}
+	inventory := plan.ReleasePreviews
+	if inventory == nil {
+		return []string{"historical release preview inventory is missing; inspect the old cleanup's original release resources before resolving it; retry alone cannot reconstruct their ownership"}
+	}
+	if inventory.Version != 1 || inventory.ProjectID != owner.ID || !project.ValidSlug(inventory.ServingLabel) {
+		return []string{"invalid retained release preview ownership"}
+	}
+	for _, number := range inventory.Numbers {
+		if number <= 0 {
+			return []string{"invalid retained release preview number"}
+		}
+	}
 	id := owner.ID
 	var failed []string
 	note := func(err error) {
@@ -154,33 +169,23 @@ func (c Cleanup) Clean(ctx context.Context, owner project.RepositoryRef, plan Cl
 	// With no local Docker nothing local was left (the mode's cutover
 	// precondition), so its names are skipped, never failed on.
 	local := !c.Docker.Absent()
+	if local {
+		note(agentenv.RemoveProjectCache(ctx, *c.Docker, id))
+	}
 	for _, run := range plan.RunIDs {
-		note(c.Previews.RemovePreviewForGood(ctx, docker.PreviewRunName(run)))
-		if local {
-			note(c.Docker.RemoveDisposable(ctx, docker.PreviewRunName(run)))
-			failed = append(failed, maintenance.RemoveBuildImages(ctx, *c.Docker, docker.PreviewRunName(run))...)
-		}
+		note(c.Previews.RemoveRunForGood(ctx, run))
 		note(os.RemoveAll((workflow.Layout{DataDir: c.DataDir}).RunWorkspace(run)))
-		// The snapshots the run's preview was served from, as for a change.
-		note(os.RemoveAll(filepath.Join(c.DataDir, "workspaces", fmt.Sprintf("asof-run-%d", run))))
 	}
 	// Kept transcripts are named by their content, so a file another
 	// project's receipt still names stays.
 	note(workflow.RemoveUnreferencedTranscripts(ctx, c.DB, c.DataDir, plan.Transcripts))
-	for _, step := range plan.PreviewSteps {
-		if local {
-			note(c.Docker.RemoveDisposableStack(ctx, docker.RunStepStackID(step)))
-		}
-	}
+	note(c.Previews.RemoveRunStepsForGood(ctx, plan.PreviewSteps))
 	for _, change := range plan.ChangeIDs {
-		note(c.Previews.RemovePreviewForGood(ctx, docker.PreviewChangeName(change)))
-		if local {
-			note(c.Docker.RemoveDisposable(ctx, docker.PreviewChangeName(change)))
-			failed = append(failed, maintenance.RemoveBuildImages(ctx, *c.Docker, docker.PreviewChangeName(change))...)
-			note(c.Docker.RemoveDisposableStack(ctx, docker.ChangeStackID(change)))
-		}
+		note(c.Previews.RemoveChangeForGood(ctx, change))
 		note(os.RemoveAll((workflow.Layout{DataDir: c.DataDir}).ChangeWorkspace(change)))
-		note(os.RemoveAll(filepath.Join(c.DataDir, "workspaces", fmt.Sprintf("asof-change-%d", change))))
+	}
+	for _, number := range inventory.Numbers {
+		note(c.Previews.RemoveReleaseForGood(ctx, owner.ID, inventory.ServingLabel, number))
 	}
 	// The GitLab copy is never destroyed: it is renamed out of the way,
 	// freeing the path for a future project, and archived read-only.

@@ -23,3 +23,9 @@ func RemoveProjectIn(ctx context.Context, tx *database.Tx, projectID ids.ID) err
 	}
 	return nil
 }
+
+// ReleaseNumbersIn captures every release identity before its records are
+// removed, including failed releases that may have left a partial preview.
+func ReleaseNumbersIn(ctx context.Context, tx *database.Tx, projectID ids.ID) ([]int64, error) {
+	return deploymentsql.New(tx.SQL()).ReleaseNumbersForProject(ctx, projectID)
+}
