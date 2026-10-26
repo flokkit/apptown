@@ -81,7 +81,7 @@ func TestRoutineInspectionUsesTheCompleteDiffAndCaughtUpBase(t *testing.T) {
 	routineGit(t, repo, "checkout", "change")
 	routineGit(t, repo, "merge", "main", "--no-edit")
 	inspector := NewRoutineInspector(data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
-	result, err := inspector.InspectRoutine(t.Context(), source, "patch")
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
 	if err != nil || result.Classification != "routine-dependency" || result.Base != main || len(result.ChangedFiles) != 2 {
 		t.Fatalf("wrong caught-up source: %+v %v", result, err)
 	}
@@ -92,7 +92,7 @@ func TestRoutineInspectionUsesTheCompleteDiffAndCaughtUpBase(t *testing.T) {
 		t.Fatal("mixed source executed validator")
 		return execution.Outcome{}
 	}
-	result, err = inspector.InspectRoutine(t.Context(), source, "patch")
+	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
 	if err != nil || result.Classification != "requires-person" || len(result.ChangedFiles) != 3 {
 		t.Fatalf("mixed diff concealed: %+v %v", result, err)
 	}
@@ -104,7 +104,7 @@ func TestRoutineInspectionRefusesSourceMovementAndDirtyWorkspace(t *testing.T) {
 		routineGit(t, repo, "add", ".")
 		routineGit(t, repo, "commit", "-m", "moved")
 	}))
-	result, err := inspector.InspectRoutine(t.Context(), source, "patch")
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "moved") {
 		t.Fatalf("moved source qualified: %+v %v", result, err)
 	}
@@ -125,7 +125,7 @@ func TestRoutineInspectionRefusesSourceMovementAndDirtyWorkspace(t *testing.T) {
 		t.Fatal("dirty source executed validator")
 		return execution.Outcome{}
 	}
-	result, err = inspector.InspectRoutine(t.Context(), source, "patch")
+	result, err = inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
 	if err != nil || result.Classification != "cannot-assess" || !strings.Contains(result.Reason, "dirty") {
 		t.Fatalf("dirty source qualified: %+v %v", result, err)
 	}
@@ -145,7 +145,7 @@ func TestRoutineRefusesUnchangedShrinkwrap(t *testing.T) {
 	routineGit(t, repo, "merge", "main", "--no-edit")
 	calls := 0
 	inspector := NewRoutineInspector(data, &scm.RepositoryLocks{}, routineExecutor(t, func() { calls++ }))
-	result, err := inspector.InspectRoutine(t.Context(), source, "patch")
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestRoutineReportsAllMixedFiles(t *testing.T) {
 	routineGit(t, repo, "add", ".")
 	routineGit(t, repo, "commit", "-m", "mixed source")
 	inspector := NewRoutineInspector(data, &scm.RepositoryLocks{}, routineExecutor(t, nil))
-	result, err := inspector.InspectRoutine(t.Context(), source, "patch")
+	result, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{Dependencies: "patch"})
 	if err != nil {
 		t.Fatal(err)
 	}

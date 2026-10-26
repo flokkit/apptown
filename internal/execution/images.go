@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/trust"
+	"github.com/google/go-containerregistry/pkg/name"
 	"io"
 	"os"
 	"os/exec"
@@ -28,7 +29,9 @@ type ImageRequest struct {
 	Context    string // the build context, relative to Tree
 	AllowBuild bool
 	Registry   *RegistryLogin
-	Timeout    time.Duration
+	// Anonymous isolates registry authentication without changing the selected daemon.
+	Anonymous bool
+	Timeout   time.Duration
 	// Scratch is where a login's Docker configuration is made, for the one
 	// request: a folder its owner sweeps, so a request interrupted mid-pull
 	// leaves no credentials behind for long. "" is the system's temporary
@@ -78,7 +81,15 @@ func (r Runner) PrepareImage(ctx context.Context, req ImageRequest) ImageAnswer 
 
 // PrepareImage answers an ImageRequest on the Docker that docker runs. A
 // failure is Err, never an empty answer that reads as "no image".
-func PrepareImage(ctx context.Context, docker DockerCLI, req ImageRequest) ImageAnswer {
+func PrepareImage(ctx context.Context, docker DockerCLI, req ImageRequest) (answer ImageAnswer) {
+	if req.Anonymous {
+		if req.Registry != nil {
+			return ImageAnswer{Err: "anonymous image preparation cannot include registry credentials"}
+		}
+		if os.Getenv("DOCKER_AUTH_CONFIG") != "" {
+			return ImageAnswer{Err: "anonymous image preparation is unavailable while DOCKER_AUTH_CONFIG is set"}
+		}
+	}
 	if req.Timeout <= 0 {
 		req.Timeout = 30 * time.Minute
 	}
@@ -99,7 +110,7 @@ func PrepareImage(ctx context.Context, docker DockerCLI, req ImageRequest) Image
 	switch {
 	case req.Pull != "":
 		var config []string
-		if req.Registry != nil {
+		if req.Registry != nil || req.Anonymous {
 			// Docker's configuration for this one request: the login made for
 			// the pull goes with it. It names the same Docker as the ambient
 			// configuration does, so the pull lands where the check runs.
@@ -107,10 +118,25 @@ func PrepareImage(ctx context.Context, docker DockerCLI, req ImageRequest) Image
 			if err != nil {
 				return ImageAnswer{Err: err.Error()}
 			}
-			defer os.RemoveAll(dir)
+
+			if req.Anonymous {
+				defer func() {
+					if err := os.RemoveAll(dir); err != nil {
+						answer.ID = ""
+						answer.Err = strings.TrimSpace(answer.Err + "; removing anonymous image configuration: " + err.Error())
+					}
+				}()
+				if err := anonymousConfig(dir, req.Pull); err != nil {
+					return ImageAnswer{Err: err.Error()}
+				}
+			} else {
+				defer os.RemoveAll(dir)
+			}
 			config = []string{"--config", dir}
-			if out, err := docker(ctx, strings.NewReader(req.Registry.Token), append(config, "login", req.Registry.Host, "-u", req.Registry.Username, "--password-stdin")...); err != nil {
-				return ImageAnswer{Err: fmt.Sprintf("logging in to %s: %v: %s", req.Registry.Host, err, bounded(out))}
+			if req.Registry != nil {
+				if out, err := docker(ctx, strings.NewReader(req.Registry.Token), append(config, "login", req.Registry.Host, "-u", req.Registry.Username, "--password-stdin")...); err != nil {
+					return ImageAnswer{Err: fmt.Sprintf("logging in to %s: %v: %s", req.Registry.Host, err, bounded(out))}
+				}
 			}
 		}
 		if out, err := docker(ctx, nil, append(config, "pull", req.Pull)...); err != nil {
@@ -215,4 +241,36 @@ func bounded(b []byte) string {
 		s = "…" + s[len(s)-600:]
 	}
 	return s
+}
+
+// A present empty auth entry also prevents Docker's automatic native-helper
+// selection. An empty auth map alone would still discover a host helper.
+func anonymousConfig(dir, reference string) error {
+	ref, err := name.ParseReference(reference)
+	if err != nil {
+		return fmt.Errorf("anonymous image reference: %w", err)
+	}
+	host := ref.Context().RegistryStr()
+	if host == "index.docker.io" || host == "docker.io" {
+		host = "https://index.docker.io/v1/"
+	}
+	config := map[string]any{}
+	path := filepath.Join(dir, "config.json")
+	raw, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &config); err != nil {
+			return err
+		}
+	}
+	config["auths"] = map[string]any{host: map[string]string{}}
+	config["credsStore"] = ""
+	config["credHelpers"] = map[string]string{}
+	raw, err = json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, raw, 0o600)
 }

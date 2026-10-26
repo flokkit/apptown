@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	dockerconfig "github.com/docker/cli/cli/config"
 	"github.com/flokkit/apptown/internal/execfile"
 )
 
@@ -98,5 +99,89 @@ func TestAnImageExportNeverFollowsALink(t *testing.T) {
 		if body, _ := os.ReadFile(outside); string(body) != "untouched" || out.Termination != LaunchFailed {
 			t.Errorf("%s: the export wrote %q outside the tree (%+v)", name, body, out)
 		}
+	}
+}
+
+func TestAnonymousImagePreparationDoesNotUseAmbientCredentials(t *testing.T) {
+	t.Setenv("DOCKER_AUTH_CONFIG", "")
+	ambient, scratch, bin := t.TempDir(), t.TempDir(), t.TempDir()
+	t.Setenv("DOCKER_CONFIG", ambient)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	marker := filepath.Join(bin, "helper-used")
+	for _, helper := range []string{"pass", "secretservice", "osxkeychain", "wincred"} {
+		if err := execfile.Write(filepath.Join(bin, "docker-credential-"+helper), []byte("#!/bin/sh\necho used >> '"+marker+"'\nexit 1\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(ambient, "config.json"), []byte(`{"credsStore":"osxkeychain","credHelpers":{"registry.example":"pass"},"auths":{"registry.example":{"auth":"dTpw"}}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	previous := dockerconfig.Dir()
+	t.Cleanup(func() { dockerconfig.SetDir(previous) })
+	var owned string
+	pulled := false
+	cli := func(_ context.Context, _ io.Reader, args ...string) ([]byte, error) {
+		switch args[0] {
+		case "context":
+			return []byte("selected-daemon\n"), nil
+		case "--config":
+			if len(args) != 4 || args[2] != "pull" {
+				t.Fatalf("unexpected authenticated command: %v", args)
+			}
+			owned = args[1]
+			if !strings.HasPrefix(owned, scratch+string(os.PathSeparator)) {
+				t.Fatalf("unowned configuration %s", owned)
+			}
+			dockerconfig.SetDir(owned)
+			cfg := dockerconfig.LoadDefaultConfigFile(io.Discard)
+			if cfg.CurrentContext != "selected-daemon" || cfg.CredentialsStore != "" || len(cfg.CredentialHelpers) != 0 || !cfg.ContainsAuth() {
+				t.Fatalf("anonymous context: %+v", cfg)
+			}
+			for _, host := range []string{"registry.example", "https://index.docker.io/v1/"} {
+				auth, err := cfg.GetAuthConfig(host)
+				if err != nil || auth.Username != "" || auth.Password != "" || auth.IdentityToken != "" || auth.RegistryToken != "" {
+					t.Fatalf("ambient authority reached pull: %+v %v", auth, err)
+				}
+			}
+			link, err := os.Readlink(filepath.Join(owned, "contexts"))
+			if err != nil || link != filepath.Join(ambient, "contexts") {
+				t.Fatalf("changed daemon records: %s %v", link, err)
+			}
+			pulled = true
+			return nil, nil
+		case "image":
+			if !pulled {
+				return nil, errors.New("No such image")
+			}
+			return []byte(`"sha256:prepared" {}`), nil
+		default:
+			t.Fatalf("unexpected command %v", args)
+			return nil, nil
+		}
+	}
+	got := PrepareImage(t.Context(), cli, ImageRequest{Pull: "registry.example/app@sha256:" + strings.Repeat("a", 64), Anonymous: true, Scratch: scratch})
+	if got.Err != "" || got.ID != "sha256:prepared" || !pulled {
+		t.Fatalf("anonymous preparation: %+v", got)
+	}
+	if _, err := os.Stat(owned); !os.IsNotExist(err) {
+		t.Fatalf("configuration not settled: %v", err)
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("native credential helper ran: %v", err)
+	}
+}
+
+func TestAnonymousImagePreparationRefusesSuppliedAndEnvironmentAuthority(t *testing.T) {
+	cli := func(context.Context, io.Reader, ...string) ([]byte, error) {
+		t.Fatal("refusal invoked Docker")
+		return nil, nil
+	}
+	t.Setenv("DOCKER_AUTH_CONFIG", "")
+	if got := PrepareImage(t.Context(), cli, ImageRequest{Anonymous: true, Registry: &RegistryLogin{Token: "secret"}}); got.Err == "" {
+		t.Fatal("mixed authority accepted")
+	}
+	t.Setenv("DOCKER_AUTH_CONFIG", `{"auths":{"registry.example":{"auth":"dTpw"}}}`)
+	if got := PrepareImage(t.Context(), cli, ImageRequest{Anonymous: true, Pull: "registry.example/app:1"}); got.Err == "" || strings.Contains(got.Err, "dTpw") {
+		t.Fatalf("environment authority: %+v", got)
 	}
 }

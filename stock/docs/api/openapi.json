@@ -4211,6 +4211,63 @@
         },
         "type": "object"
       },
+      "StandingAdvisoryFix": {
+        "properties": {
+          "after": {
+            "type": "string"
+          },
+          "before": {
+            "type": "string"
+          },
+          "bodyDigest": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "string"
+          },
+          "package": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "modified",
+          "bodyDigest",
+          "package",
+          "before",
+          "after"
+        ],
+        "type": "object"
+      },
+      "StandingAdvisoryObservation": {
+        "properties": {
+          "fixes": {
+            "items": {
+              "$ref": "#/components/schemas/StandingAdvisoryFix"
+            },
+            "type": "array"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "fixes"
+        ],
+        "type": "object"
+      },
       "StandingAssess": {
         "properties": {
           "runId": {
@@ -4386,8 +4443,57 @@
         },
         "type": "object"
       },
+      "StandingImageObservation": {
+        "properties": {
+          "configDigest": {
+            "type": "string"
+          },
+          "manifest": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "preparedImage": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "reportDigest": {
+            "type": "string"
+          },
+          "scratchSettlement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference",
+          "manifest",
+          "configDigest",
+          "preparedImage",
+          "node",
+          "platform",
+          "reportDigest",
+          "scratchSettlement"
+        ],
+        "type": "object"
+      },
       "StandingInspection": {
         "properties": {
+          "advisories": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StandingAdvisoryObservation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "base": {
             "type": "string"
           },
@@ -4405,6 +4511,12 @@
           },
           "classifier": {
             "type": "string"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/StandingImageObservation"
+            },
+            "type": "array"
           },
           "reason": {
             "type": "string"

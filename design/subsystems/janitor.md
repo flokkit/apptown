@@ -60,7 +60,7 @@ The supported dependency classifier reads the complete committed diff. Its
 initial npm contract accepts root `package.json` and version-3
 `package-lock.json` with a fixed package graph, canonical public-registry sources
 and stable forward patch/minor versions within the rule's bounds. New packages,
-graph changes, other files or modes, lifecycle/platform changes and unsupported
+graph changes, unrelated files or modes, lifecycle/platform changes and unsupported
 ranges require a person. Unknown fields remain part of the comparison.
 
 Both exact inputs undergo frozen installation with scripts disabled in the
@@ -72,6 +72,36 @@ success. Worker scratch-directory removal is not observed in this response; its
 owner retries removal through the existing sweep. Container settlement is
 required. Classification is historical evidence only, not reusable assent.
 
-Base-image, advisory and way-of-working classification are unavailable through
-this inspection operation. Saving consent to those categories does not supply
-their missing evidence or enable automatic processing.
+Base-image inspection supports one root Dockerfile selected by an unchanged
+application contract: one app build at `.`, no needs, durable app data, init,
+static build or profile overrides. Its single `FROM` names an explicit
+`linux/amd64` or `linux/arm64` platform and
+`docker.io/library/node:VERSION-VARIANT@sha256:DIGEST`. The stable three-part
+Node version and variant must remain identical; only the digest may change.
+Multiple stages, arguments, parser directives, continuations and heredocs
+require a person. Every other Dockerfile byte is compared.
+
+The image owner reads both immutable manifests and configurations, refuses
+indexes and changed runtime configuration, and confirms the platform. The
+existing check executor observes Node's actual version in both prepared images,
+with entrypoints cleared, network disabled and no project files or commands.
+The prepared image ID must match the verified configuration digest. Pulls use
+request-owned anonymous authentication configuration on the selected daemon;
+an executing host with `DOCKER_AUTH_CONFIG` set cannot supply this observation.
+Existing executor tool caches remain available, and remote scratch cleanup is
+still unobserved. A matching tag or publisher label alone is insufficient.
+Other images and storage-engine transitions are unsupported.
+
+An enabled security-fix category can add OSV evidence to a supported npm update.
+Each attributed fix records the advisory identity, source, modified timestamp,
+body digest and exact affected-to-fixed package versions. Supported npm SEMVER
+ranges and all explicit affected versions participate. A withdrawn record,
+unsupported range, changed identity or absent fixed boundary cannot establish a
+fix. Unavailable, unsupported and no-supported-fix observations remain distinct;
+none means the software is free of vulnerabilities. Image OS advisory mapping
+is unsupported. Advisory evidence never broadens the underlying update category
+or substitutes for normal checks.
+
+Combined npm and image changes must satisfy both enabled categories and explain
+the complete diff. Governed way-of-working classification remains unavailable.
+No inspection result enables automatic acceptance, landing or deployment.
