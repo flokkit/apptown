@@ -8,7 +8,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -90,7 +89,11 @@ func TestFindMadeTakesOnlyMarkedClustersAndApps(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			made, err := driver.(*digitalocean.Driver).FindMade(ctx, deploy.Placement{ID: id, Name: "copy-1", Gate: &deploy.Gate{Marker: strings.Repeat("c", 64)}})
+			gated, ok := driver.(gatedRemover)
+			if !ok {
+				t.Fatalf("provider driver %T lost gated ownership operations", driver)
+			}
+			made, err := gated.FindMade(ctx, deploy.Placement{ID: id, Name: "copy-1", Gate: &deploy.Gate{Marker: strings.Repeat("c", 64)}})
 			if err != nil {
 				t.Fatal(err)
 			}

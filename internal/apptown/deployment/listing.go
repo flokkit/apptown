@@ -45,6 +45,8 @@ func (s RuntimeState) Running() *bool {
 }
 
 type RuntimeObservation struct {
+	// running is provider identity retained only for the internal health overlay.
+	running          string
 	State            RuntimeState
 	Err              error
 	ObservedAt       time.Time

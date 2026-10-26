@@ -48,7 +48,7 @@ func TestReadinessCacheRequiresFreshExactCandidateAndRuntime(t *testing.T) {
 			d, c := *dep, *target
 			record := listingRecord{deployment: &d, target: &c}
 			e := good
-			v := RuntimeObservation{Health: "healthy"} // historical observation must not leak through
+			v := RuntimeObservation{State: RuntimeRunning, Rollout: "active", Health: "healthy"} // historical observation must not leak through
 			tc.change(&v, &record, &e)
 			got := overlayReadiness(v, record, e, now)
 			if tc.want {
@@ -223,5 +223,37 @@ func TestUnmanagedProviderHealthDoesNotRequireMaintenanceEntry(t *testing.T) {
 	observed := RuntimeObservation{Health: "healthy", ObservedAt: now}
 	if got := overlayReadiness(observed, record, readinessEntry{}, now); got != observed {
 		t.Fatalf("provider health replaced without managed sample: %+v", got)
+	}
+}
+
+func TestNewerProviderInventoryCannotInheritContradictedHealth(t *testing.T) {
+	at := time.Now().UTC()
+	dep := &Deployment{ID: ids.New(at), ProjectID: ids.New(at), TargetID: ids.New(at), Kind: Standing, Readiness: Reconciled, DesiredGeneration: 3, ObservedGeneration: 3}
+	record := listingRecord{deployment: dep, target: &Target{ID: dep.TargetID, Kind: KindDOApp, Status: TargetReady}}
+	sample := readinessEntry{key: observationKey(record), artifact: "admitted", observed: deploy.Observation{Generation: 3, ArtifactHash: "admitted", Running: "dep-1", Health: "healthy", HealthObservedAt: at}}
+	service := &Service{clock: func() time.Time { return at.Add(time.Second) }}
+	for _, tc := range []struct {
+		name, rollout, health, running string
+		want                           bool
+	}{
+		{"matching", "active", "unknown", "dep-1", true},
+		{"absent", "absent", "unknown", "", false},
+		{"failed", "failed", "unhealthy", "dep-1", false},
+		{"unhealthy", "active", "unhealthy", "dep-1", false},
+		{"replacement", "active", "unknown", "dep-2", false},
+		{"identity missing", "active", "unknown", "", false},
+		{"rolling", "rolling", "unknown", "dep-1", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			inventory := service.observed(t.Context(), RuntimeObservation{}, record, deploy.Observation{Generation: 3, Rollout: tc.rollout, Health: tc.health, Running: tc.running}, nil)
+			got := overlayReadiness(inventory, record, sample, at.Add(time.Second))
+			if tc.want {
+				if got.Health != "healthy" || got.HealthArtifact != "admitted" {
+					t.Fatalf("matching current inventory lost health %+v", got)
+				}
+			} else if got.Health == "healthy" || !got.HealthObservedAt.IsZero() || got.HealthArtifact != "" {
+				t.Fatalf("contradictory newer %s inventory inherited old healthy sample: %+v", tc.name, got)
+			}
+		})
 	}
 }

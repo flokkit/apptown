@@ -1530,3 +1530,26 @@ Gated copies remain checked by Data Protection through their access gate. Their
 driver observation remains unknown; provider ACTIVE does not replace the gate,
 readiness, page or data checks. These release-time samples do not establish
 maintained fresh App Platform health for unattended release decisions.
+
+Standing generations created with an immutable connector association retain a
+versioned health receipt in their completed handle. It binds the admitted
+artifact, generation, provider app and deployment, connector UUID, API base,
+public predicate and long-running component names. Recovery carries this receipt
+through completion; an older completion without one remains unknown until a new
+governed deployment supplies it. Credentials and environment values are not
+receipt content; credential rotation within the same connector is supported.
+
+The deployment owner's background sampler checks the current standing-project,
+restore, target and attempt state before observation and again before accepting
+its result. It observes native component health and replica readiness between
+reads of the exact active provider deployment, then asks any admitted public
+predicate and release witness. Missing or ambiguous component evidence, a changed
+identity or unavailable provider yields unknown. The provider report has no
+sample timestamp or deployment ID: this is a bounded bracketed observation,
+not an atomic provider snapshot. The health timestamp records local observation
+completion. Worker readiness describes provider state, not an undeclared custom
+application check. Rate limits and sweep delays may leave health unknown or stale.
+
+Display inventory never starts this sample and ACTIVE alone is not health.
+The existing maintained-readiness cache admits only fresh matching generation
+and artifact evidence; historical release success cannot substitute for it.

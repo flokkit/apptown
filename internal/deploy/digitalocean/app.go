@@ -102,6 +102,10 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
+	receipt, err := d.newHealthReceipt(c, p, generation, art, decoded)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
+	}
 	spec := decoded.Wire
 	name := decoded.Spec.Name
 	app, err := d.findApp(ctx, c, name)
@@ -150,6 +154,12 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if depID != "" {
 		ids["deploymentId"] = depID
 	}
+	if receipt != nil && depID != "" {
+		receipt.App, receipt.Deployment = app.ID, depID
+		ids["healthReceipt"] = *receipt
+	} else {
+		receipt = nil
+	}
 	if err := checkpoint(ids); err != nil {
 		return deploy.Observation{}, fmt.Errorf("persisting the provider response: %w", err)
 	}
@@ -161,7 +171,8 @@ func (d *Driver) reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	return d.finish(ctx, c, app.ID, name, dep, generation, question, release, p.Gate != nil, logf)
+	observed, err := d.finish(ctx, c, app.ID, name, dep, generation, question, release, p.Gate != nil, logf)
+	return retainHealthReceipt(observed, err, receipt)
 }
 
 // finish: after the deployment is ACTIVE, re-read the app, refuse a cut-over
@@ -260,9 +271,30 @@ func (d *Driver) resume(ctx context.Context, p deploy.Placement, generation int6
 	if err != nil {
 		return deploy.Observation{}, deploy.Terminal(err)
 	}
+	receipt, err := readHealthReceipt(noted)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
+	}
+	if receipt != nil {
+		if p.Gate != nil {
+			return deploy.Observation{}, deploy.Terminal(errors.New("gated recovery cannot use a standing health receipt"))
+		}
+		if err := d.receiptConnection(receipt, generation); err != nil {
+			return deploy.Observation{}, deploy.Terminal(err)
+		}
+		release, _ := noted["release"].(string)
+		if receipt.Readiness != question || receipt.Release != release {
+			return deploy.Observation{}, deploy.Terminal(errors.New("recorded health receipt disagrees with readiness question"))
+		}
+	}
 	c, _, err := d.Client(ctx)
 	if err != nil {
 		return deploy.Observation{}, fmt.Errorf("reading provider access during recovery: %w", err)
+	}
+	if receipt != nil {
+		if err := receiptClient(receipt, c); err != nil {
+			return deploy.Observation{}, deploy.Terminal(err)
+		}
 	}
 	logf("resuming after a restart: waiting on deployment %s of app %s", strs.ShortSHA(depID), strs.ShortSHA(appID))
 	dep, err := d.waitDeployment(ctx, c, appID, depID, p.Gate == nil, logf)
@@ -270,7 +302,8 @@ func (d *Driver) resume(ctx context.Context, p deploy.Placement, generation int6
 		return deploy.Observation{}, err
 	}
 	release, _ := noted["release"].(string)
-	return d.finish(ctx, c, appID, name, dep, generation, question, release, p.Gate != nil, logf)
+	observed, err := d.finish(ctx, c, appID, name, dep, generation, question, release, p.Gate != nil, logf)
+	return retainHealthReceipt(observed, err, receipt)
 }
 
 func activeID(app *doApp) string {
@@ -621,7 +654,7 @@ func (d *Driver) observe(ctx context.Context, p deploy.Placement) (deploy.Observ
 	case got.App.InProgressDeployment != nil:
 		o.Rollout = "rolling"
 	case got.App.ActiveDeployment != nil && got.App.ActiveDeployment.Phase == "ACTIVE":
-		o.Rollout, o.Health = "active", "healthy"
+		o.Rollout = "active"
 	case got.App.ActiveDeployment != nil:
 		o.Rollout, o.Health = "failed", "unhealthy"
 	default:

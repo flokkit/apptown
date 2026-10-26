@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestAppPlatformRequiresDeclaredStatusThroughRecovery(t *testing.T) {
@@ -45,7 +46,7 @@ func TestAppPlatformRequiresDeclaredStatusThroughRecovery(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			d := NewDriver(Dependencies{Slug: "status", Client: func(context.Context) (*Client, Config, error) {
+			d := NewDriver(Dependencies{ConnectionID: ids.New(time.Now()), Slug: "status", Client: func(context.Context) (*Client, Config, error) {
 				return NewClient("test", server.URL), Config{Region: "syd", Registry: "forge-test"}, nil
 			}}, Options{PollInterval: time.Millisecond, PushImage: func(*Driver, context.Context, *Client, string, string, string, string, func(string, ...any)) (string, error) {
 				return "sha256:" + strings.Repeat("a", 64), nil
@@ -88,6 +89,24 @@ func TestAppPlatformRequiresDeclaredStatusThroughRecovery(t *testing.T) {
 				t.Fatalf("exact recovery refused: %+v %v", observation, err)
 			}
 			if status == 200 {
+				raw, err := json.Marshal(observation.Handle)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var handle map[string]any
+				if err := json.Unmarshal(raw, &handle); err != nil {
+					t.Fatal(err)
+				}
+				receipt, err := readHealthReceipt(handle)
+				if err != nil || receipt == nil {
+					t.Fatalf("recovery lost retained health receipt: %s %v", raw, err)
+				}
+				if receipt.Artifact != art.Hash || receipt.Generation != 1 || receipt.Connection != d.ConnectionID || receipt.Readiness.Expect != 200 || len(receipt.Components) != 1 || receipt.Components[0] != "web" {
+					t.Fatalf("recovery changed admitted receipt: %+v", receipt)
+				}
+				if strings.Contains(string(raw), "Bearer") || strings.Contains(string(raw), "envs") {
+					t.Fatalf("durable receipt includes credential or environment content")
+				}
 				before := requests.Load()
 				lost := errors.New("checkpoint write failed")
 				obs, err := d.Reconcile(t.Context(), p, 2, art, "second", func(string, ...any) {}, func(map[string]any) error { return lost })

@@ -34,9 +34,10 @@ func overlayReadiness(v RuntimeObservation, r listingRecord, e readinessEntry, n
 	}
 	// A historical successful deployment or a running container is not a current
 	// health observation. Only the separate exact-generation sample can supply it.
+	compatible := v.State == RuntimeRunning && v.Rollout == "active" && v.Health != "unhealthy" && (e.observed.Running == "" || v.running == e.observed.Running)
 	v.Health, v.HealthObservedAt, v.HealthGeneration, v.HealthArtifact = "unknown", time.Time{}, 0, ""
 	at := e.observed.HealthObservedAt
-	if !r.deployment.Standing() || r.deployment.HeldAfterRestore() != nil || r.deployment.DesiredGeneration != r.deployment.ObservedGeneration || v.Stale || e.err != nil || e.key != observationKey(r) || e.artifact == "" ||
+	if !compatible || !r.deployment.Standing() || r.deployment.HeldAfterRestore() != nil || r.deployment.DesiredGeneration != r.deployment.ObservedGeneration || v.Stale || e.err != nil || e.key != observationKey(r) || e.artifact == "" ||
 		e.observed.ArtifactHash != e.artifact || e.observed.Generation != r.deployment.ObservedGeneration ||
 		at.IsZero() || at.After(now) || now.Sub(at) > observationStaleAfter {
 		return v
@@ -45,7 +46,7 @@ func overlayReadiness(v RuntimeObservation, r listingRecord, e readinessEntry, n
 	return v
 }
 
-// RunReadiness maintains existing recorded Portainer workloads. It cannot
+// RunReadiness maintains existing recorded provider workloads. It cannot
 // release or settle them, and is never invoked by a display/read operation.
 func (s *Service) RunReadiness(ctx context.Context) {
 	for ctx.Err() == nil {
@@ -163,7 +164,7 @@ func (s *Service) requireMaintainedReadiness(ctx context.Context, original listi
 		return err
 	}
 	if !dep.Standing() || dep.ObservedGeneration <= 0 || dep.DesiredGeneration != dep.ObservedGeneration || artifact == "" {
-		return errors.New("Portainer readiness requires a settled standing generation")
+		return errors.New("Provider readiness requires a settled standing generation")
 	}
 	if err := dep.HeldAfterRestore(); err != nil {
 		return err
@@ -176,21 +177,21 @@ func (s *Service) requireMaintainedReadiness(ctx context.Context, original listi
 		return err
 	}
 	if observationKey(listingRecord{deployment: dep, target: target}) != observationKey(original) {
-		return errors.New("Portainer readiness placement changed")
+		return errors.New("Provider readiness placement changed")
 	}
 	open, err := s.Outcomes.HasOpenAttempt(ctx, dep.ID)
 	if err != nil {
 		return err
 	}
 	if open {
-		return errors.New("Portainer readiness is owned by an unfinished attempt")
+		return errors.New("Provider readiness is owned by an unfinished attempt")
 	}
 	in, err := s.Outcomes.InputsAtGeneration(ctx, dep.ID, dep.ObservedGeneration)
 	if err != nil {
 		return err
 	}
 	if in.ArtifactHash != artifact {
-		return errors.New("Portainer readiness admitted artifact changed")
+		return errors.New("Provider readiness admitted artifact changed")
 	}
 	return nil
 }
