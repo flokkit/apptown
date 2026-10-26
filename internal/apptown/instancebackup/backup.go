@@ -218,7 +218,7 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 	}
 	heldAt := now()
 	defer func() { held() }()
-	files, err := dataprotection.LockBackupFiles(filepath.Join(dataDir, "backups"), false)
+	files, err := dataprotection.LockBackupFiles(dataprotection.DiskDirectory(dataDir), false)
 	if err != nil {
 		return report, fmt.Errorf("the deployment backups are being moved or pruned: %w", err)
 	}

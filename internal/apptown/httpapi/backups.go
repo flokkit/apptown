@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
@@ -14,11 +13,10 @@ import (
 type Backups struct {
 	projects *project.Projects
 	data     *dataprotection.Service
-	dataDir  string
 }
 
-func NewBackups(projects *project.Projects, data *dataprotection.Service, dataDir string) Backups {
-	return Backups{projects: projects, data: data, dataDir: dataDir}
+func NewBackups(projects *project.Projects, data *dataprotection.Service) Backups {
+	return Backups{projects: projects, data: data}
 }
 
 // The backup routes' responses.
@@ -124,5 +122,5 @@ func (h Backups) AllBackups(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	WriteJSON(w, 200, AllBackups{Backups: out, Keep: dataprotection.BackupKeep, Where: filepath.Join(h.dataDir, "backups")})
+	WriteJSON(w, 200, AllBackups{Backups: out, Keep: dataprotection.BackupKeep, Where: h.data.BackupDirectory()})
 }
