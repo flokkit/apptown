@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -88,7 +87,7 @@ func (s *Service) PurgeOrphanBackups(ctx context.Context, now time.Time) (remove
 // removeSets removes each set's files or store copies and marks it pruned;
 // what fails is named and the next set tried.
 func (s *Service) removeSets(ctx context.Context, rows []protectionsql.Backup, allowed func(context.Context) error) (removed int, left []string, err error) {
-	dir := filepath.Join(s.dataDir, "backups")
+	dir := DiskDirectory(s.dataDir)
 	// An AppTown that never wrote a set to its disk has no backup root; its
 	// sets' files are already absent, and pruning records them so.
 	if err := os.MkdirAll(dir, 0o700); err != nil {

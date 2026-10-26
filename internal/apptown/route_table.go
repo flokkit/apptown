@@ -154,7 +154,7 @@ func appRoutes(a *App) []routeSpec {
 		disks = httpapi.NewDisks(a.disks)
 		deploymentListing = httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir, a.DataProtection.FillsOf)
 		targets = httpapi.NewTargets(a.Deployment, a.targetProviders, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
-		backups = httpapi.NewBackups(a.Projects, a.DataProtection, a.cfg.dataDir)
+		backups = httpapi.NewBackups(a.Projects, a.DataProtection)
 		dataProtection = httpapi.NewDataProtection(a.Projects, a.DataProtection)
 		ops = httpapi.NewOperations(a.operations)
 		landingRestart = httpapi.NewLandingRestart(a.Projects, a.Work, a.lifecycle, a.DB, a.cfg.clock.Now)

@@ -141,8 +141,9 @@ func TestBackupHTTPCommandsRequireAuthorityAndConfirmedScopedRestore(t *testing.
 	w = authzCall(h, "boss", "GET", "/api/v1/backups", "")
 	var all struct {
 		Backups []dataprotection.ProjectBackup
+		Where   string
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &all); err != nil || w.Code != 200 || len(all.Backups) != 2 || all.Backups[0].ID != receipt.SafetyBackup {
+	if err := json.Unmarshal(w.Body.Bytes(), &all); err != nil || w.Code != 200 || len(all.Backups) != 2 || all.Backups[0].ID != receipt.SafetyBackup || all.Where != filepath.Join(a.cfg.dataDir, "backups") {
 		t.Fatalf("fleet backup receipt: %d %s %v", w.Code, w.Body.String(), err)
 	}
 }

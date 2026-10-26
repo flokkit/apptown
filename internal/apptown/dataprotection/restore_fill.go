@@ -63,8 +63,8 @@ func (s *core) RecordFill(ctx context.Context, deploymentID, set ids.ID, why str
 // from the data directory from to this AppTown's: a restore onto another
 // path. The same path changes nothing.
 func (s *core) RelocateDiskSets(ctx context.Context, from string) (int64, error) {
-	old := filepath.Join(filepath.Clean(from), "backups") + string(filepath.Separator)
-	now := filepath.Join(s.dataDir, "backups") + string(filepath.Separator)
+	old := DiskDirectory(filepath.Clean(from)) + string(filepath.Separator)
+	now := DiskDirectory(s.dataDir) + string(filepath.Separator)
 	if old == now {
 		return 0, nil
 	}

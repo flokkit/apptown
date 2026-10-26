@@ -240,7 +240,7 @@ func clientImage(cp *dependency.Copy, version string) string {
 // while they go to or come from the store; it is removed when the
 // operation ends.
 func (s *core) staging(op ids.ID) (string, func(), error) {
-	dir := filepath.Join(s.dataDir, "backups", ".staging", op.String())
+	dir := filepath.Join(DiskDirectory(s.dataDir), ".staging", op.String())
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", func() {}, err
 	}

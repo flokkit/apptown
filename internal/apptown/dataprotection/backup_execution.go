@@ -180,10 +180,10 @@ func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID i
 	// and a manual take can coincide): the microseconds keep them apart.
 	t0 := s.now().UTC()
 	stamp := fmt.Sprintf("%s-%06d", t0.Format("2006-01-02T15-04-05Z"), t0.Nanosecond()/1000)
-	dir := filepath.Join(s.dataDir, "backups", slug, deploymentName, stamp)
+	dir := filepath.Join(DiskDirectory(s.dataDir), slug, deploymentName, stamp)
 	b := &Backup{ProjectID: projectID, Deployment: deploymentName, TakenAt: t0.Format(time.RFC3339), Trigger: trigger, Actor: actor, Path: dir, Status: BackupOK, Store: StoreAppTownDisk}
 	if store != nil {
-		dir = filepath.Join(s.dataDir, "backups", ".staging", "take-"+slug+"-"+deploymentName+"-"+stamp)
+		dir = filepath.Join(DiskDirectory(s.dataDir), ".staging", "take-"+slug+"-"+deploymentName+"-"+stamp)
 		b.Path, b.Store, b.StoreEndpoint, b.StoreBucket = slug+"/"+deploymentName+"/"+stamp, StoreBackupStore, store.Endpoint, store.Bucket
 		defer os.RemoveAll(dir)
 	}
@@ -418,7 +418,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 	// The restore's volume writes run in one snapshot's shell image.
 	sh := s.env.ToolVersions().Images.Sh
 	now := s.now()
-	files, err := LockBackupFiles(filepath.Join(s.dataDir, "backups"), false)
+	files, err := LockBackupFiles(DiskDirectory(s.dataDir), false)
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +474,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 		if err != nil {
 			return nil, fmt.Errorf("reading set %d back from the backup store: %w; nothing was restored", backupID, err)
 		}
-		dir := filepath.Join(s.dataDir, "backups", ".staging", fmt.Sprintf("restore-%d-%d", backupID, now.UnixNano()))
+		dir := filepath.Join(DiskDirectory(s.dataDir), ".staging", fmt.Sprintf("restore-%d-%d", backupID, now.UnixNano()))
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, err
 		}

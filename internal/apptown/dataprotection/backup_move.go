@@ -46,7 +46,7 @@ func (s *Service) MoveSetsToStore(ctx context.Context) (moved int, left []string
 	if err != nil {
 		return 0, nil, fmt.Errorf("the backup store: %w", err)
 	}
-	base, err := filepath.Abs(filepath.Join(s.dataDir, "backups"))
+	base, err := filepath.Abs(DiskDirectory(s.dataDir))
 	if err != nil {
 		return 0, nil, err
 	}
@@ -154,7 +154,7 @@ func (s *Service) moveSet(ctx context.Context, c *s3bucket.Client, store *Backup
 // stamped, so it is judged by the system clock, not AppTown's.
 func (s *Service) ClearStaging() (int, error) {
 	now := clock.System()
-	dir := filepath.Join(s.dataDir, "backups", ".staging")
+	dir := filepath.Join(DiskDirectory(s.dataDir), ".staging")
 	entries, err := os.ReadDir(dir)
 	if os.IsNotExist(err) {
 		return 0, nil

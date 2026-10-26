@@ -931,9 +931,9 @@ func (s *Service) setReader(ctx context.Context, b *Backup) (readItem, string, e
 
 // backupRoot is the folder the sets on AppTown's disk are beneath.
 func (s *Service) backupRoot() string {
-	root, err := filepath.Abs(filepath.Join(s.dataDir, "backups"))
+	root, err := filepath.Abs(DiskDirectory(s.dataDir))
 	if err != nil {
-		return filepath.Join(s.dataDir, "backups")
+		return DiskDirectory(s.dataDir)
 	}
 	return root
 }

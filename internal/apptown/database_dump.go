@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
@@ -93,7 +94,7 @@ func (b databaseBackup) take(ctx context.Context) error {
 	if !b.enabled {
 		return nil
 	}
-	dir := filepath.Join(b.dataDir, "backups")
+	dir := dataprotection.DiskDirectory(b.dataDir)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		log.Printf("database backup: %v", err)
 		return err

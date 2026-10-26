@@ -17,7 +17,7 @@ import (
 // deleted where it is: files on the disk (Backups.Prune), objects in the
 // store (pruneStore).
 func (s *Service) PruneSets(ctx context.Context, projectID ids.ID, deployment string, keep int) error {
-	inStore, err := s.backups.Prune(ctx, filepath.Join(s.dataDir, "backups"), projectID, deployment, keep)
+	inStore, err := s.backups.Prune(ctx, DiskDirectory(s.dataDir), projectID, deployment, keep)
 	return errors.Join(err, s.pruneStore(ctx, inStore))
 }
 
