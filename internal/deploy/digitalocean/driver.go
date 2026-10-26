@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/oci"
 	"github.com/flokkit/apptown/internal/trust"
 )
@@ -23,10 +24,12 @@ type Driver struct {
 
 // Dependencies selects one deployment's account, runtime and durable need store.
 type Dependencies struct {
-	Docker Docker
-	Client func(context.Context) (*Client, Config, error)
-	Slug   string // the application, for naming on the platform
-	Needs  deploy.NeedRecorder
+	// ConnectionID is the immutable connector selected by the deployment owner.
+	ConnectionID ids.ID
+	Docker       Docker
+	Client       func(context.Context) (*Client, Config, error)
+	Slug         string // the application, for naming on the platform
+	Needs        deploy.NeedRecorder
 	// ReleaseLogin selects the credential for the actual source reference.
 	// A release's images by digest are read
 	// from their registry with, when they are copied into DOCR; nil, or an

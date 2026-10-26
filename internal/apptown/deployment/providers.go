@@ -440,10 +440,11 @@ func (p *Providers) newDOAppDriver(ctx context.Context, t *Target, dep *Deployme
 		return nil, errors.New("deployment connection identity changed")
 	}
 	return digitalocean.NewDriver(digitalocean.Dependencies{
-		Docker: doDocker{p.hosts.settings.Scope},
-		Client: p.cloudClientForID(connection.ID),
-		Slug:   proj.Slug,
-		Needs:  p.needs,
+		ConnectionID: connection.ID,
+		Docker:       doDocker{p.hosts.settings.Scope},
+		Client:       p.cloudClientForID(connection.ID),
+		Slug:         proj.Slug,
+		Needs:        p.needs,
 		// The deployment's bucket and Spaces key are on its owned list; the
 		// key's secret is in the built-in store under its scope.
 		Holdings: holdings{deployments: p.deployments, dep: dep},
@@ -515,7 +516,7 @@ func (p *Providers) configureProviders(ctx context.Context) {
 			if err != nil {
 				return nil, err
 			}
-			return driver, nil
+			return &digitalOceanRelease{Driver: driver}, nil
 		}
 	}
 	if p.drivers[KindS3Bucket] == nil {

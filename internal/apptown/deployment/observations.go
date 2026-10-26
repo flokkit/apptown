@@ -285,7 +285,7 @@ func (s *Service) observed(ctx context.Context, v RuntimeObservation, r listingR
 		v.Err = errors.New("provider observation has a different generation")
 		return v
 	}
-	v.State, v.ObservedAt, v.URL, v.Rollout, v.Health = runtimeState(observed), s.now(), observed.URL, observed.Rollout, observed.Health
+	v.State, v.ObservedAt, v.URL, v.Rollout, v.Health, v.running = runtimeState(observed), s.now(), observed.URL, observed.Rollout, observed.Health, observed.Running
 	return v
 }
 

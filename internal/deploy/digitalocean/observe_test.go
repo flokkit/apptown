@@ -21,6 +21,9 @@ func TestObserveNamesTheActiveDeployment(t *testing.T) {
 			switch scenario {
 			case "active":
 				api.SeedApp("app-1", "dep-7", "")
+				if !api.AdvanceDeployment("app-1", "dep-7") {
+					t.Fatal("fixture did not select active deployment")
+				}
 			case "unreadable":
 				api.SeedApp("app-1", "dep-7", "")
 				api.Fail("GET", "/v2/apps/app-1", 503)
@@ -34,6 +37,12 @@ func TestObserveNamesTheActiveDeployment(t *testing.T) {
 			case "active":
 				if err != nil || o.Running != "dep-7" {
 					t.Fatalf("observed %+v, %v; want dep-7 running", o, err)
+				}
+				if o.Rollout != "active" {
+					t.Fatalf("fixture lost ACTIVE state: %+v", o)
+				}
+				if o.Health != "unknown" || !o.HealthObservedAt.IsZero() {
+					t.Fatalf("display inventory promoted ACTIVE to current health: %+v", o)
 				}
 			case "gone":
 				if err != nil || o.Running != "" || o.Rollout != "absent" {
