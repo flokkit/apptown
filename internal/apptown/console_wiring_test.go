@@ -17,7 +17,7 @@ import (
 func TestConsoleLoopsStop(t *testing.T) {
 	t.Parallel()
 	a := testApp(t, Config{ConsoleAgent: consoletest.NewAgent()})
-	s := a.Console.Restore(consoleMetaFor("loop1", idstest.N(1), idstest.N(5)))
+	s := a.Console.Restore(consoleMetaFor(a.Console.NewSessionID(), idstest.N(1), idstest.N(5)))
 	finished := make(chan struct{})
 	go func() {
 		a.changeConsole.Rehearse(context.Background(), s)
@@ -37,7 +37,7 @@ func TestConsoleLoopsStop(t *testing.T) {
 		a.consoleRounds(context.Background(), a.consoleStop)
 		close(roundDone)
 	}()
-	s2 := a.Console.Restore(consoleMetaFor("loop2", idstest.N(1), idstest.N(6)))
+	s2 := a.Console.Restore(consoleMetaFor(a.Console.NewSessionID(), idstest.N(1), idstest.N(6)))
 	loop2 := make(chan struct{})
 	go func() {
 		a.changeConsole.Rehearse(context.Background(), s2)
@@ -52,7 +52,7 @@ func TestConsoleLoopsStop(t *testing.T) {
 		}
 	}
 	// Sessions survive a stop: the registry is untouched for the next recovery.
-	if _, err := a.Console.Get(context.Background(), "loop2"); err != nil {
+	if _, err := a.Console.Get(context.Background(), s2.ID); err != nil {
 		t.Error("StopConsoles must not remove sessions")
 	}
 }

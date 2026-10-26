@@ -184,7 +184,8 @@ func TestReapWorkspacesRetainsRecoveredConversationCheckout(t *testing.T) {
 	}
 	// A change console: its checkout is the change's worktree, which ending
 	// the conversation keeps (a project console's snapshot goes with it).
-	m := consoleMetaFor("retained", ids.Nil, id)
+	sessionID := a.Console.NewSessionID()
+	m := consoleMetaFor(sessionID, ids.Nil, id)
 	m.Checkout, m.LastUsed = ws, time.Now().Add(-72*time.Hour)
 	s := a.Console.Restore(m)
 	if err := s.Persist(); err != nil {
@@ -192,7 +193,7 @@ func TestReapWorkspacesRetainsRecoveredConversationCheckout(t *testing.T) {
 	}
 	// Startup ends a chat on a closed change; this one's runtime cannot be
 	// removed, so it stays live, and its checkout with it.
-	agent.FailRemove("retained", 1)
+	agent.FailRemove(sessionID, 1)
 	if err := a.RecoverConsoles(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -206,10 +207,10 @@ func TestReapWorkspacesRetainsRecoveredConversationCheckout(t *testing.T) {
 	}
 	// Ending this conversation releases ownership. A similar sibling path
 	// belonging to another chat does not keep this workspace forever.
-	if _, err := a.Console.End(context.Background(), "retained"); err != nil {
+	if _, err := a.Console.End(context.Background(), sessionID); err != nil {
 		t.Fatal(err)
 	}
-	sm := consoleMetaFor("sibling", ids.Nil, ids.Nil)
+	sm := consoleMetaFor(a.Console.NewSessionID(), ids.Nil, ids.Nil)
 	sm.Checkout = ws + "-other"
 	a.Console.Restore(sm)
 	if got := a.reaper.Workspaces(context.Background(), false); len(got) != 1 {
