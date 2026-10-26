@@ -113,6 +113,10 @@ func TestObserveAsksPortainerWhetherEachStacksAppRuns(t *testing.T) {
 			t.Errorf("placement %d: %s, want %s", i, got[i].Rollout, want)
 		}
 	}
+	if got[0].Health != "unknown" {
+		t.Errorf("running container without an exact release readiness witness was reported %q, want unknown", got[0].Health)
+	}
+
 	if got[0].Generation != 4 || got[0].URL != "https://apptown-snake" || got[4].Generation != 0 {
 		t.Errorf("observations: %+v", got)
 	}

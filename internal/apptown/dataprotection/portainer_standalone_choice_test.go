@@ -15,7 +15,10 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
+	"github.com/flokkit/apptown/internal/deploy/portainer/portainerfake"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/openrouter/openrouterfake"
 )
@@ -96,7 +99,17 @@ func TestVerifiedStandaloneWithoutCopyKeepsDataAfterExplicitChoice(t *testing.T)
 }
 
 func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
-	w := newDataWorldWith(t, dataWorldOptions{contract: []byte("app:\n  web: {build: ., public: true, ports: [\"8080\"]}\nneeds:\n  llm: {}\n")})
+	daemon := dockerfake.New()
+	daemon.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		if c.Script == "printf apptown-readiness-v1" {
+			return containerresulttest.Answer{Answer: []byte("apptown-readiness-v1")}, true
+		}
+		if strings.Contains(c.Script, "PROBE_PATH") {
+			return containerresulttest.Answer{Answer: []byte("200 1")}, true
+		}
+		return containerresulttest.Answer{}, false
+	})
+	w := newDataWorldWith(t, dataWorldOptions{docker: daemon, contract: []byte("app:\n  web: {build: ., public: true, ports: [\"8080\"]}\nneeds:\n  llm: {}\n")})
 	type stack struct {
 		ID       int64  `json:"Id"`
 		Name     string `json:"Name"`
@@ -109,6 +122,13 @@ func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(out http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
+		applied := map[string]string{}
+		for _, st := range stacks {
+			applied[st.Name] = st.Compose
+		}
+		if portainerfake.ServeComponents(out, r, 3, applied) {
+			return
+		}
 		switch r.URL.Path {
 		case "/api/endpoints":
 			fmt.Fprint(out, `[{"Id":3,"Name":"customers","Type":1}]`)

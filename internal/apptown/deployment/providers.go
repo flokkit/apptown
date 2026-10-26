@@ -500,7 +500,7 @@ func (p *Providers) cloudClientForID(connection ids.ID) func(context.Context) (*
 func (p *Providers) configureProviders(ctx context.Context) {
 	if p.drivers[KindPortainer] == nil {
 		p.drivers[KindPortainer] = func(ctx context.Context, t *Target, dep *Deployment) (deploy.Driver, error) {
-			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(ctx context.Context, id ids.ID) (*portainer.Target, error) {
+			return &portainerRelease{providers: p, target: t, dep: dep, Driver: &portainer.Driver{Diagnostics: p.portainerDiagnostic, Now: p.clock, TargetID: t.ID, Owner: ownedRecorder{db: p.db, deployment: dep.ID, now: p.clock}, Config: func(ctx context.Context, id ids.ID) (*portainer.Target, error) {
 				target, err := p.targets.ByID(ctx, id)
 				if err != nil {
 					return nil, fmt.Errorf("resolving Portainer target %d: %w", id, err)

@@ -1066,12 +1066,36 @@ is one job per sweep, not one per deployment. Portainer is one: one list of
 the environment's app containers, through its Docker proxy, says for each
 stack whether its `app` container runs. Running is running; a stopped or
 missing app container is stopped; a failed list is unknown for every
-deployment on the target. It says whether the app runs, not which
-generation: Portainer stacks carry no AppTown identity labels.
+deployment on the target. Current releases retain deployment, target, generation,
+artifact and component identities. Their observation also verifies applied
+Compose content, component labels and actual image digests. Historical stacks
+without that expectation can report running state, but cannot prove release
+health.
 
 Samples are stale after 45 seconds or a refresh error. A failed refresh may retain
 stale last-known state. Missing data or an in-flight replacement is unknown,
 not stopped. Routing and live commands perform their own checks.
+
+Portainer release readiness uses the admitted public HTTP predicate and exact
+container identity. A pinned diagnostic runs in that container's network
+namespace without application mounts, host networking or an application-image
+tool dependency. It checks declared headers/status, static release identity and
+startup grace, then rechecks component identity. It does not follow redirects or
+claim external DNS, TLS or routed reachability. Public liveness intent is refused;
+Portainer does not silently turn it into readiness. Init completion and declared
+worker health also belong to the expected generation. Successful API apply or a
+running container alone cannot complete a release. Recovery observes the retained
+expectation without applying again and rechecks the original requester's current
+authority.
+
+A separate Portainer maintenance loop samples only settled standing generations.
+Its narrow diagnostic permit rechecks the current project lifecycle, placement,
+provider scope, artifact, restore hold and absence of an unfinished attempt.
+It cannot apply, restart or remove the workload or settle a release. Display
+reads never trigger diagnostics. The health cache exposes generation, artifact
+and observation time only for a fresh matching runtime snapshot; restart,
+replacement, failed cleanup and stale or unavailable samples leave health unknown.
+The release handle retains historical evidence but does not make it fresh.
 
 The separate [Docker health controller](healthchecks.md) can act on settled
 standing deployments. Its probe policy currently comes from the project

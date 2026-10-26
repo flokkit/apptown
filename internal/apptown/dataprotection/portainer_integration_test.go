@@ -18,8 +18,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
-	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
@@ -223,8 +221,10 @@ func portainerIndependentRecovery(t *testing.T, separate bool) {
 	projects := project.New(db, nil)
 	integrations := integration.NewService(db, integration.Dependencies{Projects: projects, Secrets: secrets})
 	authority := &grants{who: "alice", deny: map[string]bool{}}
+	release := &portainerRecoveryRelease{slug: slug, secrets: map[string]string{}}
+	mustExec(t, db, `CREATE TABLE test_release_queue(release_id UUID PRIMARY KEY REFERENCES releases(id))`)
 	s := assembled(db, testRuntime{Scope: docker.Scope{Client: docker.CLI{Binary: "docker"}}, DataDir: dir, Needs: catalog, Secrets: secrets, Projects: projects, Integrations: integrations, ChownImage: stock.Images().Sh, BuiltInTarget: "local"},
-		deployment.Dependencies{Authority: authority, Configuration: deployment.ConfigurationDependencies{Authority: authority, Projects: &releasedContracts{}}, Releases: deployment.ReleaseDependencies{Sources: &releasedContracts{}}})
+		deployment.Dependencies{Authority: authority, Configuration: deployment.ConfigurationDependencies{Authority: authority, Projects: release}, Releases: deployment.ReleaseDependencies{Authority: authority, Still: authority, Sources: release, Secrets: release, Queue: requestQueue{}}})
 	target, err := s.AttachPortainerTarget(ctx, deployment.PortainerAttachment{Name: "customer-a", Environment: "lan", URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_KEY", Domain: "lan"})
 	if err != nil {
 		t.Fatal(err)
@@ -256,11 +256,11 @@ func portainerIndependentRecovery(t *testing.T, separate bool) {
 	}
 	// The release by name: the bundle's images (public ones here), built for
 	// the environment's platform, rendered and run by the Portainer driver.
-	contract, err := appcontract.Parse([]byte(`app:
+	contract := `app:
   web:
     public: true
     image: ` + stock.Images().DF + `
-    command: ["sh", "-c", "trap 'exit 0' TERM; while true; do sleep 1; done"]
+    command: ["sh", "-c", "mkdir -p /tmp/site; echo ready > /tmp/site/index.html; exec httpd -f -p 8080 -h /tmp/site"]
     ports: ["8080"]
     dataDir: /data
   worker:
@@ -273,10 +273,7 @@ init:
 needs:
   postgres: {}
   s3: {}
-`))
-	if err != nil {
-		t.Fatal(err)
-	}
+`
 	cfg := &portainer.Target{PortainerURL: url, PortainerKey: key, EnvName: "lan"}
 	endpoint, err := portainer.EndpointID(ctx, cfg)
 	if err != nil {
@@ -286,20 +283,8 @@ needs:
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, err := s.providers.Driver(ctx, target, dep)
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := deploy.Source{Ingress: &address.Ingress, Slug: slug, Revision: "0123456789abcdef", Contract: contract, Published: true, Platform: platform,
-		Images: map[string]string{"web": stock.Images().DF, "worker": stock.Images().DF}, Init: map[string]string{"migrate": stock.Images().DF}}
-	art, err := d.(deploy.Renderer).Render(ctx, dep.Placement(), src, nil, secret.Delivery{ByConsumer: map[string]map[string]string{"web": {"DEPLOYMENT_SECRET": "first-secret"}}}, t.Logf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	art.Source = &src
-	if _, err := d.Reconcile(ctx, dep.Placement(), 1, art, "release-1", t.Logf, func(map[string]any) error { return nil }); err != nil {
-		t.Fatal(err)
-	}
+	release.prepare(t, s, pid, contract, platform)
+	release.apply(t, s, pid, dep.Name, "first-secret")
 	verifyIngress := func() {
 		t.Helper()
 		verified, err := s.providers.PortainerConfig(ctx, target)
@@ -342,7 +327,7 @@ needs:
 			t.Fatal(err)
 		}
 	}
-	verifySibling := portainerSiblingRecovery(t, s, pid, siblingTarget, src)
+	verifySibling := portainerSiblingRecovery(t, s, pid, siblingTarget, release)
 	verifySibling(false)
 	app, worker, pg, store := stack+"-app-1", stack+"-worker-1", stack+"-postgres-1", stack+"-s3-1"
 	for _, c := range []string{app, worker, pg, store} {
@@ -432,15 +417,10 @@ needs:
 	if err != nil {
 		t.Fatal(err)
 	}
-	src.Ingress = &changed.Ingress
-	art, err = d.(deploy.Renderer).Render(ctx, dep.Placement(), src, nil, secret.Delivery{ByConsumer: map[string]map[string]string{"web": {"DEPLOYMENT_SECRET": "first-secret-updated"}}}, t.Logf)
-	if err != nil {
-		t.Fatal(err)
+	if changed.Ingress.URL == address.Ingress.URL {
+		t.Fatal("address update did not change the release destination")
 	}
-	art.Source = &src
-	if _, err := d.Reconcile(ctx, dep.Placement(), 2, art, "release-2", t.Logf, func(map[string]any) error { return nil }); err != nil {
-		t.Fatal(err)
-	}
+	release.apply(t, s, pid, dep.Name, "first-secret-updated")
 	verifySibling(false)
 	removed, err := s.TakeDown(ctx, RemoveDeployment{ProjectID: pid, Name: "customer-a"})
 	if err != nil || removed.Removed == nil || removed.Removed.FinalBackup == nil {
@@ -500,7 +480,7 @@ func cleanupPortainerStack(t *testing.T, stack string) {
 
 // Return a readback that proves the second placement is unchanged by the first's
 // update/removal. The final call also restores its own backup after changing data.
-func portainerSiblingRecovery(t *testing.T, s *both, pid ids.ID, target *deployment.Target, source deploy.Source) func(bool) {
+func portainerSiblingRecovery(t *testing.T, s *both, pid ids.ID, target *deployment.Target, release *portainerRecoveryRelease) func(bool) {
 	t.Helper()
 	ctx := t.Context()
 	dep, err := s.Deployments.EnsureStanding(ctx, pid, "customer-b", target.ID, deployment.Attributes{}.WithDefaults())
@@ -511,25 +491,12 @@ func portainerSiblingRecovery(t *testing.T, s *both, pid ids.ID, target *deploym
 	if err != nil {
 		t.Fatal(err)
 	}
-	source.Ingress = &address.Ingress
 	prefix, base := portainer.StackNames(dep.ID)
 	stack := portainer.StackName(prefix, base)
 	cleanupPortainerStack(t, stack)
-	driver, err := s.providers.Driver(ctx, target, dep)
-	if err != nil {
-		t.Fatal(err)
-	}
-	art, err := driver.(deploy.Renderer).Render(ctx, dep.Placement(), source, nil, secret.Delivery{ByConsumer: map[string]map[string]string{"web": {"DEPLOYMENT_SECRET": "second-secret"}}}, t.Logf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	art.Source = &source
-	observation, err := driver.Reconcile(ctx, dep.Placement(), 1, art, "second-release", t.Logf, func(map[string]any) error { return nil })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if observation.URL != address.Ingress.URL || observation.Rollout != "active" {
-		t.Fatalf("second apply: %+v", observation)
+	released := release.apply(t, s, pid, dep.Name, "second-secret")
+	if released.URL != address.Ingress.URL {
+		t.Fatalf("second release address: %s, want %s", released.URL, address.Ingress.URL)
 	}
 	app, pg := stack+"-app-1", stack+"-postgres-1"
 	for _, container := range []string{app, pg, stack + "-s3-1"} {

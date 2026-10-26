@@ -90,6 +90,10 @@ func (s *Service) execute(ctx context.Context, rel NumberedRelease, dep *Deploym
 	if host, ok := d.(*docker.Driver); ok {
 		host.Allowed = req.Allowed
 	}
+	if remote, ok := d.(*portainerRelease); ok {
+		remote.Allowed = req.Allowed
+	}
+
 	// A target that can tell from its own limits that this release cannot
 	// go through says so before anything is made on it.
 	if pf, ok := d.(deploy.Preflighter); ok && req.Artifact == nil {

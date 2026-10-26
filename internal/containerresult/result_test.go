@@ -82,23 +82,30 @@ func TestRunRefusesAnAnswerOverItsBound(t *testing.T) {
 
 func TestRunRemovesItsContainerWhenTheCallerStops(t *testing.T) {
 	t.Parallel()
-	d, dk := daemon(containerresulttest.Answer{Answer: []byte("x")})
-	ctx, cancel := context.WithCancel(context.Background())
-	stopping := func(c context.Context, env []string, args ...string) ([]byte, error) {
-		if args[0] == "wait" {
-			cancel()
-			return nil, context.Canceled
-		}
-		if c.Err() != nil {
-			return nil, c.Err() // a removal that inherited the stop would fail here
-		}
-		return dk(c, env, args...)
-	}
-	if _, err := containerresult.Run(ctx, stopping, containerresult.Spec{Image: "busybox", Script: "sleep 9"}); !errors.Is(err, context.Canceled) {
-		t.Fatalf("got %v; want the stop", err)
-	}
-	if d.Removed != 1 {
-		t.Fatalf("removed %d containers after the stop, want the one it made", d.Removed)
+	for _, read := range []struct {
+		name string
+		run  func(context.Context, containerresult.Docker, containerresult.Spec) ([]byte, error)
+	}{{"regular", containerresult.Run}, {"owned diagnostic", containerresult.RunOwned}} {
+		t.Run(read.name, func(t *testing.T) {
+			d, dk := daemon(containerresulttest.Answer{Answer: []byte("x")})
+			ctx, cancel := context.WithCancel(context.Background())
+			stopping := func(c context.Context, env []string, args ...string) ([]byte, error) {
+				if args[0] == "wait" {
+					cancel()
+					return nil, context.Canceled
+				}
+				if c.Err() != nil {
+					return nil, c.Err() // a removal that inherited the stop would fail here
+				}
+				return dk(c, env, args...)
+			}
+			if _, err := read.run(ctx, stopping, containerresult.Spec{Image: "busybox", Script: "sleep 9"}); !errors.Is(err, context.Canceled) {
+				t.Fatalf("got %v; want the stop", err)
+			}
+			if d.Removed != 1 {
+				t.Fatalf("removed %d containers after the stop, want the one it made", d.Removed)
+			}
+		})
 	}
 }
 
@@ -205,5 +212,51 @@ func TestRunOfAStoppedCallerRemovesNothing(t *testing.T) {
 	}
 	if len(reached) != 0 {
 		t.Fatalf("asked Docker %q after the stop", reached)
+	}
+}
+
+func TestOwnedResultDoesNotSweepSiblingsAndReportsFailedRemoval(t *testing.T) {
+	for _, failRemoval := range []bool{false, true} {
+		t.Run(fmt.Sprintf("removal-fails=%v", failRemoval), func(t *testing.T) {
+			d, base := daemon(containerresulttest.Answer{Answer: []byte("204\n")})
+			made := ""
+			removed := ""
+			removalErr := errors.New("owned removal refused")
+			dk := func(ctx context.Context, env []string, args ...string) ([]byte, error) {
+				switch args[0] {
+				case "ps":
+					t.Fatal("owned result swept same-daemon sibling resources")
+				case "create":
+					for i, arg := range args {
+						if arg == "--name" {
+							made = args[i+1]
+						}
+					}
+					if !strings.Contains(strings.Join(args, " "), "apptown.class=container-result-owned") {
+						t.Error("owned diagnostic remains eligible for legacy broad sweep")
+					}
+				case "rm":
+					removed = args[len(args)-1]
+					if removed != made || made == "" {
+						t.Fatalf("removed unowned resource %q, made %q", removed, made)
+					}
+					if failRemoval {
+						return nil, removalErr
+					}
+				}
+				return base(ctx, env, args...)
+			}
+			got, err := containerresult.RunOwned(t.Context(), dk, containerresult.Spec{Image: "probe", Script: "printf 204"})
+			if failRemoval {
+				if !errors.Is(err, removalErr) || !strings.Contains(err.Error(), made) || got != nil {
+					t.Fatalf("lost cleanup evidence: %q %v", got, err)
+				}
+			} else if err != nil || string(got) != "204\n" || d.Removed != 1 {
+				t.Fatalf("owned result: %q %v removed%d", got, err, d.Removed)
+			}
+			if made == "" || removed != made {
+				t.Fatal("owned cleanup did not run")
+			}
+		})
 	}
 }

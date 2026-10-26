@@ -61,7 +61,7 @@ func TestDeploymentExecutionLostSettlementQueuesObservationWithoutReexecution(t 
 				t.Fatalf("replay repeated execution: %+v %v calls=%d", replay, err, executions)
 			}
 
-			recoverer := Recoverer{Store: store, Source: RecoverySourceFor(store, func(context.Context, *Deployment) (deploy.Driver, error) {
+			recoverer := Recoverer{Store: store, Source: recoverySourceForTest(store, func(context.Context, *Deployment) (deploy.Driver, error) {
 				return storedRecoveryDriver{resume: func(_ context.Context, _ deploy.Placement, generation int64, noted map[string]any) (deploy.Observation, error) {
 					if generation != result.Attempt.Generation || noted["providerID"] != "original" {
 						t.Fatal("recovery lost identity")

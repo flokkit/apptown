@@ -36,28 +36,16 @@ func (s *Service) Recover(ctx context.Context, attemptID ids.ID) (RecoveryResult
 // Recoverer is the package's recoverer over its own stores and drivers.
 func (s *Service) Recoverer() Recoverer {
 	return Recoverer{
-		Store: s.Outcomes,
-		Source: RecoverySourceFor(s.Outcomes, func(ctx context.Context, dep *Deployment) (deploy.Driver, error) {
-			t, err := s.Targets.ByID(ctx, dep.TargetID)
-			if err != nil {
-				return nil, err
-			}
-			return s.providers.Driver(ctx, t, dep)
-		}),
+		Store:    s.Outcomes,
+		Source:   s.recoverySource(),
 		Reporter: recoveryReporter{log: s.log, applied: s.applied},
 	}
 }
 
-// RecoverySourceFor reads strict admitted inputs and binds an observer to
-// the recorded deployment; the driver is resolved per deployment, never
-// exposed whole to recovery.
-func RecoverySourceFor(store *Outcomes, driver func(context.Context, *Deployment) (deploy.Driver, error)) RecoverySource {
-	return recoverySource{store: store, driver: driver}
-}
-
 type recoverySource struct {
-	store  *Outcomes
-	driver func(context.Context, *Deployment) (deploy.Driver, error)
+	allowed func(context.Context, Attempt) error
+	store   *Outcomes
+	driver  func(context.Context, *Deployment) (deploy.Driver, error)
 }
 
 func (s recoverySource) LoadAttempt(ctx context.Context, id ids.ID) (Snapshot, error) {
@@ -80,19 +68,30 @@ func (s recoverySource) PrepareObservation(ctx context.Context, at Attempt) (Rec
 		return target, fmt.Errorf("reading deployment: %w", err)
 	}
 	target.DesiredGeneration = dep.DesiredGeneration
-	target.Observer = recoveryObserver{dep: dep, driver: s.driver}
+	target.Observer = recoveryObserver{dep: dep, driver: s.driver, allowed: s.allowed, inputs: inputs}
 	return target, nil
 }
 
 type recoveryObserver struct {
-	dep    *Deployment
-	driver func(context.Context, *Deployment) (deploy.Driver, error)
+	allowed func(context.Context, Attempt) error
+	inputs  Inputs
+	dep     *Deployment
+	driver  func(context.Context, *Deployment) (deploy.Driver, error)
 }
 
 func (o recoveryObserver) Resume(ctx context.Context, at Attempt, noted map[string]any, logf func(string, ...any)) (deploy.Observation, error) {
 	d, err := o.driver(ctx, o.dep)
 	if err != nil {
 		return deploy.Observation{}, fmt.Errorf("resolving deployment driver: %w", err)
+	}
+	if remote, ok := d.(*portainerRelease); ok {
+		remote.ExpectedArtifact = o.inputs.ArtifactHash
+		remote.Allowed = func(ctx context.Context) error {
+			if o.allowed == nil {
+				return errors.New("Portainer recovery has no captured current authority")
+			}
+			return o.allowed(ctx, at)
+		}
 	}
 	return d.Resume(ctx, o.dep.Placement(), at.Generation, noted, logf)
 }
@@ -113,4 +112,14 @@ func (r recoveryReporter) Applied() {
 	if r.applied != nil {
 		r.applied()
 	}
+}
+
+func (s *Service) recoverySource() RecoverySource {
+	return recoverySource{store: s.Outcomes, allowed: s.requireRecoveryReadiness, driver: func(ctx context.Context, dep *Deployment) (deploy.Driver, error) {
+		target, err := s.Targets.ByID(ctx, dep.TargetID)
+		if err != nil {
+			return nil, err
+		}
+		return s.providers.Driver(ctx, target, dep)
+	}}
 }

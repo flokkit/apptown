@@ -274,15 +274,49 @@ type Driver struct {
 	// Owner records the stack when AppTown creates it; nil records
 	// nothing, and then take-down deletes no stack.
 	Owner deploy.Owner
+	// Diagnostics supplies transport to the already verified configuration only.
+	Diagnostics      func(context.Context, Target) (Diagnostic, func() error, error)
+	Allowed          func(context.Context) error
+	Now              func() time.Time
+	ReadinessTimeout time.Duration
+	ExpectedArtifact string
 }
 
-func (d *Driver) Resume(ctx context.Context, p deploy.Placement, generation int64, noted map[string]any, logf func(string, ...any)) (deploy.Observation, error) {
-	// A lost apply response does not prove whether this generation reached
-	// Portainer. Until the adapter can verify it, leave the attempt unresolved.
-	return deploy.Observation{}, errors.New("AppTown restarted while Portainer was applying the stack; its generation cannot be verified automatically, so inspect the stack before resolving the attempt")
+func (d *Driver) Resume(ctx context.Context, p deploy.Placement, generation int64, noted map[string]any, logf func(string, ...any)) (out deploy.Observation, err error) {
+	expected, err := savedRelease(noted)
+	if err != nil {
+		return out, err
+	}
+	if expected == nil {
+		return out, errors.New("AppTown restarted while Portainer was applying the stack; its generation has no retained readiness expectation, so inspect the stack before resolving the attempt")
+	}
+	if d.ExpectedArtifact == "" || expected.ArtifactHash != d.ExpectedArtifact {
+		return out, errors.New("Portainer recovery artifact differs from admitted inputs")
+	}
+	if expected.Generation != generation {
+		return out, errors.New("Portainer recovery checkpoint names another generation")
+	}
+	cfg, err := d.Config(ctx, d.TargetID)
+	if err != nil {
+		return out, err
+	}
+	diagnostic, close, err := d.diagnostic(ctx, cfg)
+	if err != nil {
+		return out, err
+	}
+	defer func() {
+		if cleanupErr := close(); cleanupErr != nil {
+			invalidateHealth(&out)
+			err = errors.Join(err, cleanupErr)
+		}
+	}()
+	p.Handle = noted
+	p.Generation = generation
+	p.URL = expected.Readiness.URL
+	return d.awaitReadiness(ctx, cfg, p, expected, diagnostic)
 }
 
-func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (deploy.Observation, error) {
+func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation int64, art deploy.Artifact, key string, logf func(string, ...any), checkpoint deploy.Checkpoint) (out deploy.Observation, err error) {
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
@@ -307,8 +341,44 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if stack == "" {
 		return deploy.Observation{}, deploy.Terminal(errors.New("the deployment's handle names no stack"))
 	}
-	return (Execution{Config: *cfg, DeploymentID: p.ID, EndpointID: endpointID, Stack: stack, Prefix: prefix, Compose: string(art.Body),
-		URL: p.URL, Handle: p.Handle, Log: logf, Owner: d.Owner}).Execute(ctx, generation, checkpoint)
+	ready, err := artifactReadiness(string(art.Body))
+	if err != nil {
+		return out, deploy.Terminal(err)
+	}
+	var diagnostic *Diagnostic
+	if ready != nil {
+		if art.Hash == "" || art.Hash != deploy.ConfigHash(strings.TrimSpace(string(art.Body))) {
+			return out, deploy.Terminal(errors.New("Portainer artifact differs from its admitted identity"))
+		}
+		d.ExpectedArtifact = art.Hash
+		opened, closeDiagnostic, openErr := d.diagnostic(ctx, cfg)
+		if openErr != nil {
+			return out, deploy.Terminal(openErr)
+		}
+		diagnostic = &opened
+		defer func() {
+			if cleanupErr := closeDiagnostic(); cleanupErr != nil {
+				invalidateHealth(&out)
+				err = errors.Join(err, cleanupErr)
+			}
+		}()
+	}
+	out, err = (Execution{Config: *cfg, TargetID: d.TargetID, DeploymentID: p.ID, EndpointID: endpointID, Stack: stack, Prefix: prefix, Compose: string(art.Body), URL: p.URL, Handle: p.Handle, Log: logf, Owner: d.Owner, Diagnostic: diagnostic, Allowed: d.Allowed}).Execute(ctx, generation, checkpoint)
+	if err != nil || ready == nil {
+		return out, err
+	}
+	handle, ok := out.Handle.(map[string]any)
+	if !ok {
+		return out, errors.New("Portainer apply lost its readiness handle")
+	}
+	expected, err := savedRelease(handle)
+	if err != nil || expected == nil {
+		return out, errors.Join(err, errors.New("Portainer apply lost its readiness expectation"))
+	}
+	p.Handle = handle
+	p.Generation = generation
+	p.URL = ready.URL
+	return d.awaitReadiness(ctx, cfg, p, expected, *diagnostic)
 }
 
 // Observe asks Portainer whether the deployment's stack's app container
@@ -333,17 +403,10 @@ const (
 	composeService = "com.docker.compose.service"
 )
 
-// observeStacks says, for each placement, whether its stack's app container
-// runs, from one list of the environment's app containers through
-// Portainer's Docker proxy. Running is "active"; a container that exists
-// and does not run, or none at all, is "absent", as on a Docker host. A
-// placement whose handle names no stack is unknown, unless nothing was ever
-// released there. A failed look is an error for every placement: it is
-// never read as stopped. It reports the recorded generation: Portainer's
-// stacks carry no AppTown identity, so this says whether the app runs, and
-// (Running) the image its app container was made from, not which release.
-// A stopped app container still names its image; a stack with none names
-// nothing.
+// observeStacks reads stack/component state without diagnostic effects. Typed
+// expectations verify exact generation, artifact and image identity; historical
+// placements can report running state but not release health. A failed look is
+// unknown, never stopped. Current readiness comes from the separate owned sample.
 func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]deploy.Observation, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -378,36 +441,30 @@ func observeStacks(ctx context.Context, cfg *Target, ps []deploy.Placement) ([]d
 		if stack == "" {
 			continue
 		}
-		associations, err := SavedAssociations(p.Handle)
+		found, err := associatedStack(ctx, cfg, p, stacks)
 		if err != nil {
 			return nil, err
 		}
-		found := false
-		for _, remote := range stacks {
-			if remote.Name != stack || remote.EndpointID != endpointID {
-				continue
+		expected, err := savedRelease(p.Handle)
+		if err != nil {
+			return nil, err
+		}
+		if expected != nil {
+			if !found {
+				return nil, errors.New("Portainer release has no associated stack record")
 			}
-			if found {
-				return nil, errors.New("Portainer stack identity is ambiguous")
-			}
-			found = true
-			var legacy *StackAssociation
-			for j := range associations {
-				if associations[j].StackID == remote.ID {
-					legacy = &associations[j]
-					break
-				}
-			}
-			if err := VerifyStackAssociation(ctx, *cfg, remote, p.ID, legacy); err != nil {
+			out[i], err = observeRelease(ctx, cfg, p, stack, expected)
+			if err != nil {
 				return nil, err
 			}
+			continue
 		}
 		app := apps[strings.ToLower(stack)]
 		if !found && app.running {
 			return nil, errors.New("Portainer app runs without an associated stack record")
 		}
 		if app.running {
-			out[i].Rollout, out[i].Health = "active", "healthy"
+			out[i].Rollout, out[i].Health = "active", "unknown"
 		} else {
 			out[i].Rollout, out[i].Health = "absent", "unhealthy"
 		}
@@ -632,6 +689,9 @@ func (d *Driver) Controls() deploy.Controls {
 // Both bundle and intranet releases execute this prepared request. Config is
 // execution-only; checkpoints contain provider identity, never credentials.
 type Execution struct {
+	Diagnostic          *Diagnostic
+	Allowed             func(context.Context) error
+	TargetID            ids.ID
 	DeploymentID        ids.ID
 	Config              Target
 	EndpointID          int64
@@ -664,11 +724,28 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 	if p.Stack == "" || p.EndpointID <= 0 {
 		return deploy.Observation{}, deploy.Terminal(errors.New("Portainer execution requires a stack and endpoint"))
 	}
-	if err := checkpoint(map[string]any{"stack": p.Stack, "endpoint": p.Config.EnvName, "endpointId": p.EndpointID, "providerScope": p.Config.Scope, "deploymentId": p.DeploymentID}); err != nil {
+	stamped, expected, err := stampRelease(p.Compose, p.TargetID, generation, *p.Config.Scope)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
+	}
+	p.Compose = stamped
+	identity := map[string]any{"stack": p.Stack, "endpoint": p.Config.EnvName, "endpointId": p.EndpointID, "providerScope": p.Config.Scope, "deploymentId": p.DeploymentID}
+	if expected != nil {
+		identity["releaseReadiness"] = expected
+	}
+	if err := checkpoint(identity); err != nil {
 		return deploy.Observation{}, deploy.Terminal(fmt.Errorf("recording Portainer identity: %w", err))
 	}
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
+	}
+	if expected != nil {
+		if p.Diagnostic == nil || p.Allowed == nil {
+			return deploy.Observation{}, deploy.Terminal(errors.New("Portainer release has no admitted diagnostic authority"))
+		}
+		if err := p.Diagnostic.preflight(ctx, expected.Readiness.Public.ToolImage); err != nil {
+			return deploy.Observation{}, deploy.Terminal(err)
+		}
 	}
 	// The volumes the compose declares, and which the environment holds
 	// before the deploy: one there before is not the deployment's to delete.
@@ -681,10 +758,24 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 			before[v.Name] = there || err != nil
 		}
 	}
+	allowed := p.Allowed
+	if expected != nil {
+		allowed = p.Diagnostic.Allowed
+	}
+	if allowed != nil {
+		if err := allowed(ctx); err != nil {
+			return deploy.Observation{}, deploy.Terminal(err)
+		}
+	}
 	p.Log("asking Portainer to run generation %d (stack %s on %s)", generation, p.Stack, p.Config.EnvName)
 	applied, err := DeployStack(ctx, &p.Config, p.EndpointID, p.Stack, p.Compose, p.DeploymentID, associations)
 	if err != nil {
 		return deploy.Observation{}, err
+	}
+	if expected != nil && applied.ID > 0 {
+		if err := checkpoint(map[string]any{"stackId": applied.ID, "stackApplied": true}); err != nil {
+			return deploy.Observation{}, fmt.Errorf("recording applied Portainer stack: %w", err)
+		}
 	}
 	if applied.Created && p.Owner != nil {
 		if applied.ID <= 0 {
@@ -709,6 +800,9 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 	handle["stack"], handle["endpoint"] = p.Stack, p.Config.EnvName
 	handle["providerScope"] = *p.Config.Scope
 	handle["stackId"] = applied.ID
+	if expected != nil {
+		handle["releaseReadiness"] = expected
+	}
 	return deploy.Observation{Generation: generation, Rollout: "active", Health: "unknown", URL: p.URL, Handle: handle}, nil
 }
 
@@ -807,3 +901,35 @@ func (d *Driver) RecordedRunning(_ deploy.Placement, released string) string { r
 func (d *Driver) AdoptRunning(string) map[string]any { return nil }
 
 var _ deploy.RunningRecord = (*Driver)(nil)
+
+func associatedStack(ctx context.Context, cfg *Target, p deploy.Placement, stacks []Stack) (bool, error) {
+	stack, _ := p.Handle["stack"].(string)
+	if cfg.Scope == nil || stack == "" {
+		return false, errors.New("Portainer observation has no scoped stack")
+	}
+	associations, err := SavedAssociations(p.Handle)
+	if err != nil {
+		return false, err
+	}
+	found := false
+	for _, remote := range stacks {
+		if remote.Name != stack || remote.EndpointID != cfg.Scope.EndpointID {
+			continue
+		}
+		if found {
+			return false, errors.New("Portainer stack identity is ambiguous")
+		}
+		found = true
+		var legacy *StackAssociation
+		for j := range associations {
+			if associations[j].StackID == remote.ID {
+				legacy = &associations[j]
+				break
+			}
+		}
+		if err := VerifyStackAssociation(ctx, *cfg, remote, p.ID, legacy); err != nil {
+			return false, err
+		}
+	}
+	return found, nil
+}

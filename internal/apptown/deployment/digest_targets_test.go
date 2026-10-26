@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/deploy"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -21,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
+	"github.com/flokkit/apptown/internal/deploy/portainer/portainerfake"
 	"github.com/flokkit/apptown/internal/poll"
 )
 
@@ -44,8 +47,9 @@ type promotionTargets struct {
 	stacks   []string // the compose files Portainer was given
 	// volumes are the Docker volumes the environment holds: a stack's
 	// create makes those its file declares.
-	volumes      map[string]bool
-	stackRecords map[int64]promotionStack
+	volumes         map[string]bool
+	stackRecords    map[int64]promotionStack
+	diagnosticCalls atomic.Int64
 }
 
 type promotionStack struct {
@@ -77,7 +81,10 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 	p.platform.Store(&amd64)
 	api := httptest.NewServer(p.do.Handler())
 	t.Cleanup(api.Close)
-	portainer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	portainerAPI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if p.serveReadiness(w, r) {
+			return
+		}
 		switch r.URL.Path {
 		case "/api/endpoints":
 			fmt.Fprint(w, `[{"Id":3,"Name":"local"},{"Id":3,"Name":"office"}]`)
@@ -160,8 +167,8 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 			http.Error(w, "not faked", http.StatusNotFound)
 		}
 	}))
-	t.Cleanup(portainer.Close)
-	secrets := fmt.Sprintf("DIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nAPPTOWN_APPS_DOMAIN=apps.example\n", digestDOToken, portainer.URL)
+	t.Cleanup(portainerAPI.Close)
+	secrets := fmt.Sprintf("DIGITALOCEAN_ACCESS_TOKEN=%s\nPORTAINER_URL=%s\nPORTAINER_API_KEY=key\nAPPTOWN_APPS_DOMAIN=apps.example\n", digestDOToken, portainerAPI.URL)
 	p.digestWorld = newDigestWorldWith(t, secrets, appYAML, func(w *digestWorld, deps *testRuntime) {
 		deps.DigitalOcean = digitalocean.Options{APIBase: api.URL, RegistryHost: p.docr.host, PollInterval: 10 * time.Millisecond, DBPoll: 10 * time.Millisecond,
 			ProbeFrontDoor: func(context.Context, string, time.Time, func(string, ...any)) error { return nil }}
@@ -179,6 +186,35 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 	// The fixture uses the same explicit verified attachment as an operator.
 	if _, err := p.s.AttachPortainerTarget(t.Context(), PortainerAttachment{Name: IntranetTargetName, EndpointID: 3, Environment: DefaultPortainerEnvironment, URLFrom: "PORTAINER_URL", APIKeyFrom: "PORTAINER_API_KEY", Domain: "apps.example"}); err != nil {
 		t.Fatal(err)
+	}
+
+	// Retain the real provider factory and current scope/authority wiring; only
+	// the disposable Docker transport is answered by the result protocol fake.
+	factory := p.s.providers.drivers[KindPortainer]
+	p.s.providers.drivers[KindPortainer] = func(ctx context.Context, target *Target, dep *Deployment) (deploy.Driver, error) {
+		d, err := factory(ctx, target, dep)
+		if err != nil {
+			return nil, err
+		}
+		remote := d.(*portainerRelease)
+		remote.Diagnostics = func(context.Context, portainer.Target) (portainer.Diagnostic, func() error, error) {
+			daemon := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+				p.diagnosticCalls.Add(1)
+				answer := "200 1"
+				if c.Script == "printf apptown-readiness-v1" {
+					answer = "apptown-readiness-v1"
+				}
+				return containerresulttest.Answer{Answer: []byte(answer)}, true
+			}}
+			return portainer.Diagnostic{Command: func(_ context.Context, env []string, args ...string) ([]byte, error) {
+				out, err, ok := daemon.RunEnv(args, env)
+				if !ok {
+					return nil, fmt.Errorf("unexpected diagnostic command %v", args)
+				}
+				return out, err
+			}}, func() error { return nil }, nil
+		}
+		return d, nil
 	}
 	return p
 }
@@ -679,4 +715,14 @@ func TestAnIntranetReleaseOfAnUnpublishedLandingIsRefusedWithoutABuild(t *testin
 	if _, n := p.lastStack(t); n != 0 {
 		t.Fatal("Portainer was given a stack")
 	}
+}
+
+func (p *promotionTargets) serveReadiness(w http.ResponseWriter, r *http.Request) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	stacks := map[string]string{}
+	for _, stack := range p.stackRecords {
+		stacks[stack.Name] = stack.Compose
+	}
+	return portainerfake.ServeComponents(w, r, 3, stacks)
 }

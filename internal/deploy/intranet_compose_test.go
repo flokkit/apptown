@@ -82,18 +82,21 @@ type staticSecrets map[string]string
 
 func (s staticSecrets) EnvFor(string) map[string]string { return s }
 
-// AppTown's own values in a stack (the release identity, DATA_DIR,
+// AppTown's own values in a stack (PORT, the release identity, DATA_DIR,
 // APPTOWN_ORIGINS) win over a contract's or a secret's of the same name, and
 // each key appears once: Compose refuses a mapping that repeats one.
 func TestAnIntranetStackSetsAppTownsValuesOnceAndLast(t *testing.T) {
 	t.Parallel()
-	declared := map[string]string{"APPTOWN_RELEASE": "web@declared", "DATA_DIR": "/elsewhere", "APPTOWN_ORIGINS": "https://declared"}
+	declared := map[string]string{"PORT": "1", "APPTOWN_RELEASE": "web@declared", "DATA_DIR": "/elsewhere", "APPTOWN_ORIGINS": "https://declared"}
+	unchanged := maps.Clone(declared)
 	for name, st := range map[string]IntranetStack{
-		"contract": {Secrets: noSecrets{}, Env: declared},
-		"secret":   {Secrets: staticSecrets(declared)},
+		"absent":      {Secrets: noSecrets{}},
+		"contract":    {Secrets: noSecrets{}, Env: declared},
+		"secret":      {Secrets: staticSecrets(declared)},
+		"integration": {Secrets: noSecrets{}, Integrations: declared},
 	} {
 		t.Run(name, func(t *testing.T) {
-			st.Base, st.Hosts, st.Domain, st.Image, st.Port = "app", []string{"app.apps.example.com"}, "apps.example.com", "reg/app@sha256:x", 8080
+			st.Base, st.Hosts, st.Domain, st.Image, st.Port = "app", []string{"app.apps.example.com"}, "apps.example.com", "reg/app@sha256:x", 9123
 			st.PublicPart, st.Release, st.DataDir, st.Origins = "web", "web@selected", "/data", "https://*.apps.example.com"
 			var stack struct {
 				Services map[string]struct {
@@ -105,8 +108,11 @@ func TestAnIntranetStackSetsAppTownsValuesOnceAndLast(t *testing.T) {
 				t.Fatalf("the stack is not one Compose accepts: %v\n%s", err, out)
 			}
 			env := stack.Services["app"].Environment
-			if env["APPTOWN_RELEASE"] != "web@selected" || env["DATA_DIR"] != "/data" || env["APPTOWN_ORIGINS"] != "https://*.apps.example.com" {
+			if env["PORT"] != "9123" || env["APPTOWN_RELEASE"] != "web@selected" || env["DATA_DIR"] != "/data" || env["APPTOWN_ORIGINS"] != "https://*.apps.example.com" {
 				t.Fatalf("AppTown's values did not win: %v", env)
+			}
+			if !maps.Equal(declared, unchanged) {
+				t.Fatalf("rendering mutated input values: %v", declared)
 			}
 		})
 	}
@@ -303,12 +309,64 @@ func TestAnIntranetAppIsGivenIntegrationValuesUnderItsOwn(t *testing.T) {
 	if err := yaml.Unmarshal([]byte(out), &stack); err != nil {
 		t.Fatalf("the stack is not one Compose accepts: %v\n%s", err, out)
 	}
-	want := map[string]string{"FEEDBACK_URL": "integration", "SENTRY_DSN": "contract", "IMAGE_REPO": "secret", "DATA_DIR": "/data",
+	want := map[string]string{"PORT": "8080", "FEEDBACK_URL": "integration", "SENTRY_DSN": "contract", "IMAGE_REPO": "secret", "DATA_DIR": "/data",
 		"APPTOWN_ORIGINS": "https://*.apps.example.com", appcontract.BrowserEnvVar: `{"FEEDBACK_URL":"integration"}`}
 	if got := stack.Services["app"].Environment; !maps.Equal(got, want) {
 		t.Errorf("the app's environment: %v, want %v\n%s", got, want, out)
 	}
 	if got := stack.Services["worker"].Environment; len(got) != 0 {
 		t.Errorf("another part is given %v", got)
+	}
+}
+
+func TestAnIntranetStackFinishesInitInOrderBeforeWorkersStart(t *testing.T) {
+	t.Parallel()
+	st := IntranetStack{Secrets: noSecrets{}, Prefix: "apptown-", Base: "dep-one", Hosts: []string{"app.example"}, Domain: "example", Image: "app:1", Port: 8080,
+		Needs: []IntranetNeed{{Name: "database", Image: "db:1", Health: "ready"}, {Name: "cache", Image: "cache:1"}},
+		Init:  []appcontract.InitContainer{{Name: "schema", Image: "init:1"}, {Name: "data", Image: "init:1"}},
+		Parts: []appcontract.Part{{Name: "worker", Image: "worker:1"}, {Name: "helper", Image: "helper:1", Health: "ready"}}}
+	type dependency struct {
+		Condition string `yaml:"condition"`
+	}
+	read := func(input IntranetStack) map[string]map[string]string {
+		t.Helper()
+		var stack struct {
+			Services map[string]struct {
+				Depends map[string]dependency `yaml:"depends_on"`
+			} `yaml:"services"`
+		}
+		if err := yaml.Unmarshal([]byte(IntranetCompose(input)), &stack); err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]map[string]string{}
+		for name, service := range stack.Services {
+			out[name] = map[string]string{}
+			for target, dep := range service.Depends {
+				out[name][target] = dep.Condition
+			}
+		}
+		return out
+	}
+	want := map[string]map[string]string{
+		"init-schema": {"database": "service_healthy", "cache": "service_started"},
+		"init-data":   {"database": "service_healthy", "cache": "service_started", "init-schema": "service_completed_successfully"},
+		"worker":      {"database": "service_healthy", "cache": "service_started", "init-data": "service_completed_successfully"},
+		"helper":      {"database": "service_healthy", "cache": "service_started", "init-data": "service_completed_successfully"},
+		"app":         {"database": "service_healthy", "cache": "service_started", "init-schema": "service_completed_successfully", "init-data": "service_completed_successfully", "worker": "service_started", "helper": "service_healthy"},
+	}
+	for _, base := range []string{"dep-one", "dep-two"} {
+		st.Base = base
+		got := read(st)
+		for name, deps := range want {
+			if !maps.Equal(got[name], deps) {
+				t.Errorf("%s/%s dependencies: got %v, want %v", base, name, got[name], deps)
+			}
+		}
+	}
+	st.Init = nil
+	for _, name := range []string{"worker", "helper"} {
+		if got := read(st)[name]; !maps.Equal(got, map[string]string{"database": "service_healthy", "cache": "service_started"}) {
+			t.Errorf("no-init %s dependencies: %v", name, got)
+		}
 	}
 }

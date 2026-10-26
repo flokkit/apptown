@@ -2,11 +2,14 @@ package deployment
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
 )
 
@@ -46,6 +49,13 @@ func (d *portainerRelease) refusesRelease(bundle *ReleaseBundle) error {
 }
 
 func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src deploy.Source, _ deploy.NeedBindings, secrets deploy.ConsumerSecrets, logf deploy.Logf) (deploy.Artifact, error) {
+	if src.Contract == nil || src.Contract.PublicPart() == nil {
+		return deploy.Artifact{}, refused("Portainer readiness requires an admitted public part")
+	}
+	pub := src.Contract.PublicPart()
+	if pub.Intent != nil && pub.Intent.Liveness != nil {
+		return deploy.Artifact{}, refused("Portainer does not support public liveness intent")
+	}
 	if !src.Published {
 		return deploy.Artifact{}, notPublished(d.target.Name)
 	}
@@ -81,6 +91,27 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	prefix, base := portainer.StackNames(d.dep.ID)
 	compose, err := d.providers.env.portainerStack(ctx, portainerStackOf{Base: base, Prefix: prefix, Hosts: hosts, Domain: src.Ingress.CertificateDomain, Contract: src.Contract, Revision: src.Revision,
 		Images: stackImages{Parts: src.Images, Init: src.Init}, Secrets: secrets, Project: d.dep.ProjectID, Deployment: d.dep.ID}, logf)
+	if err != nil {
+		return deploy.Artifact{}, err
+	}
+	origin, err := url.Parse(src.Ingress.URL)
+	if err != nil || origin.Host == "" {
+		return deploy.Artifact{}, fmt.Errorf("Portainer readiness has no admitted origin")
+	}
+	probe := docker.RenderColdBootProbe(pub, map[string]string{"Host": origin.Host, "X-Forwarded-Host": origin.Host, "X-Forwarded-Proto": origin.Scheme})
+	ready := portainer.Readiness{URL: src.Ingress.URL, Version: 1, Deployment: d.dep.ID, Target: d.target.ID, Revision: src.Revision,
+		Public: portainer.Probe{ToolImage: d.providers.env.ToolVersions().Images.DF, Port: pub.Port, Path: probe.Path, Headers: probe.Headers, Expect: probe.Expect, GraceNanos: int64(probe.Grace), StaticRelease: src.Contract.PublicRelease(strings.TrimSpace(src.Revision))}}
+	for _, part := range src.Contract.Parts {
+		service := part.Name
+		if part.Public {
+			service = "app"
+		}
+		ready.Components = append(ready.Components, portainer.Component{Service: service, Image: src.Images[part.Name], ShellHealth: !part.Public && part.Health != ""})
+	}
+	for _, init := range src.Contract.Init {
+		ready.Components = append(ready.Components, portainer.Component{Service: "init-" + init.Name, Image: src.Init[init.Name], Init: true})
+	}
+	compose, err = portainer.WithReadiness(compose, ready)
 	if err != nil {
 		return deploy.Artifact{}, err
 	}

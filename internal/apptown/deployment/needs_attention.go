@@ -244,13 +244,7 @@ func (s *Service) checkStranded(ctx context.Context, dep *Deployment, c Contradi
 	if c.Attempt.Generation != dep.DesiredGeneration {
 		return settle(AttemptSuperseded, deploy.Observation{}, "superseded by a newer deployment generation")
 	}
-	source := RecoverySourceFor(s.Outcomes, func(ctx context.Context, dep *Deployment) (deploy.Driver, error) {
-		t, err := s.Targets.ByID(ctx, dep.TargetID)
-		if err != nil {
-			return nil, err
-		}
-		return s.providers.Driver(ctx, t, dep)
-	})
+	source := s.recoverySource()
 	snapshot, err := source.LoadAttempt(ctx, c.Attempt.ID)
 	if err != nil {
 		r.Outcome, r.Reason = "unknown", err.Error()
