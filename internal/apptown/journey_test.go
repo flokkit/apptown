@@ -44,9 +44,10 @@ import (
 
 // jHarness boots an in-process AppTown with the fake agent in its Docker sandbox.
 type jHarness struct {
-	t   *testing.T
-	app *App
-	srv *httptest.Server
+	t              *testing.T
+	app            *App
+	srv            *httptest.Server
+	previewChanges []ids.ID
 }
 
 // removeMainAppAtCleanup removes the app container of the project's main
@@ -126,6 +127,7 @@ func newJourney(t *testing.T, configs ...Config) *jHarness {
 	if err := a.Jobs().Client.Start(t.Context()); err != nil {
 		t.Fatal(err)
 	}
+	h := &jHarness{t: t, app: a}
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -135,10 +137,26 @@ func newJourney(t *testing.T, configs ...Config) *jHarness {
 		if err := a.Jobs().Client.StopAndCancel(ctx); err != nil {
 			t.Error(err)
 		}
+		// Previews may outlive the controller. This fixture's files and
+		// database do not: remove only changes this journey created, after
+		// their producers stop, and observe the host before giving it up.
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cleanupCancel()
+		dk := a.hosts.Local()
+		for _, id := range h.previewChanges {
+			name := docker.PreviewChangeName(id)
+			if err := docker.RemovePreview(cleanupCtx, dk, name, docker.ChangeStackID(id)); err != nil {
+				t.Errorf("remove journey preview %s: %v", name, err)
+			}
+			if exists, err := dk.Exists(cleanupCtx, "container", "inspect", name); err != nil || exists {
+				t.Errorf("journey preview %s remains or cannot be observed: exists=%v error=%v", name, exists, err)
+			}
+		}
 	})
 	srv := httptest.NewServer(a.Handler())
 	t.Cleanup(srv.Close)
-	return &jHarness{t: t, app: a, srv: srv}
+	h.srv = srv
+	return h
 }
 
 // jCall drives the public surface; any 5xx fails the journey on the
@@ -987,6 +1005,7 @@ func TestJourneyStackMigration(t *testing.T) {
 			Change struct{ ID ids.ID }
 		}
 		h.mustCall("POST", "/projects/"+slug+"/changes", map[string]string{"title": marker, "body": sentence, "workflow": "quick-change"}, &created)
+		h.previewChanges = append(h.previewChanges, created.Change.ID)
 		var acceptID ids.ID
 		h.until("the gate for "+marker, 60*time.Second, func() bool {
 			v := h.changeView(created.Change.ID)
