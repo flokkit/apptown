@@ -102,6 +102,21 @@ type listingRecord struct {
 // List reads authorized stored facts and the matching background observation.
 // It never contacts a runtime provider, including on a cold or stale read.
 func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error) {
+	records, err := s.authorizedListing(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Summary, len(records))
+	for i, r := range records {
+		r.summary.Observation = s.observations.read(r, s.now())
+		reach := s.reachedAt(ctx, r.project, r.deployment, r.target, r.summary.Observation.URL)
+		r.summary.URL, r.summary.HostOnly = reach.URL, reach.HostOnly
+		out[i] = r.summary
+	}
+	return out, ctx.Err()
+}
+
+func (s *Service) authorizedListing(ctx context.Context, projectID ids.ID) ([]listingRecord, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -118,14 +133,7 @@ func (s *Service) List(ctx context.Context, projectID ids.ID) ([]Summary, error)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]Summary, len(records))
-	for i, r := range records {
-		r.summary.Observation = s.observations.read(r, s.now())
-		reach := s.reachedAt(ctx, r.project, r.deployment, r.target, r.summary.Observation.URL)
-		r.summary.URL, r.summary.HostOnly = reach.URL, reach.HostOnly
-		out[i] = r.summary
-	}
-	return out, ctx.Err()
+	return records, nil
 }
 
 func runtimeState(o deploy.Observation) RuntimeState {

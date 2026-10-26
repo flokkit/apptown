@@ -135,15 +135,21 @@ type TargetCapacity struct {
 // read runs a container).
 type capacityCache struct {
 	mu   sync.Mutex
-	read map[ids.ID]TargetCapacity
+	read map[ids.ID]capacityReading
 	disk map[ids.ID]diskReading
 	// host reads this machine's memory (nil: /proc/meminfo).
 	host func() (hostmem.Memory, error)
 }
 
+type capacityReading struct {
+	revision int64
+	capacity TargetCapacity
+}
+
 type diskReading struct {
-	at   time.Time
-	disk DiskCapacity
+	revision int64
+	at       time.Time
+	disk     DiskCapacity
 }
 
 const (
@@ -164,9 +170,9 @@ func (s *Service) Capacity(ctx context.Context, name string) (TargetCapacity, er
 func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity, error) {
 	now := s.now()
 	s.capacity.mu.Lock()
-	if c, ok := s.capacity.read[t.ID]; ok && now.Sub(c.ReadAt) < capacityFresh {
+	if c, ok := s.capacity.read[t.ID]; ok && c.revision == t.SettingsRevision && now.Sub(c.capacity.ReadAt) < capacityFresh {
 		s.capacity.mu.Unlock()
-		return c, nil
+		return c.capacity, nil
 	}
 	s.capacity.mu.Unlock()
 	var out TargetCapacity
@@ -187,9 +193,9 @@ func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity
 	out.Target, out.Kind, out.ReadAt = t.Name, t.Kind, now
 	s.capacity.mu.Lock()
 	if s.capacity.read == nil {
-		s.capacity.read = map[ids.ID]TargetCapacity{}
+		s.capacity.read = map[ids.ID]capacityReading{}
 	}
-	s.capacity.read[t.ID] = out
+	s.capacity.read[t.ID] = capacityReading{revision: t.SettingsRevision, capacity: out}
 	s.capacity.mu.Unlock()
 	return out, nil
 }
@@ -235,7 +241,7 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 	overcommit(out.Memory)
 	overcommit(out.CPU)
 	if info.DataRoot != "" {
-		d := s.disk(ctx, t.ID, dk, info.DataRoot)
+		d := s.disk(ctx, t, dk, info.DataRoot)
 		out.Disk = &d
 	} else {
 		out.Disk = &DiskCapacity{Total: unknown("the daemon did not say where its data is"), Free: unknown("the daemon did not say where its data is")}
@@ -327,10 +333,10 @@ func overcommit(r *ResourceCapacity) {
 
 // disk is the host's disk reading, at most diskFresh old: the read runs a
 // container.
-func (s *Service) disk(ctx context.Context, targetID ids.ID, dk docker.Scope, root string) DiskCapacity {
+func (s *Service) disk(ctx context.Context, target *Target, dk docker.Scope, root string) DiskCapacity {
 	now := s.now()
 	s.capacity.mu.Lock()
-	if r, ok := s.capacity.disk[targetID]; ok && now.Sub(r.at) < diskFresh {
+	if r, ok := s.capacity.disk[target.ID]; ok && r.revision == target.SettingsRevision && now.Sub(r.at) < diskFresh {
 		s.capacity.mu.Unlock()
 		return r.disk
 	}
@@ -348,7 +354,7 @@ func (s *Service) disk(ctx context.Context, targetID ids.ID, dk docker.Scope, ro
 	if s.capacity.disk == nil {
 		s.capacity.disk = map[ids.ID]diskReading{}
 	}
-	s.capacity.disk[targetID] = diskReading{at: now, disk: out}
+	s.capacity.disk[target.ID] = diskReading{revision: target.SettingsRevision, at: now, disk: out}
 	s.capacity.mu.Unlock()
 	return out
 }

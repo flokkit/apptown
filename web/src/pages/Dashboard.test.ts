@@ -9,19 +9,19 @@ const dep = (project: string, over: Partial<Dep> = {}): Dep => ({
 
 describe('the home status sentence', () => {
   it('says all quiet only when needs-you and running were read and are empty', () => {
-    expect(homeStatus({ needsYou: 0, running: 0, deployments: [] })).toMatch(/^All quiet/)
-    expect(homeStatus({ needsYou: null, running: 0, deployments: [] })).not.toMatch(/quiet/i)
-    expect(homeStatus({ needsYou: 0, running: 1, deployments: [] })).not.toMatch(/quiet/i)
+    expect(homeStatus({ operations: { count: 0, known: true }, needsYou: 0, running: 0, deployments: [] })).toMatch(/^All quiet/)
+    expect(homeStatus({ operations: { count: 0, known: true }, needsYou: null, running: 0, deployments: [] })).not.toMatch(/quiet/i)
+    expect(homeStatus({ operations: { count: 0, known: true }, needsYou: 0, running: 1, deployments: [] })).not.toMatch(/quiet/i)
   })
 
   it('never turns an unread needs-you count into zero', () => {
-    const s = homeStatus({ needsYou: null, running: 2, deployments: [] })
+    const s = homeStatus({ operations: { count: 0, known: true }, needsYou: null, running: 2, deployments: [] })
     expect(s).not.toMatch(/\b0\b/)
     expect(s).toMatch(/needs you/)
   })
 
   it('counts an app live once, and only on a current running observation', () => {
-    const s = homeStatus({ needsYou: 2, running: 0, deployments: [
+    const s = homeStatus({ operations: { count: 0, known: true }, needsYou: 2, running: 0, deployments: [
       dep('a'), dep('a', { name: 'staging' }), dep('b'),
       dep('c', { observationStale: true }), dep('d', { running: null, observation: 'unknown' }),
       dep('e', { running: false, observation: 'stopped' }),
@@ -58,7 +58,7 @@ describe('the home sections', () => {
   it('counts an operation that waits on the person, in the list and the sentence', () => {
     const s = homeSections([], [], [{ id: id(20), state: 'failed' }])
     expect(s.needsYouCount).toBe(1)
-    const sentence = homeStatus({ needsYou: s.needsYouCount, running: 0, deployments: [dep('a')] })
+    const sentence = homeStatus({ operations: { count: 0, known: true }, needsYou: s.needsYouCount, running: 0, deployments: [dep('a')] })
     expect(sentence).toBe('1 needs you · 1 app live')
   })
 

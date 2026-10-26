@@ -27,20 +27,26 @@ type Disks struct {
 
 // Read reads each filesystem now.
 func (d Disks) Read(ctx context.Context) []diskspace.Reading {
+	own, worker, err := d.read(ctx)
+	out := []diskspace.Reading{own}
+	if err != nil {
+		// Not read from here: the worker reads and admits its own.
+		return append(out, diskspace.Reading{What: "the worker's disks", Unknown: err.Error(), ReadAt: clock.Or(d.Now)()})
+	}
+	return append(out, worker...)
+}
+
+// read keeps worker failure typed so cached observation does not infer it from
+// presentation text. Both immediate and background reads use the same owner.
+func (d Disks) read(ctx context.Context) (diskspace.Reading, []diskspace.Reading, error) {
 	now := clock.Or(d.Now)
 	space, err := diskspace.Statfs(d.DataDir)
 	own := diskspace.NewReading("this AppTown's data folder", d.DataDir, space, err, now())
-	// No new work is admitted against AppTown's own folder: its reading
-	// warns (Low), and refuses nothing.
+	// Controller admission is not protected by this advisory observation.
 	own.Refuses, own.FloorBytes = false, 0
-	out := []diskspace.Reading{own}
 	if d.Worker == nil {
-		return out
+		return own, nil, nil
 	}
 	worker, err := d.Worker.Disks(ctx)
-	if err != nil {
-		// Not read from here: the worker reads and admits its own.
-		return append(out, diskspace.Reading{What: "the worker's disks", Unknown: err.Error(), ReadAt: now()})
-	}
-	return append(out, worker...)
+	return own, worker, err
 }

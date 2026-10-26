@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { post } from './api'
 import { usePageContext } from './chrome'
+import { AttentionBadge } from './attention'
 import { PRODUCT } from './brand'
 import { useProjectScope } from './projectScope'
 import { useGet } from './data'
@@ -16,6 +17,7 @@ import type { ProjectDetail, ProjectPage } from './wire.gen'
 
 const INSTANCE: [RegExp, string][] = [
   [/^\/$/, 'Home'],
+  [/^\/attention$/, 'Attention'],
   [/^\/projects$/, 'Projects'],
   [/^\/deployments/, 'Deployments'],
   [/^\/(packs|workflow-library|guidance|policies)/, 'Ways of working'],
@@ -90,6 +92,7 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
       ))}
       {page.chip && <span className={`chip topbar-chip ${page.chip.cls ?? ''}`}>{page.chip.text}</span>}
       <span style={{ flex: 1 }} />
+      {me && <AttentionBadge />}
       {!narrow && <>
         <Find />
         <ThemeSwitch />

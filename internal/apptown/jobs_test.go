@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,8 +19,11 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/worker"
+	"github.com/flokkit/apptown/internal/worker/workertest"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
 	"github.com/riverqueue/river/rivertype"
@@ -362,5 +366,132 @@ func TestAnEvalPassRequestIsQueuedOnceOnItsQueue(t *testing.T) {
 	}
 	if row.Queue != jobs.EvalsQueue {
 		t.Fatalf("the pass is stored on %q", row.Queue)
+	}
+}
+
+// Attention reads must only admit one durable observation, with actual disk
+// reads deferred until that job runs. A completed observation supplies evidence
+// without another request-path collection or refresh job.
+func TestDiskObservationUsesTheDurableQueueBeforeReading(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	ctx := t.Context()
+	cold, err := a.diskObserver.Snapshot(ctx)
+	if err != nil || !cold.Unknown || len(cold.Disks) != 0 {
+		t.Fatalf("cold read collected disks or failed admission: %+v %v", cold, err)
+	}
+	for range 3 {
+		if err := (diskObservationRequests{db: a.DB}).RequestDiskObservation(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	queued := operationJobs(t, a, diskObservationJob)
+	if len(queued) != 1 || queued[0].Key != "instance" {
+		t.Fatalf("observation requests did not coalesce: %+v", queued)
+	}
+	if kind := apptownJobKinds(a)[diskObservationJob]; kind.Timeout != 30*time.Second || kind.MaxAttempts != 1 {
+		t.Fatalf("unbounded observation job: %+v", kind)
+	}
+	job := runQueuedJobForTest(t, a, diskObservationJob, "instance")
+	if job.State != rivertype.JobStateCompleted {
+		t.Fatalf("observation job did not complete: %+v", job)
+	}
+	warm, err := a.diskObserver.Snapshot(ctx)
+	if err != nil || len(warm.Disks) == 0 || warm.Disks[0].Reading.ReadAt.IsZero() {
+		t.Fatalf("completed job did not publish disk evidence: %+v %v", warm, err)
+	}
+	if rows := operationJobs(t, a, diskObservationJob); len(rows) != 1 {
+		t.Fatalf("warm read queued another observation: %+v", rows)
+	}
+}
+
+// Target revision is part of durable observation identity: retries coalesce,
+// while an edit admits a distinct observation instead of reusing old work.
+func TestCapacityObservationJobsKeepTheTargetRevision(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	request := capacityObservationRequests{db: a.DB}
+	id := idstest.N(88)
+	for _, revision := range []int64{1, 1, 2, 2} {
+		if err := request.RequestCapacityObservation(t.Context(), id, revision); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows := operationJobs(t, a, deployment.CapacityObservationJob)
+	if len(rows) != 2 {
+		t.Fatalf("observation identity not deduplicated: %+v", rows)
+	}
+	seen := map[string]bool{}
+	for _, row := range rows {
+		seen[row.Key] = true
+	}
+	if !seen[id.String()+"/1"] || !seen[id.String()+"/2"] {
+		t.Fatalf("revision lost: %+v", rows)
+	}
+	kind := apptownJobKinds(a)[deployment.CapacityObservationJob]
+	if kind.Timeout != 30*time.Second || kind.MaxAttempts != 1 {
+		t.Fatalf("unbounded observation: %+v", kind)
+	}
+}
+
+func TestProtectionObservationJobsKeepTheDeploymentIdentity(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	request := protectionObservationRequests{db: a.DB}
+	id := idstest.N(89)
+	for _, identity := range []string{strings.Repeat("a", 64), strings.Repeat("a", 64), strings.Repeat("b", 64)} {
+		if err := request.RequestProtectionObservation(t.Context(), id, identity); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows := operationJobs(t, a, dataprotection.ProtectionObservationJob)
+	if len(rows) != 2 {
+		t.Fatalf("protection requests lost identity or deduplication: %+v", rows)
+	}
+	seen := map[string]bool{}
+	for _, row := range rows {
+		seen[row.Key] = true
+	}
+	if !seen[id.String()+"/"+strings.Repeat("a", 64)] || !seen[id.String()+"/"+strings.Repeat("b", 64)] {
+		t.Fatalf("deployment identity changed: %+v", rows)
+	}
+	kind := apptownJobKinds(a)[dataprotection.ProtectionObservationJob]
+	if kind.Timeout != 30*time.Second || kind.MaxAttempts != 1 {
+		t.Fatalf("unbounded protection job: %+v", kind)
+	}
+}
+
+func TestWorkerObservationUsesTheDurableQueueBeforeContactingWorker(t *testing.T) {
+	t.Parallel()
+	ca := workertest.NewCA(t)
+	srv := workertest.StartServer(t, ca, &worker.Server{State: t.TempDir(), Profile: execution.WorkerProfile{Name: execution.ProfileWorkerVM}})
+	a := testApp(t, Config{Worker: workerClientConfig(t, ca, srv.URL)})
+	cold, err := a.workerObserver.Snapshot(t.Context())
+	if err != nil || !cold.Configured || !cold.Unknown || !cold.ObservedAt.IsZero() {
+		t.Fatal("cold read claimed protocol evidence", cold, err)
+	}
+	for range 3 {
+		if err := (workerObservationRequests{db: a.DB}).RequestWorkerObservation(t.Context(), cold.Identity); err != nil {
+			t.Fatal(err)
+		}
+	}
+	queued := operationJobs(t, a, workerObservationJob)
+	if len(queued) != 1 || queued[0].Key != cold.Identity {
+		t.Fatal("worker requests not coalesced", queued)
+	}
+	kind := apptownJobKinds(a)[workerObservationJob]
+	if kind.Timeout != 15*time.Second || kind.MaxAttempts != 1 {
+		t.Fatal("worker job unbounded", kind)
+	}
+	job := runQueuedJobForTest(t, a, workerObservationJob, cold.Identity)
+	if job.State != rivertype.JobStateCompleted {
+		t.Fatal("worker job did not settle", job)
+	}
+	warm, err := a.workerObserver.Snapshot(t.Context())
+	if err != nil || warm.Unknown || warm.Availability != execution.WorkerAvailable || warm.ObservedAt.IsZero() {
+		t.Fatal("queued worker observation did not publish", warm, err)
+	}
+	if len(operationJobs(t, a, workerObservationJob)) != 1 {
+		t.Fatal("warm read admitted more work")
 	}
 }

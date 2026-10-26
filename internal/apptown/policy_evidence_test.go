@@ -20,6 +20,7 @@ import (
 // either as its own top-level test or, for a helper, through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
+	"attention.Read":               TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads,
 	"routinePublications.Preview":  TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
 	"routinePublications.Classify": TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
 	"routinePublications.History":  TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,

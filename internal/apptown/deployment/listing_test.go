@@ -472,3 +472,29 @@ func TestASweepAsksAFleetTargetOnceForAllItsDeployments(t *testing.T) {
 		t.Errorf("the last known state was not kept with when it was seen: %+v", o)
 	}
 }
+
+func TestOperationalReadKeepsCurrentAuthorityAndUsesOnlyCachedRuntime(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	s, authority, envs, projectID := listingFixture(t, 1, func(_ context.Context, p deploy.Placement) (deploy.Observation, error) {
+		calls.Add(1)
+		return deploy.Observation{Generation: p.Generation, Rollout: "active"}, nil
+	})
+	cold, err := s.Operational(t.Context(), projectID)
+	if err != nil || len(cold) != 1 || cold[0].Runtime.State != RuntimeUnknown || calls.Load() != 0 {
+		t.Fatalf("cold operational read %+v %v calls%d", cold, err, calls.Load())
+	}
+	if err := s.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	before := calls.Load()
+	warm, err := s.Operational(t.Context(), projectID)
+	if err != nil || len(warm) != 1 || warm[0].Runtime.State != RuntimeRunning || warm[0].ID != envs[0].ID || warm[0].DesiredGeneration != envs[0].DesiredGeneration || calls.Load() != before {
+		t.Fatalf("cached operational read %+v %v calls%d", warm, err, calls.Load())
+	}
+	authority.err = errors.New("revoked")
+	denied, err := s.Operational(t.Context(), projectID)
+	if err == nil || len(denied) != 0 || calls.Load() != before {
+		t.Fatalf("revoked scope read %+v %v", denied, err)
+	}
+}

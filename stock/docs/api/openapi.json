@@ -1461,6 +1461,34 @@
         ],
         "type": "string"
       },
+      "Coverage": {
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "unknown": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "observedAt",
+          "unknown",
+          "stale"
+        ],
+        "type": "object"
+      },
       "CreatedChange": {
         "properties": {
           "change": {
@@ -2167,6 +2195,42 @@
             "type": "string"
           }
         },
+        "type": "object"
+      },
+      "Item": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity",
+          "key",
+          "title",
+          "detail",
+          "href",
+          "observedAt",
+          "stale"
+        ],
         "type": "object"
       },
       "Kind": {
@@ -5352,6 +5416,27 @@
         ],
         "type": "object"
       },
+      "View": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Item"
+            },
+            "type": "array"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/Coverage"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "sources"
+        ],
+        "type": "object"
+      },
       "Violation": {
         "properties": {
           "detail": {
@@ -5765,6 +5850,35 @@
           "kind": "public"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/attention": {
+      "get": {
+        "operationId": "getAttention",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/View"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "attention"
+        ],
+        "x-apptown-access": {
+          "contract": "attention.Read",
+          "kind": "filtered"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/audit": {

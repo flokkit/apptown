@@ -42,6 +42,9 @@ func jobReceipt(receipt map[string]any, err error) (map[string]any, error) {
 // providers (deployment.Service.CheckAfterRestore).
 const restoreCheckJob = "restore-check"
 
+const diskObservationJob = "disk-observation"
+const workerObservationJob = "worker-observation"
+
 func apptownJobKinds(a *App) map[string]jobs.Kind {
 	followups := workflowFollowUps(a)
 	deployments := deployment.JobWorker{Service: a.Deployment, Projects: a.Projects, DataDir: a.cfg.dataDir, Reporter: selfErrorsFor(a)}
@@ -49,15 +52,25 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 	inventory := inventoryRefresh{targets: a.targets, providers: a.targetProviders, cache: a.inventory}
 	backup := databaseBackup{db: a.DB, docker: a.docker, dataDir: a.cfg.dataDir, enabled: a.cfg.usingBuiltinDB, now: a.cfg.clock.Now}
 	fleet := fleetReviewsFor(a)
+	disks := a.diskObserver
+	workers := a.workerObserver
 
 	kinds := map[string]jobs.Kind{
-		deployment.ReleaseJob:  {Run: jobErrors(deployments.Release), Timeout: 20 * time.Minute},
-		workflowCompletionJob:  {Run: jobErrors(followups.Complete)},
-		deployment.RecoveryJob: {Run: jobErrors(deployments.Recover), Timeout: 20 * time.Minute},
-		workflowAbandonmentJob: {Run: jobErrors(followups.Abandon)},
-		"backup":               {Run: jobErrors(data.Backup)},
-		"inventory":            {Run: jobErrors(inventory.Run)},
-		"rebuild":              {Run: jobErrors(deployments.Rebuild), Timeout: 20 * time.Minute},
+		deployment.ReleaseJob:                   {Run: jobErrors(deployments.Release), Timeout: 20 * time.Minute},
+		workflowCompletionJob:                   {Run: jobErrors(followups.Complete)},
+		deployment.RecoveryJob:                  {Run: jobErrors(deployments.Recover), Timeout: 20 * time.Minute},
+		workflowAbandonmentJob:                  {Run: jobErrors(followups.Abandon)},
+		"backup":                                {Run: jobErrors(data.Backup)},
+		"inventory":                             {Run: jobErrors(inventory.Run)},
+		deployment.CapacityObservationJob:       {Run: a.capacityObserver.RunJob, Timeout: 30 * time.Second},
+		dataprotection.ProtectionObservationJob: {Run: a.protectionObserver.RunJob, Timeout: 30 * time.Second},
+		workerObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
+			return nil, workers.Run(ctx, key)
+		}, Timeout: 15 * time.Second},
+		diskObservationJob: {Run: func(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
+			return nil, disks.Run(ctx)
+		}, Timeout: 30 * time.Second},
+		"rebuild": {Run: jobErrors(deployments.Rebuild), Timeout: 20 * time.Minute},
 		// After AppTown was restored, its App Platform and Portainer
 		// deployments are checked against their providers each minute
 		// until none is left unconfirmed.
@@ -102,26 +115,30 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 // and the budget every enqueue of it records. It is the one source for both,
 // so they cannot drift.
 var jobBudgets = map[string]int{
-	deployment.ReleaseJob:               1,
-	workflowCompletionJob:               3,
-	deployment.RecoveryJob:              3,
-	workflowAbandonmentJob:              3,
-	"backup":                            1,
-	"inventory":                         2,
-	"rebuild":                           1,
-	restoreCheckJob:                     1,
-	"backup-sweep":                      1,
-	dataprotection.RestoredCopySweepJob: 1,
-	operations.Job:                      1,
-	"db-backup":                         1,
-	projectlifecycle.CleanupJob:         projectlifecycle.CleanupAttempts,
-	projectlifecycle.DeletionPassJob:    1,
-	projectlifecycle.PurgePassJob:       1,
-	verification.ReviewJob:              1,
-	verification.WhatIfJob:              1,
-	remediation.PassJob:                 1,
-	evals.PassJob:                       1,
-	narrativeJob:                        1,
+	deployment.ReleaseJob:                   1,
+	workflowCompletionJob:                   3,
+	deployment.RecoveryJob:                  3,
+	workflowAbandonmentJob:                  3,
+	"backup":                                1,
+	"inventory":                             2,
+	diskObservationJob:                      1,
+	workerObservationJob:                    1,
+	deployment.CapacityObservationJob:       1,
+	dataprotection.ProtectionObservationJob: 1,
+	"rebuild":                               1,
+	restoreCheckJob:                         1,
+	"backup-sweep":                          1,
+	dataprotection.RestoredCopySweepJob:     1,
+	operations.Job:                          1,
+	"db-backup":                             1,
+	projectlifecycle.CleanupJob:             projectlifecycle.CleanupAttempts,
+	projectlifecycle.DeletionPassJob:        1,
+	projectlifecycle.PurgePassJob:           1,
+	verification.ReviewJob:                  1,
+	verification.WhatIfJob:                  1,
+	remediation.PassJob:                     1,
+	evals.PassJob:                           1,
+	narrativeJob:                            1,
 }
 
 // jobQueues is the queue of each kind not on the default one, for both the

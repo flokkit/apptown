@@ -17,6 +17,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 // finalSet takes a production deployment "prod" down through its final
@@ -536,10 +537,27 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 		t.Fatal(rel.State)
 	}
 	id, _ := w.clusterOf(dep)["id"].(string)
+	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	first := now
+	w.s.clock = func() time.Time { return now }
 	for range 3 {
-		if _, err := w.s.DeploymentProtection(ctx, w.project, "prod"); err != nil {
+		protection, err := w.s.DeploymentProtection(ctx, w.project, "prod")
+		if err != nil {
 			t.Fatal(err)
 		}
+		seen := false
+		for _, item := range protection.Items {
+			if item.Native != nil {
+				seen = true
+				if item.Native.observedAt != first {
+					t.Fatalf("cached provider observation time: %v, want %v", item.Native.observedAt, first)
+				}
+			}
+		}
+		if !seen {
+			t.Fatal("no provider backup evidence")
+		}
+		now = now.Add(time.Minute)
 	}
 	asked := 0
 	for _, r := range w.api.Snapshot().Requests {
@@ -549,6 +567,37 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 	}
 	if asked != 1 {
 		t.Fatalf("asked the provider %d times", asked)
+	}
+	// The background observer uses the real held-data/protection owner, and
+	// cannot renew native evidence retained by that owner's inner cache.
+	q := &protectionObservationRequests{}
+	observer := NewProtectionObserver(w.s.Service, q)
+	cold, err := observer.Snapshot(ctx, dep.ID)
+	if err != nil || !cold.Unknown || q.calls != 1 {
+		t.Fatalf("cold protection: %+v %v", cold, err)
+	}
+	_, identity, err := observer.resolve(ctx, dep.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := observer.Run(ctx, dep.ID, identity); err != nil {
+		t.Fatal(err)
+	}
+	warm, err := observer.Snapshot(ctx, dep.ID)
+	if err != nil || warm.ObservedAt.IsZero() || len(warm.Items) == 0 || !warm.Stale {
+		t.Fatalf("observed protection lost inner age: %+v %v", warm, err)
+	}
+	seen := false
+	for _, item := range warm.Items {
+		if item.Native {
+			seen = true
+			if item.NativeAt != first {
+				t.Fatalf("native evidence renewed: %+v", item)
+			}
+		}
+	}
+	if !seen {
+		t.Fatal("held native item omitted")
 	}
 }
 
@@ -995,5 +1044,130 @@ func TestAManagedInstanceAppTownCannotCopyStaysInTheList(t *testing.T) {
 	}
 	if deleted := w.api.Snapshot().DeletedClusters; len(deleted) != 0 {
 		t.Fatalf("clusters deleted: %v", deleted)
+	}
+}
+
+type protectionObservationRequests struct{ calls int }
+
+func (q *protectionObservationRequests) RequestProtectionObservation(context.Context, ids.ID, string) error {
+	q.calls++
+	return nil
+}
+
+func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	first := now
+	dep := deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), Kind: deployment.Standing, Name: "production"}
+	identity := strings.Repeat("a", 64)
+	q := &protectionObservationRequests{}
+	calls := 0
+	fail, replace := false, false
+	result := &Protection{DataClass: "production", Items: []ItemProtection{{Need: "database", Copy: CopyStale, Volume: "/private-store", Native: &NativeBackups{observedAt: first, Count: 1}}}, Coverage: Coverage{NotAssessed: []string{OutsideNotAssessed}}}
+	o := &ProtectionObserver{queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(context.Context, ids.ID, string) (*Protection, error) {
+		calls++
+		if replace {
+			identity = strings.Repeat("b", 64)
+		}
+		if fail {
+			return nil, errors.New("provider secret")
+		}
+		return result, nil
+	}}
+	for range 3 {
+		got, err := o.Snapshot(t.Context(), dep.ID)
+		if err != nil || !got.Unknown || !got.Stale || calls != 0 || q.calls != 1 {
+			t.Fatalf("cold read: %+v %v", got, err)
+		}
+	}
+	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
+		t.Fatal(err)
+	}
+	got, err := o.Snapshot(t.Context(), dep.ID)
+	if err != nil || got.Unknown || got.Stale || len(got.Items) != 1 || got.Items[0].Copy != CopyStale || strings.Contains(got.Items[0].Key, "private") {
+		t.Fatalf("first evidence: %+v %v", got, err)
+	}
+	got.Items[0].Copy = CopyFresh
+	now = now.Add(3 * time.Minute)
+	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
+		t.Fatal(err)
+	}
+	got, err = o.Snapshot(t.Context(), dep.ID)
+	if err != nil || !got.Stale || got.Items[0].NativeAt != first || got.Items[0].Copy != CopyStale || got.ObservedAt != now {
+		t.Fatalf("wrapper renewed native evidence or caller changed owner: %+v %v", got, err)
+	}
+	fail = true
+	if err := o.Run(t.Context(), dep.ID, identity); err == nil {
+		t.Fatal("provider error lost")
+	}
+	got, err = o.Snapshot(t.Context(), dep.ID)
+	if err != nil || !got.Unknown || len(got.Items) != 1 || got.Items[0].Copy != CopyStale {
+		t.Fatalf("failure erased warning: %+v %v", got, err)
+	}
+	fail = false
+	replace = true
+	old := identity
+	if err := o.Run(t.Context(), dep.ID, old); err != nil {
+		t.Fatal(err)
+	}
+	got, err = o.Snapshot(t.Context(), dep.ID)
+	if err != nil || !got.Unknown || len(got.Items) != 0 {
+		t.Fatalf("old generation published under replacement: %+v %v", got, err)
+	}
+	replace = false
+	result.Items[0].Copy = CopyFresh
+	result.Items[0].Native.observedAt = now
+	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
+		t.Fatal(err)
+	}
+	got, err = o.Snapshot(t.Context(), dep.ID)
+	if err != nil || got.Unknown || got.Stale || got.Items[0].Copy != CopyFresh {
+		t.Fatalf("recovery not observed: %+v %v", got, err)
+	}
+}
+
+func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	dep := deployment.Deployment{ID: idstest.N(1), ProjectID: idstest.N(2), Kind: deployment.Standing, Name: "production"}
+	identity := strings.Repeat("a", 64)
+	started := make(chan struct{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	q := &protectionObservationRequests{}
+	o := &ProtectionObserver{queue: q, now: func() time.Time { return now }, resolve: func(context.Context, ids.ID) (*deployment.Deployment, string, error) { return &dep, identity, nil }, read: func(ctx context.Context, _ ids.ID, _ string) (*Protection, error) {
+		close(started)
+		<-ctx.Done()
+		// Even a misbehaving adapter returning success after cancellation cannot
+		// publish a new reading under an ended job lifetime.
+		return &Protection{}, nil
+	}}
+	if _, err := o.Snapshot(t.Context(), dep.ID); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- o.Run(ctx, dep.ID, identity) }()
+	<-started
+	got, err := o.Snapshot(t.Context(), dep.ID)
+	if err != nil || !got.Unknown || q.calls != 1 {
+		t.Fatalf("blocked read affected snapshot: %+v %v", got, err)
+	}
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation lost: %v", err)
+	}
+	got, err = o.Snapshot(t.Context(), dep.ID)
+	if err != nil || !got.Unknown || !got.ObservedAt.IsZero() {
+		t.Fatalf("canceled result published: %+v %v", got, err)
+	}
+}
+
+func TestProtectionObservationRefusesMalformedIdentityBeforeReads(t *testing.T) {
+	t.Parallel()
+	o := &ProtectionObserver{}
+	for _, key := range []string{"", "bad/" + strings.Repeat("a", 64), idstest.N(1).String() + "/short", idstest.N(1).String() + "/" + strings.Repeat("z", 64)} {
+		if _, err := o.RunJob(t.Context(), key, nil); err == nil {
+			t.Fatalf("accepted invalid job identity %q", key)
+		}
 	}
 }

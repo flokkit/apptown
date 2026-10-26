@@ -9,6 +9,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { currentUser, setCurrentUser } from './api'
 import Dashboard from './pages/Dashboard'
+import AttentionPage from './pages/Attention'
 import Projects from './pages/Projects'
 import Deployments from './pages/Deployments'
 import WaysOfWorking from './pages/WaysOfWorking'
@@ -187,6 +188,7 @@ export default function App() {
         <Suspense fallback={<div className="muted">Opening the page…</div>}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/attention" element={<AttentionPage />} />
  <Route path="/updates" element={<UpdatesPage />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/deployments" element={<Deployments />} />

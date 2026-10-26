@@ -44,6 +44,7 @@ it('R2: retains global finding on the narrow projects page', async () => {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     if (url.endsWith('/auth/me')) return new Response(JSON.stringify({ mode: 'open' }))
     if (url.includes('/authz/me')) return new Response(JSON.stringify({ instance: {} }))
+    if (url.endsWith('/attention')) return new Response(JSON.stringify({ items: [], sources: [] }))
     if (url.includes('/project-cleanups')) return new Response(JSON.stringify({ cleanups: [] }))
     return new Response(JSON.stringify({ projects: [], total: 0 }))
   }))

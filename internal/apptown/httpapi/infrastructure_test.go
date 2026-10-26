@@ -162,7 +162,7 @@ func TestARecordIsMissingOnlyWhenAnAnswerLacksIt(t *testing.T) {
 		{"an empty host", nil, "", now, deploy.RecordMissing, true, true},
 		{"an old answer under an error", running, "docker ps: ssh refused", now, deploy.RecordRecorded, false, true},
 	} {
-		out, latest, answered := inventoryAnswer(append([]deploy.Resource{}, recorded...), tc.live, tc.errText, tc.at)
+		out, latest, answered := deployment.InventoryAnswer(append([]deploy.Resource{}, recorded...), tc.live, tc.errText, tc.at)
 		if len(out) != 1 || out[0].Record != tc.record || latest != tc.latest || answered != tc.answered {
 			t.Fatalf("%s: %+v latest %v answered %v", tc.name, out, latest, answered)
 		}
@@ -200,7 +200,7 @@ func TestInventoryReconciliationHasOneRowPerConfirmedResource(t *testing.T) {
 			live = append(live, deploy.Resource{Kind: kind, Name: name})
 		}
 	}
-	out := mergeInventory(recorded, live)
+	out := deployment.MergeInventory(recorded, live)
 	if recorded[1].ID != "incarnation-0-1" {
 		t.Fatal("presentation altered teardown identity")
 	}
@@ -216,7 +216,7 @@ func TestInventoryReconciliationHasOneRowPerConfirmedResource(t *testing.T) {
 		}
 	}
 	// Even without a provider answer, duplicate claims are still one resource.
-	unassessed, latest, answered := inventoryAnswer(recorded, nil, "unavailable", time.Time{})
+	unassessed, latest, answered := deployment.InventoryAnswer(recorded, nil, "unavailable", time.Time{})
 	if len(unassessed) != 27 || latest || answered {
 		t.Fatalf("unassessed inventory duplicated or confirmed: %d %v %v", len(unassessed), latest, answered)
 	}
@@ -233,7 +233,7 @@ func TestInventoryPreservesDistinctProviderIdentitiesAndAllHosts(t *testing.T) {
 		{Kind: "image", Name: "reg/app", ID: "reg/app@sha256:one"}, {Kind: "image", Name: "reg/app", ID: "reg/app@sha256:two"},
 	}
 	live := []deploy.Resource{{Kind: "volume", Name: "shared"}, {Kind: "database", Name: "db", ID: "two"}, {Kind: "image", Name: "reg/app", ID: "reg/app@sha256:two"}, {Kind: "image", Name: "unrelated:latest", ID: "unrelated:latest"}}
-	out := mergeInventory(recorded, live)
+	out := deployment.MergeInventory(recorded, live)
 	if len(out) != 5 {
 		t.Fatalf("identities collapsed or unrelated image exposed: %+v", out)
 	}
@@ -267,14 +267,14 @@ func TestInventoryMatchesAnImmutableIDDespiteDisplayNameChanges(t *testing.T) {
 			if reverse {
 				recorded, live = live, recorded
 			}
-			out := mergeInventory([]deploy.Resource{recorded}, []deploy.Resource{live})
+			out := deployment.MergeInventory([]deploy.Resource{recorded}, []deploy.Resource{live})
 			if len(out) != 1 || out[0].Record != deploy.RecordRecorded || out[0].ID != id {
 				t.Errorf("%s reverse=%v: immutable ID not matched: %+v", kind, reverse, out)
 			}
 		}
 	}
 	// Real Docker image answers use the full reference for both name and ID.
-	out := mergeInventory([]deploy.Resource{
+	out := deployment.MergeInventory([]deploy.Resource{
 		{Kind: "image", Name: "reg/app@sha256:aaa", ID: "reg/app@sha256:aaa"},
 		{Kind: "image", Name: "reg/app@sha256:bbb", ID: "reg/app@sha256:bbb"},
 	}, []deploy.Resource{{Kind: "image", Name: "reg/app@sha256:bbb", ID: "reg/app@sha256:bbb"}, {Kind: "image", Name: "reg/app:latest", ID: "reg/app:latest"}})
@@ -338,7 +338,7 @@ func TestOwnedResourcesTheHostHoldsArePresent(t *testing.T) {
 		{Kind: "image", Name: tag, ID: tag, Record: deploy.RecordRecorded},
 		{Kind: "volume", Name: anon, ID: anon, Record: deploy.RecordRecorded},
 	}
-	out := mergeInventory(recorded, live)
+	out := deployment.MergeInventory(recorded, live)
 	if len(out) != 2 {
 		t.Fatalf("want the two owned resources and nothing else: %+v", out)
 	}

@@ -28,6 +28,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
+	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflowexec"
 	"github.com/flokkit/apptown/internal/console"
@@ -142,10 +143,15 @@ type App struct {
 	repositoryEdits     *repositoryedit.Service
 	Fixes               *remediation.Service // the remediation facade, built once in New
 	// The provider inventory cache (infrastructure_cache.go).
-	inventory *inventoryCache
-	jobs      *jobs.Queue
-	reaper    *maintenance.Reaper
-	disks     maintenance.Disks
+	inventory          *inventoryCache
+	jobs               *jobs.Queue
+	reaper             *maintenance.Reaper
+	disks              maintenance.Disks
+	diskObserver       *maintenance.DiskObserver
+	attention          *attention.Service
+	workerObserver     *maintenance.WorkerObserver
+	capacityObserver   *deployment.CapacityObserver
+	protectionObserver *dataprotection.ProtectionObserver
 	// The committed-tree command and shared conformance baseline cache.
 	verification *verification.Changes
 	capacity     *model.Scheduler
@@ -370,10 +376,21 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if cfg.worker != nil {
 		a.disks.Worker = *cfg.worker
 	}
+	a.diskObserver = maintenance.NewDiskObserver(a.disks, diskObservationRequests{db: db}, cfg.clock.Now)
+	var workerProbe maintenance.WorkerProbe
+	workerIdentity := ""
+	if cfg.worker != nil {
+		workerProbe = *cfg.worker
+		workerIdentity = fmt.Sprintf("%x", sha256.Sum256([]byte(cfg.worker.URL)))
+	}
+	a.workerObserver = maintenance.NewWorkerObserver(workerIdentity, workerProbe, workerObservationRequests{db: db}, cfg.clock.Now)
+	a.capacityObserver = deployment.NewCapacityObserver(a.Deployment, capacityObservationRequests{db: db})
+	a.protectionObserver = dataprotection.NewProtectionObserver(a.DataProtection, protectionObservationRequests{db: db})
 	a.jobs, err = jobs.New(jobs.Options{Tracer: a.telemetry.tracer, Hold: a.newWork.Wait}, db.Pool(), apptownJobKinds(a), jobReporter{}, apptownJobSchedules()...)
 	if err != nil {
 		return nil, fmt.Errorf("constructing job queue: %w", err)
 	}
+	a.attention = attentionFor(a)
 	a.mcpDoor = newMCPDoor(a)
 	return a, nil
 }

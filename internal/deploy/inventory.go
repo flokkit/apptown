@@ -41,10 +41,12 @@ const TagConfirmsOnly = "confirms-only"
 
 // ResourceHost is a deployment that runs on or uses a resource.
 type ResourceHost struct {
-	Project    string `json:"project"`
-	Deployment string `json:"deployment"`
-	Generation int64  `json:"generation,omitempty"`
-	Need       string `json:"need,omitempty"` // for a database: which need it fulfils
+	ProjectID    ids.ID `json:"projectId,omitzero"`
+	DeploymentID ids.ID `json:"deploymentId,omitzero"`
+	Project      string `json:"project"`
+	Deployment   string `json:"deployment"`
+	Generation   int64  `json:"generation,omitempty"`
+	Need         string `json:"need,omitempty"` // for a database: which need it fulfils
 }
 
 // RetainedNote says a resource was left behind by a torn-down deployment.
