@@ -1001,3 +1001,33 @@ func (w *restoredWorld) appOf(name string) string {
 	w.t.Helper()
 	return "apptown-" + deploy.HostKey(depOf(w.dataWorld, name).ID)
 }
+
+// An already released declaration may give a private service a grace that
+// current App Platform releases refuse. The copy deliberately omits that
+// service, so preflight must receive the same gated placement as rendering.
+func TestARestoredCopyPreflightsOnlyTheServicesItWillStart(t *testing.T) {
+	t.Parallel()
+	w := newRestoredWorld(t, nil)
+	// Present retained source through the existing source-owner fake: the
+	// current release entry cannot create this historical unsupported grace.
+	source := w.s.sources.(dataSources)
+	source.yaml = strings.Replace(source.yaml, "needs:", "  private:\n    build: .\n    ports: [\"8081\"]\n    health:\n      readiness: {http: /healthz, expect: 200, startupGrace: 3601s}\nneeds:", 1)
+	source.yaml = strings.Replace(source.yaml, "public: true", "public: true\n    health: {readiness: {http: /healthz, expect: 200}}", 1)
+	w.s.sources = source
+	op, c := w.start(RestoredCopyRequest{})
+	if !endedAs(op, OperationVerified) {
+		t.Fatalf("gated copy refused an omitted private service: %s at %q: %s", op.State, c.FailedAt, op.Detail)
+	}
+	if !slices.Contains(c.Facts.NotStarted, "private") {
+		t.Fatalf("original declaration was lost: %+v", c.Facts.NotStarted)
+	}
+	for _, spec := range w.api.Snapshot().Specs {
+		services, _ := spec["services"].([]any)
+		for _, raw := range services {
+			service, _ := raw.(map[string]any)
+			if service["name"] == "private" {
+				t.Fatal("omitted private service reached provider")
+			}
+		}
+	}
+}

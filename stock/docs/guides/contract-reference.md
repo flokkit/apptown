@@ -341,8 +341,11 @@ What each target uses:
   and redirects are not followed.
 - **Portainer.** No `health` block is used; another part's `healthcheck:`
   is.
-- **App Platform.** The readiness path only, with the platform's fixed
-  timings, and a port check when no path is declared. `expect` is not used.
+- **App Platform.** The readiness path and `startupGrace`, with a port check
+  when no path is declared. The startup delay is at least five seconds and
+  at least the declared grace, rounded up to whole seconds; declarations
+  above 3600 seconds are refused before provider effects. Other timings
+  remain fixed. `expect` is not used.
 
 The readiness answer should not touch the database: use `rehearsal`
 checks for that.
