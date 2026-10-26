@@ -75,15 +75,14 @@ or instance credentials.
 
 ## From a release candidate
 
-An upgrade from 1.0.0-rc.6 needs every deployment named by its key first.
-The upgrade stops, changing nothing, while a deployment still holds a
-container, a Portainer stack or anything else on a host under the names it
-was made with before 1.0, and names each one. Under rc.6, move one on a
-Docker host with `apptown move-names <project> <deployment>`; take one on
-Portainer down and release it again (its data is not carried over: copy it
-first, and a stack AppTown did not record creating is taken down in
-Portainer by its owner). Upgrading from a release before rc.6 is not
-supported.
+The oldest supported installation and whole-AppTown backup schema is 167,
+from 1.0.0-rc.7. Startup and whole-AppTown restore refuse an older schema;
+this build does not perform the earlier release-candidate migrations.
+
+Read the target release's notes for its additional upgrade and recovery
+requirements. Preserve the matching database and data-directory copies described
+above before starting the new build; `-verify-only` still performs required schema
+and repository-layout changes.
 
 ## Rolling back
 
