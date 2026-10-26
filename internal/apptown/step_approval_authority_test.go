@@ -228,6 +228,38 @@ spec:
 	if consent.RuleID.IsZero() || consent.Revision != 1 || consent.Issuer.Name != "boss" {
 		t.Fatalf("stored issuer followed untrusted input: %+v", consent)
 	}
+
+	// Assessment accepts identities only. A caller's claimed verdict cannot turn
+	// unavailable committed source into routine evidence or automatic assent.
+	change, e := a.Work.Create(asPerson("boss"), workflow.ChangeDraft{ProjectID: projectID, Title: "inspect missing committed source"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	run, e := a.Work.StartRun(asPerson("boss"), workflow.StartChangeRun{ChangeID: change.ID, Workflow: "janitor-work"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	a.Work.Wait()
+	if e = a.Projects.SetDefaultBranch(t.Context(), projectID, "main"); e != nil {
+		t.Fatal(e)
+	}
+	assessed := authzCall(h, "boss", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/assess", fmt.Sprintf(`{"runId":%q,"classification":"routine-dependency","processingAvailable":true,"candidate":"untrusted-candidate"}`, run.ID.String()))
+	if assessed.Code != http.StatusOK {
+		t.Fatalf("exact assessment route: %d %s", assessed.Code, assessed.Body)
+	}
+	var inspection struct {
+		ProcessingAvailable bool
+		Inspection          struct {
+			Classification string
+			Candidate      string
+		}
+	}
+	if e = json.Unmarshal(assessed.Body.Bytes(), &inspection); e != nil {
+		t.Fatal(e)
+	}
+	if inspection.ProcessingAvailable || inspection.Inspection.Classification != "cannot-assess" || inspection.Inspection.Candidate == "untrusted-candidate" {
+		t.Fatalf("untrusted assessment accepted: %+v", inspection)
+	}
 	// This fixture seeds transparent instance reads. Remove that explicit
 	// grant before asserting the unscoped-reader case; names alone are not scope.
 	grants, err := a.Access.AllGrants(t.Context())
@@ -250,6 +282,11 @@ spec:
 		if strings.Contains(other.Body.String(), consent.RuleID.String()) || other.Code != http.StatusOK && other.Code != http.StatusForbidden {
 			t.Fatalf("unscoped read: %d %s", other.Code, other.Body)
 		}
+	}
+
+	deniedAssessment := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/assess", fmt.Sprintf(`{"runId":%q}`, run.ID.String()))
+	if deniedAssessment.Code != http.StatusForbidden {
+		t.Fatalf("unscoped inspection: %d %s", deniedAssessment.Code, deniedAssessment.Body)
 	}
 	otherDisable := authzCall(h, "outsider", "POST", "/api/v1/standing-approvals/"+consent.RuleID.String()+"/disable", `{"expectedRevision":1}`)
 	if otherDisable.Code != http.StatusForbidden {

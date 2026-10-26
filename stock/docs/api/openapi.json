@@ -4211,6 +4211,93 @@
         },
         "type": "object"
       },
+      "StandingAssess": {
+        "properties": {
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "StandingAssessment": {
+        "properties": {
+          "adoptionId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "adoptionRevision": {
+            "type": "integer"
+          },
+          "changeId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "inspection": {
+            "$ref": "#/components/schemas/StandingInspection"
+          },
+          "processingAvailable": {
+            "type": "boolean"
+          },
+          "projectId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "questionDigest": {
+            "type": "string"
+          },
+          "retryRevision": {
+            "type": "integer"
+          },
+          "ruleId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ruleRevision": {
+            "type": "integer"
+          },
+          "runId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stage": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ruleId",
+          "ruleRevision",
+          "questionDigest",
+          "projectId",
+          "changeId",
+          "runId",
+          "stage",
+          "retryRevision",
+          "adoptionId",
+          "adoptionRevision",
+          "inspection",
+          "processingAvailable"
+        ],
+        "type": "object"
+      },
       "StandingCategories": {
         "properties": {
           "baseImages": {
@@ -4297,6 +4384,54 @@
             ]
           }
         },
+        "type": "object"
+      },
+      "StandingInspection": {
+        "properties": {
+          "base": {
+            "type": "string"
+          },
+          "candidate": {
+            "type": "string"
+          },
+          "changedFiles": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "classification": {
+            "type": "string"
+          },
+          "classifier": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "tree": {
+            "type": "string"
+          },
+          "validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StandingValidation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "classification",
+          "reason",
+          "classifier",
+          "base",
+          "candidate",
+          "tree",
+          "changedFiles"
+        ],
         "type": "object"
       },
       "StandingProcedure": {
@@ -4479,6 +4614,37 @@
           "eligible",
           "reason",
           "processingAvailable"
+        ],
+        "type": "object"
+      },
+      "StandingValidation": {
+        "properties": {
+          "image": {
+            "type": "string"
+          },
+          "node": {
+            "type": "string"
+          },
+          "npm": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "reportDigest": {
+            "type": "string"
+          },
+          "scratchSettlement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "image",
+          "node",
+          "npm",
+          "platform",
+          "reportDigest",
+          "scratchSettlement"
         ],
         "type": "object"
       },
@@ -13660,6 +13826,55 @@
         ],
         "x-apptown-access": {
           "contract": "standingApprovals.Preview",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/standing-approvals/{id}/assess": {
+      "post": {
+        "operationId": "postStandingApprovalsIdAssess",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StandingAssess"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StandingAssessment"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "standing-approvals"
+        ],
+        "x-apptown-access": {
+          "contract": "standingApprovals.Assess",
           "kind": "owner"
         },
         "x-apptown-stability": "experimental",

@@ -405,3 +405,12 @@ func TestAStoppedCallerGetsNoAnswerAboutStagedWork(t *testing.T) {
 		t.Fatalf("a stopped caller got an answer (%v) instead of an error", staged)
 	}
 }
+
+func TestFolderObservationDoesNotWaitForOrRunBesideAWriter(t *testing.T) {
+	folder := t.TempDir()
+	writer := LockFolder(folder)
+	defer writer.Release()
+	if _, _, err := ObserveFolder(t.Context(), folder); err == nil || !strings.Contains(err.Error(), "held by a writer") {
+		t.Fatalf("held folder was inspected: %v", err)
+	}
+}

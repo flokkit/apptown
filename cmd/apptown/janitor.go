@@ -11,7 +11,7 @@ import (
 // separate requests so a script cannot silently agree to newly changed meaning.
 func cmdJanitor(args []string) error {
 	if len(args) == 0 {
-		return usagef("usage: apptown janitor <list|preview|enable|disable|history> [options]")
+		return usagef("usage: apptown janitor <list|preview|enable|disable|history|assess> [options]")
 	}
 	verb := args[0]
 	fs := newFlags("janitor " + verb)
@@ -20,6 +20,8 @@ func cmdJanitor(args []string) error {
 	rule := fs.String("rule", "", "existing rule UUID when revising")
 	revision := fs.Int64("revision", 0, "expected current revision for revision or disable")
 	project := fs.String("project", "", "exact project UUID to list (omitted: administrative view)")
+	var runID string
+	fs.StringVar(&runID, "run", "", "exact run UUID to inspect without accepting or landing")
 	args = parseArgs(fs, args[1:])
 	var out json.RawMessage
 	switch verb {
@@ -32,6 +34,13 @@ func cmdJanitor(args []string) error {
 			path += "?projectId=" + url.QueryEscape(*project)
 		}
 		if err := api.get(path, &out); err != nil {
+			return err
+		}
+	case "assess":
+		if len(args) != 1 || runID == "" {
+			return usagef("usage: apptown janitor assess <rule UUID> --run UUID")
+		}
+		if err := api.post("/standing-approvals/"+url.PathEscape(args[0])+"/assess", map[string]string{"runId": runID}, &out); err != nil {
 			return err
 		}
 	case "history":

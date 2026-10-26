@@ -485,6 +485,7 @@ var cliOperations = map[string]described{
 	"GET /api/v1/standing-approvals/{id}/history":            {status: 200, response: []workflow.StandingRevision{}},
 	"POST /api/v1/standing-approvals/preview":                {request: workflow.StandingDefinition{}, status: 200, response: workflow.StandingQuestion{}},
 	"POST /api/v1/standing-approvals":                        {request: workflow.StandingCommand{}, status: 200, response: workflow.StandingRevision{}},
+	"POST /api/v1/standing-approvals/{id}/assess":            {request: httpapi.StandingAssess{}, status: 200, response: workflow.StandingAssessment{}},
 	"POST /api/v1/standing-approvals/{id}/disable":           {request: httpapi.StandingDisable{}, status: 200, response: workflow.StandingRevision{}},
 	"GET /api/v1/projects/{slug}/release/default":            {status: 200, response: deployment.ReleaseDefault{}},
 	"GET /api/v1/projects/{slug}/targets":                    {status: 200, response: httpapi.ProjectTargets{}},

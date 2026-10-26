@@ -17,6 +17,8 @@ import (
 )
 
 type StandingDependencies struct {
+	Inspector    standingInspector
+	Presence     standingPresence
 	Authority    access.Authorizer
 	Identity     *identity.Service
 	Procedures   StandingProcedures

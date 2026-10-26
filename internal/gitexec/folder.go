@@ -79,15 +79,19 @@ type Folder struct {
 // racing its checks; a chat save that brings the folder forward takes the
 // same lock. Across a restart, the records the checks read carry over. A
 // lock is kept per folder used; there are few, and each is small.
-func LockFolder(path string) *Folder {
-	path = filepath.Clean(path)
+func folderMutex(path string) *sync.Mutex {
 	folderLocks.Lock()
+	defer folderLocks.Unlock()
 	m := folderLocks.held[path]
 	if m == nil {
 		m = &sync.Mutex{}
 		folderLocks.held[path] = m
 	}
-	folderLocks.Unlock()
+	return m
+}
+func LockFolder(path string) *Folder {
+	path = filepath.Clean(path)
+	m := folderMutex(path)
 	m.Lock()
 	return &Folder{path: path, mu: m}
 }
@@ -347,4 +351,37 @@ func initCore(ctx context.Context, dir string) (map[string]string, error) {
 	}
 	initCores.Store(dir, core)
 	return core, nil
+}
+
+// ObserveFolder reads HEAD and source dirt without refreshing the index. It
+// never prepares or repairs the folder. A held writer lock refuses without
+// waiting; this check and Git read hold the same lock as local writers.
+// Callers compare this observation to
+// their published commit and repeat it after work performed outside the lock.
+func ObserveFolder(ctx context.Context, folder string) (tip string, dirty bool, err error) {
+	folder = filepath.Clean(folder)
+	lock := folderMutex(folder)
+	if !lock.TryLock() {
+		return "", false, errors.New("source folder is held by a writer")
+	}
+	defer lock.Unlock()
+	if err = CheckFolder(ctx, folder); err != nil {
+		return "", false, err
+	}
+	tip, err = confined(ctx, folder, "--no-optional-locks", "rev-parse", "--verify", "HEAD^{commit}")
+	if err != nil {
+		return "", false, err
+	}
+	// Runtime state is not source. The native contract remains included even
+	// though the surrounding runtime directory is excluded.
+	args := []string{"--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=all", "--ignore-submodules=none", "--", ".", ":(exclude).apptown", ":(exclude).forge"}
+	out, err := confined(ctx, folder, args...)
+	if err != nil {
+		return "", false, err
+	}
+	contract, err := confined(ctx, folder, "--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=all", "--", ".apptown/app.yaml")
+	if err != nil {
+		return "", false, err
+	}
+	return tip, out != "" || contract != "", nil
 }

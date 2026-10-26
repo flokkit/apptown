@@ -1506,6 +1506,21 @@ export type StandingActor = {
   via?: string
 }
 
+export type StandingAssessment = {
+  ruleId: string | null
+  ruleRevision: number
+  questionDigest: string
+  projectId: string | null
+  changeId: string | null
+  runId: string | null
+  stage: string
+  retryRevision: number
+  adoptionId: string | null
+  adoptionRevision: number
+  inspection: StandingInspection
+  processingAvailable: boolean
+}
+
 export type StandingCategories = {
   dependencies: string
   baseImages: boolean
@@ -1535,6 +1550,17 @@ export type StandingEnvironment = {
   deploymentId: string | null
   targetId: string | null
   promotion: boolean
+}
+
+export type StandingInspection = {
+  classification: string
+  reason: string
+  classifier: string
+  base: string
+  candidate: string
+  tree: string
+  changedFiles: string[]
+  validation?: StandingValidation | null
 }
 
 export type StandingProcedure = {
@@ -1585,6 +1611,15 @@ export type StandingStatus = {
   eligible: boolean
   reason: string
   processingAvailable: boolean
+}
+
+export type StandingValidation = {
+  image: string
+  node: string
+  npm: string
+  platform: string
+  reportDigest: string
+  scratchSettlement: string
 }
 
 export type StepInterrupted = {

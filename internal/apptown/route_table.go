@@ -430,6 +430,7 @@ func appRoutes(a *App) []routeSpec {
 		ownerRoute("POST /api/v1/standing-approvals/preview", standingApprovals.Preview, "standingApprovals.Preview"),
 		ownerRoute("POST /api/v1/standing-approvals", standingApprovals.Enable, "standingApprovals.Enable"),
 		ownerRoute("GET /api/v1/standing-approvals/{id}/history", standingApprovals.History, "standingApprovals.History"),
+		ownerRoute("POST /api/v1/standing-approvals/{id}/assess", standingApprovals.Assess, "standingApprovals.Assess"),
 		ownerRoute("POST /api/v1/standing-approvals/{id}/disable", standingApprovals.Disable, "standingApprovals.Disable"),
 		requireRoute("POST /api/v1/changes/{id}/attachments", attachments.UploadAttachment, access.CapChangeAttach, "change"),
 		requireRoute("GET /api/v1/changes/{id}/attachments", attachments.ListAttachments, access.CapChangeRead, "change"),

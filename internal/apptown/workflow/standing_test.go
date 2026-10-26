@@ -336,3 +336,95 @@ func TestStandingRevocationAcceptsEitherManagementScopeWithoutAssent(t *testing.
 		})
 	}
 }
+
+type standingInspectorFunc func(context.Context, Source, string) (StandingInspection, error)
+
+func (f standingInspectorFunc) InspectRoutine(ctx context.Context, s Source, b string) (StandingInspection, error) {
+	return f(ctx, s, b)
+}
+
+type standingPresenceFixture struct{ clear bool }
+
+func (standingPresenceFixture) Gone(context.Context, string) (bool, error) {
+	return false, errors.New("inspection must not remove a chat")
+}
+func (standingPresenceFixture) ChatEnded(context.Context, string) (bool, error) { return true, nil }
+func (standingPresenceFixture) UnsettledRuns(context.Context, database.Queryer) ([]ids.ID, error) {
+	return nil, nil
+}
+func (standingPresenceFixture) FolderClear(context.Context, ids.ID) (bool, error) {
+	return false, errors.New("inspection must not remove a runtime")
+}
+func (f standingPresenceFixture) FolderUnwritten(context.Context, ids.ID) (bool, error) {
+	return f.clear, nil
+}
+
+func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testing.T) {
+	a, s, _, ctx, in := standingFixture(t)
+	if err := project.New(a.DB, nil).SetDefaultBranch(ctx, a.ProjectID, "main"); err != nil {
+		t.Fatal(err)
+	}
+	in.Projects[0].Workflow = "test"
+	rule := enableStanding(t, s, ctx, in)
+	s.deps.Presence = standingPresenceFixture{clear: true}
+	calls := 0
+	s.deps.Inspector = standingInspectorFunc(func(_ context.Context, source Source, bounds string) (StandingInspection, error) {
+		calls++
+		if source.RunID != a.RunID || source.ChangeID != a.ChangeID || bounds != "patch" {
+			t.Fatalf("wrong admitted inspection %+v %s", source, bounds)
+		}
+		return StandingInspection{Classification: "routine-dependency", Candidate: "exact-candidate"}, nil
+	})
+	outsider := stepVerifiedContext(t.Context(), testAdmittedPrincipal(t, a.Access, "outsider"))
+	if _, err := s.Assess(outsider, rule.RuleID, a.RunID); err == nil || calls != 0 {
+		t.Fatalf("unauthorized inspection ran: %v calls=%d", err, calls)
+	}
+	result, err := s.Assess(ctx, rule.RuleID, a.RunID)
+	if err != nil || calls != 1 || result.ProcessingAvailable || result.RuleRevision != rule.Revision {
+		t.Fatalf("authorized inspection: %+v %v calls=%d", result, err, calls)
+	}
+
+	checked := s.deps.Authority
+	s.deps.Authority = stepPermissionFunc(func(ctx context.Context, p access.Permission) (access.Caller, error) {
+		if p.Capability == access.CapChangeRunChecks {
+			return access.Caller{}, &access.Denied{Reason: "check execution withdrawn"}
+		}
+		return checked.Require(ctx, p)
+	})
+	if _, e := s.Assess(ctx, rule.RuleID, a.RunID); e == nil || calls != 1 {
+		t.Fatalf("read permission substituted for check execution: %v calls=%d", e, calls)
+	}
+	s.deps.Authority = checked
+	s.deps.Presence = standingPresenceFixture{clear: false}
+	if _, err = s.Assess(ctx, rule.RuleID, a.RunID); err == nil || calls != 1 {
+		t.Fatalf("live writer inspected: %v calls=%d", err, calls)
+	}
+	s.deps.Presence = standingPresenceFixture{clear: true}
+
+	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, string) (StandingInspection, error) {
+		calls++
+		q, e := s.Preview(ctx, in)
+		if e != nil {
+			t.Fatal(e)
+		}
+		updated, e := s.Enable(ctx, StandingCommand{RuleID: rule.RuleID, ExpectedRevision: rule.Revision, Definition: in, ShownDigest: q.Digest})
+		if e != nil {
+			t.Fatal(e)
+		}
+		rule = updated
+		return StandingInspection{Classification: "routine-dependency"}, nil
+	})
+	if _, e := s.Assess(ctx, rule.RuleID, a.RunID); e == nil || calls != 2 {
+		t.Fatalf("revised rule reused an older classification: %v calls=%d", e, calls)
+	}
+	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, string) (StandingInspection, error) {
+		calls++
+		if _, e := s.Disable(ctx, rule.RuleID, rule.Revision); e != nil {
+			t.Fatal(e)
+		}
+		return StandingInspection{Classification: "routine-dependency"}, nil
+	})
+	if _, err = s.Assess(ctx, rule.RuleID, a.RunID); err == nil || calls != 3 {
+		t.Fatalf("revoked rule produced usable classification: %v calls=%d", err, calls)
+	}
+}

@@ -81,3 +81,28 @@ func (h StandingApprovals) Disable(w http.ResponseWriter, r *http.Request) {
 		WriteJSON(w, 200, out)
 	})
 }
+
+// StandingAssess names work, never caller-supplied evidence or authority.
+type StandingAssess struct {
+	RunID ids.ID `json:"runId"`
+}
+
+func (h StandingApprovals) Assess(w http.ResponseWriter, r *http.Request) {
+	id, err := PathID(r, "id")
+	if err != nil {
+		WriteError(w, 400, "bad rule identity")
+		return
+	}
+	jsonCommand(w, r, jsonBody{}, func(in StandingAssess) {
+		if in.RunID.IsZero() {
+			WriteError(w, 400, "select an exact run identity")
+			return
+		}
+		out, err := h.owner.Assess(r.Context(), id, in.RunID)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		WriteJSON(w, 200, out)
+	})
+}

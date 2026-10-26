@@ -47,3 +47,31 @@ exact returned `--confirm` digest. Revising requires `--rule` and `--revision`.
 Disable also requires the expected revision. Commands emit JSON and never start
 a release. If a save response is lost, inspect current rules before submitting
 another new rule; an unknown response is not proof the save failed.
+
+## Inspecting a candidate
+
+`apptown janitor assess RULE --run RUN` inspects an exact run without accepting,
+landing or deploying it. The caller needs current read and check-execution
+permission. The rule must still be eligible for that project and workflow.
+Active writers, unsettled tasks, dirty or unpublished work, changed source and
+changed consent refuse an assessment. Inspection never repairs or saves source.
+
+The supported dependency classifier reads the complete committed diff. Its
+initial npm contract accepts root `package.json` and version-3
+`package-lock.json` with a fixed package graph, canonical public-registry sources
+and stable forward patch/minor versions within the rule's bounds. New packages,
+graph changes, other files or modes, lifecycle/platform changes and unsupported
+ranges require a person. Unknown fields remain part of the comparison.
+
+Both exact inputs undergo frozen installation with scripts disabled in the
+observed immutable agent image. Installed package manifests, rather than the
+lock's claims alone, establish package identity and install behavior. The result
+records source commits, tree, rule and run revisions, tool versions, image and
+report digest. Failure or incomplete evidence is `cannot-assess`, never routine
+success. Worker scratch-directory removal is not observed in this response; its
+owner retries removal through the existing sweep. Container settlement is
+required. Classification is historical evidence only, not reusable assent.
+
+Base-image, advisory and way-of-working classification are unavailable through
+this inspection operation. Saving consent to those categories does not supply
+their missing evidence or enable automatic processing.
