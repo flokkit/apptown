@@ -274,6 +274,32 @@ class Gate(unittest.TestCase):
         out = finish(p)
         self.assertEqual(p.returncode, 0, out)
 
+    def runner(self):
+        path = os.path.join(self.dir, "runner")
+        with open(path, "w") as f:
+            f.write('#!/bin/sh\nprintf "%s\\n" "$@" >> "$PIDS.argv"\nexec "$@"\n')
+        os.chmod(path, 0o755)
+        self.env["GATE_STAGE_RUNNER"] = path
+
+    def test_optional_runner_preserves_arguments_and_failure(self):
+        self.runner()
+        p, out = self.run_gate("fail")
+        self.assertEqual(p.returncode, 1, out)
+        with open(self.pids + ".argv") as f:
+            self.assertEqual(f.read().splitlines(), [self.make, "--no-print-directory", "fail"])
+        self.assertIn("the reason it failed", out)
+
+    def test_invalid_runner_starts_no_stage(self):
+        for path in ("relative-runner", os.path.join(self.dir, "missing"), self.dir):
+            self.env["GATE_STAGE_RUNNER"] = path
+            p, out = self.run_gate("pass")
+            self.assertEqual(p.returncode, 2, out)
+            self.assertEqual(self.stage_pids(), [])
+
+    def test_optional_runner_keeps_shutdown_ownership(self):
+        self.runner()
+        self.test_term_returns_only_after_a_slow_stage_has_cleaned_up()
+
     @unittest.skipUnless(sys.platform == "darwin", "the throttled band and taskpolicy are macOS's")
     def test_a_gate_demoted_part_way_says_so_and_keeps_its_result(self):
         p, out = self.run_gate("demote-gate")

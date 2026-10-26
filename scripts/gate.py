@@ -122,6 +122,11 @@ def main(stages):
     if refuse_if_throttled():
         return REFUSED
     make = os.environ.get("MAKE", "make")
+    runner = os.environ.get("GATE_STAGE_RUNNER")
+    if runner and (not os.path.isabs(runner) or not os.path.isfile(runner)
+                   or not os.access(runner, os.X_OK)):
+        print("gate: GATE_STAGE_RUNNER must be an absolute executable file", file=sys.stderr)
+        return 2
     base = os.environ.get("GATE_LOG_DIR") or tempfile.gettempdir()
     os.makedirs(base, exist_ok=True)
     logs = tempfile.mkdtemp(prefix="apptown-gate.", dir=base)
@@ -132,7 +137,10 @@ def main(stages):
     running = []
     for stage in stages:
         log = os.path.join(logs, stage + ".log")
-        pid = os.posix_spawnp(make, [make, "--no-print-directory", stage], os.environ, file_actions=[
+        argv = [make, "--no-print-directory", stage]
+        if runner:
+            argv.insert(0, runner)
+        pid = os.posix_spawnp(argv[0], argv, os.environ, file_actions=[
             (os.POSIX_SPAWN_OPEN, 0, os.devnull, os.O_RDONLY, 0),
             (os.POSIX_SPAWN_OPEN, 1, log, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644),
             (os.POSIX_SPAWN_DUP2, 1, 2)])
