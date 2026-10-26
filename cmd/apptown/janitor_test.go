@@ -55,3 +55,22 @@ func TestJanitorReadsUseTheShippedContract(t *testing.T) {
 		t.Fatalf("reads: %+v", seen)
 	}
 }
+
+func TestJanitorAssessmentNamesOnlyTheRuleAndRun(t *testing.T) {
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
+		if method != "POST" || path != "/standing-approvals/rule/assess" {
+			t.Fatalf("unexpected assessment effect %s %s", method, path)
+		}
+		return 200, `{"processingAvailable":false,"inspection":{"classification":"routine-dependency"}}`
+	})
+	if _, err := run(t, "janitor", "assess", "rule"); err == nil || len(*seen) != 0 {
+		t.Fatalf("missing run admitted: %v", err)
+	}
+	out, err := run(t, "janitor", "assess", "rule", "--run", "exact-run")
+	if err != nil || len(*seen) != 1 {
+		t.Fatalf("assessment %q %v", out, err)
+	}
+	if len((*seen)[0].Body) != 1 || (*seen)[0].Body["runId"] != "exact-run" || !strings.Contains(out, `"processingAvailable": false`) {
+		t.Fatalf("unexpected evidence or approval claim: %q %+v", out, *seen)
+	}
+}

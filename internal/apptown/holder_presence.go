@@ -57,3 +57,17 @@ func (h holderPresence) FolderClear(ctx context.Context, changeID ids.ID) (bool,
 	}
 	return len(left) == 0, nil
 }
+
+// FolderUnwritten observes remaining writers without removing them. Unknown
+// Docker state is an error; an absent local executor has no local writers.
+func (h holderPresence) FolderUnwritten(ctx context.Context, changeID ids.ID) (bool, error) {
+	if h.docker.Absent() {
+		return true, nil
+	}
+	folder := (workflow.Layout{DataDir: h.dataDir}).ChangeWorkspace(changeID)
+	out, err := h.docker.Run(ctx, "ps", "-aq", "--filter", "label="+docker.WritesLabel+"="+folder)
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(out)) == "", nil
+}

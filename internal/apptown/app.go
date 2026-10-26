@@ -348,7 +348,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.preparation = workcommands.NewPreparation(db, a.Adoption, a.branches, cfg.dataDir, holderPresenceFor(a), a.chatSaves, a.Secrets, cfg.clock.Now)
 	a.Work = workflow.New(a.life, db, a.workDependencies())
 	a.attachments = workflow.NewAttachments(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, workflow.GitWorkspace{DataDir: cfg.dataDir}, cfg.clock.Now)
-	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}, Now: cfg.clock.Now})
+	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Inspector: verification.NewRoutineInspector(cfg.dataDir, &a.repositories, checksFor(a)), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}, Now: cfg.clock.Now})
 	a.ADRs = adrs.New(db, access.Checked{Authority: identity.Scoped(a.Access, "adrs"), Projects: a.Projects}, refreshADREvidence(a.Work, a.asEngine(a.life)), cfg.clock.Now)
 	a.Fixes = remediation.New(db, a.remediationDependencies())
 	a.Evals = evals.New(db, evalsDependencies(a))
