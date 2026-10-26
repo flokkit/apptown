@@ -11,6 +11,7 @@ web/node_modules/
 web/dist/
 !deploy/apptown-agent/
 !deploy/apptown-start.sh
+!scripts/stock-files.go
 !scripts/third-party-notices.py
 !scripts/apptown-db-backup.sh
 !LICENSE

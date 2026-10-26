@@ -1,6 +1,7 @@
 #!/bin/sh
-# The stranger test for the desktop trial (README, Desktop trial): run the
-# apptown image the way the README says and reach a first preview.
+# The disposable HTTP runtime check for the desktop trial: run the
+# apptown image with local TLS explicitly disabled and reach a first preview.
+# This does not qualify the default TLS onboarding flow.
 #
 #   sh scripts/trial-check.sh <version> [--published]
 #
@@ -26,11 +27,41 @@ published=${2:-}
 port=${PORT:-7777}
 image=ghcr.io/flokkit/apptown:$version
 agent=ghcr.io/flokkit/apptown-agent:$version
-name=apptown-check-$$
+scratch=$(mktemp -d)
+name=apptown-check-$(basename "$scratch")
+owner=apptown.trial-check=$name
 here=$(cd "$(dirname "$0")/.." && pwd)
 start=$(date +%s)
 step() { echo "== $(( $(date +%s) - start ))s: $*"; }
-fail() { echo "FAIL: $*"; docker logs "$name" 2>&1 | tail -30; exit 1; }
+fail() { echo "FAIL: $* (trial $name)"; exit 1; }
+
+cleanup() {
+ result=$?
+ trap - EXIT
+ # Labels identify resources even when startup failed after their creation.
+ # Never remove a resource merely because it has the expected name.
+ if containers=$(docker ps -a --filter "label=$owner" --format '{{.Names}}'); then
+  if [ "$containers" = "$name" ]; then
+   docker rm -f "$name" >/dev/null 2>&1 || { echo "Failed to remove trial container $name"; [ "$result" != 0 ] || result=1; }
+  elif [ -n "$containers" ]; then
+   echo "Unexpected trial container inventory for $name"; [ "$result" != 0 ] || result=1
+  fi
+ else
+  echo "Cannot inspect trial container $name"; [ "$result" != 0 ] || result=1
+ fi
+ if volumes=$(docker volume ls --filter "label=$owner" --format '{{.Name}}'); then
+  if [ "$volumes" = "$name" ]; then
+   docker volume rm "$name" >/dev/null 2>&1 || { echo "Failed to remove trial volume $name"; [ "$result" != 0 ] || result=1; }
+  elif [ -n "$volumes" ]; then
+   echo "Unexpected trial volume inventory for $name"; [ "$result" != 0 ] || result=1
+  fi
+ else
+  echo "Cannot inspect trial volume $name"; [ "$result" != 0 ] || result=1
+ fi
+ rm -rf "$scratch" || { echo "Failed to remove trial temporary files"; [ "$result" != 0 ] || result=1; }
+ exit "$result"
+}
+trap cleanup EXIT
 
 if [ "$published" = --published ]; then
 	step "pull $image and $agent"
@@ -42,7 +73,6 @@ else
 	docker build -q -t "$agent" "$here/deploy/apptown-agent" >/dev/null
 fi
 
-trap 'docker rm -f "$name" >/dev/null 2>&1; docker volume rm "$name" >/dev/null 2>&1 || :' EXIT
 origin=http://localhost:$port
 # ready <n>: wait for the n-th ready line and print the link in it.
 ready() {
@@ -55,9 +85,10 @@ ready() {
 	echo "   ready after $(( $(date +%s) - t0 ))s"
 }
 
-step "the README command (first start)"
-docker run -d --name "$name" --privileged -p "127.0.0.1:$port:7777" -v "$name:/var/lib/apptown" \
-	-e "APPTOWN_PUBLIC_HOST=$origin" -e "APPTOWN_TIER_DOMAIN=preview=http://preview.localhost:$port,main=http://main.localhost:$port" \
+step "the HTTP trial (first start)"
+docker volume create --label "$owner" "$name" >/dev/null
+docker run -d --name "$name" --label "$owner" --privileged -p "127.0.0.1:$port:7777" -v "$name:/var/lib/apptown" \
+	-e APPTOWN_LOCAL_TLS=false -e "APPTOWN_PUBLIC_HOST=$origin" -e "APPTOWN_TIER_DOMAIN=preview=http://preview.localhost:$port,main=http://main.localhost:$port" \
 	"$image" >/dev/null
 ready 1
 
@@ -72,7 +103,7 @@ ready 2
 step "the first administrator, from the printed link"
 token=$(docker logs "$name" 2>&1 | sed -n 's/.*?setup=\([0-9a-f]*\) .*/\1/p' | tail -1)
 [ -n "$token" ] || fail "the ready line carried no setup token"
-jar=$(mktemp)
+jar=$scratch/cookies
 password=$(head -c 24 /dev/urandom | od -An -tx1 | tr -d ' \n')
 curl -fsS -c "$jar" -H 'Content-Type: application/json' \
 	-d "{\"username\":\"admin\",\"password\":\"$password\",\"setupToken\":\"$token\"}" "$origin/api/v1/auth/bootstrap" >/dev/null
