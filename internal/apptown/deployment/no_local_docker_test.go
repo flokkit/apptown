@@ -293,9 +293,17 @@ func (w *noLocalWorld) land(t *testing.T, s *Service, dep *Deployment, runID ids
 		t.Fatal(err)
 	}
 	defer cleanup()
+	names, err := dep.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, err := s.Deployments.StablePort(t.Context(), w.project, dep.Name, names.App())
+	if err != nil {
+		t.Fatal(err)
+	}
 	out, err := s.RunLanding(ctx, landingClaim{w.project, runID}, LandingInput{
 		Start:  Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: fmt.Sprintf("run-%d", runID), Inputs: Inputs{ReleaseRun: runID, Revision: w.revision, ArtifactHash: art.Hash, DockerSource: string(art.Body)}},
-		Source: *art.Source, DataClass: "synthetic",
+		Source: *art.Source, HostPort: port, DataClass: "synthetic",
 	})
 	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
 		t.Fatalf("landing: %+v %v %v", out.Execution, err, out.Boot.Err)
@@ -647,6 +655,9 @@ func TestObservingAContainerKeepsUnknownApartFromStoppedAndMissing(t *testing.T)
 func TestALandingOnAnAttachedHostIsReachedAtThatHost(t *testing.T) {
 	t.Parallel()
 	w := noLocalDockerWorld(t, multipartApp)
+	// Observe the reserved published port, not the fake server backing it.
+	w.daemon.PublishPorts()
+	t.Cleanup(w.daemon.Close)
 	s := w.service(true)
 	main := w.deployment(t, s, "main", w.remote)
 	out, _ := w.land(t, s, main, idstest.N(7))

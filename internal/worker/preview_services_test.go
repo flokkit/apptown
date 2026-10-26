@@ -21,47 +21,57 @@ import (
 // own result does not matter here.)
 func TestTheWorkerStartsAWorkflowsServicesFromThePreparedValue(t *testing.T) {
 	t.Parallel()
-	dk, _ := sweepDocker(t)
-	dk.reply = func(args []string) ([]byte, error, bool) {
-		line := strings.Join(args, " ")
-		switch {
-		case strings.Contains(line, "context show"):
-			return []byte("default\n"), nil, true
-		case strings.Contains(line, ".State.Health"):
-			return []byte("healthy\n"), nil, true
-		case strings.Contains(line, "{{.State.Running}} {{.Id}}"):
-			return []byte("Error: No such object\n"), errExit, true
-		}
-		return nil, nil, true
-	}
-	ca := workertest.NewCA(t)
-	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: dk})
-	previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
-
-	c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: .\n    public: true\n"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	tree := t.TempDir()
-	if err := os.WriteFile(filepath.Join(tree, "index.html"), []byte("<html></html>"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	prepared := docker.Prepared{Version: docker.PreparedVersion, Contract: c, BrowserEnv: "{}",
-		Services: []deploy.ServiceSpec{{Name: "cache", Image: "forge-test-cache:7", Health: "true"}}}
-	if _, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "apptown-preview-run-5", StackID: "pv55", Slug: "app",
-		Incarnation: "tree+digest", ProbeSeconds: 1}, prepared, tree); err != nil {
-		t.Fatal(err)
-	}
-	body := strings.Join(dk.commands(""), "\n")
-	var started bool
-	for _, line := range dk.commands("") {
-		if strings.Contains(line, " run ") || strings.HasPrefix(line, "run ") || strings.Contains(line, "run -d") {
-			if strings.Contains(line, "forge-test-cache:7") && strings.Contains(line, "pv55") {
-				started = true
+	for _, origin := range []string{"https://change-5.preview.example", "https://*.preview.example", ""} {
+		t.Run("origin="+origin, func(t *testing.T) {
+			dk, _ := sweepDocker(t)
+			dk.reply = func(args []string) ([]byte, error, bool) {
+				line := strings.Join(args, " ")
+				switch {
+				case strings.Contains(line, "context show"):
+					return []byte("default\n"), nil, true
+				case strings.Contains(line, ".State.Health"):
+					return []byte("healthy\n"), nil, true
+				case strings.Contains(line, "{{.State.Running}} {{.Id}}"):
+					return []byte("Error: No such object\n"), errExit, true
+				}
+				return nil, nil, true
 			}
-		}
-	}
-	if !started {
-		t.Fatalf("the worker did not start the workflow's service:\n%s", body)
+			ca := workertest.NewCA(t)
+			hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Previews: dk})
+			previews := worker.Previews{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+
+			c, err := appcontract.Parse([]byte("version: 1\napp:\n  web:\n    static: .\n    public: true\n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			tree := t.TempDir()
+			if err := os.WriteFile(filepath.Join(tree, "index.html"), []byte("<html></html>"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			prepared := docker.Prepared{Version: docker.PreparedVersion, Contract: c, BrowserEnv: "{}", Origins: origin,
+				Services: []deploy.ServiceSpec{{Name: "cache", Image: "forge-test-cache:7", Health: "true"}}}
+			if _, err := previews.Boot(context.Background(), worker.PreviewSpec{Name: "apptown-preview-run-5", StackID: "pv55", Slug: "app",
+				Incarnation: "tree+digest", ProbeSeconds: 1}, prepared, tree); err != nil {
+				t.Fatal(err)
+			}
+			body := strings.Join(dk.commands(""), "\n")
+			if origin != "" && !strings.Contains(body, "APPTOWN_ORIGINS="+origin) {
+				t.Fatalf("captured route changed in worker boot: %s", body)
+			}
+			if origin == "" && strings.Contains(body, "APPTOWN_ORIGINS=") {
+				t.Fatalf("domainless preview gained origin: %s", body)
+			}
+			var started bool
+			for _, line := range dk.commands("") {
+				if strings.Contains(line, " run ") || strings.HasPrefix(line, "run ") || strings.Contains(line, "run -d") {
+					if strings.Contains(line, "forge-test-cache:7") && strings.Contains(line, "pv55") {
+						started = true
+					}
+				}
+			}
+			if !started {
+				t.Fatalf("the worker did not start the workflow's service:\n%s", body)
+			}
+		})
 	}
 }

@@ -208,7 +208,7 @@ scope names. AppTown adds a few values of its own, which differ by target:
 | Value | Docker host | Portainer | App Platform |
 | --- | --- | --- | --- |
 | `PORT` | every part that has a port | every part that has a port | not set by AppTown |
-| `APPTOWN_ORIGINS` | public part: the address patterns browsers use, as wildcards (`https://*.apps.example.com`) | public part, the same | public part: the app's own address |
+| `APPTOWN_ORIGINS` | public part: its own standing or configured preview origin | public part: its admitted deployment ingress hosts | public part: the app's own address |
 | `DATA_DIR` | public part, when it has a `dataDir`, set last | public part, the same | — (no `dataDir`) |
 | `APPTOWN_TRUST` | every part and init step but a static site's, when the server is given extra certificate authorities: a script the start command runs (`eval "${APPTOWN_TRUST:-}"`) to trust them | the same | the same |
 | attached integrations: `SENTRY_DSN` (error reporting); `FEEDBACK_URL` and `FEEDBACK_APP_KEY` (customer feedback, Experimental) | public part | public part, the same | not delivered; the release records it |
@@ -300,10 +300,15 @@ Use `APPTOWN_ORIGINS` for the trusted origins a framework checks forms and
 CSRF tokens against, not a typed host name. Its syntax is stable: a
 comma-separated list of origins, each `scheme://host` or
 `scheme://host:port`, where a host may begin with `*.` to cover every name
-under it. On a Docker host and Portainer it holds patterns that can cover
-more than this one deployment; on App Platform, the app's own address. A
-later release may add entries (a custom domain, say), never change the
-syntax: split on commas, and treat a leading `*.` as a wildcard.
+under it. New Docker boots use their own standing address or configured preview origin;
+Portainer uses the admitted deployment hosts, and App Platform its own address.
+A domainless local preview has no configured origin: its ephemeral host port
+is chosen only when it starts. Sealed restore checks use the source deployment's
+origin within their isolated network. Existing containers and admitted preview
+requests retain their captured values; fresh preparation narrows old wildcard
+trust, so applications must not rely on accepting sibling projects' origins.
+Management address aliases do not add application hosts. A later release may
+add entries (a custom domain, say), never change the syntax: split on commas, and treat a leading `*.` as a wildcard.
 
 ## Health
 

@@ -73,7 +73,7 @@ func (s *Service) prepareChange(ctx context.Context, ch Change) (changeBoot, err
 	if err != nil {
 		return changeBoot{}, err
 	}
-	if b.prepared, err = s.preparePreview(ctx, ch.ProjectID, project.Slug, docker.PreviewChangeName(ch.ID), b.tree.Directory, c, nil); err != nil {
+	if b.prepared, err = s.preparePreview(ctx, ch.ProjectID, project.Slug, docker.PreviewChangeName(ch.ID), fmt.Sprintf("change-%d", ch.ID), b.tree.Directory, c, nil); err != nil {
 		return changeBoot{}, err
 	}
 	b.public = b.prepared.Public()
@@ -295,10 +295,18 @@ func (s *Service) RehearseChange(ctx context.Context, ch Change, restart bool) (
 // (a workflow's services:), and the needs' credentials of the preview
 // named: the same whenever it is prepared, so preparing has no effect and
 // its incarnation is stable (deployment.PreviewNeedScope).
-func (s *Service) preparePreview(ctx context.Context, projectID ids.ID, slug, preview, ws string, c *appcontract.Contract, services []deploy.ServiceSpec) (docker.Prepared, error) {
+func (s *Service) preparePreview(ctx context.Context, projectID ids.ID, slug, preview, label, ws string, c *appcontract.Contract, services []deploy.ServiceSpec) (docker.Prepared, error) {
 	p, err := s.env.PrepareBoot(ctx, projectID, slug, "preview", ws, c, s.env.NeedCredentials(deployment.PreviewNeedScope(preview)))
 	if err != nil {
 		return p, err
+	}
+	routes := s.env.RoutesFor(ctx, projectID)
+	p.Origins = ""
+	if routes.PreviewDomain != "" {
+		p.Origins, err = docker.ExactOrigin(routes.PreviewURL(label, 0))
+		if err != nil {
+			return p, err
+		}
 	}
 	p.Services, _, err = deployment.SuppliedServiceDefaults(p.Contract, services)
 	return p, err

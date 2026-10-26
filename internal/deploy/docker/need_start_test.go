@@ -72,7 +72,7 @@ func storeRelease(t *testing.T, class, health string) (*ownedHost, error) {
 	body := []byte(`{"version":1,"revision":"abc"}`)
 	art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 		Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "shop", Contract: c}}
-	_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 2, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
+	_, err = d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main", HostPort: 41233}, 2, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 	return h, err
 }
 

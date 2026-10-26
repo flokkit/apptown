@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -105,7 +106,11 @@ func TestALandingCapsAndRecordsSuppliedWorkflowServices(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer cleanup()
-	out, err := s.RunLanding(t.Context(), landingClaim{w.project, idstest.N(7)}, LandingInput{Start: Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "supplied", Inputs: Inputs{ReleaseRun: idstest.N(7), Revision: w.revision, ArtifactHash: art.Hash, DockerSource: string(art.Body)}}, Source: *art.Source, Services: supplied, DataClass: "synthetic"})
+	port, err := s.Deployments.StablePort(t.Context(), w.project, "main", hostNamesOf(t, s, w.project, "game", "main").App())
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := s.RunLanding(t.Context(), landingClaim{w.project, idstest.N(7)}, LandingInput{Start: Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "supplied", Inputs: Inputs{ReleaseRun: idstest.N(7), Revision: w.revision, ArtifactHash: art.Hash, DockerSource: string(art.Body)}}, Source: *art.Source, Services: supplied, HostPort: port, DataClass: "synthetic"})
 	if err != nil || out.Boot.Err != nil || out.Execution.Outcome != Applied {
 		t.Fatalf("landing: %+v %v", out, err)
 	}
@@ -116,6 +121,10 @@ func TestALandingCapsAndRecordsSuppliedWorkflowServices(t *testing.T) {
 	stored, err := s.Deployments.ByID(t.Context(), dep.ID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	wantOrigin := fmt.Sprintf("APPTOWN_ORIGINS=http://127.0.0.1:%d", stored.HostPort)
+	if !strings.Contains(fmt.Sprint(w.daemon.Commands()), wantOrigin) || strings.Contains(fmt.Sprint(w.daemon.Commands()), "APPTOWN_ORIGINS=https://*.") {
+		t.Fatalf("landing emitted wrong origins: %v", w.daemon.Commands())
 	}
 	a, err := s.SettledApplied(t.Context(), stored)
 	if err != nil {

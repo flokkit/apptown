@@ -46,6 +46,14 @@ func TestDockerRebuildReplayQueuesObservationWithoutBoot(t *testing.T) {
 	}
 	// sql-guarantee: no owner read lists a deployment's settled attempts; only the count proves no further attempt was admitted.
 	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE deployment_id=?`, env.ID)
+	names, err := env.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	env.HostPort, err = a.Deployment.Deployments.StablePort(t.Context(), env.ProjectID, env.Name, names.App())
+	if err != nil {
+		t.Fatal(err)
+	}
 	store := a.Deployment.Outcomes
 	inputs, err := store.InputsAtGeneration(context.Background(), env.ID, 1)
 	if err != nil {
@@ -120,6 +128,14 @@ func TestDockerSelectedDeploymentKeepsResolvedSecretsOutOfInputsAndProof(t *test
 		t.Fatal(err)
 	}
 	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), idstest.N(1), "main", targetForLanding.ID, deployment.Attributes{Feed: "landing", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := env.HostNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	env.HostPort, err = a.Deployment.Deployments.StablePort(t.Context(), env.ProjectID, env.Name, names.App())
 	if err != nil {
 		t.Fatal(err)
 	}

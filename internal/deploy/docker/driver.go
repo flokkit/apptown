@@ -98,8 +98,16 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
+	originURL := d.URL(d.ServingLabel, p.Name, p.HostPort)
+	if dk.Remote() {
+		originURL = dk.FrontDoor(d.ServingLabel, p.Name, p.HostPort)
+	}
+	origin, err := ExactOrigin(originURL)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
+	}
 	req := BootRequest{
-		Log:  logf,
+		Log: logf, ExactOrigins: &origin,
 		Name: name, StackID: names.Stack(), Slug: slug, ServingLabel: d.ServingLabel, Workspace: ws,
 		Deployment: p.Name, DataClass: d.DataClass, HostPort: p.HostPort, Persistent: true, Probe: 90 * time.Second, Docker: dk,
 		Identity: &id, Services: SourceServices(art), Revision: source.Revision, Fill: d.Fill, Allowed: d.Allowed, Storage: d.Storage, RestoreStorage: d.RestoreStorage,

@@ -21,6 +21,16 @@ import (
 	"github.com/flokkit/apptown/internal/poll"
 )
 
+// Workspace interception tests name the Git operation, independent of the
+// owner's command-line configuration options. Real execution remains delegated.
+func workspaceGitArguments(argv []string) []string {
+	args := argv[1:]
+	for len(args) >= 2 && args[0] == "-c" {
+		args = args[2:]
+	}
+	return args
+}
+
 type processFunc func(context.Context, string, execution.Request) execution.Outcome
 
 func (f processFunc) Run(ctx context.Context, backend string, in execution.Request) execution.Outcome {
@@ -125,9 +135,10 @@ func TestWorkspaceGitFailuresLeaveNoHalfConfiguredClone(t *testing.T) {
 			failure := errors.New("injected Git failure")
 			hit := false
 			w.git = GitWorkspace{DataDir: w.git.Paths().DataDir, Runner: processFunc(func(ctx context.Context, backend string, in execution.Request) execution.Outcome {
-				name := in.Argv[1]
+				args := workspaceGitArguments(in.Argv)
+				name := args[0]
 				if name == "config" {
-					name += " " + in.Argv[2]
+					name += " " + args[1]
 				}
 				if name == "rev-parse" && strings.Contains(in.Workspace, ".forge-preparing-") {
 					name = "prepared base"
@@ -215,7 +226,7 @@ func TestWorkspaceRechecksChangeAndProjectAfterGit(t *testing.T) {
 			once := false
 			w.git = GitWorkspace{DataDir: w.git.Paths().DataDir, Runner: processFunc(func(ctx context.Context, backend string, in execution.Request) execution.Outcome {
 				out := (execution.Runner{}).Run(ctx, backend, in)
-				if !once && in.Argv[1] == "rev-parse" && strings.Contains(in.Workspace, ".forge-preparing-") && out.RunErr == nil {
+				if !once && workspaceGitArguments(in.Argv)[0] == "rev-parse" && strings.Contains(in.Workspace, ".forge-preparing-") && out.RunErr == nil {
 					once = true
 					switch mutation {
 					case "default branch":
@@ -361,7 +372,7 @@ func TestRunWorkspaceRejectsLateStateScopeAndRevision(t *testing.T) {
 			once := false
 			w.git = GitWorkspace{DataDir: w.git.Paths().DataDir, Runner: processFunc(func(ctx context.Context, backend string, in execution.Request) execution.Outcome {
 				out := (execution.Runner{}).Run(ctx, backend, in)
-				if !once && in.Argv[1] == "rev-parse" && strings.Contains(in.Workspace, ".forge-preparing-") && out.RunErr == nil {
+				if !once && workspaceGitArguments(in.Argv)[0] == "rev-parse" && strings.Contains(in.Workspace, ".forge-preparing-") && out.RunErr == nil {
 					once = true
 					switch mutation {
 					case "done":
@@ -418,7 +429,7 @@ func TestWorkspaceCancellationReachesLocksAndGit(t *testing.T) {
 				holdProjectLock(t, gate, ref.ProjectID)
 			case "Git":
 				w.git = GitWorkspace{DataDir: w.git.Paths().DataDir, Runner: processFunc(func(ctx context.Context, backend string, in execution.Request) execution.Outcome {
-					if in.Argv[1] == "clone" {
+					if workspaceGitArguments(in.Argv)[0] == "clone" {
 						close(reached)
 						<-ctx.Done()
 						return execution.Outcome{RunErr: ctx.Err(), ExitCode: -1, Termination: execution.Canceled}
@@ -457,7 +468,7 @@ func TestRunWorkspaceReleasesSnapshotBeforeGitWithOneConnection(t *testing.T) {
 	w.db.Pool().SetMaxOpenConns(1)
 	observed := false
 	w.git = GitWorkspace{DataDir: w.git.Paths().DataDir, Runner: processFunc(func(ctx context.Context, backend string, in execution.Request) execution.Outcome {
-		if in.Argv[1] == "clone" {
+		if workspaceGitArguments(in.Argv)[0] == "clone" {
 			if _, err := readChange(ctx, w.db, ch.ID); err != nil {
 				return execution.Outcome{RunErr: err, ExitCode: -1}
 			}

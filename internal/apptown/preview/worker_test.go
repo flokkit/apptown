@@ -186,6 +186,9 @@ func TestAChangePreviewBootsOnTheWorkerAndNowhereElse(t *testing.T) {
 		w.boots[0].Incarnation != out.Incarnation || w.prepared[0].Contract == nil || w.prepared[0].Public().Digest() != out.Public.Digest() {
 		t.Fatalf("the worker was asked %+v", w.boots)
 	}
+	if w.prepared[0].Origins != out.URL {
+		t.Fatalf("change origins: %q != %q", w.prepared[0].Origins, out.URL)
+	}
 	if runs := local(); len(runs) != 0 {
 		t.Fatalf("this machine's Docker ran %q", runs)
 	}
@@ -282,6 +285,9 @@ func TestARunPreviewBootsOnTheWorkerWithItsServices(t *testing.T) {
 	if len(w.boots) != 1 || w.boots[0].Name != "apptown-preview-run-00000000-0004-7000-8000-000000000000" || w.boots[0].StackID != docker.RunStepStackID(idstest.N(11)) || !w.boots[0].PageCheck {
 		t.Fatalf("the worker was asked %+v", w.boots)
 	}
+	if w.prepared[0].Origins != "https://run-00000000-0004-7000-8000-000000000000.preview.example" {
+		t.Fatalf("run origins: %q", w.prepared[0].Origins)
+	}
 	if w.prepared[0].Services[0].Resources.MemoryBytes != 512<<20 {
 		t.Fatalf("workflow sidecar reached worker uncapped: %+v", w.prepared[0].Services)
 	}
@@ -294,7 +300,7 @@ func TestARunPreviewBootsOnTheWorkerWithItsServices(t *testing.T) {
 	if runs := local(); len(runs) != 0 {
 		t.Fatalf("this machine's Docker ran %q", runs)
 	}
-	without, err := s.preparePreview(t.Context(), projectID, "p", w.boots[0].Name, ws, c, nil)
+	without, err := s.preparePreview(t.Context(), projectID, "p", w.boots[0].Name, fmt.Sprintf("run-%d", idstest.N(4)), ws, c, nil)
 	if err != nil || without.Public().Digest() == w.prepared[0].Public().Digest() {
 		t.Fatal("the services are not part of the identity")
 	}
