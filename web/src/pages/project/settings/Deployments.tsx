@@ -532,7 +532,7 @@ export function ShareLine({ share }: { share?: DeploymentResources['share'] }) {
       {share.overcommitted && <span className="chip pending" style={{ marginLeft: 6 }} title="the limits on this host add up to more than it has">host overcommitted</span>}
       {share.diskRefuses
         ? <span className="chip failed" style={{ marginLeft: 6 }} title="the host's disk is below the space new work needs; a deploy reads it again when it starts">host short of disk: deploys refused</span>
-        : share.lowDisk && <span className="chip failed" style={{ marginLeft: 6 }} title="less than a tenth of the host's disk is free">host disk low</span>}
+        : share.lowDisk && <span className="chip failed" style={{ marginLeft: 6 }} title="free space is below the host's disk warning threshold">host disk low</span>}
     </div>
   )
 }

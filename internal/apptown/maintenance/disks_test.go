@@ -29,7 +29,7 @@ func TestAppTownsDisksAreEachTheirOwnReading(t *testing.T) {
 	at := time.Date(2026, 10, 17, 1, 0, 0, 0, time.UTC)
 	full := diskspace.Reading{What: "the worker's state folder", Path: "/state", TotalBytes: 100, FreeBytes: 1, Refuses: true, ReadAt: at}
 	got := Disks{DataDir: dir, Worker: workerDisks{readings: []diskspace.Reading{full}}, Now: func() time.Time { return at }}.Read(t.Context())
-	if len(got) != 2 || got[0].Path != dir || got[0].TotalBytes <= 0 || got[0].Refuses || got[0].FloorBytes != 0 || !got[0].ReadAt.Equal(at) || got[1] != full {
+	if len(got) != 2 || got[0].Path != dir || got[0].TotalBytes <= 0 || got[0].Refuses || got[0].FloorBytes != 0 || got[0].WarningBytes <= 0 || !got[0].ReadAt.Equal(at) || got[1] != full {
 		t.Fatalf("readings: %+v", got)
 	}
 	down := Disks{DataDir: dir, Worker: workerDisks{err: errors.New("the worker could not be reached")}}.Read(t.Context())

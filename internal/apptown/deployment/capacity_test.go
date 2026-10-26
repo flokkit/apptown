@@ -408,7 +408,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	}
 	// It says which folder's filesystem it read and when, and that new
 	// releases are refused there: 49 MiB free is under the 1 GiB floor.
-	if c.Disk.Path != "/var/lib/docker" || c.Disk.ReadAt.IsZero() || !c.Disk.Refuses || c.Disk.Floor != 1<<30 {
+	if c.Disk.Path != "/var/lib/docker" || c.Disk.ReadAt.IsZero() || !c.Disk.Refuses || c.Disk.Floor != 1<<30 || c.Disk.Warning != 1<<30 {
 		t.Errorf("the disk's folder, time and floor: %+v", c.Disk)
 	}
 	// Who holds it, from the same readings: the two env containers no

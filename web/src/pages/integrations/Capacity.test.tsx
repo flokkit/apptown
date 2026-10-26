@@ -37,12 +37,12 @@ describe("a target's capacity", () => {
     const html = render({
       memory: { total: fig(2 ** 30), promised: { sum: { apptown: fig(2 ** 31), other: fig(0) }, limited: count(2, 0), unlimited: count(0, 0), unread: count(0, 0) }, inUse: { apptown: none('docker stats: cannot connect'), other: none('docker stats: cannot connect') }, overcommitted: true },
       cpu: { total: none('docker info: cannot connect'), promised: { sum: { apptown: fig(0), other: fig(0) }, limited: count(0, 0), unlimited: count(0, 0), unread: count(0, 0) }, overcommitted: false },
-      disk: { total: fig(100e9), free: fig(6e9), low: true, refuses: false },
+      disk: { total: fig(100e9), free: fig(6e9), low: true, refuses: false, warning: 10 * 2 ** 30 },
     })
     expect(html).toContain('title="docker stats: cannot connect">unknown')
     expect(html).toContain('title="docker info: cannot connect">unknown')
     expect(html).toContain('overcommitted')
-    expect(html).toContain('less than a tenth free')
+    expect(html).toContain('low: under 10.00 GB free')
   })
   // A host's disk says which filesystem it is and when it was read; below
   // its floor it says new releases are refused, and a disk it could not
