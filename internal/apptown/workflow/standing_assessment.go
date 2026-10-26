@@ -17,7 +17,7 @@ import (
 // standingInspector observes exact source and independently validates supported
 // dependency inputs. It cannot accept, publish, land or deploy the result.
 type standingInspector interface {
-	InspectRoutine(context.Context, Source, string) (StandingInspection, error)
+	InspectRoutine(context.Context, Source, StandingCategories) (StandingInspection, error)
 }
 
 // standingPresence adds observation only; the existing FolderClear operation
@@ -34,7 +34,35 @@ type StandingValidation struct {
 	ReportDigest      string `json:"reportDigest"`
 	ScratchSettlement string `json:"scratchSettlement"`
 }
+type StandingImageObservation struct {
+	Reference         string `json:"reference"`
+	Manifest          string `json:"manifest"`
+	ConfigDigest      string `json:"configDigest"`
+	PreparedImage     string `json:"preparedImage"`
+	Node              string `json:"node"`
+	Platform          string `json:"platform"`
+	ReportDigest      string `json:"reportDigest"`
+	ScratchSettlement string `json:"scratchSettlement"`
+}
+type StandingAdvisoryFix struct {
+	ID         string `json:"id"`
+	Source     string `json:"source"`
+	Modified   string `json:"modified"`
+	BodyDigest string `json:"bodyDigest"`
+	Package    string `json:"package"`
+	Before     string `json:"before"`
+	After      string `json:"after"`
+}
+type StandingAdvisoryObservation struct {
+	Status string                `json:"status"`
+	Reason string                `json:"reason"`
+	Fixes  []StandingAdvisoryFix `json:"fixes"`
+}
 type StandingInspection struct {
+	Advisories *StandingAdvisoryObservation `json:"advisories,omitempty"`
+
+	Images []StandingImageObservation `json:"images,omitempty"`
+
 	Classification string              `json:"classification"`
 	Reason         string              `json:"reason"`
 	Classifier     string              `json:"classifier"`
@@ -183,7 +211,7 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if s.deps.Inspector == nil {
 		return out, fault.New(fault.Unavailable, "routine inspection is unavailable")
 	}
-	inspection, err := s.deps.Inspector.InspectRoutine(ctx, first.source, rule.Question.Definition.Categories.Dependencies)
+	inspection, err := s.deps.Inspector.InspectRoutine(ctx, first.source, rule.Question.Definition.Categories)
 	if err != nil {
 		return out, err
 	}

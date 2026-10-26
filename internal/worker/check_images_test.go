@@ -39,7 +39,8 @@ image)
   [ -f "` + have + `/$name" ] || { echo "Error: No such image: $5" >&2; exit 1; }
   echo "\"sha256:$name\" {\"forge.go.version\":\"1.24.4\"}"; exit 0;;
 login) [ -n "$config" ] && [ -d "$config" ] || exit 9; cat > /dev/null; exit 0;;
-pull) name=$(echo "$2" | tr '/:' '__'); touch "` + have + `/$name"; exit 0;;
+pull) if [ -n "$config" ] && [ -f "$config/config.json" ]; then cat "$config/config.json" >> "` + calls + `"; echo >> "` + calls + `"; fi
+  name=$(echo "$2" | tr '/:' '__'); touch "` + have + `/$name"; exit 0;;
 build) tag=""; prev=""; for a in "$@"; do [ "$prev" = "-t" ] && tag="$a"; prev="$a"; done
   name=$(echo "$tag" | tr '/:' '__'); [ -f "$prev/Dockerfile" ] || exit 2; touch "` + have + `/$name"; exit 0;;
 save) echo "image archive of $2"; exit 0;;
@@ -188,5 +189,45 @@ exit 0
 	}
 	if _, err := os.Stat(filepath.Join(uses, "unseen")); err != nil {
 		t.Fatal("an image seen for the first time was given no day")
+	}
+}
+
+func TestAnonymousImagePreparationIsEnforcedByTheWorker(t *testing.T) {
+	t.Setenv("DOCKER_AUTH_CONFIG", "")
+	binary, calls, _ := fakeImageDocker(t)
+	ca := workertest.NewCA(t)
+	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Checks: execution.Runner{DockerBinary: binary}})
+	checks := worker.Checks{URL: hs.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+	got := checks.Image(t.Context(), execution.ImageRequest{Pull: "registry.example/anonymous:1", Anonymous: true})
+	if got.Err != "" || got.ID == "" {
+		t.Fatalf("worker anonymous preparation: %+v", got)
+	}
+	raw, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "login ") || !strings.Contains(string(raw), `"auths":{"registry.example":{}}`) {
+		t.Fatalf("worker lost anonymous mode: %s", raw)
+	}
+	var config string
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(line, "pull ") {
+			_, config, _ = strings.Cut(line, "config=")
+		}
+	}
+	if config == "" {
+		t.Fatalf("worker pulled with ambient configuration: %s", raw)
+	}
+	if _, err := os.Stat(config); !os.IsNotExist(err) {
+		t.Fatalf("worker config not settled: %v", err)
+	}
+	t.Setenv("DOCKER_AUTH_CONFIG", `{"auths":{"registry.example":{"auth":"dTpw"}}}`)
+	refused := checks.Image(t.Context(), execution.ImageRequest{Pull: "registry.example/other:1", Anonymous: true})
+	after, err := os.ReadFile(calls)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refused.Err == "" || string(after) != string(raw) {
+		t.Fatalf("worker used environment auth: %+v %s", refused, after)
 	}
 }

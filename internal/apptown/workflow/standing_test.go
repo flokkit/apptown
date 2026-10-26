@@ -337,9 +337,9 @@ func TestStandingRevocationAcceptsEitherManagementScopeWithoutAssent(t *testing.
 	}
 }
 
-type standingInspectorFunc func(context.Context, Source, string) (StandingInspection, error)
+type standingInspectorFunc func(context.Context, Source, StandingCategories) (StandingInspection, error)
 
-func (f standingInspectorFunc) InspectRoutine(ctx context.Context, s Source, b string) (StandingInspection, error) {
+func (f standingInspectorFunc) InspectRoutine(ctx context.Context, s Source, b StandingCategories) (StandingInspection, error) {
 	return f(ctx, s, b)
 }
 
@@ -368,10 +368,10 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 	rule := enableStanding(t, s, ctx, in)
 	s.deps.Presence = standingPresenceFixture{clear: true}
 	calls := 0
-	s.deps.Inspector = standingInspectorFunc(func(_ context.Context, source Source, bounds string) (StandingInspection, error) {
+	s.deps.Inspector = standingInspectorFunc(func(_ context.Context, source Source, bounds StandingCategories) (StandingInspection, error) {
 		calls++
-		if source.RunID != a.RunID || source.ChangeID != a.ChangeID || bounds != "patch" {
-			t.Fatalf("wrong admitted inspection %+v %s", source, bounds)
+		if source.RunID != a.RunID || source.ChangeID != a.ChangeID || bounds.Dependencies != "patch" {
+			t.Fatalf("wrong admitted inspection %+v %+v", source, bounds)
 		}
 		return StandingInspection{Classification: "routine-dependency", Candidate: "exact-candidate"}, nil
 	})
@@ -401,7 +401,7 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 	}
 	s.deps.Presence = standingPresenceFixture{clear: true}
 
-	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, string) (StandingInspection, error) {
+	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, StandingCategories) (StandingInspection, error) {
 		calls++
 		q, e := s.Preview(ctx, in)
 		if e != nil {
@@ -417,7 +417,7 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 	if _, e := s.Assess(ctx, rule.RuleID, a.RunID); e == nil || calls != 2 {
 		t.Fatalf("revised rule reused an older classification: %v calls=%d", e, calls)
 	}
-	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, string) (StandingInspection, error) {
+	s.deps.Inspector = standingInspectorFunc(func(context.Context, Source, StandingCategories) (StandingInspection, error) {
 		calls++
 		if _, e := s.Disable(ctx, rule.RuleID, rule.Revision); e != nil {
 			t.Fatal(e)

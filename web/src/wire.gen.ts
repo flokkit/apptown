@@ -1543,6 +1543,22 @@ export type StandingActor = {
   via?: string
 }
 
+export type StandingAdvisoryFix = {
+  id: string
+  source: string
+  modified: string
+  bodyDigest: string
+  package: string
+  before: string
+  after: string
+}
+
+export type StandingAdvisoryObservation = {
+  status: string
+  reason: string
+  fixes: StandingAdvisoryFix[]
+}
+
 export type StandingAssessment = {
   ruleId: string | null
   ruleRevision: number
@@ -1589,7 +1605,20 @@ export type StandingEnvironment = {
   promotion: boolean
 }
 
+export type StandingImageObservation = {
+  reference: string
+  manifest: string
+  configDigest: string
+  preparedImage: string
+  node: string
+  platform: string
+  reportDigest: string
+  scratchSettlement: string
+}
+
 export type StandingInspection = {
+  advisories?: StandingAdvisoryObservation | null
+  images?: StandingImageObservation[]
   classification: string
   reason: string
   classifier: string
