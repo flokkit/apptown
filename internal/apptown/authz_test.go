@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -24,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/instanceupdate"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -856,3 +858,100 @@ func TestPersonPersistenceFailureStopsAPIAdmission(t *testing.T) {
 		})
 	}
 }
+
+// Update checks use the actual authenticated adapter and current identity owner.
+// Neither a token's old administrator snapshot nor an actor label confers root.
+func TestInstanceUpdatesHTTPUsesCurrentRootAuthority(t *testing.T) {
+	a := testApp(t)
+	testAdministrator(t, a, "boss")
+	testAdministrator(t, a, "second")
+	secured := newApp(t, a.DB, Config{AuthMode: "internal"})
+	calls := 0
+	owner, err := instanceupdate.New(instanceupdate.Options{DataDir: t.TempDir(), Build: "custom", Platform: "linux/amd64", Authority: access.Checked{Authority: secured.Access}, Transport: updatePublicTransport(func(*http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("[]"))}, nil
+	})})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secured.InstanceUpdates = owner
+	handler := secured.Handler()
+	token := func(role string) string {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/tokens", strings.NewReader(`{"name":"updates-`+role+`","user":"boss","role":"`+role+`","purpose":"cli"}`))
+		request.Header.Set("X-AppTown-Actor", "boss")
+		out := httptest.NewRecorder()
+		a.Handler().ServeHTTP(out, request)
+		if out.Code != http.StatusCreated {
+			t.Fatalf("mint %s: %d %s", role, out.Code, out.Body)
+		}
+		var result struct {
+			Token string `json:"token"`
+		}
+		if err := json.Unmarshal(out.Body.Bytes(), &result); err != nil || result.Token == "" {
+			t.Fatalf("token: %v", err)
+		}
+		return result.Token
+	}
+	admin, member := token("admin"), token("member")
+	call := func(method, path, key string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(method, path, strings.NewReader("{}"))
+		r.Header.Set("Content-Type", "application/json")
+		if key != "" {
+			r.Header.Set("Authorization", "Bearer "+key)
+		}
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w
+	}
+	const statusPath = "/api/v1/instance-updates"
+	for _, key := range []string{"", member} {
+		for _, method := range []string{http.MethodGet, http.MethodPost} {
+			path := statusPath
+			if method == http.MethodPost {
+				path += "/check"
+			}
+			w := call(method, path, key)
+			if w.Code != http.StatusUnauthorized && w.Code != http.StatusForbidden {
+				t.Fatalf("unprivileged %s: %d %s", method, w.Code, w.Body)
+			}
+		}
+	}
+	if calls != 0 {
+		t.Fatal("unprivileged check reached public source")
+	}
+	if w := call(http.MethodGet, statusPath, admin); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"state":"unknown"`) || calls != 0 {
+		t.Fatalf("GET: %d %s calls%d", w.Code, w.Body, calls)
+	}
+	if w := call(http.MethodPost, statusPath+"/check", admin); w.Code != http.StatusOK || calls != 1 {
+		t.Fatalf("check: %d %s calls%d", w.Code, w.Body, calls)
+	}
+	second := access.Principal{ID: testPrincipalOf(t, a.DB, "second"), Kind: "user", Name: "second", Via: "session"}
+	if err := a.Access.SaveUser(t.Context(), identity.AccountChange{Username: "boss", Role: "member"}, second); err != nil {
+		t.Fatal(err)
+	}
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		path := statusPath
+		if method == http.MethodPost {
+			path += "/check"
+		}
+		w := call(method, path, admin)
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("demoted %s: %d %s", method, w.Code, w.Body)
+		}
+	}
+	disabled := true
+	if err := a.Access.SaveUser(t.Context(), identity.AccountChange{Username: "boss", Disabled: &disabled}, second); err != nil {
+		t.Fatal(err)
+	}
+	if w := call(http.MethodGet, statusPath, admin); w.Code != http.StatusUnauthorized {
+		t.Fatalf("disabled account: %d %s", w.Code, w.Body)
+	}
+	if calls != 1 {
+		t.Fatal("withdrawn authority performed discovery")
+	}
+}
+
+type updatePublicTransport func(*http.Request) (*http.Response, error)
+
+func (f updatePublicTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

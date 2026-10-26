@@ -41,6 +41,7 @@ type Definition struct {
 // Capability names, grouped as the design lists them.
 const (
 	CapInstanceReadPublic Capability = "instance:read-public"
+	CapInstanceUpdates    Capability = "instance:updates"
 	CapInstitutionRead    Capability = "institution:read-structure"
 
 	CapProjectList              Capability = "project:list"
@@ -145,6 +146,7 @@ var readInherits = []ScopeKind{ScopeGroup, ScopeProject}
 
 var Definitions = map[Capability]Definition{
 	CapInstanceReadPublic: {"read the explicitly public instance surface", readInherits, "read"},
+	CapInstanceUpdates:    {"check authenticated AppTown releases", nil, "admin"},
 	CapInstitutionRead:    {"see users, groups, roles and grants", nil, "read"},
 
 	CapProjectList:              {"discover visible projects", readInherits, "read"},

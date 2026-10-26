@@ -126,3 +126,9 @@ See [authentication and authority](auth.md) for modes and credential lifetime.
 - [internal/apptown/routes.go](../../internal/apptown/routes.go)
 - [internal/apptown/mcpapi/catalog.go](../../internal/apptown/mcpapi/catalog.go)
 
+
+The `instance:updates` capability is root-only. It admits authenticated release
+status reads and explicit checks through the instance update owner, and is
+projected in current holdings for the Updates page and notification. The owner
+checks current caller authority; a hidden navigation item is not enforcement.
+Periodic discovery has no installation or replacement authority.

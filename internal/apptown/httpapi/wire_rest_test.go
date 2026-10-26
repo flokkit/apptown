@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/instanceupdate"
+
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/evals"
 	"github.com/flokkit/apptown/internal/wiregen"
@@ -20,8 +22,15 @@ type conformanceObservationWire struct {
 
 // The conformance, people, models and usage responses.
 func init() {
+	registerWireMapped(instanceupdate.Candidate{}, "InstanceUpdateCandidate")
+	registerWireMapped(instanceupdate.Evidence{}, "InstanceUpdateEvidence")
+	registerWireMapped(instanceupdate.Artifact{}, "InstanceUpdateArtifact")
 	registerWireMapped(conformance.Observation{}, "ConformanceObservation")
 	registerWire(
+		wiregen.Named{Name: "InstanceUpdateStatus", Value: instanceupdate.Status{}},
+		wiregen.Named{Name: "InstanceUpdateCandidate", Value: instanceupdate.Candidate{}},
+		wiregen.Named{Name: "InstanceUpdateEvidence", Value: instanceupdate.Evidence{}},
+		wiregen.Named{Name: "InstanceUpdateArtifact", Value: instanceupdate.Artifact{}},
 		wiregen.Named{Name: "ConformanceObservation", Value: conformanceObservationWire{}},
 		wiregen.Named{Name: "DelegationList", Value: DelegationList{}},
 		wiregen.Named{Name: "DelegationRevoked", Value: DelegationRevoked{}},

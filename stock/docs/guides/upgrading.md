@@ -1,5 +1,25 @@
 # Upgrading
 
+Instance administrators can open **Updates** to check authenticated release
+information. The normal daemon checks public release metadata daily;
+`-update-channel=prerelease` explicitly includes release candidates, while the
+default `stable` channel excludes them. `-update-checks=false` disables periodic
+checks, leaving the explicit check available. Verification-only startup does not
+run periodic checks.
+
+A notification requires a complete release manifest and notes bound to the
+release workflow's Sigstore signature, transparency evidence, source commit and
+archive checksums. Missing signatures, failed requests and stale observations
+are shown as unavailable or stale, never as a successful no-update check. The
+page preserves the last verified candidate and records attempted and successful
+checks separately. Opening it reads local status without contacting a publisher.
+
+These notifications do not replace binaries or prove that the installed build
+is eligible for automatic replacement. Follow the procedure below; a displayed
+version string alone is not installed-build provenance. Checks request only
+fixed public GitHub and Sigstore metadata, without sending project information
+or instance credentials.
+
 1. **Check nothing is executing.** `apptown executing` lists the steps and
    the operations (copies, restores, take-downs) a restart would interrupt;
    it exits 0 when there are none and 3 when there are some. A step cut off

@@ -57,3 +57,32 @@ func TestStockScannersAreSyncedBeforeWorkResumes(t *testing.T) {
 		t.Fatalf("start-up order: %v, want %v", order, want)
 	}
 }
+
+func TestNotificationAssemblyExcludesVerificationAndExplicitDisable(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		verify, enabled bool
+		want            int
+	}{
+		{"normal", false, true, 1}, {"verification", true, true, 0}, {"disabled", false, false, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			flags := daemonFlags{verifyOnly: tc.verify, updateChecks: tc.enabled}
+			tasks := flags.notificationTasks(func(ctx context.Context) error { calls++; return ctx.Err() })
+			if len(tasks) != tc.want {
+				t.Fatalf("startup assembled %d notification loops, want %d", len(tasks), tc.want)
+			}
+			for _, task := range tasks {
+				ctx, cancel := context.WithCancel(t.Context())
+				cancel()
+				if err := task.run(ctx); !errors.Is(err, context.Canceled) {
+					t.Fatalf("lifetime lost: %v", err)
+				}
+			}
+			if calls != tc.want {
+				t.Fatalf("notification effects %d want %d", calls, tc.want)
+			}
+		})
+	}
+}

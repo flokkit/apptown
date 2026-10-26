@@ -8,6 +8,7 @@ import type { AuthzHoldings } from './wire.gen'
 // AppTown refuses them to anyone without it whatever the menu shows; this
 // only keeps the menu to pages that will open.
 export const INSTANCE_PAGES = {
+ updates: {cap: "instance:updates", title: "Updates"},
   people: { cap: 'institution:read-structure', title: 'People' },
   infrastructure: { cap: 'deployment:read', title: 'Infrastructure' },
   integrations: { cap: 'project:read', title: 'Integrations' },

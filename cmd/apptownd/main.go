@@ -41,6 +41,8 @@ type daemonFlags struct {
 	agentImage                                       string
 	dbURL                                            string
 	authMode                                         string
+	updateChannel                                    string
+	updateChecks                                     bool
 	openOnNetwork                                    bool
 	authHeader                                       string
 	authSecretEnv                                    string
@@ -92,6 +94,8 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url) (Running AppTown: Workers and running without local Docker)")
 	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names apptown-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
 	fs.BoolVar(&o.reap, "reap", false, "remove what AppTown made and nothing uses any more (step, service and chat containers, previews nobody looks at, images, caches, folders) instead of only logging it; set it only when this Docker is used by this AppTown alone: the sweep does not ask other AppTowns what they still use")
+	fs.StringVar(&o.updateChannel, "update-channel", "stable", "release notifications: stable | prerelease (explicit opt-in)")
+	fs.BoolVar(&o.updateChecks, "update-checks", true, "periodically check public authenticated release metadata; manual checks remain available")
 	fs.BoolVar(&o.verifyOnly, "verify-only", false, "start normally, which upgrades the database and the data directory to this build, then serve reads only: no recovery, no workers, no scheduler (the verification startup after a move or restore; not a dry run of an upgrade)")
 	fs.StringVar(&o.authMode, "auth", "internal", "sign-in: internal (AppTown's own accounts) | trusted-header (an authenticating proxy) | open (no sign-in: a caller names itself; loopback only unless -open-on-network) (Running AppTown)")
 	fs.BoolVar(&o.openOnNetwork, "open-on-network", false, "with -auth open, serve on addresses other machines can reach; without it open mode refuses any listener but loopback, since in open mode a caller names itself")
@@ -333,12 +337,13 @@ func main() {
 		log.Printf("WARNING: docker unavailable; model agents cannot run until Docker is available")
 	}
 
+	notifications := o.notificationTasks(app.InstanceUpdates.Run)
 	if o.verifyOnly {
 		// The verification startup (design/subsystems/postgres-migration.md §3.7):
 		// reads only, nothing recovered, resumed or scheduled, so the old
 		// database stays a lossless rollback until a person accepts.
 		log.Printf("apptownd listening on %s in VERIFY-ONLY mode (data: %s) — reads only; restart without -verify-only to accept", o.addr, dataDir)
-		if err := (daemonRuntime{servers: []*http.Server{servedAt(o.addr, apptown.ReadOnly(app.Handler()))}}).serveWithSignals(); err != nil {
+		if err := (daemonRuntime{servers: []*http.Server{servedAt(o.addr, apptown.ReadOnly(app.Handler()))}, tasks: notifications}).serveWithSignals(); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -412,6 +417,7 @@ func main() {
 				{"control socket", app.Backups.ServeControl},
 			},
 		}
+		runtime.tasks = append(runtime.tasks, notifications...)
 		if o.inferenceAddr != "" {
 			runtime.servers = append(runtime.servers, &http.Server{Addr: o.inferenceAddr, Handler: app.InferenceHandler(), ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 2 * time.Minute, IdleTimeout: time.Minute, MaxHeaderBytes: 32 << 10})
 			log.Printf("private inference API on %s; worker CIDRs %s; direct peers, lifecycle credentials", o.inferenceAddr, o.inferenceNetworks)
@@ -437,9 +443,10 @@ func main() {
 // the worker, console and inference settings main adds.
 func (o *daemonFlags) apptownConfig(dataDir string) apptown.Config {
 	return apptown.Config{
-		HostScripts: o.hostScripts,
-		TaskLimits:  execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
-		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
+		UpdateChannel: o.updateChannel,
+		HostScripts:   o.hostScripts,
+		TaskLimits:    execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
+		ChatLimits:    execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
 		AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, Reap: o.reap,
 		AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
 		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,
@@ -475,4 +482,13 @@ func holdDatabase(ctx context.Context, url string) {
 // terminal and a long read legitimately take longer.
 func servedAt(addr string, h http.Handler) *http.Server {
 	return &http.Server{Addr: addr, Handler: h, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 2 * time.Minute}
+}
+
+// Both startup modes use this assembly boundary; read-only verification never
+// starts notification discovery, regardless of its configured channel.
+func (o *daemonFlags) notificationTasks(run func(context.Context) error) []daemonTask {
+	if o.verifyOnly || !o.updateChecks {
+		return nil
+	}
+	return []daemonTask{{name: "release notifications", run: run}}
 }

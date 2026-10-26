@@ -37,7 +37,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			v = "1.5"
 		case "task-memory-mib", "task-pids", "chat-memory-mib", "chat-pids":
 			v = "512"
-		case "verify-only", "reap", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network", "host-scripts":
+		case "update-checks", "verify-only", "reap", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network", "host-scripts":
 			v = "true"
 		case "tier-domain":
 			v = "preview=p.example,main=m.example"
@@ -128,5 +128,19 @@ func TestSettingsMovedIntoAppTownAreNotFlags(t *testing.T) {
 		if err := fs.Parse([]string{"-" + name, "x"}); err == nil {
 			t.Errorf("-%s is still a flag", name)
 		}
+	}
+}
+
+func TestUpdateDiscoveryDefaultsAndExplicitPrereleaseOptIn(t *testing.T) {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	defaults := defineFlags(fs)
+	if defaults.updateChannel != "stable" || !defaults.updateChecks {
+		t.Fatal("release discovery defaults changed")
+	}
+	if err := fs.Parse([]string{"-update-channel=prerelease", "-update-checks=false"}); err != nil {
+		t.Fatal(err)
+	}
+	if defaults.apptownConfig(t.TempDir()).UpdateChannel != "prerelease" || defaults.updateChecks {
+		t.Fatal("explicit channel/disable lost")
 	}
 }
