@@ -3,8 +3,11 @@ package deployment
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -14,6 +17,31 @@ import (
 // app that keeps data in a directory needs persistent volumes, and an app
 // whose needs a managed-needs target cannot fulfil cannot stand there.
 func (t *Target) RefusesContract(c *appcontract.Contract) string {
+	var healthErr error
+	switch t.Kind {
+	case KindDockerHost:
+		healthErr = docker.RefusesHealth(c, false)
+	case KindPortainer:
+		healthErr = portainer.RefusesHealth(c)
+	case KindS3Bucket:
+		for _, part := range c.Parts {
+			if part.Intent == nil {
+				continue
+			}
+			for purpose, probe := range map[string]*appcontract.Probe{"readiness": part.Intent.Readiness, "liveness": part.Intent.Liveness} {
+				p, err := appcontract.NormalizeHealthPolicy(probe, purpose, appcontract.HealthPolicy{Period: time.Second, Timeout: time.Second, FailureThreshold: 1, SuccessThreshold: 1})
+				if err != nil {
+					return err.Error()
+				}
+				if p.Explicit {
+					return "a static bucket has no runtime health controller for declared execution policy"
+				}
+			}
+		}
+	}
+	if healthErr != nil {
+		return healthErr.Error()
+	}
 	if t.Kind == KindS3Bucket && !StaticOnly(c) {
 		return fmt.Sprintf("%s serves only a static-only app: one public static part, no init steps and no needs — this app needs a container target", t.Name)
 	}

@@ -16,11 +16,13 @@ import (
 // what probeApp actually executes — the render's whole job is turning topology-
 // neutral intent into this.
 type RenderedProbe struct {
-	Path    string            // HTTP path to hit (default "/")
-	Headers map[string]string // front-door shaping (ingress.go), nil = probe naked
-	Expect  int               // required HTTP status; 0 = any answer proves it's serving
-	Body    string            // required exact body (a release identity); "" = any
-	Grace   time.Duration     // startupGrace floor — extends the probe deadline
+	Policy      *appcontract.HealthPolicy
+	PolicyError error
+	Path        string            // HTTP path to hit (default "/")
+	Headers     map[string]string // front-door shaping (ingress.go), nil = probe naked
+	Expect      int               // required HTTP status; 0 = any answer proves it's serving
+	Body        string            // required exact body (a release identity); "" = any
+	Grace       time.Duration     // startupGrace floor — extends the probe deadline
 	// The controller's liveness variants (probeApp/cold-boot uses only the HTTP
 	// fields above): a TCP connect, or a command run inside the container.
 	TCP  bool     // dial the port instead of an HTTP GET
@@ -38,6 +40,11 @@ type RenderedProbe struct {
 // without writing a probe line. Topology (the header) never comes from the app.
 func RenderColdBootProbe(pub *appcontract.Part, frontDoor map[string]string) RenderedProbe {
 	rp := RenderedProbe{Path: "/"}
+	policy, err := readinessPolicy(pub)
+	rp.PolicyError = err
+	if policy.Explicit {
+		rp.Policy = &policy
+	}
 	var r *appcontract.Probe
 	if pub != nil && pub.Intent != nil {
 		r = pub.Intent.Readiness

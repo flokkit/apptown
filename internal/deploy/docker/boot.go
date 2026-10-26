@@ -356,6 +356,9 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	if err := t.requireServingLabel(); err != nil {
 		return res, &BootError{Phase: PhaseResolve, Err: err}
 	}
+	if err := RefusesHealth(c, t.Sealed != nil); err != nil {
+		return res, &BootError{Phase: PhaseResolve, Err: err}
+	}
 	t.logf("Resolving runtime configuration and container limits")
 	// A prepared boot's Docker configuration is its own: its one registry
 	// login, written before any phase builds, pulls or runs, and gone with
@@ -544,7 +547,11 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 		if rp.Grace > wait {
 			wait = rp.Grace
 		}
-		if !t.Sealed.awaitReady(ctx, t.Docker, network, t.Name, plan.PublicPart().Port, rp, wait) {
+		ready, probeErr := t.Sealed.awaitReady(ctx, t.Docker, network, t.Name, plan.PublicPart().Port, rp, wait)
+		if probeErr != nil {
+			return res, &BootError{Phase: PhaseProbe, Err: probeErr}
+		}
+		if !ready {
 			return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("the app did not answer %s on its own network", strs.FirstNonBlank(rp.Path, "/"))}
 		}
 		// A static site must answer through AppTown's file server

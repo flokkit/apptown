@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 	"gopkg.in/yaml.v3"
@@ -36,18 +38,33 @@ type Component struct {
 // Probe is the supported HTTP readiness intent for the public container.
 // StaticRelease, when present, requires a second exact release-identity answer.
 type Probe struct {
-	ToolImage     string            `json:"toolImage" yaml:"toolImage"`
-	Port          int               `json:"port" yaml:"port"`
-	Path          string            `json:"path" yaml:"path"`
-	Headers       map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
-	Expect        int               `json:"expect,omitempty" yaml:"expect,omitempty"`
-	GraceNanos    int64             `json:"graceNanos,omitempty" yaml:"graceNanos,omitempty"`
-	StaticRelease string            `json:"staticRelease,omitempty" yaml:"staticRelease,omitempty"`
+	ToolImage     string                    `json:"toolImage" yaml:"toolImage"`
+	Port          int                       `json:"port" yaml:"port"`
+	Path          string                    `json:"path" yaml:"path"`
+	Headers       map[string]string         `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Expect        int                       `json:"expect,omitempty" yaml:"expect,omitempty"`
+	GraceNanos    int64                     `json:"graceNanos,omitempty" yaml:"graceNanos,omitempty"`
+	StaticRelease string                    `json:"staticRelease,omitempty" yaml:"staticRelease,omitempty"`
+	Policy        *appcontract.HealthPolicy `json:"policy,omitempty" yaml:"policy,omitempty"`
 }
 
 func (r Readiness) validate() error {
-	if r.Version != 1 || r.Deployment.IsZero() || r.Target.IsZero() || strings.TrimSpace(r.Revision) == "" || len(r.Components) == 0 {
+	if (r.Version != 1 && r.Version != 2) || r.Deployment.IsZero() || r.Target.IsZero() || strings.TrimSpace(r.Revision) == "" || len(r.Components) == 0 {
 		return errors.New("Portainer readiness has incomplete release identity")
+	}
+	if r.Version == 1 && r.Public.Policy != nil {
+		return errors.New("legacy Portainer readiness cannot carry policy")
+	}
+	if r.Version == 2 {
+		if r.Public.Policy == nil {
+			return errors.New("Portainer readiness policy is missing")
+		}
+		if err := validatePolicy(r.Public.Policy); err != nil {
+			return err
+		}
+		if int64(r.Public.Policy.StartupGrace) != r.Public.GraceNanos {
+			return errors.New("Portainer readiness grace differs from its policy")
+		}
 	}
 	origin, err := url.Parse(r.URL)
 	if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Host == "" || origin.User != nil || origin.Fragment != "" {
@@ -145,4 +162,52 @@ func mapValue(node *yaml.Node, key string) *yaml.Node {
 func immutableImage(image string) bool {
 	repository, digest, ok := strings.Cut(image, "@sha256:")
 	return ok && repository != "" && len(digest) == 64 && strings.Trim(digest, "0123456789abcdef") == ""
+}
+
+// PublicHealthPolicy normalizes the public probe over Portainer's existing cold
+// polling and diagnostic defaults. Omitted policy keeps those execution paths.
+func PublicHealthPolicy(c *appcontract.Contract) (appcontract.HealthPolicy, error) {
+	var probe *appcontract.Probe
+	if c != nil && c.PublicPart() != nil && c.PublicPart().Intent != nil {
+		probe = c.PublicPart().Intent.Readiness
+	}
+	policy, err := appcontract.NormalizeHealthPolicy(probe, "readiness", appcontract.HealthPolicy{Period: time.Second, Timeout: 8 * time.Second, FailureThreshold: 1, SuccessThreshold: 1})
+	if err != nil {
+		return policy, err
+	}
+	return policy, policy.CheckBootFit()
+}
+
+// RefusesHealth checks every executed application part before provider effects.
+// Legacy worker shell checks and ordered init completion retain their owners.
+func RefusesHealth(c *appcontract.Contract) error {
+	if c == nil {
+		return errors.New("Portainer health requires a contract")
+	}
+	for _, part := range c.Parts {
+		if part.Intent == nil {
+			continue
+		}
+		if part.Intent.Liveness != nil {
+			return fmt.Errorf("part %s: Portainer does not support liveness intent", part.Name)
+		}
+		if part.Intent.Readiness != nil {
+			probe := part.Intent.Readiness
+			if !part.Public {
+				return fmt.Errorf("part %s: Portainer does not support nonpublic structured readiness", part.Name)
+			}
+			if probe.HTTP == "" || probe.TCP != 0 || len(probe.Exec) > 0 {
+				return fmt.Errorf("part %s: Portainer supports HTTP readiness here", part.Name)
+			}
+		}
+	}
+	_, err := PublicHealthPolicy(c)
+	return err
+}
+
+func validatePolicy(p *appcontract.HealthPolicy) error {
+	if p == nil || !p.Explicit || (p.Period != time.Second && (p.Period < 5*time.Second || p.Period > 300*time.Second)) || p.Period%time.Second != 0 || p.Timeout < time.Second || p.Timeout > 10*time.Second || p.Timeout%time.Second != 0 || p.StartupGrace < 0 || p.FailureThreshold < 1 || p.FailureThreshold > 50 || p.SuccessThreshold < 1 || p.SuccessThreshold > 50 {
+		return errors.New("Portainer readiness policy is invalid")
+	}
+	return p.CheckBootFit()
 }

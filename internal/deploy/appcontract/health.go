@@ -12,6 +12,7 @@ package appcontract
 // the health controller are separate slices.
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -78,6 +79,70 @@ func (p *Probe) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
+// MarshalJSON preserves explicitly written zero-valued policy fields in admitted
+// snapshots. Existing probes with omitted policy retain their original encoding.
+func (p Probe) MarshalJSON() ([]byte, error) {
+	type plain Probe
+	body, err := json.Marshal(plain(p))
+	if err != nil {
+		return nil, err
+	}
+	for _, field := range []struct {
+		name    string
+		omitted bool
+		value   any
+	}{
+		{"period", p.Period == "", p.Period},
+		{"timeout", p.Timeout == "", p.Timeout},
+		{"failureThreshold", p.FailureThreshold == 0, p.FailureThreshold},
+		{"successThreshold", p.SuccessThreshold == 0, p.SuccessThreshold},
+		{"checksDeps", !p.ChecksDeps, p.ChecksDeps},
+	} {
+		if !field.omitted || !p.written[field.name] {
+			continue
+		}
+		value, err := json.Marshal(field.value)
+		if err != nil {
+			return nil, err
+		}
+		body = body[:len(body)-1]
+		if len(body) > 1 {
+			body = append(body, ',')
+		}
+		body = append(body, '"')
+		body = append(body, field.name...)
+		body = append(body, '"', ':')
+		body = append(body, value...)
+		body = append(body, '}')
+	}
+	return body, nil
+}
+
+// UnmarshalJSON retains policy presence as YAML does, so false or invalid zero
+// cannot become omitted defaults when a captured request is read again.
+func (p *Probe) UnmarshalJSON(body []byte) error {
+	type plain Probe
+	var decoded plain
+	if err := json.Unmarshal(body, &decoded); err != nil {
+		return err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil {
+		return err
+	}
+	for name := range fields {
+		if !probeKeys[name] {
+			return fmt.Errorf("a health probe has no field %q", name)
+		}
+	}
+	*p = Probe(decoded)
+	p.written = map[string]bool{}
+	for name := range fields {
+		p.written[name] = true
+	}
+	return nil
+}
+
 // probeKeys are the keys a probe may write (its yaml tags).
 var probeKeys = func() map[string]bool {
 	keys := map[string]bool{}
@@ -137,11 +202,12 @@ func validateProbe(part, which string, p *Probe) error {
 	if which == "readiness" && p.HTTP == "" {
 		return fmt.Errorf("part %q: health.readiness is an http probe (a path); tcp and exec are for liveness", part)
 	}
-	for _, unused := range []string{"period", "timeout", "failureThreshold", "successThreshold", "checksDeps"} {
-		if p.written[unused] {
-			return fmt.Errorf("part %q: health.%s.%s is not used by any target yet; remove it", part, which, unused)
-		}
+	// Shared syntax limits are checked here; each target supplies its own
+	// execution defaults and refuses modes/components it cannot execute.
+	if _, err := NormalizeHealthPolicy(p, which, HealthPolicy{Period: 15 * time.Second, Timeout: 2 * time.Second, FailureThreshold: 1, SuccessThreshold: 1}); err != nil {
+		return fmt.Errorf("part %q: %w", part, err)
 	}
+
 	switch p.RequestContext {
 	case "", "frontDoor", "direct":
 	default:

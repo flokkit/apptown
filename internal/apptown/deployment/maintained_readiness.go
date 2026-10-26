@@ -3,12 +3,14 @@ package deployment
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/clock"
 	"log"
 	"sort"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -21,11 +23,12 @@ type maintainedReadinessDriver interface {
 // readinessEntry is evidence for one exact retained workload, independent of
 // display inventory. A process restart intentionally loses its freshness.
 type readinessEntry struct {
-	key       [32]byte
-	artifact  string
-	attempted time.Time
-	observed  deploy.Observation
-	err       error
+	passes, fails int
+	key           [32]byte
+	artifact      string
+	attempted     time.Time
+	observed      deploy.Observation
+	err           error
 }
 
 func overlayReadiness(v RuntimeObservation, r listingRecord, e readinessEntry, now time.Time) RuntimeObservation {
@@ -39,7 +42,7 @@ func overlayReadiness(v RuntimeObservation, r listingRecord, e readinessEntry, n
 	at := e.observed.HealthObservedAt
 	if !compatible || !r.deployment.Standing() || r.deployment.HeldAfterRestore() != nil || r.deployment.DesiredGeneration != r.deployment.ObservedGeneration || v.Stale || e.err != nil || e.key != observationKey(r) || e.artifact == "" ||
 		e.observed.ArtifactHash != e.artifact || e.observed.Generation != r.deployment.ObservedGeneration ||
-		at.IsZero() || at.After(now) || now.Sub(at) > observationStaleAfter {
+		at.IsZero() || at.After(now) || now.Sub(at) > readinessFreshFor(e) {
 		return v
 	}
 	v.Health, v.HealthObservedAt, v.HealthGeneration, v.HealthArtifact = e.observed.Health, at, e.observed.Generation, e.artifact
@@ -53,7 +56,7 @@ func (s *Service) RunReadiness(ctx context.Context) {
 		if err := s.refreshReadiness(ctx); err != nil && ctx.Err() == nil {
 			log.Printf("deployment readiness: %v", err)
 		}
-		timer := time.NewTimer(observationInterval)
+		timer := time.NewTimer(s.nextReadinessWake())
 		select {
 		case <-ctx.Done():
 			timer.Stop()
@@ -69,16 +72,18 @@ func (s *Service) refreshReadiness(ctx context.Context) error {
 	}
 	defer s.observations.readinessSweep.Unlock()
 	parent := ctx
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	records, err := s.listRecords(ctx, nil)
 	if err != nil {
 		return err
 	}
 	attempted := map[ids.ID]time.Time{}
+	previous := map[ids.ID]readinessEntry{}
 	s.observations.mu.RLock()
 	for id, e := range s.observations.readiness {
 		attempted[id] = e.attempted
+		previous[id] = e
 	}
 	s.observations.mu.RUnlock()
 	sort.SliceStable(records, func(i, j int) bool {
@@ -92,8 +97,22 @@ func (s *Service) refreshReadiness(ctx context.Context) error {
 		if r.target == nil || !r.deployment.Standing() {
 			continue
 		}
+		prior := previous[r.deployment.ID]
+		if prior.key == observationKey(r) && !readinessDue(prior, s.now()) {
+			// Cadence postpones diagnostics, never the current owner refusal.
+			if err := s.requireMaintainedReadiness(ctx, r, prior.artifact); err != nil {
+				values[r.deployment.ID] = readinessEntry{key: observationKey(r), attempted: s.now(), err: err}
+			}
+			continue
+		}
+		if deadline, ok := ctx.Deadline(); ok && deadline.Sub(clock.Or(nil)()) < readinessAllowance(prior) {
+			continue
+		}
 		driver, err := s.providers.Driver(ctx, r.target, r.deployment)
 		sampler, ok := driver.(maintainedReadinessDriver)
+		if host, isDocker := driver.(*docker.Driver); isDocker && err == nil {
+			sampler, ok = dockerReadiness{driver: host, service: s, record: r}, true
+		}
 		if err != nil || !ok {
 			if _, managed := attempted[r.deployment.ID]; managed {
 				if err == nil {
@@ -153,7 +172,10 @@ func (s *Service) sampleReadiness(ctx context.Context, r listingRecord, sampler 
 	if e.err == nil {
 		e.err = permit(ctx)
 	}
-	return e
+	s.observations.mu.RLock()
+	previous := s.observations.readiness[r.deployment.ID]
+	s.observations.mu.RUnlock()
+	return readinessStreak(previous, e)
 }
 
 // requireMaintainedReadiness grants only the fixed diagnostic of the existing

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
 )
@@ -70,10 +71,11 @@ func inspectRelease(ctx context.Context, cfg *Target, p deploy.Placement, stack 
 				Labels map[string]string
 			}
 			State struct {
-				Running  bool
-				Status   string
-				ExitCode int
-				Health   *struct{ Status string }
+				Running   bool
+				StartedAt time.Time
+				Status    string
+				ExitCode  int
+				Health    *struct{ Status string }
 			}
 		}
 		if err := json.Unmarshal(raw, &actual); err != nil {
@@ -117,6 +119,9 @@ func inspectRelease(ctx context.Context, cfg *Target, p deploy.Placement, stack 
 		}
 		if component.Service == "app" {
 			out.Running = component.Image
+			if !actual.State.StartedAt.IsZero() {
+				out.RuntimeToken = id + "/" + actual.State.StartedAt.UTC().Format(time.RFC3339Nano)
+			}
 			publicID = id
 		}
 	}

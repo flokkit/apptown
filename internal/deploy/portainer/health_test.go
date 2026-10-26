@@ -13,14 +13,19 @@ import (
 
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/ids"
 	"gopkg.in/yaml.v3"
 )
 
 func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.T) {
-	for _, mode := range []string{"healthy", "wrong-status", "replacement-during-probe", "failed-init", "worker-unhealthy", "provider-unavailable", "changed-target", "revoked-before-probe", "checkpoint-after-apply", "transport-cleanup", "lost-apply-response"} {
+	for _, mode := range []string{"healthy", "explicit-streak", "wrong-status", "replacement-during-probe", "restart-during-probe", "failed-init", "worker-unhealthy", "provider-unavailable", "changed-target", "revoked-before-probe", "checkpoint-after-apply", "transport-cleanup", "lost-apply-response"} {
 		t.Run(mode, func(t *testing.T) {
 			compose, r := readinessFixture(t)
+			if mode == "explicit-streak" {
+				r.Version = 2
+				r.Public.Policy = &appcontract.HealthPolicy{Explicit: true, Period: time.Second, Timeout: time.Second, SuccessThreshold: 2, FailureThreshold: 1}
+			}
 			original, err := WithReadiness(compose, r)
 			if err != nil {
 				t.Fatal(err)
@@ -113,7 +118,10 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 					for k, v := range labels[service] {
 						l[k] = v
 					}
-					state := map[string]any{"Running": true, "Status": "running", "ExitCode": 0, "Health": map[string]string{"Status": "healthy"}}
+					state := map[string]any{"StartedAt": time.Unix(1000, 0).UTC(), "Running": true, "Status": "running", "ExitCode": 0, "Health": map[string]string{"Status": "healthy"}}
+					if service == "app" && mode == "restart-during-probe" && probeCount%2 == 1 {
+						state["StartedAt"] = time.Unix(1001, 0).UTC()
+					}
 					if service == "init-schema" {
 						state["Running"] = false
 						state["Status"] = "exited"
@@ -150,6 +158,9 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 				}
 				return &Target{PortainerURL: server.URL, Scope: &copy}, nil
 			}}
+			if mode == "explicit-streak" {
+				d.ReadinessTimeout = 5 * time.Second
+			}
 			d.Diagnostics = func(context.Context, Target) (Diagnostic, func() error, error) {
 				daemon := containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
 					answer := "204 1"
@@ -189,9 +200,12 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 			}
 			placement := deploy.Placement{ID: r.Deployment}
 			got, err := d.Reconcile(t.Context(), placement, 1, deploy.Artifact{Kind: "compose", Body: []byte(original), Hash: deploy.ConfigHash(strings.TrimSpace(original))}, "request", func(string, ...any) {}, save)
-			if mode == "healthy" {
-				if err != nil || got.Health != "healthy" || got.HealthObservedAt != now || got.ArtifactHash != deploy.ConfigHash(strings.TrimSpace(original)) {
+			if mode == "healthy" || mode == "explicit-streak" {
+				if err != nil || got.RuntimeToken != strings.Repeat("a", 64)+"/1970-01-01T00:16:40Z" || got.Health != "healthy" || got.HealthObservedAt != now || got.ArtifactHash != deploy.ConfigHash(strings.TrimSpace(original)) {
 					t.Fatalf("healthy witness: %+v %v", got, err)
+				}
+				if mode == "explicit-streak" && (probeCount != 2 || got.ReadinessPolicy == nil || got.ReadinessPolicy.SuccessThreshold != 2) {
+					t.Fatalf("explicit policy bypassed: probes%d observation%+v", probeCount, got)
 				}
 				got, err = d.Resume(t.Context(), placement, 1, checkpoint, func(string, ...any) {})
 				if err != nil || got.Health != "healthy" || applies != 1 {

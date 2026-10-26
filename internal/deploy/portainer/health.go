@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/poll"
 	"gopkg.in/yaml.v3"
 )
@@ -83,6 +84,11 @@ func (d *Driver) Sample(ctx context.Context, p deploy.Placement) (out deploy.Obs
 		return out, errors.New("Portainer sample artifact differs from admitted inputs")
 	}
 
+	if policy := expected.Readiness.Public.Policy; policy != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, policy.Timeout+5*time.Second)
+		defer cancel()
+	}
 	cfg, err := d.Config(ctx, d.TargetID)
 	if err != nil {
 		return out, err
@@ -102,6 +108,14 @@ func (d *Driver) Sample(ctx context.Context, p deploy.Placement) (out deploy.Obs
 
 func (d *Driver) sample(ctx context.Context, cfg *Target, p deploy.Placement, expected *expectedRelease, diagnostic Diagnostic) (deploy.Observation, error) {
 	var out deploy.Observation
+	if policy := expected.Readiness.Public.Policy; policy != nil {
+		if err := validatePolicy(policy); err != nil {
+			return out, err
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, policy.Timeout+5*time.Second)
+		defer cancel()
+	}
 	if expected.Readiness.Target != d.TargetID || d.ExpectedArtifact == "" || expected.ArtifactHash != d.ExpectedArtifact {
 		return out, errors.New("Portainer readiness target or artifact differs from admitted owner inputs")
 	}
@@ -131,12 +145,19 @@ func (d *Driver) sample(ctx context.Context, cfg *Target, p deploy.Placement, ex
 	if err != nil {
 		return after, err
 	}
-	if again != id {
+	if again != id || before.RuntimeToken != after.RuntimeToken {
 		return after, errors.New("Portainer public container changed during readiness sampling")
 	}
 	if err := diagnostic.Allowed(ctx); err != nil {
 		return after, err
 	}
+	if expected.Readiness.Public.Policy != nil && after.RuntimeToken == "" {
+		return after, errors.New("Portainer explicit readiness has no captured runtime identity")
+	}
+	if err := ctx.Err(); err != nil {
+		return after, err
+	}
+	after.ReadinessPolicy = expected.Readiness.Public.Policy
 	after.Health = "healthy"
 	after.URL = expected.Readiness.URL
 	after.HealthObservedAt = clock.Or(d.Now)()
@@ -157,6 +178,9 @@ func (d *Driver) awaitReadiness(ctx context.Context, cfg *Target, p deploy.Place
 	}
 	bounded, cancel := context.WithTimeout(ctx, wait)
 	defer cancel()
+	if policy := expected.Readiness.Public.Policy; policy != nil {
+		return d.awaitPolicyReadiness(bounded, cfg, p, expected, diagnostic)
+	}
 	var out deploy.Observation
 	var last error
 	done := poll.Until(bounded, wait, time.Second, func() bool {
@@ -199,4 +223,51 @@ func invalidateHealth(out *deploy.Observation) {
 		delete(copy, "readinessObservedAt")
 		out.Handle = copy
 	}
+}
+
+func (d *Driver) awaitPolicyReadiness(ctx context.Context, cfg *Target, p deploy.Placement, expected *expectedRelease, diagnostic Diagnostic) (deploy.Observation, error) {
+	return awaitPolicy(ctx, expected.Readiness.Public.Policy, func(ctx context.Context) (deploy.Observation, error) {
+		return d.sample(ctx, cfg, p, expected, diagnostic)
+	})
+}
+
+func awaitPolicy(ctx context.Context, policy *appcontract.HealthPolicy, sample func(context.Context) (deploy.Observation, error)) (deploy.Observation, error) {
+	var out deploy.Observation
+	var last error
+	passes := 0
+	token := ""
+	for ctx.Err() == nil {
+		started := clock.System()
+		if deadline, ok := ctx.Deadline(); ok && deadline.Sub(started) < policy.Timeout {
+			last = errors.New("insufficient remaining readiness probe budget")
+			break
+		}
+		out, last = sample(ctx)
+		if ctx.Err() != nil {
+			break
+		}
+		if last == nil && out.RuntimeToken != "" {
+			if token != out.RuntimeToken {
+				passes = 0
+				token = out.RuntimeToken
+			}
+			passes++
+			if passes >= policy.SuccessThreshold {
+				return out, nil
+			}
+		} else {
+			passes = 0
+			token = ""
+		}
+		invalidateHealth(&out)
+		var predicate *predicateFailure
+		if errors.As(last, &predicate) && predicate.final {
+			return out, deploy.Terminal(fmt.Errorf("Portainer stack was applied but readiness failed: %w", last))
+		}
+		if err := poll.Wait(ctx, max(0, policy.Period-clock.System().Sub(started))); err != nil {
+			break
+		}
+	}
+	invalidateHealth(&out)
+	return out, fmt.Errorf("Portainer readiness streak is incomplete: %w", errors.Join(ctx.Err(), last))
 }

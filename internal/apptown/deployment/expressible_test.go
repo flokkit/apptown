@@ -66,3 +66,23 @@ func TestRemovable(t *testing.T) {
 		t.Fatalf("another deployment may be torn down: %v", err)
 	}
 }
+
+func TestTargetsRefuseUnexecutedHealthPolicyBeforePreparation(t *testing.T) {
+	for _, kind := range []string{KindDockerHost, KindPortainer, KindS3Bucket} {
+		c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true, Static: "site", Intent: &appcontract.Health{Readiness: &appcontract.Probe{HTTP: "/ready", Period: "5s"}}}}}
+		target := &Target{Kind: kind, Capabilities: TargetCapabilities{PersistentVolumes: true}}
+		if kind == KindS3Bucket {
+			if target.RefusesContract(c) == "" {
+				t.Fatal("bucket accepted ignored runtime policy")
+			}
+			continue
+		}
+		if why := target.RefusesContract(c); why != "" {
+			t.Fatalf("%s valid public policy: %s", kind, why)
+		}
+		c.Parts = append(c.Parts, appcontract.Part{Name: "worker", Intent: &appcontract.Health{Readiness: &appcontract.Probe{HTTP: "/ready", Period: "5s"}}})
+		if target.RefusesContract(c) == "" {
+			t.Fatalf("%s accepted unexecuted worker readiness", kind)
+		}
+	}
+}

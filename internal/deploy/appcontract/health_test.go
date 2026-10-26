@@ -48,12 +48,13 @@ func TestHealthSchemaValidation(t *testing.T) {
 		base+"    health:\n      readiness: { tcp: 8080 }\n")
 	bad("health.readiness is an http probe",
 		base+"    health:\n      readiness: { exec: [\"true\"] }\n")
-	for _, field := range []string{"period: 10s", "timeout: 3s", "failureThreshold: 3", "successThreshold: 2", "checksDeps: true",
-		// written at all is refused, a zero or false value included
-		"period: \"\"", "failureThreshold: 0", "successThreshold: 0", "checksDeps: false"} {
+	for _, field := range []string{"period: 10s", "timeout: 3s", "failureThreshold: 3", "successThreshold: 2", "checksDeps: false"} {
+		ok(base + "    health:\n      liveness: { http: /livez, " + field + " }\n")
+	}
+	ok(base + "    health:\n      readiness: { http: /ready, checksDeps: true }\n")
+	for _, field := range []string{"period: \"\"", "period: 4s", "timeout: 11s", "failureThreshold: 0", "successThreshold: 0", "checksDeps: true"} {
 		name := strings.SplitN(field, ":", 2)[0]
-		bad("health.liveness."+name+" is not used by any target yet",
-			base+"    health:\n      liveness: { http: /livez, "+field+" }\n")
+		bad("health.liveness."+name, base+"    health:\n      liveness: { http: /livez, "+field+" }\n")
 	}
 
 	// exactly one target.

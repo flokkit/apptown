@@ -45,7 +45,7 @@ type Sealed struct {
 // the Location header: the app's answer goes no further than this
 // container. The request's parts arrive as environment values, never as
 // shell text.
-const probeScript = `printf 'GET %s HTTP/1.1\r\nHost: %s\r\nX-Forwarded-Proto: https\r\nX-Forwarded-Host: %s\r\nConnection: close\r\n\r\n' "$PROBE_PATH" "$PROBE_HOST" "$PROBE_HOST" | nc -w 8 "$PROBE_TARGET" "$PROBE_PORT" > /tmp/answer || exit 3
+const probeScript = `printf 'GET %s HTTP/1.1\r\nHost: %s\r\nX-Forwarded-Proto: https\r\nX-Forwarded-Host: %s\r\nConnection: close\r\n\r\n' "$PROBE_PATH" "$PROBE_HOST" "$PROBE_HOST" | nc -w "$PROBE_TIMEOUT" "$PROBE_TARGET" "$PROBE_PORT" > /tmp/answer || exit 3
 tr -d '\r' < /tmp/answer | awk 'NR==1 {print $2; next} /^$/ {exit} tolower($1)=="location:" {print $2; exit}'`
 
 var statusLine = regexp.MustCompile(`^[1-5][0-9][0-9]$`)
@@ -94,16 +94,41 @@ func (s *Sealed) Page(ctx context.Context, dk Scope, network, container string, 
 }
 
 func (s *Sealed) getOnce(ctx context.Context, dk Scope, network, container string, port int, path string) (int, string, error) {
+	return s.getOnceTimeout(ctx, dk, network, container, port, path, 8*time.Second, false)
+}
+
+func (s *Sealed) getOnceTimeout(ctx context.Context, dk Scope, network, container string, port int, path string, probeTimeout time.Duration, owned bool) (int, string, error) {
 	if strings.ContainsAny(path, " \r\n") || !strings.HasPrefix(path, "/") {
 		return 0, "", fmt.Errorf("a probe path is one absolute path, not %q", path)
 	}
-	env := []string{"PROBE_PATH=" + path, "PROBE_HOST=" + s.Host, "PROBE_TARGET=" + container, "PROBE_PORT=" + strconv.Itoa(port)}
+	env := []string{"PROBE_PATH=" + path, "PROBE_HOST=" + s.Host, "PROBE_TARGET=" + container, "PROBE_PORT=" + strconv.Itoa(port), "PROBE_TIMEOUT=" + strconv.Itoa(int(probeTimeout/time.Second))}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	// The status is read from a file in the probe's container
 	// (containerresult.Run): one that did not come back is no answer.
-	out, err := dk.Result(ctx, containerresult.Spec{Image: s.ProbeImage, Options: []string{"--network", network}, Env: env, Script: probeScript})
+	spec := containerresult.Spec{Image: s.ProbeImage, Options: []string{"--network", network}, Env: env, Script: probeScript}
+	var out []byte
+	var err error
+	var cleanupErr error
+	if owned {
+		var done func()
+		ctx, dk, done = dk.outlived(ctx)
+		defer done()
+		spec.Now = dk.Now
+		out, err = containerresult.RunOwned(ctx, func(call context.Context, env []string, args ...string) ([]byte, error) {
+			output, runErr := dk.resultCLI(call, env, args...)
+			if len(args) > 0 && args[0] == "rm" && runErr != nil {
+				cleanupErr = runErr
+			}
+			return output, runErr
+		}, spec)
+	} else {
+		out, err = dk.Result(ctx, spec)
+	}
 	if err != nil {
+		if owned && cleanupErr != nil {
+			return 0, "", fmt.Errorf("sealed readiness diagnostic failed: %w", err)
+		}
 		// The probe's own output is not repeated: it can hold the app's.
 		return 0, "", ErrNoAnswer
 	}
@@ -123,7 +148,32 @@ func (s *Sealed) getOnce(ctx context.Context, dk Scope, network, container strin
 // awaitReady asks the readiness path until it answers as the probe wants,
 // while the container runs, until wait ends. Any status proves something
 // serves unless the probe expects one.
-func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container string, port int, rp RenderedProbe, wait time.Duration) bool {
+func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container string, port int, rp RenderedProbe, wait time.Duration) (bool, error) {
+	if rp.PolicyError != nil {
+		return false, rp.PolicyError
+	}
+	if rp.Policy != nil {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		stop := context.AfterFunc(dk.lifetime(ctx), cancel)
+		defer stop()
+
+		var diagnosticErr error
+		ready := rp.Path != "" && coldPolicyReady(ctx, rp.Policy, max(wait, rp.Grace), func(one context.Context) (string, bool) {
+			return coldSample(one, dk, container, func(one context.Context) bool {
+				one, stop := context.WithTimeout(one, rp.Policy.Timeout)
+				defer stop()
+				status, _, err := s.getOnceTimeout(one, dk, network, container, port, rp.Path, rp.Policy.Timeout, true)
+				if err != nil && !errors.Is(err, ErrNoAnswer) {
+					diagnosticErr = err
+					cancel()
+				}
+				return err == nil && (rp.Expect == 0 || status == rp.Expect)
+			})
+		})
+		return ready, diagnosticErr
+	}
+
 	path := rp.Path
 	ctx = dk.lifetime(ctx)
 	ready := false
@@ -135,5 +185,5 @@ func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container st
 		ready = err == nil && (rp.Expect == 0 || status == rp.Expect)
 		return ready
 	})
-	return ready
+	return ready, nil
 }

@@ -77,6 +77,9 @@ type partHealth struct {
 	// window opened, so a crash loop shows as a rate rather than a history.
 	restartsSeen int
 	windowOpened time.Time
+	runtimeToken string
+	policy       appcontract.HealthPolicy
+	lastProbe    time.Time
 }
 
 // Watched is one standing deployment the controller probes.
@@ -129,7 +132,7 @@ func (c *HealthController) now() time.Time { return clock.Or(c.deps.Now)() }
 
 // Run sweeps until cancellation.
 func (c *HealthController) Run(ctx context.Context) {
-	t := time.NewTicker(HealthTick)
+	t := time.NewTimer(HealthTick)
 	defer t.Stop()
 	for {
 		select {
@@ -137,6 +140,13 @@ func (c *HealthController) Run(ctx context.Context) {
 			return
 		case <-t.C:
 			c.Sweep(ctx)
+			next := HealthTick
+			for _, state := range c.state {
+				if state.policy.Explicit {
+					next = min(next, max(time.Second, state.lastProbe.Add(state.policy.Period).Sub(c.now())))
+				}
+			}
+			t.Reset(next)
 		}
 	}
 }
@@ -190,6 +200,13 @@ func (c *HealthController) Sweep(ctx context.Context) {
 		// timing bug the render prevents by construction (§5.3). Re-read from
 		// docker so an AppTown restart re-derives this, never a stale memory.
 		pub := c.deps.PublicPart(ctx, e)
+		if c.explicitLiveness(ctx, e, dk, ph, pub) {
+			continue
+		}
+		if !ph.lastProbe.IsZero() && c.now().Sub(ph.lastProbe) < HealthTick {
+			continue
+		}
+		ph.lastProbe = c.now()
 		probe := RenderLivenessProbe(pub)
 		grace := probe.Grace
 		if grace < HealthGraceFloor {
@@ -308,7 +325,7 @@ func (c *HealthController) hold(ctx context.Context, e Watched, dk Scope, ph *pa
 // first still has a port Docker chose, until it is released again.
 func (c *HealthController) restart(ctx context.Context, e Watched, dk Scope, ph *partHealth) {
 	log.Printf("health controller: %s/%s failed liveness %d× past grace — restarting (attempt %d)",
-		e.Slug, e.Name, HealthFailThreshold, ph.restarts+1)
+		e.Slug, e.Name, ph.fails, ph.restarts+1)
 	out, err := dk.Run(ctx, "restart", e.Container)
 	// The restart is made: its receipt is written though ctx has ended.
 	c.deps.Record(context.WithoutCancel(ctx), e, "deployment.health-restart", map[string]any{
@@ -331,6 +348,11 @@ func (c *HealthController) restart(ctx context.Context, e Watched, dk Scope, ph 
 // enforced at parse).
 func RenderLivenessProbe(pub *appcontract.Part) RenderedProbe {
 	rp := RenderedProbe{Path: "/"}
+	policy, err := livenessPolicy(pub)
+	rp.PolicyError = err
+	if policy.Explicit {
+		rp.Policy = &policy
+	}
 	var l *appcontract.Probe
 	if pub != nil && pub.Intent != nil {
 		l = pub.Intent.Liveness
@@ -378,12 +400,24 @@ func withinStartupGrace(ctx context.Context, dk Scope, container string, grace t
 // 301 the check — the same signal the cold-boot render sends). Any transport
 // error, or a declared-status mismatch, is a miss.
 func ProbeLiveness(ctx context.Context, dk Scope, container string, hostPort int, rp RenderedProbe, headers map[string]string) bool {
+	if rp.PolicyError != nil {
+		return false
+	}
+	timeout := 2 * time.Second
+	if rp.Policy != nil {
+		timeout = rp.Policy.Timeout
+	}
+	if rp.Policy != nil || len(rp.Exec) == 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
 	switch {
 	case len(rp.Exec) > 0:
 		_, err := dk.Run(ctx, append([]string{"exec", container}, rp.Exec...)...)
 		return err == nil
 	case rp.TCP:
-		conn, err := net.DialTimeout("tcp", dk.DialAddress(hostPort), 2*time.Second)
+		conn, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", dk.DialAddress(hostPort))
 		if err != nil {
 			return false
 		}
@@ -392,11 +426,11 @@ func ProbeLiveness(ctx context.Context, dk Scope, container string, hostPort int
 	default:
 		client := &http.Client{
 			Transport:     check.ProbeTransport,
-			Timeout:       2 * time.Second,
+			Timeout:       timeout,
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		}
 		url := dk.ProbeURL(hostPort) + "/" + trimLeadingSlash(rp.Path)
-		req, err := http.NewRequest(http.MethodGet, url, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
 			return false
 		}

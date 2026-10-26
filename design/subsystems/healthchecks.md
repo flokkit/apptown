@@ -23,6 +23,38 @@ worker as here. The runtime probe `page`
 asks the same question of a running deployment through its real front door
 (`internal/check/page.go`).
 
+## Execution policy
+
+HTTP readiness and supported liveness probes accept `period`, `timeout`,
+`failureThreshold`, `successThreshold` and `checksDeps`. Written periods are
+whole seconds from 5 through 300; timeouts from 1 through 10; thresholds from
+1 through 50. `checksDeps` is the application's assertion, not proof of a
+healthy dependency, and cannot be true for liveness. TCP and exec readiness
+remain refused.
+
+Omitted fields retain each target and phase's defaults. Explicit readiness must
+fit its consecutive successes within the greater of 90 seconds and
+`startupGrace`. A probe's timeout bounds its application requests; surrounding
+identity observations have a separate five-second allowance, still bounded by
+the operation deadline. Cancellation and late answers never establish health.
+
+Docker executes structured health on its public application. Portainer executes
+public HTTP readiness and refuses structured liveness and nonpublic structured
+health. App Platform renders HTTP policy for declared-port services and refuses
+worker readiness, exec probes and HTTP liveness without a declared port. Static
+buckets refuse runtime execution policy. These refusals occur before preparation
+or provider effects; accepted syntax does not promise every target can run it.
+
+Cold readiness requires consecutive answers from the same container start or
+provider deployment. Maintained readiness keeps separate, derived counters for
+the exact generation, artifact, runtime and policy. A miss immediately removes
+positive health evidence; failure thresholds do not authorize stale healthy
+status. Runtime replacement, unavailable source or process restart resets the
+streak. Due times use sample starts, with no overlapping or catch-up probes;
+a saturated observer can report stale or unknown rather than invent evidence.
+Docker maintenance reads the exact admitted source revision and retained image.
+Old recorded provider artifacts keep their existing policy defaults.
+
 ## Docker controller
 
 The controller watches settled standing Docker-host deployments. It excludes
@@ -51,7 +83,8 @@ The controller's public-part lookup reads `app.yaml` at the deployment's
 recorded release revision, so its probe and restart policy are the running
 release's: changing health settings takes effect with the next release, not
 when the change lands. No recorded revision, or a declaration that cannot be
-read, falls back to the default probe.
+read, uses the legacy default only when no explicit policy has been observed.
+Once explicit policy is known, unreadable source suspends its liveness action.
 
 Generic readiness-based traffic draining, replicas and identical probe translation
 across all providers are not established by this implementation. See

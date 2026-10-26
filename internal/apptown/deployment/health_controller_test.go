@@ -52,16 +52,20 @@ func TestHealthControllerRestartsOnThreshold(t *testing.T) {
 	f.SetRunning(container, true) // StartedAt is empty, so startup grace has passed.
 
 	hc := s.HealthController()
+	at := time.Now()
+	hc.Clock(func() time.Time { return at })
 	restarts := func() int { return len(f.Matching("restart " + container)) }
 
 	// Below threshold: no restart yet.
 	for i := 0; i < docker.HealthFailThreshold-1; i++ {
+		at = at.Add(docker.HealthTick)
 		hc.Sweep(context.Background())
 	}
 	if restarts() != 0 {
 		t.Fatalf("restarted before %d misses: %d", docker.HealthFailThreshold, restarts())
 	}
 	// The threshold miss triggers exactly one restart.
+	at = at.Add(docker.HealthTick)
 	hc.Sweep(context.Background())
 	if restarts() != 1 {
 		t.Fatalf("want 1 restart at threshold, got %d", restarts())
@@ -102,7 +106,10 @@ func TestHealthControllerLeavesHealthyEnvAlone(t *testing.T) {
 	f.SetRunning(container, true)
 
 	hc := s.HealthController()
+	at := time.Now()
+	hc.Clock(func() time.Time { return at })
 	for i := 0; i < docker.HealthFailThreshold+2; i++ {
+		at = at.Add(docker.HealthTick)
 		hc.Sweep(context.Background())
 	}
 	if !hc.Watching(container) {

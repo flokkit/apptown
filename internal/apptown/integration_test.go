@@ -88,43 +88,52 @@ func staticFixture(t *testing.T, dir, marker string) {
 // second ask, and dies with reap.
 func TestIntegrationStaticPreviewBoot(t *testing.T) {
 	requireDocker(t)
-	a := testApp(t)
-	pid := plainTestProject(t, a.DB, "p", "P")
+	for _, explicit := range []bool{false, true} {
+		t.Run(fmt.Sprint(explicit), func(t *testing.T) {
+			a := testApp(t)
+			pid := plainTestProject(t, a.DB, "p", "P")
 
-	chID := ids.New(time.Now()) // a random id: its container names collide with no other AppTown's
-	// sql-guarantee: a bare change row for the preview; admission would start a run this test does not want.
-	if _, err := a.DB.Exec(`INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES (?,1,?,'feature','t','in_progress','forge/x',?)`, chID, pid, now()); err != nil {
-		t.Fatal(err)
-	}
-	ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", chID))
-	staticFixture(t, ws, "preview says hi")
-	t.Cleanup(func() {
-		docker.RemovePreview(context.Background(), a.docker, docker.PreviewChangeName(chID), docker.ChangeStackID(chID))
-	})
+			chID := ids.New(time.Now()) // a random id: its container names collide with no other AppTown's
+			// sql-guarantee: a bare change row for the preview; admission would start a run this test does not want.
+			if _, err := a.DB.Exec(`INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES (?,1,?,'feature','t','in_progress','forge/x',?)`, chID, pid, now()); err != nil {
+				t.Fatal(err)
+			}
+			ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", chID))
+			staticFixture(t, ws, "preview says hi")
+			if explicit {
+				if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte("app:\n  web:\n    static: site\n    public: true\n    health:\n      readiness: {http: /, expect: 200, period: 5s, timeout: 2s, successThreshold: 2, failureThreshold: 2, checksDeps: false}\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Cleanup(func() {
+				docker.RemovePreview(context.Background(), a.docker, docker.PreviewChangeName(chID), docker.ChangeStackID(chID))
+			})
 
-	ch, _ := a.changeByID(context.Background(), chID)
-	url, err := a.Preview.RehearseChange(context.Background(), previewChange(ch), false)
-	if err != nil {
-		t.Fatalf("cold boot: %v", err)
-	}
-	body := mustGET(t, url.URL)
-	if !strings.Contains(body, "preview says hi") {
-		t.Fatalf("preview serves the wrong content: %s", strs.Truncate(body, 200))
-	}
+			ch, _ := a.changeByID(context.Background(), chID)
+			url, err := a.Preview.RehearseChange(context.Background(), previewChange(ch), false)
+			if err != nil {
+				t.Fatalf("cold boot: %v", err)
+			}
+			body := mustGET(t, url.URL)
+			if !strings.Contains(body, "preview says hi") {
+				t.Fatalf("preview serves the wrong content: %s", strs.Truncate(body, 200))
+			}
 
-	// Second ask reuses the live container (same URL, no re-boot): the
-	// same address serving the same incarnation and public values. The
-	// values are compared, not the pointer each answer carries them in.
-	url2, err := a.Preview.RehearseChange(context.Background(), previewChange(ch), false)
-	if err != nil || url2.URL != url.URL || url2.HostPort != url.HostPort || url2.Incarnation != url.Incarnation || !reflect.DeepEqual(url2.Public, url.Public) {
-		t.Fatalf("reuse: %+v vs %+v (%v)", url2, url, err)
-	}
+			// Second ask reuses the live container (same URL, no re-boot): the
+			// same address serving the same incarnation and public values. The
+			// values are compared, not the pointer each answer carries them in.
+			url2, err := a.Preview.RehearseChange(context.Background(), previewChange(ch), false)
+			if err != nil || url2.URL != url.URL || url2.HostPort != url.HostPort || url2.Incarnation != url.Incarnation || !reflect.DeepEqual(url2.Public, url.Public) {
+				t.Fatalf("reuse: %+v vs %+v (%v)", url2, url, err)
+			}
 
-	// Reap kills it dead.
-	docker.RemovePreview(context.Background(), a.docker, docker.PreviewChangeName(chID), docker.ChangeStackID(chID))
-	name := fmt.Sprintf("apptown-preview-change-%d", chID)
-	if dockertest.Run("inspect", name) == nil {
-		t.Fatal("reap left the container")
+			// Reap kills it dead.
+			docker.RemovePreview(context.Background(), a.docker, docker.PreviewChangeName(chID), docker.ChangeStackID(chID))
+			name := fmt.Sprintf("apptown-preview-change-%d", chID)
+			if dockertest.Run("inspect", name) == nil {
+				t.Fatal("reap left the container")
+			}
+		})
 	}
 }
 

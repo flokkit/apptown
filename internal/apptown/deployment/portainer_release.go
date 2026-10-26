@@ -53,8 +53,12 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 		return deploy.Artifact{}, refused("Portainer readiness requires an admitted public part")
 	}
 	pub := src.Contract.PublicPart()
-	if pub.Intent != nil && pub.Intent.Liveness != nil {
-		return deploy.Artifact{}, refused("Portainer does not support public liveness intent")
+	if err := portainer.RefusesHealth(src.Contract); err != nil {
+		return deploy.Artifact{}, refused(err.Error())
+	}
+	policy, err := portainer.PublicHealthPolicy(src.Contract)
+	if err != nil {
+		return deploy.Artifact{}, err
 	}
 	if !src.Published {
 		return deploy.Artifact{}, notPublished(d.target.Name)
@@ -101,6 +105,10 @@ func (d *portainerRelease) Render(ctx context.Context, pl deploy.Placement, src 
 	probe := docker.RenderColdBootProbe(pub, map[string]string{"Host": origin.Host, "X-Forwarded-Host": origin.Host, "X-Forwarded-Proto": origin.Scheme})
 	ready := portainer.Readiness{URL: src.Ingress.URL, Version: 1, Deployment: d.dep.ID, Target: d.target.ID, Revision: src.Revision,
 		Public: portainer.Probe{ToolImage: d.providers.env.ToolVersions().Images.DF, Port: pub.Port, Path: probe.Path, Headers: probe.Headers, Expect: probe.Expect, GraceNanos: int64(probe.Grace), StaticRelease: src.Contract.PublicRelease(strings.TrimSpace(src.Revision))}}
+	if policy.Explicit {
+		ready.Version = 2
+		ready.Public.Policy = &policy
+	}
 	for _, part := range src.Contract.Parts {
 		service := part.Name
 		if part.Public {

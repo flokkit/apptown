@@ -28,7 +28,7 @@ const readinessScript = `ulimit -f 128
  if [ -n "$PROBE_FORWARDED_HOST" ]; then printf 'X-Forwarded-Host: %s\r\n' "$PROBE_FORWARDED_HOST"; fi
  if [ -n "$PROBE_FORWARDED_PROTO" ]; then printf 'X-Forwarded-Proto: %s\r\n' "$PROBE_FORWARDED_PROTO"; fi
  printf 'Connection: close\r\n\r\n'
-} | nc -w 8 127.0.0.1 "$PROBE_PORT" > /tmp/reply || exit 3
+} | nc -w "$PROBE_TIMEOUT" 127.0.0.1 "$PROBE_PORT" > /tmp/reply || exit 3
 status=$(awk 'NR==1 {gsub("\r", ""); if ($1 ~ /^HTTP\/1\.[01]$/ && $2 ~ /^[1-5][0-9][0-9]$/) print $2; exit}' /tmp/reply)
 [ -n "$status" ] || exit 4
 matched=1
@@ -56,6 +56,14 @@ func (d Diagnostic) sample(ctx context.Context, container string, p Probe) error
 			return errors.New("Portainer readiness headers are invalid")
 		}
 	}
+	if p.Policy != nil {
+		if err := validatePolicy(p.Policy); err != nil {
+			return err
+		}
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, p.Policy.Timeout)
+		defer cancel()
+	}
 	if err := d.Allowed(ctx); err != nil {
 		return err
 	}
@@ -71,11 +79,15 @@ func (d Diagnostic) sample(ctx context.Context, container string, p Probe) error
 func (d Diagnostic) http(ctx context.Context, container string, p Probe, path string, expect int, body string) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	timeout := 8
+	if p.Policy != nil {
+		timeout = int(p.Policy.Timeout / time.Second)
+	}
 	host := p.Headers["Host"]
 	if host == "" {
 		host = "127.0.0.1:" + strconv.Itoa(p.Port)
 	}
-	env := []string{"PROBE_PATH=" + path, "PROBE_PORT=" + strconv.Itoa(p.Port), "PROBE_HOST=" + host, "PROBE_FORWARDED_HOST=" + p.Headers["X-Forwarded-Host"], "PROBE_FORWARDED_PROTO=" + p.Headers["X-Forwarded-Proto"], "PROBE_EXPECT_BODY=" + body}
+	env := []string{"PROBE_TIMEOUT=" + strconv.Itoa(timeout), "PROBE_PATH=" + path, "PROBE_PORT=" + strconv.Itoa(p.Port), "PROBE_HOST=" + host, "PROBE_FORWARDED_HOST=" + p.Headers["X-Forwarded-Host"], "PROBE_FORWARDED_PROTO=" + p.Headers["X-Forwarded-Proto"], "PROBE_EXPECT_BODY=" + body}
 	command := func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 		if len(args) == 0 {
 			return nil, errors.New("empty diagnostic command")

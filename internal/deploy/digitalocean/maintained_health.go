@@ -22,11 +22,6 @@ func (d *Driver) Sample(ctx context.Context, p deploy.Placement, artifact string
 	if allowed == nil {
 		return unknown, errors.New("App Platform health needs the current deployment permit")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := allowed(ctx); err != nil {
-		return unknown, err
-	}
 	if p.Gate != nil {
 		return unknown, errors.New("gated placement cannot use standing App Platform health")
 	}
@@ -36,6 +31,15 @@ func (d *Driver) Sample(ctx context.Context, p deploy.Placement, artifact string
 	}
 	if r == nil {
 		return unknown, errors.New("App Platform generation has no maintained health receipt")
+	}
+	budget := 5 * time.Second
+	if r.Readiness.Policy != nil {
+		budget = r.Readiness.Policy.Timeout + 5*time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, budget)
+	defer cancel()
+	if err := allowed(ctx); err != nil {
+		return unknown, err
 	}
 	if err := d.receiptConnection(r, p.Generation); err != nil {
 		return unknown, err
@@ -76,7 +80,13 @@ func (d *Driver) Sample(ctx context.Context, p deploy.Placement, artifact string
 		front = before.DefaultIngress
 	}
 	if r.Readiness.Path != "" {
-		ok, err := d.sampleFrontDoor(ctx, strings.TrimRight(front, "/")+r.Readiness.Path, r.Readiness.Expect, "", allowed)
+		probeContext := ctx
+		cancelProbe := func() {}
+		if r.Readiness.Policy != nil {
+			probeContext, cancelProbe = context.WithTimeout(ctx, r.Readiness.Policy.Timeout)
+		}
+		ok, err := d.sampleFrontDoor(probeContext, strings.TrimRight(front, "/")+r.Readiness.Path, r.Readiness.Expect, "", allowed)
+		cancelProbe()
 		if err != nil {
 			return unknown, err
 		}
@@ -103,7 +113,7 @@ func (d *Driver) Sample(ctx context.Context, p deploy.Placement, artifact string
 	if err := allowed(ctx); err != nil {
 		return unknown, err
 	}
-	return deploy.Observation{Generation: p.Generation, ArtifactHash: artifact, HealthObservedAt: d.options.Now(), Rollout: "active", Health: health, URL: front, Handle: p.Handle, Running: r.Deployment}, nil
+	return deploy.Observation{Generation: p.Generation, ArtifactHash: artifact, HealthObservedAt: d.options.Now(), Rollout: "active", Health: health, URL: front, Handle: p.Handle, Running: r.Deployment, RuntimeToken: r.Deployment, ReadinessPolicy: r.Readiness.Policy}, nil
 }
 
 func sampleApp(ctx context.Context, c *Client, r *healthReceipt, allowed func(context.Context) error) (doApp, error) {
