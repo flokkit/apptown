@@ -508,6 +508,40 @@ func (q *Queries) ConsumeConsent(ctx context.Context, arg ConsumeConsentParams) 
 	return token_hash, err
 }
 
+const consumeExternalTransaction = `-- name: ConsumeExternalTransaction :one
+UPDATE external_signin_transactions SET consumed_at=$1::timestamptz
+WHERE state_hash=$2 AND verifier_hash=$3 AND consumed_at IS NULL AND expires_at>$1::timestamptz RETURNING id, state_hash, provider_id, provider_revision, verifier_hash, nonce_hash, purpose, local_session_id, principal_id, proposed_name, callback, return_path, created_at, expires_at, consumed_at
+`
+
+type ConsumeExternalTransactionParams struct {
+	At           time.Time
+	StateHash    string
+	VerifierHash string
+}
+
+func (q *Queries) ConsumeExternalTransaction(ctx context.Context, arg ConsumeExternalTransactionParams) (ExternalSigninTransaction, error) {
+	row := q.db.QueryRowContext(ctx, consumeExternalTransaction, arg.At, arg.StateHash, arg.VerifierHash)
+	var i ExternalSigninTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.StateHash,
+		&i.ProviderID,
+		&i.ProviderRevision,
+		&i.VerifierHash,
+		&i.NonceHash,
+		&i.Purpose,
+		&i.LocalSessionID,
+		&i.PrincipalID,
+		&i.ProposedName,
+		&i.Callback,
+		&i.ReturnPath,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.ConsumedAt,
+	)
+	return i, err
+}
+
 const consumeTicket = `-- name: ConsumeTicket :execrows
 UPDATE object_capabilities SET kind = $1, delegation_id = $2,
 resource_type = $3, resource_id = $4, constraints_json = $5,
@@ -899,6 +933,190 @@ func (q *Queries) EnsureBuiltinGroup(ctx context.Context, arg EnsureBuiltinGroup
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const externalBindingByID = `-- name: ExternalBindingByID :one
+SELECT id, provider_id, issuer, subject, principal_id, created_by, created_at, revoked_at FROM external_signin_bindings WHERE id=$1
+`
+
+func (q *Queries) ExternalBindingByID(ctx context.Context, id ids.ID) (ExternalSigninBinding, error) {
+	row := q.db.QueryRowContext(ctx, externalBindingByID, id)
+	var i ExternalSigninBinding
+	err := row.Scan(
+		&i.ID,
+		&i.ProviderID,
+		&i.Issuer,
+		&i.Subject,
+		&i.PrincipalID,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const externalBindingBySubject = `-- name: ExternalBindingBySubject :one
+SELECT id, provider_id, issuer, subject, principal_id, created_by, created_at, revoked_at FROM external_signin_bindings WHERE provider_id=$1 AND issuer=$2 AND subject=$3
+`
+
+type ExternalBindingBySubjectParams struct {
+	ProviderID ids.ID
+	Issuer     string
+	Subject    string
+}
+
+func (q *Queries) ExternalBindingBySubject(ctx context.Context, arg ExternalBindingBySubjectParams) (ExternalSigninBinding, error) {
+	row := q.db.QueryRowContext(ctx, externalBindingBySubject, arg.ProviderID, arg.Issuer, arg.Subject)
+	var i ExternalSigninBinding
+	err := row.Scan(
+		&i.ID,
+		&i.ProviderID,
+		&i.Issuer,
+		&i.Subject,
+		&i.PrincipalID,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const externalBindings = `-- name: ExternalBindings :many
+SELECT id, provider_id, issuer, subject, principal_id, created_by, created_at, revoked_at FROM external_signin_bindings WHERE provider_id=$1 ORDER BY created_at,id
+`
+
+func (q *Queries) ExternalBindings(ctx context.Context, providerID ids.ID) ([]ExternalSigninBinding, error) {
+	rows, err := q.db.QueryContext(ctx, externalBindings, providerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExternalSigninBinding
+	for rows.Next() {
+		var i ExternalSigninBinding
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProviderID,
+			&i.Issuer,
+			&i.Subject,
+			&i.PrincipalID,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.RevokedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const externalBindingsForPrincipal = `-- name: ExternalBindingsForPrincipal :many
+SELECT id, provider_id, issuer, subject, principal_id, created_by, created_at, revoked_at FROM external_signin_bindings WHERE principal_id=$1 ORDER BY created_at,id
+`
+
+func (q *Queries) ExternalBindingsForPrincipal(ctx context.Context, principalID ids.ID) ([]ExternalSigninBinding, error) {
+	rows, err := q.db.QueryContext(ctx, externalBindingsForPrincipal, principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ExternalSigninBinding
+	for rows.Next() {
+		var i ExternalSigninBinding
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProviderID,
+			&i.Issuer,
+			&i.Subject,
+			&i.PrincipalID,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.RevokedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const externalProviderByID = `-- name: ExternalProviderByID :one
+SELECT id, current_slot, revision, issuer, display_name, client_id, secret_ref, callback_origin, enabled, allow_signup, initial_group, created_by, updated_by, created_at, updated_at FROM external_signin_providers WHERE id=$1
+`
+
+func (q *Queries) ExternalProviderByID(ctx context.Context, id ids.ID) (ExternalSigninProvider, error) {
+	row := q.db.QueryRowContext(ctx, externalProviderByID, id)
+	var i ExternalSigninProvider
+	err := row.Scan(
+		&i.ID,
+		&i.CurrentSlot,
+		&i.Revision,
+		&i.Issuer,
+		&i.DisplayName,
+		&i.ClientID,
+		&i.SecretRef,
+		&i.CallbackOrigin,
+		&i.Enabled,
+		&i.AllowSignup,
+		&i.InitialGroup,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const externalProviderCurrent = `-- name: ExternalProviderCurrent :one
+SELECT id, current_slot, revision, issuer, display_name, client_id, secret_ref, callback_origin, enabled, allow_signup, initial_group, created_by, updated_by, created_at, updated_at FROM external_signin_providers WHERE current_slot
+`
+
+// ===== external sign-in =================================================
+func (q *Queries) ExternalProviderCurrent(ctx context.Context) (ExternalSigninProvider, error) {
+	row := q.db.QueryRowContext(ctx, externalProviderCurrent)
+	var i ExternalSigninProvider
+	err := row.Scan(
+		&i.ID,
+		&i.CurrentSlot,
+		&i.Revision,
+		&i.Issuer,
+		&i.DisplayName,
+		&i.ClientID,
+		&i.SecretRef,
+		&i.CallbackOrigin,
+		&i.Enabled,
+		&i.AllowSignup,
+		&i.InitialGroup,
+		&i.CreatedBy,
+		&i.UpdatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const externalProviderEnabled = `-- name: ExternalProviderEnabled :one
+SELECT EXISTS(SELECT 1 FROM external_signin_providers WHERE enabled AND current_slot)::boolean
+`
+
+func (q *Queries) ExternalProviderEnabled(ctx context.Context) (bool, error) {
+	row := q.db.QueryRowContext(ctx, externalProviderEnabled)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const grantByID = `-- name: GrantByID :one
@@ -1355,6 +1573,98 @@ func (q *Queries) InsertDelegation(ctx context.Context, arg InsertDelegationPara
 	var id ids.ID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertExternalBinding = `-- name: InsertExternalBinding :exec
+INSERT INTO external_signin_bindings(id,provider_id,issuer,subject,principal_id,created_by,created_at) VALUES($1,$2,$3,$4,$5,$6,$7)
+`
+
+type InsertExternalBindingParams struct {
+	ID          ids.ID
+	ProviderID  ids.ID
+	Issuer      string
+	Subject     string
+	PrincipalID ids.ID
+	CreatedBy   ids.ID
+	CreatedAt   time.Time
+}
+
+func (q *Queries) InsertExternalBinding(ctx context.Context, arg InsertExternalBindingParams) error {
+	_, err := q.db.ExecContext(ctx, insertExternalBinding,
+		arg.ID,
+		arg.ProviderID,
+		arg.Issuer,
+		arg.Subject,
+		arg.PrincipalID,
+		arg.CreatedBy,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertExternalSession = `-- name: InsertExternalSession :exec
+INSERT INTO external_signin_sessions(session_id,binding_id,provider_id,provider_revision,authenticated_at) VALUES($1,$2,$3,$4,$5)
+`
+
+type InsertExternalSessionParams struct {
+	SessionID        ids.ID
+	BindingID        ids.ID
+	ProviderID       ids.ID
+	ProviderRevision int64
+	AuthenticatedAt  sql.NullTime
+}
+
+func (q *Queries) InsertExternalSession(ctx context.Context, arg InsertExternalSessionParams) error {
+	_, err := q.db.ExecContext(ctx, insertExternalSession,
+		arg.SessionID,
+		arg.BindingID,
+		arg.ProviderID,
+		arg.ProviderRevision,
+		arg.AuthenticatedAt,
+	)
+	return err
+}
+
+const insertExternalTransaction = `-- name: InsertExternalTransaction :exec
+INSERT INTO external_signin_transactions(id,state_hash,provider_id,provider_revision,verifier_hash,nonce_hash,purpose,local_session_id,principal_id,proposed_name,callback,return_path,created_at,expires_at)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+`
+
+type InsertExternalTransactionParams struct {
+	ID               ids.ID
+	StateHash        string
+	ProviderID       ids.ID
+	ProviderRevision int64
+	VerifierHash     string
+	NonceHash        string
+	Purpose          string
+	LocalSessionID   ids.ID
+	PrincipalID      ids.ID
+	ProposedName     string
+	Callback         string
+	ReturnPath       string
+	CreatedAt        time.Time
+	ExpiresAt        time.Time
+}
+
+func (q *Queries) InsertExternalTransaction(ctx context.Context, arg InsertExternalTransactionParams) error {
+	_, err := q.db.ExecContext(ctx, insertExternalTransaction,
+		arg.ID,
+		arg.StateHash,
+		arg.ProviderID,
+		arg.ProviderRevision,
+		arg.VerifierHash,
+		arg.NonceHash,
+		arg.Purpose,
+		arg.LocalSessionID,
+		arg.PrincipalID,
+		arg.ProposedName,
+		arg.Callback,
+		arg.ReturnPath,
+		arg.CreatedAt,
+		arg.ExpiresAt,
+	)
+	return err
 }
 
 const insertGrant = `-- name: InsertGrant :one
@@ -1824,6 +2134,17 @@ func (q *Queries) InviteByIDForUpdate(ctx context.Context, id ids.ID) (Invite, e
 	return i, err
 }
 
+const isExternalSession = `-- name: IsExternalSession :one
+SELECT EXISTS(SELECT 1 FROM external_signin_sessions WHERE session_id=$1)::boolean
+`
+
+func (q *Queries) IsExternalSession(ctx context.Context, sessionID ids.ID) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isExternalSession, sessionID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const liveAuthTokenNamesOfUser = `-- name: LiveAuthTokenNamesOfUser :many
 SELECT name FROM auth_tokens_named WHERE username = $1 AND revoked_at IS NULL ORDER BY name
 `
@@ -2186,6 +2507,22 @@ func (q *Queries) PendingInvitesForUpdate(ctx context.Context, arg PendingInvite
 	return items, nil
 }
 
+const persistentLocalRoots = `-- name: PersistentLocalRoots :one
+SELECT count(*)::bigint FROM users u WHERE u.disabled_at IS NULL AND u.password_hash<>'' AND EXISTS (
+ SELECT 1 FROM grants g WHERE g.role_name='instance-administrator' AND g.capability='' AND g.scope_type='instance'
+ AND g.revoked_at IS NULL AND g.expires_at IS NULL
+ AND ((g.subject_type='user' AND g.subject=u.principal_id::text) OR (g.subject_type='group' AND
+ (g.subject='all-authenticated-users' OR EXISTS(SELECT 1 FROM group_members m WHERE m.group_name=g.subject AND m.principal_id=u.principal_id AND m.revoked_at IS NULL AND m.expires_at IS NULL))))
+)
+`
+
+func (q *Queries) PersistentLocalRoots(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, persistentLocalRoots)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const principalByID = `-- name: PrincipalByID :one
 SELECT id, kind, name, origin_forge, created_at, removed_at FROM principals WHERE id = $1
 `
@@ -2411,6 +2748,23 @@ func (q *Queries) RevokeExpiredDelegations(ctx context.Context, at time.Time) (i
 	return result.RowsAffected()
 }
 
+const revokeExternalBinding = `-- name: RevokeExternalBinding :execrows
+UPDATE external_signin_bindings SET revoked_at=$2::timestamptz WHERE id=$1 AND revoked_at IS NULL
+`
+
+type RevokeExternalBindingParams struct {
+	ID ids.ID
+	At time.Time
+}
+
+func (q *Queries) RevokeExternalBinding(ctx context.Context, arg RevokeExternalBindingParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, revokeExternalBinding, arg.ID, arg.At)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const revokeGrant = `-- name: RevokeGrant :one
 UPDATE grants SET subject_type = $1,
 role_name = $2, capability = $3,
@@ -2592,6 +2946,51 @@ func (q *Queries) SaveDelegation(ctx context.Context, arg SaveDelegationParams) 
 	return id, err
 }
 
+const saveExternalProvider = `-- name: SaveExternalProvider :exec
+INSERT INTO external_signin_providers(id,current_slot,revision,issuer,display_name,client_id,secret_ref,callback_origin,enabled,allow_signup,initial_group,created_by,updated_by,created_at,updated_at)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+ON CONFLICT(id) DO UPDATE SET current_slot=EXCLUDED.current_slot,revision=EXCLUDED.revision,display_name=EXCLUDED.display_name,secret_ref=EXCLUDED.secret_ref,callback_origin=EXCLUDED.callback_origin,enabled=EXCLUDED.enabled,allow_signup=EXCLUDED.allow_signup,initial_group=EXCLUDED.initial_group,updated_by=EXCLUDED.updated_by,updated_at=EXCLUDED.updated_at
+`
+
+type SaveExternalProviderParams struct {
+	ID             ids.ID
+	CurrentSlot    bool
+	Revision       int64
+	Issuer         string
+	DisplayName    string
+	ClientID       string
+	SecretRef      string
+	CallbackOrigin string
+	Enabled        bool
+	AllowSignup    bool
+	InitialGroup   string
+	CreatedBy      ids.ID
+	UpdatedBy      ids.ID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (q *Queries) SaveExternalProvider(ctx context.Context, arg SaveExternalProviderParams) error {
+	_, err := q.db.ExecContext(ctx, saveExternalProvider,
+		arg.ID,
+		arg.CurrentSlot,
+		arg.Revision,
+		arg.Issuer,
+		arg.DisplayName,
+		arg.ClientID,
+		arg.SecretRef,
+		arg.CallbackOrigin,
+		arg.Enabled,
+		arg.AllowSignup,
+		arg.InitialGroup,
+		arg.CreatedBy,
+		arg.UpdatedBy,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
 const saveGroup = `-- name: SaveGroup :one
 INSERT INTO groups (name, description, created_at) VALUES ($1, $2, $3)
 ON CONFLICT (name) DO UPDATE SET description = excluded.description
@@ -2720,7 +3119,12 @@ func (q *Queries) SeedTransparentReads(ctx context.Context, arg SeedTransparentR
 }
 
 const sessionByHash = `-- name: SessionByHash :one
-SELECT token_hash, principal_id, created_at, last_used, expires_at, id, username FROM sessions_named WHERE token_hash = $1
+SELECT sessions_named.token_hash, sessions_named.principal_id, sessions_named.created_at, sessions_named.last_used, sessions_named.expires_at, sessions_named.id, sessions_named.username FROM sessions_named WHERE sessions_named.token_hash = $1 AND NOT EXISTS (
+ SELECT 1 FROM external_signin_sessions x WHERE x.session_id=sessions_named.id AND NOT EXISTS (
+ SELECT 1 FROM external_signin_providers p JOIN external_signin_bindings b ON b.provider_id=p.id
+ WHERE p.id=x.provider_id AND p.enabled AND p.current_slot AND p.revision=x.provider_revision
+ AND b.id=x.binding_id AND b.revoked_at IS NULL AND b.principal_id=sessions_named.principal_id
+ ))
 `
 
 func (q *Queries) SessionByHash(ctx context.Context, tokenHash string) (SessionsNamed, error) {
@@ -2739,7 +3143,12 @@ func (q *Queries) SessionByHash(ctx context.Context, tokenHash string) (Sessions
 }
 
 const sessionByID = `-- name: SessionByID :one
-SELECT token_hash, principal_id, created_at, last_used, expires_at, id, username FROM sessions_named WHERE id = $1
+SELECT sessions_named.token_hash, sessions_named.principal_id, sessions_named.created_at, sessions_named.last_used, sessions_named.expires_at, sessions_named.id, sessions_named.username FROM sessions_named WHERE sessions_named.id = $1 AND NOT EXISTS (
+ SELECT 1 FROM external_signin_sessions x WHERE x.session_id=sessions_named.id AND NOT EXISTS (
+ SELECT 1 FROM external_signin_providers p JOIN external_signin_bindings b ON b.provider_id=p.id
+ WHERE p.id=x.provider_id AND p.enabled AND p.current_slot AND p.revision=x.provider_revision
+ AND b.id=x.binding_id AND b.revoked_at IS NULL AND b.principal_id=sessions_named.principal_id
+ ))
 `
 
 func (q *Queries) SessionByID(ctx context.Context, id ids.ID) (SessionsNamed, error) {
@@ -2800,6 +3209,15 @@ func (q *Queries) SettleInvite(ctx context.Context, arg SettleInviteParams) (int
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const sweepExternalTransactions = `-- name: SweepExternalTransactions :exec
+DELETE FROM external_signin_transactions WHERE expires_at<=$1::timestamptz
+`
+
+func (q *Queries) SweepExternalTransactions(ctx context.Context, at time.Time) error {
+	_, err := q.db.ExecContext(ctx, sweepExternalTransactions, at)
+	return err
 }
 
 const systemBinding = `-- name: SystemBinding :one

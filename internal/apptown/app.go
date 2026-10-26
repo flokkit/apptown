@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/flokkit/apptown/internal/oidclogin"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -267,7 +268,10 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if cfg.authMode == "internal" {
 		setupToken = filepath.Join(cfg.dataDir, "setup-token")
 	}
-	a.Access = identity.New(db, identity.Config{OpenInstance: cfg.authMode == "open", Projects: project.NewCatalogue(db), Now: cfg.clock.Now, SetupTokenPath: setupToken})
+	a.Access = identity.New(db, identity.Config{OpenInstance: cfg.authMode == "open", Projects: project.NewCatalogue(db), Now: cfg.clock.Now, SetupTokenPath: setupToken, External: &identity.ExternalDependencies{Internal: cfg.authMode == "internal", Origin: cfg.publicOrigin(), Protocol: oidclogin.New(nil, cfg.clock.Now, cfg.publicHostScheme == "http"), Secret: func(ctx context.Context, name string) (string, error) {
+		values, err := a.Secrets.WithContext(ctx)
+		return values[name], err
+	}}})
 	a.InstanceUpdates, err = instanceupdate.New(instanceupdate.Options{DataDir: cfg.dataDir, Build: version.String(), Platform: runtime.GOOS + "/" + runtime.GOARCH, Channel: input.UpdateChannel, Authority: access.Checked{Authority: a.Access}, Now: cfg.clock.Now})
 	if err != nil {
 		return nil, err

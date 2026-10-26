@@ -96,3 +96,5 @@ Write current guides in plain technical language: name the owning package,
 describe the operation and its failure behaviour, and link to implementation.
 Distinguish an implemented feature from an accepted requirement. Keep author
 conversations and rollout chronology in plans and reviews.
+
+[External sign-in](subsystems/external-signin.md) describes provider configuration, account binding and local recovery.

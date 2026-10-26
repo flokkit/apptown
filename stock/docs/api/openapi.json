@@ -1947,6 +1947,17 @@
         ],
         "type": "object"
       },
+      "Done": {
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "type": "object"
+      },
       "Error": {
         "properties": {
           "error": {
@@ -1989,6 +2000,173 @@
           "kind",
           "payload"
         ],
+        "type": "object"
+      },
+      "ExternalBindRequest": {
+        "properties": {
+          "principalId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "providerId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "ExternalBindingList": {
+        "properties": {
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/ExternalBindingView"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "bindings"
+        ],
+        "type": "object"
+      },
+      "ExternalBindingView": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "principalId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "providerId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "subject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "providerId",
+          "principalId",
+          "issuer",
+          "subject",
+          "revoked"
+        ],
+        "type": "object"
+      },
+      "ExternalEnableRequest": {
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "ExternalProvider": {
+        "properties": {
+          "allowSignup": {
+            "type": "boolean"
+          },
+          "callbackOrigin": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "initialGroup": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "secretRef": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "issuer",
+          "displayName",
+          "clientId",
+          "secretRef",
+          "callbackOrigin",
+          "enabled",
+          "allowSignup",
+          "initialGroup"
+        ],
+        "type": "object"
+      },
+      "ExternalProviderChange": {
+        "properties": {
+          "allowSignup": {
+            "type": "boolean"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "initialGroup": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "secretRef": {
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "Kind": {
@@ -5518,6 +5696,325 @@
           "kind": "owner"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/auth/external/bindings": {
+      "get": {
+        "operationId": "getAuthExternalBindings",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "all",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalBindingList"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "external.Bindings",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      },
+      "post": {
+        "operationId": "postAuthExternalBindings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalBindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Done"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "external.Bind",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/auth/external/bindings/{id}": {
+      "delete": {
+        "operationId": "deleteAuthExternalBindingsId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Done"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "external.Revoke",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/auth/external/bindings/{id}/unlink": {
+      "post": {
+        "operationId": "postAuthExternalBindingsIdUnlink",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "a.handleExternalUnlink",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/auth/external/callback": {
+      "get": {
+        "operationId": "getAuthExternalCallback",
+        "responses": {
+          "default": {
+            "description": "this route speaks its protocol (a.handleExternalCallback: one-use external authentication evidence), not AppTown's JSON"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "a.handleExternalCallback: one-use external authentication evidence",
+          "kind": "protocol"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/auth/external/enabled": {
+      "post": {
+        "operationId": "postAuthExternalEnabled",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalEnableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalProvider"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "external.Enabled",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/auth/external/provider": {
+      "get": {
+        "operationId": "getAuthExternalProvider",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalProvider"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "capability": "identity:manage-users",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      },
+      "put": {
+        "operationId": "putAuthExternalProvider",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExternalProviderChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalProvider"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "external.Save",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/auth/external/start": {
+      "post": {
+        "operationId": "postAuthExternalStart",
+        "responses": {
+          "default": {
+            "description": "this route speaks its protocol (a.handleExternalStart: browser-bound external authentication), not AppTown's JSON"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "a.handleExternalStart: browser-bound external authentication",
+          "kind": "protocol"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/auth/external/test": {
+      "post": {
+        "operationId": "postAuthExternalTest",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "auth"
+        ],
+        "x-apptown-access": {
+          "contract": "external.Test",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/auth/invite": {

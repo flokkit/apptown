@@ -9,6 +9,7 @@ import type { AuthMe, Account, AdministratorNetworksView, DelegationList, GrantL
 import { useHolds } from '../instancePages'
 import { grantTitle, subjectLabel } from '../parts/grants'
 import { PageHead } from '../PageHead'
+import { ExternalProviderSettings, MyExternalSignIn } from './ExternalSignIn'
 
 // The server's shapes, generated from its Go types (wire.gen.ts).
 export type Role = RoleView
@@ -57,6 +58,8 @@ export default function People() {
       <ReadGate q={rolesQ} also={[grantsQ, usersQ, groupsQ]} what="the roles and grants">
         <RolesCard roles={roles} grants={grants} users={users} groups={groups} act={act} canEdit={canGrants} />
       </ReadGate>
+      {meQ.data?.mode === 'internal' && <MyExternalSignIn />}
+      {canUsers && meQ.data?.mode === 'internal' && <ExternalProviderSettings />}
       <AgentsCard canEdit={canEdit} />
       <AdminNetworksCard canEdit={canEdit} />
       {canEdit && <TokensCard />}

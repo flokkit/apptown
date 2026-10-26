@@ -94,10 +94,20 @@ DELETE FROM users WHERE username = $1;
 INSERT INTO sessions (id, token_hash, principal_id, created_at, expires_at) VALUES ($5, $1, (SELECT u.principal_id FROM users u WHERE u.username = $2), $3, $4) RETURNING id;
 
 -- name: SessionByHash :one
-SELECT * FROM sessions_named WHERE token_hash = $1;
+SELECT sessions_named.* FROM sessions_named WHERE sessions_named.token_hash = $1 AND NOT EXISTS (
+ SELECT 1 FROM external_signin_sessions x WHERE x.session_id=sessions_named.id AND NOT EXISTS (
+ SELECT 1 FROM external_signin_providers p JOIN external_signin_bindings b ON b.provider_id=p.id
+ WHERE p.id=x.provider_id AND p.enabled AND p.current_slot AND p.revision=x.provider_revision
+ AND b.id=x.binding_id AND b.revoked_at IS NULL AND b.principal_id=sessions_named.principal_id
+ ));
 
 -- name: SessionByID :one
-SELECT * FROM sessions_named WHERE id = $1;
+SELECT sessions_named.* FROM sessions_named WHERE sessions_named.id = $1 AND NOT EXISTS (
+ SELECT 1 FROM external_signin_sessions x WHERE x.session_id=sessions_named.id AND NOT EXISTS (
+ SELECT 1 FROM external_signin_providers p JOIN external_signin_bindings b ON b.provider_id=p.id
+ WHERE p.id=x.provider_id AND p.enabled AND p.current_slot AND p.revision=x.provider_revision
+ AND b.id=x.binding_id AND b.revoked_at IS NULL AND b.principal_id=sessions_named.principal_id
+ ));
 
 -- name: TouchSession :exec
 UPDATE sessions SET last_used = sqlc.arg(at)::timestamptz WHERE token_hash = sqlc.arg(token_hash);
@@ -560,3 +570,46 @@ SELECT * FROM users WHERE principal_id = $1 FOR UPDATE;
 
 -- name: UserByPrincipal :one
 SELECT * FROM users WHERE principal_id = $1;
+
+-- ===== external sign-in =================================================
+-- name: ExternalProviderCurrent :one
+SELECT * FROM external_signin_providers WHERE current_slot;
+-- name: ExternalProviderByID :one
+SELECT * FROM external_signin_providers WHERE id=$1;
+-- name: SaveExternalProvider :exec
+INSERT INTO external_signin_providers(id,current_slot,revision,issuer,display_name,client_id,secret_ref,callback_origin,enabled,allow_signup,initial_group,created_by,updated_by,created_at,updated_at)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+ON CONFLICT(id) DO UPDATE SET current_slot=EXCLUDED.current_slot,revision=EXCLUDED.revision,display_name=EXCLUDED.display_name,secret_ref=EXCLUDED.secret_ref,callback_origin=EXCLUDED.callback_origin,enabled=EXCLUDED.enabled,allow_signup=EXCLUDED.allow_signup,initial_group=EXCLUDED.initial_group,updated_by=EXCLUDED.updated_by,updated_at=EXCLUDED.updated_at;
+-- name: ExternalBindingBySubject :one
+SELECT * FROM external_signin_bindings WHERE provider_id=$1 AND issuer=$2 AND subject=$3;
+-- name: ExternalBindings :many
+SELECT * FROM external_signin_bindings WHERE provider_id=$1 ORDER BY created_at,id;
+-- name: InsertExternalBinding :exec
+INSERT INTO external_signin_bindings(id,provider_id,issuer,subject,principal_id,created_by,created_at) VALUES($1,$2,$3,$4,$5,$6,$7);
+-- name: RevokeExternalBinding :execrows
+UPDATE external_signin_bindings SET revoked_at=sqlc.arg(at)::timestamptz WHERE id=$1 AND revoked_at IS NULL;
+-- name: InsertExternalTransaction :exec
+INSERT INTO external_signin_transactions(id,state_hash,provider_id,provider_revision,verifier_hash,nonce_hash,purpose,local_session_id,principal_id,proposed_name,callback,return_path,created_at,expires_at)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14);
+-- name: ConsumeExternalTransaction :one
+UPDATE external_signin_transactions SET consumed_at=sqlc.arg(at)::timestamptz
+WHERE state_hash=sqlc.arg(state_hash) AND verifier_hash=sqlc.arg(verifier_hash) AND consumed_at IS NULL AND expires_at>sqlc.arg(at)::timestamptz RETURNING *;
+-- name: InsertExternalSession :exec
+INSERT INTO external_signin_sessions(session_id,binding_id,provider_id,provider_revision,authenticated_at) VALUES($1,$2,$3,$4,$5);
+-- name: IsExternalSession :one
+SELECT EXISTS(SELECT 1 FROM external_signin_sessions WHERE session_id=$1)::boolean;
+-- name: SweepExternalTransactions :exec
+DELETE FROM external_signin_transactions WHERE expires_at<=sqlc.arg(at)::timestamptz;
+-- name: ExternalProviderEnabled :one
+SELECT EXISTS(SELECT 1 FROM external_signin_providers WHERE enabled AND current_slot)::boolean;
+-- name: PersistentLocalRoots :one
+SELECT count(*)::bigint FROM users u WHERE u.disabled_at IS NULL AND u.password_hash<>'' AND EXISTS (
+ SELECT 1 FROM grants g WHERE g.role_name='instance-administrator' AND g.capability='' AND g.scope_type='instance'
+ AND g.revoked_at IS NULL AND g.expires_at IS NULL
+ AND ((g.subject_type='user' AND g.subject=u.principal_id::text) OR (g.subject_type='group' AND
+ (g.subject='all-authenticated-users' OR EXISTS(SELECT 1 FROM group_members m WHERE m.group_name=g.subject AND m.principal_id=u.principal_id AND m.revoked_at IS NULL AND m.expires_at IS NULL))))
+);
+-- name: ExternalBindingByID :one
+SELECT * FROM external_signin_bindings WHERE id=$1;
+-- name: ExternalBindingsForPrincipal :many
+SELECT * FROM external_signin_bindings WHERE principal_id=$1 ORDER BY created_at,id;

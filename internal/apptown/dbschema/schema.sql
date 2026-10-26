@@ -290,6 +290,61 @@ CREATE OR REPLACE VIEW grants_named AS
     g.created_at, g.expires_at, g.review_at, g.revoked_at
   FROM grants g LEFT JOIN users u ON g.subject_type = 'user' AND u.principal_id::text = g.subject;
 
+-- External sign-in is evidence bound to an immutable local principal, never email.
+CREATE TABLE IF NOT EXISTS external_signin_providers (
+ id UUID PRIMARY KEY,
+ current_slot BOOLEAN NOT NULL DEFAULT TRUE,
+ revision BIGINT NOT NULL CHECK (revision > 0),
+ issuer TEXT NOT NULL,
+ display_name TEXT NOT NULL,
+ client_id TEXT NOT NULL,
+ secret_ref TEXT NOT NULL,
+ callback_origin TEXT NOT NULL,
+ enabled BOOLEAN NOT NULL DEFAULT FALSE,
+ allow_signup BOOLEAN NOT NULL DEFAULT FALSE,
+ initial_group TEXT NOT NULL DEFAULT '',
+ created_by UUID NOT NULL REFERENCES principals(id),
+ updated_by UUID NOT NULL REFERENCES principals(id),
+ created_at TIMESTAMPTZ NOT NULL,
+ updated_at TIMESTAMPTZ NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS external_signin_current ON external_signin_providers(current_slot) WHERE current_slot;
+CREATE TABLE IF NOT EXISTS external_signin_bindings (
+ id UUID PRIMARY KEY,
+ provider_id UUID NOT NULL REFERENCES external_signin_providers(id),
+ issuer TEXT NOT NULL,
+ subject TEXT NOT NULL,
+ principal_id UUID NOT NULL REFERENCES principals(id),
+ created_by UUID NOT NULL REFERENCES principals(id),
+ created_at TIMESTAMPTZ NOT NULL,
+ revoked_at TIMESTAMPTZ,
+ UNIQUE(provider_id,issuer,subject)
+);
+CREATE TABLE IF NOT EXISTS external_signin_transactions (
+ id UUID PRIMARY KEY,
+ state_hash TEXT NOT NULL UNIQUE,
+ provider_id UUID NOT NULL REFERENCES external_signin_providers(id),
+ provider_revision BIGINT NOT NULL,
+ verifier_hash TEXT NOT NULL,
+ nonce_hash TEXT NOT NULL,
+ purpose TEXT NOT NULL CHECK (purpose IN ('login','link')),
+ local_session_id UUID,
+ principal_id UUID REFERENCES principals(id),
+ proposed_name TEXT NOT NULL DEFAULT '',
+ callback TEXT NOT NULL,
+ return_path TEXT NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL,
+ expires_at TIMESTAMPTZ NOT NULL,
+ consumed_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS external_signin_sessions (
+ session_id UUID PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+ binding_id UUID NOT NULL REFERENCES external_signin_bindings(id),
+ provider_id UUID NOT NULL REFERENCES external_signin_providers(id),
+ provider_revision BIGINT NOT NULL,
+ authenticated_at TIMESTAMPTZ
+);
+
 -- Source: internal/apptown/audit/schema.sql
 CREATE TABLE IF NOT EXISTS audit_log (
   id UUID PRIMARY KEY,

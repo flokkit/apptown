@@ -20,6 +20,14 @@ import (
 // either as its own top-level test or, for a helper, through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
+	"external.Save":          TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Enabled":       TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Test":          TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Bindings":      TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"a.handleExternalUnlink": TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Bind":          TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Revoke":        TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+
 	"standingApprovals.Assess":             TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
 	"standingApprovals.List":               TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
 	"standingApprovals.Preview":            TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,

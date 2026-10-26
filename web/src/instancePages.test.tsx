@@ -92,12 +92,12 @@ describe('pages about the whole AppTown', () => {
     const { el, unmount } = await render(<SidebarNav />)
     const links = () => [...el.querySelectorAll('a.nav')].map((a) => a.textContent)
     await vi.waitFor(() => expect(links()).not.toContain('People'))
-    expect(links()).toEqual(['Home', 'Projects', 'Deployments', 'Ways of working', 'Usage', 'Docs'])
+    expect(links()).toEqual(['Home', 'Projects', 'Deployments', 'Ways of working', 'Your account', 'Usage', 'Docs'])
     unmount()
     answer(admin)
     const again = await render(<SidebarNav />)
     await vi.waitFor(() => expect([...again.el.querySelectorAll('a.nav')].map((a) => a.textContent)).toContain('People'))
-    expect([...again.el.querySelectorAll('a.nav')].map((a) => a.textContent)).toEqual(['Home', 'Projects', 'Deployments', 'Infrastructure', 'Conformance', 'Ways of working', 'Evals', 'Integrations', 'People', 'Usage', 'Complaints', 'Docs'])
+    expect([...again.el.querySelectorAll('a.nav')].map((a) => a.textContent)).toEqual(['Home', 'Projects', 'Deployments', 'Infrastructure', 'Conformance', 'Ways of working', 'Evals', 'Integrations', 'Your account', 'People', 'Usage', 'Complaints', 'Docs'])
   })
 
   // Deployments keeps the caller's own departures and deployments; the hosts

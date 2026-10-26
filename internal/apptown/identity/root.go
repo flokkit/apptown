@@ -55,6 +55,19 @@ func preserveRoot(ctx context.Context, tx *database.Tx, at time.Time, apply func
 			return ErrLastAdministrator
 		}
 	}
+	enabled, err := queries(tx).ExternalProviderEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		n, err := queries(tx).PersistentLocalRoots(ctx)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return ErrLocalRecovery
+		}
+	}
 	return nil
 }
 func enabledRoots(ctx context.Context, q database.Queryer, at time.Time) (int, error) {
