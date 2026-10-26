@@ -138,9 +138,25 @@ func envFlags(env []string) []string {
 // its stop and no removal: the removal outlives the stop, so a read begun
 // after it would otherwise spend one on a container never made (a cache
 // sweep of hundreds of volumes held the daemon's shutdown that way).
-func Run(ctx context.Context, dk Docker, s Spec) (answer []byte, err error) {
+func Run(ctx context.Context, dk Docker, s Spec) ([]byte, error) {
+	return run(ctx, dk, s, false)
+}
+
+// RunOwned reads one result without sweeping any other container. Its container
+// has a distinct class and cleanup failure is part of the returned error, naming
+// the exact resource that may remain. Callers must retain that error as evidence.
+func RunOwned(ctx context.Context, dk Docker, s Spec) ([]byte, error) {
+	return run(ctx, dk, s, true)
+}
+
+func run(ctx context.Context, dk Docker, s Spec, owned bool) (answer []byte, err error) {
 	now := clock.Or(s.Now)
-	sweep(ctx, dk, now())
+	class := Class
+	if owned {
+		class += "-owned"
+	} else {
+		sweep(ctx, dk, now())
+	}
 	name, err := randomName(Prefix)
 	if err != nil {
 		return nil, err
@@ -148,7 +164,19 @@ func Run(ctx context.Context, dk Docker, s Spec) (answer []byte, err error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	defer remove(ctx, dk, "rm", "-f", "-v", name)
+	if owned {
+		defer func() {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), removalBound)
+			defer cancel()
+			out, removeErr := dk(cleanup, nil, "rm", "-f", "-v", name)
+			if removeErr != nil {
+				answer = nil
+				err = errors.Join(err, step("removing owned result", name, removeErr, out))
+			}
+		}()
+	} else {
+		defer remove(ctx, dk, "rm", "-f", "-v", name)
+	}
 	started := now()
 	defer func() {
 		if err != nil && ctx.Err() == nil {
@@ -156,7 +184,7 @@ func Run(ctx context.Context, dk Docker, s Spec) (answer []byte, err error) {
 		}
 	}()
 	create := []string{"create", "--name", name,
-		"--label", dockerlabel.Class + "=" + Class,
+		"--label", dockerlabel.Class + "=" + class,
 		"--label", dockerlabel.Deadline + "=" + strconv.FormatInt(now().Add(lifetime).Unix(), 10)}
 	create = append(create, "--entrypoint", "")
 	create = append(create, s.Options...)

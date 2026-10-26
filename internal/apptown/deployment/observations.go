@@ -26,9 +26,11 @@ type observationEntry struct {
 	value RuntimeObservation
 }
 type observations struct {
-	sweep   sync.Mutex
-	mu      sync.RWMutex
-	entries map[ids.ID]observationEntry
+	readinessSweep sync.Mutex
+	readiness      map[ids.ID]readinessEntry
+	sweep          sync.Mutex
+	mu             sync.RWMutex
+	entries        map[ids.ID]observationEntry
 }
 
 // Include desired generation as well as the observed placement: an in-flight
@@ -44,13 +46,14 @@ func observationKey(r listingRecord) [32]byte {
 func (o *observations) read(r listingRecord, now time.Time) RuntimeObservation {
 	o.mu.RLock()
 	entry, ok := o.entries[r.deployment.ID]
+	health := o.readiness[r.deployment.ID]
 	o.mu.RUnlock()
 	if !ok || entry.key != observationKey(r) {
 		return RuntimeObservation{Stale: true}
 	}
 	v := entry.value
 	v.Stale = v.ObservedAt.IsZero() || now.Sub(v.ObservedAt) > observationStaleAfter || v.Err != nil
-	return v
+	return overlayReadiness(v, r, health, now)
 }
 
 // RunObservations owns the display-only observer. It starts immediately and

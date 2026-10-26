@@ -45,14 +45,17 @@ func (s RuntimeState) Running() *bool {
 }
 
 type RuntimeObservation struct {
-	State       RuntimeState
-	Err         error
-	ObservedAt  time.Time
-	AttemptedAt time.Time
-	Stale       bool
-	Rollout     string
-	Health      string
-	URL         string
+	State            RuntimeState
+	Err              error
+	ObservedAt       time.Time
+	AttemptedAt      time.Time
+	Stale            bool
+	Rollout          string
+	HealthObservedAt time.Time
+	HealthGeneration int64
+	HealthArtifact   string
+	Health           string
+	URL              string
 }
 
 type TargetSummary struct{ Name, DisplayLabel, Kind, Origin, Region string }

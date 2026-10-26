@@ -206,7 +206,7 @@ func TestDeploymentUncertaintyRacesAdmissionWithoutSplitOwnership(t *testing.T) 
 func TestDeploymentRecoveryMissingAttemptDiffersFromFailedRead(t *testing.T) {
 	t.Parallel()
 	f, _ := deploymentOutcomeFixture(t)
-	r := Recoverer{Source: RecoverySourceFor(f.outcomes, nil)}
+	r := Recoverer{Source: recoverySourceForTest(f.outcomes, nil)}
 	result, err := r.Run(context.Background(), idstest.N(999))
 	if err != nil || result.Outcome != "absent" {
 		t.Fatalf("missing attempt: %+v %v", result, err)
@@ -303,7 +303,7 @@ func TestDeploymentRecoveryClassifiesObservationAndReplaysWithoutProvider(t *tes
 				t.Fatal(err)
 			}
 			calls := 0
-			r := Recoverer{Store: s, Source: RecoverySourceFor(s, func(context.Context, *Deployment) (deploy.Driver, error) {
+			r := Recoverer{Store: s, Source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
 				return storedRecoveryDriver{resume: func(ctx context.Context, placement deploy.Placement, generation int64, checkpoint map[string]any) (deploy.Observation, error) {
 					calls++
 					if generation != at.Generation || checkpoint["providerId"] != "original" {
@@ -345,7 +345,7 @@ func TestDeploymentRecoveryCancellationDoesNotPublishSuccess(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := Recoverer{Store: s, Source: RecoverySourceFor(s, func(context.Context, *Deployment) (deploy.Driver, error) {
+	r := Recoverer{Store: s, Source: recoverySourceForTest(s, func(context.Context, *Deployment) (deploy.Driver, error) {
 		return storedRecoveryDriver{resume: func(context.Context, deploy.Placement, int64, map[string]any) (deploy.Observation, error) {
 			cancel()
 			return deploymentCompletionFor(at, "late").Observed, nil
@@ -358,4 +358,10 @@ func TestDeploymentRecoveryCancellationDoesNotPublishSuccess(t *testing.T) {
 		t.Fatalf("cancelled recovery settled the attempt: %s", a.Status)
 	}
 	wantN(t, "release events", everyReleaseEvent(t, f.db), 1)
+}
+
+// Generic recovery storage fixtures have no Portainer diagnostic permission.
+// Production uses the Service's captured-authority binding instead.
+func recoverySourceForTest(store *Outcomes, driver func(context.Context, *Deployment) (deploy.Driver, error)) RecoverySource {
+	return recoverySource{store: store, driver: driver}
 }

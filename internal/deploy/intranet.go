@@ -94,7 +94,7 @@ func IntranetCompose(st IntranetStack) string {
 	var volumes []string
 
 	// writeEnv writes one environment mapping. AppTown's own values
-	// (extra: DATA_DIR, APPTOWN_ORIGINS, APPTOWN_RELEASE, APPTOWN_BROWSER_ENV) are set last into
+	// (extra: PORT, DATA_DIR, APPTOWN_ORIGINS, APPTOWN_RELEASE, APPTOWN_BROWSER_ENV) are set last into
 	// the same map, so each key appears once and theirs wins over a
 	// contract's or a secret's of the same name, as the last -e does on a
 	// Docker host; Compose refuses a mapping that repeats a key.
@@ -178,7 +178,7 @@ func IntranetCompose(st IntranetStack) string {
 	if st.BrowserEnv != "" {
 		appTrust = "" // a static site's file server calls nothing
 	}
-	writeEnv(appcontract.MergeEnv(st.Integrations, appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart))), [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release}, [2]string{appcontract.BrowserEnvVar, st.BrowserEnv}, [2]string{appcontract.TrustEnvVar, appTrust})
+	writeEnv(appcontract.MergeEnv(st.Integrations, appcontract.MergeEnv(st.Env, st.Secrets.EnvFor(st.PublicPart))), [2]string{"PORT", strconv.Itoa(st.Port)}, [2]string{"DATA_DIR", st.DataDir}, [2]string{"APPTOWN_ORIGINS", st.Origins}, [2]string{appcontract.ReleaseEnvVar, st.Release}, [2]string{appcontract.BrowserEnvVar, st.BrowserEnv}, [2]string{appcontract.TrustEnvVar, appTrust})
 	if st.DataDir != "" {
 		b.WriteString("    volumes:\n")
 		fmt.Fprintf(&b, "      - %s:%s\n", st.dataVolume(st.Base), ComposeLiteral(st.DataDir))
@@ -231,16 +231,19 @@ func IntranetCompose(st IntranetStack) string {
 		}
 	}
 
-	// Init steps: run once to completion after the needs are ready; the
-	// app waits for them (migrations before the first request).
-	for _, it := range st.Init {
+	// Init steps finish in declaration order before any application part starts.
+	for i, it := range st.Init {
 		img := it.Image
 		fmt.Fprintf(&b, "  init-%s:\n", it.Name)
 		fmt.Fprintf(&b, "    image: %s\n", ComposeLiteral(img))
 		b.WriteString("    restart: \"no\"\n")
 		writeCommand(it.Command)
 		writeEnv(appcontract.MergeEnv(it.Env, st.Secrets.EnvFor("init-"+it.Name)), [2]string{appcontract.TrustEnvVar, st.Trust})
-		writeDepends(needsReady())
+		deps := needsReady()
+		if i > 0 {
+			deps = append(deps, fmt.Sprintf("      init-%s:\n        condition: service_completed_successfully\n", st.Init[i-1].Name))
+		}
+		writeDepends(deps)
 	}
 
 	// Non-public parts: on the same stack, reached by name.
@@ -263,7 +266,11 @@ func IntranetCompose(st IntranetStack) string {
 			fmt.Fprintf(&b, "      - %s:%s\n", vol, ComposeLiteral(p.DataDir))
 			volumes = append(volumes, vol)
 		}
-		writeDepends(needsReady())
+		deps := needsReady()
+		if len(st.Init) > 0 {
+			deps = append(deps, fmt.Sprintf("      init-%s:\n        condition: service_completed_successfully\n", st.Init[len(st.Init)-1].Name))
+		}
+		writeDepends(deps)
 	}
 
 	if len(volumes) > 0 {

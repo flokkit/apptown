@@ -410,6 +410,7 @@ func main() {
 				{"jobs", app.Jobs().Run},
 				{"health controller", daemonLoop(app.RunHealthController)},
 				{"deployment observations", daemonLoop(app.Deployment.RunObservations)},
+				{"deployment readiness", daemonLoop(app.Deployment.RunReadiness)},
 				{"worker previews", daemonLoop(app.Preview.RunWorkerPreviewReconciliation)},
 				{"ended previews' keys", daemonLoop(app.Preview.RunPreviewKeyRelease)},
 				{"scheduler", daemonLoop(app.RunScheduler)},

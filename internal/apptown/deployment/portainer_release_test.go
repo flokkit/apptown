@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -206,10 +207,39 @@ func TestANamedReleaseToPortainerCarriesTheAppsNeeds(t *testing.T) {
 	if a := asked.of(); len(a) != 1 || a[0] != "lan" {
 		t.Fatalf("backups asked: %v", a)
 	}
-	// The intranet door gives the same stack for the same bundle.
-	p.releaseDefault(t)
+	// Both doors render the same bundle; each execution carries its own
+	// generation labels. Verify those labels before comparing the full stack.
+	next := p.releaseDefault(t)
+	if next.State != Released || next.Generation != rel.Generation+1 {
+		t.Fatalf("successive release: %+v after %+v", next, rel)
+	}
+	sameGeneration := func(compose string, generation int64) string {
+		t.Helper()
+		var doc struct {
+			Services map[string]struct {
+				Labels map[string]string `yaml:"labels"`
+			} `yaml:"services"`
+		}
+		if err := yaml.Unmarshal([]byte(compose), &doc); err != nil {
+			t.Fatal(err)
+		}
+		want := strconv.FormatInt(generation, 10)
+		labelled := 0
+		for name, service := range doc.Services {
+			if got, ok := service.Labels["io.apptown.generation"]; ok {
+				labelled++
+				if got != want {
+					t.Fatalf("component %s carries generation %q, want %s", name, got, want)
+				}
+			}
+		}
+		if labelled == 0 {
+			t.Fatal("applied stack has no generation labels")
+		}
+		return strings.ReplaceAll(compose, `io.apptown.generation: "`+want+`"`, `io.apptown.generation: "GENERATION"`)
+	}
 	intranet, m := p.lastStack(t)
-	if m != n+1 || intranet != named {
+	if m != n+1 || sameGeneration(intranet, next.Generation) != sameGeneration(named, rel.Generation) {
 		t.Fatalf("the doors' stacks differ:\nnamed:\n%s\nintranet:\n%s", named, intranet)
 	}
 }

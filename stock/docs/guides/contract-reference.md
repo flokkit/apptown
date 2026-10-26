@@ -207,7 +207,7 @@ scope names. AppTown adds a few values of its own, which differ by target:
 
 | Value | Docker host | Portainer | App Platform |
 | --- | --- | --- | --- |
-| `PORT` | every part that has a port | other parts that declare a port; not the public part | not set by AppTown |
+| `PORT` | every part that has a port | every part that has a port | not set by AppTown |
 | `APPTOWN_ORIGINS` | public part: the address patterns browsers use, as wildcards (`https://*.apps.example.com`) | public part, the same | public part: the app's own address |
 | `DATA_DIR` | public part, when it has a `dataDir`, set last | public part, the same | — (no `dataDir`) |
 | `APPTOWN_TRUST` | every part and init step but a static site's, when the server is given extra certificate authorities: a script the start command runs (`eval "${APPTOWN_TRUST:-}"`) to trust them | the same | the same |
@@ -273,10 +273,10 @@ Init steps run at every deploy, so they must be safe to run again: a
 migration that has already run does nothing. A container that restarts on
 its own does not run them.
 
-On Portainer the init steps and the other parts wait only for the needs,
-not for each other: two init steps can run at the same time, and a worker
-can start before a migration has finished. The public part waits for all
-of them. On App Platform the init steps run as pre-deploy jobs.
+On Portainer, init steps wait for the needs and run in declaration order,
+each waiting for the preceding step to finish successfully. Other parts
+wait for the final init step, and the public part waits for all init steps
+and other parts. On App Platform the init steps run as pre-deploy jobs.
 
 ## Behind the front door
 
