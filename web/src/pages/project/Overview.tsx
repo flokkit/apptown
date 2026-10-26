@@ -20,7 +20,7 @@ import type { DeploymentView, PullPlan, ReleasePlan, ReleasePreviewStarted, Cata
 
 // The two doors: CHANGE and RELEASE — the whole loop in two big
 // verbs. Each is a split button: the face is the house default (chat change /
-// release to the intranet), the chevron holds the advanced paths
+// release to the selected environment), the chevron holds the advanced paths
 // (catalog change, detailed form, branch import / other targets). Advanced
 // never crowds default; default never hides advanced.
 export function BigChangeBox({ slug }: { slug: string }) {
@@ -33,24 +33,18 @@ export function BigChangeBox({ slug }: { slug: string }) {
   const envs = envsQ.data ?? []
   const p = projectQ.data
   const blurb = p?.blurb ?? ''
-  const intranetReady = !p || p.intranetReady !== false || p.runtimeForm === 'no app yet'
-  // The Release door releases to the intranet; it is offered only where one
-  // is set up, never as an action this AppTown cannot take.
+  // The current plan identifies the configured release destination.
   const planQ = useGet<ReleasePlan>(`/projects/${slug}/release/plan`)
-  const canRelease = planQ.data?.configured === true
+  const plan = planQ.current ? planQ.data : undefined
+  const canRelease = plan?.configured === true
+  const releaseLabel = plan?.deploymentLabel || plan?.deployment || 'the selected environment'
   // The project's own read is shown by the page around this box.
   const [err, setErr] = useState('')
 
-  // The most common act on a shipped project is USING it, so the
-  // deployments get the biggest call to action — the intranet copy when
-  // released, else the main copy. Always "Open", never "Play": the
-  // word must suit ordinary institutional software.
-  // The door opens an address, so only deployments that have one qualify:
-  // an intranet deployment that was bound but never released has none
-  // (it once sent Duck Storm's Open to about:blank). An address that
-  // answers on the AppTown host only is no door for anyone elsewhere.
+  // Prefer the selected destination by identity when its address can be opened.
+  // Otherwise show an addressable alternative by its own customer label.
   const addressed = envs.filter((e) => !!e.url && !e.hostOnly)
-  const best = addressed.find((e) => e.name === 'lan') ?? addressed.find((e) => e.running) ?? addressed[0]
+  const best = addressed.find((e) => !!plan?.deploymentId && e.id === plan.deploymentId) ?? addressed.find((e) => e.running) ?? addressed[0]
 
   // The Build-the-first-version door:
   // while a project has no running app, building v1 is overwhelmingly the
@@ -91,12 +85,11 @@ export function BigChangeBox({ slug }: { slug: string }) {
       <div className="row" style={{ gap: 14, alignItems: 'stretch', flexWrap: 'wrap' }}>
         {best && (
           <SplitButton icon="▶" label="Open" green
-            sub={best.name === 'lan' ? best.url.replace(/^https?:\/\//, '') + ' — for everyone on the intranet'
-              : 'the ' + best.name + ' copy — ' + best.url.replace(/^https?:\/\//, '')}
+            sub={(best.displayLabel || best.name) + ' — ' + best.url.replace(/^https?:\/\//, '')}
             onMain={() => window.open(best.url, '_blank')}
             items={[
               ...envs.map((e) => ({
-                label: (e.name === 'lan' ? '🏢 intranet' : e.name) + (e.url ? ' — ' + e.url.replace(/^https?:\/\//, '') : ''),
+                label: (e.displayLabel || e.name) + (e.url ? ' — ' + e.url.replace(/^https?:\/\//, '') : ''),
                 hint: !e.url ? 'no address yet — nothing has been released here' : runtimeDescription(e),
                 onClick: () => { if (e.url) window.open(e.url, '_blank'); else nav('/deployments') },
               })),
@@ -115,15 +108,14 @@ export function BigChangeBox({ slug }: { slug: string }) {
             { label: '✏️ New change, detailed', hint: 'pick the title and workflow yourself', onClick: () => setDetailedOpen(true) },
           ]} />
         {canRelease && (
-          <SplitButton icon="🏢" label="Release"
-            sub={intranetReady ? 'publish the latest finished version to the intranet'
-              : 'needs packaging first — the release page explains'}
+          <SplitButton icon="↑" label="Release"
+            sub={'publish the latest finished version to ' + releaseLabel}
             onMain={() => nav(`/projects/${slug}/release`)}
             items={[]} />
         )}
       </div>
       <ReadStatus q={envsQ} what="the deployments" className="small" />
-      <ReadStatus q={planQ} what={`whether ${PRODUCT} can release to an intranet`} className="small" />
+      <ReadStatus q={planQ} what={`the ${PRODUCT} release destination`} className="small" />
       <StaleNote q={[envsQ, planQ]} />
       {err && <div className="error" style={{ marginTop: 10 }}>{err}</div>}
       {catalogOpen && <CatalogPicker slug={slug} onClose={() => setCatalogOpen(false)} />}
