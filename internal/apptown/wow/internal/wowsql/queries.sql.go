@@ -15,6 +15,68 @@ import (
 	"github.com/lib/pq"
 )
 
+const activeRoutineClassification = `-- name: ActiveRoutineClassification :one
+SELECT id, publication_kind, publication_id, from_version, to_version, digest, issuer_id, request_id, created_at, record_json, revocation_json FROM routine_publication_classifications WHERE digest=$1 AND revocation_json = 'null'::jsonb
+`
+
+func (q *Queries) ActiveRoutineClassification(ctx context.Context, digest string) (RoutinePublicationClassification, error) {
+	row := q.db.QueryRowContext(ctx, activeRoutineClassification, digest)
+	var i RoutinePublicationClassification
+	err := row.Scan(
+		&i.ID,
+		&i.PublicationKind,
+		&i.PublicationID,
+		&i.FromVersion,
+		&i.ToVersion,
+		&i.Digest,
+		&i.IssuerID,
+		&i.RequestID,
+		&i.CreatedAt,
+		&i.RecordJson,
+		&i.RevocationJson,
+	)
+	return i, err
+}
+
+const activeRoutineClassificationsForUpdate = `-- name: ActiveRoutineClassificationsForUpdate :many
+SELECT id, publication_kind, publication_id, from_version, to_version, digest, issuer_id, request_id, created_at, record_json, revocation_json FROM routine_publication_classifications WHERE revocation_json = 'null'::jsonb ORDER BY id FOR UPDATE
+`
+
+func (q *Queries) ActiveRoutineClassificationsForUpdate(ctx context.Context) ([]RoutinePublicationClassification, error) {
+	rows, err := q.db.QueryContext(ctx, activeRoutineClassificationsForUpdate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RoutinePublicationClassification
+	for rows.Next() {
+		var i RoutinePublicationClassification
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicationKind,
+			&i.PublicationID,
+			&i.FromVersion,
+			&i.ToVersion,
+			&i.Digest,
+			&i.IssuerID,
+			&i.RequestID,
+			&i.CreatedAt,
+			&i.RecordJson,
+			&i.RevocationJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const advanceBlockVersion = `-- name: AdvanceBlockVersion :execrows
 UPDATE guidance_blocks SET latest_version=$1,updated_at=$2 WHERE id=$3
 `
@@ -690,6 +752,55 @@ func (q *Queries) InsertPackVersion(ctx context.Context, arg InsertPackVersionPa
 	return i, err
 }
 
+const insertRoutineClassification = `-- name: InsertRoutineClassification :one
+INSERT INTO routine_publication_classifications(id,publication_kind,publication_id,from_version,to_version,digest,issuer_id,request_id,created_at,record_json)
+VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+ON CONFLICT DO NOTHING RETURNING id, publication_kind, publication_id, from_version, to_version, digest, issuer_id, request_id, created_at, record_json, revocation_json
+`
+
+type InsertRoutineClassificationParams struct {
+	ID              ids.ID
+	PublicationKind string
+	PublicationID   ids.ID
+	FromVersion     int64
+	ToVersion       int64
+	Digest          string
+	IssuerID        ids.ID
+	RequestID       ids.ID
+	At              time.Time
+	RecordJson      json.RawMessage
+}
+
+func (q *Queries) InsertRoutineClassification(ctx context.Context, arg InsertRoutineClassificationParams) (RoutinePublicationClassification, error) {
+	row := q.db.QueryRowContext(ctx, insertRoutineClassification,
+		arg.ID,
+		arg.PublicationKind,
+		arg.PublicationID,
+		arg.FromVersion,
+		arg.ToVersion,
+		arg.Digest,
+		arg.IssuerID,
+		arg.RequestID,
+		arg.At,
+		arg.RecordJson,
+	)
+	var i RoutinePublicationClassification
+	err := row.Scan(
+		&i.ID,
+		&i.PublicationKind,
+		&i.PublicationID,
+		&i.FromVersion,
+		&i.ToVersion,
+		&i.Digest,
+		&i.IssuerID,
+		&i.RequestID,
+		&i.CreatedAt,
+		&i.RecordJson,
+		&i.RevocationJson,
+	)
+	return i, err
+}
+
 const insertWorkflow = `-- name: InsertWorkflow :one
 INSERT INTO lib_workflows(id, name,description,latest_version,origin,updated_at)
 VALUES($1, $2,$3,1,$4,$5) RETURNING id, name, description, latest_version, origin, updated_at
@@ -911,6 +1022,27 @@ func (q *Queries) OtherOfferedPackCount(ctx context.Context, name string) (int64
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const packByID = `-- name: PackByID :one
+SELECT id, name, description, spec_json, latest_version, recommended_version, origin, enabled, updated_at FROM packs WHERE id=$1
+`
+
+func (q *Queries) PackByID(ctx context.Context, id ids.ID) (Pack, error) {
+	row := q.db.QueryRowContext(ctx, packByID, id)
+	var i Pack
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Description,
+		&i.SpecJson,
+		&i.LatestVersion,
+		&i.RecommendedVersion,
+		&i.Origin,
+		&i.Enabled,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const packByName = `-- name: PackByName :one
@@ -1275,6 +1407,141 @@ func (q *Queries) ResetSystemWorkflow(ctx context.Context, stockName string) (in
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const revokeRoutineClassification = `-- name: RevokeRoutineClassification :execrows
+UPDATE routine_publication_classifications SET revocation_json=$2 WHERE id=$1 AND revocation_json = 'null'::jsonb
+`
+
+type RevokeRoutineClassificationParams struct {
+	ID             ids.ID
+	RevocationJson json.RawMessage
+}
+
+func (q *Queries) RevokeRoutineClassification(ctx context.Context, arg RevokeRoutineClassificationParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, revokeRoutineClassification, arg.ID, arg.RevocationJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const routineClassification = `-- name: RoutineClassification :one
+SELECT id, publication_kind, publication_id, from_version, to_version, digest, issuer_id, request_id, created_at, record_json, revocation_json FROM routine_publication_classifications WHERE id=$1
+`
+
+func (q *Queries) RoutineClassification(ctx context.Context, id ids.ID) (RoutinePublicationClassification, error) {
+	row := q.db.QueryRowContext(ctx, routineClassification, id)
+	var i RoutinePublicationClassification
+	err := row.Scan(
+		&i.ID,
+		&i.PublicationKind,
+		&i.PublicationID,
+		&i.FromVersion,
+		&i.ToVersion,
+		&i.Digest,
+		&i.IssuerID,
+		&i.RequestID,
+		&i.CreatedAt,
+		&i.RecordJson,
+		&i.RevocationJson,
+	)
+	return i, err
+}
+
+const routineClassificationByRequest = `-- name: RoutineClassificationByRequest :one
+SELECT id, publication_kind, publication_id, from_version, to_version, digest, issuer_id, request_id, created_at, record_json, revocation_json FROM routine_publication_classifications WHERE issuer_id=$1 AND request_id=$2
+`
+
+type RoutineClassificationByRequestParams struct {
+	IssuerID  ids.ID
+	RequestID ids.ID
+}
+
+func (q *Queries) RoutineClassificationByRequest(ctx context.Context, arg RoutineClassificationByRequestParams) (RoutinePublicationClassification, error) {
+	row := q.db.QueryRowContext(ctx, routineClassificationByRequest, arg.IssuerID, arg.RequestID)
+	var i RoutinePublicationClassification
+	err := row.Scan(
+		&i.ID,
+		&i.PublicationKind,
+		&i.PublicationID,
+		&i.FromVersion,
+		&i.ToVersion,
+		&i.Digest,
+		&i.IssuerID,
+		&i.RequestID,
+		&i.CreatedAt,
+		&i.RecordJson,
+		&i.RevocationJson,
+	)
+	return i, err
+}
+
+const routineClassificationForShare = `-- name: RoutineClassificationForShare :one
+SELECT id, publication_kind, publication_id, from_version, to_version, digest, issuer_id, request_id, created_at, record_json, revocation_json FROM routine_publication_classifications WHERE id=$1 FOR SHARE
+`
+
+func (q *Queries) RoutineClassificationForShare(ctx context.Context, id ids.ID) (RoutinePublicationClassification, error) {
+	row := q.db.QueryRowContext(ctx, routineClassificationForShare, id)
+	var i RoutinePublicationClassification
+	err := row.Scan(
+		&i.ID,
+		&i.PublicationKind,
+		&i.PublicationID,
+		&i.FromVersion,
+		&i.ToVersion,
+		&i.Digest,
+		&i.IssuerID,
+		&i.RequestID,
+		&i.CreatedAt,
+		&i.RecordJson,
+		&i.RevocationJson,
+	)
+	return i, err
+}
+
+const routineClassificationHistory = `-- name: RoutineClassificationHistory :many
+SELECT id, publication_kind, publication_id, from_version, to_version, digest, issuer_id, request_id, created_at, record_json, revocation_json FROM routine_publication_classifications WHERE publication_kind=$1 AND publication_id=$2 ORDER BY created_at DESC,id DESC
+`
+
+type RoutineClassificationHistoryParams struct {
+	PublicationKind string
+	PublicationID   ids.ID
+}
+
+func (q *Queries) RoutineClassificationHistory(ctx context.Context, arg RoutineClassificationHistoryParams) ([]RoutinePublicationClassification, error) {
+	rows, err := q.db.QueryContext(ctx, routineClassificationHistory, arg.PublicationKind, arg.PublicationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RoutinePublicationClassification
+	for rows.Next() {
+		var i RoutinePublicationClassification
+		if err := rows.Scan(
+			&i.ID,
+			&i.PublicationKind,
+			&i.PublicationID,
+			&i.FromVersion,
+			&i.ToVersion,
+			&i.Digest,
+			&i.IssuerID,
+			&i.RequestID,
+			&i.CreatedAt,
+			&i.RecordJson,
+			&i.RevocationJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setBlockTags = `-- name: SetBlockTags :execrows

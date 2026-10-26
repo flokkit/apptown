@@ -319,6 +319,21 @@ CREATE TABLE IF NOT EXISTS external_signin_sessions (
  authenticated_at TIMESTAMPTZ
 );
 `}},
+	{n: 181, note: "retain revocable human publication classification", stmts: []string{`CREATE TABLE IF NOT EXISTS routine_publication_classifications (
+ id UUID PRIMARY KEY,
+ publication_kind TEXT NOT NULL CHECK (publication_kind IN ('block','pack')),
+ publication_id UUID NOT NULL,
+ from_version BIGINT NOT NULL CHECK (from_version > 0),
+ to_version BIGINT NOT NULL CHECK (to_version > from_version),
+ digest TEXT NOT NULL CHECK (digest <> ''),
+ issuer_id UUID NOT NULL,
+ request_id UUID NOT NULL,
+ created_at TIMESTAMPTZ NOT NULL,
+ record_json JSONB NOT NULL,
+ revocation_json JSONB NOT NULL DEFAULT 'null'::jsonb,
+ UNIQUE(issuer_id,request_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS routine_publication_active_digest ON routine_publication_classifications(digest) WHERE revocation_json = 'null'::jsonb;`}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

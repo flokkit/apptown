@@ -167,7 +167,8 @@ func standingQuestion(in StandingDefinition, projects []StandingProjectMeaning) 
 			}
 		}
 	}
-	b.WriteString("Application source, migrations, major versions, new dependencies/capabilities/permissions/needs/secrets, weaker checks, unsupported or mixed changes and storage-engine transitions require a person. Missing, skipped, not-applicable, waived, failed or unknown evidence is not a pass. Current authority is required at each effect. Disabling stops future claims; an already claimed effect may finish. Automatic processing is not available yet.")
+	b.WriteString("Mixed supported updates require every component to belong to an enabled category and pass its complete independent check. Any unsupported component requires a person. ")
+	b.WriteString("Application source, migrations, major versions, new dependencies/capabilities/permissions/needs/secrets, weaker checks, unsupported changes and storage-engine transitions require a person. Missing, skipped, not-applicable, waived, failed or unknown evidence is not a pass. Current authority is required at each effect. Disabling stops future claims; an already claimed effect may finish. Automatic processing is not available yet.")
 	q.Shown = b.String()
 	raw, err := json.Marshal(q)
 	if err != nil {

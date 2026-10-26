@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/wiregen"
 )
 
@@ -12,6 +14,13 @@ import (
 func init() {
 	registerWireMapped(workflow.ScheduleOutcome(""), `"opened" | "skipped" | "failed" | "unknown"`)
 	registerWire(
+		wiregen.Named{Name: "RoutinePublicationTransition", Value: wow.RoutinePublicationTransition{}},
+		wiregen.Named{Name: "RoutinePublicationQuestion", Value: wow.RoutinePublicationQuestion{}},
+		wiregen.Named{Name: "RoutinePublicationConsent", Value: wow.RoutinePublicationConsent{}},
+		wiregen.Named{Name: "RoutinePublicationRevocation", Value: wow.RoutinePublicationRevocation{}},
+		wiregen.Named{Name: "RoutinePublicationClassification", Value: wow.RoutinePublicationClassification{}},
+		wiregen.Named{Name: "RoutineConsentRef", Value: adoption.RoutineConsentRef{}},
+		wiregen.Named{Name: "RoutineAdoptionTarget", Value: adoption.RoutineTarget{}},
 		wiregen.Named{Name: "StandingCategories", Value: workflow.StandingCategories{}},
 		wiregen.Named{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
 		wiregen.Named{Name: "StandingProject", Value: workflow.StandingProject{}},

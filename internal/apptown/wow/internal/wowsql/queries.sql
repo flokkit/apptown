@@ -144,3 +144,26 @@ LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=$2 WHERE p.name=$1;
 SELECT b.name,v.version,v.checks_json::text AS checks_json FROM guidance_blocks b
 JOIN guidance_block_versions v ON v.block_id=b.id
 WHERE (b.name,v.version) IN (SELECT unnest(sqlc.arg(blocks)::text[]),unnest(sqlc.arg(versions)::bigint[]));
+
+-- name: PackByID :one
+SELECT * FROM packs WHERE id=$1;
+
+-- name: RoutineClassification :one
+SELECT * FROM routine_publication_classifications WHERE id=$1;
+-- name: RoutineClassificationForShare :one
+SELECT * FROM routine_publication_classifications WHERE id=$1 FOR SHARE;
+-- name: ActiveRoutineClassification :one
+SELECT * FROM routine_publication_classifications WHERE digest=$1 AND revocation_json = 'null'::jsonb;
+-- name: RoutineClassificationHistory :many
+SELECT * FROM routine_publication_classifications WHERE publication_kind=$1 AND publication_id=$2 ORDER BY created_at DESC,id DESC;
+-- name: InsertRoutineClassification :one
+INSERT INTO routine_publication_classifications(id,publication_kind,publication_id,from_version,to_version,digest,issuer_id,request_id,created_at,record_json)
+VALUES(sqlc.arg(id),sqlc.arg(publication_kind),sqlc.arg(publication_id),sqlc.arg(from_version),sqlc.arg(to_version),sqlc.arg(digest),sqlc.arg(issuer_id),sqlc.arg(request_id),sqlc.arg(at),sqlc.arg(record_json))
+ON CONFLICT DO NOTHING RETURNING *;
+-- name: RevokeRoutineClassification :execrows
+UPDATE routine_publication_classifications SET revocation_json=$2 WHERE id=$1 AND revocation_json = 'null'::jsonb;
+-- name: ActiveRoutineClassificationsForUpdate :many
+SELECT * FROM routine_publication_classifications WHERE revocation_json = 'null'::jsonb ORDER BY id FOR UPDATE;
+
+-- name: RoutineClassificationByRequest :one
+SELECT * FROM routine_publication_classifications WHERE issuer_id=$1 AND request_id=$2;

@@ -92,6 +92,20 @@ type PolicyLibrary struct {
 	UpdatedAt   time.Time
 }
 
+type RoutinePublicationClassification struct {
+	ID              ids.ID
+	PublicationKind string
+	PublicationID   ids.ID
+	FromVersion     int64
+	ToVersion       int64
+	Digest          string
+	IssuerID        ids.ID
+	RequestID       ids.ID
+	CreatedAt       time.Time
+	RecordJson      json.RawMessage
+	RevocationJson  json.RawMessage
+}
+
 type SystemWorkflow struct {
 	StockName string
 	Name      string

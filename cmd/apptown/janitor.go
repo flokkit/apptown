@@ -13,6 +13,9 @@ func cmdJanitor(args []string) error {
 	if len(args) == 0 {
 		return usagef("usage: apptown janitor <list|preview|enable|disable|history|assess> [options]")
 	}
+	if args[0] == "publication" {
+		return cmdJanitorPublication(args[1:])
+	}
 	verb := args[0]
 	fs := newFlags("janitor " + verb)
 	file := fs.String("file", "", "JSON standing-rule definition to preview or confirm")
@@ -90,6 +93,64 @@ func cmdJanitor(args []string) error {
 		}
 	default:
 		return usagef("unknown janitor command %q", verb)
+	}
+	return printJSON(out)
+}
+
+// Publication commands deliberately retain a caller-owned request UUID. Retrying
+// a lost response after revocation returns the revoked receipt, not new consent.
+func cmdJanitorPublication(args []string) error {
+	if len(args) == 0 {
+		return usagef("usage: apptown janitor publication <preview|classify|history|revoke> [options]")
+	}
+	verb := args[0]
+	fs := newFlags("janitor publication " + verb)
+	file := fs.String("file", "", "exact publication transition JSON")
+	confirm := fs.String("confirm", "", "exact digest of the complete before/after preview")
+	request := fs.String("request", "", "stable request UUID for this human classification act")
+	args = parseArgs(fs, args[1:])
+	var out json.RawMessage
+	switch verb {
+	case "preview", "classify":
+		if len(args) != 0 || *file == "" {
+			return usagef("usage: apptown janitor publication %s --file transition.json [--confirm digest --request UUID]", verb)
+		}
+		body, err := os.ReadFile(*file)
+		if err != nil {
+			return err
+		}
+		var transition map[string]json.RawMessage
+		if err = json.Unmarshal(body, &transition); err != nil || transition == nil {
+			return usagef("publication transition must be a JSON object")
+		}
+		if verb == "preview" {
+			if err = api.post("/routine-publications/preview", transition, &out); err != nil {
+				return err
+			}
+		} else {
+			if *confirm == "" || *request == "" {
+				return usagef("inspect the complete before/after preview and supply --confirm and a stable --request UUID; no consent was saved")
+			}
+			if err = api.post("/routine-publications", map[string]any{"transition": transition, "shownDigest": *confirm, "requestId": *request}, &out); err != nil {
+				return err
+			}
+		}
+	case "history":
+		if len(args) != 2 {
+			return usagef("usage: apptown janitor publication history <block|pack> <publication UUID>")
+		}
+		if err := api.get("/routine-publications/"+url.PathEscape(args[0])+"/"+url.PathEscape(args[1])+"/history", &out); err != nil {
+			return err
+		}
+	case "revoke":
+		if len(args) != 1 {
+			return usagef("usage: apptown janitor publication revoke <classification UUID>")
+		}
+		if err := api.post("/routine-publications/"+url.PathEscape(args[0])+"/revoke", map[string]any{}, &out); err != nil {
+			return err
+		}
+	default:
+		return usagef("unknown publication command %q", verb)
 	}
 	return printJSON(out)
 }

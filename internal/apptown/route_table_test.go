@@ -32,6 +32,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/gate"
 	"github.com/flokkit/apptown/internal/ids"
@@ -490,6 +491,10 @@ var cliOperations = map[string]described{
 	"POST /api/v1/auth/external/bindings":        {status: 200, request: httpapi.ExternalBindRequest{}, response: httpapi.Done{}},
 	"DELETE /api/v1/auth/external/bindings/{id}": {status: 200, response: httpapi.Done{}},
 
+	"POST /api/v1/routine-publications/preview":              {request: wow.RoutinePublicationTransition{}, status: 200, response: wow.RoutinePublicationQuestion{}},
+	"POST /api/v1/routine-publications":                      {request: wow.RoutinePublicationConsent{}, status: 200, response: wow.RoutinePublicationClassification{}},
+	"GET /api/v1/routine-publications/{kind}/{id}/history":   {status: 200, response: []wow.RoutinePublicationClassification{}},
+	"POST /api/v1/routine-publications/{id}/revoke":          {status: 200, response: wow.RoutinePublicationClassification{}},
 	"GET /api/v1/standing-approvals":                         {query: []string{"projectId"}, status: 200, response: []workflow.StandingStatus{}},
 	"GET /api/v1/standing-approvals/{id}/history":            {status: 200, response: []workflow.StandingRevision{}},
 	"POST /api/v1/standing-approvals/preview":                {request: workflow.StandingDefinition{}, status: 200, response: workflow.StandingQuestion{}},
@@ -843,6 +848,7 @@ func apiDescription() (map[string]any, error) {
 // it refuses in words. Nested types must be explicitly request-only; an
 // undescribed named type could share required fields with responses and is refused.
 var requestOnlyDescriptions = []wiregen.Named{
+	{Name: "RoutinePublicationTransition", Value: wow.RoutinePublicationTransition{}},
 	{Name: "StandingCategories", Value: workflow.StandingCategories{}},
 	{Name: "StandingEnvironment", Value: workflow.StandingEnvironment{}},
 	{Name: "StandingProject", Value: workflow.StandingProject{}},

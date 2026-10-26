@@ -4019,6 +4019,199 @@
         ],
         "type": "object"
       },
+      "RoutineConsentRef": {
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shown": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "digest",
+          "shown"
+        ],
+        "type": "object"
+      },
+      "RoutinePublicationClassification": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issuer": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "question": {
+            "$ref": "#/components/schemas/RoutinePublicationQuestion"
+          },
+          "requestId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revocation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoutinePublicationRevocation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "requestId",
+          "question",
+          "issuer",
+          "at"
+        ],
+        "type": "object"
+      },
+      "RoutinePublicationConsent": {
+        "properties": {
+          "requestId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "shownDigest": {
+            "type": "string"
+          },
+          "transition": {
+            "$ref": "#/components/schemas/RoutinePublicationTransition"
+          }
+        },
+        "type": "object"
+      },
+      "RoutinePublicationQuestion": {
+        "properties": {
+          "after": {},
+          "before": {},
+          "digest": {
+            "type": "string"
+          },
+          "eligible": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "shown": {
+            "type": "string"
+          },
+          "transition": {
+            "$ref": "#/components/schemas/RoutinePublicationTransition"
+          }
+        },
+        "required": [
+          "transition",
+          "before",
+          "after",
+          "eligible",
+          "reason",
+          "shown",
+          "digest"
+        ],
+        "type": "object"
+      },
+      "RoutinePublicationRevocation": {
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor",
+          "at",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "RoutinePublicationTransition": {
+        "properties": {
+          "from": {
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "to": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "RoutineTarget": {
+        "properties": {
+          "candidateDigest": {
+            "type": "string"
+          },
+          "classifications": {
+            "items": {
+              "$ref": "#/components/schemas/RoutineConsentRef"
+            },
+            "type": "array"
+          },
+          "currentId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "targetId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "currentId",
+          "targetId",
+          "candidateDigest",
+          "classifications"
+        ],
+        "type": "object"
+      },
       "Run": {
         "properties": {
           "adoptionId": {
@@ -4460,6 +4653,16 @@
       },
       "StandingAssessment": {
         "properties": {
+          "adoption": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RoutineTarget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "adoptionId": {
             "format": "uuid",
             "type": [
@@ -13705,6 +13908,173 @@
           "scope": "instance"
         },
         "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/routine-publications": {
+      "post": {
+        "operationId": "postRoutinePublications",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutinePublicationConsent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutinePublicationClassification"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "routine-publications"
+        ],
+        "x-apptown-access": {
+          "contract": "routinePublications.Classify",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/routine-publications/preview": {
+      "post": {
+        "operationId": "postRoutinePublicationsPreview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoutinePublicationTransition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutinePublicationQuestion"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "routine-publications"
+        ],
+        "x-apptown-access": {
+          "contract": "routinePublications.Preview",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/routine-publications/{id}/revoke": {
+      "post": {
+        "operationId": "postRoutinePublicationsIdRevoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutinePublicationClassification"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "routine-publications"
+        ],
+        "x-apptown-access": {
+          "contract": "routinePublications.Revoke",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
+      }
+    },
+    "/api/v1/routine-publications/{kind}/{id}/history": {
+      "get": {
+        "operationId": "getRoutinePublicationsKindIdHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoutinePublicationClassification"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "the operation's result"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "routine-publications"
+        ],
+        "x-apptown-access": {
+          "contract": "routinePublications.History",
+          "kind": "owner"
+        },
+        "x-apptown-stability": "experimental",
+        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/runs": {

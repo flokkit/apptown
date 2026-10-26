@@ -60,6 +60,7 @@ func appRoutes(a *App) []routeSpec {
 	var packPull httpapi.PackPull
 	var attachments httpapi.Attachments
 	var standingApprovals httpapi.StandingApprovals
+	var routinePublications httpapi.RoutinePublications
 	var guidanceBlocks httpapi.GuidanceBlocks
 	var guidance httpapi.Guidance
 	var packs httpapi.Packs
@@ -202,6 +203,7 @@ func appRoutes(a *App) []routeSpec {
 		guidanceBlocks = httpapi.NewGuidanceBlocks(a.Ways, a.Adoption, a.Access)
 		attachments = httpapi.NewAttachments(a.attachments, a.cfg.dataDir)
 		standingApprovals = httpapi.NewStandingApprovals(a.standingRules)
+		routinePublications = httpapi.NewRoutinePublications(a.routinePublications)
 		packPull = httpapi.NewPackPull(a.Adoption, a.Projects, a.Access, a.Ways, a.DB, a.cfg.clock.Now)
 		fleet = httpapi.NewFleet(a.Adoption, a.Ways)
 		adoptionCommands = httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle)
@@ -432,6 +434,10 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/transcript/{chat}/pictures/{name}", chatHistory.ProjectPicture, access.CapEvidenceRead, "project-slug"),
 		requireRoute("POST /api/v1/changes/{id}/runs", changes.StartChangeRun, access.CapChangeInvokeLane, "change"),
 		requireRoute("POST /api/v1/changes/{id}/sendback", changes.SendBack, access.CapChangeSendBack, "change"),
+		ownerRoute("POST /api/v1/routine-publications/preview", routinePublications.Preview, "routinePublications.Preview"),
+		ownerRoute("POST /api/v1/routine-publications", routinePublications.Classify, "routinePublications.Classify"),
+		ownerRoute("GET /api/v1/routine-publications/{kind}/{id}/history", routinePublications.History, "routinePublications.History"),
+		ownerRoute("POST /api/v1/routine-publications/{id}/revoke", routinePublications.Revoke, "routinePublications.Revoke"),
 		ownerRoute("GET /api/v1/standing-approvals", standingApprovals.List, "standingApprovals.List"),
 		ownerRoute("POST /api/v1/standing-approvals/preview", standingApprovals.Preview, "standingApprovals.Preview"),
 		ownerRoute("POST /api/v1/standing-approvals", standingApprovals.Enable, "standingApprovals.Enable"),

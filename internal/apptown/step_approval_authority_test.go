@@ -2,20 +2,31 @@ package apptown
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/apptown/verification"
+	"github.com/flokkit/apptown/internal/apptown/workcommands"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -330,4 +341,235 @@ spec:
 		t.Fatalf("current law ignored: %d %s", lawRefusal.Code, lawRefusal.Body)
 	}
 
+}
+
+func TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry(t *testing.T) {
+	a := authzActors(t)
+	block, err := a.Ways.CreateBlock(t.Context(), "team/routine", "Original guidance.", "", "boss")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = a.Ways.BumpBlock(t.Context(), block.ID, "Clarified guidance.", "[]", "boss", block.Name); err != nil {
+		t.Fatal(err)
+	}
+	transition := fmt.Sprintf(`{"kind":"block","id":%q,"from":1,"to":2}`, block.ID.String())
+	h := a.Handler()
+	denied := authzCall(h, "outsider", "POST", "/api/v1/routine-publications/preview", transition)
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("unscoped preview: %d %s", denied.Code, denied.Body)
+	}
+	preview := authzCall(h, "boss", "POST", "/api/v1/routine-publications/preview", transition)
+	if preview.Code != http.StatusOK {
+		t.Fatalf("preview: %d %s", preview.Code, preview.Body)
+	}
+	var question wow.RoutinePublicationQuestion
+	if err = json.Unmarshal(preview.Body.Bytes(), &question); err != nil {
+		t.Fatal(err)
+	}
+	if !question.Eligible || len(question.Before) == 0 || len(question.After) == 0 {
+		t.Fatalf("incomplete shown meaning: %+v", question)
+	}
+	requestID := ids.New(time.Now())
+	command := fmt.Sprintf(`{"transition":%s,"shownDigest":%q,"requestId":%q,"issuer":"outsider"}`, transition, question.Digest, requestID.String())
+	if denied := authzCall(h, "outsider", "POST", "/api/v1/routine-publications", command); denied.Code != http.StatusForbidden {
+		t.Fatalf("unscoped classification: %d %s", denied.Code, denied.Body)
+	}
+	saved := authzCall(h, "boss", "POST", "/api/v1/routine-publications", command)
+	if saved.Code != http.StatusOK {
+		t.Fatalf("classify: %d %s", saved.Code, saved.Body)
+	}
+	var consent wow.RoutinePublicationClassification
+	if err = json.Unmarshal(saved.Body.Bytes(), &consent); err != nil {
+		t.Fatal(err)
+	}
+	if consent.Issuer.Name != "boss" || consent.Issuer.Principal.IsZero() {
+		t.Fatalf("client replaced verified issuer: %+v", consent)
+	}
+	if denied := authzCall(h, "outsider", "POST", "/api/v1/routine-publications/"+consent.ID.String()+"/revoke", `{}`); denied.Code != http.StatusForbidden {
+		t.Fatalf("unscoped revocation: %d %s", denied.Code, denied.Body)
+	}
+	if denied := authzCall(h, "outsider", "GET", "/api/v1/routine-publications/block/"+block.ID.String()+"/history", ""); denied.Code != http.StatusForbidden {
+		t.Fatalf("unscoped history: %d %s", denied.Code, denied.Body)
+	}
+	revoked := authzCall(h, "boss", "POST", "/api/v1/routine-publications/"+consent.ID.String()+"/revoke", `{}`)
+	if revoked.Code != http.StatusOK {
+		t.Fatalf("revoke: %d %s", revoked.Code, revoked.Body)
+	}
+	retry := authzCall(h, "boss", "POST", "/api/v1/routine-publications", command)
+	if retry.Code != http.StatusOK {
+		t.Fatalf("retry: %d %s", retry.Code, retry.Body)
+	}
+	var replay wow.RoutinePublicationClassification
+	if err = json.Unmarshal(retry.Body.Bytes(), &replay); err != nil {
+		t.Fatal(err)
+	}
+	if replay.ID != consent.ID || replay.Revocation == nil {
+		t.Fatalf("lost-response retry renewed consent: %+v", replay)
+	}
+	history := authzCall(h, "boss", "GET", "/api/v1/routine-publications/block/"+block.ID.String()+"/history", "")
+	if history.Code != http.StatusOK {
+		t.Fatalf("history: %d %s", history.Code, history.Body)
+	}
+}
+
+func TestRoutineUpliftCombinesActualAdoptionAndCommittedNPMSource(t *testing.T) {
+	a := authzActors(t)
+	person, err := a.Access.EnsurePerson(t.Context(), "boss")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: person.PrincipalID, Name: "boss", Kind: "user", Via: "session"}, Receipt: "boss", Verified: true})
+	for _, role := range []string{"working", "landing"} {
+		name, system := "routine-work", false
+		if role == "landing" {
+			name, system = "routine-land", true
+		}
+		body := fmt.Sprintf("apiVersion: apptown.dev/v1\nkind: Workflow\nmetadata: {name: %s, system: %t}\nspec:\n  kind: pipeline\n  role: %s\n  stages:\n    - name: accept\n      steps:\n        - name: approve\n          uses: approval\n          with:\n            means: I reviewed this update\n            standing: {class: routine-update, means: Bounded routine updates with complete evidence}\n", name, system, role)
+		if _, _, err = a.Ways.PublishWorkflow(ctx, body, "boss"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = a.Ways.BindSystemWorkflow(ctx, "land", "routine-land", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := a.Projects.BySlug(ctx, "game")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = a.Projects.SetDefaultBranch(ctx, p.ID, "main"); err != nil {
+		t.Fatal(err)
+	}
+	repo, err := p.Repository(a.cfg.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.MkdirAll(repo, 0755); err != nil {
+		t.Fatal(err)
+	}
+	git := func(folder string, args ...string) string {
+		t.Helper()
+		argv := append([]string{"-C", folder, "-c", "user.name=fixture", "-c", "user.email=fixture@example.test"}, args...)
+		out, e := gittest.Command(argv...).CombinedOutput()
+		if e != nil {
+			t.Fatalf("git %v: %v %s", args, e, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	write := func(folder, name, body string) {
+		t.Helper()
+		if e := os.WriteFile(filepath.Join(folder, name), []byte(body), 0644); e != nil {
+			t.Fatal(e)
+		}
+	}
+	snapshot := func(version string) (string, string) {
+		return fmt.Sprintf(`{"name":"app","dependencies":{"example":"%s"}}`, version), fmt.Sprintf(`{"name":"app","lockfileVersion":3,"packages":{"":{"name":"app","dependencies":{"example":"%s"}},"node_modules/example":{"version":"%s","resolved":"https://registry.npmjs.org/example/-/example-%s.tgz","integrity":"sha512-%s"}}}`, version, version, version, base64.StdEncoding.EncodeToString(make([]byte, 64)))
+	}
+	beforeManifest, beforeLock := snapshot("1.0.0")
+	afterManifest, afterLock := snapshot("1.0.1")
+	git(repo, "init", "-b", "main")
+	write(repo, "package.json", beforeManifest)
+	write(repo, "package-lock.json", beforeLock)
+	git(repo, "add", ".")
+	git(repo, "commit", "-m", "initial source")
+	if err = a.Adoption.SelectLane(ctx, p.ID, "routine-work", true, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	current, err := a.Adoption.RecordCurrent(ctx, p.ID, adoption.AdoptionEdit, "standing procedure fixture", "boss")
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, err := a.Ways.CreateBlock(ctx, "team/mixed", "Original guidance.", "", "boss")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.Adoption.ReplaceGuidance(ctx, p.ID, &current.Revision, []wow.ResolvedPin{{Name: block.Name, BlockID: block.ID, Version: 1}}, "adopt guidance", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	if err = a.Ways.BumpBlock(ctx, block.ID, "Clearer guidance.", "[]", "boss", block.Name); err != nil {
+		t.Fatal(err)
+	}
+	question, err := a.routinePublications.Preview(ctx, wow.RoutinePublicationTransition{Kind: "block", ID: block.ID, From: 1, To: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.routinePublications.Classify(ctx, wow.RoutinePublicationConsent{RequestID: ids.New(time.Now()), Transition: question.Transition, ShownDigest: question.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := a.Adoption.Prepare(ctx, p.ID, adoption.Request{Additions: []string{block.Name + "@2"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	uplift, err := a.Adoption.OpenUplift(ctx, p.ID, *candidate, "boss", "mixed update fixture", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: uplift.ID, Workflow: "routine-work"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Work.Wait()
+	source, err := workflow.ReadSourceIn(ctx, a.DB, workflow.RunRef{ID: run.ID, ProjectID: p.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspace, err := source.Workspace(a.cfg.dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(workspace, "package.json", afterManifest)
+	write(workspace, "package-lock.json", afterLock)
+	git(workspace, "add", ".")
+	git(workspace, "commit", "-m", "bounded dependency update")
+	git(workspace, "push", repo, "HEAD:refs/heads/"+source.Branch)
+	hash := func(s string) string { sum := sha256.Sum256([]byte(s)); return hex.EncodeToString(sum[:]) }
+	side := func(manifest, lock, version string) map[string]any {
+		hashes := []string{hash(manifest), hash(lock)}
+		return map[string]any{"input": hashes, "output": hashes, "installed": map[string]string{"node_modules/example": fmt.Sprintf(`{"name":"example","version":"%s"}`, version)}}
+	}
+	report, err := json.Marshal(map[string]any{"node": "v24.0.0", "npm": "11.0.0", "platform": "linux/arm64", "before": side(beforeManifest, beforeLock, "1.0.0"), "after": side(afterManifest, afterLock, "1.0.1")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	executions := 0
+	executor := verification.Executor{Local: true, AgentImage: "test-agent", Image: func(context.Context, execution.ImageRequest) execution.ImageAnswer {
+		return execution.ImageAnswer{ID: "sha256:" + strings.Repeat("a", 64)}
+	}, Run: func(context.Context, execution.Request) execution.Outcome {
+		executions++
+		return execution.Outcome{Termination: execution.Exited, ExitCode: 0, Report: report}
+	}}
+	standing := workflow.NewStandingRules(a.DB, workflow.StandingDependencies{Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(a.cfg.dataDir, &a.repositories, executor), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}})
+	definition := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: p.ID, Workflow: "routine-work"}}, Categories: workflow.StandingCategories{Dependencies: "patch", WaysOfWorking: true}, Delivery: "land-only"}
+	preview, err := standing.Preview(ctx, definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rule, err := standing.Enable(ctx, workflow.StandingCommand{Definition: definition, ShownDigest: preview.Digest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := standing.Assess(ctx, rule.RuleID, run.ID)
+	if err != nil || result.Inspection.Classification != "routine-dependency-and-adoption" || result.Adoption == nil || len(result.Adoption.Classifications) != 1 || result.ProcessingAvailable || executions != 1 {
+		t.Fatalf("assembled mixed update: %+v %v executions=%d", result, err, executions)
+	}
+	definition.Categories.Dependencies = ""
+	preview, err = standing.Preview(ctx, definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restricted, err := standing.Enable(ctx, workflow.StandingCommand{Definition: definition, ShownDigest: preview.Digest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err = standing.Assess(ctx, restricted.RuleID, run.ID)
+	if err != nil || result.Inspection.Classification != "requires-person" || executions != 1 {
+		t.Fatalf("disabled source category escaped: %+v %v executions=%d", result, err, executions)
+	}
+	write(workspace, "unrelated.txt", "application behavior outside the classified update")
+	git(workspace, "add", ".")
+	git(workspace, "commit", "-m", "unrelated edit")
+	git(workspace, "push", repo, "HEAD:refs/heads/"+source.Branch)
+	result, err = standing.Assess(ctx, rule.RuleID, run.ID)
+	if err != nil || result.Inspection.Classification != "requires-person" || executions != 1 {
+		t.Fatalf("adoption hid unrelated source: %+v %v executions=%d", result, err, executions)
+	}
 }

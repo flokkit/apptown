@@ -118,28 +118,29 @@ type App struct {
 	// DataProtection holds copies, restores, restored copies and take-downs; built once in New.
 	DataProtection *dataprotection.Service
 	// Deployment's shared records and collaborators (deployment.Dependencies).
-	targets         *deployment.Targets
-	deployments     *deployment.Deployments
-	hosts           *deployment.Hosts
-	environment     *deployment.Environment
-	targetProviders *deployment.Providers
-	operations      *operations.Service        // the ledger of long operations; kinds register at construction
-	deletion        *projectlifecycle.Deletion // a project's deletion, kept period and purge; built once (it holds chats' blocks)
-	Projects        *project.Projects
-	Integrations    *integration.Service
-	Secrets         *secret.Service
-	Usage           *usage.Service
-	Models          *model.Slots
-	modelSelection  model.Selection
-	Complaints      *complaint.Box
-	Dependencies    *dependency.Catalog
-	ADRs            *adrs.Service
-	Work            *workflow.Service
-	attachments     workflow.Attachments
-	standingRules   workflow.StandingRules
-	changeActions   *changeactions.Service
-	repositoryEdits *repositoryedit.Service
-	Fixes           *remediation.Service // the remediation facade, built once in New
+	targets             *deployment.Targets
+	deployments         *deployment.Deployments
+	hosts               *deployment.Hosts
+	environment         *deployment.Environment
+	targetProviders     *deployment.Providers
+	operations          *operations.Service        // the ledger of long operations; kinds register at construction
+	deletion            *projectlifecycle.Deletion // a project's deletion, kept period and purge; built once (it holds chats' blocks)
+	Projects            *project.Projects
+	Integrations        *integration.Service
+	Secrets             *secret.Service
+	Usage               *usage.Service
+	Models              *model.Slots
+	modelSelection      model.Selection
+	Complaints          *complaint.Box
+	Dependencies        *dependency.Catalog
+	ADRs                *adrs.Service
+	Work                *workflow.Service
+	attachments         workflow.Attachments
+	standingRules       workflow.StandingRules
+	routinePublications wow.RoutineTransitions
+	changeActions       *changeactions.Service
+	repositoryEdits     *repositoryedit.Service
+	Fixes               *remediation.Service // the remediation facade, built once in New
 	// The provider inventory cache (infrastructure_cache.go).
 	inventory *inventoryCache
 	jobs      *jobs.Queue
@@ -297,7 +298,8 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.Complaints = complaint.NewBox(db, complaintPackVersions{db}, cfg.clock.Now)
 	a.Ways = wow.New(db, wow.Dependencies{Stock: cfg.stock.FS, Shipped: cfg.stock.Name, ToolLines: cfg.stock.Tools, Importers: waysImporters{db}, Checks: waysChecks{}, Now: cfg.clock.Now})
 	changes := workflow.NewChanges(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, cfg.clock.Now)
-	a.Adoption = adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(a.Access, "adoption"), Projects: a.Projects}, Ways: a.Ways, Capabilities: adoptionCapabilities{}, Uplift: workcommands.Uplift{Changes: changes, DB: db, Lanes: func() remediation.WorkflowResolver { return a.lifecycle }, Runs: func() workcommands.RunStarter { return a.Work }}, Reviews: adoptionReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Copies: project.Copies{}, Now: cfg.clock.Now})
+	a.routinePublications = wow.NewRoutineTransitions(db, access.Checked{Authority: identity.Scoped(a.Access, "routine-publications")}, a.Access, cfg.clock.Now)
+	a.Adoption = adoption.New(db, adoption.Dependencies{RoutinePublications: a.routinePublications, Authority: access.Checked{Authority: identity.Scoped(a.Access, "adoption"), Projects: a.Projects}, Ways: a.Ways, Capabilities: adoptionCapabilities{}, Uplift: workcommands.Uplift{Changes: changes, DB: db, Lanes: func() remediation.WorkflowResolver { return a.lifecycle }, Runs: func() workcommands.RunStarter { return a.Work }}, Reviews: adoptionReviews{fleet: func() *verification.Fleet { return fleetReviewsFor(a) }}, Copies: project.Copies{}, Now: cfg.clock.Now})
 	var extensionNames []string
 	for _, ext := range piharness.Extensions() {
 		extensionNames = append(extensionNames, ext.Name)
@@ -352,7 +354,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	a.preparation = workcommands.NewPreparation(db, a.Adoption, a.branches, cfg.dataDir, holderPresenceFor(a), a.chatSaves, a.Secrets, cfg.clock.Now)
 	a.Work = workflow.New(a.life, db, a.workDependencies())
 	a.attachments = workflow.NewAttachments(db, access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects}, workflow.GitWorkspace{DataDir: cfg.dataDir}, cfg.clock.Now)
-	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Inspector: verification.NewRoutineInspector(cfg.dataDir, &a.repositories, checksFor(a)), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}, Now: cfg.clock.Now})
+	a.standingRules = workflow.NewStandingRules(db, workflow.StandingDependencies{Adoptions: a.Adoption, Inspector: verification.NewRoutineInspector(cfg.dataDir, &a.repositories, checksFor(a)), Presence: holderPresenceFor(a), Authority: access.Checked{Authority: identity.Scoped(a.Access, "standing-approval"), Projects: a.Projects}, Identity: a.Access, Procedures: workcommands.StandingProcedures{Lanes: a.lifecycle, Laws: workflowLawRules{}}, Destinations: standingDestinations{}, Now: cfg.clock.Now})
 	a.ADRs = adrs.New(db, access.Checked{Authority: identity.Scoped(a.Access, "adrs"), Projects: a.Projects}, refreshADREvidence(a.Work, a.asEngine(a.life)), cfg.clock.Now)
 	a.Fixes = remediation.New(db, a.remediationDependencies())
 	a.Evals = evals.New(db, evalsDependencies(a))

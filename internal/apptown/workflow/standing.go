@@ -17,6 +17,7 @@ import (
 )
 
 type StandingDependencies struct {
+	Adoptions    standingAdoptions
 	Inspector    standingInspector
 	Presence     standingPresence
 	Authority    access.Authorizer
