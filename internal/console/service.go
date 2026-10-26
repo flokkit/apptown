@@ -72,11 +72,12 @@ type Service struct {
 	blocked  map[string]bool // label=value being removed: no admission, no identity
 	opening  map[string]int  // sessions being opened, per label=value
 	pending  map[string]int  // session ids held not ended (Hold), per holder
+	cleaning map[string]bool // end/checkout cleanup/archive purge, per session
 }
 
 func New(deps Dependencies) *Service {
 	return &Service{agent: deps.Agent, env: deps.Environment, settle: deps.Settle, cfg: deps.Config, now: clock.Or(deps.Config.Now),
-		sessions: map[string]*Session{}, blocked: map[string]bool{}, opening: map[string]int{}, pending: map[string]int{}}
+		sessions: map[string]*Session{}, blocked: map[string]bool{}, opening: map[string]int{}, pending: map[string]int{}, cleaning: map[string]bool{}}
 }
 
 func (s *Service) root() string { return filepath.Join(s.cfg.DataDir, "console") }
@@ -505,14 +506,28 @@ type Ended struct {
 
 // End removes the session: the agent's runtime and the record. What
 // remains under the session dir (the session files, the steering) is the
-// archived conversation.
+// archived conversation. Failed checkout removal retains that archive for
+// retry; ending an archive retries cleanup without waking or settling it.
 func (s *Service) End(ctx context.Context, id string) (Ended, error) {
+	return s.end(ctx, id, false)
+}
+
+func (s *Service) end(ctx context.Context, id string, purge bool) (Ended, error) {
+	release, err := s.claimCleanup(id)
+	if err != nil {
+		return Ended{}, err
+	}
+	defer release()
 	s.mu.Lock()
 	sess := s.sessions[id]
 	switch {
 	case sess == nil:
 		s.mu.Unlock()
-		return Ended{}, ErrNoSession
+		sess, err := s.endedRecord(id)
+		if err != nil {
+			return Ended{}, err
+		}
+		return Ended{Session: sess}, cleanupCheckout(sess, purge)
 	case sess.ending:
 		s.mu.Unlock()
 		return Ended{}, fmt.Errorf("chat %s is already ending", id)
@@ -554,10 +569,7 @@ func (s *Service) End(ctx context.Context, id string) (Ended, error) {
 	delete(s.sessions, id)
 	s.mu.Unlock()
 	sess.end()
-	if sess.OwnsCheckout {
-		_ = os.RemoveAll(sess.Checkout)
-	}
-	return Ended{Session: sess}, nil
+	return Ended{Session: sess}, cleanupCheckout(sess, purge)
 }
 
 // Gone reports whether a session is over and nothing of it can still write
@@ -676,11 +688,58 @@ func (s *Service) Restore(meta Meta) *Session {
 
 // Remove ends the session and deletes everything it left on disk: purge.
 func (s *Service) Remove(ctx context.Context, id string) error {
-	ended, err := s.End(ctx, id)
-	if err != nil {
-		return err
+	_, err := s.end(ctx, id, true)
+	return err
+}
+
+// The claim covers archiving, checkout removal and archive deletion together.
+// Hold is deliberately separate: callers hold a session while ending it.
+func (s *Service) claimCleanup(id string) (func(), error) {
+	if !validSessionID(id) {
+		return nil, ErrNoSession
 	}
-	return os.RemoveAll(ended.Session.Dir)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cleaning[id] {
+		return nil, fmt.Errorf("chat %s is already being cleaned up", id)
+	}
+	s.cleaning[id] = true
+	return func() { s.mu.Lock(); delete(s.cleaning, id); s.mu.Unlock() }, nil
+}
+
+// Read only an archive. A live record on disk prevents retry even when it
+// has not been restored into this process's registry.
+func (s *Service) endedRecord(id string) (*Session, error) {
+	dir := filepath.Join(s.root(), id)
+	if _, err := os.Lstat(filepath.Join(dir, MetaFile)); !errors.Is(err, os.ErrNotExist) {
+		if err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("chat %s still has a live record", id)
+	}
+	meta, err := readRecord(filepath.Join(dir, EndedFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, ErrNoSession
+	}
+	if err != nil {
+		return nil, err
+	}
+	if meta.ID != id {
+		return nil, fmt.Errorf("chat record in %s belongs to %s", id, meta.ID)
+	}
+	return newSession(meta, dir, s.now), nil
+}
+
+func cleanupCheckout(sess *Session, purge bool) error {
+	if sess.OwnsCheckout {
+		if err := os.RemoveAll(sess.Checkout); err != nil {
+			return fmt.Errorf("chat %s ended, but removing its checkout failed: %w; its record is retained for retry", sess.ID, err)
+		}
+	}
+	if purge {
+		return os.RemoveAll(sess.Dir)
+	}
+	return nil
 }
 
 // Upload stores a pasted picture under the session, server-named, and says
@@ -755,12 +814,36 @@ func (s *Service) RemoveEnded(m Match) error {
 	var failed []error
 	for _, r := range records {
 		if r.Ended && !r.Live {
-			if err := os.RemoveAll(r.Dir); err != nil {
+			if err := s.purgeEnded(filepath.Base(r.Dir), m); err != nil {
 				failed = append(failed, err)
 			}
 		}
 	}
 	return errors.Join(failed...)
+}
+
+// Re-read the actual scanned directory under the same exclusion as End;
+// scan observations alone cannot authorize deleting a record.
+func (s *Service) purgeEnded(id string, m Match) error {
+	release, err := s.claimCleanup(id)
+	if err != nil {
+		return err
+	}
+	defer release()
+	s.mu.Lock()
+	live := s.sessions[id] != nil
+	s.mu.Unlock()
+	if live {
+		return fmt.Errorf("chat %s is still live", id)
+	}
+	sess, err := s.endedRecord(id)
+	if err != nil {
+		return err
+	}
+	if !m.matches(sess.Meta) {
+		return fmt.Errorf("chat %s no longer matches cleanup", id)
+	}
+	return cleanupCheckout(sess, true)
 }
 
 // UploadPath is where a named upload lives on disk, for serving it back.

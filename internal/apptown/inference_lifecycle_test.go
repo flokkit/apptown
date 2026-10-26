@@ -147,7 +147,7 @@ func TestInferenceLifecycleAndTrustedReceipts(t *testing.T) {
 func TestInferenceChatSurvivesIdleAndRecoveryButNotEnd(t *testing.T) {
 	t.Parallel()
 	a := testApp(t, Config{ConsoleAgent: consoletest.NewAgent()})
-	m := consoleMetaFor("long-chat", idstest.N(7), ids.Nil)
+	m := consoleMetaFor(a.Console.NewSessionID(), idstest.N(7), ids.Nil)
 	m.Actor, m.Token = "alice", "chat-secret"
 	testAccounts(t, a.DB, "alice")
 	m.Labels[conversation.OpenerLabel] = testPrincipalOf(t, a.DB, "alice").String()
