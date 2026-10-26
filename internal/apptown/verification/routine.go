@@ -163,7 +163,17 @@ func (r RoutineInspector) observe(ctx context.Context, source workflow.Source) (
 	return out, nil
 }
 
-func (r RoutineInspector) InspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (out workflow.StandingInspection, err error) {
+func (r RoutineInspector) InspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
+	return r.inspectRoutine(ctx, source, categories, false)
+}
+
+// InspectRoutineWithAdoption is used only after Adoption verified a nonempty,
+// completely classified target. An empty Git diff alone remains insufficient.
+func (r RoutineInspector) InspectRoutineWithAdoption(ctx context.Context, source workflow.Source, categories workflow.StandingCategories) (workflow.StandingInspection, error) {
+	return r.inspectRoutine(ctx, source, categories, true)
+}
+
+func (r RoutineInspector) inspectRoutine(ctx context.Context, source workflow.Source, categories workflow.StandingCategories, adoption bool) (out workflow.StandingInspection, err error) {
 	out.Classifier = routinechange.Version + "+node-digest-v1+osv-npm-v1"
 	out.Classification = "cannot-assess"
 	before, err := r.observe(ctx, source)
@@ -183,7 +193,7 @@ func (r RoutineInspector) InspectRoutine(ctx context.Context, source workflow.So
 	if before.unsupported != "" {
 		return refuse(before.unsupported)
 	}
-	if len(before.files) == 0 {
+	if len(before.files) == 0 && !adoption {
 		return refuse("the candidate has no supported update")
 	}
 	for _, file := range before.files {
@@ -249,6 +259,9 @@ func (r RoutineInspector) InspectRoutine(ctx context.Context, source workflow.So
 		return out, nil
 	}
 	out.Classification = "routine-dependency"
+	if len(before.files) == 0 {
+		out.Classification = "routine-adoption"
+	}
 	if before.image {
 		out.Classification = "routine-image"
 		if before.npm {

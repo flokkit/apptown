@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/clock"
 	"log"
 	"net"
@@ -280,6 +281,9 @@ func main() {
 	}
 
 	if restored != nil {
+		if err := wow.DisableRestoredRoutineClassifications(ctx, db, clock.Or(nil)()); err != nil {
+			log.Fatalf("disable restored routine publication consent: %v", err)
+		}
 		if err := workflow.DisableRestoredStandingRules(ctx, db, clock.Or(nil)()); err != nil {
 			log.Fatalf("disable restored standing approvals: %v", err)
 		}

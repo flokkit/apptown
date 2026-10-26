@@ -2,15 +2,22 @@ package workflow
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/schema"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/fault"
@@ -426,5 +433,172 @@ func TestStandingAssessmentChecksCurrentAuthorityAndRuleAfterInspection(t *testi
 	})
 	if _, err = s.Assess(ctx, rule.RuleID, a.RunID); err == nil || calls != 3 {
 		t.Fatalf("revoked rule produced usable classification: %v calls=%d", err, calls)
+	}
+}
+
+type routineTargetParticipant struct {
+	owner     *adoption.Service
+	candidate adoption.Candidate
+}
+
+func (p routineTargetParticipant) RecordTargetIn(ctx context.Context, tx *database.Tx, in TargetChange) (RecordedTarget, error) {
+	r, err := p.owner.RecordTargetIn(ctx, tx, adoption.Target{ProjectID: in.ProjectID, ChangeID: in.ChangeID, Candidate: p.candidate, Actor: in.Actor})
+	return RecordedTarget{ID: r.ID, Candidate: r.Candidate}, err
+}
+
+type routineAdoptionInspection func(context.Context, Source, StandingCategories) (StandingInspection, error)
+
+func (f routineAdoptionInspection) InspectRoutine(context.Context, Source, StandingCategories) (StandingInspection, error) {
+	return StandingInspection{}, errors.New("uplift lost its checked adoption")
+}
+func (f routineAdoptionInspection) InspectRoutineWithAdoption(ctx context.Context, s Source, c StandingCategories) (StandingInspection, error) {
+	return f(ctx, s, c)
+}
+
+func TestStandingUpliftRechecksActualAdoptionConsentAfterSourceInspection(t *testing.T) {
+	a, s, _, ctx, definition := standingFixture(t)
+	caller, _ := access.CallerFrom(ctx)
+	caller.Receipt = "owner"
+	ctx = access.WithCaller(ctx, caller)
+	if err := project.New(a.DB, nil).SetDefaultBranch(ctx, a.ProjectID, "main"); err != nil {
+		t.Fatal(err)
+	}
+	boss := access.WithCaller(t.Context(), access.Caller{Principal: access.Principal{ID: testAdmittedPrincipal(t, a.Access, "boss").ID, Name: "boss", Kind: "user", Via: "session"}, Verified: true})
+	publications := wow.NewRoutineTransitions(a.DB, a.Authorizer, a.Access, nil)
+	ways := wow.New(a.DB, wow.Dependencies{})
+	adoptions := adoption.New(a.DB, adoption.Dependencies{Ways: ways, Authority: a.Authorizer, RoutinePublications: publications})
+	block, err := ways.CreateBlock(ctx, "team/routine", "Original instructions.", "", "owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt := adoption.EmptyReceipt()
+	receipt.Guidance = []adoption.ReceiptBlock{{Name: block.Name, BlockID: block.ID, Version: 1}}
+	if _, err = adoptions.Advance(ctx, a.ProjectID, adoption.AdoptionEdit, "fixture guidance", "owner", func(*database.Tx, *adoption.RecordedRevision, time.Time) (adoption.Receipt, error) {
+		return receipt, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = ways.BumpBlock(ctx, block.ID, "Clearer instructions.", "[]", "owner", block.Name); err != nil {
+		t.Fatal(err)
+	}
+	question, err := publications.Preview(boss, wow.RoutinePublicationTransition{Kind: "block", ID: block.ID, From: 1, To: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	consent, err := publications.Classify(boss, wow.RoutinePublicationConsent{RequestID: ids.New(time.Now()), Transition: question.Transition, ShownDigest: question.Digest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate, err := adoptions.Prepare(ctx, a.ProjectID, adoption.Request{Additions: []string{block.Name + "@2"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	changes := NewChanges(a.DB, a.Authorizer, nil)
+	change, err := changes.Uplift(ctx, Uplift{ProjectID: a.ProjectID, ExpectedRevision: candidate.ExpectedRevision, Acceptance: Acceptance{TargetDigest: candidate.Digest}, Words: candidate.Words(), Target: routineTargetParticipant{owner: adoptions, candidate: *candidate}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{{Name: "accept", Uses: "approval"}}}}}
+	admissions := newRunAdmissions(a.DB, NewStages(nil, func(string) bool { return false }), nil)
+	run, err := admissions.Create(ctx, StartRequest{ProjectID: a.ProjectID, ChangeID: change.ID, WorkflowName: "test", InputsJSON: "{}", RequestedBy: "owner"}, PreparedRun{Workflow: DefinitionRef{Name: "test", Version: 1}, Spec: spec, AdoptionID: change.TargetAdoptionID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = admissions.Prepared(ctx, run.ID); err != nil {
+		t.Fatal(err)
+	}
+	definition.Projects[0].Workflow = "test"
+	definition.Categories.WaysOfWorking = true
+	rule := enableStanding(t, s, ctx, definition)
+	s.deps.Adoptions = adoptions
+	s.deps.Presence = standingPresenceFixture{clear: true}
+	calls := 0
+	s.deps.Inspector = routineAdoptionInspection(func(_ context.Context, source Source, _ StandingCategories) (StandingInspection, error) {
+		calls++
+		if source.ChangeID != change.ID {
+			t.Fatal("wrong actual uplift")
+		}
+		return StandingInspection{Classification: "routine-adoption", Candidate: "exact-source"}, nil
+	})
+	got, err := s.Assess(ctx, rule.RuleID, run.ID)
+	if err != nil || got.Adoption == nil || len(got.Adoption.Classifications) != 1 || got.Adoption.Classifications[0].ID != consent.ID || got.ProcessingAvailable || calls != 1 {
+		t.Fatalf("checked uplift: %+v %v calls=%d", got, err, calls)
+	}
+	outside := definition
+	outside.Categories.WaysOfWorking = false
+	outsideRule := enableStanding(t, s, ctx, outside)
+	beforeOutside := calls
+	if _, err = s.Assess(ctx, outsideRule.RuleID, run.ID); err == nil || calls != beforeOutside {
+		t.Fatalf("uplift escaped the selected ways-of-working category: %v calls=%d", err, calls)
+	}
+	s.deps.Inspector = routineAdoptionInspection(func(context.Context, Source, StandingCategories) (StandingInspection, error) {
+		calls++
+		_, e := publications.Revoke(boss, consent.ID)
+		return StandingInspection{Classification: "routine-adoption", Candidate: "exact-source"}, e
+	})
+	if _, err = s.Assess(ctx, rule.RuleID, run.ID); err == nil {
+		t.Fatal("revocation during source inspection left an eligible uplift")
+	}
+	beforeCalls := calls
+	if _, err = s.Assess(ctx, rule.RuleID, run.ID); err == nil || calls != beforeCalls {
+		t.Fatalf("revoked target reached source executor: %v calls=%d", err, calls)
+	}
+}
+
+func TestStandingMixedCategoryMeaningRequiresNewHumanConfirmation(t *testing.T) {
+	a, s, _, ctx, definition := standingFixture(t)
+	definition.Categories.WaysOfWorking = true
+	question, err := s.Preview(ctx, definition)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const precise = "Mixed supported updates require every component to belong to an enabled category and pass its complete independent check. Any unsupported component requires a person. "
+	if !strings.Contains(question.Shown, precise) {
+		t.Fatal("new question does not state complete mixed-category coverage")
+	}
+	// Reproduce the exact previous owner wording, retaining its valid old digest.
+	// The immutable owner revision writer models a pre-upgrade stored rule; the
+	// current Enable door correctly cannot accept this no-longer-shown meaning.
+	oldQuestion := question
+	oldQuestion.Shown = strings.Replace(oldQuestion.Shown, precise, "", 1)
+	oldQuestion.Shown = strings.Replace(oldQuestion.Shown, "weaker checks, unsupported changes and storage-engine transitions", "weaker checks, unsupported or mixed changes and storage-engine transitions", 1)
+	oldQuestion.Digest = ""
+	raw, err := json.Marshal(oldQuestion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(raw)
+	oldQuestion.Digest = hex.EncodeToString(digest[:])
+	actor, err := s.human(ctx, a.DB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := StandingRevision{RuleID: ids.New(time.Now()), Revision: 1, Enabled: true, Question: oldQuestion, Issuer: actor, EnabledAt: time.Now(), ChangedAt: time.Now(), ChangedBy: actor, Reason: "explicit human consent"}
+	if err = a.DB.InTx(ctx, func(tx *database.Tx) error { return writeStandingRevision(ctx, tx, old, true) }); err != nil {
+		t.Fatal(err)
+	}
+	statuses, err := s.List(ctx, a.ProjectID)
+	if err != nil || len(statuses) != 1 || statuses[0].Eligible || !strings.Contains(statuses[0].Reason, "new human confirmation") {
+		t.Fatalf("old stored meaning silently reinterpreted: %+v %v", statuses, err)
+	}
+	if _, err = s.Enable(ctx, StandingCommand{RuleID: old.RuleID, ExpectedRevision: 1, Definition: definition, ShownDigest: oldQuestion.Digest}); err == nil {
+		t.Fatal("old shown meaning enabled new coverage")
+	}
+	confirmed, err := s.Enable(ctx, StandingCommand{RuleID: old.RuleID, ExpectedRevision: 1, Definition: definition, ShownDigest: question.Digest})
+	if err != nil {
+		t.Fatal(err)
+	}
+	statuses, err = s.List(ctx, a.ProjectID)
+	if err != nil || len(statuses) != 1 || !statuses[0].Eligible || statuses[0].Rule.Revision != confirmed.Revision {
+		t.Fatalf("new explicit confirmation not eligible: %+v %v", statuses, err)
+	}
+	history, err := s.History(ctx, old.RuleID)
+	if err != nil || len(history) != 2 {
+		t.Fatalf("history: %+v %v", history, err)
+	}
+	for _, r := range history {
+		if r.Revision == 1 && (r.Question.Shown != oldQuestion.Shown || r.Question.Digest != oldQuestion.Digest) {
+			t.Fatal("old meaning was rewritten")
+		}
 	}
 }

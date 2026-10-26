@@ -87,10 +87,11 @@ type UpliftChange struct {
 	NotStarted string
 }
 type Dependencies struct {
-	Authority    access.ReadAuthorizer
-	Ways         Catalog
-	Capabilities CapabilityLocker
-	Uplift       UpliftOpener
+	RoutinePublications RoutinePublications
+	Authority           access.ReadAuthorizer
+	Ways                Catalog
+	Capabilities        CapabilityLocker
+	Uplift              UpliftOpener
 	// Copies says whether a project is an eval's throwaway copy (Project's
 	// purpose), read through the caller's transaction: only a copy takes
 	// another project's recorded way of working (copy.go). Nil refuses

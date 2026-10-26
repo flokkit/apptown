@@ -7,9 +7,11 @@ import (
 	"slices"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -18,6 +20,13 @@ import (
 // dependency inputs. It cannot accept, publish, land or deploy the result.
 type standingInspector interface {
 	InspectRoutine(context.Context, Source, StandingCategories) (StandingInspection, error)
+}
+
+type standingAdoptionInspector interface {
+	InspectRoutineWithAdoption(context.Context, Source, StandingCategories) (StandingInspection, error)
+}
+type standingAdoptions interface {
+	CheckRoutineTargetIn(context.Context, *database.Tx, ids.ID, ids.ID, ids.ID, int64, []byte) (adoption.RoutineTarget, error)
 }
 
 // standingPresence adds observation only; the existing FolderClear operation
@@ -73,24 +82,26 @@ type StandingInspection struct {
 	Validation     *StandingValidation `json:"validation,omitempty"`
 }
 type StandingAssessment struct {
-	RuleID              ids.ID             `json:"ruleId"`
-	RuleRevision        int64              `json:"ruleRevision"`
-	QuestionDigest      string             `json:"questionDigest"`
-	ProjectID           ids.ID             `json:"projectId"`
-	ChangeID            ids.ID             `json:"changeId"`
-	RunID               ids.ID             `json:"runId"`
-	Stage               string             `json:"stage"`
-	RetryRevision       int64              `json:"retryRevision"`
-	AdoptionID          ids.ID             `json:"adoptionId"`
-	AdoptionRevision    int64              `json:"adoptionRevision"`
-	Inspection          StandingInspection `json:"inspection"`
-	ProcessingAvailable bool               `json:"processingAvailable"`
+	Adoption            *adoption.RoutineTarget `json:"adoption,omitempty"`
+	RuleID              ids.ID                  `json:"ruleId"`
+	RuleRevision        int64                   `json:"ruleRevision"`
+	QuestionDigest      string                  `json:"questionDigest"`
+	ProjectID           ids.ID                  `json:"projectId"`
+	ChangeID            ids.ID                  `json:"changeId"`
+	RunID               ids.ID                  `json:"runId"`
+	Stage               string                  `json:"stage"`
+	RetryRevision       int64                   `json:"retryRevision"`
+	AdoptionID          ids.ID                  `json:"adoptionId"`
+	AdoptionRevision    int64                   `json:"adoptionRevision"`
+	Inspection          StandingInspection      `json:"inspection"`
+	ProcessingAvailable bool                    `json:"processingAvailable"`
 }
 
 type standingObservation struct {
 	source    Source
 	run       Run
 	authority scm.Authority
+	change    Change
 }
 
 func (s StandingRules) assessmentSource(ctx context.Context, runID ids.ID) (standingObservation, error) {
@@ -125,7 +136,7 @@ func (s StandingRules) assessmentSource(ctx context.Context, runID ids.ID) (stan
 	if err != nil {
 		return out, err
 	}
-	if ch.State != ChangeInProgress || ch.Type == "uplift" {
+	if ch.State != ChangeInProgress {
 		return out, fault.New(fault.Conflict, "this change is not an ordinary change awaiting inspection")
 	}
 	run, err := readRun(ctx, s.db, runID)
@@ -174,7 +185,7 @@ func (s StandingRules) assessmentSource(ctx context.Context, runID ids.ID) (stan
 	if !clear {
 		return out, fault.New(fault.Conflict, "a runtime can still write this change's source")
 	}
-	return standingObservation{source: source, run: *run, authority: holder}, nil
+	return standingObservation{source: source, run: *run, authority: holder, change: *ch}, nil
 }
 
 // Assess is classification only. It neither stores reusable assent nor accepts
@@ -211,7 +222,20 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if s.deps.Inspector == nil {
 		return out, fault.New(fault.Unavailable, "routine inspection is unavailable")
 	}
-	inspection, err := s.deps.Inspector.InspectRoutine(ctx, first.source, rule.Question.Definition.Categories)
+	target, err := s.assessmentAdoption(ctx, first, rule.Question.Definition.Categories)
+	if err != nil {
+		return out, err
+	}
+	var inspection StandingInspection
+	if target != nil {
+		inspector, ok := s.deps.Inspector.(standingAdoptionInspector)
+		if !ok {
+			return out, fault.New(fault.Unavailable, "adoption source inspection is unavailable")
+		}
+		inspection, err = inspector.InspectRoutineWithAdoption(ctx, first.source, rule.Question.Definition.Categories)
+	} else {
+		inspection, err = s.deps.Inspector.InspectRoutine(ctx, first.source, rule.Question.Definition.Categories)
+	}
 	if err != nil {
 		return out, err
 	}
@@ -226,6 +250,19 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if !reflect.DeepEqual(first, last) || current.Revision != rule.Revision {
 		return out, fault.New(fault.Conflict, "the rule or change moved during inspection; inspect it again")
 	}
+	lastTarget, err := s.assessmentAdoption(ctx, last, current.Question.Definition.Categories)
+	if err != nil {
+		return out, err
+	}
+	if !reflect.DeepEqual(target, lastTarget) {
+		return out, fault.New(fault.Conflict, "routine adoption consent changed during inspection")
+	}
+	if target != nil {
+		switch inspection.Classification {
+		case "routine-dependency", "routine-image", "routine-dependency-and-image":
+			inspection.Classification += "-and-adoption"
+		}
+	}
 	status, err = s.status(ctx, current)
 	if err != nil {
 		return out, err
@@ -233,5 +270,31 @@ func (s StandingRules) Assess(ctx context.Context, ruleID, runID ids.ID) (Standi
 	if !status.Eligible {
 		return out, fault.New(fault.Conflict, fmt.Sprintf("standing eligibility changed during inspection: %s", status.Reason))
 	}
-	return StandingAssessment{RuleID: ruleID, RuleRevision: rule.Revision, QuestionDigest: rule.Question.Digest, ProjectID: first.source.ProjectID, ChangeID: first.source.ChangeID, RunID: runID, Stage: first.run.CurrentStage, RetryRevision: first.run.RetryRevision, AdoptionID: first.run.AdoptionID, AdoptionRevision: first.source.AdoptionRevision, Inspection: inspection}, nil
+	return StandingAssessment{Adoption: target, RuleID: ruleID, RuleRevision: rule.Revision, QuestionDigest: rule.Question.Digest, ProjectID: first.source.ProjectID, ChangeID: first.source.ChangeID, RunID: runID, Stage: first.run.CurrentStage, RetryRevision: first.run.RetryRevision, AdoptionID: first.run.AdoptionID, AdoptionRevision: first.source.AdoptionRevision, Inspection: inspection}, nil
+}
+
+func (s StandingRules) assessmentAdoption(ctx context.Context, observed standingObservation, categories StandingCategories) (*adoption.RoutineTarget, error) {
+	ch := observed.change
+	if ch.Type != "uplift" {
+		if !ch.TargetAdoptionID.IsZero() || ch.TargetCandidateJSON != "" && ch.TargetCandidateJSON != "{}" {
+			return nil, fault.New(fault.Conflict, "unexpected adoption target on ordinary change")
+		}
+		return nil, nil
+	}
+	if !categories.WaysOfWorking {
+		return nil, fault.New(fault.Conflict, "ways-of-working updates are not permitted by this rule")
+	}
+	if ch.TargetAdoptionID.IsZero() || s.deps.Adoptions == nil {
+		return nil, fault.New(fault.Unavailable, "the recorded adoption target cannot be checked")
+	}
+	target, err := database.Transact(ctx, s.db, func(tx *database.Tx) (adoption.RoutineTarget, error) {
+		if _, err := adoption.CurrentForUpdateIn(ctx, tx, ch.ProjectID); err != nil {
+			return adoption.RoutineTarget{}, err
+		}
+		return s.deps.Adoptions.CheckRoutineTargetIn(ctx, tx, ch.ProjectID, ch.ID, ch.TargetAdoptionID, ch.ExpectedRevision, []byte(ch.TargetCandidateJSON))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &target, nil
 }

@@ -27,7 +27,10 @@ A rule names bounded patch/minor dependencies, verified same-version base-image
 updates, security fixes within those limits, or governed routine way-of-working
 transitions. Application source, migrations, major versions, new capabilities,
 needs or secrets, weaker checks, unsupported changes and storage-engine
-transitions require a person. Missing or nonpassing evidence is never success.
+transitions require a person. A mixed supported update needs every category enabled
+and every component independently covered. A saved rule with different shown
+meaning becomes ineligible until a person previews and confirms the new meaning;
+its original history remains unchanged. Missing or nonpassing evidence is never success.
 
 The enabling principal is recorded by UUID. A renamed person retains identity;
 a new account with the old name cannot inherit consent. Current eligibility is
@@ -103,5 +106,48 @@ is unsupported. Advisory evidence never broadens the underlying update category
 or substitutes for normal checks.
 
 Combined npm and image changes must satisfy both enabled categories and explain
-the complete diff. Governed way-of-working classification remains unavailable.
-No inspection result enables automatic acceptance, landing or deployment.
+the complete diff. A governed adoption transition must also satisfy the separate
+ways-of-working category and cover its entire recorded target. No inspection
+result enables automatic acceptance, landing or deployment.
+
+## Classifying publication transitions
+
+A current standards manager can preview two exact forward versions of a guidance
+block or pack, then explicitly classify their displayed meaning as routine.
+`apptown janitor publication preview --file transition.json` returns the exact
+before/after material, source and signer facts, explanation and digest. The file
+names `kind` (`block` or `pack`), publication UUID `id`, `from` and `to` versions.
+Inspect the complete material, then use `publication classify --file
+transition.json --confirm DIGEST --request UUID`. Keep that request UUID for any
+retry of the same human act. Equal retries return the original receipt, including
+its revocation; changed input conflicts. A later new act requires a new UUID.
+
+The initial supported class changes guidance body text only. Executable checks,
+workflows, approval rules, policies, capability requirements, needs, services,
+secrets, resources, tools, starter settings and component membership must remain
+unchanged. A pack may advance its pinned guidance while preserving those inputs;
+its complete included publication tree participates. Unresolved or unsupported
+publication material refuses classification. A recommendation is not consent.
+
+`publication history block|pack UUID` reads that publication's classification
+history. `publication revoke CLASSIFICATION_UUID` records a one-way revocation.
+Both require current standards authority. An agent, run, chat or delegated token
+cannot supply the enabling human act. Insert and audit commit together. Restored
+classifications are disabled before application recovery and require new local
+human consent; their historical meaning is retained.
+
+Assessment reads the actual Change target and current adoption, not a submitted
+subset or a display summary. Every selected pack and guidance transition needs
+exact coverage, with unchanged membership, order, disabled state, tiers,
+workflows, policies and capability requirements. Existing capability requirements
+must remain available. A pack classification covers only its exact nested
+publication intervals. Revoked consent, changed material or a no-longer-eligible
+issuer refuses assessment. Responses carry selected classification UUIDs,
+digests and shown meaning; full material remains in publication preview/history.
+
+A nonempty, fully covered adoption target may have an empty Git diff. An ordinary
+empty Change is insufficient. Combined npm, image and adoption updates must
+explain every source and procedure change independently; adoption consent cannot
+cover unrelated application edits. The source, rule and adoption consent are
+checked again after inspection. These short-lived checks produce observations,
+not authority held until a later effect. `processingAvailable` remains false.

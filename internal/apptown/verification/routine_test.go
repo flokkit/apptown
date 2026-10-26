@@ -168,3 +168,28 @@ func TestRoutineReportsAllMixedFiles(t *testing.T) {
 		t.Fatalf("incomplete mixed inventory: classification=%s files=%v", result.Classification, result.ChangedFiles)
 	}
 }
+
+func TestRoutineEmptySourceRequiresSeparatelyCheckedAdoption(t *testing.T) {
+	data, repo, source := routineRepository(t)
+	routineGit(t, repo, "reset", "--hard", source.ChangeBaseSHA)
+	var locks scm.RepositoryLocks
+	inspector := NewRoutineInspector(data, &locks, Executor{Run: func(context.Context, execution.Request) execution.Outcome {
+		t.Fatal("empty source ran validation container")
+		return execution.Outcome{}
+	}})
+	ordinary, err := inspector.InspectRoutine(t.Context(), source, workflow.StandingCategories{WaysOfWorking: true})
+	if err != nil || ordinary.Classification != "requires-person" {
+		t.Fatalf("empty source became sufficient: %+v %v", ordinary, err)
+	}
+	adoption, err := inspector.InspectRoutineWithAdoption(t.Context(), source, workflow.StandingCategories{WaysOfWorking: true})
+	if err != nil || adoption.Classification != "routine-adoption" || len(adoption.ChangedFiles) != 0 || adoption.Candidate == "" {
+		t.Fatalf("exact empty Git observation: %+v %v", adoption, err)
+	}
+	routineWrite(t, filepath.Join(repo, "unexpected.txt"), []byte("unclassified change"))
+	routineGit(t, repo, "add", ".")
+	routineGit(t, repo, "commit", "-m", "unrelated")
+	mixed, err := inspector.InspectRoutineWithAdoption(t.Context(), source, workflow.StandingCategories{WaysOfWorking: true})
+	if err != nil || mixed.Classification != "requires-person" {
+		t.Fatalf("adoption erased unrelated source: %+v %v", mixed, err)
+	}
+}

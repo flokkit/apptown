@@ -16,7 +16,7 @@ import (
 // credential bounds; this durable consent is not a continuation of that session.
 func (s *Service) StandingIssuerAllowsIn(ctx context.Context, q database.Queryer, issuer ids.ID, p access.Permission) (access.Actor, error) {
 	switch p.Capability {
-	case access.CapChangeApprove, access.CapChangeLand, access.CapDeploymentDeploy, access.CapReleasePromote:
+	case access.CapChangeApprove, access.CapChangeLand, access.CapDeploymentDeploy, access.CapReleasePromote, access.CapStandardsPacks:
 	default:
 		return access.Actor{}, fmt.Errorf("unsupported standing purpose %q", p.Capability)
 	}

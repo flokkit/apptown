@@ -20,15 +20,20 @@ import (
 // either as its own top-level test or, for a helper, through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
-	"external.Save":          TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
-	"external.Enabled":       TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
-	"external.Test":          TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
-	"external.Bindings":      TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
-	"a.handleExternalUnlink": TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
-	"external.Bind":          TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
-	"external.Revoke":        TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"routinePublications.Preview":  TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
+	"routinePublications.Classify": TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
+	"routinePublications.History":  TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
+	"routinePublications.Revoke":   TestRoutinePublicationHTTPPreservesHumanIdentityAndRevokedRetry,
 
-	"standingApprovals.Assess":             TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
+	"standingApprovals.Assess": TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
+	"external.Save":            TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Enabled":         TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Test":            TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Bindings":        TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"a.handleExternalUnlink":   TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Bind":            TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+	"external.Revoke":          TestExternalAdministrationHTTPUsesCurrentAuthorityAndSelfOwnership,
+
 	"standingApprovals.List":               TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
 	"standingApprovals.Preview":            TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,
 	"standingApprovals.Enable":             TestStandingConsentHTTPUsesCurrentDeclaredMeaningAndVerifiedIssuer,

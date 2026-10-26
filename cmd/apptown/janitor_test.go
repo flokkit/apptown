@@ -74,3 +74,34 @@ func TestJanitorAssessmentNamesOnlyTheRuleAndRun(t *testing.T) {
 		t.Fatalf("unexpected evidence or approval claim: %q %+v", out, *seen)
 	}
 }
+
+func TestJanitorPublicationNeedsExactMeaningAndStableHumanRequest(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "transition.json")
+	if err := os.WriteFile(file, []byte(`{"kind":"block","id":"00000000-0001-7000-8000-000000000000","from":1,"to":2}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	seen := jsonAppTown(t, func(method, path string) (int, string) {
+		if method != "POST" || !strings.HasPrefix(path, "/routine-publications") {
+			t.Fatalf("unexpected effect %s %s", method, path)
+		}
+		return 200, `{"digest":"exact-material","before":{"body":"old"},"after":{"body":"new"},"revocation":null}`
+	})
+	for _, extra := range [][]string{nil, {"--confirm", "exact-material"}, {"--request", "stable-act"}} {
+		args := append([]string{"janitor", "publication", "classify", "--file", file}, extra...)
+		if _, err := run(t, args...); err == nil || len(*seen) != 0 {
+			t.Fatalf("implicit act accepted: %v %+v", err, *seen)
+		}
+	}
+	out, err := run(t, "janitor", "publication", "preview", "--file", file)
+	if err != nil || !strings.Contains(out, `"old"`) || !strings.Contains(out, `"new"`) {
+		t.Fatalf("preview omitted exact material: %q %v", out, err)
+	}
+	for range 2 {
+		if _, err = run(t, "janitor", "publication", "classify", "--file", file, "--confirm", "exact-material", "--request", "stable-act"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(*seen) != 3 || (*seen)[1].Body["shownDigest"] != "exact-material" || (*seen)[1].Body["requestId"] != "stable-act" || (*seen)[2].Body["requestId"] != "stable-act" {
+		t.Fatalf("request retry changed meaning: %+v", *seen)
+	}
+}
