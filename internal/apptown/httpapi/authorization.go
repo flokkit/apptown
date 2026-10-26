@@ -290,7 +290,7 @@ func (h Authorization) AuthzMe(w http.ResponseWriter, r *http.Request) {
 	// so the menu can leave the others out.
 	for _, c := range []access.Capability{access.CapAuthzGrants, access.CapIdentityUsers, access.CapIdentityGroups, access.CapIdentityAuth, access.CapProjectCreate,
 		access.CapStandardsGuidance, access.CapExecWorkflows, access.CapReleasePromote, access.CapAuditRead, access.CapSecretReveal,
-		access.CapInstitutionRead, access.CapProjectRead, access.CapDeploymentRead, access.CapConformanceRead, access.CapStandardsPacks, access.CapPlatformTargets} {
+		access.CapInstitutionRead, access.CapProjectRead, access.CapDeploymentRead, access.CapConformanceRead, access.CapStandardsPacks, access.CapPlatformTargets, access.CapInstanceUpdates} {
 		may, err := h.holds(r.Context(), pr, c, access.Resource{Type: "instance"})
 		if err != nil {
 			WriteFaultOr(w, err, http.StatusServiceUnavailable)

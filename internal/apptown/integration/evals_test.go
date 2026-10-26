@@ -61,9 +61,9 @@ func TestACopyIsGivenNoIntegrationAndPublishesUnderItsOwnRepository(t *testing.T
 	if err != nil || got == nil || got.Repo != "registry.example/team/shop-copy" || got.Username != "robot" || got.Token != "forge-held" {
 		t.Fatalf("the copy's own repository: %+v %v", got, err)
 	}
-	// A single-label host is interpreted as a Docker Hub namespace by OCI;
+	// An arbitrary single-label name (unlike reserved localhost) is a Docker Hub namespace;
 	// its connector credential must not be offered there under another host.
-	if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", `{"url":"localhost","group":"team","tokenFrom":"REGISTRY_PASSWORD"}`, "fixture"); err != nil {
+	if _, err := s.Bindings.Save(t.Context(), "registry", CapContainerRegistry, "service", `{"url":"registry","group":"team","tokenFrom":"REGISTRY_PASSWORD"}`, "fixture"); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := s.EvalPublication(t.Context(), copy); err == nil || got != nil {

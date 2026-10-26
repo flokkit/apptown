@@ -7,8 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
+
+	"github.com/flokkit/apptown/internal/apptown/instanceupdate"
+	"github.com/flokkit/apptown/internal/version"
 
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
@@ -87,6 +91,7 @@ type App struct {
 	setup            setupState
 	credentials      *credentialLimiter // the doors that take a secret (internal_auth.go, door)
 	Access           *identity.Service
+	InstanceUpdates  *instanceupdate.Service
 	Adoption         *adoption.Service
 	Ways             *wow.Service
 
@@ -263,6 +268,10 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 		setupToken = filepath.Join(cfg.dataDir, "setup-token")
 	}
 	a.Access = identity.New(db, identity.Config{OpenInstance: cfg.authMode == "open", Projects: project.NewCatalogue(db), Now: cfg.clock.Now, SetupTokenPath: setupToken})
+	a.InstanceUpdates, err = instanceupdate.New(instanceupdate.Options{DataDir: cfg.dataDir, Build: version.String(), Platform: runtime.GOOS + "/" + runtime.GOARCH, Channel: input.UpdateChannel, Authority: access.Checked{Authority: a.Access}, Now: cfg.clock.Now})
+	if err != nil {
+		return nil, err
+	}
 	a.Projects = project.NewWithClock(db, identity.Scoped(a.Access, "project"), cfg.clock.Now)
 	a.vhostRules = &vhostRules{db: db, projects: a.Projects, now: cfg.clock.Now}
 	a.Secrets = secret.NewService(db, secret.Config{DataDir: cfg.dataDir, Client: input.SecretsHTTPClient, Now: cfg.clock.Now})

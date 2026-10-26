@@ -8118,6 +8118,50 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/api/v1/instance-updates": {
+      "get": {
+        "operationId": "getInstanceUpdates",
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "instance-updates"
+        ],
+        "x-apptown-access": {
+          "capability": "instance:updates",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
+    "/api/v1/instance-updates/check": {
+      "post": {
+        "operationId": "postInstanceUpdatesCheck",
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "instance-updates"
+        ],
+        "x-apptown-access": {
+          "capability": "instance:updates",
+          "kind": "capability",
+          "scope": "instance"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/api/v1/integrations": {
       "get": {
         "operationId": "getIntegrations",

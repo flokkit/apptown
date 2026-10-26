@@ -36,6 +36,8 @@ import (
 // Config is construction input, not live application state. New validates and
 // copies it; changing this value afterwards cannot reconfigure an instance.
 type Config struct {
+	// UpdateChannel selects stable releases unless explicitly set to prerelease.
+	UpdateChannel string
 	// DockerClient supplies the command transport before owners are wired.
 	// Nil selects the production CLI. Changing this input later does not
 	// replace the client held by an already constructed App.
@@ -234,6 +236,9 @@ func (c *apptownClock) Now() time.Time {
 func (c Config) Validate() error { _, err := c.prepare(); return err }
 
 func (c Config) prepare() (configuration, error) {
+	if c.UpdateChannel != "" && c.UpdateChannel != "stable" && c.UpdateChannel != "prerelease" {
+		return configuration{}, fmt.Errorf("unknown -update-channel %q (stable | prerelease)", c.UpdateChannel)
+	}
 	switch c.AuthMode {
 	case "", "open":
 		c.AuthMode = "open"

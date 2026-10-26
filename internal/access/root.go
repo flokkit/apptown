@@ -14,7 +14,7 @@ func RootGrant(grants []Grant) (Grant, bool) {
 
 func rootOnly(c Capability) bool {
 	switch c {
-	case CapIdentityUsers, CapIdentityGroups, CapIdentityAuth, CapAuthzGrants:
+	case CapInstanceUpdates, CapIdentityUsers, CapIdentityGroups, CapIdentityAuth, CapAuthzGrants:
 		return true
 	}
 	return false

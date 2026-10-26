@@ -36,6 +36,7 @@ func appRoutes(a *App) []routeSpec {
 	var policyLibrary httpapi.PolicyLibrary
 	var packLibrary httpapi.PackLibrary
 	var systemWorkflows httpapi.SystemWorkflows
+	var instanceUpdates httpapi.InstanceUpdates
 	docs := docsForRoutes("")
 	// The database former identities are read from; nil while routes are
 	// only declared.
@@ -216,6 +217,7 @@ func appRoutes(a *App) []routeSpec {
 		workspaces = httpapi.NewWorkspaces(a.DB, a.cfg.dataDir)
 		traces = httpapi.NewTraces(a.Work, a.Ways, a.DB)
 		changes = httpapi.NewChanges(a.Work, a.Projects, a.Access, a.DB, a.cfg.clock.Now)
+		instanceUpdates = httpapi.NewInstanceUpdates(a.InstanceUpdates)
 		systemWorkflows = httpapi.NewSystemWorkflows(a.Ways, a.Access)
 		packLibrary = httpapi.NewPackLibrary(a.Ways, a.conformance, a.Access, a.DB, a.cfg.clock.Now)
 		policyLibrary = httpapi.NewPolicyLibrary(a.Ways, a.Adoption, a.DB)
@@ -263,6 +265,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/lanes", projectWorkflows.ProjectLanes, access.CapProjectRead, "project-slug"),
 		requireRoute("GET /api/v1/projects/{slug}/schedules", projectSchedules.List, access.CapProjectRead, "project-slug"),
 		requireRoute("PUT /api/v1/projects/{slug}/lanes", workflowSelection.PutProjectLane, access.CapProjectWorkflow, "project-slug"),
+		requireRoute("GET /api/v1/instance-updates", instanceUpdates.Status, access.CapInstanceUpdates, "instance"),
+		requireRoute("POST /api/v1/instance-updates/check", instanceUpdates.Check, access.CapInstanceUpdates, "instance"),
 		publicRoute("GET /api/v1/system-workflows", systemWorkflows.SystemWorkflows, "systemWorkflows.SystemWorkflows: shared system workflow declarations"),
 		requireRoute("PUT /api/v1/system-workflows", systemWorkflows.PutSystemWorkflow, access.CapExecWorkflows, "instance"),
 		ownerRoute("GET /api/v1/conformance", conformance.Conformance, "conformance.Conformance"),

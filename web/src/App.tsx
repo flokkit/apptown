@@ -3,6 +3,7 @@ import { PRODUCT } from './brand'
 import { NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './ErrorBoundary'
 import { UpdateNote } from './UpdateNote'
+import { UpdatesPage, ReleaseAvailabilityNote } from './pages/Updates'
 import { StaleScope } from './ReadGate'
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -37,7 +38,7 @@ const Console = lazy(withChunkReload(() => import('./pages/Console')))
 import { useProjectScope } from './projectScope'
 import { EvalScorecardPage, EvalStartPage, EvalsPage } from './pages/Evals'
 import { OperationPage } from './pages/DataProtection'
-import { InstanceGate, useInstancePages } from './instancePages'
+import { InstanceGate, useInstancePages, useHolds } from './instancePages'
 import TopBar, { Find, ThemeSwitch, UserLine } from './TopBar'
 import { useNarrow } from './chrome'
 import { withChunkReload } from './chunkReload'
@@ -60,6 +61,7 @@ export function SidebarNav() {
   // Pages about the whole AppTown are left out for someone who cannot read
   // them; the menu is otherwise the same for everyone.
   const mayOpen = useInstancePages()
+ const mayUpdate = useHolds("instance:updates")
   const wow = /^\/(packs|workflow-library|guidance|policies)(\/|$)/.test(pathname)
 
   if (slug) {
@@ -88,6 +90,7 @@ export function SidebarNav() {
       {mayOpen('integrations') && <NavLink to="/integrations" className={cls}>Integrations</NavLink>}
       {mayOpen('people') && <NavLink to="/people" className={cls}>People</NavLink>}
       <NavLink to="/usage" className={cls}>Usage</NavLink>
+ {mayUpdate && <NavLink to="/updates" className={cls}>Updates</NavLink>}
       {mayOpen('complaints') && <NavLink to="/complaints" className={cls}>Complaints</NavLink>}
       <NavLink to="/docs" className={cls}>Docs</NavLink>
     </>
@@ -172,6 +175,7 @@ export default function App() {
       <main className="main">
         {meQ.err && <div className="error small" style={{ marginBottom: 10 }}>{PRODUCT} could not say who you are: {meQ.err}</div>}
         <UpdateNote />
+ <ReleaseAvailabilityNote />
         {!online && <div className="muted small" style={{ marginBottom: 10 }}>You are offline. Pages keep what they last read and refresh when the connection returns.</div>}
         {/* Keyed by identity as well: another person starts from fresh pages,
             with no draft or local state left from the one before. */}
@@ -180,6 +184,7 @@ export default function App() {
         <Suspense fallback={<div className="muted">Opening the page…</div>}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+ <Route path="/updates" element={<UpdatesPage />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/deployments" element={<Deployments />} />
           <Route path="/deployments/:gtab" element={<Deployments />} />

@@ -701,6 +701,43 @@ export type InstanceSecret = {
   held: boolean
 }
 
+export type InstanceUpdateArtifact = {
+  name: string
+  sha256: string
+  size: number
+}
+
+export type InstanceUpdateCandidate = {
+  version: string
+  commit: string
+  platform: string
+  notes: string
+  archive: InstanceUpdateArtifact
+  evidence: InstanceUpdateEvidence
+}
+
+export type InstanceUpdateEvidence = {
+  manifestSHA256: string
+  checksumsSHA256: string
+  signer: string
+  issuer: string
+  sourceCommit: string
+}
+
+export type InstanceUpdateStatus = {
+  build: string
+  platform: string
+  channel: string
+  state: string
+  lastAttempt?: string | null
+  lastSuccess?: string | null
+  candidate?: InstanceUpdateCandidate | null
+  reasonCode?: string
+  reason?: string
+  automaticReplacement: boolean
+  replacementReason: string
+}
+
 export type IntegrationDocs = {
   admin: string
   developer: string
