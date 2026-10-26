@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -105,6 +106,10 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		if err := gatedRenderable(gate, c); err != nil {
 			return deploy.Artifact{}, deploy.Terminal(err)
 		}
+	}
+	health, err := serviceHealth(c, gate != nil)
+	if err != nil {
+		return deploy.Artifact{}, err
 	}
 	client, cfg, err := d.Client(ctx)
 	if err != nil {
@@ -264,7 +269,7 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 			RunCommand: strings.Join(p.Command, " "), Envs: envs}
 		if p.Port > 0 {
 			comp.HTTPPort = p.Port
-			comp.HealthCheck = doHealth(&p)
+			comp.HealthCheck = health[p.Name]
 			if p.Public {
 				public, publicPort = p.Name, p.Port
 				if gate != nil {
@@ -354,13 +359,50 @@ func blankSecrets(spec AppSpec) string {
 	return string(b)
 }
 
+// serviceHealth is shared by preflight and rendering: unsupported declarations
+// must be refused before need provisioning as well as image publication.
+func serviceHealth(c *appcontract.Contract, gated bool) (map[string]*doHealthCheck, error) {
+	health := make(map[string]*doHealthCheck)
+	if c == nil {
+		return health, nil
+	}
+	for _, part := range c.Parts {
+		if part.Port <= 0 || (gated && !part.Public) {
+			continue
+		}
+		probe, err := doHealth(&part)
+		if err != nil {
+			return nil, deploy.Terminal(fmt.Errorf("part %s readiness: %w", part.Name, err))
+		}
+		health[part.Name] = probe
+	}
+	return health, nil
+}
+
 // doHealth renders a part's readiness intent as the platform's probe.
-func doHealth(p *appcontract.Part) *doHealthCheck {
+func doHealth(p *appcontract.Part) (*doHealthCheck, error) {
 	hc := &doHealthCheck{Port: p.Port, InitialDelaySeconds: 5, PeriodSeconds: 10, TimeoutSeconds: 5, FailureThreshold: 6}
 	if p.Intent != nil && p.Intent.Readiness != nil && p.Intent.Readiness.HTTP != "" {
 		hc.HTTPPath = p.Intent.Readiness.HTTP
 	}
-	return hc
+	if p.Intent != nil && p.Intent.Readiness != nil && p.Intent.Readiness.StartupGrace != "" {
+		grace, err := appcontract.ParseHealthDuration(p.Intent.Readiness.StartupGrace)
+		if err != nil {
+			return nil, err
+		}
+		if grace > time.Hour {
+			return nil, errors.New("startupGrace exceeds App Platform's 3600-second limit")
+		}
+		// The contract is a floor; the platform accepts whole seconds.
+		seconds := grace / time.Second
+		if grace%time.Second != 0 {
+			seconds++
+		}
+		if int(seconds) > hc.InitialDelaySeconds {
+			hc.InitialDelaySeconds = int(seconds)
+		}
+	}
+	return hc, nil
 }
 
 // GateComponent is AppTown gate's component in a gated app.
