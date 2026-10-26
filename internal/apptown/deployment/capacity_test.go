@@ -429,12 +429,18 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 3 {
-		if got := w.s.disk(t.Context(), w.lab.ID, labScope, "/var/lib/docker"); !got.Free.Known {
+		if got := w.s.disk(t.Context(), w.lab, labScope, "/var/lib/docker"); !got.Free.Known {
 			t.Fatalf("disk: %+v", got)
 		}
 	}
 	if dfRuns != 1 {
 		t.Errorf("the disk was read %d times", dfRuns)
+	}
+	// Changing target settings must not reuse even the longer-lived disk sample.
+	changed := *w.lab
+	changed.SettingsRevision++
+	if got := w.s.disk(t.Context(), &changed, labScope, "/new-data"); !got.Free.Known || got.Path != "/new-data" || dfRuns != 2 {
+		t.Fatalf("changed target reused old disk evidence: %+v reads=%d", got, dfRuns)
 	}
 
 	// A host whose limits add up to more than it has is overcommitted;
@@ -692,5 +698,147 @@ func TestAnOpenFirstReleaseMakesTheDeclaredSumUnknown(t *testing.T) {
 	c, err = p.s.Capacity(t.Context(), IntranetTargetName)
 	if err != nil || c.Memory.Promised.Sum.AppTown.Known || c.CPU.Promised.Sum.AppTown.Known {
 		t.Fatalf("with an open first release: %+v %v", c.Memory.Promised, err)
+	}
+}
+
+// A target edit changes the subject of capacity evidence even inside the cache
+// interval. Reusing the old target's reading would hide the newly selected host.
+func TestCapacityCacheBindsTheTargetSettingsRevision(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	s := &Service{clock: func() time.Time { return at }}
+	target := &Target{ID: idstest.N(1), Name: "before", Kind: KindS3Bucket, SettingsRevision: 1}
+	before, err := s.targetCapacity(t.Context(), target)
+	if err != nil || before.Target != "before" {
+		t.Fatalf("first reading: %+v %v", before, err)
+	}
+	target.Name = "after"
+	target.SettingsRevision = 2
+	after, err := s.targetCapacity(t.Context(), target)
+	if err != nil || after.Target != "after" {
+		t.Fatalf("target edit reused prior identity: %+v %v", after, err)
+	}
+}
+
+type capacityObservationRequests struct{ calls int }
+
+func (q *capacityObservationRequests) RequestCapacityObservation(context.Context, ids.ID, int64) error {
+	q.calls++
+	return nil
+}
+
+func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	first := now
+	target := Target{ID: idstest.N(1), Name: "host", Kind: KindDockerHost, SettingsRevision: 1}
+	q := &capacityObservationRequests{}
+	reads := 0
+	fail, replace := false, false
+	o := &CapacityObserver{queue: q, now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { copy := target; return &copy, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
+		reads++
+		if replace {
+			target.SettingsRevision++
+		}
+		if fail {
+			return TargetCapacity{}, fmt.Errorf("provider unavailable")
+		}
+		return TargetCapacity{ReadAt: now, Disk: &DiskCapacity{Total: known(100), Free: known(1), Low: true, ReadAt: first}}, nil
+	}}
+	for range 3 {
+		got, err := o.Snapshot(t.Context(), &target)
+		if err != nil || !got.Unknown || !got.Stale || q.calls != 1 || reads != 0 {
+			t.Fatalf("snapshot collected provider evidence: %+v %v requests%d reads%d", got, err, q.calls, reads)
+		}
+	}
+	if err := o.Run(t.Context(), target.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	got, err := o.Snapshot(t.Context(), &target)
+	if err != nil || got.Unknown || got.Stale || got.Disk == nil || !got.Disk.Low {
+		t.Fatalf("fresh: %+v %v", got, err)
+	}
+	got.Disk.Low = false
+	now = now.Add(3 * time.Minute)
+	if err := o.Run(t.Context(), target.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	got, err = o.Snapshot(t.Context(), &target)
+	if err != nil || !got.Stale || got.Unknown || !got.Disk.Low || got.Disk.ReadAt != first || got.ObservedAt != now {
+		t.Fatalf("wrapper renewed disk evidence or mutation escaped: %+v %v", got, err)
+	}
+	fail = true
+	now = now.Add(time.Minute)
+	if err := o.Run(t.Context(), target.ID, 1); err == nil {
+		t.Fatal("provider failure lost")
+	}
+	got, err = o.Snapshot(t.Context(), &target)
+	if err != nil || !got.Unknown || got.Disk == nil || !got.Disk.Low || got.Disk.ReadAt != first {
+		t.Fatalf("failure cleared pressure: %+v %v", got, err)
+	}
+	fail = false
+	replace = true
+	if err := o.Run(t.Context(), target.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	got, err = o.Snapshot(t.Context(), &target)
+	if err != nil || !got.Unknown || got.Disk != nil {
+		t.Fatalf("old revision became current: %+v %v", got, err)
+	}
+	replace = false
+	first = now
+	if err := o.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+		t.Fatal(err)
+	}
+	got, err = o.Snapshot(t.Context(), &target)
+	if err != nil || got.Unknown || got.Stale || got.Disk == nil || got.Disk.ReadAt != now {
+		t.Fatalf("new revision recovery: %+v %v", got, err)
+	}
+}
+
+func TestCapacitySnapshotDoesNotWaitForAnActiveProviderRead(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	target := Target{ID: idstest.N(1), SettingsRevision: 1}
+	started, release := make(chan struct{}), make(chan struct{})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	q := &capacityObservationRequests{}
+	o := &CapacityObserver{queue: q, now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: func(ctx context.Context, _ *Target) (TargetCapacity, error) {
+		close(started)
+		select {
+		case <-release:
+			return TargetCapacity{ReadAt: now, Disk: &DiskCapacity{Total: known(100), Free: known(90), ReadAt: now}}, nil
+		case <-ctx.Done():
+			return TargetCapacity{}, ctx.Err()
+		}
+	}}
+	if _, err := o.Snapshot(ctx, &target); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- o.Run(ctx, target.ID, target.SettingsRevision) }()
+	<-started
+	got, err := o.Snapshot(ctx, &target)
+	if err != nil || !got.Unknown || q.calls != 1 {
+		t.Fatalf("active read changed snapshot contract: %+v %v", got, err)
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	got, err = o.Snapshot(ctx, &target)
+	if err != nil || got.Unknown || got.Stale || got.Disk == nil {
+		t.Fatalf("completed read not published: %+v %v", got, err)
+	}
+}
+
+func TestCapacityObservationRejectsMalformedJobIdentityBeforeReads(t *testing.T) {
+	t.Parallel()
+	o := &CapacityObserver{}
+	for _, key := range []string{"", "not-an-id/1", idstest.N(1).String() + "/-1", idstest.N(1).String() + "/x", idstest.N(1).String() + "/1/extra"} {
+		if _, err := o.RunJob(t.Context(), key, nil); err == nil {
+			t.Fatalf("accepted malformed key %q", key)
+		}
 	}
 }

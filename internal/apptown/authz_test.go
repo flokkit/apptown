@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
@@ -955,3 +956,124 @@ func TestInstanceUpdatesHTTPUsesCurrentRootAuthority(t *testing.T) {
 type updatePublicTransport func(*http.Request) (*http.Response, error)
 
 func (f updatePublicTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// These are cached owner ports; the real HTTP/authentication/current authority
+// pipeline decides whether they may be read before any detail or count exists.
+type attentionInstanceEvidence struct{ calls int }
+
+func (s *attentionInstanceEvidence) Snapshot(context.Context) (attention.Snapshot, error) {
+	s.calls++
+	return attention.Snapshot{Known: true, ObservedAt: time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC), Items: []attention.Item{{Key: "global", Title: "Private global condition", Severity: attention.SeverityWarning, Href: "/infrastructure"}}}, nil
+}
+
+type attentionProjectEvidence struct{ calls map[ids.ID]int }
+
+func (s *attentionProjectEvidence) ProjectSnapshot(_ context.Context, id ids.ID) (attention.Snapshot, error) {
+	s.calls[id]++
+	return attention.Snapshot{Known: true, ObservedAt: time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC), Items: []attention.Item{{Key: "deployment", Title: "Project condition " + id.String(), Severity: attention.SeverityWarning, Href: "/projects"}}}, nil
+}
+func TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	grants, err := a.Access.AllGrants(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, g := range grants {
+		if g.RoleName == access.RoleAuditor && g.RevokedAt.IsZero() {
+			if _, err := a.Access.Revoke(t.Context(), g.ID, "boss"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	global := &attentionInstanceEvidence{}
+	projects := &attentionProjectEvidence{calls: map[ids.ID]int{}}
+	a.attention = attention.New(access.Checked{Authority: a.Access, Projects: a.Projects}, attention.Sources{Disks: global, Deployments: projects})
+	h := a.Handler()
+	read := func(actor string) attention.View {
+		t.Helper()
+		w := authzCall(h, actor, http.MethodGet, "/api/v1/attention", "")
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", actor, w.Code, w.Body.String())
+		}
+		var v attention.View
+		if err := json.Unmarshal(w.Body.Bytes(), &v); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	own := read("owner")
+	if len(own.Items) != 2 || len(own.Sources) != 4 || global.calls != 0 {
+		t.Fatal("project reader saw global scope/count", own, global.calls)
+	}
+	beforePrivate := projects.calls[idstest.N(1)]
+	limited := read("outsider")
+	if len(limited.Items) != 1 || len(limited.Sources) != 2 || global.calls != 0 || projects.calls[idstest.N(1)] != beforePrivate || strings.Contains(limited.Items[0].Title, idstest.N(1).String()) {
+		t.Fatal("hidden project/global evidence read or counted", limited, global.calls, projects.calls)
+	}
+	grant := a.addGrant("user", "outsider", "", string(access.CapDeploymentRead), access.ScopeInstance, "", "fixture", "boss", "")
+	expanded := read("outsider")
+	if len(expanded.Items) != 3 || len(expanded.Sources) != 8 || global.calls != 1 {
+		t.Fatal("explicit instance grant did not expose full authorized snapshot", expanded, global.calls)
+	}
+	if _, err := a.Access.Revoke(t.Context(), grant, "boss"); err != nil {
+		t.Fatal(err)
+	}
+	globalBefore := global.calls
+	privateBefore := projects.calls[idstest.N(1)]
+	narrowed := read("outsider")
+	if len(narrowed.Items) != 1 || len(narrowed.Sources) != 2 || global.calls != globalBefore || projects.calls[idstest.N(1)] != privateBefore {
+		t.Fatal("revoked authority reused cached visible evidence", narrowed, global.calls, projects.calls)
+	}
+	grants, err = a.Access.AllGrants(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	revoked := 0
+	for _, g := range grants {
+		if g.Subject == "owner" && g.ScopeType == access.ScopeProject && g.ScopeID == idstest.N(1).String() && g.RevokedAt.IsZero() {
+			if _, err := a.Access.Revoke(t.Context(), g.ID, "boss"); err != nil {
+				t.Fatal(err)
+			}
+			revoked++
+		}
+	}
+	if revoked == 0 {
+		t.Fatal("fixture had no project grants")
+	}
+	privateBefore = projects.calls[idstest.N(1)]
+	lostProject := read("owner")
+	if len(lostProject.Items) != 1 || projects.calls[idstest.N(1)] != privateBefore {
+		t.Fatal("revoked project still read or counted", lostProject, projects.calls)
+	}
+}
+func TestAttentionHTTPColdSourcesAdmitRefreshWithoutCollectingInline(t *testing.T) {
+	t.Parallel()
+	a := authzActors(t)
+	for range 2 {
+		w := authzCall(a.Handler(), "boss", http.MethodGet, "/api/v1/attention", "")
+		if w.Code != http.StatusOK {
+			t.Fatalf("cold attention: %d %s", w.Code, w.Body.String())
+		}
+		var v attention.View
+		if err := json.Unmarshal(w.Body.Bytes(), &v); err != nil {
+			t.Fatal(err)
+		}
+		diskUnknown := false
+		for _, source := range v.Sources {
+			if source.Key == "disks" {
+				diskUnknown = source.Unknown && source.ObservedAt.IsZero()
+			}
+		}
+		if !diskUnknown {
+			t.Fatal("cold HTTP read collected disks or claimed clear", v)
+		}
+	}
+	queued := operationJobs(t, a, diskObservationJob)
+	if len(queued) != 1 || queued[0].Key != "instance" {
+		t.Fatal("HTTP reads did not coalesce durable disk refresh", queued)
+	}
+	if got := operationJobs(t, a, workerObservationJob); len(got) != 0 {
+		t.Fatal("unconfigured worker admitted a probe", got)
+	}
+}

@@ -2,7 +2,10 @@ package apptown
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
+	"slices"
 	"sync"
 	"time"
 
@@ -27,8 +30,9 @@ import (
 var inventoryTTL = time.Minute
 
 type inventoryEntry struct {
-	items []deploy.Resource
-	err   string
+	identity string
+	items    []deploy.Resource
+	err      string
 	// at is when items were read: the last ask that answered. A failed ask
 	// keeps it, so a list kept under an error shows its own age, never the
 	// failed ask's time; zero until an ask has answered.
@@ -38,11 +42,16 @@ type inventoryEntry struct {
 	// a TTL, not on every visit.
 	asked      time.Time
 	refreshing bool
+	// direct distinguishes a running synchronous provider call from an abandoned job.
+	direct    bool
+	requested time.Time
 	// dropped: AppTown acted at the provider while an ask was on its
 	// way, so that answer may be older than the act; the next visit asks
 	// again. The answer keeps its own time: zeroing it made a host whose
 	// list was still being read show as unreachable, its records missing.
 	dropped bool
+	// invalidated keeps old evidence stale until a post-act read succeeds.
+	invalidated bool
 }
 
 type inventoryCache struct {
@@ -81,12 +90,12 @@ func (c *inventoryCache) Live(ctx context.Context, queue *jobs.Queue, name strin
 		e = &inventoryEntry{}
 		c.entries[name] = e
 	}
-	e.refreshing, e.dropped = true, false
+	e.refreshing, e.dropped, e.direct = true, false, true
 	c.mu.Unlock()
 	items, err := inv.Inventory(ctx)
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	e.refreshing = false
+	e.refreshing, e.direct = false, false
 	e.asked = clock.Or(c.now)()
 	if err != nil {
 		e.err = err.Error()
@@ -95,6 +104,7 @@ func (c *inventoryCache) Live(ctx context.Context, queue *jobs.Queue, name strin
 		return e.items, e.err, e.at, false
 	}
 	e.items, e.err, e.at = items, "", e.asked
+	e.invalidated = e.dropped
 	return e.items, "", e.at, false
 }
 
@@ -122,6 +132,7 @@ func (c *inventoryCache) Invalidate() {
 		} else {
 			// Let the refresh land, but mark it old so the one after asks again.
 			e.dropped = true
+			e.invalidated = true
 		}
 	}
 }
@@ -134,33 +145,73 @@ type inventoryRefresh struct {
 
 // ask reads the target's inventory. A target that cannot be read is an
 // answer too (an error), so the entry is never left "refreshing" forever.
-func (w inventoryRefresh) ask(ctx context.Context, key string) ([]deploy.Resource, error) {
+func (w inventoryRefresh) Run(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
 	t, err := w.targets.ByName(ctx, key)
 	if err != nil {
-		// A target that is gone stays gone; a read that failed may not.
 		if fault.KindOf(err) == fault.NotFound {
-			return nil, jobs.Permanent(err)
+			err = jobs.Permanent(err)
 		}
-		return nil, err
+		return nil, w.store(key, nil, err)
 	}
+	identity := inventoryTargetIdentity(t)
 	inv, err := w.providers.TargetInventory(t)
-	if err != nil {
-		return nil, jobs.Permanent(err)
+	var items []deploy.Resource
+	if err == nil {
+		items, err = inv.Inventory(ctx)
 	}
-	return inv.Inventory(ctx)
-}
-
-// inventory: ask a target what it holds, into the cache the page reads.
-func (w inventoryRefresh) Run(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
-	items, err := w.ask(ctx, key)
-	if err := w.store(key, items, err); err != nil {
+	if err == nil {
+		current, readErr := w.targets.ByID(ctx, t.ID)
+		if readErr != nil {
+			err = readErr
+		} else if inventoryTargetIdentity(current) != identity {
+			err = errors.New("inventory target changed during observation")
+		}
+	}
+	if ctx.Err() != nil {
+		err = ctx.Err()
+	}
+	if err := w.storeObserved(key, identity, items, err); err != nil {
 		return nil, err
 	}
 	return map[string]any{"resources": len(items)}, nil
 }
 
+func inventoryTargetIdentity(t *deployment.Target) string {
+	return fmt.Sprintf("%s/%d", t.ID, t.SettingsRevision)
+}
+
+// SnapshotForTarget binds the cache to current target configuration. A cached
+// provider answer from an old address cannot establish missing resources here.
+func (c *inventoryCache) SnapshotForTarget(ctx context.Context, queue inventoryObservationRequests, t *deployment.Target) (inventoryObservation, error) {
+	identity := inventoryTargetIdentity(t)
+	c.mu.Lock()
+	if c.entries == nil {
+		c.entries = make(map[string]*inventoryEntry)
+	}
+	if e := c.entries[t.Name]; e != nil && e.direct && e.identity != identity {
+		c.mu.Unlock()
+		return inventoryObservation{Unknown: true, Stale: true}, nil
+	}
+	if e := c.entries[t.Name]; e == nil || e.identity != identity {
+		c.entries[t.Name] = &inventoryEntry{identity: identity}
+	}
+	c.mu.Unlock()
+	out, err := c.Snapshot(ctx, queue, t.Name)
+	c.mu.Lock()
+	current := c.entries[t.Name]
+	if current == nil || current.identity != identity {
+		out = inventoryObservation{Unknown: true, Stale: true}
+	}
+	c.mu.Unlock()
+	return out, err
+}
+
 // store writes an ask's outcome into the cache the page reads.
 func (w inventoryRefresh) store(key string, items []deploy.Resource, err error) error {
+	return w.storeObserved(key, "", items, err)
+}
+
+func (w inventoryRefresh) storeObserved(key, identity string, items []deploy.Resource, err error) error {
 	c := w.cache
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -169,6 +220,12 @@ func (w inventoryRefresh) store(key string, items []deploy.Resource, err error) 
 		e = &inventoryEntry{}
 		c.entries[key] = e
 	}
+	if identity != "" && e.identity != "" && e.identity != identity {
+		return nil
+	}
+	if identity != "" {
+		e.identity = identity
+	}
 	e.refreshing = false
 	e.asked = clock.Or(c.now)()
 	if err != nil {
@@ -176,5 +233,79 @@ func (w inventoryRefresh) store(key string, items []deploy.Resource, err error) 
 		return err
 	}
 	e.items, e.err, e.at = items, "", e.asked
+	e.invalidated = e.dropped
 	return nil
+}
+
+// inventoryObservation is evidence from the last completed provider read.
+// Unknown and stale coverage must never establish that a resource is missing.
+type inventoryObservation struct {
+	Items      []deploy.Resource
+	ObservedAt time.Time
+	Unknown    bool
+	Stale      bool
+}
+
+type inventoryObservationRequests interface {
+	RequestInventory(context.Context, string) error
+}
+
+// Snapshot never calls a provider. Cold and expired reads ask the existing
+// durable inventory job to collect evidence. Requests are bounded even when a
+// queued job is canceled; durable uniqueness also covers an already running job.
+func (c *inventoryCache) Snapshot(ctx context.Context, queue inventoryObservationRequests, name string) (inventoryObservation, error) {
+	if err := ctx.Err(); err != nil {
+		return inventoryObservation{Unknown: true, Stale: true}, err
+	}
+	now := clock.Or(c.now)()
+	c.mu.Lock()
+	if c.entries == nil {
+		c.entries = make(map[string]*inventoryEntry)
+	}
+	e := c.entries[name]
+	if e == nil {
+		e = &inventoryEntry{}
+		c.entries[name] = e
+	}
+	due := e.asked.IsZero() || e.dropped || now.Sub(e.asked) >= inventoryTTL
+	request := !e.direct && due && (e.requested.IsZero() || now.Sub(e.requested) >= inventoryTTL)
+	out := inventoryObservation{Items: cloneInventory(e.items), ObservedAt: e.at, Unknown: e.at.IsZero() || e.err != "", Stale: e.dropped || e.invalidated || e.at.IsZero() || now.Sub(e.at) > 2*time.Minute}
+	if request {
+		e.requested = now
+		if !e.refreshing {
+			e.dropped = false
+		}
+		e.refreshing = true
+	}
+	c.mu.Unlock()
+	if !request {
+		return out, nil
+	}
+	var err error
+	if queue == nil {
+		err = errors.New("inventory observation queue unavailable")
+	} else {
+		err = queue.RequestInventory(ctx, name)
+	}
+	if err != nil {
+		c.mu.Lock()
+		e.err = err.Error()
+		e.refreshing = false
+		c.mu.Unlock()
+		out.Unknown = true
+	}
+	return out, err
+}
+
+func cloneInventory(items []deploy.Resource) []deploy.Resource {
+	out := slices.Clone(items)
+	for i := range out {
+		out[i].Tags = slices.Clone(out[i].Tags)
+		out[i].Hosts = slices.Clone(out[i].Hosts)
+		if out[i].Retained != nil {
+			note := *out[i].Retained
+			out[i].Retained = &note
+		}
+	}
+	return out
 }

@@ -2,7 +2,10 @@ package apptown
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"log"
+	"strconv"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -41,4 +44,49 @@ func (b backupRequests) RequestBackup(ctx context.Context, key, trigger string) 
 		return err == nil, err
 	})
 	return err
+}
+
+// All disk observation requests share one durable identity. River coalesces
+// pending and running requests; handlers never collect disks on the read path.
+type diskObservationRequests struct{ db *database.DB }
+
+func (r diskObservationRequests) RequestDiskObservation(ctx context.Context) error {
+	return r.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: diskObservationJob, Key: "instance"})
+	})
+}
+
+// Inventory observation shares the existing provider refresh operation and key.
+type inventoryRequests struct{ db *database.DB }
+
+func (r inventoryRequests) RequestInventory(ctx context.Context, name string) error {
+	return r.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: name})
+	})
+}
+
+type capacityObservationRequests struct{ db *database.DB }
+
+func (r capacityObservationRequests) RequestCapacityObservation(ctx context.Context, id ids.ID, revision int64) error {
+	return r.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: deployment.CapacityObservationJob, Key: id.String() + "/" + strconv.FormatInt(revision, 10)})
+	})
+}
+
+type protectionObservationRequests struct{ db *database.DB }
+
+func (r protectionObservationRequests) RequestProtectionObservation(ctx context.Context, id ids.ID, identity string) error {
+	return r.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: dataprotection.ProtectionObservationJob, Key: id.String() + "/" + identity})
+	})
+}
+
+// A configured worker's observations have one durable identity, including while
+// running. A new endpoint never inherits an old endpoint's queued observation.
+type workerObservationRequests struct{ db *database.DB }
+
+func (r workerObservationRequests) RequestWorkerObservation(ctx context.Context, identity string) error {
+	return r.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: workerObservationJob, Key: identity})
+	})
 }

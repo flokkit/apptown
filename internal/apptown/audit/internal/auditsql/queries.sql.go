@@ -109,14 +109,16 @@ FROM audit_log a LEFT JOIN projects p ON p.id=a.project_id
 WHERE ($1::uuid IS NULL OR a.project_id=$1 OR a.project_id IS NULL)
 AND ($2::text='' OR a.kind LIKE $2||'%')
 AND ($3::text='' OR a.subject=$3)
-ORDER BY a.id DESC LIMIT $4
+AND ($4::jsonb='{}'::jsonb OR a.payload_json @> $4::jsonb)
+ORDER BY a.id DESC LIMIT $5
 `
 
 type RecentReceiptsParams struct {
-	ProjectID  ids.ID
-	KindPrefix string
-	Subject    string
-	RowLimit   int32
+	ProjectID       ids.ID
+	KindPrefix      string
+	Subject         string
+	PayloadContains json.RawMessage
+	RowLimit        int32
 }
 
 type RecentReceiptsRow struct {
@@ -139,6 +141,7 @@ func (q *Queries) RecentReceipts(ctx context.Context, arg RecentReceiptsParams) 
 		arg.ProjectID,
 		arg.KindPrefix,
 		arg.Subject,
+		arg.PayloadContains,
 		arg.RowLimit,
 	)
 	if err != nil {

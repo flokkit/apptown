@@ -260,7 +260,9 @@ func TestACrashLoopHoldIsShownAsItsReceiptSaysIt(t *testing.T) {
 	if d := w.read(t); d.Hold == nil || !d.Hold.Confirmed {
 		t.Fatalf("a confirmed hold: %+v", d.Hold)
 	}
-	held(gen+1, true, "")
+	for range 25 {
+		held(gen+1, true, "")
+	}
 	if d := w.read(t); d.Hold == nil || !d.Hold.Confirmed || d.Hold.Receipt.IsZero() {
 		t.Fatalf("this generation's hold: %+v", d.Hold)
 	}

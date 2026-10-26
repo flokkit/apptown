@@ -92,6 +92,7 @@ func appRoutes(a *App) []routeSpec {
 	var projectOverview httpapi.ProjectOverview
 	var activity httpapi.Activity
 	var dashboard httpapi.Dashboard
+	var attention httpapi.Attention
 	var changeDetail httpapi.ChangeDetail
 	var administratorNetworks httpapi.AdministratorNetworks
 	var stepInterruption httpapi.StepInterruption
@@ -171,6 +172,7 @@ func appRoutes(a *App) []routeSpec {
 		administratorNetworks = httpapi.NewAdministratorNetworks(a.Access, a.cfg.proxies)
 		changeDetail = httpapi.NewChangeDetail(a.Work, a.ADRs, a.Deployment, a.DB, a.Usage.Ledger, a.cfg.dataDir)
 		dashboard = httpapi.NewDashboard(a.Work, a.ADRs, a.operations)
+		attention = httpapi.NewAttention(a.attention)
 		activity = httpapi.NewActivity(a.Work, a.Deployment)
 		projectOverview = httpapi.NewProjectOverview(a.Projects, a.Work, a.cfg.dataDir)
 		modelDiscovery = httpapi.NewModelDiscovery(a.providers)
@@ -244,6 +246,7 @@ func appRoutes(a *App) []routeSpec {
 	}
 	return []routeSpec{
 		filteredRoute("GET /api/v1/dashboard", dashboard.Dashboard, "dashboard.Dashboard"),
+		filteredRoute("GET /api/v1/attention", attention.Read, "attention.Read"),
 
 		filteredRoute("GET /api/v1/projects", projectViews.ListProjects, "projectViews.ListProjects"),
 		ownerRoute("POST /api/v1/projects", creation.Create, "creation.Create"), // decides inside: project:create at the owning group

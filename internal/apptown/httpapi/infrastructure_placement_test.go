@@ -94,7 +94,7 @@ func TestInfrastructureRemovalChecksFreshSharedPlacement(t *testing.T) {
 	if strings.Contains(string(encoded), "engine-a") {
 		t.Fatal("private observation identity leaked into API")
 	}
-	merged := mergeInventory(nil, observed)
+	merged := deployment.MergeInventory(nil, observed)
 	if len(merged) != 1 || merged[0].ObservedDaemonID != "engine-a" {
 		t.Fatal("merge lost observed identity")
 	}

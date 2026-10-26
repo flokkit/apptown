@@ -32,6 +32,7 @@ You should not need a plan to understand the current system.
 | How do integrations and secrets reach consumers? | [Integration and secret runtime](subsystems/integration-runtime.md) |
 | How do I package and deploy an app? | [Native contract](../stock/docs/guides/contract-reference.md), [toolchains](../stock/docs/guides/toolchains.md) and [deployment runtime](subsystems/deployment.md) |
 | What does a deployment own and remove? | [Removing a deployment](subsystems/deployment.md#removing-a-deployment), [deployment targets](subsystems/deploy-targets.md) and [deleting a project](subsystems/project-deletion.md) |
+| What operational conditions need attention? | [Attention](subsystems/attention.md) |
 | How do I operate and observe AppTown? | [Operations](operations/README.md) and [telemetry](subsystems/telemetry.md) |
 | How should text people read be written? | [How AppTown writes](writing.md) |
 

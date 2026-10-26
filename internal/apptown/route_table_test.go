@@ -27,6 +27,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/adrs"
+	"github.com/flokkit/apptown/internal/apptown/attention"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -483,6 +484,7 @@ type described struct {
 // check every request its --json commands send is one of these (jsonAppTown
 // in cmd/apptown/output_test.go).
 var cliOperations = map[string]described{
+	"GET /api/v1/attention":                      {status: 200, response: attention.View{}},
 	"GET /api/v1/auth/external/provider":         {status: 200, response: identity.ExternalProvider{}},
 	"PUT /api/v1/auth/external/provider":         {status: 200, request: identity.ExternalProviderChange{}, response: identity.ExternalProvider{}},
 	"POST /api/v1/auth/external/enabled":         {status: 200, request: httpapi.ExternalEnableRequest{}, response: identity.ExternalProvider{}},

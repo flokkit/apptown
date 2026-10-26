@@ -103,7 +103,7 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 					v.AsOf = stamp.Of(at)
 				}
 				var answered bool
-				v.Resources, v.Live, answered = inventoryAnswer(v.Resources, live, errText, at)
+				v.Resources, v.Live, answered = deployment.InventoryAnswer(v.Resources, live, errText, at)
 				if answered {
 					if t.Kind == deployment.KindDockerHost || t.Kind == deployment.KindPortainer {
 						// Without the project list every leftover would read

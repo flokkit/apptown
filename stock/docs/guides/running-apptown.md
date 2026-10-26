@@ -112,3 +112,20 @@ install](split-install.md).
   together.
 - [Packs, versions and what-if](packs-and-what-if.md).
 - [Monitoring and integrations](monitoring.md).
+
+
+## Operational attention
+
+Open **Attention** in the top bar to see current disk pressure, unavailable
+workers or targets, missing resources, deployment trouble and data protection
+conditions you can read. Home's **Operations** section uses the same count.
+
+Open a condition for its evidence and available actions. An advisory can identify
+untested recovery even when the latest data copy succeeded. Unknown or
+out-of-date coverage means AppTown cannot currently confirm the complete picture;
+an empty list in that state is not an all-clear.
+
+Controller disk warnings are advisory. Worker disk refusal prevents new tasks;
+Docker-host disk refusal prevents new releases and previews. Portainer disk
+readings are advisory and do not protect release admission. Inspect
+ownership and retention requirements before removing stored resources.

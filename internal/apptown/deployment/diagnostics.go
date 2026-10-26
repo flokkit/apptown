@@ -412,7 +412,7 @@ func (s *Service) crashLoopHold(ctx context.Context, dep *Deployment) (*CrashLoo
 	if dep.ObservedGeneration == 0 {
 		return nil, nil
 	}
-	lines, err := audit.Recent(ctx, s.db, audit.Filter{ProjectID: dep.ProjectID, KindPrefix: "deployment.crash-loop-held", Subject: dep.Name, Limit: 20})
+	lines, err := audit.Recent(ctx, s.db, audit.Filter{ProjectID: dep.ProjectID, KindPrefix: "deployment.crash-loop-held", Subject: dep.Name, Limit: 1, PayloadContains: map[string]any{"deploymentId": dep.ID, "generation": dep.ObservedGeneration}})
 	if err != nil {
 		return nil, fmt.Errorf("reading crash-loop holds: %w", err)
 	}

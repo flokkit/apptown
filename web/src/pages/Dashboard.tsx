@@ -1,3 +1,4 @@
+import { useAttention, attentionState, OperationsSummary } from '../attention'
 import { PRODUCT } from '../brand'
 import { AppAddress, RuntimeObservation, RuntimeStatus } from '../runtime'
 import { useState } from 'react'
@@ -94,14 +95,16 @@ function SetupCard() {
 // unread or unreadable count is left out or said to be unknown, never
 // shown as 0, and "All quiet" needs both needs-you and running to be read
 // and empty.
-export function homeStatus({ needsYou, running, deployments }: {
-  needsYou: number | null; running: number; deployments: Activity['deployments']
+export function homeStatus({ needsYou, running, deployments, operations }: {
+  needsYou: number | null; running: number; deployments: Activity['deployments']; operations: { count: number | null; known: boolean }
 }): string {
   const parts: string[] = []
   if (needsYou === null) parts.push('could not read what needs you')
   else if (needsYou > 0) parts.push(`${needsYou} needs you`)
   if (running > 0) parts.push(`${running} running`)
-  if (needsYou === 0 && running === 0) parts.unshift('All quiet')
+  if (!operations.known) parts.push('operational coverage incomplete')
+  if (operations.count) parts.push(`${operations.count} operational conditions`)
+  if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift('All quiet')
   // An app is live when one of its deployments was seen running on the
   // latest check. One whose status is not current (stale or unknown) and
   // has no live deployment is counted apart, so unknown never reads as down.
@@ -139,13 +142,14 @@ export function homeSections<A extends { changeId: string | null }>(active: RunR
 }
 
 export default function Dashboard() {
+  const operationsQ = useAttention()
   const actQ = useGet<Activity>('/activity', { poll: 5000 })
   const dashQ = useGet<DashboardData>('/dashboard', { poll: 5000 })
   const projectsQ = useGet<ProjRow[]>('/projects?recent=6', { poll: 5000 })
   const act = actQ.data, dash = dashQ.data, dashErr = dashQ.err, projects = projectsQ.data
   const recent = projects ?? []
 
-  if (!act) return <ReadStatus q={actQ} what="what is happening" />
+  if (!act) return <><OperationsSummary q={operationsQ} /><ReadStatus q={actQ} what="what is happening" /></>
 
   // One work item, one card. "Running" is one card PER RUN (its current
   // step is shown inside the card), never one per running step — a run churning
@@ -167,6 +171,7 @@ export default function Dashboard() {
   // what a project here is for and offers to make one.
   const noProjects = projects !== null && recent.length === 0
   const status = homeStatus({
+    operations: attentionState(operationsQ),
     needsYou: dash ? needsYouCount : null,
     running: happening.length,
     deployments: act.deployments,
@@ -182,6 +187,8 @@ export default function Dashboard() {
         </div>
         {!noProjects && <Link to="/projects/_new"><button className="primary">+ New project</button></Link>}
       </div>
+
+      <OperationsSummary q={operationsQ} />
 
       {noProjects && (
         <div className="dash-start">

@@ -237,11 +237,14 @@ type CopyRef struct {
 // NativeBackups is the provider's own backups of an item, as the provider says
 // now; Unknown says why it could not be asked.
 type NativeBackups struct {
-	Mechanism string     `json:"mechanism"`
-	Count     int        `json:"count"`
-	Oldest    stamp.Time `json:"oldest,omitzero"`
-	Newest    stamp.Time `json:"newest,omitzero"`
-	Unknown   string     `json:"unknown,omitempty"`
+	// observedAt belongs to the provider read, including when this value is cached.
+	// Background protection snapshots use it instead of their wrapper time.
+	observedAt time.Time
+	Mechanism  string     `json:"mechanism"`
+	Count      int        `json:"count"`
+	Oldest     stamp.Time `json:"oldest,omitzero"`
+	Newest     stamp.Time `json:"newest,omitzero"`
+	Unknown    string     `json:"unknown,omitempty"`
 }
 
 // DrillRef is the last time an item's copy was filled into a new place and
@@ -467,7 +470,7 @@ func (s *Service) nativeOf(ctx context.Context, md deploy.ManagedData, it backup
 		}
 	}
 	n := &NativeBackups{Mechanism: it.Native}
-	defer func() { s.natives.Store(it.Instance, nativeRead{at: s.now(), n: *n}) }()
+	defer func() { n.observedAt = s.now(); s.natives.Store(it.Instance, nativeRead{at: n.observedAt, n: *n}) }()
 	backups, err := md.Backups(ctx, it.Instance)
 	if err != nil {
 		n.Unknown = err.Error()

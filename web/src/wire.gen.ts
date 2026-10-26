@@ -126,6 +126,29 @@ export type AttachmentList = {
   attachments: AttachmentView[]
 }
 
+export type AttentionCoverage = {
+  key: string
+  name: string
+  observedAt: string
+  unknown: boolean
+  stale: boolean
+}
+
+export type AttentionItem = {
+  severity: string
+  key: string
+  title: string
+  detail: string
+  href: string
+  observedAt: string
+  stale: boolean
+}
+
+export type AttentionView = {
+  items: AttentionItem[]
+  sources: AttentionCoverage[]
+}
+
 export type AuthMe = {
   mode: string
   external?: ExternalProviderSummary | null
@@ -4708,6 +4731,8 @@ export type ArmCompared = {
 }
 
 export type ResourceHost = {
+  projectId?: string | null
+  deploymentId?: string | null
   project: string
   deployment: string
   generation?: number
