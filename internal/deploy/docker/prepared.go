@@ -133,6 +133,13 @@ func PrepareBoot(ctx context.Context, deps Dependencies, registry *RegistryCrede
 	if err != nil {
 		return Prepared{}, &BootError{Phase: PhaseSecrets, Err: err}
 	}
+	names := make([]string, 0, len(p.NeedEnv))
+	for name := range p.NeedEnv {
+		names = append(names, name)
+	}
+	if err := deploy.RefuseNeedSecretCollisions(appcontract.Prepare(c, nil), names, delivery); err != nil {
+		return Prepared{}, &BootError{Phase: PhaseSecrets, Err: err}
+	}
 	p.Receipts, p.Profile, p.Secrets = delivery.Receipts, delivery.Profile, map[string]map[string]string{}
 	for _, part := range c.Parts {
 		p.Secrets[part.Name] = delivery.EnvFor(part.Name)

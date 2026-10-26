@@ -226,6 +226,8 @@ func AsBootError(err error) *BootError {
 type ResolvedStack struct {
 	// Plan owns the resolved execution values for each consumer.
 	Plan *appcontract.Plan
+	// NeedNames retain only the output names, for scoped-secret admission.
+	NeedNames []string
 	// Services are the sidecars (the contract's, or a workflow override)
 	// followed by the needs' emulators — the stack, in start order.
 	Services []deploy.ServiceSpec
@@ -263,6 +265,9 @@ func (h *Host) ResolveStack(ctx context.Context, c *appcontract.Contract, overri
 		return ResolvedStack{}, err
 	}
 	rs := ResolvedStack{Plan: plan}
+	for name := range depEnv {
+		rs.NeedNames = append(rs.NeedNames, name)
+	}
 	rs.Services = append(append([]deploy.ServiceSpec{}, override...), depSvcs...)
 	for _, s := range depSvcs {
 		n := ResolvedNeed{ServiceSpec: s}
@@ -402,6 +407,13 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	}
 	rs.Secrets, err = h.deps.Secrets.Resolve(ctx, t.Slug, env, t.Workspace, c, t.Allowed)
 	if err != nil {
+		return res, &BootError{Phase: PhaseSecrets, Err: err}
+	}
+	selected := rs.Plan
+	if t.Sealed != nil {
+		selected = selected.PublicOnly()
+	}
+	if err := deploy.RefuseNeedSecretCollisions(selected, rs.NeedNames, rs.Secrets); err != nil {
 		return res, &BootError{Phase: PhaseSecrets, Err: err}
 	}
 	res.Stack = rs

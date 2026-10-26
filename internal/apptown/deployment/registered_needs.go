@@ -89,6 +89,20 @@ func (r deploymentKeyRecorder) Forget(ctx context.Context, k integration.HeldKey
 	return err
 }
 
+// refuseRegisteredSecretCollisions checks original scoped delivery before the
+// registered values merge into it and erase their separate authority.
+func (e *Environment) refuseRegisteredSecretCollisions(ctx context.Context, c *appcontract.Contract, secrets deploy.ConsumerSecrets) error {
+	needs, err := e.registeredNeeds(ctx, c)
+	if err != nil || len(needs) == 0 {
+		return err
+	}
+	var names []string
+	for _, need := range needs {
+		names = append(names, slices.Collect(maps.Keys(need.kind.Register.Inject))...)
+	}
+	return deploy.RefuseNeedSecretCollisions(appcontract.Prepare(c, nil), names, secrets)
+}
+
 // --- what a boot is given -------------------------------------------------
 
 // withRegistered adds the register step's values to every consumer of a

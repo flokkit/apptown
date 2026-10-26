@@ -98,6 +98,22 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 	if src.Images == nil || c == nil {
 		return deploy.Artifact{}, fmt.Errorf("App Platform renders from built images and their contract")
 	}
+	selected := appcontract.Prepare(c, nil)
+	if p.Gate != nil {
+		selected = selected.PublicOnly()
+	}
+	var needNames []string
+	for _, binding := range bindings {
+		for name := range binding.Env {
+			needNames = append(needNames, name)
+		}
+		for name := range binding.Secret {
+			needNames = append(needNames, name)
+		}
+	}
+	if err := deploy.RefuseNeedSecretCollisions(selected, needNames, secrets); err != nil {
+		return deploy.Artifact{}, deploy.Terminal(err)
+	}
 	// Render writes the spec, so it refuses a value the platform would
 	// rewrite whichever caller reached it, before the registry is touched.
 	if err := unrewritable(c, secrets); err != nil {

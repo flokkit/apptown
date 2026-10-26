@@ -104,10 +104,11 @@ func TestAPreviewsKeyLivesWhileItBootsOrStands(t *testing.T) {
 	if len(f.Calls()) != 0 {
 		t.Fatal("preparing a preview made a key")
 	}
+	original := prepared // each registration starts from unregistered scoped delivery
 	if prepared, err = s.withPreviewKeys(ctx, projectID, name, prepared); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.withPreviewKeys(ctx, projectID, name, prepared); err != nil {
+	if _, err := s.withPreviewKeys(ctx, projectID, name, original); err != nil {
 		t.Fatal(err)
 	}
 	held, err := s.previewKeys(projectID, name).Keys.Held(ctx)
@@ -136,7 +137,7 @@ func TestAPreviewsKeyLivesWhileItBootsOrStands(t *testing.T) {
 	}
 
 	other := docker.PreviewRunName(idstest.N(9))
-	if _, err := s.withPreviewKeys(ctx, projectID, other, prepared); err != nil {
+	if _, err := s.withPreviewKeys(ctx, projectID, other, original); err != nil {
 		t.Fatal(err)
 	}
 	f.FailNext("DELETE", 503)

@@ -73,6 +73,9 @@ func (e *Environment) portainerStack(ctx context.Context, in portainerStackOf, l
 	if err != nil {
 		return "", err
 	}
+	if err := deploy.RefuseNeedSecretCollisions(rs.Plan, rs.NeedNames, in.Secrets); err != nil {
+		return "", err
+	}
 	plan, err := bundleApp(rs.Plan, in.Images)
 	if err != nil {
 		return "", err
