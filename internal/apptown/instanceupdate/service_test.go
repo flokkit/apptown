@@ -3,6 +3,7 @@ package instanceupdate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -247,6 +248,35 @@ func TestPersistenceFailuresCannotReportSuccessfulCheck(t *testing.T) {
 			}
 			if _, err := s.cache.read("stable"); err == nil {
 				t.Fatal("failure left a readable successful observation")
+			}
+		})
+	}
+}
+
+func TestConfiguredMissingSupervisorIsUnavailableNotUnenrolled(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		t.Run(fmt.Sprint(configured), func(t *testing.T) {
+			options := Options{DataDir: t.TempDir(), Build: "v1.0.0", Platform: "linux/amd64", Authority: authorityFunc(permitted)}
+			if configured {
+				options.SupervisorSocket = filepath.Join(t.TempDir(), "absent.sock")
+			}
+			s, err := New(options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := s.Status(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "not-enrolled"
+			if configured {
+				want = "unavailable"
+			}
+			if got.SupervisorState != want || got.AutomaticReplacement {
+				t.Fatalf("supervisor state=%q replacement=%v", got.SupervisorState, got.AutomaticReplacement)
+			}
+			if got.State != "unknown" {
+				t.Fatal("supervisor outage changed release evidence", got.State)
 			}
 		})
 	}

@@ -812,6 +812,9 @@ export type InstanceUpdateEvidence = {
 }
 
 export type InstanceUpdateStatus = {
+  supervisorState: string
+  supervisorReason: string
+  supervisorPhase?: string
   build: string
   platform: string
   channel: string

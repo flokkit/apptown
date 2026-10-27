@@ -13,18 +13,19 @@ import { ReleaseAvailabilityNote, UpdatesPage } from './Updates'
 const status = {
   build: 'custom', platform: 'linux/amd64', channel: 'stable', state: 'available',
   lastAttempt: '2026-10-26T00:01:00Z', lastSuccess: '2026-10-26T00:01:00Z',
+  supervisorState: 'not-enrolled', supervisorReason: 'Managed supervision is not configured.',
   automaticReplacement: false, replacementReason: 'Automatic replacement is not qualified.',
   candidate: { version: 'v1.2.0', commit: 'a'.repeat(40), notes: '# Signed notes\n<script>window.pwned=1</script>\n[unsafe](javascript:alert(1))', archive: { name: 'release.tar.gz', sha256: 'b'.repeat(64), size: 42 } },
 }
 
 describe('authenticated update notifications', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
-  async function mount(allowed: boolean, state = 'available', holdingsFailure = false) {
+  async function mount(allowed: boolean, state = 'available', holdingsFailure = false, supervisorState = 'not-enrolled') {
     const calls: { path: string; method: string }[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ path: String(url), method: init?.method ?? 'GET' })
       if (String(url).includes('/authz/me')) return new Response(JSON.stringify(holdingsFailure ? { error: 'unavailable' } : { instance: { 'instance:updates': allowed } }), { status: holdingsFailure ? 503 : 200 })
-      return new Response(JSON.stringify({ ...status, state }))
+      return new Response(JSON.stringify({ ...status, state, supervisorState, supervisorReason: supervisorState === 'unavailable' ? 'The configured supervisor cannot be contacted.' : status.supervisorReason }))
     }))
     const client = newQueryClient()
     const el = document.createElement('div'); const root = createRoot(el)
@@ -56,6 +57,18 @@ describe('authenticated update notifications', () => {
       expect(view.calls.filter(c => c.method === 'POST').map(c => c.path)).toEqual(['/api/v1/instance-updates/check'])
       expect([...view.el.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Check for updates'])
     } finally { await view.close() }
+  })
+  it('distinguishes unmanaged and unavailable supervision without offering replacement', async () => {
+    for (const [state, label] of [['not-enrolled', 'Not enrolled'], ['unavailable', 'Supervisor unavailable'], ['enrolled', 'Registered supervisor']]) {
+      const view = await mount(true, 'available', false, state)
+      try {
+        expect(view.el.textContent).toContain(label)
+        expect(view.el.querySelector('a[href="/updates"]')).not.toBeNull()
+        expect([...view.el.querySelectorAll('button')].map(b => b.textContent)).toEqual(['Check for updates'])
+        expect(view.calls.every(c => c.method === 'GET')).toBe(true)
+        if (state === 'unavailable') expect(view.el.textContent).toContain('The configured supervisor cannot be contacted.')
+      } finally { await view.close() }
+    }
   })
   it('does not turn stale evidence into a current availability notification', async () => {
     const view = await mount(true, 'stale')

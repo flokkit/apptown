@@ -36,7 +36,7 @@ class Publication(unittest.TestCase):
     def archive(self, platform, change=None, extra=None):
         base='apptown-'+self.tag[1:]+'-'+platform.replace('/','-')
         arch=platform.split('/')[1]
-        files={n:(n+platform).encode() for n in ('bin/apptownd','bin/apptown-worker','bin/apptown')}
+        files={n:(n+platform).encode() for n in ('bin/apptownd','bin/apptown-worker','bin/apptown','bin/apptown-update')}
         files.update({'bin/apptown-linux':('linux-cli-'+arch).encode(),
                       'share/apptown/updates/stock.toml':b'stock',
                       'deploy/apptown-agent/Dockerfile':b'FROM pinned',
@@ -47,6 +47,7 @@ class Publication(unittest.TestCase):
         if change: files.update(change)
         with tarfile.open(self.root/(base+'.tar.gz'),'w:gz') as tar:
             for name,data in files.items():
+                if data is None: continue
                 entry=tarfile.TarInfo(base+'/'+name);entry.size=len(data)
                 tar.addfile(entry,io.BytesIO(data))
             if extra:
@@ -63,12 +64,17 @@ class Publication(unittest.TestCase):
         for platform,row in result['archives'].items():
             self.assertEqual(row['sha256'],hashlib.sha256((self.root/row['name']).read_bytes()).hexdigest())
             self.assertEqual(row['members']['bin/apptownd'],hashlib.sha256(('bin/apptownd'+platform).encode()).hexdigest())
+            self.assertEqual(row['members']['bin/apptown-update'],hashlib.sha256(('bin/apptown-update'+platform).encode()).hexdigest())
         sums=(self.root/'SHA256SUMS').read_text().splitlines()
         self.assertEqual(len(sums),6)
         for line in sums:
             digest,name=line.split('  ')
             self.assertEqual(digest,hashlib.sha256((self.root/name).read_bytes()).hexdigest())
         self.assertEqual(json.loads((self.root/'UPDATE-MANIFEST.json').read_text()),result)
+
+    def test_archive_without_stable_supervisor_cannot_be_published(self):
+        self.archive('linux/amd64', {'bin/apptown-update':None})
+        with self.assertRaisesRegex(ValueError, 'paired release assets'): self.build()
 
     def test_duplicate_or_missing_image_platform_refuses(self):
         for index in ({'manifests':self.index['manifests'][:1]}, {'manifests':self.index['manifests']+self.index['manifests'][:1]}):

@@ -25,6 +25,10 @@ function AvailabilityRead() {
   return <div className="card small" role="status">{PRODUCT} {data.candidate.version} is available. <Link to="/updates">Review the authenticated release</Link></div>
 }
 
+const supervisorStates: Record<string, string> = {
+  'not-enrolled': 'Not enrolled', unavailable: 'Supervisor unavailable', enrolled: 'Registered supervisor',
+}
+
 const states: Record<string, string> = {
   unknown: 'Release availability has not been assessed.',
   checking: 'Checking authenticated release information…',
@@ -54,11 +58,14 @@ function UpdateDetails() {
       <p role="status">{states[data.state] ?? states.unknown}</p>
       <dl>
         <dt>Installed build</dt><dd>{data.build} ({data.platform})</dd>
+        <dt>Managed supervisor</dt><dd>{supervisorStates[data.supervisorState] ?? 'Supervisor unavailable'}</dd>
         <dt>Channel</dt><dd>{data.channel}</dd>
         <dt>Last attempted check</dt><dd>{data.lastAttempt ?? 'Never'}</dd>
         <dt>Last successful check</dt><dd>{data.lastSuccess ?? 'Never'}</dd>
       </dl>
       {data.reason && <p>{data.reason}</p>}
+      <p>{data.supervisorReason}</p>
+      {data.supervisorPhase && <p>Update phase: {data.supervisorPhase}</p>}
       <p>{data.replacementReason}</p>
       <p><Link to="/docs/guides/upgrading">Read the upgrade guide</Link></p>
       {data.candidate && <section>

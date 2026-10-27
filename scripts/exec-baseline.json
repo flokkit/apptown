@@ -50,6 +50,10 @@
     "scripts": {
       "count": 1,
       "why": "lint-check runs golangci-lint and reads its report: a gate's own program starting the tool it checks"
+    },
+    "internal/apptown/instanceupdate/supervisor": {
+      "count": 1,
+      "why": "the registered systemd startup guard owns its exact daemon child for the service lifetime, with a retained creating thread, Pdeathsig, process-group signals and explicit wait; bounded host observations and all qualification helpers use execution.Runner"
     }
   }
 }
