@@ -29,15 +29,16 @@ func (f dockerClientFunc) Run(ctx context.Context, host string, req docker.Comma
 func dataDirFixture(t *testing.T, dir string) {
 	t.Helper()
 	files := map[string]string{
-		"runtime-token-key":            strings.Repeat("k", 32),
-		"secrets.env":                  "INFISICAL_URL=https://vault.example\nINFISICAL_CLIENT_ID=c\nINFISICAL_CLIENT_SECRET=s\nINFISICAL_PROJECT_ID=p1\n",
-		"db.env":                       "APPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:54321/apptown\nAPPTOWN_DB_PASSWORD=pw\nAPPTOWN_DB_CONTAINER=apptown-db\nAPPTOWN_DB_VOLUME=apptown-data-apptown-db\n",
-		"instance-id":                  "abc123\n",
-		"ssh/host-key":                 "ssh key",
-		"workspaces/project-p/README":  "the project",
-		"pgdata/PG_VERSION":            "16",
-		"cache/mise/tool":              "a tool",
-		"backups/.staging/take-x/file": "staged",
+		"runtime-token-key":             strings.Repeat("k", 32),
+		"secrets.env":                   "INFISICAL_URL=https://vault.example\nINFISICAL_CLIENT_ID=c\nINFISICAL_CLIENT_SECRET=s\nINFISICAL_PROJECT_ID=p1\n",
+		"db.env":                        "APPTOWN_DB_URL=postgres://postgres:pw@127.0.0.1:54321/apptown\nAPPTOWN_DB_PASSWORD=pw\nAPPTOWN_DB_CONTAINER=apptown-db\nAPPTOWN_DB_VOLUME=apptown-data-apptown-db\n",
+		"instance-id":                   "abc123\n",
+		"ssh/host-key":                  "ssh key",
+		"workspaces/project-p/README":   "the project",
+		"pgdata/PG_VERSION":             "16",
+		"pgdata/.apptown-docker-volume": `{"version":1,"volume":"source-host-only"}`,
+		"cache/mise/tool":               "a tool",
+		"backups/.staging/take-x/file":  "staged",
 	}
 	for name, body := range files {
 		p := filepath.Join(dir, filepath.FromSlash(name))
@@ -100,7 +101,7 @@ func TestAnArchiveUnpacksWhatItHoldsAndHoldsItToItsManifest(t *testing.T) {
 		t.Fatalf("the manifest's key files: %v", m.KeyFiles)
 	}
 	for name, want := range map[string]bool{"workspaces/project-p/README": true, "secrets.env": true, "ssh/host-key": true,
-		"pgdata/PG_VERSION": false, "cache/mise/tool": false, "backups/.staging/take-x/file": false} {
+		"pgdata/PG_VERSION": false, "pgdata/.apptown-docker-volume": false, "cache/mise/tool": false, "backups/.staging/take-x/file": false} {
 		if _, err := os.Stat(filepath.Join(dst, name)); (err == nil) != want {
 			t.Errorf("%s came back: %v, want %v", name, err == nil, want)
 		}

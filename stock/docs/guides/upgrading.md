@@ -75,6 +75,12 @@ or instance credentials.
 
 ## From a release candidate
 
+On a native Mac, new built-in databases use Docker-managed storage. Existing
+bound databases stay in place. Keep the local `pgdata` storage receipt during
+same-installation upgrades and rollback; a missing or replaced recorded volume
+requires recovery. The paired dump and directory copies above protect both
+storage layouts. A directory snapshot alone does not include a managed database.
+
 The oldest supported installation and whole-AppTown backup schema is 167,
 from 1.0.0-rc.7. Startup and whole-AppTown restore refuse an older schema;
 this build does not perform the earlier release-candidate migrations.

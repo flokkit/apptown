@@ -32,8 +32,8 @@ on that data directory to write one archive. It does this, in order:
    the database is dumped and the data directory is copied. Work already
    running carries on.
 3. **The archive is written.** It holds the database dump, the data
-   directory without `pgdata` (the database's own files, which the dump
-   replaces) and `cache`, and a manifest that lists what is inside.
+   directory without `pgdata` (bound database files or the local Docker-volume
+   receipt; the dump supplies the database) and `cache`, and a manifest that lists what is inside.
 4. With `-store`, the archive is also copied to the backup store that
    deployment backups use (Settings, Backup store). The store takes one
    object of up to 5 GB.
@@ -99,8 +99,12 @@ AppTown has the same id as the one backed up: run only one of them.
 
 If extraction or database loading fails part way, ordinary startup refuses the
 incomplete restore. Restore the original archive into a fresh empty destination
-and database, or remove this failed fresh-host restore's data directory and
-database container (`apptown-db`) before starting again.
+and database. Preserve the failed restore's files, database container and volume
+until you have checked what they contain. Removing only the container and data
+directory does not remove a Docker-managed database volume. If you choose to
+discard a failed fresh-host restore, identify and remove only its database
+container, volume and directory before retrying; deleting a managed volume
+permanently deletes its database bytes.
 
 Once loading succeeds, AppTown keeps the original manifest until layout and restore
 bookkeeping finish. Starting with the same flags retries that remaining work and

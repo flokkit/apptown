@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -13,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -38,8 +40,9 @@ import (
 //   <dataDir>/instance-id   this installation's id; the container and the
 //                           volume carry it as a label and are refused
 //                           when it differs
-//   <dataDir>/pgdata        the volume's bind location, on the same
-//                           dataset the data directory lives on
+//   <dataDir>/pgdata        the bind location on Linux, on the same
+//                           dataset the data directory lives on; fresh native
+//                           Mac installs keep a receipt here and bytes in Docker
 
 // builtinDBNames are the built-in database's container and volume, as
 // db.env records them, and the database inside, as its URL names it: an
@@ -78,58 +81,40 @@ func EnsureBuiltinDB(ctx context.Context, dataDir string) (string, error) {
 // ensureBuiltinDB is EnsureBuiltinDB's Docker part, with the daemon and the
 // wait for the database given, so a test can run it against a fake.
 func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, password, instance string, names builtinDBNames, waitForDB func(context.Context, string) error) (string, error) {
-	// The container is this installation's only if it carries this
-	// installation's id, as the volume must.
-	if out, err := dk.Run(ctx, "inspect", "-f", `{{.State.Running}}`+"\t"+`{{index .Config.Labels "`+dockerlabel.Instance+`"}}`, names.Container); err == nil {
-		running, owner, _ := strings.Cut(strings.TrimRight(string(out), "\r\n"), "\t")
-		if owner = strings.TrimSpace(owner); owner != instance {
-			whose := "has no installation label"
-			if owner != "" {
-				whose = fmt.Sprintf("belongs to another AppTown installation (instance %s)", owner)
-			}
-			return "", fmt.Errorf("container %s %s, and this one is %s; remove it or point -db-url elsewhere", names.Container, whose, instance)
-		}
-		if strings.TrimSpace(running) == "true" {
-			return url, waitForDB(ctx, url)
-		}
-		if out, err := dk.Run(ctx, "start", names.Container); err == nil {
-			return url, waitForDB(ctx, url)
-		} else {
-			log.Printf("built-in database: start failed (%s); recreating the container", strings.TrimSpace(string(out)))
-			dk.Remove(ctx, names.Container)
-		}
-	}
-	// The volume binds onto the data directory so it sits on the dataset
-	// whose snapshots already cover AppTown's state; a plain named volume
-	// would land in Docker's own directory, off the dataset.
-	pgdata := filepath.Join(dataDir, "pgdata")
-	if err := os.MkdirAll(pgdata, 0o700); err != nil {
+	return ensureBuiltinDBOnOS(ctx, dk, dataDir, url, password, instance, names, waitForDB, runtime.GOOS)
+}
+
+func ensureBuiltinDBOnOS(ctx context.Context, dk docker.Scope, dataDir, url, password, instance string, names builtinDBNames, waitForDB func(context.Context, string) error, goos string) (string, error) {
+	there, err := dk.Exists(ctx, "inspect", names.Container)
+	if err != nil {
 		return "", err
 	}
-	// An existing volume is this installation's only if it carries this
-	// installation's id. A leftover from another one binds to that one's
-	// pgdata, so using it would run on another AppTown's database (and fail on
-	// its password). apptownd has always labelled the volume, so an unlabelled
-	// one is not this installation's either.
-	if out, err := dk.Run(ctx, "volume", "inspect", "-f", `{{index .Labels "`+dockerlabel.Instance+`"}}`+"\t"+`{{index .Options "device"}}`, names.Volume); err == nil {
-		// Split before trimming: an unlabelled volume's line starts with the tab.
-		owner, folder, _ := strings.Cut(string(out), "\t")
-		owner = strings.TrimSpace(owner)
-		if owner != instance {
-			whose := "has no installation label"
-			if owner != "" {
-				whose = fmt.Sprintf("belongs to another AppTown installation (instance %s)", owner)
+	running := false
+	if there {
+		out, err := dk.Run(ctx, "inspect", "-f", `{{.State.Running}}`+"\t"+`{{index .Config.Labels "`+dockerlabel.Instance+`"}}`+"\t"+`{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Type}}:{{.Name}}{{end}}{{end}}`, names.Container)
+		if err != nil {
+			return "", fmt.Errorf("reading the database container: %w", err)
+		}
+		fields := strings.Split(strings.TrimSpace(string(out)), "\t")
+		if len(fields) != 3 || fields[1] != instance || (fields[0] != "true" && fields[0] != "false") {
+			return "", fmt.Errorf("container %s has no matching installation identity (%s); inspect its ownership or use -db-url", names.Container, instance)
+		}
+		if fields[2] != "volume:"+names.Volume {
+			return "", fmt.Errorf("container %s does not use its recorded database volume %s; preserve both stores and recover their configuration", names.Container, names.Volume)
+		}
+		running = fields[0] == "true"
+	}
+	location, err := prepareBuiltinStorage(ctx, dk, dataDir, instance, names, goos, there)
+	if err != nil {
+		return "", err
+	}
+	if there {
+		if !running {
+			if _, err := dk.Run(ctx, "start", names.Container); err != nil {
+				return "", fmt.Errorf("starting the existing database container: %w", err)
 			}
-			return "", fmt.Errorf("volume %s %s, and this one is %s; it keeps its data in %s. If that installation is gone, remove the volume with `docker volume rm %s` (the folder is left as it is) and start again; otherwise give this AppTown its own database with -db-url",
-				names.Volume, whose, instance, strings.TrimSpace(folder), names.Volume)
 		}
-	} else {
-		if out, err := dk.Run(ctx, "volume", "create", "--driver", "local",
-			"--opt", "type=none", "--opt", "o=bind", "--opt", "device="+pgdata,
-			"--label", dockerlabel.Class+"=infra", "--label", dockerlabel.Owner+"="+names.Container, "--label", dockerlabel.Instance+"="+instance,
-			names.Volume); err != nil {
-			return "", fmt.Errorf("creating the database volume: %v: %s", err, out)
-		}
+		return url, waitForDB(ctx, url)
 	}
 	args := []string{"--name", names.Container, "--restart", "unless-stopped",
 		"-p", "127.0.0.1:" + builtinDBPort + ":5432",
@@ -145,7 +130,7 @@ func ensureBuiltinDB(ctx context.Context, dk docker.Scope, dataDir, url, passwor
 	if err := dk.EnsureRunning(ctx, names.Container, args); err != nil {
 		return "", fmt.Errorf("starting the built-in database: %w", err)
 	}
-	log.Printf("built-in database: started %s (%s) with its data under %s", names.Container, builtinDBImage, pgdata)
+	log.Printf("built-in database: started %s (%s) with its data in %s", names.Container, builtinDBImage, location)
 	return url, waitForDB(ctx, url)
 }
 
@@ -334,4 +319,167 @@ func (b BuiltinDatabase) DumpClientVersion(ctx context.Context) (string, error) 
 		return "", err
 	}
 	return strings.TrimSpace(string(raw)), nil
+}
+
+// The receipt lives under pgdata so logical instance archives never import a
+// source host's volume identity. It is durable before PostgreSQL can write.
+const builtinStorageReceipt = ".apptown-docker-volume"
+
+type builtinStorageBinding struct {
+	Version   int       `json:"version"`
+	Instance  string    `json:"instance"`
+	Volume    string    `json:"volume"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+type builtinVolume struct {
+	Name      string
+	CreatedAt time.Time
+	Driver    string
+	Options   map[string]string
+	Labels    map[string]string
+}
+
+func readBuiltinStorage(dataDir, instance, volume string) (*builtinStorageBinding, error) {
+	raw, err := os.ReadFile(filepath.Join(dataDir, "pgdata", builtinStorageReceipt))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading database storage receipt: %w", err)
+	}
+	var b builtinStorageBinding
+	if err := json.Unmarshal(raw, &b); err != nil {
+		return nil, fmt.Errorf("reading database storage receipt: %w", err)
+	}
+	if b.Version != 1 || b.Instance != instance || b.Volume != volume || b.CreatedAt.IsZero() {
+		return nil, errors.New("database storage receipt does not match this installation; preserve it and recover the recorded database")
+	}
+	return &b, nil
+}
+
+func inspectBuiltinVolume(ctx context.Context, dk docker.Scope, instance, name string) (builtinVolume, error) {
+	var v builtinVolume
+	raw, err := dk.Run(ctx, "volume", "inspect", "--format", "{{json .}}", name)
+	if err != nil {
+		return v, fmt.Errorf("reading database volume: %w", err)
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return v, fmt.Errorf("reading database volume: %w", err)
+	}
+	if v.Name != name || v.Driver == "" {
+		return v, errors.New("database volume observation is incomplete")
+	}
+	if v.Labels[dockerlabel.Instance] != instance {
+		return v, fmt.Errorf("volume %s has no matching installation label (observed %q, expected %s); inspect its ownership or give this AppTown a separate database with -db-url", name, v.Labels[dockerlabel.Instance], instance)
+	}
+	return v, nil
+}
+
+func emptyBuiltinDirectory(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("reading retained database files: %w", err)
+	}
+	if len(entries) != 0 {
+		return fmt.Errorf("retained database files in %s cannot be replaced with a new Docker volume; preserve them and recover the database explicitly or use -db-url", dir)
+	}
+	return nil
+}
+
+func bindBuiltinStorage(dataDir, instance string, v builtinVolume, prior *builtinStorageBinding) error {
+	if v.Driver != "local" || len(v.Options) != 0 || v.CreatedAt.IsZero() {
+		return errors.New("database volume is not an observed Docker-native local volume; preserve it and recover its storage configuration")
+	}
+	b := builtinStorageBinding{Version: 1, Instance: instance, Volume: v.Name, CreatedAt: v.CreatedAt.UTC()}
+	dir := filepath.Join(dataDir, "pgdata")
+	if prior != nil {
+		if prior.Volume != b.Volume || !prior.CreatedAt.Equal(b.CreatedAt) {
+			return errors.New("the recorded database volume was replaced; preserve the storage receipt and recover the original database")
+		}
+	} else {
+		if err := emptyBuiltinDirectory(dir); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
+		if err := durable.SyncDir(dataDir); err != nil {
+			return err
+		}
+		raw, err := json.Marshal(b)
+		if err != nil {
+			return err
+		}
+		existed, err := durable.Write(dir, builtinStorageReceipt, raw, 0o600, true)
+		if err != nil {
+			return fmt.Errorf("recording database storage before startup: %w", err)
+		}
+		if existed {
+			found, err := readBuiltinStorage(dataDir, instance, v.Name)
+			if err != nil {
+				return err
+			}
+			if found == nil || !found.CreatedAt.Equal(b.CreatedAt) {
+				return errors.New("database storage changed while recording it; inspect the stored receipt before starting")
+			}
+		}
+	}
+	// Also settle a receipt whose prior writer stopped before directory sync.
+	if err := durable.SyncDir(dataDir); err != nil {
+		return err
+	}
+	return durable.SyncDir(dir)
+}
+
+func prepareBuiltinStorage(ctx context.Context, dk docker.Scope, dataDir, instance string, names builtinDBNames, goos string, containerExists bool) (string, error) {
+	prior, err := readBuiltinStorage(dataDir, instance, names.Volume)
+	if err != nil {
+		return "", err
+	}
+	exists, err := dk.Exists(ctx, "volume", "inspect", names.Volume)
+	if err != nil {
+		return "", err
+	}
+	pgdata := filepath.Join(dataDir, "pgdata")
+	if !exists {
+		if prior != nil || containerExists {
+			return "", fmt.Errorf("recorded database volume %s is missing; preserve the data directory and recover the original database", names.Volume)
+		}
+		args := []string{"volume", "create", "--driver", "local"}
+		if goos == "darwin" {
+			if err := emptyBuiltinDirectory(pgdata); err != nil {
+				return "", err
+			}
+		} else {
+			if err := os.MkdirAll(pgdata, 0o700); err != nil {
+				return "", err
+			}
+			args = append(args, "--opt", "type=none", "--opt", "o=bind", "--opt", "device="+pgdata)
+		}
+		args = append(args, "--label", dockerlabel.Class+"=infra", "--label", dockerlabel.Owner+"="+names.Container, "--label", dockerlabel.Instance+"="+instance, names.Volume)
+		if _, err := dk.Run(ctx, args...); err != nil {
+			return "", fmt.Errorf("creating the database volume: %w", err)
+		}
+	}
+	v, err := inspectBuiltinVolume(ctx, dk, instance, names.Volume)
+	if err != nil {
+		return "", err
+	}
+	if v.Driver == "local" && len(v.Options) == 0 {
+		if err := bindBuiltinStorage(dataDir, instance, v, prior); err != nil {
+			return "", err
+		}
+		return "Docker volume " + v.Name, nil
+	}
+	if prior != nil {
+		return "", errors.New("the recorded Docker-native database volume now has different storage options; recover its original storage before starting")
+	}
+	if v.Driver != "local" || v.Options["type"] != "none" || v.Options["o"] != "bind" || v.Options["device"] == "" {
+		return "", errors.New("database volume has unsupported storage options; preserve it and recover its original configuration")
+	}
+	return v.Options["device"], nil
 }

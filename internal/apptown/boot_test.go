@@ -1123,15 +1123,33 @@ func TestAFailedBootsEvidenceHoldsNoNeedCredential(t *testing.T) {
 // binding to /old/data/pgdata.
 func builtinDBDaemon(label *string) *dockerfake.Daemon {
 	d := dockerfake.New()
+	exists := label != nil
+	owner := "th1s1nstall"
+	if label != nil {
+		owner = *label
+	}
+	device := "/old/data/pgdata"
 	d.SetReply(func(args []string) ([]byte, error, bool) {
-		if len(args) == 4 && args[0] == "inspect" && args[1] == "-f" && args[3] == currentBuiltinDB.Container {
-			return []byte("Error: No such object: " + currentBuiltinDB.Container), errors.New("exit status 1"), true
+		if len(args) > 1 && args[0] == "volume" && args[1] == "create" {
+			exists = true
+			device = ""
+			for _, a := range args {
+				if strings.HasPrefix(a, "device=") {
+					device = strings.TrimPrefix(a, "device=")
+				}
+			}
+			return []byte(currentBuiltinDB.Volume), nil, true
 		}
-		if len(args) >= 2 && args[0] == "volume" && args[1] == "inspect" {
-			if label == nil {
+		if len(args) > 1 && args[0] == "volume" && args[1] == "inspect" {
+			if !exists {
 				return []byte("Error response from daemon: get " + currentBuiltinDB.Volume + ": no such volume"), errors.New("exit status 1"), true
 			}
-			return []byte(*label + "\t/old/data/pgdata\n"), nil, true
+			v := builtinVolume{Name: currentBuiltinDB.Volume, Driver: "local", CreatedAt: time.Date(2026, 10, 27, 1, 0, 0, 0, time.UTC), Labels: map[string]string{dockerlabel.Instance: owner}}
+			if device != "" {
+				v.Options = map[string]string{"type": "none", "o": "bind", "device": device}
+			}
+			raw, _ := json.Marshal(v)
+			return raw, nil, true
 		}
 		return nil, nil, false
 	})
@@ -1152,16 +1170,19 @@ func TestBuiltinDBRefusesAVolumeOfAnotherInstallation(t *testing.T) {
 			if err == nil {
 				t.Fatal("a volume that is not this installation's was used")
 			}
-			for _, want := range []string{currentBuiltinDB.Volume, "th1s1nstall", "it keeps its data in /old/data/pgdata", "docker volume rm " + currentBuiltinDB.Volume, "-db-url"} {
+			for _, want := range []string{currentBuiltinDB.Volume, "th1s1nstall", "-db-url"} {
 				if !strings.Contains(err.Error(), want) {
 					t.Errorf("the refusal does not name %q: %v", want, err)
 				}
 			}
-			if label == "" && !strings.Contains(err.Error(), "has no installation label") {
+			if label == "" && !strings.Contains(err.Error(), "no matching installation label") {
 				t.Errorf("the refusal does not identify the missing label: %v", err)
 			}
 			if label != "" && !strings.Contains(err.Error(), label) {
 				t.Errorf("the refusal does not name the other installation %q: %v", label, err)
+			}
+			if strings.Contains(err.Error(), "docker volume rm") {
+				t.Error("refusal recommends deleting retained data")
 			}
 			if ranContainer(d) || waited {
 				t.Errorf("a container was started on the refused volume (ran %v, waited %v)", ranContainer(d), waited)
@@ -1189,11 +1210,18 @@ func TestBuiltinDBUsesARunningContainerOnlyWhenItIsThisInstallations(t *testing.
 		t.Run(name, func(t *testing.T) {
 			d := dockerfake.New()
 			d.SetReply(func(args []string) ([]byte, error, bool) {
+				if len(args) == 2 && args[0] == "inspect" && args[1] == currentBuiltinDB.Container {
+					return []byte("{}"), nil, true
+				}
+				if len(args) > 1 && args[0] == "volume" && args[1] == "inspect" {
+					raw, _ := json.Marshal(builtinVolume{Name: currentBuiltinDB.Volume, Driver: "local", Options: map[string]string{"type": "none", "o": "bind", "device": "/old/data/pgdata"}, Labels: map[string]string{dockerlabel.Instance: "th1s1nstall"}})
+					return raw, nil, true
+				}
 				if len(args) == 4 && args[0] == "inspect" && args[1] == "-f" && args[3] == currentBuiltinDB.Container {
 					if strings.Contains(args[2], "forge.instance") {
 						return []byte("true\tth1s1nstall\n"), nil, true
 					}
-					return []byte("true\t" + c.labels + "\n"), nil, true
+					return []byte("true\t" + c.labels + "\tvolume:" + currentBuiltinDB.Volume + "\n"), nil, true
 				}
 				return nil, nil, false
 			})
