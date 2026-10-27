@@ -192,7 +192,10 @@ warming supplies no `heavy-ok` or release evidence. Its groups, cache keys and
 budget match the executing jobs; a failed or late warm run causes later
 compilation, never omission of qualification.
 
-**`images.yml`** runs on a tag `v*` only. Its first job, `heavy-evidence`
+**`images.yml`** runs when a `v*` tag is pushed. That push starts publication,
+not a preparation-only build. Complete local builds, fresh installs and the
+isolated matched-data rehearsal in [Releasing](releasing.md) before pushing;
+this workflow does not enforce the rehearsal. Its first job, `heavy-evidence`
 (`scripts/heavy-evidence.py`), asks the API for a `heavy.yml` run (on
 `main`, its merge queue, or by hand) on the exact tagged commit that passed on its first attempt,
 and builds nothing without one: CI must pass, not pass eventually. Both its
