@@ -22,16 +22,19 @@ The hosted Renovate GitHub App proposes dependency updates, configured by
 `renovate.json5` at the root. It reads Go modules, the npm packages of `web/`
 and of the starters, the starters' composer packages, the Actions in
 `.github/workflows/` and the bases of every Dockerfile. It skips `testdata/`
-and `eval/`. Versions written elsewhere (Go constants, `deploy/tool-pins.txt`,
-`stock/scanners.yaml`, `stock/toolchains/`) are not read by it yet and are
-updated by hand.
+and `eval/`. A custom manager reads the agent Go version in
+`deploy/tool-pins.txt`, using the same bookworm image tag family as the agent
+Dockerfile. Another reads the Go images in `stock/scanners.yaml`. Other
+central pins, scanner tools, Go constants and `stock/toolchains/` are updated
+by hand.
 
 Nothing opens by itself. Renovate keeps one issue, the **Dependency
 Dashboard**, listing the available updates, grouped so that one pull request
 is one thing to verify: Go modules, `web/` npm, each
 starter (its packages and its Dockerfile's bases together), Actions,
-AppTown's own Dockerfile bases, and a new Go line (`go.mod` and the `golang`
-images). Each major version is its own entry, except that packages released
+AppTown's own Dockerfile bases, project Go images and their central pin, and
+a new AppTown build Go line (`go.mod` and its build images). Project Go tools
+stay separate from AppTown's build/CI compiler. Each major version is its own entry, except that packages released
 together (React with React DOM) move together.
 
 An update whose release is at least three days old waits under "Pending
@@ -51,8 +54,12 @@ branch up to date with `main`, and it is squash-merged; nothing merges
 automatically. Renovate rebases a branch only when it conflicts; to bring one
 up to date, tick the rebase box in the pull request. GitHub's "Update branch"
 button adds a merge commit, after which Renovate stops updating that branch.
-A bump that fails a check stays open for a person to finish (a coupled pin
-such as `deploy/tool-pins.txt`) or close.
+A bump that fails a check stays open for a person to finish or close.
+`make check-pins` requires the agent Go image, Go scanner images and central
+pin to agree; Renovate updates them in one group. Each image variant retains
+its registry availability and release-age check. If their eligible versions
+differ temporarily, the pin check refuses the update until they agree. Other
+coupled tool pins still need a coordinated manual change.
 
 Security fixes are the exception. Renovate reads GitHub's Dependabot alerts,
 which are on in the repository's security settings (`renovate.json5` does not

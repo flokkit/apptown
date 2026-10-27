@@ -3,10 +3,9 @@
 // review and landing work. Nothing opens until a maintainer ticks it on the
 // Dependency Dashboard issue; security fixes are the exception, one at a time.
 //
-// Native managers only, for now. The versions written in Go constants,
-// deploy/tool-pins.txt, stock/scanners.yaml and stock/toolchains are not read
-// here: they are moving into stock/tool-versions.yaml, and custom managers for
-// that file come after it.
+// Project Go images and their central tool pin update together. Other central
+// pins remain manual: downloads, checksums and qualified runtime images need
+// their own coordinated update rules.
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: ['config:recommended', 'helpers:pinGitHubActionDigests'],
@@ -23,9 +22,32 @@
   minimumReleaseAge: '3 days',
   reviewers: ['bls'],
 
-  enabledManagers: ['gomod', 'npm', 'github-actions', 'dockerfile', 'composer'],
+  enabledManagers: ['gomod', 'npm', 'github-actions', 'dockerfile', 'composer', 'custom.regex'],
   // Fixtures and evaluation material are not dependencies of anything shipped.
   ignorePaths: ['**/node_modules/**', '**/testdata/**', 'eval/**'],
+
+  // The central Go pin follows the agent image's bookworm family. Scanner
+  // images retain their own variant and publication dates; check-pins refuses
+  // an update if the variants have not yet converged on the same version.
+  customManagers: [
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/^deploy/tool-pins\\.txt$/'],
+      matchStrings: ['(?:^|\\n)golang[ \\t]+(?<currentValue>\\d+\\.\\d+\\.\\d+)[ \\t]+image golang(?:\\r?\\n|$)'],
+      depNameTemplate: 'golang',
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'semver',
+      extractVersionTemplate: '^(?<version>\\d+\\.\\d+\\.\\d+)-bookworm$',
+    },
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/^stock/scanners\\.yaml$/'],
+      matchStrings: ['(?:^|\\n)[ \\t]+image: golang:(?<currentValue>\\d+\\.\\d+\\.\\d+-alpine)(?:\\r?\\n|$)'],
+      depNameTemplate: 'golang',
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+    },
+  ],
 
   // One group per thing to verify, for updates within a major version. A
   // major is left out of the groups, so it is its own pull request, except
@@ -78,6 +100,14 @@
       matchUpdateTypes: ['major'],
       additionalBranchPrefix: '{{parentDir}}-',
       commitMessageSuffix: '({{parentDir}} starter)',
+    },
+    {
+      // Project tools are independent of AppTown's own build/CI compiler.
+      // This overrides the broad Dockerfile and Go groups above.
+      matchManagers: ['dockerfile', 'custom.regex'],
+      matchFileNames: ['deploy/apptown-agent/Dockerfile', 'deploy/tool-pins.txt', 'stock/scanners.yaml'],
+      matchPackageNames: ['golang'],
+      groupName: 'project Go tools',
     },
   ],
 
