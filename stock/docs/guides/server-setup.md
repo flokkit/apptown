@@ -145,8 +145,19 @@ up. Docker Desktop on a Mac gives such files your ownership instead.
 
 The data directory is `./_data` unless `-data` names another. With no
 `-db-url`, AppTown starts its own PostgreSQL container, `apptown-db` (`db.env`
-records its name), with its
-files under `<data directory>/pgdata`. That container belongs to one
+records its name). On Linux its files are under `<data directory>/pgdata`.
+A new native Mac installation keeps the database in a Docker-managed volume,
+because Docker Desktop's shared Mac filesystem can lose PostgreSQL ownership
+information during startup. Its `pgdata` directory holds a storage receipt;
+it does not hold the database bytes. Keep that receipt with the installation.
+A missing or replaced recorded volume requires recovery, not a new empty database.
+
+Existing bound database volumes remain where they are. AppTown does not move
+them automatically. If an existing Mac database fails with an ownership error,
+preserve its files and recover through a verified backup or an external database.
+A data-directory snapshot alone does not back up a Docker-managed database;
+use the whole-AppTown backup or a PostgreSQL dump with the matching directory
+copy. That container belongs to one
 installation: for a second AppTown on the same machine, give it a separate
 PostgreSQL database with `-db-url`; changing only `-data` is refused.
 
