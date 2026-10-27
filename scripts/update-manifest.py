@@ -73,7 +73,7 @@ def archive_facts(out, tag, platform):
                 raise ValueError('archive contains duplicate members')
             with tar.extractfile(entry) as f:
                 members[relative] = digest_stream(f)
-    required = {'bin/apptownd', 'bin/apptown', 'bin/apptown-worker', 'bin/apptown-linux',
+    required = {'bin/apptownd', 'bin/apptown', 'bin/apptown-worker', 'bin/apptown-linux', 'bin/apptown-update',
                 'deploy/apptown-agent/Dockerfile', 'scripts/apptown-db-backup.sh'}
     if not required <= members.keys() or not any(n.startswith('share/apptown/updates/') for n in members) or not any(n.startswith('deploy/systemd/') for n in members):
         raise ValueError('archive lacks paired release assets')

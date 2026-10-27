@@ -132,6 +132,11 @@ linters:
         linters: [forbidigo]
         text: 'forbidden because "context rule:'
         source: 'var root = context\.Background\(\)'
+      # The external update supervisor's process root, cancelled by its signal.
+      - path: '^cmd/apptown-update/main\.go$'
+        linters: [forbidigo]
+        text: 'forbidden because "context rule:'
+        source: 'signal\.NotifyContext\(context\.Background\(\)'
       # The worker process's root: it runs until the process is killed.
       - path: '^cmd/apptown-worker/main\.go$'
         linters: [forbidigo]

@@ -122,3 +122,7 @@ then refused by the AppTown it replaces, including when an upgrade asks it
 `apptown executing`: answer that question with the CLI of the running
 release, or establish yourself that nothing is executing and upgrade without
 asking.
+
+A [managed supervisor](managed-supervisor.md) keeps Linux installation registration
+and startup fences outside the replaceable daemon. Enrollment is separate from
+matched recovery and replacement readiness; it does not enable automatic updates.

@@ -43,6 +43,7 @@ type daemonFlags struct {
 	dbURL                                            string
 	authMode                                         string
 	updateChannel                                    string
+	updateSupervisorSocket                           string
 	updateChecks                                     bool
 	openOnNetwork                                    bool
 	authHeader                                       string
@@ -95,6 +96,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url) (Running AppTown: Workers and running without local Docker)")
 	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names apptown-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
 	fs.BoolVar(&o.reap, "reap", false, "remove what AppTown made and nothing uses any more (step, service and chat containers, previews nobody looks at, images, caches, folders) instead of only logging it; set it only when this Docker is used by this AppTown alone: the sweep does not ask other AppTowns what they still use")
+	fs.StringVar(&o.updateSupervisorSocket, "update-supervisor-socket", "", "explicit managed update supervisor socket; empty means unmanaged")
 	fs.StringVar(&o.updateChannel, "update-channel", "stable", "release notifications: stable | prerelease (explicit opt-in)")
 	fs.BoolVar(&o.updateChecks, "update-checks", true, "periodically check public authenticated release metadata; manual checks remain available")
 	fs.BoolVar(&o.verifyOnly, "verify-only", false, "start normally, which upgrades the database and the data directory to this build, then serve reads only: no recovery, no workers, no scheduler (the verification startup after a move or restore; not a dry run of an upgrade)")
@@ -448,10 +450,10 @@ func main() {
 // the worker, console and inference settings main adds.
 func (o *daemonFlags) apptownConfig(dataDir string) apptown.Config {
 	return apptown.Config{
-		UpdateChannel: o.updateChannel,
-		HostScripts:   o.hostScripts,
-		TaskLimits:    execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
-		ChatLimits:    execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
+		UpdateChannel: o.updateChannel, UpdateSupervisorSocket: o.updateSupervisorSocket,
+		HostScripts: o.hostScripts,
+		TaskLimits:  execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
+		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
 		AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, Reap: o.reap,
 		AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
 		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,

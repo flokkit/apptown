@@ -111,7 +111,7 @@ class ReleaseChecksums(unittest.TestCase):
         for a in archives:
             with tarfile.open(os.path.join(out, a)) as t:
                 held = {os.path.basename(m.name) for m in t.getmembers()}
-            self.assertTrue({"LICENSE", "NOTICE", "THIRD_PARTY_NOTICES"} <= held, a)
+            self.assertTrue({"LICENSE", "NOTICE", "THIRD_PARTY_NOTICES", "apptown-update"} <= held, a)
             # The stock and tool versions the binaries read at start travel
             # beside bin/: without them apptownd and the worker do not start.
             with tarfile.open(os.path.join(out, a)) as t:

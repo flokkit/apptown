@@ -1,5 +1,5 @@
 #!/bin/sh
-# What apptownd's main can never reach (architecture.md): the whole-program
+# What the service binaries can never reach (architecture.md): the whole-program
 # sweep the package-level unused check cannot do. A change may lower the
 # count and may not raise it; a change that deletes what it superseded
 # records the new number with --tighten in the same commit.
@@ -13,7 +13,7 @@ ERR=$(mktemp)
 # A deadcode that did not finish has counted nothing: fail with its error,
 # before the baseline is read or written.
 STATUS=0
-"$DEADCODE" ./cmd/apptownd ./cmd/apptown-worker ./cmd/apptown-gate > "$OUT" 2> "$ERR" || STATUS=$?
+"$DEADCODE" ./cmd/apptownd ./cmd/apptown-worker ./cmd/apptown-gate ./cmd/apptown-update > "$OUT" 2> "$ERR" || STATUS=$?
 if [ "$STATUS" -ne 0 ]; then
   echo "reachability: deadcode failed (exit $STATUS):" >&2
   cat "$ERR" >&2
