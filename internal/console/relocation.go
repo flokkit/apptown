@@ -78,7 +78,10 @@ func RelocationRecords(dataDir string) ([]RelocationRecord, error) {
 		if err := json.Unmarshal(raw, &meta); err != nil {
 			return nil, fmt.Errorf("reading console %s: %w", entry.Name(), err)
 		}
-		if meta.ID != entry.Name() || meta.Scope == "" || meta.Checkout == "" || meta.LastUsed.IsZero() {
+		// Ended records are history, not recoverable workspaces. Older
+		// history can lack the checkout and idle clock required to move a
+		// live session; retain any declared checkout ownership below.
+		if meta.ID != entry.Name() || meta.Scope == "" || (!ended && (meta.Checkout == "" || meta.LastUsed.IsZero())) {
 			return nil, fmt.Errorf("console %s has incomplete or mismatched relocation metadata", entry.Name())
 		}
 		if meta.OwnsCheckout && filepath.Base(filepath.Dir(meta.Checkout)) == "console" && strings.HasPrefix(filepath.Base(meta.Checkout), "checkout-") {

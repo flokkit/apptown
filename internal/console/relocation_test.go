@@ -124,23 +124,56 @@ func TestCheckoutRelocationRejectsConcurrentRecordChange(t *testing.T) {
 }
 
 func TestRelocationLeavesEndedHistoryUnchanged(t *testing.T) {
-	root := t.TempDir()
-	path := layoutRecord(t, root, EndedFile)
-	// Historical records are readable evidence of a settled session.
-	before, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(path, before, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	records, err := RelocationRecords(root)
-	if err != nil || len(records) != 0 {
-		t.Fatalf("history entered live inventory: %+v %v", records, err)
-	}
-	after, err := os.ReadFile(path)
-	if err != nil || string(after) != string(before) {
-		t.Fatalf("history changed: %q %v", after, err)
+	for _, omitted := range []string{"", "checkout", "lastUsed"} {
+		t.Run("without_"+omitted, func(t *testing.T) {
+			root := t.TempDir()
+			path := layoutRecord(t, root, EndedFile)
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if omitted != "" {
+				var fields map[string]json.RawMessage
+				if err := json.Unmarshal(before, &fields); err != nil {
+					t.Fatal(err)
+				}
+				delete(fields, omitted)
+				before, err = json.Marshal(fields)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(path, before, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			records, err := RelocationRecords(root)
+			if err != nil || len(records) != 0 {
+				t.Fatalf("history entered live inventory: %+v %v", records, err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil || string(after) != string(before) {
+				t.Fatalf("history changed: %q %v", after, err)
+			}
+			// An ended record without a checkout must not excuse an orphan.
+			orphan := filepath.Join(root, "console", "checkout-unowned")
+			if err := os.Mkdir(orphan, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := RelocationRecords(root); err == nil {
+				t.Fatal("history hid an unowned checkout")
+			}
+			if err := os.Remove(orphan); err != nil {
+				t.Fatal(err)
+			}
+			if omitted != "" {
+				if err := os.Rename(path, filepath.Join(filepath.Dir(path), MetaFile)); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := RelocationRecords(root); err == nil {
+					t.Fatal("incomplete live relocation metadata accepted")
+				}
+			}
+		})
 	}
 }
 

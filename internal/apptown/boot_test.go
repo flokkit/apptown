@@ -987,12 +987,26 @@ func TestAnUpgradeKeepsWhatThePreviousReleaseRecorded(t *testing.T) {
 			wantReads, _ := json.Marshal(want.Reads)
 			db := testDB(t)
 			dataDir := restoreRelease(t, dir, db)
+			// RC7 also retains history written before its live-session metadata
+			// contract. Such ended records need no checkout and are never moved.
+			historyDir := filepath.Join(dataDir, "console", "01900000-0000-7000-8000-000000000001")
+			if err := os.MkdirAll(historyDir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			historyPath := filepath.Join(historyDir, "ended.json")
+			history := []byte(`{"id":"01900000-0000-7000-8000-000000000001","scope":"project:retained","lastUsed":"2026-09-13T00:00:00Z","future":{"precise":1234567890123456789}}`)
+			if err := os.WriteFile(historyPath, history, 0o600); err != nil {
+				t.Fatal(err)
+			}
 			// The copies the upgrade guide has an operator take, apptownd stopped.
 			copiedRows, copiedFiles := apptownRecords(t, db, dataDir)
 			copyArchive := filepath.Join(t.TempDir(), "data-directory.tar.gz")
 			writeTarGz(t, dataDir, copyArchive)
 
 			upgradeAppTown(t, db, dataDir)
+			if got, err := os.ReadFile(historyPath); err != nil || string(got) != string(history) {
+				t.Fatalf("upgrade changed retained history: %q %v", got, err)
+			}
 			if shape, err := dbtest.Shape(t.Context(), db); err != nil || shape != fresh {
 				t.Fatalf("the upgraded schema is not a fresh one's: %v\n%s", err, lineDiff(fresh, shape))
 			}
