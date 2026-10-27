@@ -243,6 +243,7 @@ func (p *authentikProof) scopeMappings(ctx context.Context) ([]any, error) {
 
 func (p *authentikProof) configure(t *testing.T, callback string) {
 	t.Helper()
+	authentication := p.first(t, "/api/v3/flows/instances/?slug=default-authentication-flow")
 	authFlow := p.first(t, "/api/v3/flows/instances/?slug=default-provider-authorization-implicit-consent")
 	invalidation := p.first(t, "/api/v3/flows/instances/?slug=default-provider-invalidation-flow")
 	key := p.first(t, "/api/v3/crypto/certificatekeypairs/?name=authentik%20Self-signed%20Certificate")
@@ -254,7 +255,7 @@ func (p *authentikProof) configure(t *testing.T, callback string) {
 	}
 	user := p.mustAPI(t, "POST", "/api/v3/core/users/", map[string]any{"username": "proof-person", "name": "Proof person", "is_active": true, "type": "internal", "email": "proof-person@example.invalid", "groups": []string{}})
 	p.mustAPI(t, "POST", fmt.Sprintf("/api/v3/core/users/%.0f/set_password/", user["pk"]), map[string]string{"password": p.password})
-	provider := p.mustAPI(t, "POST", "/api/v3/providers/oauth2/", map[string]any{"name": "AppTown proof", "authorization_flow": authFlow["pk"], "invalidation_flow": invalidation["pk"], "client_type": "confidential", "client_id": "apptown-proof", "client_secret": p.clientSecret, "signing_key": key["pk"], "redirect_uris": []map[string]string{{"matching_mode": "strict", "url": callback}}, "property_mappings": mappings, "sub_mode": "hashed_user_id", "issuer_mode": "per_provider", "include_claims_in_id_token": true, "grant_types": []string{"authorization_code"}})
+	provider := p.mustAPI(t, "POST", "/api/v3/providers/oauth2/", map[string]any{"name": "AppTown proof", "authentication_flow": authentication["pk"], "authorization_flow": authFlow["pk"], "invalidation_flow": invalidation["pk"], "client_type": "confidential", "client_id": "apptown-proof", "client_secret": p.clientSecret, "signing_key": key["pk"], "redirect_uris": []map[string]string{{"matching_mode": "strict", "url": callback}}, "property_mappings": mappings, "sub_mode": "hashed_user_id", "issuer_mode": "per_provider", "include_claims_in_id_token": true, "grant_types": []string{"authorization_code"}})
 	p.mustAPI(t, "POST", "/api/v3/core/applications/", map[string]any{"name": "AppTown proof", "slug": "apptown-proof", "provider": provider["pk"], "policy_engine_mode": "all"})
 	urls := p.mustAPI(t, "GET", fmt.Sprintf("/api/v3/providers/oauth2/%.0f/setup_urls/", provider["pk"]), nil)
 	p.issuer, _ = urls["issuer"].(string)
@@ -323,7 +324,7 @@ func (p *authentikProof) authorize(t *testing.T, start, callbackOrigin string) s
 		e = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&challenge)
 		resp.Body.Close()
 		if e != nil || resp.StatusCode != 200 {
-			t.Fatalf("provider browser flow failed status %d (body withheld)", resp.StatusCode)
+			t.Fatalf("provider browser flow failed at %s %s status %d (query and body withheld)", method, u.Path, resp.StatusCode)
 		}
 		switch challenge["component"] {
 		case "ak-stage-identification":
@@ -462,12 +463,18 @@ func TestIntegrationExternalSignInWithDisposableAuthentik(t *testing.T) {
 	}
 }
 
-func TestAuthentikConfigurationWaitsForRequiredScopes(t *testing.T) {
-	var scopes atomic.Int32
+func TestAuthentikConfigurationWaitsForRequiredBlueprints(t *testing.T) {
+	var scopes, authentication atomic.Int32
 	var origin string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		out := map[string]any{"results": []any{map[string]any{"pk": "fixture-record"}}}
 		switch {
+		case r.URL.Path == "/api/v3/flows/instances/" && r.URL.Query().Get("slug") == "default-authentication-flow":
+			rows := []any{}
+			if authentication.Add(1) > 1 {
+				rows = append(rows, map[string]any{"pk": "authentication-flow"})
+			}
+			out["results"] = rows
 		case strings.Contains(r.URL.Path, "propertymappings/provider/scope"):
 			n := scopes.Add(1)
 			rows := []any{}
@@ -487,10 +494,14 @@ func TestAuthentikConfigurationWaitsForRequiredScopes(t *testing.T) {
 			out = map[string]any{"pk": 1}
 			if r.URL.Path == "/api/v3/providers/oauth2/" {
 				var body struct {
-					Mappings []string `json:"property_mappings"`
+					Mappings       []string `json:"property_mappings"`
+					Authentication string   `json:"authentication_flow"`
 				}
 				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 					t.Error(err)
+				}
+				if authentication.Load() < 2 || body.Authentication != "authentication-flow" {
+					t.Errorf("provider did not bind the ready authentication flow: requests=%d binding=%q", authentication.Load(), body.Authentication)
 				}
 				if strings.Join(body.Mappings, ",") != "scope-openid,scope-profile,scope-email" {
 					t.Errorf("required mappings = %v", body.Mappings)
