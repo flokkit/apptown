@@ -10,11 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -189,8 +191,8 @@ func (t *browserTerminal) Write(p []byte) (int, error) {
 
 // The UI tour (site/tour, `make tour`): one small team's AppTown after two
 // weeks of use, built through its HTTP API and owners (tourScene, below)
-// and photographed by Playwright in both themes. Nothing on a page is
-// faked: every value comes from records the owners wrote. The checks are
+// and photographed by Playwright in both themes. The example uses records the owners wrote; the camera substitutes a
+// plausible disk reading and the conversations are recorded examples. The checks are
 // the projects' own scripts, run for real on this host (HostScripts, and
 // the local shell for the conformance review's checks: the tour has no
 // Docker; checks that need a tool's image or a model say they could not
@@ -260,22 +262,31 @@ func TestTour(t *testing.T) {
 		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
 	}
 	s := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}}
-	// A model key, set up as a person does on the home page: a placeholder
-	// that no model ever sees (nothing in the tour calls a model).
-	s.call("sam", "POST", "/api/v1/setup/model", map[string]string{"provider": "anthropic", "key": "tour-placeholder-key"})
+	// configureConsoleModel supplied an explicit fixture binding; no provider is contacted.
 	// The team: Sam runs AppTown; Priya and Tom make apps.
 	for _, u := range []string{"priya", "tom"} {
 		s.call("sam", "POST", "/api/v1/users", map[string]string{"username": u, "role": "member", "password": password})
 	}
 	made := s.play(start)
 	moveClock(a, -a.cfg.clock.ahead)
+	// Let the normal observation owners collect facts before photographing Home.
+	s.call("sam", "GET", "/api/v1/attention", nil)
+	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", "inventory", "protection-observation"} {
+		for _, job := range operationJobs(t, a, kind) {
+			if job.State == "available" || job.State == "retryable" || job.State == "scheduled" {
+				result := runQueuedJobForTest(t, a, kind, job.Key)
+				t.Logf("tour observation %s: %s", kind, result.State)
+			}
+		}
+	}
+	t.Logf("tour operational observations: %s", s.call("sam", "GET", "/api/v1/attention", nil))
 
 	h = a.Handler()
 	server.Config.Handler = h
 	server.StartTLS()
 
 	// The stops, with the ids the scene made.
-	vars := map[string]string{"{review}": made.review.String(), "{chat}": made.chat.String(), "{session}": made.session}
+	vars := map[string]string{"{before}": made.before, "{after}": made.after, "{review}": made.review.String(), "{chat}": made.chat.String(), "{session}": made.session}
 	type shot struct {
 		ID   string `json:"id"`
 		Path string `json:"path"`
@@ -346,6 +357,8 @@ func writeTourPage(t *testing.T, dir string, stops []tourStop) {
 	t.Helper()
 	var b strings.Builder
 	b.WriteString(tourPageHead)
+	identity := tourIdentity(t)
+	fmt.Fprintf(&b, "  <p class=\"lead\" data-tour-identity>%s · source <code>%s</code> · <a href=\"/tour/\">All versions</a></p>\n", html.EscapeString(identity.Version), html.EscapeString(identity.Source))
 	for _, s := range stops {
 		fmt.Fprintf(&b, `  <section id="%s">
     <h2>%s</h2>
@@ -390,7 +403,7 @@ const tourPageHead = `<!doctype html>
 <body>
 <main>
   <h1>AppTown tour</h1>
-  <p class="lead">What AppTown looks like, page by page. The pictures are made from a small example team's AppTown each release; <a href="/">back to apptown.dev</a>.</p>
+  <p class="lead">Follow a small team's apps from a request to a checked change. Conversations are recorded examples; the checks run against real example code. <a href="/">Back to apptown.dev</a>.</p>
 `
 
 const tourPageTail = `</main>
@@ -743,8 +756,9 @@ var tourWorkflow = workflow.PreparedRun{
 
 // tourIDs are the ids the scene made that the stops name.
 type tourIDs struct {
-	review, chat ids.ID
-	session      string
+	review, chat  ids.ID
+	session       string
+	before, after string
 }
 
 // tourAsk is a change a person asks the helper for in a chat: what they
@@ -898,6 +912,22 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	s.commit(news2, "tom", "Ride calendar page")
 	s.ship(news2, "tom", "priya", 25*time.Minute)
 
+	// Day 8: a real before/after, photographed from committed example files.
+	at(8, "10:00")
+	neon := s.open("tom", "club-newsletter", "Give the club a neon makeover", "Keep the rides and newsletters, but make it gloriously loud.")
+	before := s.serveSite(neon)
+	neonSession := s.helped(neon, "tom", tourAsk{
+		ask:         "The site is sensible. Make it an exuberant neon cycling extravaganza. Keep it readable and keep every link working!",
+		look:        "I'll keep the newsletter and ride pages and change the front page and its styling.",
+		lookCommand: "cat public/index.html public/style.css",
+		files:       newsletterNeon,
+		did:         "The front page has a giant headline, neon colours, ride cards and a checkerboard border. No flashing or outside assets.",
+		after:       "The links pass. The newsletters and ride calendar are still there. Try the new look before approving it.",
+	})
+	after := s.serveSite(neon)
+	s.endChat("tom", neonSession)
+	s.ship(neon, "tom", "priya", 25*time.Minute)
+
 	// Day 9: the best height survives a reload.
 	at(9, "17:00")
 	rocket2 := s.open("tom", "rocket-garden", "Remember the best height between visits", "")
@@ -932,12 +962,12 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	s.commit(lunch3, "sam", "Total price at the top of the 11am list")
 	s.land(lunch3, "sam", map[string]string{"tests": "pass", "style": "fail"})
 
-	// Day 12: a countdown that broke the no-fuel rule; the tests catch it.
+	// Day 12: a countdown that preserves the no-fuel rule.
 	at(12, "16:45")
 	rocket3 := s.open("tom", "rocket-garden", "Add a countdown before launch", "3, 2, 1, then up.")
 	s.write(rocket3, rocketCountdown)
 	s.commit(rocket3, "tom", "Countdown before launch")
-	s.land(rocket3, "tom", map[string]string{"tests": "fail", "style": "pass"})
+	s.ship(rocket3, "tom", "sam", 20*time.Minute)
 
 	// The night before the last day, the weekly review runs again.
 	at(12, "23:00")
@@ -964,7 +994,7 @@ func (s *tourScene) play(start time.Time) tourIDs {
 	// AppTown's own round reads the open chat's usage, as it does at start
 	// and every few minutes.
 	s.a.HarvestAllConsoleUsage(context.Background())
-	return tourIDs{review: lunch3.ID, chat: lunch4.ID, session: session}
+	return tourIDs{review: lunch3.ID, chat: lunch4.ID, session: session, before: before, after: after}
 }
 
 // review is Sam running a conformance review of every project's committed
@@ -1850,8 +1880,7 @@ test("a first launch is the best so far", () => {
 `,
 }
 
-// Rocket Garden, change 3: a countdown, whose rewrite of launchHeight lost
-// the no-fuel rule; its test fails.
+// Rocket Garden, change 3: a countdown that retains the no-fuel rule.
 var rocketCountdown = map[string]string{
 	"rules.js": `
 // The rules of Rocket Garden, kept apart from the drawing so they can be tested.
@@ -1862,7 +1891,7 @@ export function grow(rocket) {
 }
 
 export function launchHeight({ fuel, fins }) {
-  return fuel * 120 + fins * 40;
+  return fuel === 0 ? 0 : fuel * 120 + fins * 40;
 }
 
 export function best(previous, height) {
@@ -1882,4 +1911,131 @@ test("the countdown goes 3, 2, 1", () => {
   assert.deepEqual(countdown(3), [3, 2, 1]);
 });
 `,
+}
+
+// serveSite photographs committed example files, without claiming a deployment.
+func (s *tourScene) serveSite(c *tourChange) string {
+	s.t.Helper()
+	dest := s.t.TempDir()
+	err := filepath.WalkDir(filepath.Join(c.folder, "public"), func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(c.folder, path)
+		if err != nil {
+			return err
+		}
+		// These are fixed fixture filenames, never user-controlled shell arguments.
+		if !regexp.MustCompile(`^[a-zA-Z0-9_./-]+$`).MatchString(rel) {
+			s.t.Fatalf("unsafe fixture path %q", rel)
+		}
+		content, code := s.run(c, "git show HEAD:"+rel)
+		if code != 0 {
+			s.t.Fatalf("read committed example %s: %s", rel, content)
+		}
+		target := filepath.Join(dest, strings.TrimPrefix(rel, "public/"))
+		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			return err
+		}
+		return os.WriteFile(target, []byte(content), 0644)
+	})
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	server := httptest.NewServer(http.FileServer(http.Dir(dest)))
+	s.t.Cleanup(server.Close)
+	return server.URL + "/"
+}
+
+type tourMetadata struct {
+	Kind    string `json:"kind"`
+	Version string `json:"version"`
+	Source  string `json:"source"`
+}
+
+func tourIdentity(t *testing.T) tourMetadata {
+	t.Helper()
+	m := tourMetadata{Version: os.Getenv("TOUR_VERSION"), Source: os.Getenv("TOUR_SOURCE")}
+	if m.Source != "" {
+		root, err := filepath.Abs("../..")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, args := range [][]string{{"git", "rev-parse", "HEAD"}, {"git", "ls-files", "--others", "--exclude-standard"}, {"git", "diff", "--quiet", "HEAD", "--", ".", ":(exclude)site/tour/index.html"}} {
+			out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{Workspace: "../..", Argv: tourSourceCommand(root, args), Env: []string{"PATH=" + os.Getenv("PATH")}, Timeout: 10 * time.Second})
+			if !out.Exited0() || (args[1] == "rev-parse" && strings.TrimSpace(string(out.Output)) != m.Source) || (args[1] == "ls-files" && len(out.Output) != 0) {
+				t.Fatalf("published tour requires the exact clean source %s: %v %s", m.Source, out.RunErr, out.Output)
+			}
+		}
+	}
+	if m.Version == "" {
+		m.Version = "Unreleased preview"
+	}
+	m.Kind = "release"
+	if m.Version == "Unreleased preview" {
+		m.Kind = "preview"
+	}
+	if m.Source == "" {
+		m.Source = "local working tree"
+	}
+	b, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("../../site/tour/metadata.json", append(b, '\n'), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+// The release container runs as root against the runner-owned checkout.
+// Trust only this absolute checkout for these read-only source checks.
+func tourSourceCommand(root string, args []string) []string {
+	return append([]string{"git", "-c", "safe.directory=" + root}, args[1:]...)
+}
+
+func TestTourSourceChecksTrustOnlyTheirCheckout(t *testing.T) {
+	root := t.TempDir()
+	gittest.Run(t, root, "init")
+	gittest.RunAsTester(t, root, "commit", "--allow-empty", "-m", "fixture")
+	for _, args := range [][]string{{"git", "rev-parse", "HEAD"}, {"git", "ls-files", "--others", "--exclude-standard"}, {"git", "diff", "--quiet", "HEAD", "--", ".", ":(exclude)site/tour/index.html"}} {
+		run := func(argv []string) execution.Outcome {
+			return (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Workspace: root, Argv: argv, Env: []string{"PATH=" + os.Getenv("PATH"), "GIT_TEST_ASSUME_DIFFERENT_OWNER=1"}, Timeout: 10 * time.Second})
+		}
+		refused := run(args)
+		if refused.Exited0() || (args[1] == "rev-parse" && !strings.Contains(string(refused.Output), "dubious ownership")) {
+			t.Fatalf("ownership probe did not refuse %v: %s", args, refused.Output)
+		}
+		allowed := run(tourSourceCommand(root, args))
+		if !allowed.Exited0() {
+			t.Fatalf("explicit checkout trust refused %v: %s", args, allowed.Output)
+		}
+	}
+}
+
+var newsletterNeon = map[string]string{
+	"public/index.html": `<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hilltop Cycling Club — Full colour. Full pedal.</title><link rel="stylesheet" href="style.css">
+<body><div class="ticker">HILLTOP CYCLING CLUB ★ EVERY BIKE WELCOME ★ NO ONE LEFT BEHIND ★</div>
+<header><img src="images/club-logo.svg" alt="Hilltop Cycling Club"><span>EST. 1998<br>STILL GOING UPHILL</span><a href="rides.html">Find your next ride ↗</a></header>
+<main><p class="eyebrow">YOUR LEGS CALLED. THEY WANT A WEEKEND.</p><h1>LESS SCROLL.<br><span>MORE ROLL.</span></h1>
+<div class="badge">100%<br>POWERED<br>BY SNACKS</div>
+<p class="intro">Good people. Questionable hills. Excellent cake.<br>Come for a ride. Stay for the café stop.</p>
+<div class="cards"><a class="ride" href="rides.html"><small>MEET YOUR PEOPLE</small><h2>LET'S<br>RIDE ↗</h2><p>Times, routes &amp; a pace that suits you.</p></a>
+<a class="news" href="2026-10.html"><small>HOT OFF THE HANDLEBARS</small><h2>CLUB<br>NEWS ↗</h2><p>October's hill climb. Lights on. All the gossip.</p></a></div>
+</main><footer>BIG COLOURS. SMALL CLUB. REALLY GOOD RIDES. ★</footer></body></html>`,
+	"public/style.css": `* { box-sizing:border-box } body { margin:0; background:#171039; color:#fff; font:18px/1.5 Arial,sans-serif }
+ a { color:inherit } .ticker { background:#c6ff00; color:#171039; text-align:center; padding:10px; font-weight:900; letter-spacing:.15em }
+ header { display:flex; align-items:center; gap:18px; padding:22px 7%; border-bottom:2px solid #ffffff33; font-weight:800; font-size:14px } header img { background:#c6ff00; border-radius:50%; padding:5px; width:58px; height:58px } header a { margin-left:auto; font-size:17px }
+ main { max-width:1160px; margin:auto; padding:30px 28px; position:relative } .eyebrow { color:#ff88e8; font-size:14px; font-weight:900; letter-spacing:.15em }
+ h1 { font-size:clamp(52px,7.2vw,104px); line-height:.94; letter-spacing:-.055em; margin:20px 0; font-weight:1000 } h1 span { color:#c6ff00; text-shadow:5px 5px 0 #a526db }
+ .intro { color:#ece7ff; font-size:21px } .badge { position:absolute; right:45px; top:65px; transform:rotate(12deg); border-radius:50%; width:164px; height:164px; padding:35px 15px; text-align:center; background:#ff80df; color:#241140; font-weight:900; line-height:1.3; border:7px double #241140 }
+ .cards { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:25px } .cards a { text-decoration:none; color:#171039; padding:22px 26px; border:3px solid #fff; box-shadow:7px 7px 0 #000; } .ride { background:#c6ff00; transform:rotate(-1deg) } .news { background:#ff80df; transform:rotate(1deg) }
+ h2 { font-size:36px; line-height:1; margin:12px 0 } small { font-weight:900; letter-spacing:.08em } .cards p { margin-bottom:0 } footer { text-align:center; font-weight:900; padding:24px; margin-top:20px; border-top:12px solid transparent; border-image:repeating-linear-gradient(90deg,#fff 0 16px,#171039 16px 32px) 12 }
+ a:focus-visible { outline:4px solid #00dfff; outline-offset:6px } body>h1,body>h2,body>p,body>ul { max-width:50rem; margin:24px auto; padding:0 20px }
+ @media(max-width:700px) { .badge{position:static; width:auto;height:auto;border-radius:0;transform:none;padding:12px}.cards{grid-template-columns:1fr}header{padding:14px} }`,
 }

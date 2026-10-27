@@ -3,9 +3,17 @@
 # path may use {review} (the change waiting for approval), {chat} (the
 # change with a chat) and {session} (that chat's session).
 stops:
+  - id: before
+    title: A perfectly sensible beginning
+    caption: The cycling club has a newsletter and a ride calendar. Useful, but Tom has an idea.
+    path: "{before}"
+  - id: after
+    title: Turn the neon up
+    caption: Same club, louder shirt. Tom asks for an exuberant makeover while keeping the pages and links working. These are the actual example pages, rendered before and after the change.
+    path: "{after}"
   - id: home
     title: Home
-    caption: Where every person starts. Each app here keeps a record of every change, who asked, what was checked and who approved it.
+    caption: See your apps, recent work and anything that needs your attention. This example leaves one style check to fix and one approval to give.
     path: /
   - id: projects
     title: Projects
@@ -13,7 +21,7 @@ stops:
     path: /projects
   - id: new-project
     title: Start an app
-    caption: "Three steps: a name, a way of working (the team's habits for that kind of app, or describe the app and AppTown suggests one), and where the code lives."
+    caption: Describe the app you want. AppTown suggests a name, then helps you choose how to build it and where to keep its code.
     path: /projects/_new
   - id: project
     title: An app's page
@@ -25,7 +33,7 @@ stops:
     path: /projects/lunch-orders/console?change={chat}
   - id: change
     title: A change, checked
-    caption: Every change runs the project's checks. Here the tests passed and the style check failed, and the change waits for a person.
+    caption: Review what changed and what the checks found. Here, the tests passed but a style check needs fixing.
     path: /changes/{review}
   - id: infrastructure
     title: Infrastructure
@@ -33,19 +41,19 @@ stops:
     path: /infrastructure
   - id: conformance
     title: Conformance
-    caption: Whether each app still follows the team's ways of working, and what to fix.
+    caption: See whether each app follows your team's ways of working, and what to fix. Some checks here need services the example does not run, so their results are shown as incomplete.
     path: /conformance
   - id: ways-of-working
     title: Ways of working
-    caption: The team's habits as data, guidance, checks and workflows, adopted by projects and versioned.
+    caption: Share guidance, checks and workflows across your apps.
     path: /packs
   - id: usage
     title: Usage
-    caption: What the agents cost in tokens, and where each workflow's time goes, step by step, including how long approvals wait for a person.
+    caption: See token use and how long each step takes, including time waiting for approval.
     path: /usage
   - id: people
     title: People
-    caption: Who can do what, granted by role, and the record of each grant.
+    caption: Choose who can use AppTown and what they can do.
     path: /people
   - id: docs
     title: Docs

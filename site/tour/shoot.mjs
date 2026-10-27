@@ -1,4 +1,4 @@
-// The tour's camera (make tour; internal/apptown/tour_test.go starts it):
+// The tour's camera (make tour; internal/apptown/browser_security_browser_test.go starts it):
 // signs in to the tour's AppTown and photographs each stop at 1440x900,
 // device scale 2, in the light and the dark theme, with animations and the
 // text caret off. Writes <out>/<id>-light.png and <id>-dark.png.
@@ -40,7 +40,7 @@ try {
   if (status !== 200) throw new Error('sign-in answered ' + status);
   for (const shot of shots) {
     for (const theme of ['light', 'dark']) {
-      const url = base + shot.path + (shot.path.includes('?') ? '&' : '?') + 'theme=' + theme;
+      const url = (shot.path.startsWith('http://127.0.0.1:') ? shot.path : base + shot.path) + (shot.path.includes('?') ? '&' : '?') + 'theme=' + theme;
       await page.goto(url, { waitUntil: 'networkidle' });
       if (shot.wait) await page.getByText(shot.wait, { exact: false }).first().waitFor();
       await page.addStyleTag({ content: '*, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });

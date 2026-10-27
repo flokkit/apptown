@@ -308,6 +308,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: sh scripts/ci-heavy.sh tour
+        env:
+          TOUR_VERSION: ${{ github.ref_name }}
+          TOUR_SOURCE: ${{ github.sha }}
       - if: always()
         run: sh scripts/ci-heavy.sh cleanup
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -316,6 +319,7 @@ jobs:
           path: |
             site/tour/*.png
             site/tour/index.html
+            site/tour/metadata.json
           if-no-files-found: error
           retention-days: 30
 
@@ -330,6 +334,9 @@ jobs:
   # invalidate its distribution.
   site:
     name: publish apptown.dev
+    concurrency:
+      group: apptown-site-publication
+      cancel-in-progress: false
     needs: [merge, tour]
     if: ${{ !contains(github.ref_name, '-test.') }}
     runs-on: ubuntu-24.04
