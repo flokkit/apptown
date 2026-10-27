@@ -25,10 +25,27 @@
 <body>
 <main>
   <h1>AppTown tour</h1>
-  <p class="lead">What AppTown looks like, page by page. The pictures are made from a small example team's AppTown each release; <a href="/">back to apptown.dev</a>.</p>
+  <p class="lead">Follow a small team's apps from a request to a checked change. Conversations are recorded examples; the checks run against real example code. <a href="/">Back to apptown.dev</a>.</p>
+  <p class="lead" data-tour-identity>Unreleased preview · source <code>local working tree</code> · <a href="/tour/">All versions</a></p>
+  <section id="before">
+    <h2>A perfectly sensible beginning</h2>
+    <p>The cycling club has a newsletter and a ride calendar. Useful, but Tom has an idea.</p>
+    <picture>
+      <source srcset="before-dark.png" media="(prefers-color-scheme: dark)">
+      <img src="before-light.png" width="1440" height="900" alt="A perfectly sensible beginning" loading="lazy">
+    </picture>
+  </section>
+  <section id="after">
+    <h2>Turn the neon up</h2>
+    <p>Same club, louder shirt. Tom asks for an exuberant makeover while keeping the pages and links working. These are the actual example pages, rendered before and after the change.</p>
+    <picture>
+      <source srcset="after-dark.png" media="(prefers-color-scheme: dark)">
+      <img src="after-light.png" width="1440" height="900" alt="Turn the neon up" loading="lazy">
+    </picture>
+  </section>
   <section id="home">
     <h2>Home</h2>
-    <p>Where every person starts. Each app here keeps a record of every change, who asked, what was checked and who approved it.</p>
+    <p>See your apps, recent work and anything that needs your attention. This example leaves one style check to fix and one approval to give.</p>
     <picture>
       <source srcset="home-dark.png" media="(prefers-color-scheme: dark)">
       <img src="home-light.png" width="1440" height="900" alt="Home" loading="lazy">
@@ -44,7 +61,7 @@
   </section>
   <section id="new-project">
     <h2>Start an app</h2>
-    <p>Three steps: a name, a way of working (the team&#39;s habits for that kind of app, or describe the app and AppTown suggests one), and where the code lives.</p>
+    <p>Describe the app you want. AppTown suggests a name, then helps you choose how to build it and where to keep its code.</p>
     <picture>
       <source srcset="new-project-dark.png" media="(prefers-color-scheme: dark)">
       <img src="new-project-light.png" width="1440" height="900" alt="Start an app" loading="lazy">
@@ -68,7 +85,7 @@
   </section>
   <section id="change">
     <h2>A change, checked</h2>
-    <p>Every change runs the project&#39;s checks. Here the tests passed and the style check failed, and the change waits for a person.</p>
+    <p>Review what changed and what the checks found. Here, the tests passed but a style check needs fixing.</p>
     <picture>
       <source srcset="change-dark.png" media="(prefers-color-scheme: dark)">
       <img src="change-light.png" width="1440" height="900" alt="A change, checked" loading="lazy">
@@ -84,7 +101,7 @@
   </section>
   <section id="conformance">
     <h2>Conformance</h2>
-    <p>Whether each app still follows the team&#39;s ways of working, and what to fix.</p>
+    <p>See whether each app follows your team&#39;s ways of working, and what to fix. Some checks here need services the example does not run, so their results are shown as incomplete.</p>
     <picture>
       <source srcset="conformance-dark.png" media="(prefers-color-scheme: dark)">
       <img src="conformance-light.png" width="1440" height="900" alt="Conformance" loading="lazy">
@@ -92,7 +109,7 @@
   </section>
   <section id="ways-of-working">
     <h2>Ways of working</h2>
-    <p>The team&#39;s habits as data, guidance, checks and workflows, adopted by projects and versioned.</p>
+    <p>Share guidance, checks and workflows across your apps.</p>
     <picture>
       <source srcset="ways-of-working-dark.png" media="(prefers-color-scheme: dark)">
       <img src="ways-of-working-light.png" width="1440" height="900" alt="Ways of working" loading="lazy">
@@ -100,7 +117,7 @@
   </section>
   <section id="usage">
     <h2>Usage</h2>
-    <p>What the agents cost in tokens, and where each workflow&#39;s time goes, step by step, including how long approvals wait for a person.</p>
+    <p>See token use and how long each step takes, including time waiting for approval.</p>
     <picture>
       <source srcset="usage-dark.png" media="(prefers-color-scheme: dark)">
       <img src="usage-light.png" width="1440" height="900" alt="Usage" loading="lazy">
@@ -108,7 +125,7 @@
   </section>
   <section id="people">
     <h2>People</h2>
-    <p>Who can do what, granted by role, and the record of each grant.</p>
+    <p>Choose who can use AppTown and what they can do.</p>
     <picture>
       <source srcset="people-dark.png" media="(prefers-color-scheme: dark)">
       <img src="people-light.png" width="1440" height="900" alt="People" loading="lazy">

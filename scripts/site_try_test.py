@@ -2,6 +2,10 @@
 Docker, browser and AWS CLI: piped input, the ready link, restarts, and that a
 failed stop or removal is never reported as done."""
 import os
+import json
+import http.server
+import threading
+import functools
 from pathlib import Path
 import pty
 import shutil
@@ -272,7 +276,7 @@ fi
         them)."""
         repo = self.base / 'repo'
         for rel in ('site/publish.sh', 'site/index.html', 'site/try.sh', 'site/tour/index.html',
-                    'site/tour/tour.yaml', 'scripts/tour-check.py', 'deploy/one-server/compose.yaml'):
+                    'site/tour/tour.yaml', 'scripts/tour-check.py', 'scripts/publish-tour.py', 'deploy/one-server/compose.yaml'):
             (repo / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / rel, repo / rel)
         ids = re.findall(r'<section id="([^"]+)">', (ROOT / 'site/tour/index.html').read_text())
@@ -287,17 +291,36 @@ fi
 
     def test_publish_substitution_metadata_and_invalidation(self):
         repo, ids = self.site_with_tour()
-        self.stub('aws', '''#!/bin/sh
-printf '%s\\n' "$*" >> "$CALLS"
-if [ "$1 $2" = 's3 cp' ]; then
-  key=${4#s3://*/}
-  case " $* " in
-  *" --recursive "*) mkdir -p "$PUBLISHED/$key" && cp "$3"*.png "$PUBLISHED/$key" 2>/dev/null || : ;;
-  *) mkdir -p "$PUBLISHED/$(dirname "$key")" && cp "$3" "$PUBLISHED/$key" ;;
-  esac
-fi
-''')
-        self.env.update(SITE_BUCKET='review-bucket', SITE_DISTRIBUTION='review-distribution', PUBLISHED=str(self.base))
+        self.stub('aws', """#!/usr/bin/env python3
+import os, sys, shutil
+from pathlib import Path
+args = sys.argv[1:]
+with open(os.environ['CALLS'], 'a') as f: f.write(' '.join(args) + '\\n')
+if args[:2] == ['s3', 'cp']:
+    key = args[3].split('/', 3)[3]
+    target = Path(os.environ['PUBLISHED']) / key
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(args[2], target)
+elif args[:2] == ['s3api', 'put-object']:
+    key = args[args.index('--key') + 1]
+    target = Path(os.environ['PUBLISHED']) / key
+    if '--if-none-match' in args and target.exists():
+        print('PreconditionFailed', file=sys.stderr)
+        sys.exit(1)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(args[args.index('--body') + 1], target)
+""")
+        (repo / 'site/tour/metadata.json').write_text(json.dumps({'kind': 'release', 'version': 'v1.2.3-rc.1', 'source': 'a' * 40}))
+        (self.base / 'tour').mkdir()
+        (self.base / 'tour/versions.json').write_text('[]')
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(self.base))
+        server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        self.env.update(SITE_BUCKET='review-bucket', SITE_DISTRIBUTION='review-distribution', PUBLISHED=str(self.base),
+                        GITHUB_SHA='a' * 40, SITE_URL='http://127.0.0.1:' + str(server.server_port))
         for shell in SHELLS:
             with self.subTest(shell=shell):
                 result = subprocess.run([shell, str(repo / 'site/publish.sh'), '1.2.3-rc.1'], env=self.env,
@@ -316,16 +339,17 @@ fi
                 self.assertNotIn('@VERSION@', compose)
                 self.assertIn('ghcr.io/flokkit/apptown:${APPTOWN_VERSION:-1.2.3-rc.1}', compose)
                 self.assertIn('--content-type text/yaml; charset=utf-8', calls)
-                # The tour goes with the site: its page, and its shots as images.
-                self.assertEqual((self.base / 'tour' / 'index.html').read_bytes(), (ROOT / 'site/tour/index.html').read_bytes())
-                # Only writes: the publish role may not list the bucket, so no
-                # sync (it lists first) and no ls.
-                self.assertIn('s3 cp ' + str(repo / 'site/tour') + '/ s3://', calls)
-                self.assertIn('--recursive', calls)
+                # The complete snapshot is immutable and history points to it.
+                snapshot = self.base / 'tour/v1.2.3-rc.1'
+                self.assertIn('AppTown tour · v1.2.3-rc.1', (snapshot / 'index.html').read_text())
+                self.assertIn('/tour/v1.2.3-rc.1/', (self.base / 'tour/index.html').read_text())
+                self.assertIn('s3api put-object', calls)
+                self.assertIn('--if-none-match *', calls)
                 self.assertNotIn('s3 sync', calls)
                 self.assertNotIn('s3 ls', calls)
                 self.assertIn('--content-type image/png', calls)
-                self.assertEqual(len(list((self.base / 'tour').glob('*.png'))), 2 * len(ids))
+                # Identical fixture images deliberately share their content hash.
+                self.assertEqual(len(list(snapshot.glob('*.png'))), 1)
 
     # A tour missing a screenshot is not published: nothing is uploaded.
     def test_publish_refuses_a_tour_without_its_shots(self):

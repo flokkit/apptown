@@ -190,6 +190,7 @@ if [ "$mode" = tour ]; then
 		-v "$PWD:$PWD" -w "$PWD" \
 		-v "$tmp:$tmp" -e TMPDIR="$tmp" \
 		-v "$gomod:/root/go/pkg/mod" -v "$gocache:/root/.cache/go-build" \
+		-e TOUR_VERSION="${TOUR_VERSION:-}" -e TOUR_SOURCE="${TOUR_SOURCE:-}" \
 		-e GOFLAGS="${GOFLAGS:-}" -e OWNER="$(id -u):$(id -g)" \
 		apptown-ci-heavy sh -c 'status=0; make tour || status=$?; chown -R "$OWNER" web/node_modules web/dist site/tour 2>/dev/null; exit $status'
 	exit

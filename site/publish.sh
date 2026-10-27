@@ -37,6 +37,9 @@ if grep -q '@VERSION@' "$out/try.sh" "$out/compose.yaml"; then
 	exit 1
 fi
 
+# Publish the tag's complete immutable tour and retain earlier versions.
+python3 "$here/../scripts/publish-tour.py" "$here/tour" --version "v$version" --source "${GITHUB_SHA:?release source SHA required}"
+
 # Short cache times: the try script changes with each release.
 aws s3 cp "$out/index.html" "s3://$SITE_BUCKET/index.html" \
 	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
@@ -44,13 +47,6 @@ aws s3 cp "$out/try.sh" "s3://$SITE_BUCKET/try.sh" \
 	--content-type 'text/plain; charset=utf-8' --cache-control 'max-age=300'
 aws s3 cp "$out/compose.yaml" "s3://$SITE_BUCKET/compose.yaml" \
 	--content-type 'text/yaml; charset=utf-8' --cache-control 'max-age=300'
-# The tour: its page and the screenshots make tour wrote.
-aws s3 cp "$here/tour/index.html" "s3://$SITE_BUCKET/tour/index.html" \
-	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
-# cp, not sync: sync lists the bucket first, and the publish role may only
-# write objects (apptown-site-publisher: PutObject and CreateInvalidation).
-aws s3 cp "$here/tour/" "s3://$SITE_BUCKET/tour/" --recursive --exclude '*' --include '*.png' \
-	--content-type image/png --cache-control 'max-age=300'
 aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION" \
 	--paths '/' '/index.html' '/try' '/try.sh' '/compose.yaml' '/tour/*' >/dev/null
 echo "published apptown.dev with try.sh and compose.yaml starting $version"

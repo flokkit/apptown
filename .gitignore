@@ -33,3 +33,5 @@ presso*
 # The UI tour's screenshots: the release workflow makes them (make tour);
 # a local make tour is a preview, never committed.
 /site/tour/*.png
+
+/site/tour/metadata.json

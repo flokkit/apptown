@@ -141,6 +141,7 @@ check-docs:             ## current guides state the current rule: no dated names
 	python3 scripts/docs-links_test.py
 	python3 scripts/docs-links.py
 	python3 scripts/tour_test.py
+	python3 scripts/publish_tour_test.py
 	python3 scripts/tour-check.py
 	python3 scripts/names-check_test.py
 	python3 scripts/names-check.py
