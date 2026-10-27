@@ -115,8 +115,20 @@ v=1.0.0 a=apptown-1.0.0-linux-amd64.tar.gz
 curl -fLO https://github.com/flokkit/apptown/releases/download/v$v/$a
 curl -fLO https://github.com/flokkit/apptown/releases/download/v$v/SHA256SUMS
 sha256sum --ignore-missing -c SHA256SUMS
-mkdir -p /opt/apptown && tar -xzf $a --strip-components=1 -C /opt/apptown
+mkdir -p /opt/apptown && tar --no-same-owner -xzf $a --strip-components=1 -C /opt/apptown
 ```
+
+`--no-same-owner` keeps the extracted files owned by the installing root user,
+rather than the release builder. For an existing Linux installation, stop the
+service and repair ownership of the installed release before restarting it:
+
+```sh
+chown -R root:root /opt/apptown
+```
+
+On a worker, repair `/opt/apptown-worker` instead. Apply this only to the
+installation directory, not the data directory or project repositories.
+Do not rely on extracting the archive again to repair an existing installation.
 
 To check that `SHA256SUMS` itself came from us, see Check a release, above.
 

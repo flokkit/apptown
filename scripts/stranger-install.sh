@@ -51,8 +51,16 @@ apt-get install -y -qq git curl ca-certificates python3 docker-cli >/dev/null 2>
 docker version --format 'docker {{.Server.Version}}'
 
 step "unpack the release"
-mkdir -p "$work/opt" && tar -xzf "$archive" -C "$work/opt"
+mkdir -p "$work/opt" && tar --no-same-owner -xzf "$archive" -C "$work/opt"
 root=$(ls -d "$work"/opt/apptown-*)
+python3 - "$root" <<'PYOWN'
+import os, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+for path in [root, *root.rglob("*")]:
+    st = path.lstat()
+    if (st.st_uid, st.st_gid) != (os.geteuid(), os.getegid()):
+        sys.exit(f"release file is not owned by the installer: {path} ({st.st_uid}:{st.st_gid})")
+PYOWN
 export PATH="$root/bin:$PATH"
 apptownd -version
 apptown version 2>/dev/null | head -1 || true
