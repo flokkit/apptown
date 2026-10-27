@@ -1,40 +1,57 @@
 # Flokkit AppTown
 
-AppTown gives your team, household or clients a ready-made place to build
-small web apps with AI coding agents, in the browser or from a desktop agent
-via MCP. Each app follows a way of working you choose and is checked and
-deployed the same way, so looking after many apps doesn't mean looking after
-many different setups. You run AppTown yourself, on your own computer or
-server.
+AppTown gives your team a ready-made place to build small web apps with AI
+coding agents, in the browser or from a desktop agent via MCP. Each app
+follows a way of working you choose, with consistent checks and deployment.
+That makes a growing collection of apps easier to maintain and change. You
+run AppTown yourself, on your own computer or server.
 
 **1.0 release candidate** · [Tour](https://apptown.dev/tour/) · [Install on a server](#install-on-a-server) · [Release notes](releases/) · [Apache-2.0](LICENSE)
 
+## Why
+
+AppTown started at home, vibe coding games with the kids. Agents could
+quickly bring ideas to life, but getting the games online was frustrating.
+"Why can't my friend see it?" "Now I want it to be multiplayer!" "What's Git?"
+There were deployment credentials, permissions, hosting and DNS to set up.
+Once the games were running, keeping them secure and up to date became
+another job.
+
+Teams face the same problem with internal tools. An app might take an
+afternoon to build, but someone still has to look after it months later,
+often after the person who made it has moved on.
+
+Shared conventions and a record of what changed help the next person
+understand the app and keep it useful.
+
 ## What you get
 
-**For the people you set it up for**
+**For the people using it**
 
 - **People who don't use a coding agent** work entirely in the browser. They
   describe what they want, an agent makes it in a container on your server
-  using the model key you provide, and they try it on a preview link. Nothing
-  to install, no API keys, and no deploy tooling to set up.
+  using the model key you provide. They open a preview and try it. Nothing
+  to install, no API keys, and no deployment tools to configure.
 - **People who already use a coding agent** keep using their own. They
   connect it to AppTown and push their work as a change. AppTown then checks
-  that work itself: it runs the tests, and it checks the change follows your
-  way of working.
+  that work itself: it runs the tests and checks that the change follows
+  your project's rules. They can bring in existing apps too.
 - In a team, you decide who approves changes and who can release them.
 
 **For you, keeping it all running**
 
-- You choose each app's language, framework, checks and agent guidance as a
-  way of working. Projects can share one, so different people build on the
-  same conventions.
+- You choose the language, framework, checks and agent guidance as a way of
+  working. You can have several, such as one for Python web apps and one for
+  static sites. Each project adopts one, so people working on similar apps
+  share the same conventions.
 - AppTown manages HTTPS, databases and object storage, with backups on
   supported deployment targets.
 - Library updates and way-of-working updates come to you as changes that are
-  already built and tested.
+  already built and tested. Someone on the project accepts them before they
+  take effect.
 - There's a record of who asked for what, what was checked, who approved it
   and what's running now.
-- It's ordinary software underneath: a git repository and a container image
+- It's ordinary software underneath: a Git repository and a container image
   you can take anywhere.
 
 ## Try it now
@@ -62,7 +79,7 @@ More screenshots are in [the tour](https://apptown.dev/tour/).
 ## What it's good for
 
 Small web apps a team or household runs for itself: internal tools,
-dashboards, small APIs, static sites, browser games, etc.
+dashboards, small APIs, static sites and browser games.
 
 It works best with Go, Django, Rails and plain web front ends, deployed to a
 Docker host. Other languages and deploy targets work too, but are less
@@ -73,38 +90,12 @@ It isn't for mobile apps, large multi-team systems, or hosting for paying
 customers at scale, and it doesn't replace your Git host. Single sign-on and
 high availability [aren't in 1.0](stock/docs/guides/compatibility.md#not-in-10).
 
-## Why
-
-AppTown started at home, vibe coding games with the kids. Agents can quickly
-bring ideas to life, but the overall experience was still frustrating. "Why
-can't my friend see it?" "Now I want it to be multiplayer!" "What's git?"
-Getting there meant git setup, deploy keys on a kid's laptop or pipelines,
-permissions, integrations, hosting, DNS. Once the games were up, there was no good way
-to manage them, and keeping them secure and up to date was a job in itself.
-
-Teams have the same problem with internal tools. Getting it right today means
-wiring together many separate tools: a coding agent set up on each person's
-computer, CI, a deploy pipeline, a secrets store, backups and approval rules.
-AppTown does all of that in a simple and opinionated way, in one place.
-
-The bigger cost comes later. A year on, someone has to understand and patch
-each app, often after the person who made it has moved on. Because every app
-follows conventions you set and keeps a record of how it got here, you look
-after one system instead of dozens of one-offs.
-
-You set those conventions as a way of working: the language and framework,
-the linter, the checks that run on every change, and the guidance the agents
-follow. You can have several, say one for Python web apps and one for static
-sites. Each project adopts one, and takes up newer versions when someone on
-the project accepts them. Apps someone made with a coding agent on their own
-computer can be brought in and adopt one too.
-
 ## Install on a server
 
 One or more admins run AppTown for everyone else. They invite people,
-connect the places apps get deployed to, add the AI model key, and choose
-the way of working new projects start with. Each project sets its own
-approval rules. Administrators can also approve changes.
+connect the servers or services that will run the apps, add the AI model
+key, and choose the way of working new projects start with. Each project
+sets its own approval rules. Administrators can also approve changes.
 
 On one Linux server with Docker (Compose 2.23 or later) and a domain name:
 
@@ -115,11 +106,12 @@ echo APPTOWN_DOMAIN=apptown.example.com > .env
 docker compose up -d
 ```
 
-First point the domain, `*.preview.` the domain and `*.main.` the domain at
-the server, and open ports 80 and 443. One server suits a small team that
-trusts everyone who writes projects. The agents' code runs in containers on
-the machine that holds AppTown's records, and a container is not a strong
-sandbox. A split install puts the agents and the apps on other machines,
+First point `apptown.example.com`, `*.preview.apptown.example.com` and
+`*.main.apptown.example.com` at the server, and open ports 80 and 443.
+One server suits a small team that trusts everyone who writes projects.
+The agents' code runs in containers on the machine that holds AppTown's
+records, and a container is not a strong sandbox. A split install puts the
+agents and the apps on other machines,
 and takes more setup. [Running AppTown](stock/docs/guides/running-apptown.md)
 covers both, and which one to choose.
 
@@ -152,15 +144,13 @@ says how to give it a token.
 
 ## What is here
 
-Project repositories, Changes and versioned workflow runs, with reviews,
-approvals, conformance checks, deployments and persistent agent consoles.
-The web UI, HTTP API, CLI and MCP tools call the same application owners.
-PostgreSQL stores the records; the Go daemon embeds the web frontend.
+This repository contains the Go server, web frontend, command-line tools
+and built-in ways of working. PostgreSQL stores AppTown's records, and the
+server embeds the web frontend.
 
-For development, start with the [current package map](design/architecture/domains.md)
-and [code navigation](internal/apptown/README.md). The [documentation index](design/README.md)
-distinguishes current guides from accepted intent. Authentication and resource
-access are checked separately; an actor name is not permission.
+For development, start with the [package map](design/architecture/domains.md)
+and [code navigation](internal/apptown/README.md). The
+[documentation index](design/README.md) covers the product and its design.
 
 ## From source
 
@@ -176,11 +166,14 @@ make dev-web      # vite dev server on :5173 with /api proxied
 ```
 
 Run `make tools` to install the check tools, including the pinned sqlc version,
-then `make check`. Each owner declares its schema fragment; `internal/apptown/dbschema/schema.sql`
-is the generated bundle embedded by the daemon. See [schema ownership](design/architecture/schema-ownership.md). Named queries live under each subsystem's `internal/*sql`.
-After editing a query or schema, run `make generate-sql` and commit the generated
-Go alongside the SQL. Local checks and CI use `sqlc diff` to reject stale output.
-See [schema ownership](design/architecture/schema-ownership.md).
+then `make check`.
+
+Subsystems declare their database schemas. The server embeds their
+combined schema from `internal/apptown/dbschema/schema.sql`.
+Named queries live under each subsystem's `internal/*sql`. After editing a
+query or schema, run `make generate-sql` and commit the generated Go alongside
+the SQL. Local checks and CI use `sqlc diff` to reject stale output. See
+[schema ownership](design/architecture/schema-ownership.md).
 
 ## Layout
 
