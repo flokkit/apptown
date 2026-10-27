@@ -10,7 +10,7 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467
 	github.com/docker/cli v29.5.3+incompatible
-	github.com/go-jose/go-jose/v4 v4.1.4
+	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/google/certificate-transparency-go v1.3.3
 	github.com/google/go-containerregistry v0.21.7
 	github.com/google/jsonschema-go v0.4.3
