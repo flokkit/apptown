@@ -65,7 +65,7 @@
 # nothing.
 
 # The web bundle apptownd embeds.
-FROM --platform=$BUILDPLATFORM node:24-trixie-slim@sha256:43b9ba1142b8dcf33fa8f922ca1be85714adc444e0586c7cf7726daaeabc1bea AS web
+FROM --platform=$BUILDPLATFORM node:24-trixie-slim@sha256:f2fb613435eae166d7cb3e6533adcf5583f14b8fb9be25f714e61bc83cc895d5 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json web/.npmrc ./
 RUN npm ci --no-audit --no-fund
