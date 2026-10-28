@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -220,5 +222,34 @@ func TestDiscoveryDoesNotFollowRedirectOrReadUnboundedBody(t *testing.T) {
 				t.Fatal("followed provider redirect")
 			}
 		})
+	}
+}
+
+// Provider token headers and JWKS pass through this dependency parser. Keep
+// fixtures cheap: public moduli require no RSA validation, and private factors
+// below are tiny. This guards the dependency bounds without a DoS payload.
+func TestProviderJWKParsingBoundsRSAParameters(t *testing.T) {
+	for _, bits := range []int{4096, 4097} {
+		n := new(big.Int).Lsh(big.NewInt(1), uint(bits-1))
+		raw, err := json.Marshal(map[string]string{
+			"kty": "RSA", "n": base64.RawURLEncoding.EncodeToString(n.Bytes()), "e": "AQAB",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var key jose.JSONWebKey
+		err = json.Unmarshal(raw, &key)
+		if bits == 4096 && err != nil {
+			t.Fatalf("modulus at limit rejected: %v", err)
+		}
+		if bits == 4097 && (err == nil || !strings.Contains(err.Error(), "modulus too large")) {
+			t.Errorf("oversize modulus must hit size guard, got %v", err)
+		}
+	}
+	var key jose.JSONWebKey
+	err := json.Unmarshal([]byte(`{"kty":"RSA","n":"Dw","e":"AQAB","d":"Aw","p":"EQ","q":"Aw"}`), &key)
+	// n=15, p=17, q=3: reject inconsistent factors before RSA validation.
+	if err == nil || !strings.Contains(err.Error(), "p * q != n") {
+		t.Fatalf("inconsistent primes must hit early guard, got %v", err)
 	}
 }
