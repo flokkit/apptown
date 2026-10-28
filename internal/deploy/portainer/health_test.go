@@ -176,17 +176,17 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 					return containerresulttest.Answer{Answer: []byte(answer)}, true
 				}}
 				return Diagnostic{Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
-						out, err, ok := daemon.RunEnv(args, env)
-						if !ok {
-							return nil, fmt.Errorf("unexpected diagnostic command %v", args)
-						}
-						return out, err
-					}}, func() error {
-						if mode == "transport-cleanup" {
-							return errors.New("proxy cleanup unavailable")
-						}
-						return nil
-					}, nil
+					out, err, ok := daemon.RunEnv(args, env)
+					if !ok {
+						return nil, fmt.Errorf("unexpected diagnostic command %v", args)
+					}
+					return out, err
+				}}, func() error {
+					if mode == "transport-cleanup" {
+						return errors.New("proxy cleanup unavailable")
+					}
+					return nil
+				}, nil
 			}
 			checkpoint := map[string]any{}
 			save := func(values map[string]any) error {

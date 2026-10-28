@@ -5,7 +5,7 @@
 # every AppTown that runs containers on Linux). scripts/ci-heavy.sh builds it
 # with no context. Every pin is an ARG default here, the one place it is set;
 # the bases and the npm registry are the public upstreams.
-ARG GO_IMAGE=golang:1.26.10-trixie@sha256:9ba7dc6d09ebf6e9317263973174bbf44e15bdf58cb0103747d7376f7cfa2d2f
+ARG GO_IMAGE=golang:1.27.3-trixie@sha256:c65ecfe613b539ac74c62a4c3b2c27e8f8a6076384c8f27e8a3c0f3be17cc385
 ARG NODE_IMAGE=node:24@sha256:6449e19d8184d84062525b6a7524def03146c2cb04a7f08b076680d0e8e4240a
 FROM ${GO_IMAGE} AS go
 
