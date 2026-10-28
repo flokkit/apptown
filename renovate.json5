@@ -83,25 +83,11 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
-      "matchStrings": ["run: \"(?<depName>postgres):(?<currentValue>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)\""],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "docker"
-    },
-    {
-      "customType": "regex",
-      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
       "matchStrings": ["\\n  mariadb:\\n    \"(?<depType>[^\"]+)\": \\{version: \"?(?<currentValue>[0-9.]+)\"?,"],
       "depNameTemplate": "mariadb",
       "datasourceTemplate": "docker",
       "versioningTemplate": "docker",
       "extractVersionTemplate": "^(?<version>[0-9.]+)$"
-    },
-    {
-      "customType": "regex",
-      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
-      "matchStrings": ["run: \"(?<depName>mariadb):(?<currentValue>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)\""],
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "docker"
     },
     {
       "customType": "regex",
@@ -133,7 +119,29 @@
     {
       "customType": "regex",
       "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
-      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)(?: extractVersion=(?<extractVersion>\\S+))?\\n  \\w+:\\n    \"(?<depType>[^\"]+)\": \\{version: (?<currentValue>[^,}\\s]+)"]
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)(?: extractVersion=(?<extractVersion>\\S+))?\\n  [\\w-]+:\\n    \"(?<depType>[^\"]+)\": \\{version: (?<currentValue>[^,}\\s]+)"]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
+      "matchStrings": ["run: \"(?<depName>[^\\s:@\"]+):(?<currentValue>[^@\"]+)@(?<currentDigest>sha256:[a-f0-9]+)\""],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
+      "matchStrings": ["\"1\": \\{version: (?<currentValue>[0-9.]+), images: \\{run: \"busybox@(?<currentDigest>sha256:[a-f0-9]+)\""],
+      "depNameTemplate": "busybox",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/tool-pins\\.txt$/"],
+      "matchStrings": ["(?:^|\\n)(?:alpine-git|caddy)[ \\t]+(?<currentValue>\\S+)[ \\t]+image (?<depName>[^\\s,]+)"],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
     }
   ],
   "packageRules": [
@@ -374,9 +382,36 @@
       "enabled": false
     },
     {
-      "matchFileNames": ["deploy/**"],
+      "matchFileNames": ["stock/tool-versions.yaml", "deploy/tool-pins.txt"],
+      "matchPackageNames": ["alpine/git"],
+      "allowedVersions": "/^v?2(?:\\.|$)/",
+      "groupName": "runtime Alpine Git"
+    },
+    {
+      "matchFileNames": ["stock/tool-versions.yaml", "deploy/tool-pins.txt"],
+      "matchPackageNames": ["busybox"],
+      "allowedVersions": "/^1(?:\\.|$)/",
+      "groupName": "runtime BusyBox"
+    },
+    {
+      "matchFileNames": ["stock/tool-versions.yaml", "deploy/tool-pins.txt"],
+      "matchPackageNames": ["caddy"],
+      "allowedVersions": "/^2(?:\\.|$)/",
+      "groupName": "runtime Caddy"
+    },
+    {
+      "matchFileNames": ["stock/tool-versions.yaml", "deploy/tool-pins.txt", "deploy/apptown-agent/Dockerfile"],
       "matchPackageNames": ["docker"],
-      "enabled": false
+      "allowedVersions": "/^27(?:\\.|$)/",
+      "groupName": "runtime private Docker 27",
+      "prBodyNotes": ["Docker CLI archive checksums require manual verification for both architectures. A changed private daemon requires runtime qualification before acceptance; qualification records and profile facts are not updated by Renovate."]
+    },
+    {
+      "matchFileNames": ["deploy/Dockerfile"],
+      "matchPackageNames": ["docker"],
+      "allowedVersions": "/^29(?:\\.|$)/",
+      "groupName": "deployment Docker 29",
+      "prBodyNotes": ["These CLI and daemon bases are separate from the qualified private Docker runtime. Runtime and deployment acceptance remain manual."]
     }
   ],
   "vulnerabilityAlerts": {

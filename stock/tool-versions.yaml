@@ -6,7 +6,8 @@
 # In this release AppTown uses only the four runtime images below (apptown-sh,
 # apptown-df, static-server, private-docker). The other entries are the lines
 # packs may name; resolving them for runs and new projects comes later.
-# private-docker moves only with an AppTown release: its digest is part of the
+# Runtime proposals do not qualify a changed daemon. private-docker moves only
+# with an AppTown release: its digest is part of the
 # qualified worker profile (internal/execution/qualified_profiles.json).
 #
 # Every image names a digest. Lines are only added; a line past its end of
@@ -16,15 +17,18 @@ kind: ToolVersions
 worksWith: ">=1.0.0"
 tools:
   # The shell every guidance check, and AppTown's cache sweep, runs in.
+  # renovate: datasource=docker depName=alpine/git versioning=docker
   apptown-sh:
     "1": {version: v2.47.2, images: {run: "alpine/git:v2.47.2@sha256:062a01ad7a0eb17cff382bc5e26086b4d710e56dfdfdf001109a49b6d9bd378c"}}
   # The df behind disk-space reads through Docker.
   apptown-df:
     "1": {version: 1.37.0, images: {run: "busybox@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"}}
   # Serves static output in release images and local compose.
+  # renovate: datasource=docker depName=caddy versioning=docker extractVersion=^(?<version>[0-9.]+)-alpine$
   static-server:
     "2": {version: 2.10.2, images: {run: "caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"}}
   # The private Docker daemon of a chat or task.
+  # renovate: datasource=docker depName=docker versioning=docker extractVersion=^(?<version>[0-9.]+)-dind$
   private-docker:
     "27": {version: 27.5.1, images: {run: "docker:27.5.1-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce"}}
   # renovate: datasource=golang-version depName=go versioning=semver
