@@ -2,13 +2,18 @@
 
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
+# renovate: datasource=go depName=github.com/sqlc-dev/sqlc versioning=semver
 SQLC_VERSION := v1.28.0
 GOLANGCI_LINT ?= golangci-lint
+# renovate: datasource=go depName=github.com/golangci/golangci-lint/v2 versioning=semver
 GOLANGCI_LINT_VERSION := v2.13.2
 # Analyzers read the compiler's export data, so a tool built for another Go
 # release can fail on this one: pin them here, for local and CI alike.
+# renovate: datasource=go depName=honnef.co/go/tools versioning=semver
 STATICCHECK_VERSION := v0.8.1
+# renovate: datasource=go depName=golang.org/x/vuln versioning=semver
 GOVULNCHECK_VERSION := v1.7.0
+# renovate: datasource=go depName=golang.org/x/tools versioning=semver
 DEADCODE_VERSION := v0.50.0
 .PHONY: sqlc-tools check-sqlc generate-sql check-generated
 
