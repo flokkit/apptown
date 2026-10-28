@@ -35,10 +35,13 @@ func TestAnInterruptedCheckLeavesNoGitBehind(t *testing.T) {
 	if dir := os.Getenv(interruptChild); dir != "" {
 		go func() { _ = sendScratch("0123456789012345678901234567890123456789", "refs/apptown/scratch/1") }()
 		if !poll.Until(context.Background(), 10*time.Second, 10*time.Millisecond, func() bool {
-			_, err := os.Stat(filepath.Join(dir, "started"))
-			return err == nil
+			// Redirection creates the file before echo writes the PID.
+			// Existence alone is not the process witness this test needs.
+			raw, err := os.ReadFile(filepath.Join(dir, "started"))
+			pid, _ := strconv.Atoi(strings.TrimSpace(string(raw)))
+			return err == nil && pid > 0
 		}) {
-			t.Fatal("git never started")
+			t.Fatal("git never wrote its PID")
 		}
 		// git leads a group of its own, so the parent's witness of its
 		// end says something.
