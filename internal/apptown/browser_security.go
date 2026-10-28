@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
+	"github.com/flokkit/apptown/web"
 )
 
 // Browser security belongs inside VHost: hosted applications have their own
@@ -16,7 +17,8 @@ func (a *App) browserSecurity(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
-		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; object-src 'none'")
+		dsn, _, _ := selfErrorsFor(a).BrowserConfig(r.Context())
+		w.Header().Set("Content-Security-Policy", browserResourcePolicy(a.browserOrigin(r), dsn))
 		w.Header().Set("Referrer-Policy", "same-origin")
 		// An invite or password reset link carries its token in the path;
 		// the page it opens sends no referrer at all.
@@ -52,4 +54,17 @@ func (a *App) sessionCookieName(r *http.Request) string { return a.cfg.browserSe
 // browserSession is the public origin and session cookie a browser is given.
 func (c configuration) browserSession() httpapi.BrowserSession {
 	return httpapi.BrowserSession{PublicOrigin: c.publicOrigin(), PublicHost: c.publicHost, PublicHTTPS: c.routing().Scheme == "https"}
+}
+
+// Only AppTown's configured diagnostic attachment can add a connect origin.
+// An already open document keeps its policy until refreshed after a change.
+func browserResourcePolicy(origin, dsn string) string {
+	connect := "'self' " + strings.Replace(origin, "http", "ws", 1)
+	if d, ok := parseSentryDSN(dsn); ok {
+		_, reportingOrigin, valid := d.browserDestination()
+		if valid {
+			connect += " " + reportingOrigin
+		}
+	}
+	return "default-src 'none'; script-src 'self'; font-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: " + strings.Join(web.ImageOrigins(), " ") + "; connect-src " + connect + "; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
 }

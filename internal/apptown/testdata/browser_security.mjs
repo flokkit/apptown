@@ -1,5 +1,6 @@
 // Optional real-browser tier. Requires Playwright + Chromium; no live AppTown.
 import assert from 'node:assert/strict';
+import { checkResources } from './browser_resources.mjs';
 const { chromium } = await import(process.env.APPTOWN_PLAYWRIGHT_MODULE || 'playwright');
 const apptown = process.env.APPTOWN_BROWSER_URL;
 const origins = [process.env.APPTOWN_SIBLING_URL, process.env.APPTOWN_OTHER_URL];
@@ -46,6 +47,8 @@ try {
   }), consoleID);
   assert.equal(terminal, 'terminal-ready');
 
+  await checkResources(page, { apptown, other: origins[1], consoleID, reporting: process.env.APPTOWN_REPORTING_URL });
+
   const client = await page.evaluate(async callback => {
     const r = await fetch('/oauth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ client_name: 'Browser fixture', redirect_uris: [callback] }) });
@@ -55,6 +58,28 @@ try {
   const request = { response_type: 'code', client_id: client, redirect_uri: callback,
     code_challenge_method: 'S256', code_challenge: 'browser-fixture-challenge', scope: 'apptown:user:read', state: 'original' };
   const consentURL = apptown + '/oauth/authorize?' + new URLSearchParams(request);
+
+  // Login from OAuth itself must work under script-src self, before a cookie
+  // exists. Preauthenticated consent alone does not exercise its script.
+  const fresh = await browser.newContext({ ignoreHTTPSErrors: true });
+  fresh.setDefaultTimeout(10000);
+  const oauth = await fresh.newPage();
+  await oauth.goto(consentURL);
+  await oauth.locator('input[name="username"]').fill('boss');
+  await oauth.locator('input[name="password"]').fill('wrong-password');
+  await oauth.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await oauth.locator('#err').filter({ hasText: /./ }).waitFor();
+  await oauth.locator('input[name="password"]').fill('boss-password');
+  await oauth.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await oauth.getByRole('button', { name: 'Allow', exact: true }).waitFor();
+  await oauth.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await oauth.waitForURL(url => url.href.startsWith(callback + '?'));
+  assert.equal(new URL(oauth.url()).searchParams.get('error'), 'access_denied');
+  await oauth.goto(consentURL);
+  await oauth.getByRole('button', { name: 'Allow', exact: true }).click();
+  await oauth.waitForURL(url => url.href.startsWith(callback + '?'));
+  assert.ok(new URL(oauth.url()).searchParams.get('code'));
+  await fresh.close();
 
   for (const origin of origins) {
     const attacker = await context.newPage();

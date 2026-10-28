@@ -9,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -237,7 +239,8 @@ func (e selfErrorReporter) BrowserConfig(ctx context.Context) (string, string, b
 	if !ok {
 		return "", "", false
 	}
-	return dsn.Scheme + "://" + dsn.Key + "@" + dsn.Host + "/" + dsn.Project, apptownRelease(), true
+	value, _, valid := dsn.browserDestination()
+	return value, apptownRelease(), valid
 }
 
 // Workflow reports a step verdict through this instance's diagnostic attachment.
@@ -248,4 +251,48 @@ func (e selfErrorReporter) Workflow(err error) {
 	} else {
 		reportWorkflowDispatch(err)
 	}
+}
+
+// browserDestination validates the browser-facing DSN separately from the server
+// sender. Only a concrete HTTP(S) origin may enter a CSP source list.
+func (d sentryDSN) browserDestination() (string, string, bool) {
+	if d.Scheme != "http" && d.Scheme != "https" {
+		return "", "", false
+	}
+	u, err := url.Parse(d.Scheme + "://" + d.Host)
+	if err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", "", false
+	}
+	host := u.Hostname()
+	if net.ParseIP(host) == nil {
+		if host == "" || strings.IndexFunc(host, func(r rune) bool {
+			return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '-')
+		}) >= 0 {
+			return "", "", false
+		}
+	}
+	if port := u.Port(); port != "" {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return "", "", false
+		}
+	}
+	if d.Key == "" || d.Project == "" {
+		return "", "", false
+	}
+	// The final path component is Sentry's numeric project ID; preceding
+	// components support trackers installed below a path prefix.
+	parts := strings.Split(d.Project, "/")
+	if _, err := strconv.ParseUint(parts[len(parts)-1], 10, 64); err != nil {
+		return "", "", false
+	}
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return "", "", false
+		}
+	}
+	u.Host = strings.ToLower(u.Host)
+	origin := u.String()
+	u.User, u.Path = url.User(d.Key), "/"+d.Project
+	return u.String(), origin, true
 }

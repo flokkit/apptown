@@ -301,11 +301,7 @@ button.primary{background:#4f6ef7;border-color:#4f6ef7;color:#fff}.row{display:f
 <form id="login"><input name="username" placeholder="username" autocomplete="username" required>
 <input name="password" type="password" placeholder="password" autocomplete="current-password" required>
 <div class="row"><button class="primary" type="submit">Sign in</button></div><div class="err" id="err"></div></form>
-<script>
-document.getElementById('login').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);
-const r=await fetch('/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:f.get('username'),password:f.get('password')})});
-if(r.ok){location.reload()}else{document.getElementById('err').textContent=(await r.json().catch(()=>({}))).error||'sign-in failed'}};
-</script>
+<script src="/oauth/login.js"></script>
 {{else}}<p class="muted">Your sign-on did not reach this page. Open AppTown in this browser, sign in, and try again.</p>{{end}}
 {{else}}
 <h1>{{.Client}} wants to use your AppTown account</h1>
@@ -324,6 +320,18 @@ func (a *App) renderOAuthPage(w http.ResponseWriter, _ *http.Request, d oauthPag
 	w.Header().Set("Cache-Control", "no-store")
 	_ = oauthPage.Execute(w, d)
 }
+
+// The login page is usable before authentication without permitting inline
+// scripts. This resource is fixed code; request values never enter it.
+func handleOAuthLoginScript(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	_, _ = w.Write([]byte(oauthLoginScript))
+}
+
+const oauthLoginScript = `document.getElementById('login').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);
+const r=await fetch('/api/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:f.get('username'),password:f.get('password')})});
+if(r.ok){location.reload()}else{document.getElementById('err').textContent=(await r.json().catch(()=>({}))).error||'sign-in failed'}};
+`
 
 // --- token ---------------------------------------------------------------------------
 

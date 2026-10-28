@@ -28,7 +28,7 @@ import (
 
 func TestBrowserMutationOrigins(t *testing.T) {
 	t.Parallel()
-	a := &App{cfg: testConfig(t, Config{PublicHost: "forge.example.test", TierDomains: []string{"preview=preview.example.test"}})}
+	a := testApp(t, Config{PublicHost: "forge.example.test", TierDomains: []string{"preview=preview.example.test"}})
 
 	h := a.browserSecurity(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
 	for _, tc := range []struct {
@@ -341,6 +341,25 @@ func TestInviteLinkPagesSendNoReferrer(t *testing.T) {
 		h.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if got := w.Header().Get("Referrer-Policy"); got != want {
 			t.Fatalf("%s: Referrer-Policy %q, want %q", path, got, want)
+		}
+	}
+}
+
+func TestBrowserResourcePolicy(t *testing.T) {
+	t.Parallel()
+	for _, origin := range []string{"http://forge.test:7777", "https://forge.test:8443"} {
+		a := testApp(t, Config{PublicHost: origin})
+		r := httptest.NewRequest("GET", "http://untrusted.test/", nil)
+		r.Header.Set("X-Forwarded-Host", "attacker.test")
+		r.Header.Set("X-Forwarded-Proto", "https")
+		policy := browserResourcePolicy(a.browserOrigin(r), "")
+		for _, directive := range []string{"default-src 'none'", "script-src 'self'", "font-src 'self'", "style-src 'self' 'unsafe-inline'", "img-src 'self' data: https://apptown.dev", "connect-src 'self' " + strings.Replace(origin, "http", "ws", 1)} {
+			if !strings.Contains(policy, directive+";") {
+				t.Fatalf("missing %q: %s", directive, policy)
+			}
+		}
+		if strings.Contains(policy, "untrusted") || strings.Contains(policy, "attacker") {
+			t.Fatal(policy)
 		}
 	}
 }

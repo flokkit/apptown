@@ -3,9 +3,35 @@
 Root AppTown applies browser security to AppTown responses inside the virtual-host
 router. Hosted applications retain their own origin and security policy.
 
-AppTown sets `nosniff`, frame denial, a limited CSP restricting ancestors/base/objects,
-and a same-origin referrer policy. This is not a complete script-source CSP.
-Untrusted Markdown and file serving need their own content handling.
+AppTown sets `nosniff`, frame denial and a same-origin referrer policy. Its
+Content Security Policy defaults to no resources, permits scripts and fonts only
+from its own origin, and allows local stylesheets and inline styles for React,
+Mermaid and the terminal. Inline scripts and eval are not permitted. The OAuth
+login page loads its fixed script from `/oauth/login.js` on the same origin.
+
+Images may come from AppTown, raster data URLs, or `https://apptown.dev`, the
+public origin of the tour's private storage bucket. `web/resource-policy.json`
+is the single remote-image origin list consumed by both the browser middleware
+and the Markdown renderer. The standalone tour website has its own document
+and is outside this middleware; hosted apps and previews keep their own policy.
+Markdown is sanitized in an inert fragment: disallowed HTTP(S) images become
+labelled links, unsafe schemes become text, and alternative image fetch paths
+such as srcset, media and SVG are removed. Raster data images are limited to
+PNG, JPEG, WebP and GIF. Blob images are not enabled. Raw attachments retain
+their stricter content-based response headers.
+
+Connections may reach AppTown's API and same-host WebSocket endpoint, plus the
+validated HTTP(S) origin of AppTown's configured errors attachment. The same
+reporting owner and attachment cache supply the browser DSN and CSP exception;
+request parameters and other projects cannot select it. No diagnostic origin
+is admitted when the browser DSN is invalid or absent. An open document keeps
+its CSP until refreshed after a reporting configuration change. Sentry's code
+is bundled locally; the exception admits reporting connections, not scripts.
+External navigation and authentication redirects remain available.
+
+Local script permission and inline styles do not establish complete XSS
+resistance. Untrusted Markdown and file serving retain their own sanitization
+and content-handling boundaries.
 
 Unsafe methods use Go's cross-origin protection and, when Origin is present,
 require the exact configured scheme, host and port. Sibling application domains
