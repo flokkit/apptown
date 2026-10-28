@@ -41,13 +41,27 @@ rejects an annotation whose release differs from the executable version. Keep
 these annotations in sync when making a manual update. CI gitleaks has its own
 version and checksum, independent of the project scanner.
 
-The remaining manual pins are glab's GitLab archive and checksums, Docker CLI,
-and the runtime catalog entries `apptown-sh`, `apptown-df`, `static-server` and
-`private-docker`. Docker daemon bases under `deploy/` are held as well: a
-qualified runtime update must coordinate the daemon, client, digests and worker
-profile through the runtime qualification procedure. Renovate does not change
-that procedure or authorize a release. Other native Dockerfile bases retain
-their existing coverage.
+Runtime catalog proposals include their exact versions and pinned image digests.
+Alpine Git and Caddy move with their central pins. BusyBox's version and
+its digest-only image reference update together. Postgres and MariaDB stay on
+their declared lines. The logical `apptown-sh` line `1` uses upstream Alpine
+Git version `2`; it does not constrain the registry to version `1`.
+
+Private Docker proposals group the catalog's Docker 27 daemon, its central
+pins and the agent CLI version. The Docker 29 CLI and daemon bases in
+`deploy/Dockerfile` form a separate group. Each group stays on its existing
+major line. Docker CLI archive checksums remain manually verified for both
+architectures; a proposed version change retains the old checksums until a
+person supplies the verified replacement hashes, so the download verification
+continues to reject unmatched archives. The other remaining manual pins are
+glab's GitLab archive and checksums.
+
+Renovate does not update `internal/execution/qualified_profiles.json` or
+qualification records. Its private Docker proposal notes require qualification
+before acceptance: a changed daemon does not inherit the previous receipt.
+Complete the runtime qualification procedure before accepting that update or
+including it in a release. A proposal supplies no qualification or release
+authority. Other native Dockerfile bases retain their existing coverage.
 
 Nothing opens by itself. Renovate keeps one issue, the **Dependency
 Dashboard**, listing the available updates, grouped so that one pull request
@@ -110,7 +124,7 @@ npm_config_ignore_scripts=true npm exec --yes --package renovate@44.149.0 -- \
 ```
 
 This checks the custom pins, native manifests and mise files, owner groups,
-paired architecture checksum edits, CI pins, stock versions, digest refreshes
+paired architecture checksum edits, CI pins, stock and runtime versions, digest refreshes
 and the pin gate on the resulting temporary tree. It supplies fixture update
 values without fetching releases; registry availability and the three-day age
 remain checks on each actual update.

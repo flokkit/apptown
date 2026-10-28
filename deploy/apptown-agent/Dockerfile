@@ -109,6 +109,8 @@ LABEL apptown.glab.version=${GLAB_VERSION}
 # No socket from the host enters these containers. compose is what
 # `apptown dev up` rehearses the contract with (complaint #54: the plugin was
 # missing, so the rehearsal could not run).
+# The CLI archive hashes below remain manually verified when this version changes.
+# renovate: datasource=docker depName=docker versioning=docker extractVersion=^(?<version>[0-9.]+)-dind$
 ARG DOCKER_VERSION=27.5.1
 # renovate: datasource=github-releases depName=docker/buildx versioning=semver extractVersion=^v(?<version>.*)$
 ARG BUILDX_VERSION=0.19.3

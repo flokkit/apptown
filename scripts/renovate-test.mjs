@@ -50,7 +50,7 @@ try {
   for (const manager of ['gomod', 'npm', 'composer', 'github-actions', 'dockerfile', 'mise', 'regex']) assert(live.some(d => d.manager === manager), manager);
   const agent = 'deploy/apptown-agent/Dockerfile';
   for (const [, name, version] of content.get(agent).matchAll(/^ARG (\w+)_VERSION=(\S+)/gm)) {
-    if (!['GLAB', 'DOCKER'].includes(name)) found(agent, version);
+    if (name !== 'GLAB') found(agent, version);
   }
   for (const [, ref] of content.get('stock/scanners.yaml').matchAll(/^    image: (\S+)/gm)) {
     const [name, value] = ref.split(':');
@@ -62,11 +62,41 @@ try {
     const central = deps('deploy/tool-pins.txt', d.depName);
     assert(central.length && central.every(p => p.groupName === d.groupName), `agent owner ${d.depName}`);
   }
-  for (const d of deps('stock/tool-versions.yaml')) assert(d.groupName?.startsWith('stock '), `stock owner ${d.depName}`);
+  for (const d of deps('stock/tool-versions.yaml')) assert(/^(stock |runtime )/.test(d.groupName), `stock owner ${d.depName}`);
   assert.equal(deps(agent).filter(d => d.datasource === 'github-release-attachments').length, 10);
   assert.equal(deps('.github/workflows/ci.yml', 'gitleaks/gitleaks').length, 2);
-  for (const d of live.filter(d => d.depName === 'docker' && d.packageFile.startsWith('deploy/'))) assert.equal(d.enabled, false);
-  assert(!deps('stock/tool-versions.yaml').some(d => ['docker', 'caddy', 'busybox', 'alpine/git'].includes(d.depName)));
+  const catalog = 'stock/tool-versions.yaml';
+  const qualification = await fs.readFile('internal/execution/qualified_profiles.json', 'utf8');
+  const dockerHashes = content.get(agent).match(/^ARG DOCKER_SHA256_.*$/gm);
+  const runtimes = [
+    ['alpine/git', 'runtime Alpine Git', 'v2.47.3'],
+    ['busybox', 'runtime BusyBox', '1.37.1'],
+    ['caddy', 'runtime Caddy', '2.10.3'],
+    ['docker', 'runtime private Docker 27', '27.5.2'],
+    ['postgres', 'stock Postgres 16', '16.16'],
+    ['mariadb', 'stock MariaDB 11.4', '11.4.14'],
+  ];
+  for (const [name, group] of runtimes) {
+    const refs = deps(catalog, name);
+    assert(refs.some(d => d.currentDigest), `runtime image ${name}`);
+    assert(refs.some(d => !d.currentValue.includes('-') && d.currentValue !== ''), `runtime exact version ${name}`);
+    assert(refs.every(d => d.groupName === group && d.enabled !== false), `runtime owner ${name}`);
+    assert(refs.every(d => d.allowedVersions), `runtime line ${name}`);
+    for (const d of refs) {
+        assert(new RegExp(d.allowedVersions.slice(1, -1)).test(d.currentValue), `current line ${name}`);
+      assert(!new RegExp(d.allowedVersions.slice(1, -1)).test('99.0.0'), `future line ${name}`);
+    }
+  }
+  assert(!records.some(d => d.packageFile.includes('qualified_profiles') || d.packageFile.startsWith('private/')));
+  assert.equal(config.minimumReleaseAge, '3 days');
+  assert.equal(config.dependencyDashboardApproval, true);
+  assert.equal(config.automerge, false);
+  const privateDocker = live.filter(d => d.groupName === 'runtime private Docker 27');
+  assert(privateDocker.some(d => d.packageFile === agent));
+  assert.equal(privateDocker.filter(d => d.packageFile === 'deploy/tool-pins.txt').length, 2);
+  const deployDocker = deps('deploy/Dockerfile', 'docker');
+  assert.equal(deployDocker.length, 2);
+  assert(deployDocker.every(d => d.groupName === 'deployment Docker 29' && d.enabled !== false && d.allowedVersions === '/^29(?:\\.|$)/'));
   for (const name of ['ghcr.io/google/osv-scanner', 'zricethezav/gitleaks', 'anchore/syft', 'aquasec/trivy', 'semgrep/semgrep']) {
     const group = deps('deploy/tool-pins.txt', name)[0]?.groupName;
     assert(group, `central ${name}`);
@@ -96,8 +126,34 @@ try {
   await update(deps('Makefile', 'golang.org/x/vuln')[0], 'v1.7.1');
   const stockGo = deps('stock/tool-versions.yaml', 'go')[0];
   await update(stockGo, '1.27.1');
-  const dbImage = deps('stock/tool-versions.yaml', 'postgres').find(d => d.currentDigest);
-  await update(dbImage, dbImage.currentValue, 'sha256:' + 'f'.repeat(64));
+  // Digest-only refreshes retain each exact version and image variant.
+  for (const [name] of runtimes) {
+    const d = deps(catalog, name).find(d => d.currentDigest);
+    const before = content.get(catalog);
+    await update(d, d.currentValue, 'sha256:' + 'a'.repeat(64));
+    assert(content.get(catalog).includes('sha256:' + 'a'.repeat(64)), `digest refresh ${name}`);
+    assert.equal(content.get(catalog), before.replace(d.currentDigest, 'sha256:' + 'a'.repeat(64)), `only digest changes ${name}`);
+    content.set(catalog, before);
+  }
+  // Each runtime proposal uses real Renovate replacement, retaining variants.
+  for (const [name, group, next] of runtimes) {
+    const before = content.get(catalog);
+    for (const d of live.filter(d => d.groupName === group && d.enabled !== false)) {
+      const value = d.currentValue.replace(/^v?[0-9.]+/, next);
+      await update(d, value, d.currentDigest ? 'sha256:' + 'f'.repeat(64) : undefined);
+    }
+    const text = content.get(catalog);
+    assert.notEqual(text, before, `runtime replacement ${name}`);
+    assert(text.includes('version: ' + (name === 'postgres' ? '"' + next + '"' : next)), `exact version replaced ${name}`);
+    const image = deps(catalog, name).find(d => d.currentDigest);
+    const expected = name === 'busybox' ? 'busybox@sha256:' : name + ':' + image.currentValue.replace(/^v?[0-9.]+/, next) + '@sha256:';
+    assert(text.includes(expected + 'f'.repeat(64)), `version and digest replaced ${name}`);
+  }
+  assert(content.get(agent).includes('ARG DOCKER_VERSION=27.5.2'));
+  assert.deepEqual(content.get(agent).match(/^ARG DOCKER_SHA256_.*$/gm), dockerHashes, 'CLI checksums require manual verification');
+  for (const d of deployDocker) await update(d, d.currentValue.replace('29.9.2', '29.9.3'), 'sha256:' + 'e'.repeat(64));
+  assert.equal((content.get('deploy/Dockerfile').match(/docker:29\.9\.3-(?:cli|dind)@sha256:/g) ?? []).length, 2);
+  assert.equal(await fs.readFile('internal/execution/qualified_profiles.json', 'utf8'), qualification);
   // The actual pin gate must accept a complete temporary grouped update.
   for (const file of files.filter(f => !f.startsWith('private/'))) {
     const dest = path.join(temp, file); await fs.mkdir(path.dirname(dest), {recursive: true});
@@ -105,6 +161,7 @@ try {
   }
   for (const [file, text] of content) await fs.writeFile(path.join(temp, file), text);
   execFileSync('python3', ['scripts/pins-check.py', temp], {cwd: root});
+  assert.equal(await fs.readFile(path.join(temp, 'internal/execution/qualified_profiles.json'), 'utf8'), qualification);
   console.log(`Renovate ${require('./package.json').version}: ${live.length} extracted dependencies; grouped version, architecture checksum, CI, stock and digest replacements passed.`);
   if (process.env.RENOVATE_EVIDENCE) await fs.writeFile(process.env.RENOVATE_EVIDENCE, JSON.stringify(live.map(({packageFile, depName, currentValue, currentDigest, datasource, groupName, allowedVersions, enabled}) => ({packageFile, depName, currentValue, currentDigest, datasource, groupName, allowedVersions, enabled})), null, 2));
 } finally { await fs.rm(temp, {recursive: true, force: true}); }
