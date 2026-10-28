@@ -340,3 +340,94 @@ func TestPortainerOrphanRemovalRequiresFreshExactObservation(t *testing.T) {
 		t.Fatalf("ordinary orphan removal: %v", f.deleted)
 	}
 }
+
+// A missing provider association makes that daemon's ownership classification
+// unknown; it must not hide the rest of the fleet or create orphan authority.
+func TestUnverifiedPlacementKeepsOtherInfrastructureVisible(t *testing.T) {
+	f := newSiblingInventoryWorld(t)
+	builtin := f.w.seedBuiltin(t)
+	legacy, err := f.w.deployment.Targets.Put(t.Context(), &deployment.Target{Name: "legacy-unbound", Kind: deployment.KindPortainer, Status: deployment.TargetReady, Address: map[string]any{"urlFrom": "PT_URL", "apiKeyFrom": "PT_B", "environment": "docker"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pid := f.w.createProject(t, "legacy-app")
+	dep, err := f.w.deployment.Deployments.EnsureStanding(t.Context(), pid, "office", legacy.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stack := portainer.StackName(portainer.StackNames(dep.ID))
+	if err := f.w.deployment.Deployments.RecordOwned(t.Context(), dep.ID, "stack", stack); err != nil {
+		t.Fatal(err)
+	}
+	f.mu.Lock()
+	f.stacks = append(f.stacks, siblingStack{ID: 10, Name: stack, EndpointID: 3})
+	f.mu.Unlock()
+	// No infrastructure GET precedes this direct mutation: read availability
+	// cannot supply the verified placement that deletion requires.
+	code, answer := f.remove(t, stack, "10")
+	if code != http.StatusServiceUnavailable {
+		t.Fatalf("unverified placement removal: %d %+v", code, answer)
+	}
+	code, answer = targetCall(t, f.w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	if code != http.StatusOK {
+		t.Fatalf("one unverified placement hid the fleet: %d %+v", code, answer)
+	}
+	body, err := json.Marshal(answer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var view InfrastructureTargets
+	if err := json.Unmarshal(body, &view); err != nil {
+		t.Fatal(err)
+	}
+	targets := map[string]InfrastructureView{}
+	for _, v := range view.Targets {
+		targets[v.Target] = v
+	}
+	if len(targets) != 4 {
+		t.Fatalf("targets disappeared: %+v", targets)
+	}
+	healthy := targets[builtin.Name]
+	if !healthy.Live || healthy.Error != "" {
+		t.Fatalf("unrelated built-in inventory lost: %+v", healthy)
+	}
+	for _, name := range []string{f.targets[0].Name, f.targets[1].Name, legacy.Name} {
+		v := targets[name]
+		if v.Live || v.Error == "" || !v.AsOf.IsZero() || v.Shared != "" {
+			t.Fatalf("unknown inventory claimed current classification: %+v", v)
+		}
+		if len(v.Resources) != 1 || v.Resources[0].Record != deploy.RecordRecorded {
+			t.Fatalf("fallback is not records only: %+v", v)
+		}
+		if name != legacy.Name && !strings.Contains(v.Error, "verifying legacy-unbound placement") {
+			t.Fatalf("placement failure hidden: %+v", v)
+		}
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.deleted) != 0 {
+		t.Fatalf("unverified placement reached provider DELETE: %v", f.deleted)
+	}
+}
+
+func TestInventoryAdapterFailureIsVisibleAtItsTarget(t *testing.T) {
+	w := newTargetHTTPWorld(t)
+	if _, err := w.deployment.Targets.Put(t.Context(), &deployment.Target{Name: "unsupported-provider", Kind: "operator-provider", Status: deployment.TargetReady}); err != nil {
+		t.Fatal(err)
+	}
+	code, answer := targetCall(t, w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	if code != http.StatusOK {
+		t.Fatalf("adapter failure hid the fleet: %d %+v", code, answer)
+	}
+	body, err := json.Marshal(answer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var view InfrastructureTargets
+	if err := json.Unmarshal(body, &view); err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Targets) != 1 || view.Targets[0].Live || !strings.Contains(view.Targets[0].Error, "has no inventory") || len(view.Targets[0].Resources) != 0 {
+		t.Fatalf("adapter failure became an empty success: %+v", view)
+	}
+}

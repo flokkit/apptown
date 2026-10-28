@@ -1317,6 +1317,15 @@ export type ProjectWorkflowRow = {
   withdrawn?: boolean
 }
 
+export type ProviderAssociation = {
+  targetId: string | null
+  connectionId: string | null
+  revision: number
+  scope: Scope
+  resources: StackAssociation[]
+  associated: boolean
+}
+
 export type PullPlan = {
   pack: string
   additions: string[]
