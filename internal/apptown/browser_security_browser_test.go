@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"io/fs"
 	"net"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -27,6 +29,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
@@ -110,11 +113,34 @@ func TestBrowserSecurityChromium(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// Configure the same attachment the browser configuration endpoint owns.
+	pid, _, _ := fleetRepo(t, a, selfErrorsProject, map[string]string{"README.md": "# AppTown"})
+	reportingHost := "reports.other.test:" + port
+	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", fmt.Sprintf(`{"dsn":"https://browserkey@%s/7"}`, reportingHost), integration.Provisioned, "fixture", nil); err != nil {
+		t.Fatal(err)
+	}
+	a.selfErr.checked = time.Time{}
+	var envelopes, blockedRequests atomic.Int32
 	h = a.Handler()
 	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Host == a.cfg.publicHost {
 			h.ServeHTTP(w, r)
 			return
+		}
+		if r.Host == reportingHost {
+			w.Header().Set("Access-Control-Allow-Origin", "https://"+a.cfg.publicHost)
+			w.Header().Set("Access-Control-Allow-Headers", "content-type")
+			if r.Method == "POST" && r.URL.Path == "/api/7/envelope/" {
+				body, _ := io.ReadAll(r.Body)
+				if bytes.Contains(body, []byte("resource-policy-browser-proof")) {
+					envelopes.Add(1)
+				}
+			}
+			w.WriteHeader(200)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/blocked/") {
+			blockedRequests.Add(1)
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = fmt.Fprint(w, "<!doctype html><title>Untrusted site fixture</title><body>untrusted site</body>")
@@ -128,6 +154,7 @@ func TestBrowserSecurityChromium(t *testing.T) {
 			"APPTOWN_OTHER_URL=https://evil.other.test:" + port,
 			fmt.Sprintf("APPTOWN_BROWSER_CHANGE=%d", changeID),
 			"APPTOWN_BROWSER_CONSOLE=" + session.ID,
+			"APPTOWN_REPORTING_URL=https://" + reportingHost,
 			// Chromium keeps its shared memory in a folder of its own: its
 			// child processes drop root's override of folder permissions, so
 			// on CI they cannot write the job's temporary folder, which is
@@ -140,6 +167,12 @@ func TestBrowserSecurityChromium(t *testing.T) {
 		t.Fatalf("browser security: %v\n%s", run.RunErr, run.Output)
 	}
 	t.Log(string(run.Output))
+	if envelopes.Load() < 1 {
+		t.Fatal("configured reporting endpoint received no browser envelope")
+	}
+	if blockedRequests.Load() != 0 {
+		t.Fatalf("disallowed resource server received %d requests", blockedRequests.Load())
+	}
 	var unexpected int
 	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM projects WHERE slug IN ('csrf-created','file-executed')`).Scan(&unexpected); err != nil || unexpected != 0 {
 		t.Fatalf("browser attack mutated state: %d %v", unexpected, err)

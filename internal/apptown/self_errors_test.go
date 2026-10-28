@@ -169,4 +169,61 @@ func TestBrowserErrorsFollowTheAttachment(t *testing.T) {
 	if b := get(); !strings.Contains(b, `"dsn":"https://abc123@errors.example/7"`) || !strings.Contains(b, `"release"`) {
 		t.Fatalf("attached: %s", b)
 	}
+	policy := func() string {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
+		return w.Header().Get("Content-Security-Policy")
+	}
+	original := policy()
+	if !strings.Contains(original, " https://errors.example;") || strings.Contains(original, "abc123") {
+		t.Fatalf("configured reporting CSP: %s", original)
+	}
+	// The existing attachment cache controls both the DSN response and a newly
+	// served document's CSP. A served document cannot change its header later.
+	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"https://changed@new-errors.example/8"}`, integration.Provisioned, "fixture", nil); err != nil {
+		t.Fatal(err)
+	}
+	a.selfErr.checked = time.Time{}
+	if b := get(); !strings.Contains(b, `"dsn":"https://changed@new-errors.example/8"`) {
+		t.Fatal(b)
+	}
+	refreshed := policy()
+	if !strings.Contains(refreshed, " https://new-errors.example;") || strings.Contains(refreshed, " https://errors.example;") {
+		t.Fatalf("refresh retained old reporting origin: %s", refreshed)
+	}
+	if err := a.Integrations.Attachments.Attach(t.Context(), pid, integration.CapErrors, "glitchtip", `{"dsn":"ftp://key@new-errors.example/8"}`, integration.Provisioned, "fixture", nil); err != nil {
+		t.Fatal(err)
+	}
+	a.selfErr.checked = time.Time{}
+	if b := get(); strings.Contains(b, "dsn") {
+		t.Fatalf("invalid browser DSN published: %s", b)
+	}
+	if strings.Contains(policy(), "new-errors.example") {
+		t.Fatal("invalid browser DSN widened CSP")
+	}
+}
+
+func TestBrowserDiagnosticDestination(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ dsn, origin string }{
+		{"https://key@ERRORS.example:8443/prefix/7", "https://errors.example:8443"},
+		{"http://key@127.0.0.1:9000/7", "http://127.0.0.1:9000"},
+		{"https://key@[::1]:8443/7", "https://[::1]:8443"},
+		{"ftp://key@errors.example/7", ""},
+		{"https://key@*.example/7", ""},
+		{"https://key@errors.example:99999/7", ""},
+		{"https://key@errors.example/not-a-project", ""},
+	} {
+		d, ok := parseSentryDSN(tc.dsn)
+		if !ok {
+			t.Fatalf("fixture is not parseable: %s", tc.dsn)
+		}
+		value, origin, valid := d.browserDestination()
+		if origin != tc.origin || valid != (tc.origin != "") {
+			t.Fatalf("%s: %q %v", tc.dsn, origin, valid)
+		}
+		if valid && (value == "" || strings.Contains(origin, "key")) {
+			t.Fatalf("credentials leaked or missing DSN: %q %q", value, origin)
+		}
+	}
 }

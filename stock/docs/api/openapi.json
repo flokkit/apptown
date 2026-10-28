@@ -16358,6 +16358,27 @@
         "x-apptown-stability": "experimental"
       }
     },
+    "/oauth/login.js": {
+      "get": {
+        "operationId": "getOauthLoginJs",
+        "responses": {
+          "2XX": {
+            "description": "the operation's result; its shape is not described in 1.0"
+          },
+          "default": {
+            "$ref": "#/components/responses/Refusal"
+          }
+        },
+        "tags": [
+          "outside /api/v1"
+        ],
+        "x-apptown-access": {
+          "contract": "handleOAuthLoginScript: fixed login page script",
+          "kind": "public"
+        },
+        "x-apptown-stability": "experimental"
+      }
+    },
     "/oauth/register": {
       "post": {
         "operationId": "postOauthRegister",

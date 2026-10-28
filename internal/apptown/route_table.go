@@ -611,6 +611,7 @@ func appRoutes(a *App) []routeSpec {
 		protocolRoute(mcpPath, a.serveMCP, "a.serveMCP: credential verification"),
 		publicRoute("GET /.well-known/oauth-protected-resource/mcp/user", a.handleOAuthProtectedResource, "a.handleOAuthProtectedResource: OAuth public resource discovery"),
 		publicRoute("GET /.well-known/oauth-authorization-server", a.handleOAuthServerMetadata, "a.handleOAuthServerMetadata: OAuth public authorization-server discovery"),
+		publicRoute("GET /oauth/login.js", handleOAuthLoginScript, "handleOAuthLoginScript: fixed login page script"),
 		publicRoute("POST /oauth/register", a.handleOAuthRegister, "a.handleOAuthRegister: OAuth dynamic public-client registration"),
 		protocolRoute("GET /oauth/authorize", a.handleOAuthAuthorize, "a.handleOAuthAuthorize: credential verification"),
 		protocolRoute("POST /oauth/authorize", a.handleOAuthAuthorize, "a.handleOAuthAuthorize: credential verification"),
