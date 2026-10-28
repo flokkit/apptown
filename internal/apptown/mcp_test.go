@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -609,6 +610,9 @@ func TestMCPOfficialClientConnectsAndCallsATool(t *testing.T) {
 		t.Fatalf("connect: %v", err)
 	}
 	t.Cleanup(func() { _ = session.Close() })
+	if got := session.InitializeResult().ProtocolVersion; got != "2026-07-28" {
+		t.Fatalf("negotiated protocol = %q; want modern discovery without fallback", got)
+	}
 
 	tools, err := session.ListTools(ctx, nil)
 	if err != nil || len(tools.Tools) == 0 {
@@ -708,5 +712,101 @@ func TestAnMCPServerThatCannotBeBuiltAnswersWithItsFailure(t *testing.T) {
 		if w.Code != 500 || !strings.Contains(w.Body.String(), "a tool's schema was refused") {
 			t.Fatalf("a failed build: %d %s", w.Code, w.Body.String())
 		}
+	}
+}
+
+// Modern requests carry their client identity on each call, without a session.
+func mcp_modern(a *App, token, sid, client, method string, params map[string]any) *httptest.ResponseRecorder {
+	if params == nil {
+		params = map[string]any{}
+	}
+	params["_meta"] = map[string]any{
+		mcp.MetaKeyProtocolVersion:    "2026-07-28",
+		mcp.MetaKeyClientInfo:         map[string]any{"name": client, "version": "1"},
+		mcp.MetaKeyClientCapabilities: map[string]any{},
+	}
+	req := httptest.NewRequest("POST", "/mcp/user", strings.NewReader(mcp_rpc(1, method, params)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("MCP-Protocol-Version", "2026-07-28")
+	req.Header.Set("Mcp-Method", method)
+	if name, ok := params["name"].(string); ok {
+		req.Header.Set("Mcp-Name", name)
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	if sid != "" {
+		req.Header.Set("Mcp-Session-Id", sid)
+	}
+	w := httptest.NewRecorder()
+	a.Handler().ServeHTTP(w, req)
+	return w
+}
+
+func TestMCPDiscoveryAndCallsUseCurrentIdentityWithoutSessions(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	projectID := createReadTestProject(t, a, "shop")
+	tok := mcp_token(t, a, "modern", "bls", "member")
+	other := mcp_token(t, a, "other-modern", "kid", "member")
+	a.addGrant("user", "kid", access.RoleProjectContrib, "", access.ScopeProject, projectID.String(), "", "boss", "")
+	w := mcp_modern(a, tok, "", "modern-client", "server/discover", nil)
+	var discovery struct {
+		Result mcp.DiscoverResult
+		Error  *rpcError
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &discovery); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != 200 || discovery.Error != nil || !slices.Contains(discovery.Result.SupportedVersions, "2026-07-28") || w.Header().Get("Mcp-Session-Id") != "" {
+		t.Fatalf("modern discovery must advertise support without a session: %d %s", w.Code, w.Body.String())
+	}
+	entries, err := audit.Recent(context.Background(), a.DB, audit.Filter{KindPrefix: "mcp.discovery"})
+	if err != nil || len(entries) != 1 || entries[0].Subject != "modern-client" || entries[0].Actor != "bls" {
+		t.Fatalf("discovery audit: %v %+v", err, entries)
+	}
+	for _, tc := range []struct{ token, user, client string }{{tok, "bls", "modern-client"}, {other, "kid", "another-client"}} {
+		w := mcp_modern(a, tc.token, "", tc.client, "tools/call", map[string]any{"name": "create_change", "arguments": map[string]any{"slug": "shop", "title": "from " + tc.client}})
+		if w.Code != 200 || strings.Contains(w.Body.String(), `"error"`) || strings.Contains(w.Body.String(), `"isError":true`) {
+			t.Fatalf("modern create_change: %d %s", w.Code, w.Body.String())
+		}
+		entries, err := audit.Recent(context.Background(), a.DB, audit.Filter{Limit: audit.MaxLimit})
+		attributed := false
+		for _, e := range entries {
+			attributed = attributed || e.Actor == tc.user+" via mcp/"+tc.client
+		}
+		if err != nil || !attributed {
+			t.Fatalf("current request attribution missing for %s: %v %+v", tc.user, err, entries)
+		}
+	}
+	if w := mcp_modern(a, "", "", "modern-client", "tools/list", nil); w.Code != 401 {
+		t.Fatalf("missing credential: %d", w.Code)
+	}
+	if w := mcp_modern(a, tok, "", "modern-client", "tools/call", map[string]any{"name": "create_change", "arguments": map[string]any{"title": strings.Repeat("x", mcpMaxBody)}}); w.Code != 413 {
+		t.Fatalf("oversize modern request: %d", w.Code)
+	}
+	if revoked, err := a.Access.RevokeToken(context.Background(), "modern", access.Principal{ID: testPrincipalOf(t, a.DB, "boss"), Kind: "user", Name: "boss", Via: "session"}); err != nil || !revoked {
+		t.Fatalf("revoke: %v %v", revoked, err)
+	}
+	if w := mcp_modern(a, tok, "", "modern-client", "tools/list", nil); w.Code != 401 {
+		t.Fatalf("revoked credential: %d", w.Code)
+	}
+}
+
+func TestMCPModernHeaderCannotBypassLegacySessionOwnership(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	tok := mcp_token(t, a, "legacy", "bls", "member")
+	other := mcp_token(t, a, "modern", "kid", "member")
+	sid := mcp_session(a, tok)
+	if sid == "" {
+		t.Fatal("missing legacy session")
+	}
+	if w := mcp_modern(a, other, sid, "modern-client", "tools/list", nil); w.Code != 403 {
+		t.Fatalf("another user's session: %d %s", w.Code, w.Body.String())
+	}
+	if w := mcp_raw(a, tok, sid, mcp_rpc(2, "ping", nil)); w.Code != 200 {
+		t.Fatalf("legacy session remains usable: %d %s", w.Code, w.Body.String())
 	}
 }

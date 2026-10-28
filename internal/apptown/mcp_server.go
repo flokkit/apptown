@@ -107,7 +107,7 @@ func buildMCPServer(a *App) (_ http.Handler, err error) {
 	for _, t := range mcpToolsFor(a) {
 		server.AddTool(&mcp.Tool{Name: t.Name, Description: t.Description, InputSchema: t.InputSchema}, mcpToolHandler(a, t.Name))
 	}
-	transport := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{
+	options := mcp.StreamableHTTPOptions{
 		JSONResponse:        true,
 		MaxRequestBodyBytes: mcpMaxBody,
 		SessionTimeout:      mcpSessionIdle,
@@ -116,6 +116,20 @@ func buildMCPServer(a *App) (_ http.Handler, err error) {
 		// apptownd is often exactly that behind its reverse proxy, and this door
 		// admits only a bearer token, never an ambient browser credential.
 		DisableLocalhostProtection: true,
+	}
+	getServer := func(*http.Request) *mcp.Server { return server }
+	legacy := mcp.NewStreamableHTTPHandler(getServer, &options)
+	options.Stateless = true
+	modern := mcp.NewStreamableHTTPHandler(getServer, &options)
+	transport := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// New MCP discovery and calls have no durable session. Keep every
+		// supplied session id on the legacy transport so its ownership check
+		// cannot be bypassed by changing the protocol header.
+		if r.Header.Get("MCP-Protocol-Version") == "2026-07-28" && r.Header.Get("Mcp-Session-Id") == "" {
+			modern.ServeHTTP(w, r)
+			return
+		}
+		legacy.ServeHTTP(w, r)
 	})
 	// The SDK binds each session to the user who opened it and refuses a
 	// request from anyone else; it learns the user from this token info.
@@ -193,31 +207,43 @@ func mcpRequestOf(extra *mcp.RequestExtra) *mcpRequest {
 	return req
 }
 
-// auditMCPSessions records one audit row per session, naming the client —
-// access is recorded; reads are not spammed (design/subsystems/mcp.md §10).
+// auditMCPSessions records legacy initialization and modern discovery, naming
+// the client. Modern requests have no durable session; reads are not audited.
 func auditMCPSessions(a *App) mcp.Middleware {
 	return func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
 			res, err := next(ctx, method, req)
-			in, ok := req.(*mcp.ServerRequest[*mcp.InitializeParams])
-			if method != "initialize" || err != nil || !ok {
+			if err != nil {
+				return res, err
+			}
+			var info *mcp.Implementation
+			var proto, kind string
+			switch in := req.(type) {
+			case *mcp.ServerRequest[*mcp.InitializeParams]:
+				if method != "initialize" || in.Params == nil {
+					return res, err
+				}
+				info, proto, kind = in.Params.ClientInfo, in.Params.ProtocolVersion, "mcp.session"
+			case *mcp.ServerRequest[*mcp.DiscoverParams]:
+				if method != "server/discover" {
+					return res, err
+				}
+				info, proto, kind = in.ClientInfo(), in.ProtocolVersion(), "mcp.discovery"
+			default:
 				return res, err
 			}
 			call := mcpRequestOf(req.GetExtra())
 			if call == nil {
 				return res, err
 			}
-			client, version, proto := "unknown client", "", ""
-			if in.Params != nil {
-				proto = in.Params.ProtocolVersion
-				if in.Params.ClientInfo != nil {
-					version = in.Params.ClientInfo.Version
-					if name := strings.TrimSpace(in.Params.ClientInfo.Name); name != "" {
-						client = name
-					}
+			client, version := "unknown client", ""
+			if info != nil {
+				version = info.Version
+				if name := strings.TrimSpace(info.Name); name != "" {
+					client = name
 				}
 			}
-			a.audit(ctx, call.id.User, ids.Nil, "mcp.session", client, map[string]any{
+			a.audit(ctx, call.id.User, ids.Nil, kind, client, map[string]any{
 				"client": client, "version": version, "protocolVersion": proto, "user": call.id.User})
 			return res, err
 		}
@@ -251,7 +277,7 @@ func mcpToolHandler(a *App, name string) mcp.ToolHandler {
 		if msg := tool.CheckArgs(args); msg != "" {
 			return nil, &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: fmt.Sprintf("%s: %s", name, msg)}
 		}
-		actor := mcpActor(ctx, a, call.id, req.Session)
+		actor := mcpActor(ctx, a, call.id, req.ClientInfo())
 		result, err := tool.Run(&mcpapi.Call{Context: callerMCPContext(ctx, call.id, actor), BaseURL: call.baseURL}, args)
 		if err != nil {
 			// A refusal, or any failure its owner classified (not found,
@@ -279,12 +305,10 @@ func mcpRefusal(text string) *mcp.CallToolResult {
 }
 
 // mcpActor names who acted and through which client, for receipts.
-func mcpActor(ctx context.Context, a *App, id *authIdentity, session *mcp.ServerSession) string {
+func mcpActor(ctx context.Context, a *App, id *authIdentity, info *mcp.Implementation) string {
 	client := "mcp"
-	if session != nil {
-		if p := session.InitializeParams(); p != nil && p.ClientInfo != nil && strings.TrimSpace(p.ClientInfo.Name) != "" {
-			client = strings.TrimSpace(p.ClientInfo.Name)
-		}
+	if info != nil && strings.TrimSpace(info.Name) != "" {
+		client = strings.TrimSpace(info.Name)
 	}
 	if client == "mcp" && !id.DelegationID.IsZero() {
 		// Without a session (or before initialize) the delegation the person
