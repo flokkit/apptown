@@ -71,13 +71,19 @@ ID, and observed Docker daemon ID. Multiple targets and connections are allowed.
 A display environment name does not select a different endpoint after association.
 Changing that selection requires attaching another target.
 
+Direct Docker endpoints and Docker agent endpoints establish this scope when
+the observed daemon is standalone. Docker Swarm membership is refused.
 Legacy async-edge environments cannot establish this standalone Docker scope.
 They remain unavailable for provider effects, including explicit teardown without
 a final copy; that choice does not substitute for verified provider identity.
 
 Attachment observes the selected standalone endpoint before committing the
 connection, target and audit receipt together. An existing unverified target
-requires an administrator to inspect `GET /api/v1/targets/<name>/provider-association`
+requires an administrator to use **Inspect provider association** on the target
+page, review the destination and deployment-to-stack associations, then select
+**Confirm provider association**. The page refuses confirmation while its reading
+is stale or its target settings have moved. These operations are also available as
+`GET /api/v1/targets/<name>/provider-association`
 and confirm the returned scope, revision and resource associations with `POST`
 to the same path. The confirmation body copies `connectionId`, supplies the
 observed scope as `expected`, its `endpointId` as `endpointId`, the returned
@@ -114,13 +120,19 @@ ID, and observed Docker daemon ID. Multiple targets and connections are allowed.
 A display environment name does not select a different endpoint after association.
 Changing that selection requires attaching another target.
 
+Direct Docker endpoints and Docker agent endpoints establish this scope when
+the observed daemon is standalone. Docker Swarm membership is refused.
 Legacy async-edge environments cannot establish this standalone Docker scope.
 They remain unavailable for provider effects, including explicit teardown without
 a final copy; that choice does not substitute for verified provider identity.
 
 Attachment observes the selected standalone endpoint before committing the
 connection, target and audit receipt together. An existing unverified target
-requires an administrator to inspect `GET /api/v1/targets/<name>/provider-association`
+requires an administrator to use **Inspect provider association** on the target
+page, review the destination and deployment-to-stack associations, then select
+**Confirm provider association**. The page refuses confirmation while its reading
+is stale or its target settings have moved. These operations are also available as
+`GET /api/v1/targets/<name>/provider-association`
 and confirm the returned scope, revision and resource associations with `POST`
 to the same path. The confirmation body copies `connectionId`, supplies the
 observed scope as `expected`, its `endpointId` as `endpointId`, the returned

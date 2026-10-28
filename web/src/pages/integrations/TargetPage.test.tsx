@@ -6,7 +6,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import type { RegistryReading, TargetView } from '../../wire.gen'
 import { newQueryClient } from '../../data'
 import { MemoryRouter } from 'react-router-dom'
-import { CopyRunnerLine, EditTarget, RegistryLine, Unaccounted } from './TargetPage'
+import { CopyRunnerLine, EditTarget, ProviderAssociationSection, RegistryLine, Unaccounted } from './TargetPage'
 import type { InfrastructureView } from '../../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -219,5 +219,98 @@ describe('what is unaccounted for at a target', () => {
   it('says all accounted for only on an answer', () => {
     expect(show({ live: true, asOf: new Date().toISOString(), resources: [claim] })).toContain(allClear)
     expect(show({ live: false, resources: [] })).toContain('checking')
+  })
+})
+
+describe('provider association confirmation', () => {
+  const t = { ...target('apps.example', true, 4), id: 'target-id', name: 'office' } as TargetView
+  const scope = { version: 1, apiBase: 'https://portainer.example', endpointId: 23, daemonId: 'daemon-id' }
+  const preview = {
+    targetId: t.id, connectionId: 'connection-id', revision: 4, scope, associated: false,
+    resources: [{ deploymentId: 'deployment-id', scope, stackId: 90, stackName: 'shop-office' }],
+  }
+  afterEach(() => { vi.unstubAllGlobals() })
+  const mount = async () => {
+    const el = document.createElement('div'), root = createRoot(el), client = newQueryClient(), saved = vi.fn()
+    client.setDefaultOptions({ queries: { retry: false } })
+    const render = async (target = t, current = true) => act(async () => {
+      root.render(<QueryClientProvider client={client}><ProviderAssociationSection t={target} current={current} onSaved={saved} /></QueryClientProvider>)
+    })
+    const button = (label: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === label)!
+    const click = async (label: string) => act(async () => { button(label).click() })
+    await render()
+    return { el, render, button, click, saved, close: () => act(() => { root.unmount(); client.clear() }) }
+  }
+
+  it('reads on inspection and confirms exactly the displayed associations', async () => {
+    const posts: unknown[] = []
+    const fetch = vi.fn(async (_url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') { posts.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ ...preview, associated: true })) }
+      return new Response(JSON.stringify(preview))
+    })
+    vi.stubGlobal('fetch', fetch)
+    const h = await mount()
+    expect(fetch).not.toHaveBeenCalled()
+    await h.click('Inspect provider association')
+    await vi.waitFor(() => expect(h.el.textContent).toContain('shop-office'))
+    for (const value of [scope.apiBase, scope.daemonId, 'deployment-id', '90']) expect(h.el.textContent).toContain(value)
+    expect(posts).toEqual([])
+    await vi.waitFor(() => expect(h.button('Confirm provider association').disabled).toBe(false))
+    await h.click('Confirm provider association')
+    expect(posts).toEqual([{ connectionId: preview.connectionId, endpointId: 23, expectedRevision: 4, expected: scope, resources: preview.resources }])
+    expect(h.saved).toHaveBeenCalledOnce()
+    expect(h.el.textContent).toContain('Provider association confirmed')
+    h.close()
+  })
+
+  it('blocks stale observations and discards inspection on settings or target changes', async () => {
+    let fail = false
+    vi.stubGlobal('fetch', vi.fn(async () => fail
+      ? new Response('{"error":"provider unavailable"}', { status: 409 })
+      : new Response(JSON.stringify(preview))))
+    const h = await mount()
+    await h.click('Inspect provider association')
+    await vi.waitFor(() => expect(h.button('Confirm provider association')?.disabled).toBe(false))
+    await h.render(t, false)
+    expect(h.button('Confirm provider association').disabled).toBe(true)
+    await h.render()
+    fail = true
+    await h.click('Inspect again')
+    await vi.waitFor(() => expect(h.el.textContent).toContain('out of date'))
+    expect(h.el.textContent).toContain('shop-office')
+    expect(h.button('Confirm provider association').disabled).toBe(true)
+    await h.render({ ...t, settingsRevision: 5 })
+    expect(h.el.textContent).not.toContain('shop-office')
+    expect(h.button('Confirm provider association')).toBeUndefined()
+    expect(h.button('Inspect provider association')).toBeDefined()
+    await h.render({ ...t, id: 'other-id', name: 'other' })
+    expect(h.button('Confirm provider association')).toBeUndefined()
+    h.close()
+  })
+
+  it.each([403, 409])('shows initial %s without claiming an empty association', async (status) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('{"error":"inspection refused"}', { status })))
+    const h = await mount()
+    await h.click('Inspect provider association')
+    await vi.waitFor(() => expect(h.el.textContent).toContain(status === 403 ? 'Not available to you' : 'inspection refused'))
+    expect(h.button('Confirm provider association')).toBeUndefined()
+    expect(h.el.textContent).not.toContain('No existing stack associations')
+    h.close()
+  })
+
+  it('keeps a failed confirmation visible and requires another inspection', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => init?.method === 'POST'
+      ? new Response('{"error":"provider resource observations changed"}', { status: 409 })
+      : new Response(JSON.stringify(preview))))
+    const h = await mount()
+    await h.click('Inspect provider association')
+    await vi.waitFor(() => expect(h.button('Confirm provider association')?.disabled).toBe(false))
+    await h.click('Confirm provider association')
+    expect(h.saved).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(h.el.textContent).toContain('provider resource observations changed'))
+    expect(h.button('Confirm provider association').disabled).toBe(true)
+    await h.click('Inspect again')
+    await vi.waitFor(() => expect(h.button('Confirm provider association').disabled).toBe(false))
+    h.close()
   })
 })

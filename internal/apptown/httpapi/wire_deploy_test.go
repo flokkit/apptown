@@ -41,6 +41,7 @@ func init() {
 		wiregen.Named{Name: "CloudTargetAttached", Value: CloudTargetAttached{}},
 		wiregen.Named{Name: "TargetEdited", Value: TargetEdited{}},
 		wiregen.Named{Name: "TargetPage", Value: TargetPage{}},
+		wiregen.Named{Name: "ProviderAssociation", Value: deployment.ProviderAssociation{}},
 		wiregen.Named{Name: "TargetChecked", Value: TargetChecked{}},
 		wiregen.Named{Name: "TargetRetired", Value: TargetRetired{}},
 		wiregen.Named{Name: "TargetList", Value: TargetList{}},

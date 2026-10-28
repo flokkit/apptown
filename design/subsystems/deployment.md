@@ -1498,6 +1498,12 @@ A compose stack matching a current deployment is attributed to another environme
 only after its recorded Portainer connection verifies the same daemon. Customer
 environment labels describe that placement. Missing or changed provider scope is
 unavailable evidence, not an orphan. Ambiguous generated stack identities refuse.
+If placement verification fails while reading the infrastructure view, that target
+shows only its authoritative records with an explicit error and unknown provider
+inventory; it does not classify unverified observations as missing or unrecorded.
+Other targets remain visible. A failed inventory adapter is also shown at its
+target. Failure to read the target list or authoritative records still refuses
+the fleet reading. Unknown inventory is distinct from an empty provider answer.
 
 Direct Docker and Portainer orphan removal requires a fresh, uniquely matching
 observed resource and the same placement check before audit admission or deletion.

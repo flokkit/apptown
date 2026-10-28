@@ -95,7 +95,10 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 			WriteFault(w, err) // an unread record is not an orphan
 			return
 		}
-		if inv, err := h.providers.TargetInventory(t); err == nil {
+		recorded := v.Resources
+		if inv, err := h.providers.TargetInventory(t); err != nil {
+			v.Error = err.Error()
+		} else {
 			{
 				live, errText, at, refreshing := h.cache.Live(r.Context(), h.queue, t.Name, inv, force)
 				v.Error, v.Refreshing = errText, refreshing
@@ -106,11 +109,13 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 				v.Resources, v.Live, answered = deployment.InventoryAnswer(v.Resources, live, errText, at)
 				if answered {
 					if t.Kind == deployment.KindDockerHost || t.Kind == deployment.KindPortainer {
-						// Without the project list every leftover would read
-						// as nobody's, so a failed read fails the page.
 						if v.Resources, v.Shared, err = h.attributeLeftovers(r.Context(), t, v.Resources); err != nil {
-							WriteFault(w, err)
-							return
+							// Failed placement is unknown, never an orphan. Keep
+							// this target's records while the rest of the fleet
+							// remains readable; effects still verify placement.
+							v.Error = "Inventory placement could not be verified: " + err.Error()
+							v.Resources, v.Live, _ = deployment.InventoryAnswer(recorded, nil, v.Error, time.Time{})
+							v.AsOf, v.Shared = stamp.Time{}, ""
 						}
 					}
 				}

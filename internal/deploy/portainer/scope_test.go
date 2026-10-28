@@ -99,3 +99,65 @@ func TestCanonicalAPIBaseRetainsDestinationBoundaries(t *testing.T) {
 		}
 	}
 }
+
+// Both direct and agent Docker endpoints use the same verified daemon identity;
+// other environment kinds must be refused before the Docker proxy is queried.
+func TestScopeAcceptsStandaloneDockerConnectionsOnly(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		endpoint  string
+		swarm     string
+		want      bool
+		infoCalls int
+	}{
+		{"direct", `{"Id":7,"Type":1}`, `{"LocalNodeState":"inactive"}`, true, 1},
+		{"agent", `{"Id":7,"Type":2}`, `{"LocalNodeState":"inactive"}`, true, 1},
+		{"older-info", `{"Id":7,"Type":2}`, `{}`, true, 1},
+		{"wrong-id", `{"Id":8,"Type":2}`, `{}`, false, 0},
+		{"unknown", `{"Id":7,"Type":0}`, `{}`, false, 0},
+		{"azure", `{"Id":7,"Type":3}`, `{}`, false, 0},
+		{"edge", `{"Id":7,"Type":4}`, `{}`, false, 0},
+		{"kubernetes", `{"Id":7,"Type":5}`, `{}`, false, 0},
+		{"kubernetes-agent", `{"Id":7,"Type":6}`, `{}`, false, 0},
+		{"kubernetes-edge", `{"Id":7,"Type":7}`, `{}`, false, 0},
+		{"future-type", `{"Id":7,"Type":8}`, `{}`, false, 0},
+		{"swarm-worker", `{"Id":7,"Type":2}`, `{"LocalNodeState":"active","NodeID":"worker"}`, false, 1},
+		{"swarm-manager", `{"Id":7,"Type":1}`, `{"LocalNodeState":"active","ControlAvailable":true}`, false, 1},
+		{"swarm-pending", `{"Id":7,"Type":2}`, `{"LocalNodeState":"pending"}`, false, 1},
+		{"swarm-node", `{"Id":7,"Type":2}`, `{"NodeID":"node"}`, false, 1},
+		{"swarm-control", `{"Id":7,"Type":2}`, `{"ControlAvailable":true}`, false, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			infoCalls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/api/endpoints/7":
+					fmt.Fprint(w, tc.endpoint)
+				case "/api/endpoints/7/docker/info":
+					infoCalls++
+					fmt.Fprintf(w, `{"ID":"daemon","Swarm":%s}`, tc.swarm)
+				default:
+					t.Errorf("unexpected path %s", r.URL.Path)
+					w.WriteHeader(404)
+				}
+			}))
+			defer server.Close()
+			cfg := Target{PortainerURL: server.URL}
+			scope, err := ObserveScope(t.Context(), cfg, 7)
+			if (err == nil) != tc.want {
+				t.Fatalf("scope=%+v error=%v; accepted=%v", scope, err, tc.want)
+			}
+			if infoCalls != tc.infoCalls {
+				t.Fatalf("Docker info requests=%d, want %d", infoCalls, tc.infoCalls)
+			}
+			if tc.want {
+				if scope.EndpointID != 7 || scope.DaemonID != "daemon" {
+					t.Fatalf("wrong scope: %+v", scope)
+				}
+				if err := VerifyScope(t.Context(), cfg, scope); err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}

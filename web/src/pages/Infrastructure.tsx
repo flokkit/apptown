@@ -117,7 +117,7 @@ function TargetSection({ t: tIn, onRefresh, refreshing, onChanged }: { t: Target
         <span className={`chip ${t.status === 'ready' ? 'pass' : t.status === 'retired' ? 'muted' : 'fail'}`}>{t.status}</span>
         {t.live
           ? <span className="chip pass" title={t.asOf ? `the provider answered ${relTime(t.asOf)}` : 'the provider answered'}>as of {t.asOf ? relTime(t.asOf) : 'now'}</span>
-          : <span className="chip fail" title={t.error}>could not ask the provider{t.asOf ? ` — showing its answer from ${relTime(t.asOf)}` : ''}</span>}
+          : <span className="chip fail" title={t.error}>inventory unavailable{t.asOf ? ` — showing its answer from ${relTime(t.asOf)}` : ''}</span>}
         {(t.refreshing || refreshing) && <span className="chip running">refreshing…</span>}
         {!t.refreshing && !refreshing && <button className="subtle" onClick={onRefresh} title="ask the provider now">refresh</button>}
         {unrecorded > 0 && <span className="chip pending">{unrecorded} unrecorded</span>}
@@ -143,7 +143,7 @@ function TargetSection({ t: tIn, onRefresh, refreshing, onChanged }: { t: Target
 export function ResourceTables({ t: tIn, onChanged, only, empty }: { t: TargetInfra; onChanged: () => void; only?: (r: Resource) => boolean; empty?: string }) {
   const t = { ...tIn, resources: (tIn.resources ?? []).filter(only ?? (() => true)) }
   const kinds = [...KIND_ORDER.filter((k) => t.resources.some((r) => r.kind === k)), ...[...new Set(t.resources.map((r) => r.kind))].filter((k) => !KIND_ORDER.includes(k))]
-  if (t.resources.length === 0) return <div className="muted small">{empty ?? 'Empty inventory.'}</div>
+  if (t.resources.length === 0) return <div className="muted small">{empty ?? (t.live ? 'Empty inventory.' : t.asOf ? `No resources in the inventory read ${relTime(t.asOf)}.` : 'Inventory is unknown.')}</div>
   return (
     <>
       {kinds.map((k) => (

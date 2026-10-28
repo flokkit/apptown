@@ -71,7 +71,9 @@ func ObserveScope(ctx context.Context, cfg Target, endpointID int64) (Scope, err
 	if err := json.Unmarshal(raw, &endpoint); err != nil {
 		return Scope{}, errors.New("Portainer endpoint observation is malformed")
 	}
-	if endpoint.ID != endpointID || endpoint.Type != 1 {
+	// Portainer types 1 and 2 are Docker reached directly or through an agent.
+	// Edge and Kubernetes environments do not provide this synchronous scope.
+	if endpoint.ID != endpointID || (endpoint.Type != 1 && endpoint.Type != 2) {
 		return Scope{}, errors.New("verified Portainer scope requires the selected standalone Docker endpoint")
 	}
 	code, raw, err = JSON(ctx, &cfg, "GET", fmt.Sprintf("/api/endpoints/%d/docker/info", endpointID), nil)
@@ -81,9 +83,19 @@ func ObserveScope(ctx context.Context, cfg Target, endpointID int64) (Scope, err
 	if code != 200 {
 		return Scope{}, fmt.Errorf("observing Portainer Docker identity: HTTP %d", code)
 	}
-	var info struct{ ID string }
+	var info struct {
+		ID    string
+		Swarm struct {
+			NodeID           string
+			LocalNodeState   string
+			ControlAvailable bool
+		}
+	}
 	if err := json.Unmarshal(raw, &info); err != nil || strings.TrimSpace(info.ID) == "" {
 		return Scope{}, errors.New("Portainer returned no usable Docker identity")
+	}
+	if info.Swarm.NodeID != "" || info.Swarm.ControlAvailable || (info.Swarm.LocalNodeState != "" && info.Swarm.LocalNodeState != "inactive") {
+		return Scope{}, errors.New("verified Portainer scope requires standalone Docker; the selected daemon belongs to a Swarm cluster")
 	}
 	return Scope{Version: 1, APIBase: base, EndpointID: endpointID, DaemonID: info.ID}, nil
 }
