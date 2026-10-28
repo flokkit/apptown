@@ -1,121 +1,390 @@
-// Renovate: dependency updates for this repository, one at a time.
-// design/operations/github.md ("Dependency updates") says how the dashboard,
-// review and landing work. Nothing opens until a maintainer ticks it on the
-// Dependency Dashboard issue; security fixes are the exception, one at a time.
-//
-// Project Go images and their central tool pin update together. Other central
-// pins remain manual: downloads, checksums and qualified runtime images need
-// their own coordinated update rules.
+// Dependency ownership and manual exceptions: design/operations/github.md.
 {
-  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-  extends: ['config:recommended', 'helpers:pinGitHubActionDigests'],
-  timezone: 'Australia/Melbourne',
-
-  // Admission: the dashboard lists every update; a person ticks one to open it.
-  dependencyDashboard: true,
-  dependencyDashboardApproval: true,
-  prConcurrentLimit: 1,
-  branchConcurrentLimit: 1,
-  prHourlyLimit: 1,
-  automerge: false,
-  rebaseWhen: 'conflicted',
-  minimumReleaseAge: '3 days',
-  reviewers: ['bls'],
-
-  enabledManagers: ['gomod', 'npm', 'github-actions', 'dockerfile', 'composer', 'custom.regex'],
-  // Fixtures and evaluation material are not dependencies of anything shipped.
-  ignorePaths: ['**/node_modules/**', '**/testdata/**', 'eval/**'],
-
-  // The central Go pin follows the agent image's bookworm family. Scanner
-  // images retain their own variant and publication dates; check-pins refuses
-  // an update if the variants have not yet converged on the same version.
-  customManagers: [
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "timezone": "Australia/Melbourne",
+  "dependencyDashboard": true,
+  "dependencyDashboardApproval": true,
+  "prConcurrentLimit": 1,
+  "branchConcurrentLimit": 1,
+  "prHourlyLimit": 1,
+  "automerge": false,
+  "rebaseWhen": "conflicted",
+  "minimumReleaseAge": "3 days",
+  "reviewers": ["bls"],
+  "enabledManagers": ["gomod", "npm", "github-actions", "dockerfile", "composer", "custom.regex", "mise"],
+  "ignorePaths": ["**/node_modules/**", "**/testdata/**", "eval/**"],
+  "customManagers": [
     {
-      customType: 'regex',
-      managerFilePatterns: ['/^deploy/tool-pins\\.txt$/'],
-      matchStrings: ['(?:^|\\n)golang[ \\t]+(?<currentValue>\\d+\\.\\d+\\.\\d+)[ \\t]+image golang(?:\\r?\\n|$)'],
-      depNameTemplate: 'golang',
-      datasourceTemplate: 'docker',
-      versioningTemplate: 'semver',
-      extractVersionTemplate: '^(?<version>\\d+\\.\\d+\\.\\d+)-bookworm$',
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/tool-pins\\.txt$/"],
+      "matchStrings": ["(?:^|\\n)golang[ \\t]+(?<currentValue>\\d+\\.\\d+\\.\\d+)[ \\t]+image golang"],
+      "depNameTemplate": "golang",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver",
+      "extractVersionTemplate": "^(?<version>\\d+\\.\\d+\\.\\d+)-bookworm$"
     },
     {
-      customType: 'regex',
-      managerFilePatterns: ['/^stock/scanners\\.yaml$/'],
-      matchStrings: ['(?:^|\\n)[ \\t]+image: golang:(?<currentValue>\\d+\\.\\d+\\.\\d+-alpine)(?:\\r?\\n|$)'],
-      depNameTemplate: 'golang',
-      datasourceTemplate: 'docker',
-      versioningTemplate: 'docker',
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/scanners\\.yaml$/"],
+      "matchStrings": ["(?:^|\\n)[ \\t]+image: (?<depName>[^\\s:]+):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
     },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^internal/apptown/integration/connector_catalog\\.go$/"],
+      "matchStrings": ["(?:\"image\":|Placeholder:)\\s*\"(?<depName>[^\"\\s:]+):(?<currentValue>[^\"\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?\""],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/tool-pins\\.txt$/"],
+      "matchStrings": ["(?:^|\\n)(?:node|osv-scanner|gitleaks|syft|trivy|semgrep|hadolint|godot|ruby)[ \\t]+(?<currentValue>\\S+)[ \\t]+image (?<depName>[^\\s,]+)"],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/apptown-agent/Dockerfile$/", "/^deploy/tool-pins\\.txt$/", "/^Makefile$/", "/^\\.github/workflows/ci\\.yml$/"],
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)(?: extractVersion=(?<extractVersion>\\S+))?\\n(?:ARG \\w+_VERSION=|\\w+_VERSION := |[ \\t]+\\w+_VERSION: |\\S+[ \\t]+)(?<currentValue>\\S+)"]
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^deploy/apptown-agent/Dockerfile$/", "/^\\.github/workflows/ci\\.yml$/"],
+      "matchStrings": ["# renovate: checksum=(?<depName>\\S+) version=(?<currentValue>\\S+)\\n(?:ARG \\w+_SHA256_\\w+=|[ \\t]+\\w+_SHA256: )(?<currentDigest>[a-f0-9]{64})"],
+      "datasourceTemplate": "github-release-attachments",
+      "versioningTemplate": "semver"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/toolchains/dotnet\\.toml$/"],
+      "matchStrings": ["dotnet = \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "dotnet-sdk",
+      "datasourceTemplate": "dotnet-version"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/dependencies/s3\\.yaml$/"],
+      "matchStrings": ["  image: (?<depName>[^\\s:]+):(?<currentValue>[^\\s@]+)(?:@(?<currentDigest>sha256:[a-f0-9]+))?"],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
+      "matchStrings": ["\\n  postgres:\\n    \"(?<depType>[^\"]+)\": \\{version: \"?(?<currentValue>[0-9.]+)\"?,"],
+      "depNameTemplate": "postgres",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>[0-9.]+)-alpine$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
+      "matchStrings": ["run: \"(?<depName>postgres):(?<currentValue>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)\""],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
+      "matchStrings": ["\\n  mariadb:\\n    \"(?<depType>[^\"]+)\": \\{version: \"?(?<currentValue>[0-9.]+)\"?,"],
+      "depNameTemplate": "mariadb",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>[0-9.]+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
+      "matchStrings": ["run: \"(?<depName>mariadb):(?<currentValue>[^@]+)@(?<currentDigest>sha256:[a-f0-9]+)\""],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/dependencies/postgres\\.yaml$/"],
+      "matchStrings": ["  version: \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "postgres",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>[0-9.]+)-alpine$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/dependencies/mariadb\\.yaml$/"],
+      "matchStrings": ["  version: \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "mariadb",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>[0-9.]+)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/dependencies/redis\\.yaml$/"],
+      "matchStrings": ["  version: \"(?<currentValue>[^\"]+)\""],
+      "depNameTemplate": "redis",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker",
+      "extractVersionTemplate": "^(?<version>[0-9.]+)-alpine$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^stock/tool-versions\\.yaml$/"],
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)(?: extractVersion=(?<extractVersion>\\S+))?\\n  \\w+:\\n    \"(?<depType>[^\"]+)\": \\{version: (?<currentValue>[^,}\\s]+)"]
+    }
   ],
-
-  // One group per thing to verify, for updates within a major version. A
-  // major is left out of the groups, so it is its own pull request, except
-  // where Renovate's monorepo groups (config:recommended) keep packages that
-  // release together in one (react with react-dom). Later rules win.
-  packageRules: [
+  "packageRules": [
     {
-      matchManagers: ['gomod'],
-      matchUpdateTypes: ['minor', 'patch', 'digest'],
-      groupName: 'Go modules',
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "Go modules"
     },
     {
-      matchManagers: ['gomod'],
-      postUpdateOptions: ['gomodTidy'],
+      "matchManagers": ["gomod"],
+      "postUpdateOptions": ["gomodTidy"]
     },
     {
-      matchManagers: ['npm'],
-      matchFileNames: ['web/**'],
-      matchUpdateTypes: ['minor', 'patch', 'digest'],
-      groupName: 'web npm',
+      "matchManagers": ["npm"],
+      "matchFileNames": ["web/**"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "web npm"
     },
     {
-      matchManagers: ['github-actions'],
-      matchUpdateTypes: ['minor', 'patch', 'digest', 'pin', 'pinDigest'],
-      groupName: 'GitHub Actions',
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "groupName": "GitHub Actions"
     },
     {
-      matchManagers: ['dockerfile'],
-      matchUpdateTypes: ['minor', 'patch', 'digest'],
-      groupName: 'Dockerfile bases',
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "Dockerfile bases"
     },
     {
-      // A new Go line (1.26 to 1.27) in go.mod and the golang images is a
-      // compiler change, verified apart from a digest refresh.
-      matchManagers: ['gomod', 'dockerfile'],
-      matchDepNames: ['go', 'golang'],
-      matchUpdateTypes: ['minor'],
-      groupName: 'Go toolchain',
+      "matchManagers": ["gomod", "dockerfile"],
+      "matchDepNames": ["go", "golang"],
+      "matchUpdateTypes": ["minor"],
+      "groupName": "Go toolchain"
     },
     {
-      // A starter is verified as one thing: its image builds from its
-      // Dockerfile and its npm or composer lockfile together.
-      matchFileNames: ['stock/seeds/**'],
-      matchUpdateTypes: ['minor', 'patch', 'digest'],
-      groupName: 'starter {{parentDir}}',
+      "matchFileNames": ["stock/seeds/**"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "starter {{parentDir}}"
     },
     {
-      // A starter's major stays apart from the same package's major in web/.
-      matchFileNames: ['stock/seeds/**'],
-      matchUpdateTypes: ['major'],
-      additionalBranchPrefix: '{{parentDir}}-',
-      commitMessageSuffix: '({{parentDir}} starter)',
+      "matchFileNames": ["stock/seeds/**"],
+      "matchUpdateTypes": ["major"],
+      "additionalBranchPrefix": "{{parentDir}}-",
+      "commitMessageSuffix": "({{parentDir}} starter)"
     },
     {
-      // Project tools are independent of AppTown's own build/CI compiler.
-      // This overrides the broad Dockerfile and Go groups above.
-      matchManagers: ['dockerfile', 'custom.regex'],
-      matchFileNames: ['deploy/apptown-agent/Dockerfile', 'deploy/tool-pins.txt', 'stock/scanners.yaml'],
-      matchPackageNames: ['golang'],
-      groupName: 'project Go tools',
+      "matchManagers": ["dockerfile", "custom.regex"],
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml"],
+      "matchPackageNames": ["golang"],
+      "groupName": "project Go tools"
     },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["node"],
+      "groupName": "project Node tools"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["astral-sh/uv", "ghcr.io/astral-sh/uv"],
+      "groupName": "project uv tools"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["jdx/mise"],
+      "groupName": "project mise"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["DarthSim/hivemind"],
+      "groupName": "project hivemind"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["docker/buildx"],
+      "groupName": "project buildx"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["docker/compose"],
+      "groupName": "project compose"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["ruff"],
+      "groupName": "project ruff"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["@biomejs/biome"],
+      "groupName": "project biome"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["golang.org/x/tools/gopls"],
+      "groupName": "project gopls"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["@earendil-works/pi-coding-agent", "pi-subagents", "@narumitw/pi-lsp"],
+      "groupName": "project pi tools"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["ghcr.io/google/osv-scanner"],
+      "groupName": "project scanner osv-scanner"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["zricethezav/gitleaks"],
+      "groupName": "project scanner gitleaks"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["anchore/syft"],
+      "groupName": "project scanner syft"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["aquasec/trivy"],
+      "groupName": "project scanner trivy"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["semgrep/semgrep"],
+      "groupName": "project scanner semgrep"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["hadolint/hadolint"],
+      "groupName": "project scanner hadolint"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["barichello/godot-ci"],
+      "groupName": "project scanner godot-ci"
+    },
+    {
+      "matchFileNames": ["deploy/apptown-agent/Dockerfile", "deploy/tool-pins.txt", "stock/scanners.yaml", "internal/apptown/integration/connector_catalog.go"],
+      "matchPackageNames": ["ruby"],
+      "groupName": "project scanner ruby"
+    },
+    {
+      "matchFileNames": ["Makefile"],
+      "groupName": "build tool {{depName}}"
+    },
+    {
+      "matchFileNames": [".github/workflows/ci.yml"],
+      "matchPackageNames": ["gitleaks/gitleaks"],
+      "groupName": "CI gitleaks"
+    },
+    {
+      "matchFileNames": ["deploy/tool-pins.txt"],
+      "matchPackageNames": ["hadolint/hadolint"],
+      "extractVersion": "^(?<version>v?[0-9.]+)-alpine$"
+    },
+    {
+      "matchFileNames": ["stock/**"],
+      "matchManagers": ["mise", "custom.regex"],
+      "matchPackageNames": ["golang/go", "go"],
+      "allowedVersions": "/^1\\.27(?:\\.|$)/",
+      "groupName": "stock Go 1.27"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml"],
+      "matchPackageNames": ["node"],
+      "allowedVersions": "/^24(?:\\.|$)/",
+      "groupName": "stock Node 24"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["python/cpython", "python"],
+      "allowedVersions": "/^3\\.12(?:\\.|\\+|-|$)/",
+      "groupName": "stock Python 3.12"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["java-jdk"],
+      "allowedVersions": "/^21(?:\\.|\\+|-|$)/",
+      "groupName": "stock Java 21"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["apache/maven"],
+      "extractVersion": "^maven-(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "allowedVersions": "/^3\\.9(?:\\.|\\+|-|$)/",
+      "groupName": "stock Maven 3.9"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["dotnet-sdk", "dotnet-runtime"],
+      "allowedVersions": "/^10(?:\\.|\\+|-|$)/",
+      "groupName": "stock dotnet 10"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["ruby-version", "ruby"],
+      "allowedVersions": "/^3\\.4(?:\\.|\\+|-|$)/",
+      "groupName": "stock Ruby 3.4"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["rust"],
+      "allowedVersions": "/^1\\.84(?:\\.|\\+|-|$)/",
+      "groupName": "stock Rust 1.84"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["barichello/godot-ci"],
+      "allowedVersions": "/^4\\.4(?:\\.|\\+|-|$)/",
+      "groupName": "stock Godot 4.4"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["php"],
+      "allowedVersions": "/^8\\.3(?:\\.|\\+|-|$)/",
+      "groupName": "stock PHP 8.3"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["postgres"],
+      "allowedVersions": "/^16(?:\\.|\\+|-|$)/",
+      "groupName": "stock Postgres 16"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["mariadb"],
+      "allowedVersions": "/^11\\.4(?:\\.|\\+|-|$)/",
+      "groupName": "stock MariaDB 11.4"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/**", "stock/tool-versions.yaml", "stock/dependencies/**"],
+      "matchPackageNames": ["redis"],
+      "allowedVersions": "/^7(?:\\.|\\+|-|$)/",
+      "groupName": "stock Redis 7"
+    },
+    {
+      "matchFileNames": ["stock/toolchains/node.toml", "stock/toolchains/python.toml", "stock/toolchains/ruby.toml", "stock/toolchains/dotnet.toml", "stock/dependencies/postgres.yaml", "stock/dependencies/redis.yaml"],
+      "enabled": false
+    },
+    {
+      "matchFileNames": ["deploy/**"],
+      "matchPackageNames": ["docker"],
+      "enabled": false
+    }
   ],
-
-  // Security fixes skip approval, the schedule and the release-age wait
-  // (Renovate's defaults for this object); at most one is open at a time.
-  vulnerabilityAlerts: {
-    enabled: true,
-    prConcurrentLimit: 1,
-    assignees: ['bls'],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "prConcurrentLimit": 1,
+    "assignees": ["bls"]
   },
+  "mise": {
+    "managerFilePatterns": ["/^stock/toolchains/[^/]+\\.toml$/"]
+  }
 }

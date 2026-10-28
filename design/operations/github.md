@@ -19,23 +19,45 @@ repository's collaborators ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
 ## Dependency updates
 
 The hosted Renovate GitHub App proposes dependency updates, configured by
-`renovate.json5` at the root. It reads Go modules, the npm packages of `web/`
-and of the starters, the starters' composer packages, the Actions in
-`.github/workflows/` and the bases of every Dockerfile. It skips `testdata/`
-and `eval/`. A custom manager reads the agent Go version in
-`deploy/tool-pins.txt`, using the same bookworm image tag family as the agent
-Dockerfile. Another reads the Go images in `stock/scanners.yaml`. Other
-central pins, scanner tools, Go constants and `stock/toolchains/` are updated
-by hand.
+`renovate.json5` at the root. Native managers read Go modules, npm and
+Composer manifests and lockfiles, Actions, Dockerfile bases and the stock mise
+toolchains. Custom managers read the agent's central pins and package ARGs,
+scanner images and connector presets, Makefile tools, CI gitleaks, and the
+stock tool-version catalog and dependency defaults. An annotation beside a
+nonstandard pin names its upstream datasource. Fixtures and evaluation material
+are excluded.
+
+Agent tools move with their central pins and every scanner or connector preset
+that shares the tool. AppTown's build and CI tools have separate groups. Stock
+toolchains and catalog entries stay within their declared version line; partial
+selectors such as Node `24` and Python `3.12` are held because they already
+select that line. Exact versions in the catalog can still receive patch
+updates. A new stock line is added deliberately rather than changing the meaning of an existing line.
+
+GitHub archive downloads use `github-release-attachments` to update both
+architecture checksums with their version. Each checksum has its own release-tag
+annotation so Renovate can replace the two hashes independently. `check-pins`
+rejects an annotation whose release differs from the executable version. Keep
+these annotations in sync when making a manual update. CI gitleaks has its own
+version and checksum, independent of the project scanner.
+
+The remaining manual pins are glab's GitLab archive and checksums, Docker CLI,
+and the runtime catalog entries `apptown-sh`, `apptown-df`, `static-server` and
+`private-docker`. Docker daemon bases under `deploy/` are held as well: a
+qualified runtime update must coordinate the daemon, client, digests and worker
+profile through the runtime qualification procedure. Renovate does not change
+that procedure or authorize a release. Other native Dockerfile bases retain
+their existing coverage.
 
 Nothing opens by itself. Renovate keeps one issue, the **Dependency
 Dashboard**, listing the available updates, grouped so that one pull request
 is one thing to verify: Go modules, `web/` npm, each
 starter (its packages and its Dockerfile's bases together), Actions,
-AppTown's own Dockerfile bases, project Go images and their central pin, and
-a new AppTown build Go line (`go.mod` and its build images). Project Go tools
-stay separate from AppTown's build/CI compiler. Each major version is its own entry, except that packages released
-together (React with React DOM) move together.
+AppTown's own Dockerfile bases, each project tool and its central pin, build
+and CI tools, stock tool lines, and a new AppTown build Go line (`go.mod`
+and its build images). Project Go tools stay separate from AppTown's build/CI
+compiler. Major updates stay separate from minor and patch updates; coupled
+pins and packages released together (React with React DOM) move together.
 
 An update whose release is at least three days old waits under "Pending
 Approval". One less than three days old, or one whose registry gives no
@@ -58,8 +80,10 @@ A bump that fails a check stays open for a person to finish or close.
 `make check-pins` requires the agent Go image, Go scanner images and central
 pin to agree; Renovate updates them in one group. Each image variant retains
 its registry availability and release-age check. If their eligible versions
-differ temporarily, the pin check refuses the update until they agree. Other
-coupled tool pins still need a coordinated manual change.
+differ temporarily, the pin check refuses the update until they agree. The
+same pin check rejects disagreement between other project tools, their
+central pins and scanner/catalog references. A group with unavailable or
+ineligible variants stays blocked until its pins agree.
 
 Security fixes are the exception. Renovate reads GitHub's Dependabot alerts,
 which are on in the repository's security settings (`renovate.json5` does not
@@ -76,6 +100,20 @@ expected):
 npm_config_ignore_scripts=true npx --yes --package renovate@44.149.0 -- \
   renovate-config-validator --strict
 ```
+
+To exercise extraction and real replacement with the same pinned Renovate
+implementation (temporary files only):
+
+```sh
+npm_config_ignore_scripts=true npm exec --yes --package renovate@44.149.0 -- \
+  sh -c 'node scripts/renovate-test.mjs "$(dirname "$(command -v renovate)")/../renovate"'
+```
+
+This checks the custom pins, native manifests and mise files, owner groups,
+paired architecture checksum edits, CI pins, stock versions, digest refreshes
+and the pin gate on the resulting temporary tree. It supplies fixture update
+values without fetching releases; registry availability and the three-day age
+remain checks on each actual update.
 
 Renovate also checks the file on every run and opens an issue when it cannot
 read it.

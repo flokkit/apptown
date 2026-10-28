@@ -70,6 +70,30 @@ class PinsCheckTest(unittest.TestCase):
         out = self.run_check()
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 
+    def test_each_checksum_release_matches_the_download_version(self):
+        hashes = """\
+# renovate: checksum=astral-sh/uv version=0.13.0
+ARG UV_SHA256_AMD64={amd}
+# renovate: checksum=astral-sh/uv version=0.13.0
+ARG UV_SHA256_ARM64={arm}
+""".format(amd="a" * 64, arm="b" * 64)
+        self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE + hashes)
+        self.assertEqual(self.run_check().returncode, 0)
+        self.write("deploy/apptown-agent/Dockerfile", DOCKERFILE + hashes.replace(
+            "version=0.13.0\nARG UV_SHA256_ARM64", "version=0.12.0\nARG UV_SHA256_ARM64"))
+        self.assertFails("UV checksum release 0.12.0 differs from version 0.13.0")
+
+    def test_ci_checksum_release_matches_its_independent_version(self):
+        text = """\
+      GITLEAKS_VERSION: 8.30.1
+      # renovate: checksum=gitleaks/gitleaks version=v8.30.1
+      GITLEAKS_SHA256: {digest}
+""".format(digest="c" * 64)
+        self.write(".github/workflows/ci.yml", text)
+        self.assertEqual(self.run_check().returncode, 0)
+        self.write(".github/workflows/ci.yml", text.replace("version=v8.30.1", "version=v8.30.0"))
+        self.assertFails("GITLEAKS checksum release v8.30.0 differs from version 8.30.1")
+
     # Kills: two versions of one tool, in two files.
     def test_a_second_version_of_a_tool_fails(self):
         self.write("internal/apptown/integration/catalog.go", CATALOG.replace("aquasec/trivy:0.66.0", "aquasec/trivy:0.58.1"))

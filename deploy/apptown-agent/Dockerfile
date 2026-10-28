@@ -20,6 +20,7 @@
 # (the secret apptown-trust; internal/trust) and runs them first, so a
 # build behind a TLS-inspecting proxy can fetch; without them it runs as is.
 FROM golang:1.27.0-bookworm@sha256:ded31c68586d2e49e760acc2e65a884b23d032e9bbbed0ae0c55abd3fcaf4452 AS gopls
+# renovate: datasource=go depName=golang.org/x/tools/gopls versioning=semver
 ARG GOPLS_VERSION=v0.23.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; CGO_ENABLED=0 GOBIN=/out go install golang.org/x/tools/gopls@${GOPLS_VERSION} && /out/gopls version
 
@@ -47,8 +48,11 @@ RUN printf '#!/bin/sh\nset -e\ncase "$(dpkg --print-architecture)" in amd64) s=$
     && chmod +x /usr/local/bin/sha
 
 # uv for python projects, from its release archive
+# renovate: datasource=github-releases depName=astral-sh/uv versioning=semver
 ARG UV_VERSION=0.13.0
+# renovate: checksum=astral-sh/uv version=0.13.0
 ARG UV_SHA256_AMD64=1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154
+# renovate: checksum=astral-sh/uv version=0.13.0
 ARG UV_SHA256_ARM64=3ccfb6af6e242433eb552f7d9676abd5412c6595c497e990d9c8cb7b5bd4d2c3
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; case "$(dpkg --print-architecture)" in amd64) t=x86_64;; arm64) t=aarch64;; esac \
     && curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${t}-unknown-linux-gnu.tar.gz" -o /tmp/uv.tgz \
@@ -60,9 +64,12 @@ RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 
 # mise.toml, cached under MISE_DATA_DIR in AppTown-cache volume; registry
 # routing comes from AppTown-generated /etc/mise/config.toml at run time.
 # MISE_MIRROR is overridable to pull mise itself through a local proxy.
+# renovate: datasource=github-releases depName=jdx/mise versioning=semver
 ARG MISE_VERSION=v2026.8.12
 ARG MISE_MIRROR=https://github.com
+# renovate: checksum=jdx/mise version=v2026.8.12
 ARG MISE_SHA256_AMD64=f2092b1e67f0abc8803d3be120dd2bc5b656dd99680ba3159f710e149da10d05
+# renovate: checksum=jdx/mise version=v2026.8.12
 ARG MISE_SHA256_ARM64=071e2d16905360fa04762422a2a889692bb3a4d30f27650de50bc1ac0564840b
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) && case "$arch" in amd64) m=x64;; arm64) m=arm64;; *) echo "unsupported arch $arch" && exit 1;; esac \
     && curl -fsSL "${MISE_MIRROR}/jdx/mise/releases/download/${MISE_VERSION}/mise-${MISE_VERSION}-linux-${m}" -o /usr/local/bin/mise \
@@ -72,8 +79,11 @@ RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 
 # hivemind: a single-binary Procfile runner for process-mode multi-process apps
 # (design/decisions/forge-native-contract.md, the dev/process-and-container-mode stance).
 # Starts a Procfile's processes together, aggregates logs, stops them cleanly.
+# renovate: datasource=github-releases depName=DarthSim/hivemind versioning=semver extractVersion=^v(?<version>.*)$
 ARG HIVEMIND_VERSION=1.1.0
+# renovate: checksum=DarthSim/hivemind version=v1.1.0
 ARG HIVEMIND_SHA256_AMD64=809ca1c5fedbbfca8fdfb3a4b9bb9c41868b046f35f85a3e893ccf2583a3921a
+# renovate: checksum=DarthSim/hivemind version=v1.1.0
 ARG HIVEMIND_SHA256_ARM64=e4e0b7809bc5a24a61500e11695aa754fc681f19d5d7ba4aeb5f5f1556d69360
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) \
     && curl -fsSL "https://github.com/DarthSim/hivemind/releases/download/v${HIVEMIND_VERSION}/hivemind-v${HIVEMIND_VERSION}-linux-${arch}.gz" -o /tmp/hivemind.gz \
@@ -100,13 +110,19 @@ LABEL apptown.glab.version=${GLAB_VERSION}
 # `apptown dev up` rehearses the contract with (complaint #54: the plugin was
 # missing, so the rehearsal could not run).
 ARG DOCKER_VERSION=27.5.1
+# renovate: datasource=github-releases depName=docker/buildx versioning=semver extractVersion=^v(?<version>.*)$
 ARG BUILDX_VERSION=0.19.3
+# renovate: datasource=github-releases depName=docker/compose versioning=semver extractVersion=^v(?<version>.*)$
 ARG COMPOSE_VERSION=5.5.0
 ARG DOCKER_SHA256_AMD64=4f798b3ee1e0140eab5bf30b0edc4e84f4cdb53255a429dc3bbae9524845d640
 ARG DOCKER_SHA256_ARM64=e6b53725a73763ab3f988c73f8772eaed429754c1a579db5ff11f21990fd1817
+# renovate: checksum=docker/buildx version=v0.19.3
 ARG BUILDX_SHA256_AMD64=32ed111e941e385c2fb8261eba06a4056915718fd606f8278834ac1931d261a2
+# renovate: checksum=docker/buildx version=v0.19.3
 ARG BUILDX_SHA256_ARM64=138b587399b27bb61945a36d67866177b85dea1155101a2be63c7ab715f18a2e
+# renovate: checksum=docker/compose version=v5.5.0
 ARG COMPOSE_SHA256_AMD64=c57ab918abd5b05ca7e7d0f275875dd1330a695074f309dc9eab1b49efafcd4b
+# renovate: checksum=docker/compose version=v5.5.0
 ARG COMPOSE_SHA256_ARM64=ff42489f5a9b879d5d117c5ffea6defc27390b3286da8ad52cbc9c6ab5df590e
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; arch=$(dpkg --print-architecture) && case "$arch" in amd64) d=x86_64;; arm64) d=aarch64;; *) echo "unsupported arch $arch" && exit 1;; esac \
     && curl -fsSL "https://download.docker.com/linux/static/stable/${d}/docker-${DOCKER_VERSION}.tgz" -o /tmp/docker.tgz \
@@ -131,7 +147,9 @@ LABEL apptown.compose.version=${COMPOSE_VERSION}
 # we bake the ones for our committed stances: biome (TS/JS/JSON/CSS), ruff
 # (Python lint/fix), gopls (Go, built in the stage above). Rust/Java servers
 # can be added later. The npm and uv download caches are not used at run time.
+# renovate: datasource=npm depName=@biomejs/biome versioning=semver
 ARG BIOME_VERSION=2.3.14
+# renovate: datasource=pypi depName=ruff versioning=pep440
 ARG RUFF_VERSION=0.17.0
 COPY --from=gopls /out/gopls /usr/local/bin/gopls
 # No npm package's install script runs while this image is built
@@ -145,6 +163,7 @@ RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 
 LABEL apptown.lsp.servers=biome,ruff,gopls
 
 # pi itself
+# renovate: datasource=npm depName=@earendil-works/pi-coding-agent versioning=semver
 ARG PI_VERSION=0.84.3
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@${PI_VERSION} && npm cache clean --force
 # Runtime version surfaces in step evidence via this label (receipts).
@@ -155,6 +174,7 @@ LABEL apptown.pi.version=${PI_VERSION}
 # generated pi-home symlinks this npm dir and lists the package in its
 # settings, so session start never touches the network. The label is how
 # apptownd learns the pinned version (and receipts record it).
+# renovate: datasource=npm depName=pi-subagents versioning=semver
 ARG PI_SUBAGENTS_VERSION=0.61.0
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:pi-subagents@${PI_SUBAGENTS_VERSION}
 # UPSTREAM PATCH (pi-subagents 0.61.0, complaint #7): child model verification
@@ -184,6 +204,7 @@ LABEL apptown.pi-subagents.version=${PI_SUBAGENTS_VERSION}
 # pi-subagents at a pinned version; a project turns it on and its packages list
 # gains npm:@narumitw/pi-lsp. Off by default — trust:never means a repo can't
 # enable it, only a blessed pack/setting can.
+# renovate: datasource=npm depName=@narumitw/pi-lsp versioning=semver
 ARG PI_LSP_VERSION=0.49.6
 RUN --mount=type=secret,id=apptown-trust eval "$(cat /run/secrets/apptown-trust 2>/dev/null)"; npm_config_ignore_scripts=true HOME=/opt/pi-baked pi install npm:@narumitw/pi-lsp@${PI_LSP_VERSION}
 LABEL apptown.pi-lsp.version=${PI_LSP_VERSION}

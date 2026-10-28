@@ -129,6 +129,30 @@ def unpinned_bases(root):
     return errors
 
 
+def checksum_versions(root):
+    """A checksum's Renovate release tag must name the downloaded version.
+
+    Renovate updates architecture digests separately. Keeping the tag beside
+    each digest lets it replace both without overlapping the shared ARG.
+    """
+    errors = []
+    for rel in (DOCKERFILE, ".github/workflows/ci.yml"):
+        path = root / rel
+        if not path.is_file():
+            continue
+        text = path.read_text()
+        versions = dict(re.findall(r"(?:ARG |^[ \t]*)(\w+)_VERSION(?:=|: )([^\s]+)", text, re.M))
+        for match in re.finditer(
+                r"# renovate: checksum=\S+ version=(\S+)\n"
+                r"(?:ARG |[ \t]*)(\w+)_SHA256(?:_\w+)?(?:=|: )([a-f0-9]{64})", text):
+            tag, tool, _ = match.groups()
+            version = versions.get(tool)
+            if version is None or tag.removeprefix("v") != version.removeprefix("v"):
+                line = text.count("\n", 0, match.start()) + 1
+                errors.append(f"{rel}:{line}: {tool} checksum release {tag} differs from version {version}")
+    return errors
+
+
 def check(root):
     tools, errors = load_pins(root)
     texts = {p: p.read_text() for p in scanned(root)}
@@ -172,6 +196,7 @@ def check(root):
         if m and repository(m.group(1)) not in images:
             errors.append(f"{SCANNERS}:{line}: the image {repository(m.group(1))} is not in {PINS}")
     errors += unpinned_bases(root)
+    errors += checksum_versions(root)
     return errors
 
 

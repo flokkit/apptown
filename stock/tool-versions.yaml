@@ -27,26 +27,36 @@ tools:
   # The private Docker daemon of a chat or task.
   private-docker:
     "27": {version: 27.5.1, images: {run: "docker:27.5.1-dind@sha256:aa3df78ecf320f5fafdce71c659f1629e96e9de0968305fe1de670e0ca9176ce"}}
+  # renovate: datasource=golang-version depName=go versioning=semver
   go:
     "1.27": {version: 1.27.0}
+  # renovate: datasource=node-version depName=node versioning=node
   node:
     "24": {version: 24.22.1}
+  # renovate: datasource=python-version depName=python versioning=pep440
   python:
     "3.12": {version: 3.12.15}
+  # renovate: datasource=java-version depName=java-jdk versioning=semver extractVersion=^(?<version>\d+\.\d+\.\d+\+\d+)\.0\.LTS$
   java:
     "21": {version: 21.0.5+11, label: "Java 21 (Temurin)"}
+  # renovate: datasource=github-releases depName=apache/maven versioning=semver
   maven:
     "3.9": {version: 3.9.9}
+  # renovate: datasource=dotnet-version depName=dotnet-runtime versioning=semver
   dotnet:
     "10": {version: 10.0.13, label: ".NET 10 (LTS)"}
+  # renovate: datasource=ruby-version depName=ruby versioning=ruby
   ruby:
     "3.4": {version: 3.4.12}
+  # renovate: datasource=rust-version depName=rust versioning=semver
   rust:
     "1.84": {version: 1.84.0}
   # The Godot engine the godot-web-export check's image pins.
+  # renovate: datasource=docker depName=barichello/godot-ci versioning=docker
   godot:
     "4.4": {version: 4.4.1}
   # The PHP the WordPress starter's runtime image runs.
+  # renovate: datasource=docker depName=php versioning=docker
   php:
     "8.3": {version: 8.3.35}
   postgres:
