@@ -3,13 +3,18 @@
 # opt-in-tiers, race; design/architecture/testing.md), and the release's UI
 # tour (images.yml's tour job):
 #   ci-heavy.sh test <go test arguments...>
-#   ci-heavy.sh compile <tier> [group]  warm caches without running tests
+#   ci-heavy.sh test-partition integration <group>   (scripts/ci-test-partition.sh)
 #   ci-heavy.sh tour           make tour, with site/tour and web/dist left in
 #                              the checkout, owned by the caller
 #   ci-heavy.sh cleanup        (the job's last step; also run on exit)
 #   ci-heavy.sh pull           pull every image deploy/ci-heavy/test-images.txt
-#                              lists (the step before the tests)
-# CI_HEAVY_ID names the job (unique on the Docker host).
+#                              lists (the step before the tests), four at once
+# CI_HEAVY_ID names the job (unique on the Docker host). The tests' temporary
+# folder is named from it, and tests read TMPDIR, so CI gives a job the same
+# ID in every run (its name: each runner is one job's) for Go's test cache.
+# With CI_TEST_RESULTS set (reuse or fresh), ci-test-environment.sh runs in
+# the test image before go test, and decides which stored results stand;
+# unset (a local run), go test runs as given.
 # With CI_HEAVY_REQUIRE set to test names, the job fails unless go test's
 # verbose output shows each of them passing: a skipped test, a renamed one
 # ("no tests to run") or a missing prerequisite is not evidence.
@@ -32,20 +37,19 @@ listed() {
 }
 
 if [ "${1:-}" = pull ]; then
-	failed=
-	for ref in $(listed); do
+	# Four pulls at once: one at a time took 70-120 s of every job.
+	if ! listed | CI_HEAVY_IMAGES=$images CI_HEAVY_PULL_PAUSE=${CI_HEAVY_PULL_PAUSE:-10} xargs -P 4 -n 1 sh -c '
 		n=1
-		until docker pull -q "$ref" >/dev/null; do
+		until docker pull -q "$1" >/dev/null; do
 			if [ "$n" -ge 3 ]; then
-				echo "::error::could not pull $ref (3 attempts); the heavy tests need it ($images)"
-				failed=1
-				break
+				echo "::error::could not pull $1 (3 attempts); the heavy tests need it ($CI_HEAVY_IMAGES)"
+				exit 1
 			fi
 			n=$((n + 1))
-			sleep "${CI_HEAVY_PULL_PAUSE:-10}"
-		done
-	done
-	[ -z "$failed" ] || exit 1
+			sleep "$CI_HEAVY_PULL_PAUSE"
+		done' sh; then
+		exit 1
+	fi
 	echo "ci-heavy: pulled $(listed | wc -l | tr -d ' ') images"
 	exit 0
 fi
@@ -80,14 +84,19 @@ cleanup)
 	cleanup
 	exit 0
 	;;
-test | test-partition | compile | tour)
+test | test-partition | tour)
 	mode=$1
 	shift
 	;;
 *)
-	echo "usage: $0 test <go test arguments...> | test-partition integration <group> | compile <tier> [group] | tour | cleanup | pull" >&2
+	echo "usage: $0 test <go test arguments...> | test-partition integration <group> | tour | cleanup | pull" >&2
 	exit 2
 	;;
+esac
+
+case "${CI_TEST_RESULTS:-}" in
+'' | reuse | fresh) ;;
+*) echo "ci-heavy: CI_TEST_RESULTS must be reuse or fresh" >&2; exit 2 ;;
 esac
 
 # CI restores these host paths with actions/cache. Local runs keep named
@@ -198,8 +207,8 @@ fi
 case "$mode" in
  test) set -- go test "$@" ;;
  test-partition) set -- sh scripts/ci-test-partition.sh "$@" ;;
- compile) set -- sh scripts/ci-compile.sh "$@" ;;
 esac
+[ -z "${CI_TEST_RESULTS:-}" ] || set -- sh -c 'sh scripts/ci-test-environment.sh "$CI_TEST_RESULTS" && exec "$@"' sh "$@"
 status=0
 { docker run --rm --name "$name" --init --network host \
 	-v /var/run/docker.sock:/var/run/docker.sock \
@@ -207,6 +216,7 @@ status=0
 	-v "$tmp:$tmp" -e TMPDIR="$tmp" \
 	-v "$gomod:/root/go/pkg/mod" -v "$gocache:/root/.cache/go-build" \
 	-e GOFLAGS="${GOFLAGS:-}" -e GOMAXPROCS="${GOMAXPROCS:-4}" \
+	-e CI_TEST_RESULTS="${CI_TEST_RESULTS:-}" -e ImageOS="${ImageOS:-}" -e ImageVersion="${ImageVersion:-}" \
 	apptown-ci-heavy "$@" || echo $? >"$tmp/.ci-heavy-status"; } | tee "$tmp/.ci-heavy-go-test.log"
 [ -f "$tmp/.ci-heavy-status" ] && status=$(cat "$tmp/.ci-heavy-status")
 missing=

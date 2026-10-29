@@ -43,7 +43,7 @@ run) case "$*" in *busybox*chown*) exit "${STUB_CHOWN_STATUS:-0}" ;; *busybox*) 
 	exit "${STUB_STATUS:-0}" ;;
 pull) printf '%s\n' "$*" >>"$STUB_PULLED"
 	case " ${STUB_PULL_FAIL:-} " in *" $3 "*) exit 1 ;; esac
-	if [ -n "${STUB_FAIL_ONCE:-}" ] && [ -f "$STUB_FAIL_ONCE" ]; then rm "$STUB_FAIL_ONCE"; exit 1; fi ;;
+	if [ -n "${STUB_FAIL_ONCE:-}" ] && [ "$3" = "${STUB_FAIL_ONCE_IMAGE:-}" ] && [ -f "$STUB_FAIL_ONCE" ]; then rm "$STUB_FAIL_ONCE"; exit 1; fi ;;
 esac
 exit 0
 """
@@ -82,18 +82,36 @@ class RequiredTests(unittest.TestCase):
             env["CI_HEAVY_REQUIRE"] = require
         env["STUB_CALLS"] = os.path.join(self.dir.name, "calls")
         args = (["test", "./..."] if mode == "test" else
-                [mode, "integration", "root"] if mode in ("test-partition", "compile") else [mode])
+                [mode, "integration", "root"] if mode == "test-partition" else [mode])
         return subprocess.run(["sh", SCRIPT] + args, env=env, capture_output=True, text=True,
                               cwd=os.path.dirname(os.path.dirname(SCRIPT)))
 
-    def test_compile_mode_uses_linux_compiler_without_test_execution_command(self):
-        calls = os.path.join(self.dir.name, 'compile-mode')
-        r = self.run_job('', require=None, mode='compile', STUB_ALL_CALLS=calls)
+    # CI names the result mode; the environment decides, in the test image,
+    # before go test, which stored results stand.
+    def test_a_result_mode_checks_the_environment_before_the_tests(self):
+        for results in ('reuse', 'fresh'):
+            calls = os.path.join(self.dir.name, 'results-' + results)
+            r = self.run_job('', require=None, mode='test-partition', CI_TEST_RESULTS=results, STUB_ALL_CALLS=calls)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            with open(calls) as f:
+                run = [c for c in f.read().splitlines() if c.startswith('run ') and 'apptown-ci-heavy' in c][0]
+            self.assertIn(f'-e CI_TEST_RESULTS={results} ', run)
+            self.assertIn('apptown-ci-heavy sh -c sh scripts/ci-test-environment.sh "$CI_TEST_RESULTS" && exec "$@" sh sh scripts/ci-test-partition.sh integration root', run)
+
+    def test_without_a_result_mode_go_test_runs_as_given(self):
+        calls = os.path.join(self.dir.name, 'no-results')
+        r = self.run_job('', require=None, STUB_ALL_CALLS=calls)
         self.assertEqual(r.returncode, 0, r.stderr)
         with open(calls) as f:
             commands = f.read()
-        self.assertIn('apptown-ci-heavy sh scripts/ci-compile.sh integration root', commands)
-        self.assertNotIn('apptown-ci-heavy go test', commands)
+        self.assertIn('apptown-ci-heavy go test ./...', commands)
+        self.assertNotIn('ci-test-environment', commands)
+
+    def test_an_unknown_result_mode_starts_nothing(self):
+        calls = os.path.join(self.dir.name, 'bad-results')
+        r = self.run_job('', require=None, mode='test-partition', CI_TEST_RESULTS='cached', STUB_ALL_CALLS=calls)
+        self.assertEqual(r.returncode, 2)
+        self.assertFalse(os.path.exists(calls) and open(calls).read())
 
     def test_prebuilt_images_execute_tests_without_rebuilding(self):
         calls = os.path.join(self.dir.name, 'prebuilt')
@@ -295,7 +313,7 @@ class RequiredTests(unittest.TestCase):
     def test_the_pull_step_pulls_every_listed_image(self):
         r = self.run_job("", require=None, mode="pull")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertEqual(self.pulls(), listed())
+        self.assertEqual(sorted(self.pulls()), sorted(listed()))
 
     def test_a_pull_that_keeps_failing_fails_the_step_by_name(self):
         image = listed()[0]
@@ -308,10 +326,10 @@ class RequiredTests(unittest.TestCase):
 
     def test_a_pull_that_fails_once_is_retried(self):
         image = listed()[0]
-        # The stub fails the first pull it is asked for, once.
+        # The stub fails the first pull of that image, once.
         marker = os.path.join(self.dir.name, "fail-once")
         open(marker, "w").close()
-        r = self.run_job("", require=None, mode="pull", STUB_FAIL_ONCE=marker)
+        r = self.run_job("", require=None, mode="pull", STUB_FAIL_ONCE=marker, STUB_FAIL_ONCE_IMAGE=image)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(self.pulls().count(image), 2)
 

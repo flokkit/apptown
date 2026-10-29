@@ -13,6 +13,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/testinputs"
 )
 
 // The app's actual allow-list consumes the exact rendered environment, accepting
@@ -33,6 +34,7 @@ func TestIntegrationDockerExactOriginsRejectSiblingHosts(t *testing.T) {
 			t.Errorf("remove owned image: %v %s", err, out)
 		}
 	})
+	testinputs.Files(t, filepath.Join("testdata", "sealed-app"))
 	if out, err := exec.CommandContext(ctx, "docker", "build", "-q", "-t", image, filepath.Join("testdata", "sealed-app")).CombinedOutput(); err != nil {
 		t.Fatalf("build owned app: %v %s", err, out)
 	}

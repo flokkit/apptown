@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Qualify narrow Markdown changes against complete base-commit execution.
 
-Only merge-group events may reuse; manual dispatch always executes.
+Only merge-group events may reuse; manual dispatch always executes. A source
+run's execution jobs may themselves have reused Go's cached test results
+(ci-test-partition.sh): queue qualification accepts that; release evidence
+does not (heavy-evidence.py reads heavy-main.yml's fresh runs).
 """
 import argparse
 import hashlib
@@ -76,7 +79,7 @@ def report(repo, base_sha, candidate_sha, event=''):
               'base_sha': base_sha, 'policy': 2}
     try:
         if not base_sha or event == 'workflow_dispatch':
-            result['reason'] = 'this event requires full execution'
+            result['reason'] = 'this event requires its own execution'
             return result
         base, candidate = tree(base_sha), tree(candidate_sha)
         result['input_digest'] = digest(candidate)

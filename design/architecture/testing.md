@@ -144,13 +144,15 @@ service, never a mock.
   `make check-sql`.
 - `.github/workflows/heavy.yml` runs the integration, journey and opt-in
   tiers and the race tier on merge-group commits and by hand. Pull requests
-  report admission only; main warms compilation caches without executing tests.
+  report admission only. `heavy-main.yml` runs the same jobs fresh on every
+  push to main.
   Its `heavy-ok` job, which the main ruleset requires, fails on queue/manual
   execution unless every heavy job passed. Queue-only reuse for narrow
   documentation changes requires complete base execution; it never supplies
   release evidence (see [GitHub operations](../operations/github.md)). A release
   tag's images and archives are built only for a commit with a run that
-  passed on its first attempt (`images.yml`, `heavy-evidence`). The
+  passed on its first attempt in `heavy-main.yml` (`images.yml`,
+  `heavy-evidence`). The
   heavy jobs first pull the images their tests start
   (`deploy/ci-heavy/test-images.txt`), so a registry error while fetching
   them fails that step and not a test; AppTown's deliberate pulls, BuildKit
@@ -266,14 +268,23 @@ gap and AppTown's exclusive-startup settlement. It kills a worker and waits for
 confirmed exit, without waiting for rescue or shortening timeouts, and adds no
 subprocess to the default suite.
 
-Go's test cache is on everywhere except the gates of record. The push gate
-(`make check`), CI, the race tier and the integration and journey
-tiers run with `-count=1`: each push is witnessed fresh, and the tagged
-tiers exist to exercise Docker, PostgreSQL and Git, which the cache cannot
-see. Local and targeted runs (`go test ./internal/apptown/scm`) use the cache;
-a stale pass there is caught by the push gate. Add `-count=1` locally only
-to re-run on purpose: chasing a flake, timing a run, or after changing
-something outside Go such as the installed `git` or the test database.
+Go's test cache is on everywhere except the local gates. CI's pull request
+and queue runs reuse a package's result from main's run when its inputs are
+identical, Docker and database tiers included; every push to main runs every
+test fresh, and only those results are stored ([GitHub
+operations](../operations/github.md), "Test results"). For that to hold, a
+test must make its inputs visible to Go: a repository file it hands to a
+child process (a script, a `docker build` context, a binary it builds) is
+read first through `internal/testinputs`, and a test whose outcome depends
+on what it downloads while it runs gets a line in
+`scripts/ci-uncached-tests.txt`. The images tests start and the tools on the
+runner are recorded by `scripts/ci-test-environment.sh`. The local push
+gate (`make check`) and precheck keep `-count=1`: a developer machine keeps
+a long-lived test database and whatever images it last pulled, and records
+neither. Local targeted runs (`go test ./internal/apptown/scm`) use the
+cache; add `-count=1` to re-run on purpose: chasing a flake, timing a run, or
+after changing something outside Go such as the installed `git` or the test
+database.
 
 Use `make check` for the full local gate. Its dependency ordering also makes
 `make -j2 check` safe: Vite finishes replacing `web/dist` before Go compiles the

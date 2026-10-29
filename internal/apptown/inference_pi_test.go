@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/testinputs"
 )
 
 // Uses the pinned harness's actual model runtime and native SDKs, not a
@@ -76,6 +77,7 @@ func TestInferencePinnedPi(t *testing.T) {
 	if found.Termination != execution.Exited || found.ExitCode != 0 {
 		t.Fatalf("finding node: %s %d %v\n%s", found.Termination, found.ExitCode, found.RunErr, found.Output)
 	}
+	testinputs.Files(t, "testdata/inference_pi.mjs")
 	cmd := exec.Command(strings.TrimSpace(string(found.Output)), "testdata/inference_pi.mjs")
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "APPTOWN_PI_MODULE=" + module, "APPTOWN_PI_CONFIG=" + config, "APPTOWN_PI_PROXY=" + proxy.URL, "APPTOWN_SESSION_TOKEN=" + token}
 	if out, err := cmd.CombinedOutput(); err != nil {

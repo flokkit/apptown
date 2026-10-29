@@ -32,6 +32,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/stockupdate/stockupdatetest"
+	"github.com/flokkit/apptown/internal/testinputs"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/stock"
 )
@@ -227,6 +228,9 @@ func runDocker(t *testing.T, args ...string) string {
 // buildWorker builds apptown-worker at binary, with env added to the build's.
 func buildWorker(t *testing.T, binary string, env ...string) {
 	t.Helper()
+	// The command is built in a child process: its sources are this test's
+	// inputs only once read here (internal/testinputs).
+	testinputs.GoBuild(t, "", env, "github.com/flokkit/apptown/cmd/apptown-worker")
 	run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{"go", "build", "-o", binary, "github.com/flokkit/apptown/cmd/apptown-worker"}, Env: env, Timeout: 10 * time.Minute})
 	if run.RunErr != nil {
