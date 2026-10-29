@@ -14,10 +14,26 @@ Give each the same flags and `APPTOWN_*` settings `apptownd` runs with, at
 least `-data` (the data directory). Put the flags first, then the command.
 In a container install, run them in the container (`docker exec`).
 
-An AppTown on `-db-url` is backed up the same way: the host's own
-`pg_dump` dumps that database, so install the database server's major
-version of it (`pg_dump` 16 for PostgreSQL 16; the backup refuses another
-major before it holds anything). A restore always loads the archive into a
+The database is dumped one way, whichever it is: `pg_dump` runs in a
+short-lived container of the PostgreSQL image AppTown pins for the server's
+major version (PostgreSQL 16), on AppTown's own Docker. The built-in
+database is dumped beside its own container. An AppTown on `-db-url` is
+backed up the same way, with these conditions:
+
+- the container reaches the database over the Docker daemon's default
+  network, so `-db-url` must name an address a container can reach: not
+  `localhost` or `127.0.0.1`, which a backup refuses, and not a name that
+  only resolves on another Docker network;
+- the container has none of the host's files, so a `-db-url` with
+  `sslrootcert` is refused, and `sslmode=verify-ca` or `verify-full` fails
+  there for want of a root certificate; `sslmode=require` works;
+- the server must be PostgreSQL 16 (another major is refused before
+  anything is written);
+- with `-no-local-docker` there is no Docker to run it on, so there is no
+  whole-AppTown backup. A managed database's own backups do not replace the
+  archive: they hold neither the data directory nor the secrets.
+
+A restore always loads the archive into a
 new built-in database on the new host, so the restored AppTown runs on the
 built-in database; the server backed up must be PostgreSQL 16, as the
 built-in one is. Restore it, and start it afterwards, without `-db-url`

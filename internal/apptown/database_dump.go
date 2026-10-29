@@ -6,37 +6,122 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/clock"
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/strs"
-
-	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/execution"
-	"net/url"
+	"github.com/flokkit/apptown/internal/toolversions"
 )
 
-// dumpBuiltinDatabase publishes a complete compressed dump only after pg_dump,
-// compression and the file writes all succeed. A producer failure must never
-// become today's successful backup merely because gzip exited successfully.
-func dumpBuiltinDatabase(ctx context.Context, scope docker.Scope, db builtinDBNames, name string) error {
-	file, err := os.CreateTemp(filepath.Dir(name), ".apptown-dump-*")
+// databaseDump dumps AppTown's database the one way it is dumped, for the
+// daily backup of the built-in database and for a whole-AppTown backup
+// (instancebackup.Database): pg_dump --no-owner --no-privileges, plain SQL,
+// gzipped, run in a throwaway container of the postgres line of the tool
+// versions that matches the server's major version. The connection is
+// libpq's environment, given to docker by name and never in argv. The
+// built-in database (URL empty) is reached inside its own container's
+// network; a -db-url database (URL) over the daemon's default network.
+type databaseDump struct {
+	DB      *database.DB
+	Docker  docker.Scope
+	Tools   toolversions.Source
+	DataDir string
+	// URL is the -db-url database; empty dumps the built-in one db.env
+	// names under DataDir.
+	URL string
+}
+
+// dumpTool is the tool versions tool whose run image dumps the database.
+const dumpTool = "postgres"
+
+// client is the image that dumps the server, and the connection and
+// docker options it is given.
+func (d databaseDump) client(ctx context.Context) (image string, env, options []string, err error) {
+	var server int
+	if err := d.DB.SQL().QueryRowContext(ctx, "SHOW server_version_num").Scan(&server); err != nil {
+		return "", nil, nil, fmt.Errorf("reading the database server's version: %w", err)
+	}
+	major := strconv.Itoa(server / 10000)
+	image, ok := d.Tools.Current().RunImage(dumpTool, major)
+	if !ok {
+		return "", nil, nil, fmt.Errorf("PostgreSQL %s has no pinned pg_dump in this AppTown's tool versions; a backup dumps with the server's own major version", major)
+	}
+	if d.URL != "" {
+		if env, err = libpqEnv(d.URL); err != nil {
+			return "", nil, nil, err
+		}
+		if loopback(d.URL) {
+			return "", nil, nil, errors.New("the -db-url names a loopback address, which inside the backup's pg_dump container is the container itself; name an address that container can reach")
+		}
+		return image, env, nil, nil
+	}
+	names, raw, ok := readBuiltinDB(d.DataDir)
+	if !ok {
+		return "", nil, nil, errors.New("db.env names no built-in database container, volume or database")
+	}
+	if env, err = libpqEnv(raw); err != nil {
+		return "", nil, nil, err
+	}
+	// Inside the database container's own network namespace the server
+	// is on 127.0.0.1:5432, wherever apptownd itself runs.
+	for i, kv := range env {
+		switch {
+		case strings.HasPrefix(kv, "PGHOST="):
+			env[i] = "PGHOST=127.0.0.1"
+		case strings.HasPrefix(kv, "PGPORT="):
+			env[i] = "PGPORT=5432"
+		}
+	}
+	return image, env, []string{"--network", "container:" + names.Container}, nil
+}
+
+// loopback says whether a postgres:// URL's host is this machine's
+// loopback, by name or address.
+func loopback(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// Dump writes a whole gzipped dump at path, or nothing: it is published
+// only after pg_dump, its trailer, compression and the file writes all
+// succeeded. A producer failure never becomes a backup merely because gzip
+// exited successfully.
+func (d databaseDump) Dump(ctx context.Context, path string) error {
+	image, env, options, err := d.client(ctx)
+	if err != nil {
+		return err
+	}
+	file, err := os.CreateTemp(filepath.Dir(path), ".apptown-dump-*")
 	if err != nil {
 		return err
 	}
 	defer func() { _ = file.Close(); _ = os.Remove(file.Name()) }()
 	zip := gzip.NewWriter(file)
 	// RunStep holds the dump to its trailer: a dump whose end did not
-	// arrive is a failed backup, not today's.
-	output, dumpErr := scope.RunStep(ctx, docker.Step{Exec: db.Container, Argv: []string{"pg_dump", "-U", "postgres", "--no-owner", "--no-privileges", db.Database}, Stdout: zip})
+	// arrive is a failed backup.
+	output, dumpErr := d.Docker.RunStep(ctx, docker.Step{Image: image, Options: append([]string{"--entrypoint", ""}, options...), Env: env,
+		Argv: []string{"pg_dump", "--no-owner", "--no-privileges"}, Stdout: zip})
 	zipErr := zip.Close()
 	if dumpErr != nil {
 		return fmt.Errorf("pg_dump: %w: %s", dumpErr, strs.Truncate(string(output), 300))
@@ -56,17 +141,29 @@ func dumpBuiltinDatabase(ctx context.Context, scope docker.Scope, db builtinDBNa
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := os.Rename(file.Name(), name); err != nil {
-		return err
+	return os.Rename(file.Name(), path)
+}
+
+// DumpClientVersion is the pg_dump that Dump runs, as `pg_dump --version`
+// says it in a throwaway container of the same image: read from its answer
+// file, so a first pull's messages never reach it.
+func (d databaseDump) DumpClientVersion(ctx context.Context) (string, error) {
+	image, _, _, err := d.client(ctx)
+	if err != nil {
+		return "", err
 	}
-	return nil
+	raw, err := d.Docker.Result(ctx, containerresult.Spec{Image: image, Script: "pg_dump --version"})
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(raw)), nil
 }
 
 // databaseBackup owns the instance backup effect, independently of job delivery.
 // Its settings are captured during construction; no worker retains App.
 type databaseBackup struct {
 	db      *database.DB
-	docker  docker.Scope
+	dump    databaseDump
 	dataDir string
 	enabled bool
 	now     func() time.Time // AppTown's clock, which dates the day's dump
@@ -88,8 +185,7 @@ const builtinDBBackupKeep = 14
 // gzipped SQL file, keeps the last fourteen, and audits the dump. Run by
 // the scheduler once a day (design/subsystems/postgres-migration.md §3.8). A restore
 // is `gunzip -c file | docker exec -i <APPTOWN_DB_CONTAINER> psql -U postgres <database>`
-// into an empty database (the one APPTOWN_DB_URL names), rehearsed once
-// before old SQLite backups go.
+// into an empty database (the one APPTOWN_DB_URL names).
 func (b databaseBackup) take(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 	defer cancel()
@@ -105,13 +201,7 @@ func (b databaseBackup) take(ctx context.Context) error {
 	if _, err := os.Stat(name); err == nil {
 		return nil // today's is done
 	}
-	names, ok := readBuiltinDBNames(b.dataDir)
-	if !ok {
-		namesErr := errors.New("db.env names no built-in database container, volume or database")
-		audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup-failed", name, map[string]any{"error": namesErr.Error()})
-		return namesErr
-	}
-	if err := dumpBuiltinDatabase(ctx, b.docker, names, name); err != nil {
+	if err := b.dump.Dump(ctx, name); err != nil {
 		audit.At(clock.Or(b.now)()).BestEffort(ctx, b.db, "apptown-system", ids.Nil, "db.backup-failed", name, map[string]any{"error": err.Error()})
 		return err
 	}
@@ -144,55 +234,6 @@ func (b databaseBackup) take(ctx context.Context) error {
 	return nil
 }
 
-// ExternalDatabase is the -db-url database AppTown runs on, as a
-// whole-AppTown backup dumps it (instancebackup.Database): with the host's
-// own pg_dump, which must be at least the server's version (the backup
-// checks), the same dump as the built-in database's (no owners, no
-// privileges, plain and gzipped), so it loads into the built-in database a
-// restore makes. The connection travels in the environment, never in argv.
-type ExternalDatabase struct {
-	URL string
-	// PGDump is the pg_dump to run: "pg_dump", from the host's PATH.
-	PGDump string
-	Runner execution.Runner
-}
-
-// dumpTimeout bounds one dump of AppTown's database.
-const dumpTimeout = time.Hour
-
-// Dump writes a whole gzipped dump at path, or nothing.
-func (e ExternalDatabase) Dump(ctx context.Context, path string) error {
-	env, err := libpqEnv(e.URL)
-	if err != nil {
-		return err
-	}
-	file, err := os.CreateTemp(filepath.Dir(path), ".apptown-dump-*")
-	if err != nil {
-		return err
-	}
-	tmp := file.Name()
-	_ = file.Close()
-	defer os.Remove(tmp)
-	out := e.Runner.Run(ctx, execution.Local, execution.Request{
-		Argv: []string{e.PGDump, "--no-owner", "--no-privileges", "--compress=6", "--file=" + tmp}, Env: env, Timeout: dumpTimeout})
-	if !out.Exited0() {
-		return fmt.Errorf("pg_dump: %s", outcomeText(out))
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
-}
-
-// DumpClientVersion is the host's pg_dump, as `pg_dump --version` says it.
-func (e ExternalDatabase) DumpClientVersion(ctx context.Context) (string, error) {
-	out := e.Runner.Run(ctx, execution.Local, execution.Request{Argv: []string{e.PGDump, "--version"}, Timeout: time.Minute})
-	if !out.Exited0() {
-		return "", fmt.Errorf("pg_dump --version: %s (a backup of a -db-url database needs the host's pg_dump)", outcomeText(out))
-	}
-	return strings.TrimSpace(string(out.Output)), nil
-}
-
 // libpqEnv is a postgres:// URL as libpq's environment variables. A URL
 // part it does not know is refused rather than dropped.
 func libpqEnv(raw string) ([]string, error) {
@@ -215,22 +256,12 @@ func libpqEnv(raw string) ([]string, error) {
 		case "sslmode":
 			env = append(env, "PGSSLMODE="+v[0])
 		case "sslrootcert":
-			env = append(env, "PGSSLROOTCERT="+v[0])
+			// The file is on this host or in apptownd's container, never in
+			// the dump's container, which mounts nothing of either.
+			return nil, errors.New("the -db-url names sslrootcert, a certificate file the backup's pg_dump container cannot read; a whole-AppTown backup cannot dump this database")
 		default:
 			return nil, fmt.Errorf("the -db-url's %q setting is not one a backup passes to pg_dump", k)
 		}
 	}
 	return env, nil
-}
-
-// outcomeText says how a run that did not exit 0 ended.
-func outcomeText(out execution.Outcome) string {
-	said := strs.Truncate(strings.TrimSpace(string(out.Output)), 300)
-	switch {
-	case out.RunErr != nil:
-		return out.RunErr.Error() + ": " + said
-	case out.Termination != execution.Exited:
-		return string(out.Termination) + ": " + said
-	}
-	return fmt.Sprintf("exit %d: %s", out.ExitCode, said)
 }

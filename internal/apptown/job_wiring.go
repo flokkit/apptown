@@ -50,7 +50,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 	deployments := deployment.JobWorker{Service: a.Deployment, Projects: a.Projects, DataDir: a.cfg.dataDir, Reporter: selfErrorsFor(a)}
 	data := dataprotection.JobWorker{Service: a.DataProtection, Projects: a.Projects, Backups: backupRequests{db: a.DB, life: a.life}}
 	inventory := inventoryRefresh{targets: a.targets, providers: a.targetProviders, cache: a.inventory}
-	backup := databaseBackup{db: a.DB, docker: a.docker, dataDir: a.cfg.dataDir, enabled: a.cfg.usingBuiltinDB, now: a.cfg.clock.Now}
+	backup := databaseBackup{db: a.DB, dump: databaseDump{DB: a.DB, Docker: a.docker, Tools: a.cfg.stock.Tools, DataDir: a.cfg.dataDir}, dataDir: a.cfg.dataDir, enabled: a.cfg.usingBuiltinDB, now: a.cfg.clock.Now}
 	fleet := fleetReviewsFor(a)
 	disks := a.diskObserver
 	workers := a.workerObserver
