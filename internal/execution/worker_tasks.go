@@ -143,9 +143,6 @@ func (w WorkerTasks) Ensure(ctx context.Context, spec TaskSpec) (TaskObservation
 	if err := ValidFiles(spec.Files); err != nil {
 		return TaskObservation{}, err
 	}
-	if len(spec.Results) > 0 && spec.Source == nil {
-		return TaskObservation{}, fmt.Errorf("a task's result files are in its workspace, and it has none")
-	}
 	// The generated files travel with the request: the worker keeps them
 	// in the task's own folder. Inputs travel ahead of it, as blobs.
 	req := workerRequest{Key: spec.Key, Admission: spec.Admission, Image: spec.Image, Argv: spec.Argv, Env: spec.Env, ReadOnly: spec.WorkspaceRO, Labels: spec.Labels, Request: spec.Digest(), Files: spec.Files,

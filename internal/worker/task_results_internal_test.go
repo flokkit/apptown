@@ -68,7 +68,7 @@ func TestAResultFileIsReadConfined(t *testing.T) {
 		{"/work/folder", execution.ResultFile{State: execution.ResultRefused, Reason: execution.RefusedNotRegular}},
 	}
 	for _, c := range cases {
-		got, err := s.readResult("ws", execution.Result{Name: "r", Path: c.path, Max: 11})
+		got, err := s.readResult(declaredResults{Workspace: "ws"}, execution.Result{Name: "r", Path: c.path, Max: 11})
 		if err != nil {
 			t.Errorf("%s: %v", c.path, err)
 			continue
@@ -81,7 +81,7 @@ func TestAResultFileIsReadConfined(t *testing.T) {
 		}
 	}
 	// A workspace that is gone is not an absent result.
-	if _, err := s.readResult("gone", execution.Result{Name: "r", Path: "/work/a", Max: 10}); err == nil {
+	if _, err := s.readResult(declaredResults{Workspace: "gone"}, execution.Result{Name: "r", Path: "/work/a", Max: 10}); err == nil {
 		t.Error("a result in a workspace that is gone was read")
 	}
 }
@@ -108,7 +108,7 @@ func TestFreshRemovalFollowsNoLink(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range []string{"/work/out/review.json", "/work/link.json", "/work/nothing/at/all"} {
-		if err := s.removeFresh("ws", execution.Result{Name: "r", Path: p, Max: 10, Fresh: true}); err != nil {
+		if err := s.removeFresh(declaredResults{Workspace: "ws"}, execution.Result{Name: "r", Path: p, Max: 10, Fresh: true}); err != nil {
 			t.Fatalf("%s: %v", p, err)
 		}
 	}

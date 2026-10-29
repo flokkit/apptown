@@ -250,8 +250,14 @@ func readManifest(r *backuparchive.Reader) (*Manifest, []byte, error) {
 		if err := m.Database.validate(); err != nil {
 			return nil, nil, err
 		}
-		if m.Database.ServerVersionNum/10000 != supportedRestoreMajor {
-			return nil, nil, fmt.Errorf("the archive records PostgreSQL %d; this build restores PostgreSQL %d backups", m.Database.ServerVersionNum/10000, supportedRestoreMajor)
+		// The built-in database a restore loads into is made at the newest
+		// major this build supports; it loads a dump of any server in the
+		// range taken by a pg_dump no newer than it.
+		if err := database.OwnServerSupported(m.Database.ServerVersionNum); err != nil {
+			return nil, nil, fmt.Errorf("the archive's database cannot be restored by this build: %w", err)
+		}
+		if m.Database.clientMajor() > database.OwnPostgresMax {
+			return nil, nil, fmt.Errorf("the archive was dumped by %s; this build restores dumps of PostgreSQL %d or older", m.Database.DumpClientVersion, database.OwnPostgresMax)
 		}
 	}
 	if m.Format != ArchiveFormat || m.Version > ArchiveVersion {

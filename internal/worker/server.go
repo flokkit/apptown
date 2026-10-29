@@ -634,9 +634,21 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 		refuseInputs(w, err)
 		return
 	}
-	if (len(req.Results) > 0 || len(req.Images) > 0) && req.Workspace == "" {
-		http.Error(w, "the task's result files and images: a task without a workspace has nowhere to leave them", http.StatusBadRequest)
+	// A task without a workspace leaves its result files in a state folder
+	// of its own (taskStatePath), so they can only be there; its images
+	// need a workspace.
+	if len(req.Images) > 0 && req.Workspace == "" {
+		http.Error(w, "the task's images: a task without a workspace has nowhere to leave them", http.StatusBadRequest)
 		return
+	}
+	ownState := len(req.Results) > 0 && req.Workspace == ""
+	if ownState {
+		for _, res := range req.Results {
+			if !strings.HasPrefix(res.Path, execution.StateRoot+"/") {
+				http.Error(w, "the task's result files: a task without a workspace leaves them under "+execution.StateRoot+", not at "+res.Path, http.StatusBadRequest)
+				return
+			}
+		}
 	}
 	switch {
 	case req.Private != nil && req.Workspace == "":
@@ -721,8 +733,17 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 		}
 		spec.Mounts = append(spec.Mounts, s.statePath(req.Workspace)+":"+execution.StateRoot)
 	}
+	declared := declaredResults{Workspace: req.Workspace, Results: req.Results, Images: req.Images}
+	if ownState {
+		declared.State = s.taskStatePath(req.Key)
+		if err := os.MkdirAll(declared.State, 0o755); err != nil {
+			httpError(w, err)
+			return
+		}
+		spec.Mounts = append(spec.Mounts, declared.State+":"+execution.StateRoot)
+	}
 	spec.Mounts = append(spec.Mounts, s.toolCacheMounts()...)
-	if err := s.writeDeclared(req.Key, declaredResults{Workspace: req.Workspace, Results: req.Results, Images: req.Images}); err != nil {
+	if err := s.writeDeclared(req.Key, declared); err != nil {
 		httpError(w, err)
 		return
 	}
@@ -962,10 +983,11 @@ func (s *Server) release(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// The generated files, inputs and captured results and images go with
-	// the task, after its container. An image file a read already has open
-	// stays readable until that read ends; a new open is refused as gone.
-	for _, dir := range []string{s.taskFilesPath(key), s.taskInputsPath(key), s.taskResultsPath(key)} {
+	// The generated files, inputs, captured results and images, and the own
+	// state of a task without a workspace, go with the task, after its
+	// container. An image file a read already has open stays readable until
+	// that read ends; a new open is refused as gone.
+	for _, dir := range []string{s.taskFilesPath(key), s.taskInputsPath(key), s.taskResultsPath(key), s.taskStatePath(key)} {
 		if err := os.RemoveAll(dir); err != nil {
 			httpError(w, err)
 			return

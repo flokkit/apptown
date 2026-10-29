@@ -1,16 +1,20 @@
 package apptown
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,26 +22,195 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/backuparchive"
-	"github.com/flokkit/apptown/internal/containerresult"
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
-	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 	"github.com/flokkit/apptown/internal/toolversions"
+	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/stock"
 )
 
-type dumpCommand func(context.Context, string, docker.Command) ([]byte, error)
+// dumpTasks is a backend dump tasks run on, for tests: what a task leaves
+// and how it exits come from do, given the task's request; nothing runs.
+// On AppTown's own Docker (worker false) the result is written into the
+// folder the task mounts at /apptown/state; on a worker it is answered by
+// Results.
+type dumpTasks struct {
+	t      *testing.T
+	worker bool
+	do     func(spec execution.TaskSpec) (result []byte, exit int, said string)
+	// block makes Wait wait for its caller's end.
+	block bool
 
-// Run answers req as a daemon whose container runs the dump's frame: what
-// it sees is the command inside.
-func (f dumpCommand) Run(ctx context.Context, host string, req docker.Command) ([]byte, error) {
-	req.Args = containerresulttest.UnframeArgs(req.Args)
-	return f(ctx, host, req)
+	mu       sync.Mutex
+	ensured  []execution.TaskSpec
+	live     map[string]execution.TaskSpec
+	exits    map[string]int
+	said     map[string]string
+	results  map[string][]byte
+	resultOf map[string]string
+	started  chan struct{}
 }
 
-// dumpTools is the stock tool versions, whose postgres 16 line pins the
-// image a dump runs in; the test database is PostgreSQL 16.
+// dumpsOn is a place dumps run on: a worker, or this AppTown's own Docker.
+func dumpsOn(t *testing.T, worker bool, do func(execution.TaskSpec) ([]byte, int, string)) (*dumpPlace, *dumpTasks) {
+	f := &dumpTasks{t: t, worker: worker, do: do, live: map[string]execution.TaskSpec{}, exits: map[string]int{}, said: map[string]string{}, results: map[string][]byte{}, resultOf: map[string]string{}, started: make(chan struct{}, 8)}
+	p := &dumpPlace{Tasks: f, Scratch: filepath.Join(t.TempDir(), "dump-tasks"), Profile: "local-docker"}
+	if worker {
+		p.Results, p.Scratch, p.Profile = f, "", "worker"
+	}
+	return p, f
+}
+
+// scriptOf is the shell line a dump task runs.
+func scriptOf(spec execution.TaskSpec) string { return spec.Argv[len(spec.Argv)-1] }
+
+// fileIn is the content of the generated file at path in spec, and its mode.
+func fileIn(spec execution.TaskSpec, path string) (string, os.FileMode, bool) {
+	for _, f := range spec.Files {
+		if f.Path == path {
+			return string(f.Content), f.Mode, true
+		}
+	}
+	return "", 0, false
+}
+
+func (f *dumpTasks) Capabilities() execution.Capabilities {
+	return execution.Capabilities{Results: f.worker}
+}
+
+func (f *dumpTasks) Ensure(_ context.Context, spec execution.TaskSpec) (execution.TaskObservation, error) {
+	if err := spec.Validate(time.Now()); err != nil {
+		return execution.TaskObservation{}, err
+	}
+	if err := f.Capabilities().Unclaimed(spec); err != nil {
+		return execution.TaskObservation{}, err
+	}
+	if f.worker && (len(spec.Mounts) > 0 || spec.Network != "") {
+		return execution.TaskObservation{}, fmt.Errorf("%w: a worker shares no files or host routes with AppTown", execution.ErrUnsupported)
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.ensured = append(f.ensured, spec)
+	f.live[spec.Key] = spec
+	return execution.TaskObservation{ID: "id-" + spec.Key, State: execution.TaskCreated, ExitCode: -1}, nil
+}
+
+func (f *dumpTasks) Start(_ context.Context, ref execution.TaskRef) error {
+	f.mu.Lock()
+	spec, ok := f.live[ref.Key]
+	f.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("no task %s", ref.Key)
+	}
+	result, exit, said := f.do(spec)
+	script := scriptOf(spec)
+	name := script[strings.LastIndex(script, "/")+1:]
+	f.mu.Lock()
+	f.exits[ref.Key], f.said[ref.Key], f.resultOf[ref.Key] = exit, said, name
+	if result != nil {
+		if f.worker {
+			f.results[ref.Key] = result
+		} else {
+			host, _, _ := strings.Cut(spec.Mounts[0], ":")
+			if err := os.WriteFile(filepath.Join(host, name), result, 0o644); err != nil {
+				f.t.Errorf("writing the task's result: %v", err)
+			}
+		}
+	}
+	f.mu.Unlock()
+	f.started <- struct{}{}
+	return nil
+}
+
+func (f *dumpTasks) Observe(context.Context, execution.TaskRef) (execution.TaskObservation, error) {
+	return execution.TaskObservation{}, errors.New("not used")
+}
+
+func (f *dumpTasks) Wait(ctx context.Context, ref execution.TaskRef) (int, error) {
+	if f.block {
+		<-ctx.Done()
+		return -1, ctx.Err()
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.exits[ref.Key], nil
+}
+
+func (f *dumpTasks) Output(_ context.Context, ref execution.TaskRef, _ execution.OutputRead) (execution.OutputPage, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return execution.OutputPage{Data: []byte(f.said[ref.Key])}, nil
+}
+
+func (f *dumpTasks) Stop(context.Context, execution.TaskRef) error { return nil }
+
+func (f *dumpTasks) Release(_ context.Context, ref execution.TaskRef) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.live, ref.Key)
+	return nil
+}
+
+func (f *dumpTasks) ReleaseWorkspace(context.Context, string) error { return execution.ErrUnsupported }
+
+func (f *dumpTasks) Results(_ context.Context, ref execution.TaskRef) (map[string]execution.ResultFile, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	body, ok := f.results[ref.Key]
+	if !ok {
+		return map[string]execution.ResultFile{f.resultOf[ref.Key]: {State: execution.ResultAbsent}}, nil
+	}
+	if int64(len(body)) > execution.MaxResultBytes {
+		return map[string]execution.ResultFile{f.resultOf[ref.Key]: {State: execution.ResultTooLarge, Size: int64(len(body))}}, nil
+	}
+	return map[string]execution.ResultFile{f.resultOf[ref.Key]: {State: execution.ResultPresent, Content: body, Size: int64(len(body))}}, nil
+}
+
+// released says every task ensured was released.
+func (f *dumpTasks) released() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.live) == 0
+}
+
+// gz is body gzipped, as a dump task leaves it.
+func gz(t *testing.T, body string) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	w := gzip.NewWriter(&b)
+	if _, err := w.Write([]byte(body)); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+
+// gunzipFile is the content of the gzipped file at path.
+func gunzipFile(t *testing.T, path string) string {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	zr, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(zr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
+}
+
+// dumpTools is the stock tool versions, whose postgres line for the newest
+// supported major pins the image a dump runs in; the test database is
+// PostgreSQL 16.
 func dumpTools(t *testing.T) *toolversions.Versions {
 	t.Helper()
 	snap, err := toolversions.NewSnapshot("stock", stock.ToolVersions)
@@ -47,20 +220,20 @@ func dumpTools(t *testing.T) *toolversions.Versions {
 	return toolversions.New(snap)
 }
 
-// dumpImage is the image a dump of a PostgreSQL 16 server runs in.
+// dumpImage is the image every dump runs in.
 func dumpImage(t *testing.T) string {
 	t.Helper()
-	image, ok := dumpTools(t).Current().RunImage("postgres", "16")
+	image, ok := dumpTools(t).Current().RunImage("postgres", strconv.Itoa(database.OwnPostgresMax))
 	if !ok || !strings.Contains(image, "@sha256:") {
-		t.Fatalf("no pinned postgres 16 run image: %q", image)
+		t.Fatalf("no pinned postgres %d run image: %q", database.OwnPostgresMax, image)
 	}
 	return image
 }
 
 // builtinDump is the dump of the built-in database db.env under dataDir
-// names, on scope.
-func builtinDump(t *testing.T, scope docker.Scope, dataDir string) databaseDump {
-	return databaseDump{DB: testDB(t), Docker: scope, Tools: dumpTools(t), DataDir: dataDir}
+// names, on place.
+func builtinDump(t *testing.T, place *dumpPlace, dataDir string) databaseDump {
+	return databaseDump{DB: testDB(t), Place: place, Tools: dumpTools(t), DataDir: dataDir}
 }
 
 // dataDirWithDB is a data folder whose db.env names container and database.
@@ -74,15 +247,16 @@ func dataDirWithDB(t *testing.T, container, database string) string {
 	return dir
 }
 
-// The built-in database is dumped by a throwaway container of the pinned
-// postgres image that joins the database container's network, never by
-// exec in the database container, reading the database db.env's URL names
-// (an install made before 1.0 keeps the database forge, one made since has
-// apptown), with the connection in the environment by name: the password
-// is never in docker's argv.
+// The built-in database is dumped by a task of the pinned postgres image on
+// AppTown's own Docker, joining the database container's network, reading
+// the database db.env's URL names (an install made before 1.0 keeps the
+// database forge, one made since has apptown), under pipefail after the
+// trusted authorities are installed. The password is in a generated
+// password file, never in argv or the environment. The dump is published
+// only when the task exited 0 and left it; the task is released either way.
 //
-// Kills: the old exec of the database container's own pg_dump; the
-// password in argv; output published from a failed producer.
+// Kills: the password in argv or the environment; output published from a
+// failed task; a task left behind.
 func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 	t.Parallel()
 	image := dumpImage(t)
@@ -92,31 +266,34 @@ func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 			dir := t.TempDir()
 			data := dataDirWithDB(t, before1.Container, before1.Database)
 			name := filepath.Join(dir, "today's $HOME backup.sql.gz")
-			scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-				want := []string{"run", "--rm", "--entrypoint", "", "--network", "container:forge-db"}
-				if !slices.Equal(req.Args[:len(want)], want) || !slices.Contains(req.Args, image) || req.Args[len(req.Args)-1] != "'pg_dump' '--no-owner' '--no-privileges'" {
-					t.Fatalf("dump command: %v", req.Args)
+			place, tasks := dumpsOn(t, false, func(spec execution.TaskSpec) ([]byte, int, string) {
+				script := scriptOf(spec)
+				if spec.Image != image || spec.Network != "container:forge-db" || spec.Argv[0] != "bash" || !slices.Contains(spec.Argv, "pipefail") ||
+					!strings.HasPrefix(script, trust.Run+"; ") || !strings.Contains(script, "pg_dump --no-owner --no-privileges | gzip") {
+					t.Fatalf("dump task: %+v", spec)
 				}
-				if strings.Contains(strings.Join(req.Args, " "), "pw") || !slices.Contains(req.Env, "PGPASSWORD=pw") || !slices.Contains(req.Env, "PGDATABASE=forge") ||
-					!slices.Contains(req.Env, "PGHOST=127.0.0.1") || !slices.Contains(req.Env, "PGPORT=5432") {
-					t.Fatalf("connection: args %v env %v", req.Args, req.Env)
+				if strings.Contains(strings.Join(spec.Argv, " ")+strings.Join(spec.Env, " "), "pw") || !slices.Contains(spec.Env, "PGDATABASE=forge") ||
+					!slices.Contains(spec.Env, "PGHOST=127.0.0.1") || !slices.Contains(spec.Env, "PGPORT=5432") || !slices.Contains(spec.Env, "PGPASSFILE="+dumpPassFile) {
+					t.Fatalf("connection: argv %v env %v", spec.Argv, spec.Env)
 				}
-				_, err := containerresulttest.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
-				if err != nil {
-					return nil, err
+				if pass, mode, ok := fileIn(spec, dumpPassFile); !ok || pass != "*:*:*:*:pw\n" || mode != 0o600 {
+					t.Fatalf("password file: %q %v %v", pass, mode, ok)
 				}
 				if fails {
-					return []byte("connection lost"), errors.New("exit 7")
+					return gz(t, "CREATE TABLE demo"), 7, "connection lost"
 				}
-				return nil, nil
-			})}
-			err := builtinDump(t, scope, data).Dump(t.Context(), name)
+				return gz(t, "CREATE TABLE demo (id bigint);\n"), 0, ""
+			})
+			err := builtinDump(t, place, data).Dump(t.Context(), name)
 			files, readErr := os.ReadDir(dir)
 			if readErr != nil {
 				t.Fatal(readErr)
 			}
+			if !tasks.released() {
+				t.Fatal("the dump's task was not released")
+			}
 			if fails {
-				if err == nil || len(files) != 0 {
+				if err == nil || !strings.Contains(err.Error(), "connection lost") || len(files) != 0 {
 					t.Fatalf("failed dump published or left scratch: %v %v", err, files)
 				}
 				return
@@ -124,41 +301,30 @@ func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 			if err != nil || len(files) != 1 {
 				t.Fatalf("successful dump: %v %v", err, files)
 			}
-			f, err := os.Open(name)
-			if err != nil {
-				t.Fatal(err)
+			if got := gunzipFile(t, name); got != "CREATE TABLE demo (id bigint);\n" {
+				t.Fatalf("dump bytes: %q", got)
 			}
-			defer f.Close()
-			zip, err := gzip.NewReader(f)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer zip.Close()
-			content, err := io.ReadAll(zip)
-			if err != nil || string(content) != "CREATE TABLE demo (id bigint);\n" {
-				t.Fatalf("dump bytes: %q %v", content, err)
+			if left, _ := os.ReadDir(place.Scratch); len(left) != 0 {
+				t.Fatalf("the task's state folder was left: %v", left)
 			}
 		})
 	}
 }
 
-// A dump whose end did not arrive (pg_dump exited 0, and the daemon lost
-// the tail of what it printed) is no backup: nothing is published.
+// A task that exited 0 and left no dump is no backup: nothing is published.
 //
-// Kills: a dump taken without its trailer checked.
-func TestADumpWhoseEndDidNotArriveIsNoBackup(t *testing.T) {
+// Kills: a dump published without the task's file.
+func TestADumpTaskThatLeftNoDumpIsNoBackup(t *testing.T) {
 	t.Parallel()
-	dir := t.TempDir()
-	name := filepath.Join(dir, "apptown-today.sql.gz")
-	whole := containerresulttest.Framed([]byte("CREATE TABLE demo (id bigint);\nCOPY demo FROM stdin;\n1\n\\.\n"))
-	scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-		_, err := req.Stdout.Write(whole[:len(whole)-60])
-		return nil, err
-	})}
-	err := builtinDump(t, scope, builtinDataDir(t)).Dump(t.Context(), name)
-	files, _ := os.ReadDir(dir)
-	if !errors.Is(err, containerresult.ErrCutShort) || len(files) != 0 {
-		t.Fatalf("a dump cut short: %v, files %v; want it refused and nothing published", err, files)
+	for _, worker := range []bool{false, true} {
+		dir := t.TempDir()
+		place, _ := dumpsOn(t, worker, func(execution.TaskSpec) ([]byte, int, string) { return nil, 0, "" })
+		d := databaseDump{DB: testDB(t), Place: place, Tools: dumpTools(t), URL: "postgres://u:p@db.internal/forge"}
+		err := d.Dump(t.Context(), filepath.Join(dir, "dump.sql.gz"))
+		files, _ := os.ReadDir(dir)
+		if err == nil || len(files) != 0 {
+			t.Fatalf("worker %v: a task that left no dump: %v, files %v; want it refused and nothing published", worker, err, files)
+		}
 	}
 }
 
@@ -166,54 +332,43 @@ func TestDatabaseDumpCancellationLeavesNoBackup(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	entered := make(chan struct{})
-	scope := docker.Scope{Client: dumpCommand(func(ctx context.Context, _ string, req docker.Command) ([]byte, error) {
-		if _, err := containerresulttest.WriteString(req.Stdout, "partial dump"); err != nil {
-			return nil, err
-		}
-		close(entered)
-		<-ctx.Done()
-		return nil, ctx.Err()
-	})}
+	place, tasks := dumpsOn(t, false, func(execution.TaskSpec) ([]byte, int, string) { return gz(t, "partial dump"), 0, "" })
+	tasks.block = true
 	dir := t.TempDir()
-	dumpOf := builtinDump(t, scope, builtinDataDir(t))
+	dumpOf := builtinDump(t, place, builtinDataDir(t))
 	done := make(chan error, 1)
 	go func() {
 		done <- dumpOf.Dump(ctx, filepath.Join(dir, "dump.sql.gz"))
 	}()
-	<-entered
+	<-tasks.started
 	cancel()
 	select {
 	case err := <-done:
 		if !errors.Is(err, context.Canceled) {
 			t.Fatalf("cancellation: %v", err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("dump did not stop after cancellation")
 	}
 	files, err := os.ReadDir(dir)
-	if err != nil || len(files) != 0 {
-		t.Fatalf("cancelled dump left files: %v %v", files, err)
+	if err != nil || len(files) != 0 || !tasks.released() {
+		t.Fatalf("cancelled dump left files %v (%v) or its task (released %v)", files, err, tasks.released())
 	}
 }
 
 func TestDatabaseBackupJobFailureDoesNotClaimTodaysDump(t *testing.T) {
 	t.Parallel()
 	calls := 0
-	failed := errors.New("dump interrupted")
-	scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
+	place, _ := dumpsOn(t, false, func(execution.TaskSpec) ([]byte, int, string) {
 		calls++
-		if _, err := containerresulttest.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n"); err != nil {
-			return nil, err
-		}
 		if calls == 1 {
-			return nil, failed
+			return gz(t, "CREATE TABLE demo"), 1, "dump interrupted"
 		}
-		return nil, nil
-	})}
+		return gz(t, "CREATE TABLE demo (id bigint);\n"), 0, ""
+	})
 	data := builtinDataDir(t)
-	backup := databaseBackup{db: testDB(t), dump: builtinDump(t, scope, data), dataDir: data, enabled: true}
-	if receipt, err := backup.Run(t.Context(), "daily", nil); !errors.Is(err, failed) || receipt != nil {
+	backup := databaseBackup{db: testDB(t), dump: builtinDump(t, place, data), dataDir: data, enabled: true}
+	if receipt, err := backup.Run(t.Context(), "daily", nil); err == nil || !strings.Contains(err.Error(), "dump interrupted") || receipt != nil {
 		t.Fatalf("failed backup reported success: %v %v", receipt, err)
 	}
 	files, err := os.ReadDir(filepath.Join(backup.dataDir, "backups"))
@@ -259,14 +414,13 @@ func TestDumpRetentionKeepsTheNewestDaysUnderEitherName(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-		if !slices.Contains(req.Args, "container:"+currentBuiltinDB.Container) || !slices.Contains(req.Env, "PGDATABASE=apptown") {
-			t.Errorf("dumped %v %v, not the container and database db.env names", req.Args, req.Env)
+	place, _ := dumpsOn(t, false, func(spec execution.TaskSpec) ([]byte, int, string) {
+		if spec.Network != "container:"+currentBuiltinDB.Container || !slices.Contains(spec.Env, "PGDATABASE=apptown") {
+			t.Errorf("dumped %v %v, not the container and database db.env names", spec.Network, spec.Env)
 		}
-		_, err := containerresulttest.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
-		return nil, err
-	})}
-	backup := databaseBackup{db: testDB(t), dump: builtinDump(t, scope, dir), dataDir: dir, enabled: true, now: func() time.Time { return today }}
+		return gz(t, "CREATE TABLE demo (id bigint);\n"), 0, ""
+	})
+	backup := databaseBackup{db: testDB(t), dump: builtinDump(t, place, dir), dataDir: dir, enabled: true, now: func() time.Time { return today }}
 	if _, err := backup.Run(t.Context(), "daily", nil); err != nil {
 		t.Fatal(err)
 	}
@@ -330,37 +484,28 @@ func backupWorldVersion(t *testing.T, during func(), clientVersion string, versi
 	t.Helper()
 	dir := t.TempDir()
 	backupDataDirFixture(t, dir)
-	f := newFakeDocker()
-	results := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
-		if c.Image != dumpImage(t) || c.Script != "pg_dump --version" {
-			return containerresulttest.Answer{}, false
+	a := testApp(t, Config{DataDir: dir, DockerClient: newFakeDocker(), UsingBuiltinDB: true})
+	place, _ := dumpsOn(t, false, func(spec execution.TaskSpec) ([]byte, int, string) {
+		if spec.Image != dumpImage(t) {
+			t.Errorf("a dump task of %s", spec.Image)
 		}
-		if versionErr != nil {
-			return containerresulttest.Answer{Code: 1, Said: versionErr.Error()}, true
-		}
-		// A first pull's messages reach the container's log, never the
-		// version recorded.
-		return containerresulttest.Answer{Answer: []byte(clientVersion + "\n"), Said: "Unable to find image locally\nPulling from library/postgres"}, true
-	}}
-	var command dockerClientFunc
-	command = func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
-		if out, err, ok := results.Run(req.Args); ok {
-			return out, err
-		}
-
-		if len(req.Args) > 2 && req.Args[0] == "run" && slices.Contains(req.Args, "container:apptown-db") && strings.HasPrefix(containerresulttest.UnframeLine(req.Args[len(req.Args)-1]), "'pg_dump'") {
-			if during != nil {
-				during()
+		if strings.Contains(scriptOf(spec), "pg_dump --version") {
+			if versionErr != nil {
+				return nil, 1, versionErr.Error()
 			}
-			_, err := containerresulttest.WriteString(req.Stdout, "-- PostgreSQL database dump\nCOPY public.projects (id) FROM stdin;\n1\n\\.\n")
-			return nil, err
+			// A first pull's messages reach the task's output, never the
+			// version recorded.
+			return []byte(clientVersion + "\n"), 0, "Unable to find image locally\nPulling from library/postgres"
 		}
-		f.command = nil
-		defer func() { f.command = command }()
-		return f.Run(ctx, host, req)
-	}
-	f.command = command
-	a := testApp(t, Config{DataDir: dir, DockerClient: f, UsingBuiltinDB: true})
+		if spec.Network != "container:apptown-db" {
+			t.Errorf("the dump task's network: %q", spec.Network)
+		}
+		if during != nil {
+			during()
+		}
+		return gz(t, "-- PostgreSQL database dump\nCOPY public.projects (id) FROM stdin;\n1\n\\.\n"), 0, ""
+	})
+	a.dumps = *place
 	return a
 }
 
@@ -618,61 +763,79 @@ func TestBackupRequiresObservedDumpClient(t *testing.T) {
 	}
 }
 
-// A -db-url database is dumped the one way the built-in one is: a
-// throwaway container of the pinned postgres image for the server's major,
-// on the daemon's default network, with the same dump (no owners, no
-// privileges, plain, gzipped) so it loads into the built-in database a
-// restore makes. The connection travels in libpq's environment, by name in
-// docker's argv, never its value. A URL setting the backup does not pass on,
-// a certificate file the container cannot read and a loopback host are
-// each refused before docker is asked anything; a failed pg_dump leaves no
-// file.
+// A -db-url database is dumped the one way the built-in one is: a task of
+// the pinned postgres image, on the backend's default network, with the
+// same dump (no owners, no privileges, plain, gzipped) so it loads into the
+// built-in database a restore makes. The password travels in a generated
+// password file, escaped as libpq reads it, never in argv or the
+// environment; sslmode is passed as written. A root certificate the URL
+// names is given to the task as a file; verify-ca and verify-full without
+// one verify against the image's system roots, which trust.Run extends. A
+// URL setting the backup does not pass on and a loopback host are refused
+// before a task is made; a failed pg_dump leaves no file.
 //
-// Kills: the host's pg_dump; a dump that keeps the managed server's owners
-// or grants; the password in argv; an unknown URL setting silently ignored;
-// a partial dump published.
+// Kills: a dump that keeps the managed server's owners or grants; the
+// password in argv or the environment; sslrootcert refused; verify-ca
+// pointed at libpq's "system" (which refuses it); an unknown URL setting
+// silently ignored; a partial dump published.
 func TestAnExternalDatabaseIsDumpedInThePinnedPostgresImage(t *testing.T) {
 	t.Parallel()
 	image := dumpImage(t)
 	dir := t.TempDir()
-	var calls int
-	scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-		calls++
-		if !slices.Equal(req.Args[:4], []string{"run", "--rm", "--entrypoint", ""}) || slices.Contains(req.Args, "--network") || !slices.Contains(req.Args, image) ||
-			req.Args[len(req.Args)-1] != "'pg_dump' '--no-owner' '--no-privileges'" || strings.Contains(strings.Join(req.Args, " "), "s3cret") {
-			t.Fatalf("dump command: %v", req.Args)
+	rootCert := filepath.Join(dir, "ca-certificate.crt")
+	if err := os.WriteFile(rootCert, []byte("-----BEGIN CERTIFICATE-----\nDO\n-----END CERTIFICATE-----\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var last execution.TaskSpec
+	place, tasks := dumpsOn(t, false, func(spec execution.TaskSpec) ([]byte, int, string) {
+		last = spec
+		if spec.Image != image || spec.Network != "" || !strings.Contains(scriptOf(spec), "pg_dump --no-owner --no-privileges | gzip") ||
+			strings.Contains(strings.Join(spec.Argv, " ")+strings.Join(spec.Env, " "), "s3c") {
+			t.Fatalf("dump task: %+v", spec)
 		}
-		if _, err := containerresulttest.WriteString(req.Stdout, "SELECT 1;\n"); err != nil {
-			return nil, err
+		if slices.Contains(spec.Env, "PGDATABASE=broken") {
+			return nil, 1, "pg_dump: error: connection failed"
 		}
-		if slices.Contains(req.Env, "PGDATABASE=broken") {
-			return []byte("pg_dump: error: connection failed"), errors.New("exit 1")
-		}
-		for _, want := range []string{"PGHOST=db.internal", "PGPORT=25060", "PGUSER=doadmin", "PGPASSWORD=s3cret", "PGDATABASE=forge", "PGSSLMODE=require"} {
-			if !slices.Contains(req.Env, want) {
-				t.Fatalf("pg_dump's environment lacks %s: %v", want, req.Env)
-			}
-		}
-		return nil, nil
-	})}
+		return gz(t, "SELECT 1;\n"), 0, ""
+	})
 	external := func(url string) databaseDump {
-		return databaseDump{DB: testDB(t), Docker: scope, Tools: dumpTools(t), URL: url}
+		return databaseDump{DB: testDB(t), Place: place, Tools: dumpTools(t), URL: url}
 	}
 	out := filepath.Join(dir, "database.sql.gz")
-	if err := external("postgres://doadmin:s3cret@db.internal:25060/forge?sslmode=require").Dump(t.Context(), out); err != nil {
+	if err := external(`postgres://doadmin:s3c%3Ar%5Cet@db.internal:25060/forge?sslmode=require`).Dump(t.Context(), out); err != nil {
 		t.Fatal(err)
 	}
-	f, err := os.Open(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	zr, err := gzip.NewReader(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if body, _ := io.ReadAll(zr); string(body) != "SELECT 1;\n" {
+	if body := gunzipFile(t, out); body != "SELECT 1;\n" {
 		t.Fatalf("the dump holds %q", body)
+	}
+	for _, want := range []string{"PGHOST=db.internal", "PGPORT=25060", "PGUSER=doadmin", "PGDATABASE=forge", "PGSSLMODE=require", "PGPASSFILE=" + dumpPassFile} {
+		if !slices.Contains(last.Env, want) {
+			t.Fatalf("pg_dump's environment lacks %s: %v", want, last.Env)
+		}
+	}
+	if pass, mode, _ := fileIn(last, dumpPassFile); pass != `*:*:*:*:s3c\:r\\et`+"\n" || mode != 0o600 {
+		t.Fatalf("the password file: %q %v", pass, mode)
+	}
+	if slices.ContainsFunc(last.Env, func(e string) bool { return strings.HasPrefix(e, "PGSSLROOTCERT=") }) {
+		t.Fatalf("sslmode=require given a root certificate: %v", last.Env)
+	}
+
+	for url, root := range map[string]string{
+		"postgres://u:p@db.internal/forge?sslmode=verify-ca":                           dumpSystemRoots,
+		"postgres://u:p@db.internal/forge?sslmode=verify-full":                         dumpSystemRoots,
+		"postgres://u:p@db.internal/forge?sslmode=verify-full&sslrootcert=" + rootCert: dumpRootCert,
+	} {
+		if err := external(url).Dump(t.Context(), out); err != nil {
+			t.Fatalf("%s: %v", url, err)
+		}
+		mode := url[strings.Index(url, "sslmode=")+len("sslmode="):]
+		mode, _, _ = strings.Cut(mode, "&")
+		if !slices.Contains(last.Env, "PGSSLROOTCERT="+root) || !slices.Contains(last.Env, "PGSSLMODE="+mode) {
+			t.Fatalf("%s: environment %v", url, last.Env)
+		}
+		if cert, _, ok := fileIn(last, dumpRootCert); ok != (root == dumpRootCert) || (ok && !strings.Contains(cert, "DO")) {
+			t.Fatalf("%s: the root certificate file %q %v", url, cert, ok)
+		}
 	}
 
 	failed := filepath.Join(dir, "failed.sql.gz")
@@ -685,47 +848,134 @@ func TestAnExternalDatabaseIsDumpedInThePinnedPostgresImage(t *testing.T) {
 	if left, _ := filepath.Glob(filepath.Join(dir, ".apptown-dump-*")); len(left) != 0 {
 		t.Fatalf("a failed pg_dump left %v", left)
 	}
-	before := calls
+	before := len(tasks.ensured)
 	for url, why := range map[string]string{
-		"postgres://u:p@h/forge?application_name=x":                      "application_name",
-		"postgres://u:p@h/forge?sslmode=verify-full&sslrootcert=/ca.pem": "sslrootcert",
-		"postgres://u:p@localhost:5432/forge":                            "loopback",
-		"postgres://u:p@127.0.0.1:5432/forge":                            "loopback",
-		"postgres://u:p@[::1]:5432/forge":                                "loopback",
+		"postgres://u:p@h/forge?application_name=x":                              "application_name",
+		"postgres://u:p@h/forge?sslmode=verify-full&sslrootcert=/no/such/ca.pem": "sslrootcert",
+		"postgres://u:p@localhost:5432/forge":                                    "loopback",
+		"postgres://u:p@127.0.0.1:5432/forge":                                    "loopback",
+		"postgres://u:p@[::1]:5432/forge":                                        "loopback",
 	} {
 		if err := external(url).Dump(t.Context(), failed); err == nil || !strings.Contains(err.Error(), why) {
 			t.Errorf("%s: %v, want a refusal naming %s", url, err, why)
 		}
 	}
-	if calls != before {
-		t.Fatalf("a refused URL reached docker")
+	if len(tasks.ensured) != before {
+		t.Fatalf("a refused URL made a task")
 	}
 }
 
-// A server of a major version the tool versions pin no postgres line for
-// is refused before docker is asked anything: a dump is only ever taken by
-// the server's own major, which a restore into the built-in database loads.
+// With no Docker of its own, AppTown dumps a -db-url database on its
+// worker: the task mounts nothing, declares its dump as a result, and the
+// worker's answer is the dump; the version is read the same way. A dump
+// over what a worker task may leave is refused, never truncated; the
+// built-in database, only on AppTown's own Docker, is not dumped there.
 //
-// Kills: a dump by another major's client.
-func TestADumpOfAnUnpinnedMajorIsRefused(t *testing.T) {
+// Kills: a whole-AppTown backup refused for want of local Docker; a dump
+// on a worker published from a result that is not present.
+func TestWithNoLocalDockerTheDumpRunsOnTheWorker(t *testing.T) {
 	t.Parallel()
+	big := false
+	place, tasks := dumpsOn(t, true, func(spec execution.TaskSpec) ([]byte, int, string) {
+		if len(spec.Mounts) > 0 || len(spec.Results) != 1 || !strings.HasPrefix(spec.Results[0].Path, execution.StateRoot+"/") || spec.Admission.Profile != "worker" {
+			t.Fatalf("a worker's dump task: %+v", spec)
+		}
+		if strings.Contains(scriptOf(spec), "--version") {
+			return []byte("pg_dump (PostgreSQL) 16.15\n"), 0, ""
+		}
+		if big {
+			return make([]byte, execution.MaxResultBytes+1), 0, ""
+		}
+		return gz(t, "SELECT 1;\n"), 0, ""
+	})
+	d := databaseDump{DB: testDB(t), Place: place, Tools: dumpTools(t), URL: "postgres://doadmin:pw@private-db.example:25060/forge?sslmode=require"}
+	out := filepath.Join(t.TempDir(), "database.sql.gz")
+	if err := d.Dump(t.Context(), out); err != nil {
+		t.Fatal(err)
+	}
+	if body := gunzipFile(t, out); body != "SELECT 1;\n" {
+		t.Fatalf("the dump holds %q", body)
+	}
+	if v, err := d.DumpClientVersion(t.Context()); err != nil || v != "pg_dump (PostgreSQL) 16.15" {
+		t.Fatalf("the client version: %q %v", v, err)
+	}
+	big = true
+	tooBig := filepath.Join(t.TempDir(), "big.sql.gz")
+	if err := d.Dump(t.Context(), tooBig); err == nil || !strings.Contains(err.Error(), "over the") {
+		t.Fatalf("a dump over a worker's limit: %v", err)
+	}
+	if _, err := os.Stat(tooBig); !os.IsNotExist(err) {
+		t.Fatalf("a dump over a worker's limit was published: %v", err)
+	}
+	builtin := databaseDump{DB: testDB(t), Place: place, Tools: dumpTools(t), DataDir: builtinDataDir(t)}
+	if err := builtin.Dump(t.Context(), filepath.Join(t.TempDir(), "builtin.sql.gz")); err == nil {
+		t.Fatal("the built-in database was dumped on a worker")
+	}
+	if !tasks.released() {
+		t.Fatal("a worker's dump task was not released")
+	}
+}
+
+// A dump runs in the pinned postgres image of the newest major AppTown
+// supports for its own database; without one, it is refused before a task
+// is made. The built-in database is made at that major.
+//
+// Kills: a dump by another major's client; a built-in database made at a
+// major the dump does not cover.
+func TestADumpWithoutThePinnedNewestMajorIsRefused(t *testing.T) {
+	t.Parallel()
+	if !strings.HasPrefix(builtinDBImage, "postgres:"+strconv.Itoa(database.OwnPostgresMax)+"-") {
+		t.Fatalf("the built-in database is made with %s, not PostgreSQL %d", builtinDBImage, database.OwnPostgresMax)
+	}
 	raw := strings.Replace(string(stock.ToolVersions), "\n    \"16\": {version: \"16.", "\n    \"15\": {version: \"15.", 1)
 	snap, err := toolversions.NewSnapshot("no-16", []byte(raw))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := snap.RunImage("postgres", "16"); ok {
-		t.Fatal("the fixture still pins postgres 16")
+	if _, ok := snap.RunImage("postgres", strconv.Itoa(database.OwnPostgresMax)); ok {
+		t.Fatal("the fixture still pins the newest major")
 	}
-	scope := docker.Scope{Client: dumpCommand(func(context.Context, string, docker.Command) ([]byte, error) {
-		t.Fatal("docker asked for an unpinned major")
-		return nil, nil
-	})}
-	d := databaseDump{DB: testDB(t), Docker: scope, Tools: toolversions.New(snap), DataDir: builtinDataDir(t)}
-	if err := d.Dump(t.Context(), filepath.Join(t.TempDir(), "dump.sql.gz")); err == nil || !strings.Contains(err.Error(), "PostgreSQL 16 has no pinned pg_dump") {
-		t.Fatalf("an unpinned major: %v", err)
+	place, tasks := dumpsOn(t, false, func(execution.TaskSpec) ([]byte, int, string) {
+		t.Fatal("a task made with no pinned image")
+		return nil, 1, ""
+	})
+	d := databaseDump{DB: testDB(t), Place: place, Tools: toolversions.New(snap), DataDir: builtinDataDir(t)}
+	want := "pin no PostgreSQL " + strconv.Itoa(database.OwnPostgresMax)
+	if err := d.Dump(t.Context(), filepath.Join(t.TempDir(), "dump.sql.gz")); err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("no pinned image: %v", err)
 	}
-	if _, err := d.DumpClientVersion(t.Context()); err == nil || !strings.Contains(err.Error(), "PostgreSQL 16 has no pinned pg_dump") {
-		t.Fatalf("the client of an unpinned major: %v", err)
+	if _, err := d.DumpClientVersion(t.Context()); err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("the client with no pinned image: %v", err)
+	}
+	if len(tasks.ensured) != 0 {
+		t.Fatal("a task was made")
+	}
+}
+
+// ensureInterrupted is a backend whose Ensure made the task and then lost
+// its answer (the caller cancelled, or the reply did not arrive).
+type ensureInterrupted struct{ *dumpTasks }
+
+func (d ensureInterrupted) Ensure(ctx context.Context, spec execution.TaskSpec) (execution.TaskObservation, error) {
+	if _, err := d.dumpTasks.Ensure(ctx, spec); err != nil {
+		return execution.TaskObservation{}, err
+	}
+	return execution.TaskObservation{}, context.Canceled
+}
+
+// A dump task is released by its key even when its Ensure failed: an
+// Ensure that fails may still have made the task or staged its password
+// file.
+//
+// Kills: cleanup registered only after a successful Ensure.
+func TestADumpTaskWhoseEnsureFailedIsReleased(t *testing.T) {
+	t.Parallel()
+	place, tasks := dumpsOn(t, false, nil)
+	place.Tasks = ensureInterrupted{tasks}
+	if err := place.run(t.Context(), "fake", dumpConn{}, "true", "dump.sql.gz", io.Discard); err == nil {
+		t.Fatal("an interrupted Ensure reported success")
+	}
+	if !tasks.released() {
+		t.Fatal("an interrupted Ensure left its task")
 	}
 }

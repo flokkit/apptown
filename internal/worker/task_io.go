@@ -42,6 +42,11 @@ func (s *Server) taskResultsPath(key string) string {
 	return filepath.Join(s.State, "task-results", key)
 }
 
+// taskStatePath is the state folder of a task without a workspace that
+// declares result files: its own, mounted at /apptown/state, and removed
+// when it is released.
+func (s *Server) taskStatePath(key string) string { return filepath.Join(s.State, "task-state", key) }
+
 // checkInputs refuses inputs the worker cannot present: invalid, over the
 // bounds by the sizes of the blobs it holds, or naming a blob it lacks or
 // that is not one file. Nothing is created.
@@ -185,9 +190,12 @@ func copyFile(src, dst string, mode fs.FileMode) error {
 
 // declaredResults is what a task declared, kept from its ensure.
 type declaredResults struct {
-	Workspace string                  `json:"workspace"`
-	Results   []execution.Result      `json:"results"`
-	Images    []execution.ImageResult `json:"images,omitempty"`
+	Workspace string `json:"workspace"`
+	// State is the task's own state folder, mounted at /apptown/state, when
+	// it has no workspace (taskStatePath); "" for a task in a workspace.
+	State   string                  `json:"state,omitempty"`
+	Results []execution.Result      `json:"results"`
+	Images  []execution.ImageResult `json:"images,omitempty"`
 }
 
 const (
@@ -221,12 +229,16 @@ func (s *Server) readDeclared(key string) (declaredResults, bool, error) {
 	return d, true, json.Unmarshal(body, &d)
 }
 
-// resultRoot is the host folder and relative path of a declared result.
-func (s *Server) resultRoot(workspace, p string) (string, string) {
+// resultRoot is the host folder and relative path of a declared result: in
+// the workspace's tree or state, or a task without a workspace's own state.
+func (s *Server) resultRoot(d declaredResults, p string) (string, string) {
 	if rel, ok := strings.CutPrefix(p, execution.StateRoot+"/"); ok {
-		return s.statePath(workspace), rel
+		if d.State != "" {
+			return d.State, rel
+		}
+		return s.statePath(d.Workspace), rel
 	}
-	return s.workspacePath(workspace), strings.TrimPrefix(p, "/work/")
+	return s.workspacePath(d.Workspace), strings.TrimPrefix(p, "/work/")
 }
 
 // walkResult looks at each part of rel under root without following any
@@ -257,8 +269,8 @@ func walkResult(root *os.Root, rel string) (fs.FileInfo, *execution.ResultFile, 
 // readResult reads a declared result file, confined as a check's report
 // is: a regular file inside the tree or the state folder, reached through
 // no link.
-func (s *Server) readResult(workspace string, r execution.Result) (execution.ResultFile, error) {
-	base, rel := s.resultRoot(workspace, r.Path)
+func (s *Server) readResult(d declaredResults, r execution.Result) (execution.ResultFile, error) {
+	base, rel := s.resultRoot(d, r.Path)
 	root, err := os.OpenRoot(base)
 	if err != nil {
 		return execution.ResultFile{}, fmt.Errorf("the result %s's folder: %w", r.Name, err)
@@ -333,7 +345,7 @@ func (s *Server) captureResults(ctx context.Context, key string) (files map[stri
 	}
 	files = map[string]execution.ResultFile{}
 	for _, r := range d.Results {
-		f, err := s.readResult(d.Workspace, r)
+		f, err := s.readResult(d, r)
 		if err != nil {
 			return nil, true, fmt.Errorf("reading the result %s: %w", r.Name, err)
 		}
@@ -409,15 +421,15 @@ func (s *Server) freshen(ctx context.Context, ref execution.TaskRef, d declaredR
 		if !r.Fresh {
 			continue
 		}
-		if err := s.removeFresh(d.Workspace, r); err != nil {
+		if err := s.removeFresh(d, r); err != nil {
 			return fmt.Errorf("removing the result %s before the task starts: %w", r.Name, err)
 		}
 	}
 	return nil
 }
 
-func (s *Server) removeFresh(workspace string, r execution.Result) error {
-	base, rel := s.resultRoot(workspace, r.Path)
+func (s *Server) removeFresh(d declaredResults, r execution.Result) error {
+	base, rel := s.resultRoot(d, r.Path)
 	if err := os.MkdirAll(base, 0o755); err != nil {
 		return err
 	}

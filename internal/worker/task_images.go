@@ -61,7 +61,7 @@ func (s *Server) captureImages(key string, d declaredResults) error {
 	}
 	captures := map[string]execution.ImageCapture{}
 	for _, img := range d.Images {
-		c, err := s.captureImage(d.Workspace, img, filepath.Join(dir, img.Name))
+		c, err := s.captureImage(d, img, filepath.Join(dir, img.Name))
 		if err != nil {
 			return fmt.Errorf("capturing the image %s: %w", img.Name, err)
 		}
@@ -89,8 +89,8 @@ func (s *Server) readImages(key string) (map[string]execution.ImageCapture, bool
 // captureImage looks at a declared image's folder without following any
 // link and, if it is a folder of regular files within the admitted size,
 // copies them to dest. Anything else is its state, and nothing is copied.
-func (s *Server) captureImage(workspace string, img execution.ImageResult, dest string) (execution.ImageCapture, error) {
-	base, rel := s.resultRoot(workspace, img.Path)
+func (s *Server) captureImage(d declaredResults, img execution.ImageResult, dest string) (execution.ImageCapture, error) {
+	base, rel := s.resultRoot(d, img.Path)
 	root, err := os.OpenRoot(base)
 	if err != nil {
 		return execution.ImageCapture{}, fmt.Errorf("the workspace's state: %w", err)

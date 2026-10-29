@@ -467,6 +467,12 @@ func holdDatabase(ctx context.Context, url string) {
 	if err != nil {
 		log.Fatalf("open db: %v", err)
 	}
+	// AppTown's own database is one of the majors its backups dump and its
+	// restores load (database.OwnPostgresMin..Max): another is refused at
+	// start, not at the first backup.
+	if _, err := db.OwnServer(ctx); err != nil {
+		log.Fatal(err)
+	}
 	if _, err := db.HoldExclusive(ctx, daemonLockKey); errors.Is(err, database.ErrHeldElsewhere) {
 		log.Fatal("another apptownd is using this database; stop it first: a second one would treat the first one's running work as interrupted")
 	} else if err != nil {
