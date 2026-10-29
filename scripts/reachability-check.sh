@@ -13,7 +13,7 @@ ERR=$(mktemp)
 # A deadcode that did not finish has counted nothing: fail with its error,
 # before the baseline is read or written.
 STATUS=0
-"$DEADCODE" ./cmd/apptownd ./cmd/apptown-worker ./cmd/apptown-gate ./cmd/apptown-update > "$OUT" 2> "$ERR" || STATUS=$?
+"$DEADCODE" ./cmd/apptownd ./cmd/apptown-worker ./cmd/apptown-gate > "$OUT" 2> "$ERR" || STATUS=$?
 if [ "$STATUS" -ne 0 ]; then
   echo "reachability: deadcode failed (exit $STATUS):" >&2
   cat "$ERR" >&2

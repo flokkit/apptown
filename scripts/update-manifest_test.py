@@ -22,9 +22,7 @@ class Publication(unittest.TestCase):
         self.tag='v1.1.0';self.commit='1'*40
         self.facts={'sourceSchema':{'min':167,'max':177},'sourceLayout':{'min':1,'max':2},
                     'schemaResult':177,'layoutResult':2,'cliProtocol':1,
-                    'daemonWorkerProtocol':2,'workerProtocol':{'min':1,'max':2},
-                    'updaterProtocol':0,'workerStateQualified':False,'agentABIQualified':False,
-                    'databaseTransition':'same-major','runtimeTransition':'unchanged'}
+                    'daemonWorkerProtocol':2,'workerProtocol':{'min':1,'max':2}}
         self.index={'manifests':[{'platform':{'os':'linux','architecture':arch},'digest':'sha256:'+digest*64} for arch,digest in [('amd64','2'),('arm64','3')]]}
         for name in manifest.IMAGES:
             row=manifest.image_facts(self.tag,self.commit,name,'sha256:'+'4'*64,self.index)
@@ -36,7 +34,7 @@ class Publication(unittest.TestCase):
     def archive(self, platform, change=None, extra=None):
         base='apptown-'+self.tag[1:]+'-'+platform.replace('/','-')
         arch=platform.split('/')[1]
-        files={n:(n+platform).encode() for n in ('bin/apptownd','bin/apptown-worker','bin/apptown','bin/apptown-update')}
+        files={n:(n+platform).encode() for n in ('bin/apptownd','bin/apptown-worker','bin/apptown')}
         files.update({'bin/apptown-linux':('linux-cli-'+arch).encode(),
                       'share/apptown/updates/stock.toml':b'stock',
                       'deploy/apptown-agent/Dockerfile':b'FROM pinned',
@@ -57,14 +55,15 @@ class Publication(unittest.TestCase):
     def build(self):
         return manifest.generate(self.tag,self.commit,self.root,self.images,self.facts)
 
-    def test_complete_metadata_is_bound_to_actual_archive_and_member_bytes(self):
+    def test_complete_metadata_is_bound_to_actual_archive_bytes(self):
         result=self.build()
+        self.assertEqual(result['format'],2)
         self.assertEqual(set(result['archives']),set(manifest.PLATFORMS))
-        self.assertEqual(result['compatibility']['updaterProtocol'],0)
+        self.assertEqual(set(result['compatibility']),set(self.facts))
         for platform,row in result['archives'].items():
+            # Name, digest and size only: the manifest is read to notify, not to install.
+            self.assertEqual(set(row),{'name','sha256','size'})
             self.assertEqual(row['sha256'],hashlib.sha256((self.root/row['name']).read_bytes()).hexdigest())
-            self.assertEqual(row['members']['bin/apptownd'],hashlib.sha256(('bin/apptownd'+platform).encode()).hexdigest())
-            self.assertEqual(row['members']['bin/apptown-update'],hashlib.sha256(('bin/apptown-update'+platform).encode()).hexdigest())
         sums=(self.root/'SHA256SUMS').read_text().splitlines()
         self.assertEqual(len(sums),6)
         for line in sums:
@@ -72,8 +71,8 @@ class Publication(unittest.TestCase):
             self.assertEqual(digest,hashlib.sha256((self.root/name).read_bytes()).hexdigest())
         self.assertEqual(json.loads((self.root/'UPDATE-MANIFEST.json').read_text()),result)
 
-    def test_archive_without_stable_supervisor_cannot_be_published(self):
-        self.archive('linux/amd64', {'bin/apptown-update':None})
+    def test_archive_without_the_daemon_cannot_be_published(self):
+        self.archive('linux/amd64', {'bin/apptownd':None})
         with self.assertRaisesRegex(ValueError, 'paired release assets'): self.build()
 
     def test_duplicate_or_missing_image_platform_refuses(self):
@@ -101,9 +100,9 @@ class Publication(unittest.TestCase):
             with self.assertRaises(ValueError):self.build()
         self.assertFalse((self.root/'outside').exists())
 
-    def test_incomplete_or_unproved_execution_compatibility_refuses(self):
+    def test_incomplete_or_contradictory_compatibility_refuses(self):
         initial=copy.deepcopy(self.facts)
-        for change in ({'updaterProtocol':1},{'workerStateQualified':True},{'databaseTransition':'upgrade'}, {'sourceSchema':{'min':178,'max':177}}):
+        for change in ({'updaterProtocol':0}, {'sourceSchema':{'min':178,'max':177}}):
             self.facts={**initial,**change}
             with self.assertRaises(ValueError):self.build()
         self.facts={k:v for k,v in initial.items() if k!='cliProtocol'}

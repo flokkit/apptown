@@ -57,7 +57,7 @@ for p in $platforms; do
 	d=$work/$name
 	mkdir -p "$d/bin" "$d/deploy" "$d/scripts" "$d/share/apptown"
 	cp -R "$work/updates" "$d/share/apptown/updates"
-	for c in apptownd apptown-worker apptown-update; do
+	for c in apptownd apptown-worker; do
 		build "$os" "$arch" "$c" "$d/bin/$c"
 	done
 	if [ "$os" = linux ]; then

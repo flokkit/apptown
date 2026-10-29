@@ -240,13 +240,9 @@ func newSignedFixture(t *testing.T) signedFixture {
 	t.Helper()
 	f := signedFixture{tag: "v1.1.0", notes: []byte("## Release\nSigned notes.\n")}
 	commit := strings.Repeat("a", 40)
-	m := Manifest{Format: 1, Version: f.tag, Commit: commit, Notes: Artifact{Name: NotesName, SHA256: hashBytes(f.notes), Size: int64(len(f.notes))}, Archives: map[string]Archive{}, Images: map[string]Image{}, Compatibility: Compatibility{Schema: Range{167, 177}, Layout: Range{1, 2}, SchemaResult: 177, LayoutResult: 2, CLIProtocol: 1, DaemonWorkerProtocol: 2, WorkerProtocol: Range{1, 2}, DatabaseTransition: "same-major", RuntimeTransition: "unchanged"}}
+	m := Manifest{Format: 2, Version: f.tag, Commit: commit, Notes: Artifact{Name: NotesName, SHA256: hashBytes(f.notes), Size: int64(len(f.notes))}, Archives: map[string]Artifact{}, Images: map[string]Image{}, Compatibility: Compatibility{Schema: Range{167, 177}, Layout: Range{1, 2}, SchemaResult: 177, LayoutResult: 2, CLIProtocol: 1, DaemonWorkerProtocol: 2, WorkerProtocol: Range{1, 2}}}
 	for _, p := range []string{"linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"} {
-		members := map[string]string{}
-		for _, name := range []string{"bin/apptownd", "bin/apptown", "bin/apptown-worker", "bin/apptown-linux", "deploy/apptown-agent/Dockerfile", "scripts/apptown-db-backup.sh", "share/apptown/updates/stock.toml", "deploy/systemd/apptown.service"} {
-			members[name] = strings.Repeat("b", 64)
-		}
-		m.Archives[p] = Archive{Artifact: Artifact{Name: "apptown-1.1.0-" + strings.ReplaceAll(p, "/", "-") + ".tar.gz", SHA256: hashBytes([]byte(p)), Size: 1}, Members: members}
+		m.Archives[p] = Artifact{Name: "apptown-1.1.0-" + strings.ReplaceAll(p, "/", "-") + ".tar.gz", SHA256: hashBytes([]byte(p)), Size: 1}
 	}
 	for _, name := range []string{"apptown", "apptown-worker", "apptown-agent"} {
 		m.Images[name] = Image{Repository: "ghcr.io/flokkit/" + name, Index: "sha256:" + strings.Repeat("c", 64), Platforms: map[string]string{"linux/amd64": "sha256:" + strings.Repeat("d", 64), "linux/arm64": "sha256:" + strings.Repeat("e", 64)}}
@@ -267,6 +263,27 @@ func newSignedFixture(t *testing.T) signedFixture {
 
 func (f signedFixture) verify() (signedRelease, error) {
 	return (releaseVerifier{trust: func(context.Context) (root.TrustedMaterial, error) { return f.trust, nil }}).verify(context.Background(), f.tag, f.manifest, f.checksums, f.signature, f.notes)
+}
+
+// Format 2 dropped the updater-only fields; one strict decoder means a format 1
+// manifest, or one still carrying them, is refused rather than half-read.
+func TestOnlyTheCurrentManifestFormatIsRead(t *testing.T) {
+	f := newSignedFixture(t)
+	if _, err := decodeManifest(f.manifest, f.tag); err != nil {
+		t.Fatal(err)
+	}
+	for name, raw := range map[string]string{
+		"format 1":         strings.Replace(string(f.manifest), `"format":2`, `"format":1`, 1),
+		"updater protocol": strings.Replace(string(f.manifest), `"schemaResult":177`, `"schemaResult":177,"updaterProtocol":0`, 1),
+		"archive members":  strings.Replace(string(f.manifest), `"size":1}`, `"size":1,"members":{}}`, 1),
+	} {
+		if raw == string(f.manifest) {
+			t.Fatalf("%s: fixture edit did not apply", name)
+		}
+		if _, err := decodeManifest([]byte(raw), f.tag); err == nil {
+			t.Fatalf("%s: accepted", name)
+		}
+	}
 }
 
 func TestReleaseVerificationUsesRealIdentityChainAndArtifactProof(t *testing.T) {

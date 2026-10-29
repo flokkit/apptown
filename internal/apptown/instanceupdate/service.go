@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/instanceupdate/supervisor"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/sigstore/sigstore-go/pkg/root"
@@ -23,14 +22,13 @@ import (
 // Options binds one installation's notification owner. Transport injection is
 // assembly input, not a destination or credential accepted from an HTTP caller.
 type Options struct {
-	SupervisorSocket string
-	DataDir          string
-	Build            string
-	Platform         string
-	Channel          string
-	Authority        access.Authorizer
-	Now              func() time.Time
-	Transport        http.RoundTripper
+	DataDir   string
+	Build     string
+	Platform  string
+	Channel   string
+	Authority access.Authorizer
+	Now       func() time.Time
+	Transport http.RoundTripper
 }
 
 type Service struct {
@@ -51,22 +49,22 @@ type Candidate struct {
 }
 
 type Status struct {
-	SupervisorState  string     `json:"supervisorState"`
-	SupervisorReason string     `json:"supervisorReason"`
-	SupervisorPhase  string     `json:"supervisorPhase,omitempty"`
-	Build            string     `json:"build"`
-	Platform         string     `json:"platform"`
-	Channel          string     `json:"channel"`
-	State            string     `json:"state"`
-	LastAttempt      *time.Time `json:"lastAttempt,omitempty"`
-	LastSuccess      *time.Time `json:"lastSuccess,omitempty"`
-	Candidate        *Candidate `json:"candidate,omitempty"`
-	ReasonCode       string     `json:"reasonCode,omitempty"`
-	Reason           string     `json:"reason,omitempty"`
-	// U1 never confuses a verified candidate with enrolled recovery/replacement.
-	AutomaticReplacement bool   `json:"automaticReplacement"`
-	ReplacementReason    string `json:"replacementReason"`
+	Build       string     `json:"build"`
+	Platform    string     `json:"platform"`
+	Channel     string     `json:"channel"`
+	State       string     `json:"state"`
+	LastAttempt *time.Time `json:"lastAttempt,omitempty"`
+	LastSuccess *time.Time `json:"lastSuccess,omitempty"`
+	Candidate   *Candidate `json:"candidate,omitempty"`
+	ReasonCode  string     `json:"reasonCode,omitempty"`
+	Reason      string     `json:"reason,omitempty"`
 }
+
+// cacheFolder holds the notification cache under the data directory. Manifest
+// format 2 began a fresh folder: a format-1 candidate retained in the old
+// "instance-updates" folder fails the strict decoder on every read, before
+// discovery, and would block all later checks. The old folder is not read.
+const cacheFolder = "release-checks"
 
 func New(in Options) (*Service, error) {
 	if in.Channel == "" {
@@ -84,7 +82,7 @@ func New(in Options) (*Service, error) {
 		return nil, err
 	}
 	h := newPublicHTTP(in.Transport)
-	s := &Service{options: in, cache: cacheStore{dir: filepath.Join(data, "instance-updates")}}
+	s := &Service{options: in, cache: cacheStore{dir: filepath.Join(data, cacheFolder)}}
 	s.source = releaseSource{http: h, verify: releaseVerifier{trust: func(ctx context.Context) (root.TrustedMaterial, error) {
 		return h.trustedRoot(ctx, filepath.Join(s.cache.dir, "trust"))
 	}}}
@@ -109,23 +107,11 @@ func (s *Service) Status(ctx context.Context) (Status, error) {
 	if err != nil {
 		return Status{}, fault.Wrap(fault.Unavailable, fmt.Errorf("release status is unavailable: %w", err))
 	}
-	return s.view(ctx, st), nil
+	return s.view(st), nil
 }
 
-func (s *Service) view(ctx context.Context, st state) Status {
-	v := Status{Build: s.options.Build, Platform: s.options.Platform, Channel: s.options.Channel, State: "unknown", LastAttempt: st.LastAttempt, LastSuccess: st.LastSuccess, Candidate: st.Candidate, Reason: st.Failure, ReasonCode: st.FailureCode, ReplacementReason: "Automatic replacement requires a qualified updater and authenticated installed-build provenance."}
-	v.SupervisorState = "not-enrolled"
-	v.SupervisorReason = "Managed supervision is not configured."
-	if s.options.SupervisorSocket != "" {
-		v.SupervisorState = "unavailable"
-		v.SupervisorReason = "The configured supervisor is unavailable; enrollment and readiness could not be observed."
-		reply, err := supervisor.Call(ctx, s.options.SupervisorSocket, supervisor.Request{Protocol: supervisor.Protocol, Operation: "status"})
-		if err == nil && reply.Status != nil && reply.Status.State == "enrolled" && !reply.Status.Eligible {
-			v.SupervisorState = reply.Status.State
-			v.SupervisorReason = reply.Status.Reason
-			v.SupervisorPhase = reply.Status.Phase
-		}
-	}
+func (s *Service) view(st state) Status {
+	v := Status{Build: s.options.Build, Platform: s.options.Platform, Channel: s.options.Channel, State: "unknown", LastAttempt: st.LastAttempt, LastSuccess: st.LastSuccess, Candidate: st.Candidate, Reason: st.Failure, ReasonCode: st.FailureCode}
 	if st.Candidate != nil && st.Candidate.Platform != s.options.Platform {
 		v.Candidate = nil
 		v.State = "unknown"
@@ -173,12 +159,12 @@ func (s *Service) check(ctx context.Context, manual bool) (Status, error) {
 	}
 	now := s.options.Now().UTC()
 	if st.LastAttempt != nil && now.Sub(*st.LastAttempt) < time.Minute {
-		v := s.view(ctx, st)
+		v := s.view(st)
 		s.mu.Unlock()
 		return v, fault.New(fault.Unavailable, "wait a minute before checking releases again")
 	}
 	if !manual && !due(st, now, s.options.Platform) {
-		v := s.view(ctx, st)
+		v := s.view(st)
 		s.mu.Unlock()
 		return v, nil
 	}
@@ -204,7 +190,7 @@ func (s *Service) check(ctx context.Context, manual bool) (Status, error) {
 			if !ok {
 				checkErr = fmt.Errorf("release does not support this platform")
 			} else if checkErr = s.cache.retain(release); checkErr == nil {
-				candidate = &Candidate{Version: release.Manifest.Version, Commit: release.Manifest.Commit, Platform: s.options.Platform, Notes: string(release.Notes), Archive: archive.Artifact, Evidence: release.Evidence}
+				candidate = &Candidate{Version: release.Manifest.Version, Commit: release.Manifest.Commit, Platform: s.options.Platform, Notes: string(release.Notes), Archive: archive, Evidence: release.Evidence}
 			}
 		}
 	}
@@ -212,7 +198,7 @@ func (s *Service) check(ctx context.Context, manual bool) (Status, error) {
 	defer s.mu.Unlock()
 	s.checking = false
 	if ctx.Err() != nil {
-		return s.view(ctx, st), ctx.Err()
+		return s.view(st), ctx.Err()
 	}
 	if checkErr != nil {
 		// Never persist remote certificate text or local filesystem paths in
@@ -225,12 +211,12 @@ func (s *Service) check(ctx context.Context, manual bool) (Status, error) {
 		st.Pages = pages
 	}
 	if err := s.cache.save(st); err != nil {
-		return s.view(ctx, st), fault.Wrap(fault.Unavailable, fmt.Errorf("cannot record verified release status: %w", err))
+		return s.view(st), fault.Wrap(fault.Unavailable, fmt.Errorf("cannot record verified release status: %w", err))
 	}
 	if checkErr != nil {
-		return s.view(ctx, st), fault.New(fault.Unavailable, "release check failed; previous verified evidence was retained")
+		return s.view(st), fault.New(fault.Unavailable, "release check failed; previous verified evidence was retained")
 	}
-	return s.view(ctx, st), nil
+	return s.view(st), nil
 }
 
 func due(st state, now time.Time, platform string) bool {

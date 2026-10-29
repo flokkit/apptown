@@ -314,7 +314,6 @@ go: console-cli stock-files
 	go build $(REVISION_LDFLAGS) -o bin/apptownd ./cmd/apptownd
 	go build $(REVISION_LDFLAGS) -o bin/apptown ./cmd/apptown
 	go build $(REVISION_LDFLAGS) -o bin/apptown-worker ./cmd/apptown-worker
-	go build $(REVISION_LDFLAGS) -o bin/apptown-update ./cmd/apptown-update
 
 .PHONY: console-cli stock-files
 stock-files:             ## the update files the binaries read their stock from at start (share/apptown/updates, beside bin/)

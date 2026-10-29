@@ -73,9 +73,8 @@ func (f *fatalRecorder) Fatalf(string, ...any) {
 // (scripts/ci-uncached-tests.txt).
 func TestEveryChildGoBuildNamesItsSources(t *testing.T) {
 	exempt := map[string]string{
-		"cmd/apptown-worker/env_flags_test.go":                                    "builds the package under test",
-		"cmd/apptown-worker/docker_flag_test.go":                                  "builds the package under test",
-		"internal/apptown/instanceupdate/supervisor/adapters_integration_test.go": "uncached: scripts/ci-uncached-tests.txt",
+		"cmd/apptown-worker/env_flags_test.go":   "builds the package under test",
+		"cmd/apptown-worker/docker_flag_test.go": "builds the package under test",
 	}
 	root, err := filepath.Abs("../..")
 	if err != nil {

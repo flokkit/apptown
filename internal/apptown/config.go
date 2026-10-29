@@ -37,8 +37,7 @@ import (
 // copies it; changing this value afterwards cannot reconfigure an instance.
 type Config struct {
 	// UpdateChannel selects stable releases unless explicitly set to prerelease.
-	UpdateChannel          string
-	UpdateSupervisorSocket string
+	UpdateChannel string
 	// DockerClient supplies the command transport before owners are wired.
 	// Nil selects the production CLI. Changing this input later does not
 	// replace the client held by an already constructed App.

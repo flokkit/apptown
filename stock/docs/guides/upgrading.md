@@ -14,9 +14,9 @@ are shown as unavailable or stale, never as a successful no-update check. The
 page preserves the last verified candidate and records attempted and successful
 checks separately. Opening it reads local status without contacting a publisher.
 
-These notifications do not replace binaries or prove that the installed build
-is eligible for automatic replacement. Follow the procedure below; a displayed
-version string alone is not installed-build provenance. Checks request only
+AppTown tells you a release exists and shows how to install it; it does not
+replace itself. Follow the procedure below; a displayed version string alone is
+not installed-build provenance. Checks request only
 fixed public GitHub and Sigstore metadata, without sending project information
 or instance credentials.
 
@@ -128,7 +128,3 @@ then refused by the AppTown it replaces, including when an upgrade asks it
 `apptown executing`: answer that question with the CLI of the running
 release, or establish yourself that nothing is executing and upgrade without
 asking.
-
-A [managed supervisor](managed-supervisor.md) keeps Linux installation registration
-and startup fences outside the replaceable daemon. Enrollment is separate from
-matched recovery and replacement readiness; it does not enable automatic updates.
