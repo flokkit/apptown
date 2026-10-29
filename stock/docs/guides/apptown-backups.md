@@ -247,36 +247,6 @@ paired restore keeps the original absolute data path. Use the whole-AppTown
 restore command when moving to a different path, so its saved manifest supplies
 the original location.
 
-## Rehearsing a recovery
-
-`scripts/apptown-recovery-rehearsal.sh` backs up an AppTown with `apptownd
-backup` (nothing stops), carries the archive to a spare host without
-writing it on the machine that runs the script, restores it there with
-`apptownd restore`, and checks the result: each key file the source has
-came across unchanged, reads through the API match (a sample of activity
-history and recent changes per project, with a CLI token made before the
-backup), and after a normal start AppTown answers and names the expected
-version. Given a release archive (`CANDIDATE`), the restore and the start
-use that release's `apptownd`: the rehearsal is then that release's upgrade
-of the source's data. Apps are not checked: their data comes back from
-their own deployment backups. The archive is deleted from the source and
-the spare host, and the restored data directory from the spare host, when
-the run ends, however it ends.
-
-**The spare host is cut off from the outside.** A restored AppTown holds the
-credentials of everything it manages: upstream Git, cloud accounts, attached
-hosts, model providers. As soon as it starts normally it fires schedules and
-checks its deployments. The script cuts the spare host off before AppTown
-starts (an nftables table allowing only loopback, DNS and Docker's own
-networks, and `/etc/hosts` entries for names it is given). When the
-rehearsal ends it stops AppTown and removes every container, network and
-volume created since it started (it knows them from what Docker held
-before) and the restored data, and lifts the cut only once none remain. The
-lock it takes on the spare host must still be its own before it cleans up
-and before it releases it: an unreadable or different lock refuses cleanup,
-and a failed release is a failed rehearsal, even if the cut was already
-lifted. Inspect the host before using it again after a failed cleanup.
-
 New whole-AppTown archives record the observed PostgreSQL server and `pg_dump`
 client versions. This build refuses archives that record a server major other
 than the built-in PostgreSQL 16 before extracting their data. These observations

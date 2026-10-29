@@ -128,9 +128,6 @@ COPY --from=go /out/bin/apptownd /out/bin/apptown /out/bin/apptown-linux bin/
 COPY --from=go /out/share/ share/
 COPY deploy/apptown-agent/ deploy/apptown-agent/
 COPY deploy/apptown-start.sh bin/
-# The checked database dump a one-server compose install runs before an
-# upgrade (Upgrading), where the release archive has it too.
-COPY scripts/apptown-db-backup.sh scripts/
 COPY LICENSE NOTICE ./
 COPY --from=notices /out/THIRD_PARTY_NOTICES ./
 # The trial's agent image is ghcr.io/flokkit/apptown-agent of this version,

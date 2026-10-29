@@ -136,9 +136,8 @@ The archive holds `bin/apptownd`, `bin/apptown`,
 `bin/apptown-worker`, `bin/apptown-linux` (the CLI AppTown gives its
 containers), `share/apptown/updates` (the ways of working and tool versions
 `apptownd` and `apptown-worker` read at start, beside `bin/`; neither
-starts without them), `deploy/apptown-agent` (the agent image's recipe), example
-systemd units in `deploy/systemd` and `scripts/apptown-db-backup.sh` (the
-checked backup [upgrading](upgrading.md) runs). The unit runs `apptownd` in `/opt/apptown`,
+starts without them), `deploy/apptown-agent` (the agent image's recipe) and example
+systemd units in `deploy/systemd`. The unit runs `apptownd` in `/opt/apptown`,
 where it finds `bin/apptown-linux`; without it, chats and steps run without
 the `apptown` CLI (`-console-cli` names another path).
 

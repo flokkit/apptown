@@ -1,30 +1,7 @@
 version: "2"
 sql:
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/dependency/internal/dependencysql/queries.sql
     gen:
       go:
@@ -39,30 +16,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/identity/internal/accesssql/queries.sql
     gen:
       go:
@@ -77,30 +31,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/deployment/internal/releasesql/queries.sql
     gen:
       go:
@@ -121,30 +52,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/workflow/internal/workflowsql
     gen:
       go:
@@ -159,30 +67,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/wow/internal/wowsql/queries.sql
     gen:
       go:
@@ -197,30 +82,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/deployment/internal/deploymentsql/queries.sql
     gen:
       go:
@@ -241,30 +103,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/preview/internal/previewsql/queries.sql
     gen:
       go:
@@ -279,30 +118,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/dataprotection/internal/protectionsql/queries.sql
     gen:
       go:
@@ -317,30 +133,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/integration/internal/integrationsql/queries.sql
     gen:
       go:
@@ -355,30 +148,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/adoption/internal/adoptionsql/queries.sql
     gen:
       go:
@@ -393,30 +163,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/complaint/internal/complaintsql/queries.sql
     gen:
       go:
@@ -431,30 +178,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/secret/internal/secretsql/queries.sql
     gen:
       go:
@@ -469,30 +193,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/adrs/internal/adrssql/queries.sql
     gen:
       go:
@@ -507,30 +208,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/conformance/internal/conformancesql/queries.sql
     gen:
       go:
@@ -545,30 +223,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/remediation/internal/remediationsql/queries.sql
     gen:
       go:
@@ -583,30 +238,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/model/internal/modelsql/queries.sql
     gen:
       go:
@@ -621,30 +253,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/project/internal/projectsql/queries.sql
     gen:
       go:
@@ -665,30 +274,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/usage/internal/usagesql/queries.sql
     gen:
       go:
@@ -703,30 +289,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/audit/internal/auditsql/queries.sql
     gen:
       go:
@@ -741,30 +304,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/scm/internal/scmsql/queries.sql
     gen:
       go:
@@ -784,30 +324,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/tasks/internal/taskssql/queries.sql
     gen:
       go:
@@ -822,8 +339,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/jobs/internal/jobsql/river-schema.sql
+    schema: internal/apptown/jobs/internal/jobsql/river-schema.sql
     queries: internal/apptown/jobs/internal/jobsql/queries.sql
     gen:
       go:
@@ -838,30 +354,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/evals/internal/evalssql/queries.sql
     gen:
       go:
@@ -876,30 +369,7 @@ sql:
             go_type: github.com/flokkit/apptown/internal/ids.ID
         omit_unused_structs: true
   - engine: postgresql
-    schema:
-      - internal/apptown/dbschema/version.sql
-      - internal/apptown/identity/schema.sql
-      - internal/apptown/audit/schema.sql
-      - internal/apptown/operations/schema.sql
-      - internal/apptown/complaint/schema.sql
-      - internal/apptown/dependency/schema.sql
-      - internal/apptown/integration/schema.sql
-      - internal/apptown/model/schema.sql
-      - internal/apptown/project/schema.sql
-      - internal/apptown/secret/schema.sql
-      - internal/apptown/usage/schema.sql
-      - internal/apptown/wow/schema.sql
-      - internal/apptown/adoption/schema.sql
-      - internal/apptown/adrs/schema.sql
-      - internal/apptown/conformance/schema.sql
-      - internal/apptown/remediation/schema.sql
-      - internal/apptown/workflow/schema.sql
-      - internal/apptown/deployment/schema.sql
-      - internal/apptown/preview/schema.sql
-      - internal/apptown/dataprotection/schema.sql
-      - internal/apptown/scm/schema.sql
-      - internal/apptown/tasks/schema.sql
-      - internal/apptown/evals/schema.sql
+    schema: internal/apptown/dbschema/schema.sql
     queries: internal/apptown/operations/internal/operationssql/queries.sql
     gen:
       go:

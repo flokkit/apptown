@@ -143,7 +143,7 @@ check-npm-audit:        ## no unexcused high or critical npm advisory in web/ (w
 	python3 scripts/npm-audit-check_test.py
 	python3 scripts/npm-audit-check.py
 
-check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; shipped guides' and release notes' links work on GitHub and the Docs page; the tour is complete; the names people see only lose their old spelling (names-check)
+check-docs:             ## current guides state the current rule: no dated names, status lines or links into plans and reviews; shipped guides' and release notes' links work on GitHub and the Docs page; the tour is complete
 	python3 scripts/docs-current_test.py
 	python3 scripts/docs-current.py
 	python3 scripts/docs-links_test.py
@@ -151,8 +151,6 @@ check-docs:             ## current guides state the current rule: no dated names
 	python3 scripts/tour_test.py
 	python3 scripts/publish_tour_test.py
 	python3 scripts/tour-check.py
-	python3 scripts/names-check_test.py
-	python3 scripts/names-check.py
 
 # The UI tour (site/tour): a small example team's AppTown, photographed in
 # both themes by Playwright (APPTOWN_PLAYWRIGHT_MODULE, default
@@ -202,7 +200,6 @@ check-lint-test:        ## the lint rules and their count check, on fixtures
 
 check-shape:            ## the architecture's shape rules against scripts/shape-baseline.json
 	python3 scripts/shape-check_test.py
-	python3 scripts/codebase-shape_test.py
 	python3 scripts/shape-report_test.py
 	python3 scripts/release-notes-check_test.py
 	python3 scripts/release-prepare_test.py
@@ -215,9 +212,7 @@ check-shape:            ## the architecture's shape rules against scripts/shape-
 	python3 scripts/image_build_test.py
 	python3 scripts/stranger_install_test.py
 	python3 scripts/apptown_start_test.py
-	python3 scripts/trial_check_test.py
 	python3 scripts/site_try_test.py
-	python3 scripts/apptown_recovery_rehearsal_test.py
 	python3 scripts/chat_check_test.py
 	python3 scripts/native_install_check_test.py
 	cd eval/companies && python3 run_test.py

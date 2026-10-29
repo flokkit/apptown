@@ -25,36 +25,29 @@ or instance credentials.
    it exits 0 when there are none and 3 when there are some. A step cut off
    by a restart may be left in error and need a retry; an operation cut off
    ends unknown with what it had done.
-2. **Stop AppTown, then copy it, and stop if a copy fails.** Stop
+2. **Back up the whole AppTown, and stop if the backup fails.** While
+   the old `apptownd` still runs, take a whole-AppTown backup
+   ([AppTown's own backups](apptown-backups.md)) with the flags and
+   `APPTOWN_*` settings it runs with, `-data` at least, into a file outside
+   the data directory (the backup refuses one inside it):
+
+   ```sh
+   apptownd -data <data directory> backup <directory>/apptown-pre-upgrade.backup
+   ```
+
+   On a one-server compose install run it in the container, writing to its
+   `/tmp`, and copy the archive out before the container is replaced:
+
+   ```sh
+   docker compose exec apptown apptownd backup /tmp/apptown-pre-upgrade.backup
+   docker compose cp apptown:/tmp/apptown-pre-upgrade.backup <directory>/
+   ```
+
+   It asks for a passphrase (or reads `APPTOWN_BACKUP_PASSPHRASE_FILE`);
+   keep the passphrase apart from the archive, since without it the archive
+   cannot be opened. If the backup fails, do not upgrade. Then stop
    `apptownd` (`docker compose stop apptown` on a one-server compose
-   install; leave the database container running), so nobody writes between the two
-   copies and they describe one moment. Take the database dump with the
-   checked backup script, in `/opt/apptown/scripts` (the nightly dump may
-   be a day old). `<db>` is the built-in database's container, which `db.env` in the data directory names (`APPTOWN_DB_CONTAINER`): `apptown-db`. `<name>` is the database at the end of `APPTOWN_DB_URL` in the same file: `apptown`, or `forge` on an install made before 1.0:
-
-   ```sh
-   bash /opt/apptown/scripts/apptown-db-backup.sh <db> postgres <name> <directory> pre-upgrade
-   ```
-
-   On a one-server compose install the script is in the image; run it from
-   the folder holding `compose.yaml`, with a directory under the data
-   folder:
-
-   ```sh
-   docker compose run --rm --no-deps --entrypoint bash apptown \
-     /opt/apptown/scripts/apptown-db-backup.sh <db> postgres <name> /var/lib/apptown/backups pre-upgrade
-   ```
-
-   It refuses, and leaves no file, unless `pg_dump` and `gzip` both
-   succeed, the file is valid gzip, the dump ends with its "dump complete"
-   line, and it holds AppTown's tables. A bare `pg_dump | gzip` can
-   produce a file that looks fine and holds nothing. With `-db-url`, use that
-   database's own backup and check that it completed. Then copy the data
-   directory without `pgdata` (the dump holds the database) and `cache`:
-
-   ```sh
-   tar -C <data directory> --exclude=./pgdata --exclude=./cache -czf <directory>/forge-data-pre-upgrade.tar.gz .
-   ```
+   install).
 3. **Replace the binaries and start.** On a one-server compose install,
    set `APPTOWN_VERSION` in `.env` to the new version (or download the new
    `compose.yaml`), then `docker compose pull && docker compose up -d`: the
@@ -78,8 +71,7 @@ or instance credentials.
 On a native Mac, new built-in databases use Docker-managed storage. Existing
 bound databases stay in place. Keep the local `pgdata` storage receipt during
 same-installation upgrades and rollback; a missing or replaced recorded volume
-requires recovery. The paired dump and directory copies above protect both
-storage layouts. A directory snapshot alone does not include a managed database.
+requires recovery. The whole-AppTown backup above protects both storage layouts. A directory snapshot alone does not include a managed database.
 
 The oldest supported installation and whole-AppTown backup schema is 167,
 from 1.0.0-rc.7. Startup and whole-AppTown restore refuse an older schema;
@@ -92,20 +84,43 @@ an installation from 1.0.0-rc.7 to a release from 1.0.0-rc.9 to
 Startup refuses an older data directory before it opens the database.
 
 Read the target release's notes for its additional upgrade and recovery
-requirements. Preserve the matching database and data-directory copies described
-above before starting the new build; `-verify-only` still performs required schema
+requirements. Keep the whole-AppTown backup described above before starting
+the new build; `-verify-only` still performs required schema
 changes.
 
 ## Rolling back
 
-The way back is the two copies from step 2: stop `apptownd`, load the dump
-(the commands under "Restoring the database" in [AppTown's own
-backups](apptown-backups.md)), replace the data directory's
-contents except `pgdata` with the copy, and start the previous release. That
-discards everything since the copies: the new build's database upgrade and
-any work done on it. The new build's first write is where work
-starts being lost, so roll back before people use it, or accept losing what
-they did. There is no other downgrade: an older build refuses a database or a
+The way back is the archive from step 2, put back into the same
+installation by hand. (`apptownd restore` is for a new host: it refuses one
+that already has an AppTown.)
+
+1. Stop `apptownd`.
+2. Unpack the archive into an empty folder outside the data directory. It
+   is [age](https://age-encryption.org) encryption around a `tar.gz`; `age`
+   asks for the passphrase:
+
+   ```sh
+   mkdir <staging> && age -d <archive> | tar -xz -C <staging>
+   ```
+
+   It holds `database.sql.gz` (the database dump), `data/` (the data
+   directory without `pgdata` and `cache`) and `manifest.json`.
+3. Load `<staging>/database.sql.gz` into AppTown's database with the
+   commands under "Restoring the database" in [AppTown's own
+   backups](apptown-backups.md). On `-db-url`, load it into that database
+   with its own tools.
+4. Put the data directory back from `<staging>/data/`, keeping its `pgdata`
+   (the database's files, or the receipt of its Docker volume) and `cache`:
+
+   ```sh
+   rsync -a --delete --exclude=/pgdata --exclude=/cache <staging>/data/ <data directory>/
+   ```
+5. Start the previous release, with its binaries and settings.
+
+That discards everything since the backup: the new build's database upgrade
+and any work done on it. The new build's first write is where work starts
+being lost, so roll back before people use it, or accept losing what they
+did. There is no other downgrade: an older build refuses a database or a
 data directory a newer one has upgraded. Each release's test suite upgrades
 frozen copies of earlier releases' AppTown and rolls them back this way.
 

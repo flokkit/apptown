@@ -13,7 +13,6 @@ web/dist/
 !deploy/apptown-start.sh
 !scripts/stock-files.go
 !scripts/third-party-notices.py
-!scripts/apptown-db-backup.sh
 !LICENSE
 !NOTICE
 internal/**/*_test.go

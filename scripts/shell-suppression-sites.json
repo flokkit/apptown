@@ -40,21 +40,6 @@
     "reason": "Binary discovery may be empty; the subsequent explicit empty check refuses before attempting to start a missing application."
   },
   {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "nft delete table inet forge_rehearsal 2>/dev/null || true",
-    "reason": "Deleting an old firewall table is preparation for the checked installation immediately below, not proof that isolation was installed."
-  },
-  {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "p=$(cat $d/pid 2>/dev/null || true)",
-    "reason": "The PID file is only an optional hint for stopping the recorded process. Checked process inventory below must still establish absence before resource cleanup."
-  },
-  {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "\t\tssh \"$tgt\" \"[ \\\"\\$(cat /root/.lab-lock 2>/dev/null)\\\" = '$lock' ] && rm -f /root/.lab-lock\" || true",
-    "reason": "Before Docker ownership is recorded, exit cleanup attempts to remove only its matching lock. Failure may leave that lock for inspection; no completed target cleanup is claimed."
-  },
-  {
     "file": "scripts/ci-heavy.sh",
     "source": "\t[ -z \"$probe_client\" ] || docker rm -f \"$probe_client\" >/dev/null 2>&1 || true",
     "reason": "Exit cleanup attempts removal of the owned probe client even if already absent. It does not establish successful test execution or confirmed container absence."
@@ -103,11 +88,6 @@
     "file": "site/try.sh",
     "source": "\tfor image in $(printf '%s\\n' \"$images\" | grep '^ghcr.io/flokkit/apptown' || :); do",
     "reason": "The image inventory was checked before this filter. grep may find no AppTown image; that means there is no matching image to remove."
-  },
-  {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "\tdiffer=$(grep -v ' missing$' \"$1\" | grep -F -x -v -f \"$2\" | cut -d' ' -f1 || true)",
-    "reason": "grep exits 1 when every source key file is on the target unchanged, which is the passing case; an empty result is the pass and any listed file fails the check below."
   },
   {
     "file": "scripts/native-install-check.sh",

@@ -19,7 +19,6 @@ class AssemblyTests(unittest.TestCase):
         (db / 'version.sql').write_text('CREATE TABLE schema_version (version bigint);\n')
         (domain / 'schema.sql').write_text('CREATE TABLE projects (id bigint);\n')
         (root / assembly.MANIFEST).write_text(json.dumps(paths))
-        (root / 'sqlc.yaml').write_text('sql:\n  - engine: postgresql\n    schema: old.sql\n    queries: queries.sql\n')
         return paths
 
     def test_generation_is_deterministic_and_checked(self):
@@ -33,24 +32,21 @@ class AssemblyTests(unittest.TestCase):
             self.assertEqual(first, assembly.outputs(root))
             bundle = (root / assembly.BUNDLE).read_text()
             self.assertLess(bundle.index('schema_version'), bundle.index('projects'))
-            self.assertIn('      - ' + paths[1], (root / 'sqlc.yaml').read_text())
             (root / paths[1]).write_text('CREATE TABLE projects (id bigint PRIMARY KEY);\n')
             with self.assertRaisesRegex(ValueError, 'stale'):
                 assembly.run(root, check=True)
 
-    def test_external_query_schema_never_enters_runtime_bundle(self):
+    def test_library_schema_never_enters_runtime_bundle(self):
+        # River's tables are read by its own sqlc block (sqlc.yaml names
+        # river-schema.sql there); they are not AppTown's and stay out of the
+        # bundle and the ownership map.
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
             self.fixture(root)
-            external = 'internal/apptown/jobs/internal/jobsql/river-schema.sql'
-            query = 'internal/apptown/jobs/internal/jobsql/queries.sql'
-            path = root / external
+            path = root / 'internal/apptown/jobs/internal/jobsql/river-schema.sql'
             path.parent.mkdir(parents=True)
             path.write_text('CREATE TABLE river_job (id bigint);')
-            config = root / 'sqlc.yaml'
-            config.write_text(config.read_text() + '  - engine: postgresql\n    schema: stale.sql\n    queries: ' + query + '\n')
             assembly.run(root)
-            self.assertIn('schema:\n      - ' + external + '\n    queries: ' + query, config.read_text())
             self.assertNotIn('river_job', (root / assembly.BUNDLE).read_text())
             self.assertNotIn('river_job', assembly.table_owners(root))
             assembly.run(root, check=True)
@@ -70,16 +66,6 @@ class AssemblyTests(unittest.TestCase):
                     (extra / 'schema.sql').write_text('CREATE TABLE extra (id bigint);')
                 with self.assertRaises(ValueError):
                     assembly.run(root)
-
-    def test_stale_schema_lists_are_detected(self):
-        with tempfile.TemporaryDirectory() as d:
-            root = Path(d)
-            self.fixture(root)
-            assembly.run(root)
-            config = root / 'sqlc.yaml'
-            config.write_text(config.read_text().replace('project/schema.sql', 'wrong/schema.sql'))
-            with self.assertRaisesRegex(ValueError, 'sqlc.yaml'):
-                assembly.run(root, check=True)
 
     def test_table_owner_is_its_fragment(self):
         with tempfile.TemporaryDirectory() as d:
