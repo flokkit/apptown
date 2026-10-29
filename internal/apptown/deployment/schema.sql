@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   -- not acted on until its provider says what it runs: unconfirmed until
   -- then, gone when the provider has no such app. A built-in deployment is
   -- filling until the rebuild that puts its data back has ended. '' otherwise.
-  restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling')),
+  restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling', 'not-filled')),
   display_label TEXT NOT NULL DEFAULT '',
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
   UNIQUE(project_id, name),

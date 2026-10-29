@@ -8,9 +8,10 @@
 #   apptown-recovery-rehearsal.sh restore <out dir> <target ssh>
 #   apptown-recovery-rehearsal.sh all <source ssh> <source data dir> <slug/deployment> <target ssh>
 #
-# backup writes on the source: `apptownd backup` takes a set of each built-in
-# deployment's data with its app stopped for its copy, and holds new work for
-# the dump. It copies the archive (encrypted with a passphrase made for the
+# backup writes on the source: `apptownd backup` holds new work for the
+# dump; no app is stopped. The checked deployment's data comes back from its
+# own newest whole deployment backup kept on the source's disk, so it needs
+# one. It copies the archive (encrypted with a passphrase made for the
 # run), the passphrase, the source's apptownd and the update files it reads
 # its stock from (share/apptown/updates beside its bin/), the key files' digests and
 # what the source answers (restore-check.py capture; DATA_QUERY) into <out

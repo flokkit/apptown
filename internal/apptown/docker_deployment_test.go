@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/instancebackup"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -283,35 +284,14 @@ func TestARestoredDeploymentIsRebuiltWithItsDataBeforeItsAppStarts(t *testing.T)
 	for _, scenario := range []string{"whole", "partial", "missing"} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Parallel()
-			a, f := bootWorld(t)
-			runID, stepID := deployRun(t, a)
-			run, err := workflow.ReadRunIn(context.Background(), a.DB, runID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
-			// The app keeps its files in its data volume and needs nothing
-			// else, so the fake daemon has no database to answer for.
-			if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(strings.Split(bootFixtureYAML, "needs:")[0]), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if out, err := gitexec.Run(t.Context(), ws, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qam", "no needs"); err != nil {
-				t.Fatalf("%v: %s", err, out)
-			}
-			if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
-				t.Fatal(err)
-			}
-			a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+			a, f, dep := releasedVolumeApp(t)
 			ctx := t.Context()
-			dep, err := a.Deployment.Deployments.ByName(ctx, idstest.N(1), "main")
-			if err != nil || dep.ObservedGeneration != 1 {
-				t.Fatalf("initial deployment %+v %v", dep, err)
-			}
+			var err error
 			// The set the archive held: whole (nothing failed), partial (its
 			// database's copy failed), or none at all.
 			var set ids.ID
 			if scenario != "missing" {
-				b := &dataprotection.Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: "2026-10-23T00:00:00Z", Trigger: dataprotection.TriggerAppTownBackup,
+				b := &dataprotection.Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: "2026-10-23T00:00:00Z", Trigger: dataprotection.TriggerPreRelease,
 					Path: t.TempDir(), Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk}
 				if scenario == "partial" {
 					b.Status = dataprotection.BackupPartial
@@ -351,8 +331,14 @@ func TestARestoredDeploymentIsRebuiltWithItsDataBeforeItsAppStarts(t *testing.T)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if after.RestoreCheck != "" {
-				t.Fatalf("the hold outlived the rebuild: %q", after.RestoreCheck)
+			// The filling hold ends with the rebuild; a deployment whose data
+			// did not come back stays out of automatic rebuilds.
+			want := deployment.RestoreNotFilled
+			if scenario == "whole" {
+				want = ""
+			}
+			if after.RestoreCheck != want {
+				t.Fatalf("after the rebuild: %q, want %q", after.RestoreCheck, want)
 			}
 			switch scenario {
 			case "whole":
@@ -409,7 +395,7 @@ func TestRestoredDatabaseBindsNewStorageBeforeEngineAndImport(t *testing.T) {
 			if scenario == "bad-file" {
 				item.SHA256 = strings.Repeat("0", 64)
 			}
-			b := &dataprotection.Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: "2026-10-25T00:00:00Z", Trigger: dataprotection.TriggerAppTownBackup, Path: dir, Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk, Items: []dataprotection.BackupItem{item}}
+			b := &dataprotection.Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: "2026-10-25T00:00:00Z", Trigger: dataprotection.TriggerPreRelease, Path: dir, Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk, Items: []dataprotection.BackupItem{item}}
 			set, err := dataprotection.NewBackups(a.DB).Record(t.Context(), b, "test")
 			if err != nil {
 				t.Fatal(err)
@@ -470,6 +456,140 @@ func TestRestoredDatabaseBindsNewStorageBeforeEngineAndImport(t *testing.T) {
 				}
 			} else if starts != 0 || imports != 0 {
 				t.Fatalf("refused restore had effects: starts=%d imports=%d err=%v", starts, imports, err)
+			}
+		})
+	}
+}
+
+// releasedVolumeApp is a world whose built-in deployment main was released
+// once (so its rebuild inputs are recorded) with an app that keeps its files
+// in its data volume and needs nothing else, so the fake daemon has no
+// database to answer for.
+func releasedVolumeApp(t *testing.T) (*App, *fakeDocker, *deployment.Deployment) {
+	t.Helper()
+	a, f := bootWorld(t)
+	runID, stepID := deployRun(t, a)
+	run, err := workflow.ReadRunIn(context.Background(), a.DB, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := requireLocation(t)(workflowSourceForTest(t, a, run).Workspace(a.cfg.dataDir))
+	if err := os.WriteFile(filepath.Join(ws, ".apptown", "app.yaml"), []byte(strings.Split(bootFixtureYAML, "needs:")[0]), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := gitexec.Run(t.Context(), ws, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-qam", "no needs"); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	if _, err := gitexec.Run(t.Context(), ws, "clone", "--no-hardlinks", ws, a.projectRepoPath("p")); err != nil {
+		t.Fatal(err)
+	}
+	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
+	dep, err := a.Deployment.Deployments.ByName(t.Context(), idstest.N(1), "main")
+	if err != nil || dep.ObservedGeneration != 1 {
+		t.Fatalf("initial deployment %+v %v", dep, err)
+	}
+	return a, f, dep
+}
+
+// A restored AppTown fills each built-in deployment from that deployment's
+// own newest whole set, since the archive carries no app copies of its own:
+// on AppTown's disk (it came in the data directory) the deployment is held
+// for a rebuild that puts it back; in the backup store it is held too, and
+// its rebuild refuses rather than start the app on empty data, and keeps
+// refusing until a release of it; with no set it is not held.
+//
+// Kills: a fill from an older set, or from a partial one; an app in the
+// store's care started empty, at once or on a later rebuild; a deployment
+// with no backup held forever.
+func TestARestoredAppTownFillsEachAppFromItsNewestWholeSet(t *testing.T) {
+	for _, scenario := range []string{"disk", "store", "none"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			a, f, dep := releasedVolumeApp(t)
+			ctx := t.Context()
+			record := func(taken string, status dataprotection.BackupState, store string) ids.ID {
+				b := &dataprotection.Backup{ProjectID: dep.ProjectID, Deployment: dep.Name, TakenAt: taken, Trigger: dataprotection.TriggerPreRelease,
+					Path: t.TempDir(), Status: status, Store: store}
+				if status != dataprotection.BackupOK {
+					b.Items = []dataprotection.BackupItem{{Kind: "volume", Name: "data", File: "data.tar", Error: "copy failed"}}
+				}
+				id, err := dataprotection.NewBackups(a.DB).Record(ctx, b, "test")
+				if err != nil {
+					t.Fatal(err)
+				}
+				return id
+			}
+			var want ids.ID
+			switch scenario {
+			case "disk":
+				record("2026-10-20T00:00:00Z", dataprotection.BackupOK, dataprotection.StoreAppTownDisk)
+				want = record("2026-10-21T00:00:00Z", dataprotection.BackupOK, dataprotection.StoreAppTownDisk)
+				record("2026-10-22T00:00:00Z", dataprotection.BackupPartial, dataprotection.StoreAppTownDisk)
+			case "store":
+				record("2026-10-20T00:00:00Z", dataprotection.BackupOK, dataprotection.StoreAppTownDisk)
+				want = record("2026-10-21T00:00:00Z", dataprotection.BackupOK, dataprotection.StoreBackupStore)
+			}
+			report, err := a.Backups.AfterRestore(ctx, &instancebackup.Manifest{AppTown: idstest.N(9), DataDir: a.cfg.dataDir})
+			if err != nil {
+				t.Fatal(err)
+			}
+			held, err := a.Deployment.Deployments.ByID(ctx, dep.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fills, err := a.DataProtection.FillsOf(ctx, []ids.ID{dep.ID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fill, recorded := fills[dep.ID]
+			if scenario == "none" {
+				if held.RestoreCheck != "" || recorded || len(report.NoBackup) != 1 || len(report.Filling) != 0 {
+					t.Fatalf("no set: hold %q, fill %+v, report %+v", held.RestoreCheck, fill, report)
+				}
+				return
+			}
+			if held.RestoreCheck != deployment.RestoreFilling || fill.Set != want || fill.State != dataprotection.FillWaiting {
+				t.Fatalf("hold %q, fill %+v, want a waiting fill from %s", held.RestoreCheck, fill, want)
+			}
+			if scenario == "disk" {
+				if len(report.Filling) != 1 || !strings.Contains(report.Filling[0], want.String()) {
+					t.Fatalf("report %+v", report)
+				}
+				return
+			}
+			if len(report.NotFilled) != 1 || !strings.Contains(report.NotFilled[0], "backup store") {
+				t.Fatalf("report %+v", report)
+			}
+			// On a fresh host (no app container, no data volume) its rebuild
+			// refuses before the app starts, and so does the next one, after
+			// the fill has failed: an AppTown restart must not start it empty.
+			names := mainNames(t, a)
+			for _, args := range [][]string{{"rm", "-f", names.App()}, {"volume", "rm", names.DataVolume()}} {
+				if _, err := f.Run(ctx, "", docker.Command{Args: args}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f.reset()
+			for attempt := 1; attempt <= 2; attempt++ {
+				_, _ = deploymentJobsForTest(a).Rebuild(ctx, "p/main", map[string]any{"deployment": dep.ID, "generation": 1})
+				for _, call := range f.matching("run ") {
+					if containerNameOf(call) == names.App() {
+						t.Fatalf("rebuild %d started the app without its data:\n%s", attempt, strings.Join(f.joined(), "\n"))
+					}
+				}
+			}
+			if fills, _ := a.DataProtection.FillsOf(ctx, []ids.ID{dep.ID}); fills[dep.ID].State != dataprotection.FillFailed || !strings.Contains(fills[dep.ID].Detail, "backup store") {
+				t.Fatalf("fill after the rebuild: %+v", fills[dep.ID])
+			}
+			if after, _ := a.Deployment.Deployments.ByID(ctx, dep.ID); after.RestoreCheck != deployment.RestoreNotFilled {
+				t.Fatalf("after the refused rebuilds: %q", after.RestoreCheck)
+			}
+			// A new release of it is the decision to start it as it is.
+			if _, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "a person's release", Inputs: deployment.Inputs{Revision: "selected"}}); err != nil {
+				t.Fatal(err)
+			}
+			if after, _ := a.Deployment.Deployments.ByID(ctx, dep.ID); after.RestoreCheck != "" {
+				t.Fatalf("after a release: %q", after.RestoreCheck)
 			}
 		})
 	}

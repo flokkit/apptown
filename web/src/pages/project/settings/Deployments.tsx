@@ -540,7 +540,7 @@ export function ShareLine({ share }: { share?: DeploymentResources['share'] }) {
 // What holds a deployment after AppTown was restored, as a chip and as a
 // sentence.
 function restoreCheckChip(check: string): string {
-  return check === 'unconfirmed' ? 'not yet confirmed since restore' : check === 'gone' ? 'gone since restore' : 'waiting for its data'
+  return check === 'unconfirmed' ? 'not yet confirmed since restore' : check === 'gone' ? 'gone since restore' : check === 'not-filled' ? 'not started since restore' : 'waiting for its data'
 }
 
 function restoreCheckWords(check: string): string {
@@ -549,6 +549,8 @@ function restoreCheckWords(check: string): string {
       return `${PRODUCT} was restored from a backup and has not yet read what this deployment's provider runs; nothing acts on it until it has.`
     case 'gone':
       return `${PRODUCT} was restored from a backup and the provider no longer has this app. Take it down, or release it again once ${PRODUCT} can rebuild it.`
+    case 'not-filled':
+      return `${PRODUCT} was restored from a backup and this deployment's data did not come back, so it is not started on empty data by itself. Release it to start it without that data, then restore its data from its backups.`
     default:
       return `${PRODUCT} was restored from a backup; this deployment is rebuilt with its data before anything else runs it.`
   }

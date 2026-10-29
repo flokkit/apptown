@@ -139,16 +139,6 @@ func runBackup(ctx context.Context, dataDir string, c command) error {
 	m := report.Manifest
 	fmt.Printf("archive: %s (%d bytes, sha256 %s)\n", report.Archive, report.Bytes, report.SHA256)
 	fmt.Printf("AppTown %s, %s, schema %d; new work was held for %s\n", m.AppTown, m.Build, m.Schema, report.Held.Round(1e9))
-	for _, d := range m.Deployments {
-		switch {
-		case d.NoData:
-			fmt.Printf("  %s/%s: holds no data\n", d.Project, d.Deployment)
-		case d.Complete():
-			fmt.Printf("  %s/%s: set %s, taken with its app stopped\n", d.Project, d.Deployment, d.Set)
-		default:
-			fmt.Printf("  %s/%s: NOT WHOLE: %s\n", d.Project, d.Deployment, d.Why)
-		}
-	}
 	if m.ExternalSecrets != "" {
 		fmt.Println("external secrets:", m.ExternalSecrets)
 	}
@@ -191,6 +181,9 @@ func finishRestore(ctx context.Context, app *apptown.App, m *instancebackup.Mani
 	}
 	for _, f := range r.Filling {
 		fmt.Printf("  %s: rebuilt on the first start, its data put back before its app starts\n", f)
+	}
+	for _, f := range r.NoBackup {
+		fmt.Printf("  %s: has no whole backup; if it is rebuilt, it has no restored data\n", f)
 	}
 	for _, f := range r.NotFilled {
 		fmt.Printf("  %s\n", f)

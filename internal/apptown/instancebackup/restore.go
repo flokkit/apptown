@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/dbschema"
 	"github.com/flokkit/apptown/internal/backuparchive"
 	"github.com/flokkit/apptown/internal/database"
@@ -376,8 +377,9 @@ func compareRows(ctx context.Context, db *sql.DB, rows map[string]int64) error {
 type AfterRestoreReport struct {
 	Relocated int64    `json:"relocated"` // sets kept on disk whose records moved to this data directory
 	Held      []string `json:"held"`      // App Platform and Portainer deployments to be checked
-	Filling   []string `json:"filling"`   // built-in deployments rebuilt with their data
+	Filling   []string `json:"filling"`   // built-in deployments rebuilt with their newest set on disk
 	NotFilled []string `json:"notFilled"` // built-in deployments whose data needs a person, with why
+	NoBackup  []string `json:"noBackup"`  // built-in deployments with no whole set: not held, so a rebuild has no restored data
 }
 
 // AfterRestore records, in the restored database, what the restored
@@ -398,43 +400,54 @@ func (s *Service) AfterRestore(ctx context.Context, m *Manifest) (AfterRestoreRe
 	for _, h := range held {
 		report.Held = append(report.Held, h.Name)
 	}
+	// Each built-in deployment comes back from its own newest whole set: on
+	// AppTown's disk it came in the archive's data directory and its rebuild
+	// puts it back; in the backup store, its fill refuses and nothing of the
+	// app starts on empty data until it is released; with no set at all,
+	// there is nothing to put back and it is not held.
+	builtin, err := s.builtinDeployments(ctx)
+	if err != nil {
+		return report, err
+	}
 	var filling []ids.ID
-	for _, d := range m.Deployments {
-		if d.NoData {
-			continue
-		}
-		label := d.Project + "/" + d.Deployment
-		dep, err := s.deps.Deployments.ByID(ctx, d.ID)
+	for _, d := range builtin {
+		label := d.Project + "/" + d.Name
+		set, found, err := s.deps.Protection.NewestWholeSet(ctx, d.ProjectID, d.Name)
 		if err != nil {
-			report.NotFilled = append(report.NotFilled, fmt.Sprintf("%s: not in the restored records (%v)", label, err))
+			return report, fmt.Errorf("reading %s's backups: %w", label, err)
+		}
+		recorded := s.deps.Deployment.RebuildRecorded(ctx, &d.Deployment)
+		if !found && recorded {
+			report.NoBackup = append(report.NoBackup, label)
 			continue
 		}
-		why := d.Why
-		if !d.Complete() && why == "" {
-			why = "its set is " + d.Status
-		}
-		if !s.deps.Deployment.RebuildRecorded(ctx, dep) {
+		from := fmt.Sprintf("set %s, taken %s", set.ID, set.TakenAt)
+		if !recorded {
 			detail := "not rebuilt: its last release recorded no rebuild inputs; release it again"
-			if !d.Set.IsZero() {
-				detail += fmt.Sprintf(", then restore set %s from its backups", d.Set)
+			if found {
+				detail += ", then restore " + from + " from its backups"
 			}
-			if err := s.deps.Protection.RecordFill(ctx, d.ID, d.Set, detail, false); err != nil {
+			if err := s.deps.Protection.RecordFill(ctx, d.ID, set.ID, detail, false); err != nil {
 				return report, err
 			}
 			report.NotFilled = append(report.NotFilled, label+": "+detail)
 			continue
 		}
-		if err := s.deps.Protection.RecordFill(ctx, d.ID, d.Set, why, true); err != nil {
+		if err := s.deps.Protection.RecordFill(ctx, d.ID, set.ID, "", true); err != nil {
 			return report, err
 		}
 		filling = append(filling, d.ID)
-		report.Filling = append(report.Filling, label)
+		if set.Store != dataprotection.StoreAppTownDisk {
+			report.NotFilled = append(report.NotFilled, label+": its newest whole backup ("+from+") is in the backup store, so its app is not started on empty data; release it to start it, then restore that set from the store")
+			continue
+		}
+		report.Filling = append(report.Filling, label+" from "+from)
 	}
 	if err := s.deps.Deployments.HoldForFill(ctx, filling); err != nil {
 		return report, fmt.Errorf("holding the built-in deployments for their data: %w", err)
 	}
 	payload, _ := json.Marshal(map[string]any{"apptown": m.AppTown, "takenAt": m.TakenAt, "build": m.Build, "restoredBy": version.String(),
-		"held": report.Held, "filling": report.Filling, "notFilled": report.NotFilled, "relocated": report.Relocated})
+		"held": report.Held, "filling": report.Filling, "notFilled": report.NotFilled, "noBackup": report.NoBackup, "relocated": report.Relocated})
 	if err := audit.Append(ctx, s.deps.DB, audit.At(s.now()).String(), "apptown-host", ids.Nil, "instance.restored", m.AppTown.String(), string(payload)); err != nil {
 		return report, fmt.Errorf("recording the restore: %w", err)
 	}

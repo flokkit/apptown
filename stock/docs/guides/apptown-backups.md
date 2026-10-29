@@ -22,32 +22,29 @@ elsewhere: back that database up yourself, as "By hand" below says.
 `apptownd backup /root/apptown-2026-10-23.backup` asks the AppTown running
 on that data directory to write one archive. It does this, in order:
 
-1. **Each app on AppTown's own Docker host is backed up with its app
-   stopped.** Every part of the app stops, its data is copied, and the parts
-   start again. Its services (a database, say) keep running, because the copy
-   is taken through them. One app stops at a time, for as long as its copy
-   takes. This copy is an ordinary deployment backup, kept with that
-   deployment's other backups.
-2. **AppTown holds new work for a moment.** No new job or step starts while
+1. **AppTown holds new work for a moment.** No new job or step starts while
    the database is dumped and the data directory is copied. Work already
    running carries on.
-3. **The archive is written.** It holds the database dump, the data
+2. **The archive is written.** It holds the database dump, the data
    directory without `pgdata` (bound database files or the local Docker-volume
    receipt; the dump supplies the database) and `cache`, and a manifest that lists what is inside.
-4. With `-store`, the archive is also copied to the backup store that
+   The data directory includes the deployment backups kept on AppTown's
+   disk.
+3. With `-store`, the archive is also copied to the backup store that
    deployment backups use (Settings, Backup store). The store takes one
    object of up to 5 GB.
 
-The command prints what it did. It fails, with the reason, if an app's
-data could not be copied whole. The archive is still written in that
-case, and the manifest names that app.
+Nothing is stopped: the backup is AppTown's own. Apps keep their data in
+their own deployment backups (the Backups page), and a restore brings
+each app back from its newest one. The command prints what it did.
 
 **One moment.** The dump is taken before the files are copied, and nothing
 new starts in between, so every file the database names is in the archive.
 Work that was already running can leave a file newer than the dump. A
 restored AppTown treats that work as interrupted, as it would after any
-stop. Each app's data is from its own copy in step 1, a little earlier than
-the dump.
+stop. An app's data is from its own newest deployment backup, which is
+older than the dump: anything the app wrote after that backup is not in
+the restored AppTown.
 
 **The passphrase.** Every archive is encrypted. It holds every secret
 AppTown has: the built-in secret store and its key, connector and model
@@ -122,11 +119,16 @@ import into them again.
 **What the first start does.**
 
 - **Apps on AppTown's own Docker host** are rebuilt from their last release,
-  and their data goes back in during that rebuild: after their services
-  start and before any part of the app starts. Nothing of the app runs on
-  empty data. Until the rebuild ends, nothing else can deploy them. An app
-  whose copy in the archive is incomplete, or missing, is not started; its
-  card on the Deployments page says why. An app whose last release did not
+  and their data goes back in during that rebuild from the app's newest
+  whole deployment backup: after their services start and before any part of
+  the app starts. The restore prints which backup each app gets and when it
+  was taken. Until the rebuild ends, nothing else can deploy them. An app
+  whose newest whole backup is in the backup store, not on AppTown's disk,
+  or whose data could not be put back, is not started on empty data, now or
+  at a later start: its card on the Deployments page says why. Releasing it
+  starts it without that data; then restore its data from its backups. An
+  app with no whole backup at all is not held: if it is rebuilt, it has no
+  restored data. An app whose last release did not
   record how to rebuild it is named by the restore. A promotion-fed deployment
   can take a new release through its normal checks, followed by restoring its
   copy from backup. A landing-fed deployment needs recorded bundle provenance
@@ -154,8 +156,9 @@ import into them again.
 Back up on the old host, restore on the new one, then stop `apptownd` on
 the old host before you start it on the new one: both have the same id and
 the same credentials. Apps on the old host's Docker keep running and
-writing until you stop them. Anything they write after their copy in the
-backup is not on the new host. Keep the old host until the new one passes
+writing until you stop them. Each app comes back with its newest
+deployment backup: take one of each app (the Backups page) just before
+the move if its newest is old. Keep the old host until the new one passes
 your checks.
 
 ## The nightly database dump
@@ -217,8 +220,8 @@ the original location.
 backup`, restores the archive onto a spare host with `apptownd restore`, and
 checks the result: the key files match, reads through the API match (with a
 CLI token made before the backup), and an app chosen for the check was
-rebuilt with its data and answers the same query as on the source. Backing
-up writes on the source: each app on its own host stops for its copy.
+rebuilt with the data of its newest deployment backup and answers the same
+query as on the source. No app is stopped for the backup.
 
 Rehearsed by the maintainers on a small AppTown (one project, an app with a
 Postgres need holding marker rows) onto a fresh host: the backup held new
