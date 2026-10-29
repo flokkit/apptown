@@ -464,7 +464,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err := os.WriteFile(filepath.Join(source, "layout"), []byte(fmt.Sprintf("%d\n", DataLayoutVersion)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := (BuiltinDatabase{DataDir: source, Docker: dk}).Ensure(ctx); err != nil {
+	if _, err := (BuiltinDatabase{DataDir: source}).Ensure(ctx); err != nil {
 		t.Fatal(err)
 	}
 	db, err := OpenURL(ctx, url)

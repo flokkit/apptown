@@ -75,7 +75,7 @@ type Config struct {
 	// UsingBuiltinDB assigns instance database inventory and backups to AppTown.
 	UsingBuiltinDB bool
 	// DBURL is the -db-url database AppTown runs on ("" with the built-in
-	// one): a whole-AppTown backup dumps it with the host's pg_dump.
+	// one): a whole-AppTown backup dumps it in a pg_dump container.
 	DBURL string
 	// HostAddresses snapshots trusted local proxy addresses at construction.
 	// Nil discovers local interfaces; an empty slice disables host discovery.

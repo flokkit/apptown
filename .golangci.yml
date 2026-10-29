@@ -220,12 +220,6 @@ linters:
       - path: '^internal/apptown/database_dump\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(clock\.Or\(b\.now\)\(\)\)\.BestEffort\(ctx, b\.db, "apptown-system", ids\.Nil, "db\.backup-failed", name, map\[string\]any\{"error": namesErr\.Error\(\)\}\)$'
-
-      # The backup operation returns this failure regardless of whether its activity note can be appended.
-      - path: '^internal/apptown/database_dump\.go$'
-        linters: [forbidigo]
-        text: 'forbidden because "receipt rule:'
         source: '^[[:space:]]*audit\.At\(clock\.Or\(b\.now\)\(\)\)\.BestEffort\(ctx, b\.db, "apptown-system", ids\.Nil, "db\.backup-failed", name, map\[string\]any\{"error": err\.Error\(\)\}\)$'
 
       # The consumed ticket and Git branch retain the push decision; this is an activity summary.

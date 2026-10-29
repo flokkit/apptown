@@ -21,6 +21,16 @@ func (s Snapshot) HasLine(tool, line string) bool { return s.list != nil && s.li
 // HasTool says whether the snapshot's list names tool at any line.
 func (s Snapshot) HasTool(tool string) bool { return s.list != nil && s.list.HasTool(tool) }
 
+// RunImage is the run image the snapshot's list names for tool at line;
+// false when it names none.
+func (s Snapshot) RunImage(tool, line string) (string, bool) {
+	if s.list == nil {
+		return "", false
+	}
+	img := s.list.Tools[tool][line].Images["run"]
+	return img, img != ""
+}
+
 // NewSnapshot validates a list's document and makes its snapshot, named
 // name; the digest is of raw.
 func NewSnapshot(name string, raw []byte) (Snapshot, error) {

@@ -272,7 +272,7 @@ func (s *Service) provenance(ctx context.Context) (*DatabaseProvenance, error) {
 		return nil, err
 	}
 	if p.clientMajor() != server/10000 {
-		return nil, fmt.Errorf("%s is not the database server's major version (PostgreSQL %d): install pg_dump %d", client, server/10000, server/10000)
+		return nil, fmt.Errorf("%s is not the database server's major version (PostgreSQL %d): the pinned postgres image for PostgreSQL %d is not the server's", client, server/10000, server/10000)
 	}
 	return p, nil
 }

@@ -21,7 +21,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/datalayout"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 
-	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/durable"
@@ -202,11 +201,20 @@ func builtinDBFor(usingBuiltin bool, dataDir string) builtinDBNames {
 // false when there is no built-in database's db.env to read (an AppTown on
 // -db-url), or it names none.
 func readBuiltinDBNames(dataDir string) (builtinDBNames, bool) {
+	n, _, ok := readBuiltinDB(dataDir)
+	return n, ok
+}
+
+// readBuiltinDB is db.env's names and the URL it records, without minting
+// anything: false when db.env is absent or names no container, volume or
+// database.
+func readBuiltinDB(dataDir string) (builtinDBNames, string, bool) {
 	raw, err := os.ReadFile(filepath.Join(dataDir, "db.env"))
 	if err != nil {
-		return builtinDBNames{}, false
+		return builtinDBNames{}, "", false
 	}
 	var n builtinDBNames
+	var url string
 	for _, line := range strings.Split(string(raw), "\n") {
 		k, v, _ := strings.Cut(strings.TrimSpace(line), "=")
 		switch k {
@@ -215,10 +223,11 @@ func readBuiltinDBNames(dataDir string) (builtinDBNames, bool) {
 		case "APPTOWN_DB_VOLUME":
 			n.Volume = v
 		case "APPTOWN_DB_URL":
+			url = v
 			n.Database = databaseInURL(v)
 		}
 	}
-	return n, n.Container != "" && n.Volume != "" && n.Database != ""
+	return n, url, n.Container != "" && n.Volume != "" && n.Database != "" && url != ""
 }
 
 // databaseInURL is the database a postgres:// URL names; empty when it
@@ -278,11 +287,10 @@ func PrepareDataLayout(dataDir string) error {
 }
 
 // BuiltinDatabase is the built-in database of the AppTown whose data
-// directory is DataDir, on Docker, as a whole-AppTown backup and restore
-// use it (instancebackup.BuiltinDatabase).
+// directory is DataDir, on Docker, as a whole-AppTown restore loads into it
+// (instancebackup.BuiltinDatabase). A backup dumps it with databaseDump.
 type BuiltinDatabase struct {
 	DataDir string
-	Docker  docker.Scope
 }
 
 // Names is what db.env says the container and the database are.
@@ -291,31 +299,9 @@ func (b BuiltinDatabase) Names() (container, database string, ok bool) {
 	return n.Container, n.Database, ok
 }
 
-// Dump writes a whole gzipped dump of the database at path, or nothing.
-func (b BuiltinDatabase) Dump(ctx context.Context, path string) error {
-	n, ok := readBuiltinDBNames(b.DataDir)
-	if !ok {
-		return errors.New("db.env names no built-in database container, volume or database")
-	}
-	return dumpBuiltinDatabase(ctx, b.Docker, n, path)
-}
-
 // Ensure starts or makes the database and answers its URL.
 func (b BuiltinDatabase) Ensure(ctx context.Context) (string, error) {
 	return EnsureBuiltinDB(ctx, b.DataDir)
-}
-
-// DumpClientVersion observes the client in the container used by Dump.
-func (b BuiltinDatabase) DumpClientVersion(ctx context.Context) (string, error) {
-	container, _, ok := b.Names()
-	if !ok {
-		return "", errors.New("db.env names no built-in database")
-	}
-	raw, err := b.Docker.ExecResult(ctx, container, containerresult.Spec{Script: "pg_dump --version"})
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(raw)), nil
 }
 
 // The receipt lives under pgdata so logical instance archives never import a

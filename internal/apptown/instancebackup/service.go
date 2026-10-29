@@ -12,10 +12,10 @@ import (
 )
 
 // Database is the database a backup dumps, the built-in one or the -db-url
-// one (the composition root's BuiltinDatabase and ExternalDatabase): Dump
-// writes a whole gzipped plain dump at path, without owners or privileges
-// so it loads into the built-in database, or nothing; DumpClientVersion is
-// the pg_dump that does it.
+// one (the composition root's databaseDump): Dump writes a whole gzipped
+// plain dump at path, without owners or privileges so it loads into the
+// built-in database, or nothing; DumpClientVersion is the pg_dump that does
+// it.
 type Database interface {
 	Dump(ctx context.Context, path string) error
 	DumpClientVersion(ctx context.Context) (string, error)
@@ -27,7 +27,6 @@ type Database interface {
 // there is none), Ensure starts or makes it and answers its URL once it
 // answers.
 type BuiltinDatabase interface {
-	Database
 	Names() (container, database string, ok bool)
 	Ensure(ctx context.Context) (url string, err error)
 }
