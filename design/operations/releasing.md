@@ -2,7 +2,7 @@
 
 How an AppTown release is built, qualified and published, in order. A
 release is built once, in CI, before its version tag exists; qualification,
-publication and deployment all use those exact bytes. What a
+rehearsal, publication and deployment all use those exact bytes. What a
 release promises is [What 1.0 promises](../../stock/docs/guides/compatibility.md).
 
 1. **The notes, as an ordinary change.** Write `releases/v<version>.md` and
@@ -33,7 +33,8 @@ release promises is [What 1.0 promises](../../stock/docs/guides/compatibility.md
    release before. That is the person releasing's job.
 
    Until the next release's notes change lands, `main` is not tested against
-   upgrading from the newest release's frozen AppTown.
+   upgrading from the newest release's frozen AppTown; its real-data
+   rehearsal (step 3) is.
 2. **The candidate.** Choose the commit C: a commit of `main` with the notes,
    whose `heavy-main.yml` run passed on its first attempt
    ([GitHub](github.md)); a queue run, which may reuse cached results,
@@ -51,9 +52,10 @@ release promises is [What 1.0 promises](../../stock/docs/guides/compatibility.md
    UI tour. A failure stops the release: fix `main` and push a new candidate
    tag for the same version, since no version tag was pushed.
 3. **Qualification on the candidate's bytes.** From the candidate's
-   `archives` artifact, in parallel: install the darwin archive natively on
-   a Mac, and deploy the candidate to a running installation that exercises
-   chat on a worker and check a chat receives a reply. A
+   `archives` artifact, in parallel: rehearse the upgrade on copies of
+   maintained installations' data (below), install the darwin archive
+   natively on a Mac, and deploy the candidate to a running installation
+   that exercises chat on a worker and check a chat receives a reply. A
    failure stops the release before publication.
 4. **Publish by pushing the version tag.** Push `v<version>` at C. The
    pre-push hook checks the candidate run instead of rerunning the gate.
@@ -81,6 +83,24 @@ release promises is [What 1.0 promises](../../stock/docs/guides/compatibility.md
    `deploy/ci-heavy/Dockerfile` pins, named by `APPTOWN_PLAYWRIGHT_MODULE`).
    After a release, the published tour is at apptown.dev/tour/. A wrong
    picture is fixed on `main` and goes out with the next release.
+
+## The upgrade rehearsal
+
+Rehearse each release's upgrade on the data of the installations that will
+take it, by restoring a whole-AppTown backup with the candidate
+([AppTown's own backups](../../stock/docs/guides/apptown-backups.md)):
+`apptownd backup` on the installation, nothing stopped, then
+`scripts/apptown-recovery-rehearsal.sh` restores the archive with the
+candidate's `apptownd` onto a spare host cut off from everything a restored
+AppTown would act on (upstream Git, cloud APIs, attached hosts, model
+providers) before it starts. It compares API reads taken before the backup
+with the restored candidate's, and starts it normally. Every release thereby
+also proves restore. The comparison is a sample of activity history and
+recent changes per project, not every record; the frozen fixtures cover the
+retained history of every earlier release. Never give a rehearsal the
+host's production Docker socket or live data. Record the source version,
+the candidate, what was compared and the cleanup. A failure stops the
+release: fix the candidate and rehearse its replacement.
 
 ## While a release candidate runs in production
 
