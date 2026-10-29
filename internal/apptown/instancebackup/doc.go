@@ -10,7 +10,8 @@
 // the fills and copies an archive to the backup store; deployment lists the
 // built-in host's deployments and holds those a restore must not act on;
 // secret says whether an external store keeps values; the composition root
-// makes and dumps the built-in database (BuiltinDatabase).
+// makes the built-in database and dumps the database AppTown runs on
+// (BuiltinDatabase, ExternalDatabase).
 //
 // The running AppTown takes a backup, asked through its control socket by
 // `apptownd backup` (control.go), because only it can hold its own new work

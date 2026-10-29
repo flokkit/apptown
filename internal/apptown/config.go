@@ -74,6 +74,9 @@ type Config struct {
 	VerifyOnly bool
 	// UsingBuiltinDB assigns instance database inventory and backups to AppTown.
 	UsingBuiltinDB bool
+	// DBURL is the -db-url database AppTown runs on ("" with the built-in
+	// one): a whole-AppTown backup dumps it with the host's pg_dump.
+	DBURL string
 	// HostAddresses snapshots trusted local proxy addresses at construction.
 	// Nil discovers local interfaces; an empty slice disables host discovery.
 	// Loopback and TrustedProxies remain trusted. Address bytes are copied.
@@ -195,6 +198,7 @@ func (w WorkerConfig) client() (*execution.WorkerTasks, error) {
 type configuration struct {
 	stock                                          Stock
 	verifyOnly, usingBuiltinDB                     bool
+	dbURL                                          string
 	seeding                                        projectlifecycle.Seeding
 	noPrivateDocker, privateDocker, noLocalDocker  bool
 	dataDir, publicHost, listenAddr, consoleAPIURL string
@@ -298,7 +302,7 @@ func (c Config) prepare() (configuration, error) {
 		}
 		worker.Now = clock.Now
 	}
-	return configuration{stock: c.Stock, clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
+	return configuration{stock: c.Stock, clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, dbURL: c.DBURL, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
 		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, disableReap: c.DisableReap,
 		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits), hostScripts: c.HostScripts,

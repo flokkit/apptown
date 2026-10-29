@@ -451,7 +451,7 @@ func (o *daemonFlags) apptownConfig(dataDir string) apptown.Config {
 		UpdateChannel: o.updateChannel,
 		HostScripts:   o.hostScripts,
 		TaskLimits:    execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
-		ChatLimits:    execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
+		ChatLimits:    execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DBURL: o.dbURL, DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
 		AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, DisableReap: o.disableReap,
 		AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
 		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,

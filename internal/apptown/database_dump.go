@@ -20,6 +20,8 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/execution"
+	"net/url"
 )
 
 // dumpBuiltinDatabase publishes a complete compressed dump only after pg_dump,
@@ -34,7 +36,7 @@ func dumpBuiltinDatabase(ctx context.Context, scope docker.Scope, db builtinDBNa
 	zip := gzip.NewWriter(file)
 	// RunStep holds the dump to its trailer: a dump whose end did not
 	// arrive is a failed backup, not today's.
-	output, dumpErr := scope.RunStep(ctx, docker.Step{Exec: db.Container, Argv: []string{"pg_dump", "-U", "postgres", "--no-owner", db.Database}, Stdout: zip})
+	output, dumpErr := scope.RunStep(ctx, docker.Step{Exec: db.Container, Argv: []string{"pg_dump", "-U", "postgres", "--no-owner", "--no-privileges", db.Database}, Stdout: zip})
 	zipErr := zip.Close()
 	if dumpErr != nil {
 		return fmt.Errorf("pg_dump: %w: %s", dumpErr, strs.Truncate(string(output), 300))
@@ -140,4 +142,95 @@ func (b databaseBackup) take(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// ExternalDatabase is the -db-url database AppTown runs on, as a
+// whole-AppTown backup dumps it (instancebackup.Database): with the host's
+// own pg_dump, which must be at least the server's version (the backup
+// checks), the same dump as the built-in database's (no owners, no
+// privileges, plain and gzipped), so it loads into the built-in database a
+// restore makes. The connection travels in the environment, never in argv.
+type ExternalDatabase struct {
+	URL string
+	// PGDump is the pg_dump to run: "pg_dump", from the host's PATH.
+	PGDump string
+	Runner execution.Runner
+}
+
+// dumpTimeout bounds one dump of AppTown's database.
+const dumpTimeout = time.Hour
+
+// Dump writes a whole gzipped dump at path, or nothing.
+func (e ExternalDatabase) Dump(ctx context.Context, path string) error {
+	env, err := libpqEnv(e.URL)
+	if err != nil {
+		return err
+	}
+	file, err := os.CreateTemp(filepath.Dir(path), ".apptown-dump-*")
+	if err != nil {
+		return err
+	}
+	tmp := file.Name()
+	_ = file.Close()
+	defer os.Remove(tmp)
+	out := e.Runner.Run(ctx, execution.Local, execution.Request{
+		Argv: []string{e.PGDump, "--no-owner", "--no-privileges", "--compress=6", "--file=" + tmp}, Env: env, Timeout: dumpTimeout})
+	if !out.Exited0() {
+		return fmt.Errorf("pg_dump: %s", outcomeText(out))
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// DumpClientVersion is the host's pg_dump, as `pg_dump --version` says it.
+func (e ExternalDatabase) DumpClientVersion(ctx context.Context) (string, error) {
+	out := e.Runner.Run(ctx, execution.Local, execution.Request{Argv: []string{e.PGDump, "--version"}, Timeout: time.Minute})
+	if !out.Exited0() {
+		return "", fmt.Errorf("pg_dump --version: %s (a backup of a -db-url database needs the host's pg_dump)", outcomeText(out))
+	}
+	return strings.TrimSpace(string(out.Output)), nil
+}
+
+// libpqEnv is a postgres:// URL as libpq's environment variables. A URL
+// part it does not know is refused rather than dropped.
+func libpqEnv(raw string) ([]string, error) {
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
+		return nil, errors.New("the -db-url is not a postgres:// URL")
+	}
+	env := []string{"PGHOST=" + u.Hostname(), "PGDATABASE=" + strings.TrimPrefix(u.Path, "/")}
+	if p := u.Port(); p != "" {
+		env = append(env, "PGPORT="+p)
+	}
+	if u.User != nil {
+		env = append(env, "PGUSER="+u.User.Username())
+		if pw, ok := u.User.Password(); ok {
+			env = append(env, "PGPASSWORD="+pw)
+		}
+	}
+	for k, v := range u.Query() {
+		switch k {
+		case "sslmode":
+			env = append(env, "PGSSLMODE="+v[0])
+		case "sslrootcert":
+			env = append(env, "PGSSLROOTCERT="+v[0])
+		default:
+			return nil, fmt.Errorf("the -db-url's %q setting is not one a backup passes to pg_dump", k)
+		}
+	}
+	return env, nil
+}
+
+// outcomeText says how a run that did not exit 0 ended.
+func outcomeText(out execution.Outcome) string {
+	said := strs.Truncate(strings.TrimSpace(string(out.Output)), 300)
+	switch {
+	case out.RunErr != nil:
+		return out.RunErr.Error() + ": " + said
+	case out.Termination != execution.Exited:
+		return string(out.Termination) + ": " + said
+	}
+	return fmt.Sprintf("exit %d: %s", out.ExitCode, said)
 }

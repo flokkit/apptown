@@ -118,10 +118,13 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 	}
 	var report Report
 	if s.deps.Database == nil {
-		return report, errors.New("this AppTown's database is not the built-in one: back that database up yourself (the guide says how), and its data directory with it")
+		return report, errors.New("no database to back up")
 	}
-	if _, _, ok := s.deps.Database.Names(); !ok {
-		return report, errors.New("db.env names no built-in database container, volume or database")
+	// The pg_dump that will dump it, before anything is held: one older
+	// than the server cannot dump it.
+	provenance, err := s.provenance(ctx)
+	if err != nil {
+		return report, err
 	}
 	dataDir := s.deps.DataDir
 	if err := refusePendingRestore(dataDir); err != nil {
@@ -184,7 +187,7 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 	}
 
 	// 2. The manifest, then the archive.
-	m, err := s.manifest(ctx, dump)
+	m, err := s.manifest(ctx, dump, provenance)
 	if err != nil {
 		return report, err
 	}
@@ -251,7 +254,30 @@ func (s *Service) builtinDeployments(ctx context.Context) ([]deployment.ProjectD
 	return out, nil
 }
 
-func (s *Service) manifest(ctx context.Context, dump string) (Manifest, error) {
+// provenance observes the database server and the pg_dump that dumps it,
+// and refuses a pg_dump of another major version: an older one cannot dump
+// the server, and a newer one writes settings the built-in database a
+// restore loads into does not know.
+func (s *Service) provenance(ctx context.Context) (*DatabaseProvenance, error) {
+	var server int
+	if err := s.deps.DB.SQL().QueryRowContext(ctx, "SHOW server_version_num").Scan(&server); err != nil {
+		return nil, fmt.Errorf("observing the backup database version: %w", err)
+	}
+	client, err := s.deps.Database.DumpClientVersion(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("observing the backup dump client: %w", err)
+	}
+	p := &DatabaseProvenance{Engine: "postgres", ServerVersionNum: server, DumpClientVersion: client}
+	if err := p.validate(); err != nil {
+		return nil, err
+	}
+	if p.clientMajor() != server/10000 {
+		return nil, fmt.Errorf("%s is not the database server's major version (PostgreSQL %d): install pg_dump %d", client, server/10000, server/10000)
+	}
+	return p, nil
+}
+
+func (s *Service) manifest(ctx context.Context, dump string, provenance *DatabaseProvenance) (Manifest, error) {
 	now := s.now()
 	m := Manifest{Format: ArchiveFormat, Version: ArchiveVersion, Build: version.String(), TakenAt: now.UTC().Format(time.RFC3339),
 		DataDir: s.deps.DataDir, KeyFiles: map[string]backuparchive.Digest{},
@@ -262,19 +288,8 @@ func (s *Service) manifest(ctx context.Context, dump string) (Manifest, error) {
 			"deployments on attached Docker hosts, Portainer, App Platform and bucket websites: they stay where they are",
 		}}
 	m.Host, _ = os.Hostname()
+	m.Database = provenance
 	var err error
-	var server int
-	if err = s.deps.DB.SQL().QueryRowContext(ctx, "SHOW server_version_num").Scan(&server); err != nil {
-		return m, fmt.Errorf("observing the backup database version: %w", err)
-	}
-	client, err := s.deps.Database.DumpClientVersion(ctx)
-	if err != nil {
-		return m, fmt.Errorf("observing the backup dump client: %w", err)
-	}
-	m.Database = &DatabaseProvenance{Engine: "postgres", ServerVersionNum: server, DumpClientVersion: client}
-	if err := m.Database.validate(); err != nil {
-		return m, err
-	}
 	if m.AppTown, err = identity.AppTownIDIn(ctx, s.deps.DB, now); err != nil {
 		return m, fmt.Errorf("reading AppTown's id: %w", err)
 	}
