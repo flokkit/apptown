@@ -965,8 +965,14 @@ the worker to AppTown except the chat's own `apptown` command and its model.
 
 The worker keeps a record per session under `<state>/sessions`, the chat's
 files under `<state>/chats`, and content chats mount (AppTown's `apptown`
-binary, registry configuration) under `<state>/blobs`, named by content and
-removed when no live chat uses it. Ending a chat removes the session: its
+binary, registry configuration) under `<state>/blobs`, named by content.
+When it starts, the worker removes a blob only when no live session names it
+and no chat container on its Docker, running or stopped, mounts it. A chat
+whose container predates a new `apptown` binary keeps mounting the old one
+until it is rebuilt, and Docker recreates a removed bind source as a
+directory, after which that container can be neither started nor read
+from. When the worker's Docker cannot say what its chat containers mount,
+no blob is removed. Ending a chat removes the session: its
 record is kept, marked removed, so the session is never started again, and
 the removal succeeds only once the worker's Docker shows neither container.
 Stopping or rebuilding a session's runtime keeps the session. When it

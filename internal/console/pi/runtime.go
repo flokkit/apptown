@@ -385,15 +385,29 @@ func (r *Runtime) awaitPi(ctx context.Context, id string) error {
 	ctx, cancel := context.WithTimeout(ctx, piStartWait)
 	defer cancel()
 	var last string
+	var failed error
 	// The pane's command is read from a file tmux's answer is written to in
-	// the chat's container (containerresult.RunIn), never its output.
+	// the chat's container (containerresult.RunIn), never its output. Only
+	// an answer, or tmux itself exiting non-zero (no server or session yet
+	// while run-pi.sh comes up), means pi has not started: any other error
+	// is a terminal that cannot be read, which waiting does not mend (the
+	// demo, 29 Oct 2026: every copy out of a chat whose bind source had been
+	// removed failed for the whole ten minutes, and nothing said so).
 	docker := func(ctx context.Context, _ []string, args ...string) ([]byte, error) { return r.command(ctx, args...) }
 	if poll.Until(ctx, piStartWait, 1500*time.Millisecond, func() bool {
 		out, err := containerresult.RunIn(ctx, docker, ContainerName(id), containerresult.Spec{Script: "tmux display-message -p -t " + console.TmuxSession + " '#{pane_current_command}'"})
+		var exit *containerresult.ExitError
+		if err != nil && !errors.As(err, &exit) && ctx.Err() == nil {
+			failed = err
+			return true
+		}
 		last = strings.TrimSpace(string(out))
 		return err == nil && last == "pi"
-	}) {
+	}) && failed == nil {
 		return nil
+	}
+	if failed != nil {
+		return fmt.Errorf("the helper's terminal could not be read: %w", failed)
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return fmt.Errorf("waiting for the helper to start: %w", ctx.Err())

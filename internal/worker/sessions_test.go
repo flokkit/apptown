@@ -1,6 +1,7 @@
 package worker_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -604,5 +605,92 @@ func TestAStopOrRemovalLeavingASaveContainerIsNotDone(t *testing.T) {
 	fake.with(func() { fake.keepScript = false })
 	if st, err := client.Remove(ctx, "abc123"); err != nil || !st.Gone() {
 		t.Fatalf("removing again: %+v %v", st, err)
+	}
+}
+
+// A restarted worker keeps a blob a chat container still mounts though the
+// session's record now names another (a new CLI makes the running container
+// stale, and it keeps its blob until it is rebuilt): Docker would recreate
+// the missing bind source as a directory, after which the chat could be
+// neither copied from nor started. A blob nothing names or mounts is
+// removed; when Docker cannot say what is mounted, none is.
+//
+// Kills: reapBlobs keeping only what records name; a Docker error read as
+// "nothing mounted".
+func TestARestartedWorkerKeepsTheBlobsChatContainersMount(t *testing.T) {
+	ctx := context.Background()
+	ca := workertest.NewCA(t)
+	state := t.TempDir()
+	fake := &fakeSessions{status: map[string]console.Status{}}
+	first := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: state, Sessions: fake})
+	client := worker.SessionClient{URL: first.URL, Client: workertest.Client(t, ca, workertest.Installation)}
+	sums := map[string]string{}
+	for _, name := range []string{"old cli", "new cli", "orphan"} {
+		body := tarOf(t, entry{name: "content", body: name})
+		sums[name] = digest(body)
+		if err := client.PutBlob(ctx, sums[name], bytes.NewReader(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := chatSpec()
+	spec.Mounts = []worker.SessionMount{{Blob: sums["old cli"], Target: "/opt/apptown/bin/apptown"}}
+	if _, err := client.Put(ctx, "chat1", spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Start(ctx, "chat1"); err != nil {
+		t.Fatal(err)
+	}
+	spec.Mounts = []worker.SessionMount{{Blob: sums["new cli"], Target: "/opt/apptown/bin/apptown"}}
+	if _, err := client.Put(ctx, "chat1", spec); err != nil {
+		t.Fatal(err)
+	}
+	first.Close()
+
+	blob := func(name string) bool {
+		_, err := os.Stat(filepath.Join(state, "blobs", sums[name], "content"))
+		return err == nil
+	}
+	// Docker lists the chat's container only among all containers (it is
+	// stopped), and inspecting it names the old blob's content.
+	answers := func(fail string) *fileDocker {
+		return &fileDocker{reply: func(args []string) ([]byte, error, bool) {
+			if args[0] == fail {
+				return []byte("Cannot connect to the Docker daemon"), errExit, true
+			}
+			switch {
+			case args[0] == "ps" && slices.Contains(args, "label=apptown.class=console"):
+				if !slices.Contains(args, "-a") {
+					return nil, nil, true
+				}
+				return []byte("c0ffee\n"), nil, true
+			case args[0] == "inspect" && args[len(args)-1] == "c0ffee":
+				return []byte(filepath.Join(state, "chats", "chat1", "work") + "\n" + filepath.Join(state, "blobs", sums["old cli"], "content") + "\n"), nil, true
+			}
+			return []byte("unexpected docker call"), errExit, true
+		}}
+	}
+	restarted := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: state, Sessions: fake}
+	for _, fail := range []string{"ps", "inspect"} {
+		restarted.Docker = answers(fail)
+		if err := restarted.ReapSessions(ctx); err == nil {
+			t.Fatalf("blobs were reaped though docker %s failed", fail)
+		}
+		if !blob("old cli") || !blob("new cli") || !blob("orphan") {
+			t.Fatalf("docker %s failed and a blob was removed: old %v new %v orphan %v", fail, blob("old cli"), blob("new cli"), blob("orphan"))
+		}
+	}
+
+	restarted.Docker = answers("")
+	if err := restarted.ReapSessions(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !blob("old cli") {
+		t.Fatal("the reaper removed the blob the chat's stale container still mounts")
+	}
+	if !blob("new cli") {
+		t.Fatal("the reaper removed the blob the session's record names")
+	}
+	if blob("orphan") {
+		t.Fatal("a blob nothing names or mounts was kept")
 	}
 }
