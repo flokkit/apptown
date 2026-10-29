@@ -213,6 +213,7 @@ check-shape:            ## the architecture's shape rules against scripts/shape-
 	python3 scripts/stranger_install_test.py
 	python3 scripts/apptown_start_test.py
 	python3 scripts/site_try_test.py
+	python3 scripts/apptown_recovery_rehearsal_test.py
 	python3 scripts/chat_check_test.py
 	python3 scripts/native_install_check_test.py
 	cd eval/companies && python3 run_test.py
