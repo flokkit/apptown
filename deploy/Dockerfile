@@ -80,7 +80,7 @@ COPY cmd/ cmd/
 COPY internal/ internal/
 COPY stock/ stock/
 COPY scripts/stock-files.go scripts/
-COPY web/*.go web/
+COPY web/*.go web/resource-policy.json web/
 COPY --from=web /src/web/dist web/dist
 ARG TARGETOS TARGETARCH
 # VERSION is the release name (v1.0.0); REVISION the commit, for a build
@@ -90,7 +90,7 @@ ARG REVISION=
 ENV CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GOFLAGS=-buildvcs=false
 RUN --mount=type=cache,target=/root/.cache/go-build \
     ld="-X github.com/flokkit/apptown/internal/version.Release=$VERSION -X github.com/flokkit/apptown/internal/version.Revision=$REVISION" \
-    && for c in apptownd apptown apptown-worker; do go build -trimpath -ldflags "$ld" -o /out/bin/$c ./cmd/$c; done \
+    && for c in apptownd apptown apptown-worker; do go build -trimpath -ldflags "$ld" -o /out/bin/$c ./cmd/$c || exit; done \
     && cp /out/bin/apptown /out/bin/apptown-linux \
     && GOOS= GOARCH= go run -ldflags "$ld" scripts/stock-files.go -o /out/share/apptown/updates
 

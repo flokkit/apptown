@@ -42,6 +42,13 @@ tag starts publication automatically; a local tag does not. What a release promi
    `sh scripts/release-archives.sh <version> <commit> <output-directory>`.
    That script is the workflow's archive owner; it requires the built web
    bundle and does not replace the preceding qualification checks.
+   Also build the workflow's container targets from this exact source before
+   pushing the tag: `deploy/Dockerfile` targets `server` and `worker`, each for
+   `linux/amd64` and `linux/arm64`. Set build arguments `VERSION=v<version>` and
+   `REVISION=<commit>`. Keep these builds local (no push), retaining their build
+   logs and image IDs. Archive builds do not exercise the container's source
+   copies or notices stage. A failed image build stops publication; fix and
+   qualify the new candidate before its tag is pushed.
 5. **Fresh install and real-data upgrade rehearsal.** Test the publication
    archives with `sh scripts/stranger-install.sh <archive>`. It installs into
    a disposable Docker daemon and reaches a first preview without a model
