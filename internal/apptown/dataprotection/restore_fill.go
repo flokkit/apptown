@@ -17,8 +17,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// A whole-AppTown restore (stock/docs/guides/apptown-backups.md) brings a
-// set of each built-in deployment's data, taken with its app stopped. The
+// A whole-AppTown restore (stock/docs/guides/apptown-backups.md) brings the
+// data directory, and in it every set kept on AppTown's disk. Each built-in
+// deployment is filled from its newest whole set (NewestWholeSet). The
 // restored AppTown rebuilds the deployment from its record, and that
 // rebuild's boot puts the set back after the needs are up and before any
 // init step, part or the public app starts (deployment.RestoreFiller), so
@@ -43,6 +44,20 @@ type RestoreFill struct {
 	State        string    `json:"state"`
 	Detail       string    `json:"detail,omitempty"`
 	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+// NewestWholeSet is a deployment's newest whole set, wherever it is kept;
+// found is false when it has none.
+func (s *core) NewestWholeSet(ctx context.Context, projectID ids.ID, deployment string) (Backup, bool, error) {
+	row, err := protectionsql.New(s.db.SQL()).NewestWholeBackup(ctx, protectionsql.NewestWholeBackupParams{ProjectID: projectID, Deployment: deployment, OkState: BackupOK.String()})
+	if errors.Is(err, sql.ErrNoRows) {
+		return Backup{}, false, nil
+	}
+	if err != nil {
+		return Backup{}, false, err
+	}
+	b, err := backupRecord(row, nil)
+	return b, err == nil, err
 }
 
 // RecordFill records that deploymentID's rebuild fills from set (zero:
@@ -144,7 +159,7 @@ func (s *core) fillBackup(ctx context.Context, dep *deployment.Deployment, row p
 		return Backup{}, fmt.Errorf("set %s of %s is %s (%s); its app is not started on part of its data", b.ID, dep.Name, b.Status, strings.Join(bad, "; "))
 	}
 	if b.Store != StoreAppTownDisk {
-		return Backup{}, fmt.Errorf("set %s is not on AppTown's disk, where a restore of AppTown puts it", b.ID)
+		return Backup{}, fmt.Errorf("%s's newest whole set %s (taken %s) is in the backup store, not on AppTown's disk: its app is not started on empty data; release it to start it, then restore that set from the store", dep.Name, b.ID, b.TakenAt)
 	}
 	return b, nil
 }

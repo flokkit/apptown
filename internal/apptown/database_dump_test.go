@@ -3,6 +3,7 @@ package apptown
 import (
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -387,6 +388,38 @@ func TestABackupHoldsNewWorkAndTheBackupFilesAcrossTheDumpAndTheCopy(t *testing.
 	}
 }
 
+// A whole-AppTown backup is AppTown only: it takes no copy of a standing app
+// on the built-in host, reports no problem about one, and its manifest lists
+// no apps. Their data comes back from their own deployment backups.
+//
+// Kills: a backup that still tries a copy of each app (and reports one it
+// cannot read as a problem).
+func TestABackupLeavesAppsAlone(t *testing.T) {
+	t.Parallel()
+	a := backupWorld(t, nil)
+	ctx := t.Context()
+	a.SeedTargets(ctx)
+	createReadTestProject(t, a, "p")
+	builtin, err := a.Deployment.Targets.ByName(ctx, deployment.BuiltInTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Deployments.EnsureStanding(ctx, idstest.N(1), "main", builtin.ID, deployment.Attributes{}.WithDefaults()); err != nil {
+		t.Fatal(err)
+	}
+	report, err := a.Backups.Backup(ctx, instancebackup.Request{Archive: filepath.Join(t.TempDir(), "apptown.backup"), Passphrase: backupPassphrase})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(report.Manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Problems) != 0 || strings.Contains(string(raw), `"deployments"`) {
+		t.Fatalf("problems %v, manifest %s", report.Problems, raw)
+	}
+}
+
 // A backup refuses, before anything is held or dumped: the archive inside
 // the data directory, an existing file, a short passphrase, a copy to a
 // store that is not attached, a second backup while one runs, and backup
@@ -434,7 +467,7 @@ func TestABackupRefusesBeforeItDumps(t *testing.T) {
 // After a restore, the restored records say what the first start does: the
 // sets kept on disk are found under this data directory, an App Platform
 // deployment waits for its provider to be read, and a built-in deployment
-// with a set in the archive waits for its rebuild to put its data back.
+// that cannot be rebuilt has its newest set named for a person.
 func TestAfterARestoreTheRecordsSayWhatTheFirstStartDoes(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
@@ -459,11 +492,11 @@ func TestAfterARestoreTheRecordsSayWhatTheFirstStartDoes(t *testing.T) {
 	}
 	old := "/srv/old/data"
 	set, err := dataprotection.NewBackups(a.DB).Record(ctx, &dataprotection.Backup{ProjectID: idstest.N(1), Deployment: "main", TakenAt: "2026-10-23T00:00:00Z",
-		Trigger: dataprotection.TriggerAppTownBackup, Path: old + "/backups/p/main/2026-10-23", Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk}, "test")
+		Trigger: dataprotection.TriggerPreRelease, Path: old + "/backups/p/main/2026-10-23", Status: dataprotection.BackupOK, Store: dataprotection.StoreAppTownDisk}, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := &instancebackup.Manifest{AppTown: idstest.N(9), DataDir: old, Deployments: []instancebackup.ArchivedDeployment{{ID: local.ID, Project: "p", Deployment: "main", Set: set, Status: "ok"}}}
+	m := &instancebackup.Manifest{AppTown: idstest.N(9), DataDir: old}
 	report, err := a.Backups.AfterRestore(ctx, m)
 	if err != nil {
 		t.Fatal(err)
@@ -480,7 +513,7 @@ func TestAfterARestoreTheRecordsSayWhatTheFirstStartDoes(t *testing.T) {
 	}
 	// main never released: nothing records how to rebuild it, so it is
 	// not held and its fill needs a person, named.
-	if d, _ := a.Deployment.Deployments.ByID(ctx, local.ID); d.RestoreCheck != "" || len(report.NotFilled) != 1 || !strings.Contains(report.NotFilled[0], "release it again") {
+	if d, _ := a.Deployment.Deployments.ByID(ctx, local.ID); d.RestoreCheck != "" || len(report.NotFilled) != 1 || !strings.Contains(report.NotFilled[0], "release it again") || !strings.Contains(report.NotFilled[0], set.String()) {
 		t.Fatalf("the built-in deployment: %q, %v", d.RestoreCheck, report.NotFilled)
 	}
 	fills, err := a.DataProtection.FillsOf(ctx, []ids.ID{local.ID})

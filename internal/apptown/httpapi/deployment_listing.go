@@ -109,8 +109,9 @@ type DeploymentView struct {
 	// .../ai-models).
 	AIModels []string `json:"aiModels,omitempty"`
 	// RestoreCheck holds it after AppTown was restored: unconfirmed (its
-	// provider not yet read), gone (no longer at its provider) or filling
-	// (its data still to come back); absent when nothing holds it.
+	// provider not yet read), gone (no longer at its provider), filling
+	// (its data still to come back) or not-filled (its data did not come
+	// back, so it is not rebuilt automatically); absent when nothing holds it.
 	RestoreCheck string `json:"restoreCheck,omitempty"`
 	// DataAfterRestore is a built-in deployment's data coming back from
 	// AppTown's backup: waiting, failed with why, or filled (shown a day).

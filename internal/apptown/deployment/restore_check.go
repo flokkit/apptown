@@ -45,6 +45,11 @@ const (
 	// back (dataprotection's fill): only that rebuild runs it, and its end
 	// lifts the hold.
 	RestoreFilling RestoreCheck = "filling"
+	// RestoreNotFilled is a built-in deployment whose data did not come back
+	// (its fill failed or was refused). It is not rebuilt automatically,
+	// which would start it on empty data; anything else may act on it, and
+	// a new release of it is the decision to start it as it is and lifts it.
+	RestoreNotFilled RestoreCheck = "not-filled"
 )
 
 // ReleaseOrigin says whether AppTown shipped a release.
@@ -63,6 +68,9 @@ var (
 	// ErrFillingSinceRestore refuses anything but its rebuild for a built-in
 	// deployment waiting for its data.
 	ErrFillingSinceRestore = fault.New(fault.Conflict, "waiting for its data since AppTown was restored: its rebuild puts the data back before the app starts")
+	// ErrNotFilledSinceRestore refuses the automatic rebuild of a built-in
+	// deployment whose data did not come back after a restore.
+	ErrNotFilledSinceRestore = fault.New(fault.Conflict, "not started since AppTown was restored, because its data did not come back: release it to start it without that data, then restore its data from its backups")
 )
 
 // HeldAfterRestore refuses any effect on a held deployment.
@@ -115,9 +123,10 @@ func (s *Deployments) HoldForFill(ctx context.Context, deploymentIDs []ids.ID) e
 }
 
 // settleFill ends a filling deployment's wait once its rebuild has ended,
-// however it ended: its fill is settled (why "" when the data is back) and
-// the hold lifted, so a deployment never stays held behind a rebuild that
-// will not come. A failure to record it is logged; the hold then stays
+// however it ended: its fill is settled (why "" when the data is back). The
+// filling hold is lifted, so a deployment never stays held behind a rebuild
+// that will not come; when the data did not come back it becomes not-filled,
+// so a later automatic rebuild does not start it on empty data. A failure to record it is logged; the hold then stays
 // for the next start's rebuild.
 func (s *Service) settleFill(ctx context.Context, dep *Deployment, why string) {
 	if dep.RestoreCheck != RestoreFilling {
@@ -130,11 +139,11 @@ func (s *Service) settleFill(ctx context.Context, dep *Deployment, why string) {
 			return
 		}
 	}
-	kind, facts := "deployment.filled-after-restore", map[string]any{}
+	kind, facts, next := "deployment.filled-after-restore", map[string]any{}, RestoreCheck("")
 	if why != "" {
-		kind, facts["why"] = "deployment.not-filled-after-restore", why
+		kind, facts["why"], next = "deployment.not-filled-after-restore", why, RestoreNotFilled
 	}
-	if err := s.settleHold(ctx, dep, RestoreFilling, kind, facts); err != nil {
+	if err := s.settleHoldTo(ctx, dep, RestoreFilling, next, kind, facts); err != nil {
 		log.Printf("lifting %s's hold after the restore: %v", dep.Name, err)
 	}
 }
@@ -248,11 +257,7 @@ func (s *Service) settleRestoreCheck(ctx context.Context, dep *Deployment, next 
 	return s.settleHoldTo(ctx, dep, RestoreUnconfirmed, next, kind, facts)
 }
 
-// settleHold lifts a hold of the kind current.
-func (s *Service) settleHold(ctx context.Context, dep *Deployment, current RestoreCheck, kind string, facts map[string]any) error {
-	return s.settleHoldTo(ctx, dep, current, "", kind, facts)
-}
-
+// settleHoldTo moves a hold of the kind current to next ("" lifts it).
 func (s *Service) settleHoldTo(ctx context.Context, dep *Deployment, current, next RestoreCheck, kind string, facts map[string]any) error {
 	now := s.now()
 	return s.db.InTx(ctx, func(tx *database.Tx) error {

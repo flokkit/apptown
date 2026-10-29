@@ -27,14 +27,14 @@ import (
 
 // A whole-AppTown backup (stock/docs/guides/apptown-backups.md): one
 // archive, encrypted with a passphrase, holding the built-in database's
-// dump, the data directory (without pgdata and cache) and a manifest, and,
-// in the data directory, a set of every built-in deployment's data taken
-// with its app stopped. The running AppTown takes it, asked through its
-// control socket by `apptownd backup` (control.go), because only it can stop
-// its deployments' parts under its own claims and hold its own new work.
+// dump, the data directory (without pgdata and cache) and a manifest. It is
+// AppTown only: no app is stopped. Apps' data comes back from their own
+// deployment backups, those kept on AppTown's disk being in the data
+// directory (AfterRestore). The running AppTown takes it, asked through its
+// control socket by `apptownd backup` (control.go), because only it can hold
+// its own new work.
 //
-// In order: each built-in deployment's set (each stops only its own app);
-// then new work is held and the backup files are locked (a move to the
+// In order: new work is held and the backup files are locked (a move to the
 // store or a prune would take files the dump names); the database is
 // dumped; the archive is written (manifest, dump, data directory); the
 // lock and the hold are released; the archive is copied to the backup store
@@ -72,8 +72,6 @@ type Manifest struct {
 	DataDir  string                          `json:"dataDir"`
 	Dump     backuparchive.Digest            `json:"dump"`
 	KeyFiles map[string]backuparchive.Digest `json:"keyFiles"`
-	// Deployments are the built-in Docker host's, each with its set.
-	Deployments []ArchivedDeployment `json:"deployments"`
 	// ExternalSecrets says where values AppTown reads but does not hold
 	// are kept; "" when there is no such store.
 	ExternalSecrets string `json:"externalSecrets,omitempty"`
@@ -81,24 +79,6 @@ type Manifest struct {
 	NotIncluded []string `json:"notIncluded"`
 	// Left are files of the data directory no archive can carry (sockets).
 	Left []string `json:"left,omitempty"`
-}
-
-// ArchivedDeployment is a built-in deployment and its data in the archive:
-// the set taken with its app stopped and how it ended, NoData when it holds
-// none, or why no set was taken.
-type ArchivedDeployment struct {
-	ID         ids.ID `json:"id"`
-	Project    string `json:"project"`
-	Deployment string `json:"deployment"`
-	Set        ids.ID `json:"set,omitzero"`
-	Status     string `json:"status,omitempty"`
-	NoData     bool   `json:"noData,omitempty"`
-	Why        string `json:"why,omitempty"`
-}
-
-// Complete says whether its data is whole in the archive.
-func (d ArchivedDeployment) Complete() bool {
-	return d.NoData || (!d.Set.IsZero() && d.Status == string(dataprotection.BackupOK) && d.Why == "")
 }
 
 // Request is what a backup is asked to do: write the archive at an
@@ -128,10 +108,9 @@ type Report struct {
 // ErrBackupUnderWay refuses a second backup while one runs.
 var ErrBackupUnderWay = errors.New("a backup of AppTown is already under way")
 
-// BackupInstance takes a whole-AppTown backup. A deployment whose set could
-// not be taken whole is named in the report's problems and the manifest,
-// and the others are taken; the archive is still written. An error is a
-// backup that was not written.
+// Backup takes a whole-AppTown backup. An error is a backup that was not
+// written; a problem after it was written (the copy to the store, the
+// receipt) is in the report's problems.
 func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 	say := in.Say
 	if say == nil {
@@ -181,36 +160,7 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 		actor = "the host's administrator"
 	}
 
-	// 1. Each built-in deployment's set, its app stopped for its copy.
-	deployments, err := s.builtinDeployments(ctx)
-	if err != nil {
-		return report, err
-	}
-	var archived []ArchivedDeployment
-	for _, d := range deployments {
-		say(fmt.Sprintf("backing up %s/%s with its app stopped", d.Project, d.Name))
-		row := ArchivedDeployment{ID: d.ID, Project: d.Project, Deployment: d.Name}
-		set, err := s.deps.Protection.TakeStoppedSet(ctx, &d.Deployment, actor)
-		switch {
-		case errors.Is(err, dataprotection.ErrNothingToBackUp):
-			row.NoData = true
-			err = nil
-		case set != nil:
-			row.Set, row.Status = set.ID, string(set.Status)
-			if set.Status != dataprotection.BackupOK {
-				row.Why = set.Error
-			}
-		}
-		if err != nil {
-			row.Why = strings.TrimSpace(row.Why + " " + err.Error())
-		}
-		if !row.Complete() {
-			report.Problems = append(report.Problems, fmt.Sprintf("%s/%s: its data is not whole in the archive: %s", d.Project, d.Name, orElse(row.Why, row.Status)))
-		}
-		archived = append(archived, row)
-	}
-
-	// 2. New work held and the backup files locked, for the dump and the copy.
+	// 1. New work held and the backup files locked, for the dump and the copy.
 	say("holding new work and dumping the database")
 	held, ok := s.deps.NewWork.Hold()
 	if !ok {
@@ -233,8 +183,8 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 		return report, fmt.Errorf("dumping the database: %w", err)
 	}
 
-	// 3. The manifest, then the archive.
-	m, err := s.manifest(ctx, dump, archived)
+	// 2. The manifest, then the archive.
+	m, err := s.manifest(ctx, dump)
 	if err != nil {
 		return report, err
 	}
@@ -255,7 +205,7 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 	report.Held = now().Sub(heldAt)
 	report.Archive, report.Bytes, report.SHA256, report.Manifest = archive, written.Bytes, written.SHA256, m
 
-	// 4. Off the host, when asked.
+	// 3. Off the host, when asked.
 	if in.ToStore {
 		say("copying the archive to the backup store")
 		key := "apptown/" + m.AppTown.String() + "/" + filepath.Base(archive)
@@ -270,7 +220,7 @@ func (s *Service) Backup(ctx context.Context, in Request) (Report, error) {
 		kind = "instance.backup-incomplete"
 	}
 	payload, _ := json.Marshal(map[string]any{"archive": archive, "bytes": report.Bytes, "sha256": report.SHA256, "storeKey": report.StoreKey,
-		"heldSeconds": report.Held.Seconds(), "deployments": archived, "problems": report.Problems, "asked": actor})
+		"heldSeconds": report.Held.Seconds(), "problems": report.Problems, "asked": actor})
 	if err := audit.Append(context.WithoutCancel(ctx), s.deps.DB, audit.At(now()).String(), "apptown-host", ids.Nil, kind, filepath.Base(archive), string(payload)); err != nil {
 		report.Problems = append(report.Problems, "the backup's receipt could not be written: "+err.Error())
 	}
@@ -301,19 +251,17 @@ func (s *Service) builtinDeployments(ctx context.Context) ([]deployment.ProjectD
 	return out, nil
 }
 
-func (s *Service) manifest(ctx context.Context, dump string, archived []ArchivedDeployment) (Manifest, error) {
+func (s *Service) manifest(ctx context.Context, dump string) (Manifest, error) {
 	now := s.now()
 	m := Manifest{Format: ArchiveFormat, Version: ArchiveVersion, Build: version.String(), TakenAt: now.UTC().Format(time.RFC3339),
-		DataDir: s.deps.DataDir, Deployments: archived, KeyFiles: map[string]backuparchive.Digest{},
+		DataDir: s.deps.DataDir, KeyFiles: map[string]backuparchive.Digest{},
 		NotIncluded: []string{
 			"the built-in database's files (pgdata): the dump holds the database",
 			"the cache directory: tools and builds are fetched again",
-			"deployments on attached Docker hosts, Portainer, App Platform and bucket websites: they stay where they are, and their data comes back through deployment backups",
+			"apps' data: each app's data comes back from its own deployment backups; those kept on AppTown's disk are in the data directory",
+			"deployments on attached Docker hosts, Portainer, App Platform and bucket websites: they stay where they are",
 		}}
 	m.Host, _ = os.Hostname()
-	if m.Deployments == nil {
-		m.Deployments = []ArchivedDeployment{}
-	}
 	var err error
 	var server int
 	if err = s.deps.DB.SQL().QueryRowContext(ctx, "SHOW server_version_num").Scan(&server); err != nil {
@@ -428,10 +376,3 @@ func writeArchive(path, passphrase string, m *Manifest, dump, dataDir, staging s
 type countWriter struct{ n int64 }
 
 func (c *countWriter) Write(p []byte) (int, error) { c.n += int64(len(p)); return len(p), nil }
-
-func orElse(s, otherwise string) string {
-	if s == "" {
-		return otherwise
-	}
-	return s
-}

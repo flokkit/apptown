@@ -344,6 +344,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS routine_publication_active_digest ON routine_p
 	{n: 183, note: "drop the target secrets delivery setting nothing reads", stmts: []string{
 		`ALTER TABLE targets DROP COLUMN IF EXISTS secrets_delivery`,
 	}},
+	{n: 184, note: "hold a restored deployment whose data did not come back", stmts: []string{
+		`ALTER TABLE deployments DROP CONSTRAINT deployment_restore_check`,
+		`ALTER TABLE deployments ADD CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling', 'not-filled'))`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

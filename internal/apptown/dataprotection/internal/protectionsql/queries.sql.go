@@ -731,6 +731,42 @@ func (q *Queries) MoveBackupToStore(ctx context.Context, arg MoveBackupToStorePa
 	return result.RowsAffected()
 }
 
+const newestWholeBackup = `-- name: NewestWholeBackup :one
+SELECT id, project_id, deployment, taken_at, trigger, actor, actor_principal, actor_via, path, bytes, items_json, status, error, store, data_class, store_endpoint, store_bucket FROM backups WHERE project_id=$1 AND deployment=$2 AND status=$3 ORDER BY id DESC LIMIT 1
+`
+
+type NewestWholeBackupParams struct {
+	ProjectID  ids.ID
+	Deployment string
+	OkState    string
+}
+
+// A deployment's newest whole set, wherever it is kept.
+func (q *Queries) NewestWholeBackup(ctx context.Context, arg NewestWholeBackupParams) (Backup, error) {
+	row := q.db.QueryRowContext(ctx, newestWholeBackup, arg.ProjectID, arg.Deployment, arg.OkState)
+	var i Backup
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Deployment,
+		&i.TakenAt,
+		&i.Trigger,
+		&i.Actor,
+		&i.ActorPrincipal,
+		&i.ActorVia,
+		&i.Path,
+		&i.Bytes,
+		&i.ItemsJson,
+		&i.Status,
+		&i.Error,
+		&i.Store,
+		&i.DataClass,
+		&i.StoreEndpoint,
+		&i.StoreBucket,
+	)
+	return i, err
+}
+
 const noteBackupError = `-- name: NoteBackupError :execrows
 UPDATE backups SET error=btrim(error || ' ' || $1::text) WHERE id=$2
 `

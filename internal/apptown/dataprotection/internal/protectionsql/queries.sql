@@ -10,6 +10,10 @@ SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND id=sqlc.arg(id);
 -- name: BackupsForDeployment :many
 SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND deployment=sqlc.arg(deployment) ORDER BY id DESC LIMIT sqlc.arg(row_limit)::bigint;
 
+-- name: NewestWholeBackup :one
+-- A deployment's newest whole set, wherever it is kept.
+SELECT * FROM backups WHERE project_id=sqlc.arg(project_id) AND deployment=sqlc.arg(deployment) AND status=sqlc.arg(ok_state) ORDER BY id DESC LIMIT 1;
+
 -- name: PrunableBackups :many
 -- Counted across both places (AppTown's disk and the backup store): a
 -- deployment keeps its newest sets wherever they are.

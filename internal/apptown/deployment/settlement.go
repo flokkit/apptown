@@ -98,6 +98,18 @@ func (s *Outcomes) Admit(ctx context.Context, in Start) (Attempt, bool, error) {
 			return Attempt{}, false, err
 		}
 	}
+	// A deployment whose data did not come back after a restore is not
+	// rebuilt automatically, which would start it on empty data. A new
+	// release of it is the decision to start it as it is, and lifts that.
+	if dep.RestoreCheck == RestoreNotFilled {
+		if in.Inputs.Rebuild {
+			return Attempt{}, false, fmt.Errorf("%s is %w: %w", dep.Name, ErrNotFilledSinceRestore, ErrReleaseRefused)
+		}
+		if _, err := deploymentsql.New(tx.SQL()).SettleRestoreCheck(ctx, deploymentsql.SettleRestoreCheckParams{
+			Next: "", UpdatedAt: now, ID: dep.ID, Current: string(RestoreNotFilled)}); err != nil {
+			return Attempt{}, false, err
+		}
+	}
 	nextGeneration, admitted, err := dep.Admit(in.BaseGeneration)
 	if err != nil {
 		return Attempt{}, false, err
