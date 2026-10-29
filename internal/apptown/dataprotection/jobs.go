@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // JobWorker adapts durable backup, sweep and restored-copy sweep requests to
@@ -31,11 +32,12 @@ const RestoredCopySweepJob = "restored-copy-sweep"
 // Backup captures one deployment's state through TakeBackup. A backup
 // that failed is a receipt, never retried blind (one attempt).
 func (w JobWorker) Backup(ctx context.Context, key string, args map[string]any) (map[string]any, error) {
-	slug, name, ok := strings.Cut(key, "/")
-	if !ok {
-		return nil, jobs.Permanent(fmt.Errorf("a backup key is project/deployment, got %q", key))
+	owner, name, ok := strings.Cut(key, "/")
+	projectID, err := ids.Parse(owner)
+	if !ok || err != nil {
+		return nil, jobs.Permanent(fmt.Errorf("a backup key is project-id/deployment, got %q", key))
 	}
-	p, err := w.Projects.BySlug(ctx, slug)
+	p, err := w.Projects.ByID(ctx, projectID)
 	if err != nil {
 		// A project that is gone stays gone; a read that failed may not.
 		if fault.KindOf(err) == fault.NotFound {
@@ -69,7 +71,7 @@ func (w JobWorker) Sweep(ctx context.Context, _ string, _ map[string]any) (map[s
 		if e.Container == "" {
 			continue
 		}
-		if err := w.Backups.RequestBackup(ctx, e.Slug+"/"+e.Name, "scheduled"); err != nil {
+		if err := w.Backups.RequestBackup(ctx, e.ProjectID.String()+"/"+e.Name, "scheduled"); err != nil {
 			return nil, err
 		}
 		asked++
@@ -83,7 +85,7 @@ func (w JobWorker) Sweep(ctx context.Context, _ string, _ map[string]any) (map[s
 		if err != nil || t.DataAccess() != deployment.DataThroughPortainer {
 			continue
 		}
-		if err := w.Backups.RequestBackup(ctx, e.Project+"/"+e.Name, "scheduled"); err != nil {
+		if err := w.Backups.RequestBackup(ctx, e.ProjectID.String()+"/"+e.Name, "scheduled"); err != nil {
 			return nil, err
 		}
 		asked++

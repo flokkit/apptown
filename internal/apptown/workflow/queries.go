@@ -73,7 +73,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 		return nil, fmt.Errorf("invalid workflow list bounds")
 	}
 	if query.ProjectSlug != "" {
-		id, err := project.IDByAddressIn(ctx, db, query.ProjectSlug)
+		id, err := project.IDBySlugIn(ctx, db, query.ProjectSlug)
 		if errors.Is(err, sql.ErrNoRows) {
 			return []RunSummary{}, nil
 		}

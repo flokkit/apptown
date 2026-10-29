@@ -546,7 +546,7 @@ func (w *digestWorld) rebuild(t *testing.T, dep *Deployment) (map[string]any, er
 	if err != nil {
 		t.Fatal(err)
 	}
-	return JobWorker{Service: w.s, Projects: w.projects, DataDir: w.dir}.Rebuild(context.Background(), "p/"+dep.Name,
+	return JobWorker{Service: w.s, Projects: w.projects, DataDir: w.dir}.Rebuild(context.Background(), current.ProjectID.String()+"/"+dep.Name,
 		map[string]any{"deployment": current.ID, "generation": current.ObservedGeneration})
 }
 

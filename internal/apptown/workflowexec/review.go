@@ -257,14 +257,11 @@ func (a *Executor) Review(task *workflow.Execution) {
 	// get them. A reviewer with neither may fetch a PyPI package named
 	// AppTown and fail true claims against it.
 	env = append(env, a.apptownEnv(task.Context(), run, step)...)
-	executor := a.cfg.Backend
-	if executor == execution.Docker {
-		if _, err := a.home.Stage(task.Context(), ws, run.ProjectID); err != nil {
-			finish(workflow.StatusError, map[string]any{"reason": err.Error()})
-			return
-		}
-		env = append(env, "HOME=/work/.apptown/pi-home")
+	if _, err := a.home.Stage(task.Context(), ws, run.ProjectID); err != nil {
+		finish(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
 	}
+	env = append(env, "HOME=/work/.apptown/pi-home")
 	timeout := reviewTimeout
 	if cfg.TimeoutMinutes > 0 {
 		timeout = time.Duration(cfg.TimeoutMinutes) * time.Minute
@@ -280,7 +277,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 	// review lost the CLI it was given to verify claims.
 	pi := func(args []string, timeout time.Duration, name string) piResult {
 		return a.piInvoke(task.Context(), piCall{
-			Source: source, Step: step, Executor: executor, Image: a.cfg.Image, Workspace: ws,
+			Source: source, Step: step, Image: a.cfg.Image, Workspace: ws,
 			Args: args, Env: env, Timeout: timeout, Name: name,
 		})
 	}

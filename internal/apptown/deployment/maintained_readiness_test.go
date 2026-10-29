@@ -71,7 +71,7 @@ func TestMaintainedReadinessPermitRechecksRecordedOwner(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			dep, err = s.Deployments.EnsureStanding(t.Context(), dep.ProjectID, dep.Name, target.ID, Attributes{Feed: dep.Feed, Audience: dep.Audience, DataClass: dep.DataClass, PromoteAfter: dep.PromoteAfter})
+			dep, err = s.Deployments.EnsureStanding(t.Context(), dep.ProjectID, dep.Name, target.ID, Attributes{Feed: dep.Feed, Audience: dep.Audience, DataClass: dep.DataClass})
 			if err != nil {
 				t.Fatal(err)
 			}

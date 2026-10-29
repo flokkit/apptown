@@ -76,14 +76,19 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 		log.Printf("targets: the intranet target is not recorded: its settings could not be read: %v", err)
 	}
 	if err == nil {
-		if _, err := s.Targets.Sync(ctx, &Target{
+		intranet, err := s.Targets.Sync(ctx, &Target{
 			Name: IntranetTargetName, Kind: KindPortainer, Provider: "portainer-deploy", Origin: OriginAttached,
 			Address:      map[string]any{"url": cfg.PortainerURL, AddressEnvironment: DefaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},
 			Capabilities: StockCapabilities(KindPortainer, emulators),
 			Ingress:      map[string]any{"binding": "traefik", "domain": cfg.AppsDomain},
 			NeedsMode:    stockNeedsMode(KindPortainer), Status: TargetReady,
-		}, who); err != nil {
+		}, who)
+		if err != nil {
 			log.Printf("targets: recording the intranet target: %v", err)
+			return
+		}
+		if err := s.observeIntranetScope(ctx, intranet, who); err != nil {
+			log.Printf("targets: the intranet target's Portainer endpoint is not observed, so releases to it are refused until a start observes it: %v", err)
 		}
 	}
 }

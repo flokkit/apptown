@@ -29,11 +29,6 @@ import (
 	"github.com/flokkit/apptown/internal/strs"
 )
 
-// MemoryDefaults reads the project owner's pinned primary publication.
-type MemoryDefaults interface {
-	MemoryDefault(context.Context, ids.ID) (appcontract.MemoryDefault, string, int64, error)
-}
-
 // Environment is what a selected app's boot is given, wherever it boots:
 // its secrets, its dependencies and emulators, the values its registered
 // needs inject (an AI models key among them), the registry credentials its
@@ -45,23 +40,21 @@ type MemoryDefaults interface {
 // One instance serves Deployment's releases and copies and Preview's boots.
 // It keeps no state: the owners it reads answer for their own records.
 type Environment struct {
-	memoryDefaults MemoryDefaults
-	secrets        *secret.Service
-	integrations   *integration.Service
-	needs          *dependency.Catalog
-	probe          *docker.Probe
-	tools          toolversions.Source
-	routes         Routing
-	projects       *project.Projects
+	secrets      *secret.Service
+	integrations *integration.Service
+	needs        *dependency.Catalog
+	probe        *docker.Probe
+	tools        toolversions.Source
+	routes       Routing
+	projects     *project.Projects
 }
 
 // EnvironmentDependencies are the owners and settings a boot's environment
 // is prepared from.
 type EnvironmentDependencies struct {
-	MemoryDefaults MemoryDefaults
-	Secrets        *secret.Service
-	Integrations   *integration.Service
-	Needs          *dependency.Catalog
+	Secrets      *secret.Service
+	Integrations *integration.Service
+	Needs        *dependency.Catalog
 	// Probe is this machine's readiness probe; ToolVersions names the
 	// images a boot runs for itself (the static server, the chown and df
 	// helpers), one snapshot per host a unit of work builds.
@@ -79,7 +72,7 @@ func NewEnvironment(deps EnvironmentDependencies) *Environment {
 	if deps.Routes.Scheme == "" {
 		deps.Routes.Scheme = "http"
 	}
-	return &Environment{memoryDefaults: deps.MemoryDefaults, secrets: deps.Secrets, integrations: deps.Integrations, needs: deps.Needs,
+	return &Environment{secrets: deps.Secrets, integrations: deps.Integrations, needs: deps.Needs,
 		probe: deps.Probe, tools: deps.ToolVersions, routes: deps.Routes, projects: deps.Projects}
 }
 
@@ -197,7 +190,7 @@ func (e *Environment) PrepareBoot(ctx context.Context, projectID ids.ID, slug, d
 		}
 		return docker.Prepared{}, &docker.BootError{Phase: docker.PhaseResolve, Err: err}
 	}
-	c, _, err = e.DefaultMemory(ctx, projectID, c, applied)
+	c, _, err = e.DefaultMemory(ctx, c, applied)
 	if err != nil {
 		return docker.Prepared{}, err
 	}

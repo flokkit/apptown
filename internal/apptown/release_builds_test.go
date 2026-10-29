@@ -829,7 +829,7 @@ func TestAReleaseBuildIsRefusedBeforeAnythingIsBuilt(t *testing.T) {
 		{name: "registry credential not held", prepare: func(t *testing.T, w *releaseWorld) {
 			w.offerRegistry(t, "registry-a", "NOT_IN_THE_STORE")
 		}, want: "names its credential NOT_IN_THE_STORE, which the secrets store does not hold"},
-		{name: "no private docker", config: func(c *Config) { c.PrivateDocker = false }, want: "start AppTown with -private-docker"},
+		{name: "private docker turned off", config: func(c *Config) { c.PrivateDocker = false }, want: "this AppTown was started with -private-docker=false"},
 		{name: "main on portainer", prepare: func(t *testing.T, w *releaseWorld) {
 			lan, err := w.a.Deployment.Targets.Put(context.Background(), &deployment.Target{Name: "lan", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, Status: deployment.TargetReady})
 			if err != nil {

@@ -2,40 +2,39 @@ package project
 
 import (
 	"context"
+
 	"github.com/flokkit/apptown/internal/apptown/project/internal/projectsql"
+
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// ClaimAddressIn assigns an address permanently, or confirms this project's
-// existing assignment. A historical reservation with no known owner is taken.
-func ClaimAddressIn(ctx context.Context, tx *database.Tx, id ids.ID, address string) error {
-	if id.IsZero() || !ValidSlug(address) {
+// AddressFreeIn reports whether project id may take address: ErrSlug for
+// one of the wrong shape, ErrSlugTaken while another project has it as its
+// address or as its serving label (the name its apps were first served
+// under, which stays with it until purge), or while a purged project's
+// unfinished cleanup still names it (its previews and caches are found by
+// that name). An address a project has left is free.
+func AddressFreeIn(ctx context.Context, q database.Queryer, id ids.ID, address string) error {
+	if !ValidSlug(address) {
 		return ErrSlug
 	}
-	n, err := queries(tx).ClaimProjectAddress(ctx, projectsql.ClaimProjectAddressParams{Address: address, ProjectID: id})
+	taken, err := queries(q).ProjectAddressTaken(ctx, projectsql.ProjectAddressTakenParams{Address: address, ID: id})
 	if err != nil {
-		return err
+		return database.QueryError(err, "ProjectAddressTaken")
 	}
-	if n == 1 {
-		return nil
-	}
-	owner, err := queries(tx).ProjectAddressOwner(ctx, address)
-	if err != nil {
-		return err
-	}
-	if owner != id {
+	if taken {
 		return ErrSlugTaken
 	}
 	return nil
 }
 
-// IDByAddressIn resolves a live or retained project through the same permanent
-// namespace as BySlug. A purged reservation never resolves to a project.
-func IDByAddressIn(ctx context.Context, q database.Queryer, address string) (ids.ID, error) {
-	id, err := queries(q).ProjectIDByAddress(ctx, address)
+// IDBySlugIn resolves a live or retained project by its current address. An
+// address a project no longer has names nothing.
+func IDBySlugIn(ctx context.Context, q database.Queryer, slug string) (ids.ID, error) {
+	id, err := queries(q).ProjectIDBySlug(ctx, slug)
 	if err != nil {
-		return ids.Nil, database.Missing(database.QueryError(err, "ProjectIDByAddress"))
+		return ids.Nil, database.Missing(database.QueryError(err, "ProjectIDBySlug"))
 	}
 	return id, nil
 }

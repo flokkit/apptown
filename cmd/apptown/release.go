@@ -8,7 +8,7 @@ import (
 )
 
 // cmdRelease releases to the named deployment or the explicitly selected default.
-// Configuration is a separate release-setup command; this command only admits and follows a release.
+// The default is chosen in project settings; this command only admits and follows a release.
 func cmdRelease(args []string) error {
 	fs := newFlags("release")
 	domain := fs.String("domain", "", "default deployment: an extra hostname to serve on (kept for later releases)")
@@ -57,7 +57,7 @@ func cmdRelease(args []string) error {
 			return err
 		}
 		if !plan.Configured {
-			return fmt.Errorf("release not started: %s; inspect apptown release-setup %s and explicitly save your choice", plan.ConfigError, slug)
+			return fmt.Errorf("release not started: %s; choose a release environment in the project's settings, or name one: apptown release %s <deployment>", plan.ConfigError, slug)
 		}
 		where = plan.DeploymentLabel
 		if where == "" {

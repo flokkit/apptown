@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/flokkit/apptown/internal/strs"
 )
@@ -42,7 +42,7 @@ func TestPackResolutionIsDeterministic(t *testing.T) {
 	lib := fakePins{blocks: map[string]int{"team/a": 3, "team/b": 1, "team/x": 2}, workflows: map[string]int{"team-flow": 4}, policies: map[string]bool{"team-strict": true}}
 	inc := &includedPublication{Pack: "base", Version: 2,
 		Spec: PackSpec{Guidance: []string{"a", "b", "c", "d"}, Workflows: []string{"flow", "land"}, Policies: []PackPolicy{{Name: "strict"}, {Name: "loose"}},
-			Resources: appcontract.MemoryDefault{Memory: "160M"}, Toolchain: "go", Extensions: []string{"lsp"}},
+			Toolchain: "go", Extensions: []string{"lsp"}},
 		Pins: PinSet{Blocks: map[string]int{"a": 1, "b": 1, "c": 5, "d": 7}, Workflows: map[string]int{"flow": 2}}}
 	d := PackSpec{Includes: "base", Replaces: map[string]string{"a": "team/a", "b": "team/b", "flow": "team-flow", "strict": "team-strict"},
 		Drops: []PackDrop{{Item: "d", Reason: "not ours"}}, Guidance: []string{"team/x"}, Extensions: []string{"lsp", "dap"}}
@@ -50,12 +50,10 @@ func TestPackResolutionIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.Spec.Resources.Memory != "160M" {
-		t.Fatalf("including pack lost default: %+v", first.Spec)
-	}
-	clearedResources, err := resolveDeclaration(t.Context(), PackSpec{Includes: "base", Clears: []string{"resources"}}, inc, lib)
-	if err != nil || clearedResources.Spec.Resources.Memory != "" {
-		t.Fatalf("default clear: %+v %v", clearedResources, err)
+	// A pack has no memory default to clear: AppTown's default is the
+	// last level a part's memory comes from.
+	if _, err := resolveDeclaration(t.Context(), PackSpec{Includes: "base", Clears: []string{"resources"}}, inc, lib); !errors.Is(err, ErrInclusion) {
+		t.Fatalf("clears: [resources] was accepted: %v", err)
 	}
 	want := mustJSON(first.Spec) + mustJSON(first.Pins)
 	for range 50 {
@@ -249,4 +247,15 @@ func mustJSON(v any) string {
 		panic(err)
 	}
 	return text
+}
+
+// A pack cannot declare a memory default: a part's memory is its
+// deployment's override, else its app's declaration, else AppTown's
+// default. A pack file naming resources is refused as an unknown key.
+func TestAPackDeclaresNoMemoryDefault(t *testing.T) {
+	t.Parallel()
+	fsys := fstest.MapFS{"packs.yaml": {Data: []byte("packs:\n  - name: small\n    description: a pack\n    resources: {memory: 48M}\n")}}
+	if _, err := ReadStockPacks(fsys); err == nil || !strings.Contains(err.Error(), "resources") {
+		t.Fatalf("a pack's memory default was read: %v", err)
+	}
 }

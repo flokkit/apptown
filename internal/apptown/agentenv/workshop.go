@@ -62,7 +62,7 @@ func (w *Workshop) now() time.Time { return clock.Or(w.clock)() }
 // Honest caveats, recorded where the code lives:
 //   - The sidecar runs --privileged. On Docker Desktop the blast radius is
 //     the Desktop VM; on Linux runners use Sysbox/microVMs for a sealed
-//     version of the same shape. -no-private-docker turns the feature off.
+//     version of the same shape. -private-docker=false turns the feature off.
 //   - Each daemon starts with a cold image cache. AppTown-agent image is
 //     preloaded from a tar; everything else pulls from the network (or the
 //     registry integration, once bound).

@@ -208,7 +208,6 @@
           "generatedHostname": {
             "type": "string"
           },
-          "legacyEvidence": {},
           "reservedHosts": {
             "items": {
               "type": "string"
@@ -227,9 +226,6 @@
               "string",
               "null"
             ]
-          },
-          "verified": {
-            "type": "boolean"
           }
         },
         "required": [
@@ -239,7 +235,6 @@
           "customHostname",
           "certificateDomain",
           "revision",
-          "verified",
           "servingURL",
           "reservedHosts"
         ],
@@ -1617,18 +1612,12 @@
           "observedGeneration": {
             "type": "integer"
           },
-          "policyRevision": {
-            "type": "integer"
-          },
           "projectId": {
             "format": "uuid",
             "type": [
               "string",
               "null"
             ]
-          },
-          "promoteAfter": {
-            "type": "string"
           },
           "readiness": {
             "$ref": "#/components/schemas/Readiness"
@@ -1642,9 +1631,6 @@
           },
           "releaseSha": {
             "type": "string"
-          },
-          "requirePromotion": {
-            "type": "boolean"
           },
           "restoreCheck": {
             "type": "string"
@@ -1682,8 +1668,6 @@
           }
         },
         "required": [
-          "requirePromotion",
-          "policyRevision",
           "displayLabel",
           "id",
           "projectId",
@@ -1715,9 +1699,6 @@
             "type": "string"
           },
           "name": {
-            "type": "string"
-          },
-          "promoteAfter": {
             "type": "string"
           },
           "startFrom": {
@@ -1880,9 +1861,6 @@
           "observedAt": {
             "type": "string"
           },
-          "policyRevision": {
-            "type": "integer"
-          },
           "protected": {
             "type": "boolean"
           },
@@ -1895,9 +1873,6 @@
               "string",
               "null"
             ]
-          },
-          "requirePromotion": {
-            "type": "boolean"
           },
           "restoreCheck": {
             "type": "string"
@@ -2298,43 +2273,6 @@
         ],
         "type": "object"
       },
-      "LegacyReleaseSetup": {
-        "properties": {
-          "deploymentName": {
-            "type": "string"
-          },
-          "evidence": {},
-          "integrationId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "integrationName": {
-            "type": "string"
-          },
-          "targetId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "version": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "version",
-          "integrationId",
-          "integrationName",
-          "targetId",
-          "deploymentName",
-          "evidence"
-        ],
-        "type": "object"
-      },
       "MainConflict": {
         "properties": {
           "catchUp": {
@@ -2363,14 +2301,6 @@
           "files",
           "catchUp"
         ],
-        "type": "object"
-      },
-      "MemoryDefault": {
-        "properties": {
-          "memory": {
-            "type": "string"
-          }
-        },
         "type": "object"
       },
       "NextAct": {
@@ -2887,9 +2817,6 @@
             },
             "type": "array"
           },
-          "resources": {
-            "$ref": "#/components/schemas/MemoryDefault"
-          },
           "services": {
             "items": {
               "$ref": "#/components/schemas/ServiceSpec"
@@ -2995,9 +2922,6 @@
               "$ref": "#/components/schemas/packRequirement"
             },
             "type": "array"
-          },
-          "resources": {
-            "$ref": "#/components/schemas/MemoryDefault"
           },
           "services": {
             "items": {
@@ -3632,16 +3556,6 @@
           "eligibilityIssue": {
             "type": "string"
           },
-          "legacySetup": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/LegacyReleaseSetup"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
           "projectId": {
             "format": "uuid",
             "type": [
@@ -3873,37 +3787,6 @@
           "deployment",
           "state"
         ],
-        "type": "object"
-      },
-      "ReleaseSetup": {
-        "properties": {
-          "deploymentName": {
-            "type": "string"
-          },
-          "expectedRevision": {
-            "type": "integer"
-          },
-          "requirePromotion": {
-            "type": "boolean"
-          },
-          "targetId": {
-            "format": "uuid",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "targetRevision": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
         "type": "object"
       },
       "ReleaseState": {
@@ -5588,37 +5471,6 @@
         ],
         "x-apptown-access": {
           "contract": "a.handleOAuthProtectedResource: OAuth public resource discovery",
-          "kind": "public"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/adrs/{id}": {
-      "get": {
-        "operationId": "getAdrsId",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "outside /api/v1"
-        ],
-        "x-apptown-access": {
-          "contract": "formerPage: a redirect naming a record's id; reading it needs its authority",
           "kind": "public"
         },
         "x-apptown-stability": "experimental"
@@ -10949,82 +10801,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/projects/{slug}/deployments/{id}/address/observation": {
-      "get": {
-        "operationId": "getProjectsSlugDeploymentsIdAddressObservation",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "contract": "deployments.InspectDeploymentAddress",
-          "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      },
-      "post": {
-        "operationId": "postProjectsSlugDeploymentsIdAddressObservation",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "contract": "deployments.ConfirmDeploymentAddress",
-          "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/projects/{slug}/deployments/{id}/label": {
       "put": {
         "operationId": "putProjectsSlugDeploymentsIdLabel",
@@ -11059,45 +10835,6 @@
         ],
         "x-apptown-access": {
           "contract": "deployments.EditDeploymentLabel",
-          "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/projects/{slug}/deployments/{id}/promotion-policy": {
-      "put": {
-        "operationId": "putProjectsSlugDeploymentsIdPromotionPolicy",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "contract": "deployments.SetPromotionPolicy",
           "kind": "owner"
         },
         "x-apptown-stability": "experimental"
@@ -12742,55 +12479,6 @@
           "kind": "owner"
         },
         "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/projects/{slug}/release/default/setup": {
-      "post": {
-        "operationId": "postProjectsSlugReleaseDefaultSetup",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ReleaseSetup"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReleaseDefault"
-                }
-              }
-            },
-            "description": "the operation's result"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "contract": "deployments.SetupReleaseDefault",
-          "kind": "owner"
-        },
-        "x-apptown-stability": "experimental",
-        "x-apptown-used-by": "cli"
       }
     },
     "/api/v1/projects/{slug}/release/plan": {
@@ -15575,66 +15263,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/api/v1/targets/{name}/provider-association": {
-      "get": {
-        "operationId": "getTargetsNameProviderAssociation",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "targets"
-        ],
-        "x-apptown-access": {
-          "contract": "deployment.InspectProviderAssociation",
-          "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      },
-      "post": {
-        "operationId": "postTargetsNameProviderAssociation",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "targets"
-        ],
-        "x-apptown-access": {
-          "contract": "deployment.AssociateProvider",
-          "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/api/v1/targets/{name}/retire": {
       "post": {
         "operationId": "postTargetsNameRetire",
@@ -16072,37 +15700,6 @@
         "x-apptown-stability": "experimental"
       }
     },
-    "/changes/{id}": {
-      "get": {
-        "operationId": "getChangesId",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "outside /api/v1"
-        ],
-        "x-apptown-access": {
-          "contract": "formerPage: a redirect naming a record's id; reading it needs its authority",
-          "kind": "public"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
     "/gate/redeem": {
       "post": {
         "operationId": "postGateRedeem",
@@ -16154,37 +15751,6 @@
         "x-apptown-access": {
           "contract": "a.handleGitHTTP: credential verification",
           "kind": "protocol"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/guidance/{id}": {
-      "get": {
-        "operationId": "getGuidanceId",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "outside /api/v1"
-        ],
-        "x-apptown-access": {
-          "contract": "formerPage: a redirect naming a record's id; reading it needs its authority",
-          "kind": "public"
         },
         "x-apptown-stability": "experimental"
       }

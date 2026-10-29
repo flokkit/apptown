@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-func TestADRAddressAliasesFilterByPermanentProjectIdentity(t *testing.T) {
+func TestADRAddressFilterReadsTheCurrentAddress(t *testing.T) {
 	t.Parallel()
 	s, p := fixture(t)
 	db := s.records.db
 	ctx := testCaller()
 	a := create(t, s, p, "local")
-	foreign := projectFixture(t, db, "foreign-alias", "Foreign")
+	foreign := projectFixture(t, db, "foreign", "Foreign")
 	create(t, s, foreign, "foreign")
 	before, err := project.ByIDIn(ctx, db, p)
 	if err != nil {
@@ -25,20 +25,18 @@ func TestADRAddressAliasesFilterByPermanentProjectIdentity(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	for _, address := range []string{before.Slug, next} {
-		rows, err := s.List(ctx, Filter{ProjectSlug: address})
-		if err != nil || len(rows) != 1 || rows[0].ID != a.ID || rows[0].ProjectSlug != next {
-			t.Fatalf("address %q: %+v %v", address, rows, err)
-		}
+	rows, err := s.List(ctx, Filter{ProjectSlug: next})
+	if err != nil || len(rows) != 1 || rows[0].ID != a.ID || rows[0].ProjectSlug != next {
+		t.Fatalf("current address: %+v %v", rows, err)
 	}
-	for _, f := range []Filter{{ProjectSlug: "missing-address"}, {ProjectSlug: before.Slug, ProjectID: foreign}} {
+	for _, f := range []Filter{{ProjectSlug: before.Slug}, {ProjectSlug: "missing-address"}, {ProjectSlug: next, ProjectID: foreign}} {
 		rows, err := s.List(ctx, f)
 		if err != nil || len(rows) != 0 {
 			t.Fatalf("missing/mixed scope became unfiltered: %+v %v", rows, err)
 		}
 	}
-	restore := db.FailNextStatement("-- name: ProjectIDByAddress")
-	rows, err := s.List(ctx, Filter{ProjectSlug: before.Slug})
+	restore := db.FailNextStatement("-- name: ProjectIDBySlug")
+	rows, err = s.List(ctx, Filter{ProjectSlug: next})
 	restore()
 	if err == nil || rows != nil {
 		t.Fatalf("failed identity read became list: %+v %v", rows, err)

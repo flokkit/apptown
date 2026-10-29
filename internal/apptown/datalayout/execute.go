@@ -9,18 +9,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/flokkit/apptown/internal/apptown/project/repositorylayout"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/durable"
-	"github.com/flokkit/apptown/internal/gitexec"
 )
 
-// Upgrade must run under the daemon's database exclusion, before constructing
-// application recovery or serving requests. oldRoot is the durable archive
-// manifest's data directory on restore and root otherwise.
-func Upgrade(ctx context.Context, db *database.DB, root, oldRoot, instance string, observers Observers) error {
-	version, err := ReadVersion(root)
-	if err != nil {
+// Relocate repairs the absolute local references a restored data directory
+// carries when it was restored into a different path. It must run under the
+// daemon's database exclusion, before constructing application recovery or
+// serving requests. oldRoot is the durable archive manifest's data directory
+// on restore and root otherwise; with the same root there is nothing to do.
+func Relocate(ctx context.Context, db *database.DB, root, oldRoot, instance string, observers Observers) error {
+	if _, err := ReadVersion(root); err != nil {
 		return err
 	}
 	j, found, err := readJournal(root, instance)
@@ -28,31 +27,25 @@ func Upgrade(ctx context.Context, db *database.DB, root, oldRoot, instance strin
 		return err
 	}
 	if !found {
-		if version == Version && oldRoot == root {
+		if oldRoot == root {
 			return nil
 		}
 		if !filepath.IsAbs(root) || filepath.Clean(root) != root || !filepath.IsAbs(oldRoot) || filepath.Clean(oldRoot) != oldRoot || instance == "" {
-			return errors.New("layout upgrade requires installation identity and absolute clean roots")
+			return errors.New("relocation requires installation identity and absolute clean roots")
 		}
-		inventory, err := inspect(ctx, db, root, oldRoot, version == Version, observers)
+		inventory, err := inspect(ctx, db, root, oldRoot, observers)
 		if err != nil {
 			return err
 		}
-		if err := repositorylayout.Check(root, instance, inventory.Mappings); err != nil {
-			return err
-		}
-		j = journal{Nonce: rand.Text(), Format: 1, Instance: instance, Root: root, OriginalRoot: oldRoot, FromVersion: version, Phase: "planned", Inventory: inventory}
+		j = journal{Nonce: rand.Text(), Format: 2, Instance: instance, Root: root, OriginalRoot: oldRoot, Phase: "references", Inventory: inventory}
 		if err := j.save(); err != nil {
 			return err
 		}
 	} else if oldRoot != j.OriginalRoot && j.Phase != "complete" {
-		return errors.New("pending layout upgrade belongs to a different restore root")
+		return errors.New("pending relocation belongs to a different restore root")
 	}
 	if err := j.validatePlan(); err != nil {
 		return err
-	}
-	if j.Phase == "complete" && version != Version {
-		return errors.New("completed journal has no completed layout marker")
 	}
 	if j.Phase != "complete" {
 		if err := j.verifyOwners(ctx, db); err != nil {
@@ -64,37 +57,6 @@ func Upgrade(ctx context.Context, db *database.DB, root, oldRoot, instance strin
 	}
 	for {
 		switch j.Phase {
-		case "planned":
-			if err := j.advance("staging"); err != nil {
-				return err
-			}
-		case "staging":
-			if err := j.stageMetadata(ctx); err != nil {
-				return err
-			}
-		case "moving":
-			moves, err := repositorylayout.Prepare(root, instance, j.Inventory.Mappings)
-			if err != nil {
-				return err
-			}
-			if err := moves.Install(); err != nil {
-				return err
-			}
-			// Subsequent authorized edits invalidate the original tree fingerprints.
-			// This durable boundary is written before any such edit and skips move
-			// fingerprint replay on every later restart.
-			if err := j.advance("metadata"); err != nil {
-				return err
-			}
-		case "metadata":
-			for _, exchange := range j.Exchanges {
-				if err := exchange.Apply(ctx); err != nil {
-					return err
-				}
-			}
-			if err := j.advance("references"); err != nil {
-				return err
-			}
 		case "references":
 			for _, edit := range j.Inventory.Git {
 				if err := edit.Apply(ctx); err != nil {
@@ -120,10 +82,7 @@ func Upgrade(ctx context.Context, db *database.DB, root, oldRoot, instance strin
 				return err
 			}
 		case "verifying":
-			if err := j.verify(ctx); err != nil {
-				return err
-			}
-			if _, err := durable.Write(root, "layout", []byte("2\n"), 0o600, false); err != nil {
+			if err := j.verify(); err != nil {
 				return err
 			}
 			if err := j.advance("complete"); err != nil {
@@ -134,28 +93,12 @@ func Upgrade(ctx context.Context, db *database.DB, root, oldRoot, instance strin
 			// intent have settled. Normal startup finalizes immediately before New.
 			return nil
 		default:
-			return errors.New("unrecognized layout transition")
+			return errors.New("unrecognized relocation phase")
 		}
 	}
 }
 
-func (j journal) verify(ctx context.Context) error {
-	for _, evidence := range j.Inventory.Mains {
-		path := ""
-		for _, mapping := range j.Inventory.Mappings {
-			if mapping.ID == evidence.ProjectID {
-				path = mapping.Reference(j.Root, j.Root).After
-				break
-			}
-		}
-		if path == "" {
-			return fmt.Errorf("main evidence has unknown owner %s", evidence.ProjectID)
-		}
-		got, err := gitexec.HubRun(ctx, path, "rev-parse", "--verify", "refs/heads/"+evidence.Branch)
-		if err != nil || got != evidence.SHA {
-			return fmt.Errorf("project %s main changed during relocation: %v", evidence.ProjectID, err)
-		}
-	}
+func (j journal) verify() error {
 	for _, mapping := range j.Inventory.Mappings {
 		target := mapping.Reference(j.Root, j.Root).After
 		info, err := os.Lstat(target)
@@ -167,11 +110,6 @@ func (j journal) verify(ctx context.Context) error {
 		}
 		if !info.IsDir() {
 			return fmt.Errorf("relocated repository is not a directory: %s", target)
-		}
-	}
-	for _, exchange := range j.Exchanges {
-		if err := gitexec.CheckFolder(ctx, exchange.Folder); err != nil {
-			return err
 		}
 	}
 	return nil
@@ -186,23 +124,9 @@ func Finalize(root, instance string) error {
 		return err
 	}
 	if j.Phase != "complete" {
-		return errors.New("cannot finalize incomplete data layout")
-	}
-	if version, err := ReadVersion(root); err != nil || version != Version {
-		return fmt.Errorf("completed layout marker missing: %v", err)
+		return errors.New("cannot finalize an incomplete relocation")
 	}
 	if err := j.validatePlan(); err != nil {
-		return err
-	}
-	if err := repositorylayout.ClearCompleted(root, instance, j.Inventory.Mappings); err != nil {
-		return err
-	}
-	receiptRoot := filepath.Join(root, metadataName, j.Nonce)
-	raw, err := os.ReadFile(filepath.Join(root, journalName))
-	if err != nil {
-		return err
-	}
-	if _, err := durable.Write(receiptRoot, "receipt.json", raw, 0o600, false); err != nil {
 		return err
 	}
 	if err := os.Remove(filepath.Join(root, journalName)); err != nil {

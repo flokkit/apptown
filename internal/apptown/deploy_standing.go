@@ -51,7 +51,7 @@ func (a *App) ensureDeploymentsOnce(ctx context.Context) {
 		func(e deployment.ProjectDeployment) error {
 			// Admission is unique while queued. The deployment attempt key
 			// prevents a later boot request from repeating an admitted rebuild.
-			_, err := a.Jobs().Enqueue(ctx, "rebuild", e.Project+"/"+e.Name, map[string]any{"deployment": e.ID, "generation": e.ObservedGeneration}, time.Time{})
+			_, err := a.Jobs().Enqueue(ctx, "rebuild", e.ProjectID.String()+"/"+e.Name, map[string]any{"deployment": e.ID, "generation": e.ObservedGeneration}, time.Time{})
 			return err
 		})
 }

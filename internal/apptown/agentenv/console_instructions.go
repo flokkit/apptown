@@ -15,7 +15,7 @@ func ConsoleDockerInstructions(disabled bool) string {
   cleanup or daemon recreation it may be empty: inspect before resuming.
   This grants no additional registry credentials.`
 	if disabled {
-		availability = `- Private Docker is disabled on this AppTown (-no-private-docker). This console
+		availability = `- Private Docker is disabled on this AppTown (-private-docker=false). This console
   has no daemon; use apptown preview for server-side container builds.`
 	}
 	return availability + `

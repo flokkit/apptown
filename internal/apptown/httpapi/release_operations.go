@@ -97,7 +97,7 @@ func (h ReleaseOperations) ReleasePlan(w http.ResponseWriter, r *http.Request) {
 		out.ConfigError = selected.EligibilityIssue
 		out.Configured = selected.EligibilityIssue == ""
 		out.Address = destination.Address
-		if address := out.Address; address != nil && address.Verified {
+		if address := out.Address; address != nil && address.Revision > 0 {
 			host := address.GeneratedHostname
 			if address.CustomHostname != "" {
 				host = address.CustomHostname

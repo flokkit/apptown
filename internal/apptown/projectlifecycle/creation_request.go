@@ -141,19 +141,19 @@ func claimCreationAddress(ctx context.Context, tx *database.Tx, id ids.ID, propo
 	if automatic && len(proposed) > 63 {
 		proposed = strings.TrimRight(proposed[:63], "-")
 	}
-	if err := project.ClaimAddressIn(ctx, tx, id, proposed); err == nil {
+	if err := project.AddressFreeIn(ctx, tx, id, proposed); err == nil {
 		return proposed, nil
 	} else if !automatic || !errors.Is(err, project.ErrSlugTaken) {
 		return "", err
 	}
-	// The full reserved UUID makes the fallback independent of another request's
-	// selected suffix. The whole choice disappears if this transaction rolls back.
+	// The full reserved UUID makes the fallback independent of another
+	// request's selected suffix.
 	base := proposed
 	if len(base) > 26 {
 		base = strings.TrimRight(base[:26], "-")
 	}
 	candidate := base + "-" + id.String()
-	if err := project.ClaimAddressIn(ctx, tx, id, candidate); err != nil {
+	if err := project.AddressFreeIn(ctx, tx, id, candidate); err != nil {
 		return "", err
 	}
 	return candidate, nil

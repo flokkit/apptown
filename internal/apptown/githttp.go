@@ -121,7 +121,7 @@ func (a *App) handleGitHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if tp, ok := a.gitTokenProject(r); ok {
 		p = tp
 	}
-	addressID, addressErr := project.IDByAddressIn(r.Context(), a.DB, slug)
+	addressID, addressErr := project.IDBySlugIn(r.Context(), a.DB, slug)
 	if p == nil || addressErr != nil || p.ID != addressID {
 		w.Header().Set("WWW-Authenticate", `Basic realm="AppTown"`)
 		http.Error(w, "git: authentication required (a Change ticket from checkout_change, the project's pull token, or a step's token for its scratch ref)", http.StatusUnauthorized)

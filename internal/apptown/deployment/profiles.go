@@ -298,7 +298,7 @@ func (s *Service) effectiveContract(ctx context.Context, dep *Deployment, ws str
 		}
 	}
 	if containerLimits {
-		return s.env.DefaultMemory(ctx, dep.ProjectID, out, applied)
+		return s.env.DefaultMemory(ctx, out, applied)
 	}
 	return out, applied, nil
 }

@@ -11,7 +11,6 @@ import (
 )
 
 type SettingsPatch struct {
-	RequestID ids.ID `json:"requestId,omitempty"`
 	// ExpectedRevision is the settings revision the edit started from. It is
 	// required: without it an edit could overwrite changes it never saw.
 	ExpectedRevision *int64  `json:"expectedRevision"`
@@ -68,7 +67,7 @@ func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedS
 		return result, ErrSettingsMoved
 	}
 	if in.Slug != nil && *in.Slug != held.Slug {
-		if err := ClaimAddressIn(ctx, tx, id, *in.Slug); err != nil {
+		if err := AddressFreeIn(ctx, tx, id, *in.Slug); err != nil {
 			return result, err
 		}
 		held.Slug = *in.Slug
@@ -90,6 +89,9 @@ func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedS
 		return result, nil
 	}
 	updated, err := q.UpdateProjectSettings(ctx, projectsql.UpdateProjectSettingsParams{ID: id, Slug: held.Slug, Name: held.Name, Icon: held.Icon, Blurb: held.Blurb, Namespace: held.Namespace})
+	if slugTaken(err) {
+		return result, ErrSlugTaken
+	}
 	if err != nil {
 		return result, err
 	}

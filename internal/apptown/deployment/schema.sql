@@ -65,7 +65,6 @@ CREATE TABLE IF NOT EXISTS deployments (
   feed         TEXT NOT NULL DEFAULT 'landing',    -- landing | promotion | schedule | manual
   audience     TEXT NOT NULL DEFAULT 'team',       -- team | organisation | partners | public
   data_class   TEXT NOT NULL DEFAULT 'synthetic',  -- synthetic | non-production | production
-  promote_after TEXT NOT NULL DEFAULT '',
   url          TEXT NOT NULL DEFAULT '',
   -- A deployment started from a copy: the set its first release fills its
   -- data from, and when that was done (null until then).
@@ -78,9 +77,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling', 'not-filled')),
   display_label TEXT NOT NULL DEFAULT '',
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
-  UNIQUE(project_id, name),
-  require_promotion BOOLEAN NOT NULL DEFAULT false,
-  policy_revision BIGINT NOT NULL DEFAULT 1 CHECK (policy_revision > 0)
+  UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
 -- A target (design/subsystems/deployment.md §2.2): a reusable place AppTown can
@@ -331,8 +328,6 @@ CREATE TABLE IF NOT EXISTS project_release_settings (
   project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
   default_deployment_id UUID,
   revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
-  legacy_setup_json JSONB,
-  CONSTRAINT project_release_setup_exclusive CHECK (default_deployment_id IS NULL OR legacy_setup_json IS NULL),
   CONSTRAINT project_release_default_membership FOREIGN KEY(project_id, default_deployment_id)
     REFERENCES deployments(project_id, id) DEFERRABLE INITIALLY DEFERRED
 );
@@ -345,9 +340,7 @@ CREATE TABLE IF NOT EXISTS deployment_address_settings (
   custom_hostname TEXT NOT NULL DEFAULT '',
   certificate_domain TEXT NOT NULL DEFAULT '',
   revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
-  verification_state TEXT NOT NULL CONSTRAINT deployment_address_verification CHECK (verification_state IN ('ready','legacy-unverified')),
-  legacy_evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  CONSTRAINT deployment_address_ready_fields CHECK (verification_state='legacy-unverified' OR (generated_hostname<>'' AND certificate_domain<>''))
+  CONSTRAINT deployment_address_ready_fields CHECK (generated_hostname<>'' AND certificate_domain<>'')
 );
 CREATE TABLE IF NOT EXISTS deployment_hostname_claims (
   hostname TEXT PRIMARY KEY

@@ -96,7 +96,7 @@ func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testi
 	// behind a handler that is set once it exists.
 	var api http.Handler
 	apiURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(w, r) }))
-	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent",
+	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentImage: "apptown-agent",
 		ConsoleCLI: linuxAppTownCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
 	api = a.Handler()
 	a.tasks.Poll = 100 * time.Millisecond
@@ -144,7 +144,7 @@ func TestIntegrationAppTownCheckOnTheWorkerChecksTheAgentsCommitAsFeedback(t *te
 		AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var api http.Handler
 	apiURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(w, r) }))
-	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent",
+	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentImage: "apptown-agent",
 		ConsoleCLI: linuxAppTownCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
 	api = GETOnly(a.Handler()) // the agent's $APPTOWN_URL is the read-only listener
 	a.tasks.Poll = 100 * time.Millisecond
@@ -215,7 +215,7 @@ func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T)
 		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
-	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
+	cfg := Config{DataDir: t.TempDir(), AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
 		InferenceURL: gatewayURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}}
 	a := testApp(t, cfg)
 	gateway = a.InferenceHandler()
@@ -322,7 +322,7 @@ func TestIntegrationThePackagedPiRuntimeResumesOnlyTheNamedTranscript(t *testing
 		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
-	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
+	cfg := Config{DataDir: t.TempDir(), AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
 		InferenceURL: gatewayURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}}
 	a := testApp(t, cfg)
 	gateway = a.InferenceHandler()

@@ -46,7 +46,7 @@ spec:
   defaults:
     model: ...             # agent/pi: "provider/model", resolved through slots × profiles
     thinking: low          # agent/pi thinking level
-    executor: docker       # local | docker
+    executor: docker       # the only value: every project step runs in a container
     image: apptown-agent     # docker executor image
   stages: [...]            # ordered (§2.4)
 ```

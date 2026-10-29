@@ -21,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/docker/dockertest"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
+	"github.com/flokkit/apptown/internal/deploy/portainer/portainertest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/stock"
@@ -299,7 +300,7 @@ needs:
 			if running.Name != stack {
 				continue
 			}
-			observed, err := portainer.ReadStackIngress(ctx, *verified, running, dep.ID, nil)
+			observed, err := portainertest.ReadStackIngress(ctx, *verified, running)
 			if err != nil || !observed.Same(address.Ingress) {
 				t.Fatalf("provider changed admitted host/certificate rules: %+v %v", observed, err)
 			}
@@ -570,7 +571,7 @@ func portainerSiblingRecovery(t *testing.T, s *both, pid ids.ID, target *deploym
 		for _, st := range stacks {
 			if st.Name == stack {
 				found = true
-				observed, err := portainer.ReadStackIngress(ctx, *cfg, st, dep.ID, nil)
+				observed, err := portainertest.ReadStackIngress(ctx, *cfg, st)
 				if err != nil || !observed.Same(address.Ingress) {
 					t.Fatalf("second routing changed: %+v %v", observed, err)
 				}

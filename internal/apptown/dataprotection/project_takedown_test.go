@@ -478,7 +478,7 @@ func TestDockerDataDoorsAskTheProjectsLifecycle(t *testing.T) {
 	if _, err := w.s.Rebuild(ctx, dep, deployment.RebuildPlan{}, deploy.Artifact{}); !errors.Is(err, project.ErrNotActive) {
 		t.Fatalf("a rebuild in a project being deleted: %v", err)
 	}
-	got, err := JobWorker{Service: w.s.Service, Projects: project.New(w.s.db, nil)}.Backup(ctx, "dock/main", map[string]any{"trigger": "scheduled"})
+	got, err := JobWorker{Service: w.s.Service, Projects: project.New(w.s.db, nil)}.Backup(ctx, w.pid.String()+"/main", map[string]any{"trigger": "scheduled"})
 	if err != nil || got["skipped"] == nil {
 		t.Fatalf("a scheduled backup in a project being deleted: %v %v", got, err)
 	}

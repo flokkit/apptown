@@ -150,45 +150,42 @@ it.each([true, false])('uses the explicit customer environment and its displayed
   }
 })
 
-it.each([false, true])('keeps explicit setup separate from a refused release (cleared=%s)', async (cleared) => {
+it('keeps choosing a preference separate from a refused release', async () => {
   const client = newQueryClient(); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el)
   let saved = false
-  const writes: { path: string; body: unknown }[] = []
+  const writes: { method: string; path: string; body: unknown }[] = []
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const path = String(url).replace('/api/v1', '')
-    if (init?.method === 'POST') {
-      writes.push({ path, body: JSON.parse(String(init.body)) })
-      if (path.endsWith('/setup')) { saved = true; return new Response('{"deploymentId":"chosen","revision":10}') }
+    if (init?.method === 'PUT' || init?.method === 'POST') {
+      writes.push({ method: init.method, path, body: JSON.parse(String(init.body)) })
+      if (path.endsWith('/release/default')) { saved = true; return new Response('{"deploymentId":"chosen","revision":10}') }
       return new Response('{"error":"deployment permission withdrawn"}', { status: 403 })
     }
     if (path.endsWith('/release/plan')) return new Response(JSON.stringify({ configured: saved, defaultRevision: saved ? 10 : 9, deployment: saved ? 'customer-test' : '', deploymentLabel: saved ? 'Customer office' : '', head: { sha: 'abc', subject: 'Software' }, changesSinceLast: [] }))
-    if (path.endsWith('/release/default')) return new Response(JSON.stringify(saved ? { deploymentId: 'chosen', revision: 10 } : { revision: 9, legacySetup: cleared ? null : { targetId: 'chosen', deploymentName: 'customer-test' } }))
-    if (path.endsWith('/deployments')) return new Response('[]')
-    if (path.endsWith('/targets')) return new Response('{"targets":[{"id":"chosen","name":"old","displayLabel":"Customer office","settingsRevision":0}]}')
+    if (path.endsWith('/release/default')) return new Response(JSON.stringify(saved ? { deploymentId: 'chosen', revision: 10 } : { revision: 9 }))
+    if (path.endsWith('/deployments')) return new Response('[{"id":"chosen","name":"customer-test","displayLabel":"Customer office","kind":"standing","feed":"promotion"}]')
     throw new Error(`unexpected read ${path}`)
   }))
   const settle = async () => { await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) }) }
   try {
     await act(async () => { root.render(<QueryClientProvider client={client}><MemoryRouter><NewReleasePage slug="shop" /></MemoryRouter></QueryClientProvider>) })
-    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Set up release preference') })
+    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Choose release preference') })
     expect(writes).toEqual([])
-    await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Set up release preference')!.click() })
-    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Customer office') })
+    await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Choose release preference')!.click() })
+    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('explicitly cleared') })
     expect(writes).toEqual([])
-    if (cleared) {
-      expect(el.textContent).toContain('explicitly cleared')
-      expect(el.querySelector('select')!.value).toBe('')
-      expect([...el.querySelectorAll('button')].find(b => b.textContent === 'Save release setup')!.disabled).toBe(true)
-      return
-    }
-    expect((el.querySelector('input:not([type="checkbox"])') as HTMLInputElement).value).toBe('customer-test')
+    await act(async () => {
+      const select = el.querySelector('select')!
+      select.value = 'chosen'
+      select.dispatchEvent(new Event('change', { bubbles: true }))
+    })
     await act(async () => { el.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
     await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Release to Customer office') })
-    expect(writes).toEqual([{ path: '/projects/shop/release/default/setup', body: { targetId: 'chosen', targetRevision: 0, deploymentName: 'customer-test', expectedRevision: 9, requirePromotion: true } }])
-    expect(el.textContent).toContain('Setup did not start a release')
+    expect(writes).toEqual([{ method: 'PUT', path: '/projects/shop/release/default', body: { deploymentId: 'chosen', expectedRevision: 9 } }])
+    expect(el.textContent).toContain('No release has started')
     await act(async () => { (el.querySelector('button.primary') as HTMLButtonElement).click() })
     await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('deployment permission withdrawn') })
-    expect(writes[1]).toEqual({ path: '/projects/shop/release', body: { defaultRevision: 10 } })
+    expect(writes[1]).toEqual({ method: 'POST', path: '/projects/shop/release', body: { defaultRevision: 10 } })
     expect(el.textContent).toContain('Release preference saved')
   } finally { act(() => root.unmount()); client.clear(); el.remove(); vi.unstubAllGlobals() }
 })

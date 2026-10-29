@@ -21,6 +21,7 @@ import (
 func TestAnEarlierCheckInvalidatedByANewCandidateHoldsTheMerge(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	useScriptTasks(t, a, valueIs("good"))
 	run, source := reviewLanding(t, a, nil, map[string]string{"value.txt": "good\n"}, func(ids.ID) {
 		defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{
 			{Name: "checks", Steps: []schema.Step{{Name: "source-check", Uses: "script", With: map[string]any{"run": `test "$(cat value.txt)" = good`}}}},
@@ -60,6 +61,7 @@ func TestAnEarlierCheckInvalidatedByANewCandidateHoldsTheMerge(t *testing.T) {
 func TestACheckedLandingDoesNotMergeOnACalledWorkflowsChecks(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	useScriptTasks(t, a, valueIs("good"))
 	run, source := reviewLanding(t, a, nil, map[string]string{"value.txt": "bad\n"}, func(ids.ID) {
 		defineWorkflows(t, a,
 			workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{

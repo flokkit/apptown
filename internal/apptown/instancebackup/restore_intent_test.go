@@ -22,28 +22,31 @@ func intentManifest(t *testing.T, original string) []byte {
 	}
 	return bytes.Replace(raw, []byte(`"format":`), []byte(`"unknown":{"number":1234567890123456789}, "format":`), 1)
 }
-func TestRestoreContinuationKeepsOriginalRootLayoutAndExactManifest(t *testing.T) {
+func currentArchiveLayout(t *testing.T, root string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(root, "layout"), []byte("2\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestRestoreContinuationKeepsOriginalRootAndExactManifest(t *testing.T) {
 	root := t.TempDir()
 	original := filepath.Join(t.TempDir(), "original")
 	raw := intentManifest(t, original)
 	if err := beginRestoreIntent(root, raw); err != nil {
 		t.Fatal(err)
 	}
+	currentArchiveLayout(t, root)
 	if _, err := ReadPendingRestore(root); err == nil || !strings.Contains(err.Error(), "did not finish") {
 		t.Fatalf("incomplete restore opened: %v", err)
 	}
-	if err := recordRestoreLayout(root, 2); err != nil {
+	if err := checkRestoreLayout(root, 2); err != nil {
 		t.Fatal(err)
 	}
 	if err := markRestoreLoaded(root); err != nil {
 		t.Fatal(err)
 	}
-	// The later layout migration's stamp cannot erase the archived source layout.
-	if err := os.WriteFile(filepath.Join(root, "layout"), []byte("2\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	pending, err := ReadPendingRestore(root)
-	if err != nil || pending == nil || pending.Manifest.DataDir != original || pending.LayoutVersion != 1 || pending.Manifest.Database != nil {
+	if err != nil || pending == nil || pending.Manifest.DataDir != original || pending.Manifest.Database != nil {
 		t.Fatalf("continuation: %+v %v", pending, err)
 	}
 	if err := refuseExistingAppTown(t.Context(), docker.Scope{}, root); err == nil || !strings.Contains(err.Error(), "already loaded") {
@@ -72,7 +75,8 @@ func TestRestoreCompletionRefusesChangedEvidence(t *testing.T) {
 	if err := beginRestoreIntent(root, intentManifest(t, root)); err != nil {
 		t.Fatal(err)
 	}
-	if err := recordRestoreLayout(root, 2); err != nil {
+	currentArchiveLayout(t, root)
+	if err := checkRestoreLayout(root, 2); err != nil {
 		t.Fatal(err)
 	}
 	if err := markRestoreLoaded(root); err != nil {
@@ -135,23 +139,37 @@ func TestRestoreIntentRejectsMalformedUnknownAndNonregularState(t *testing.T) {
 		})
 	}
 }
-func TestRestoreSourceLayoutRefusesUnknownVersions(t *testing.T) {
-	for _, body := range []string{"0", "-1", "future", "3"} {
+
+// Restore takes only an archive in this build's layout. One from before the
+// layout 2 marker (no marker, or 1) names the releases that can restore it.
+func TestRestoreTakesOnlyTheCurrentArchiveLayout(t *testing.T) {
+	for _, body := range []string{"missing", "1", "0", "-1", "future", "3"} {
 		t.Run(body, func(t *testing.T) {
 			root := t.TempDir()
 			if err := beginRestoreIntent(root, intentManifest(t, root)); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(root, "layout"), []byte(body), 0o600); err != nil {
-				t.Fatal(err)
+			if body != "missing" {
+				if err := os.WriteFile(filepath.Join(root, "layout"), []byte(body), 0o600); err != nil {
+					t.Fatal(err)
+				}
 			}
-			if err := recordRestoreLayout(root, 2); err == nil {
+			err := checkRestoreLayout(root, 2)
+			if err == nil {
 				t.Fatal("unsupported source layout accepted")
 			}
-			if err := markRestoreLoaded(root); err == nil {
-				t.Fatal("unsupported layout became loaded continuation")
+			if (body == "missing" || body == "1") && !strings.Contains(err.Error(), "from 1.0.0-rc.9 to 1.0.0-rc.11") {
+				t.Fatalf("an older archive is not told where to go: %v", err)
 			}
 		})
+	}
+	root := t.TempDir()
+	if err := beginRestoreIntent(root, intentManifest(t, root)); err != nil {
+		t.Fatal(err)
+	}
+	currentArchiveLayout(t, root)
+	if err := checkRestoreLayout(root, 2); err != nil {
+		t.Fatalf("the current layout: %v", err)
 	}
 }
 func TestArchiveCannotReplaceRestoreControlState(t *testing.T) {
@@ -228,7 +246,7 @@ func TestNewerArchivedLayoutRefusesBeforeDatabaseEnsure(t *testing.T) {
 		}
 		return nil, nil
 	})}
-	_, err = Restore(t.Context(), RestoreRequest{DataDir: root, Archive: archivePath, Passphrase: backupPassphrase, MaxLayoutVersion: 2, Docker: dk, Database: forbiddenRestoreDatabase{t: t}})
+	_, err = Restore(t.Context(), RestoreRequest{DataDir: root, Archive: archivePath, Passphrase: backupPassphrase, LayoutVersion: 2, Docker: dk, Database: forbiddenRestoreDatabase{t: t}})
 	if err == nil || !strings.Contains(err.Error(), "layout 3 is newer") {
 		t.Fatalf("layout refusal: %v", err)
 	}
@@ -237,16 +255,13 @@ func TestNewerArchivedLayoutRefusesBeforeDatabaseEnsure(t *testing.T) {
 	}
 }
 
-func TestRestoreNeedsExplicitSupportedLayoutMaximum(t *testing.T) {
+func TestRestoreNeedsExplicitSupportedLayout(t *testing.T) {
 	root := t.TempDir()
 	if err := beginRestoreIntent(root, intentManifest(t, root)); err != nil {
 		t.Fatal(err)
 	}
-	if err := recordRestoreLayout(root, 0); err == nil || !strings.Contains(err.Error(), "supported data layout maximum") {
-		t.Fatalf("zero maximum silently accepted: %v", err)
-	}
-	if err := markRestoreLoaded(root); err == nil {
-		t.Fatal("missing supported maximum marked loaded")
+	if err := checkRestoreLayout(root, 0); err == nil || !strings.Contains(err.Error(), "supported data layout") {
+		t.Fatalf("zero layout silently accepted: %v", err)
 	}
 }
 func TestRestoredFileBarrierDoesNotFollowArchiveSymlinks(t *testing.T) {

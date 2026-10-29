@@ -11,7 +11,7 @@ func TestStandingConsentSelectionRequiresExactProjectEnvironmentAndTarget(t *tes
 	s, _, in, target := configurationFixture(t)
 	dep := configureForTest(t, s, in)
 	got, err := ReadStandingConsentSelection(t.Context(), s.db, in.ProjectID, dep.ID, target.ID)
-	if err != nil || got.Resource.ProjectID != in.ProjectID || got.PromotionResource.ID != dep.Name || got.PromotionRequired != dep.needsPromotion() {
+	if err != nil || got.Resource.ProjectID != in.ProjectID || got.PromotionResource.ID != dep.Name || got.PromotionRequired != dep.Protected() {
 		t.Fatalf("wrong selected resource: %+v %v", got, err)
 	}
 	if _, err = ReadStandingConsentSelection(t.Context(), s.db, idstest.N(999), dep.ID, target.ID); err == nil {

@@ -76,7 +76,7 @@ func TestDeploymentUncertaintyBlocksLandingAndBackgroundRebuild(t *testing.T) {
 	if n := len(operationJobs(t, a, "rebuild")); n != 0 {
 		t.Fatalf("%d rebuilds queued for an unresolved deployment", n)
 	}
-	if out, err := deploymentJobsForTest(a).Rebuild(context.Background(), "p/main", nil); err != nil || out["skipped"] != "deployment execution or observation owns this deployment" {
+	if out, err := deploymentJobsForTest(a).Rebuild(context.Background(), env.ProjectID.String()+"/main", nil); err != nil || out["skipped"] != "deployment execution or observation owns this deployment" {
 		t.Fatalf("queued rebuild bypassed recovery: %v %v", out, err)
 	}
 	if len(a.hosts.Watched(context.Background(), a.deployments)) != 0 {
@@ -140,7 +140,7 @@ func TestRestartMidDeployFinishesTheAttemptFromWhatWasNoted(t *testing.T) {
 	t.Parallel()
 	a, f, p, b := doWorld(t)
 	tg, _ := a.Deployment.Targets.ByName(t.Context(), "do-syd")
-	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", tg.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production", PromoteAfter: "main"})
+	env, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", tg.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}

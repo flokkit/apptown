@@ -20,14 +20,20 @@ type Capability string
 type ScopeKind string
 
 const (
-	ScopeInstance  ScopeKind = "instance"
-	ScopeGroup     ScopeKind = "group"
-	ScopeProject   ScopeKind = "project"
-	ScopeChange    ScopeKind = "change"
-	ScopeRun       ScopeKind = "run"
-	ScopeDimension ScopeKind = "dimension"
-	ScopeTarget    ScopeKind = "release-target"
+	ScopeInstance ScopeKind = "instance"
+	ScopeGroup    ScopeKind = "group"
+	ScopeProject  ScopeKind = "project"
+	ScopeTarget   ScopeKind = "release-target"
 )
+
+// GrantScope reports whether a grant may sit at scope s.
+func GrantScope(s ScopeKind) bool {
+	switch s {
+	case ScopeInstance, ScopeGroup, ScopeProject, ScopeTarget:
+		return true
+	}
+	return false
+}
 
 type Definition struct {
 	Description string
@@ -274,16 +280,11 @@ const (
 	RoleInstanceAdmin     = "instance-administrator"
 	RoleStandardsAdmin    = "standards-administrator"
 	RoleExecutionAdmin    = "execution-administrator"
-	RoleIntegrationAdmin  = "integration-administrator"
 	RoleReleaseManager    = "release-manager"
 	RoleAuditor           = "auditor"
 	RoleProjectCreator    = "project-creator"
-	RoleGroupViewer       = "group-viewer"
 	RoleGroupMember       = "group-member"
-	RoleGroupCreator      = "group-project-creator"
-	RoleGroupMaintainer   = "group-maintainer"
 	RoleGroupOwner        = "group-owner"
-	RoleGroupAuditor      = "group-auditor"
 	RoleProjectViewer     = "project-viewer"
 	RoleProjectContrib    = "project-contributor"
 	RoleProjectMaintainer = "project-maintainer"
@@ -319,10 +320,7 @@ var StockRoles = []Role{
 	{Name: RoleExecutionAdmin, Title: "Execution administrator", Scope: ScopeInstance,
 		Description: "Manages executable workflow definitions.",
 		Caps:        []Capability{CapExecWorkflows}},
-	{Name: RoleIntegrationAdmin, Title: "Integration administrator", Scope: ScopeInstance,
-		Description: "Manages connectors, service and dependency kinds, model bindings.",
-		Caps:        []Capability{CapIntegrationConnector, CapIntegrationServices, CapIntegrationDeps, CapModelsBindings, CapModelsSlots}},
-	{Name: RoleReleaseManager, Title: "Release manager", Scope: ScopeInstance, Surfaced: false,
+	{Name: RoleReleaseManager, Title: "Release manager", Scope: ScopeTarget,
 		Description: "Promotes releases to wider tiers (the releaser).",
 		Caps:        []Capability{CapReleaseRead, CapReleasePromote, CapDeploymentRead, CapDeploymentDeploy}},
 	{Name: RoleAuditor, Title: "Auditor", Scope: ScopeInstance,
@@ -332,21 +330,11 @@ var StockRoles = []Role{
 		Description: "Creates projects through approved creation profiles.",
 		Caps:        []Capability{CapProjectCreate, CapProjectList}},
 
-	{Name: RoleGroupViewer, Title: "Group viewer", Scope: ScopeGroup,
-		Description: "Discovers projects visible through this group.", Caps: []Capability{CapProjectList}},
 	{Name: RoleGroupMember, Title: "Group member", Scope: ScopeGroup, Surfaced: true,
 		Description: "Belongs to the group. Carries no project capability by itself.", Caps: []Capability{}},
-	{Name: RoleGroupCreator, Title: "Group project creator", Scope: ScopeGroup,
-		Description: "Creates projects owned by the group.", Caps: []Capability{CapProjectCreate}},
-	{Name: RoleGroupMaintainer, Title: "Group maintainer", Scope: ScopeGroup,
-		Description: "Reserved group office; currently carries no operation permissions.",
-		Caps:        []Capability{}},
 	{Name: RoleGroupOwner, Title: "Group owner", Scope: ScopeGroup, Surfaced: true,
 		Description: "Creates projects owned by the group.",
 		Caps:        []Capability{CapProjectCreate}},
-	{Name: RoleGroupAuditor, Title: "Group auditor", Scope: ScopeGroup,
-		Description: "Reads projects and evidence visible through this group.",
-		Caps:        append(append([]Capability{}, ReadCaps...), CapAuditRead)},
 
 	{Name: RoleProjectViewer, Title: "Project viewer", Scope: ScopeProject, Surfaced: true,
 		Description: "Reads the project, its changes, runs, evidence and deployments.", Caps: ReadCaps},

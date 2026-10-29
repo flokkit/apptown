@@ -36,8 +36,8 @@ func main() {
 	if asJSON {
 		facts := map[string]any{
 			"sourceSchema": map[string]int{"min": dbschema.Baseline(), "max": dbschema.Latest()},
-			// ReadVersion accepts the original absent-stamp layout and current UUID layout.
-			"sourceLayout": map[string]int{"min": 1, "max": datalayout.Version},
+			// This build reads and restores only its own data layout.
+			"sourceLayout": map[string]int{"min": datalayout.Version, "max": datalayout.Version},
 			"schemaResult": dbschema.Latest(), "layoutResult": datalayout.Version,
 			"cliProtocol": version.CLIProtocol, "daemonWorkerProtocol": worker.Protocol,
 			"workerProtocol": map[string]int{"min": worker.ProtocolMin, "max": worker.ProtocolMax},

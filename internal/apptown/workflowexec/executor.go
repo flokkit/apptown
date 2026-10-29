@@ -39,12 +39,11 @@ type Process interface {
 	Run(context.Context, string, execution.Request) execution.Outcome
 }
 type Config struct {
-	DataDir, Image, Backend, APIURL string
-	NoPrivateDocker                 bool // apptownd -no-private-docker: a step declaring it is refused
-	// PrivateDockerOnWorker is apptownd -private-docker: a step declaring
-	// private Docker is admitted on a worker, and its attempt records the
-	// worker's measured profile. Without it, it is refused there.
-	PrivateDockerOnWorker bool
+	DataDir, Image, APIURL string
+	// PrivateDocker is apptownd -private-docker: a step declaring private
+	// Docker is admitted, here or on a worker, where its attempt records the
+	// worker's measured profile. Without it, it is refused.
+	PrivateDocker bool
 }
 type Dependencies struct {
 	Adoption     *adoption.Service

@@ -292,31 +292,6 @@ func servedPattern(path string) string {
 	return w.Body.String()
 }
 
-// A configuration AppTown cannot honour is refused at start, never
-// resolved by one flag silently winning: an unknown agent executor, or
-// private Docker both admitted and refused.
-func TestConfigRefusesContradictoryOrUnknownSettings(t *testing.T) {
-	t.Parallel()
-	for name, c := range map[string]Config{
-		"unknown executor":         {AgentExecutor: "podman"},
-		"private docker both ways": {PrivateDocker: true, NoPrivateDocker: true},
-	} {
-		if _, err := c.prepare(); err == nil {
-			t.Errorf("%s: accepted", name)
-		}
-	}
-	for name, c := range map[string]Config{
-		"default executor":  {},
-		"local executor":    {AgentExecutor: ExecutorLocal},
-		"private docker":    {PrivateDocker: true},
-		"no private docker": {NoPrivateDocker: true},
-	} {
-		if _, err := c.prepare(); err != nil {
-			t.Errorf("%s: %v", name, err)
-		}
-	}
-}
-
 // Every owner the App assembles reads AppTown's clock: no clock it holds
 // (a func() time.Time field, by any name) is left nil, which would read the
 // machine's instead. The walk follows the App's owners through pointers,

@@ -263,21 +263,18 @@ func waitForDB(ctx context.Context, url string) error {
 }
 
 // DataLayoutVersion is the layout of the data directory this build reads
-// and writes. A release that changes where its files live raises it and
-// adds the step that moves a directory from the previous one; the upgrade
-// test's fixtures carry the file, so a layout step is tested like a
-// migration.
+// and writes. The upgrade test's fixtures carry the marker file.
 const DataLayoutVersion = datalayout.Version
 
 // ErrNewerDataLayout: the data directory was written by a newer build, whose
 // files this build would misread. Downgrades are not supported.
 var ErrNewerDataLayout = datalayout.ErrNewerLayout
 
-// PrepareDataLayout validates without stamping. UpgradeDataLayout performs the
-// checked transition under daemon exclusion and stamps only after verification.
+// PrepareDataLayout refuses a data directory in another layout and marks one
+// with no project repository as this layout (datalayout.Initialize), before
+// anything opens the database.
 func PrepareDataLayout(dataDir string) error {
-	_, err := datalayout.ReadVersion(dataDir)
-	return err
+	return datalayout.Initialize(dataDir)
 }
 
 // BuiltinDatabase is the built-in database of the AppTown whose data

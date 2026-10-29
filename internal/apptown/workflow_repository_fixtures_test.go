@@ -43,6 +43,7 @@ func engineChange(t *testing.T, a *App, p *project.Project) *workflow.Change {
 
 func engineLandingChange(t *testing.T, a *App, p *project.Project) *workflow.Change {
 	t.Helper()
+	useScriptTasks(t, a, scriptPasses)
 	landingYAML := `
 apiVersion: apptown.dev/v1
 kind: Workflow

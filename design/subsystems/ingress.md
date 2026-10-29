@@ -22,8 +22,9 @@ Which name reaches which deployment, by target:
 | App Platform | the platform's own name for each app | the same |
 
 A project's serving label is captured from its initial address and stays fixed.
-Project settings and AppTown address aliases do not add application hosts or
-certificate names. Built-in routing, attached Docker Host rules, emitted URLs and
+Changing the project's address does not add or move application hosts or
+certificate names; the initial address stays taken by the serving label until
+the project is purged. Built-in routing, attached Docker Host rules, emitted URLs and
 page-check Host headers use that same label. A failed identity read does not
 synthesize an address from display text. Target domains remain explicit operator
 configuration; Portainer has its separate deployment address owner below.

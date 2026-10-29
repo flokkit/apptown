@@ -63,7 +63,7 @@ type DeploymentConfigurationRequest struct {
 }
 
 // handleCreateDeployment: POST /projects/{slug}/deployments
-// {name, target, feed, audience, data, promoteAfter, startFrom?} — project
+// {name, target, feed, audience, data, startFrom?} — project
 // deployment settings (§2.7): a standing deployment bound to an offered
 // target; startFrom names a copy its first release fills its data from.
 func (h Deployments) CreateDeployment(w http.ResponseWriter, r *http.Request) {

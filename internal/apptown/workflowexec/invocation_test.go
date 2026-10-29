@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/tasks"
-	"github.com/flokkit/apptown/internal/progress"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/tasks"
+	"github.com/flokkit/apptown/internal/progress"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
@@ -33,9 +34,9 @@ func TestEmptyTurnRetryCountsTheUsageOfBothTries(t *testing.T) {
 		return execution.Outcome{Output: fmt.Appendf(nil, `{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p"%s,"usage":{"input":%d,"output":0,"totalTokens":%d}}}`+"\n", text, len(names)*1000, len(names)*1000)}
 	}))
 	res := a.piInvoke(t.Context(), piCall{
-		Source:   workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
-		Step:     &workflow.Step{ID: idstest.N(9), Attempt: 1, Name: "implement"},
-		Executor: execution.Local, Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
+		Source:    workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
+		Step:      &workflow.Step{ID: idstest.N(9), Attempt: 1, Name: "implement"},
+		Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
 	})
 	if res.Tries != 2 || res.Text != "done" || len(names) != 2 || names[1] != "apptown-step-00000000-0009-7000-8000-000000000000-r2" {
 		t.Fatalf("an empty turn is re-run once: tries=%d text=%q names=%v", res.Tries, res.Text, names)
@@ -63,9 +64,9 @@ func TestInvocationWithABrokenTranscriptRecordsIncompleteUsage(t *testing.T) {
 		return execution.Outcome{Output: []byte(`{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p","content":[{"type":"text","text":"done"}],"usage":{"input":7,"output":0,"totalTokens":7}}}` + "\n")}
 	}))
 	res := a.piInvoke(t.Context(), piCall{
-		Source:   workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
-		Step:     &workflow.Step{ID: idstest.N(9), Attempt: 2, Name: "implement"},
-		Executor: execution.Local, Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
+		Source:    workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
+		Step:      &workflow.Step{ID: idstest.N(9), Attempt: 2, Name: "implement"},
+		Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
 	})
 	if res.Tries != 2 || !strings.HasPrefix(res.UsageIncomplete, "apptown-step-00000000-0009-7000-8000-000000000000: ") {
 		t.Fatalf("the step's usage names the incomplete invocation: tries=%d %q", res.Tries, res.UsageIncomplete)
@@ -91,9 +92,9 @@ func TestAnInvocationIsReadFromItsEventsFileNotItsOutput(t *testing.T) {
 	answer := []byte(`{"type":"message_end","message":{"role":"assistant","model":"m","provider":"p","content":[{"type":"text","text":"done"}],"usage":{"input":5,"output":0,"totalTokens":5}}}` + "\n")
 	call := func(a *Executor, step int64) piResult {
 		return a.piInvoke(t.Context(), piCall{
-			Source:   workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
-			Step:     &workflow.Step{ID: idstest.N(9), Attempt: step, Name: "implement"},
-			Executor: execution.Local, Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
+			Source:    workflow.Source{ProjectID: idstest.N(1), RunID: idstest.N(5), RootRunID: idstest.N(5), WorkflowName: "w", WorkflowVersion: 1},
+			Step:      &workflow.Step{ID: idstest.N(9), Attempt: step, Name: "implement"},
+			Workspace: t.TempDir(), Name: "apptown-step-00000000-0009-7000-8000-000000000000", RetryEmpty: true,
 		})
 	}
 	// The output was lost; the file holds the answer.
@@ -174,7 +175,7 @@ func TestAnInvocationWhoseUsageCannotBeRecordedStops(t *testing.T) {
 				}
 				result = r.piResult
 			} else {
-				result = a.piInvoke(t.Context(), piCall{Source: source, Step: step, Executor: execution.Local, Workspace: t.TempDir(), Name: "usage-write-test", RetryEmpty: true})
+				result = a.piInvoke(t.Context(), piCall{Source: source, Step: step, Workspace: t.TempDir(), Name: "usage-write-test", RetryEmpty: true})
 				if calls != 1 {
 					t.Fatalf("model ran %d times", calls)
 				}

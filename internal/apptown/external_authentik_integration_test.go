@@ -464,7 +464,7 @@ func TestIntegrationExternalSignInWithDisposableAuthentik(t *testing.T) {
 	}
 }
 
-func TestAuthentikConfigurationWaitsForRequiredBlueprints(t *testing.T) {
+func TestIntegrationAuthentikConfigurationWaitsForRequiredBlueprints(t *testing.T) {
 	var scopes, authentication atomic.Int32
 	var origin string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -523,7 +523,7 @@ func TestAuthentikConfigurationWaitsForRequiredBlueprints(t *testing.T) {
 	}
 }
 
-func TestAuthentikScopeObservationRejectsAmbiguousOrInvalidRecords(t *testing.T) {
+func TestIntegrationAuthentikScopeObservationRejectsAmbiguousOrInvalidRecords(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		body string
@@ -563,7 +563,7 @@ func TestAuthentikScopeObservationRejectsAmbiguousOrInvalidRecords(t *testing.T)
 	}
 }
 
-func TestAuthentikScopeObservationHonorsCancellation(t *testing.T) {
+func TestIntegrationAuthentikScopeObservationHonorsCancellation(t *testing.T) {
 	for _, status := range []int{http.StatusOK, http.StatusServiceUnavailable} {
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
@@ -586,7 +586,7 @@ func TestAuthentikScopeObservationHonorsCancellation(t *testing.T) {
 	}
 }
 
-func TestAuthentikProofUsesExactRunnerJob(t *testing.T) {
+func TestIntegrationAuthentikProofUsesExactRunnerJob(t *testing.T) {
 	got, err := authentikProofProject("/tmp/apptown-ci-proof-123")
 	if err != nil || got != "apptown-oidc-proof-proof-123" {
 		t.Fatalf("project=%q error=%v", got, err)
@@ -611,7 +611,7 @@ func TestAuthentikProofUsesExactRunnerJob(t *testing.T) {
 
 // The shell finalizer is the subject: exercise its actual argv, environment and
 // exit handling through a fake executable, rather than an in-process API fake.
-func TestAuthentikProofFinalizerSettlesOnlyItsExactJob(t *testing.T) {
+func TestIntegrationAuthentikProofFinalizerSettlesOnlyItsExactJob(t *testing.T) {
 	dir := t.TempDir()
 	fake := `#!/bin/sh
 set -eu
@@ -676,7 +676,7 @@ fi
 }
 
 // Stopped and failed inventories must cross the real shell process boundary.
-func TestAuthentikFinalizerDoesNotConfuseStoppedOrUnknownWithAbsent(t *testing.T) {
+func TestIntegrationAuthentikFinalizerDoesNotConfuseStoppedOrUnknownWithAbsent(t *testing.T) {
 	for _, mode := range []string{"stopped", "unknown"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()

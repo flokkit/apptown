@@ -14,5 +14,5 @@ func agentExecutionFor(a *App, process workflowexec.Process) *workflowexec.Execu
 		Adoption: a.Adoption, Integrations: a.Integrations, Secrets: a.Secrets, Catalog: a.Dependencies, Models: a.modelSelection, Capacity: a.capacity, Progress: &a.progress, Tokens: &a.runTok, Docker: &a.docker, Workshop: a.workshop, Instructions: a.steering, Home: piHomeFor(a), CLI: a.cli, Process: process, Ledger: a.Usage.Ledger, Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, Branches: a.branches, Panics: jobReporter{},
 		Worker: worker,
 		Tracer: a.telemetry.tracer, Meter: a.telemetry.meter, Links: a.telemetry.links, Now: a.cfg.clock.Now,
-	}, workflowexec.Config{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, Backend: a.cfg.agentExecutor, APIURL: a.cfg.consoleAPIURL, NoPrivateDocker: a.cfg.noPrivateDocker, PrivateDockerOnWorker: a.cfg.privateDocker})
+	}, workflowexec.Config{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, APIURL: a.cfg.consoleAPIURL, PrivateDocker: a.cfg.privateDocker})
 }

@@ -18,7 +18,8 @@ func NewProjectSettings(projects *project.Projects, access *identity.Service, li
 	return ProjectSettings{projects: projects, access: access, lifecycle: lifecycle}
 }
 
-// PatchProject edits settings; changing its address retains every old address.
+// PatchProject edits settings; changing its address moves the project, and the
+// old address names nothing afterwards.
 func (h ProjectSettings) PatchProject(w http.ResponseWriter, r *http.Request) {
 	if !RequireAdmin(h.access, w, r) {
 		return

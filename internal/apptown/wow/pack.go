@@ -17,7 +17,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	yamlv3 "gopkg.in/yaml.v3"
 )
 
@@ -50,10 +49,9 @@ type Pack struct {
 	// APIVersion optionally states the format (schema.APIVersion); absent
 	// is the same. It is checked when the pack is read or saved and never
 	// stored: stating it does not make a different publication.
-	APIVersion    string                    `yaml:"apiVersion,omitempty" json:"apiVersion,omitempty"`
-	Resources     appcontract.MemoryDefault `yaml:"resources,omitempty" json:"resources,omitzero"`
-	ID            ids.ID                    `yaml:"-" json:"-"`
-	LatestVersion int64                     `yaml:"-" json:"-"`
+	APIVersion    string `yaml:"apiVersion,omitempty" json:"apiVersion,omitempty"`
+	ID            ids.ID `yaml:"-" json:"-"`
+	LatestVersion int64  `yaml:"-" json:"-"`
 
 	Name        string `yaml:"name" json:"name"`
 	Description string `yaml:"description" json:"description"`
@@ -115,11 +113,10 @@ type PackDrop struct {
 // PackSpec is the stored shape (name and origin live in columns): the
 // declaration on the pack row, the resolved contents on a version.
 type PackSpec struct {
-	Resources appcontract.MemoryDefault `json:"resources,omitzero"`
-	Platform  bool                      `json:"platform,omitempty"`
-	Includes  string                    `json:"includes,omitempty"`
-	Replaces  map[string]string         `json:"replaces,omitempty"`
-	Drops     []PackDrop                `json:"drops,omitempty"`
+	Platform bool              `json:"platform,omitempty"`
+	Includes string            `json:"includes,omitempty"`
+	Replaces map[string]string `json:"replaces,omitempty"`
+	Drops    []PackDrop        `json:"drops,omitempty"`
 	// Clears names inherited setup fields (toolchain, tools, services) this pack
 	// sets to nothing; an omitted field is inherited.
 	Clears     []string             `json:"clears,omitempty"`
@@ -136,7 +133,7 @@ type PackSpec struct {
 
 // Spec is what the store keeps of the pack.
 func (p Pack) Spec() PackSpec {
-	return PackSpec{Resources: p.Resources, Platform: p.Platform, Includes: p.Includes, Replaces: p.Replaces, Drops: p.Drops, Clears: p.Clears,
+	return PackSpec{Platform: p.Platform, Includes: p.Includes, Replaces: p.Replaces, Drops: p.Drops, Clears: p.Clears,
 		Guidance: p.Guidance, Workflows: p.Workflows, Policies: p.Policies,
 		Toolchain: p.Toolchain, Tools: p.Tools, Services: p.Services, Extensions: p.Extensions, Requires: p.Requires}
 }
@@ -157,7 +154,7 @@ func packFrom(p PackRecord, spec string) (Pack, error) {
 		return pk, fmt.Errorf("pack %s: its stored spec cannot be read: %w", p.Name, err)
 	}
 	pk.Guidance, pk.Workflows, pk.Policies, pk.Toolchain, pk.Services, pk.Extensions, pk.Platform = ps.Guidance, ps.Workflows, ps.Policies, ps.Toolchain, ps.Services, ps.Extensions, ps.Platform
-	pk.Resources, pk.Tools = ps.Resources, ps.Tools
+	pk.Tools = ps.Tools
 	pk.Includes, pk.Replaces, pk.Drops, pk.Clears, pk.Starter, pk.Requires = ps.Includes, ps.Replaces, ps.Drops, ps.Clears, ps.Starter, ps.Requires
 	return pk, nil
 }

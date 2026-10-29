@@ -170,6 +170,7 @@ func TestARecheckChecksTheChatsNewCommit(t *testing.T) {
 		gittest.Run(t, w.folder, "-c", "user.name=t", "-c", "user.email=t@example.org", "commit", "-qm", value)
 	}
 	write("bad")
+	useScriptTasks(t, w.a, valueIs("good"))
 	defineWorkflows(t, w.a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "checks", OnEnter: []schema.Step{{Name: "catch-up", Uses: "reconcile"}}, Steps: []schema.Step{{Name: "verify", Uses: "script", With: map[string]any{"run": "test \"$(cat value.txt)\" = good"}}, {Name: "hold", Uses: "approval"}}}}}})
 	rebuildWork(t, w.a, func(deps *workflow.Dependencies) { deps.Runners = w.a.workDependencies().Runners })
 	w.a.Work.Stop()
@@ -215,7 +216,6 @@ func TestSomethingStillWritingTheFolderKeepsTheChangeHeld(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			a := agentTestApp(t)
-			a.cfg.agentExecutor = ExecutorDocker
 			daemon := newSurvivingContainers()
 			a.docker = docker.Scope{Client: daemon}
 			runID, stepID := admittedAgentStep(t, a, `{"prompt":"do it"}`)
@@ -245,6 +245,7 @@ func TestSomethingStillWritingTheFolderKeepsTheChangeHeld(t *testing.T) {
 func TestAWorkflowALandingCallsChecksItsCandidate(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	useScriptTasks(t, a, valueIs("candidate"))
 	run, source := reviewLanding(t, a, nil, map[string]string{"value.txt": "candidate\n"}, func(ids.ID) {
 		defineWorkflows(t, a,
 			workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "land", Version: 1}, Spec: schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "checks", Steps: []schema.Step{{Name: "call", Uses: "workflow/call", With: map[string]any{"workflow": "child"}}}}}}},

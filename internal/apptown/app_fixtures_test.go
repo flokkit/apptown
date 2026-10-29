@@ -34,9 +34,6 @@ func newApp(t *testing.T, db *database.DB, configs ...Config) *App {
 			cfg.DataDir = t.TempDir()
 		}
 	}
-	// A test AppTown is a developer's: its fixtures' script steps run on this
-	// host (-host-scripts), as they always have.
-	cfg.HostScripts = true
 	a := startApp(t, db, cfg)
 	// A test AppTown has a model, as one with a key added does: run
 	// admission refuses model work on one with none. A test about an AppTown

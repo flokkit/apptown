@@ -564,7 +564,7 @@ func TestAnIntranetOverrideRedeploysTheRunningBundleThroughPortainer(t *testing.
 	p := newPromotionTargets(t, false)
 	b := p.land(t)
 	if rel := p.releaseDefault(t); rel.State != Released {
-		t.Fatalf("the intranet release: %+v", rel)
+		t.Fatalf("the release: %+v", rel)
 	}
 	selected := p.chooseDefault(t)
 	configured, err := p.s.Deployments.ByID(t.Context(), selected.DeploymentID)
@@ -666,23 +666,28 @@ func (releaseDenied) Require(_ context.Context, p access.Permission) (access.Cal
 
 var errReleaseDenied = errors.New("no release grant")
 
-// An override of the intranet deployment needs the release grant, as an
-// intranet release does. Someone with only the deploy grant is refused,
+// An override of a protected deployment needs the release grant, as a
+// release to it does. Someone with only the deploy grant is refused,
 // and so is anyone when AppTown cannot read which target the deployment
 // is on: an authority input it cannot read never lowers the authority
 // asked. A refusal changes nothing: the override stands as it was, and no
 // act or release is recorded.
-func TestAnIntranetOverrideNeedsTheReleaseGrantEvenWhenItsTargetCannotBeRead(t *testing.T) {
+func TestAProtectedOverrideNeedsTheReleaseGrantEvenWhenItsTargetCannotBeRead(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	p.land(t)
-	if rel := p.releaseDefault(t); rel.State != Released {
-		t.Fatalf("the intranet release: %+v", rel)
-	}
+	// Production data makes the default deployment protected before its
+	// first release, as an ordinarily configured protected deployment is.
 	selected := p.chooseDefault(t)
 	configured, err := p.s.Deployments.ByID(t.Context(), selected.DeploymentID)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if configured, err = p.s.Deployments.EnsureStanding(t.Context(), p.project, configured.Name, configured.TargetID, Attributes{Feed: configured.Feed, Audience: configured.Audience, DataClass: "production"}); err != nil || !configured.Protected() {
+		t.Fatalf("protect the deployment: %+v %v", configured, err)
+	}
+	if rel := p.releaseDefault(t); rel.State != Released {
+		t.Fatalf("the protected release: %+v", rel)
 	}
 	ctx := context.Background()
 	if _, err := p.s.SetOverride(ctx, OverrideChange{ProjectID: p.project, Deployment: configured.Name, Part: "worker", Resources: appcontract.Resources{MemoryBytes: 512 << 20}, Reason: "set by someone who may"}); err != nil {

@@ -14,10 +14,9 @@ an AppTown secret; set it there, or with `apptown secret set <NAME> < file`.
 A Portainer target uses a saved connection and a verified endpoint. You can
 attach several connections and targets. After verification, changing an
 environment name cannot redirect the target: attach a new target for a different
-endpoint. An existing target without a verified association refuses provider
-operations until an administrator inspects and confirms its association through
-the target's provider-association API. Confirmation preserves existing ownership
-records and does not release restored-instance holds.
+endpoint. The intranet target configured for AppTown verifies its endpoint
+when AppTown starts; until it has, releases to it are refused and the target
+page says the endpoint is not observed.
 
 A project's deployments are made on the project's **Settings → Deployments**.
 What each kind runs, and what a deployment owns and deletes when taken

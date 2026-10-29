@@ -1173,11 +1173,12 @@ further cloud drivers are not built.
 
 ## Fresh-generation memory defaults
 
-Environment resolves positive memory defaults only for fresh container-backed
-execution, after the selected profile and operator overrides. Adoption supplies
-the primary pack's exact published version in one snapshot; Dependency supplies
-actual service-need catalogue defaults. Missing valid optional defaults fall
-back to 512M; unreadable owners/publications refuse execution. Supplied workflow
+A part's memory and CPU come from three levels, per field: the deployment's
+operator override, else what the app declares for its selected profile, else
+AppTown's default. Environment resolves that default only for fresh
+container-backed execution: 512M for a part, and for a service need its
+catalogue kind's size (Dependency), else 512M. An unreadable catalogue kind
+refuses execution. Packs declare no memory. Supplied workflow
 ServiceSpecs use their positive memory or AppTown fallback, with ambiguous
 assembled identities refused before effects. Their capped specs reach both local
 and worker admission before creation or preview replacement.
@@ -1382,43 +1383,18 @@ keeps earlier claims, because old traffic may still reach them. Confirmed deploy
 removal releases its claims in the removal settlement transaction. Unknown or
 failed teardown retains them.
 
-An upgraded deployment keeps its raw former project hostname, target domain and
-stored URL as evidence. Its address inventory starts unverified. An operator with
-configuration authority inspects the recorded stack through the target's verified
-connection and confirms the exact observed host rules and certificate domain.
-Confirmation rereads the provider, checks stack ownership and the expected local
-revisions, and records the observation with its receipt. It performs no remote
-write and does not lift a restored-copy hold. Unsupported rules, missing stacks,
-ambiguous ownership and changed observations refuse confirmation. The existing
-provider addresses remain unchanged.
-
 Historical duplicate claims retain every claimant, so no deployment wins by
 migration order. Conflicted hostnames refuse release until the conflicting
-resources are resolved. Unverified legacy inventories block acquisition of new
-custom hostnames; they do not block fresh UUID-generated addresses. Old pending
-release inputs without an address snapshot require a new release after the
-inventory is confirmed. Historical release records remain readable.
+resources are resolved. Historical release records remain readable.
 
-### Release preference setup and permission policy
+### Release permission
 
-A project with no recorded preference is different from one whose preference
-was explicitly cleared. A cleared preference stays cleared. Older installations
-can retain their configured release destination as an unverified setup choice,
-including its original deployment name. Conflicting or unavailable environment
-information requires an explicit choice; no provider is selected by list order.
-
-Setup records the standing placement, its promotion policy and the preferred
-UUID in one transaction. It requires current binding authority and, when adding
-a promotion requirement, promotion authority. It does not start a release. A
-later refused release leaves the saved preference visible as settings only.
-
-The explicit promotion requirement is separate from data classification.
-Changing it in either direction requires both binding and promotion authority,
-a current policy revision and an audit receipt. Named releases and redeploy overrides require
-deployment permission; protected data/audiences or explicit policy additionally
-require promotion permission. Queued execution retains the admitted requirement
-and also checks current policy. Relaxing policy cannot erase the gate of an
-already admitted request.
+Named releases and redeploy overrides require deployment permission. A
+protected deployment (production data, or a partners or public audience)
+additionally requires promotion permission. Admission records whether the
+locked deployment needed promotion permission, and queued execution requires it
+when either that record or the deployment's current classification does, so a
+later reclassification cannot erase the gate of an already admitted request.
 
 The tier map is a runtime view of current deployment placements, not the release
 ledger. Main and each customer standing deployment use their own target's runtime
@@ -1429,25 +1405,16 @@ removed placements no longer appear. A replacement under the same name has its
 own observation. Release numbers and historical addresses remain on the
 departures board, rather than implying present runtime state in the tier map.
 
-### Explicit release setup from clients
+### Releasing to the preference from clients
 
-The release page offers setup when no usable default is selected. Its setup form
-shows imported choices and customer environment labels, retains the revisions it
-started from, and saves the preference as a separate action. Saving setup does
-not start a release. If a later release is refused, the saved preference remains
-configured and the refusal is shown separately. A cleared preference is never
-refilled by reading the release page or requesting a release.
-
-`apptown release-setup <project>` reads the current preference and offered
-customer environments. `--target <UUID> --name <deployment> --save` explicitly
-saves setup without releasing; `--require-promotion` adds the promotion policy.
-An imported choice supplies only its recorded target and deployment name, and
-retains its required promotion policy. An unavailable imported target requires an
-explicit replacement. The command sends the default and target revisions it
-read, and reports a conflict instead of choosing a different environment.
+The release page explains when no usable preference is selected and points to
+the project's settings, where the preference is chosen among existing standing
+deployments. Reading the release page or requesting a release never fills a
+missing or cleared preference.
 
 `apptown release <project>` reads the selected default's plan and sends that
-revision with the release request. It never saves setup. A custom hostname also
+revision with the release request. It never chooses a preference; without one
+it refuses and names the deployment form of the command. A custom hostname also
 carries the displayed address revision. Both data-copy acknowledgements apply
 to default and named releases; customer labels are presentation, not identity.
 
@@ -1480,8 +1447,8 @@ capture their exact configured route before their public digest and worker reque
 are formed; domainless local previews have no configured origin. Existing admitted
 requests keep their captured bytes, and sealed rehearsals keep the source origin.
 Portainer apps use their admitted deployment ingress hosts. Fresh preparation
-intentionally removes prior wildcard trust of sibling projects; management aliases
-do not add application hosts.
+intentionally removes prior wildcard trust of sibling projects; changing a
+project's address does not add application hosts.
 
 ### App Platform readiness evidence
 

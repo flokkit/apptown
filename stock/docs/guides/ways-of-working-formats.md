@@ -89,16 +89,15 @@ project's own.
 `requires` names instance capabilities a project on the pack needs (a scanner);
 adopting the pack is refused until each is attached.
 
-A pack may declare `resources: {memory: 160Mi}` as the starting memory default (`M` and `G` are read as MiB and GiB there too)
-for an undeclared app part. Its immutable published version records that default;
-a project's primary adopted pack supplies it, never the latest recommendation.
-Included packs inherit it, an including declaration replaces it, and
-`clears: [resources]` removes the inherited default. A valid older version with no
-field supplies no default. CPU, environment and unlimited-memory choices are not
-pack resource defaults. The reusable declaration schema is
+A pack declares no memory. A part's memory and CPU come from its
+deployment's override, else what the app declares for its profile in
+`.apptown/app.yaml`, else AppTown's default; a pack's guidance can say what
+to declare. A dependency catalogue kind may declare
+`resources: {memory: 256M}` (`M` and `G` are read as MiB and GiB there) as
+the memory its local service gets when the app declares none, separate from
+need parameters. The declaration schema is
 `stock/docs/api/memory-default.schema.json`; the owner additionally validates the
-minimum (32 MiB) and numeric range. Catalogue kinds can use the same optional
-shape for their local service memory, separate from need parameters.
+minimum (32 MiB) and numeric range.
 
 ## Policies
 

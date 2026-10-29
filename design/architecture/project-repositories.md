@@ -43,7 +43,7 @@ not just calls to the locator.
 | Project hub directory | `projectlifecycle` initialization, seed, copy and purge; repository edits, source reads, exports, Git transport and deployments | Located by immutable project UUID through the owner; display/address changes do not move its hub. |
 | Change/run workspace directories | `workflow.GitWorkspace`, workflow sources, console admission and execution | Separate `change-<UUID>` and `run-<UUID>` identities; a hub is not a substitute for a writing workspace. |
 | Current workspace Git metadata | `workflow/workspace_git.go`, `gitexec/folder.go` | Full `--no-hardlinks` clones; origin is removed after clone. Hardened folder reads refuse gitdir/commondir pointers and alternates. Ordinary current clones do not borrow their hub's objects or retain its origin. |
-| Legacy linked-worktree metadata and local origins | Existing Git directories, read by Git when explicitly selected | Pointer files, hub `worktrees` metadata and local origin/alternate paths can retain absolute locations. They are distinct from today's standalone-clone contract; a location change must inspect them without pruning or discarding dirty work. Remote HTTPS/SSH origins are upstream attachment identity. |
+| Local origins | Console snapshot clones, read by Git when explicitly selected | A local origin path retains an absolute location; restore relocation rewrites it. Remote HTTPS/SSH origins are upstream attachment identity. |
 | Branch publication `repository` | `scm/publication.go`, `scm/schema.sql` | Persisted hub path used to inspect incomplete publications at startup. Active recovery rows are not merely historical display strings. |
 | Task invocation `workspace` | `tasks/schema.sql` and task/workflow execution | Persisted execution location; distinguish remote/backend-owned workspaces from local hub/change/run paths before any relocation. |
 | Console `session.json` checkout | `console.Service.Open`, console session recovery/resume/removal | Persisted host checkout path plus ownership flag. Change consoles borrow the change folder; isolated snapshots may be owned by the session. |
@@ -56,34 +56,36 @@ Historical log messages, human-facing labels and completed receipts are evidence
 not automatically active filesystem references. Local hub ownership, an upstream
 repository attachment, and a deployed app's serving address are distinct. Local repository relocation does not rename upstream repositories or change application addresses.
 
-## Offline layout transition
+## Data layout and restore relocation
 
-Layout 2 uses UUID hub directories. The daemon validates the layout marker before
-startup effects, takes its database exclusion, opens the supported schema, and
-runs `datalayout.Upgrade` before constructing the application. Verify-only startup
-performs this required transition too; application recovery, workers and
-scheduling remain disabled. Password reset does not hold the exclusion and
-refuses any incomplete layout transition.
+Layout 2 uses UUID hub directories; the data directory's `layout` file records
+it. Before any other startup effect, the daemon refuses a directory in another
+layout and marks one without a marker as layout 2 when it holds no
+`workspaces/project-*` entry, the only thing layouts place differently. This
+build does not move hubs between layouts; a directory from before layout 2 is
+upgraded by a release from 1.0.0-rc.9 to 1.0.0-rc.11.
 
-The journal binds project ownership, source/destination paths and content digests.
-All hub sources are staged before any destination is installed, including address
-cycles. Missing initialized hubs refuse; uninitialized and irreversible deletion
-ownership can preserve an intentional absence. Writer observation includes console
-sidecars/scripts and recorded task backends. Unknown ownership, unavailable
-observation, active writers and immutable task requests retaining affected local
-inputs refuse before relocation. Task requests and backend-owned workspace keys
-are never rewritten.
+A whole-AppTown restore into a path other than the archive's original data
+directory leaves absolute local references naming that original path. Under its
+database exclusion and before constructing the application, the daemon runs
+`datalayout.Relocate`, which journals and rewrites them: unfinished branch
+publication repositories, console checkout paths, and local Git remote URLs of
+change, run and console workspaces. Verify-only startup performs it too;
+application recovery, workers and scheduling remain disabled. Password reset
+does not hold the exclusion and refuses a pending relocation.
 
-The transition preserves dirty/staged/untracked working files. Identified linked
-Git metadata and same-project borrowed objects are staged into independent
-metadata; unsupported configuration or foreign dependencies refuse. Original
-metadata remains in a journal-owned evidence directory. Active publication and
-console paths use exact old/new updates; remote HTTPS/SSH origins and historical
-console records stay unchanged. Completion verifies main commits and destination
-repositories before writing layout 2. A completed journal remains until any
-restore continuation settles, then finalization records its receipt and removes
-active migration journals. Rollback uses the paired database/data backup, not an
-old binary against a partly relocated directory.
+The journal binds project ownership and the original and destination roots.
+Missing initialized hubs refuse; uninitialized and irreversible deletion
+ownership can preserve an intentional absence. Writer observation includes
+console sidecars/scripts and recorded task backends. Unknown ownership,
+unavailable observation, active writers and immutable task requests retaining
+affected local inputs refuse before relocation. Linked or borrowed Git metadata
+(a `.git` file, `commondir` or alternates) predates layout 2 and refuses. Task
+requests and backend-owned workspace keys are never rewritten; remote HTTPS/SSH
+origins and historical console records stay unchanged. Completion verifies the hub
+directories. A completed journal remains until the restore continuation
+settles, then finalization removes it. Rollback uses
+the paired database/data backup.
 
 ## Upstream identity
 

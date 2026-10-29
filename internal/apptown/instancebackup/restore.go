@@ -41,13 +41,14 @@ import (
 // once the archive's db.env is in place.
 type RestoreRequest struct {
 	DataDir string
-	// MaxLayoutVersion is the daemon's supported data layout, checked before DB effects.
-	MaxLayoutVersion int
-	Archive          string
-	Passphrase       string
-	Say              func(string) // each step as it starts; nil says nothing
-	Docker           docker.Scope
-	Database         BuiltinDatabase
+	// LayoutVersion is the daemon's data layout, the only one it restores,
+	// checked before DB effects.
+	LayoutVersion int
+	Archive       string
+	Passphrase    string
+	Say           func(string) // each step as it starts; nil says nothing
+	Docker        docker.Scope
+	Database      BuiltinDatabase
 }
 
 // Restore unpacks and loads an archive, and says what it held. Anything
@@ -81,7 +82,7 @@ func Restore(ctx context.Context, in RestoreRequest) (*Manifest, error) {
 		return nil, err
 	}
 
-	if err := recordRestoreLayout(in.DataDir, in.MaxLayoutVersion); err != nil {
+	if err := checkRestoreLayout(in.DataDir, in.LayoutVersion); err != nil {
 		return nil, err
 	}
 	if err := syncRestoredFiles(in.DataDir); err != nil {

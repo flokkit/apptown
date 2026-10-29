@@ -41,7 +41,6 @@ import (
 type piCall struct {
 	Source    workflow.Source
 	Step      *workflow.Step
-	Executor  string
 	Image     string
 	Workspace string
 	Args      []string // pi's argv after "pi"
@@ -100,10 +99,7 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		}
 		amb := agentenv.AmbientFor(bound, c.Workspace)
 		var mounts []string
-		var files []execution.File
-		if c.Executor == execution.Docker {
-			files = amb.Files // written beside the step's folder, never in it
-		}
+		files := amb.Files // written beside the step's folder, never in it
 		env := append(append([]string{}, c.Env...), amb.Env...)
 		if cli, err := a.cli.Path(); err == nil {
 			mounts = append(mounts, cli+":"+agentenv.CLIDir+"/apptown:ro")
@@ -125,14 +121,11 @@ func (a *Executor) piInvoke(ctx context.Context, c piCall) piResult {
 		// Every invocation of a step, whether a retry, a review's wrap-up or
 		// a re-run after an empty turn, waits until no earlier agent of the
 		// step is still there: they would share the step's folder.
-		inContainer := c.Executor == execution.Docker
-		if inContainer {
-			if err := a.stepAgentsGone(ctx, c.Step.ID, dockerlabel.Class+"=step"); err != nil {
-				r = piResult{Outcome: execution.Outcome{RunErr: err}, Tries: tries}
-				break
-			}
+		if err := a.stepAgentsGone(ctx, c.Step.ID, dockerlabel.Class+"=step"); err != nil {
+			r = piResult{Outcome: execution.Outcome{RunErr: err}, Tries: tries}
+			break
 		}
-		out := a.process.Run(ctx, c.Executor, execution.Request{
+		out := a.process.Run(ctx, execution.Docker, execution.Request{
 			Workspace: c.Workspace,
 			Argv:      argv,
 			Env:       env,

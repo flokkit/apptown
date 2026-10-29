@@ -12,11 +12,8 @@ With a worker configured, AppTown is **isolated for script steps, tests
 steps, agent and review steps, checks and change previews**, and for change
 chats (see the sections on each below):
 
-- A script step with `executor: docker` runs on the worker's own Docker
-  daemon, in the image the step names.
-- A script step with `executor: local` (the default for scripts) is refused
-  with "this apptown runs scripts only on its worker". Give such steps
-  `executor: docker` and an image.
+- A script step runs on the worker's own Docker daemon, in the image the
+  step names.
 - A script step on a project with registry bindings runs on the worker with
   its registry configuration. AppTown generates the configuration files
   (mise's system configuration, the cargo configuration, maven's and
@@ -687,15 +684,15 @@ it needs is read from its admitted workflow and from the commit it would be
 given, never from AppTown's folder; a declaration that cannot be read
 refuses the step too.
 - private Docker (the step declares `docker: true`) on an AppTown started
-  without `-private-docker`: "private Docker on a worker is the operator's
-  opt-in: start AppTown with -private-docker" (see "Private Docker on the
-  worker"). Services and the app's needs need no opt-in. An AppTown started
-  with both `-private-docker` and `-no-private-docker` refuses to start;
+  with `-private-docker=false`: "this step declares private Docker (docker:
+  true), and this AppTown was started with -private-docker=false" (see
+  "Private Docker on the worker"). Services and the app's needs are
+  admitted either way;
 - source-control access (`scm:`): today's token covers the whole project,
   lasts 72 hours and, with the write profile, can push outside AppTown's
   publication. A worker would hold it after the step ended;
-- an image other than the worker's, or an executor other than `docker`: the
-  worker runs only its own agent image;
+- an image other than the worker's: the worker runs only its own agent
+  image;
 - a project without a repository.
 
 
@@ -792,10 +789,12 @@ beside it on a network of its own, reached by name; the daemon is `dind`
 on that network (`DOCKER_HOST=tcp://dind:2375`), with a buildx builder,
 `apptown`, and the worker's resolvers and AppTown's Docker Hub mirror.
 
-**It is an opt-in.** Start AppTown with `-private-docker` (or
-`APPTOWN_PRIVATE_DOCKER=true`). Without it, a step declaring `docker: true`
-is refused on the worker with "private Docker on a worker is the
-operator's opt-in: start AppTown with -private-docker".
+**One setting turns it off.** `-private-docker` (`APPTOWN_PRIVATE_DOCKER`)
+is on by default; `-private-docker=false` refuses a step declaring
+`docker: true`, here or on a worker, gives change chats no daemon and
+refuses release builds. The privileged daemon is not a strong boundary
+(agent-sandbox.md); the same setting covers AppTown's own host and the
+worker, so turning it off is one decision for the installation.
 
 **What an attempt records.** Every attempt admitted with private Docker
 or services records the worker's profile (`workerProfile`) as the worker
@@ -1133,7 +1132,8 @@ the boot. The bundle names the Docker host where the worker would be. A
 worker changes where a release is built, not what it produces.
 
 **What it needs.**
-- AppTown started with `-private-docker`, and a worker.
+- A worker, and private Docker not turned off (`-private-docker`, on by
+  default).
 - A container registry for each shipping project: the one
   container-registry connector AppTown has, which a project's first
   landing attaches when it has none, or a registry attached to the project
@@ -1150,7 +1150,7 @@ registry attached and no single connector to attach ("this project has no
 container registry for its releases, and no container-registry connector
 is offered …" or "… several container-registry connectors are offered (a,
 b); attach the one <slug> publishes to …"), a connector credential the
-secrets store does not hold, no `-private-docker`, `main` not on a Docker host
+secrets store does not hold, `-private-docker=false`, `main` not on a Docker host
 ("a landing deploys to a Docker host … promote to <kind>"), and an
 unknown or mismatched platform.
 
@@ -1248,7 +1248,8 @@ worker:
 3. Check that every target can pull from that registry: its TLS
    certificate is trusted by each Docker host's daemon, and the hosts can
    reach it.
-4. Upgrade or start AppTown with `-private-docker` and the worker. The
+4. Upgrade or start AppTown with the worker (and private Docker not
+   turned off). The
    first landing of each project is its check: a missing connector, an
    unheld secret or an unreachable registry fails the deploy step before
    any effect on `main`.

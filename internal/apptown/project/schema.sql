@@ -1,10 +1,3 @@
--- Assigned AppTown addresses are permanent: purging a project does not free them.
--- A null project is a historical reservation whose owner cannot be established.
-CREATE TABLE IF NOT EXISTS project_addresses (
-  address TEXT PRIMARY KEY CHECK (address ~ '^[a-z0-9][a-z0-9-]*$'),
-  project_id UUID,
-  UNIQUE (address, project_id)
-);
 CREATE TABLE IF NOT EXISTS projects (
   id UUID PRIMARY KEY,
   slug           TEXT NOT NULL UNIQUE,
@@ -27,8 +20,7 @@ CREATE TABLE IF NOT EXISTS projects (
   -- owners ask Project what the purpose allows (project/purpose.go).
   purpose TEXT NOT NULL DEFAULT 'ordinary' CONSTRAINT projects_purpose CHECK (purpose IN ('ordinary','eval-copy')),
   -- Captured at creation; independent of the mutable AppTown navigation address.
-  serving_label TEXT NOT NULL CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$') CONSTRAINT projects_serving_label_unique UNIQUE,
-  CONSTRAINT projects_address_owner FOREIGN KEY (slug,id) REFERENCES project_addresses(address,project_id) DEFERRABLE INITIALLY DEFERRED
+  serving_label TEXT NOT NULL CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$') CONSTRAINT projects_serving_label_unique UNIQUE
 );
 -- A project that is not active (design/subsystems/project-deletion.md): no
 -- row is active. Importing and deleting refuse new work; deleted is kept,
@@ -89,15 +81,6 @@ CREATE TABLE IF NOT EXISTS project_creation_requests (
   project_id UUID NOT NULL,
   input_hash TEXT,
   resolved_group TEXT,
-  result_json JSONB,
-  UNIQUE (actor_id, request_id)
-);
-CREATE TABLE IF NOT EXISTS project_rename_requests (
-  id UUID PRIMARY KEY,
-  actor_id UUID NOT NULL,
-  request_id UUID NOT NULL,
-  project_id UUID NOT NULL,
-  input_hash TEXT NOT NULL,
   result_json JSONB,
   UNIQUE (actor_id, request_id)
 );

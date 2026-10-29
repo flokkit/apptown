@@ -6,13 +6,14 @@ work or start workers.
 
 ## Startup
 
-1. Read any durable restore continuation and validate the data layout before
-   startup effects. An incomplete extraction/database load refuses ordinary
-   startup. Under database exclusion, open/migrate the database, then finish the
-   checked UUID repository layout transition before application construction.
-   Verify-only mode performs these upgrades; it is not a dry run. A loaded restore
-   finishes its layout and restore bookkeeping, clears its continuation under the
-   same exclusion, finalizes the layout journal and exits without normal recovery.
+1. Read any durable restore continuation and check the data layout before
+   startup effects; a new data directory is marked with the current layout.
+   An incomplete extraction/database load refuses ordinary startup. Under
+   database exclusion, open/migrate the database, then relocate a restore into
+   another path before application construction. Verify-only mode performs
+   these steps; it is not a dry run. A loaded restore finishes its relocation
+   and restore bookkeeping, clears its continuation under the same exclusion,
+   finalizes the relocation journal and exits without normal recovery.
 2. In normal writable mode, run required database repair before provider recovery,
    execution resumption or request serving. Seed and verify-only modes skip repair.
 3. Repair interrupted steps and reviews, and releases without durable deployment

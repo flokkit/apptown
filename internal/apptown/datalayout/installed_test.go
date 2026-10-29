@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,9 +43,12 @@ func installedProject(t *testing.T) (*database.DB, string, project.Project, stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := t.TempDir()
-	hub := filepath.Join(root, "workspaces", "project-original")
+	root := filepath.Join(t.TempDir(), "original")
+	hub := filepath.Join(root, "workspaces", "project-"+id.String())
 	if err := os.MkdirAll(hub, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "layout"), []byte("2\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	git := func(args ...string) string {
@@ -69,20 +73,25 @@ func installedProject(t *testing.T) (*database.DB, string, project.Project, stri
 	return db, root, owner, git("rev-parse", "HEAD")
 }
 
-func TestUpgradeKeepsDatabaseEvidenceMainAndUnownedDirectories(t *testing.T) {
-	db, root, owner, head := installedProject(t)
-	foreign := filepath.Join(root, "workspaces", "project-unowned")
-	if err := os.Mkdir(foreign, 0o700); err != nil {
+// restoredInto moves an installation's data directory to another path, as a
+// whole-AppTown restore into a different destination leaves it.
+func restoredInto(t *testing.T, original string) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "restored")
+	if err := os.Rename(original, root); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(foreign, "unowned"), []byte("preserve"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	return root
+}
+
+func TestRelocationKeepsDatabaseEvidenceAndMain(t *testing.T) {
+	db, original, owner, head := installedProject(t)
+	root := restoredInto(t, original)
 	before, err := dbtest.Snapshot(t.Context(), db, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Upgrade(t.Context(), db, root, root, "instance", Observers{}); err != nil {
+	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}); err != nil {
 		t.Fatal(err)
 	}
 	after, err := dbtest.Snapshot(t.Context(), db, nil)
@@ -97,18 +106,17 @@ func TestUpgradeKeepsDatabaseEvidenceMainAndUnownedDirectories(t *testing.T) {
 	if err != nil || got != head {
 		t.Fatalf("main changed: %s %v", got, err)
 	}
-	if _, err := os.Stat(filepath.Join(root, "workspaces", "project-original")); !os.IsNotExist(err) {
-		t.Fatalf("old slug location remains: %v", err)
-	}
-	raw, err := os.ReadFile(filepath.Join(foreign, "unowned"))
-	if err != nil || string(raw) != "preserve" {
-		t.Fatalf("unowned data changed: %q %v", raw, err)
-	}
 	if version, err := ReadVersion(root); err != nil || version != Version {
-		t.Fatalf("completion marker: %d %v", version, err)
+		t.Fatalf("layout marker: %d %v", version, err)
 	}
-	if err := Upgrade(t.Context(), nil, root, root, "instance", Observers{}); err != nil {
-		t.Fatalf("completed layout not idempotent: %v", err)
+	if err := Relocate(t.Context(), nil, root, original, "instance", Observers{}); err != nil {
+		t.Fatalf("completed relocation not idempotent: %v", err)
+	}
+	if err := Finalize(root, "instance"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Relocate(t.Context(), nil, root, root, "instance", Observers{}); err != nil {
+		t.Fatalf("an ordinary start did work: %v", err)
 	}
 }
 
@@ -121,10 +129,10 @@ func (o installedConsoleObserver) Status(context.Context, string) (console.Statu
 	return o.status, nil
 }
 
-func TestSurvivingConsoleSidecarRefusesBeforeLayoutIntent(t *testing.T) {
-	db, root, owner, _ := installedProject(t)
-	checkout := filepath.Join(root, "console", "checkout-owned")
-	recordDir := filepath.Join(root, "console", "chat")
+func TestSurvivingConsoleSidecarRefusesBeforeRelocationIntent(t *testing.T) {
+	db, original, owner, _ := installedProject(t)
+	checkout := filepath.Join(original, "console", "checkout-owned")
+	recordDir := filepath.Join(original, "console", "chat")
 	for _, path := range []string{checkout, recordDir} {
 		if err := os.MkdirAll(path, 0o700); err != nil {
 			t.Fatal(err)
@@ -135,49 +143,46 @@ func TestSurvivingConsoleSidecarRefusesBeforeLayoutIntent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	record := filepath.Join(recordDir, console.MetaFile)
-	if err := os.WriteFile(record, raw, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(recordDir, console.MetaFile), raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err = Upgrade(t.Context(), db, root, root, "instance", Observers{Local: installedConsoleObserver{status: console.Status{SidecarRunning: true}}})
+	root := restoredInto(t, original)
+	record := filepath.Join(root, "console", "chat", console.MetaFile)
+	err = Relocate(t.Context(), db, root, original, "instance", Observers{Local: installedConsoleObserver{status: console.Status{SidecarRunning: true}}})
 	if err == nil {
 		t.Fatal("absent primary hid surviving sidecar")
 	}
-	for _, name := range []string{journalName, "repository-layout.json", "layout"} {
-		if _, err := os.Lstat(filepath.Join(root, name)); !os.IsNotExist(err) {
-			t.Fatalf("refusal wrote %s: %v", name, err)
-		}
+	if _, err := os.Lstat(filepath.Join(root, journalName)); !os.IsNotExist(err) {
+		t.Fatalf("refusal wrote its journal: %v", err)
 	}
 	after, err := os.ReadFile(record)
 	if err != nil || string(after) != string(raw) {
 		t.Fatal("refusal changed console record")
 	}
-	if _, err := os.Stat(filepath.Join(root, "workspaces", "project-original")); err != nil {
-		t.Fatal("refusal moved source", err)
-	}
-	if err := Upgrade(t.Context(), db, root, root, "instance", Observers{Local: installedConsoleObserver{}}); err != nil {
+	if err := Relocate(t.Context(), db, root, original, "instance", Observers{Local: installedConsoleObserver{}}); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestInitializedMissingRepositoryRefusesWithoutCreatingAnEmptyReplacement(t *testing.T) {
-	db, root, owner, _ := installedProject(t)
-	if err := os.RemoveAll(filepath.Join(root, "workspaces", "project-original")); err != nil {
+	db, original, owner, _ := installedProject(t)
+	root := restoredInto(t, original)
+	if err := os.RemoveAll(filepath.Join(root, "workspaces", "project-"+owner.ID.String())); err != nil {
 		t.Fatal(err)
 	}
-	if err := Upgrade(t.Context(), db, root, root, "instance", Observers{}); err == nil {
+	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}); err == nil {
 		t.Fatal("initialized missing repository accepted")
 	}
-	for _, name := range []string{journalName, "layout", filepath.Join("workspaces", "project-"+owner.ID.String())} {
+	for _, name := range []string{journalName, filepath.Join("workspaces", "project-"+owner.ID.String())} {
 		if _, err := os.Lstat(filepath.Join(root, name)); !os.IsNotExist(err) {
 			t.Fatalf("refusal created %s: %v", name, err)
 		}
 	}
 }
 
-func TestPublicationRelocationResumesAfterDatabaseFailureWithoutReplayingMovedSources(t *testing.T) {
-	db, root, owner, head := installedProject(t)
-	hub := filepath.Join(root, "workspaces", "project-original")
+func TestPublicationRelocationResumesAfterDatabaseFailure(t *testing.T) {
+	db, original, owner, head := installedProject(t)
+	hub := filepath.Join(original, "workspaces", "project-"+owner.ID.String())
 	if _, err := gitexec.HubRun(t.Context(), hub, "branch", "work"); err != nil {
 		t.Fatal(err)
 	}
@@ -196,24 +201,19 @@ func TestPublicationRelocationResumesAfterDatabaseFailureWithoutReplayingMovedSo
 	if err != nil || len(before) != 1 {
 		t.Fatalf("pending publication: %+v %v", before, err)
 	}
+	root := restoredInto(t, original)
 	restore = db.FailNextStatement("-- name: RelocatePublication")
-	err = Upgrade(t.Context(), db, root, root, "instance", Observers{})
+	err = Relocate(t.Context(), db, root, original, "instance", Observers{})
 	restore()
 	if err == nil {
 		t.Fatal("database relocation failure hidden")
 	}
-	if _, err := os.Stat(hub); !os.IsNotExist(err) {
-		t.Fatalf("fixture did not reach post-move failure: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(root, "layout")); !os.IsNotExist(err) {
-		t.Fatalf("failed transition stamped completion: %v", err)
-	}
-	if err := Upgrade(t.Context(), db, root, root, "instance", Observers{}); err != nil {
-		t.Fatalf("resume replayed stale source fingerprints: %v", err)
+	if err := Relocate(t.Context(), db, root, original, "instance", Observers{}); err != nil {
+		t.Fatalf("relocation did not resume: %v", err)
 	}
 	after, err := scm.PublicationLocationsIn(t.Context(), db)
 	if err != nil || len(after) != 1 {
-		t.Fatalf("publication after migration: %+v %v", after, err)
+		t.Fatalf("publication after relocation: %+v %v", after, err)
 	}
 	expected := before[0]
 	expected.Repository = filepath.Join(root, "workspaces", "project-"+owner.ID.String())
@@ -227,27 +227,9 @@ func TestPublicationRelocationResumesAfterDatabaseFailureWithoutReplayingMovedSo
 	if err := RequireCurrent(root); err == nil {
 		t.Fatal("unlocked command accepted pending completion journal")
 	}
-	// AfterRestore has settled and its intent was removed. The original-root
-	// input is now unavailable; only the completed journal can finish cleanup.
-	j, _, err := readJournal(root, "instance")
-	if err != nil {
-		t.Fatal(err)
-	}
-	j.OriginalRoot = "/archived-installation"
-	for index := range j.Inventory.References {
-		relative, err := filepath.Rel(root, j.Inventory.References[index].Before)
-		if err != nil {
-			t.Fatal(err)
-		}
-		j.Inventory.References[index].Before = filepath.Join(j.OriginalRoot, relative)
-	}
-	for index := range j.Inventory.Publications {
-		j.Inventory.Publications[index].Before.Repository = filepath.Join(j.OriginalRoot, "workspaces", "project-original")
-	}
-	if err := j.save(); err != nil {
-		t.Fatal(err)
-	}
-	if err := Upgrade(t.Context(), nil, root, root, "instance", Observers{}); err != nil {
+	// AfterRestore has settled and its intent was removed: a restart passes
+	// this root as the original one; only the completed journal remains.
+	if err := Relocate(t.Context(), nil, root, root, "instance", Observers{}); err != nil {
 		t.Fatalf("complete journal could not finish after restore intent removal: %v", err)
 	}
 	if err := Finalize(root, "instance"); err != nil {
@@ -258,5 +240,46 @@ func TestPublicationRelocationResumesAfterDatabaseFailureWithoutReplayingMovedSo
 	}
 	if _, found, err := readJournal(root, "instance"); err != nil || found {
 		t.Fatalf("completion journal retained: %v %v", found, err)
+	}
+}
+
+// AppTown makes standalone clones; linked or borrowed Git metadata predates
+// layout 2 and is refused before any relocation intent, not converted.
+func TestLinkedOrBorrowedWorkspaceMetadataRefusesBeforeRelocationIntent(t *testing.T) {
+	for _, tc := range []struct{ name, file string }{
+		{"linked", ".git"},
+		{"borrowed", filepath.Join(".git", "objects", "info", "alternates")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db, original, owner, _ := installedProject(t)
+			checkout := filepath.Join(original, "console", "checkout-owned")
+			metadata := filepath.Join(checkout, tc.file)
+			if err := os.MkdirAll(filepath.Dir(metadata), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(metadata, []byte("elsewhere\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			recordDir := filepath.Join(original, "console", "chat")
+			if err := os.MkdirAll(recordDir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			meta := console.Meta{ID: "chat", Scope: conversation.Key(owner.ID, ids.Nil), Labels: conversation.LabelsFor(&owner, nil), Checkout: checkout, OwnsCheckout: true, LastUsed: time.Now()}
+			raw, err := json.Marshal(meta)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(recordDir, console.MetaFile), raw, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			root := restoredInto(t, original)
+			err = Relocate(t.Context(), db, root, original, "instance", Observers{Local: installedConsoleObserver{}})
+			if err == nil || !strings.Contains(err.Error(), "does not relocate") {
+				t.Fatalf("pre-layout-2 metadata accepted: %v", err)
+			}
+			if _, err := os.Lstat(filepath.Join(root, journalName)); !os.IsNotExist(err) {
+				t.Fatalf("refusal wrote its journal: %v", err)
+			}
+		})
 	}
 }

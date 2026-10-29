@@ -35,8 +35,8 @@ type ReleaseBuilds struct {
 	// Tasks is the task runner whose driver is the worker's
 	// (ReleaseTaskDriver).
 	Tasks *TaskRunner
-	// PrivateDocker is apptownd -private-docker: the operator's opt-in to
-	// private Docker on the worker, which a release build needs.
+	// PrivateDocker is apptownd -private-docker: a release build needs
+	// private Docker on the worker.
 	PrivateDocker bool
 }
 
@@ -119,7 +119,7 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 		return nil, false
 	}
 	if !a.builds.PrivateDocker {
-		releaseRefused(task, "a release is built in private Docker on the worker, which is the operator's opt-in: start AppTown with -private-docker")
+		releaseRefused(task, "a release is built in private Docker on the worker, and this AppTown was started with -private-docker=false")
 		return nil, false
 	}
 	profile, err := driver.Profile(ctx)

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestWorkAddressAliasesFilterByPermanentProjectIdentity(t *testing.T) {
+func TestWorkAddressFilterReadsTheCurrentAddress(t *testing.T) {
 	t.Parallel()
 	q, root, _ := activityFixture(t)
 	ctx := t.Context()
@@ -22,17 +22,17 @@ func TestWorkAddressAliasesFilterByPermanentProjectIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := newService(q.db, allowProject(root.ProjectID), Runtime{})
-	for _, address := range []string{before.Slug, next} {
-		rows, err := s.Runs(ctx, RunQuery{ProjectSlug: address})
-		if err != nil || len(rows) != 1 || rows[0].ID != root.ID || rows[0].ProjectSlug != next {
-			t.Fatalf("address %q: %+v %v", address, rows, err)
+	rows, err := s.Runs(ctx, RunQuery{ProjectSlug: next})
+	if err != nil || len(rows) != 1 || rows[0].ID != root.ID || rows[0].ProjectSlug != next {
+		t.Fatalf("current address: %+v %v", rows, err)
+	}
+	for _, address := range []string{before.Slug, "missing-address"} {
+		if rows, err := s.Runs(ctx, RunQuery{ProjectSlug: address}); err != nil || len(rows) != 0 {
+			t.Fatalf("address %q names no project, but listed: %+v %v", address, rows, err)
 		}
 	}
-	if rows, err := s.Runs(ctx, RunQuery{ProjectSlug: "missing-address"}); err != nil || len(rows) != 0 {
-		t.Fatalf("missing became unfiltered: %+v %v", rows, err)
-	}
-	restore := q.db.FailNextStatement("-- name: ProjectIDByAddress")
-	rows, err := s.Runs(ctx, RunQuery{ProjectSlug: before.Slug})
+	restore := q.db.FailNextStatement("-- name: ProjectIDBySlug")
+	rows, err = s.Runs(ctx, RunQuery{ProjectSlug: next})
 	restore()
 	if err == nil || rows != nil {
 		t.Fatalf("failed identity read became list: %+v %v", rows, err)

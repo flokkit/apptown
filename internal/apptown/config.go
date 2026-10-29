@@ -80,12 +80,11 @@ type Config struct {
 	// HostAddresses snapshots trusted local proxy addresses at construction.
 	// Nil discovers local interfaces; an empty slice disables host discovery.
 	// Loopback and TrustedProxies remain trusted. Address bytes are copied.
-	HostAddresses   []net.IP
-	NoPrivateDocker bool
-	// PrivateDocker admits private Docker (docker: true) for agent steps on
-	// a worker: the operator's opt-in. Each attempt records the worker's
-	// measured profile (design/operations/workers.md, "Private Docker on
-	// the worker").
+	HostAddresses []net.IP
+	// PrivateDocker gives agent steps that declare private Docker (docker:
+	// true), change chats and release builds a private Docker daemon, on
+	// this host or a worker (apptownd -private-docker, on by default).
+	// False refuses them all.
 	PrivateDocker bool
 	// NoLocalDocker runs AppTown with no local Docker daemon and no
 	// project process on its own host (-no-local-docker): its own Docker
@@ -113,7 +112,6 @@ type Config struct {
 	AuthMode        string
 	AuthHeader      string
 	AuthProxySecret string
-	AgentExecutor   string
 	AgentImage      string
 	// AgentContext is the agent image's build context, relative to the
 	// AppTown's working directory: AppTown builds it, and a worker's image
@@ -137,10 +135,6 @@ type Config struct {
 	// execution defaults: no container runs unbounded.
 	TaskLimits execution.Limits
 	ChatLimits execution.Limits
-	// HostScripts lets a script step with `executor: local` run as a process
-	// on this host (-host-scripts). Off, a project's script runs only in a
-	// container.
-	HostScripts bool
 	// Worker, when set, is the apptown-worker that runs this installation's
 	// script tasks (design/operations/workers.md). The installation is then
 	// isolated: script steps run only on the worker, never on AppTown's own
@@ -200,18 +194,17 @@ type configuration struct {
 	verifyOnly, usingBuiltinDB                     bool
 	dbURL                                          string
 	seeding                                        projectlifecycle.Seeding
-	noPrivateDocker, privateDocker, noLocalDocker  bool
+	privateDocker, noLocalDocker                   bool
 	dataDir, publicHost, listenAddr, consoleAPIURL string
 	publicHostScheme                               string // as -public-host stated it; empty for a bare name
 	restoreGateImage                               string
 	sshConfigPath                                  string
 	consoleCLI                                     string
 	authMode, authHeader, authProxySecret          string
-	agentExecutor, agentImage                      string
+	agentImage                                     string
 	agentContext                                   string
 	disableReap                                    bool
 	taskLimits, chatLimits                         execution.Limits
-	hostScripts                                    bool
 	localTLS                                       *console.LocalTLS
 	tierDomains                                    map[string]tierDomain
 	proxies                                        proxyPolicy
@@ -250,18 +243,6 @@ func (c Config) prepare() (configuration, error) {
 	case "internal", "trusted-header":
 	default:
 		return configuration{}, fmt.Errorf("unknown -auth mode %q (open | internal | trusted-header)", c.AuthMode)
-	}
-	switch c.AgentExecutor {
-	case "":
-		c.AgentExecutor = ExecutorDocker
-	case ExecutorDocker, ExecutorLocal:
-	default:
-		return configuration{}, fmt.Errorf("unknown -agent-executor %q (%s | %s)", c.AgentExecutor, ExecutorDocker, ExecutorLocal)
-	}
-	// Admitting and refusing private Docker at once has no meaning; neither
-	// flag is allowed to win silently.
-	if c.PrivateDocker && c.NoPrivateDocker {
-		return configuration{}, fmt.Errorf("-private-docker and -no-private-docker contradict each other; give at most one")
 	}
 	if c.AgentContext == "" {
 		c.AgentContext = "deploy/apptown-agent"
@@ -302,10 +283,10 @@ func (c Config) prepare() (configuration, error) {
 		}
 		worker.Now = clock.Now
 	}
-	return configuration{stock: c.Stock, clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, dbURL: c.DBURL, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
+	return configuration{stock: c.Stock, clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, dbURL: c.DBURL, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
-		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, disableReap: c.DisableReap,
-		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits), hostScripts: c.HostScripts,
+		agentImage: c.AgentImage, agentContext: c.AgentContext, disableReap: c.DisableReap,
+		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits),
 		tierDomains: tiers, proxies: proxyPolicy{networks: parseCIDRs(c.TrustedProxies)},
 		inferenceURL: c.InferenceURL, inferenceNetworks: networks, otlpEndpoint: strings.TrimSpace(c.OTLPEndpoint), otlpProtocol: strings.ToLower(strings.TrimSpace(c.OTLPProtocol))}, nil
 }

@@ -228,7 +228,7 @@ func (t *browserTerminal) Write(p []byte) (int, error) {
 // weeks of use, built through its HTTP API and owners (tourScene, below)
 // and photographed by Playwright in both themes. The example uses records the owners wrote; the camera substitutes a
 // plausible disk reading and the conversations are recorded examples. The checks are
-// the projects' own scripts, run for real on this host (HostScripts, and
+// the projects' own scripts, run for real on this host (tourScript, and
 // the local shell for the conformance review's checks: the tour has no
 // Docker; checks that need a tool's image or a model say they could not
 // run). The chats are recorded transcripts on the console's fake agent,
@@ -269,7 +269,7 @@ func TestTour(t *testing.T) {
 		return "", nil, false
 	}
 	a, h := internalApp(t, Config{DataDir: dataDir, PublicHost: "apptown.localhost:" + port, TierDomains: []string{"preview=preview.localhost"},
-		DockerClient: daemon, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), HostScripts: true,
+		DockerClient: daemon, ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t),
 		InferenceURL: "http://worker.test:7779", InferenceNetworks: []string{"127.0.0.1/32"}})
 	// The scene's two weeks end yesterday: AppTown's clock starts at
 	// midnight UTC fourteen days back, the scene moves it forward act by
@@ -289,6 +289,7 @@ func TestTour(t *testing.T) {
 	// Work, stopped by that rewiring, is built again with the tour's
 	// landing workflow.
 	tourChecks(t, a)
+	useScriptTasks(t, a, tourScript)
 	defineWorkflows(t, a, tourWorkflow)
 
 	const password = "tour-password-not-secret"
@@ -783,8 +784,8 @@ func (l *piLog) bytes() []byte {
 var tourWorkflow = workflow.PreparedRun{
 	Workflow: workflow.DefinitionRef{Name: "tour-land", Version: 1},
 	Spec: schema.Spec{Kind: "lifecycle", Role: "landing", Stages: []schema.Stage{{Name: "check", Steps: []schema.Step{
-		{Name: "tests", Uses: "script", With: map[string]any{"run": "sh checks/tests.sh", "executor": "local"}},
-		{Name: "style", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "executor": "local"}},
+		{Name: "tests", Uses: "script", With: map[string]any{"run": "sh checks/tests.sh", "env": map[string]any{tourCheckEnv: "checks/tests.sh"}}},
+		{Name: "style", Uses: "script", With: map[string]any{"run": "sh checks/style.sh", "env": map[string]any{tourCheckEnv: "checks/style.sh"}}},
 		{Name: "accept", Uses: "approval", With: map[string]any{"means": "I have read what changed and the checks, and it does what the change says."}},
 	}}}},
 }
@@ -1059,12 +1060,31 @@ func tourChecks(t *testing.T, a *App) {
 				refusal := "the tour has no Docker to run " + req.Image
 				return ExecOutcome{Output: []byte(refusal), RunErr: errors.New(refusal)}
 			}
-			return agentenv.Execute(a.processRunner, context.Background(), ExecutorLocal, req, a.cfg.clock.Now())
+			return agentenv.Execute(a.processRunner, context.Background(), execution.Local, req, a.cfg.clock.Now())
 		},
 		complete: func(string, string, string) (string, *modelcall.Usage, error) {
 			return "", nil, errors.New("the tour calls no model")
 		},
 	})
+}
+
+// tourCheckEnv names, in a landing script step's environment, the
+// repository's own check script the tour runs for that step.
+const tourCheckEnv = "TOUR_CHECK"
+
+// tourScript runs a landing script step's check for the tour, which has no
+// Docker: the step's check script (tourCheckEnv) in the task's workspace,
+// the staged commit, with the local shell, as the conformance review's
+// checks are run here.
+func tourScript(spec execution.TaskSpec) (string, int) {
+	script := ""
+	for _, kv := range spec.Env {
+		if v, found := strings.CutPrefix(kv, tourCheckEnv+"="); found {
+			script = v
+		}
+	}
+	out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{Workspace: spec.Workspace, Argv: []string{"sh", script}, Env: []string{"PATH=" + os.Getenv("PATH")}, Timeout: time.Minute})
+	return string(out.Output), out.ExitCode
 }
 
 // The tour's three apps, as the files each change commits. Every check the

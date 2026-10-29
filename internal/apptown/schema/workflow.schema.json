@@ -127,7 +127,9 @@
               "type": "string"
             },
             "executor": {
-              "type": "string"
+              "type": "string",
+              "enum": ["docker"],
+              "description": "Every project step runs in a container; docker is the only value."
             },
             "image": {
               "type": "string"

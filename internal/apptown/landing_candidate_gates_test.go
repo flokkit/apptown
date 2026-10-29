@@ -96,6 +96,7 @@ func reviewExecute(t *testing.T, a *App, run *workflow.Run, name string) *workfl
 func TestAScriptGateInALandingChecksThePinnedCandidate(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
+	useScriptTasks(t, a, valueIs("good"))
 	run, source := reviewLanding(t, a, []schema.Step{{Name: "source-check", Uses: "script", With: map[string]any{"run": `test "$(cat value.txt)" = good; result=$?; git checkout -- value.txt; exit "$result"`}}}, map[string]string{"value.txt": "bad\n"}, nil)
 	if source.Landing.Candidate == "" {
 		t.Fatal("fixture has no candidate")

@@ -2,6 +2,7 @@ package workflowexec
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -140,32 +141,6 @@ func TestAStaleWorkerResultIsRefused(t *testing.T) {
 	}
 }
 
-// An installation with a worker runs no project script on its own host: a
-// script that asks to run locally is refused before anything runs.
-func TestAnIsolatedAppTownRunsNoScriptOnItsHost(t *testing.T) {
-	t.Parallel()
-	a, fake, step := scriptTaskFixture(t, map[string]any{"run": "touch ran-on-the-forge", "executor": "local"})
-	a.onWorker(t, fake)
-	run, err := workflow.ReadRunIn(context.Background(), a.db, step.RunID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ws := requireLocation(t)(a.source(t, run).Workspace(a.dir))
-	if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
-		t.Fatal(err)
-	}
-	settled := awaitStep(t, a, step.ID, workflow.StatusError)
-	if !strings.Contains(string(settled.Evidence), "only on its worker") {
-		t.Fatalf("the step's evidence: %s", settled.Evidence)
-	}
-	if _, err := os.Stat(filepath.Join(ws, "ran-on-the-forge")); !os.IsNotExist(err) {
-		t.Fatalf("the script ran on AppTown's host: %v", err)
-	}
-	if fake.Starts(taskKeyOf(step)) != 0 {
-		t.Fatal("a refused script started a task")
-	}
-}
-
 // A worker that stops answering while its task runs has not said the task is
 // gone: AppTown keeps asking, and collects the task once the worker answers
 // again, without starting it twice.
@@ -271,31 +246,37 @@ func TestAWorkerResultChangingNonSourceIsRefused(t *testing.T) {
 	}
 }
 
-// An AppTown without a worker still runs no project script as a process on its
-// own host unless its operator allows it (-host-scripts): a script that asks
-// for executor: local is refused before anything runs, naming the way out.
-//
-// Kills: the old default, which ran an executor-less or local script on the
-// AppTown's host whenever no worker was configured.
-func TestAnAppTownRunsNoScriptOnItsHostUnlessAllowed(t *testing.T) {
+// A script step admitted with executor: local (a definition saved before
+// project steps ran only in containers) runs nowhere: the step is an error
+// that says to remove the line, nothing runs on AppTown's host, and no task
+// starts, here or on a worker.
+func TestAnAdmittedLocalScriptRunsNowhere(t *testing.T) {
 	t.Parallel()
-	a, fake, step := scriptTaskFixture(t, map[string]any{"run": "touch ran-on-the-forge", "executor": "local"})
-	run, err := workflow.ReadRunIn(context.Background(), a.db, step.RunID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ws := requireLocation(t)(a.source(t, run).Workspace(a.dir))
-	if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
-		t.Fatal(err)
-	}
-	settled := awaitStep(t, a, step.ID, workflow.StatusError)
-	if !strings.Contains(string(settled.Evidence), "-host-scripts") {
-		t.Fatalf("the step's evidence: %s", settled.Evidence)
-	}
-	if _, err := os.Stat(filepath.Join(ws, "ran-on-the-forge")); !os.IsNotExist(err) {
-		t.Fatalf("the script ran on AppTown's host: %v", err)
-	}
-	if fake.Starts(taskKeyOf(step)) != 0 {
-		t.Fatal("a refused script started a task")
+	for _, onWorker := range []bool{false, true} {
+		t.Run(fmt.Sprintf("worker=%v", onWorker), func(t *testing.T) {
+			t.Parallel()
+			a, fake, step := scriptTaskFixture(t, map[string]any{"run": "touch ran-on-the-forge", "executor": "local"})
+			if onWorker {
+				a.onWorker(t, fake)
+			}
+			run, err := workflow.ReadRunIn(context.Background(), a.db, step.RunID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ws := requireLocation(t)(a.source(t, run).Workspace(a.dir))
+			if err := a.work.ExecuteStep(a.ctx, step.ID); err != nil {
+				t.Fatal(err)
+			}
+			settled := awaitStep(t, a, step.ID, workflow.StatusError)
+			if !strings.Contains(string(settled.Evidence), "executor: local is not supported") {
+				t.Fatalf("the step's evidence: %s", settled.Evidence)
+			}
+			if _, err := os.Stat(filepath.Join(ws, "ran-on-the-forge")); !os.IsNotExist(err) {
+				t.Fatalf("the script ran on AppTown's host: %v", err)
+			}
+			if fake.Starts(taskKeyOf(step)) != 0 {
+				t.Fatal("a refused script started a task")
+			}
+		})
 	}
 }

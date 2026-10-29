@@ -16,6 +16,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 
+	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/gitexec"
 
@@ -34,7 +35,7 @@ const maxLogBytes = 64 * 1024
 type scriptConfig struct {
 	Run            string            `json:"run"`
 	Env            map[string]string `json:"env"`
-	Executor       string            `json:"executor"` // scripts default local; opt into docker per step
+	Executor       string            `json:"executor"` // docker, the only value; validation refuses any other
 	Image          string            `json:"image"`
 	TimeoutMinutes int               `json:"timeoutMinutes"`
 }
@@ -45,13 +46,12 @@ type scriptConfig struct {
 type scriptPlan struct {
 	// cache is the project's cache volume, which the script's container
 	// shares with that project's other steps only.
-	cache    string
-	cfg      scriptConfig
-	executor string
-	request  execution.Request
-	timeout  time.Duration
-	ambient  agentenv.Ambient
-	ws       string
+	cache   string
+	cfg     scriptConfig
+	request execution.Request
+	timeout time.Duration
+	ambient agentenv.Ambient
+	ws      string
 	// candidate is set in a checked landing: the script runs on a staged copy
 	// of that commit, names it in its outcome, and commits nothing (a check
 	// does not change what it checks). cleanup removes the staged copy.
@@ -108,23 +108,12 @@ func (a *Commands) RunScript(task *workflow.Execution) {
 	}
 	defer plan.cleanup()
 	plan.folder = folder
-	if a.tasks != nil && a.tasks.Remote != nil && plan.executor != execution.Docker {
-		// An isolated apptown runs no project script on its own host.
-		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": "this AppTown runs scripts only on its worker, in a container; give the step executor: docker"}, nil))
-		return
-	}
-	if plan.executor != execution.Docker && !a.cfg.HostScripts {
-		// A project's script is the project's code: it runs in a container
-		// unless the operator chose no isolation for agents.
-		task.Settle(workflow.EncodeOutcome(workflow.StatusError, map[string]any{"reason": "this AppTown runs no project script on its own host: drop executor: local so the step runs in a container (an AppTown started with -host-scripts allows it)"}, nil))
-		return
-	}
-	if plan.executor == execution.Docker && a.tasks != nil {
+	if a.tasks != nil {
 		a.runScriptTask(task, step, run, plan)
 		return
 	}
 	start := a.now()
-	outcome := agentenv.Execute(a.runner, task.Context(), plan.executor, plan.request, start)
+	outcome := agentenv.Execute(a.runner, task.Context(), execution.Docker, plan.request, start)
 	if err := a.settleScript(task, step, run, plan, outcome, a.now().Sub(start)); err != nil {
 		log.Printf("run %d step %d: settling the script: %v", run.ID, step.ID, err)
 	}
@@ -133,6 +122,11 @@ func (a *Commands) RunScript(task *workflow.Execution) {
 func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *workflow.Run) (scriptPlan, error) {
 	var cfg scriptConfig
 	if err := workflow.DecodeStepConfig(step.Config, &cfg); err != nil {
+		return scriptPlan{}, err
+	}
+	// A run admitted before host processes were removed may still say
+	// another executor: it is refused, never run on this host.
+	if err := schema.CheckExecutor(cfg.Executor); err != nil {
 		return scriptPlan{}, err
 	}
 	source, err := workflow.ReadSourceIn(ctx, a.db, workflow.RunRef{ID: run.ID, ProjectID: run.ProjectID})
@@ -161,15 +155,6 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 		ws, cleanup = staged, remove
 	}
 
-	// No executor named: a container, unless the operator lets project
-	// scripts run on this host (-host-scripts), where it stays the host.
-	executor := cfg.Executor
-	if executor == "" {
-		executor = execution.Docker
-		if a.cfg.HostScripts {
-			executor = execution.Local
-		}
-	}
 	image := cfg.Image
 	if image == "" {
 		image = a.cfg.Image
@@ -188,25 +173,20 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 	}
 
 	// Ambient build environment (design/subsystems/registries.md): registry env +
-	// generated mise/cargo config, docker steps only — the env references
-	// container paths (cache volume), and local steps run on the operator's
-	// own host config.
-	runCmd := cfg.Run
-	var amb agentenv.Ambient
-	if executor == execution.Docker {
-		// On this machine or the worker alike: the files travel with the
-		// request, and whoever runs the container writes them beside its
-		// tree, never in it.
-		bound, err := integration.RegistryBindings(ctx, a.db)
-		if err != nil {
-			cleanup()
-			return scriptPlan{}, err
-		}
-		amb = agentenv.AmbientFor(bound, ws)
-		env = append(env, amb.Env...)
-		runCmd = containerScript(cfg.Run, agentenv.DeclaresToolchain(ws))
+	// generated mise/cargo config; the env references container paths (cache
+	// volume).
+	// On this machine or the worker alike: the files travel with the
+	// request, and whoever runs the container writes them beside its tree,
+	// never in it.
+	bound, err := integration.RegistryBindings(ctx, a.db)
+	if err != nil {
+		cleanup()
+		return scriptPlan{}, err
 	}
-	return scriptPlan{cache: agentenv.CacheVolume(ctx), cfg: cfg, executor: executor, timeout: timeout, ambient: amb, ws: ws, candidate: candidate.Candidate, cleanup: cleanup,
+	amb := agentenv.AmbientFor(bound, ws)
+	env = append(env, amb.Env...)
+	runCmd := containerScript(cfg.Run, agentenv.DeclaresToolchain(ws))
+	return scriptPlan{cache: agentenv.CacheVolume(ctx), cfg: cfg, timeout: timeout, ambient: amb, ws: ws, candidate: candidate.Candidate, cleanup: cleanup,
 		repository: repository, request: execution.Request{
 			Workspace: ws,
 			Argv:      []string{"sh", "-c", runCmd},
@@ -266,7 +246,7 @@ func (a *Commands) settleScript(task *workflow.Execution, step *workflow.Step, r
 		"log":        log,
 		"durationMs": took.Milliseconds(),
 		"command":    plan.cfg.Run,
-		"executor":   plan.executor,
+		"executor":   execution.Docker,
 	}
 	if len(plan.ambient.Bound) > 0 {
 		evidence["registries"] = plan.ambient.Bound

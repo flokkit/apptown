@@ -62,53 +62,6 @@ func CompleteCreationIn(ctx context.Context, tx *database.Tx, claim CreationClai
 	return nil
 }
 
-// RenameClaim serializes one authenticated request without a durable pending act.
-type RenameClaim struct {
-	ID, ProjectID ids.ID
-	Fresh         bool
-	Result        Project
-}
-
-func ClaimRenameIn(ctx context.Context, tx *database.Tx, at time.Time, actor, request, projectID ids.ID, hash string) (RenameClaim, error) {
-	var out RenameClaim
-	if actor.IsZero() || request.IsZero() {
-		return out, ErrRequestRequired
-	}
-	id := ids.New(at.UTC())
-	n, err := queries(tx).ClaimProjectRename(ctx, projectsql.ClaimProjectRenameParams{ID: id, ActorID: actor, RequestID: request, ProjectID: projectID, InputHash: hash})
-	if err != nil {
-		return out, err
-	}
-	if n == 1 {
-		return RenameClaim{ID: id, ProjectID: projectID, Fresh: true}, nil
-	}
-	row, err := queries(tx).ProjectRenameRequest(ctx, projectsql.ProjectRenameRequestParams{ActorID: actor, RequestID: request})
-	if err != nil {
-		return out, err
-	}
-	if row.ProjectID != projectID || row.InputHash != hash {
-		return out, ErrRequestReused
-	}
-	if row.ResultJson == nil {
-		return out, fmt.Errorf("project rename request has no committed result")
-	}
-	result, err := requestResult(*row.ResultJson, projectID)
-	return RenameClaim{ID: row.ID, ProjectID: projectID, Result: result}, err
-}
-func CompleteRenameIn(ctx context.Context, tx *database.Tx, claim RenameClaim) error {
-	raw, err := snapshotResult(ctx, tx, claim.ProjectID)
-	if err != nil {
-		return err
-	}
-	n, err := queries(tx).CompleteProjectRename(ctx, projectsql.CompleteProjectRenameParams{ID: claim.ID, ResultJson: &raw})
-	if err != nil {
-		return err
-	}
-	if n != 1 {
-		return fmt.Errorf("project rename result was not recorded")
-	}
-	return nil
-}
 func snapshotResult(ctx context.Context, tx *database.Tx, id ids.ID) (json.RawMessage, error) {
 	row, err := queries(tx).ProjectByID(ctx, id)
 	if err != nil {

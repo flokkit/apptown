@@ -1,27 +1,30 @@
 # Project addresses and request results
 
 A project UUID identifies its repository, work, deployments and ownership.
-Its canonical address (`projects.slug`) names current links. `project_addresses`
-permanently assigns every current and historical address to that UUID; purging a
-project never frees an address for another project. Ambiguous historical deletion
-names remain reserved without assigning them to an invented owner. Lookup joins
-the reservation to an existing project, so a purged address does not resolve.
+Its address (`projects.slug`) names it in links, API paths, Git URLs and
+`slug#N` references. A project has one address at a time: changing it moves
+the project, and the old address names nothing afterwards.
 
-Address edits use the existing settings administrator admission and expected
-settings revision. They require an authenticated actor UUID and request UUID.
-The address claim, canonical settings, revision, audit receipt and result snapshot
-commit together. Retrying the same actor/request and input returns its original
-result after current authority and lifecycle checks; different input is refused.
-The old address continues to resolve to current canonical metadata. Git credentials
-match the resolved project UUID; Work and ADR address filters resolve to UUID before
-selecting records. Addresses never become alternate authority scopes.
+An address is taken while a project has it as its address or as its serving
+label, or while a purged project's unfinished cleanup still names it. The
+serving label is the project's first address, captured at creation and never
+changed (see [ingress](ingress.md)); so a project's first address stays with
+it until it is purged, and any later address is free again once the project
+moves off it. Every lookup by address reads the current address; readers that
+saved a project's identity earlier (a chat, a queued backup or rebuild) use
+its UUID, never the address they saw.
+
+Address edits use the settings administrator admission and the expected
+settings revision. The new address, the canonical settings, the revision and
+the `project.renamed` receipt commit together; an edit whose receipt cannot be
+written changes nothing. A changed address must have the address shape.
 
 Renaming does not move repositories, change upstream identity, rewrite task input,
-recreate deployments or change their serving labels. Built-in application addresses
-retain their initial serving label. Previous project links and references remain
-usable while the project exists. A rename during a preview, import or deployment
-can refuse that in-flight operation when its observed address changes; retry the
-operation after the rename completes.
+recreate deployments or change their serving labels. Links, Git remotes, checkout
+directories and `slug#N` references made with the old address stop resolving, and
+name the new owner if another project later takes the address. A rename during a
+preview, import or deployment can refuse that in-flight operation when its observed
+address changes; retry the operation after the rename completes.
 
 ## Creating a project
 
@@ -33,14 +36,18 @@ attachment choice. Missing services and an explicitly empty selection differ;
 service ordering does not. No credential values or bundle bytes are stored in the
 request result.
 
-The creation transaction reserves a UUID and address and writes the project,
-initial adoption, ownership, audit receipt and original result snapshot together.
-An automatic proposal collision chooses a suffix from that reserved UUID once;
-an explicit address collision is refused. Failed transactions retain no claim.
+The creation transaction reserves a UUID and checks the address before writing
+the project, initial adoption, ownership, audit receipt and original result
+snapshot together. An automatic proposal that is taken chooses a suffix from that
+reserved UUID once; an explicit address that is taken is refused. Two different
+requests racing for the same free address can see the loser refused; it retries.
+Failed transactions retain no claim.
 A completed retry is resolved before fresh-only pack availability and default-group
 selection; it keeps its original group and checks current project read permission
-and active lifecycle. The response is the original committed result. Clients read
-its permanent alias to obtain the current canonical address before continuing.
+and active lifecycle. The response is the original committed result. A client that
+continues setup reads the project again by the result's address and compares its
+UUID: if the project has moved since, the address is not found or names another
+project, and the client stops.
 
 Repository initialization/import, applying a selected pack, selecting services,
 upstream attachment and first-version creation remain separate operations in their

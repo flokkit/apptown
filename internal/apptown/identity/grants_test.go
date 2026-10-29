@@ -27,6 +27,28 @@ func addUser(t *testing.T, db *database.DB, name, role string) {
 	}
 }
 
+// A grant sits at an instance, a group, a project or a release target, and
+// a role only at its own scope: a grant anywhere else would confer nothing.
+func TestGrantsSitOnlyWhereTheyCanApply(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	addUser(t, db, "alice", "member")
+	g := NewGrants(db)
+	for _, spec := range []Spec{
+		{SubjectType: "user", Subject: "alice", Capability: string(access.CapChangeRead), Scope: "change", ScopeID: idstest.N(7).String(), By: "ops"},
+		{SubjectType: "user", Subject: "alice", Capability: string(access.CapRunRead), Scope: "run", ScopeID: idstest.N(7).String(), By: "ops"},
+		{SubjectType: "user", Subject: "alice", Capability: string(access.CapConformanceRead), Scope: "dimension", ScopeID: "security", By: "ops"},
+		{SubjectType: "user", Subject: "alice", Role: access.RoleProjectViewer, Scope: access.ScopeInstance, By: "ops"},
+	} {
+		if _, err := g.Add(context.Background(), spec, ""); err == nil {
+			t.Fatalf("a grant at %s with %q was recorded", spec.Scope, spec.Role+spec.Capability)
+		}
+	}
+	if _, err := g.Add(context.Background(), Spec{SubjectType: "user", Subject: "alice", Role: access.RoleReleaseManager, Scope: access.ScopeTarget, ScopeID: "*", By: "ops"}, ""); err != nil {
+		t.Fatalf("a release manager is granted at a release target: %v", err)
+	}
+}
+
 // An identical live grant is returned, never duplicated; a revoked one
 // leaves history and a fresh grant is a new row; revocation is receipted.
 func TestGrantsAreNeverDuplicatedOrEdited(t *testing.T) {

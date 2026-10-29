@@ -16,8 +16,7 @@ import (
 // gives none, and the step runs. The steps share one run and run in turn.
 func TestAStepHasPrivateDockerOnlyWhenItDeclaresIt(t *testing.T) {
 	t.Parallel()
-	a := agentTestApp(t)
-	a.cfg.agentExecutor = ExecutorDocker
+	a := agentTestApp(t, Config{PrivateDocker: true})
 	if _, err := a.Ways.CreateBlock(t.Context(), "skill/implementation", "Implement.", "", "alice"); err != nil {
 		t.Fatal(err)
 	}
@@ -55,19 +54,18 @@ func TestAStepHasPrivateDockerOnlyWhenItDeclaresIt(t *testing.T) {
 	}
 }
 
-// -no-private-docker refuses a step that declares private Docker, with the
-// reason, before anything is started.
-func TestNoPrivateDockerRefusesADeclaringStep(t *testing.T) {
+// -private-docker=false refuses a step that declares private Docker, with
+// the reason, before anything is started.
+func TestPrivateDockerTurnedOffRefusesADeclaringStep(t *testing.T) {
 	t.Parallel()
-	a := agentTestApp(t, Config{NoPrivateDocker: true})
-	a.cfg.agentExecutor = ExecutorDocker
+	a := agentTestApp(t, Config{PrivateDocker: false})
 	daemon := newSurvivingContainers()
 	a.docker = docker.Scope{Client: daemon}
 	_, stepID := admittedAgentStep(t, a, `{"prompt":"do it","docker":true}`)
 	f := installFakePi(t, a, func(int, ExecRequest) ExecOutcome { return ExecOutcome{Output: piSays("done")} })
 	a.Work.ExecuteStep(a.asEngine(context.Background()), stepID)
 	status, ev := stepStatus(t, a, stepID)
-	if reason, _ := ev["reason"].(string); status != workflow.StatusError || !strings.Contains(reason, "-no-private-docker") {
+	if reason, _ := ev["reason"].(string); status != workflow.StatusError || !strings.Contains(reason, "-private-docker=false") {
 		t.Fatalf("step %s: %v", status, ev)
 	}
 	if len(f.requests()) != 0 || len(daemon.live) != 0 {

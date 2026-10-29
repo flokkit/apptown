@@ -888,27 +888,6 @@ func (q *Queries) PolicyByID(ctx context.Context, id ids.ID) (Policy, error) {
 	return i, err
 }
 
-const primaryPackMemoryDefault = `-- name: PrimaryPackMemoryDefault :one
-SELECT a.pack, COALESCE(pp.version,0)::bigint AS version, COALESCE(v.spec_json::text,'')::text AS spec
-FROM adoptions a LEFT JOIN packs p ON p.name=a.pack
-LEFT JOIN project_packs pp ON pp.project_id=a.project_id AND pp.pack_id=p.id
-LEFT JOIN pack_versions v ON v.pack_id=pp.pack_id AND v.version=pp.version
-WHERE a.project_id=$1
-`
-
-type PrimaryPackMemoryDefaultRow struct {
-	Pack    string
-	Version int64
-	Spec    string
-}
-
-func (q *Queries) PrimaryPackMemoryDefault(ctx context.Context, projectID ids.ID) (PrimaryPackMemoryDefaultRow, error) {
-	row := q.db.QueryRowContext(ctx, primaryPackMemoryDefault, projectID)
-	var i PrimaryPackMemoryDefaultRow
-	err := row.Scan(&i.Pack, &i.Version, &i.Spec)
-	return i, err
-}
-
 const projectExtension = `-- name: ProjectExtension :one
 SELECT project_id, name FROM project_pi_extensions WHERE project_id=$1 AND name=$2
 `

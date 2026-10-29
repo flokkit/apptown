@@ -20,7 +20,7 @@ func TestDeployHTTPRejectsBadInputAndReturnsQueuedSelectedBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", target.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production", PromoteAfter: "main"}); err != nil {
+	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "cloud", target.ID, deployment.Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"}); err != nil {
 		t.Fatal(err)
 	}
 	contract, err := os.ReadFile(filepath.Join(a.projectRepoPath(p.Slug), ".apptown", "app.yaml"))

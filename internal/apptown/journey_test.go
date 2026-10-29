@@ -99,7 +99,7 @@ func newJourney(t *testing.T, configs ...Config) *jHarness {
 	if len(configs) != 0 {
 		cfg = configs[0]
 	}
-	cfg.DataDir, cfg.AgentExecutor, cfg.AgentImage = t.TempDir(), ExecutorDocker, image
+	cfg.DataDir, cfg.AgentImage = t.TempDir(), image
 	// The fake harness never calls inference. Environment preparation still
 	// receives a gateway URL, as every Docker agent does.
 	cfg.InferenceURL = "http://host.docker.internal:1"

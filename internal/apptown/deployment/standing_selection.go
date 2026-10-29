@@ -43,6 +43,6 @@ func ReadStandingConsentSelection(ctx context.Context, q database.Queryer, proje
 	out.PromotionResource = out.Resource
 	out.PromotionResource.Type = "release-target"
 	out.PromotionResource.ID = dep.Name
-	out.PromotionRequired = dep.needsPromotion()
+	out.PromotionRequired = dep.Protected()
 	return out, nil
 }

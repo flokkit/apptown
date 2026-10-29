@@ -3,7 +3,7 @@
 SELECT * FROM projects WHERE id = $1;
 
 -- name: ProjectBySlug :one
-SELECT p.* FROM projects p JOIN project_addresses a ON a.project_id=p.id WHERE a.address=$1;
+SELECT * FROM projects WHERE slug = $1;
 
 -- name: ProjectByServingLabel :one
 SELECT * FROM projects WHERE serving_label = $1;
@@ -151,15 +151,15 @@ SELECT d.project_id,d.slug,''::text,'deleted'::text,true::boolean
 FROM project_deletions d WHERE d.state<>'done' AND NOT EXISTS(SELECT 1 FROM projects p WHERE p.id=d.project_id)
 ORDER BY id;
 
--- Permanent address ownership.
--- name: ClaimProjectAddress :execrows
-INSERT INTO project_addresses(address,project_id) VALUES($1,$2) ON CONFLICT(address) DO NOTHING;
+-- name: ProjectIDBySlug :one
+SELECT id FROM projects WHERE slug=$1;
 
--- name: ProjectAddressOwner :one
-SELECT project_id FROM project_addresses WHERE address=$1;
-
--- name: ProjectIDByAddress :one
-SELECT p.id FROM projects p JOIN project_addresses a ON a.project_id=p.id WHERE a.address=$1;
+-- An address is taken while another project has it as its address or its
+-- serving label, or a deleted project's unfinished cleanup still names it.
+-- name: ProjectAddressTaken :one
+SELECT (EXISTS(SELECT 1 FROM projects p WHERE (p.slug=sqlc.arg(address) OR p.serving_label=sqlc.arg(address)) AND p.id<>sqlc.arg(id))
+ OR EXISTS(SELECT 1 FROM project_deletions d WHERE d.state<>'done' AND d.project_id<>sqlc.arg(id)
+  AND (d.slug=sqlc.arg(address) OR d.plan->'releasePreviews'->>'servingLabel'=sqlc.arg(address))))::boolean;
 
 -- name: ClaimProjectCreation :execrows
 INSERT INTO project_creation_requests(id,actor_id,request_id,project_id) VALUES($1,$2,$3,$4)
@@ -171,12 +171,3 @@ SELECT * FROM project_creation_requests WHERE actor_id=$1 AND request_id=$2;
 -- name: CompleteProjectCreation :execrows
 UPDATE project_creation_requests SET input_hash=$2,resolved_group=$3,result_json=$4 WHERE id=$1 AND result_json IS NULL;
 
--- name: ClaimProjectRename :execrows
-INSERT INTO project_rename_requests(id,actor_id,request_id,project_id,input_hash) VALUES($1,$2,$3,$4,$5)
-ON CONFLICT(actor_id,request_id) DO NOTHING;
-
--- name: ProjectRenameRequest :one
-SELECT * FROM project_rename_requests WHERE actor_id=$1 AND request_id=$2;
-
--- name: CompleteProjectRename :execrows
-UPDATE project_rename_requests SET result_json=$2 WHERE id=$1 AND result_json IS NULL;

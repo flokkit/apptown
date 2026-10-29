@@ -232,7 +232,7 @@ func runDelegation(t *testing.T, background bool) delegationRun {
 		AgentImage: subagentsTestImage, ImageLabels: worker.DockerImages{Binary: "docker"}}, capture)
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
-	cfg := Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
+	cfg := Config{DataDir: t.TempDir(), AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
 		InferenceURL: gatewayURL, InferenceNetworks: []string{"127.0.0.1/32", "192.168.0.0/16", "172.16.0.0/12", "10.0.0.0/8"}}
 	a := testApp(t, cfg)
 	gateway = a.InferenceHandler()

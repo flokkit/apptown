@@ -333,7 +333,7 @@ func TestIntegrationDeployReconcileAndVHost(t *testing.T) {
 	a.ensureDeploymentsOnce(ctx)
 	// Lose completion persistence after boot; the rebuild is not replayed.
 	dbtest.FailNextStatement(t, a.DB, "UPDATE deployments SET observed_generation")
-	job := runQueuedJobForTest(t, a, "rebuild", slug+"/main")
+	job := runQueuedJobForTest(t, a, "rebuild", p.ID.String()+"/main")
 	if job.State != "discarded" {
 		t.Fatalf("rebuild interruption: %s", job.State)
 	}
@@ -398,11 +398,11 @@ func mustGET(t *testing.T, url string) string {
 	return ""
 }
 
-// This is a successful archive/load/startup composition check, not a released
-// RC7 binary fixture: both filesystem layouts carry the current SQL schema.
+// This is a successful archive/load/startup composition check, restored into
+// the same path and into another one.
 // Nonparallel: the real built-in database uses its documented fixed port and
 // Restore must see a host without any other AppTown installation.
-func TestIntegrationRestoredStartupCompletesLayoutAndIntent(t *testing.T) {
+func TestIntegrationRestoredStartupCompletesRelocationAndIntent(t *testing.T) {
 	requireDocker(t)
 	dk := docker.Scope{Client: docker.CLI{}}
 	for _, key := range []string{dockerlabel.Instance, dockerlabel.Deployment} {
@@ -424,16 +424,14 @@ func TestIntegrationRestoredStartupCompletesLayoutAndIntent(t *testing.T) {
 		t.Fatalf("build restore daemon: %v %s", out.RunErr, out.Output)
 	}
 	shipped := stockupdatetest.Dir(t)
-	for _, layout := range []int{1, 2} {
-		for _, changedRoot := range []bool{false, true} {
-			t.Run(fmt.Sprintf("layout%d/changedRoot=%t", layout, changedRoot), func(t *testing.T) {
-				restoredStartupCase(t, dk, binary, shipped, layout, changedRoot)
-			})
-		}
+	for _, changedRoot := range []bool{false, true} {
+		t.Run(fmt.Sprintf("changedRoot=%t", changedRoot), func(t *testing.T) {
+			restoredStartupCase(t, dk, binary, shipped, changedRoot)
+		})
 	}
 }
 
-func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, layout int, changedRoot bool) {
+func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, changedRoot bool) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Minute)
 	defer cancel()
 	root := t.TempDir()
@@ -463,7 +461,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err := os.WriteFile(filepath.Join(source, "db.env"), []byte(bootstrap), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(source, "layout"), []byte(fmt.Sprintf("%d\n", layout)), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(source, "layout"), []byte(fmt.Sprintf("%d\n", DataLayoutVersion)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := (BuiltinDatabase{DataDir: source, Docker: dk}).Ensure(ctx); err != nil {
@@ -490,11 +488,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err := app.Projects.SetDefaultBranch(ctx, pid, "main"); err != nil {
 		t.Fatal(err)
 	}
-	hubName := "project-" + pid.String()
-	if layout == 1 {
-		hubName = "project-restore-project"
-	}
-	hub := filepath.Join(source, "workspaces", hubName)
+	hub := filepath.Join(source, "workspaces", "project-"+pid.String())
 	if err := os.MkdirAll(hub, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -556,21 +550,13 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: imported unresolved setup and saved policy are archive evidence, not fresh provider verification.
-	if _, err := db.Exec(`INSERT INTO project_release_settings(project_id,revision,legacy_setup_json) VALUES($1,9,'{"version":1,"integrationId":null,"integrationName":"legacy-connection","targetId":null,"deploymentName":"customer-test","configuration":{"kept":"archived"}}')`, pid); err != nil {
-		t.Fatal(err)
-	}
-	// sql-guarantee: preserve the archived policy revision rather than regenerate it during startup.
-	if _, err := db.Exec(`UPDATE deployments SET require_promotion=true,policy_revision=7 WHERE id=$1`, addressDep.ID); err != nil {
-		t.Fatal(err)
-	}
 	addressSnapshot := deployment.AddressSnapshot{DeploymentID: addressDep.ID, TargetID: addressTarget.ID, Revision: 4, Ingress: deploy.Ingress{Hosts: []string{"legacy.apps.example", "customer.example"}, URL: "https://customer.example", CertificateDomain: "apps.example"}}
 	addressJSON, err := json.Marshal(addressSnapshot)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// sql-guarantee: this archive fixture represents retained legacy provider evidence; no live provider observation is claimed.
-	if _, err := db.Exec(`INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain,revision,verification_state,legacy_evidence_json) VALUES($1,'legacy.apps.example','customer.example','apps.example',4,'ready','{"projectReleaseDomain":"customer.example"}')`, addressDep.ID); err != nil {
+	// sql-guarantee: this archive fixture retains an address revision the owner would not produce in one step; no live provider observation is claimed.
+	if _, err := db.Exec(`INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain,revision) VALUES($1,'legacy.apps.example','customer.example','apps.example',4)`, addressDep.ID); err != nil {
 		t.Fatal(err)
 	}
 	for _, host := range []string{"legacy.apps.example", "customer.example", "previous.example"} {
@@ -626,7 +612,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	refuseRestoreWrite := layout == 1 && !changedRoot
+	refuseRestoreWrite := !changedRoot
 	if refuseRestoreWrite {
 		// sql-guarantee: test-only archive fault injection. The constraint allows
 		// existing history to restore but refuses the daemon's disabled revision.
@@ -682,13 +668,6 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		if pending, err := instancebackup.ReadPendingRestore(target); err != nil || pending == nil {
 			t.Fatalf("failed disabling lost loaded continuation: %+v %v", pending, err)
 		}
-		marker, err := os.ReadFile(filepath.Join(target, "layout"))
-		if err != nil || strings.TrimSpace(string(marker)) != "1" {
-			t.Fatalf("layout advanced before restored consent was disabled: %q %v", marker, err)
-		}
-		if _, err := os.Stat(filepath.Join(target, "workspaces", "project-"+pid.String())); !os.IsNotExist(err) {
-			t.Fatalf("repository migration crossed disabling refusal: %v", err)
-		}
 		repair, err := OpenURL(ctx, url)
 		if err != nil {
 			t.Fatal(err)
@@ -712,7 +691,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		t.Fatalf("restore continuation not completed: %+v %v", pending, err)
 	}
 	if err := datalayout.RequireCurrent(target); err != nil {
-		t.Fatal("layout completion was not finalized", err)
+		t.Fatal("relocation was not finalized", err)
 	}
 	restored, err := OpenURL(ctx, url)
 	if err != nil {
@@ -762,8 +741,8 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		t.Fatalf("archive changed address ownership, evidence, claims or admitted snapshots: before %s after %s", retainedAddressFacts, got)
 	}
 	addressHeld, err := deployment.NewDeployments(restored).ByID(ctx, addressDep.ID)
-	if err != nil || addressHeld.RestoreCheck != deployment.RestoreUnconfirmed || !addressHeld.RequirePromotion || addressHeld.PolicyRevision != 7 {
-		t.Fatalf("restored address owner lost activation hold or policy: %+v %v", addressHeld, err)
+	if err != nil || addressHeld.RestoreCheck != deployment.RestoreUnconfirmed {
+		t.Fatalf("restored address owner lost activation hold: %+v %v", addressHeld, err)
 	}
 	receipts, err := audit.Recent(ctx, restored, audit.Filter{KindPrefix: "instance.restored"})
 	if err != nil || len(receipts) != 1 {
@@ -774,7 +753,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 			t.Fatalf("restore reused original root: %v", err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(retired, "workspaces", hubName, "tracked")); err != nil {
+	if _, err := os.Stat(filepath.Join(retired, "workspaces", "project-"+pid.String(), "tracked")); err != nil {
 		t.Fatal("retired source evidence lost", err)
 	}
 }

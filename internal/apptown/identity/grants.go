@@ -113,10 +113,16 @@ func GrantIn(ctx context.Context, tx *database.Tx, s Spec, at time.Time) (ids.ID
 // a second writer racing this one waits for the first to commit, then
 // reads what it wrote.
 func grantIn(ctx context.Context, tx *database.Tx, s Spec, at time.Time) (ids.ID, bool, error) {
+	if !access.GrantScope(s.Scope) {
+		return ids.Nil, false, fault.New(fault.Invalid, fmt.Sprintf("a grant cannot sit at %q; it sits at an instance, group, project or release target", s.Scope))
+	}
 	if s.Role != "" {
 		rv := access.RoleByName(s.Role)
 		if rv == nil {
 			return ids.Nil, false, fmt.Errorf("unknown role %q", s.Role)
+		}
+		if rv.Scope != s.Scope {
+			return ids.Nil, false, fault.New(fault.Invalid, fmt.Sprintf("%s is a %s-scoped role; grant it at a %s", rv.Title, rv.Scope, rv.Scope))
 		}
 	}
 	q := queries(tx)

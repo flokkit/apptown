@@ -142,26 +142,11 @@ func TestConcurrentCustomerHostnameClaimHasOneOwner(t *testing.T) {
 	}
 }
 
-func TestUnverifiedLegacyInventoryPreventsOnlyNewCustomClaims(t *testing.T) {
-	s, _, dep, target := addressFixture(t)
-	legacyProject := createTestProject(t, s.db, "legacy-address", "Legacy address")
-	legacy, err := s.Deployments.EnsureStanding(t.Context(), legacyProject, "lan", target.ID, Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	// sql-guarantee: only upgrade creates unverified historical address evidence; current configuration owners cannot produce it.
-	if _, err := s.db.Exec(`INSERT INTO deployment_address_settings(deployment_id,verification_state,legacy_evidence_json) VALUES ($1,'legacy-unverified','{"projectReleaseDomain":"unknown old input"}')`, legacy.ID); err != nil {
-		t.Fatal(err)
-	}
+func TestCustomHostnameCannotEnterTheGeneratedNamespace(t *testing.T) {
+	s, _, dep, _ := addressFixture(t)
 	generated, err := s.EditAddress(t.Context(), dep.ProjectID, dep.ID, 0, "")
 	if err != nil {
-		t.Fatalf("new UUID-generated address blocked: %v", err)
-	}
-	if _, err := s.EditAddress(t.Context(), dep.ProjectID, dep.ID, generated.Revision, "new-custom.example"); err == nil {
-		t.Fatal("unknown legacy aliases could be stolen by a new custom claim")
-	}
-	if _, err := s.EditAddress(t.Context(), legacy.ProjectID, legacy.ID, 1, ""); err == nil {
-		t.Fatal("legacy address evidence silently replaced")
+		t.Fatal(err)
 	}
 	reserved := "app-" + strings.ReplaceAll(ids.New(time.Now()).String(), "-", "") + ".example"
 	if _, err := s.EditAddress(t.Context(), dep.ProjectID, dep.ID, generated.Revision, reserved); err == nil {

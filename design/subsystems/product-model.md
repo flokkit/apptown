@@ -61,13 +61,12 @@ it is not a grant of all provider credentials to a helper. See
 
 ## Where work runs
 
-Without a worker, agents, checks, previews and chats run in containers on the
-AppTown host's Docker, and a script step without `executor: docker` runs as a
-local process there. With `-worker-url`, agent, review, tests and Docker script
-steps, checks, change previews, release builds and new change chats (by
+Without a worker, agents, checks, previews, chats and script steps run in
+containers on the AppTown host's Docker; no project step runs as a host
+process. With `-worker-url`, agent, review, tests and script steps,
+checks, change previews, release builds and new change chats (by
 default) run on `apptown-worker`, a separate machine that shares no files with
-AppTown. A step the worker cannot run is refused, not moved to the host; a
-local script step is refused. Project chats, step continuations, change chats
+AppTown. A step the worker cannot run is refused, not moved to the host. Project chats, step continuations, change chats
 placed on AppTown or already running there, and deployments on the built-in
 Docker host stay on the AppTown host. With `-no-local-docker` AppTown host has
 no Docker and runs no project process, and refuses what the worker cannot run.

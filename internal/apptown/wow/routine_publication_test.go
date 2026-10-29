@@ -107,4 +107,9 @@ func TestRoutinePublicationRejectsUnknownStoredSemantics(t *testing.T) {
 	if err := routineJSON([]byte(`{} {}`), &spec); err == nil {
 		t.Fatal("trailing publication ignored")
 	}
+	// A publication from when a pack could declare memory is not routine:
+	// its retired default is unknown semantics, and a person adopts it.
+	if err := routineJSON([]byte(`{"guidance":[],"resources":{"memory":"48M"}}`), &spec); err == nil {
+		t.Fatal("a retired pack memory default was read as routine")
+	}
 }

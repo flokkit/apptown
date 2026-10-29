@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dbtest"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -21,6 +22,7 @@ import (
 func mergeSettlementFixture(t *testing.T) (*App, workflow.MergeSource) {
 	t.Helper()
 	a := testApp(t)
+	useScriptTasks(t, a, scriptPasses)
 	projectID := plainTestProject(t, a.DB, "merge-settlement", "Merge Settlement")
 	p := a.projectByID(context.Background(), projectID)
 	if err := a.lifecycle.InitializeRepository(t.Context(), p, "", ""); err != nil {
@@ -222,6 +224,13 @@ func TestAScriptStepPublishesItsCommit(t *testing.T) {
 	spec := schema.Spec{Kind: "pipeline", Role: "working", Stages: []schema.Stage{
 		{Name: "build", Steps: []schema.Step{{Name: "make", Uses: "script", With: map[string]any{"run": "echo made > made.txt"}}}},
 	}}
+	// The script's container would write made.txt in the folder it is given.
+	useScriptTasks(t, a, func(spec execution.TaskSpec) (string, int) {
+		if err := os.WriteFile(filepath.Join(spec.Workspace, "made.txt"), []byte("made\n"), 0o644); err != nil {
+			return err.Error(), 1
+		}
+		return "", 0
+	})
 	defineWorkflows(t, a, workflow.PreparedRun{Workflow: workflow.DefinitionRef{Name: "work", Version: 1}, Spec: spec})
 	a.lifecycle.SelectLane(t.Context(), projectID, "work", true, "fixture")
 	ctx := a.asAppTown(context.Background(), projectID, "fixture")

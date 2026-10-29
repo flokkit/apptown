@@ -348,6 +348,82 @@ CREATE UNIQUE INDEX IF NOT EXISTS routine_publication_active_digest ON routine_p
 		`ALTER TABLE deployments DROP CONSTRAINT deployment_restore_check`,
 		`ALTER TABLE deployments ADD CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling', 'not-filled'))`,
 	}},
+	{n: 185, note: "drop pre-1.0 former identities and derived ledger refs", stmts: []string{
+		`DROP TABLE IF EXISTS former_ids`,
+		`ALTER TABLE audit_log DROP COLUMN IF EXISTS refs`,
+	}},
+	{n: 186, note: "drop project address aliases and rename request results", stmts: []string{
+		`ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_address_owner`,
+		`DROP TABLE IF EXISTS project_addresses`,
+		`DROP TABLE IF EXISTS project_rename_requests`,
+	}},
+	{n: 187, note: "drop roles nobody is offered, grant scopes nothing grants, and unused delegation fields", stmts: []string{
+		`DELETE FROM grants WHERE role_name IN ('integration-administrator','group-viewer','group-project-creator','group-maintainer','group-auditor') OR scope_type IN ('change','run','dimension')`,
+		`DROP VIEW IF EXISTS delegations_named`,
+		`ALTER TABLE delegations DROP COLUMN IF EXISTS kind, DROP COLUMN IF EXISTS group_bounds_json, DROP COLUMN IF EXISTS project_bounds_json`,
+		`CREATE OR REPLACE VIEW delegations_named AS
+  SELECT d.*, u.username FROM delegations d JOIN users u ON u.principal_id = d.principal_id`,
+	}},
+	// An imported release destination was never chosen (the exclusivity check
+	// kept its default empty), so its row goes and the project has no
+	// preference until one is chosen. Promotion permission follows data and
+	// audience classification only; admitted releases keep their recorded need.
+	{n: 188, note: "settle imported release setup and drop the explicit promotion policy", stmts: []string{
+		`DELETE FROM project_release_settings WHERE legacy_setup_json IS NOT NULL`,
+		`ALTER TABLE project_release_settings DROP CONSTRAINT project_release_setup_exclusive`,
+		`ALTER TABLE project_release_settings DROP COLUMN legacy_setup_json`,
+		`ALTER TABLE deployments DROP COLUMN require_promotion, DROP COLUMN policy_revision`,
+	}},
+	// Nothing ordered or gated promotion by it; admitted requests' attribute
+	// JSON keeps the old key, which decoding ignores.
+	{n: 189, note: "drop the deployment promote-after setting nothing reads", stmts: []string{
+		`ALTER TABLE deployments DROP COLUMN promote_after`,
+	}},
+	// Settles the Portainer addresses migration 174 left unconfirmed from
+	// AppTown's own records of the rule that served them before 174: hosts
+	// <slug>.<apps domain> and the project's release domain, the URL the
+	// last of them. A row settles only when the deployment's stored URL
+	// agrees with that rule and no other deployment claims either host;
+	// otherwise it is deleted and the next release selects a generated host.
+	{n: 190, note: "settle unconfirmed Portainer addresses from the recorded pre-174 rule and drop the confirmation state", stmts: []string{
+		`CREATE TEMP TABLE apptown_address_settlement ON COMMIT DROP AS
+WITH legacy AS (
+  SELECT s.deployment_id,
+    regexp_replace(lower(btrim(COALESCE(s.legacy_evidence_json->>'targetDomain',''))),'\.$','') AS domain,
+    lower(btrim(COALESCE(s.legacy_evidence_json->>'projectSlug',''))) AS slug,
+    regexp_replace(lower(btrim(COALESCE(s.legacy_evidence_json->>'projectReleaseDomain',''))),'\.$','') AS vanity,
+    regexp_replace(lower(COALESCE((regexp_match(COALESCE(s.legacy_evidence_json->>'storedURL',''),'^https{0,1}://([A-Za-z0-9.-]+)(:[0-9]+){0,1}/{0,1}$'))[1],'')),'\.$','') AS served
+  FROM deployment_address_settings s WHERE s.verification_state='legacy-unverified'
+), shaped AS (
+  SELECT deployment_id, domain, served, slug||'.'||domain AS generated,
+    CASE WHEN vanity=slug||'.'||domain THEN '' ELSE vanity END AS custom,
+    CASE WHEN vanity<>'' THEN vanity ELSE slug||'.'||domain END AS url_host
+  FROM legacy WHERE domain<>'' AND slug<>''
+), valid AS (
+  SELECT * FROM shaped
+  WHERE length(generated)<=253 AND generated ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]){0,1}(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]){0,1})*$' AND generated !~ '^([0-9]+|0x[0-9a-f]+)(\.([0-9]+|0x[0-9a-f]+))*$'
+    AND domain ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]){0,1}(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]){0,1})*$' AND domain !~ '^([0-9]+|0x[0-9a-f]+)(\.([0-9]+|0x[0-9a-f]+))*$'
+    AND (custom='' OR (length(custom)<=253 AND custom ~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]){0,1}(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9]){0,1})*$' AND custom !~ '^([0-9]+|0x[0-9a-f]+)(\.([0-9]+|0x[0-9a-f]+))*$'))
+    AND served=url_host
+)
+SELECT v.deployment_id, v.domain, v.generated, v.custom FROM valid v
+WHERE NOT EXISTS(SELECT 1 FROM deployment_hostname_claimants c
+  WHERE c.hostname IN (v.generated, NULLIF(v.custom,'')) AND c.deployment_id<>v.deployment_id)`,
+		`INSERT INTO deployment_hostname_claims(hostname)
+SELECT generated FROM apptown_address_settlement UNION SELECT custom FROM apptown_address_settlement WHERE custom<>''
+ON CONFLICT DO NOTHING`,
+		`INSERT INTO deployment_hostname_claimants(hostname,deployment_id)
+SELECT generated,deployment_id FROM apptown_address_settlement UNION SELECT custom,deployment_id FROM apptown_address_settlement WHERE custom<>''
+ON CONFLICT DO NOTHING`,
+		`UPDATE deployment_address_settings s SET generated_hostname=a.generated, custom_hostname=a.custom, certificate_domain=a.domain,
+  verification_state='ready', revision=s.revision+1
+FROM apptown_address_settlement a WHERE s.deployment_id=a.deployment_id`,
+		`DELETE FROM deployment_address_settings WHERE verification_state='legacy-unverified'`,
+		`ALTER TABLE deployment_address_settings DROP CONSTRAINT deployment_address_ready_fields`,
+		`ALTER TABLE deployment_address_settings DROP COLUMN verification_state`,
+		`ALTER TABLE deployment_address_settings DROP COLUMN legacy_evidence_json`,
+		`ALTER TABLE deployment_address_settings ADD CONSTRAINT deployment_address_ready_fields CHECK (generated_hostname<>'' AND certificate_domain<>'')`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

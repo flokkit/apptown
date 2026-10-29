@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -475,5 +477,56 @@ func TestARefusedDockerSelectionSettlesItsAttempt(t *testing.T) {
 	}
 	if attempt.Observed != tasks.Settled {
 		t.Fatalf("known pre-effect refusal remains %s: backend=%q current=%q step=%s provider=%q", attempt.Observed, attempt.Backend, b.tasks.Backend, got.Status, attempt.ProviderID)
+	}
+}
+
+// scriptTasks is the fake task driver for a test whose script step's
+// outcome depends on the tree it is given: run sees each task's spec (its
+// workspace is the tree the container would mount at /work) the first time
+// the task is ensured, may write there as the script would, and returns the
+// output and exit code the fake then reports. Project scripts run only in
+// containers; a test without Docker stands in for one this way.
+type scriptTasks struct {
+	*executionfake.Tasks
+	run   func(execution.TaskSpec) (output string, exit int)
+	mu    sync.Mutex
+	given map[string]execution.TaskSpec // what the fake was given, by key
+}
+
+// useScriptTasks makes a's script steps run on a scriptTasks over run.
+func useScriptTasks(t *testing.T, a *App, run func(execution.TaskSpec) (string, int)) *scriptTasks {
+	t.Helper()
+	d := &scriptTasks{Tasks: &executionfake.Tasks{}, run: run, given: map[string]execution.TaskSpec{}}
+	a.tasks.Driver, a.tasks.Poll = d, 20*time.Millisecond
+	return d
+}
+
+func (d *scriptTasks) Ensure(ctx context.Context, spec execution.TaskSpec) (execution.TaskObservation, error) {
+	d.mu.Lock()
+	given, ok := d.given[spec.Key]
+	if !ok {
+		output, exit := d.run(spec)
+		given = spec
+		given.Env = append(append([]string{}, spec.Env...), "FAKE_OUTPUT="+output, fmt.Sprintf("FAKE_EXIT=%d", exit))
+		d.given[spec.Key] = given
+	}
+	d.mu.Unlock()
+	return d.Tasks.Ensure(ctx, given)
+}
+
+// scriptPasses is a script that passes, for a test whose script's outcome
+// is not its guarantee.
+func scriptPasses(execution.TaskSpec) (string, int) { return "", 0 }
+
+// valueIs is the tests' check script `test "$(cat value.txt)" = want`, run
+// on the tree the task is given: it passes only when that tree's
+// value.txt says want.
+func valueIs(want string) func(execution.TaskSpec) (string, int) {
+	return func(spec execution.TaskSpec) (string, int) {
+		b, err := os.ReadFile(filepath.Join(spec.Workspace, "value.txt"))
+		if err != nil || strings.TrimSpace(string(b)) != want {
+			return fmt.Sprintf("value.txt is %q (%v), not %q", b, err, want), 1
+		}
+		return "", 0
 	}
 }

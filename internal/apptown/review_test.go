@@ -89,8 +89,8 @@ func mustJSONBytes(v any) []byte {
 	return b
 }
 
-// agentTestApp is a testApp wired for pi-free runs: local executor (no
-// pi-home staging), a pre-built "CLI" so the mount is offered, and
+// agentTestApp is a testApp wired for pi-free runs: a pre-built "CLI" so
+// the mount is offered, and
 // automatic dispatch stopped so a failing verdict never spawns a real agent.
 func agentTestApp(t *testing.T, configs ...Config) *App {
 	t.Helper()
@@ -98,7 +98,6 @@ func agentTestApp(t *testing.T, configs ...Config) *App {
 	if len(configs) != 0 {
 		cfg = configs[0]
 	}
-	cfg.AgentExecutor = ExecutorLocal
 	cfg.AgentImage = "apptown-agent"
 	if cfg.ConsoleCLI == "" {
 		cfg.ConsoleCLI = fixtureCLI(t)

@@ -155,7 +155,7 @@ func mutateStoredDeployment(t *testing.T, db *database.DB, projectID ids.ID, nam
 		t.Fatal(err)
 	}
 	mutate(&r)
-	if _, err := q.EnsureStanding(context.Background(), deploymentsql.EnsureStandingParams{ID: ids.New(r.UpdatedAt), ProjectID: r.ProjectID, Name: r.Name, Kind: r.Kind, TargetID: r.TargetID, Feed: r.Feed, Audience: r.Audience, DataClass: r.DataClass, PromoteAfter: r.PromoteAfter, UpdatedAt: r.UpdatedAt}); err != nil {
+	if _, err := q.EnsureStanding(context.Background(), deploymentsql.EnsureStandingParams{ID: ids.New(r.UpdatedAt), ProjectID: r.ProjectID, Name: r.Name, Kind: r.Kind, TargetID: r.TargetID, Feed: r.Feed, Audience: r.Audience, DataClass: r.DataClass, UpdatedAt: r.UpdatedAt}); err != nil {
 		t.Fatal(err)
 	}
 	if n, err := q.AdmitGeneration(context.Background(), deploymentsql.AdmitGenerationParams{ID: r.ID, DesiredGeneration: r.DesiredGeneration, Readiness: r.Readiness, UpdatedAt: r.UpdatedAt}); err != nil || n != 1 {

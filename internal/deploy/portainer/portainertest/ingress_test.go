@@ -1,15 +1,11 @@
-package portainer
+package portainertest
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func observedIngressCompose() string {
@@ -19,7 +15,7 @@ func observedIngressCompose() string {
 func TestStackIngressPreservesKnownRendererRoutingAndRefusesAmbiguity(t *testing.T) {
 	original := observedIngressCompose()
 	want := deploy.Ingress{Hosts: []string{"legacy.apps.example", "customer.example"}, URL: "https://customer.example", CertificateDomain: "apps.example"}
-	got, err := stackIngress(original, "apptown-fixture")
+	got, err := StackIngress(original, "apptown-fixture")
 	if err != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("observed routing: %+v %v", got, err)
 	}
@@ -39,46 +35,14 @@ func TestStackIngressPreservesKnownRendererRoutingAndRefusesAmbiguity(t *testing
 		"missing service":                 "services: {}",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := stackIngress(body, "apptown-fixture"); err == nil {
+			if _, err := StackIngress(body, "apptown-fixture"); err == nil {
 				t.Fatal("unsupported routing accepted")
 			}
 		})
 	}
 }
 
-func TestStackIngressUsesTheSameResponseAsOwnershipProof(t *testing.T) {
-	id := idstest.N(10)
-	content, err := MarkCompose(observedIngressCompose(), id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	calls := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		if r.Method != http.MethodGet || r.URL.Path != "/api/stacks/4/file" {
-			t.Errorf("unexpected provider effect %s %s", r.Method, r.URL.Path)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": content})
-	}))
-	defer server.Close()
-	scope := Scope{Version: 1, APIBase: server.URL, EndpointID: 3, DaemonID: "engine"}
-	cfg := Target{PortainerURL: server.URL, Scope: &scope}
-	stack := Stack{ID: 4, Name: "apptown-fixture", EndpointID: 3}
-	got, err := ReadStackIngress(t.Context(), cfg, stack, id, nil)
-	if err != nil || got.URL != "https://customer.example" || calls != 1 {
-		t.Fatalf("observation %+v, calls%d: %v", got, calls, err)
-	}
-	content = strings.Replace(content, id.String(), idstest.N(11).String(), 1)
-	if _, err := ReadStackIngress(t.Context(), cfg, stack, id, nil); err == nil {
-		t.Fatal("routing from another deployment was accepted")
-	}
-	before := calls
-	invalid := scope
-	invalid.Version = 0
-	cfg.Scope = &invalid
-	if _, err := ReadStackIngress(t.Context(), cfg, stack, id, nil); err == nil || calls != before {
-		t.Fatal("invalid identity reached provider")
-	}
-}
+// noSecrets delivers no secrets to any consumer.
+type noSecrets struct{}
+
+func (noSecrets) EnvFor(string) map[string]string { return nil }

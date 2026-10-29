@@ -13,7 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
-	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 
 	"github.com/flokkit/apptown/internal/apptown/complaint"
@@ -60,13 +59,9 @@ func (a *Executor) buildSteering(ctx context.Context, run *workflow.Run, step *w
 			return steeringFile{}, fmt.Errorf("reading change attachments: %w", err)
 		}
 	}
-	// Delegation (pihome.go): only promised where it exists — the docker
-	// executor's generated pi-home carries the baked extension; a local run
-	// keeps ambient config off entirely.
-	delegation := ""
-	if k.executor == execution.Docker {
-		delegation = a.home.Delegation(ctx)
-	}
+	// Delegation (pihome.go): the generated pi-home carries the baked
+	// extension.
+	delegation := a.home.Delegation(ctx)
 	st, resources, err := a.composeSteering(ctx, run, cfg, k, folderSteering, attachments, delegation)
 	if err != nil {
 		return st, err

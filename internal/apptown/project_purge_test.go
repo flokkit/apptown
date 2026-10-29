@@ -627,8 +627,8 @@ func TestProjectDeletionIsRefusedWhenAFinalBackupFallsShort(t *testing.T) {
 
 // A deletion's cleanup is recorded with it and survives failure: a Docker
 // error is retried, exhausted retries wait for a person without releasing
-// the name, and a deliberate retry finishes the job. The address remains
-// reserved even after cleanup so old links never identify another project.
+// the name, and a deliberate retry finishes the job, after which the address
+// is free.
 func TestProjectCleanupSurvivesFailureAndHoldsItsName(t *testing.T) {
 	t.Parallel()
 	a, f, paths := purgeFixture(t)
@@ -702,8 +702,8 @@ func TestProjectCleanupSurvivesFailureAndHoldsItsName(t *testing.T) {
 	if d := cleanup(); d.State != project.CleanupDone || d.Round != 1 || d.FinishedAt == nil {
 		t.Fatalf("retried cleanup: %+v", d)
 	}
-	if !nameHeld() {
-		t.Fatal("cleanup completion reassigned a permanent project address")
+	if nameHeld() {
+		t.Fatal("a finished cleanup still holds its project's address")
 	}
 }
 
@@ -1160,13 +1160,8 @@ func TestRemovedProjectCannotSupplyAnotherProjectsPackageCache(t *testing.T) {
 	if settled, err := a.Projects.SettleDeletionAttempt(t.Context(), old, 0, project.CleanupDone, ""); err != nil || !settled {
 		t.Fatalf("settled=%v err=%v", settled, err)
 	}
-	_, err := database.Transact(t.Context(), a.DB, func(tx *database.Tx) (ids.ID, error) {
-		return project.CreateAt(t.Context(), tx, time.Now(), project.Spec{Slug: "cache-reused"})
-	})
-	if !errors.Is(err, project.ErrSlugTaken) {
-		t.Fatalf("purged address reservation lost: %v", err)
-	}
-	current := create("cache-new")
+	// The purged project's address is free; a new project there gets its own cache.
+	current := create("cache-reused")
 	newVolume := agentenv.CacheVolume(scope(t.Context(), current))
 	if current == old || newVolume == "" || newVolume == oldVolume {
 		t.Fatalf("another project reused package cache: old=%s new=%s", oldVolume, newVolume)

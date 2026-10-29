@@ -815,7 +815,7 @@ func (a *Executor) recordWorkerAgent(ctx context.Context, w *workerAttempt, inv 
 	var st steeringFile
 	st.Hash, st.GuidanceHash, st.Skills, st.Resources = meta.Steering.Hash, meta.Steering.GuidanceHash, meta.Steering.Skills, meta.Steering.Resources
 	status, err := a.recordAgentOutcome(ctx, agentRecord{task: w.task, cfg: &w.cfg, pi: res.piResult, files: h, steering: st,
-		modelSlot: meta.ModelSlot, modelProfile: meta.ModelProfile, executor: execution.Docker, image: meta.Image.Name,
+		modelSlot: meta.ModelSlot, modelProfile: meta.ModelProfile, image: meta.Image.Name,
 		start: meta.Began, queuedMs: meta.QueuedMs, attempts: meta.Dispatches, worker: rec})
 	return settlementOutcome(status, err), err
 }

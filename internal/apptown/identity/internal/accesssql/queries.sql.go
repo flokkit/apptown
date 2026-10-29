@@ -585,7 +585,7 @@ func (q *Queries) ConsumeTicket(ctx context.Context, arg ConsumeTicketParams) (i
 }
 
 const delegationByID = `-- name: DelegationByID :one
-SELECT id, principal_id, client_id, client_name, audience, kind, scopes_json, group_bounds_json, project_bounds_json, auth_time, auth_method, created_at, last_used, expires_at, revoked_at, username FROM delegations_named WHERE id = $1
+SELECT id, principal_id, client_id, client_name, audience, scopes_json, auth_time, auth_method, created_at, last_used, expires_at, revoked_at, username FROM delegations_named WHERE id = $1
 `
 
 func (q *Queries) DelegationByID(ctx context.Context, id ids.ID) (DelegationsNamed, error) {
@@ -597,10 +597,7 @@ func (q *Queries) DelegationByID(ctx context.Context, id ids.ID) (DelegationsNam
 		&i.ClientID,
 		&i.ClientName,
 		&i.Audience,
-		&i.Kind,
 		&i.ScopesJson,
-		&i.GroupBoundsJson,
-		&i.ProjectBoundsJson,
 		&i.AuthTime,
 		&i.AuthMethod,
 		&i.CreatedAt,
@@ -613,26 +610,23 @@ func (q *Queries) DelegationByID(ctx context.Context, id ids.ID) (DelegationsNam
 }
 
 const delegationByIDForUpdate = `-- name: DelegationByIDForUpdate :one
-SELECT d.id, d.principal_id, d.client_id, d.client_name, d.audience, d.kind, d.scopes_json, d.group_bounds_json, d.project_bounds_json, d.auth_time, d.auth_method, d.created_at, d.last_used, d.expires_at, d.revoked_at, u.username FROM delegations d JOIN users u ON u.principal_id = d.principal_id WHERE d.id = $1 FOR UPDATE OF d
+SELECT d.id, d.principal_id, d.client_id, d.client_name, d.audience, d.scopes_json, d.auth_time, d.auth_method, d.created_at, d.last_used, d.expires_at, d.revoked_at, u.username FROM delegations d JOIN users u ON u.principal_id = d.principal_id WHERE d.id = $1 FOR UPDATE OF d
 `
 
 type DelegationByIDForUpdateRow struct {
-	ID                ids.ID
-	PrincipalID       ids.ID
-	ClientID          string
-	ClientName        string
-	Audience          string
-	Kind              string
-	ScopesJson        json.RawMessage
-	GroupBoundsJson   json.RawMessage
-	ProjectBoundsJson json.RawMessage
-	AuthTime          sql.NullTime
-	AuthMethod        string
-	CreatedAt         time.Time
-	LastUsed          sql.NullTime
-	ExpiresAt         sql.NullTime
-	RevokedAt         sql.NullTime
-	Username          string
+	ID          ids.ID
+	PrincipalID ids.ID
+	ClientID    string
+	ClientName  string
+	Audience    string
+	ScopesJson  json.RawMessage
+	AuthTime    sql.NullTime
+	AuthMethod  string
+	CreatedAt   time.Time
+	LastUsed    sql.NullTime
+	ExpiresAt   sql.NullTime
+	RevokedAt   sql.NullTime
+	Username    string
 }
 
 func (q *Queries) DelegationByIDForUpdate(ctx context.Context, id ids.ID) (DelegationByIDForUpdateRow, error) {
@@ -644,10 +638,7 @@ func (q *Queries) DelegationByIDForUpdate(ctx context.Context, id ids.ID) (Deleg
 		&i.ClientID,
 		&i.ClientName,
 		&i.Audience,
-		&i.Kind,
 		&i.ScopesJson,
-		&i.GroupBoundsJson,
-		&i.ProjectBoundsJson,
 		&i.AuthTime,
 		&i.AuthMethod,
 		&i.CreatedAt,
@@ -660,7 +651,7 @@ func (q *Queries) DelegationByIDForUpdate(ctx context.Context, id ids.ID) (Deleg
 }
 
 const delegationsLive = `-- name: DelegationsLive :many
-SELECT id, principal_id, client_id, client_name, audience, kind, scopes_json, group_bounds_json, project_bounds_json, auth_time, auth_method, created_at, last_used, expires_at, revoked_at, username FROM delegations_named WHERE revoked_at IS NULL ORDER BY id DESC
+SELECT id, principal_id, client_id, client_name, audience, scopes_json, auth_time, auth_method, created_at, last_used, expires_at, revoked_at, username FROM delegations_named WHERE revoked_at IS NULL ORDER BY id DESC
 `
 
 func (q *Queries) DelegationsLive(ctx context.Context) ([]DelegationsNamed, error) {
@@ -678,10 +669,7 @@ func (q *Queries) DelegationsLive(ctx context.Context) ([]DelegationsNamed, erro
 			&i.ClientID,
 			&i.ClientName,
 			&i.Audience,
-			&i.Kind,
 			&i.ScopesJson,
-			&i.GroupBoundsJson,
-			&i.ProjectBoundsJson,
 			&i.AuthTime,
 			&i.AuthMethod,
 			&i.CreatedAt,
@@ -704,7 +692,7 @@ func (q *Queries) DelegationsLive(ctx context.Context) ([]DelegationsNamed, erro
 }
 
 const delegationsLiveForUser = `-- name: DelegationsLiveForUser :many
-SELECT id, principal_id, client_id, client_name, audience, kind, scopes_json, group_bounds_json, project_bounds_json, auth_time, auth_method, created_at, last_used, expires_at, revoked_at, username FROM delegations_named WHERE revoked_at IS NULL AND username = $1 ORDER BY id DESC
+SELECT id, principal_id, client_id, client_name, audience, scopes_json, auth_time, auth_method, created_at, last_used, expires_at, revoked_at, username FROM delegations_named WHERE revoked_at IS NULL AND username = $1 ORDER BY id DESC
 `
 
 func (q *Queries) DelegationsLiveForUser(ctx context.Context, username string) ([]DelegationsNamed, error) {
@@ -722,10 +710,7 @@ func (q *Queries) DelegationsLiveForUser(ctx context.Context, username string) (
 			&i.ClientID,
 			&i.ClientName,
 			&i.Audience,
-			&i.Kind,
 			&i.ScopesJson,
-			&i.GroupBoundsJson,
-			&i.ProjectBoundsJson,
 			&i.AuthTime,
 			&i.AuthMethod,
 			&i.CreatedAt,
@@ -1465,8 +1450,8 @@ func (q *Queries) InsertConsent(ctx context.Context, arg InsertConsentParams) er
 
 const insertDelegation = `-- name: InsertDelegation :one
 
-INSERT INTO delegations (id, principal_id, client_id, client_name, audience, kind, scopes_json, auth_time, auth_method, created_at, expires_at)
-VALUES ($10, (SELECT u.principal_id FROM users u WHERE u.username = $1), $2, $3, $4, 'oauth', $5, $6, $7, $8, $9) RETURNING id
+INSERT INTO delegations (id, principal_id, client_id, client_name, audience, scopes_json, auth_time, auth_method, created_at, expires_at)
+VALUES ($10, (SELECT u.principal_id FROM users u WHERE u.username = $1), $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id
 `
 
 type InsertDelegationParams struct {
@@ -2827,27 +2812,23 @@ func (q *Queries) RevokeTokensMintedSince(ctx context.Context, arg RevokeTokensM
 
 const saveDelegation = `-- name: SaveDelegation :one
 UPDATE delegations SET client_id = $1, client_name = $2,
-audience = $3, kind = $4, scopes_json = $5, group_bounds_json = $6,
-project_bounds_json = $7, auth_time = $8, auth_method = $9,
-created_at = $10, last_used = $11, expires_at = $12, revoked_at = $13
-WHERE id=$14 RETURNING id
+audience = $3, scopes_json = $4, auth_time = $5, auth_method = $6,
+created_at = $7, last_used = $8, expires_at = $9, revoked_at = $10
+WHERE id=$11 RETURNING id
 `
 
 type SaveDelegationParams struct {
-	ClientID          string
-	ClientName        string
-	Audience          string
-	Kind              string
-	ScopesJson        json.RawMessage
-	GroupBoundsJson   json.RawMessage
-	ProjectBoundsJson json.RawMessage
-	AuthTime          sql.NullTime
-	AuthMethod        string
-	CreatedAt         time.Time
-	LastUsed          sql.NullTime
-	ExpiresAt         sql.NullTime
-	RevokedAt         sql.NullTime
-	ID                ids.ID
+	ClientID   string
+	ClientName string
+	Audience   string
+	ScopesJson json.RawMessage
+	AuthTime   sql.NullTime
+	AuthMethod string
+	CreatedAt  time.Time
+	LastUsed   sql.NullTime
+	ExpiresAt  sql.NullTime
+	RevokedAt  sql.NullTime
+	ID         ids.ID
 }
 
 func (q *Queries) SaveDelegation(ctx context.Context, arg SaveDelegationParams) (ids.ID, error) {
@@ -2855,10 +2836,7 @@ func (q *Queries) SaveDelegation(ctx context.Context, arg SaveDelegationParams) 
 		arg.ClientID,
 		arg.ClientName,
 		arg.Audience,
-		arg.Kind,
 		arg.ScopesJson,
-		arg.GroupBoundsJson,
-		arg.ProjectBoundsJson,
 		arg.AuthTime,
 		arg.AuthMethod,
 		arg.CreatedAt,

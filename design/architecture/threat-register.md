@@ -130,8 +130,9 @@ the maximum already-in-flight exposure.
 **Status: partly mitigated; the root daemon is accepted.**
 With a worker, steps, checks, previews, release builds and new change chats
 run on a separate machine; with `-no-local-docker` AppTown's host runs no
-Docker and no project process; a script step runs as a host process only with
-`-host-scripts` ([agent isolation limits](../subsystems/agent-sandbox.md);
+Docker and no project process; without a worker every project step runs in a
+container on AppTown's Docker, never as a host process
+([agent isolation limits](../subsystems/agent-sandbox.md);
 [workers](../operations/workers.md), "What a worker isolates, and what it does
 not"). Remaining: private Docker is still a privileged container; without
 `-no-local-docker`, project chats, continued chats and chats placed on the

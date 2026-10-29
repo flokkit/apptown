@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -332,88 +331,27 @@ func TestARunIsFoundByItsFriendlyFormAndItsSlugStays(t *testing.T) {
 	if w := authzCall(h, "boss", "GET", "/api/v1/runs/game%2399", ""); w.Code != 404 || !strings.Contains(w.Body.String(), "no run game#99") {
 		t.Fatalf("run game#99: %d %s", w.Code, w.Body.String())
 	}
-	if w := authzCall(h, "boss", "PATCH", "/api/v1/projects/game", `{"slug":"arcade","expectedRevision":0}`); w.Code != 400 {
-		t.Fatalf("a slug change: %d %s", w.Code, w.Body.String())
-	}
 	if code, got := read("/api/v1/changes/game%231"); code != 200 || !strings.Contains(got, fx.Change.String()) {
 		t.Fatalf("change game#1: %d %s", code, got)
 	}
 }
 
-// A link made before 1.0 named a change, run, step, ADR or guidance block
-// by the integer it had then; the identity cutover kept each in former_ids.
-// The API answers such a number with the record, and its page moves to the
-// record's id. Only this AppTown's former identities answer.
-func TestALinkMadeBefore1Point0FindsItsRecord(t *testing.T) {
+// A record is named by its UUID (or a change's or run's slug#N); a bare
+// integer, the shape of a pre-1.0 link, names nothing: the API refuses it
+// and its page is the web app's, never a redirect.
+func TestABareIntegerNamesNoRecord(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
-	fx := fixtureWork(t, a)
+	fixtureWork(t, a)
 	h := a.Handler()
-	w := authzCall(h, "owner", "POST", "/api/v1/projects/game/adrs", `{"title":"a decision","bodyMd":"why"}`)
-	var adr struct{ ID ids.ID }
-	if err := json.Unmarshal(w.Body.Bytes(), &adr); err != nil || adr.ID.IsZero() {
-		t.Fatalf("adr: %d %s", w.Code, w.Body.String())
-	}
-	block, err := a.Ways.CreateBlock(t.Context(), "house/former", "body", "", "boss")
-	if err != nil {
-		t.Fatal(err)
-	}
-	instance, err := a.Access.AppTownID(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, row := range []struct {
-		instance  ids.ID
-		kind, old string
-		id        ids.ID
-	}{
-		{instance, "changes", "41", fx.Change}, {instance, "runs", "42", fx.Run}, {instance, "steps", "43", fx.Accept},
-		{instance, "adrs", "44", adr.ID}, {instance, "guidance_blocks", "45", block.ID},
-		{idstest.N(77), "changes", "46", fx.Change}, // another AppTown's
-	} {
-		// The identity cutover wrote former_ids, and it is gone.
-		// sql-guarantee: no owner operation writes former_ids now.
-		if _, err := a.DB.SQL().ExecContext(t.Context(), `INSERT INTO former_ids(forge, kind, old, id) VALUES ($1, $2, $3, $4)`, row.instance, row.kind, row.old, row.id); err != nil {
-			t.Fatal(err)
+	for _, path := range []string{"/api/v1/changes/41", "/api/v1/runs/42", "/api/v1/adrs/44"} {
+		if w := authzCall(h, "boss", "GET", path, ""); w.Code != 400 {
+			t.Errorf("GET %s: %d %s; want 400", path, w.Code, w.Body.String())
 		}
 	}
-	for path, want := range map[string]string{
-		"/api/v1/changes/41": fx.Change.String(), "/api/v1/runs/42": fx.Run.String(), "/api/v1/steps/43/question": `"step":"accept"`,
-		"/api/v1/adrs/44": adr.ID.String(), "/api/v1/guidance/blocks/45": block.ID.String(),
-	} {
-		w := authzCall(h, "boss", "GET", path, "")
-		if w.Code != 200 || !strings.Contains(w.Body.String(), want) {
-			t.Errorf("GET %s: %d %s; want the record (%s)", path, w.Code, w.Body.String(), want)
-		}
-	}
-	// The old number names the record and grants nothing: each caller gets
-	// the answer its id gets.
-	for _, who := range []string{"owner", "outsider", "kid"} {
-		for old, id := range map[string]ids.ID{"/api/v1/adrs/44": adr.ID, "/api/v1/changes/41": fx.Change} {
-			byOld, byID := authzCall(h, who, "GET", old, ""), authzCall(h, who, "GET", strings.Replace(old, path.Base(old), id.String(), 1), "")
-			if byOld.Code != byID.Code {
-				t.Errorf("%s reading %s: %d, by its id %d", who, old, byOld.Code, byID.Code)
-			}
-		}
-	}
-	for _, path := range []string{"/api/v1/changes/46", "/api/v1/changes/47", "/api/v1/runs/41"} {
-		if w := authzCall(h, "boss", "GET", path, ""); w.Code != 404 {
-			t.Errorf("GET %s: %d %s; want not found", path, w.Code, w.Body.String())
-		}
-	}
-	for path, want := range map[string]string{
-		"/changes/41?tab=work&run=42&step=43": "/changes/" + fx.Change.String() + "?run=" + fx.Run.String() + "&step=" + fx.Accept.String() + "&tab=work",
-		"/adrs/44":                            "/adrs/" + adr.ID.String(),
-		"/guidance/45":                        "/guidance/" + block.ID.String(),
-	} {
-		w := authzCall(h, "boss", "GET", path, "")
-		if w.Code != 301 || w.Header().Get("Location") != want {
-			t.Errorf("page %s: %d to %q; want 301 to %s", path, w.Code, w.Header().Get("Location"), want)
-		}
-	}
-	for _, path := range []string{"/changes/46", "/changes/47", "/changes/" + fx.Change.String(), "/changes/game%231"} {
-		if w := authzCall(h, "boss", "GET", path, ""); w.Code == 301 {
-			t.Errorf("page %s moved to %s; only a former number this AppTown kept moves", path, w.Header().Get("Location"))
+	for _, path := range []string{"/changes/41?run=42", "/adrs/44", "/guidance/45"} {
+		if w := authzCall(h, "boss", "GET", path, ""); w.Code != 200 || w.Header().Get("Location") != "" {
+			t.Errorf("page %s: %d to %q; want the web app", path, w.Code, w.Header().Get("Location"))
 		}
 	}
 }
@@ -505,7 +443,6 @@ var cliOperations = map[string]described{
 	"POST /api/v1/standing-approvals/{id}/disable":           {request: httpapi.StandingDisable{}, status: 200, response: workflow.StandingRevision{}},
 	"GET /api/v1/projects/{slug}/release/default":            {status: 200, response: deployment.ReleaseDefault{}},
 	"GET /api/v1/projects/{slug}/targets":                    {status: 200, response: httpapi.ProjectTargets{}},
-	"POST /api/v1/projects/{slug}/release/default/setup":     {request: deployment.ReleaseSetup{}, status: 200, response: deployment.ReleaseDefault{}},
 	"GET /api/v1/projects/{slug}/release/plan":               {status: 200, response: httpapi.ReleasePlan{}},
 	"GET /api/v1/projects":                                   {status: 200, response: []httpapi.ProjectRow{}, also: httpapi.ProjectPage{}, alsoWhen: "with limit, offset or q"},
 	"POST /api/v1/projects":                                  {request: httpapi.ProjectDraft{}, status: 201, response: project.Project{}},

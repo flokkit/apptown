@@ -59,11 +59,11 @@ func TestPiAgentSurfaceWithoutBakedExtension(t *testing.T) {
 // folder on AppTown's host, elsewhere on a worker.
 func TestStepArgsPointAtTheGivenPaths(t *testing.T) {
 	t.Parallel()
-	joined := strings.Join(StepArgs(FolderStepPaths, "step-1-a1", "docker", true, "", "", "go"), " ")
+	joined := strings.Join(StepArgs(FolderStepPaths, "step-1-a1", true, "", "", "go"), " ")
 	if !strings.Contains(joined, "--session-dir .apptown/sessions --session-id step-1-a1") || !strings.Contains(joined, "--append-system-prompt .apptown/steering.md") {
 		t.Fatalf("folder paths: %s", joined)
 	}
-	joined = strings.Join(StepArgs(StepPaths{SessionFile: "/apptown/state/sessions/x_step-1-a1.jsonl", Steering: "/apptown/in/steering.md"}, "step-1-a1", "docker", true, "", "", "go"), " ")
+	joined = strings.Join(StepArgs(StepPaths{SessionFile: "/apptown/state/sessions/x_step-1-a1.jsonl", Steering: "/apptown/in/steering.md"}, "step-1-a1", true, "", "", "go"), " ")
 	if !strings.Contains(joined, "--session /apptown/state/sessions/x_step-1-a1.jsonl") || strings.Contains(joined, "--session-dir") || strings.Contains(joined, "--session-id") ||
 		!strings.Contains(joined, "--append-system-prompt /apptown/in/steering.md") || strings.Contains(joined, ".apptown") {
 		t.Fatalf("given paths: %s", joined)

@@ -188,7 +188,7 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 		if _, err := s.TakeBackup(context.Background(), pid, name, "manual", "bls"); !errors.Is(err, ErrDataNotKnown) {
 			t.Fatalf("%s: %v, want not known", name, err)
 		}
-		if r, err := worker.Backup(context.Background(), "nb/"+name, nil); err == nil {
+		if r, err := worker.Backup(context.Background(), pid.String()+"/"+name, nil); err == nil {
 			t.Fatalf("%s: the scheduled backup passed: %v", name, r)
 		}
 		if p, err := s.DeploymentProtection(context.Background(), pid, name); err != nil || p.Unknown == "" {
@@ -215,7 +215,7 @@ func TestNothingToBackUpNeedsBothSourcesReadAndEmpty(t *testing.T) {
 	if _, err := s.TakeBackup(context.Background(), pid, "main", "manual", "bls"); !errors.Is(err, ErrNothingToBackUp) {
 		t.Fatalf("nothing named: %v", err)
 	}
-	if r, err := worker.Backup(context.Background(), "nb/main", nil); err != nil || r["skipped"] == nil {
+	if r, err := worker.Backup(context.Background(), pid.String()+"/main", nil); err != nil || r["skipped"] == nil {
 		t.Fatalf("a scheduled backup of nothing is skipped: %v %v", r, err)
 	}
 }
@@ -240,7 +240,7 @@ func TestAHostThatCannotBeAskedLeavesItsDataUnknown(t *testing.T) {
 		t.Fatalf("an unreachable host's backup: %v, want not known", err)
 	}
 	worker := JobWorker{Service: s.Service, Projects: project.New(db, nil)}
-	if r, err := worker.Backup(context.Background(), "uh/main", nil); err == nil {
+	if r, err := worker.Backup(context.Background(), pid.String()+"/main", nil); err == nil {
 		t.Fatalf("the scheduled backup of an unreachable host passed: %v", r)
 	}
 	p, err := s.DeploymentProtection(context.Background(), pid, "main")

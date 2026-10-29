@@ -7,7 +7,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// MemoryDefault is a positive memory fallback supplied by adopted content.
+// MemoryDefault is a positive memory fallback a dependency catalogue kind
+// supplies for its local service.
 // Unlimited memory is an operator decision, never a content default.
 type MemoryDefault struct {
 	Memory string `json:"memory,omitempty" yaml:"memory,omitempty"`

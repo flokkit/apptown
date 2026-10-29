@@ -246,7 +246,7 @@ func newWorkerStepWorld(t *testing.T, step schema.Step, files map[string]string,
 	// Before the worker can make any: a test that fails leaves none running.
 	removePrivateDockerOf(t, server)
 	srv := workertest.StartServerWith(t, ca, server, w.wrap)
-	w.cfg = Config{DataDir: t.TempDir(), AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL), PrivateDocker: true}
+	w.cfg = Config{DataDir: t.TempDir(), AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL), PrivateDocker: true}
 	w.a = testApp(t, w.cfg)
 	w.a.tasks.Poll, w.a.tasks.Patience = 100*time.Millisecond, 2*time.Second
 	run, steps := agentWorkerChange(t, w.a, []schema.Step{step}, files)
@@ -859,7 +859,7 @@ func TestIntegrationAnAgentsOutputOnTheWorker(t *testing.T) {
 
 // A nonzero agent exit is an error, not retried. The partial work a failed process left is kept as the
 // attempt's candidate before the error is settled.
-func TestReviewS5NonzeroAgentExitIsErrorWithoutRetry(t *testing.T) {
+func TestIntegrationReviewS5NonzeroAgentExitIsErrorWithoutRetry(t *testing.T) {
 	for name, script := range map[string]string{"with text": `echo partial > partial.txt; say "partial result"; exit 7`, "empty": `silent; exit 7`} {
 		t.Run(name, func(t *testing.T) {
 			w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": script})
@@ -879,7 +879,7 @@ func TestReviewS5NonzeroAgentExitIsErrorWithoutRetry(t *testing.T) {
 
 // Pi reads the named session file: a second file naming the session is
 // not the history, and does not make it unavailable.
-func TestReviewS5AmbiguousWorkerHistoryIsUnavailable(t *testing.T) {
+func TestIntegrationReviewS5AmbiguousWorkerHistoryIsUnavailable(t *testing.T) {
 	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `say "done"; cp "$session" /apptown/state/sessions/9999-competing.jsonl`})
 	w.execute(t, w.a)
 	receipt, err := workflow.StepTranscriptIn(context.Background(), w.a.DB, workflow.RunRef{ID: w.run.ID, ProjectID: w.run.ProjectID}, w.step.ID, 1)
@@ -891,7 +891,7 @@ func TestReviewS5AmbiguousWorkerHistoryIsUnavailable(t *testing.T) {
 	}
 }
 
-func TestReviewS5ReceiptWriteFailureDoesNotSettleWithoutHistoryState(t *testing.T) {
+func TestIntegrationReviewS5ReceiptWriteFailureDoesNotSettleWithoutHistoryState(t *testing.T) {
 	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `say "done"`})
 	dbtest.FailNextStatement(t, w.a.DB, "-- name: RecordAgentTranscript")
 	w.execute(t, w.a)
@@ -916,7 +916,7 @@ func TestReviewS5ReceiptWriteFailureDoesNotSettleWithoutHistoryState(t *testing.
 // predate agent_transcripts. Raw deletion is only to construct that era.
 // The restarted AppTown imports the folder's file at startup, then the
 // continue runs on the worker.
-func TestReviewS5OldRunContinuesItsFolderTranscriptOnWorker(t *testing.T) {
+func TestIntegrationReviewS5OldRunContinuesItsFolderTranscriptOnWorker(t *testing.T) {
 	w := newAgentWorkerWorld(t, nil, map[string]string{"fake-pi.sh": `say "done"`})
 	w.execute(t, w.a)
 	receipt, raw := w.transcript(t, 1)

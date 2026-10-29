@@ -68,9 +68,9 @@ func TestProjectLifecycleHTTP(t *testing.T) {
 }
 
 // The browser's frozen generated request crosses the real admission boundary:
-// automatic collision selection happens once, lost-response replay returns the
-// original result, and its permanent alias resolves current identity after rename.
-func TestDescriptionFirstCreationRequestReplaysThroughHTTPAndCanonicalAlias(t *testing.T) {
+// automatic collision selection happens once, and lost-response replay returns
+// the original result, whose address names nothing once the project has moved.
+func TestDescriptionFirstCreationRequestReplaysThroughHTTP(t *testing.T) {
 	t.Parallel()
 	a := testApp(t, Config{DockerClient: newFakeDocker()})
 	testAdministrator(t, a, "bls")
@@ -100,7 +100,7 @@ func TestDescriptionFirstCreationRequestReplaysThroughHTTPAndCanonicalAlias(t *t
 		t.Fatalf("local request unexpectedly initialized repository: %v", err)
 	}
 	renamed := "customer-ledger-renamed"
-	patch, _ := json.Marshal(project.SettingsPatch{RequestID: ids.New(time.Now()), ExpectedRevision: &first.SettingsRevision, Slug: &renamed})
+	patch, _ := json.Marshal(project.SettingsPatch{ExpectedRevision: &first.SettingsRevision, Slug: &renamed})
 	if w := authzCall(h, "bls", "PATCH", "/api/v1/projects/"+first.Slug, string(patch)); w.Code != 200 {
 		t.Fatalf("rename: %d %s", w.Code, w.Body.String())
 	}
@@ -108,10 +108,10 @@ func TestDescriptionFirstCreationRequestReplaysThroughHTTPAndCanonicalAlias(t *t
 	if replay.ID != first.ID || replay.Slug != first.Slug || replay.SettingsRevision != first.SettingsRevision {
 		t.Fatalf("replay did not return original result: %+v / %+v", first, replay)
 	}
-	w := authzCall(h, "bls", "GET", "/api/v1/projects/"+replay.Slug, "")
-	var canonical httpapi.ProjectDetail
-	if err := json.Unmarshal(w.Body.Bytes(), &canonical); err != nil || w.Code != 200 || canonical.ID != first.ID || canonical.Slug != renamed {
-		t.Fatalf("canonical alias read: %d %s %v", w.Code, w.Body.String(), err)
+	// The replayed result names the address the project had then, which
+	// names nothing now.
+	if w := authzCall(h, "bls", "GET", "/api/v1/projects/"+replay.Slug, ""); w.Code != 404 {
+		t.Fatalf("old address read: %d %s", w.Code, w.Body.String())
 	}
 	changed := input
 	changed.Blurb = "A different software request"

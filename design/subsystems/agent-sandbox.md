@@ -2,16 +2,16 @@
 
 ## Implemented
 
-Agents run through the configured executor. Docker model execution uses prepared
-workspaces and generated configuration, with AppTown runtime credentials for the
-private inference gateway. Local model execution is refused because filtering its
-environment cannot isolate a local process from daemon credentials.
+Agents run in containers. Model execution uses prepared workspaces and
+generated configuration, with AppTown runtime credentials for the private
+inference gateway. No agent runs as a local process: filtering its environment
+cannot isolate a local process from daemon credentials.
 
 **A separate worker machine.** With `-worker-url`, project code runs on
 `apptown-worker`, not on AppTown's host: Docker script steps, tests, agent and
 review steps, checks and scans, change and run previews, release builds, and new
-change chats by default. A script step without `executor: docker` is refused
-(without a worker it runs as a local process on the AppTown host). AppTown and
+change chats by default. Without a worker they run in containers on the
+AppTown host's Docker; no project step runs as a host process. AppTown and
 worker share no files; AppTown sends one commit as a Git bundle over mutual
 TLS and receives the task's commits back. A task the worker cannot run or reach
 is refused or an error, never moved to the host. A step's or chat's container is
@@ -28,10 +28,9 @@ lists exactly what moved and the verified limits; `internal/execution` and
 `internal/worker` own the task contract.
 
 **Private Docker.** Agent steps that declare `docker: true` and writable change
-chats can use a private Docker daemon. `-no-private-docker` turns it off for
-both. On a worker, agent steps get it, and release builds run, only when the
-operator opts in with `-private-docker`; change chats on a worker get it unless
-`-no-private-docker` is set.
+chats can use a private Docker daemon, on AppTown's host or a worker, and
+release builds on a worker run in one. One setting, `-private-docker` (on by
+default), covers all of them: `-private-docker=false` turns it off everywhere.
 That avoids handing them the host Docker socket, but the privileged sidecar
 is not a strong boundary against hostile code. Registry mirrors provide routing,
 not an enforced egress allowlist.

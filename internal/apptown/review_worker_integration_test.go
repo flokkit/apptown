@@ -346,7 +346,7 @@ func TestIntegrationAReviewWhoseScopeCannotBeReadIsNotAssessed(t *testing.T) {
 
 // A force-added ignored file must be refused even when its name contains
 // spaces, and the evidence names it exactly.
-func TestReviewS6ScopePreservesPathsWithSpaces(t *testing.T) {
+func TestIntegrationReviewS6ScopePreservesPathsWithSpaces(t *testing.T) {
 	t.Parallel()
 	w := newReviewWorkerWorld(t, nil, map[string]string{".gitignore": ".apptown/*\n!.apptown/app.yaml\ntarget/\n", "fake-pi.sh": reviewPass + `say "looks fine"`})
 	ws := requireLocation(t)(w.source.Workspace(w.a.cfg.dataDir))

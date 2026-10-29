@@ -154,13 +154,6 @@ LEFT JOIN guidance_block_versions v ON v.block_id=gi.block_id AND v.version=gi.v
 WHERE gi.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND NOT gi.disabled
 ORDER BY gi.project_id,gi.position;
 
--- name: PrimaryPackMemoryDefault :one
-SELECT a.pack, COALESCE(pp.version,0)::bigint AS version, COALESCE(v.spec_json::text,'')::text AS spec
-FROM adoptions a LEFT JOIN packs p ON p.name=a.pack
-LEFT JOIN project_packs pp ON pp.project_id=a.project_id AND pp.pack_id=p.id
-LEFT JOIN pack_versions v ON v.pack_id=pp.pack_id AND v.version=pp.version
-WHERE a.project_id=$1;
-
 -- name: DeletePulledPrimaryMembership :exec
 DELETE FROM project_packs WHERE project_id=sqlc.arg(project_id)
 AND pack_id IN (SELECT id FROM packs WHERE name=sqlc.arg(previous_pack)::text OR name=sqlc.arg(selected_pack)::text);

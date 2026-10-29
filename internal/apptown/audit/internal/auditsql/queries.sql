@@ -1,6 +1,6 @@
 -- name: AppendReceipt :execrows
-INSERT INTO audit_log(id, at,actor,actor_principal,actor_via,project_id,kind,subject,payload_json,refs)
-VALUES (sqlc.arg(id), sqlc.arg(at)::text::timestamptz,sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(project_id),sqlc.arg(kind),sqlc.arg(subject),sqlc.arg(payload_json),sqlc.arg(refs));
+INSERT INTO audit_log(id, at,actor,actor_principal,actor_via,project_id,kind,subject,payload_json)
+VALUES (sqlc.arg(id), sqlc.arg(at)::text::timestamptz,sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(project_id),sqlc.arg(kind),sqlc.arg(subject),sqlc.arg(payload_json));
 
 -- name: RecentReceipts :many
 SELECT a.*, COALESCE(p.slug,'')::text AS project_slug
@@ -18,7 +18,3 @@ ORDER BY a.id DESC LIMIT sqlc.arg(row_limit);
 SELECT DISTINCT split_part(actor, ' via ', 1)::text AS name FROM audit_log
 WHERE split_part(actor, ' via ', 1) = ANY(sqlc.arg(names)::text[]);
 
--- The record a former identity names: this AppTown's row for the converted
--- table (kind) and the identity it had before the cutover (old).
--- name: FormerID :one
-SELECT id FROM former_ids WHERE forge = sqlc.arg(forge) AND kind = sqlc.arg(kind) AND old = sqlc.arg(old);

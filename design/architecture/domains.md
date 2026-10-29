@@ -40,7 +40,7 @@ transport boundaries; its registrations and counts are not the full domain model
 | How does a long action someone asked for run? | `operations` owns the ledger (one row per copy, drill, rehearsal, restored copy or take-down: who asked with which credential, the paths it holds, its steps and how it ended), admission with its job, the `operations` queue worker and restart settlement; owners register kinds and admit them under their own locks; `identity.RequireStill` answers whether the credential that asked still stands |
 | How do background effects run? | `jobs` wraps River delivery; each effect owner handles its operation; `maintenance` owns periodic cleanup policy and what local work and execution containers this host still holds (the drain's questions) |
 | How do repositories and integrations work? | `scm` owns durable Git effects; `repositoryedit` composes repository edits; `integration` owns bindings, the seed bindings and capability names, and whether a model binding's credentials resolve; `dependency` owns the dependency catalogue |
-| Project addresses in ADR filters | `adrs` resolves addresses through `project.IDByAddressIn`; it owns ADR selection and preserves the existing visibility filter |
+| Project addresses in ADR filters | `adrs` resolves addresses through `project.IDBySlugIn`; it owns ADR selection and preserves the existing visibility filter |
 | Other recorded product facts | `audit`, `adrs` and `complaint` own their respective records |
 
 A package can expose several focused operations or services. This map is not a

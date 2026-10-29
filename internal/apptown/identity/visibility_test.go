@@ -45,7 +45,7 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Grant(context.Background(), Spec{SubjectType: "group", Subject: "family", Role: access.RoleAuditor, Scope: access.ScopeGroup, ScopeID: "family"}, ""); err != nil {
+	if _, err := s.Grant(context.Background(), Spec{SubjectType: "group", Subject: "family", Capability: string(access.CapProjectRead), Scope: access.ScopeGroup, ScopeID: "family"}, ""); err != nil {
 		t.Fatal(err)
 	}
 	read := func(pr access.Principal, want []ids.ID) {

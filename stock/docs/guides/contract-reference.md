@@ -313,7 +313,7 @@ is chosen only when it starts. Sealed restore checks use the source deployment's
 origin within their isolated network. Existing containers and admitted preview
 requests retain their captured values; fresh preparation narrows old wildcard
 trust, so applications must not rely on accepting sibling projects' origins.
-Management address aliases do not add application hosts. A later release may
+Changing a project's address does not add application hosts. A later release may
 add entries (a custom domain, say), never change the syntax: split on commas, and treat a leading `*.` as a wildcard.
 
 ## Health
@@ -481,8 +481,10 @@ profiles:
   and refuses a part no size covers before anything is made. A bucket
   website has no runtime.
 - **A part that declares no memory still gets a cap** on a Docker host,
-  Portainer and in a preview: the memory default of the project's adopted
-  pack, else 512Mi. A static part's file server gets a cap too. A cap is not
+  Portainer and in a preview: AppTown's default, 512Mi (a need's service
+  takes its catalogue kind's size, else 512Mi). A part's memory and CPU are
+  its deployment's override, else what the app declares for its profile,
+  else that default. A static part's file server gets a cap too. A cap is not
   a declaration: the `deploy/memory-declared` check still asks each part
   built or pulled to declare its memory, and that each part of the `main`
   deployment uses under 90% of its limit.

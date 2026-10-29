@@ -37,21 +37,19 @@ func (in AddressSnapshot) same(other AddressSnapshot) bool {
 // AddressReading distinguishes desired routing from the last observed serving
 // URL. Retained claims include old hosts that remain reserved until teardown.
 type AddressReading struct {
-	DeploymentID      ids.ID          `json:"deploymentId"`
-	TargetID          ids.ID          `json:"targetId"`
-	GeneratedHostname string          `json:"generatedHostname"`
-	CustomHostname    string          `json:"customHostname"`
-	CertificateDomain string          `json:"certificateDomain"`
-	Revision          int64           `json:"revision"`
-	Verified          bool            `json:"verified"`
-	ServingURL        string          `json:"servingURL"`
-	ReservedHosts     []string        `json:"reservedHosts"`
-	LegacyEvidence    json.RawMessage `json:"legacyEvidence,omitempty"`
+	DeploymentID      ids.ID   `json:"deploymentId"`
+	TargetID          ids.ID   `json:"targetId"`
+	GeneratedHostname string   `json:"generatedHostname"`
+	CustomHostname    string   `json:"customHostname"`
+	CertificateDomain string   `json:"certificateDomain"`
+	Revision          int64    `json:"revision"`
+	ServingURL        string   `json:"servingURL"`
+	ReservedHosts     []string `json:"reservedHosts"`
 }
 
 func addressIngress(row deploymentsql.DeploymentAddressSetting) (deploy.Ingress, error) {
-	if row.VerificationState != "ready" || row.Revision < 1 {
-		return deploy.Ingress{}, fault.New(fault.Conflict, "inspect and confirm this deployment's existing provider addresses before releasing")
+	if row.Revision < 1 {
+		return deploy.Ingress{}, fault.New(fault.Conflict, "this deployment has no address settings")
 	}
 	hosts := []string{row.GeneratedHostname}
 	if row.CustomHostname != "" {
@@ -124,8 +122,6 @@ func (s *Service) ReadAddress(ctx context.Context, projectID, deploymentID ids.I
 		out.CustomHostname = row.CustomHostname
 		out.CertificateDomain = row.CertificateDomain
 		out.Revision = row.Revision
-		out.Verified = row.VerificationState == "ready"
-		out.LegacyEvidence = slices.Clone(row.LegacyEvidenceJson)
 	}
 	hosts, err := q.DeploymentHostnameClaims(ctx, dep.ID)
 	if err != nil {
@@ -214,9 +210,7 @@ func (s *Service) addressSelectionIn(ctx context.Context, q *deploymentsql.Queri
 		if err != nil {
 			return snapshot, false, fault.New(fault.Invalid, "the target domain is too long for a deployment address")
 		}
-		row = deploymentsql.DeploymentAddressSetting{DeploymentID: dep.ID, GeneratedHostname: generated, CertificateDomain: domain, VerificationState: "ready", Revision: 1}
-	} else if row.VerificationState != "ready" {
-		return snapshot, false, fault.New(fault.Conflict, "inspect and confirm this deployment's existing provider addresses before editing or releasing")
+		row = deploymentsql.DeploymentAddressSetting{DeploymentID: dep.ID, GeneratedHostname: generated, CertificateDomain: domain, Revision: 1}
 	}
 	oldCustom := row.CustomHostname
 	if custom != nil {
@@ -242,7 +236,7 @@ func (s *Service) addressSelectionIn(ctx context.Context, q *deploymentsql.Queri
 	if err != nil {
 		return snapshot, false, err
 	}
-	if err := reserveAddressHosts(ctx, q, dep.ID, ingress, row.CustomHostname, false); err != nil {
+	if err := reserveAddressHosts(ctx, q, dep.ID, ingress); err != nil {
 		return snapshot, false, err
 	}
 	changed := fresh || row.CustomHostname != oldCustom
@@ -257,7 +251,7 @@ func (s *Service) addressSelectionIn(ctx context.Context, q *deploymentsql.Queri
 	return AddressSnapshot{DeploymentID: dep.ID, TargetID: target.ID, Revision: row.Revision, Ingress: ingress.Clone()}, changed, nil
 }
 
-func reserveAddressHosts(ctx context.Context, q *deploymentsql.Queries, deploymentID ids.ID, ingress deploy.Ingress, custom string, observed bool) error {
+func reserveAddressHosts(ctx context.Context, q *deploymentsql.Queries, deploymentID ids.ID, ingress deploy.Ingress) error {
 	keys := make([]string, 0, len(ingress.Hosts))
 	for _, host := range ingress.Hosts {
 		key, err := deploy.NormalizeHostname(host)
@@ -268,14 +262,6 @@ func reserveAddressHosts(ctx context.Context, q *deploymentsql.Queries, deployme
 	}
 	slices.Sort(keys)
 	keys = slices.Compact(keys)
-	customKey := ""
-	if custom != "" {
-		var err error
-		customKey, err = deploy.NormalizeHostname(custom)
-		if err != nil {
-			return err
-		}
-	}
 	for _, key := range keys {
 		if err := q.EnsureHostnameClaim(ctx, key); err != nil {
 			return err
@@ -287,21 +273,9 @@ func reserveAddressHosts(ctx context.Context, q *deploymentsql.Queries, deployme
 		if err != nil {
 			return err
 		}
-		owns := slices.Contains(holders, deploymentID)
-		if !observed {
-			for _, holder := range holders {
-				if holder != deploymentID {
-					return fault.New(fault.Conflict, "hostname is already reserved; choose another address or ask an administrator to inspect the existing reservation")
-				}
-			}
-		}
-		if !observed && key == customKey && !owns {
-			unverified, err := q.HasUnverifiedAddressInventory(ctx)
-			if err != nil {
-				return err
-			}
-			if unverified {
-				return fault.New(fault.Conflict, "existing provider address inventories need confirmation before a new custom hostname can be reserved")
+		for _, holder := range holders {
+			if holder != deploymentID {
+				return fault.New(fault.Conflict, "hostname is already reserved; choose another address or ask an administrator to inspect the existing reservation")
 			}
 		}
 		if err := q.AddHostnameClaimant(ctx, deploymentsql.AddHostnameClaimantParams{Hostname: key, DeploymentID: deploymentID}); err != nil {

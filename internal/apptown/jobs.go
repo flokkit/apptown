@@ -10,7 +10,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/jobs"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/database"
 )
 
@@ -25,8 +24,7 @@ func (b backupRequests) AfterRelease(projectID ids.ID, deploymentName string) {
 	// It follows a release that has happened, from callers with no context
 	// to give: asked on the App's lifetime, though that ends.
 	ctx := context.WithoutCancel(b.life)
-	p, _ := project.ByIDIn(ctx, b.db, projectID)
-	if err := b.RequestBackup(ctx, p.Slug+"/"+deploymentName, "release"); err != nil {
+	if err := b.RequestBackup(ctx, projectID.String()+"/"+deploymentName, "release"); err != nil {
 		log.Printf("backup after release %d/%s: asking: %v", projectID, deploymentName, err)
 	}
 }

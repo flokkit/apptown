@@ -11,7 +11,6 @@ func init() {
 	registerWire(
 		wiregen.Named{Name: "DeploymentAddress", Value: deployment.AddressReading{}},
 		wiregen.Named{Name: "AddressSnapshot", Value: deployment.AddressSnapshot{}},
-		wiregen.Named{Name: "AddressObservation", Value: deployment.AddressObservation{}},
 		wiregen.Named{Name: "ReleaseDefault", Value: deployment.ReleaseDefault{}},
 		wiregen.Named{Name: "DeploymentBackups", Value: DeploymentBackups{}},
 		wiregen.Named{Name: "BackupTaken", Value: BackupTaken{}},
@@ -41,7 +40,6 @@ func init() {
 		wiregen.Named{Name: "CloudTargetAttached", Value: CloudTargetAttached{}},
 		wiregen.Named{Name: "TargetEdited", Value: TargetEdited{}},
 		wiregen.Named{Name: "TargetPage", Value: TargetPage{}},
-		wiregen.Named{Name: "ProviderAssociation", Value: deployment.ProviderAssociation{}},
 		wiregen.Named{Name: "TargetChecked", Value: TargetChecked{}},
 		wiregen.Named{Name: "TargetRetired", Value: TargetRetired{}},
 		wiregen.Named{Name: "TargetList", Value: TargetList{}},

@@ -38,15 +38,14 @@ built-in host. Choose before the first project if you can.
 A **worker** is a separate machine, running `apptown-worker`, with its own
 Docker. Start AppTown with `-worker-url`, `-worker-cert`, `-worker-key`
 and `-worker-ca`; the two prove who they are to each other with mutual TLS,
-and you issue the certificates. Without a worker, everything runs on AppTown's own host's Docker; a script step runs in a container there, and runs
-as a plain process on the host only when it says `executor: local` and AppTown was started with `-host-scripts` (for an AppTown whose projects you trust
-as much as its host). `-host-scripts` and `-agent-executor local` are
-experimental: they are for developing AppTown, not promised in 1.x. With a worker, agent, review, tests and script steps,
+and you issue the certificates. Without a worker, everything runs on AppTown's own host's Docker: every
+project step, a script step included, runs in a container there, never as
+a plain process on the host. With a worker, agent, review, tests and script steps,
 checks and change previews run there, new change chats open there by
 default, and each landing's release images are built there. A step the worker cannot run is refused,
 not moved back to AppTown. Previews on a worker need a preview domain
-(`-tier-domain preview=<domain>`), and release builds need `-private-docker`
-and a container registry for each project (see the [package
+(`-tier-domain preview=<domain>`), and release builds need private Docker
+(on unless `-private-docker=false`) and a container registry for each project (see the [package
 registries](../integrations/registry-registry.admin.md) Admin tab).
 
 A worker does not take all project work off AppTown's host. These still
@@ -83,8 +82,8 @@ the split install.
    `-worker-url`, `-worker-cert`, `-worker-key` and `-worker-ca`, the
    addresses from "Configure model access" in [Setting up a
    server](server-setup.md), a preview domain
-   (`-tier-domain preview=<domain>`) and `-private-docker`, so that
-   release images can be built on the worker.
+   (`-tier-domain preview=<domain>`). Release images are built on the
+   worker in private Docker, which is on unless `-private-docker=false`.
 4. **An app host.** Attach a Docker host and offer it to the projects that
    may use it ([Deployment targets](deployment-targets.md)). A project's first landing
    creates its `main` deployment there.

@@ -104,12 +104,11 @@ func (o *oauthStore) refresh(ctx context.Context, presented, clientID string) (P
 	return pair, nil
 }
 
-// The locked row supplies immutable stored fields, including bounds not shown
-// in the connected-agents view. The object owns the transition being saved.
+// The locked row supplies immutable stored fields. The object owns the transition being saved.
 func saveDelegationIn(ctx context.Context, tx *database.Tx, row accesssql.DelegationsNamed, d Delegation) error {
 	_, err := queries(tx).SaveDelegation(ctx, accesssql.SaveDelegationParams{ID: row.ID,
-		ClientID: row.ClientID, ClientName: row.ClientName, Audience: row.Audience, Kind: row.Kind, ScopesJson: row.ScopesJson,
-		GroupBoundsJson: row.GroupBoundsJson, ProjectBoundsJson: row.ProjectBoundsJson, AuthTime: row.AuthTime, AuthMethod: row.AuthMethod,
+		ClientID: row.ClientID, ClientName: row.ClientName, Audience: row.Audience, ScopesJson: row.ScopesJson,
+		AuthTime: row.AuthTime, AuthMethod: row.AuthMethod,
 		CreatedAt: row.CreatedAt, LastUsed: row.LastUsed, ExpiresAt: row.ExpiresAt, RevokedAt: d.RevokedAt.NullTime})
 	return err
 }

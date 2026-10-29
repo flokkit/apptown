@@ -18,7 +18,6 @@ export function draftFrom(name: string, description: string, declaration: PackSp
 // not edit, so the page can say they are kept.
 export function keptAsWritten(d: Draft): string[] {
   const out: string[] = []
-  if (d.resources?.memory) out.push(`default memory ${d.resources.memory}`)
   if (d.toolchain) out.push(`toolchain ${d.toolchain}`)
   for (const c of d.clears ?? []) out.push(`no ${c} (cleared)`)
   if ((d.services ?? []).length > 0) out.push(`services ${(d.services ?? []).map((s) => s.name).join(', ')}`)

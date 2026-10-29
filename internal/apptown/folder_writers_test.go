@@ -167,17 +167,15 @@ func (c *pausingCLI) Path() (string, error) {
 func TestAnAgentAndAScriptNeverShareTheFolder(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		executor    string
 		failedStop  bool
 		scriptFirst bool
-	}{{ExecutorLocal, false, false}, {ExecutorDocker, false, false}, {ExecutorLocal, true, true}, {ExecutorDocker, true, true}} {
+	}{{false, false}, {true, true}} {
 		failedStop := tc.failedStop
-		t.Run(fmt.Sprintf("%s/failed-stop=%v/script-first=%v", tc.executor, failedStop, tc.scriptFirst), func(t *testing.T) {
+		t.Run(fmt.Sprintf("failed-stop=%v/script-first=%v", failedStop, tc.scriptFirst), func(t *testing.T) {
 			a, fake, script := scriptTaskFixture(t,
 				map[string]any{"run": "true", "executor": "docker", "image": "fake", "env": map[string]any{"FAKE_BLOCK": "1"}},
-				schema.Step{Name: "agent", Uses: "agent/pi", With: map[string]any{"prompt": "do it", "executor": tc.executor}})
+				schema.Step{Name: "agent", Uses: "agent/pi", With: map[string]any{"prompt": "do it"}})
 			ctx := context.Background()
-			a.cfg.agentExecutor = tc.executor
 			containers := newSurvivingContainers()
 			containers.allowRemoval()
 			a.docker = docker.Scope{Client: containers}
@@ -294,7 +292,6 @@ func TestAWriterThatOutlivedItsStepKeepsTheNextOneOut(t *testing.T) {
 						schema.Step{Name: "old", Uses: oldKind, With: map[string]any{"prompt": "old writer", "executor": "docker"}},
 						schema.Step{Name: "next", Uses: "agent/pi", With: map[string]any{"prompt": "new writer", "executor": "docker"}})
 					ctx := context.Background()
-					a.cfg.agentExecutor = ExecutorDocker
 					daemon := newSurvivingContainers() // removals fail: the old process is live
 					a.docker = docker.Scope{Client: daemon}
 					snap, err := a.Work.Snapshot(a.asEngine(ctx), script.RunID, workflow.DetailView)
@@ -402,7 +399,7 @@ func TestAStepThatWaitedForTheFolderDoesNotRunAfterItsRunStopped(t *testing.T) {
 	t.Parallel()
 	a, fake, script := scriptTaskFixture(t,
 		map[string]any{"run": "true", "executor": "docker", "image": "fake"},
-		schema.Step{Name: "agent", Uses: "agent/pi", With: map[string]any{"prompt": "hold the folder", "executor": "local"}})
+		schema.Step{Name: "agent", Uses: "agent/pi", With: map[string]any{"prompt": "hold the folder"}})
 	ctx := context.Background()
 	snap, err := a.Work.Snapshot(a.asEngine(ctx), script.RunID, workflow.DetailView)
 	if err != nil {
@@ -523,23 +520,17 @@ func TestRecoveryDoesNotStartAScriptBesideAWriterOrAfterItsRunStopped(t *testing
 func TestAWriterLeftMarkedRunningKeepsEveryNextWriterOut(t *testing.T) {
 	t.Parallel()
 	for _, oldKind := range []string{"agent/pi", "agent/review"} {
-		for _, incoming := range []string{"script", "agent/pi", "agent/review", "host-agent", "host-review"} {
+		for _, incoming := range []string{"script", "agent/pi", "agent/review"} {
 			t.Run(fmt.Sprintf("%s/to/%s", oldKind, incoming), func(t *testing.T) {
-				kind, backend := incoming, ExecutorDocker
-				switch incoming {
-				case "script":
+				kind := incoming
+				if incoming == "script" {
 					kind = "agent/pi" // unused next step
-				case "host-agent":
-					kind, backend = "agent/pi", ExecutorLocal
-				case "host-review":
-					kind, backend = "agent/review", ExecutorLocal
 				}
 				a, fake, script := scriptTaskFixture(t,
 					map[string]any{"run": "true", "executor": "docker", "image": "fake", "env": map[string]any{"FAKE_BLOCK": "1"}},
 					schema.Step{Name: "old", Uses: oldKind, With: map[string]any{"prompt": "old", "executor": "docker"}},
-					schema.Step{Name: "next", Uses: kind, With: map[string]any{"prompt": "next", "executor": backend}})
+					schema.Step{Name: "next", Uses: kind, With: map[string]any{"prompt": "next"}})
 				ctx := context.Background()
-				a.cfg.agentExecutor = ExecutorDocker
 				daemon := newSurvivingContainers()
 				a.docker = docker.Scope{Client: daemon}
 				snap, err := a.Work.Snapshot(a.asEngine(ctx), script.RunID, workflow.DetailView)
@@ -579,9 +570,6 @@ func TestAWriterLeftMarkedRunningKeepsEveryNextWriterOut(t *testing.T) {
 				if err != nil || before.Status != workflow.StatusRunning || calls != 1 || !daemon.has(survivor) {
 					t.Fatalf("survivor fixture: step=%+v calls=%d live=%v err=%v", before, calls, daemon.has(survivor), err)
 				}
-				// Rebind the incoming review's host backend after the Docker
-				// predecessor, retaining the same database and Docker scope.
-				a.cfg.agentExecutor = backend
 				installFakePi(t, a, runPi)
 				key := taskKeyOf(script)
 				t.Cleanup(func() { _ = fake.Release(ctx, execution.TaskRef{Key: key}) })
@@ -619,7 +607,6 @@ func TestRemoteRecoveryDoesNotPublishBesideASurvivingWriter(t *testing.T) {
 				map[string]any{"run": "true", "executor": "docker", "image": "fake", "env": map[string]any{"FAKE_BLOCK": "1"}},
 				schema.Step{Name: "agent", Uses: kind, With: map[string]any{"prompt": "work", "executor": "docker"}})
 			ctx := context.Background()
-			a.cfg.agentExecutor = ExecutorDocker
 			daemon := newSurvivingContainers()
 			a.docker = docker.Scope{Client: daemon}
 			var survivor string
@@ -766,8 +753,8 @@ func TestAWaiterWhoseRunStoppedDoesNotLaunch(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/capacity=%d", kind, capacity), func(t *testing.T) {
 				a, fake, script := scriptTaskFixture(t,
 					map[string]any{"run": "true", "executor": "docker", "image": "fake"},
-					schema.Step{Name: "agent", Uses: "agent/pi", With: map[string]any{"prompt": "hold the folder", "executor": "local"}},
-					schema.Step{Name: "incoming", Uses: kind, With: map[string]any{"prompt": "waiting", "executor": "local"}})
+					schema.Step{Name: "agent", Uses: "agent/pi", With: map[string]any{"prompt": "hold the folder"}},
+					schema.Step{Name: "incoming", Uses: kind, With: map[string]any{"prompt": "waiting"}})
 				ctx := context.Background()
 				// Waits whose length is not the guarantee: setup, the
 				// witness and the joins include real Git and SQL work.
@@ -780,7 +767,6 @@ func TestAWaiterWhoseRunStoppedDoesNotLaunch(t *testing.T) {
 				if kind != "script" {
 					script = snap.Steps[2]
 				}
-				a.cfg.agentExecutor = ExecutorLocal
 				a.capacity = models.NewScheduler(nil, capacity)
 				calls := 0
 				entered, release := make(chan struct{}), make(chan struct{})
@@ -984,7 +970,6 @@ func TestAWriterWhoseStepIsGoneIsRemovedOrRefusesTheAttempt(t *testing.T) {
 	for _, removable := range []bool{true, false} {
 		t.Run(fmt.Sprintf("removable=%v", removable), func(t *testing.T) {
 			a := agentTestApp(t)
-			a.cfg.agentExecutor = ExecutorDocker
 			d := newSurvivingContainers()
 			if removable {
 				d.allowRemoval()
@@ -1026,7 +1011,6 @@ func TestAWriterWithNoStepIsRemovedBeforeAnAttempt(t *testing.T) {
 	for _, removable := range []bool{false, true} {
 		t.Run(fmt.Sprint(removable), func(t *testing.T) {
 			a := agentTestApp(t)
-			a.cfg.agentExecutor = ExecutorDocker
 			d := newSurvivingContainers()
 			if removable {
 				d.allowRemoval()
@@ -1066,7 +1050,6 @@ func TestAWriterWithNoStepIsRemovedBeforeAnAttempt(t *testing.T) {
 func TestARestartWaitsForASiblingStepLeftWritingTheFolder(t *testing.T) {
 	t.Parallel()
 	a := agentTestApp(t)
-	a.cfg.agentExecutor = ExecutorDocker
 	d := newSurvivingContainers()
 	a.docker = docker.Scope{Client: d}
 	p, err := a.lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "sibling", Name: "sibling", Actor: "alice"})
@@ -1148,8 +1131,7 @@ func TestARestartWaitsForASiblingStepLeftWritingTheFolder(t *testing.T) {
 // re-run.
 func TestAnAgentWithAPrivateDockerIsNotRerunInPlace(t *testing.T) {
 	t.Parallel()
-	a := agentTestApp(t)
-	a.cfg.agentExecutor = ExecutorDocker
+	a := agentTestApp(t, Config{PrivateDocker: true})
 	if _, err := a.Ways.CreateBlock(t.Context(), "skill/implementation", "Implement.", "", "alice"); err != nil {
 		t.Fatal(err)
 	}
@@ -1213,7 +1195,6 @@ func TestAScriptTaskIsLabelledAsItsFoldersWriter(t *testing.T) {
 func TestAStepLeftMarkedRunningDoesNotShieldItsContainer(t *testing.T) {
 	t.Parallel()
 	a := agentTestApp(t)
-	a.cfg.agentExecutor = ExecutorDocker
 	d := newSurvivingContainers()
 	a.docker = docker.Scope{Client: d}
 	p, err := a.lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "stale-running", Name: "stale-running", Actor: "alice"})
@@ -1337,7 +1318,6 @@ func TestARetryWaitsForTheEarlierAgentsContainer(t *testing.T) {
 	for _, mode := range []workflow.RetryMode{workflow.RetryContinue, workflow.RetryRestart} {
 		t.Run(mode.String(), func(t *testing.T) {
 			a := agentTestApp(t)
-			a.cfg.agentExecutor = ExecutorDocker
 			daemon := newSurvivingContainers()
 			a.docker = docker.Scope{Client: daemon}
 			_, stepID := admittedAgentStep(t, a, `{"prompt":"do it"}`)

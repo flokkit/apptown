@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/workflowexec"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // The assembled registry invokes the command owner and keeps its actual process
@@ -21,6 +22,14 @@ func TestScriptRunnerBindingExecutesAndRecordsProcessEvidence(t *testing.T) {
 	rebuildWork(t, a, func(deps *workflow.Dependencies) {
 		deps.Automatic = []string{workflowexec.ScriptKind}
 		deps.Runners = a.workDependencies().Runners
+	})
+	// The script's container would write proof.txt in the folder it is
+	// given, print its output and exit 7.
+	useScriptTasks(t, a, func(spec execution.TaskSpec) (string, int) {
+		if err := os.WriteFile(filepath.Join(spec.Workspace, "proof.txt"), []byte("executed"), 0o644); err != nil {
+			return err.Error(), 1
+		}
+		return "script-output", 7
 	})
 	a.Work.Stop()
 	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: change.ID, Workflow: "test"})

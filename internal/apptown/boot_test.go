@@ -423,7 +423,7 @@ func TestDeploymentRebuildCarriesNeedsInitAndParts(t *testing.T) {
 	f.mu.Unlock()
 
 	a.ensureDeploymentsOnce(context.Background()) // the container is not running: a rebuild job is asked for
-	runQueuedJobForTest(t, a, "rebuild", "p/main")
+	runQueuedJobForTest(t, a, "rebuild", idstest.N(1).String()+"/main")
 
 	names := mainNames(t, a)
 	runs := expectBootSequence(t, f, names.Stack(), names.App(), true)
@@ -490,23 +490,26 @@ func TestAStoppedPreviewLosesItsRow(t *testing.T) {
 	}
 }
 
-// The data directory says which layout wrote it: a directory from before the
-// file is validated without stamping; the completed same layout is accepted,
-// and a newer build's directory is refused by name rather than misread.
+// The data directory says which layout wrote it: a new one is marked with
+// this build's layout, the same layout is accepted, and an older or a newer
+// build's directory is refused by name rather than misread.
 func TestTheDataDirectorySaysWhichLayoutWroteIt(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	if err := PrepareDataLayout(dir); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Lstat(filepath.Join(dir, "layout")); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("validation stamped an unfinished layout: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "layout"), []byte(strconv.Itoa(DataLayoutVersion)+"\n"), 0o600); err != nil {
-		t.Fatal(err)
+	if raw, err := os.ReadFile(filepath.Join(dir, "layout")); err != nil || strings.TrimSpace(string(raw)) != strconv.Itoa(DataLayoutVersion) {
+		t.Fatalf("a new directory was not marked: %q %v", raw, err)
 	}
 	if err := PrepareDataLayout(dir); err != nil {
 		t.Fatalf("the same layout: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "layout"), []byte("1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := PrepareDataLayout(dir); err == nil || !strings.Contains(err.Error(), "1.0.0-rc.9") {
+		t.Fatalf("an older build's directory: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "layout"), []byte(strconv.Itoa(DataLayoutVersion+1)+"\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -901,8 +904,8 @@ func upgradeAppTown(t *testing.T, db *database.DB, dataDir string) {
 	if err := jobs.Migrate(t.Context(), db.Pool()); err != nil {
 		t.Fatal(err)
 	}
-	if err := UpgradeDataLayout(t.Context(), db, upgradeConfig(t, dataDir, consoletest.NewAgent()), dataDir); err != nil {
-		t.Fatalf("upgrading release layout: %v", err)
+	if err := RelocateDataLayout(t.Context(), db, upgradeConfig(t, dataDir, consoletest.NewAgent()), dataDir); err != nil {
+		t.Fatalf("starting on the release's data directory: %v", err)
 	}
 	if err := FinalizeDataLayout(dataDir); err != nil {
 		t.Fatal(err)
@@ -987,8 +990,8 @@ func TestAnUpgradeKeepsWhatThePreviousReleaseRecorded(t *testing.T) {
 			wantReads, _ := json.Marshal(want.Reads)
 			db := testDB(t)
 			dataDir := restoreRelease(t, dir, db)
-			// RC7 also retains history written before its live-session metadata
-			// contract. Such ended records need no checkout and are never moved.
+			// A release also retains history written before its live-session
+			// metadata contract. Such ended records need no checkout and are never moved.
 			historyDir := filepath.Join(dataDir, "console", "01900000-0000-7000-8000-000000000001")
 			if err := os.MkdirAll(historyDir, 0o700); err != nil {
 				t.Fatal(err)

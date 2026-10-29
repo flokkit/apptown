@@ -212,9 +212,8 @@ func (a *Executor) prepareAgentOnWorker(ctx context.Context, c workerAgentCall) 
 	return req, err
 }
 
-// privateDockerOptIn is why a step declaring private Docker is refused on a
-// worker without the operator's opt-in.
-const privateDockerOptIn = "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker"
+// privateDockerOff is why a step declaring private Docker is refused.
+const privateDockerOff = "this step declares private Docker (docker: true), and this AppTown was started with -private-docker=false"
 
 // privateOnWorker is what an agent step has beside it on the worker, frozen
 // now: the services it declares, and those fulfilling the app's needs as
@@ -264,8 +263,8 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 	if !k.useDind && len(services) == 0 {
 		return nil, nil, nil
 	}
-	if k.useDind && !a.cfg.PrivateDockerOnWorker {
-		return nil, nil, &WorkerRefusal{Reason: "this step declares private Docker (docker: true): " + privateDockerOptIn}
+	if k.useDind && !a.cfg.PrivateDocker {
+		return nil, nil, &WorkerRefusal{Reason: privateDockerOff}
 	}
 	p := &execution.PrivateDocker{Daemon: k.useDind, Services: services}
 	if k.useDind {
@@ -298,7 +297,7 @@ func (a *Executor) admitOnWorker(ctx context.Context, c workerAgentCall) (agentC
 	if c.review != nil {
 		// A review's knobs are its own, as on AppTown's machine: its
 		// model and thinking, AppTown's agent image, in Docker.
-		k = agentKnobs{model: c.review.cfg.Model, thinking: strs.FirstNonBlank(c.review.cfg.Thinking, "medium"), executor: execution.Docker, image: a.cfg.Image}
+		k = agentKnobs{model: c.review.cfg.Model, thinking: strs.FirstNonBlank(c.review.cfg.Thinking, "medium"), image: a.cfg.Image}
 	}
 	return cfg, k, a.refuseOnWorker(c, &cfg, k)
 }
@@ -309,8 +308,8 @@ func (a *Executor) refuseOnWorker(c workerAgentCall, cfg *agentConfig, k agentKn
 	switch {
 	case !c.source.RepoBacked():
 		return &WorkerRefusal{Reason: "this step's project is not repository-backed, and AppTown's worker works only from a repository's commit; it is not run on AppTown's own machine instead"}
-	case k.executor != execution.Docker:
-		return needsWhatTheWorkerLacks(fmt.Sprintf("the %q executor", k.executor))
+	case executorRefusal(c.run, cfg) != "":
+		return &WorkerRefusal{Reason: executorRefusal(c.run, cfg)}
 	case k.image != a.cfg.Image:
 		return needsWhatTheWorkerLacks(fmt.Sprintf("its own agent image %q", k.image))
 	case string(cfg.Scm) != "":
@@ -501,7 +500,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		args = piharness.SessionReviewArgs(sessionFile, out.model, k.thinking, brief.prompt())
 	} else {
 		prompt := a.agentPrompt(ctx, run, cfg, c.source, earlier)
-		args = piharness.StepArgs(piharness.StepPaths{SessionFile: sessionFile, Steering: workerSteeringFile}, c.session, k.executor, st.Text != "", out.model, k.thinking, prompt)
+		args = piharness.StepArgs(piharness.StepPaths{SessionFile: sessionFile, Steering: workerSteeringFile}, c.session, st.Text != "", out.model, k.thinking, prompt)
 	}
 	command := console.ToolchainArgs(append([]string{"pi"}, args...))
 	// pi's events are written to a file in the attempt's state as they go,
