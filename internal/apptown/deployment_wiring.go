@@ -62,9 +62,9 @@ func instanceBackupDependencies(a *App) instancebackup.Dependencies {
 	deps := instancebackup.Dependencies{DB: a.DB, DataDir: a.cfg.dataDir, Protection: a.DataProtection, Deployment: a.Deployment,
 		Deployments: a.Deployment.Deployments, Targets: a.targets, BuiltInTarget: a.hosts.BuiltInTarget(), Secrets: a.Secrets,
 		NewWork: &a.newWork, Now: a.cfg.clock.Now}
-	deps.Database = databaseDump{DB: a.DB, Docker: a.docker, Tools: a.cfg.stock.Tools, DataDir: a.cfg.dataDir}
+	deps.Database = databaseDump{DB: a.DB, Place: &a.dumps, Tools: a.cfg.stock.Tools, DataDir: a.cfg.dataDir}
 	if !a.cfg.usingBuiltinDB {
-		deps.Database = databaseDump{DB: a.DB, Docker: a.docker, Tools: a.cfg.stock.Tools, URL: a.cfg.dbURL}
+		deps.Database = databaseDump{DB: a.DB, Place: &a.dumps, Tools: a.cfg.stock.Tools, URL: a.cfg.dbURL}
 	}
 	return deps
 }

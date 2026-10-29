@@ -21,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/backuparchive"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/version"
 )
@@ -254,13 +255,14 @@ func (s *Service) builtinDeployments(ctx context.Context) ([]deployment.ProjectD
 	return out, nil
 }
 
-// provenance observes the database server and the pg_dump that dumps it,
-// and refuses a pg_dump of another major version: an older one cannot dump
-// the server, and a newer one writes settings the built-in database a
-// restore loads into does not know.
+// provenance observes the database server and the pg_dump that dumps it:
+// the server is one of the majors AppTown supports for its own database,
+// and pg_dump is the newest of them, which dumps any server in the range
+// into a dump the built-in database a restore makes (at that newest major)
+// loads.
 func (s *Service) provenance(ctx context.Context) (*DatabaseProvenance, error) {
-	var server int
-	if err := s.deps.DB.SQL().QueryRowContext(ctx, "SHOW server_version_num").Scan(&server); err != nil {
+	server, err := s.deps.DB.OwnServer(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("observing the backup database version: %w", err)
 	}
 	client, err := s.deps.Database.DumpClientVersion(ctx)
@@ -271,8 +273,8 @@ func (s *Service) provenance(ctx context.Context) (*DatabaseProvenance, error) {
 	if err := p.validate(); err != nil {
 		return nil, err
 	}
-	if p.clientMajor() != server/10000 {
-		return nil, fmt.Errorf("%s is not the database server's major version (PostgreSQL %d): the pinned postgres image for PostgreSQL %d is not the server's", client, server/10000, server/10000)
+	if p.clientMajor() != database.OwnPostgresMax {
+		return nil, fmt.Errorf("%s is not the PostgreSQL %d pg_dump a backup dumps with", client, database.OwnPostgresMax)
 	}
 	return p, nil
 }

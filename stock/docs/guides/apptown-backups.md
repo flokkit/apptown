@@ -15,28 +15,34 @@ least `-data` (the data directory). Put the flags first, then the command.
 In a container install, run them in the container (`docker exec`).
 
 The database is dumped one way, whichever it is: `pg_dump` runs in a
-short-lived container of the PostgreSQL image AppTown pins for the server's
-major version (PostgreSQL 16), on AppTown's own Docker. The built-in
-database is dumped beside its own container. An AppTown on `-db-url` is
-backed up the same way, with these conditions:
+short-lived container of the PostgreSQL image AppTown pins for the newest
+PostgreSQL major it supports for its own database (today PostgreSQL 16, the
+only one), where AppTown runs its containers: on AppTown's own Docker, or,
+with `-no-local-docker`, on its worker. The built-in database is dumped
+beside its own container. An AppTown on `-db-url` is backed up the same way,
+with these conditions:
 
-- the container reaches the database over the Docker daemon's default
-  network, so `-db-url` must name an address a container can reach: not
-  `localhost` or `127.0.0.1`, which a backup refuses, and not a name that
-  only resolves on another Docker network;
-- the container has none of the host's files, so a `-db-url` with
-  `sslrootcert` is refused, and `sslmode=verify-ca` or `verify-full` fails
-  there for want of a root certificate; `sslmode=require` works;
-- the server must be PostgreSQL 16 (another major is refused before
-  anything is written);
-- with `-no-local-docker` there is no Docker to run it on, so there is no
-  whole-AppTown backup. A managed database's own backups do not replace the
-  archive: they hold neither the data directory nor the secrets.
+- the container reaches the database over its Docker's default network, so
+  `-db-url` must name an address a container there can reach (on a worker,
+  from the worker): not `localhost` or `127.0.0.1`, which a backup refuses,
+  and not a name that only resolves on another Docker network;
+- the password reaches `pg_dump` in a password file of its own, never in a
+  command line or the environment. `sslmode` is passed as written. With
+  `sslrootcert`, the container is given that certificate; `verify-ca` or
+  `verify-full` without one verify against the image's system roots and
+  the authorities AppTown's containers trust;
+- the server must be a major AppTown supports for its own database
+  (PostgreSQL 16); `apptownd` refuses to start on another;
+- on a worker, the gzipped dump comes back as one result file of at most
+  64 MiB; a larger one is refused, and no archive is written.
+
+A managed database's own backups do not replace the archive: they hold
+neither the data directory nor the secrets.
 
 A restore always loads the archive into a
 new built-in database on the new host, so the restored AppTown runs on the
-built-in database; the server backed up must be PostgreSQL 16, as the
-built-in one is. Restore it, and start it afterwards, without `-db-url`
+built-in database, made at the newest PostgreSQL major AppTown supports,
+which loads a dump of any supported major. Restore it, and start it afterwards, without `-db-url`
 (`APPTOWN_DB_URL`) and without `-no-local-docker`
 (`APPTOWN_NO_LOCAL_DOCKER`), which a restore refuses: the new host's
 AppTown runs on its own built-in database and Docker, with the new data
@@ -248,8 +254,9 @@ restore command when moving to a different path, so its saved manifest supplies
 the original location.
 
 New whole-AppTown archives record the observed PostgreSQL server and `pg_dump`
-client versions. This build refuses archives that record a server major other
-than the built-in PostgreSQL 16 before extracting their data. These observations
+client versions. This build refuses archives that record a server major it
+does not support for its own database (PostgreSQL 16), or a `pg_dump` newer
+than its built-in database, before extracting their data. These observations
 do not certify cross-major restore compatibility. RC7 archives without this
 metadata remain readable through the existing restore path; their engine
 provenance is unknown. Older AppTown binaries ignore this additive metadata and

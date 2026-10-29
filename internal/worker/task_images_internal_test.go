@@ -84,7 +84,7 @@ func TestAnImageIsCapturedConfined(t *testing.T) {
 	}
 	for i, c := range cases {
 		dest := filepath.Join(t.TempDir(), "copy")
-		got, err := s.captureImage("ws", execution.ImageResult{Name: "img", Path: c.path, Max: c.max}, dest)
+		got, err := s.captureImage(declaredResults{Workspace: "ws"}, execution.ImageResult{Name: "img", Path: c.path, Max: c.max}, dest)
 		if err != nil {
 			t.Errorf("%s: %v", c.path, err)
 			continue
@@ -102,7 +102,7 @@ func TestAnImageIsCapturedConfined(t *testing.T) {
 	}
 	// What was copied is every file of the layout, as it was.
 	dest := filepath.Join(t.TempDir(), "copy")
-	if _, err := s.captureImage("ws", execution.ImageResult{Name: "img", Path: "/apptown/state/out/good", Max: size}, dest); err != nil {
+	if _, err := s.captureImage(declaredResults{Workspace: "ws"}, execution.ImageResult{Name: "img", Path: "/apptown/state/out/good", Max: size}, dest); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{"oci-layout", "index.json", filepath.Join("blobs", "sha256", strings.Repeat("a", 64))} {

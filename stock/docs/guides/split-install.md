@@ -84,8 +84,8 @@ the split install.
    server](server-setup.md), a preview domain
    (`-tier-domain preview=<domain>`). Release images are built on the
    worker in private Docker, which is on unless `-private-docker=false`.
-   With no local Docker there is no whole-AppTown backup: its pg_dump runs
-   in a container on AppTown's own Docker ([AppTown's own
+   With no local Docker, a whole-AppTown backup dumps the database on the
+   worker, which must reach the `-db-url` address ([AppTown's own
    backups](apptown-backups.md)). The managed database's own backups do
    not replace it: they hold neither the data directory nor the secrets.
 4. **An app host.** Attach a Docker host and offer it to the projects that

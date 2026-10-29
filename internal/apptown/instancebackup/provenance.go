@@ -7,10 +7,6 @@ import (
 	"strings"
 )
 
-// supportedRestoreMajor is the built-in restore engine's compatibility policy,
-// separate from the versions observed when an archive is made.
-const supportedRestoreMajor = 16
-
 // DatabaseProvenance records observed engine and dump-client versions. It is
 // absent in legacy archives; it does not certify cross-major compatibility.
 type DatabaseProvenance struct {

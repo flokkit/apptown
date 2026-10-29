@@ -66,7 +66,10 @@ leaves no workspace), copied into
 the task's folder (`state/task-inputs/<key>`) and mounted read-only at their
 paths. Each workspace has a state folder (`state/workspace-state/<key>`)
 mounted writable at `/apptown/state`, beside the tree, so nothing in it is
-collected; it goes with the workspace. A task's declared result files are
+collected; it goes with the workspace. A task without a workspace that
+declares result files has a state folder of its own
+(`state/task-state/<key>`) at `/apptown/state`, where all its results must
+be, which goes when it is released. A task's declared result files are
 read once its container has exited, confined as a check's report is, and
 kept durably with the task (`state/task-results/<key>`) until it is released,
 so a restarted worker answers the same, and a later change to the tree does

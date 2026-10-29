@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
@@ -135,19 +134,16 @@ func TestBuiltinDatabaseOwnershipIsInstanceLocal(t *testing.T) {
 	var dumps [2]int
 	for i, enabled := range []bool{true, false} {
 		f := newFakeDocker()
-		f.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-			if req.Stdout != nil {
-				dumps[i]++
-				_, err := containerresulttest.WriteString(req.Stdout, "-- fixture database dump\n")
-				return nil, err
-			}
-			return f.run(req.Args...)
-		}
 		dir := t.TempDir()
 		if enabled {
 			dir = builtinDataDir(t) // db.env names the database, as its first start leaves it
 		}
 		a := testApp(t, Config{UsingBuiltinDB: enabled, DockerClient: f, DataDir: dir})
+		place, _ := dumpsOn(t, false, func(execution.TaskSpec) ([]byte, int, string) {
+			dumps[i]++
+			return gz(t, "-- fixture database dump\n"), 0, ""
+		})
+		a.dumps = *place
 		a.SeedTargets(t.Context())
 		apps = append(apps, a)
 	}
@@ -545,15 +541,9 @@ func TestTheSweepRemovesUnlessStartedWithDisableReap(t *testing.T) {
 // good backup, but nothing says it was taken.
 func TestABackupWithoutItsRecordFailsItsJob(t *testing.T) {
 	t.Parallel()
-	f := newFakeDocker()
-	f.command = func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-		if req.Stdout != nil {
-			_, err := containerresulttest.WriteString(req.Stdout, "-- fixture database dump\n")
-			return nil, err
-		}
-		return f.run(req.Args...)
-	}
-	a := testApp(t, Config{UsingBuiltinDB: true, DockerClient: f, DataDir: builtinDataDir(t)})
+	a := testApp(t, Config{UsingBuiltinDB: true, DockerClient: newFakeDocker(), DataDir: builtinDataDir(t)})
+	place, _ := dumpsOn(t, false, func(execution.TaskSpec) ([]byte, int, string) { return gz(t, "-- fixture database dump\n"), 0, "" })
+	a.dumps = *place
 	restore := a.DB.FailNextStatement("-- name: AppendReceipt")
 	_, err := apptownJobKinds(a)["db-backup"].Run(t.Context(), "daily", nil)
 	restore()

@@ -59,7 +59,8 @@ drivers refuse. `TaskSpec.Inputs` are files a task reads read-only under
 as content-addressed blobs; the request names each by digest, path and mode
 (0644 or 0755), within 256 inputs, 64 MiB each and 512 MiB in all.
 `TaskSpec.Results` are files a task declares it will leave, in its tree
-(`/work/...`) or its workspace's state (`/apptown/state/...`), each with a
+(`/work/...`) or its workspace's state (`/apptown/state/...`; a task with
+no source has a state of its own there, and its results are only there), each with a
 maximum size and `Fresh` (removed before the task first starts). The worker
 captures them when the task exits; `WorkerTasks.Results` reads each as
 present (its bytes), absent, refused (a link on the way, not a regular file,

@@ -206,3 +206,53 @@ func TestAnImageWhoseCopyWouldFillTheStateFolderIsRefused(t *testing.T) {
 		t.Errorf("the refused image was copied: %v", err)
 	}
 }
+
+// A task without a source may declare result files, under /apptown/state
+// alone: the worker gives it a state folder of its own, mounted there,
+// answers what it left, and removes the folder when the task is released.
+// One declaring a result in /work, which it does not have, is refused with
+// nothing created. (A fake backend: the file is written where the task
+// would leave it.)
+//
+// Kills: results refused for a task without a source (a database dump
+// cannot come back from the worker); a source-less task's state left
+// behind after its release.
+func TestATaskWithoutASourceLeavesResultsInItsOwnState(t *testing.T) {
+	ca := workertest.NewCA(t)
+	state := t.TempDir()
+	tasks := &executionfake.Tasks{}
+	srv := workertest.Start(t, ca, state, tasks)
+	driver := workertest.Driver(t, ca, srv)
+	ctx := context.Background()
+	admission := execution.Admission{Profile: "worker", Network: execution.NetworkDefault, Expires: time.Now().Add(time.Hour)}
+
+	if _, err := driver.Ensure(ctx, execution.TaskSpec{Key: "in-work", Image: "fake", Argv: []string{"run"}, Admission: admission,
+		Results: []execution.Result{{Name: "dump", Path: "/work/dump.sql.gz", Max: 1 << 20}}}); err == nil || tasks.Present("in-work") {
+		t.Fatalf("a result in /work of a task with no workspace: %v, created %v", err, tasks.Present("in-work"))
+	}
+
+	spec := execution.TaskSpec{Key: "dump", Image: "fake", Argv: []string{"run"}, Admission: admission,
+		Results: []execution.Result{{Name: "dump", Path: "/apptown/state/dump.sql.gz", Max: 1 << 20}}}
+	created, err := driver.Ensure(ctx, spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	own := filepath.Join(state, "task-state", "dump")
+	if err := os.WriteFile(filepath.Join(own, "dump.sql.gz"), []byte("the dump"), 0o644); err != nil {
+		t.Fatalf("the task's own state folder: %v", err)
+	}
+	ref := execution.TaskRef{Key: spec.Key, ProviderID: created.ID}
+	if err := driver.Start(ctx, ref); err != nil {
+		t.Fatal(err)
+	}
+	results, err := driver.Results(ctx, ref)
+	if err != nil || results["dump"].State != execution.ResultPresent || string(results["dump"].Content) != "the dump" {
+		t.Fatalf("the task's results: %+v %v", results, err)
+	}
+	if err := driver.Release(ctx, ref); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(own); !os.IsNotExist(err) {
+		t.Fatalf("the released task's own state: %v", err)
+	}
+}

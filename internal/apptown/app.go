@@ -101,21 +101,23 @@ type App struct {
 	repositories          scm.RepositoryLocks
 	branches              *scm.Branches // the only writer of change branches; shares repositories' locks
 	tasks                 *workflowexec.TaskRunner
-	conformance           *conformance.Service
-	evaluator             verification.Effects
-	scanners              *verification.Scanners
-	scanSteps             *verification.ScanSteps
-	guidance              *verification.Guidance
-	steering              *agentenv.Instructions
-	briefing              *conversation.Briefing
-	probe                 *docker.Probe
-	health                *docker.HealthController
-	docker                docker.Scope
-	processRunner         execution.Runner // its project processes go through projectProcesses
-	runTok                identity.RuntimeTokens
-	DB                    *database.DB
-	Deployment            *deployment.Service // architecture.md §5.6; built once in New
-	Preview               *preview.Service    // previews of changes, runs and releases; built once in New
+	// dumps is where AppTown's database dumps run (databaseDump).
+	dumps         dumpPlace
+	conformance   *conformance.Service
+	evaluator     verification.Effects
+	scanners      *verification.Scanners
+	scanSteps     *verification.ScanSteps
+	guidance      *verification.Guidance
+	steering      *agentenv.Instructions
+	briefing      *conversation.Briefing
+	probe         *docker.Probe
+	health        *docker.HealthController
+	docker        docker.Scope
+	processRunner execution.Runner // its project processes go through projectProcesses
+	runTok        identity.RuntimeTokens
+	DB            *database.DB
+	Deployment    *deployment.Service // architecture.md §5.6; built once in New
+	Preview       *preview.Service    // previews of changes, runs and releases; built once in New
 	// DataProtection holds copies, restores, restored copies and take-downs; built once in New.
 	DataProtection *dataprotection.Service
 	// Deployment's shared records and collaborators (deployment.Dependencies).
@@ -252,7 +254,15 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	daemon := execution.SelectDocker()
 	records := tasks.New(db)
 	records.Now = cfg.clock.Now
-	a.tasks = &workflowexec.TaskRunner{Records: records, Driver: execution.DockerTasks{Namespace: namespace, Daemon: daemon, Files: filepath.Join(cfg.dataDir, "task-files"), Now: cfg.clock.Now, ToolVersions: cfg.stock.Tools},
+	local := execution.DockerTasks{Namespace: namespace, Daemon: daemon, Files: filepath.Join(cfg.dataDir, "task-files"), Now: cfg.clock.Now, ToolVersions: cfg.stock.Tools}
+	// AppTown's database is dumped where AppTown runs its containers: its
+	// own Docker when it has one (the built-in database is only there),
+	// otherwise its worker.
+	a.dumps = dumpPlace{Tasks: local, Scratch: filepath.Join(cfg.dataDir, "dump-tasks"), Profile: "local-docker", Now: cfg.clock.Now}
+	if cfg.noLocalDocker {
+		a.dumps = dumpPlace{Tasks: *cfg.worker, Results: *cfg.worker, Profile: "worker", Now: cfg.clock.Now}
+	}
+	a.tasks = &workflowexec.TaskRunner{Records: records, Driver: local,
 		Requests: filepath.Join(cfg.dataDir, "tasks"),
 		Profile:  workflowexec.TaskProfile{Name: "local-docker", Limits: cfg.taskLimits, Network: execution.NetworkDefault},
 		Backend:  "local-docker " + namespace + " on " + daemon.Backend(), Now: cfg.clock.Now}
