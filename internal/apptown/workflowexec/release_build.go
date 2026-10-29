@@ -325,12 +325,8 @@ func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform, sta
 			// the builder's own platform: the site is files. Its output is
 			// checked for links before anything reads it, then packed.
 			export := path.Join(releaseStaticExports, img.Name)
-			args := []string{"docker", "buildx", "build", "--provenance=false", "--sbom=false"}
-			if img.StaticBuild.Target != "" {
-				args = append(args, "--target", img.StaticBuild.Target)
-			}
-			args = append(args, "--output", "type=local,dest="+export)
-			lines = append(lines, quote(args)+buildSecret+shellQuote(context), staticExportCheck(export, img.StaticBuild.Output))
+			args := append([]string{"docker", "buildx", "build", "--provenance=false", "--sbom=false"}, docker.StaticExportArgs(img.StaticBuild.Target, context, export)...)
+			lines = append(lines, quote(args[:len(args)-1])+buildSecret+shellQuote(context), docker.StaticExportCheckScript(export, img.StaticBuild.Output))
 			context = path.Join(export, img.StaticBuild.Output)
 		}
 		out := path.Join(releaseImagesOut, img.Name)
@@ -354,31 +350,6 @@ func releaseBuildRequest(tree string, plan deployment.ReleasePlan, platform, sta
 		return "", nil, nil, err
 	}
 	return strings.Join(lines, "\n") + "\n", files, images, nil
-}
-
-// staticExportCheck is the shell that refuses a built static site's export
-// at export unless its output folder is plainly there: no link on the way
-// to it or inside it, nothing but folders and files, at least one file
-// (docker.ConfineStaticExport, for a task's own shell). It exits 1 with
-// the reason.
-func staticExportCheck(export, output string) string {
-	var checks []string
-	fail := func(why string) string { return "{ echo " + shellQuote(why) + " >&2; exit 1; }" }
-	at := export
-	if output != "." {
-		for _, part := range strings.Split(output, "/") {
-			at = path.Join(at, part)
-			rel := strings.TrimPrefix(strings.TrimPrefix(at, export), "/")
-			checks = append(checks,
-				"[ ! -L "+shellQuote(at)+" ] || "+fail("the built static site's "+rel+" is a symbolic link; a static site's output holds only folders and files"),
-				"[ -d "+shellQuote(at)+" ] || "+fail("the build wrote no "+output+" folder: the static site's output is missing from the built stage's files"))
-		}
-	}
-	site := shellQuote(at)
-	checks = append(checks,
-		"bad=$(find "+site+" ! -type d ! -type f | head -1); [ -z \"$bad\" ] || { echo \"the built static site holds $bad, which is not a plain folder or file (a symbolic link is refused, wherever it points)\" >&2; exit 1; }",
-		"[ -n \"$(find "+site+" -type f | head -1)\" ] || "+fail("the build's "+output+" holds no files: the static site is empty"))
-	return strings.Join(checks, "\n")
 }
 
 // outputTail is the end of a build's output: where its failure is.

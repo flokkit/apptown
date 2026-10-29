@@ -41,6 +41,11 @@ func workerCheckDocker(t *testing.T, calls string) string {
 echo "worker $@" >> "` + calls + `"
 [ "$1" = "--config" ] && shift 2
 case "$*" in inspect*OOMKilled*) echo false; exit 0;; "rm -f "*) exit 0;; esac
+case "$*" in
+"buildx version") echo "github.com/docker/buildx v0.38.1"; exit 0;;
+"context show") echo default; exit 0;;
+"buildx inspect default") printf 'Name: default\nDriver: docker\n'; exit 0;;
+esac
 case "$1" in
 image)
   [ "$2" = inspect ] || exit 0
@@ -184,7 +189,7 @@ func TestNoCheckRunsOnThisMachineWhenAWorkerIsConfigured(t *testing.T) {
 		if step := reviewExecute(t, a, run, "guidance"); step.Status != workflow.StatusPass {
 			t.Fatalf("the guidance step on the worker: %s %s", step.Status, step.Evidence)
 		}
-		onlyTheWorker(t, calls, "worker build --label apptown.class=check --label apptown.built=1 -t apptown-conform:", "--init --name apptown-check-", "python manage.py check", "semgrep --sarif")
+		onlyTheWorker(t, calls, "worker build --label apptown.built=1 --builder default --label apptown.class=check -t apptown-conform:", "--init --name apptown-check-", "python manage.py check", "semgrep --sarif")
 	})
 	t.Run("a landing's gates", func(t *testing.T) {
 		t.Parallel()

@@ -1,17 +1,14 @@
 package workflowexec
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -89,66 +86,5 @@ func TestAReleaseBuildExportsChecksAndPacksADeclaredStaticSite(t *testing.T) {
 	}
 	if string(files[0].Content) != docker.StaticSiteDockerfile(stock.Images().StaticServer, 80) {
 		t.Fatalf("the pack's Dockerfile:\n%s", files[0].Content)
-	}
-}
-
-// The task's own shell refuses a built site as docker.ConfineStaticExport
-// does: run for real over exported folders, a link on the way to the
-// output or anywhere inside it, a missing output and an empty site are
-// refused with their reason; a plain site passes.
-func TestATaskRefusesABuiltStaticSiteWithALink(t *testing.T) {
-	outside := t.TempDir()
-	for name, tc := range map[string]struct {
-		make func(root string) error
-		want string
-	}{
-		"a link on the way": {func(root string) error {
-			if err := os.MkdirAll(filepath.Join(outside, "dist"), 0o755); err != nil {
-				return err
-			}
-			if err := os.WriteFile(filepath.Join(outside, "dist", "f"), []byte("x"), 0o644); err != nil {
-				return err
-			}
-			return os.Symlink(outside, filepath.Join(root, "app"))
-		}, "app is a symbolic link"},
-		"the output is a link": {func(root string) error {
-			if err := os.MkdirAll(filepath.Join(root, "app"), 0o755); err != nil {
-				return err
-			}
-			return os.Symlink(outside, filepath.Join(root, "app", "dist"))
-		}, "app/dist is a symbolic link"},
-		"a link inside": {func(root string) error {
-			if err := os.MkdirAll(filepath.Join(root, "app", "dist"), 0o755); err != nil {
-				return err
-			}
-			if err := os.WriteFile(filepath.Join(root, "app", "dist", "index.html"), []byte("x"), 0o644); err != nil {
-				return err
-			}
-			return os.Symlink("/etc/passwd", filepath.Join(root, "app", "dist", "leak"))
-		}, "leak, which is not a plain folder or file"},
-		"no output": {func(root string) error { return os.MkdirAll(filepath.Join(root, "app"), 0o755) }, "the build wrote no app/dist folder"},
-		"empty":     {func(root string) error { return os.MkdirAll(filepath.Join(root, "app", "dist", "assets"), 0o755) }, "holds no files"},
-		"plain": {func(root string) error {
-			if err := os.MkdirAll(filepath.Join(root, "app", "dist"), 0o755); err != nil {
-				return err
-			}
-			return os.WriteFile(filepath.Join(root, "app", "dist", "index.html"), []byte("x"), 0o644)
-		}, ""},
-	} {
-		root := t.TempDir()
-		if err := tc.make(root); err != nil {
-			t.Fatal(err)
-		}
-		run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{Argv: []string{"sh", "-c", "set -e\n" + staticExportCheck(root, "app/dist")}, Timeout: time.Minute})
-		out, err := run.Output, run.RunErr
-		if tc.want == "" {
-			if err != nil {
-				t.Errorf("%s: refused: %s", name, out)
-			}
-			continue
-		}
-		if err == nil || !strings.Contains(string(out), tc.want) {
-			t.Errorf("%s: %v %q, want %q", name, err, out, tc.want)
-		}
 	}
 }

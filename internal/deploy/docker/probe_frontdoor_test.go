@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -98,5 +99,51 @@ func TestAProbeReusesItsConnection(t *testing.T) {
 	}
 	if n := opened.Load(); n != 1 {
 		t.Fatalf("four checks opened %d connections, want 1", n)
+	}
+}
+
+// The readiness rule is every target's (appcontract.Ready): with no status
+// declared, an app whose health path answers 404 is not up, and a redirect
+// (not followed) is. Any status used to count as up here.
+func TestProbeJudgesByTheReadinessRule(t *testing.T) {
+	t.Parallel()
+	f := &fakeDaemon{exists: true, running: true}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/moved" {
+			http.Redirect(w, r, "/gone", http.StatusFound)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(srv.Close)
+	for _, c := range []struct {
+		path   string
+		policy *appcontract.Probe
+		up     bool
+	}{
+		{"/healthz", nil, false},
+		{"/moved", nil, true},
+		{"/healthz", &appcontract.Probe{Period: "1s", Timeout: "1s"}, false},
+	} {
+		readiness := &appcontract.Probe{HTTP: c.path}
+		if c.policy != nil {
+			readiness.Period, readiness.Timeout = c.policy.Period, c.policy.Timeout
+		}
+		rp := RenderColdBootProbe(&appcontract.Part{Name: "web", Public: true, Intent: &appcontract.Health{Readiness: readiness}}, nil)
+		if up, _ := (&Probe{}).check(t.Context(), Scope{Client: f}, "apptown-preview-rule", srv.URL, time.Second, rp, answerOnce); up != c.up {
+			t.Errorf("%s (policy %v): up = %v, want %v", c.path, c.policy != nil, up, c.up)
+		}
+	}
+	_, rawPort, err := net.SplitHostPort(srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, _ := strconv.Atoi(rawPort)
+	dk := (Scope{}).WithHost("ssh://selected", "127.0.0.1", "")
+	if ProbeLiveness(t.Context(), dk, "c", port, RenderedProbe{Path: "/healthz"}, nil) {
+		t.Error("liveness: a 404 at the health path is a miss")
+	}
+	if !ProbeLiveness(t.Context(), dk, "c", port, RenderedProbe{Path: "/healthz", Expect: 404}, nil) {
+		t.Error("liveness: a declared 404 is the answer")
 	}
 }

@@ -127,6 +127,16 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 					if err := supersedePassedIn(ctx, tx, run, w.now()); err != nil {
 						return err
 					}
+				} else {
+					// Shipped with nothing to land: every read of it says
+					// finished, not shipped (ChangeState.Label).
+					n, err := workflowsql.New(tx.SQL()).MarkChangeClosedAs(ctx, workflowsql.MarkChangeClosedAsParams{ClosedAs: closedRecord, ID: run.ChangeID, ProjectID: run.ProjectID, State: ChangeShipped.String()})
+					if err != nil {
+						return err
+					}
+					if n != 1 {
+						return fmt.Errorf("change %s: closed as record marked %d rows", run.ChangeID, n)
+					}
 				}
 				completed.Release, err = workflowsql.New(tx.SQL()).CompletionHasProductionDeploy(ctx, workflowsql.CompletionHasProductionDeployParams{RunID: run.ID, ProjectID: run.ProjectID, Status: StatusPass.String()})
 				if err != nil {

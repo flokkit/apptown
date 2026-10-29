@@ -145,28 +145,23 @@ func RelativePath(root, path string) (string, error) {
 
 // Read contract presence from selected source before deciding whether this is a
 // runtime deployment. A symlink must not turn that decision into a host-file read.
-// A tree selected at a revision recorded before the AppTown rename holds its
-// contract at HistoricalContractPath (ContractFileAt).
 func ReadSelectedContract(root string) (*appcontract.Contract, error) {
-	for _, name := range []string{ContractPath, HistoricalContractPath} {
-		_, err := os.Lstat(filepath.Join(root, name))
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		path, err := SelectedPath(root, name)
-		if err != nil {
-			return nil, err
-		}
-		raw, err := os.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-		return appcontract.Parse(raw)
+	_, err := os.Lstat(filepath.Join(root, ContractPath))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, ErrNoContract
 	}
-	return nil, ErrNoContract
+	if err != nil {
+		return nil, err
+	}
+	path, err := SelectedPath(root, ContractPath)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return appcontract.Parse(raw)
 }
 
 func SelectedPath(root, path string) (string, error) {

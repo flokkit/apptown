@@ -706,7 +706,7 @@ func readinessOf(c *appcontract.Contract) (string, func(int) bool) {
 	if path == "" {
 		path = "/"
 	}
-	return path, func(n int) bool { return n != 0 && (rp.Expect == 0 && n < 400 || n == rp.Expect) }
+	return path, func(n int) bool { return appcontract.Ready(n, rp.Expect) }
 }
 
 // gateCheckStep is where a restore fails when its gate does not hold.

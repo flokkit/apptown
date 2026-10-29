@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -398,7 +397,8 @@ func withinStartupGrace(ctx context.Context, dk Scope, container string, grace t
 // container: an in-container exec, a TCP connect to the mapped port, or a
 // platform HTTP GET (shaped by AppTown front door so a hardened app doesn't
 // 301 the check — the same signal the cold-boot render sends). Any transport
-// error, or a declared-status mismatch, is a miss.
+// error, or an answer the readiness rule refuses (appcontract.Ready), is a
+// miss.
 func ProbeLiveness(ctx context.Context, dk Scope, container string, hostPort int, rp RenderedProbe, headers map[string]string) bool {
 	if rp.PolicyError != nil {
 		return false
@@ -424,28 +424,9 @@ func ProbeLiveness(ctx context.Context, dk Scope, container string, hostPort int
 		conn.Close()
 		return true
 	default:
-		client := &http.Client{
-			Transport:     check.ProbeTransport,
-			Timeout:       timeout,
-			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		}
-		url := dk.ProbeURL(hostPort) + "/" + trimLeadingSlash(rp.Path)
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		if err != nil {
-			return false
-		}
-		for k, v := range headers {
-			req.Header.Set(k, v)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return false
-		}
-		drainAndClose(resp.Body)
-		if rp.Expect != 0 {
-			return resp.StatusCode == rp.Expect
-		}
-		return true
+		a, err := appcontract.SampleReadiness(ctx, check.ProbeTransport, appcontract.ReadinessRequest{
+			URL: dk.ProbeURL(hostPort) + "/" + trimLeadingSlash(rp.Path), Headers: headers, Expect: rp.Expect, Timeout: timeout})
+		return err == nil && a.Ready
 	}
 }
 

@@ -59,6 +59,14 @@ function BarList({ title, rows, labelKey, hasCost, mapLabel }: {
 // across the runs of the window — how long the step waited to start (or, for
 // an approval, waited for a person), how long it took, and what it cost. The
 // bars share one scale inside a workflow so the long pole is obvious.
+// spend is a step's (or a workflow's) cost as the ledger knows it: "at
+// least" when some of it went unrecorded, "spend unknown" when none of it
+// was, nothing when nothing was spent.
+function spend(costMicros: number, incomplete: number): string {
+  if (incomplete > 0) return costMicros > 0 ? `at least ${fmtCost(costMicros)}` : 'spend unknown'
+  return costMicros > 0 ? fmtCost(costMicros) : ''
+}
+
 export function TimingView({ days }: { days: number }) {
   const tq = useGet<TimingReport>(`/timing?days=${days}`)
   const wfs = tq.data ? tq.data.workflows ?? [] : null
@@ -70,14 +78,14 @@ export function TimingView({ days }: { days: number }) {
       <StaleNote q={tq} />
       {wfs.map((wf) => {
         const max = Math.max(1, ...wf.steps.map((s) => s.waitMedianMs + s.medianMs))
-        const cost = wf.steps.reduce((a, s) => a + s.costMicros, 0)
+        const cost = spend(wf.steps.reduce((a, s) => a + s.costMicros, 0), wf.steps.reduce((a, s) => a + s.costIncomplete, 0))
         return (
           <div key={wf.workflow} className="card">
             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
               <h3 style={{ margin: 0 }}>{wf.workflow}</h3>
               <span className="muted small">
                 {wf.runs} run{wf.runs === 1 ? '' : 's'} · a typical run takes {sec(wf.totalMedianMs)} from open to its last step
-                {cost > 0 ? ` · ${fmtCost(cost)} in agent time` : ''}
+                {cost ? ` · ${cost} in agent time` : ''}
               </span>
             </div>
             {wf.steps.map((s) => {
@@ -95,7 +103,7 @@ export function TimingView({ days }: { days: number }) {
                       {isApproval
                         ? `waited ${sec(s.waitMedianMs)} for a person`
                         : `waited ${sec(s.waitMedianMs)} · took ${sec(s.medianMs)} (p90 ${sec(s.p90Ms)}, max ${sec(s.maxMs)})`}
-                      {s.costMicros > 0 ? ` · ${fmtCost(s.costMicros)}` : ''}
+                      {spend(s.costMicros, s.costIncomplete) && ` · ${spend(s.costMicros, s.costIncomplete)}`}
                     </span>
                   </div>
                   <div style={{ display: 'flex', height: 8, background: 'var(--rule)', borderRadius: 2, overflow: 'hidden' }}

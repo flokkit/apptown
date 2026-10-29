@@ -44,7 +44,7 @@ func (c *Contracts) resolveSnapshotAt(ctx context.Context, dataDir string, proje
 	if err != nil {
 		return "invalid", "none", "", err.Error()
 	}
-	raw, err := docker.ContractBytesAt(ctx, repo, sha)
+	raw, err := docker.ContractFileAt(ctx, repo, sha)
 	if errors.Is(err, docker.ErrNoContract) {
 		return "absent", "none", "", ""
 	}

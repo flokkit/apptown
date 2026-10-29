@@ -8,7 +8,7 @@ import (
 
 // ReadContractAt reads the canonical runtime declaration at an exact repository revision.
 func ReadContractAt(ctx context.Context, repo, sha string) (*appcontract.Contract, error) {
-	raw, err := ContractBytesAt(ctx, repo, sha)
+	raw, err := ContractFileAt(ctx, repo, sha)
 	if err != nil {
 		return nil, err
 	}

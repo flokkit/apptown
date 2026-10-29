@@ -359,6 +359,43 @@ func (q *Queries) SettleCallLine(ctx context.Context, arg SettleCallLineParams) 
 	return result.RowsAffected()
 }
 
+const stepCosts = `-- name: StepCosts :many
+SELECT step_id, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros,
+  COUNT(*) FILTER (WHERE incomplete<>'')::bigint AS incomplete
+FROM token_usage WHERE step_id=ANY($1::uuid[]) GROUP BY step_id
+`
+
+type StepCostsRow struct {
+	StepID     ids.ID
+	CostMicros int64
+	Incomplete int64
+}
+
+// What each step spent across every turn, and how many of its
+// observations may be lower than what was spent.
+func (q *Queries) StepCosts(ctx context.Context, stepIds []ids.ID) ([]StepCostsRow, error) {
+	rows, err := q.db.QueryContext(ctx, stepCosts, pq.Array(stepIds))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StepCostsRow
+	for rows.Next() {
+		var i StepCostsRow
+		if err := rows.Scan(&i.StepID, &i.CostMicros, &i.Incomplete); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const usageDaysByKind = `-- name: UsageDaysByKind :many
 SELECT to_char(at AT TIME ZONE 'UTC','YYYY-MM-DD')::text AS day, kind,
 SUM(total)::bigint AS total, SUM(cost_micros)::bigint AS cost_micros

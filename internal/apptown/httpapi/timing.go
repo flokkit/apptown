@@ -1,12 +1,12 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"net/http"
 	"sort"
 	"strconv"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -14,8 +14,9 @@ import (
 // Where the time goes: per workflow, per
 // step, across the runs of the last N days — how long a step takes, how
 // long it waited to start, what it cost, how often it was reworked — and
-// per run, the timeline. Read from the ledger the steps already write
-// (started_at, finished_at, evidence usage); nothing new is recorded.
+// per run, the timeline. Read from what the steps already write
+// (started_at, finished_at) and the usage ledger, which holds every turn a
+// step paid for; nothing new is recorded.
 
 type stepTiming struct {
 	Stage        string `json:"stage"`
@@ -27,7 +28,10 @@ type stepTiming struct {
 	MaxMs        int64  `json:"maxMs"`
 	WaitMedianMs int64  `json:"waitMedianMs"` // from the previous step's end (or the run's birth) to this step's start; for an approval, the wait for a person
 	CostMicros   int64  `json:"costMicros"`
-	Reworks      int    `json:"reworks"` // times this step was sent back for another attempt, across the runs
+	// CostIncomplete counts the ledger's observations that may be lower
+	// than what was spent: CostMicros is "at least" when it is not 0.
+	CostIncomplete int64 `json:"costIncomplete"`
+	Reworks        int   `json:"reworks"` // times this step was sent back for another attempt, across the runs
 }
 
 type workflowTiming struct {
@@ -48,7 +52,9 @@ type timelineEntry struct {
 	Ms         int64  `json:"ms"`
 	WaitMs     int64  `json:"waitMs"`
 	CostMicros int64  `json:"costMicros"`
-	reworks    int
+	// CostIncomplete is as stepTiming's.
+	CostIncomplete int64 `json:"costIncomplete"`
+	reworks        int
 }
 
 // percentile of a sorted slice; 0.5 is the median.
@@ -66,27 +72,13 @@ func percentile(sorted []int64, p float64) int64 {
 	return sorted[i]
 }
 
-// stepCostMicros reads an agent step's recorded cost from its evidence.
-func stepCostMicros(evidenceJSON json.RawMessage) int64 {
-	var ev struct {
-		Usage struct {
-			Cost struct {
-				Total float64 `json:"total"`
-			} `json:"cost"`
-		} `json:"usage"`
-	}
-	if json.Unmarshal(evidenceJSON, &ev) != nil {
-		return 0
-	}
-	return int64(ev.Usage.Cost.Total * 1e6)
-}
-
-// timingTimeline lays recorded steps out in order, including waits for approval.
-func timingTimeline(r workflow.RunTiming) []timelineEntry {
+// timingTimeline lays recorded steps out in order, including waits for
+// approval, with what each spent by the ledger (costs).
+func timingTimeline(r workflow.RunTiming, costs map[ids.ID]usage.StepCost) []timelineEntry {
 	prev := r.CreatedAt
 	var out []timelineEntry
 	for _, s := range r.Steps {
-		e := timelineEntry{Stage: s.Stage, Name: s.Name, Type: s.Type, Status: s.Status.String(), CostMicros: stepCostMicros(s.Evidence), reworks: s.Reworks}
+		e := timelineEntry{Stage: s.Stage, Name: s.Name, Type: s.Type, Status: s.Status.String(), CostMicros: costs[s.ID].CostMicros, CostIncomplete: costs[s.ID].Incomplete, reworks: s.Reworks}
 		start, end := s.StartedAt, s.FinishedAt
 		switch {
 		case s.Type == "approval" && end.Valid:
@@ -116,7 +108,7 @@ func timingTimeline(r workflow.RunTiming) []timelineEntry {
 }
 
 // summarizeWorkflowTiming is pure: callers supply one consistent ledger snapshot.
-func summarizeWorkflowTiming(name string, days int, runs []workflow.RunTiming) workflowTiming {
+func summarizeWorkflowTiming(name string, days int, runs []workflow.RunTiming, costs map[ids.ID]usage.StepCost) workflowTiming {
 	type acc struct {
 		st      stepTiming
 		durs    []int64
@@ -128,7 +120,7 @@ func summarizeWorkflowTiming(name string, days int, runs []workflow.RunTiming) w
 	var totals []int64
 	for _, run := range runs {
 		id := run.ID
-		tl := timingTimeline(run)
+		tl := timingTimeline(run, costs)
 		born := run.CreatedAt
 		var last time.Time
 		for _, e := range tl {
@@ -145,6 +137,7 @@ func summarizeWorkflowTiming(name string, days int, runs []workflow.RunTiming) w
 				ac.lastRun = id
 			}
 			ac.st.CostMicros += e.CostMicros
+			ac.st.CostIncomplete += e.CostIncomplete
 			if e.Type == "approval" {
 				if e.WaitMs > 0 {
 					ac.waits = append(ac.waits, e.WaitMs)
@@ -183,17 +176,17 @@ func summarizeWorkflowTiming(name string, days int, runs []workflow.RunTiming) w
 }
 
 // Summaries use the same runs as their timelines, busiest workflow first.
-func summarizeTimings(runs []workflow.RunTiming, name string, days int) []workflowTiming {
+func summarizeTimings(runs []workflow.RunTiming, costs map[ids.ID]usage.StepCost, name string, days int) []workflowTiming {
 	groups := map[string][]workflow.RunTiming{}
 	for _, r := range runs {
 		groups[r.Workflow] = append(groups[r.Workflow], r)
 	}
 	if name != "" {
-		return []workflowTiming{summarizeWorkflowTiming(name, days, groups[name])}
+		return []workflowTiming{summarizeWorkflowTiming(name, days, groups[name], costs)}
 	}
 	out := []workflowTiming{}
 	for name, group := range groups {
-		out = append(out, summarizeWorkflowTiming(name, days, group))
+		out = append(out, summarizeWorkflowTiming(name, days, group, costs))
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Runs != out[j].Runs {
@@ -204,9 +197,32 @@ func summarizeTimings(runs []workflow.RunTiming, name string, days int) []workfl
 	return out
 }
 
+// Timing answers where the time and the spend go: the runs' steps from
+// Work, what each step spent from the usage ledger.
+type Timing struct {
+	work  *workflow.Service
+	usage *usage.Ledger
+}
+
+func NewTiming(work *workflow.Service, ledger *usage.Ledger) Timing {
+	return Timing{work: work, usage: ledger}
+}
+
+// stepCosts reads what the steps of runs spent. The steps come from an
+// authorized timing read, so their spend is the caller's to see.
+func (h Timing) stepCosts(r *http.Request, runs []workflow.RunTiming) (map[ids.ID]usage.StepCost, error) {
+	var steps []ids.ID
+	for _, run := range runs {
+		for _, s := range run.Steps {
+			steps = append(steps, s.ID)
+		}
+	}
+	return h.usage.StepCosts(r.Context(), steps)
+}
+
 // Timing: GET /api/v1/timing?days=<n>[&workflow=<name>] — every
 // workflow that ran in the window (or just the one named), step by step.
-func (h Runs) Timing(w http.ResponseWriter, r *http.Request) {
+func (h Timing) Timing(w http.ResponseWriter, r *http.Request) {
 	days, _ := strconv.Atoi(r.URL.Query().Get("days"))
 	if days <= 0 {
 		days = 7
@@ -217,13 +233,16 @@ func (h Runs) Timing(w http.ResponseWriter, r *http.Request) {
 		WriteFault(w, err)
 		return
 	}
-	out := summarizeTimings(runs, name, days)
-
-	WriteJSON(w, 200, TimingReport{Days: days, Workflows: out})
+	costs, err := h.stepCosts(r, runs)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
+	WriteJSON(w, 200, TimingReport{Days: days, Workflows: summarizeTimings(runs, costs, name, days)})
 }
 
 // RunTiming: GET /api/v1/runs/{id}/timing — one run's timeline.
-func (h Runs) RunTiming(w http.ResponseWriter, r *http.Request) {
+func (h Timing) RunTiming(w http.ResponseWriter, r *http.Request) {
 	id, err := PathID(r, "id")
 	if err != nil {
 		WriteError(w, 400, "bad run id")
@@ -238,8 +257,13 @@ func (h Runs) RunTiming(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, 404, "no such run")
 		return
 	}
+	costs, err := h.stepCosts(r, runs)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	run := runs[0]
-	WriteJSON(w, 200, RunTimeline{Run: run.ID, Workflow: run.Workflow, CreatedAt: run.CreatedAt.UTC().Format(time.RFC3339Nano), Steps: timingTimeline(run)})
+	WriteJSON(w, 200, RunTimeline{Run: run.ID, Workflow: run.Workflow, CreatedAt: run.CreatedAt.UTC().Format(time.RFC3339Nano), Steps: timingTimeline(run, costs)})
 }
 
 // TimingReport is every workflow that ran in the window, step by step.

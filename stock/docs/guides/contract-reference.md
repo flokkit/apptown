@@ -331,6 +331,11 @@ readiness `requestContext` (`frontDoor`, the default, or `direct`). A
 liveness probe restarts the part, so it should not check other services:
 restarting it for a database's fault makes things worse.
 
+Every target judges an HTTP probe's answer the same way: with `expect`, the
+answer must be exactly that status; without it, any status below 400. A
+redirect is an answer and is not followed, so an app whose health path
+answers 404 is not ready unless it declares `expect: 404`.
+
 `period` accepts whole seconds from 5 through 300, `timeout` from 1 through
 10, and `failureThreshold` and `successThreshold` from 1 through 50. Omitted
 fields keep the target and phase defaults. Explicit cold readiness must fit its
@@ -354,9 +359,8 @@ What each target uses:
   standing deployment, which is restarted when it fails: an `http`
   liveness is a GET of its path, an `exec` liveness runs its command in the
   container (exit 0 is alive), and a `tcp` liveness, or none declared,
-  connects to the part's port. For any HTTP probe, with `expect` the
-  answer must be exactly that status, without it any HTTP answer counts,
-  and redirects are not followed. Explicit cold and maintained readiness require
+  connects to the part's port. Every HTTP probe's answer is judged as
+  above. Explicit cold and maintained readiness require
   consecutive answers from the same container start; liveness uses its declared
   cadence, timeout and thresholds while preserving bounded restart backoff.
 - **Portainer.** Public HTTP readiness uses the declared path, `expect`,
@@ -375,8 +379,7 @@ What each target uses:
   refused. A public HTTP readiness probe may require an exact `expect`
   from 200 through 299. AppTown checks that status at the front door after
   native readiness succeeds; it does not follow redirects for that exact
-  check. Omitted expectations retain the target's successful-response and
-  redirect behavior. An exact status on a private service, or outside
+  check. Without `expect`, the front door is judged as above. An exact status on a private service, or outside
   200–299, is refused before provider effects. A restored copy's checks
   remain behind its access gate.
 

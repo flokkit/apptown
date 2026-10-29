@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -25,7 +24,7 @@ func TestTimingObservationKeepsScopeForBothSelectionModes(t *testing.T) {
 	}
 	counted := &countedQueries{Handle: q.db.SQL()}
 	rows, err := readTimingsIn(ctx, counted, []ids.ID{run.ProjectID}, TimingWindow{})
-	if err != nil || len(rows) != 1 || counted.reads != 1 || rows[0].ID != run.ID || len(rows[0].Steps) != 1 || rows[0].Steps[0].Status != StatusPending || !strings.Contains(string(rows[0].Steps[0].Evidence), "9007199254740993") {
+	if err != nil || len(rows) != 1 || counted.reads != 1 || rows[0].ID != run.ID || len(rows[0].Steps) != 1 || rows[0].Steps[0].Status != StatusPending || rows[0].Steps[0].ID != step {
 		t.Fatalf("timings %+v reads %d: %v", rows, counted.reads, err)
 	}
 	rows, err = readTimingsIn(ctx, q.db, []ids.ID{run.ProjectID}, TimingWindow{RunID: &foreign})

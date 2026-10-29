@@ -88,3 +88,10 @@ SELECT COUNT(*)::bigint FROM token_usage WHERE project_id = ANY(sqlc.arg(project
 -- restart cut off.
 -- name: LockInAllPendingLines :execrows
 UPDATE token_usage SET incomplete=sqlc.arg(incomplete), pending_until=NULL WHERE pending_until IS NOT NULL;
+
+-- What each step spent across every turn, and how many of its
+-- observations may be lower than what was spent.
+-- name: StepCosts :many
+SELECT step_id, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros,
+  COUNT(*) FILTER (WHERE incomplete<>'')::bigint AS incomplete
+FROM token_usage WHERE step_id=ANY(sqlc.arg(step_ids)::uuid[]) GROUP BY step_id;

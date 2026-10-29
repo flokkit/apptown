@@ -5,7 +5,6 @@ import { ChangeState, ChangeView, Doing, post } from '../../api'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { TryIt } from '../../TryIt'
-import { changeStateLabel } from '../../states'
 
 // What a change chat shows of its change: the bar of its three verbs, the
 // change's status card, and the changes a chat started. The bar and the card
@@ -144,7 +143,7 @@ export function ChangeContext({ view: v }: { view: ChangeView }) {
 // folded line (Console.tsx) say it in the same words.
 export function changeChip(v: ChangeView) {
   const doing = v.state ?? ''
-  return v.change.state === 'shipped' ? <span className="chip pass">shipped ✓</span>
+  return v.change.state === 'shipped' ? <span className="chip pass">{v.change.stateLabel} ✓</span>
     : doing === 'waiting on you' ? <span className="chip pending">needs you</span>
     : doing === 'blocked' ? <span className="chip fail">blocked</span>
     : v.detail?.run?.status === 'running' ? <span className="chip running">in progress</span>
@@ -156,7 +155,7 @@ export function changeChip(v: ChangeView) {
 // The change state, REFLECTED not explained: every change this conversation
 // has started, live. A person's sentence visibly becomes a change and moves
 // through being built → needs you → shipped.
-export type StartedChange = { changeId: string | null; title: string; state: ChangeState; closedAs?: string; doing: Doing | ''; detail: string }
+export type StartedChange = { changeId: string | null; title: string; state: ChangeState; closedAs?: string; stateLabel: string; doing: Doing | ''; detail: string }
 
 export function StartedChanges({ sessionId }: { sessionId: string }) {
   const q = useGet<{ changes: StartedChange[] }>(`/console/${sessionId}/changes`, { poll: 4000 })
@@ -166,8 +165,8 @@ export function StartedChanges({ sessionId }: { sessionId: string }) {
   const changes = q.data.changes
   if (changes.length === 0) return <StaleNote q={q} />
   const chip = (c: StartedChange) => {
-    if (c.state === 'shipped') return <span className="chip pass">shipped ✓</span>
-    if (c.state === 'abandoned') return <span className="chip">{changeStateLabel(c.state, undefined, c.closedAs)}</span>
+    if (c.state === 'shipped') return <span className="chip pass">{c.stateLabel} ✓</span>
+    if (c.state === 'abandoned') return <span className="chip">{c.stateLabel}</span>
     if (c.doing === 'waiting on you') return <span className="chip pending">needs you</span>
     if (c.doing === 'blocked') return <span className="chip fail">blocked</span>
     if (c.state === 'landing') return <span className="chip pending">landing</span>

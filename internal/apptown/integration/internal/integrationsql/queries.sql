@@ -101,7 +101,7 @@ WITH selected AS MATERIALIZED (
 -- name: AttachedIntegrations :many
 SELECT p.*, COALESCE(i.config_json,'null'::jsonb)::jsonb AS config_json,
  c.id AS change_id, COALESCE(c.number,0)::bigint AS change_number, COALESCE(c.state,'')::text AS change_state,
- COALESCE(c.title,'')::text AS change_title, COALESCE(k.spec_yaml,'')::text AS kind_yaml
+ COALESCE(c.closed_as,'')::text AS change_closed_as, COALESCE(c.title,'')::text AS change_title, COALESCE(k.spec_yaml,'')::text AS kind_yaml
 FROM project_integrations p
 LEFT JOIN integrations i ON i.name=p.binding AND i.capability=p.capability
 LEFT JOIN changes c ON c.id=p.wire_change_id AND c.project_id=p.project_id

@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flokkit/apptown/internal/dockerlabel"
-	"github.com/flokkit/apptown/internal/trust"
+	"github.com/flokkit/apptown/internal/dockerbuild"
 )
 
 // The agent image a worker's chats run in is built by the worker from the
@@ -58,10 +57,13 @@ func BuildAgentImage(ctx context.Context, docker, dir string) (string, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Hour)
 	defer cancel()
-	// The worker's extra certificates as the build's secret: the agent
-	// image's RUN lines download (internal/trust).
-	args := append(append(append([]string{"build"}, trust.BuildArgs(true)...), dockerlabel.BuiltArgs()...), "-t", image, dir)
-	out, err := exec.CommandContext(ctx, docker, args...).CombinedOutput()
+	// The one build rule (internal/dockerbuild): the worker's daemon's own
+	// builder named, and the worker's extra certificates as the build's
+	// secret, which the agent image's RUN lines download with.
+	run := func(ctx context.Context, args ...string) ([]byte, error) {
+		return exec.CommandContext(ctx, docker, args...).CombinedOutput()
+	}
+	out, err := dockerbuild.Daemon{Run: run, Local: true}.Build(ctx, "-t", image, dir)
 	if err != nil {
 		tail := strings.TrimSpace(string(out))
 		if len(tail) > 2000 {

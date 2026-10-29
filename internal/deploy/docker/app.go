@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -406,31 +404,11 @@ func (p *Probe) check(ctx context.Context, dk Scope, container, url string, time
 		defer stop()
 
 		target := strings.TrimRight(url, "/") + "/" + strings.TrimLeft(probe.Path, "/")
-		client := &http.Client{Transport: check.ProbeTransport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+		ask := appcontract.ReadinessRequest{URL: target, Headers: probe.Headers, Expect: probe.Expect, Body: probe.Body, Timeout: probe.Policy.Timeout}
 		ready := probe.Path != "" && coldPolicyReady(ctx, probe.Policy, max(timeout, probe.Grace), func(one context.Context) (string, bool) {
 			return coldSample(one, dk, container, func(one context.Context) bool {
-				one, stop := context.WithTimeout(one, probe.Policy.Timeout)
-				defer stop()
-				req, err := http.NewRequestWithContext(one, http.MethodGet, target, nil)
-				if err != nil {
-					return false
-				}
-				for k, v := range probe.Headers {
-					req.Header.Set(k, v)
-				}
-				resp, err := client.Do(req)
-				if err != nil {
-					return false
-				}
-				defer drainAndClose(resp.Body)
-				if probe.Expect != 0 && resp.StatusCode != probe.Expect {
-					return false
-				}
-				if probe.Body != "" {
-					body, err := io.ReadAll(io.LimitReader(resp.Body, int64(len(probe.Body))+1))
-					return err == nil && string(body) == probe.Body
-				}
-				return true
+				a, err := appcontract.SampleReadiness(one, check.ProbeTransport, ask)
+				return err == nil && a.Ready
 			})
 		})
 		if ready {
@@ -439,17 +417,11 @@ func (p *Probe) check(ctx context.Context, dk Scope, container, url string, time
 		return false, containerLogTail(ctx, dk, container)
 	}
 
-	// Do NOT auto-follow redirects: a behind-proxy-hardened app 301s a naked hit
-	// to https://, and the default client would follow it into a TLS handshake
-	// against a plain-HTTP listener, error, and read the boot as dead — the
-	// office-poll ten-commit thrash (design/subsystems/healthchecks.md §3). The render's
-	// front-door headers stop the 301 in the first place; refusing to follow
-	// makes any stray 3xx a visible status, not a masked failure.
-	client := &http.Client{
-		Transport:     check.ProbeTransport,
-		Timeout:       2 * time.Second,
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
+	// The sampler follows no redirect: a behind-proxy-hardened app 301s a
+	// naked hit to https://, and following it into a TLS handshake against
+	// a plain-HTTP listener would read the boot as dead — the office-poll
+	// ten-commit thrash (design/subsystems/healthchecks.md §3). The render's
+	// front-door headers stop the 301 in the first place.
 	// startupGrace is a FLOOR on how long boot may take before failures count
 	// (design §5.3): extend the deadline to it, never shrink below the caller's.
 	if probe.Grace > timeout {
@@ -465,29 +437,12 @@ func (p *Probe) check(ctx context.Context, dk Scope, container, url string, time
 	if p != nil && p.Settle != 0 {
 		settle = p.Settle
 	}
+	// The front-door headers are the ingress contract's signal (ingress.go);
+	// the answer is judged by the one readiness rule (appcontract.Ready).
+	ask := appcontract.ReadinessRequest{URL: target, Headers: probe.Headers, Expect: probe.Expect, Body: probe.Body, Timeout: 2 * time.Second}
 	answers := func() bool {
-		req, err := http.NewRequest(http.MethodGet, target, nil)
-		if err != nil {
-			return false
-		}
-		for k, v := range probe.Headers {
-			req.Header.Set(k, v) // the ingress contract's front-door signal (ingress.go)
-		}
-		resp, err := client.Do(req)
-		if err != nil {
-			return false
-		}
-		defer drainAndClose(resp.Body)
-		if probe.Body != "" {
-			body, err := io.ReadAll(io.LimitReader(resp.Body, int64(len(probe.Body))+1))
-			if err != nil || string(body) != probe.Body {
-				return false // a witness answers exactly what it was told to
-			}
-		}
-		if probe.Expect != 0 {
-			return resp.StatusCode == probe.Expect // a declared status must match exactly
-		}
-		return true // any HTTP status is proof something in the app is serving
+		a, err := appcontract.SampleReadiness(ctx, check.ProbeTransport, ask)
+		return err == nil && a.Ready
 	}
 	running := func() bool { return dk.Running(ctx, container) }
 	logTail := func() string { return containerLogTail(ctx, dk, container) }
@@ -519,15 +474,6 @@ func (p *Probe) check(ctx context.Context, dk Scope, container, url string, time
 		}
 	}
 	return false, logTail()
-}
-
-// drainAndClose reads what is left of a probe's answer (up to 64 KiB) before
-// closing it, so the client can use the connection for the next check: an
-// answer closed unread costs a new connection each time, and every closed
-// connection holds a local port for 30 s.
-func drainAndClose(body io.ReadCloser) {
-	_, _ = io.Copy(io.Discard, io.LimitReader(body, 64<<10))
-	_ = body.Close()
 }
 
 // startFailureTail bounds what a failed container start reports: the end of

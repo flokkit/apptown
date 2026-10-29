@@ -75,6 +75,9 @@ func TestImagePreparationHelper(t *testing.T) {
 			return nil, ctx.Err()
 		}
 		return nil, nil
+	}, func(context.Context, ...string) ([]byte, error) {
+		t.Error("a pull built")
+		return nil, nil
 	}, execution.ImageRequest{Pull: "example.test/app:1", Registry: &execution.RegistryLogin{Host: "example.test", Username: "test", Token: "dummy"}, Timeout: time.Minute,
 		Scratch: os.Getenv("APPTOWN_REVIEW_SCRATCH")})
 }

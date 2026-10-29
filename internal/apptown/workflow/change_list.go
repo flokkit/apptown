@@ -57,7 +57,7 @@ func readChangeList(ctx context.Context, db database.Queryer, projectID ids.ID, 
 		if err := runState.Scan(row.RunStatus); err != nil {
 			return nil, err
 		}
-		out = append(out, ChangeSummary{Change: Change{ID: row.ID, Number: row.Number, ProjectID: row.ProjectID, Type: row.Type, Title: row.Title, Body: row.Body, RunID: row.RunID, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), State: changeState, Branch: row.Branch, BaseSHA: row.BaseSha, ExternalRef: row.ExternalRef, Summary: row.Summary, ClosedAt: stamp.Time{NullTime: row.ClosedAt}, ClosedAs: row.ClosedAs}, Stage: row.Stage, RunStatus: runState, WorkflowName: row.WorkflowName, UpdatedAt: stamp.Time{NullTime: sql.NullTime{Time: row.UpdatedAt, Valid: true}}})
+		out = append(out, ChangeSummary{Change: Change{ID: row.ID, Number: row.Number, ProjectID: row.ProjectID, Type: row.Type, Title: row.Title, Body: row.Body, RunID: row.RunID, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), State: changeState, Branch: row.Branch, BaseSHA: row.BaseSha, ExternalRef: row.ExternalRef, Summary: row.Summary, ClosedAt: stamp.Time{NullTime: row.ClosedAt}, ClosedAs: row.ClosedAs, StateLabel: changeState.Label(row.ClosedAs)}, Stage: row.Stage, RunStatus: runState, WorkflowName: row.WorkflowName, UpdatedAt: stamp.Time{NullTime: sql.NullTime{Time: row.UpdatedAt, Valid: true}}})
 	}
 	return out, nil
 }

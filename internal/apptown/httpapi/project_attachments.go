@@ -278,7 +278,12 @@ func (h ProjectAttachments) ListProjectIntegrations(w http.ResponseWriter, r *ht
 		x := AttachmentView{Capability: p.Capability, Connector: p.Binding, Provenance: p.Provenance,
 			Resource: decodeBriefMap(p.ResourceJSON), CreatedAt: p.CreatedAt.UTC().Format(time.RFC3339Nano), Wirable: p.Capability != integration.CapContainerRegistry}
 		if !p.WireChangeID.IsZero() {
-			x.Wire = &IntegrationWire{ChangeID: p.WireChangeID, ChangeNumber: p.WireChangeNumber, State: p.WireState, Title: p.WireTitle}
+			state, err := workflow.ParseChangeState(p.WireState)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+			x.Wire = &IntegrationWire{ChangeID: p.WireChangeID, ChangeNumber: p.WireChangeNumber, State: p.WireState, StateLabel: state.Label(p.WireClosedAs), Title: p.WireTitle}
 		}
 		out = append(out, x)
 	}
@@ -499,6 +504,7 @@ type IntegrationWire struct {
 	ChangeID     ids.ID `json:"changeId"`
 	ChangeNumber int64  `json:"changeNumber"` // within the project
 	State        string `json:"state"`
+	StateLabel   string `json:"stateLabel"` // workflow.ChangeState.Label
 	Title        string `json:"title"`
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -24,9 +25,8 @@ import (
 //  3. pack: the folder becomes the self-serving static image
 //     (StaticSiteDockerfile), as a committed static folder does.
 //
-// Both builds are plain `docker build` on dk, so they run on the daemon the
-// AppTown selected and its own builder (CLI.Run drops any inherited
-// BUILDX_BUILDER), never on a Buildx builder chosen elsewhere.
+// Both builds go through Scope.Build, so they run on the daemon AppTown
+// selected and its own builder, never on a Buildx builder chosen elsewhere.
 func PackStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcontract.StaticBuild, server string, port int, tag string) error {
 	site, done, err := ExportStaticBuild(ctx, dk, contextDir, sb)
 	if err != nil {
@@ -46,7 +46,7 @@ func PackStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcon
 
 // ExportStaticBuild runs a declared static site's build on dk and answers
 // its output folder, checked (ConfineStaticExport), and done, which removes
-// the export. The build is plain `docker build`: the selected daemon's own
+// the export. The build is Scope.Build's: the selected daemon's own
 // builder, for its own platform (the site is files).
 func ExportStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appcontract.StaticBuild) (site string, done func(), err error) {
 	export, err := os.MkdirTemp("", "apptown-static-export-")
@@ -54,12 +54,7 @@ func ExportStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appc
 		return "", func() {}, err
 	}
 	done = func() { _ = os.RemoveAll(export) }
-	var args []string
-	if sb.Target != "" {
-		args = append(args, "--target", sb.Target)
-	}
-	args = append(args, "--output", "type=local,dest="+export, contextDir)
-	if out, err := dk.Build(ctx, args...); err != nil {
+	if out, err := dk.Build(ctx, StaticExportArgs(sb.Target, contextDir, export)...); err != nil {
 		done()
 		return "", func() {}, BuildFailure("building the static site", out, err)
 	}
@@ -68,6 +63,18 @@ func ExportStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appc
 		return "", func() {}, err
 	}
 	return site, done, nil
+}
+
+// StaticExportArgs are a static site's export build arguments after
+// `build`: its declared target stage, its files written to dest, its
+// context. A deploy, a release built on a worker and `apptown dev` all
+// build a static site with them, so the three build it alike.
+func StaticExportArgs(target, contextDir, dest string) []string {
+	var args []string
+	if target != "" {
+		args = append(args, "--target", target)
+	}
+	return append(args, "--output", "type=local,dest="+dest, contextDir)
 }
 
 // ConfineStaticExport is the site folder output names inside an exported
@@ -123,6 +130,34 @@ func ConfineStaticExport(root, output string) (string, error) {
 		return "", fmt.Errorf("the build's %s holds no files: the static site is empty", output)
 	}
 	return site, nil
+}
+
+// StaticExportCheckScript is ConfineStaticExport for a shell where the
+// export is (a release built in a worker's task, whose files never leave
+// it): it refuses the export at export unless output is plainly there,
+// with ConfineStaticExport's own reasons, and exits 1 saying why. Both are
+// run over one table of exported trees (static_build_test.go), so they
+// refuse the same exports.
+func StaticExportCheckScript(export, output string) string {
+	quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+	fail := func(why string) string { return "{ echo " + quote(why) + " >&2; exit 1; }" }
+	var checks []string
+	at := export
+	if clean := path.Clean(output); clean != "." {
+		for _, part := range strings.Split(clean, "/") {
+			at = path.Join(at, part)
+			rel := strings.TrimPrefix(strings.TrimPrefix(at, export), "/")
+			checks = append(checks,
+				"[ ! -L "+quote(at)+" ] || "+fail("the built static site's "+rel+" is a symbolic link; a static site's output holds only folders and files"),
+				"[ -e "+quote(at)+" ] || "+fail("the build wrote no "+output+": the static site's output folder is missing from the built stage's files"),
+				"[ -d "+quote(at)+" ] || "+fail("the built static site's "+rel+" is not a folder"))
+		}
+	}
+	site := quote(at)
+	checks = append(checks,
+		"bad=$(find "+site+" ! -type d ! -type f | head -1); [ -z \"$bad\" ] || { echo \"the built static site holds ${bad#"+quote(export+"/")+"}, which is not a plain folder or file (a symbolic link is refused, wherever it points)\" >&2; exit 1; }",
+		"[ -n \"$(find "+site+" -type f | head -1)\" ] || "+fail("the build's "+output+" holds no files: the static site is empty"))
+	return strings.Join(checks, "\n")
 }
 
 // staticDockerfile writes the file server's Dockerfile (StaticSiteDockerfile)

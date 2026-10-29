@@ -8,7 +8,7 @@ import { ChangeHistoryTable, ChangeRow } from './runActivity'
 const CHANGE = '00000000-0021-7000-8000-000000000000'
 
 const row = (over: Partial<ChangeRow> = {}): ChangeRow => ({
-  changeId: CHANGE, changeNumber: 21, title: 'Change the page heading', type: 'feature', state: 'shipped', completedRuns: 2, merged: true,
+  changeId: CHANGE, changeNumber: 21, title: 'Change the page heading', type: 'feature', state: 'shipped', stateLabel: 'shipped', completedRuns: 2, merged: true,
   project: 'demo-smoke', workflows: 'quick-change', runs: 2, when: '2026-10-01T08:50:00Z', tookS: 120, ...over,
 })
 

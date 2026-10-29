@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/strs"
 )
@@ -37,12 +38,7 @@ const (
 	Ways     = "ways of working"
 )
 
-const contractPath = ".apptown/app.yaml"
-
-// historicalContractPath is where the contract lived before the AppTown
-// rename. A change open across the upgrade meets main at a commit from
-// before it, so a side without the new path is read at the old one.
-const historicalContractPath = ".forge/app.yaml"
+const contractPath = docker.ContractPath
 
 // Comparer answers Work's AddsReader from the project's repositories.
 type Comparer struct{}
@@ -62,7 +58,7 @@ func (Comparer) ChangeAdds(ctx context.Context, q workflow.AddsQuestion) (workfl
 		out.Rows = unknownRows(err.Error())
 	} else {
 		out.Base = base
-		out.Rows = Compare(side{repo, base}.file(ctx), side{repo, q.Head}.file(ctx), short(base), short(q.Head))
+		out.Rows = Compare(side{ctx, repo, base}, side{ctx, repo, q.Head}, short(base), short(q.Head))
 	}
 	if q.Uplift != nil {
 		out.Rows = append(out.Rows, waysRow(q.Uplift))
@@ -70,13 +66,18 @@ func (Comparer) ChangeAdds(ctx context.Context, q workflow.AddsQuestion) (workfl
 	return out, nil
 }
 
-// File reads a committed file: found false when the commit does not hold
-// it, an error when it could not be read.
-type File func(path string) (body []byte, found bool, err error)
+// Tree is one commit's files as a change's additions read them: found false
+// when the commit does not hold one, an error when it could not be read.
+type Tree interface {
+	// Contract is the app contract (docker.ContractFileAt).
+	Contract() (body []byte, found bool, err error)
+	// File is any other committed file (the secrets spec).
+	File(path string) (body []byte, found bool, err error)
+}
 
 // Compare is the repository rows for two readings of the tree. baseName
 // and headName name the commits in an unknown row's reason.
-func Compare(base, head File, baseName, headName string) []workflow.AddsRow {
+func Compare(base, head Tree, baseName, headName string) []workflow.AddsRow {
 	b, h := readSide(base, baseName), readSide(head, headName)
 	return []workflow.AddsRow{
 		row(Secrets, b.secrets, h.secrets, b.secretsErr, h.secretsErr),
@@ -121,14 +122,10 @@ type declared struct {
 	contractErr, secretsErr  error
 }
 
-func readSide(file File, name string) declared {
+func readSide(t Tree, name string) declared {
 	var d declared
 	path := contractPath
-	raw, found, err := file(path)
-	if err == nil && !found {
-		path = historicalContractPath
-		raw, found, err = file(path)
-	}
+	raw, found, err := t.Contract()
 	var contract *appcontract.Contract
 	switch {
 	case err != nil:
@@ -154,7 +151,7 @@ func readSide(file File, name string) declared {
 			d.secrets = append(d.secrets, n)
 		}
 	}
-	raw, found, err = file(specPath)
+	raw, found, err = t.File(specPath)
 	switch {
 	case err != nil:
 		d.secretsErr = fmt.Errorf("reading %s at %s: %w", specPath, name, err)
@@ -224,43 +221,56 @@ func waysRow(raw json.RawMessage) workflow.AddsRow {
 
 // side reads files at one commit of one repository. An empty commit is
 // main before its first commit: it holds nothing.
-type side struct{ repo, commit string }
+type side struct {
+	ctx          context.Context
+	repo, commit string
+}
 
-func (s side) file(ctx context.Context) File {
-	return func(path string) ([]byte, bool, error) {
-		if s.commit == "" {
-			return nil, false, nil
-		}
-		// ls-tree first, so a missing file is told apart from a failure,
-		// and a link is refused rather than read as its target's name.
-		out, err := gitexec.HubOutput(ctx, s.repo, nil, "ls-tree", "-z", "--end-of-options", s.commit, "--", path)
-		if err != nil {
-			return nil, false, gitError(err)
-		}
-		entry := strings.TrimSuffix(string(out), "\x00")
-		if entry == "" {
-			// Git also answers nothing when a folder on the path is a
-			// link: only a path whose every folder is a real one, or
-			// missing, is a file that is not there.
-			return nil, false, s.parentsAreFolders(ctx, path)
-		}
-		meta, _, _ := strings.Cut(entry, "\t")
-		fields := strings.Fields(meta)
-		if len(fields) != 3 {
-			return nil, false, fmt.Errorf("unexpected entry for %s", path)
-		}
-		switch {
-		case fields[0] == "120000":
-			return nil, false, fmt.Errorf("%s is a link, which AppTown does not follow", path)
-		case fields[1] != "blob":
-			return nil, false, fmt.Errorf("%s is not a file", path)
-		}
-		body, err := gitexec.HubOutput(ctx, s.repo, nil, "cat-file", "blob", fields[2])
-		if err != nil {
-			return nil, false, gitError(err)
-		}
-		return body, true, nil
+func (s side) Contract() ([]byte, bool, error) {
+	if s.commit == "" {
+		return nil, false, nil
 	}
+	raw, err := docker.ContractFileAt(s.ctx, s.repo, s.commit)
+	if errors.Is(err, docker.ErrNoContract) {
+		return nil, false, nil
+	}
+	return raw, err == nil, err
+}
+
+func (s side) File(path string) ([]byte, bool, error) {
+	ctx := s.ctx
+	if s.commit == "" {
+		return nil, false, nil
+	}
+	// ls-tree first, so a missing file is told apart from a failure,
+	// and a link is refused rather than read as its target's name.
+	out, err := gitexec.HubOutput(ctx, s.repo, nil, "ls-tree", "-z", "--end-of-options", s.commit, "--", path)
+	if err != nil {
+		return nil, false, gitError(err)
+	}
+	entry := strings.TrimSuffix(string(out), "\x00")
+	if entry == "" {
+		// Git also answers nothing when a folder on the path is a
+		// link: only a path whose every folder is a real one, or
+		// missing, is a file that is not there.
+		return nil, false, s.parentsAreFolders(ctx, path)
+	}
+	meta, _, _ := strings.Cut(entry, "\t")
+	fields := strings.Fields(meta)
+	if len(fields) != 3 {
+		return nil, false, fmt.Errorf("unexpected entry for %s", path)
+	}
+	switch {
+	case fields[0] == "120000":
+		return nil, false, fmt.Errorf("%s is a link, which AppTown does not follow", path)
+	case fields[1] != "blob":
+		return nil, false, fmt.Errorf("%s is not a file", path)
+	}
+	body, err := gitexec.HubOutput(ctx, s.repo, nil, "cat-file", "blob", fields[2])
+	if err != nil {
+		return nil, false, gitError(err)
+	}
+	return body, true, nil
 }
 
 // parentsAreFolders refuses a path one of whose folders is a link or a

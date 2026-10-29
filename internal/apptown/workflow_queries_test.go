@@ -44,7 +44,7 @@ func TestConsoleChangesUsesCurrentBatchedActivityAndPreservesHistory(t *testing.
 		return out
 	}
 	out := get()
-	if out.Code != 200 || !strings.Contains(out.Body.String(), `"doing":"waiting on you"`) || !strings.Contains(out.Body.String(), `"title":"shipped one","state":"shipped","doing":""`) {
+	if out.Code != 200 || !strings.Contains(out.Body.String(), `"doing":"waiting on you"`) || !strings.Contains(out.Body.String(), `"title":"shipped one","state":"shipped","stateLabel":"shipped","doing":""`) {
 		t.Fatalf("console history: %d %s", out.Code, out.Body.String())
 	}
 	dbtest.FailNextStatement(t, a.DB, "WITH RECURSIVE activity_tree")

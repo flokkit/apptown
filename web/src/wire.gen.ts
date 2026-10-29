@@ -1831,6 +1831,7 @@ export type StepTiming = {
   maxMs: number
   waitMedianMs: number
   costMicros: number
+  costIncomplete: number
   reworks: number
 }
 
@@ -1913,6 +1914,7 @@ export type TimelineEntry = {
   ms: number
   waitMs: number
   costMicros: number
+  costIncomplete: number
 }
 
 export type TimingReport = {
@@ -2139,6 +2141,7 @@ export type Change = {
   createdAt: string
   closedAt?: string
   closedAs?: string
+  stateLabel: string
   targetAdoptionId?: string | null
   expectedRevision?: number
   adoptedRevision?: number
@@ -2513,6 +2516,7 @@ export type ConsoleChange = {
   title: string
   state: ChangeState
   closedAs?: string
+  stateLabel: string
   doing: string
   detail: string
 }
@@ -3046,6 +3050,7 @@ export type ChangeHistory = {
   type: string
   state: ChangeState
   closedAs?: string
+  stateLabel: string
   project?: string
   workflows: string
   runs: number
@@ -4146,6 +4151,7 @@ export type IntegrationWire = {
   changeId: string | null
   changeNumber: number
   state: string
+  stateLabel: string
   title: string
 }
 
@@ -4176,6 +4182,7 @@ export type ChangeSummary = {
   createdAt: string
   closedAt?: string
   closedAs?: string
+  stateLabel: string
   targetAdoptionId?: string | null
   expectedRevision?: number
   adoptedRevision?: number

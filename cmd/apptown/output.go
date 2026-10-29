@@ -52,7 +52,8 @@ type ChangeDetail struct {
 	Change      ChangeRef   `json:"change" doc:"the change"`
 	Title       string      `json:"title" doc:"its title"`
 	State       string      `json:"state" doc:"in_progress, landing, shipped or abandoned"`
-	ClosedAs    string      `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; absent otherwise"`
+	ClosedAs    string      `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; record when a record run (research, a specification) closed it with nothing to land; absent otherwise"`
+	StateLabel  string      `json:"stateLabel" doc:"its state in the words the change page shows (shipped, finished, in progress, closed: nothing to change, and so on)"`
 	StateDetail string      `json:"stateDetail" doc:"AppTown's sentence for where it is"`
 	Branch      string      `json:"branch" doc:"its branch, empty before its first run"`
 	Runs        []RunDetail `json:"runs" doc:"its runs, newest first"`
@@ -92,7 +93,9 @@ type ChangeRow struct {
 	State  string    `json:"state" doc:"its board column: in_progress, landing, shipped or abandoned"`
 	// ClosedAs is how a closed change was closed, when that is more than
 	// its state (workflow.Change.ClosedAs).
-	ClosedAs string `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; absent otherwise"`
+	ClosedAs string `json:"closedAs,omitempty" doc:"nothing-to-change when AppTown closed an abandoned change because its run found nothing to change; shipped-with when a later landing shipped main containing this change's merge after its own landing could not ship; record when a record run (research, a specification) closed it with nothing to land; absent otherwise"`
+	// StateLabel is AppTown's words for the state (workflow.ChangeState.Label).
+	StateLabel string `json:"stateLabel" doc:"its state in the words the change page shows (shipped, finished, in progress, closed: nothing to change, and so on)"`
 }
 
 // WaitOutcome is what wait prints when it stops: what it waited on, how that

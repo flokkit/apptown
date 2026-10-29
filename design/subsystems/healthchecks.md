@@ -4,6 +4,13 @@ Appcontract validates per-part readiness and liveness declarations. Deployment
 supplies target selection and application context. The Docker library implements
 probes and the standing-deployment health controller.
 
+Appcontract also owns how an answer is judged: `Ready` (the declared status
+exactly, otherwise below 400) and `SampleReadiness`, one GET that follows no
+redirect. Every target and the restore rehearsals use them, so a health path
+is ready or not on all of them alike; a target whose probe runs elsewhere
+(Portainer's and a sealed rehearsal's in-network fetch) judges the status it
+reports with `Ready`.
+
 Readiness asks whether an application can serve. Liveness can trigger a restart.
 The schema rejects dependency-checking liveness because a downstream outage must
 not cause an application restart loop. It also rejects exec readiness with a

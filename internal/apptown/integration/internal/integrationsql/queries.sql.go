@@ -90,7 +90,7 @@ func (q *Queries) AttachedCapabilitiesForShare(ctx context.Context, arg Attached
 const attachedIntegrations = `-- name: AttachedIntegrations :many
 SELECT p.project_id, p.capability, p.binding, p.resource_json, p.wire_change_id, p.provenance, p.created_at, COALESCE(i.config_json,'null'::jsonb)::jsonb AS config_json,
  c.id AS change_id, COALESCE(c.number,0)::bigint AS change_number, COALESCE(c.state,'')::text AS change_state,
- COALESCE(c.title,'')::text AS change_title, COALESCE(k.spec_yaml,'')::text AS kind_yaml
+ COALESCE(c.closed_as,'')::text AS change_closed_as, COALESCE(c.title,'')::text AS change_title, COALESCE(k.spec_yaml,'')::text AS kind_yaml
 FROM project_integrations p
 LEFT JOIN integrations i ON i.name=p.binding AND i.capability=p.capability
 LEFT JOIN changes c ON c.id=p.wire_change_id AND c.project_id=p.project_id
@@ -99,19 +99,20 @@ WHERE p.project_id=$1 AND p.provenance!='' ORDER BY p.capability
 `
 
 type AttachedIntegrationsRow struct {
-	ProjectID    ids.ID
-	Capability   string
-	Binding      string
-	ResourceJson json.RawMessage
-	WireChangeID ids.ID
-	Provenance   string
-	CreatedAt    time.Time
-	ConfigJson   json.RawMessage
-	ChangeID     ids.ID
-	ChangeNumber int64
-	ChangeState  string
-	ChangeTitle  string
-	KindYaml     string
+	ProjectID      ids.ID
+	Capability     string
+	Binding        string
+	ResourceJson   json.RawMessage
+	WireChangeID   ids.ID
+	Provenance     string
+	CreatedAt      time.Time
+	ConfigJson     json.RawMessage
+	ChangeID       ids.ID
+	ChangeNumber   int64
+	ChangeState    string
+	ChangeClosedAs string
+	ChangeTitle    string
+	KindYaml       string
 }
 
 // This attachment report preserves the existing scoped wire-change display.
@@ -136,6 +137,7 @@ func (q *Queries) AttachedIntegrations(ctx context.Context, projectID ids.ID) ([
 			&i.ChangeID,
 			&i.ChangeNumber,
 			&i.ChangeState,
+			&i.ChangeClosedAs,
 			&i.ChangeTitle,
 			&i.KindYaml,
 		); err != nil {

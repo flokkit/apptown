@@ -36,13 +36,15 @@ STRIPE_KEY = { description = "payments" }
 // tree is a commit's files for Compare; a path mapped to nil fails to read.
 type tree map[string][]byte
 
-func (t tree) file(path string) ([]byte, bool, error) {
+func (t tree) File(path string) ([]byte, bool, error) {
 	body, ok := t[path]
 	if ok && body == nil {
 		return nil, false, errors.New("disk on fire")
 	}
 	return body, ok, nil
 }
+
+func (t tree) Contract() ([]byte, bool, error) { return t.File(contractPath) }
 
 func rowNamed(t *testing.T, rows []workflow.AddsRow, name string) workflow.AddsRow {
 	t.Helper()
@@ -82,7 +84,7 @@ needs:
   postgres:
     version: "16"
 `), "secretspec.toml": []byte(spec + "SENDGRID_KEY = { description = \"mail\" }\n")}
-	rows := Compare(base.file, head.file, "base", "head")
+	rows := Compare(base, head, "base", "head")
 	if got := rowNamed(t, rows, Secrets); !slices.Equal(got.Added, []string{"SENDGRID_KEY"}) || len(got.Removed) != 0 || got.Unknown != "" {
 		t.Errorf("secrets: %+v", got)
 	}
@@ -94,7 +96,7 @@ needs:
 	if !slices.Equal(parts.Added, wantAdded) || !slices.Equal(parts.Removed, []string{"web listens on port 8080"}) {
 		t.Errorf("app parts: %+v", parts)
 	}
-	same := Compare(head.file, head.file, "a", "b")
+	same := Compare(head, head, "a", "b")
 	for _, r := range same {
 		if len(r.Added)+len(r.Removed) != 0 || r.Unknown != "" {
 			t.Errorf("identical commits differ in %s: %+v", r.Name, r)
@@ -106,13 +108,13 @@ needs:
 // unknown, and everything the other side declares is added or removed.
 func TestAnAbsentDeclarationDeclaresNothing(t *testing.T) {
 	head := tree{contractPath: []byte(contract), "secretspec.toml": []byte(spec)}
-	rows := Compare(tree{}.file, head.file, "base", "head")
+	rows := Compare(tree{}, head, "base", "head")
 	for _, r := range rows {
 		if r.Unknown != "" || len(r.Added) == 0 {
 			t.Errorf("%s from nothing: %+v", r.Name, r)
 		}
 	}
-	rows = Compare(head.file, tree{}.file, "base", "head")
+	rows = Compare(head, tree{}, "base", "head")
 	for _, r := range rows {
 		if r.Unknown != "" || len(r.Removed) == 0 || len(r.Added) != 0 {
 			t.Errorf("%s to nothing: %+v", r.Name, r)
@@ -137,7 +139,7 @@ func TestADeclarationThatCannotBeReadIsUnknownNotEmpty(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			for _, rows := range [][]workflow.AddsRow{Compare(good.file, c.head.file, "b1", "h1"), Compare(c.head.file, c.head.file, "h1", "h1")} {
+			for _, rows := range [][]workflow.AddsRow{Compare(good, c.head, "b1", "h1"), Compare(c.head, c.head, "h1", "h1")} {
 				for _, r := range rows {
 					want := slices.Contains(c.unknown, r.Name)
 					if (r.Unknown != "") != want {
@@ -162,7 +164,7 @@ func TestADeclarationThatCannotBeReadIsUnknownNotEmpty(t *testing.T) {
 func TestAnUnreadableMainStillShowsWhatTheChangeDeclares(t *testing.T) {
 	good := tree{contractPath: []byte(contract), "secretspec.toml": []byte(spec)}
 	refused := tree{contractPath: []byte("app: [nope"), "secretspec.toml": []byte(spec)}
-	rows := Compare(refused.file, good.file, "b1", "h1")
+	rows := Compare(refused, good, "b1", "h1")
 	for name, want := range map[string][]string{
 		Secrets:  {"STRIPE_KEY"},
 		Services: {"postgres"},
@@ -186,7 +188,7 @@ func TestAnUnreadableMainStillShowsWhatTheChangeDeclares(t *testing.T) {
 // The secrets file is where the contract says it is.
 func TestTheSecretsFileIsTheOneTheContractNames(t *testing.T) {
 	head := tree{contractPath: []byte(contract + "secrets:\n  spec: config/secrets.toml\n"), "config/secrets.toml": []byte(spec)}
-	if got := rowNamed(t, Compare(tree{}.file, head.file, "b", "h"), Secrets); !slices.Equal(got.Added, []string{"STRIPE_KEY"}) {
+	if got := rowNamed(t, Compare(tree{}, head, "b", "h"), Secrets); !slices.Equal(got.Added, []string{"STRIPE_KEY"}) {
 		t.Fatalf("secrets: %+v", got)
 	}
 }

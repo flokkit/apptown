@@ -1181,9 +1181,11 @@ CREATE TABLE IF NOT EXISTS changes (
   request_gap        TEXT NOT NULL DEFAULT '',
   -- How a closed change was closed, when that is more than its state: the
   -- engine's nothing-to-change close (an abandoned change whose run found
-  -- nothing to change) is 'nothing-to-change'; '' otherwise. Only the
-  -- engine writes it. Last, where migration 148 added it.
-  closed_as          TEXT NOT NULL DEFAULT '' CONSTRAINT change_closed_as CHECK(closed_as IN ('','nothing-to-change','shipped-with')),
+  -- nothing to change) is 'nothing-to-change'; a change a later landing
+  -- shipped is 'shipped-with'; one a record run (research, a
+  -- specification) shipped with nothing to land is 'record'; '' otherwise.
+  -- Only the engine writes it. Last, where migration 148 added it.
+  closed_as          TEXT NOT NULL DEFAULT '' CONSTRAINT change_closed_as CHECK(closed_as IN ('','nothing-to-change','shipped-with','record')),
   UNIQUE(project_id, number)
 );
 -- The last number given to a change and to a run in each project. A

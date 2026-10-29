@@ -61,7 +61,7 @@ func cmdChanges(args []string) error {
 				continue
 			}
 			for _, it := range c.Items {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", changeName(slug, it.Number, it.ID), slug, truncateStr(it.Title, 48), changeStateWords(c.State, it.ClosedAs), changeWhere(it, activity[it.ID], closed))
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", changeName(slug, it.Number, it.ID), slug, truncateStr(it.Title, 48), it.StateLabel, changeWhere(it, activity[it.ID], closed))
 				rows++
 			}
 			if closed && c.Total > len(c.Items) {
@@ -101,7 +101,7 @@ func changeRows(slugs []string, all bool) (ChangeList, error) {
 				continue
 			}
 			for _, it := range c.Items {
-				out.Changes = append(out.Changes, ChangeRow{Change: changeRefOf(slug, it.Number, it.ID), Title: it.Title, State: c.State, ClosedAs: it.ClosedAs})
+				out.Changes = append(out.Changes, ChangeRow{Change: changeRefOf(slug, it.Number, it.ID), Title: it.Title, State: c.State, ClosedAs: it.ClosedAs, StateLabel: it.StateLabel})
 			}
 		}
 	}
@@ -117,19 +117,7 @@ type boardItem struct {
 	RunStatus    string
 	WorkflowName string
 	ClosedAs     string
-}
-
-// changeStateWords is a change's state as the change page says it: an
-// abandoned change AppTown closed because its run found nothing to
-// change (its recorded closedAs, never the reason's words) is closed.
-func changeStateWords(state, closedAs string) string {
-	if state == "abandoned" && closedAs == "nothing-to-change" {
-		return "closed: nothing to change"
-	}
-	if state == "shipped" && closedAs == "shipped-with" {
-		return "shipped with a later change"
-	}
-	return state
+	StateLabel   string // AppTown's words for its state
 }
 
 // runActivity is AppTown's reading of a running run: the words the
@@ -214,6 +202,7 @@ func cmdShow(args []string) error {
 			Body        string
 			State       string
 			ClosedAs    string
+			StateLabel  string
 			Branch      string
 			ExternalRef string
 			Summary     string
@@ -254,7 +243,7 @@ func cmdShow(args []string) error {
 	}
 	ch := view.Change
 	if *asJSON {
-		d := ChangeDetail{Change: changeRefOf(view.ProjectSlug, ch.Number, ch.ID), Title: ch.Title, State: ch.State, ClosedAs: ch.ClosedAs,
+		d := ChangeDetail{Change: changeRefOf(view.ProjectSlug, ch.Number, ch.ID), Title: ch.Title, State: ch.State, ClosedAs: ch.ClosedAs, StateLabel: ch.StateLabel,
 			StateDetail: view.StateDetail, Branch: ch.Branch, Runs: []RunDetail{}, Commits: []Commit{}}
 		for _, r := range view.Runs {
 			d.Runs = append(d.Runs, RunDetail{Run: RunRef{ID: r.ID, Number: r.Number}, Workflow: r.WorkflowName,
@@ -268,7 +257,7 @@ func cmdShow(args []string) error {
 		}
 		return printJSON(d)
 	}
-	fmt.Printf("%s %s  %s\n", bold("change "+changeName(view.ProjectSlug, ch.Number, ch.ID)), ch.Title, stateChip(changeStateWords(ch.State, ch.ClosedAs)))
+	fmt.Printf("%s %s  %s\n", bold("change "+changeName(view.ProjectSlug, ch.Number, ch.ID)), ch.Title, stateChip(ch.State, ch.StateLabel))
 	meta := []string{view.ProjectSlug}
 	if ch.Branch != "" {
 		meta = append(meta, ch.Branch)

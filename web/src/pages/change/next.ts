@@ -1,7 +1,7 @@
 import { PRODUCT } from '../../brand'
 import type { ApprovalConfig, ChangeView, RunEvent, Step } from '../../api'
 import type { NextAct } from '../../wire.gen'
-import { changeStateLabel, chipFor, closedNothingToChange } from '../../states'
+import { chipFor, closedNothingToChange } from '../../states'
 
 // What a change is doing, said once, with the one next action for whoever
 // is looking. The page's state panel renders this; the tests read it. It is
@@ -86,7 +86,7 @@ export function changeLanded(view: ChangeView): boolean {
 export function changeChip(view: ChangeView): { text: string; cls: string } {
   const next = view.change.state === 'landing' || view.change.state === 'in_progress' ? nextStep(view) : undefined
   if (next?.primary === 'approve') return { text: next.stamp, cls: 'pending' }
-  return { text: changeStateLabel(view.change.state, changeLanded(view), view.change.closedAs), cls: chipFor(view.change.state) }
+  return { text: view.change.stateLabel, cls: chipFor(view.change.state) }
 }
 
 // isLandingApproval: the approval whose yes lands the change — the one in a

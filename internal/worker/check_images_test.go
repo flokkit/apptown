@@ -33,6 +33,11 @@ config=""
 if [ "$1" = "--config" ]; then config="$2"; shift 2; fi
 echo "$@ config=$config" >> "` + calls + `"
 case "$*" in inspect*OOMKilled*) echo false; exit 0;; esac
+case "$*" in
+"buildx version") echo "github.com/docker/buildx v0.38.1"; exit 0;;
+"context show") echo default; exit 0;;
+"buildx inspect default") printf 'Name: default\nDriver: docker\n'; exit 0;;
+esac
 case "$1" in
 image)
   ref="$5"; name=$(echo "$ref" | tr '/:' '__')
@@ -106,8 +111,10 @@ func TestACheckImageIsPreparedOnTheWorker(t *testing.T) {
 	if _, err := os.Stat(login); !os.IsNotExist(err) {
 		t.Fatal("the request's Docker configuration outlived it")
 	}
-	if !strings.Contains(string(recorded), "build --label apptown.class=check --label apptown.built=1 -t apptown-conform:abc") {
-		t.Fatalf("a check image is not labelled for the sweep: %s", recorded)
+	// Built by the one build rule (the daemon's own builder named) and
+	// labelled for the sweep.
+	if !strings.Contains(string(recorded), "build --label apptown.built=1 --builder default --label apptown.class=check -t apptown-conform:abc") {
+		t.Fatalf("a check image is not built by the rule and labelled for the sweep: %s", recorded)
 	}
 }
 
@@ -152,6 +159,11 @@ func TestACheckImageIsPrunedADayAfterItsLastUse(t *testing.T) {
 	script := `#!/bin/sh
 echo "$@" >> "` + calls + `"
 case "$*" in inspect*OOMKilled*) echo false; exit 0;; esac
+case "$*" in
+"buildx version") echo "github.com/docker/buildx v0.38.1"; exit 0;;
+"context show") echo default; exit 0;;
+"buildx inspect default") printf 'Name: default\nDriver: docker\n'; exit 0;;
+esac
 case "$1" in
 images) printf 'sha256:idle\nsha256:recent\nsha256:unseen\n';;
 esac

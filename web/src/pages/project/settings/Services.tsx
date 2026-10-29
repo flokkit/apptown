@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChangeState, HttpError, del, post } from '../../../api'
-import { changeStateLabel, chipFor } from '../../../states'
+import { chipFor } from '../../../states'
 import { FieldRow } from '../../../FieldRow'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet } from '../../../data'
@@ -228,7 +228,7 @@ export function ServicesTab({ slug }: { slug: string }) {
 // into app containers, agent steering) follow the integration either way.
 // The server sends the wiring change's state as its word; it is a ChangeState.
 export type ProjIntegration = Omit<AttachmentView, 'wire'> & {
-  wire?: { changeId: string | null; changeNumber: number; state: ChangeState; title: string } | null
+  wire?: { changeId: string | null; changeNumber: number; state: ChangeState; stateLabel: string; title: string } | null
 }
 
 export const INTEG_ICON: Record<string, string> = {
@@ -334,7 +334,7 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
             <div className="row" style={{ marginTop: 12, gap: 8 }}>
               {i.wire ? (
                 <Link to={`/changes/${i.wire.changeId}`} className={`chip ${chipFor(i.wire.state)}`} title={i.wire.title}>
-                  {i.wire.state === 'shipped' ? '✓ wired in' : i.wire.state === 'abandoned' ? 'wiring abandoned' : `wiring · change ${i.wire.changeNumber} · ${changeStateLabel(i.wire.state)}`}
+                  {i.wire.state === 'shipped' ? '✓ wired in' : i.wire.state === 'abandoned' ? 'wiring abandoned' : `wiring · change ${i.wire.changeNumber} · ${i.wire.stateLabel}`}
                 </Link>
               ) : (
                 <span className="chip pending">not wired in yet</span>

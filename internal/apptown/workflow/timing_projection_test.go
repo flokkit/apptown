@@ -69,7 +69,7 @@ func TestWorkflowTimingWindowAndQueryCount(t *testing.T) {
 			t.Fatalf("duplicate step rows disappeared: %+v", run)
 		}
 		for _, step := range run.Steps {
-			if step.Reworks != 2 || step.Status != StatusPass || string(step.Evidence) != `{"usage": {"cost": {"total": 0.015}}}` || !step.StartedAt.Time.Equal(born.Add(2*time.Second)) || !step.FinishedAt.Time.Equal(born.Add(3*time.Second)) {
+			if step.Reworks != 2 || step.Status != StatusPass || step.ID.IsZero() || !step.StartedAt.Time.Equal(born.Add(2*time.Second)) || !step.FinishedAt.Time.Equal(born.Add(3*time.Second)) {
 				t.Fatalf("step projection: %+v", step)
 			}
 		}

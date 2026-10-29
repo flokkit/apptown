@@ -101,6 +101,26 @@ func (s *ChangeState) UnmarshalJSON(data []byte) error {
 	return changeStateCodec.ReadJSON(s, data)
 }
 
+// closedRecord is Change.ClosedAs for a change a record run (research, a
+// specification) shipped: accepting it closed the change with nothing to
+// land.
+const closedRecord = "record"
+
+// Label is a change's state in the words every reader shows (the CLI, the
+// web): one rule, so they cannot disagree. How the change was closed
+// (ClosedAs) says what more than its state there is to say.
+func (s ChangeState) Label(closedAs string) string {
+	switch {
+	case s == ChangeShipped && closedAs == ClosedShippedWith:
+		return "shipped with a later change"
+	case s == ChangeShipped && closedAs == closedRecord:
+		return "finished"
+	case s == ChangeAbandoned && closedAs == ClosedNothingToChange:
+		return "closed: nothing to change"
+	}
+	return strings.ReplaceAll(s.String(), "_", " ")
+}
+
 type Change struct {
 	ID          ids.ID      `json:"id"`
 	Number      int64       `json:"number"` // within its project
@@ -119,8 +139,11 @@ type Change struct {
 	CreatedAt   string      `json:"createdAt"`
 	ClosedAt    stamp.Time  `json:"closedAt,omitzero"`
 	// ClosedAs is how a closed change was closed, when that is more than its
-	// state: ClosedNothingToChange, or "".
+	// state: ClosedNothingToChange, ClosedShippedWith, closedRecord, or "".
 	ClosedAs string `json:"closedAs,omitempty"`
+	// StateLabel is State.Label(ClosedAs), filled where the
+	// change is read.
+	StateLabel string `json:"stateLabel"`
 	// Projected from the abandonment receipt, never a second stored reason.
 	AbandonReason string `json:"-"`
 	// An uplift's target revision, what it must prove, the revision it was

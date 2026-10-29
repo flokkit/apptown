@@ -20,7 +20,7 @@ type RenderedProbe struct {
 	PolicyError error
 	Path        string            // HTTP path to hit (default "/")
 	Headers     map[string]string // front-door shaping (ingress.go), nil = probe naked
-	Expect      int               // required HTTP status; 0 = any answer proves it's serving
+	Expect      int               // required HTTP status; 0 = below 400 (appcontract.Ready)
 	Body        string            // required exact body (a release identity); "" = any
 	Grace       time.Duration     // startupGrace floor — extends the probe deadline
 	// The controller's liveness variants (probeApp/cold-boot uses only the HTTP
