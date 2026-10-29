@@ -12,7 +12,7 @@ export type { ReleasePlan } from '../../wire.gen'
 import type { ReleaseBundleView, ReleaseDetail, ReleasePlan, ReleasePreviewStarted } from '../../wire.gen'
 import { PRODUCT } from '../../brand'
 import { ReleaseDefaultPicker } from './settings/ReleaseDefault'
-import type { DeploymentView, ProjectTargets } from '../../wire.gen'
+import type { DeploymentView } from '../../wire.gen'
 
 export function NewReleasePage({ slug }: { slug: string }) {
   return <ReleasePage key={slug} slug={slug} />
@@ -22,8 +22,8 @@ function ReleasePage({ slug }: { slug: string }) {
   const nav = useNavigate()
   const planQ = useGet<ReleasePlan>(`/projects/${slug}/release/plan`)
   const plan = planQ.data
-  const [setupOpen, setSetupOpen] = useState(false)
-  const [setupSaved, setSetupSaved] = useState(false)
+  const [choiceOpen, setChoiceOpen] = useState(false)
+  const [choiceSaved, setChoiceSaved] = useState(false)
   const { run, busy, err } = useAction()
 
   const fire = async () => {
@@ -35,14 +35,13 @@ function ReleasePage({ slug }: { slug: string }) {
   if (!plan) return <ReadStatus q={planQ} what="the release plan" />
   const blocker =
     !plan.configured ? plan.configError || 'Choose a release environment in project settings.' :
-    plan.address && plan.address.revision > 0 && !plan.address.verified ? 'Confirm this deployment’s existing addresses in its settings before releasing.' :
     !plan.head ? 'nothing has landed yet' : ''
 
   return (
     <div style={{ maxWidth: 760 }}>
       <StaleNote q={planQ} />
-      {setupSaved && <p role="status">Release preference saved. Setup did not start a release; review the plan before releasing.</p>}
-      {setupOpen && <ReleaseSetup slug={slug} onConfigured={() => { setSetupSaved(true); setSetupOpen(false) }} />}
+      {choiceSaved && <p role="status">Release preference saved. No release has started; review the plan before releasing.</p>}
+      {choiceOpen && <ReleaseChoice slug={slug} onConfigured={() => { setChoiceSaved(true); setChoiceOpen(false) }} />}
       <div className="card" style={{ padding: 20, marginTop: 14 }}>
         <h2 style={{ marginTop: 0 }}>Release to {plan.deploymentLabel || plan.deployment || 'an environment'}</h2>
         <p className="muted" style={{ marginTop: 4 }}>
@@ -79,7 +78,7 @@ function ReleasePage({ slug }: { slug: string }) {
             Nothing new has shipped since release #{plan.lastRelease.number}; releasing again ships the same commit.
           </div>
         )}
-        {!plan.configured && !setupOpen && <button onClick={() => setSetupOpen(true)}>Set up release preference</button>}
+        {!plan.configured && !choiceOpen && <button onClick={() => setChoiceOpen(true)}>Choose release preference</button>}
         {blocker
           ? <div className="error" style={{ marginTop: 12 }}>{blocker}</div>
           : (
@@ -96,11 +95,10 @@ function ReleasePage({ slug }: { slug: string }) {
   )
 }
 
-function ReleaseSetup({ slug, onConfigured }: { slug: string; onConfigured: () => void }) {
+function ReleaseChoice({ slug, onConfigured }: { slug: string; onConfigured: () => void }) {
   const deployments = useGet<DeploymentView[]>(`/projects/${slug}/deployments`)
-  const targets = useGet<ProjectTargets>(`/projects/${slug}/targets`)
-  if (!deployments.data || !targets.data) return <ReadStatus q={[deployments, targets]} what="release setup choices" />
-  return <><StaleNote q={[deployments, targets]} /><ReleaseDefaultPicker slug={slug} deployments={deployments.data} offered={targets.data.targets} onConfigured={onConfigured} /></>
+  if (!deployments.data) return <ReadStatus q={deployments} what="the project's deployments" />
+  return <><StaleNote q={deployments} /><ReleaseDefaultPicker slug={slug} deployments={deployments.data} onConfigured={onConfigured} /></>
 }
 
 export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: string }) {

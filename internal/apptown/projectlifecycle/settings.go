@@ -12,47 +12,53 @@ import (
 
 // UpdateSettings is the complete settings edit. Its caller authorizes the edit;
 // lifecycle coordinates names with creation and purge, project owns persistence.
+// A new address moves the project there; the old one names nothing afterwards.
+// The edit and its receipt commit together.
 func (s *Service) UpdateSettings(ctx context.Context, id ids.ID, in project.SettingsPatch, actor string) (*project.Project, error) {
-	if !in.RequestID.IsZero() {
-		return s.renameRequested(ctx, id, in)
-	}
 	observed, err := s.projects.ByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	if in.Slug != nil && *in.Slug != observed.Slug {
-		return nil, project.ErrRequestRequired
+	names := []string{observed.Slug}
+	if in.Slug != nil {
+		names = append(names, *in.Slug)
 	}
-	release, err := s.ReserveNames(observed.Slug)
+	release, err := s.ReserveNames(names...)
 	if err != nil {
 		return nil, err
 	}
 	defer release()
-	var changed project.SettingsChange
+	var after project.Project
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
-		var err error
-		changed, err = project.UpdateSettingsIn(ctx, tx, id, observed.Slug, in)
-		return err
+		changed, err := project.UpdateSettingsIn(ctx, tx, id, observed.Slug, in)
+		if err != nil {
+			return err
+		}
+		before := changed.Before
+		after = changed.After
+		details := map[string]any{}
+		if before.Slug != after.Slug {
+			details["address"] = map[string]string{"from": before.Slug, "to": after.Slug}
+		}
+		if before.Name != after.Name {
+			details["name"] = map[string]string{"from": before.Name, "to": after.Name}
+		}
+		if in.Icon != nil {
+			details["icon"] = after.Icon
+		}
+		if in.Blurb != nil {
+			details["blurb"] = after.Blurb
+		}
+		if in.Namespace != nil {
+			details["namespace"] = after.Namespace
+		}
+		if len(details) == 0 {
+			return nil
+		}
+		return audit.At(s.now()).RecordIn(ctx, tx, actor, id, "project.renamed", after.Slug, details)
 	})
 	if err != nil {
 		return nil, err
-	}
-	before, after := changed.Before, changed.After
-	details := map[string]any{}
-	if before.Name != after.Name {
-		details["name"] = map[string]string{"from": before.Name, "to": after.Name}
-	}
-	if in.Icon != nil {
-		details["icon"] = after.Icon
-	}
-	if in.Blurb != nil {
-		details["blurb"] = after.Blurb
-	}
-	if in.Namespace != nil {
-		details["namespace"] = after.Namespace
-	}
-	if len(details) > 0 {
-		audit.At(s.now()).BestEffort(ctx, s.db, actor, id, "project.renamed", after.Slug, details)
 	}
 	return &after, nil
 }

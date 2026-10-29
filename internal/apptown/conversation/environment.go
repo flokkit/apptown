@@ -21,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -150,14 +151,11 @@ func (e *Environment) Prepare(ctx context.Context, s *console.Session) (console.
 		// `apptown check` and friends infer the change from the session.
 		env = append(env, fmt.Sprintf("APPTOWN_CHANGE=%d", changeID))
 	}
-	// The scoped git remote: fetch main, read-only, this project only.
-	if p, err := e.projects.BySlug(ctx, Of(s).Slug); err == nil {
-		remote, err := e.gitRemote(ctx, p)
-		if err != nil {
-			return console.Provision{}, fmt.Errorf("the chat's git remote: %w", err)
-		}
-		env = append(env, remote...)
+	remote, err := e.chatRemote(ctx, s)
+	if err != nil {
+		return console.Provision{}, fmt.Errorf("the chat's git remote: %w", err)
 	}
+	env = append(env, remote...)
 	var mounts []string
 	// Ambient build environment: registry routing and mise, so interactive
 	// sessions build exactly like steps do.
@@ -198,6 +196,21 @@ func (e *Environment) chatModelFor(ctx context.Context, s *console.Session) (str
 	}
 	m, _, _, err := e.models.Resolve(ctx, Of(s).ProjectID, "chat")
 	return m, err
+}
+
+// chatRemote is the scoped git remote of the chat's own project, named by
+// the id the chat was opened with (its address may have moved, and another
+// project may have it now): fetch main, read-only, that project only. A
+// project that is gone has none.
+func (e *Environment) chatRemote(ctx context.Context, s *console.Session) ([]string, error) {
+	p, err := e.projects.ByID(ctx, Of(s).ProjectID)
+	if fault.KindOf(err) == fault.NotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return e.gitRemote(ctx, p)
 }
 
 // gitRemote is the environment of the project's read-only fetch endpoint:

@@ -43,20 +43,12 @@ func TestInfrastructureRemovalChecksFreshSharedPlacement(t *testing.T) {
 	}))
 	defer server.Close()
 	writeTargetSecret(t, w, "PT_URL="+server.URL+"\nPT_KEY=scope-secret\n")
-	target, err := w.deployment.Targets.Put(t.Context(), &deployment.Target{Name: "customer-office", Kind: deployment.KindPortainer, Status: deployment.TargetReady, Address: map[string]any{"urlFrom": "PT_URL", "apiKeyFrom": "PT_KEY", "environment": "docker"}})
+	if code, out := targetCall(t, w.targets.AttachTarget, "POST", "/api/v1/targets", `{"kind":"portainer","name":"customer-office","urlFrom":"PT_URL","apiKeyFrom":"PT_KEY","environment":"docker"}`, nil); code != http.StatusOK && code != http.StatusCreated {
+		t.Fatalf("attach: %d %+v", code, out)
+	}
+	target, err := w.deployment.Targets.ByName(t.Context(), "customer-office")
 	if err != nil {
 		t.Fatal(err)
-	}
-	path := "/api/v1/targets/customer-office/provider-association"
-	values := map[string]string{"name": target.Name}
-	code, preview := targetCall(t, w.targets.ProviderAssociation, "GET", path, "", values)
-	if code != http.StatusOK {
-		t.Fatalf("inspect: %d %+v", code, preview)
-	}
-	body, _ := json.Marshal(map[string]any{"expected": preview["scope"], "expectedRevision": preview["revision"], "resources": preview["resources"]})
-	code, answer := targetCall(t, w.targets.AssociateProvider, "POST", path, string(body), values)
-	if code != http.StatusOK {
-		t.Fatalf("associate: %d %+v", code, answer)
 	}
 	dep, err := w.deployment.Deployments.EnsureStanding(t.Context(), projectID, "blue", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
 	if err != nil {
@@ -198,24 +190,13 @@ func newSiblingInventoryWorld(t *testing.T) *siblingInventoryWorld {
 	t.Cleanup(server.Close)
 	writeTargetSecret(t, f.w, "PT_URL="+server.URL+"\nPT_A=key-a\nPT_B=key-b\n")
 	for i, name := range []string{"customer-a", "customer-b"} {
-		target, err := f.w.deployment.Targets.Put(t.Context(), &deployment.Target{Name: name, Kind: deployment.KindPortainer, Status: deployment.TargetReady,
-			Address: map[string]any{"urlFrom": "PT_URL", "apiKeyFrom": []string{"PT_A", "PT_B"}[i], "environment": "docker"}})
+		body := `{"kind":"portainer","name":"` + name + `","urlFrom":"PT_URL","apiKeyFrom":"` + []string{"PT_A", "PT_B"}[i] + `","environment":"docker"}`
+		if code, out := targetCall(t, f.w.targets.AttachTarget, "POST", "/api/v1/targets", body, nil); code != http.StatusOK && code != http.StatusCreated {
+			t.Fatalf("attach %s: %d %+v", name, code, out)
+		}
+		target, err := f.w.deployment.Targets.ByName(t.Context(), name)
 		if err != nil {
 			t.Fatal(err)
-		}
-		path := "/api/v1/targets/" + name + "/provider-association"
-		values := map[string]string{"name": name}
-		code, preview := targetCall(t, f.w.targets.ProviderAssociation, "GET", path, "", values)
-		if code != http.StatusOK {
-			t.Fatalf("inspect %s: %d %+v", name, code, preview)
-		}
-		body, err := json.Marshal(map[string]any{"expected": preview["scope"], "expectedRevision": preview["revision"], "resources": preview["resources"]})
-		if err != nil {
-			t.Fatal(err)
-		}
-		code, answer := targetCall(t, f.w.targets.AssociateProvider, "POST", path, string(body), values)
-		if code != http.StatusOK {
-			t.Fatalf("associate %s: %d %+v", name, code, answer)
 		}
 		f.targets[i] = target
 	}

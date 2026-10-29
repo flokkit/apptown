@@ -7,17 +7,6 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 )
 
-// Executors: where a step's process runs. The abstraction is the executor;
-// sandboxing is a property (local has none, docker does). The full contract is
-// stage-in → run → stage-out; local and local-docker collapse staging via
-// cwd/bind-mount; a remote backend materializes them through Prepare/Collect
-// (design/operations/workers.md).
-
-const (
-	ExecutorLocal  = "local"
-	ExecutorDocker = "docker"
-)
-
 type ExecRequest = execution.Request
 
 type ExecOutcome = execution.Outcome

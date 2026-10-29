@@ -85,17 +85,24 @@ This build restores archives from 1.0.0-rc.7 (schema 167) or newer, up to
 its own schema version. Archives below that floor, including an archive
 without a schema version, are refused before files are extracted or the
 built-in database is created. A newer schema needs a build that supports it.
+The archive must also be in this build's data layout, which archives from
+1.0.0-rc.9 onwards are: an older one is refused after its files are extracted
+and before the built-in database is created. Restore it with a release from
+1.0.0-rc.9 to 1.0.0-rc.11, then take a new backup.
 
 1. It refuses a host that already has an AppTown: a data directory that is
    not empty, AppTown's database container, or any container AppTown made.
 2. It unpacks the archive into the data directory and checks that the key
-   files and the dump are exactly what the manifest says.
+   files and the dump are exactly what the manifest says, and that the
+   archive's data layout is this build's.
 3. It makes the built-in database and loads the dump. It counts each table's
    rows on the way in and compares them with the loaded database.
-4. It opens the database as `-verify-only` would, bringing it and the data
-   layout up to this build. Repository paths use each project's immutable ID.
-   The archive's original data path identifies active local references when the
-   destination differs. A newer build is fine; an unsupported older build refuses.
+4. It opens the database as `-verify-only` would, bringing it up to this
+   build. When the destination differs from the archive's original data path,
+   it rewrites the active local references that name that path: repository
+   paths of unfinished branch publications, chat checkouts, and local Git
+   remotes of workspaces. A newer build is fine; an unsupported older build
+   refuses.
 5. It records what the restored AppTown does when it first starts (below)
    and stops.
 
@@ -112,12 +119,12 @@ discard a failed fresh-host restore, identify and remove only its database
 container, volume and directory before retrying; deleting a managed volume
 permanently deletes its database bytes.
 
-Once loading succeeds, AppTown keeps the original manifest until layout and restore
+Once loading succeeds, AppTown keeps the original manifest until relocation and restore
 bookkeeping finish. Starting with the same flags retries that remaining work and
 exits; it does not reload the dump or begin normal recovery. Stop surviving writers
 or resolve the named ownership/configuration problem if relocation refuses. An
 admitted task that retains a local path being moved must first be settled and
-released under its original layout; do not edit its saved request or digest.
+released under its original path; do not edit its saved request or digest.
 
 If a deployment rebuild has already created database volumes, preserve those
 volumes and the restore diagnostics for recovery. A later rebuild refuses
@@ -194,7 +201,8 @@ project repositories and change folders under `workspaces/`, the built-in
 secret store `secrets.env`, `db.env` (the built-in database's password),
 `instance-id`, the key step credentials are made with (`runtime-token-key`),
 the SSH keys of attached hosts, and `layout`, the version of the directory's
-own layout (a build refuses a directory written by a newer one, by name).
+own layout (a build refuses a directory written by an older or a newer one,
+by name; a new data directory is marked when AppTown first starts in it).
 
 **Restoring the database.** This replaces the current database. If it is
 still readable, back it up first ([Upgrading](upgrading.md),

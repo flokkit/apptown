@@ -95,7 +95,7 @@ type ScheduleTrigger struct {
 type Defaults struct {
 	Model    string `yaml:"model,omitempty" json:"model,omitempty"`       // agent/pi: "provider/model"
 	Thinking string `yaml:"thinking,omitempty" json:"thinking,omitempty"` // agent/pi thinking level
-	Executor string `yaml:"executor,omitempty" json:"executor,omitempty"` // local | docker
+	Executor string `yaml:"executor,omitempty" json:"executor,omitempty"` // docker, the only value
 	Image    string `yaml:"image,omitempty" json:"image,omitempty"`       // docker executor image
 }
 
@@ -232,6 +232,11 @@ func (d *Doc) validate(strict bool) error {
 	if len(d.Spec.Stages) == 0 {
 		return fmt.Errorf("spec.stages: at least one stage is required")
 	}
+	if strict {
+		if err := CheckExecutor(d.Spec.Defaults.Executor); err != nil {
+			return fmt.Errorf("spec.defaults: %w", err)
+		}
+	}
 	seenStage := map[string]bool{}
 	for i, st := range d.Spec.Stages {
 		if st.Name == "" {
@@ -279,6 +284,12 @@ func (d *Doc) validate(strict bool) error {
 				if err := checkOptions(st.Name, s); err != nil {
 					return err
 				}
+				if v, ok := s.With["executor"]; ok {
+					word, _ := v.(string)
+					if err := CheckExecutor(word); err != nil || word == "" {
+						return fmt.Errorf("stage %q step %q: %w", st.Name, s.Name, errExecutor(v))
+					}
+				}
 			}
 		}
 		if st.Gate != nil {
@@ -290,6 +301,19 @@ func (d *Doc) validate(strict bool) error {
 		}
 	}
 	return nil
+}
+
+// CheckExecutor refuses an executor other than docker: every project step
+// runs in a container, on AppTown's Docker or its worker. "" is docker.
+func CheckExecutor(executor string) error {
+	if executor == "" || executor == "docker" {
+		return nil
+	}
+	return errExecutor(executor)
+}
+
+func errExecutor(v any) error {
+	return fmt.Errorf("executor: %v is not supported: project steps run in a container; remove the line", v)
 }
 
 // StageNames returns the ordered stage names of a spec.

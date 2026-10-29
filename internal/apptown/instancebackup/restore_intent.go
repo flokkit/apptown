@@ -21,12 +21,11 @@ import (
 
 const restoreIntentFile = ".apptown-restore-intent.json"
 
-// PendingRestore is a completely loaded archive whose offline layout repair
+// PendingRestore is a completely loaded archive whose offline relocation
 // and AfterRestore bookkeeping must finish before ordinary startup.
 type PendingRestore struct {
-	Manifest      *Manifest
-	LayoutVersion int
-	digest        string
+	Manifest *Manifest
+	digest   string
 }
 
 type restoreIntent struct {
@@ -36,7 +35,6 @@ type restoreIntent struct {
 	// A string preserves accepted bytes, unknown fields and absent provenance.
 	ManifestJSON   string `json:"manifestJson"`
 	ManifestDigest string `json:"manifestDigest"`
-	LayoutVersion  int    `json:"layoutVersion"`
 }
 
 // ReadPendingRestore is read-only and belongs before database/schema effects.
@@ -53,7 +51,7 @@ func ReadPendingRestore(dataDir string) (*PendingRestore, error) {
 	if err := json.Unmarshal([]byte(record.ManifestJSON), &manifest); err != nil {
 		return nil, err
 	}
-	return &PendingRestore{Manifest: &manifest, LayoutVersion: record.LayoutVersion, digest: digest}, nil
+	return &PendingRestore{Manifest: &manifest, digest: digest}, nil
 }
 
 // CompleteRestore requires the caller's exclusive daemon/data ownership lock
@@ -105,7 +103,7 @@ func readRestoreIntent(dataDir string) (restoreIntent, string, bool, error) {
 	if err := decoder.Decode(new(any)); err != io.EOF {
 		return record, "", false, errors.New("restore intent has trailing data")
 	}
-	if record.Format != 1 || record.Destination != destination || (record.Phase != "incomplete" && record.Phase != "loaded") || record.ManifestDigest != restoreDigest([]byte(record.ManifestJSON)) || record.LayoutVersion < 0 || (record.Phase == "loaded" && record.LayoutVersion < 1) {
+	if record.Format != 1 || record.Destination != destination || (record.Phase != "incomplete" && record.Phase != "loaded") || record.ManifestDigest != restoreDigest([]byte(record.ManifestJSON)) {
 		return record, "", false, errors.New("restore intent is invalid or belongs to another destination")
 	}
 	var manifest Manifest
@@ -143,48 +141,57 @@ func beginRestoreIntent(dataDir string, manifestRaw []byte) error {
 	}
 	return nil
 }
-func recordRestoreLayout(dataDir string, maximum int) error {
-	record, digest, found, err := readRestoreIntent(dataDir)
+func checkRestoreLayout(dataDir string, supported int) error {
+	record, _, found, err := readRestoreIntent(dataDir)
 	if err != nil {
 		return err
 	}
 	if !found || record.Phase != "incomplete" {
 		return errors.New("source layout needs an incomplete restore intent")
 	}
-	if maximum < 1 {
-		return errors.New("restore needs the supported data layout maximum")
+	if supported < 1 {
+		return errors.New("restore needs the supported data layout")
 	}
-	layout := 1
 	marker := filepath.Join(dataDir, "layout")
 	info, err := os.Lstat(marker)
-	if err == nil {
-		if !info.Mode().IsRegular() {
-			return errors.New("archive layout marker is not a regular file")
-		}
-		raw, err := os.ReadFile(marker)
-		if err != nil {
-			return err
-		}
-		layout, err = strconv.Atoi(strings.TrimSpace(string(raw)))
-		if err != nil || layout < 1 {
-			return errors.New("archive layout marker is invalid")
-		}
-	} else if !errors.Is(err, fs.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) {
+		return oldArchiveLayout(1)
+	}
+	if err != nil {
 		return err
 	}
-	if layout > maximum {
-		return fmt.Errorf("archive data layout %d is newer than this build's %d", layout, maximum)
+	if !info.Mode().IsRegular() {
+		return errors.New("archive layout marker is not a regular file")
 	}
-	record.LayoutVersion = layout
-	return replaceRestoreIntent(record, digest)
+	raw, err := os.ReadFile(marker)
+	if err != nil {
+		return err
+	}
+	layout, err := strconv.Atoi(strings.TrimSpace(string(raw)))
+	if err != nil || layout < 1 {
+		return errors.New("archive layout marker is invalid")
+	}
+	if layout > supported {
+		return fmt.Errorf("archive data layout %d is newer than this build's %d", layout, supported)
+	}
+	if layout < supported {
+		return oldArchiveLayout(layout)
+	}
+	return nil
+}
+
+// An archive in an earlier layout is restored by a release that still moves
+// repositories between layouts; this build does not.
+func oldArchiveLayout(layout int) error {
+	return fmt.Errorf("this backup was taken by AppTown before 1.0.0-rc.9 (data layout %d): restore it with a release from 1.0.0-rc.9 to 1.0.0-rc.11, then take a new backup", layout)
 }
 func markRestoreLoaded(dataDir string) error {
 	record, digest, found, err := readRestoreIntent(dataDir)
 	if err != nil {
 		return err
 	}
-	if !found || record.Phase != "incomplete" || record.LayoutVersion < 1 {
-		return errors.New("loaded restore needs its original layout and incomplete intent")
+	if !found || record.Phase != "incomplete" {
+		return errors.New("loaded restore needs its incomplete intent")
 	}
 	record.Phase = "loaded"
 	return replaceRestoreIntent(record, digest)

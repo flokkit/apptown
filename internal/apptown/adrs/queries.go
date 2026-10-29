@@ -52,7 +52,7 @@ func readRecords(ctx context.Context, db database.Queryer, f Filter, idList []id
 		return nil, ErrInput
 	}
 	if f.ProjectSlug != "" {
-		id, err := project.IDByAddressIn(ctx, db, f.ProjectSlug)
+		id, err := project.IDBySlugIn(ctx, db, f.ProjectSlug)
 		if errors.Is(err, sql.ErrNoRows) {
 			return []Record{}, nil
 		}

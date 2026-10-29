@@ -59,8 +59,9 @@ assent. A digest identifies content; it is not its author's authority.
 - Secret values; deployments, targets, previews and other running resources.
 - Stable display numbers across a merge.
 - Renaming anything outside AppTown's own database and files, or rewriting
-  Git history. Old commits, branches and objects keep their old numbers, read
-  through the former-number record of their origin forge.
+  Git history. Old commits, branches and objects keep their old numbers;
+  AppTown does not resolve them, and a link that names a record by its
+  pre-1.0 integer finds nothing.
 - Slug history: a renamed project's old page links break.
 
 ## Why

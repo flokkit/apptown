@@ -63,13 +63,8 @@ func Append(ctx context.Context, q database.Queryer, at, actor string, projectID
 	return err
 }
 
-// line is one ledger line as stored: its id minted at its own stamp, and the
-// work it names derived once from its words.
+// line is one ledger line as stored: its id minted at its own stamp.
 func line(ctx context.Context, minted time.Time, at, actor string, projectID ids.ID, kind, subject string, payload json.RawMessage) auditsql.AppendReceiptParams {
 	who := access.ActorFrom(ctx, actor)
-	refs, _ := json.Marshal(Refs(kind, actor, subject, payload, ParseIDs))
-	if string(refs) == "null" {
-		refs = []byte("[]")
-	}
-	return auditsql.AppendReceiptParams{ID: ids.New(minted), At: at, Actor: actor, ActorPrincipal: who.Principal, ActorVia: who.Via, ProjectID: projectID, Kind: kind, Subject: subject, PayloadJson: payload, Refs: refs}
+	return auditsql.AppendReceiptParams{ID: ids.New(minted), At: at, Actor: actor, ActorPrincipal: who.Principal, ActorVia: who.Via, ProjectID: projectID, Kind: kind, Subject: subject, PayloadJson: payload}
 }

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/ids"
 	"net/http"
 )
@@ -46,34 +45,6 @@ func (h Deployments) EditDeploymentAddress(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		value, err := h.deployment.EditAddress(r.Context(), project, id, *in.ExpectedRevision, in.CustomHostname)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		WriteJSON(w, http.StatusOK, value)
-	})
-}
-
-func (h Deployments) InspectDeploymentAddress(w http.ResponseWriter, r *http.Request) {
-	project, id, ok := h.addressIDs(w, r)
-	if !ok {
-		return
-	}
-	value, err := h.deployment.InspectAddress(r.Context(), project, id)
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	WriteJSON(w, http.StatusOK, value)
-}
-
-func (h Deployments) ConfirmDeploymentAddress(w http.ResponseWriter, r *http.Request) {
-	project, id, ok := h.addressIDs(w, r)
-	if !ok {
-		return
-	}
-	jsonCommand(w, r, jsonBody{strict: true}, func(in deployment.AddressObservation) {
-		value, err := h.deployment.ConfirmAddress(r.Context(), project, id, in)
 		if err != nil {
 			WriteFault(w, err)
 			return

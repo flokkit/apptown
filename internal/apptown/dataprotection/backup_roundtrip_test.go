@@ -215,16 +215,19 @@ func TestBackupPlanAndTake(t *testing.T) {
 		t.Fatalf("a Portainer deployment whose environment cannot be reached: %v", err)
 	}
 	// The scheduled job says so, and it skips a project gone since the job
-	// was queued; a failed read is retried.
+	// was queued; a failed read is retried. A job names its project by id:
+	// a key naming it by address is refused for good.
 	worker := JobWorker{Service: s.Service, Projects: project.New(db, nil)}
-	if receipt, err := worker.Backup(context.Background(), "bk/lan", nil); err == nil || receipt["skipped"] != nil {
+	if receipt, err := worker.Backup(context.Background(), pid.String()+"/lan", nil); err == nil || receipt["skipped"] != nil {
 		t.Fatalf("a scheduled backup of an unreachable Portainer deployment: %v %v", receipt, err)
 	}
-	if _, err := worker.Backup(context.Background(), "gone/main", nil); !jobs.IsPermanent(err) {
-		t.Fatalf("a project that is gone ends the job: %v", err)
+	for _, key := range []string{ids.New(time.Now()).String() + "/main", "bk/lan"} {
+		if _, err := worker.Backup(context.Background(), key, nil); !jobs.IsPermanent(err) {
+			t.Fatalf("%s ends the job: %v", key, err)
+		}
 	}
-	dbtest.FailNextStatement(t, db, "-- name: ProjectBySlug")
-	if _, err := worker.Backup(context.Background(), "bk/lan", nil); err == nil || jobs.IsPermanent(err) {
+	dbtest.FailNextStatement(t, db, "-- name: ProjectByID :one")
+	if _, err := worker.Backup(context.Background(), pid.String()+"/lan", nil); err == nil || jobs.IsPermanent(err) {
 		t.Fatalf("a failed project read is retried, not permanent: %v", err)
 	}
 }

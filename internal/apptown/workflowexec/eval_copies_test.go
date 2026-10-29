@@ -26,7 +26,7 @@ func TestACopysAgentStepIsGivenNoInstanceStepValue(t *testing.T) {
 		t.Fatalf("the canary reaches an ordinary project's worker step: %v", req.spec.Env)
 	}
 	run, step := f.call.run, f.call.step
-	env, _, err := f.exec.agentEnv(t.Context(), run, step, &agentConfig{}, t.TempDir(), "fake/model", agentKnobs{executor: execution.Local})
+	env, _, err := f.exec.agentEnv(t.Context(), run, step, &agentConfig{}, t.TempDir(), "fake/model", agentKnobs{})
 	if err != nil || !carriesCanary(env) {
 		t.Fatalf("the canary reaches an ordinary project's local step: %v %v", env, err)
 	}
@@ -36,7 +36,7 @@ func TestACopysAgentStepIsGivenNoInstanceStepValue(t *testing.T) {
 	if req := f.build(t); carriesCanary(req.spec.Env) {
 		t.Fatalf("a copy's worker step was given the canary: %v", req.spec.Env)
 	}
-	env, _, err = f.exec.agentEnv(t.Context(), run, step, &agentConfig{}, t.TempDir(), "fake/model", agentKnobs{executor: execution.Local})
+	env, _, err = f.exec.agentEnv(t.Context(), run, step, &agentConfig{}, t.TempDir(), "fake/model", agentKnobs{})
 	if err != nil || carriesCanary(env) {
 		t.Fatalf("a copy's local step was given the canary: %v %v", env, err)
 	}

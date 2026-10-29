@@ -88,7 +88,7 @@ with `apptownd`'s start-up flags.
 
 | | Where project code runs | What stays on AppTown's own host |
 |---|---|---|
-| no worker | AppTown's own host: agents, checks, previews, chats and script steps in containers on its Docker; a script step runs as a plain process on the host only under `-host-scripts` | everything |
+| no worker | AppTown's own host: agents, checks, previews, chats and script steps in containers on its Docker | everything |
 | `-worker-url` | `apptown-worker`, a separate machine with its own Docker: agent, review, tests and script steps, checks, change previews, and new change chats by default | project chats, chats that continue a step's agent, change chats opened on AppTown or already running there, and deployments on the built-in Docker host |
 | `-no-local-docker` (needs a worker and an external database) | the worker | nothing: the host has no Docker and runs no project process; what the worker cannot run (project chats, continuations) is refused, and releases go to attached targets |
 

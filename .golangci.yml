@@ -384,12 +384,6 @@ linters:
         text: 'forbidden because "receipt rule:'
         source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, who, p\.ID, "project\.repo\.seeded", p\.Slug, source\)$'
 
-      # The project row retains the settings; this summary confers no authority.
-      - path: '^internal/apptown/projectlifecycle/settings\.go$'
-        linters: [forbidigo]
-        text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, actor, id, "project\.renamed", after\.Slug, details\)$'
-
       # The save record and Git branch retain the outcome; failed activity narration does not change that outcome.
       - path: '^internal/apptown/repositoryedit/chat_save\.go$'
         linters: [forbidigo]

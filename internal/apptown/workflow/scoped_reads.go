@@ -207,7 +207,7 @@ func (s *Service) Runs(ctx context.Context, in RunQuery) ([]RunSummary, error) {
 		return nil, fmt.Errorf("invalid Work list bounds")
 	}
 	if in.ProjectSlug != "" {
-		projectID, err := project.IDByAddressIn(ctx, s.db, in.ProjectSlug)
+		projectID, err := project.IDBySlugIn(ctx, s.db, in.ProjectSlug)
 		if errors.Is(err, sql.ErrNoRows) {
 			return []RunSummary{}, nil
 		}

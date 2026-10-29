@@ -378,8 +378,8 @@ RETURNING token_hash;
 -- ===== delegations and their tokens ===================================
 
 -- name: InsertDelegation :one
-INSERT INTO delegations (id, principal_id, client_id, client_name, audience, kind, scopes_json, auth_time, auth_method, created_at, expires_at)
-VALUES ($10, (SELECT u.principal_id FROM users u WHERE u.username = $1), $2, $3, $4, 'oauth', $5, $6, $7, $8, $9) RETURNING id;
+INSERT INTO delegations (id, principal_id, client_id, client_name, audience, scopes_json, auth_time, auth_method, created_at, expires_at)
+VALUES ($10, (SELECT u.principal_id FROM users u WHERE u.username = $1), $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;
 
 -- name: DelegationByID :one
 SELECT * FROM delegations_named WHERE id = $1;
@@ -499,8 +499,7 @@ AND g.retired_at IS NULL ORDER BY m.group_name;
 
 -- name: SaveDelegation :one
 UPDATE delegations SET client_id = sqlc.arg(client_id), client_name = sqlc.arg(client_name),
-audience = sqlc.arg(audience), kind = sqlc.arg(kind), scopes_json = sqlc.arg(scopes_json), group_bounds_json = sqlc.arg(group_bounds_json),
-project_bounds_json = sqlc.arg(project_bounds_json), auth_time = sqlc.narg(auth_time), auth_method = sqlc.arg(auth_method),
+audience = sqlc.arg(audience), scopes_json = sqlc.arg(scopes_json), auth_time = sqlc.narg(auth_time), auth_method = sqlc.arg(auth_method),
 created_at = sqlc.arg(created_at), last_used = sqlc.narg(last_used), expires_at = sqlc.narg(expires_at), revoked_at = sqlc.narg(revoked_at)
 WHERE id=sqlc.arg(id) RETURNING id;
 

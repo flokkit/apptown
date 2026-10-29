@@ -70,7 +70,7 @@ func (h ConsoleInvocation) ConsoleInvoke(w http.ResponseWriter, r *http.Request)
 		if strings.TrimSpace(in.Body) == "" {
 			in.Body = strings.TrimSpace(in.Intent)
 		}
-		p, err := h.projects.BySlug(r.Context(), conversation.Of(s).Slug)
+		p, err := h.projects.ByID(r.Context(), conversation.Of(s).ProjectID)
 		if err != nil {
 			writeReadFault(w, err, "no such project: the chat's project is gone")
 			return

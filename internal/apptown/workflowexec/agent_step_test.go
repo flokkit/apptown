@@ -269,7 +269,7 @@ func TestAgentEmptyTurnRetriesOnceAndEvidenceKeysAreStable(t *testing.T) {
 			t.Errorf("evidence key %q missing (other code reads it by name)", k)
 		}
 	}
-	if ev["output"] != "# Report\n\nall done" || ev["executor"] != execution.Local || ev["model"] != "fake-model" {
+	if ev["output"] != "# Report\n\nall done" || ev["executor"] != execution.Docker || ev["model"] != "fake-model" {
 		t.Fatalf("output must be the declared file's body: %v", ev)
 	}
 	// The declared output file becomes the typed artifact, once — not again
@@ -700,4 +700,28 @@ type adoptionTarget struct {
 func (t adoptionTarget) RecordTargetIn(ctx context.Context, tx *database.Tx, in workflow.TargetChange) (workflow.RecordedTarget, error) {
 	got, err := t.adoptions.RecordTargetIn(ctx, tx, adoption.Target{ProjectID: in.ProjectID, ChangeID: in.ChangeID, Candidate: t.candidate, Actor: in.Actor})
 	return workflow.RecordedTarget{ID: got.ID, Candidate: got.Candidate}, err
+}
+
+// An agent step admitted with executor: local (a definition saved before
+// project steps ran only in containers) is refused before Pi runs, in words
+// that say to remove it. The workflow default is refused the same way
+// (TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect).
+func TestAnAdmittedLocalAgentRunsNowhere(t *testing.T) {
+	t.Parallel()
+	f, _, stepID := admittedAgentStep(t, `{"prompt":"do it","executor":"local"}`)
+	pi := installFakePi(f, func(int, execution.Request) execution.Outcome {
+		return execution.Outcome{Output: piSays("must not run")}
+	})
+	if err := f.work.ExecuteStep(f.ctx, stepID); err != nil {
+		t.Fatal(err)
+	}
+	status, ev := stepStatus(t, f, stepID)
+	if status != workflow.StatusError || !strings.Contains(fmt.Sprint(ev["reason"]), "executor: local is not supported") {
+		t.Fatalf("the step: %s %v", status, ev)
+	}
+	pi.mu.Lock()
+	defer pi.mu.Unlock()
+	if len(pi.calls) != 0 {
+		t.Fatal("Pi ran for a refused step")
+	}
 }

@@ -23,14 +23,12 @@ import (
 
 // A deployment (design/subsystems/deployment.md §2.3) is a project's app
 // standing on one target under a name: identity, a kind, the binding, the
-// handle the driver owns, generations, and the four attributes that carry the
+// handle the driver owns, generations, and the attributes that carry the
 // nuance (§2.3a). This package owns the record and its rules; AppTown holds
 // the doors and the drivers.
 
 // Deployment is one row of the deployments table.
 type Deployment struct {
-	RequirePromotion   bool           `json:"requirePromotion"`
-	PolicyRevision     int64          `json:"policyRevision"`
 	DisplayLabel       string         `json:"displayLabel"`
 	ID                 ids.ID         `json:"id"`
 	ProjectID          ids.ID         `json:"projectId"`
@@ -45,7 +43,6 @@ type Deployment struct {
 	Feed               string         `json:"feed"`
 	Audience           string         `json:"audience"`
 	DataClass          string         `json:"data"`
-	PromoteAfter       string         `json:"promoteAfter,omitempty"`
 	URL                string         `json:"url"`
 	// The built-in host's handle, as columns (the Docker driver reads them).
 	HostPort  int    `json:"-"`
@@ -91,18 +88,15 @@ func (e *Deployment) Placement() deploy.Placement {
 
 // Protected is derived, never typed (§2.3a): a deployment is protected when
 // its audience is outside the project or its data is production.
-func (e *Deployment) needsPromotion() bool { return e.Protected() || e.RequirePromotion }
-
 func (e *Deployment) Protected() bool {
 	return e.Audience == "partners" || e.Audience == "public" || e.DataClass == "production"
 }
 
-// Attributes are the four of §2.3a plus the ladder position.
+// Attributes are the deployment attributes of §2.3a.
 type Attributes struct {
-	Feed         string `json:"feed"`
-	Audience     string `json:"audience"`
-	DataClass    string `json:"data"`
-	PromoteAfter string `json:"promoteAfter"`
+	Feed      string `json:"feed"`
+	Audience  string `json:"audience"`
+	DataClass string `json:"data"`
 }
 
 // WithDefaults fills what a request left unsaid: a deployment is fed by
@@ -166,7 +160,6 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		return nil, err
 	}
 	e := &Deployment{
-		RequirePromotion: r.RequirePromotion, PolicyRevision: r.PolicyRevision,
 		ID:                 r.ID,
 		ProjectID:          r.ProjectID,
 		Name:               r.Name,
@@ -179,7 +172,6 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 		Feed:               r.Feed,
 		Audience:           r.Audience,
 		DataClass:          r.DataClass,
-		PromoteAfter:       r.PromoteAfter,
 		URL:                r.Url,
 		HostPort:           int(r.HostPort),
 		Container:          r.Container,
@@ -273,15 +265,14 @@ func ensureStandingIn(ctx context.Context, tx *database.Tx, projectID ids.ID, na
 			return nil, err
 		}
 		e, err := deploymentRecord(deploymentsql.New(tx.SQL()).EnsureStanding(ctx, deploymentsql.EnsureStandingParams{ID: ids.New(now.UTC()),
-			ProjectID:    projectID,
-			Name:         name,
-			Kind:         Standing.String(),
-			TargetID:     targetID,
-			Feed:         at.Feed,
-			Audience:     at.Audience,
-			DataClass:    at.DataClass,
-			PromoteAfter: at.PromoteAfter,
-			UpdatedAt:    now.UTC(),
+			ProjectID: projectID,
+			Name:      name,
+			Kind:      Standing.String(),
+			TargetID:  targetID,
+			Feed:      at.Feed,
+			Audience:  at.Audience,
+			DataClass: at.DataClass,
+			UpdatedAt: now.UTC(),
 		}))
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%s: %w", name, ErrDeploymentAdmitted)

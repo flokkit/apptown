@@ -79,7 +79,7 @@ precheck:               ## the fast gates and the tests of affected packages, be
 	@MAKE='$(MAKE)' python3 scripts/gate.py $(PRECHECK_STAGES)
 
 # The maintainers' own stages and commands (their deploys, demo, lab and
-# nightly runner), which append to the stage lists above. The file is in
+# cache maintenance), which append to the stage lists above. The file is in
 # their private repository, checked out at private/ when present; nothing
 # public needs it.
 -include private/scripts/maintainer.mk
@@ -155,8 +155,9 @@ check-docs:             ## current guides state the current rule: no dated names
 	python3 scripts/names-check.py
 
 # The UI tour (site/tour): a small example team's AppTown, photographed in
-# both themes by Playwright (APPTOWN_PLAYWRIGHT_MODULE, default the nightly
-# tier's install: private/scripts/nightly-tiers.sh prepare). The release
+# both themes by Playwright (APPTOWN_PLAYWRIGHT_MODULE, default
+# ~/.local/share/forge-nightly/playwright, where the maintainers' make
+# test-tools installs the version deploy/ci-heavy/Dockerfile pins). The release
 # workflow runs it in the ci-heavy image and publishes the shots with the
 # site (images.yml's tour job); locally it is a preview, and the shots are
 # not committed (.gitignore).

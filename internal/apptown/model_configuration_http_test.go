@@ -99,18 +99,20 @@ func TestModelConfigurationHTTPKeepsProfileCellsAndProjectOverridesSeparate(t *t
 	}
 }
 
-// Roles get what their descriptions promise (decision D8): the Integration
-// administrator ("manages connectors, service and dependency kinds, model
-// bindings") saves connectors and sets model slots, and is still refused an
-// instance administrator's acts; a Project owner sets their own project's
-// model profile and not another's.
+// Connector and model capabilities do what they name (decision D8): a
+// person granted the connector, model-binding and model-slot capabilities
+// saves connectors and sets model slots, and is still refused an instance
+// administrator's acts; a Project owner sets their own project's model
+// profile and not another's.
 //
 // Kills: connector and model routes kept for instance administrators, which
 // made both roles' capabilities dead.
-func TestRolesManageWhatTheirDescriptionsPromise(t *testing.T) {
+func TestConnectorAndModelCapabilitiesManageWhatTheyName(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
-	a.addGrant("user", "integrator", access.RoleIntegrationAdmin, "", access.ScopeInstance, "", "fixture", "boss", "")
+	for _, c := range []access.Capability{access.CapIntegrationConnector, access.CapModelsBindings, access.CapModelsSlots} {
+		a.addGrant("user", "integrator", "", string(c), access.ScopeInstance, "", "fixture", "boss", "")
+	}
 	a.addGrant("user", "proprietor", access.RoleProjectOwner, "", access.ScopeProject, idstest.N(1).String(), "fixture", "boss", "")
 	h := a.Handler()
 	for _, tc := range []struct {

@@ -137,15 +137,12 @@ records ([releasing](../operations/releasing.md)).
 
 ```
 unit + race         every push       minutes      (docker: the test database)
-integration         every push       ~8 min       (docker-host runner; nightly on a Mac, every package: ~13 min)
-journeys            every push       ~1 min       (docker-host runner, fake pi; nightly on a Mac)
-browser, pi,        nightly on a Mac seconds      (Playwright, the pinned Pi, AppTown-agent image)
+integration         every push       ~8 min       (docker-host runner)
+journeys            every push       ~1 min       (docker-host runner, fake pi)
+browser, pi,        every push       seconds      (Playwright, the pinned Pi, AppTown-agent image)
  inference_docker
 upgrade             each release candidate (`make upgrade-test`, §5)
 ```
-
-The nightly run is `make nightly` (testing.md, "The gates the repository
-holds itself to").
 
 ## The journeys
 

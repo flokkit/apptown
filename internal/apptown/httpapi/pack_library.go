@@ -102,7 +102,7 @@ func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 		// Everything the author declares is kept, including what the
 		// editor does not edit, so an unchanged save publishes what was
 		// written. The platform tier is not the editor's.
-		spec := encodedJSON(wow.PackSpec{Resources: in.Resources, Includes: in.Includes, Replaces: in.Replaces, Drops: in.Drops, Clears: in.Clears,
+		spec := encodedJSON(wow.PackSpec{Includes: in.Includes, Replaces: in.Replaces, Drops: in.Drops, Clears: in.Clears,
 			Guidance: in.Guidance, Workflows: in.Workflows, Policies: in.Policies, Toolchain: in.Toolchain, Tools: in.Tools,
 			Services: in.Services, Extensions: in.Extensions, Requires: in.Requires})
 		version, err := h.ways.PublishPackVersion(r.Context(), in.Name, in.Description, spec, "", strings.TrimSpace(in.VersionName))

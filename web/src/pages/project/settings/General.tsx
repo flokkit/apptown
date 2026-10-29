@@ -3,12 +3,12 @@ import { PRODUCT } from '../../../brand'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { HttpError, Project as ProjectT, del, get, patch, post } from '../../../api'
+import { HttpError, Project as ProjectT, del, patch, post } from '../../../api'
 import { FieldRow } from '../../../FieldRow'
 import { firstErr, getKey, useAction, useGet } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import type { OverviewData } from '../../../parts/runActivity'
-import type { ProjectDetail, DeploymentView } from '../../../wire.gen'
+import type { DeploymentView } from '../../../wire.gen'
 import type { ChangeEnvelope, Lifecycle, ProjectDeletionState, ProjectRow } from '../../../wire.gen'
 import { fmtDay, fmtStamp } from '../../../format'
 import { QuietConfirm } from '../../../QuietConfirm'
@@ -154,7 +154,6 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
   const [draft, setDraft] = useState<Face | null>(null)
   const [conflict, setConflict] = useState(false)
   const [msg, setMsg] = useState('')
-  const addressRequest = useRef<{ fingerprint: string; id: string } | null>(null)
   useEffect(() => {
     if (!current || draft) return
     setBase((held) => (held && held.revision > project.settingsRevision) ? held : { face: faceOf(project), revision: project.settingsRevision })
@@ -181,20 +180,10 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
     const body: Record<string, unknown> = { expectedRevision: base.revision }
     for (const k of changed) body[k] = draft[k]
     const addressChanged = changed.includes('slug')
-    if (addressChanged) {
-      const fingerprint = JSON.stringify({ projectId: project.id, ...body })
-      if (addressRequest.current?.fingerprint !== fingerprint) addressRequest.current = { fingerprint, id: crypto.randomUUID() }
-      body.requestId = addressRequest.current.id
-    }
     const p = await runSave(async () => {
       const committed = await patch<ProjectT>(`/projects/${project.slug}`, body)
       if (committed.id !== project.id) throw new Error('The saved settings identify a different project.')
-      if (!addressChanged) return committed
-      // A replay returns its original result. Resolve its permanent alias to
-      // read the current canonical address before navigating or caching it.
-      const current = await get<ProjectDetail>(`/projects/${committed.slug}`)
-      if (current.id !== project.id || current.lifecycle.state !== 'active') throw new Error('The project is no longer active at this address.')
-      return current
+      return committed
     })
     if (!p) return
     // The answer is the committed record: it is the new starting point, and
@@ -203,7 +192,6 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
     setBase({ face: faceOf(p), revision: p.settingsRevision })
     setDraft(null)
     setMsg('saved')
-    addressRequest.current = null
     onChanged()
     if (addressChanged) {
       void client.invalidateQueries({ queryKey: getKey(`/projects/${project.slug}`) })
@@ -246,7 +234,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
           <FieldRow label="Group" help="how projects are grouped on the front page">
             <input value={shown?.namespace ?? ''} onChange={(e) => edit('namespace')(e.target.value)} list="known-namespaces" placeholder="(none)" style={{ width: 200 }} />
           </FieldRow>
-          <FieldRow label="Address" help="the short name in project links; previous addresses remain reserved for this project. Running apps keep their addresses.">
+          <FieldRow label="Address" help="the short name in project links; old links stop working when it changes. Running apps keep their addresses.">
             <input aria-label="Address" value={shown?.slug ?? ''} onChange={(e) => edit('slug')(e.target.value)} />
           </FieldRow>
         </div>

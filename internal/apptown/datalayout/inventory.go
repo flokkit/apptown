@@ -1,5 +1,6 @@
-// Package datalayout coordinates an offline installation layout transition.
-// It runs before application construction, recovery, or serving requests.
+// Package datalayout owns the data directory's layout marker and the offline,
+// journaled relocation of a whole-AppTown backup restored into a different
+// path. It runs before application construction, recovery, or serving requests.
 package datalayout
 
 import (
@@ -7,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,23 +37,15 @@ type publicationEdit struct {
 	Before scm.PublicationLocation `json:"before"`
 	After  string                  `json:"after"`
 }
-type mainEvidence struct {
-	ProjectID ids.ID `json:"projectId"`
-	Branch    string `json:"branch"`
-	SHA       string `json:"sha"`
-}
 type inventory struct {
 	Mappings     []repositorylayout.Mapping
 	References   []repositorylayout.Reference
 	Publications []publicationEdit
 	Consoles     []console.CheckoutEdit
-	Linked       []repositorylayout.LinkedWorkspace
-	Borrowed     []repositorylayout.BorrowedWorkspace
-	Mains        []mainEvidence
 	Git          []gitexec.ConfigRelocation
 }
 
-func inspect(ctx context.Context, db *database.DB, root, oldRoot string, sourceUUID bool, observers Observers) (inventory, error) {
+func inspect(ctx context.Context, db *database.DB, root, oldRoot string, observers Observers) (inventory, error) {
 	var out inventory
 	owners, err := project.RepositoryOwnersIn(ctx, db)
 	if err != nil {
@@ -61,18 +53,18 @@ func inspect(ctx context.Context, db *database.DB, root, oldRoot string, sourceU
 	}
 	known := map[ids.ID]project.RepositoryOwner{}
 	for _, owner := range owners {
-		if owner.Ref.ID.IsZero() || !project.ValidSlug(owner.Ref.Slug) {
+		if owner.Ref.ID.IsZero() {
 			return out, fmt.Errorf("invalid repository owner %s", owner.Ref.ID)
 		}
 		if _, exists := known[owner.Ref.ID]; exists {
 			return out, fmt.Errorf("duplicate repository owner %s", owner.Ref.ID)
 		}
 		known[owner.Ref.ID] = owner
-		main, recorded, err := scm.ReadMain(ctx, db, owner.Ref.ID)
+		_, recorded, err := scm.ReadMain(ctx, db, owner.Ref.ID)
 		if err != nil {
 			return out, err
 		}
-		mapping := repositorylayout.Mapping{ID: owner.Ref.ID, Slug: owner.Ref.Slug, SourceUUID: sourceUUID, Missing: missingRepositoryAllowed(owner, recorded)}
+		mapping := repositorylayout.Mapping{ID: owner.Ref.ID, Missing: missingRepositoryAllowed(owner, recorded)}
 		out.Mappings = append(out.Mappings, mapping)
 		out.References = append(out.References, mapping.Reference(oldRoot, root))
 		hub := mapping.Source(root)
@@ -86,39 +78,8 @@ func inspect(ctx context.Context, db *database.DB, root, oldRoot string, sourceU
 		if !info.IsDir() {
 			return out, fmt.Errorf("project %s repository is not a directory", owner.Ref.ID)
 		}
-		branch := owner.DefaultBranch
-		if recorded {
-			branch = main.Branch
-		}
-		if branch != "" {
-			head, err := gitexec.HubRun(ctx, hub, "rev-parse", "--verify", "refs/heads/"+branch)
-			if err != nil {
-				return out, fmt.Errorf("reading project %s main before relocation: %w", owner.Ref.ID, err)
-			}
-			if recorded {
-				ancestor, err := gitexec.HubIsAncestor(ctx, hub, main.SHA, head)
-				if err != nil || !ancestor {
-					return out, fmt.Errorf("project %s recorded main does not match its repository history: %v", owner.Ref.ID, err)
-				}
-			}
-			out.Mains = append(out.Mains, mainEvidence{ProjectID: owner.Ref.ID, Branch: branch, SHA: head})
-		}
 	}
 
-	observed, err := project.RepositoriesOnDisk(root)
-	if err != nil {
-		return out, err
-	}
-	identified := map[string]bool{}
-	for _, mapping := range out.Mappings {
-		identified[mapping.Source(root)] = true
-		identified[mapping.Reference(root, root).After] = true
-	}
-	for _, path := range observed {
-		if !identified[path] {
-			log.Printf("data layout: preserving unowned repository directory %s", path)
-		}
-	}
 	workspaceRefs, err := workflow.LayoutWorkspaceReferences(ctx, db, oldRoot, root)
 	if err != nil {
 		return out, err
@@ -133,7 +94,7 @@ func inspect(ctx context.Context, db *database.DB, root, oldRoot string, sourceU
 		if !ok || owner.Retained {
 			return out, fmt.Errorf("publication %s has no current repository owner", pub.ID)
 		}
-		expected := repositorylayout.Mapping{ID: owner.Ref.ID, Slug: owner.Ref.Slug, SourceUUID: sourceUUID}.Reference(oldRoot, root)
+		expected := repositorylayout.Mapping{ID: owner.Ref.ID}.Reference(oldRoot, root)
 		if pub.Repository != expected.Before {
 			return out, fmt.Errorf("publication %s points outside its project's original hub", pub.ID)
 		}
@@ -220,31 +181,20 @@ func inspect(ctx context.Context, db *database.DB, root, oldRoot string, sourceU
 		if err != nil {
 			return out, err
 		}
-		owner, ok := known[reference.Owner]
-		if !ok {
+		if _, ok := known[reference.Owner]; !ok {
 			return out, fmt.Errorf("workspace has unknown project %s", reference.Owner)
 		}
-		hub := repositorylayout.Mapping{ID: owner.Ref.ID, Slug: owner.Ref.Slug, SourceUUID: sourceUUID}.Source(root)
+		// AppTown makes standalone clones. Linked or borrowed metadata predates
+		// layout 2 and would still point into the original data directory.
 		if !info.IsDir() {
-			linked, ok, err := repositorylayout.InspectRestoredLinkedWorkspace(folder, hub, oldRoot, root)
-			if err != nil {
+			return out, fmt.Errorf("workspace %s has linked Git metadata, which this build does not relocate", folder)
+		}
+		for _, name := range []string{filepath.Join("objects", "info", "alternates"), "commondir"} {
+			if _, err := os.Lstat(filepath.Join(folder, ".git", name)); err == nil {
+				return out, fmt.Errorf("workspace %s borrows another repository's Git metadata, which this build does not relocate", folder)
+			} else if !errors.Is(err, fs.ErrNotExist) {
 				return out, err
 			}
-			if !ok {
-				return out, fmt.Errorf("workspace metadata cannot be classified: %s", folder)
-			}
-			if err := gitexec.CheckLinkedConfig(ctx, hub); err != nil {
-				return out, err
-			}
-			out.Linked = append(out.Linked, linked)
-			continue
-		}
-		borrowed, borrows, err := repositorylayout.InspectBorrowedWorkspace(folder, hub, oldRoot, root)
-		if err != nil {
-			return out, err
-		}
-		if borrows {
-			out.Borrowed = append(out.Borrowed, borrowed)
 		}
 		urls, err := gitexec.LocalURLs(ctx, folder)
 		if err != nil {

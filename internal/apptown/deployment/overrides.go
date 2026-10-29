@@ -78,7 +78,7 @@ func (s *Service) SetOverride(ctx context.Context, in OverrideChange) (OverrideR
 		}
 		directLimits = DescribeTarget(t).ContainerMemoryLimits
 	}
-	caller, err := s.requireDeploy(ctx, in.ProjectID, in.Deployment, found && dep.needsPromotion(), "deployment.override")
+	caller, err := s.requireDeploy(ctx, in.ProjectID, in.Deployment, found && dep.Protected(), "deployment.override")
 	if err != nil {
 		return OverrideResult{}, err
 	}

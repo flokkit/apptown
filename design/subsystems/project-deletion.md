@@ -8,7 +8,7 @@ truthfully where it got to (`project.Lifecycle`, `project_lifecycle`):
 | `active` | normal; no lifecycle row | Delete |
 | `deleting` | no new work; its deployments taken down one at a time, `main` last | last deployment gone → `deleted`; Cancel deletion before the first take-down → `active` |
 | `deleted` | no deployments; read-only; its records, receipts, hub repository and **all** its backup sets kept; slug held; hidden from project lists | Restore project → `active` (until a purge is admitted); kept period over, or Purge now → purge |
-| purged | backup sets (disk and store), hub repository and records gone; GitLab copy archived; all addresses permanently reserved | final |
+| purged | backup sets (disk and store), hub repository and records gone; GitLab copy archived; its address free once cleanup is done | final |
 
 `importing` is a lifecycle state too: a project being imported takes no new
 work until the import ends. Nothing sets it yet.

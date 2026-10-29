@@ -72,13 +72,13 @@ func (a *App) consoleDependencies(agent console.Agent, remote *worker.RemoteAgen
 	ledger := a.Usage.Ledger
 	return console.Dependencies{
 		Agent:       agent,
-		Environment: conversation.NewEnvironment(a.DB, conversation.EnvironmentDependencies{Projects: a.Projects, Models: a.modelSelection, Bindings: a.Integrations.Bindings, Instructions: a.steering, Home: piHomeFor(a), CLI: a.cli, Credentials: a.providers, Identity: a.Access, Now: a.cfg.clock.Now}, conversation.EnvironmentConfig{DataDir: a.cfg.dataDir, APIURL: a.cfg.consoleAPIURL, InferenceEnabled: a.cfg.inferenceURL != "", NoPrivateDocker: a.cfg.noPrivateDocker}),
+		Environment: conversation.NewEnvironment(a.DB, conversation.EnvironmentDependencies{Projects: a.Projects, Models: a.modelSelection, Bindings: a.Integrations.Bindings, Instructions: a.steering, Home: piHomeFor(a), CLI: a.cli, Credentials: a.providers, Identity: a.Access, Now: a.cfg.clock.Now}, conversation.EnvironmentConfig{DataDir: a.cfg.dataDir, APIURL: a.cfg.consoleAPIURL, InferenceEnabled: a.cfg.inferenceURL != "", NoPrivateDocker: !a.cfg.privateDocker}),
 		// An end records the chat's spend from its last record before the
 		// record is archived or removed.
 		Settle: func(ctx context.Context, s *console.Session) error {
 			return conversation.HarvestUsage(ctx, ledger, s)
 		},
-		Config: console.Config{DataDir: a.cfg.dataDir, NoDind: a.cfg.noPrivateDocker, Mirror: a.workshop.Mirror, Now: a.cfg.clock.Now},
+		Config: console.Config{DataDir: a.cfg.dataDir, NoDind: !a.cfg.privateDocker, Mirror: a.workshop.Mirror, Now: a.cfg.clock.Now},
 	}
 }
 
@@ -192,11 +192,13 @@ func consoleAdmissionFor(a *App) *conversation.Admission {
 	return conversation.NewAdmission(a.DB, conversation.AdmissionDependencies{Work: a.Work, Sessions: a.Console, Models: a.modelSelection, Briefing: a.briefing, Harness: piHomeFor(a), Effects: a.changeConsole, Presence: holderPresenceFor(a), Workers: a.changeConsole.Placement(), NoLocal: a.cfg.noLocalDocker, Now: a.cfg.clock.Now}, a.cfg.dataDir)
 }
 
-// UpgradeDataLayout assembles observation-only adapters before New can create
-// application recovery state. The caller holds exclusive database ownership.
+// RelocateDataLayout repairs a data directory restored from originalRoot into
+// another path; with the same root it does nothing. It assembles
+// observation-only adapters before New can create application recovery
+// state. The caller holds exclusive database ownership.
 // A missing local backend stays unavailable; NoLocal's absent answer is not
 // evidence that a previously local writer stopped.
-func UpgradeDataLayout(ctx context.Context, db *database.DB, input Config, originalRoot string) error {
+func RelocateDataLayout(ctx context.Context, db *database.DB, input Config, originalRoot string) error {
 	cfg, err := input.prepare()
 	if err != nil {
 		return err
@@ -234,10 +236,10 @@ func UpgradeDataLayout(ctx context.Context, db *database.DB, input Config, origi
 		observers.Tasks = execution.DockerTasks{Namespace: namespace, Daemon: daemon, Files: filepath.Join(cfg.dataDir, "task-files"), Now: cfg.clock.Now}
 		observers.TaskBackend = "local-docker " + namespace + " on " + daemon.Backend()
 	}
-	return datalayout.Upgrade(ctx, db, cfg.dataDir, originalRoot, instance, observers)
+	return datalayout.Relocate(ctx, db, cfg.dataDir, originalRoot, instance, observers)
 }
 
-// FinalizeDataLayout finishes journal cleanup after any restore continuation
+// FinalizeDataLayout finishes relocation journal cleanup after any restore continuation
 // has settled. The caller still holds the exclusive database lock.
 func FinalizeDataLayout(dataDir string) error {
 	instance, err := instanceID(dataDir)

@@ -71,12 +71,3 @@ type ProjectLifecycle struct {
 	KeptUntil            sql.NullTime
 	PurgeStartedAt       sql.NullTime
 }
-
-type ProjectRenameRequest struct {
-	ID         ids.ID
-	ActorID    ids.ID
-	RequestID  ids.ID
-	ProjectID  ids.ID
-	InputHash  string
-	ResultJson *json.RawMessage
-}

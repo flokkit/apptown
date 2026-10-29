@@ -96,8 +96,8 @@ AppTown runs is set in AppTown itself, not here.
 `-public-host`, `-tier-domain`, `-console-addr`, `-console-url`,
 `-console-cli`, `-inference-addr`, `-inference-url`, `-inference-networks`,
 `-worker-url`, `-worker-cert`, `-worker-key`, `-worker-ca`,
-`-no-local-docker`, `-private-docker`, `-no-private-docker`,
-`-git-import-allow-private`, `-agent-image`, `-agent-executor`,
+`-no-local-docker`, `-private-docker`,
+`-git-import-allow-private`, `-agent-image`,
 `-restore-gate-image`, `-task-cpus`, `-task-memory-mib`, `-task-pids`,
 `-chat-cpus`, `-chat-memory-mib`, `-chat-pids`, `-import-bundle-max-bytes`,
 `-otlp-endpoint`, `-otlp-protocol`, `-disable-reap`, `-verify-only` and
@@ -105,8 +105,7 @@ AppTown runs is set in AppTown itself, not here.
 `APPTOWN_VERSION` names the release the install scripts and the one-server
 compose file use, and does not make apptownd print its version.
 
-`-host-scripts` and `-agent-executor local` are experimental (see the table
-below). In the one-server compose file, `APPTOWN_DOMAIN` and
+In the one-server compose file, `APPTOWN_DOMAIN` and
 `APPTOWN_VERSION` in `.env` are promised too.
 
 **Record identities and links.** Every record (a change, a run, a chat, a
@@ -114,9 +113,10 @@ release, an operation) is identified by a UUID, and a link to a record uses
 it. A project's changes and runs are also numbered within the project and
 shown as `slug#12`; you can type that form where a change or a run is expected.
 Where a command takes either (`apptown wait`), the form names a change; give a
-run by its UUID. A project's address can change. Every previous address stays
-reserved for that project, including after purge, so a `slug#12` written down
-never names another project's record. Names AppTown has already given things outside itself (branches,
+run by its UUID. A project's address can change; the old address then names
+nothing, and once free another project may take it, so a `slug#12` written down
+names whichever project has that address now. A project's first address stays
+with it until it is purged. Names AppTown has already given things outside itself (branches,
 backup paths, containers) keep the names they were given. How AppTown names
 and labels what it makes from now on (containers, volumes, networks,
 Portainer stacks, Docker labels, App Platform apps, buckets) is not promised:
@@ -194,7 +194,6 @@ use in production by the maintainers.
 | Targets Portainer, App Platform, bucket website | a qualification that released a real app to them |
 | Workflows `research`, `excavate`, `product-spec` | more use |
 | Customer feedback integration | more than one project, and a service that signs in |
-| `-agent-executor local`, `-host-scripts` | they exist for development |
 
 **No longer shipped.** A release can stop shipping a stock workflow, guidance
 block, policy or pack. On upgrade it is no longer offered: it leaves the

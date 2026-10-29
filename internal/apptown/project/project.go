@@ -125,8 +125,8 @@ func (s *Projects) BySlug(ctx context.Context, slug string) (Project, error) {
 	return record(r), nil
 }
 
-// ByServingLabel resolves only the immutable serving namespace. AppTown address
-// aliases do not authorize another application hostname or certificate.
+// ByServingLabel resolves only the immutable serving namespace. A project's
+// AppTown address never authorizes another application hostname or certificate.
 func (s *Projects) ByServingLabel(ctx context.Context, label string) (Project, error) {
 	r, err := queries(s.db).ProjectByServingLabel(ctx, label)
 	if err != nil {
@@ -170,15 +170,14 @@ func CreateAt(ctx context.Context, tx *database.Tx, at time.Time, in Spec) (ids.
 	if id.IsZero() {
 		id = ids.New(at.UTC())
 	}
-	if err := ClaimAddressIn(ctx, tx, id, in.Slug); err != nil {
+	if err := AddressFreeIn(ctx, tx, id, in.Slug); err != nil {
 		return ids.Nil, err
 	}
 	r, err := queries(tx).InsertProject(ctx, projectsql.InsertProjectParams{ID: id, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, OwnerGroup: in.OwnerGroup, DefaultApprovers: in.DefaultApprovers, CreatedAt: at.UTC(), Purpose: string(in.Purpose), ServingLabel: in.Slug})
+	if slugTaken(err) {
+		return ids.Nil, ErrSlugTaken
+	}
 	if err != nil {
-		var state interface{ SQLState() string }
-		if errors.As(err, &state) && state.SQLState() == "23505" {
-			return ids.Nil, ErrSlugTaken
-		}
 		return ids.Nil, err
 	}
 	return r.ID, nil
@@ -275,4 +274,12 @@ func (s *Projects) Visible(ctx context.Context) ([]Project, error) {
 		out = append(out, record(row))
 	}
 	return out, nil
+}
+
+// slugTaken: the write broke a unique rule, which for a project's row is
+// its address (its serving label is never rewritten and starts as the
+// address).
+func slugTaken(err error) bool {
+	var state interface{ SQLState() string }
+	return errors.As(err, &state) && state.SQLState() == "23505"
 }

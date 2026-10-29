@@ -14,8 +14,8 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 )
 
-// A deleted project's cleanup moves through these states. Pending awaits
-// cleanup; address ownership is permanent, independently of cleanup status.
+// A deleted project's cleanup moves through these states. Until it is done,
+// the address and serving label it names stay taken (AddressFreeIn).
 const (
 	CleanupPending        = "pending"
 	CleanupDone           = "done"
@@ -58,9 +58,6 @@ func deletionRecord(r projectsql.ProjectDeletion) Deletion {
 // at is the caller's clock; who is the requester as the caller resolved
 // them (identity.ActorIn), since identity's tests build on this package.
 func RecordDeletionIn(ctx context.Context, tx *database.Tx, id ids.ID, slug string, who access.Actor, plan any, at time.Time) error {
-	if err := ClaimAddressIn(ctx, tx, id, slug); err != nil {
-		return err
-	}
 	raw, err := json.Marshal(plan)
 	if err != nil {
 		return err

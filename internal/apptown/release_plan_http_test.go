@@ -115,14 +115,6 @@ func TestReleasePlanHTTPProjectsActualHeadPublicationAndConfiguration(t *testing
 	if err != nil || recorded.CommitSHA != head || recorded.DeploymentID != localDep.ID {
 		t.Fatalf("displayed source differs from admitted release: %+v %v", recorded, err)
 	}
-	policyPath := "/api/v1/projects/game/deployments/" + localDep.ID.String() + "/promotion-policy"
-	policyBody := fmt.Sprintf(`{"expectedRevision":%d,"requirePromotion":true}`, localDep.PolicyRevision)
-	if changed := authzCall(h, "boss", "PUT", policyPath, policyBody); changed.Code != 200 {
-		t.Fatalf("require promotion: %d %s", changed.Code, changed.Body)
-	}
-	if denied := authzCall(h, "outsider", "POST", "/api/v1/projects/game/release", `{"defaultRevision":1}`); denied.Code != 403 {
-		t.Fatalf("default release without required promotion permission: %d %s", denied.Code, denied.Body)
-	}
 	// Clearing the explicit default must not be undone by attaching Portainer.
 	selectDefault("", 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -33,12 +33,10 @@ import (
 // environment as APPTOWN_ plus its name in capitals with - as _ (bindEnv); a
 // flag on the command line wins.
 type daemonFlags struct {
-	hostScripts                                      bool
 	taskCPUs, chatCPUs                               float64
 	taskMemoryMiB, taskPIDs, chatMemoryMiB, chatPIDs int64
 	addr                                             string
 	data                                             string
-	agentExecutor                                    string
 	agentImage                                       string
 	dbURL                                            string
 	authMode                                         string
@@ -66,7 +64,6 @@ type daemonFlags struct {
 	otlpProtocol                                     string
 	verifyOnly                                       bool
 	disableReap                                      bool
-	noPrivateDocker                                  bool
 	noLocalDocker                                    bool
 	localTLS                                         bool
 	resetPassword                                    string
@@ -81,13 +78,11 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	o := &daemonFlags{}
 	fs.StringVar(&o.addr, "addr", ":7777", "listen address")
 	fs.StringVar(&o.data, "data", "./_data", "data directory (db, workspaces)")
-	fs.StringVar(&o.agentExecutor, "agent-executor", "docker", "default executor for agent/pi steps: docker | local (local is experimental, for development)")
 	fs.StringVar(&o.agentImage, "agent-image", "apptown-agent", "docker image for containerized steps")
 	fs.StringVar(&o.dbURL, "db-url", "", "Postgres URL for AppTown's own database (env APPTOWN_DB_URL; empty = the built-in container on this host)")
 	fs.BoolVar(&o.gitImportPrivate, "git-import-allow-private", false, "let a project that starts from an https repository fetch from private, loopback and link-local addresses (an internal GitLab); by default only public addresses are fetched")
 	fs.Int64Var(&o.bundleMaxBytes, "import-bundle-max-bytes", projectlifecycle.DefaultBundleMaxBytes, "the largest Git bundle a project that starts from existing code may upload, and the largest push to AppTown's Git address")
-	fs.BoolVar(&o.privateDocker, "private-docker", false, "admit agent steps that declare private Docker (docker: true) on the worker: the operator's opt-in; every such attempt records the worker's measured profile (Running AppTown: Workers and running without local Docker)")
-	fs.BoolVar(&o.noPrivateDocker, "no-private-docker", false, "refuse agent steps that declare private Docker (docker: true), and give change consoles none")
+	fs.BoolVar(&o.privateDocker, "private-docker", true, "give agent steps that declare private Docker (docker: true), change chats and release builds a private Docker daemon, on this host or a worker; -private-docker=false refuses them all")
 	fs.BoolVar(&o.localTLS, "local-tls", false, "serve -addr over HTTPS from a certificate authority AppTown makes in <data>/local-tls, which vouches only for localhost names; plain HTTP there is sent to https. For the desktop trial: a server has its own TLS in front. Needs an https:// -public-host")
 	fs.StringVar(&o.trustInference, "trust-inference", "", "a PEM file of extra certificate authorities model-provider connections trust, beside the system's (a company's TLS-inspecting proxy)")
 	fs.StringVar(&o.trustDeployments, "trust-deployments", "", "a PEM file of extra certificate authorities AppTown's connections to its apps' preview and deployment addresses and to registries trust, and every container and build AppTown starts, beside the system's (with -local-tls, AppTown's own authority is added, for this machine's containers only)")
@@ -105,7 +100,6 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.admins, "admins", "", "comma-separated usernames to seed/promote as admin")
 	fs.StringVar(&o.trustedProxies, "trusted-proxies", "", "comma-separated CIDRs of reverse proxies whose X-Real-IP/X-Forwarded-For name the caller (loopback and this host's own addresses are always trusted)")
 	fs.StringVar(&o.consoleCLI, "console-cli", "", "Linux apptown CLI artifact for containers (default: apptown-linux beside apptownd)")
-	fs.BoolVar(&o.hostScripts, "host-scripts", false, "experimental, for development: let a script step with executor: local run as a process on this host; off, a project's script runs only in a container")
 	fs.Float64Var(&o.taskCPUs, "task-cpus", execution.DefaultTaskLimits.CPUs, "CPUs for each step, check or task container, here or on the worker (here, at most the CPUs this host's Docker has)")
 	fs.Int64Var(&o.taskMemoryMiB, "task-memory-mib", execution.DefaultTaskLimits.MemoryBytes>>20, "memory, swap included, in MiB, for each step, check or task container")
 	fs.Int64Var(&o.taskPIDs, "task-pids", execution.DefaultTaskLimits.PIDs, "processes for each step, check or task container")
@@ -294,12 +288,12 @@ func main() {
 		if restored != nil {
 			originalRoot = restored.DataDir
 		}
-		if err := apptown.UpgradeDataLayout(ctx, db, cfg, originalRoot); err != nil {
-			log.Fatalf("data layout upgrade: %v", err)
+		if err := apptown.RelocateDataLayout(ctx, db, cfg, originalRoot); err != nil {
+			log.Fatalf("data directory relocation: %v", err)
 		}
 		if restored == nil {
 			if err := apptown.FinalizeDataLayout(dataDir); err != nil {
-				log.Fatalf("data layout completion: %v", err)
+				log.Fatalf("data directory relocation completion: %v", err)
 			}
 		}
 	}
@@ -320,7 +314,7 @@ func main() {
 			log.Fatalf("restore completion: %v", err)
 		}
 		if err := apptown.FinalizeDataLayout(dataDir); err != nil {
-			log.Fatalf("data layout completion: %v", err)
+			log.Fatalf("data directory relocation completion: %v", err)
 		}
 		return
 	}
@@ -337,7 +331,7 @@ func main() {
 	app.LogStartupConfiguration()
 	if o.noLocalDocker {
 		log.Printf("no local backend: this AppTown has no Docker of its own; agents, checks and previews run on the worker, releases on attached Docker hosts")
-	} else if o.agentExecutor == apptown.ExecutorDocker && !app.DockerAvailable(ctx) {
+	} else if !app.DockerAvailable(ctx) {
 		log.Printf("WARNING: docker unavailable; model agents cannot run until Docker is available")
 	}
 
@@ -449,10 +443,9 @@ func main() {
 func (o *daemonFlags) apptownConfig(dataDir string) apptown.Config {
 	return apptown.Config{
 		UpdateChannel: o.updateChannel,
-		HostScripts:   o.hostScripts,
 		TaskLimits:    execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
-		ChatLimits:    execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DBURL: o.dbURL, DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
-		AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, DisableReap: o.disableReap,
+		ChatLimits:    execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DBURL: o.dbURL, DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
+		AgentImage: o.agentImage, DisableReap: o.disableReap,
 		AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
 		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,
 		OTLPEndpoint: o.otlpEndpoint, OTLPProtocol: o.otlpProtocol}

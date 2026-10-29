@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // The deterministic gate (guidance_conformance.go, runShChecks): exit 0 is a
@@ -18,7 +19,7 @@ import (
 func tgLocalSh(t *testing.T, a *App) {
 	t.Helper()
 	installCheckEffects(t, a, checkOverrides{run: func(req ExecRequest) ExecOutcome {
-		return agentenv.Execute(a.processRunner, context.Background(), ExecutorLocal, req, time.Now())
+		return agentenv.Execute(a.processRunner, context.Background(), execution.Local, req, time.Now())
 	}})
 }
 

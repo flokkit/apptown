@@ -56,9 +56,9 @@ func revokeExpiredStoredGrant(t *testing.T, db *database.DB, r accesssql.GrantsN
 func saveStoredDelegation(t *testing.T, db *database.DB, r accesssql.DelegationsNamed) {
 	t.Helper()
 	if _, err := queries(db).SaveDelegation(context.Background(), accesssql.SaveDelegationParams{
-		ID: r.ID, ClientID: r.ClientID, ClientName: r.ClientName, Audience: r.Audience, Kind: r.Kind,
-		ScopesJson: r.ScopesJson, GroupBoundsJson: r.GroupBoundsJson, ProjectBoundsJson: r.ProjectBoundsJson,
-		AuthTime: r.AuthTime, AuthMethod: r.AuthMethod, CreatedAt: r.CreatedAt, LastUsed: r.LastUsed, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
+		ID: r.ID, ClientID: r.ClientID, ClientName: r.ClientName, Audience: r.Audience,
+		ScopesJson: r.ScopesJson,
+		AuthTime:   r.AuthTime, AuthMethod: r.AuthMethod, CreatedAt: r.CreatedAt, LastUsed: r.LastUsed, ExpiresAt: r.ExpiresAt, RevokedAt: r.RevokedAt,
 	}); err != nil {
 		t.Fatal(err)
 	}

@@ -32,13 +32,16 @@ type JobWorker struct {
 // cloud or Portainer deployment (rebuilding one would stand up a second,
 // local copy of a cloud deployment), never a preview.
 func (w JobWorker) Rebuild(ctx context.Context, key string, args map[string]any) (map[string]any, error) {
-	slug, name, ok := strings.Cut(key, "/")
-	if !ok {
-		return nil, jobs.Permanent(fmt.Errorf("a rebuild key is project/deployment, got %q", key))
+	owner, name, ok := strings.Cut(key, "/")
+	keyID, keyErr := ids.Parse(owner)
+	if !ok || keyErr != nil {
+		return nil, jobs.Permanent(fmt.Errorf("a rebuild key is project-id/deployment, got %q", key))
 	}
 	var projectID ids.ID
 	var repositoryOwner project.RepositoryRef
-	if p, err := w.Projects.BySlug(ctx, slug); err == nil {
+	var slug string
+	if p, err := w.Projects.ByID(ctx, keyID); err == nil {
+		slug = p.Slug
 		projectID = p.ID
 		repositoryOwner = project.RepositoryRef{ID: p.ID, Slug: p.Slug}
 	} else {

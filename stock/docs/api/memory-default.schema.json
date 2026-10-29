@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Optional pack or dependency memory default",
+  "title": "Optional dependency memory default",
   "description": "An omitted declaration or empty memory value supplies no default. Positive memory uses whole mebibytes/gibibytes, at least 32 MiB; the owner also validates range/overflow. Unlimited memory is an operator override, not content.",
   "type": [
     "object",

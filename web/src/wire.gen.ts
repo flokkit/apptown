@@ -29,16 +29,6 @@ export type ADRRecord = {
 
 export type ADRState = "draft" | "proposed" | "accepted" | "rejected" | "deprecated" | "superseded"
 
-export type AddressObservation = {
-  deploymentId: string | null
-  targetId: string | null
-  revision: number
-  ingress: Ingress
-  scope: Scope
-  stack: StackAssociation
-  targetRevision: number
-}
-
 export type AddressSnapshot = {
   deploymentId: string | null
   targetId: string | null
@@ -480,10 +470,8 @@ export type DeploymentAddress = {
   customHostname: string
   certificateDomain: string
   revision: number
-  verified: boolean
   servingURL: string
   reservedHosts: string[]
-  legacyEvidence?: unknown
 }
 
 export type DeploymentBackups = {
@@ -560,8 +548,6 @@ export type DeploymentResources = {
 
 export type DeploymentView = {
   targetId: string | null
-  requirePromotion?: boolean
-  policyRevision?: number
   id: string | null
   displayLabel: string
   name: string
@@ -1041,7 +1027,6 @@ export type PackSaved = {
 
 export type PackView = {
   apiVersion?: string
-  resources?: MemoryDefault
   name: string
   description: string
   platform?: boolean
@@ -1311,15 +1296,6 @@ export type ProjectWorkflowRow = {
   withdrawn?: boolean
 }
 
-export type ProviderAssociation = {
-  targetId: string | null
-  connectionId: string | null
-  revision: number
-  scope: Scope
-  resources: StackAssociation[]
-  associated: boolean
-}
-
 export type PullPlan = {
   pack: string
   additions: string[]
@@ -1341,7 +1317,6 @@ export type RecheckStarted = {
 }
 
 export type ReleaseDefault = {
-  legacySetup?: LegacyReleaseSetup | null
   eligibilityIssue?: string
   projectId: string | null
   deploymentId?: string | null
@@ -2011,20 +1986,6 @@ export type Ingress = {
   hosts: string[]
   url: string
   certificateDomain: string
-}
-
-export type Scope = {
-  version: number
-  apiBase: string
-  endpointId: number
-  daemonId: string
-}
-
-export type StackAssociation = {
-  deploymentId: string | null
-  scope: Scope
-  stackId: number
-  stackName: string
 }
 
 export type Candidate = {
@@ -3251,7 +3212,6 @@ export type RedeployNumber = {
 }
 
 export type PackSpec = {
-  resources?: MemoryDefault
   platform?: boolean
   includes?: string
   replaces?: Record<string, string>
@@ -3607,15 +3567,6 @@ export type workflowSummary = {
   trigger?: string
   flow: string
   stages: workflowStageSummary[]
-}
-
-export type LegacyReleaseSetup = {
-  version: number
-  integrationId: string | null
-  integrationName: string
-  targetId: string | null
-  deploymentName: string
-  evidence: unknown
 }
 
 export type Release = {
@@ -4397,7 +4348,6 @@ export type RehearsalFacts = {
 export type MemoryDefaultSource = {
   kind: string
   name?: string
-  version?: number
 }
 
 export type PartMemory = {

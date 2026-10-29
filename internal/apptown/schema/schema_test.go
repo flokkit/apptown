@@ -160,6 +160,45 @@ func TestAgentDockerDeclaration(t *testing.T) {
 	}
 }
 
+// Every project step runs in a container: a save that names an executor
+// other than docker, on an agent or script step or in the workflow's
+// defaults, is refused and says to remove the line; docker, or none, is
+// accepted. A stored definition still reads, so a run admitted before the
+// rule meets its refusal at the step (workflowexec).
+func TestASaveNamesNoExecutorButDocker(t *testing.T) {
+	t.Parallel()
+	step := func(uses, value string) string {
+		return strings.Replace(validWorkflow, "uses: agent/pi\n", "uses: "+uses+"\n          with:\n            executor: "+value+"\n", 1)
+	}
+	defaults := func(value string) string {
+		return strings.Replace(validWorkflow, "  kind: lifecycle\n", "  kind: lifecycle\n  defaults:\n    executor: "+value+"\n", 1)
+	}
+	for name, c := range map[string]struct {
+		src string
+		ok  bool
+	}{
+		"agent docker":    {step("agent/pi", "docker"), true},
+		"script docker":   {step("script", "docker"), true},
+		"defaults docker": {defaults("docker"), true},
+		"agent local":     {step("agent/pi", "local"), false},
+		"script local":    {step("script", "local"), false},
+		"defaults local":  {defaults("local"), false},
+		"script podman":   {step("script", "podman"), false},
+		"script empty":    {step("script", `""`), false},
+	} {
+		_, err := ParseWorkflow([]byte(c.src))
+		if c.ok != (err == nil) {
+			t.Errorf("%s: %v", name, err)
+		}
+		if !c.ok && (err == nil || !strings.Contains(err.Error(), "remove the line")) {
+			t.Errorf("%s: the refusal does not say what to do: %v", name, err)
+		}
+		if _, err := ParseWorkflowStored([]byte(c.src)); err != nil {
+			t.Errorf("%s: a stored definition no longer reads: %v", name, err)
+		}
+	}
+}
+
 // The standard of approval: an approval without a stated meaning is
 // rejected at save time — otherwise it's all just LGTM. Stored documents
 // predating the rule stay readable (prospective law).

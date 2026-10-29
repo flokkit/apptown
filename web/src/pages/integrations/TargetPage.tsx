@@ -20,7 +20,7 @@ const resourceWord = (r: Resource) => {
   return need ? `${noun} for ${need}` : noun
 }
 import { relTime } from '../../format'
-import type { InfrastructureTargets, ProviderAssociation, RegistryReading, TargetChecked, TargetPage } from '../../wire.gen'
+import type { InfrastructureTargets, RegistryReading, TargetChecked, TargetPage } from '../../wire.gen'
 import { shownActor } from '../../systemActors'
 
 // One deploy target (design/subsystems/deployment.md §2.2): what it is, what
@@ -118,7 +118,7 @@ export function TargetPage() {
         )}
 
 
-        {t.kindInfo.environment && !t.providerScope && !retired && <ProviderAssociationSection t={t} current={pageQ.current} onSaved={load} />}
+        {t.kindInfo.environment && !t.providerScope && !retired && <div className="small" style={{ marginTop: 12 }}>Provider endpoint: <b>not observed</b>. Releases to this target are refused until {PRODUCT} observes it.</div>}
         {data.registry && <RegistryLine r={data.registry} />}
 
         {!retired && (
@@ -215,56 +215,6 @@ export function TargetPage() {
       </div>
     </div>
   )
-}
-
-// Inspection reads the existing selection only. The owner re-observes the
-// destination and every association when the administrator confirms.
-export function ProviderAssociationSection({ t, current, onSaved }: { t: TargetView; current: boolean; onSaved: () => void }) {
-  const identity = `${t.id}/${t.name}/${t.settingsRevision}`
-  const [opened, setOpened] = useState('')
-  return <div className="small" style={{ marginTop: 12 }}>
-    <p>Provider association required. An administrator must inspect and confirm this target's provider association before {PRODUCT} uses it.</p>
-    {opened === identity
-      ? <ProviderAssociationReading key={identity} t={t} current={current} onSaved={onSaved} />
-      : <button onClick={() => setOpened(identity)} disabled={!current}>Inspect provider association</button>}
-  </div>
-}
-
-function ProviderAssociationReading({ t, current, onSaved }: { t: TargetView; current: boolean; onSaved: () => void }) {
-  const q = useGet<ProviderAssociation>(`/targets/${t.name}/provider-association`)
-  const { run, busy, err, setErr } = useAction(undefined, { affects: ['/infrastructure'] })
-  const [confirmed, setConfirmed] = useState(false)
-  const a = q.data
-  const matches = a?.targetId === t.id && a?.revision === t.settingsRevision
-  const canConfirm = current && q.current && !q.refreshing && !q.paused && matches && !busy && !err && !confirmed && !a?.associated
-  const confirm = async () => {
-    if (!a || !canConfirm) return
-    const result = await run(() => post<ProviderAssociation>(`/targets/${t.name}/provider-association`, {
-      connectionId: a.connectionId, endpointId: a.scope.endpointId, expectedRevision: a.revision,
-      expected: a.scope, resources: a.resources,
-    }))
-    if (result) { setConfirmed(true); onSaved() }
-  }
-  const inspect = () => { setErr(''); void q.reload() }
-  return <div className="card" style={{ padding: 12 }}>
-    <ReadStatus q={q} what="the provider association" />
-    <StaleNote q={q} />
-    {a && <>
-      <div>API base: {a.scope.apiBase}</div>
-      <div>Connection: {a.connectionId || 'created from the saved credential references on confirmation'}</div>
-      <div>Endpoint: {a.scope.endpointId} · Docker daemon: {a.scope.daemonId}</div>
-      {a.resources.length === 0
-        ? <p>No existing stack associations observed.</p>
-        : <table className="small"><thead><tr><th>deployment ID</th><th>stack</th><th>stack ID</th></tr></thead>
-          <tbody>{a.resources.map((r) => <tr key={`${r.deploymentId}/${r.stackId}`}><td>{r.deploymentId}</td><td>{r.stackName}</td><td>{r.stackId}</td></tr>)}</tbody></table>}
-      <p>Confirmation records these current associations. It does not establish who created the stacks or authorize their deletion.</p>
-      {!matches && <p className="error">The target settings changed. Inspect the provider association again.</p>}
-      {(confirmed || a.associated) ? <p>Provider association confirmed. Use Check now to update the target's status.</p>
-        : <button onClick={confirm} disabled={!canConfirm}>{busy ? 'Confirming…' : 'Confirm provider association'}</button>}
-    </>}
-    <button className="subtle" onClick={inspect} disabled={busy || q.refreshing}>Inspect again</button>
-    {err && <p className="error">{err} Inspect again before confirming.</p>}
-  </div>
 }
 
 // What a copy runner is, said beside the field that names one.

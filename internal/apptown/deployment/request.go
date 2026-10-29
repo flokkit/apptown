@@ -79,7 +79,7 @@ func (e *ContractReadError) Unwrap() error         { return e.Cause }
 func (e *ContractReadError) FaultKind() fault.Kind { return fault.Unprocessable }
 
 func (e *Deployment) releaseAttributes() Attributes {
-	return Attributes{Feed: e.Feed, Audience: e.Audience, DataClass: e.DataClass, PromoteAfter: e.PromoteAfter}
+	return Attributes{Feed: e.Feed, Audience: e.Audience, DataClass: e.DataClass}
 }
 
 // matchesRelease is the placement a release was accepted for, still: the
@@ -142,7 +142,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 	if err != nil {
 		return AcceptedRelease{}, err
 	}
-	actor, err := s.requireDeploy(ctx, in.ProjectID, in.DeploymentName, found && dep.needsPromotion(), "deployment.request")
+	actor, err := s.requireDeploy(ctx, in.ProjectID, in.DeploymentName, found && dep.Protected(), "deployment.request")
 	if err != nil {
 		return AcceptedRelease{}, err
 	}
@@ -313,7 +313,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 				return err
 			}
 		}
-		if _, err := s.requireDeploy(ctx, current.ProjectID, current.Name, current.needsPromotion(), "deployment.request"); err != nil {
+		if _, err := s.requireDeploy(ctx, current.ProjectID, current.Name, current.Protected(), "deployment.request"); err != nil {
 			return err
 		}
 		running, err := s.handBundle(ctx, current)
@@ -348,7 +348,7 @@ func (s *Service) requestRelease(ctx context.Context, in DeploySelection, select
 		if err != nil {
 			return err
 		}
-		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: &captured, RequirePromotion: current.needsPromotion()}); err != nil {
+		if _, err := deploymentsql.New(tx.SQL()).InsertReleaseRequest(ctx, deploymentsql.InsertReleaseRequestParams{ReleaseID: rel.ID, TargetID: t.ID, BaseGeneration: dep.DesiredGeneration, AttributesJson: attrs, StartFromBackup: startFrom, ProviderBindingJson: binding, IngressJson: ingress, AuthorityJson: &captured, RequirePromotion: current.Protected()}); err != nil {
 			return err
 		}
 		if err := s.release.Queue.EnqueueReleaseIn(ctx, tx, rel.ID); err != nil {

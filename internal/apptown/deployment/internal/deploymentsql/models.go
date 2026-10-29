@@ -33,24 +33,19 @@ type Deployment struct {
 	Feed               string
 	Audience           string
 	DataClass          string
-	PromoteAfter       string
 	Url                string
 	StartFromBackup    ids.ID
 	StartedFromAt      sql.NullTime
 	RestoreCheck       string
 	DisplayLabel       string
-	RequirePromotion   bool
-	PolicyRevision     int64
 }
 
 type DeploymentAddressSetting struct {
-	DeploymentID       ids.ID
-	GeneratedHostname  string
-	CustomHostname     string
-	CertificateDomain  string
-	Revision           int64
-	VerificationState  string
-	LegacyEvidenceJson json.RawMessage
+	DeploymentID      ids.ID
+	GeneratedHostname string
+	CustomHostname    string
+	CertificateDomain string
+	Revision          int64
 }
 
 type DeploymentAttempt struct {
@@ -147,7 +142,6 @@ type ProjectReleaseSetting struct {
 	ProjectID           ids.ID
 	DefaultDeploymentID ids.ID
 	Revision            int64
-	LegacySetupJson     *json.RawMessage
 }
 
 type Release struct {

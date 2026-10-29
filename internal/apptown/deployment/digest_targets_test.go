@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -249,12 +248,11 @@ func (p *promotionTargets) chooseDefault(t *testing.T) ReleaseDefault {
 		return selected
 	}
 	target := p.target(t, IntranetTargetName)
-	dep, err := p.s.Deployments.ByName(t.Context(), p.project, "lan")
-	if errors.Is(err, sql.ErrNoRows) {
-		selected, err = p.s.SetupReleaseDefault(t.Context(), p.project, ReleaseSetup{TargetID: target.ID, TargetRevision: &target.SettingsRevision, DeploymentName: "lan", ExpectedRevision: selected.Revision, RequirePromotion: true})
-	} else if err == nil {
-		selected, err = p.s.SetReleaseDefault(t.Context(), p.project, dep.ID, selected.Revision)
+	dep, err := p.s.Deployments.EnsureStanding(t.Context(), p.project, "lan", target.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
+	if err != nil {
+		t.Fatal(err)
 	}
+	selected, err = p.s.SetReleaseDefault(t.Context(), p.project, dep.ID, selected.Revision)
 	if err != nil {
 		t.Fatal(err)
 	}

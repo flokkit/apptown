@@ -73,7 +73,7 @@ func (s *Service) healthPublicPart(ctx context.Context, w docker.Watched) *appco
 	if s.release.Sources == nil {
 		return nil
 	}
-	p, err := s.projects.BySlug(ctx, w.Slug)
+	p, err := s.projects.ByID(ctx, w.ProjectID)
 	if err != nil {
 		return nil
 	}

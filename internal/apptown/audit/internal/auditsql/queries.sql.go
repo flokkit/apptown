@@ -46,8 +46,8 @@ func (q *Queries) ActorsAmong(ctx context.Context, names []string) ([]string, er
 }
 
 const appendReceipt = `-- name: AppendReceipt :execrows
-INSERT INTO audit_log(id, at,actor,actor_principal,actor_via,project_id,kind,subject,payload_json,refs)
-VALUES ($1, $2::text::timestamptz,$3,$4,$5,$6,$7,$8,$9,$10)
+INSERT INTO audit_log(id, at,actor,actor_principal,actor_via,project_id,kind,subject,payload_json)
+VALUES ($1, $2::text::timestamptz,$3,$4,$5,$6,$7,$8,$9)
 `
 
 type AppendReceiptParams struct {
@@ -60,7 +60,6 @@ type AppendReceiptParams struct {
 	Kind           string
 	Subject        string
 	PayloadJson    json.RawMessage
-	Refs           json.RawMessage
 }
 
 func (q *Queries) AppendReceipt(ctx context.Context, arg AppendReceiptParams) (int64, error) {
@@ -74,7 +73,6 @@ func (q *Queries) AppendReceipt(ctx context.Context, arg AppendReceiptParams) (i
 		arg.Kind,
 		arg.Subject,
 		arg.PayloadJson,
-		arg.Refs,
 	)
 	if err != nil {
 		return 0, err
@@ -82,27 +80,8 @@ func (q *Queries) AppendReceipt(ctx context.Context, arg AppendReceiptParams) (i
 	return result.RowsAffected()
 }
 
-const formerID = `-- name: FormerID :one
-SELECT id FROM former_ids WHERE forge = $1 AND kind = $2 AND old = $3
-`
-
-type FormerIDParams struct {
-	Forge ids.ID
-	Kind  string
-	Old   string
-}
-
-// The record a former identity names: this AppTown's row for the converted
-// table (kind) and the identity it had before the cutover (old).
-func (q *Queries) FormerID(ctx context.Context, arg FormerIDParams) (ids.ID, error) {
-	row := q.db.QueryRowContext(ctx, formerID, arg.Forge, arg.Kind, arg.Old)
-	var id ids.ID
-	err := row.Scan(&id)
-	return id, err
-}
-
 const recentReceipts = `-- name: RecentReceipts :many
-SELECT a.id, a.at, a.actor, a.actor_principal, a.actor_via, a.project_id, a.kind, a.subject, a.payload_json, a.refs, COALESCE(p.slug,'')::text AS project_slug
+SELECT a.id, a.at, a.actor, a.actor_principal, a.actor_via, a.project_id, a.kind, a.subject, a.payload_json, COALESCE(p.slug,'')::text AS project_slug
 FROM audit_log a LEFT JOIN projects p ON p.id=a.project_id
 WHERE ($1::uuid IS NULL OR a.project_id=$1 OR a.project_id IS NULL)
 AND ($2::text='' OR a.kind LIKE $2||'%')
@@ -129,7 +108,6 @@ type RecentReceiptsRow struct {
 	Kind           string
 	Subject        string
 	PayloadJson    json.RawMessage
-	Refs           json.RawMessage
 	ProjectSlug    string
 }
 
@@ -158,7 +136,6 @@ func (q *Queries) RecentReceipts(ctx context.Context, arg RecentReceiptsParams) 
 			&i.Kind,
 			&i.Subject,
 			&i.PayloadJson,
-			&i.Refs,
 			&i.ProjectSlug,
 		); err != nil {
 			return nil, err

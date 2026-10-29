@@ -104,7 +104,7 @@ func TestDecideTable(t *testing.T) {
 			&fakeFacts{grants: map[string][]access.Grant{"alice": {role(1, "user", "alice", access.RoleProjectMaintainer, access.ScopeProject, p7)}}},
 			false, access.DenyOutsideScope, "not here"},
 		{"a group grant reaches its projects' reads", alice, full, access.CapProjectRead, project, access.Context{},
-			&fakeFacts{grants: map[string][]access.Grant{"alice": {role(1, "group", "kids", access.RoleGroupAuditor, access.ScopeGroup, "kids")}}},
+			&fakeFacts{grants: map[string][]access.Grant{"alice": {{ID: idstest.N(1), SubjectType: "group", Subject: "kids", Capability: access.CapProjectRead, ScopeType: access.ScopeGroup, ScopeID: "kids"}}}},
 			true, "", "through group kids"},
 		{"a group grant does not reach a project mutate", alice, full, access.CapChangeCreate, project, access.Context{},
 			&fakeFacts{grants: map[string][]access.Grant{"alice": {role(1, "group", "kids", access.RoleGroupOwner, access.ScopeGroup, "kids")}}},
@@ -141,7 +141,7 @@ func TestDecideTable(t *testing.T) {
 // names, and the group path when authority came through a group.
 func TestDecisionNamesItsGrounds(t *testing.T) {
 	facts := &fakeFacts{grants: map[string][]access.Grant{"alice": {
-		role(11, "group", "kids", access.RoleGroupAuditor, access.ScopeGroup, "kids"),
+		{ID: idstest.N(11), SubjectType: "group", Subject: "kids", Capability: access.CapProjectRead, ScopeType: access.ScopeGroup, ScopeID: "kids"},
 		role(12, "user", "alice", access.RoleProjectViewer, access.ScopeProject, p7),
 		role(13, "user", "alice", access.RoleProjectOwner, access.ScopeProject, p8), // elsewhere
 	}}}
@@ -149,7 +149,7 @@ func TestDecisionNamesItsGrounds(t *testing.T) {
 	if !dec.Allow || len(dec.GrantIDs) != 2 || dec.GrantIDs[0] != idstest.N(11) || dec.GrantIDs[1] != idstest.N(12) {
 		t.Fatalf("grounds: %+v", dec)
 	}
-	if strings.Join(dec.Roles, ",") != access.RoleGroupAuditor+","+access.RoleProjectViewer || strings.Join(dec.Paths, ",") != "group:kids" {
+	if strings.Join(dec.Roles, ",") != access.RoleProjectViewer || strings.Join(dec.Paths, ",") != "group:kids" {
 		t.Fatalf("roles and paths: %+v", dec)
 	}
 }

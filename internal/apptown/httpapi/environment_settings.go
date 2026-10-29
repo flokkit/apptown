@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/flokkit/apptown/internal/access"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -109,42 +108,5 @@ func (h Deployments) SetReleaseDefault(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		WriteJSON(w, http.StatusOK, value)
-	})
-}
-
-func (h Deployments) SetupReleaseDefault(w http.ResponseWriter, r *http.Request) {
-	project, ok := ProjectFromPath(h.projects, w, r)
-	if !ok {
-		return
-	}
-	jsonCommand(w, r, jsonBody{strict: true}, func(in deployment.ReleaseSetup) {
-		value, err := h.deployment.SetupReleaseDefault(r.Context(), project.ID, in)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		WriteJSON(w, http.StatusOK, value)
-	})
-}
-
-func (h Deployments) SetPromotionPolicy(w http.ResponseWriter, r *http.Request) {
-	projectID, id, ok := h.addressIDs(w, r)
-	if !ok {
-		return
-	}
-	jsonCommand(w, r, jsonBody{strict: true}, func(in struct {
-		ExpectedRevision *int64 `json:"expectedRevision"`
-		RequirePromotion *bool  `json:"requirePromotion"`
-	}) {
-		if in.ExpectedRevision == nil || in.RequirePromotion == nil {
-			WriteError(w, http.StatusBadRequest, "expectedRevision and requirePromotion are required")
-			return
-		}
-		_, err := h.deployment.SetPromotionPolicy(r.Context(), projectID, id, *in.ExpectedRevision, *in.RequirePromotion)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		WriteJSON(w, http.StatusOK, Done{OK: true})
 	})
 }

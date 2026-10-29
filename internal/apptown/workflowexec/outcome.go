@@ -26,7 +26,7 @@ type agentRecord struct {
 	steering steeringFile
 
 	modelSlot, modelProfile string
-	executor, image         string
+	image                   string
 	scmGranted              string
 	start                   time.Time
 	queuedMs                int64
@@ -107,14 +107,12 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		DurationMs:       a.now().Sub(r.start).Milliseconds(),
 		QueuedMs:         r.queuedMs,
 		Attempts:         r.attempts,
-		Executor:         r.executor,
+		Executor:         execution.Docker,
 		GuidanceHash:     r.steering.GuidanceHash,
 		Skills:           r.steering.Skills,
 		Resources:        r.steering.Resources,
 	}
-	if r.executor == execution.Docker {
-		evidence.Image = r.image
-	}
+	evidence.Image = r.image
 	if w := r.worker; w != nil {
 		evidence.Worker, evidence.Source, evidence.UsageUnknown, evidence.WorkerProfile = w.backend, w.source, w.outputUnread, w.profile
 		if w.candidate.Ref != "" {

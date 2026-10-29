@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS grants (
   subject         TEXT NOT NULL,
   role_name       TEXT NOT NULL DEFAULT '',
   capability      TEXT NOT NULL DEFAULT '',
-  scope_type      TEXT NOT NULL,                 -- instance | group | project | change | run | dimension | release-target
+  scope_type      TEXT NOT NULL,                 -- instance | group | project | release-target
   scope_id        TEXT NOT NULL DEFAULT '',
   origin          TEXT NOT NULL DEFAULT '',      -- '' | migrated | migrated-open | profile:<name> | bootstrap
   granted_by      TEXT NOT NULL DEFAULT '',
@@ -125,10 +125,7 @@ CREATE TABLE IF NOT EXISTS delegations (
   client_id           TEXT NOT NULL,
   client_name         TEXT NOT NULL DEFAULT '',
   audience            TEXT NOT NULL,                 -- /mcp/user | /mcp/admin
-  kind                TEXT NOT NULL DEFAULT 'oauth', -- oauth, the only kind written
   scopes_json         JSONB NOT NULL DEFAULT '[]'::jsonb,
-  group_bounds_json   JSONB NOT NULL DEFAULT '[]'::jsonb,
-  project_bounds_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   auth_time           TIMESTAMPTZ,
   auth_method         TEXT NOT NULL DEFAULT '',
   created_at          TIMESTAMPTZ NOT NULL,
@@ -334,24 +331,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
   project_id UUID,
   kind         TEXT NOT NULL,
   subject      TEXT NOT NULL DEFAULT '',
-  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  -- The work the line names, typed (audit.Ref): derived by the writer from
-  -- the subject, payload and actor, so nothing parses the text afterwards.
-  refs         JSONB NOT NULL DEFAULT '[]'::jsonb
+  payload_json JSONB NOT NULL DEFAULT '{}'::jsonb
 );
-
--- Former identities (design/decisions/mergeable-forge-data.md): every record
--- converted at the identity cutover keeps its old identity here as a fact of
--- history, so an old link, a bare old number or an old chat id resolves to
--- the record's UUID. old is text: integers and 12-hex chat ids alike.
-CREATE TABLE IF NOT EXISTS former_ids (
-  forge UUID NOT NULL,
-  kind  TEXT NOT NULL,
-  old   TEXT NOT NULL,
-  id    UUID NOT NULL,
-  PRIMARY KEY (forge, kind, old)
-);
-CREATE INDEX IF NOT EXISTS former_ids_id ON former_ids(id);
 
 -- Source: internal/apptown/operations/schema.sql
 -- Operations (design/subsystems/jobs.md): one row per long
@@ -500,13 +481,6 @@ CREATE TABLE IF NOT EXISTS slot_fallbacks (
 );
 
 -- Source: internal/apptown/project/schema.sql
--- Assigned AppTown addresses are permanent: purging a project does not free them.
--- A null project is a historical reservation whose owner cannot be established.
-CREATE TABLE IF NOT EXISTS project_addresses (
-  address TEXT PRIMARY KEY CHECK (address ~ '^[a-z0-9][a-z0-9-]*$'),
-  project_id UUID,
-  UNIQUE (address, project_id)
-);
 CREATE TABLE IF NOT EXISTS projects (
   id UUID PRIMARY KEY,
   slug           TEXT NOT NULL UNIQUE,
@@ -529,8 +503,7 @@ CREATE TABLE IF NOT EXISTS projects (
   -- owners ask Project what the purpose allows (project/purpose.go).
   purpose TEXT NOT NULL DEFAULT 'ordinary' CONSTRAINT projects_purpose CHECK (purpose IN ('ordinary','eval-copy')),
   -- Captured at creation; independent of the mutable AppTown navigation address.
-  serving_label TEXT NOT NULL CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$') CONSTRAINT projects_serving_label_unique UNIQUE,
-  CONSTRAINT projects_address_owner FOREIGN KEY (slug,id) REFERENCES project_addresses(address,project_id) DEFERRABLE INITIALLY DEFERRED
+  serving_label TEXT NOT NULL CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$') CONSTRAINT projects_serving_label_unique UNIQUE
 );
 -- A project that is not active (design/subsystems/project-deletion.md): no
 -- row is active. Importing and deleting refuse new work; deleted is kept,
@@ -591,15 +564,6 @@ CREATE TABLE IF NOT EXISTS project_creation_requests (
   project_id UUID NOT NULL,
   input_hash TEXT,
   resolved_group TEXT,
-  result_json JSONB,
-  UNIQUE (actor_id, request_id)
-);
-CREATE TABLE IF NOT EXISTS project_rename_requests (
-  id UUID PRIMARY KEY,
-  actor_id UUID NOT NULL,
-  request_id UUID NOT NULL,
-  project_id UUID NOT NULL,
-  input_hash TEXT NOT NULL,
   result_json JSONB,
   UNIQUE (actor_id, request_id)
 );
@@ -1436,7 +1400,6 @@ CREATE TABLE IF NOT EXISTS deployments (
   feed         TEXT NOT NULL DEFAULT 'landing',    -- landing | promotion | schedule | manual
   audience     TEXT NOT NULL DEFAULT 'team',       -- team | organisation | partners | public
   data_class   TEXT NOT NULL DEFAULT 'synthetic',  -- synthetic | non-production | production
-  promote_after TEXT NOT NULL DEFAULT '',
   url          TEXT NOT NULL DEFAULT '',
   -- A deployment started from a copy: the set its first release fills its
   -- data from, and when that was done (null until then).
@@ -1449,9 +1412,7 @@ CREATE TABLE IF NOT EXISTS deployments (
   restore_check TEXT NOT NULL DEFAULT '' CONSTRAINT deployment_restore_check CHECK (restore_check IN ('', 'unconfirmed', 'gone', 'filling', 'not-filled')),
   display_label TEXT NOT NULL DEFAULT '',
   CONSTRAINT deployments_project_identity UNIQUE(project_id, id),
-  UNIQUE(project_id, name),
-  require_promotion BOOLEAN NOT NULL DEFAULT false,
-  policy_revision BIGINT NOT NULL DEFAULT 1 CHECK (policy_revision > 0)
+  UNIQUE(project_id, name)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS deployments_host_key ON deployments ((right(id::text, 12)));
 -- A target (design/subsystems/deployment.md §2.2): a reusable place AppTown can
@@ -1702,8 +1663,6 @@ CREATE TABLE IF NOT EXISTS project_release_settings (
   project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
   default_deployment_id UUID,
   revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
-  legacy_setup_json JSONB,
-  CONSTRAINT project_release_setup_exclusive CHECK (default_deployment_id IS NULL OR legacy_setup_json IS NULL),
   CONSTRAINT project_release_default_membership FOREIGN KEY(project_id, default_deployment_id)
     REFERENCES deployments(project_id, id) DEFERRABLE INITIALLY DEFERRED
 );
@@ -1716,9 +1675,7 @@ CREATE TABLE IF NOT EXISTS deployment_address_settings (
   custom_hostname TEXT NOT NULL DEFAULT '',
   certificate_domain TEXT NOT NULL DEFAULT '',
   revision BIGINT NOT NULL DEFAULT 1 CHECK (revision > 0),
-  verification_state TEXT NOT NULL CONSTRAINT deployment_address_verification CHECK (verification_state IN ('ready','legacy-unverified')),
-  legacy_evidence_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  CONSTRAINT deployment_address_ready_fields CHECK (verification_state='legacy-unverified' OR (generated_hostname<>'' AND certificate_domain<>''))
+  CONSTRAINT deployment_address_ready_fields CHECK (generated_hostname<>'' AND certificate_domain<>'')
 );
 CREATE TABLE IF NOT EXISTS deployment_hostname_claims (
   hostname TEXT PRIMARY KEY

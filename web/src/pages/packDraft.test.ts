@@ -5,7 +5,7 @@ import { draftFrom, keptAsWritten } from './packDraft'
 // what the form does not edit: an explicit clear is not lost (review PI-03).
 describe('a pack draft', () => {
   const declaration = {
-    resources: { memory: '160M' }, includes: 'go-small', replaces: { 'deps/minimal-deps': 'team/deps' }, drops: [{ item: 'x', reason: 'not ours' }],
+    includes: 'go-small', replaces: { 'deps/minimal-deps': 'team/deps' }, drops: [{ item: 'x', reason: 'not ours' }],
     clears: ['toolchain', 'services'], extensions: ['lsp'], guidance: ['team/review'], workflows: [], policies: [],
   }
   it('keeps every declared field through an unchanged save', () => {
@@ -15,6 +15,6 @@ describe('a pack draft', () => {
     expect(sent.description).toBe('ours, reworded')
   })
   it('says which fields it keeps without editing them', () => {
-    expect(keptAsWritten(draftFrom('t', '', declaration))).toEqual(['default memory 160M', 'no toolchain (cleared)', 'no services (cleared)', 'extensions lsp'])
+    expect(keptAsWritten(draftFrom('t', '', declaration))).toEqual(['no toolchain (cleared)', 'no services (cleared)', 'extensions lsp'])
   })
 })

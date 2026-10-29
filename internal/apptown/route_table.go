@@ -4,13 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/gate"
 	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
-	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
 	"github.com/flokkit/apptown/internal/apptown/complaint"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
@@ -38,9 +36,6 @@ func appRoutes(a *App) []routeSpec {
 	var systemWorkflows httpapi.SystemWorkflows
 	var instanceUpdates httpapi.InstanceUpdates
 	docs := docsForRoutes("")
-	// The database former identities are read from; nil while routes are
-	// only declared.
-	var former database.Queryer
 	var changes httpapi.Changes
 	var traces httpapi.Traces
 	var workspaces httpapi.Workspaces
@@ -135,7 +130,6 @@ func appRoutes(a *App) []routeSpec {
 	var changeWorkerChats httpapi.ChangeWorkerChats
 	var refusedStepWork httpapi.RefusedStepWork
 	if a != nil {
-		former = a.DB
 		docs = docsForRoutes(a.cfg.browserSession().PublicOrigin)
 		runs = httpapi.NewRuns(a.Work, a.operations)
 		findings = httpapi.NewFindings(a.Projects, a.Work, a.conformance, a.DB, a.cfg.dataDir)
@@ -185,7 +179,7 @@ func appRoutes(a *App) []routeSpec {
 		consolePreview = httpapi.NewConsolePreview(a.Console, a.Preview, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
 		consoleChanges = httpapi.NewConsoleChanges(a.Console, a.Work, a.changeActions, a.DB)
 		consoleInvocation = httpapi.NewConsoleInvocation(a.Console, a.Projects, a.Ways, a.Work, a.changeActions, a.DB, a.cfg.publicHost, a.cfg.clock.Now)
-		consoleCreation = httpapi.NewConsoleCreation(a.Projects, a.Access, a.consoleAdmission, httpapi.NewConsoleSessions(chatsFor(a), a.cli), a.cfg.agentExecutor == ExecutorDocker, a.authModeName())
+		consoleCreation = httpapi.NewConsoleCreation(a.Projects, a.Access, a.consoleAdmission, httpapi.NewConsoleSessions(chatsFor(a), a.cli), a.authModeName())
 		consoleEnd = httpapi.NewConsoleEnd(a.changeConsole)
 		consoleSessions = httpapi.NewConsoleSessions(chatsFor(a), a.cli)
 		complaintIntake = httpapi.NewComplaintIntake(a.Complaints, a.Console, a.DB)
@@ -340,13 +334,9 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/projects/{slug}/deployments", deploymentListing.Deployments, access.CapDeploymentRead, "project-slug"),
 		ownerRoute("GET /api/v1/projects/{slug}/release/default", deployments.ReleaseDefault, "deployments.ReleaseDefault"),
 		ownerRoute("PUT /api/v1/projects/{slug}/release/default", deployments.SetReleaseDefault, "deployments.SetReleaseDefault"),
-		ownerRoute("POST /api/v1/projects/{slug}/release/default/setup", deployments.SetupReleaseDefault, "deployments.SetupReleaseDefault"),
-		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{id}/promotion-policy", deployments.SetPromotionPolicy, "deployments.SetPromotionPolicy"),
 		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{id}/label", deployments.EditDeploymentLabel, "deployments.EditDeploymentLabel"),
 		ownerRoute("GET /api/v1/projects/{slug}/deployments/{id}/address", deployments.DeploymentAddress, "deployments.DeploymentAddress"),
 		ownerRoute("PUT /api/v1/projects/{slug}/deployments/{id}/address", deployments.EditDeploymentAddress, "deployments.EditDeploymentAddress"),
-		ownerRoute("GET /api/v1/projects/{slug}/deployments/{id}/address/observation", deployments.InspectDeploymentAddress, "deployments.InspectDeploymentAddress"),
-		ownerRoute("POST /api/v1/projects/{slug}/deployments/{id}/address/observation", deployments.ConfirmDeploymentAddress, "deployments.ConfirmDeploymentAddress"),
 		ownerRoute("PUT /api/v1/targets/{id}/label", targets.EditTargetLabel, "targets.EditTargetLabel"),
 		requireRoute("PUT /api/v1/integrations/{id}/label", connectors.EditConnectionLabel, access.CapIntegrationConnector, "instance"),
 		ownerRoute("POST /api/v1/projects/{slug}/deployments", deployments.CreateDeployment, "deployments.CreateDeployment"),
@@ -379,8 +369,6 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/targets", targets.Targets, access.CapDeploymentRead, "instance"),
 		requireRoute("POST /api/v1/targets", targets.AttachTarget, access.CapPlatformTargets, "instance"),
 		requireRoute("GET /api/v1/targets/{name}", targets.TargetPage, access.CapDeploymentRead, "instance"),
-		ownerRoute("GET /api/v1/targets/{name}/provider-association", targets.ProviderAssociation, "deployment.InspectProviderAssociation"),
-		ownerRoute("POST /api/v1/targets/{name}/provider-association", targets.AssociateProvider, "deployment.AssociateProvider"),
 		requireRoute("GET /api/v1/targets/{name}/capacity", targets.TargetCapacity, access.CapDeploymentRead, "instance"),
 		requireRoute("PATCH /api/v1/targets/{name}", targets.EditTarget, access.CapPlatformTargets, "instance"),
 		requireRoute("POST /api/v1/targets/{name}/check", targets.CheckTarget, access.CapPlatformTargets, "instance"),
@@ -554,7 +542,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/services", serviceKinds.SaveServiceKind, access.CapIntegrationServices, "instance"),
 		requireRoute("DELETE /api/v1/services/{capability}", serviceKinds.DeleteServiceKind, access.CapIntegrationServices, "instance"),
 		requireRoute("POST /api/v1/guidance/blocks", guidanceBlocks.CreateBlock, access.CapStandardsGuidance, "instance"),
-		publicRoute("GET /api/v1/guidance/blocks/{id}", byFormerID(former, audit.FormerGuidanceBlock, guidanceBlocks.GetBlock), "guidanceBlocks.GetBlock: shared guidance definition"),
+		publicRoute("GET /api/v1/guidance/blocks/{id}", guidanceBlocks.GetBlock, "guidanceBlocks.GetBlock: shared guidance definition"),
 		requireRoute("PATCH /api/v1/guidance/blocks/{id}", guidanceBlocks.PatchBlock, access.CapStandardsGuidance, "instance"),
 		requireRoute("GET /api/v1/projects/{slug}/services", projectServices.ListProjectServices, access.CapProjectRead, "project-slug"),
 		requireRoute("POST /api/v1/projects/{slug}/services", projectServices.SetProjectServices, access.CapProjectServices, "project-slug"),
@@ -599,7 +587,7 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("GET /api/v1/console/{sid}/uploads/{name}", consoleMessages.ConsoleUploadGet, access.CapProjectRead, "console-session"),
 
 		filteredRoute("GET /api/v1/adrs", adrs.ADRLibrary, "adrs.ADRLibrary"),
-		ownerRoute("GET /api/v1/adrs/{id}", byFormerID(former, audit.FormerADR, adrs.GetADR), "adrs.GetADR"),
+		ownerRoute("GET /api/v1/adrs/{id}", adrs.GetADR, "adrs.GetADR"),
 		requireRoute("PATCH /api/v1/adrs/{id}", adrs.PatchADR, access.CapChangeAttach, "adr"),
 		requireRoute("POST /api/v1/adrs/{id}/supersede", adrs.SupersedeADR, access.CapChangeAttach, "adr"),
 
@@ -617,11 +605,6 @@ func appRoutes(a *App) []routeSpec {
 		protocolRoute("POST /oauth/revoke", a.handleOAuthRevoke, "a.handleOAuthRevoke: credential verification"),
 		protocolRoute("POST "+gate.RedeemPath, dataProtection.RedeemGateTicket, "dataProtection.RedeemGateTicket: credential verification (a restored copy's gate secret)"),
 		publicRoute("/api/", missingAPI, "missingAPI: unknown API path response"),
-		// A page linked before 1.0 by a record's former number moves to its id;
-		// any other address is the SPA's.
-		publicRoute("GET /changes/{id}", formerPage(former, audit.FormerChange), "formerPage: a redirect naming a record's id; reading it needs its authority"),
-		publicRoute("GET /adrs/{id}", formerPage(former, audit.FormerADR), "formerPage: a redirect naming a record's id; reading it needs its authority"),
-		publicRoute("GET /guidance/{id}", formerPage(former, audit.FormerGuidanceBlock), "formerPage: a redirect naming a record's id; reading it needs its authority"),
 		publicRoute("/", webHandler(), "webHandler(): SPA assets and fallback; API authentication is independent"),
 	}
 }

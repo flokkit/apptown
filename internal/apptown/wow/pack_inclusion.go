@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/flokkit/apptown/internal/deploy/appcontract"
-
 	"github.com/flokkit/apptown/internal/apptown/wow/internal/wowsql"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/stamp"
@@ -139,7 +137,6 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 		Guidance:   slices.Clone(inc.Spec.Guidance),
 		Workflows:  slices.Clone(inc.Spec.Workflows),
 		Policies:   slices.Clone(inc.Spec.Policies),
-		Resources:  inc.Spec.Resources,
 		Toolchain:  inc.Spec.Toolchain,
 		Tools:      maps.Clone(inc.Spec.Tools),
 		Services:   slices.Clone(inc.Spec.Services),
@@ -271,9 +268,6 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 		}
 		out.Policies = append(out.Policies, own(p.Name))
 	}
-	if d.Resources.Memory != "" {
-		out.Resources = d.Resources
-	}
 	if d.Toolchain != "" {
 		out.Toolchain = d.Toolchain
 	}
@@ -289,8 +283,6 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 	}
 	for _, field := range d.Clears {
 		switch field {
-		case "resources":
-			out.Resources = appcontract.MemoryDefault{}
 		case "toolchain":
 			out.Toolchain = ""
 		case "tools":
@@ -298,7 +290,7 @@ func resolveDeclaration(ctx context.Context, d PackSpec, inc *includedPublicatio
 		case "services":
 			out.Services = nil
 		default:
-			return resolution{}, fmt.Errorf("%w: clears names %q; only toolchain, tools, services and resources are inherited", ErrInclusion, field)
+			return resolution{}, fmt.Errorf("%w: clears names %q; only toolchain, tools and services are inherited", ErrInclusion, field)
 		}
 	}
 	for _, e := range d.Extensions {

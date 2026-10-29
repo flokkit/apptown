@@ -1,5 +1,5 @@
 import { DeploymentAddressEdit } from './DeploymentAddress'
-import { ReleaseDefaultPicker, PromotionPolicyEdit } from './ReleaseDefault'
+import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
 import { PRODUCT } from '../../../brand'
 import { AppAddress, RuntimeStatus } from '../../../runtime'
@@ -46,7 +46,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         promotion: it ships the latest thing that landed when someone deploys it. Each runs on a
         deployment target offered to this project.
       </p>
-      <ReleaseDefaultPicker slug={slug} deployments={envs} offered={offered} />
+      <ReleaseDefaultPicker slug={slug} deployments={envs} />
       <div className="conn-grid">
         {envs.map((e) => <EnvCard key={e.name} slug={slug} env={e} onChanged={load} />)}
       </div>
@@ -144,7 +144,6 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         </div>
       )}
       {e.target?.kind === 'portainer' && e.id && <DeploymentAddressEdit slug={slug} id={e.id} />}
-      {e.kind === 'standing' && e.id && <PromotionPolicyEdit slug={slug} deployment={e} />}
       {e.aiModels && e.aiModels.length > 0 && <AIModelsLine slug={slug} name={e.name} />}
       {e.generation ? <ResourceLines slug={slug} name={e.name} /> : null}
       {e.generation ? <DiagnosticsLines slug={slug} name={e.name} /> : null}
@@ -445,7 +444,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
             <tr key={p.part || 'app'}>
               <td>{p.part || 'app'}{p.public && p.part ? <span className="muted"> (front door)</span> : null}{p.need ? <span className="muted"> (service)</span> : null}{p.suppliedService ? <span className="muted"> (workflow service)</span> : null}</td>
               {/* 'forge' is AppTown's default as generations from before the AppTown rename recorded it. */}
-              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'pack' ? `pack ${p.memoryDefault.name} v${p.memoryDefault.version}` : p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : (p.memoryDefault.kind === 'apptown' || p.memoryDefault.kind === 'forge') ? PRODUCT : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="chip pending">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
+              <td>{p.memory}{p.size && <div className="muted">size {p.size}</div>}{p.memoryDefault && <div className="muted">{p.memoryDefault.kind === 'catalogue' ? `catalogue ${p.memoryDefault.name}` : (p.memoryDefault.kind === 'apptown' || p.memoryDefault.kind === 'forge') ? PRODUCT : p.memoryDefault.kind} default</div>}{p.memoryUnlimited && <span className="chip pending">explicit no limit</span>}{p.runsOn && <div className="muted">{p.runsOn}</div>}</td>
               <td>{p.cpu}</td>
               <td>{p.observed.known ? fmtBytes(p.observed.usedBytes) : <span className="muted" title={p.observed.reason}>unknown</span>}</td>
               <td>

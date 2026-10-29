@@ -78,21 +78,19 @@ They remain unavailable for provider effects, including explicit teardown withou
 a final copy; that choice does not substitute for verified provider identity.
 
 Attachment observes the selected standalone endpoint before committing the
-connection, target and audit receipt together. An existing unverified target
-requires an administrator to use **Inspect provider association** on the target
-page, review the destination and deployment-to-stack associations, then select
-**Confirm provider association**. The page refuses confirmation while its reading
-is stale or its target settings have moved. These operations are also available as
-`GET /api/v1/targets/<name>/provider-association`
-and confirm the returned scope, revision and resource associations with `POST`
-to the same path. The confirmation body copies `connectionId`, supplies the
-observed scope as `expected`, its `endpointId` as `endpointId`, the returned
-`revision` as `expectedRevision`, and the returned `resources` unchanged.
-A missing connection can be selected by `connectionId`; an
-endpoint can be selected by `endpointId`. Inspection makes no local or remote
-resource changes. Adoption records current association, never historical creation
-or deletion entitlement. Unresolved retained resources refuse adoption until an
-operator settles them. Adoption does not clear restored-instance holds.
+connection, target and audit receipt together. The configured intranet target
+is recorded from configuration at each start; when its record has no scope, the
+start observes it the same way through the `portainer-deploy` connection: the
+endpoint its environment names, the daemon behind it and each existing
+deployment's stack. Scope, connection and stack associations commit together
+with a receipt to AppTown itself. Once a scope is recorded, no start observes
+again. The association records current evidence, never historical creation or
+deletion entitlement, and does not clear restored-instance holds. When the
+observation fails (Portainer unreachable, a recorded stack missing, retained
+resources unresolved), the start logs why and leaves the target without a
+scope; releases and provider operations on it refuse until a later start
+observes it. Any other Portainer target without a scope refuses provider
+operations; attach a new target instead.
 
 Ordinary provider operations resolve one credential snapshot, compare its API
 base locally before authenticated requests, then verify endpoint and daemon
@@ -111,51 +109,6 @@ Portainer API requests refuse redirects so the API key stays at the configured
 endpoint. Configure the final Portainer URL; even a redirect within the same
 origin is refused. This rule applies to API requests, not response forwarding
 through the Portainer Docker proxy.
-
-## Portainer connection identity
-
-A Portainer target references one integration by immutable connection UUID and
-one verified destination: canonical API origin and base path, numeric endpoint
-ID, and observed Docker daemon ID. Multiple targets and connections are allowed.
-A display environment name does not select a different endpoint after association.
-Changing that selection requires attaching another target.
-
-Direct Docker endpoints and Docker agent endpoints establish this scope when
-the observed daemon is standalone. Docker Swarm membership is refused.
-Legacy async-edge environments cannot establish this standalone Docker scope.
-They remain unavailable for provider effects, including explicit teardown without
-a final copy; that choice does not substitute for verified provider identity.
-
-Attachment observes the selected standalone endpoint before committing the
-connection, target and audit receipt together. An existing unverified target
-requires an administrator to use **Inspect provider association** on the target
-page, review the destination and deployment-to-stack associations, then select
-**Confirm provider association**. The page refuses confirmation while its reading
-is stale or its target settings have moved. These operations are also available as
-`GET /api/v1/targets/<name>/provider-association`
-and confirm the returned scope, revision and resource associations with `POST`
-to the same path. The confirmation body copies `connectionId`, supplies the
-observed scope as `expected`, its `endpointId` as `endpointId`, the returned
-`revision` as `expectedRevision`, and the returned `resources` unchanged.
-A missing connection can be selected by `connectionId`; an
-endpoint can be selected by `endpointId`. Inspection makes no local or remote
-resource changes. Adoption records current association, never historical creation
-or deletion entitlement. Unresolved retained resources refuse adoption until an
-operator settles them. Adoption does not clear restored-instance holds.
-
-Ordinary provider operations resolve one credential snapshot, compare its API
-base locally before authenticated requests, then verify endpoint and daemon
-identity using that snapshot. A changed destination refuses; key rotation at the
-same verified destination is allowed. Each cached Docker proxy request repeats
-these checks. Queued release requests and retained-resource evidence preserve the
-selected connection and scope. Requests without that evidence must be reissued.
-
-New stacks carry the deployment UUID in `x-apptown-deployment`. Update and removal
-read current stack metadata and a usable Compose file, matching endpoint, stack
-ID, stack name and deployment marker. An explicitly recorded legacy association
-supports valid unmarked Compose; missing or malformed proof refuses. Deletion
-also requires the existing creation receipt. These checks establish continuity
-at a configured provider, not authenticity against a malicious provider.
 
 ## Driver differences
 

@@ -33,7 +33,7 @@ execution and generation guards; a narrow backup requester admits the existing
 durable follow-up. No model service or App is available to these runners.
 On an AppTown with a worker (`ReleaseBuilds`, `release_build.go`) a landing's
 deploy step first refuses what would stop the release (no container
-registry, no `-private-docker`, `main` not on a Docker host, an unknown or
+registry, `-private-docker=false`, `main` not on a Docker host, an unknown or
 mismatched platform), then runs one `release-build` task through
 `TaskRunner` (private Docker, the commit as source, generated build files,
 no environment or credential), has Deployment publish its images and commit

@@ -38,10 +38,6 @@ func (a *Commands) now() time.Time { return clock.Or(a.clock)() }
 
 type CommandConfig struct {
 	DataDir, Image string
-	// HostScripts lets a script step that asks for `executor: local` run as
-	// a process on this host: the operator's explicit choice (-host-scripts),
-	// for an AppTown whose projects are trusted as much as its host.
-	HostScripts bool
 }
 type CommandDependencies struct {
 	Runner    execution.Runner

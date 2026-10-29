@@ -77,14 +77,12 @@ type Summary struct {
 	ReleaseRun   ids.ID
 	UpdatedAt    string
 	Attributes
-	RequirePromotion bool
-	PolicyRevision   int64
-	Protected        bool
-	Generation       int64
-	Readiness        Readiness
-	ChangeID         ids.ID
-	Target           *TargetSummary
-	Needs            []NeedSummary
+	Protected  bool
+	Generation int64
+	Readiness  Readiness
+	ChangeID   ids.ID
+	Target     *TargetSummary
+	Needs      []NeedSummary
 	// AIModelsKeys names the AI models keys the deployment owns; what
 	// OpenRouter says of them is read on its own (Service.AIModels).
 	AIModelsKeys []string
@@ -222,7 +220,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 		}
 		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{DisplayLabel: e.DisplayLabel,
 			ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
-			Attributes: e.releaseAttributes(), Protected: e.Protected(), RequirePromotion: e.RequirePromotion, PolicyRevision: e.PolicyRevision, Generation: e.ObservedGeneration, Readiness: e.Readiness,
+			Attributes: e.releaseAttributes(), Protected: e.Protected(), Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,
 		}}
 	}

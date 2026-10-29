@@ -36,7 +36,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 		Runner: projectProcesses(a), Progress: &a.progress,
 		Publisher: repositoryPublisher{attachments: a.repositoryAttachments, db: a.DB, now: a.cfg.clock.Now}, Branches: a.branches, Tasks: a.tasks, Panics: jobReporter{}, Docker: &a.docker,
 		Checks: workflowexec.CompileCheck{Run: checksFor(a).Run, Image: checksFor(a).AgentImage}, Catalog: a.Dependencies, Now: a.cfg.clock.Now,
-	}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage, HostScripts: a.cfg.hostScripts})
+	}, workflowexec.CommandConfig{DataDir: a.cfg.dataDir, Image: a.cfg.agentImage})
 	// An AppTown with a worker builds every release there
 	// (design/operations/workers.md, "Releases built on the worker").
 	var builds *workflowexec.ReleaseBuilds

@@ -123,10 +123,10 @@ LOCK TABLE targets IN SHARE ROW EXCLUSIVE MODE;
 -- Writes: named operations preserve their guards and affected-row receipts.
 
 -- name: EnsureStanding :one
-INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, promote_after, host_port, updated_at)
-  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(target_id),sqlc.arg(feed),sqlc.arg(audience),sqlc.arg(data_class),sqlc.arg(promote_after),0,sqlc.arg(updated_at))
+INSERT INTO deployments (display_label, id, project_id, name, kind, target_id, feed, audience, data_class, host_port, updated_at)
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(target_id),sqlc.arg(feed),sqlc.arg(audience),sqlc.arg(data_class),0,sqlc.arg(updated_at))
   ON CONFLICT (project_id, name) DO UPDATE SET target_id=excluded.target_id, feed=excluded.feed, audience=excluded.audience,
-  data_class=excluded.data_class, promote_after=excluded.promote_after, updated_at=excluded.updated_at
+  data_class=excluded.data_class, updated_at=excluded.updated_at
   WHERE (deployments.desired_generation=0 AND deployments.observed_generation=0)
   OR (deployments.target_id=excluded.target_id AND
   (deployments.audience IN ('partners','public') OR deployments.data_class='production'
@@ -488,13 +488,13 @@ SELECT * FROM project_release_settings WHERE project_id=$1;
 INSERT INTO project_release_settings(project_id, default_deployment_id, revision)
 SELECT sqlc.arg(project_id), sqlc.narg(default_deployment_id)::uuid, 1
 WHERE sqlc.arg(expected_revision)::bigint=0
-ON CONFLICT(project_id) DO UPDATE SET default_deployment_id=excluded.default_deployment_id, legacy_setup_json=NULL,
+ON CONFLICT(project_id) DO UPDATE SET default_deployment_id=excluded.default_deployment_id,
  revision=project_release_settings.revision+1
 WHERE project_release_settings.revision=sqlc.arg(expected_revision)
 RETURNING *;
 
 -- name: UpdateDefaultDeployment :one
-UPDATE project_release_settings SET default_deployment_id=sqlc.narg(default_deployment_id)::uuid, legacy_setup_json=NULL, revision=revision+1
+UPDATE project_release_settings SET default_deployment_id=sqlc.narg(default_deployment_id)::uuid, revision=revision+1
 WHERE project_id=sqlc.arg(project_id) AND revision=sqlc.arg(expected_revision) RETURNING *;
 
 -- name: ClearRemovedDefault :exec
@@ -510,11 +510,11 @@ SELECT * FROM deployment_address_settings WHERE deployment_id=$1;
 SELECT * FROM deployment_address_settings WHERE deployment_id=$1 FOR UPDATE;
 
 -- name: InsertDeploymentAddressSettings :one
-INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain,verification_state)
-VALUES(sqlc.arg(deployment_id),sqlc.arg(generated_hostname),sqlc.arg(custom_hostname),sqlc.arg(certificate_domain),'ready') RETURNING *;
+INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain)
+VALUES(sqlc.arg(deployment_id),sqlc.arg(generated_hostname),sqlc.arg(custom_hostname),sqlc.arg(certificate_domain)) RETURNING *;
 
 -- name: UpdateDeploymentAddressSettings :one
-UPDATE deployment_address_settings SET generated_hostname=sqlc.arg(generated_hostname),custom_hostname=sqlc.arg(custom_hostname),certificate_domain=sqlc.arg(certificate_domain),verification_state='ready',revision=revision+1
+UPDATE deployment_address_settings SET generated_hostname=sqlc.arg(generated_hostname),custom_hostname=sqlc.arg(custom_hostname),certificate_domain=sqlc.arg(certificate_domain),revision=revision+1
 WHERE deployment_id=sqlc.arg(deployment_id) AND revision=sqlc.arg(expected_revision) RETURNING *;
 
 -- name: EnsureHostnameClaim :exec
@@ -538,12 +538,5 @@ DELETE FROM deployment_hostname_claimants WHERE deployment_id=$1;
 -- name: RemoveEmptyHostnameClaim :exec
 DELETE FROM deployment_hostname_claims c WHERE c.hostname=$1 AND NOT EXISTS(SELECT 1 FROM deployment_hostname_claimants h WHERE h.hostname=c.hostname);
 
--- name: HasUnverifiedAddressInventory :one
-SELECT EXISTS(SELECT 1 FROM deployment_address_settings WHERE verification_state='legacy-unverified')::boolean;
-
 -- name: ReleaseNumbersForProject :many
 SELECT number FROM releases WHERE project_id=sqlc.arg(project_id) ORDER BY number;
-
--- name: EditPromotionPolicy :one
-UPDATE deployments SET require_promotion=sqlc.arg(require_promotion), policy_revision=policy_revision+1
-WHERE id=sqlc.arg(id) AND policy_revision=sqlc.arg(expected_revision) RETURNING *;

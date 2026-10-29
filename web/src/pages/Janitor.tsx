@@ -48,7 +48,7 @@ function ProjectSelection({ choice, value, full, update }: { choice: ProjectChoi
         return <div key={d.id}>
           <label><input type="checkbox" checked={!!selected} onChange={e => set(e.target.checked)} /> {d.displayLabel || d.name}</label>
           <p className="muted small">Environment {d.id} · target {d.targetId}</p>
-          {selected && <label><input type="checkbox" checked={selected.promotion} onChange={e => update({ ...value, environments: (value.environments ?? []).map(v => v.deploymentId === d.id ? { ...v, promotion: e.target.checked } : v) })} /> Also authorize promotion to this environment{d.protected || d.requirePromotion ? ' (currently required)' : ''}</label>}
+          {selected && <label><input type="checkbox" checked={selected.promotion} onChange={e => update({ ...value, environments: (value.environments ?? []).map(v => v.deploymentId === d.id ? { ...v, promotion: e.target.checked } : v) })} /> Also authorize promotion to this environment{d.protected ? ' (currently required)' : ''}</label>}
         </div>
       })}
     </>)}

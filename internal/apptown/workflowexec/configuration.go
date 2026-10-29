@@ -1,16 +1,14 @@
 package workflowexec
 
 import (
-	"github.com/flokkit/apptown/internal/execution"
-
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 )
 
 type agentKnobs struct {
-	model, thinking, executor, image string
-	useDind                          bool
+	model, thinking, image string
+	useDind                bool
 }
 
 // agentModelRequest is the model an agent step asks for, before slot
@@ -29,15 +27,12 @@ func agentModelRequest(stepModel string, spec *schema.Spec, inputsJSON string) s
 }
 
 func (a *Executor) resolveAgentKnobs(run *workflow.Run, cfg *agentConfig) agentKnobs {
-	k := agentKnobs{thinking: cfg.Thinking, executor: cfg.Executor, image: cfg.Image}
+	k := agentKnobs{thinking: cfg.Thinking, image: cfg.Image}
 	spec, _ := run.Definition()
 	k.model = agentModelRequest(cfg.Model, spec, run.InputsJSON)
 	if spec != nil {
 		if k.thinking == "" {
 			k.thinking = spec.Defaults.Thinking
-		}
-		if k.executor == "" {
-			k.executor = spec.Defaults.Executor
 		}
 		if k.image == "" {
 			k.image = spec.Defaults.Image
@@ -56,23 +51,34 @@ func (a *Executor) resolveAgentKnobs(run *workflow.Run, cfg *agentConfig) agentK
 	}
 	// No explicit model on the step: leave empty so slot resolution walks
 	// default slot -> fallbacks.
-	if k.executor == "" {
-		k.executor = a.cfg.Backend
-	}
 	if k.image == "" {
 		k.image = a.cfg.Image
 	}
 	// Private Docker (the agent's workshop) is what the step declares
-	// (docker: true), for a Docker-executed agent only.
-	k.useDind = k.executor == execution.Docker && cfg.Docker
+	// (docker: true).
+	k.useDind = cfg.Docker
 	return k
 }
 
+// executorRefusal is why a step whose admitted definition names an executor
+// other than docker (accepted before host processes were removed) is not
+// started: it is refused, never run elsewhere than a container.
+func executorRefusal(run *workflow.Run, cfg *agentConfig) string {
+	executor := cfg.Executor
+	if spec, _ := run.Definition(); spec != nil && executor == "" {
+		executor = spec.Defaults.Executor
+	}
+	if err := schema.CheckExecutor(executor); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 // dockerRefusal is why the step is not started, before any effect: private
-// Docker declared on an AppTown started with -no-private-docker.
+// Docker declared on an AppTown started with -private-docker=false.
 func (a *Executor) dockerRefusal(k agentKnobs) string {
-	if k.useDind && a.cfg.NoPrivateDocker {
-		return "this step declares private Docker (docker: true), and this AppTown was started with -no-private-docker"
+	if k.useDind && !a.cfg.PrivateDocker {
+		return privateDockerOff
 	}
 	return ""
 }

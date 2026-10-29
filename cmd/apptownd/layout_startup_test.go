@@ -31,17 +31,21 @@ func TestLayoutRefusalsPrecedeBootstrapEffects(t *testing.T) {
 	}{
 		{"newer layout", "layout", strconv.Itoa(apptown.DataLayoutVersion + 1), "data directory", false},
 		{"unreadable restore continuation", ".apptown-restore-intent.json", "{interrupted", "restore continuation", false},
-		{"unlocked legacy reset", "layout", "1", "layout upgrade is pending", true},
-		{"unlocked pending finalization", "data-layout-upgrade.json", "{}", "layout completion is pending", true},
+		{"layout 1 marker", "layout", "1", "before 1.0.0-rc.9", false},
+		{"layout 1 without a marker", filepath.Join("workspaces", "project-original", "HEAD"), "ref: refs/heads/main\n", "before 1.0.0-rc.9", false},
+		{"unlocked pending relocation", "data-layout-upgrade.json", "{}", "relocation is pending", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
-			if tc.name == "unlocked pending finalization" {
+			if tc.name == "unlocked pending relocation" {
 				if err := os.WriteFile(filepath.Join(root, "layout"), []byte(strconv.Itoa(apptown.DataLayoutVersion)), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
 			file := filepath.Join(root, tc.file)
+			if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+				t.Fatal(err)
+			}
 			if err := os.WriteFile(file, []byte(tc.body), 0o600); err != nil {
 				t.Fatal(err)
 			}

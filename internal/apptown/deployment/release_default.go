@@ -3,7 +3,6 @@ package deployment
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -16,23 +15,12 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// LegacyReleaseSetup is imported intent, not a verified provider association.
-type LegacyReleaseSetup struct {
-	Version         int             `json:"version"`
-	IntegrationID   ids.ID          `json:"integrationId"`
-	IntegrationName string          `json:"integrationName"`
-	TargetID        ids.ID          `json:"targetId"`
-	DeploymentName  string          `json:"deploymentName"`
-	Evidence        json.RawMessage `json:"evidence"`
-}
-
 // ReleaseDefault is an explicit project choice, separate from landing and labels.
 type ReleaseDefault struct {
-	LegacySetup      *LegacyReleaseSetup `json:"legacySetup,omitempty"`
-	EligibilityIssue string              `json:"eligibilityIssue,omitempty"`
-	ProjectID        ids.ID              `json:"projectId"`
-	DeploymentID     ids.ID              `json:"deploymentId,omitzero"`
-	Revision         int64               `json:"revision"`
+	EligibilityIssue string `json:"eligibilityIssue,omitempty"`
+	ProjectID        ids.ID `json:"projectId"`
+	DeploymentID     ids.ID `json:"deploymentId,omitzero"`
+	Revision         int64  `json:"revision"`
 }
 
 // ReadReleaseDefault reads only the recorded choice. An absent choice stays absent.
@@ -52,14 +40,6 @@ func (s *Service) ReadReleaseDefault(ctx context.Context, projectID ids.ID) (Rel
 		return out, err
 	}
 	out.DeploymentID, out.Revision = row.DefaultDeploymentID, row.Revision
-	if row.LegacySetupJson != nil {
-		var setup LegacyReleaseSetup
-		if err := json.Unmarshal(*row.LegacySetupJson, &setup); err != nil {
-			return out, err
-		}
-		setup.Evidence = append(json.RawMessage(nil), (*row.LegacySetupJson)...)
-		out.LegacySetup = &setup
-	}
 	if !out.DeploymentID.IsZero() {
 		q := deploymentsql.New(s.db.SQL())
 		dep, err := deploymentRecord(q.DeploymentByID(ctx, out.DeploymentID))

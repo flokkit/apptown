@@ -540,7 +540,6 @@ func TestAStuckChatOnAFreeChangeKeepsItAndStartupGoesOn(t *testing.T) {
 func TestALandingsAgentGateDoesNotRemoveTheHoldingChat(t *testing.T) {
 	t.Parallel()
 	w := newHolderWorld(t)
-	w.a.cfg.agentExecutor = ExecutorDocker
 	id, code, body := w.openChat(t)
 	if code != 201 {
 		t.Fatalf("open: %d %s", code, body)
@@ -694,7 +693,6 @@ func TestAChatLostAtRestartStillKeepsItsChange(t *testing.T) {
 func TestAReviewWrapUpWaitsForTheReviewerBeforeIt(t *testing.T) {
 	t.Parallel()
 	a := agentTestApp(t)
-	a.cfg.agentExecutor = ExecutorDocker
 	daemon := newSurvivingContainers()
 	a.docker = docker.Scope{Client: daemon}
 	_, stepID := admittedReviewStep(t, a, "review-wrapup")
@@ -717,7 +715,6 @@ func TestAReviewWrapUpWaitsForTheReviewerBeforeIt(t *testing.T) {
 func TestASurvivingWrapUpKeepsTheChangeWhateverAnEarlierOneDid(t *testing.T) {
 	t.Parallel()
 	a := agentTestApp(t)
-	a.cfg.agentExecutor = ExecutorDocker
 	daemon := newSurvivingContainers()
 	a.docker = docker.Scope{Client: daemon}
 	runID, stepID := admittedReviewStep(t, a, "review-name")
@@ -760,8 +757,7 @@ func TestASurvivingWrapUpKeepsTheChangeWhateverAnEarlierOneDid(t *testing.T) {
 // change until Docker confirms it gone.
 func TestAnAgentsPrivateDockerKeepsItsRunsChange(t *testing.T) {
 	t.Parallel()
-	a := agentTestApp(t)
-	a.cfg.agentExecutor = ExecutorDocker
+	a := agentTestApp(t, Config{PrivateDocker: true})
 	if _, err := a.Ways.CreateBlock(t.Context(), "skill/implementation", "Implement the requested change.", "", "alice"); err != nil {
 		t.Fatal(err)
 	}

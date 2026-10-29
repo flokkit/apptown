@@ -58,7 +58,7 @@ const MinMemoryBytes = 32 << 20
 // as MiB, Kubernetes and Score read it as decimal megabytes.
 func ParseMemory(s string) (int64, error) { return parseMemory(s, false) }
 
-// ParseMemoryV1 reads a memory as a version-1 contract or a pack default
+// ParseMemoryV1 reads a memory as a version-1 contract or a catalogue default
 // writes it: "Mi"/"Gi", or "M"/"G" meaning the same (MiB, GiB).
 func ParseMemoryV1(s string) (int64, error) { return parseMemory(s, true) }
 

@@ -3,14 +3,12 @@ package projectlifecycle
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 )
 
-func TestSettingsSharesNameReservationsAndKeepsBestEffortAudit(t *testing.T) {
+func TestSettingsSharesNameReservationsAndCommitsWithItsReceipt(t *testing.T) {
 	t.Parallel()
 	f := newOwnerFixture(t, false)
 	p, err := f.lifecycle.Create(context.Background(), Draft{Slug: "settings", Name: "Settings", Actor: "alice"})
@@ -33,16 +31,24 @@ func TestSettingsSharesNameReservationsAndKeepsBestEffortAudit(t *testing.T) {
 		t.Fatalf("busy edit wrote: %+v %v", before, err)
 	}
 	cleanup := f.db.FailNextStatement("INSERT INTO audit_log")
-	defer cleanup()
+	_, err = f.lifecycle.UpdateSettings(context.Background(), p.ID, project.SettingsPatch{ExpectedRevision: &rev, Name: &name, Icon: &icon}, "alice")
+	cleanup()
+	if err == nil {
+		t.Fatal("an edit was accepted without its receipt")
+	}
+	if held, err := f.lifecycle.projects.ByID(context.Background(), p.ID); err != nil || held.Name != p.Name || held.SettingsRevision != rev {
+		t.Fatalf("an edit without its receipt wrote: %+v %v", held, err)
+	}
 	after, err := f.lifecycle.UpdateSettings(context.Background(), p.ID, project.SettingsPatch{ExpectedRevision: &rev, Name: &name, Icon: &icon}, "alice")
 	if err != nil || after.Name != name || after.Icon != icon {
-		t.Fatalf("best effort audit changed command success: %+v %v", after, err)
+		t.Fatalf("the edit: %+v %v", after, err)
 	}
 }
 
-// An address change requires a replayable request; legacy clients may still
-// update display settings while repeating the current address.
-func TestAddressChangesRequireARequest(t *testing.T) {
+// An address change moves the project; its first address stays its serving
+// name, so another project cannot take it. A display edit may repeat the
+// current address.
+func TestAnAddressChangeMovesTheProject(t *testing.T) {
 	t.Parallel()
 	f := newOwnerFixture(t, false)
 	ctx := t.Context()
@@ -50,26 +56,17 @@ func TestAddressChangesRequireARequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := hubDir(f.lifecycle.dataDir, a.ID)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(dir, "private-to-first-project.txt"), []byte("first project's source"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.lifecycle.InitializeRepository(ctx, a, "main", ""); err != nil {
-		t.Fatal(err)
-	}
 	next, rev := "renamed-shop", a.SettingsRevision
-	if _, err := f.lifecycle.UpdateSettings(ctx, a.ID, project.SettingsPatch{ExpectedRevision: &rev, Slug: &next}, "alice"); !errors.Is(err, project.ErrRequestRequired) {
-		t.Fatalf("a slug change: %v", err)
+	moved, err := f.lifecycle.UpdateSettings(ctx, a.ID, project.SettingsPatch{ExpectedRevision: &rev, Slug: &next}, "alice")
+	if err != nil || moved.Slug != next {
+		t.Fatalf("a slug change: %+v %v", moved, err)
 	}
 	if _, err := f.lifecycle.Create(ctx, Draft{Slug: "shop", Name: "Different shop", Actor: "alice"}); !errors.Is(err, project.ErrSlugTaken) {
 		t.Fatalf("a second project took the first one's slug: %v", err)
 	}
-	name, same := "Shop and more", a.Slug
-	after, err := f.lifecycle.UpdateSettings(ctx, a.ID, project.SettingsPatch{ExpectedRevision: &rev, Slug: &same, Name: &name}, "alice")
-	if err != nil || after.Slug != "shop" || after.Name != name {
+	name, same := "Shop and more", moved.Slug
+	after, err := f.lifecycle.UpdateSettings(ctx, a.ID, project.SettingsPatch{ExpectedRevision: &moved.SettingsRevision, Slug: &same, Name: &name}, "alice")
+	if err != nil || after.Slug != next || after.Name != name {
 		t.Fatalf("a name edit that repeats the slug: %+v %v", after, err)
 	}
 }

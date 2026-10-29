@@ -15,24 +15,6 @@ import (
 	"github.com/lib/pq"
 )
 
-const claimProjectAddress = `-- name: ClaimProjectAddress :execrows
-INSERT INTO project_addresses(address,project_id) VALUES($1,$2) ON CONFLICT(address) DO NOTHING
-`
-
-type ClaimProjectAddressParams struct {
-	Address   string
-	ProjectID ids.ID
-}
-
-// Permanent address ownership.
-func (q *Queries) ClaimProjectAddress(ctx context.Context, arg ClaimProjectAddressParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, claimProjectAddress, arg.Address, arg.ProjectID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const claimProjectCreation = `-- name: ClaimProjectCreation :execrows
 INSERT INTO project_creation_requests(id,actor_id,request_id,project_id) VALUES($1,$2,$3,$4)
 ON CONFLICT(actor_id,request_id) DO NOTHING
@@ -58,33 +40,6 @@ func (q *Queries) ClaimProjectCreation(ctx context.Context, arg ClaimProjectCrea
 	return result.RowsAffected()
 }
 
-const claimProjectRename = `-- name: ClaimProjectRename :execrows
-INSERT INTO project_rename_requests(id,actor_id,request_id,project_id,input_hash) VALUES($1,$2,$3,$4,$5)
-ON CONFLICT(actor_id,request_id) DO NOTHING
-`
-
-type ClaimProjectRenameParams struct {
-	ID        ids.ID
-	ActorID   ids.ID
-	RequestID ids.ID
-	ProjectID ids.ID
-	InputHash string
-}
-
-func (q *Queries) ClaimProjectRename(ctx context.Context, arg ClaimProjectRenameParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, claimProjectRename,
-		arg.ID,
-		arg.ActorID,
-		arg.RequestID,
-		arg.ProjectID,
-		arg.InputHash,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const completeProjectCreation = `-- name: CompleteProjectCreation :execrows
 UPDATE project_creation_requests SET input_hash=$2,resolved_group=$3,result_json=$4 WHERE id=$1 AND result_json IS NULL
 `
@@ -103,23 +58,6 @@ func (q *Queries) CompleteProjectCreation(ctx context.Context, arg CompleteProje
 		arg.ResolvedGroup,
 		arg.ResultJson,
 	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
-const completeProjectRename = `-- name: CompleteProjectRename :execrows
-UPDATE project_rename_requests SET result_json=$2 WHERE id=$1 AND result_json IS NULL
-`
-
-type CompleteProjectRenameParams struct {
-	ID         ids.ID
-	ResultJson *json.RawMessage
-}
-
-func (q *Queries) CompleteProjectRename(ctx context.Context, arg CompleteProjectRenameParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, completeProjectRename, arg.ID, arg.ResultJson)
 	if err != nil {
 		return 0, err
 	}
@@ -403,15 +341,24 @@ func (q *Queries) NoteTakeDownsStarted(ctx context.Context, projectID ids.ID) (i
 	return result.RowsAffected()
 }
 
-const projectAddressOwner = `-- name: ProjectAddressOwner :one
-SELECT project_id FROM project_addresses WHERE address=$1
+const projectAddressTaken = `-- name: ProjectAddressTaken :one
+SELECT (EXISTS(SELECT 1 FROM projects p WHERE (p.slug=$1 OR p.serving_label=$1) AND p.id<>$2)
+ OR EXISTS(SELECT 1 FROM project_deletions d WHERE d.state<>'done' AND d.project_id<>$2
+  AND (d.slug=$1 OR d.plan->'releasePreviews'->>'servingLabel'=$1)))::boolean
 `
 
-func (q *Queries) ProjectAddressOwner(ctx context.Context, address string) (ids.ID, error) {
-	row := q.db.QueryRowContext(ctx, projectAddressOwner, address)
-	var project_id ids.ID
-	err := row.Scan(&project_id)
-	return project_id, err
+type ProjectAddressTakenParams struct {
+	Address string
+	ID      ids.ID
+}
+
+// An address is taken while another project has it as its address or its
+// serving label, or a deleted project's unfinished cleanup still names it.
+func (q *Queries) ProjectAddressTaken(ctx context.Context, arg ProjectAddressTakenParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, projectAddressTaken, arg.Address, arg.ID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const projectAuthorityCatalogue = `-- name: ProjectAuthorityCatalogue :many
@@ -534,11 +481,11 @@ func (q *Queries) ProjectByServingLabel(ctx context.Context, servingLabel string
 }
 
 const projectBySlug = `-- name: ProjectBySlug :one
-SELECT p.id, p.slug, p.name, p.default_branch, p.namespace, p.icon, p.blurb, p.release_domain, p.model_profile, p.owner_group, p.default_approvers, p.created_at, p.require_independent_approval, p.settings_revision, p.purpose, p.serving_label FROM projects p JOIN project_addresses a ON a.project_id=p.id WHERE a.address=$1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE slug = $1
 `
 
-func (q *Queries) ProjectBySlug(ctx context.Context, address string) (Project, error) {
-	row := q.db.QueryRowContext(ctx, projectBySlug, address)
+func (q *Queries) ProjectBySlug(ctx context.Context, slug string) (Project, error) {
+	row := q.db.QueryRowContext(ctx, projectBySlug, slug)
 	var i Project
 	err := row.Scan(
 		&i.ID,
@@ -673,12 +620,12 @@ func (q *Queries) ProjectDeletions(ctx context.Context) ([]ProjectDeletion, erro
 	return items, nil
 }
 
-const projectIDByAddress = `-- name: ProjectIDByAddress :one
-SELECT p.id FROM projects p JOIN project_addresses a ON a.project_id=p.id WHERE a.address=$1
+const projectIDBySlug = `-- name: ProjectIDBySlug :one
+SELECT id FROM projects WHERE slug=$1
 `
 
-func (q *Queries) ProjectIDByAddress(ctx context.Context, address string) (ids.ID, error) {
-	row := q.db.QueryRowContext(ctx, projectIDByAddress, address)
+func (q *Queries) ProjectIDBySlug(ctx context.Context, slug string) (ids.ID, error) {
+	row := q.db.QueryRowContext(ctx, projectIDBySlug, slug)
 	var id ids.ID
 	err := row.Scan(&id)
 	return id, err
@@ -785,29 +732,6 @@ func (q *Queries) ProjectPurpose(ctx context.Context, id ids.ID) (string, error)
 	var purpose string
 	err := row.Scan(&purpose)
 	return purpose, err
-}
-
-const projectRenameRequest = `-- name: ProjectRenameRequest :one
-SELECT id, actor_id, request_id, project_id, input_hash, result_json FROM project_rename_requests WHERE actor_id=$1 AND request_id=$2
-`
-
-type ProjectRenameRequestParams struct {
-	ActorID   ids.ID
-	RequestID ids.ID
-}
-
-func (q *Queries) ProjectRenameRequest(ctx context.Context, arg ProjectRenameRequestParams) (ProjectRenameRequest, error) {
-	row := q.db.QueryRowContext(ctx, projectRenameRequest, arg.ActorID, arg.RequestID)
-	var i ProjectRenameRequest
-	err := row.Scan(
-		&i.ID,
-		&i.ActorID,
-		&i.RequestID,
-		&i.ProjectID,
-		&i.InputHash,
-		&i.ResultJson,
-	)
-	return i, err
 }
 
 const projectRowForShare = `-- name: ProjectRowForShare :one

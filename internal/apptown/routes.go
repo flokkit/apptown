@@ -13,10 +13,8 @@ import (
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 
-	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
-	"github.com/flokkit/apptown/internal/apptown/identity"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -325,8 +323,7 @@ func webHandler() http.HandlerFunc { return web.DistHandler().ServeHTTP }
 
 // recordByName resolves what a route's {id} names when it is not an id: a
 // change's or a run's friendly form ("egg-catch#12", read with the project's
-// current slug), or the former number of a record whose page linked by it
-// before 1.0. Anything else is not a reference to the resolver's record.
+// current slug). Anything else is not a reference to the resolver's record.
 func recordByName(ctx context.Context, projects *project.Projects, db database.Queryer, resolver, ref string) (ids.ID, error) {
 	if slug, number, ok := workflow.ParseChangeNumber(ref); ok && (resolver == "change" || resolver == "run") {
 		p, err := projects.BySlug(ctx, slug)
@@ -338,96 +335,7 @@ func recordByName(ctx context.Context, projects *project.Projects, db database.Q
 		}
 		return workflow.ChangeIDByNumberIn(ctx, db, p.ID, slug, number)
 	}
-	if kind, ok := formerKinds[resolver]; ok && formerNumber(ref) {
-		return formerID(ctx, db, kind, ref)
-	}
 	return ids.Nil, errRouteID
-}
-
-// formerKinds are the route resolvers whose records were linked by an
-// integer before 1.0, and the kind their former identities are kept under.
-var formerKinds = map[string]string{"change": audit.FormerChange, "run": audit.FormerRun, "step": audit.FormerStep, "adr": audit.FormerADR}
-
-// formerNumber: a positive integer, the shape every former record id had.
-func formerNumber(s string) bool {
-	n, err := strconv.ParseInt(s, 10, 64)
-	return err == nil && n > 0 && strconv.FormatInt(n, 10) == s
-}
-
-// formerID is the record this AppTown's former identity names (audit.FormerID),
-// this AppTown being the one its AppTown.id setting names. An AppTown without one
-// kept no former identities.
-func formerID(ctx context.Context, db database.Queryer, kind, old string) (ids.ID, error) {
-	value, err := identity.InstanceSettingIn(ctx, db, identity.SettingAppTownID)
-	if err != nil {
-		return ids.Nil, err
-	}
-	instance, err := ids.Parse(value)
-	if err != nil || instance.IsZero() {
-		return ids.Nil, fault.New(fault.NotFound, "this AppTown kept no identities from before 1.0")
-	}
-	return audit.FormerID(ctx, db, instance, kind, old)
-}
-
-// formerPage serves a page that names a record by {id}: a former number
-// this AppTown kept moves, permanently, to the same page at the record's id,
-// the change page's run= and step= with it; anything else is the SPA's. The
-// redirect names an id and grants nothing: reading the record needs the
-// authority it always needed.
-func formerPage(db database.Queryer, kind string) http.HandlerFunc {
-	spa := webHandler()
-	return func(w http.ResponseWriter, r *http.Request) {
-		old := r.PathValue("id")
-		if !formerNumber(old) {
-			spa(w, r)
-			return
-		}
-		id, err := formerID(r.Context(), db, kind, old)
-		if fault.KindOf(err) == fault.NotFound {
-			spa(w, r) // the page says what it could not read
-			return
-		}
-		if err != nil {
-			httpapi.WriteFault(w, err)
-			return
-		}
-		query := r.URL.Query()
-		if kind == audit.FormerChange {
-			for key, keyKind := range map[string]string{"run": audit.FormerRun, "step": audit.FormerStep} {
-				if v := query.Get(key); formerNumber(v) {
-					moved, err := formerID(r.Context(), db, keyKind, v)
-					if err != nil && fault.KindOf(err) != fault.NotFound {
-						httpapi.WriteFault(w, err)
-						return
-					}
-					if err == nil {
-						query.Set(key, moved.String())
-					}
-				}
-			}
-		}
-		target := strings.TrimSuffix(r.URL.Path, old) + id.String()
-		if len(query) > 0 {
-			target += "?" + query.Encode()
-		}
-		http.Redirect(w, r, target, http.StatusMovedPermanently)
-	}
-}
-
-// byFormerID lets a route's {id} name its record by the number a page
-// linked it by before 1.0, for a route with no record resolver.
-func byFormerID(db database.Queryer, kind string, handler http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if old := r.PathValue("id"); formerNumber(old) {
-			id, err := formerID(r.Context(), db, kind, old)
-			if err != nil {
-				httpapi.WriteFault(w, err)
-				return
-			}
-			r.SetPathValue("id", id.String())
-		}
-		handler(w, r)
-	}
 }
 
 // byNumber lets a route's {id} name the record by its number within

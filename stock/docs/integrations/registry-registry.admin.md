@@ -74,8 +74,8 @@ Package mirrors are what builds read. A container registry is where an
 AppTown with a worker publishes each landing's release images: the worker
 builds them, AppTown pushes them to the project's container registry and
 records each by digest, and every deployment target pulls those digests.
-Nothing is built on a target. This needs AppTown started with
-`-private-docker`.
+Nothing is built on a target. This needs private Docker, which is on
+unless AppTown is started with `-private-docker=false`.
 
 Offer one container-registry connector under Integrations: a project with
 no registry is given it at its first landing, recorded as an attachment.

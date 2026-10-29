@@ -98,7 +98,6 @@ func TestAWorkerAgentRequiresItsSteeringArtifactBeforeReservation(t *testing.T) 
 			})
 			driver := &steeringReceiptWorker{}
 			a.tasks.Driver = driver
-			a.agents.cfg.Backend = execution.Docker
 			a.agents.worker = &AgentWorker{Tasks: a.tasks}
 			if failed {
 				t.Cleanup(a.db.FailNextStatement("INSERT INTO artifacts"))

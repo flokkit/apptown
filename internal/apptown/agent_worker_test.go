@@ -140,8 +140,8 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		// one that cannot even be read is refused.
 		"a declaration too large to read": {with: map[string]any{"needs": true}, want: ".apptown/app.yaml is 1048577 bytes, over 1048576",
 			files: map[string]string{".apptown/app.yaml": strings.Repeat("#", 1<<20+1)}},
-		// AppTown was started without -private-docker.
-		"private Docker without the operator's opt-in": {with: map[string]any{"docker": true}, want: "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker"},
+		// AppTown was started with -private-docker=false (Config's zero value).
+		"private Docker turned off": {with: map[string]any{"docker": true}, want: "this AppTown was started with -private-docker=false"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -153,7 +153,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 					h.ServeHTTP(w, r)
 				})
 			})
-			a := testApp(t, Config{AgentExecutor: ExecutorDocker, AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
+			a := testApp(t, Config{AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL)})
 			with := map[string]any{"prompt": "do it", "executor": "docker"}
 			for k, v := range c.with {
 				with[k] = v

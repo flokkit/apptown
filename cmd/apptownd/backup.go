@@ -164,7 +164,7 @@ func restoreStep(ctx context.Context, dataDir string, c command) (*instancebacku
 		return nil, err
 	}
 	dk := docker.Scope{Client: docker.CLI{}}
-	return instancebackup.Restore(ctx, instancebackup.RestoreRequest{DataDir: dataDir, MaxLayoutVersion: apptown.DataLayoutVersion, Archive: c.archive, Passphrase: pass, Docker: dk,
+	return instancebackup.Restore(ctx, instancebackup.RestoreRequest{DataDir: dataDir, LayoutVersion: apptown.DataLayoutVersion, Archive: c.archive, Passphrase: pass, Docker: dk,
 		Database: apptown.BuiltinDatabase{DataDir: dataDir, Docker: dk}, Say: func(s string) { fmt.Fprintln(os.Stderr, "==", s) }})
 }
 

@@ -80,7 +80,7 @@ func hostSettingsFor(a *App) deployment.HostSettings {
 // environmentDependencies are the owners a boot's environment is prepared
 // from, for a release and a preview alike.
 func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
-	return deployment.EnvironmentDependencies{MemoryDefaults: a.Adoption, Secrets: a.Secrets, Integrations: a.Integrations, Needs: a.Dependencies,
+	return deployment.EnvironmentDependencies{Secrets: a.Secrets, Integrations: a.Integrations, Needs: a.Dependencies,
 		Probe: a.probe, ToolVersions: a.cfg.stock.Tools, Routes: a.cfg.routing(), Projects: a.Projects}
 }
 

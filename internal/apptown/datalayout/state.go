@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/flokkit/apptown/internal/apptown/project/repositorylayout"
 	"github.com/flokkit/apptown/internal/durable"
 )
 
@@ -22,13 +21,17 @@ const journalName = "data-layout-upgrade.json"
 // ErrNewerLayout refuses a downgrade before database or application effects.
 var ErrNewerLayout = errors.New("the data directory was written by a newer build")
 
-// ReadVersion does not stamp or create anything. Missing is the supported
-// addressed layout; only a completed upgrade is permitted to write Version.
+// ErrOldLayout refuses a data directory from before layout 2. This build does
+// not move repositories between layouts; an earlier release does.
+var ErrOldLayout = errors.New("this data directory is from AppTown before 1.0.0-rc.9 (data layout 1): upgrade it with a release from 1.0.0-rc.9 to 1.0.0-rc.11 first, or start with an empty data directory")
+
+// ReadVersion does not stamp or create anything. A missing marker is a new
+// data directory only when no project repository exists in it (Initialize).
 func ReadVersion(root string) (int, error) {
 	path := filepath.Join(root, "layout")
 	info, err := os.Lstat(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return 1, nil
+		return 0, ErrOldLayout
 	}
 	if err != nil {
 		return 0, err
@@ -47,19 +50,47 @@ func ReadVersion(root string) (int, error) {
 	if version > Version {
 		return 0, fmt.Errorf("%w: layout %d, this build reads %d", ErrNewerLayout, version, Version)
 	}
+	if version < Version {
+		return 0, ErrOldLayout
+	}
 	return version, nil
 }
 
+// Initialize writes the marker for a data directory that has none and holds
+// no project repository. Layouts differ only in where project repositories
+// live (workspaces/project-*), so such a directory, new or seeded with files
+// such as secrets.env, is already in this layout. It runs before the database
+// is opened: a refused older directory is left for its own release to upgrade.
+func Initialize(root string) error {
+	if _, err := os.Lstat(filepath.Join(root, "layout")); !errors.Is(err, fs.ErrNotExist) {
+		if err != nil {
+			return err
+		}
+		_, err := ReadVersion(root)
+		return err
+	}
+	repositories, err := filepath.Glob(filepath.Join(root, "workspaces", "project-*"))
+	if err != nil {
+		return err
+	}
+	if len(repositories) > 0 {
+		return ErrOldLayout
+	}
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return err
+	}
+	_, err = durable.Write(root, "layout", []byte(strconv.Itoa(Version)+"\n"), 0o600, false)
+	return err
+}
+
 type journal struct {
-	Nonce        string                              `json:"nonce"`
-	Format       int                                 `json:"format"`
-	Instance     string                              `json:"instance"`
-	Root         string                              `json:"root"`
-	OriginalRoot string                              `json:"originalRoot"`
-	FromVersion  int                                 `json:"fromVersion"`
-	Phase        string                              `json:"phase"`
-	Inventory    inventory                           `json:"inventory"`
-	Exchanges    []repositorylayout.MetadataExchange `json:"exchanges,omitempty"`
+	Nonce        string    `json:"nonce"`
+	Format       int       `json:"format"`
+	Instance     string    `json:"instance"`
+	Root         string    `json:"root"`
+	OriginalRoot string    `json:"originalRoot"`
+	Phase        string    `json:"phase"`
+	Inventory    inventory `json:"inventory"`
 }
 
 func readJournal(root, instance string) (journal, bool, error) {
@@ -87,11 +118,11 @@ func readJournal(root, instance string) (journal, bool, error) {
 	if err := decoder.Decode(new(any)); err != io.EOF {
 		return out, false, errors.New("layout journal has trailing data")
 	}
-	if len(out.Nonce) < 26 || len(out.Nonce) > 64 || strings.Trim(out.Nonce, "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") != "" || out.Format != 1 || out.Instance != instance || out.Root != root || !filepath.IsAbs(out.OriginalRoot) || filepath.Clean(out.OriginalRoot) != out.OriginalRoot || (out.FromVersion != 1 && out.FromVersion != 2) {
+	if len(out.Nonce) < 26 || len(out.Nonce) > 64 || strings.Trim(out.Nonce, "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567") != "" || out.Format != 2 || out.Instance != instance || out.Root != root || !filepath.IsAbs(out.OriginalRoot) || filepath.Clean(out.OriginalRoot) != out.OriginalRoot {
 		return out, false, errors.New("layout journal does not match this installation")
 	}
 	switch out.Phase {
-	case "planned", "staging", "moving", "metadata", "references", "verifying", "complete":
+	case "references", "verifying", "complete":
 	default:
 		return out, false, errors.New("unrecognized layout journal phase")
 	}
@@ -113,15 +144,11 @@ func (j *journal) advance(phase string) error {
 // RequireCurrent is the read-only boundary for commands that intentionally do
 // not take the daemon's exclusive lock, such as account password reset.
 func RequireCurrent(root string) error {
-	version, err := ReadVersion(root)
-	if err != nil {
+	if _, err := ReadVersion(root); err != nil {
 		return err
 	}
-	if version != Version {
-		return errors.New("data layout upgrade is pending; start AppTown normally to complete it before resetting an account")
-	}
 	if _, err := os.Lstat(filepath.Join(root, journalName)); err == nil {
-		return errors.New("data layout completion is pending; start AppTown normally before resetting an account")
+		return errors.New("a restored data directory's relocation is pending; start AppTown normally before resetting an account")
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}

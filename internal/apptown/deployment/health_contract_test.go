@@ -57,7 +57,7 @@ func TestHealthProbesTheContractOfTheReleaseThatRuns(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	watched := docker.Watched{Slug: "release-create", Name: in.DeploymentName}
+	watched := docker.Watched{ProjectID: in.ProjectID, Slug: "release-create", Name: in.DeploymentName}
 	path := func() string {
 		p := s.healthPublicPart(context.Background(), watched)
 		if p == nil || p.Intent == nil || p.Intent.Liveness == nil {

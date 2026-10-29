@@ -76,10 +76,10 @@ describe("a deployment's resources", () => {
   })
   it('shows the recorded default source and explicit unlimited act separately', () => {
     const html = render({ parts: [
-      { part: 'web', public: true, memory: '160M', cpu: 'no limit', memoryDefault: { kind: 'pack', name: 'django-htmx', version: 3 }, overrideApplied: false, observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } },
+      { part: 'web', public: true, memory: '512Mi', cpu: 'no limit', memoryDefault: { kind: 'apptown' }, overrideApplied: false, observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } },
       { part: 'worker', public: false, memory: 'no limit', cpu: 'no limit', memoryUnlimited: true, overrideApplied: true, override: { part: 'worker', resources: {}, memoryUnlimited: true, reason: 'measured allowance', setBy: 'alice', setAt: '2026-10-14T00:00:00Z' }, observed: { part: 'worker', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } },
     ] })
-    expect(html).toContain('pack django-htmx v3')
+    expect(html).toContain('AppTown default')
     expect(html).toContain('default')
     expect(html).toContain('explicit no limit')
     expect(html).toContain('measured allowance')

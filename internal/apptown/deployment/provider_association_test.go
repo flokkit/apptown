@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -189,46 +190,82 @@ func TestProviderAssociationRefusesChangedURLBeforeOrdinaryAndProxyRequests(t *t
 	}
 }
 
-func TestProviderAssociationObservesLegacyWithoutInventingScope(t *testing.T) {
-	s, _, write := providerAssociationWorld(t)
+// wireIntranet names the intranet's connection and secrets the way an
+// installation does: the portainer-deploy connector references secrets by
+// name. The intranet target exists from before, without a scope, with the
+// environment the fake provider serves.
+func wireIntranet(t *testing.T, s *Service, base, key string) {
+	t.Helper()
+	if _, err := s.Targets.ByName(t.Context(), IntranetTargetName); err != nil {
+		if _, err := s.Targets.Put(t.Context(), &Target{Name: IntranetTargetName, Kind: KindPortainer, Provider: IntranetConnection, Origin: OriginAttached, Status: TargetReady, Address: map[string]any{AddressEnvironment: "docker"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.env.integrations.Bindings.Save(t.Context(), IntranetConnection, "deploy", "portainer", `{"urlFrom":"PT_URL","apiKeyFrom":"PT_KEY","appsDomainFrom":"PT_APPS"}`, "alice"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.hosts.settings.DataDir, "secrets.env"), []byte("PT_URL="+base+"\nPT_KEY="+key+"\nPT_APPS=apps.example\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestIntranetStartObservesProviderScopeOnce(t *testing.T) {
+	s, _, _ := providerAssociationWorld(t)
 	var key atomic.Value
-	key.Store("first")
+	key.Store("key")
 	var calls atomic.Int32
 	server := providerScopeServer(t, &key, &calls)
-	write(server.URL, "first")
-	target, err := s.Targets.Put(t.Context(), &Target{Name: "legacy", Kind: KindPortainer, Status: TargetReady, Address: map[string]any{"urlFrom": "PT_URL", "apiKeyFrom": "PT_KEY", AddressEnvironment: "docker"}})
+	wireIntranet(t, s, server.URL, "key")
+	s.SeedTargets(t.Context(), nil)
+	target, err := s.Targets.ByName(t.Context(), IntranetTargetName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.providers.PortainerConfig(t.Context(), target); err == nil {
-		t.Fatal("unassociated legacy target used credentials")
-	}
-	if calls.Load() != 0 {
-		t.Fatal("unassociated ordinary use made a provider request")
-	}
-	preview, err := s.InspectProviderAssociation(t.Context(), target.Name, ProviderAssociationSelection{})
+	binding, err := s.env.integrations.Bindings.ByName(t.Context(), IntranetConnection)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if preview.Associated || preview.Scope.DaemonID != "engine-a" {
-		t.Fatalf("preview: %+v", preview)
-	}
-	unchanged, err := s.Targets.ByID(t.Context(), target.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(unchanged.ProviderScope) != 0 || !unchanged.ConnectionID.IsZero() {
-		t.Fatal("observation invented a durable association")
-	}
-	confirmed, err := s.AssociateProvider(t.Context(), target.Name, ProviderAssociationSelection{ExpectedRevision: preview.Revision, Expected: &preview.Scope, Resources: preview.Resources})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !confirmed.Associated || confirmed.ConnectionID.IsZero() {
-		t.Fatal("confirmed association missing")
+	if target.ConnectionID != binding.ID || !strings.Contains(string(target.ProviderScope), `"engine-a"`) {
+		t.Fatalf("start did not record the observed scope: connection %s scope %s", target.ConnectionID, target.ProviderScope)
 	}
 	if _, err := s.providers.PortainerConfig(t.Context(), target); err != nil {
 		t.Fatal(err)
+	}
+	lines, err := audit.Recent(t.Context(), s.db, audit.Filter{KindPrefix: "target.provider-associated", Subject: IntranetTargetName})
+	if err != nil || len(lines) != 1 || lines[0].Actor != "apptown-system" {
+		t.Fatalf("association receipt: %+v %v", lines, err)
+	}
+	before := calls.Load()
+	s.SeedTargets(t.Context(), nil)
+	if calls.Load() != before {
+		t.Fatal("a start observed a target that already has a scope")
+	}
+}
+
+func TestIntranetStartLeavesScopeUnobservedWhenProviderRefuses(t *testing.T) {
+	s, _, _ := providerAssociationWorld(t)
+	var key atomic.Value
+	key.Store("right")
+	var calls atomic.Int32
+	server := providerScopeServer(t, &key, &calls)
+	wireIntranet(t, s, server.URL, "wrong")
+	s.SeedTargets(t.Context(), nil)
+	target, err := s.Targets.ByName(t.Context(), IntranetTargetName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(target.ProviderScope) != 0 || !target.ConnectionID.IsZero() {
+		t.Fatal("a refused observation recorded a scope")
+	}
+	if _, err := s.providers.PortainerConfig(t.Context(), target); err == nil {
+		t.Fatal("an unobserved target was usable")
+	}
+	if err := os.WriteFile(filepath.Join(s.hosts.settings.DataDir, "secrets.env"), []byte("PT_URL="+server.URL+"\nPT_KEY=right\nPT_APPS=apps.example\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	s.SeedTargets(t.Context(), nil)
+	if target, err = s.Targets.ByName(t.Context(), IntranetTargetName); err != nil || len(target.ProviderScope) == 0 {
+		t.Fatalf("the next start did not observe: %+v %v", target, err)
 	}
 }
 

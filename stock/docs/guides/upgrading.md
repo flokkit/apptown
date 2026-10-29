@@ -66,8 +66,8 @@ or instance credentials.
    image (`ghcr.io/flokkit/apptown-agent:<version>`); AppTown pulls it when
    it starts. Workers build their own agent image from the recipe in the
    release. Install the worker first, then start `apptownd`. The new
-   `apptownd` upgrades the database and the data directory's layout when it
-   starts, including with `-verify-only`. (A source build rebuilds with `make
+   `apptownd` upgrades the database when it starts, including with
+   `-verify-only`. (A source build rebuilds with `make
    build` and its own agent image: the repository's `CONTRIBUTING.md`.)
 4. **Switching to no local Docker** at the same time: follow
    [Split install](split-install.md), "Switching to no local
@@ -85,10 +85,16 @@ The oldest supported installation and whole-AppTown backup schema is 167,
 from 1.0.0-rc.7. Startup and whole-AppTown restore refuse an older schema;
 this build does not perform the earlier release-candidate migrations.
 
+The oldest data directory and whole-AppTown backup this build reads is from
+1.0.0-rc.9 (data layout 2, the `layout` file in the data directory). Upgrade
+an installation from 1.0.0-rc.7 to a release from 1.0.0-rc.9 to
+1.0.0-rc.11 first, which moves its project repositories, then to this one.
+Startup refuses an older data directory before it opens the database.
+
 Read the target release's notes for its additional upgrade and recovery
 requirements. Preserve the matching database and data-directory copies described
 above before starting the new build; `-verify-only` still performs required schema
-and repository-layout changes.
+changes.
 
 ## Rolling back
 
@@ -96,8 +102,8 @@ The way back is the two copies from step 2: stop `apptownd`, load the dump
 (the commands under "Restoring the database" in [AppTown's own
 backups](apptown-backups.md)), replace the data directory's
 contents except `pgdata` with the copy, and start the previous release. That
-discards everything since the copies: the new build's database and layout
-upgrades and any work done on it. The new build's first write is where work
+discards everything since the copies: the new build's database upgrade and
+any work done on it. The new build's first write is where work
 starts being lost, so roll back before people use it, or accept losing what
 they did. There is no other downgrade: an older build refuses a database or a
 data directory a newer one has upgraded. Each release's test suite upgrades

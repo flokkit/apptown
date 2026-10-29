@@ -58,7 +58,9 @@ project and is never such a caller, whatever its person holds. Readable
 projects are selected before any limit, using every read a row needs to be
 shown (departures need the project and its releases), and a readable change
 is not a readable project. The stock role catalogue is
-public. Asking who may act on a project needs only read access to it when you
+public. A grant sits at the instance, a group, a project or a release
+target, and a role only at the scope it is declared for; the owner refuses
+any other. Asking who may act on a project needs only read access to it when you
 ask about yourself; asking about another person reads the institution's
 structure.
 

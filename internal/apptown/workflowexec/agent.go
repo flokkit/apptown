@@ -14,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 
@@ -41,7 +42,7 @@ type agentConfig struct {
 	Prompt    string               `json:"prompt"`
 	Model     string               `json:"model"`    // "provider/model-pattern"; empty = workflow default, then apptownd default, then pi default
 	Thinking  string               `json:"thinking"` // off|minimal|low|medium|high
-	Executor  string               `json:"executor"` // local | docker; empty = workflow default, then apptownd default (docker)
+	Executor  string               `json:"executor"` // docker, the only value; validation refuses any other
 	Image     string               `json:"image"`    // docker image; empty = apptownd default
 	Scm       integration.SCMGrant `json:"scm"`      // false | true(=read) | "read" | "write" — project-scoped GitLab token
 	Skills    []string             `json:"skills"`   // guidance block names, conventionally skill/*
@@ -145,7 +146,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	// draws a slot from the pool of the binding its model runs on
 	// (model_slots.go), and queues only when that backend is full.
 	k := a.resolveAgentKnobs(run, &cfg)
-	if reason := a.dockerRefusal(k); reason != "" {
+	if reason := strs.FirstNonBlank(executorRefusal(run, &cfg), a.dockerRefusal(k)); reason != "" {
 		if _, claimErr := task.Claim(); claimErr == nil {
 			fail(workflow.StatusError, map[string]any{"reason": reason})
 		}
@@ -270,7 +271,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 		fail(workflow.StatusError, map[string]any{"reason": err.Error()})
 		return
 	}
-	args := piharness.StepArgs(piharness.FolderStepPaths, sessionID, k.executor, st.Text != "", model, k.thinking, prompt)
+	args := piharness.StepArgs(piharness.FolderStepPaths, sessionID, st.Text != "", model, k.thinking, prompt)
 
 	env, scmGranted, err := a.agentEnv(task.Context(), run, step, &cfg, ws, model, k)
 	if err != nil {
@@ -320,7 +321,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	a.progress.Start(stepID)
 	defer workflow.CaptureProgress(task.Context(), a.db, a.progress, stepID, a.clock)
 	res := a.piInvoke(task.Context(), piCall{
-		Source: source, Step: step, Executor: k.executor, Image: k.image, Workspace: ws,
+		Source: source, Step: step, Image: k.image, Workspace: ws,
 		Args: args, Env: env, Network: network, Timeout: timeout,
 		Name: execution.UniqueName(fmt.Sprintf("apptown-step-%d", stepID)),
 		// An agent with a private Docker daemon is not re-run in place: what
@@ -335,7 +336,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 
 	attempt.settle(settlementOutcome(a.recordAgentOutcome(task.Context(), agentRecord{
 		task: task, cfg: &cfg, pi: res, files: h, steering: st,
-		modelSlot: modelSlot, modelProfile: modelProfile, executor: k.executor, image: k.image,
+		modelSlot: modelSlot, modelProfile: modelProfile, image: k.image,
 		scmGranted: scmGranted, start: start, queuedMs: queuedMs, attempts: attempts,
 	})))
 }

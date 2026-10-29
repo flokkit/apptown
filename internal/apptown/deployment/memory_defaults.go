@@ -3,24 +3,27 @@ package deployment
 import (
 	"context"
 	"fmt"
+	"maps"
+
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/ids"
-	"maps"
 )
 
 const AppTownDefaultMemory int64 = 512 << 20
 
-// MemoryDefaultSource identifies the default that supplied the effective cap.
+// MemoryDefaultSource identifies the default that supplied the effective cap:
+// AppTown's ("apptown"), or for a service need its catalogue kind's
+// ("catalogue", Name the kind).
 type MemoryDefaultSource struct {
-	Kind    string `json:"kind"`
-	Name    string `json:"name,omitempty"`
-	Version int64  `json:"version,omitempty"`
+	Kind string `json:"kind"`
+	Name string `json:"name,omitempty"`
 }
 
-// DefaultMemory resolves a fresh container generation, after profile/override.
-// Replay must use AppliedProfile.On instead; a default is not a declaration.
-func (e *Environment) DefaultMemory(ctx context.Context, projectID ids.ID, c *appcontract.Contract, a AppliedProfile) (*appcontract.Contract, AppliedProfile, error) {
+// DefaultMemory resolves a fresh container generation's third level: a part
+// or need with no override and no declaration for its profile gets AppTown's
+// default (a service need its catalogue kind's size, else 512Mi). Replay must
+// use AppliedProfile.On instead; a default is not a declaration.
+func (e *Environment) DefaultMemory(ctx context.Context, c *appcontract.Contract, a AppliedProfile) (*appcontract.Contract, AppliedProfile, error) {
 	out := *c
 	out.Parts = append([]appcontract.Part(nil), c.Parts...)
 	out.NeedResources = maps.Clone(c.NeedResources)
@@ -28,31 +31,14 @@ func (e *Environment) DefaultMemory(ctx context.Context, projectID ids.ID, c *ap
 	if a.Parts == nil {
 		a.Parts = map[string]AppliedPart{}
 	}
-	amount := AppTownDefaultMemory
-	source := MemoryDefaultSource{Kind: "apptown"}
-	if e.memoryDefaults != nil {
-		d, name, version, err := e.memoryDefaults.MemoryDefault(ctx, projectID)
-		if err != nil {
-			return nil, AppliedProfile{}, err
-		}
-		b, err := d.Bytes()
-		if err != nil {
-			return nil, AppliedProfile{}, err
-		}
-		if b > 0 {
-			amount = b
-			source = MemoryDefaultSource{Kind: "pack", Name: name, Version: version}
-		}
-	}
 	for i := range out.Parts {
 		p := &out.Parts[i]
 		ap := a.Parts[p.Name]
 		if ap.MemoryUnlimited {
 			p.Resources.MemoryBytes = 0
 		} else if p.Resources.MemoryBytes == 0 {
-			p.Resources.MemoryBytes = amount
-			v := source
-			ap.MemoryDefault = &v
+			p.Resources.MemoryBytes = AppTownDefaultMemory
+			ap.MemoryDefault = &MemoryDefaultSource{Kind: "apptown"}
 		}
 		ap.Resources = p.Resources
 		a.Parts[p.Name] = ap

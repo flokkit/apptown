@@ -1,3 +1,6 @@
+// Package repositorylayout repairs the absolute local repository references a
+// whole-AppTown backup carries when it is restored into a different data
+// directory. It does not select an application repository.
 package repositorylayout
 
 import (
@@ -51,3 +54,24 @@ func Translate(references []Reference, owner ids.ID, path string) (string, bool,
 	}
 	return filepath.Join(r.After, rel), true, nil
 }
+
+// Mapping is one project's repository as the project owner's offline
+// inventory lists it. Missing permits an absent repository only when durable
+// lifecycle evidence allows it.
+type Mapping struct {
+	ID      ids.ID `json:"id"`
+	Missing bool   `json:"missing"`
+}
+
+func hub(root string, id ids.ID) string {
+	return filepath.Join(root, "workspaces", "project-"+id.String())
+}
+
+// Reference maps the repository in a restored archive's original data root to
+// the same repository in the data root it was restored into.
+func (m Mapping) Reference(oldRoot, newRoot string) Reference {
+	return Reference{Owner: m.ID, Before: hub(oldRoot, m.ID), After: hub(newRoot, m.ID)}
+}
+
+// Source is the repository's location within root.
+func (m Mapping) Source(root string) string { return hub(root, m.ID) }

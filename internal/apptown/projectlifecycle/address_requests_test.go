@@ -47,7 +47,7 @@ func TestCreationRequestReplaysWholeIntentAndPreservesOriginalResult(t *testing.
 		t.Fatalf("changed setup accepted: %v", err)
 	}
 	next, rev := "accounts", first.SettingsRevision
-	renamed, err := f.lifecycle.UpdateSettings(ctx, first.ID, project.SettingsPatch{RequestID: requestID(), ExpectedRevision: &rev, Slug: &next}, "untrusted")
+	renamed, err := f.lifecycle.UpdateSettings(ctx, first.ID, project.SettingsPatch{ExpectedRevision: &rev, Slug: &next}, "untrusted")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,11 +55,11 @@ func TestCreationRequestReplaysWholeIntentAndPreservesOriginalResult(t *testing.
 	if err != nil || retry.ID != first.ID || retry.Slug != "ledger" {
 		t.Fatalf("original committed result: %+v %v", retry, err)
 	}
-	for _, address := range []string{"ledger", "accounts"} {
-		p, err := f.lifecycle.projects.BySlug(ctx, address)
-		if err != nil || p.ID != first.ID || p.Slug != "accounts" || p.ServingLabel != "ledger" {
-			t.Fatalf("alias %s: %+v %v", address, p, err)
-		}
+	if p, err := f.lifecycle.projects.BySlug(ctx, "accounts"); err != nil || p.ID != first.ID || p.ServingLabel != "ledger" {
+		t.Fatalf("new address: %+v %v", p, err)
+	}
+	if p, err := f.lifecycle.projects.BySlug(ctx, "ledger"); err == nil {
+		t.Fatalf("the old address still names %+v", p)
 	}
 	if renamed.ServingLabel != "ledger" {
 		t.Fatal("rename changed serving identity")
@@ -127,7 +127,9 @@ func TestCreationResultFailureRollsBackAddressOwnershipAndAudit(t *testing.T) {
 	}
 }
 
-func TestRenameReceiptFailureAndReplayKeepPermanentAliases(t *testing.T) {
+// A rename and its receipt commit together: a receipt that cannot be
+// written leaves the project where it was.
+func TestRenameReceiptFailureLeavesTheProjectWhereItWas(t *testing.T) {
 	t.Parallel()
 	f, ctx := requestedOwner(t)
 	p, err := f.lifecycle.Create(ctx, Draft{RequestID: requestID(), Slug: "original", Name: "Original"})
@@ -135,7 +137,7 @@ func TestRenameReceiptFailureAndReplayKeepPermanentAliases(t *testing.T) {
 		t.Fatal(err)
 	}
 	next, rev := "next", p.SettingsRevision
-	patch := project.SettingsPatch{RequestID: requestID(), ExpectedRevision: &rev, Slug: &next}
+	patch := project.SettingsPatch{ExpectedRevision: &rev, Slug: &next}
 	restore := f.db.FailNextStatement("INSERT INTO audit_log")
 	_, err = f.lifecycle.UpdateSettings(ctx, p.ID, patch, "boss")
 	restore()
@@ -146,24 +148,31 @@ func TestRenameReceiptFailureAndReplayKeepPermanentAliases(t *testing.T) {
 	if err != nil || held.Slug != "original" || held.SettingsRevision != rev {
 		t.Fatalf("failed rename wrote: %+v %v", held, err)
 	}
-	renamed, err := f.lifecycle.UpdateSettings(ctx, p.ID, patch, "boss")
-	if err != nil {
+	if _, err := f.lifecycle.UpdateSettings(ctx, p.ID, patch, "boss"); err != nil {
 		t.Fatal(err)
-	}
-	replay, err := f.lifecycle.UpdateSettings(ctx, p.ID, patch, "boss")
-	if err != nil || replay.SettingsRevision != renamed.SettingsRevision {
-		t.Fatalf("rename replay: %+v %v", replay, err)
-	}
-	other := "different"
-	patch.Slug = &other
-	if _, err := f.lifecycle.UpdateSettings(ctx, p.ID, patch, "boss"); !errors.Is(err, project.ErrRequestReused) {
-		t.Fatalf("changed rename accepted: %v", err)
-	}
-	if _, err := f.lifecycle.Create(ctx, Draft{RequestID: requestID(), Slug: "original", Name: "Other"}); !errors.Is(err, project.ErrSlugTaken) {
-		t.Fatalf("old address reassigned: %v", err)
 	}
 	if got := len(lifecycleReceipts(t, f.db, "project.renamed")); got != 1 {
 		t.Fatalf("rename receipts %d", got)
+	}
+}
+
+// An address a settings edit cannot route is refused before anything is
+// written.
+func TestSettingsRefuseAnAddressOfTheWrongShape(t *testing.T) {
+	t.Parallel()
+	f, ctx := requestedOwner(t)
+	p, err := f.lifecycle.Create(ctx, Draft{RequestID: requestID(), Slug: "shaped", Name: "Shaped"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{"", "a/b", "Upper"} {
+		if _, err := f.lifecycle.UpdateSettings(ctx, p.ID, project.SettingsPatch{ExpectedRevision: &p.SettingsRevision, Slug: &bad}, "boss"); !errors.Is(err, project.ErrSlug) {
+			t.Errorf("address %q: %v", bad, err)
+		}
+	}
+	held, err := f.lifecycle.projects.ByID(ctx, p.ID)
+	if err != nil || held.Slug != "shaped" || held.SettingsRevision != p.SettingsRevision {
+		t.Fatalf("a refused address wrote: %+v %v", held, err)
 	}
 }
 
@@ -233,35 +242,41 @@ func TestCreationReplayKeepsResolvedGroupAndRejectsDisabledActor(t *testing.T) {
 	}
 }
 
-func TestRenameCanReactivateOnlyItsOwnPermanentAlias(t *testing.T) {
+// A rename moves a project's address: the address it leaves is free for
+// another project, except its first, which its apps are served under and
+// which stays with it until it is purged.
+func TestAVacatedAddressIsFreeButAFirstAddressStaysWithItsProject(t *testing.T) {
 	t.Parallel()
 	f, ctx := requestedOwner(t)
-	p, err := f.lifecycle.Create(ctx, Draft{RequestID: requestID(), Slug: "first-address", Name: "First"})
+	a, err := f.lifecycle.Create(ctx, Draft{RequestID: requestID(), Slug: "ledger", Name: "Ledger"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := f.lifecycle.Create(ctx, Draft{RequestID: requestID(), Slug: "other-address", Name: "Other"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	next := "second-address"
-	p, err = f.lifecycle.UpdateSettings(ctx, p.ID, project.SettingsPatch{RequestID: requestID(), ExpectedRevision: &p.SettingsRevision, Slug: &next}, "boss")
-	if err != nil {
-		t.Fatal(err)
-	}
-	original := "first-address"
-	if _, err := f.lifecycle.UpdateSettings(ctx, other.ID, project.SettingsPatch{RequestID: requestID(), ExpectedRevision: &other.SettingsRevision, Slug: &original}, "boss"); !errors.Is(err, project.ErrSlugTaken) {
-		t.Fatalf("another project claimed old alias: %v", err)
-	}
-	p, err = f.lifecycle.UpdateSettings(ctx, p.ID, project.SettingsPatch{RequestID: requestID(), ExpectedRevision: &p.SettingsRevision, Slug: &original}, "boss")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, address := range []string{original, next} {
-		found, err := f.lifecycle.projects.BySlug(ctx, address)
-		if err != nil || found.ID != p.ID || found.Slug != original {
-			t.Fatalf("reactivated %s: %+v %v", address, found, err)
+	for _, next := range []string{"accounts", "books"} {
+		a, err = f.lifecycle.UpdateSettings(ctx, a.ID, project.SettingsPatch{ExpectedRevision: &a.SettingsRevision, Slug: &next}, "boss")
+		if err != nil {
+			t.Fatal(err)
 		}
+	}
+	b, err := f.lifecycle.Create(ctx, Draft{RequestID: requestID(), Slug: "accounts", Name: "Accounts"})
+	if err != nil || b.Slug != "accounts" || b.ServingLabel != "accounts" {
+		t.Fatalf("vacated address: %+v %v", b, err)
+	}
+	if found, err := f.lifecycle.projects.BySlug(ctx, "accounts"); err != nil || found.ID != b.ID {
+		t.Fatalf("accounts names %+v %v; want the new project", found, err)
+	}
+	if _, err := f.lifecycle.Create(ctx, Draft{RequestID: requestID(), Slug: "ledger", Name: "Other"}); !errors.Is(err, project.ErrSlugTaken) {
+		t.Fatalf("first address reassigned: %v", err)
+	}
+	first := "ledger"
+	if _, err := f.lifecycle.UpdateSettings(ctx, b.ID, project.SettingsPatch{ExpectedRevision: &b.SettingsRevision, Slug: &first}, "boss"); !errors.Is(err, project.ErrSlugTaken) {
+		t.Fatalf("first address taken by a rename: %v", err)
+	}
+	if served, err := f.lifecycle.projects.ByServingLabel(ctx, "ledger"); err != nil || served.ID != a.ID {
+		t.Fatalf("serving label ledger: %+v %v", served, err)
+	}
+	if back, err := f.lifecycle.UpdateSettings(ctx, a.ID, project.SettingsPatch{ExpectedRevision: &a.SettingsRevision, Slug: &first}, "boss"); err != nil || back.Slug != "ledger" {
+		t.Fatalf("its own first address: %+v %v", back, err)
 	}
 }
 
@@ -279,7 +294,7 @@ func TestConcurrentCreationAndRenameCannotShareAnAddress(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		renamed, renameErr = f.lifecycle.UpdateSettings(ctx, p.ID, project.SettingsPatch{RequestID: requestID(), ExpectedRevision: &p.SettingsRevision, Slug: &next}, "boss")
+		renamed, renameErr = f.lifecycle.UpdateSettings(ctx, p.ID, project.SettingsPatch{ExpectedRevision: &p.SettingsRevision, Slug: &next}, "boss")
 	}()
 	go func() {
 		defer wg.Done()
@@ -297,13 +312,12 @@ func TestConcurrentCreationAndRenameCannotShareAnAddress(t *testing.T) {
 	if err != nil || found.ID != winner.ID {
 		t.Fatalf("assigned wrong project: %+v %v", found, err)
 	}
-	original, err := f.lifecycle.projects.BySlug(ctx, "rename-source")
-	if err != nil || original.ID != p.ID {
-		t.Fatalf("original alias changed owner: %+v %v", original, err)
+	if original, err := f.lifecycle.projects.BySlug(ctx, "rename-source"); (renameErr == nil) == (err == nil) || (err == nil && original.ID != p.ID) {
+		t.Fatalf("rename-source after the contest: %+v %v (rename %v)", original, err, renameErr)
 	}
 }
 
-func TestPurgedCreationNeverReplaysOrReassignsItsAddress(t *testing.T) {
+func TestPurgedCreationNeverReplaysAndFreesItsAddress(t *testing.T) {
 	t.Parallel()
 	f, ctx := requestedOwner(t)
 	in := Draft{RequestID: requestID(), Slug: "purged-request", Name: "Purged"}
@@ -312,7 +326,7 @@ func TestPurgedCreationNeverReplaysOrReassignsItsAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	// This is the final project-owner participant after other owners' purge;
-	// the request and address must survive removal of their project row.
+	// the request must survive removal of its project row; the address is free.
 	if err := f.lifecycle.projects.Remove(ctx, p.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -326,10 +340,7 @@ func TestPurgedCreationNeverReplaysOrReassignsItsAddress(t *testing.T) {
 	}
 	another := in
 	another.RequestID = requestID()
-	if _, err := f.lifecycle.Create(ctx, another); !errors.Is(err, project.ErrSlugTaken) {
-		t.Fatalf("purged address reassigned: %v", err)
-	}
-	if _, err := f.lifecycle.projects.BySlug(ctx, in.Slug); err == nil {
-		t.Fatal("purged reservation resolved to a project")
+	if again, err := f.lifecycle.Create(ctx, another); err != nil || again.ID == p.ID || again.Slug != in.Slug {
+		t.Fatalf("purged address: %+v %v", again, err)
 	}
 }

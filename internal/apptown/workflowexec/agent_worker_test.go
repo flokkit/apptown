@@ -278,7 +278,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 		CLI:          fileCLI(cli),
 		Ledger:       usage.New(db),
 		Worker:       &AgentWorker{Tasks: &TaskRunner{Driver: worker, Profile: TaskProfile{Name: "worker", Network: execution.NetworkDefault}}},
-	}, Config{DataDir: dir, Image: "apptown-agent", Backend: execution.Docker, APIURL: "http://forge.test:7700", PrivateDockerOnWorker: true})
+	}, Config{DataDir: dir, Image: "apptown-agent", APIURL: "http://forge.test:7700", PrivateDocker: true})
 
 	cfg := map[string]any{"prompt": "Implement the change.", "resources": []string{"res/notes"}, "output": map[string]any{"file": ".apptown/REPORT.md"}, "timeoutMinutes": 20}
 	for k, v := range config {
@@ -604,11 +604,11 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		}, "two services are named postgres"},
 		{"scm", map[string]any{"scm": "write"}, nil, "source-control access"},
 		{"its own image", map[string]any{"image": "custom-agent"}, nil, `own agent image "custom-agent"`},
-		{"the local executor", map[string]any{"executor": "local"}, nil, `the "local" executor`},
-		{"a workflow default executor", nil, func(t *testing.T, f *agentOnWorker) {
+		{"an admitted local executor", map[string]any{"executor": "local"}, nil, "executor: local is not supported"},
+		{"an admitted workflow default executor", nil, func(t *testing.T, f *agentOnWorker) {
 			def, _ := json.Marshal(schema.Spec{Kind: "pipeline", Role: "working", Defaults: schema.Defaults{Executor: "local"}})
 			f.call.run.DefinitionJSON = string(def)
-		}, `the "local" executor`},
+		}, "executor: local is not supported"},
 		{"an unreadable definition", nil, func(t *testing.T, f *agentOnWorker) { f.call.run.DefinitionJSON = "{" }, "definition could not be read"},
 		{"an unreadable step configuration", nil, func(t *testing.T, f *agentOnWorker) { f.call.step.Config = json.RawMessage(`{"services":1}`) }, "configuration could not be read"},
 		{"a project without a repository", nil, func(t *testing.T, f *agentOnWorker) { f.call.source.DefaultBranch = "" }, "not repository-backed"},
@@ -996,29 +996,28 @@ func TestPrivateDockerOnTheWorkerIsFrozenInTheRequest(t *testing.T) {
 	}
 }
 
-// Private Docker on a worker is an operator's opt-in (-private-docker):
-// without it, a step declaring docker: true is refused with the reason
-// before the worker is asked anything. Services alone, which run no
-// privileged daemon, need no opt-in, and are admitted on the profile the
-// worker reports.
-func TestPrivateDockerOnAWorkerNeedsTheOperatorsOptIn(t *testing.T) {
+// Private Docker turned off (-private-docker=false) refuses a step
+// declaring docker: true on a worker, with the reason, before the worker is
+// asked anything. Services alone, which run no privileged daemon, are
+// still admitted on the profile the worker reports.
+func TestPrivateDockerTurnedOffRefusesAStepOnAWorker(t *testing.T) {
 	f := agentOnWorkerFixture(t, map[string]any{"docker": true})
-	f.exec.cfg.PrivateDockerOnWorker = false
+	f.exec.cfg.PrivateDocker = false
 	f.worker.imageAllowed = false
 	_, err := f.exec.prepareAgentOnWorker(context.Background(), f.call)
 	var refusal *WorkerRefusal
-	if !errors.As(err, &refusal) || !strings.Contains(refusal.Reason, "private Docker on a worker is the operator's opt-in: start AppTown with -private-docker") {
-		t.Fatalf("without the opt-in: %v", err)
+	if !errors.As(err, &refusal) || !strings.Contains(refusal.Reason, "this AppTown was started with -private-docker=false") {
+		t.Fatalf("turned off: %v", err)
 	}
 	if f.worker.imageReads != 0 {
 		t.Errorf("the worker was asked %d times", f.worker.imageReads)
 	}
 
 	f = agentOnWorkerFixture(t, map[string]any{"services": []map[string]any{{"name": "cache", "image": "redis:7-alpine"}}})
-	f.exec.cfg.PrivateDockerOnWorker = false
+	f.exec.cfg.PrivateDocker = false
 	req := f.build(t)
 	if p := req.spec.Private; p == nil || p.Daemon || p.Profile == nil || *p.Profile != workerProfile || req.profile != p.Profile {
-		t.Fatalf("services without the opt-in: %+v %+v", p, req.profile)
+		t.Fatalf("services with private Docker off: %+v %+v", p, req.profile)
 	}
 }
 

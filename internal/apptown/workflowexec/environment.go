@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
@@ -75,15 +74,12 @@ func (a *Executor) agentEnv(ctx context.Context, run *workflow.Run, step *workfl
 			}
 		}
 	}
-	if k.executor == execution.Docker {
-		// Stage pi's provider config into the workspace and point HOME at it,
-		// so the containerized pi finds providers without mounting ~/.pi.
-		if _, err := a.home.Stage(ctx, ws, run.ProjectID); err != nil {
-			return nil, "", err
-		}
-		env = append(env, "HOME=/work/.apptown/pi-home")
-
+	// Stage pi's provider config into the workspace and point HOME at it,
+	// so the containerized pi finds providers without mounting ~/.pi.
+	if _, err := a.home.Stage(ctx, ws, run.ProjectID); err != nil {
+		return nil, "", err
 	}
+	env = append(env, "HOME=/work/.apptown/pi-home")
 	return env, scmGranted, nil
 }
 
@@ -117,9 +113,6 @@ func (a *Executor) startAgentSandbox(ctx context.Context, run *workflow.Run, ste
 		}
 	}
 	if len(cfg.Services) > 0 {
-		if k.executor != execution.Docker {
-			return env, "", cleanup, fmt.Errorf("services require the docker executor")
-		}
 		var svcCleanup func()
 		network, svcCleanup, err = docker.StartServices(ctx, *a.docker, fmt.Sprintf("%d", step.ID), cfg.Services)
 		if err != nil {

@@ -15,12 +15,11 @@ type ConsoleCreation struct {
 	access   *identity.Service
 	opener   ConsoleOpener
 	view     ConsoleSessions
-	enabled  bool
 	authMode string
 }
 
-func NewConsoleCreation(projects *project.Projects, access *identity.Service, opener ConsoleOpener, view ConsoleSessions, enabled bool, authMode string) ConsoleCreation {
-	return ConsoleCreation{projects: projects, access: access, opener: opener, view: view, enabled: enabled, authMode: authMode}
+func NewConsoleCreation(projects *project.Projects, access *identity.Service, opener ConsoleOpener, view ConsoleSessions, authMode string) ConsoleCreation {
+	return ConsoleCreation{projects: projects, access: access, opener: opener, view: view, authMode: authMode}
 }
 
 type ConsoleOpener interface {
@@ -33,10 +32,6 @@ func (h ConsoleCreation) ConsoleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !RequireProjectMember(h.access, w, r, p.ID, p.Slug) {
-		return
-	}
-	if !h.enabled {
-		WriteError(w, 400, "console requires the docker executor (the read-only sandbox is the enforcement boundary)")
 		return
 	}
 	jsonCommand(w, r, jsonBody{optional: true}, func(in conversation.ProjectOpen) {

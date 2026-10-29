@@ -1,4 +1,8 @@
-package portainer
+// Package portainertest reads what a Portainer stack serves, for tests that
+// check a release rendered the admitted hosts and certificate input. AppTown
+// itself never reads ingress back from a provider: desired address settings
+// are its record.
+package portainertest
 
 import (
 	"context"
@@ -8,29 +12,22 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/deploy/portainer"
 	"gopkg.in/yaml.v3"
 )
 
-// ReadStackIngress observes only the routing grammar emitted by IntranetStack.
-// The caller supplies its verified scope/credential snapshot and current stack
-// identity. Ownership and ingress are checked from one response; no provider
-// write, creation entitlement or restored-copy activation is implied.
-func ReadStackIngress(ctx context.Context, cfg Target, stack Stack, deployment ids.ID, legacy *StackAssociation) (deploy.Ingress, error) {
-	if cfg.Scope == nil || cfg.Scope.Version != 1 || cfg.Scope.EndpointID != stack.EndpointID || stack.ID <= 0 || stack.Name == "" || deployment.IsZero() {
-		return deploy.Ingress{}, errors.New("Portainer ingress has no verified stack scope")
-	}
-	content, err := StackFile(ctx, &cfg, strconv.FormatInt(stack.ID, 10))
+// ReadStackIngress reads the routing grammar IntranetStack emits from the
+// stack's current Compose file.
+func ReadStackIngress(ctx context.Context, cfg portainer.Target, stack portainer.Stack) (deploy.Ingress, error) {
+	content, err := portainer.StackFile(ctx, &cfg, strconv.FormatInt(stack.ID, 10))
 	if err != nil {
 		return deploy.Ingress{}, err
 	}
-	if err := verifyStackCompose(cfg, stack, deployment, legacy, content); err != nil {
-		return deploy.Ingress{}, err
-	}
-	return stackIngress(content, stack.Name)
+	return StackIngress(content, stack.Name)
 }
 
-func stackIngress(content, router string) (deploy.Ingress, error) {
+// StackIngress parses one Compose file's public routing for router.
+func StackIngress(content, router string) (deploy.Ingress, error) {
 	var out deploy.Ingress
 	var file struct {
 		Services map[string]struct {

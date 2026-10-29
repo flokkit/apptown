@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS grants (
   subject         TEXT NOT NULL,
   role_name       TEXT NOT NULL DEFAULT '',
   capability      TEXT NOT NULL DEFAULT '',
-  scope_type      TEXT NOT NULL,                 -- instance | group | project | change | run | dimension | release-target
+  scope_type      TEXT NOT NULL,                 -- instance | group | project | release-target
   scope_id        TEXT NOT NULL DEFAULT '',
   origin          TEXT NOT NULL DEFAULT '',      -- '' | migrated | migrated-open | profile:<name> | bootstrap
   granted_by      TEXT NOT NULL DEFAULT '',
@@ -116,10 +116,7 @@ CREATE TABLE IF NOT EXISTS delegations (
   client_id           TEXT NOT NULL,
   client_name         TEXT NOT NULL DEFAULT '',
   audience            TEXT NOT NULL,                 -- /mcp/user | /mcp/admin
-  kind                TEXT NOT NULL DEFAULT 'oauth', -- oauth, the only kind written
   scopes_json         JSONB NOT NULL DEFAULT '[]'::jsonb,
-  group_bounds_json   JSONB NOT NULL DEFAULT '[]'::jsonb,
-  project_bounds_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   auth_time           TIMESTAMPTZ,
   auth_method         TEXT NOT NULL DEFAULT '',
   created_at          TIMESTAMPTZ NOT NULL,

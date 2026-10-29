@@ -334,12 +334,6 @@ func GrantApplies(g Grant, c Capability, res Resource) bool {
 		return res.Group != "" && res.Group == g.ScopeID && Inherits(c, ScopeProject)
 	case ScopeProject:
 		return !res.ProjectID.IsZero() && res.ProjectID.String() == g.ScopeID
-	case ScopeChange:
-		return !res.ChangeID.IsZero() && res.ChangeID.String() == g.ScopeID
-	case ScopeRun:
-		return !res.RunID.IsZero() && res.RunID.String() == g.ScopeID
-	case ScopeDimension:
-		return res.Type == "dimension" && res.ID == g.ScopeID
 	case ScopeTarget:
 		return res.Type == "release-target" && (g.ScopeID == "" || g.ScopeID == "*" || res.ID == g.ScopeID)
 	}

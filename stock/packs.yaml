@@ -35,7 +35,6 @@ packs:
     workflows: [land, implement, quick-change, fix-bug, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: go-small
-    resources: {memory: 48M}
     description: >-
       Go services, Postgres, a React UI built with Vite, REST and
       server-sent events, and few dependencies.
@@ -79,7 +78,6 @@ packs:
     workflows: [land, ship, implement, quick-change, fix-bug]
     policies: [deploy-requires-scan, scanner-bound]
   - name: godot-3d
-    resources: {memory: 32M}
     description: >-
       Experimental: the current starter has not shipped an app yet. 3D games built with the Godot 4 engine and exported to the browser as
       WebAssembly. GDScript, the Compatibility renderer, threads off, and a
@@ -96,7 +94,6 @@ packs:
     workflows: [land, ship, implement, quick-change, fix-bug]
     policies: [deploy-requires-scan, scanner-bound]
   - name: video-game
-    resources: {memory: 32M}
     description: >-
       Experimental: the current starter has not shipped an app yet. Browser games built with npm libraries such as three.js, a bundler,
       and TypeScript where it helps. Players need only the link. Starts
@@ -136,7 +133,6 @@ packs:
     workflows: [land, ship, implement, quick-change, fix-bug, dependency-uplift, research]
     policies: [deploy-requires-scan, scanner-bound]
   - name: node-fullstack
-    resources: {memory: 128M}
     description: >-
       Experimental: its landing fixes have not shipped a new app yet. TypeScript on Node: a Fastify server, Postgres, one npm package graph,
       one image that runs `node --run start`. A browser UI, when the app
@@ -166,7 +162,6 @@ packs:
     workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: django-htmx
-    resources: {memory: 160M}
     description: >-
       Django with server-rendered templates and HTMX, Postgres, and the
       Django admin.
@@ -192,7 +187,6 @@ packs:
     workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: java-spring
-    resources: {memory: 320Mi}
     description: >-
       Experimental: its landing fixes have not shipped a new app yet. Spring Boot on Temurin 21, Maven, Postgres + Flyway, deployed as
       an executable jar. Starts from Spring Initializr on the first change.
@@ -223,7 +217,6 @@ packs:
     workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: dotnet
-    resources: {memory: 128M}
     description: >-
       Experimental: not yet run in production by the maintainers for two weeks, and its SDK download is not mirrored. ASP.NET Core on .NET 10: minimal APIs, EF Core on Postgres, one
       published app. Starts from the SDK's own templates on the first change.
@@ -253,7 +246,6 @@ packs:
     workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: rails
-    resources: {memory: 256M}
     description: >-
       Rails 8 on Ruby 3.4: server-rendered pages with Hotwire, Postgres,
       Puma, propshaft — no Node toolchain. Starts from `rails new` on the
@@ -283,7 +275,6 @@ packs:
     workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: rust-service
-    resources: {memory: 48M}
     description: >-
       Experimental: not yet run in production by the maintainers for two weeks with a clean image scan. Stable Rust via mise, std-first services, minimal crates, deployed
       as a release binary. Toolchain and crates are fetched through the
@@ -306,7 +297,6 @@ packs:
     policies: [deploy-requires-scan, scanner-bound]
 
   - name: wordpress-bedrock
-    resources: {memory: 256M}
     description: >-
       Experimental: no app shipped from the current starter yet. WordPress with Composer-locked core and plugins, an immutable PHP/Apache
       image, deployment-owned MariaDB, and uploads in the deployment's own object storage, served by the site.

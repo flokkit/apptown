@@ -221,7 +221,7 @@ func installFakePi(f *taskAppTown, on func(n int, req execution.Request) executi
 }
 
 // agentExecutor is the agent runner the daemon assembles for this
-// machine's Docker (the local executor), over the owners whose records an
+// machine's Docker, over the owners whose records an
 // agent step reads, with Pi run by the test's fake.
 func (f *taskAppTown) agentExecutor(t *testing.T) *Executor {
 	t.Helper()
@@ -245,7 +245,7 @@ func (f *taskAppTown) agentExecutor(t *testing.T) *Executor {
 		Workshop: agentenv.NewWorkshop(scope, integrations, feeds, f.dir, f.image, stock.Images().PrivateDocker, nil), Instructions: agentenv.NewInstructions(f.db, integrations),
 		Home: piharness.NewPreparer(gatewayModels{}, models, adoptions, scope, f.image), CLI: fileCLI(cli),
 		Process: apptownPi{f}, Ledger: usage.New(f.db), Publisher: noPublisher{}, Branches: f.branches,
-	}, Config{DataDir: f.dir, Image: f.image, Backend: execution.Local})
+	}, Config{DataDir: f.dir, Image: f.image, PrivateDocker: true}) // apptownd's default
 }
 
 // fakeTaskFixture admits one script step whose task runs on the fake driver.

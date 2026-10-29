@@ -338,7 +338,7 @@ func (w *noLocalWorld) rebuild(t *testing.T, s *Service, dep *Deployment) (map[s
 	if err != nil {
 		t.Fatal(err)
 	}
-	return JobWorker{Service: s, Projects: project.New(w.db, nil), DataDir: w.dir}.Rebuild(context.Background(), "game/"+dep.Name,
+	return JobWorker{Service: s, Projects: project.New(w.db, nil), DataDir: w.dir}.Rebuild(context.Background(), current.ProjectID.String()+"/"+dep.Name,
 		map[string]any{"deployment": current.ID, "generation": current.ObservedGeneration})
 }
 

@@ -57,7 +57,7 @@ func (s *Service) requireReleaseAuthority(ctx context.Context, captured access.P
 	if err := s.release.Still.RequireStill(ctx, captured, permission); err != nil {
 		return err
 	}
-	if admittedPromotion || dep.needsPromotion() {
+	if admittedPromotion || dep.Protected() {
 		permission.Capability = access.CapReleasePromote
 		permission.Resource.Type, permission.Resource.ID = "release-target", dep.Name
 		if err := s.release.Still.RequireStill(ctx, captured, permission); err != nil {

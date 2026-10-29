@@ -37,7 +37,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			v = "1.5"
 		case "task-memory-mib", "task-pids", "chat-memory-mib", "chat-pids":
 			v = "512"
-		case "update-checks", "verify-only", "disable-reap", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network", "host-scripts":
+		case "update-checks", "verify-only", "disable-reap", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network":
 			v = "true"
 		case "tier-domain":
 			v = "preview=p.example,main=m.example"
@@ -146,7 +146,7 @@ func TestTheAPIServersCutOffSlowAndIdleClients(t *testing.T) {
 // apptownd at start instead of being quietly ignored.
 func TestSettingsMovedIntoAppTownAreNotFlags(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"agent-model", "agent-concurrency", "errors-url", "mirror-base", "portainer-environment"} {
+	for _, name := range []string{"agent-model", "agent-concurrency", "errors-url", "mirror-base", "portainer-environment", "agent-executor", "host-scripts"} {
 		fs := flag.NewFlagSet("apptownd", flag.ContinueOnError)
 		fs.SetOutput(io.Discard)
 		defineFlags(fs)
@@ -167,5 +167,35 @@ func TestUpdateDiscoveryDefaultsAndExplicitPrereleaseOptIn(t *testing.T) {
 	}
 	if defaults.apptownConfig(t.TempDir()).UpdateChannel != "prerelease" || defaults.updateChecks {
 		t.Fatal("explicit channel/disable lost")
+	}
+}
+
+// Private Docker is one setting, on by default: an AppTown started with no
+// flag gives it to steps, chats and release builds; APPTOWN_PRIVATE_DOCKER=false
+// (or -private-docker=false) turns it off; -no-private-docker is gone.
+func TestPrivateDockerIsOneSettingOnByDefault(t *testing.T) {
+	t.Parallel()
+	fs := flag.NewFlagSet("apptownd", flag.ContinueOnError)
+	o := defineFlags(fs)
+	if err := fs.Parse(nil); err != nil {
+		t.Fatal(err)
+	}
+	if !o.apptownConfig(t.TempDir()).PrivateDocker {
+		t.Fatal("private Docker is off by default")
+	}
+	fs = flag.NewFlagSet("apptownd", flag.ContinueOnError)
+	o = defineFlags(fs)
+	_ = fs.Parse(nil)
+	if err := bindEnv(fs, func(k string) string { return map[string]string{"APPTOWN_PRIVATE_DOCKER": "false"}[k] }); err != nil {
+		t.Fatal(err)
+	}
+	if o.apptownConfig(t.TempDir()).PrivateDocker {
+		t.Fatal("APPTOWN_PRIVATE_DOCKER=false left it on")
+	}
+	fs = flag.NewFlagSet("apptownd", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	defineFlags(fs)
+	if err := fs.Parse([]string{"-no-private-docker"}); err == nil {
+		t.Fatal("-no-private-docker is still a flag")
 	}
 }

@@ -25,22 +25,19 @@ type AuthTokensNamed struct {
 }
 
 type DelegationsNamed struct {
-	ID                ids.ID
-	PrincipalID       ids.ID
-	ClientID          string
-	ClientName        string
-	Audience          string
-	Kind              string
-	ScopesJson        json.RawMessage
-	GroupBoundsJson   json.RawMessage
-	ProjectBoundsJson json.RawMessage
-	AuthTime          sql.NullTime
-	AuthMethod        string
-	CreatedAt         time.Time
-	LastUsed          sql.NullTime
-	ExpiresAt         sql.NullTime
-	RevokedAt         sql.NullTime
-	Username          string
+	ID          ids.ID
+	PrincipalID ids.ID
+	ClientID    string
+	ClientName  string
+	Audience    string
+	ScopesJson  json.RawMessage
+	AuthTime    sql.NullTime
+	AuthMethod  string
+	CreatedAt   time.Time
+	LastUsed    sql.NullTime
+	ExpiresAt   sql.NullTime
+	RevokedAt   sql.NullTime
+	Username    string
 }
 
 type ExternalSigninBinding struct {

@@ -19,7 +19,7 @@ environment; `.apptown/app.yaml` describes how the application itself runs
 | Your own agent connected over MCP | Your agent's own computer or runtime and its tools | Connecting to AppTown does not supply one |
 
 A step asks for private Docker with `docker: true` in its `with:`; its skills
-and name do not. The operator's `-no-private-docker` setting turns it off: a
+and name do not. The operator's `-private-docker=false` setting turns it off: a
 step that declares it is refused with that reason, and change chats get no
 daemon. A running chat takes up a change of this setting when it is stopped
 or after its current turn.
@@ -27,11 +27,9 @@ or after its current turn.
 ## Where it runs
 
 Without a worker, all of this runs on AppTown's own host, in containers on
-its Docker: chats, agent steps, checks, previews and script steps. A script
-step runs on the host itself only when the operator started AppTown with
-`-host-scripts` ([Split install](split-install.md), where
-workers and `-host-scripts` are described);
-otherwise `executor: local` is refused.
+its Docker: chats, agent steps, checks, previews and script steps. No
+project step runs as a plain process on the host; a workflow that names an
+executor other than `docker` is refused when it is saved.
 
 AppTown can have a **worker**: a separate machine with its own Docker that
 takes most of that work off AppTown's host. With a worker:
@@ -40,7 +38,7 @@ takes most of that work off AppTown's host. With a worker:
 |---|---|
 | New change chat | On the worker by default; the person opening it can choose AppTown's host. A chat keeps the place it opened in. |
 | Project chat, and a chat that continues a step's agent | On AppTown's host |
-| Agent, review and tests steps, and script steps with `executor: docker` | On the worker. A script step with `executor: local` is refused. |
+| Agent, review, tests and script steps | On the worker |
 | Checks and scans | On the worker |
 | Previews of a change or a run | On the worker, with no fallback to AppTown's host |
 | A landing's release images | Built on the worker and pushed to the project's container registry |
@@ -167,7 +165,7 @@ its private Docker. `apptown dev` uses that private Docker to bring up the
 declared needs and write their connection settings; see
 [How apps run](how-apps-run.md). Docker agent steps receive explicitly configured sidecar
 services; steps with `needs: true` also request the app contract's needs as
-emulators. Other executors do not automatically provide those Docker services.
+emulators.
 
 The permissions follow the task, independently of which CLIs are installed:
 

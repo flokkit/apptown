@@ -116,7 +116,7 @@ func (w *docrWorld) cloud(t *testing.T) (*Target, *Deployment) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "cloud", tg.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production", PromoteAfter: "main"})
+	dep, err := w.s.Deployments.EnsureStanding(t.Context(), w.project, "cloud", tg.ID, Attributes{Feed: "promotion", Audience: "organisation", DataClass: "non-production"})
 	if err != nil {
 		t.Fatal(err)
 	}

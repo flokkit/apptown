@@ -39,7 +39,7 @@ func TestDockerRebuildReplayQueuesObservationWithoutBoot(t *testing.T) {
 	f.reset()
 	// The rebuild stops on its cancelled context, retryably: preparation
 	// reads (the eval-copy question) run on that context too.
-	if _, err := deploymentJobsForTest(a).Rebuild(ctx, "p/main", map[string]any{"deployment": env.ID, "generation": 1}); !errors.Is(err, context.Canceled) || jobs.IsPermanent(err) {
+	if _, err := deploymentJobsForTest(a).Rebuild(ctx, env.ProjectID.String()+"/main", map[string]any{"deployment": env.ID, "generation": 1}); !errors.Is(err, context.Canceled) || jobs.IsPermanent(err) {
 		t.Fatalf("source cancellation became a permanent rebuild failure: %v", err)
 	}
 	if len(f.joined()) != 0 {
@@ -68,7 +68,7 @@ func TestDockerRebuildReplayQueuesObservationWithoutBoot(t *testing.T) {
 	}
 	f.reset()
 	for i := 0; i < 2; i++ {
-		receipt, err := deploymentJobsForTest(a).Rebuild(context.Background(), "p/main", map[string]any{"deployment": env.ID, "generation": 1})
+		receipt, err := deploymentJobsForTest(a).Rebuild(context.Background(), env.ProjectID.String()+"/main", map[string]any{"deployment": env.ID, "generation": 1})
 		if err != nil || receipt["skipped"] == nil {
 			t.Fatalf("replay %+v %v", receipt, err)
 		}
@@ -211,7 +211,7 @@ func TestDockerRebuildInspectionFailureDoesNotAdmitReplacement(t *testing.T) {
 		}
 		return "", nil, false
 	}
-	if _, err := deploymentJobsForTest(a).Rebuild(context.Background(), "p/main", map[string]any{"deployment": env.ID, "generation": 1}); err == nil {
+	if _, err := deploymentJobsForTest(a).Rebuild(context.Background(), env.ProjectID.String()+"/main", map[string]any{"deployment": env.ID, "generation": 1}); err == nil {
 		t.Fatal("failed inspection must stop the rebuild")
 	}
 	// sql-guarantee: no owner read lists a deployment's settled attempts; only the count proves no further attempt was admitted.
@@ -313,7 +313,7 @@ func TestARestoredDeploymentIsRebuiltWithItsDataBeforeItsAppStarts(t *testing.T)
 				t.Fatal(err)
 			}
 			f.reset()
-			if _, err := deploymentJobsForTest(a).Rebuild(ctx, "p/main", map[string]any{"deployment": dep.ID, "generation": 1}); err != nil && scenario == "whole" {
+			if _, err := deploymentJobsForTest(a).Rebuild(ctx, dep.ProjectID.String()+"/main", map[string]any{"deployment": dep.ID, "generation": 1}); err != nil && scenario == "whole" {
 				t.Fatalf("the rebuild with a whole set: %v", err)
 			}
 			started := false
@@ -449,7 +449,7 @@ func TestRestoredDatabaseBindsNewStorageBeforeEngineAndImport(t *testing.T) {
 				return f.run(req.Args...)
 			}
 			f.reset()
-			_, err = deploymentJobsForTest(a).Rebuild(t.Context(), "p/main", map[string]any{"deployment": dep.ID, "generation": 1})
+			_, err = deploymentJobsForTest(a).Rebuild(t.Context(), dep.ProjectID.String()+"/main", map[string]any{"deployment": dep.ID, "generation": 1})
 			if scenario == "fresh" {
 				if err != nil || starts != 1 || imports != 1 {
 					t.Fatalf("fresh restore: starts=%d imports=%d err=%v", starts, imports, err)
@@ -571,7 +571,7 @@ func TestARestoredAppTownFillsEachAppFromItsNewestWholeSet(t *testing.T) {
 			}
 			f.reset()
 			for attempt := 1; attempt <= 2; attempt++ {
-				_, _ = deploymentJobsForTest(a).Rebuild(ctx, "p/main", map[string]any{"deployment": dep.ID, "generation": 1})
+				_, _ = deploymentJobsForTest(a).Rebuild(ctx, dep.ProjectID.String()+"/main", map[string]any{"deployment": dep.ID, "generation": 1})
 				for _, call := range f.matching("run ") {
 					if containerNameOf(call) == names.App() {
 						t.Fatalf("rebuild %d started the app without its data:\n%s", attempt, strings.Join(f.joined(), "\n"))

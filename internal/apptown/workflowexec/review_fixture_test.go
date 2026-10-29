@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
 	"github.com/flokkit/apptown/internal/apptown/agentharness/pi/pitest"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -67,8 +68,8 @@ type noReviewCLI struct{}
 
 func (noReviewCLI) Path() (string, error) { return "", errors.New("no CLI in runner fixture") }
 
-// testExecutor is an Executor over db whose agents are run by process on the
-// local backend, with the usage ledger it records into.
+// testExecutor is an Executor over db whose agents are run by process, with
+// the usage ledger it records into.
 func testExecutor(db *database.DB, dir string, process Process) *Executor {
 	tokens := &identity.RuntimeTokens{}
 	if err := tokens.Open(filepath.Join(dir, identity.RuntimeTokenKeyFile)); err != nil {
@@ -78,17 +79,20 @@ func testExecutor(db *database.DB, dir string, process Process) *Executor {
 	if err := slots.SetDefault(context.Background(), "fake/model"); err != nil {
 		panic(err)
 	}
+	scope := &docker.Scope{Client: dockerfake.New()}
+	selection := model.NewSelection(slots)
 	return New(db, Dependencies{
-		Models:   model.NewSelection(slots),
+		Models:   selection,
 		Capacity: model.NewScheduler(nil, 1),
 		Tokens:   tokens,
 		Progress: &progress.Feeds{},
-		Docker:   &docker.Scope{Client: dockerfake.New()},
+		Docker:   scope,
+		Home:     piharness.NewPreparer(gatewayModels{}, selection, adoption.New(db, adoption.Dependencies{Ways: agentCatalog{}}), scope, "apptown-agent"),
 		Secrets:  secret.NewService(db, secret.Config{DataDir: dir}),
 		Ledger:   usage.New(db),
 		CLI:      noReviewCLI{},
 		Process:  process,
-	}, Config{DataDir: dir, Backend: execution.Local, Image: "apptown-agent"})
+	}, Config{DataDir: dir, Image: "apptown-agent"})
 }
 
 // Work admits and dispatches real executions into a bounded channel. Once its

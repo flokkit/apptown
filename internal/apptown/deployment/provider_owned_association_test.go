@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
@@ -12,8 +13,8 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 )
 
-func TestLegacyScopeAssociationPreservesOwnedReceiptsAtomically(t *testing.T) {
-	s, _, write := providerAssociationWorld(t)
+func TestIntranetStartAssociatesExistingStacksAtomically(t *testing.T) {
+	s, _, _ := providerAssociationWorld(t)
 	effects := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" {
@@ -39,8 +40,8 @@ func TestLegacyScopeAssociationPreservesOwnedReceiptsAtomically(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	write(server.URL, "key")
-	target, err := s.Targets.Put(t.Context(), &Target{Name: "legacy", Kind: KindPortainer, Status: TargetReady, Address: map[string]any{"urlFrom": "PT_URL", "apiKeyFrom": "PT_KEY", AddressEnvironment: "docker"}})
+	wireIntranet(t, s, server.URL, "key")
+	target, err := s.Targets.ByName(t.Context(), IntranetTargetName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,18 +60,8 @@ func TestLegacyScopeAssociationPreservesOwnedReceiptsAtomically(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	preview, err := s.InspectProviderAssociation(t.Context(), target.Name, ProviderAssociationSelection{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(preview.Resources) != 1 {
-		t.Fatalf("stack association: %+v", preview.Resources)
-	}
-	selection := ProviderAssociationSelection{ExpectedRevision: preview.Revision, Expected: &preview.Scope, Resources: preview.Resources}
 	dbtest.FailNextStatement(t, s.db, "UPDATE targets SET connection_id")
-	if _, err := s.AssociateProvider(t.Context(), target.Name, selection); err == nil {
-		t.Fatal("injected target-write failure hidden")
-	}
+	s.SeedTargets(t.Context(), nil)
 	current, err := s.Targets.ByID(t.Context(), target.ID)
 	if err != nil || !current.ConnectionID.IsZero() || len(current.ProviderScope) != 0 {
 		t.Fatalf("partial target association: %+v %v", current, err)
@@ -79,12 +70,14 @@ func TestLegacyScopeAssociationPreservesOwnedReceiptsAtomically(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(currentDep.Handle, dep.Handle) {
 		t.Fatalf("partial resource association: %+v %v", currentDep, err)
 	}
-	bindings, err := s.env.integrations.Bindings.All(t.Context())
-	if err != nil || len(bindings) != 0 {
-		t.Fatalf("partial connection: %+v %v", bindings, err)
+	s.SeedTargets(t.Context(), nil)
+	associated, err := s.Targets.ByID(t.Context(), target.ID)
+	if err != nil || len(associated.ProviderScope) == 0 {
+		t.Fatalf("the next start did not associate: %+v %v", associated, err)
 	}
-	if _, err := s.AssociateProvider(t.Context(), target.Name, selection); err != nil {
-		t.Fatal(err)
+	stacked, err := s.Deployments.ByID(t.Context(), dep.ID)
+	if err != nil || !strings.Contains(fmt.Sprint(stacked.Handle), "legacy-app") || reflect.DeepEqual(stacked.Handle, dep.Handle) {
+		t.Fatalf("stack association not recorded: %+v %v", stacked, err)
 	}
 	after, err := q.OwnedByDeployment(t.Context(), dep.ID)
 	if err != nil || !reflect.DeepEqual(before, after) {

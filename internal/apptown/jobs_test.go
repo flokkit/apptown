@@ -117,7 +117,7 @@ func TestBackupSweepEnqueues(t *testing.T) {
 	}
 	(backupRequests{db: a.DB, life: a.life}).AfterRelease(idstest.N(1), "main")
 	requireJobs(t, a, 1, func(row *rivertype.JobRow, r jobs.Request) bool {
-		return r.Operation == "backup" && r.Key == "p/main" && row.State == rivertype.JobStateAvailable && row.MaxAttempts == 1 && !r.RetryOnInterrupt
+		return r.Operation == "backup" && r.Key == idstest.N(1).String()+"/main" && row.State == rivertype.JobStateAvailable && row.MaxAttempts == 1 && !r.RetryOnInterrupt
 	})
 }
 
@@ -134,7 +134,7 @@ func TestRebuildJobGuardsTheTarget(t *testing.T) {
 	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), p.ID, "cloud", "apptown-env-"+p.Slug+"-cloud", 45679); err != nil {
 		t.Fatal(err)
 	}
-	receipt, err := deploymentJobsForTest(a).Rebuild(context.Background(), p.Slug+"/cloud", nil)
+	receipt, err := deploymentJobsForTest(a).Rebuild(context.Background(), p.ID.String()+"/cloud", nil)
 	if err != nil || receipt["skipped"] != "not on a Docker host AppTown talks to" {
 		t.Fatalf("a cloud deployment is never rebuilt locally: %v %v", receipt, err)
 	}

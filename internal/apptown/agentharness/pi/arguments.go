@@ -13,18 +13,12 @@ type StepPaths struct{ Sessions, Steering, SessionFile string }
 // its transcripts and steering under .apptown.
 var FolderStepPaths = StepPaths{Sessions: filepath.Join(".apptown", "sessions"), Steering: filepath.Join(".apptown", "steering.md")}
 
-func StepArgs(at StepPaths, sessionID, executor string, steered bool, model, thinking, prompt string) []string {
+func StepArgs(at StepPaths, sessionID string, steered bool, model, thinking, prompt string) []string {
 	args := []string{"--print", "--mode", "json", "--no-context-files"}
 	if at.SessionFile != "" {
 		args = append(args, "--session", at.SessionFile)
 	} else {
 		args = append(args, "--session-dir", at.Sessions, "--session-id", sessionID)
-	}
-	if executor != "docker" {
-		// Uncontrolled HOME: host-installed skills/extensions must not steer
-		// a ledgered run. Docker steps instead get the generated pi-home,
-		// where settings decide exactly what loads (pihome.go).
-		args = append(args, "--no-skills", "--no-extensions")
 	}
 	if steered {
 		args = append(args, "--append-system-prompt", at.Steering)

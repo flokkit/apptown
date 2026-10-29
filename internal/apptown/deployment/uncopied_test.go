@@ -98,7 +98,7 @@ func TestDefaultAddressReceiptFailureRefusesTheWholeRelease(t *testing.T) {
 	}
 }
 
-func TestReleaseSetupDoesNotInventAServingAddress(t *testing.T) {
+func TestChoosingAReleaseDefaultDoesNotInventAServingAddress(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	// sql-guarantee: retain legacy project-address evidence without creating desired deployment routing.

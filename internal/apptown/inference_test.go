@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/inference"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/secret"
+	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 )
@@ -25,7 +26,7 @@ func TestInferenceConfigurationAndRuntimeSecrets(t *testing.T) {
 			t.Errorf("accepted invalid allowlist %v", nets)
 		}
 	}
-	if agentenv.RequireInferenceRuntime(a.inference != nil, ExecutorLocal) == nil {
+	if agentenv.RequireInferenceRuntime(a.inference != nil, execution.Local) == nil {
 		t.Fatal("local model runtime accepted")
 	}
 	if _, err := a.Integrations.Bindings.Save(context.Background(), "paid", "model", "pi", `{"baseUrl":"http://upstream.invalid/v1","apiKeyFrom":["PAID_KEY"],"modelsJson":"[{\"id\":\"allowed\",\"headers\":{\"Authorization\":\"provider-canary\"}}]"}`, "fixture"); err != nil {

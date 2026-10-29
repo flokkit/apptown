@@ -1,40 +1,31 @@
 package deployment
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
-	"strings"
-	"testing"
 )
 
-type defaultPack struct {
-	memory string
-	err    error
-}
-
-func (p defaultPack) MemoryDefault(context.Context, ids.ID) (appcontract.MemoryDefault, string, int64, error) {
-	return appcontract.MemoryDefault{Memory: p.memory}, "chosen", 3, p.err
-}
-
+// A part with no override and no declaration takes AppTown's default, the
+// third and last level; a declaration and an explicit unlimited stand.
 func TestFreshMemoryDefaultsKeepDeclarationsAndExplicitUnlimited(t *testing.T) {
 	t.Parallel()
 	c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}, {Name: "declared", Resources: appcontract.Resources{MemoryBytes: 64 << 20}}, {Name: "unlimited", Resources: appcontract.Resources{MemoryBytes: 128 << 20}}}, Needs: []string{"db", "key"}}
 	a := AppliedProfile{Profile: "default", Parts: map[string]AppliedPart{"web": {Public: true}, "declared": {}, "unlimited": {MemoryUnlimited: true}, "db": {Need: true}}}
-	e := &Environment{memoryDefaults: defaultPack{memory: "160M"}}
-	out, applied, err := e.DefaultMemory(t.Context(), idstest.N(1), c, a)
+	e := &Environment{}
+	out, applied, err := e.DefaultMemory(t.Context(), c, a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.Parts[0].Resources.MemoryBytes != 160<<20 || applied.Parts["web"].MemoryDefault.Kind != "pack" || applied.Parts["web"].MemoryDefault.Version != 3 {
-		t.Fatalf("pack fallback witness: %+v", applied)
+	if out.Parts[0].Resources.MemoryBytes != AppTownDefaultMemory || applied.Parts["web"].MemoryDefault.Kind != "apptown" {
+		t.Fatalf("AppTown's default witness: %+v", applied)
 	}
 	if out.Parts[1].Resources.MemoryBytes != 64<<20 || applied.Parts["declared"].MemoryDefault != nil {
 		t.Fatal("default replaced declaration")
@@ -60,12 +51,8 @@ func TestFreshMemoryDefaultsKeepDeclarationsAndExplicitUnlimited(t *testing.T) {
 		t.Fatal(err)
 	}
 	replay := saved.On(c)
-	if replay.Parts[0].Resources.MemoryBytes != 160<<20 || replay.Parts[2].Resources.MemoryBytes != 0 {
+	if replay.Parts[0].Resources.MemoryBytes != AppTownDefaultMemory || replay.Parts[2].Resources.MemoryBytes != 0 {
 		t.Fatal("replay lost default/unlimited facts")
-	}
-	e.memoryDefaults = defaultPack{err: errors.New("publication unreadable")}
-	if _, _, err := e.DefaultMemory(t.Context(), idstest.N(1), c, a); err == nil {
-		t.Fatal("unreadable publication silently fell back")
 	}
 }
 
@@ -79,7 +66,7 @@ func TestACatalogueDefaultIsOnlyForItsActualNeed(t *testing.T) {
 	e := &Environment{needs: catalog}
 	c := &appcontract.Contract{Parts: []appcontract.Part{{Name: "web", Public: true}}, Needs: []string{"db"}}
 	a := AppliedProfile{Profile: "default", Parts: map[string]AppliedPart{"web": {Public: true}, "db": {Need: true}}}
-	out, applied, err := e.DefaultMemory(t.Context(), idstest.N(1), c, a)
+	out, applied, err := e.DefaultMemory(t.Context(), c, a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +145,6 @@ func TestALandingCapsAndRecordsSuppliedWorkflowServices(t *testing.T) {
 	if promised[0].Limited.AppTown != len(a.Parts)+1 || promised[0].Unlimited.AppTown != 0 {
 		t.Fatalf("supplied cap omitted from capacity: %+v", promised[0])
 	}
-	s.env.memoryDefaults = defaultPack{memory: "1G"}
 	w.daemon.remove(stored.Container)
 	if _, err := w.rebuild(t, s, stored); err != nil {
 		t.Fatalf("rebuild supplied services: %v", err)
@@ -167,7 +153,7 @@ func TestALandingCapsAndRecordsSuppliedWorkflowServices(t *testing.T) {
 		t.Fatalf("supplied replay changed cap to today's default: %d", memory)
 	}
 	if memory, _ := w.daemon.Limits(stored.Container); memory != 512<<20 {
-		t.Fatalf("app replay changed cap to today's pack default: %d", memory)
+		t.Fatalf("app replay changed its recorded cap: %d", memory)
 	}
 	if got := a.OnServices(supplied); got[0].Resources.MemoryBytes != 512<<20 {
 		t.Fatal("supplied service replay used omitted source limit")
