@@ -1,0 +1,330 @@
+# A release candidate: everything a release publishes, built once, before
+# its version tag exists (design/operations/releasing.md). Pushing a tag
+#   candidate/v<version>/<first 12 characters of the commit>
+# at a commit of main starts it; the run's commit is exactly that commit.
+# It builds, and checks, the bytes a later push of v<version> publishes
+# without building anything (images.yml):
+#   - the three images, each platform pushed by digest and smoke-checked on
+#     its own runner, joined into one index per image tagged
+#     candidate-<sha12> (a registry tag holds the index; nobody pulls it);
+#   - the release archives and SHA256SUMS (scripts/release-archives.sh), as
+#     the artifact archives as soon as they exist, so the maintainers'
+#     rehearsals can start while the rest runs;
+#   - the update manifest over those archives and the image indexes, and the
+#     notes: the artifact release, which publication uploads as it is;
+#   - the upgrade fixture this release's AppTown leaves for later releases
+#     (the artifact upgrade-fixture);
+#   - a stranger's install of the linux/amd64 archive, and the UI tour.
+# Nothing here is signed or published under a version name. A failed
+# candidate burns no version: fix main and push a new candidate tag.
+name: candidate
+
+on:
+  push:
+    # "*" does not match "/": the pattern names both parts.
+    tags: ["candidate/v*/*"]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # The version and commit the tag names, the heavy evidence for the commit
+  # (scripts/heavy-evidence.py: a first-attempt full execution on main or
+  # its merge queue) and the release notes (scripts/release-notes-check.sh).
+  identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      tag: ${{ steps.name.outputs.tag }}
+      version: ${{ steps.name.outputs.version }}
+      short: ${{ steps.name.outputs.short }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: name
+        env:
+          REF: ${{ github.ref_name }}
+        run: |
+          rest=${REF#candidate/}
+          tag=${rest%/*} short=${rest##*/}
+          case $tag in v[0-9]*) ;; *) echo "::error::$REF is not candidate/v<version>/<sha12>"; exit 1 ;; esac
+          [ "$short" = "${GITHUB_SHA:0:12}" ] || { echo "::error::$REF names commit $short; the tag is at ${GITHUB_SHA:0:12}"; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::$GITHUB_SHA is not on main"; exit 1; }
+          { echo "tag=$tag"; echo "version=${tag#v}"; echo "short=$short"; } >> "$GITHUB_OUTPUT"
+      - run: python3 scripts/heavy-evidence.py "$GITHUB_REPOSITORY" "$GITHUB_SHA"
+      - run: sh scripts/release-notes-check.sh "${{ steps.name.outputs.version }}"
+      # The previous release's AppTown is among the frozen ones the upgrade
+      # test upgraded at this commit (scripts/release-prepare.sh brings it).
+      - run: |
+          previous=$(gh release list -R "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
+          [ -d "internal/apptown/testdata/upgrade/${previous#v}" ] || { echo "::error::the upgrade fixture of $previous is not at this commit: land it with the notes (scripts/release-prepare.sh)"; exit 1; }
+
+  build:
+    needs: identity
+    name: build ${{ matrix.image.name }} ${{ matrix.platform.slug }}
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - { name: apptown, context: ., file: deploy/Dockerfile, target: server, binary: /opt/apptown/bin/apptownd }
+          - { name: apptown-worker, context: ., file: deploy/Dockerfile, target: worker, binary: /opt/apptown-worker/bin/apptown-worker }
+          - { name: apptown-agent, context: deploy/apptown-agent, file: deploy/apptown-agent/Dockerfile, target: "", binary: "" }
+        platform:
+          - { platform: linux/amd64, slug: amd64, runner: ubuntu-24.04 }
+          - { platform: linux/arm64, slug: arm64, runner: ubuntu-24.04-arm }
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.image.name }}
+      TAG: ${{ needs.identity.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.file }}
+          target: ${{ matrix.image.target }}
+          platforms: ${{ matrix.platform.platform }}
+          build-args: |
+            VERSION=${{ needs.identity.outputs.tag }}
+            REVISION=${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ needs.identity.outputs.tag }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=max
+          sbom: true
+      # The image as built, on its own platform: its labels name this
+      # version and commit, and a server or worker's own binary says the
+      # version (run directly, not through the image's start script).
+      - name: Smoke-check the built image
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          BINARY: ${{ matrix.image.binary }}
+        run: |
+          ref="$IMAGE@$DIGEST"
+          docker pull -q "$ref" >/dev/null
+          labels=$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}} {{index .Config.Labels "org.opencontainers.image.revision"}}' "$ref")
+          [ "$labels" = "$TAG $GITHUB_SHA" ] || { echo "::error::$ref is labelled '$labels', not '$TAG $GITHUB_SHA'"; exit 1; }
+          if [ -n "$BINARY" ]; then
+            said=$(docker run --rm --entrypoint "$BINARY" "$ref" -version)
+            echo "$said"
+            case "$said" in *" $TAG"|*" $TAG "*) ;; *) echo "::error::$BINARY in $ref says '$said', not $TAG"; exit 1 ;; esac
+          fi
+      - env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: mkdir -p digests && touch "digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # "--" ends the image's name: digests-apptown-* would also match
+          # apptown-agent's and apptown-worker's digests.
+          name: digests-${{ matrix.image.name }}--${{ matrix.platform.slug }}
+          path: digests/*
+          retention-days: 1
+
+  # One index per image from its platforms' digests, tagged candidate-<sha12>,
+  # and the facts the update manifest records of it. Publication adds the
+  # version tags to this exact index and signs it.
+  merge:
+    name: index ${{ matrix.name }}
+    needs: [identity, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [apptown, apptown-worker, apptown-agent]
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.name }}
+      TAG: ${{ needs.identity.outputs.tag }}
+      CANDIDATE: candidate-${{ needs.identity.outputs.short }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: digests-${{ matrix.name }}--*
+          path: digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - working-directory: digests
+        run: |
+          # shellcheck disable=SC2046 # one argument per digest
+          docker buildx imagetools create -t "$IMAGE:$CANDIDATE" $(printf "$IMAGE@sha256:%s " *)
+      - name: Record the image index and platforms
+        run: |
+          mkdir -p release-image-facts
+          digest=$(docker buildx imagetools inspect "$IMAGE:$CANDIDATE" --format '{{json .Manifest}}' | jq -r .digest)
+          docker buildx imagetools inspect "$IMAGE@$digest" --raw > image-index.json
+          python3 scripts/update-manifest.py image "$TAG" "$GITHUB_SHA" "${{ matrix.name }}" "$digest" image-index.json "release-image-facts/${{ matrix.name }}.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-image-facts-${{ matrix.name }}
+          path: release-image-facts/*.json
+          retention-days: 30
+
+  # The release archives (scripts/release-archives.sh owns their names and
+  # contents) and SHA256SUMS over them, beside the image builds.
+  archives:
+    needs: identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund && npm run build
+        working-directory: web
+      # No Go cache: a cache saved on a tag's ref is that tag's alone.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: sh scripts/release-archives.sh "${{ needs.identity.outputs.version }}" "$GITHUB_SHA" dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archives
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  # The update manifest over the same archives and the image indexes, beside
+  # the notes: everything publication uploads, as the artifact release.
+  manifest:
+    needs: [identity, merge, archives]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      TAG: ${{ needs.identity.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: archives
+          path: dist
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: release-image-facts-*
+          path: release-image-facts
+          merge-multiple: true
+      - run: |
+          cp "releases/$TAG.md" dist/RELEASE-NOTES.md
+          go run scripts/release-facts.go --json deploy/apptown-agent > "$RUNNER_TEMP/update-compatibility.json"
+          python3 scripts/update-manifest.py build "$TAG" "$GITHUB_SHA" dist release-image-facts "$RUNNER_TEMP/update-compatibility.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  # The AppTown this release leaves behind, frozen for the releases after
+  # it (TestAnUpgradeKeepsWhatThePreviousReleaseRecorded). Publication
+  # attaches it to the release; the next release's notes change carries it
+  # into internal/apptown/testdata/upgrade (scripts/release-prepare.sh).
+  fixture:
+    needs: identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      VERSION: ${{ needs.identity.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund && npm run build
+        working-directory: web
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: |
+          dir=internal/apptown/testdata/upgrade/$VERSION
+          [ ! -e "$dir" ] || { echo "::error::$dir already exists at this commit"; exit 1; }
+          go test ./internal/apptown -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -count=1 -update-upgrade-fixture="$VERSION"
+          tar -C internal/apptown/testdata/upgrade -czf "upgrade-fixture-$VERSION.tar.gz" "$VERSION"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: upgrade-fixture
+          path: upgrade-fixture-*.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+
+  # A stranger's install of the linux/amd64 archive reaches a first preview
+  # (scripts/stranger-install.sh), in a disposable Docker daemon of its own.
+  stranger:
+    needs: [identity, archives]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: archives
+          path: dist
+      - run: sh scripts/stranger-install.sh "dist/apptown-${{ needs.identity.outputs.version }}-linux-amd64.tar.gz"
+
+  # The UI tour (site/tour): make tour in the ci-heavy image from this
+  # commit. Its screenshots and page are the artifact tour, which
+  # publication's site job publishes. make tour ends by checking every shot.
+  tour:
+    needs: identity
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI_HEAVY_ID: ${{ github.run_id }}-${{ github.run_attempt }}-tour
+      GOFLAGS: -buildvcs=false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: sh scripts/ci-heavy.sh tour
+        env:
+          TOUR_VERSION: ${{ needs.identity.outputs.tag }}
+          TOUR_SOURCE: ${{ github.sha }}
+      - if: always()
+        run: sh scripts/ci-heavy.sh cleanup
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tour
+          path: |
+            site/tour/*.png
+            site/tour/index.html
+            site/tour/metadata.json
+          if-no-files-found: error
+          retention-days: 30

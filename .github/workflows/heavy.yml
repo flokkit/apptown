@@ -7,8 +7,8 @@
 # reuses results that main's fresh runs stored (heavy-main.yml) for packages
 # whose inputs are unchanged (ci-test-environment.sh, ci-test-partition.sh),
 # so a run here can be partly cached: it is queue qualification, not release
-# evidence. A release tag's images need a heavy-main.yml run (images.yml,
-# heavy-evidence).
+# evidence. A release candidate needs a heavy-main.yml run (candidate.yml,
+# identity).
 # The main ruleset requires heavy-ok, so a red run blocks merging. No label
 # changes what runs.
 #

@@ -4,8 +4,8 @@
 #   sh scripts/release-archives.sh <version> <revision> <out-dir>
 #
 # <version> is the tag without its v (1.0.0-rc.6), as the images are tagged;
-# <revision> the commit. The release workflow (.github/workflows/images.yml)
-# runs this on every v* tag; it runs the same on a Mac to try before a tag.
+# <revision> the commit. The candidate workflow (.github/workflows/candidate.yml)
+# runs this once per release; publication uploads what it made.
 # apptownd embeds the web bundle, so web/dist must be built first.
 #
 # This script owns the archive names. The guides that name them (server-setup,

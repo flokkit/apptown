@@ -1,4 +1,4 @@
-.PHONY: build web go release upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-container-output check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-npm-scripts check-build-artifacts check-npm-audit check-docs check-public check-ci-heavy tour
+.PHONY: build web go upgrade-test run dev-api dev-web clean check check-go-gate check-go check-go-source check-vet check-staticcheck check-test check-web check-web-tsc check-web-build check-web-lint check-web-test check-shape check-exec check-container-output check-sqlnow check-lint check-lint-test lint-tools vuln-tools check-reachability check-migrations check-race check-vuln tools hooks check-test-root-a check-test-root-b precheck check-test-affected check-journeys check-pins check-npm-scripts check-build-artifacts check-npm-audit check-docs check-public check-ci-heavy tour
 
 GO_TEST_FLAGS ?=
 SQLC ?= sqlc
@@ -158,7 +158,7 @@ check-docs:             ## current guides state the current rule: no dated names
 # both themes by Playwright (APPTOWN_PLAYWRIGHT_MODULE, default the nightly
 # tier's install: private/scripts/nightly-tiers.sh prepare). The release
 # workflow runs it in the ci-heavy image and publishes the shots with the
-# site (images.yml's tour job); locally it is a preview, and the shots are
+# site (candidate.yml's tour job); locally it is a preview, and the shots are
 # not committed (.gitignore).
 tour: web                ## the UI tour's screenshots and page, from site/tour/tour.yaml (a local preview; the release workflow makes the published ones)
 	go test -tags browser ./internal/apptown -run '^TestTour$$' -count=1
@@ -203,7 +203,10 @@ check-shape:            ## the architecture's shape rules against scripts/shape-
 	python3 scripts/shape-check_test.py
 	python3 scripts/codebase-shape_test.py
 	python3 scripts/shape-report_test.py
-	python3 scripts/release_test.py
+	python3 scripts/release-notes-check_test.py
+	python3 scripts/release-prepare_test.py
+	python3 scripts/candidate-evidence_test.py
+	python3 scripts/pre_push_test.py
 	python3 scripts/update-manifest_test.py
 	python3 scripts/release-upload_test.py
 	python3 scripts/homebrew-formula_test.py
@@ -318,10 +321,7 @@ go: console-cli stock-files
 .PHONY: console-cli stock-files
 stock-files:             ## the update files the binaries read their stock from at start (share/apptown/updates, beside bin/)
 	go run $(REVISION_LDFLAGS) scripts/stock-files.go -o share/apptown/updates >/dev/null
-release:                 ## build a release's artifacts from a clean checkout at its tag: make release VERSION=1.0.0
-	sh scripts/release.sh $(VERSION)
-
-upgrade-test: web       ## each frozen release's AppTown (internal/apptown/testdata/upgrade) upgrades to this commit and keeps its records: run on a release candidate before tagging it (builds web/dist, which Go embeds)
+upgrade-test: web       ## each frozen release's AppTown (internal/apptown/testdata/upgrade) upgrades to this commit and keeps its records (CI's unit tests run it on every commit; builds web/dist, which Go embeds)
 	go test ./internal/apptown -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$$' -count=1
 	go test ./internal/apptown/dbschema -run '^TestAMigrationOverAReleasesRecordsAppliesOrLeavesThemAlone$$' -count=1
 

@@ -101,8 +101,7 @@ upgrades and any work done on it. The new build's first write is where work
 starts being lost, so roll back before people use it, or accept losing what
 they did. There is no other downgrade: an older build refuses a database or a
 data directory a newer one has upgraded. Each release's test suite upgrades
-frozen copies of earlier releases' AppTown and rolls them back this way
-(`make upgrade-test`).
+frozen copies of earlier releases' AppTown and rolls them back this way.
 
 ## Versions
 

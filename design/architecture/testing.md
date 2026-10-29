@@ -150,9 +150,9 @@ service, never a mock.
   execution unless every heavy job passed. Queue-only reuse for narrow
   documentation changes requires complete base execution; it never supplies
   release evidence (see [GitHub operations](../operations/github.md)). A release
-  tag's images and archives are built only for a commit with a run that
-  passed on its first attempt in `heavy-main.yml` (`images.yml`,
-  `heavy-evidence`). The
+  candidate's images and archives are built only for a commit with a run
+  that passed on its first attempt in `heavy-main.yml` (`candidate.yml`,
+  `identity`). The
   heavy jobs first pull the images their tests start
   (`deploy/ci-heavy/test-images.txt`), so a registry error while fetching
   them fails that step and not a test; AppTown's deliberate pulls, BuildKit

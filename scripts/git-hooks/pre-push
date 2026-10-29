@@ -4,10 +4,38 @@
 # the push: unformatted commits that reach CI fail it and block landing.
 # `git push --no-verify` skips the hook.
 #
+# A push of release tags alone checks evidence instead, because their
+# commit was qualified already (design/operations/releasing.md): each
+# candidate/... tag needs heavy.yml's first-attempt execution on its commit
+# (scripts/heavy-evidence.py), each v* tag a successful candidate run for
+# its commit and version (scripts/candidate-evidence.py). Any other push, a
+# deletion or a mix of tags and branches, runs the full gate.
+#
 # Git hands hooks its own environment (GIT_DIR, GIT_WORK_TREE, GIT_INDEX_FILE,
 # GIT_PREFIX; absolute paths when pushing from a linked worktree). Tests that
 # spawn real git would inherit it and run against THIS repository instead of
 # their fixtures, and can then move this repository's branches or change its
 # configuration. The gate runs with git's environment removed.
+zero=0000000000000000000000000000000000000000
+repo=$(printf '%s\n' "$2" | sed -n 's#^.*github\.com[:/]\([^/]*/[^/]*\)$#\1#p' | sed 's/\.git$//')
+updates=$(cat)
+tags_only=${repo:+yes}
+[ -n "$updates" ] || tags_only=
+while read -r _ local_sha remote_ref _; do
+	case $remote_ref in refs/tags/candidate/v*|refs/tags/v*) ;; *) tags_only= ;; esac
+	[ "$local_sha" != "$zero" ] || tags_only=
+done <<EOF2
+$updates
+EOF2
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
-exec make check
+[ "$tags_only" = yes ] || exec make check
+while read -r _ local_sha remote_ref _; do
+	commit=$(git rev-parse "$local_sha^{commit}") || exit 1
+	tag=${remote_ref#refs/tags/}
+	case $tag in
+	candidate/*) python3 scripts/heavy-evidence.py "$repo" "$commit" || exit 1 ;;
+	*) python3 scripts/candidate-evidence.py "$repo" "$commit" "$tag" >/dev/null || exit 1 ;;
+	esac
+done <<EOF2
+$updates
+EOF2

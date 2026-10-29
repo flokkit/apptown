@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The heavy evidence for a release tag (images.yml, heavy-evidence).
+"""The heavy evidence for a release candidate (candidate.yml, identity).
 
     python3 scripts/heavy-evidence.py <repository> <commit>
 

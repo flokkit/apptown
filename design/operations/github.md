@@ -243,8 +243,8 @@ Layer-cache eviction causes a rebuild, never omission of tests.
 
 The analyzers (`go-tools-*`) use the Makefile hash. setup-node's npm cache uses
 the lockfile; a pull request that changes it can save its own copy. Release
-builds (`images.yml`) use no Actions cache, since a tag's cache could serve only
-that tag.
+builds (`candidate.yml`) use no Go Actions cache, since a tag's cache could
+serve only that tag.
 
 **`heavy.yml`** executes the Docker integration tier, journeys, opt-in browser,
 pi and inference_docker tests, and the race detector on `merge_group` and
@@ -294,58 +294,74 @@ the release evidence below. It is a separate workflow so that landing, which
 waits for heavy.yml's run on the landed commit, does not also wait for it.
 Its matrix and cache keys are heavy.yml's (`scripts/ci_workflows_test.py`).
 
-**`images.yml`** runs when a `v*` tag is pushed. That push starts publication,
-not a preparation-only build. Complete local builds, fresh installs and the
-isolated matched-data rehearsal in [Releasing](releasing.md) before pushing;
-this workflow does not enforce the rehearsal. Its first job, `heavy-evidence`
-(`scripts/heavy-evidence.py`), asks the API for a `heavy-main.yml` run (a
-push to `main`, or by hand) on the exact tagged commit that passed on its
-first attempt; a queue run, which may reuse cached results, is not evidence,
-and builds nothing without one: CI must pass, not pass eventually. Both its
-first and latest attempt must contain the complete successful execution jobs;
-a green admission or reuse aggregate does not qualify. The newest
-applicable run decides; an older success never hides a newer failure or a run
-still executing. A run must name the tagged SHA; matching trees do not
-count. A run
-that failed and then passed on a re-run is not evidence, nor is a red,
-missing or unreadable result. A re-run of failed jobs keeps the green jobs'
-results and replaces the failure inside the same run; a new run by hand is
-a complete run of its own, with the red run left beside it. So when heavy
-failed, fix the cause in a new commit and tag that, or, when the failure
-was not the code's (a lost runner, a registry outage), start a new run by
-hand on the commit (Actions, heavy-main, Run workflow; not "Re-run"). Then
-re-run `images.yml`. The job's log lists the red runs on the commit beside
-the one it accepts. Every tag pushes each image to
-GHCR by digest with BuildKit's provenance (`mode=max`) and SBOM attached,
-joined into one tag per version (`1.0.0`; also `1.0` and `latest` for a
-release that is not a pre-release). Each image is built natively on amd64
-and arm64 runners; arm64 runners are free for public repositories and
-billed by the minute for private ones, within the organisation's Actions
-budget. The repository's visibility decides the rest:
+**`candidate.yml`** builds a release before its version tag exists. Pushing
+a tag `candidate/v<version>/<first 12 characters of the commit>` at a commit
+of `main` starts it, so the run's commit is exactly that commit. Its first job
+checks the tag names that commit, the commit is on `main`, the release notes
+(`scripts/release-notes-check.sh`), that the previous release's upgrade
+fixture is at the commit, and the heavy evidence: `scripts/heavy-evidence.py`
+asks the API for a `heavy-main.yml` run (a push to `main`, or by hand) on
+the exact commit that passed on its first attempt; a queue run, which may
+reuse cached results, is not evidence, and nothing is built without one: CI
+must pass, not pass eventually. Both its first and latest attempt must
+contain the complete successful execution jobs. The newest applicable run
+decides; an older success never hides a newer failure or a run still
+executing. A run must name the exact SHA; matching trees do not count. A run that
+failed and then passed on a re-run is not evidence, nor is a red, missing or
+unreadable result. A re-run of failed jobs keeps the green jobs' results and
+replaces the failure inside the same run; a new run by hand is a complete run
+of its own, with the red run left beside it. So when heavy failed, fix the
+cause in a new commit, or, when the failure was not the code's (a lost runner,
+a registry outage), start a new run by hand on the commit (Actions,
+heavy-main, Run workflow; not "Re-run"). The job's log lists the red runs on the commit beside
+the one it accepts.
+
+The candidate then pushes each image to GHCR by digest with BuildKit's
+provenance (`mode=max`) and SBOM attached, checks each on its own runner (its
+labels name the version and commit; the server's and worker's binaries say
+the version) and joins each image's platforms into one index tagged
+`candidate-<sha12>`. Each image is built natively on amd64 and arm64 runners;
+arm64 runners are free for public repositories and billed by the minute for
+private ones, within the organisation's Actions budget. Beside the images it
+builds the release archives (`archives`, as soon as they exist), then the
+update manifest over them and the indexes (`release`), the upgrade fixture
+(`upgrade-fixture`), a stranger's install of the linux/amd64 archive, and the
+UI tour (`tour`), each kept 30 days. A failed candidate burns no version.
+
+**`images.yml`** runs when a `v*` tag is pushed and builds nothing. Its first
+job (`scripts/candidate-evidence.py`) finds the successful candidate run on
+the tag's exact commit for that version, the newest such run deciding, and
+publishes nothing without one. It gives each candidate index the version's
+tags (`1.0.0`; also `1.0` and `latest` for a release that is not a
+pre-release), checking each tag resolves to the candidate's digest; uploads
+the candidate's `release` artifact as it is, with the upgrade fixture beside
+it, on a GitHub Release; and publishes the site with the candidate's tour. A
+failure here, such as a signing service's error, is fixed by re-running the
+failed jobs: nothing is rebuilt. The workflow keeps its file name because
+every signature names it (`.github/workflows/images.yml@refs/tags/<tag>`),
+which installed AppTowns and the guides verify. The repository's visibility
+decides the rest:
 
 - While private, the images go to private packages. Private package storage
   and downloads beyond GitHub's free allowance are billed to the
   organisation, capped by its Packages budget. Pulling one needs `docker
   login ghcr.io` with a token that can read packages. Nothing is signed.
-- When public, each image is signed keyless with cosign. GitHub's own
-  artifact attestations need Enterprise Cloud for a private repository, so
-  the provenance and SBOM are BuildKit's, stored with the image. Signing
-  waits for public because a keyless signature is recorded in Sigstore's
-  public transparency log with the repository's name.
+- When public, each image index and `SHA256SUMS` are signed keyless with
+  cosign. GitHub's own artifact attestations need Enterprise Cloud for a
+  private repository, so the provenance and SBOM are BuildKit's, stored with
+  the image. Signing waits for public because a keyless signature is
+  recorded in Sigstore's public transparency log with the repository's name.
 
 GHCR packages start private, also for a public repository. For anonymous
 pulls, make each package public in its package settings on GitHub. A
 failed run can be retried by re-running the tag's workflow.
 
-After every image is merged, the `tour` job makes the UI tour from the tag's
-source: `make tour` in the ci-heavy image (`scripts/ci-heavy.sh tour`). Its
-screenshots and page are the run's `tour` artifact, kept 30 days. The `site`
-job needs it: it downloads the artifact into `site/tour` and publishes
-apptown.dev (`site/publish.sh <version>`): the landing page, the tour, and
+The `site` job publishes apptown.dev once every image is tagged
+(`site/publish.sh <version>`): the landing page, the candidate's tour, and
 the `try` script, which starts the version just published. A failed tour
-publishes nothing, and `publish.sh` refuses a tour without every screenshot.
-A test tag (`-test.N`) runs the tour and skips the site, so the public
-install command never names a test build; its artifact is how to look at a
+fails the candidate, so nothing is published, and `publish.sh` refuses a tour
+without every screenshot. A test tag (`-test.N`) skips the site, so the public install command never
+names a test build; the candidate's tour artifact is how to look at a
 release's tour beforehand. The job signs in to AWS with
 GitHub's OIDC token as `apptown-site-publisher`, a role that may only write the
 site bucket and invalidate its distribution. The role trusts one thing: a job
