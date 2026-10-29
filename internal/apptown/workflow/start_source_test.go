@@ -57,15 +57,15 @@ func TestStartSourceOwnsScopeAndAdoptionLineage(t *testing.T) {
 		t.Fatalf("inherited source: %+v %v", source, err)
 	}
 	// sql-guarantee: the parent-source failure requires clearing only the immutable run adoption pin; no generated Workflow mutation changes adoption_id.
-	completionExec(t, db, `UPDATE runs SET adoption_id=NULL WHERE id=?`, parent.ID)
+	completionExec(t, db, `UPDATE runs SET adoption_id=NULL WHERE id=$1`, parent.ID)
 	if _, err := owner.Source(ctx, child); err == nil || !strings.Contains(err.Error(), "parent run") {
 		t.Fatalf("missing parent pin chose current project: %v", err)
 	}
 	// sql-guarantee: the lineage scenario restores only the immutable parent adoption pin before the next source read; no generated Workflow mutation changes adoption_id.
-	completionExec(t, db, `UPDATE runs SET adoption_id=? WHERE id=?`, pin, parent.ID)
+	completionExec(t, db, `UPDATE runs SET adoption_id=$1 WHERE id=$2`, pin, parent.ID)
 	transitionStoredRunForTest(t, db, parent.ID, "", RunDone)
 	// sql-guarantee: the source reader needs a minimal immutable target receipt; RecordTargetIn requires a fully validated candidate and no Adoption generated query is reachable from Workflow tests.
-	target := completionInsert(t, db, `INSERT INTO project_adoptions(id,project_id,revision,change_id,kind,digest,receipt_json,created_at) VALUES (?,?,0,?,'target','target','{}',now())`, req.ProjectID, req.ChangeID)
+	target := completionInsert(t, db, `INSERT INTO project_adoptions(id,project_id,revision,change_id,kind,digest,receipt_json,created_at) VALUES ($1,$2,0,$3,'target','target','{}',now())`, req.ProjectID, req.ChangeID)
 	changed, err := workflowsql.New(db.SQL()).AttachUpliftTarget(context.Background(), workflowsql.AttachUpliftTargetParams{TargetAdoptionID: target, TargetCandidateJson: []byte(`{}`), ID: req.ChangeID, ProjectID: req.ProjectID})
 	if err != nil || changed != 1 {
 		t.Fatalf("attach target adoption: changed=%d %v", changed, err)

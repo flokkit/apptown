@@ -126,7 +126,7 @@ func TestStepOverrideRequiresAnUndecidedCurrentStage(t *testing.T) {
 				transitionStoredRunForTest(t, s.db, run.ID, "later", RunRunning)
 			case "overridden":
 				// sql-guarantee: the conflict matrix requires fail status with override_by already set but no override receipt; OverrideStep would also pass and finish the step.
-				completionExec(t, s.db, `UPDATE steps SET override_by='bob' WHERE id=?`, id)
+				completionExec(t, s.db, `UPDATE steps SET override_by='bob' WHERE id=$1`, id)
 			case "invalid state":
 				step, err := readStep(context.Background(), s.db, id)
 				if err != nil {
@@ -222,7 +222,7 @@ func TestStepOverrideFencesChangesAfterAdmissionRead(t *testing.T) {
 				switch change {
 				case "scope":
 					// sql-guarantee: authority admits this exact run before only change_id is cleared; no Workflow mutation exposes relationship reassignment.
-					completionExec(t, s.db, `UPDATE runs SET change_id=NULL WHERE id=?`, run.ID)
+					completionExec(t, s.db, `UPDATE runs SET change_id=NULL WHERE id=$1`, run.ID)
 				case "attempt":
 					step, err := readStep(ctx, s.db, id)
 					if err != nil {

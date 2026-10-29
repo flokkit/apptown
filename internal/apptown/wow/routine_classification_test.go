@@ -346,7 +346,7 @@ func TestRoutinePackConsentRoundTripsCompletePublishedMaterial(t *testing.T) {
 				changed.Signer = "foreign-signer"
 			}
 			// sql-guarantee: corrupt an exact historical publication; supported owner operations only append versions and cannot express this substitution.
-			if _, err := db.Exec(`UPDATE guidance_block_versions SET body_md=?,source=?,signer=? WHERE block_id=? AND version=?`, changed.Body, changed.Source, changed.Signer, in.Transition.ID, 3); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), `UPDATE guidance_block_versions SET body_md=$1,source=$2,signer=$3 WHERE block_id=$4 AND version=$5`, changed.Body, changed.Source, changed.Signer, in.Transition.ID, 3); err != nil {
 				t.Fatal(err)
 			}
 			if err := db.InTx(ctx, func(tx *database.Tx) error { _, e := s.CheckIn(ctx, tx, []ids.ID{r.ID}); return e }); err == nil {

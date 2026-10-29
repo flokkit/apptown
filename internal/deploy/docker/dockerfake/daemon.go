@@ -452,6 +452,10 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 		if len(args) > 3 && args[1] == "inspect" && slices.Contains(args, "{{json .}}") {
 			return json.Marshal(map[string]any{"Id": ImageID(args[len(args)-1])})
 		}
+		if len(args) > 3 && args[1] == "inspect" && slices.Contains(args, "--format") && strings.Contains(strings.Join(args, " "), "{{json .Id}}") {
+			// execution.InspectImage's question: the ID and the labels.
+			return []byte(fmt.Sprintf("%q null\n", ImageID(args[len(args)-1]))), nil
+		}
 		return []byte("sha256:built\n"), nil
 	}
 	if d.diskResults.Answer == nil {

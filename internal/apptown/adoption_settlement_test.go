@@ -69,7 +69,7 @@ func TestWorkflowUpliftAdoptionAndMarkerCommitTogether(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: an uplift admitted at the current adoption revision, as the uplift door records it; that door needs a prepared candidate this settlement test does not exercise, and the landing refuses an uplift worked under another revision.
-	completionExec(t, a.DB, `UPDATE changes SET expected_revision=? WHERE id=?`, currentAdoption(a.DB, base.ProjectID).Revision, uplift.ID)
+	completionExec(t, a.DB, `UPDATE changes SET expected_revision=$1 WHERE id=$2`, currentAdoption(a.DB, base.ProjectID).Revision, uplift.ID)
 	run, err := a.Work.StartRun(ctx, workflow.StartChangeRun{ChangeID: uplift.ID, Workflow: "test"})
 	if err != nil {
 		t.Fatal(err)
@@ -122,7 +122,7 @@ func TestWorkflowUpliftAdoptionAndMarkerCommitTogether(t *testing.T) {
 	}
 	// A contradictory marker is not healed by guessing from a matching digest.
 	// sql-guarantee: Erase only the committed uplift marker while retaining its adoption receipt; supported adoption commits both and cannot produce this contradictory replay state.
-	completionExec(t, store, `UPDATE changes SET adopted_revision=0 WHERE id=?`, run.ChangeID)
+	completionExec(t, store, `UPDATE changes SET adopted_revision=0 WHERE id=$1`, run.ChangeID)
 	if _, err := a.lifecycle.SettleUplift(adoption.WithSystemAuthority(context.Background(), p.ID), p, c, "system", "recovery", run.ChangeID); err == nil {
 		t.Fatal("missing marker was silently reinterpreted")
 	}

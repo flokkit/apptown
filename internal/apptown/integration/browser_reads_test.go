@@ -50,7 +50,7 @@ func TestADefinitionThatNoLongerPassesIsAnError(t *testing.T) {
 	}
 	legacy := valid + "  - {key: API_KEY, value: '{{secret:resource.key}}', browser: true}\n"
 	// sql-guarantee: Store a definition as it could be saved before browser values were checked; ServiceKinds.Save now refuses a value from a secret marked for browsers, so no operation can produce this legacy row.
-	if _, err := s.Bindings.db.Exec(`UPDATE service_kinds SET spec_yaml=$1 WHERE capability='mailer'`, legacy); err != nil {
+	if _, err := s.Bindings.db.SQL().ExecContext(context.Background(), `UPDATE service_kinds SET spec_yaml=$1 WHERE capability='mailer'`, legacy); err != nil {
 		t.Fatal(err)
 	}
 	values, err := s.BrowserEnvironment(context.Background(), id)

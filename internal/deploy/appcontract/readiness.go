@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -33,8 +34,9 @@ type ReadinessRequest struct {
 	Headers map[string]string
 	// Expect is the declared status, 0 for none (Ready).
 	Expect int
-	// Body, when not "", is the exact body the answer must carry as well.
-	Body string
+	// Release, when not "", asks whether the answer serves this release
+	// (ServesRelease) instead of judging its status by Expect.
+	Release string
 	// Timeout bounds the request; 0 leaves it to ctx.
 	Timeout time.Duration
 }
@@ -75,12 +77,25 @@ func SampleReadiness(ctx context.Context, transport http.RoundTripper, r Readine
 		_ = resp.Body.Close()                                         // unchecked-error: the status is the answer; a close failure changes nothing.
 	}()
 	a := ReadinessAnswer{Status: resp.StatusCode, Ready: Ready(resp.StatusCode, r.Expect)}
-	if a.Ready && r.Body != "" {
-		body, err := io.ReadAll(io.LimitReader(resp.Body, int64(len(r.Body))+1))
+	if r.Release != "" {
+		// A body that could not be read whole is no answer: a prefix that
+		// happens to match the identity is not the marker.
+		body, err := io.ReadAll(io.LimitReader(resp.Body, MaxReleaseAnswer))
 		if err != nil {
-			return a, errors.Join(errors.New("reading the health answer's body"), err)
+			return ReadinessAnswer{Status: resp.StatusCode}, errors.Join(errors.New("reading the release marker"), err)
 		}
-		a.Ready = string(body) == r.Body
+		a.Ready = ServesRelease(resp.StatusCode, body, r.Release)
 	}
 	return a, nil
+}
+
+// MaxReleaseAnswer is how much of a release marker's answer is read.
+const MaxReleaseAnswer = 4 << 10
+
+// ServesRelease is the one judgement of whether an answer at ReleasePath
+// says the site serves release: 200, and the body, without surrounding
+// white space, is the identity (ReleaseIdentity). Every target and every
+// witness of a static site's release judges its answer by it.
+func ServesRelease(status int, body []byte, release string) bool {
+	return status == http.StatusOK && release != "" && strings.TrimSpace(string(body)) == release
 }

@@ -298,7 +298,7 @@ func TestFleetReviewReadOnly(t *testing.T) {
 
 	count := func(table string) int {
 		var n int
-		_ = a.DB.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n)
+		_ = a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM `+table).Scan(&n)
 		return n
 	}
 	chBefore, stBefore := count("changes"), count("steps")

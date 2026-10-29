@@ -3,12 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/execution"
 	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
@@ -41,13 +45,9 @@ func cmdConfig(args []string) error {
 		if len(args) > 1 {
 			path = args[1]
 		}
-		b, err := os.ReadFile(path)
+		body, err := validateBody(path)
 		if err != nil {
-			return fmt.Errorf("reading %s: %w", path, err)
-		}
-		body := map[string]string{"appYaml": string(b)}
-		if ss, err := os.ReadFile(filepath.Join(filepath.Dir(filepath.Dir(path)), "secretspec.toml")); err == nil {
-			body["secretSpec"] = string(ss)
+			return err
 		}
 		raw, err := api.request("POST", "/config/validate", body)
 		if err != nil {
@@ -80,6 +80,27 @@ func cmdConfig(args []string) error {
 	return usagef("unknown config subcommand %q", args[0])
 }
 
+// validateBody is what `config validate` sends for the contract at path: the
+// contract and the secrets declaration where the contract says (secrets.spec,
+// else secretspec.toml), in the project beside .apptown/. A contract that
+// does not parse is sent alone: the server answers with the parse error.
+func validateBody(path string) (map[string]string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+	body := map[string]string{"appYaml": string(b)}
+	if c, err := appcontract.Parse(b); err == nil {
+		specPath := strs.FirstNonBlank(c.SecretSpecPath, "secretspec.toml")
+		if appcontract.CheckSpecPath(specPath) == nil {
+			if ss, err := os.ReadFile(filepath.Join(filepath.Dir(filepath.Dir(path)), specPath)); err == nil {
+				body["secretSpec"] = string(ss)
+			}
+		}
+	}
+	return body, nil
+}
+
 // apptown dev — local development in two gears (design/decisions/forge-native-contract.md):
 //
 //	apptown dev        process-mode: bring up the app's NEEDS (emulators) and write
@@ -104,7 +125,10 @@ func cmdDev(args []string) error {
 		// The needs' ports answer on the Docker daemon's host: a chat with its
 		// own daemon (DOCKER_HOST=tcp://dind:2375) reaches them there, not on
 		// localhost (complaint #94).
-		host := publishedPortsHost(os.Getenv("DOCKER_HOST"))
+		host, err := publishedPortsHost()
+		if err != nil {
+			return err
+		}
 		raw, err := api.request("POST", "/dev-compose", map[string]string{"appYaml": yaml, "mode": mode, "host": host})
 		if err != nil {
 			return err
@@ -162,7 +186,7 @@ func cmdDev(args []string) error {
 		if err := devUpStart(out.StaticBuilds, dockerCLI); err != nil {
 			return err
 		}
-		if host := publishedPortsHost(os.Getenv("DOCKER_HOST")); host != "" {
+		if host, err := publishedPortsHost(); err == nil && host != "" {
 			fmt.Printf("the app's published ports answer on %[1]s, this session's Docker host, not on localhost (curl http://%[1]s:<port>/)\n", host)
 		}
 		return nil
@@ -203,7 +227,7 @@ func buildStaticSites(builds []devStaticBuild, build func(args ...string) error)
 		// folders and files, holding at least one file, with no link on
 		// the way to it or inside it, since the folder is then mounted
 		// into the file server's container.
-		if _, err := docker.ConfineStaticExport(b.Folder, b.Output); err != nil {
+		if _, err := docker.ConfineStaticExport(root, b.Folder, b.Output); err != nil {
 			return fmt.Errorf("the static site %s: %w", b.Part, err)
 		}
 	}
@@ -271,17 +295,15 @@ func devComposeArgs(dcArgs ...string) []string {
 
 // publishedPortsHost is where compose's published ports answer when Docker
 // is another machine (DOCKER_HOST=tcp://dind:2375 in a session with its own
-// daemon): that host, never localhost. "" when Docker is this machine's.
-func publishedPortsHost(dockerHost string) string {
-	rest, ok := strings.CutPrefix(dockerHost, "tcp://")
-	if !ok {
-		return ""
+// daemon, or a Docker context naming one): that host, never localhost. ""
+// when Docker is this machine's. A Docker setting that cannot be read is an
+// error: which daemon compose would use is not known.
+func publishedPortsHost() (string, error) {
+	daemon := execution.SelectDocker()
+	if daemon.Refused != nil {
+		return "", fmt.Errorf("cannot tell which Docker this session uses: %w", daemon.Refused)
 	}
-	host, _, _ := strings.Cut(rest, "/")
-	if h, _, found := strings.Cut(host, ":"); found && !strings.HasPrefix(host, "[") {
-		host = h
-	}
-	return host
+	return daemon.OtherMachine(), nil
 }
 
 func runDocker(dcArgs ...string) error { return composeWith(dockerCLI, dcArgs...) }

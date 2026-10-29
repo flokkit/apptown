@@ -20,9 +20,27 @@ type StackVolume struct {
 }
 
 // ComposeVolumes are the volumes a compose file declares for stack (not
-// external): <stack>_<key>, or the name the file sets. A need's volume key
-// is <prefix>need-<base>-<need> (StackNames).
+// external), named as composeVolumeNames names them, each with the need
+// whose data it keeps. A need's volume key is <prefix>need-<base>-<need>
+// (StackNames).
 func ComposeVolumes(stack, base, compose string) ([]StackVolume, error) {
+	vols, err := composeVolumeNames(stack, compose)
+	if err != nil {
+		return nil, err
+	}
+	for i, v := range vols {
+		// The stack is <prefix><base>; its need volumes <prefix>need-<base>-<need>.
+		if need, ok := strings.CutPrefix(v.Key, strings.TrimSuffix(stack, base)+"need-"+base+"-"); ok {
+			vols[i].Need = need
+		}
+	}
+	return vols, nil
+}
+
+// composeVolumeNames is the one rule for what the environment calls the
+// volumes a stack's compose file declares: <stack>_<key>, or the name the
+// file sets. An external volume is not the stack's and is left out.
+func composeVolumeNames(stack, compose string) ([]StackVolume, error) {
 	var file struct {
 		Volumes map[string]*struct {
 			Name     string `yaml:"name"`
@@ -41,12 +59,7 @@ func ComposeVolumes(stack, base, compose string) ([]StackVolume, error) {
 		if v != nil && v.Name != "" {
 			name = v.Name
 		}
-		// The stack is <prefix><base>; its need volumes <prefix>need-<base>-<need>.
-		need, _ := strings.CutPrefix(key, strings.TrimSuffix(stack, base)+"need-"+base+"-")
-		if need == key {
-			need = ""
-		}
-		out = append(out, StackVolume{Name: name, Key: key, Need: need})
+		out = append(out, StackVolume{Name: name, Key: key})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil

@@ -326,7 +326,7 @@ func TestMCPWorkspaceAvailabilityFailureCannotMintOrSync(t *testing.T) {
 				t.Fatalf("unknown availability granted %s: %d %s", tool, w.Code, w.Body.String())
 			}
 			// sql-guarantee: identity has no read of tickets by kind; an unknown availability must mint no Git ticket row at all.
-			completionCount(t, a.DB, 0, `SELECT count(*) FROM object_capabilities WHERE kind=?`, identity.TicketKindGit)
+			completionCount(t, a.DB, 0, `SELECT count(*) FROM object_capabilities WHERE kind=$1`, identity.TicketKindGit)
 			requireAudits(t, a.DB, 0, "change.ticket-minted", "change.revision-synced")
 			if got := gittest.Run(t, ws, "rev-parse", "HEAD"); got != before {
 				t.Fatalf("unknown availability changed workspace: %s -> %s", before, got)
@@ -552,7 +552,7 @@ func awaitAdvisoryWaiter(t *testing.T, ctx context.Context, db *database.DB, id 
 	for {
 		var waiting bool
 		// sql-guarantee: only Postgres's lock table can say an operation is waiting at the injected barrier; no owner read can
-		if err := db.QueryRow(`SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND objid=? AND NOT granted AND database=(SELECT oid FROM pg_database WHERE datname=current_database()))`, id).Scan(&waiting); err != nil {
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND objid=$1 AND NOT granted AND database=(SELECT oid FROM pg_database WHERE datname=current_database()))`, id).Scan(&waiting); err != nil {
 			t.Fatal(err)
 		}
 		if waiting {

@@ -34,7 +34,7 @@ func TestRemoveProjectInKeepsOtherProjects(t *testing.T) {
 		"bundles": func(pid ids.ID) int {
 			var n int
 			// sql-guarantee: b must keep exactly one bundle, not merely a newest one; no owner read lists a project's bundles.
-			if err := db.QueryRow(`SELECT COUNT(*) FROM release_bundles WHERE project_id=?`, pid).Scan(&n); err != nil {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM release_bundles WHERE project_id=$1`, pid).Scan(&n); err != nil {
 				t.Fatal(err)
 			}
 			return n

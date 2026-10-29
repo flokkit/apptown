@@ -44,7 +44,7 @@ func TestReleaseAttributionDoesNotFollowReusedDeploymentNames(t *testing.T) {
 				t.Fatalf("bound release: live=%v err=%v", live, err)
 			}
 			// sql-guarantee: retained history can be unbound or name a removed deployment; current release admission cannot manufacture that historical provenance.
-			oldID := mustInsert(t, db, `INSERT INTO releases(id,project_id,number,state,deployment,deployment_id,created_at) VALUES (?,?,?,'released',?,?,'2026-01-04')`, draft.ProjectID, cut.Number+1, dep.Name, historicalID)
+			oldID := mustInsert(t, db, `INSERT INTO releases(id,project_id,number,state,deployment,deployment_id,created_at) VALUES ($1,$2,$3,'released',$4,$5,'2026-01-04')`, draft.ProjectID, cut.Number+1, dep.Name, historicalID)
 			historical := storedRelease(t, db, draft.ProjectID, oldID)
 			if live, err := releases.Live(t.Context(), historical); err != nil || live {
 				t.Errorf("historical name is not liveness: live=%v err=%v", live, err)

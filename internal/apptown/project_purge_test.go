@@ -390,23 +390,23 @@ func purgeRemovalCounts(t *testing.T, a *App) workflow.RemovalCounts {
 	t.Helper()
 	var counts workflow.RemovalCounts
 	// sql-guarantee: an independent count of the Work rows, held against the counts the purge's own inventory (workflow.ProjectRemovalIn) writes into its receipt.
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM runs WHERE project_id='00000000-0001-7000-8000-000000000000'`).Scan(&counts.Runs); err != nil {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM runs WHERE project_id='00000000-0001-7000-8000-000000000000'`).Scan(&counts.Runs); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: an independent count of the Work rows, held against the counts the purge's own inventory writes into its receipt
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM changes WHERE project_id='00000000-0001-7000-8000-000000000000'`).Scan(&counts.Changes); err != nil {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM changes WHERE project_id='00000000-0001-7000-8000-000000000000'`).Scan(&counts.Changes); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: an independent count of the Work rows, held against the counts the purge's own inventory writes into its receipt
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM steps WHERE run_id IN (SELECT id FROM runs WHERE project_id='00000000-0001-7000-8000-000000000000')`).Scan(&counts.Steps); err != nil {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM steps WHERE run_id IN (SELECT id FROM runs WHERE project_id='00000000-0001-7000-8000-000000000000')`).Scan(&counts.Steps); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: an independent count of the Work rows, held against the counts the purge's own inventory writes into its receipt
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM run_events WHERE run_id IN (SELECT id FROM runs WHERE project_id='00000000-0001-7000-8000-000000000000')`).Scan(&counts.Events); err != nil {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM run_events WHERE run_id IN (SELECT id FROM runs WHERE project_id='00000000-0001-7000-8000-000000000000')`).Scan(&counts.Events); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: an independent count of the Work rows, held against the counts the purge's own inventory writes into its receipt
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM artifacts WHERE run_id IN (SELECT id FROM runs WHERE project_id='00000000-0001-7000-8000-000000000000')`).Scan(&counts.Artifacts); err != nil {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM artifacts WHERE run_id IN (SELECT id FROM runs WHERE project_id='00000000-0001-7000-8000-000000000000')`).Scan(&counts.Artifacts); err != nil {
 		t.Fatal(err)
 	}
 	return counts

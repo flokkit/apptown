@@ -115,13 +115,13 @@ func TestWorkServiceChecksScopeAgainBeforePublishing(t *testing.T) {
 				switch kind {
 				case "change", "edit":
 					// sql-guarantee: Move the change to a foreign project during authorization to test authorized-source revalidation; Change operations and generated transitions preserve project_id.
-					completionExec(t, q.db, `UPDATE changes SET project_id=?,number=number+100000 WHERE id=?`, other, root.ChangeID)
+					completionExec(t, q.db, `UPDATE changes SET project_id=$1,number=number+100000 WHERE id=$2`, other, root.ChangeID)
 				case "run", "activity":
 					// sql-guarantee: Move the run to a foreign project during authorization while preserving its evidence identities; admission fixes project_id and no generated mutation reparents a run.
-					completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, root.ID)
+					completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, root.ID)
 				case "artifact":
 					// sql-guarantee: Move the already-authorized artifact to a foreign run before its body is read; artifact insertion fixes run_id and no generated mutation reparents an existing artifact.
-					completionExec(t, q.db, `UPDATE artifacts SET run_id=? WHERE id=?`, foreign, artifact)
+					completionExec(t, q.db, `UPDATE artifacts SET run_id=$1 WHERE id=$2`, foreign, artifact)
 				}
 				return "reader", nil
 			})

@@ -367,10 +367,10 @@ func witnessRelease(ctx context.Context, client *http.Client, url, release strin
 			tries++ // a request the new name did not answer yet is not a try
 		}
 		if err == nil {
-			body, _ := io.ReadAll(io.LimitReader(res.Body, 4<<10))
+			body, readErr := io.ReadAll(io.LimitReader(res.Body, appcontract.MaxReleaseAnswer))
 			res.Body.Close()
 			got := strings.TrimSpace(string(body))
-			if res.StatusCode == http.StatusOK && got == release {
+			if readErr == nil && appcontract.ServesRelease(res.StatusCode, body, release) {
 				logf("the front door serves this release: %s answers %s", url, release)
 				return nil
 			}

@@ -52,7 +52,7 @@ func TestStepOutcomeRequiresCommittedCurrentClaim(t *testing.T) {
 			case "moved run":
 				other := insertStoredRun(t, owner.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: claim.ownedProjectID, WorkflowName: "other", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(`{}`)}).ID
 				// sql-guarantee: Reparent the claimed step without changing its running status or owned attempt to isolate the run-identity completion fence; admission fixes run_id and no generated step mutation reparents it.
-				completionExec(t, owner.db, `UPDATE steps SET run_id=? WHERE id=?`, other, id)
+				completionExec(t, owner.db, `UPDATE steps SET run_id=$1 WHERE id=$2`, other, id)
 			case "attempt":
 				incrementScopeAttempt(t, owner.db, id)
 			case "run closed":
@@ -61,7 +61,7 @@ func TestStepOutcomeRequiresCommittedCurrentClaim(t *testing.T) {
 				transitionScopeRun(t, owner.db, workflowsql.TransitionRunParams{At: time.Now(), ID: claim.RunID, NextStage: "later"})
 			case "override":
 				// sql-guarantee: Set only override_by while retaining the running claim's status and attempt so rejection must honor the override guard; OverrideStep also changes status to pass and would mask that guard.
-				completionExec(t, owner.db, `UPDATE steps SET override_by='other' WHERE id=?`, id)
+				completionExec(t, owner.db, `UPDATE steps SET override_by='other' WHERE id=$1`, id)
 			case "invalid outcome":
 				status = StatusPending
 			}
@@ -173,7 +173,7 @@ func TestStepOutcomeCancelsWaitAndRejectsScopeMovedDuringLock(t *testing.T) {
 				foreign := workflowTestProject(t, owner.db, "foreign", "Foreign", "")
 				run := insertStoredRun(t, owner.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: foreign, WorkflowName: "foreign", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: json.RawMessage(`{}`)}).ID
 				// sql-guarantee: Reparent the running step after Finish waits on the original project lock to test scope revalidation; existing step mutations preserve run_id and admission cannot move an in-flight claim.
-				completionExec(t, owner.db, `UPDATE steps SET run_id=? WHERE id=?`, run, claim.ID)
+				completionExec(t, owner.db, `UPDATE steps SET run_id=$1 WHERE id=$2`, run, claim.ID)
 				if err := gate.Commit(); err != nil {
 					t.Fatal(err)
 				}

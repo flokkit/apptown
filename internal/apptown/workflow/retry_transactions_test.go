@@ -23,7 +23,7 @@ func retryStageFixture(t *testing.T) (stepRetries, *Run, ids.ID, ids.ID, ids.ID)
 	spec.Stages[0].Steps = append(spec.Stages[0].Steps, schema.Step{Name: "accept", Uses: "approval", With: map[string]any{"quorum": 2}})
 	owner, run, agent, review := retryFixtureWithSpec(t, spec)
 	// sql-guarantee: Give every retry-stage row an old finished_at, including its pending human gate, to verify atomic invalidation clears the whole stage; generated finish writers cannot supply historical times.
-	completionExec(t, owner.db, `UPDATE steps SET finished_at=now()-interval '1 minute' WHERE run_id=?`, run.ID)
+	completionExec(t, owner.db, `UPDATE steps SET finished_at=now()-interval '1 minute' WHERE run_id=$1`, run.ID)
 	approval := admittedStepID(t, queries{db: owner.db}, run, "accept")
 	return owner, run, agent, review, approval
 }
@@ -32,7 +32,7 @@ func TestWorkflowRetryCompletedSendBack(t *testing.T) {
 	t.Parallel()
 	s, source, agent := completedSendBackFixture(t)
 	// sql-guarantee: RC7 can retain completed history without start records; continuation must not invent readiness for that source.
-	completionExec(t, s.db, `DELETE FROM run_starts WHERE run_id=?`, source.ID)
+	completionExec(t, s.db, `DELETE FROM run_starts WHERE run_id=$1`, source.ID)
 	review := admittedStepID(t, queries{db: s.db}, source, "review")
 	retryScopeStep(t, s.db, review, json.RawMessage(`{}`))
 	recordScopeStep(t, s.db, workflowsql.RecordApprovalParams{At: time.Now(), ID: review, Status: "pass"})
@@ -362,7 +362,7 @@ func TestWorkflowRetryCompletedSendBackKeepsInferenceOwner(t *testing.T) {
 
 	unattributed, older, _ := completedSendBackFixture(t)
 	// sql-guarantee: Model a legacy completed run with no inference-owner row so continuation must use run/<id>; admission always inserts ownership and no generated mutation deletes that historical attribution row.
-	completionExec(t, unattributed.db, `DELETE FROM run_inference_owners WHERE run_id=?`, older.ID)
+	completionExec(t, unattributed.db, `DELETE FROM run_inference_owners WHERE run_id=$1`, older.ID)
 	again, err := unattributed.sendBack(context.Background(), older.ChangeID, "continue unattributed history", "someone-else", "", older.ProjectID)
 	if err != nil {
 		t.Fatal(err)

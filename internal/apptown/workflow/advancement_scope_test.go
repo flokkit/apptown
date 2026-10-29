@@ -33,7 +33,7 @@ func TestAdvanceServiceDoesNotPublishMovedProjectResults(t *testing.T) {
 			other := workflowTestProject(t, q.db, "other", "Other", "")
 			checks := advancementScopeChecks{refresh: func(context.Context, *Run) error {
 				// sql-guarantee: No owner mutation rehomes an existing run; move its project during refresh to fence both advancement and fallback publication.
-				completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+				completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 				if conflict {
 					return ErrRunMoved
 				}

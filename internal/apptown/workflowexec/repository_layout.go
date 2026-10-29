@@ -3,9 +3,10 @@ package workflowexec
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project/repositorylayout"
 	"path/filepath"
 	"strings"
+
+	"github.com/flokkit/apptown/internal/apptown/project/repositorylayout"
 
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/database"

@@ -190,7 +190,9 @@ func executionOwnerFinished(ctx context.Context, db database.Queryer, owner stri
 			id = leadingID(strings.TrimPrefix(owner, "pv"))
 			preview = true
 		} else {
-			for _, kind := range []string{"step-", "tests-", "review-", "scan-", "conform-", "dind-step-"} {
+			// A step's containers are named execution.StepContainer; its
+			// private daemon apptown-dind-step-<id>.
+			for _, kind := range []string{"step-", "dind-step-"} {
 				if prefix := string(docker.Current) + kind; strings.HasPrefix(owner, prefix) {
 					id = leadingID(strings.TrimPrefix(owner, prefix))
 					break

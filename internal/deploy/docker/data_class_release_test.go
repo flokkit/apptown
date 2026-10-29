@@ -51,7 +51,7 @@ func TestAReleaseThroughTheDriverResetsOnlySyntheticData(t *testing.T) {
 			d := &Driver{ServingLabel: "stable-serving",
 				Scope: func(context.Context) (Scope, error) { return Scope{Client: client}, nil },
 				Boot:  NewHost(Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: postgresNeed{}, Secrets: reviewNoSecrets{}}),
-				URL:   func(_, _ string, port int) string { return fmt.Sprintf("http://127.0.0.1:%d", port) },
+				URL:   func(_, _ string, port int) (string, error) { return fmt.Sprintf("http://127.0.0.1:%d", port), nil },
 				Owner: recordNothing{},
 				Owned: func(context.Context) ([]deploy.Owned, error) {
 					return []deploy.Owned{{Kind: "volume", ID: vol, Data: true, Need: "postgres"}}, nil

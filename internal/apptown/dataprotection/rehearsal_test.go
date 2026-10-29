@@ -339,7 +339,7 @@ func newRehearsalWorldWith(t *testing.T, contract string, dw *dataWorld, seed fu
 		t.Fatalf("release %s:\n%s", rel.State, log)
 	}
 	// sql-guarantee: an App Platform release of a digest bundle copies its images between two registries, which this world has none of; the rehearsal reads only that the served release names a digest bundle.
-	if _, err := w.db.Exec(`UPDATE releases SET bundle_id=$1 WHERE id=$2`, bid, rel.ID); err != nil {
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE releases SET bundle_id=$1 WHERE id=$2`, bid, rel.ID); err != nil {
 		t.Fatal(err)
 	}
 	cluster, _ := w.clusterOf(dep)["id"].(string)

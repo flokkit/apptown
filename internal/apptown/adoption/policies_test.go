@@ -56,7 +56,7 @@ func policyProject(t *testing.T, db *database.DB, slug string) ids.ID {
 
 func policyExec(t *testing.T, db *database.DB, q string) {
 	t.Helper()
-	if _, err := db.Exec(q); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), q); err != nil {
 		t.Fatal(err)
 	}
 }

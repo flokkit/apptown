@@ -1,10 +1,8 @@
 package worker
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/flokkit/apptown/internal/console"
@@ -41,57 +38,35 @@ var (
 	ErrSessionBusy = errors.New("the chat is busy")
 )
 
-func (c SessionClient) call(ctx context.Context, method, path string, in, out any) error {
-	var body io.Reader
-	if in != nil {
-		encoded, err := json.Marshal(in)
-		if err != nil {
-			return err
-		}
-		body = bytes.NewReader(encoded)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(c.URL, "/")+path, body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.client().Do(req)
-	if err != nil {
-		return fmt.Errorf("%w: %w", execution.ErrWorkerUnavailable, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return refusal(resp)
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(out); err != nil {
-		return fmt.Errorf("%w: reading its answer: %w", execution.ErrWorkerUnavailable, err)
-	}
-	return nil
+// transport is the one worker transport (execution.WorkerClient).
+func (c SessionClient) transport() execution.WorkerClient {
+	return execution.WorkerClient{URL: c.URL, Client: c.Client}
 }
 
-func (c SessionClient) client() *http.Client {
-	if c.Client == nil {
-		return http.DefaultClient
-	}
-	return c.Client
+// maxSessionAnswer bounds a session endpoint's JSON answer.
+const maxSessionAnswer = 4 << 20
+
+func (c SessionClient) call(ctx context.Context, method, path string, in, out any) error {
+	return c.transport().Call(ctx, method, path, in, out, maxSessionAnswer, refusal)
 }
 
 // refusal classifies an answer that is not success: the worker's refusal,
-// or (5xx) an answer that says nothing certain.
+// read by execution.WorkerRefusal (a 5xx, or a refusal that cannot be
+// read, is the worker unavailable), with the session's own statuses named.
 func refusal(resp *http.Response) error {
-	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-	text := strings.TrimSpace(string(msg))
-	switch {
-	case resp.StatusCode == http.StatusConflict:
-		return fmt.Errorf("%w: %s", ErrSessionRemoved, text)
-	case resp.StatusCode == http.StatusNotFound:
-		return fmt.Errorf("%w: %s", ErrNoSession, text)
-	case resp.StatusCode == http.StatusLocked:
-		return fmt.Errorf("%w: %s", ErrSessionBusy, text)
-	case resp.StatusCode >= 500:
-		return fmt.Errorf("%w: %s: %s", execution.ErrWorkerUnavailable, resp.Status, text)
+	err := execution.WorkerRefusal(resp)
+	if errors.Is(err, execution.ErrWorkerUnavailable) {
+		return err
 	}
-	return fmt.Errorf("the worker refused: %s: %s", resp.Status, text)
+	switch resp.StatusCode {
+	case http.StatusConflict:
+		return fmt.Errorf("%w: %v", ErrSessionRemoved, err)
+	case http.StatusNotFound:
+		return fmt.Errorf("%w: %v", ErrNoSession, err)
+	case http.StatusLocked:
+		return fmt.Errorf("%w: %v", ErrSessionBusy, err)
+	}
+	return err
 }
 
 func sessionPath(id, suffix string) string { return "/v1/sessions/" + url.PathEscape(id) + suffix }
@@ -140,55 +115,15 @@ func (c SessionClient) List(ctx context.Context) ([]SessionSummary, error) {
 	return out, c.call(ctx, http.MethodGet, "/v1/sessions", nil, &out)
 }
 
-// send is call with a raw body, for tars; it answers with the response for
-// the caller to read, or a classified error.
+// send is call with a raw body, for tars.
 func (c SessionClient) send(ctx context.Context, method, path string, body io.Reader, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(c.URL, "/")+path, body)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/x-tar")
-	resp, err := c.client().Do(req)
-	if err != nil {
-		return fmt.Errorf("%w: %w", execution.ErrWorkerUnavailable, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return refusal(resp)
-	}
-	if out == nil {
-		return nil
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(out); err != nil {
-		return fmt.Errorf("%w: reading its answer: %w", execution.ErrWorkerUnavailable, err)
-	}
-	return nil
+	return c.transport().Send(ctx, method, path, body, "application/x-tar", out, maxSessionAnswer, refusal)
 }
 
-// HasBlob: the worker has the blob.
-func (c SessionClient) HasBlob(ctx context.Context, sum string) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, strings.TrimRight(c.URL, "/")+"/v1/blobs/"+sum, nil)
-	if err != nil {
-		return false, err
-	}
-	resp, err := c.client().Do(req)
-	if err != nil {
-		return false, fmt.Errorf("%w: %w", execution.ErrWorkerUnavailable, err)
-	}
-	resp.Body.Close()
-	switch resp.StatusCode {
-	case http.StatusOK:
-		return true, nil
-	case http.StatusNotFound:
-		return false, nil
-	}
-	return false, fmt.Errorf("%w: %s", execution.ErrWorkerUnavailable, resp.Status)
-}
-
-// PutBlob sends a blob: a tar with one entry named "content", named by its
-// SHA-256.
-func (c SessionClient) PutBlob(ctx context.Context, sum string, tar io.Reader) error {
-	return c.send(ctx, http.MethodPut, "/v1/blobs/"+sum, tar, nil)
+// EnsureBlob sends a blob (a tar with one entry named "content", named by
+// its SHA-256) unless the worker has it.
+func (c SessionClient) EnsureBlob(ctx context.Context, sum string, tar []byte) error {
+	return c.transport().EnsureBlob(ctx, sum, tar)
 }
 
 // PutFiles replaces the session's files with the tar.
@@ -218,14 +153,9 @@ func (c SessionClient) Records(ctx context.Context, id string) ([]RecordFile, er
 
 // Record reads a record file from an offset.
 func (c SessionClient) Record(ctx context.Context, id, name string, from int64) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		strings.TrimRight(c.URL, "/")+sessionPath(id, "/records/"+url.PathEscape(name))+"?from="+strconv.FormatInt(from, 10), nil)
+	resp, err := c.transport().Do(ctx, http.MethodGet, sessionPath(id, "/records/"+url.PathEscape(name))+"?from="+strconv.FormatInt(from, 10), nil, nil)
 	if err != nil {
 		return nil, err
-	}
-	resp, err := c.client().Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", execution.ErrWorkerUnavailable, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
@@ -240,20 +170,17 @@ func (c SessionClient) Record(ctx context.Context, id, name string, from int64) 
 
 // Terminal opens the chat's terminal on the worker.
 func (c SessionClient) Terminal(ctx context.Context, id string, size console.Size) (console.Terminal, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		fmt.Sprintf("%s%s?cols=%d&rows=%d", strings.TrimRight(c.URL, "/"), sessionPath(id, "/terminal"), size.Cols, size.Rows), nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Connection", "Upgrade")
-	req.Header.Set("Upgrade", terminalProtocol)
 	// A terminal lasts as long as it is open: a client's overall timeout
 	// would cut it, and would leave its connection unwritable.
-	hc := *c.client()
+	hc := http.Client{}
+	if c.Client != nil {
+		hc = *c.Client
+	}
 	hc.Timeout = 0
-	resp, err := hc.Do(req)
+	resp, err := execution.WorkerClient{URL: c.URL, Client: &hc}.Do(ctx, http.MethodGet, fmt.Sprintf("%s?cols=%d&rows=%d", sessionPath(id, "/terminal"), size.Cols, size.Rows),
+		nil, http.Header{"Connection": {"Upgrade"}, "Upgrade": {terminalProtocol}})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", execution.ErrWorkerUnavailable, err)
+		return nil, err
 	}
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		defer resp.Body.Close()
@@ -328,13 +255,9 @@ func (c SessionClient) Save(ctx context.Context, id, base, leftovers, dest strin
 	if leftovers != "" {
 		q.Set("leftovers", leftovers)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(c.URL, "/")+sessionPath(id, "/save?"+q.Encode()), nil)
+	resp, err := c.transport().Do(ctx, http.MethodGet, sessionPath(id, "/save?"+q.Encode()), nil, nil)
 	if err != nil {
 		return "", err
-	}
-	resp, err := c.client().Do(req)
-	if err != nil {
-		return "", fmt.Errorf("%w: %w", execution.ErrWorkerUnavailable, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNoContent {

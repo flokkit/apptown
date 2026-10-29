@@ -53,7 +53,7 @@ func TestExecutionObservationUsesCanonicalScopedRecords(t *testing.T) {
 			case "foreign change record":
 				project := workflowTestProject(t, q.db, "other", "Other", "")
 				// sql-guarantee: the scoped observation must face a Change whose stored project disagrees with its run; no Change mutation permits project reassignment.
-				completionExec(t, q.db, `UPDATE changes SET project_id=?,number=number+100000 WHERE id=?`, project, run.ChangeID)
+				completionExec(t, q.db, `UPDATE changes SET project_id=$1,number=number+100000 WHERE id=$2`, project, run.ChangeID)
 				wantAbsent = true
 			case "missing run":
 				in.RunID = idstest.N(999999)

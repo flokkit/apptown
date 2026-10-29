@@ -16,35 +16,35 @@ func TestSchemaBaselineRefusesUnsupportedStateWithoutMutation(t *testing.T) {
 	for _, version := range []string{"missing-table", "missing-row", "duplicate-row", "88", "146", "166", "999"} {
 		t.Run(version, func(t *testing.T) {
 			db := emptyDB(t)
-			if _, err := db.Exec(`CREATE TABLE sentinel (value TEXT)`); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), `CREATE TABLE sentinel (value TEXT)`); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := db.Exec(`INSERT INTO sentinel VALUES ('preserve this')`); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO sentinel VALUES ('preserve this')`); err != nil {
 				t.Fatal(err)
 			}
 			if version != "missing-table" {
-				if _, err := db.Exec(`CREATE TABLE schema_version (version BIGINT)`); err != nil {
+				if _, err := db.SQL().ExecContext(context.Background(), `CREATE TABLE schema_version (version BIGINT)`); err != nil {
 					t.Fatal(err)
 				}
 				switch version {
 				case "missing-row":
 				case "duplicate-row":
-					if _, err := db.Exec(`INSERT INTO schema_version VALUES (167),(167)`); err != nil {
+					if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO schema_version VALUES (167),(167)`); err != nil {
 						t.Fatal(err)
 					}
 				default:
-					if _, err := db.Exec(`INSERT INTO schema_version VALUES (?)`, version); err != nil {
+					if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO schema_version VALUES ($1)`, version); err != nil {
 						t.Fatal(err)
 					}
 				}
 			}
 			var before int
-			if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&before); err != nil {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&before); err != nil {
 				t.Fatal(err)
 			}
 			var versionsBefore, versionsAfter string
 			if version != "missing-table" {
-				if err := db.QueryRow(`SELECT COALESCE(jsonb_agg(version ORDER BY version)::text,'[]') FROM schema_version`).Scan(&versionsBefore); err != nil {
+				if err := db.SQL().QueryRowContext(context.Background(), `SELECT COALESCE(jsonb_agg(version ORDER BY version)::text,'[]') FROM schema_version`).Scan(&versionsBefore); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -54,7 +54,7 @@ func TestSchemaBaselineRefusesUnsupportedStateWithoutMutation(t *testing.T) {
 				t.Fatalf("old schema reached migration instead of admission refusal: %v", err)
 			}
 			if version != "missing-table" {
-				if err := db.QueryRow(`SELECT COALESCE(jsonb_agg(version ORDER BY version)::text,'[]') FROM schema_version`).Scan(&versionsAfter); err != nil {
+				if err := db.SQL().QueryRowContext(context.Background(), `SELECT COALESCE(jsonb_agg(version ORDER BY version)::text,'[]') FROM schema_version`).Scan(&versionsAfter); err != nil {
 					t.Fatal(err)
 				}
 				if versionsAfter != versionsBefore {
@@ -63,10 +63,10 @@ func TestSchemaBaselineRefusesUnsupportedStateWithoutMutation(t *testing.T) {
 			}
 			var after int
 			var value string
-			if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&after); err != nil {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&after); err != nil {
 				t.Fatal(err)
 			}
-			if err := db.QueryRow(`SELECT value FROM sentinel`).Scan(&value); err != nil {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT value FROM sentinel`).Scan(&value); err != nil {
 				t.Fatal(err)
 			}
 			if before != after || value != "preserve this" {
@@ -84,7 +84,7 @@ func TestSchemaFreshCreationAndFutureMigrationAreAtomic(t *testing.T) {
 		t.Fatal("fresh stamp failure hidden")
 	}
 	var tables int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&tables); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&tables); err != nil {
 		t.Fatal(err)
 	}
 	if tables != 0 {
@@ -93,7 +93,7 @@ func TestSchemaFreshCreationAndFutureMigrationAreAtomic(t *testing.T) {
 	if _, err := Migrate(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
-	if v, err := schemaVersion(db); err != nil || v != latestSchemaVersion() {
+	if v, err := schemaVersion(context.Background(), db); err != nil || v != latestSchemaVersion() {
 		t.Fatalf("fresh version %d: %v", v, err)
 	}
 	list := append(append([]migration{}, migrations...), migration{n: latestSchemaVersion() + 1, note: "test current upgrade", stmts: []string{
@@ -104,10 +104,10 @@ func TestSchemaFreshCreationAndFutureMigrationAreAtomic(t *testing.T) {
 		if _, err := applyMigrations(context.Background(), db, list); err == nil {
 			t.Fatalf("upgrade failure hidden: %s", fragment)
 		}
-		if v, err := schemaVersion(db); err != nil || v != latestSchemaVersion() {
+		if v, err := schemaVersion(context.Background(), db); err != nil || v != latestSchemaVersion() {
 			t.Fatal("failed migration advanced version")
 		}
-		if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='upgrade_evidence'`).Scan(&tables); err != nil || tables != 0 {
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='upgrade_evidence'`).Scan(&tables); err != nil || tables != 0 {
 			t.Fatal("failed migration left evidence")
 		}
 	}
@@ -118,7 +118,7 @@ func TestSchemaFreshCreationAndFutureMigrationAreAtomic(t *testing.T) {
 		t.Fatalf("replay %d: %v", n, err)
 	}
 	var value string
-	if err := db.QueryRow(`SELECT value FROM upgrade_evidence`).Scan(&value); err != nil || value != "committed" {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT value FROM upgrade_evidence`).Scan(&value); err != nil || value != "committed" {
 		t.Fatal("upgrade evidence missing")
 	}
 }
@@ -174,14 +174,14 @@ func TestAMigrationOverAReleasesRecordsAppliesOrLeavesThemAlone(t *testing.T) {
 			if _, err := applyMigrations(t.Context(), db, list); err == nil {
 				t.Fatal("the failing migration was hidden")
 			}
-			if v, err := schemaVersion(db); err != nil || v != next {
+			if v, err := schemaVersion(context.Background(), db); err != nil || v != next {
 				t.Fatalf("version after the failure %d (want %d): %v", v, next, err)
 			}
 			if after := records("upgrade_evidence"); !slices.EqualFunc(before, after, func(a, b dbtest.Row) bool { return a.Table == b.Table && string(a.Row) == string(b.Row) }) {
 				t.Fatal("a failed migration changed the release's records")
 			}
 			var copied, changes int
-			if err := db.QueryRow(`SELECT (SELECT COUNT(*) FROM upgrade_evidence), (SELECT COUNT(*) FROM changes)`).Scan(&copied, &changes); err != nil || copied != changes || changes == 0 {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT (SELECT COUNT(*) FROM upgrade_evidence), (SELECT COUNT(*) FROM changes)`).Scan(&copied, &changes); err != nil || copied != changes || changes == 0 {
 				t.Fatalf("the applied migration read %d of %d changes: %v", copied, changes, err)
 			}
 		})

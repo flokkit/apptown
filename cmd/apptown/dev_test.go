@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -69,17 +71,38 @@ func TestDevComposeResolvesPathsFromTheRepoRoot(t *testing.T) {
 }
 
 // In a session whose Docker is another machine, apptown dev up names that
-// machine as where the app's ports answer: localhost never does.
+// machine as where the app's ports answer: localhost never does. The
+// machine is the one the Docker setting names, DOCKER_HOST or a context
+// alike (execution.SelectDocker), and a setting that cannot be read is an
+// error, not "this machine".
 func TestDevUpNamesWherePublishedPortsAnswer(t *testing.T) {
-	for in, want := range map[string]string{
-		"tcp://dind:2375":             "dind",
-		"tcp://10.0.0.5:2376/":        "10.0.0.5",
-		"unix:///var/run/docker.sock": "",
-		"":                            "",
+	config := t.TempDir()
+	sum := sha256.Sum256([]byte("remote"))
+	dir := filepath.Join(config, "contexts", "meta", hex.EncodeToString(sum[:]))
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "meta.json"), []byte(`{"Name":"remote","Endpoints":{"docker":{"Host":"tcp://h:2375"}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ host, context, want string }{
+		{"tcp://dind:2375", "", "dind"},
+		{"tcp://10.0.0.5:2376/", "", "10.0.0.5"},
+		{"unix:///var/run/docker.sock", "", ""},
+		{"", "", ""},
+		{"", "remote", "h"},
 	} {
-		if got := publishedPortsHost(in); got != want {
-			t.Errorf("DOCKER_HOST=%q: got %q, want %q", in, got, want)
+		t.Setenv("DOCKER_HOST", tc.host)
+		t.Setenv("DOCKER_CONTEXT", tc.context)
+		t.Setenv("DOCKER_CONFIG", config)
+		if got, err := publishedPortsHost(); err != nil || got != tc.want {
+			t.Errorf("DOCKER_HOST=%q context %q: got %q %v, want %q", tc.host, tc.context, got, err, tc.want)
 		}
+	}
+	t.Setenv("DOCKER_HOST", "")
+	t.Setenv("DOCKER_CONTEXT", "missing")
+	if got, err := publishedPortsHost(); err == nil {
+		t.Errorf("a context that cannot be read named %q", got)
 	}
 }
 

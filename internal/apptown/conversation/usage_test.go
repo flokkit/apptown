@@ -63,7 +63,7 @@ func TestHarvestConsoleUsageFromRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: One stored row per paid provider for this session is the guarantee; the usage rollups sum rows and cannot show how many were written.
-	rows, err := db.Query(`SELECT provider, model, total, cost_micros FROM token_usage WHERE session_id='t' ORDER BY provider`)
+	rows, err := db.SQL().QueryContext(context.Background(), `SELECT provider, model, total, cost_micros FROM token_usage WHERE session_id='t' ORDER BY provider`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +97,7 @@ func TestHarvestConsoleUsageFromRecord(t *testing.T) {
 	}
 	var n int
 	// sql-guarantee: As above: the row count, not a rollup, shows a second harvest wrote nothing.
-	_ = db.QueryRow(`SELECT COUNT(*) FROM token_usage WHERE session_id='t'`).Scan(&n)
+	_ = db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM token_usage WHERE session_id='t'`).Scan(&n)
 	if n != 2 {
 		t.Errorf("a second harvest of an unchanged record must add nothing, got %d rows", n)
 	}
@@ -167,7 +167,7 @@ func TestHarvestedChatSpendIsTheOpeners(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: the stored spend line's actor is the guarantee; the usage rollups do not return who spent.
-	rows, err := db.Query(`SELECT DISTINCT actor_principal::text, actor_via FROM token_usage WHERE session_id='t'`)
+	rows, err := db.SQL().QueryContext(context.Background(), `SELECT DISTINCT actor_principal::text, actor_via FROM token_usage WHERE session_id='t'`)
 	if err != nil {
 		t.Fatal(err)
 	}

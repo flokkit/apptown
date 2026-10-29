@@ -28,7 +28,7 @@ func TestChangeListPreservesScopeProjectionAndActivity(t *testing.T) {
 	}
 	scopeChangeBase(t, db, change, "historical-base")
 	// sql-guarantee: The list projection compares timezone-normalized created_at and historical closed_at against the run timestamp; InsertChange cannot take these clocks and TransitionChange stamps database now().
-	completionExec(t, db, `UPDATE changes SET created_at='2020-01-02T03:04:05.123456+11:00',closed_at='2020-01-03T00:00:00Z' WHERE id=?`, change)
+	completionExec(t, db, `UPDATE changes SET created_at='2020-01-02T03:04:05.123456+11:00',closed_at='2020-01-03T00:00:00Z' WHERE id=$1`, change)
 	counted := &countedQueries{Handle: db.SQL()}
 	rows, err := readChangeList(context.Background(), counted, project, ChangeList{})
 	if err != nil || len(rows) != 1 || counted.reads != 1 {

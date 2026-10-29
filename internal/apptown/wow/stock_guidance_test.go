@@ -85,7 +85,7 @@ func TestStockGuidanceReleaseDoesNotMoveImporters(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: Pin an importer before private stock synchronization and assert it never moves; adoption owns the writer but imports wow, so this owner test cannot call it without an import cycle.
-	if _, err := s.db.Exec(`INSERT INTO guidance_imports (id, project_id, position, block_id, version, disabled) VALUES (?,?,0,?,?,false)`,
+	if _, err := s.db.SQL().ExecContext(context.Background(), `INSERT INTO guidance_imports (id, project_id, position, block_id, version, disabled) VALUES ($1,$2,0,$3,$4,false)`,
 		ids.New(time.Now()), pid, blk.ID, blk.LatestVersion); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestStockGuidanceReleaseDoesNotMoveImporters(t *testing.T) {
 	}
 	var pin int
 	// sql-guarantee: The project's import pin lives in guidance_imports, which the wow library does not read; the guarantee is that a stock sync never moves it.
-	_ = s.db.QueryRow(`SELECT version FROM guidance_imports WHERE project_id=? AND block_id=?`, pid, blk.ID).Scan(&pin)
+	_ = s.db.SQL().QueryRowContext(context.Background(), `SELECT version FROM guidance_imports WHERE project_id=$1 AND block_id=$2`, pid, blk.ID).Scan(&pin)
 	if pin != before {
 		t.Fatalf("the importer stays on the version it adopted (%d), moved to %d", before, pin)
 	}

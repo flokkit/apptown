@@ -240,16 +240,16 @@ func TestPolicyRefreshScopeAndCancellationStopTheDecision(t *testing.T) {
 			switch mutation {
 			case "done":
 				// sql-guarantee: lockRunSnapshotIn compares the whole Run, including UpdatedAt; TransitionRun also stamps updated_at and could reject the snapshot without checking status, so change only status at this original interference point.
-				completionExec(t, db, `UPDATE runs SET status='done' WHERE id=?`, run.ID)
+				completionExec(t, db, `UPDATE runs SET status='done' WHERE id=$1`, run.ID)
 			case "later":
 				// sql-guarantee: lockRunSnapshotIn compares the whole Run, including UpdatedAt; TransitionRun also stamps updated_at and could reject the snapshot without checking current_stage, so change only current_stage at this original interference point.
-				completionExec(t, db, `UPDATE runs SET current_stage='later' WHERE id=?`, run.ID)
+				completionExec(t, db, `UPDATE runs SET current_stage='later' WHERE id=$1`, run.ID)
 			case "revision":
 				// sql-guarantee: lockRunSnapshotIn compares the whole Run, including UpdatedAt; InvalidateRunDecision also stamps updated_at and could reject the snapshot without checking retry_revision, so change only retry_revision at this original interference point.
-				completionExec(t, db, `UPDATE runs SET retry_revision=1 WHERE id=?`, run.ID)
+				completionExec(t, db, `UPDATE runs SET retry_revision=1 WHERE id=$1`, run.ID)
 			case "definition":
 				// sql-guarantee: Invalidate the law refresh's detached pinned definition without changing status, stage or revision; admission fixes definition_json and no generated run mutation rewrites it.
-				completionExec(t, db, `UPDATE runs SET definition_json='{}' WHERE id=?`, run.ID)
+				completionExec(t, db, `UPDATE runs SET definition_json='{}' WHERE id=$1`, run.ID)
 			}
 			if err := projectLaws(db).Refresh(context.Background(), run); !errors.Is(err, ErrRunMoved) {
 				t.Fatalf("stale refresh: %v", err)

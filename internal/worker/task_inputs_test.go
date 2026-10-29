@@ -93,7 +93,7 @@ func refuseInputs(t *testing.T, tasks execution.TaskDriver, spec func(key, outpu
 	put := func(content []byte) string {
 		t.Helper()
 		sum, body := blobOf(t, content)
-		if err := blobs.PutBlob(ctx, sum, bytes.NewReader(body)); err != nil {
+		if err := blobs.EnsureBlob(ctx, sum, body); err != nil {
 			t.Fatal(err)
 		}
 		return sum

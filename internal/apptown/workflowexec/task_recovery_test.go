@@ -77,7 +77,7 @@ func TestARecoveredTaskKeepsItsDeadline(t *testing.T) {
 	}
 	a.tasks.AbandonAt = nil
 	// sql-guarantee: time cannot pass in a test; the deadline is moved instead of waiting ten minutes for it.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=?`, taskKeyOf(step)); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=$1`, taskKeyOf(step)); err != nil {
 		t.Fatal(err)
 	}
 	b := restarted(t, a)
@@ -109,7 +109,7 @@ func TestAnExpiredTaskIsNotStartedAfterARestart(t *testing.T) {
 	expired.Expires = time.Now().Add(-time.Minute)
 	body, _ := json.Marshal(expired)
 	// sql-guarantee: time cannot pass in a test; the recorded expiry is moved instead of waiting past it.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET admission=? WHERE operation=?`, string(body), taskKeyOf(step)); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET admission=$1 WHERE operation=$2`, string(body), taskKeyOf(step)); err != nil {
 		t.Fatal(err)
 	}
 	b := restarted(t, a)

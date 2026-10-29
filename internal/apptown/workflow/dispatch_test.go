@@ -67,7 +67,7 @@ func TestDispatchPlanUsesOneSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = gate.Rollback() }()
-	if _, err := gate.Exec(`LOCK TABLE steps IN ACCESS EXCLUSIVE MODE`); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `LOCK TABLE steps IN ACCESS EXCLUSIVE MODE`); err != nil {
 		t.Fatal(err)
 	}
 	type result struct {
@@ -87,7 +87,7 @@ func TestDispatchPlanUsesOneSnapshot(t *testing.T) {
 		}
 	}
 	// sql-guarantee: No owner mutation moves an existing step's stage; rehome that same row inside the blocking transaction to test snapshot consistency.
-	if _, err := gate.Exec(`UPDATE steps SET stage='later' WHERE id=?`, id); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `UPDATE steps SET stage='later' WHERE id=$1`, id); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := workflowsql.New(gate.SQL()).InsertStageStep(context.Background(), workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: "later", Name: "later", Type: "script", ConfigJson: []byte(`{}`), Status: StatusPending.String()}); err != nil {
@@ -166,7 +166,7 @@ func TestDispatchTransitionsRequireCurrentScopeAndExplicitRestart(t *testing.T) 
 						// The manual kind was supplied at insertion.
 					case "override":
 						// sql-guarantee: Retain a pending/error row with an override actor to test dispatch refusal; OverrideStep would turn it into a passed row.
-						completionExec(t, owner.db, `UPDATE steps SET override_by='person' WHERE id=?`, id)
+						completionExec(t, owner.db, `UPDATE steps SET override_by='person' WHERE id=$1`, id)
 					case "closed run":
 						{
 							current, err := workflowsql.New(owner.db.SQL()).RunByID(context.Background(), workflowsql.RunByIDParams{ID: run.ID})

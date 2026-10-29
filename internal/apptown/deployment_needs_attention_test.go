@@ -47,7 +47,7 @@ func TestStartupFlagsADeploymentWhoseRecordsContradictEachOther(t *testing.T) {
 	t.Parallel()
 	a, env, _, at := deploymentReleaseFixture(t)
 	// sql-guarantee: an open attempt beside a reconciled deployment is the contradiction under test; settlement moves both together, so no owner operation produces it.
-	completionExec(t, a.DB, `UPDATE deployments SET readiness='reconciled' WHERE id=?`, env.ID)
+	completionExec(t, a.DB, `UPDATE deployments SET readiness='reconciled' WHERE id=$1`, env.ID)
 	for i := 0; i < 2; i++ {
 		if err := a.RecoverDeployments(context.Background()); err != nil {
 			t.Fatalf("startup stopped over one contradictory deployment: %v", err)
@@ -83,7 +83,7 @@ func TestARefusedSettlementIsFlaggedAndCheckAgainSettlesIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: Complete only the attempt while leaving its release releasing; Outcomes.Complete settles both atomically, so it cannot construct this contradiction.
-	completionExec(t, a.DB, `UPDATE deployment_attempts SET status='done', terminal=true, observed_json=?, finished_at=now() WHERE id=?`, mustJSON(deploymentCompletionFor(old, "old").Observed), old.ID)
+	completionExec(t, a.DB, `UPDATE deployment_attempts SET status='done', terminal=true, observed_json=$1, finished_at=now() WHERE id=$2`, mustJSON(deploymentCompletionFor(old, "old").Observed), old.ID)
 	next, _, err := s.Admit(context.Background(), deploymentStartFor(env, "next", "next"))
 	if err != nil {
 		t.Fatal(err)

@@ -8,9 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -226,32 +224,6 @@ func pingAfterCancel(_ context.Context, p stdlib.ShouldPingParams) bool {
 func (d *DB) Close() error { return d.raw.Close() }
 func (d *DB) Ping() error  { return d.raw.Ping() }
 
-func (d *DB) Exec(query string, args ...any) (sql.Result, error) {
-	if err := d.faults.check(query); err != nil {
-		return nil, QueryError(err, query)
-	}
-	res, err := d.raw.Exec(Rebind(query), args...)
-	return res, QueryError(err, query)
-}
-
-func (d *DB) Query(query string, args ...any) (*Rows, error) {
-	if err := d.faults.check(query); err != nil {
-		return nil, QueryError(err, query)
-	}
-	rows, err := d.raw.Query(Rebind(query), args...)
-	if err != nil {
-		return nil, QueryError(err, query)
-	}
-	return &Rows{Rows: rows, q: query}, nil
-}
-
-func (d *DB) QueryRow(query string, args ...any) *Row {
-	if err := d.faults.check(query); err != nil {
-		return &Row{row: d.raw.QueryRow("SELECT forge_injected_failure()"), q: query}
-	}
-	return &Row{row: d.raw.QueryRow(Rebind(query), args...), q: query}
-}
-
 func (d *DB) Begin(ctx context.Context) (*Tx, error) {
 	tx, err := d.raw.BeginTx(ctx, nil)
 	if err != nil {
@@ -274,33 +246,6 @@ func (d *DB) ReadSnapshot(ctx context.Context) (*Tx, error) {
 	return snapshot, nil
 }
 
-func (t *Tx) Exec(query string, args ...any) (sql.Result, error) {
-	if err := t.faults.check(query); err != nil {
-		return nil, QueryError(err, query)
-	}
-	res, err := t.tx.Exec(Rebind(query), args...)
-	return res, QueryError(err, query)
-}
-
-func (t *Tx) Query(query string, args ...any) (*Rows, error) {
-	if err := t.faults.check(query); err != nil {
-		return nil, QueryError(err, query)
-	}
-	rows, err := t.tx.Query(Rebind(query), args...)
-	if err != nil {
-		return nil, QueryError(err, query)
-	}
-	return &Rows{Rows: rows, q: query}, nil
-}
-
-func (t *Tx) QueryRow(query string, args ...any) *Row {
-	if err := t.faults.check(query); err != nil {
-		// A row that fails at Scan: run a statement that cannot succeed.
-		return &Row{row: t.tx.QueryRow("SELECT forge_injected_failure()"), q: query}
-	}
-	return &Row{row: t.tx.QueryRow(Rebind(query), args...), q: query}
-}
-
 func (t *Tx) Commit() error   { return t.tx.Commit() }
 func (t *Tx) Rollback() error { return t.tx.Rollback() }
 
@@ -308,39 +253,6 @@ func (t *Tx) Rollback() error { return t.tx.Rollback() }
 // carries the first 80 characters of its statement, attached once, at the
 // handle; no row is not a failure and passes through bare so callers can
 // ask errors.Is(err, sql.ErrNoRows) or, better, Lookup.
-
-// Row is a single-row result whose errors name their statement.
-type Row struct {
-	row *sql.Row
-	q   string
-}
-
-func (r *Row) Scan(dst ...any) error { return QueryError(r.row.Scan(dst...), r.q) }
-func (r *Row) Err() error            { return QueryError(r.row.Err(), r.q) }
-
-// Rows is a result set whose errors name their statement. Close reports
-// an iteration error the caller never asked about, so a loop that ended
-// early is at least loud.
-type Rows struct {
-	*sql.Rows
-	q       string
-	checked bool
-}
-
-func (r *Rows) Err() error {
-	r.checked = true
-	return QueryError(r.Rows.Err(), r.q)
-}
-
-func (r *Rows) Close() error {
-	err := r.Rows.Close()
-	if !r.checked {
-		if e := r.Rows.Err(); e != nil {
-			log.Printf("query ended with an error nobody checked: %v — %s", e, stmt(r.q))
-		}
-	}
-	return err
-}
 
 func QueryError(err error, q string) error {
 	if err == nil || errors.Is(err, sql.ErrNoRows) {
@@ -377,68 +289,6 @@ func Missing(err error) error {
 		return fault.Wrap(fault.NotFound, err)
 	}
 	return err
-}
-
-// --- placeholder rebinding --------------------------------------------------
-
-// Rebind turns `?` placeholders into `$1`, `$2`, …, skipping single-quoted
-// strings (” escapes included), `--` line comments and dollar-quoted
-// strings. This adapter serves the legacy DB/Tx methods. Native PostgreSQL
-// queries use SQL() directly, including queries with JSON ? operators.
-func Rebind(query string) string {
-	if !strings.Contains(query, "?") {
-		return query
-	}
-	var b strings.Builder
-	b.Grow(len(query) + 16)
-	n := 0
-	for i := 0; i < len(query); i++ {
-		c := query[i]
-		switch {
-		case c == '\'':
-			j := i + 1
-			for j < len(query) {
-				if query[j] == '\'' {
-					if j+1 < len(query) && query[j+1] == '\'' {
-						j += 2
-						continue
-					}
-					break
-				}
-				j++
-			}
-			if j >= len(query) {
-				j = len(query) - 1
-			}
-			b.WriteString(query[i : j+1])
-			i = j
-		case c == '-' && i+1 < len(query) && query[i+1] == '-':
-			j := strings.IndexByte(query[i:], '\n')
-			if j < 0 {
-				b.WriteString(query[i:])
-				i = len(query)
-			} else {
-				b.WriteString(query[i : i+j])
-				i = i + j - 1
-			}
-		case c == '$' && i+1 < len(query) && query[i+1] == '$':
-			j := strings.Index(query[i+2:], "$$")
-			if j < 0 {
-				b.WriteString(query[i:])
-				i = len(query)
-			} else {
-				b.WriteString(query[i : i+2+j+2])
-				i = i + 2 + j + 1
-			}
-		case c == '?':
-			n++
-			b.WriteByte('$')
-			b.WriteString(strconv.Itoa(n))
-		default:
-			b.WriteByte(c)
-		}
-	}
-	return b.String()
 }
 
 // InTx owns transaction cleanup. The operation commits on success and rolls

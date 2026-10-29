@@ -345,7 +345,7 @@ func TestStuckReasonsAndRateLimitBackoff(t *testing.T) {
 	// A rebuilt service has a fresh worker, and so no cooldown.
 	rebuildFixes(t, a)
 	// sql-guarantee: Advance only the queued item backoff clock while retaining its rate-limit history; RetryItem requires a stuck item and would change the scenario, while RequeueItem is owner-private.
-	_, _ = a.DB.Exec(`UPDATE remediation_items SET not_before=NULL WHERE id=?`, it.ID)
+	_, _ = a.DB.SQL().ExecContext(context.Background(), `UPDATE remediation_items SET not_before=NULL WHERE id=$1`, it.ID)
 	oldChange := it.ChangeID
 	a.Fixes.Pass(context.Background())
 	it = remediationItemsForTest(t, a, m.ID)[0]

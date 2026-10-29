@@ -167,9 +167,9 @@ func (d *Driver) sampleFrontDoor(ctx context.Context, rawURL string, expect int,
 		return false, err
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, 4<<10))
+	body, err := io.ReadAll(io.LimitReader(response.Body, appcontract.MaxReleaseAnswer))
 	if err != nil {
 		return false, err
 	}
-	return response.StatusCode == http.StatusOK && strings.TrimSpace(string(body)) == release, nil
+	return appcontract.ServesRelease(response.StatusCode, body, release), nil
 }

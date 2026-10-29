@@ -54,7 +54,7 @@ func TestPackApplyRecordsPinsAndRollsBackSetup(t *testing.T) {
 	}
 	for _, table := range []string{"guidance_imports", "project_lanes", "project_packs", "policies", "project_pi_extensions"} {
 		// sql-guarantee: A failed pack apply must leave no setup row in any of the five tables, including ones no single owner read lists together.
-		ownerCount(t, f.db, 0, `SELECT COUNT(*) FROM `+table+` WHERE project_id=?`, p.ID)
+		ownerCount(t, f.db, 0, `SELECT COUNT(*) FROM `+table+` WHERE project_id=$1`, p.ID)
 	}
 	if _, err := f.lifecycle.ApplyPack(ctx, p, pk, "bls"); err != nil {
 		t.Fatal(err)

@@ -111,7 +111,7 @@ func TestReapWorkspacesKeepsTranscripts(t *testing.T) {
 	}
 	// The wall-clock expiry boundary is private setup; closure is a real command.
 	// sql-guarantee: Backdate only closed_at after real abandonment to cross the workspace retention boundary; Workflow closure always stamps database now and exposes no historical clock.
-	completionExec(t, a.DB, `UPDATE changes SET closed_at=? WHERE id=?`, stamp.Of(closed), closedChange)
+	completionExec(t, a.DB, `UPDATE changes SET closed_at=$1 WHERE id=$2`, stamp.Of(closed), closedChange)
 	open := createReadTestChange(t, a, pid, "live")
 	mk := func(entry string, withSessions bool) string {
 		ws := filepath.Join(a.cfg.dataDir, "workspaces", entry)
@@ -173,7 +173,7 @@ func TestReapWorkspacesRetainsRecoveredConversationCheckout(t *testing.T) {
 	}
 	// Age only the durable clock boundary; chat retention is exercised below.
 	// sql-guarantee: Backdate only closed_at after real abandonment to cross the workspace retention boundary; Workflow closure always stamps database now and exposes no historical clock.
-	completionExec(t, a.DB, `UPDATE changes SET closed_at=? WHERE id=?`, stamp.Of(time.Now().Add(-72*time.Hour)), id)
+	completionExec(t, a.DB, `UPDATE changes SET closed_at=$1 WHERE id=$2`, stamp.Of(time.Now().Add(-72*time.Hour)), id)
 	ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", id))
 	if err := os.MkdirAll(ws, 0o755); err != nil {
 		t.Fatal(err)

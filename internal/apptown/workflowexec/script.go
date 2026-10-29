@@ -194,7 +194,7 @@ func (a *Commands) planScript(ctx context.Context, step *workflow.Step, run *wor
 			Files:     amb.Files,
 			Timeout:   timeout,
 			Image:     image,
-			Name:      execution.UniqueName(fmt.Sprintf("apptown-step-%d", step.ID)),
+			Name:      execution.UniqueName(execution.StepContainer(step.ID, "script")),
 			// It mounts the folder writable: one of the folder's writers.
 			Labels: []string{docker.WritesLabel + "=" + ws, fmt.Sprintf(dockerlabel.Step+"=%d", step.ID)},
 		}}, nil

@@ -37,7 +37,7 @@ func TestMissingRunAdoptionNeverReadsCurrentProject(t *testing.T) {
 		t.Fatal("missing run receipt selected current skill")
 	}
 	// sql-guarantee: A real parent admission always pins its adoption; this child-admission refusal needs an existing parent with no pin. Workflow generated inserts are private to its package.
-	parent := completionInsert(t, a.DB, `INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,kind,status,current_stage,definition_json,created_at,updated_at) VALUES (?,?,?,'test',1,'pipeline','running','work','{}','2026-10-09T00:00:00Z','2026-10-09T00:00:00Z')`, fixtureNumber(), p.ID)
+	parent := completionInsert(t, a.DB, `INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,kind,status,current_stage,definition_json,created_at,updated_at) VALUES ($1,$2,$3,'test',1,'pipeline','running','work','{}','2026-10-09T00:00:00Z','2026-10-09T00:00:00Z')`, fixtureNumber(), p.ID)
 	if _, err := startAdoptionForTest(context.Background(), a, workflow.StartRequest{ProjectID: p.ID, ParentRunID: parent}); err == nil || !strings.Contains(err.Error(), "parent run") {
 		t.Fatalf("child must refuse missing parent receipt: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestMissingPinnedWorkflowNeverSelectsNewerVersion(t *testing.T) {
 		t.Fatal("refused edit changed receipt")
 	}
 	// sql-guarantee: Point current adoption at a nonexistent revision; RecordIn atomically creates its receipt and cannot create this contradiction.
-	completionExec(t, a.DB, `UPDATE adoptions SET revision=999 WHERE project_id=?`, p.ID)
+	completionExec(t, a.DB, `UPDATE adoptions SET revision=999 WHERE project_id=$1`, p.ID)
 	if _, err := a.recordAdoption(p, "edit", "missing receipt", "fixture"); err == nil {
 		t.Fatal("missing current receipt reconstructed")
 	}

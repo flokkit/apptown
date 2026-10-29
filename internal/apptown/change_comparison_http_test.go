@@ -111,7 +111,7 @@ spec:
 	}
 	a.Work.Wait()
 	// sql-guarantee: a ship of main on a change with no branch records no merge (live, 21 Oct); this fixture's quiet landing merges its empty branch, so its merge record is cleared to be that change.
-	if _, err := a.DB.Exec(`UPDATE changes SET landed_sha='' WHERE id=$1`, ch.ID); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE changes SET landed_sha='' WHERE id=$1`, ch.ID); err != nil {
 		t.Fatal(err)
 	}
 	// Nor has such a change a branch: this fixture's landing made one.
@@ -150,18 +150,18 @@ spec:
 		at = at.Add(time.Minute)
 		bundle, release := ids.New(at), ids.New(at.Add(time.Second))
 		// sql-guarantee: TestChangePageShowsWhatAChangeWithNoCodeShipped needs two released releases built from known commits; a real release needs a target and a deploy, which this page's read does not depend on.
-		if _, err := a.DB.Exec(`INSERT INTO release_bundles(id,project_id,contract_revision,contract_hash,parts_json,init_json,built_from_json,created_at) VALUES ($1,$2,$3,'','{}','{}','{}',$4)`, bundle, pid, commit, at); err != nil {
+		if _, err := a.DB.SQL().ExecContext(context.Background(), `INSERT INTO release_bundles(id,project_id,contract_revision,contract_hash,parts_json,init_json,built_from_json,created_at) VALUES ($1,$2,$3,'','{}','{}','{}',$4)`, bundle, pid, commit, at); err != nil {
 			t.Fatal(err)
 		}
 		// sql-guarantee: as above.
-		if _, err := a.DB.Exec(`INSERT INTO releases(id,project_id,number,state,deployment,created_at,bundle_id) VALUES ($1,$2,$3,'released','main',$4,$5)`, release, pid, number, at, bundle); err != nil {
+		if _, err := a.DB.SQL().ExecContext(context.Background(), `INSERT INTO releases(id,project_id,number,state,deployment,created_at,bundle_id) VALUES ($1,$2,$3,'released','main',$4,$5)`, release, pid, number, at, bundle); err != nil {
 			t.Fatal(err)
 		}
 		return release
 	}
 	release(1, before)
 	// sql-guarantee: as above; Start chooses membership from the shipped set, which this change is not in.
-	if _, err := a.DB.Exec(`INSERT INTO release_changes(release_id,change_id) VALUES ($1,$2)`, release(2, after), ch.ID); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `INSERT INTO release_changes(release_id,change_id) VALUES ($1,$2)`, release(2, after), ch.ID); err != nil {
 		t.Fatal(err)
 	}
 	got := read()

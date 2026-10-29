@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/numbered"
 )
 
 // parseArgs parses fs's flags wherever they appear among the positionals and
@@ -96,52 +97,47 @@ func parseNumber(s, what string) (int64, error) {
 // directory named after it), which is that project's change n. AppTown
 // resolves a friendly form; the id it answers is what commands send.
 func changeRef(s, project string) (ids.ID, error) {
-	s = strings.TrimSpace(s)
-	if id, err := ids.Parse(s); err == nil && !id.IsZero() {
-		return id, nil
-	}
-	if n, err := strconv.ParseInt(strings.TrimPrefix(s, "#"), 10, 64); err == nil && n > 0 {
-		slug, err := resolveProject(project)
-		if err != nil {
-			return ids.Nil, fmt.Errorf("change %s: a bare number is a change within a project: %w", s, err)
-		}
-		s = fmt.Sprintf("%s#%d", slug, n)
-	}
-	slug, digits, found := strings.Cut(s, "#")
-	if n, err := strconv.ParseInt(digits, 10, 64); !found || slug == "" || err != nil || n <= 0 {
-		return ids.Nil, usagef("a change is its id or <project>#<number>, got %q", s)
+	id, ref, err := numberedRef(s, project, "change")
+	if err != nil || ref == "" {
+		return id, err
 	}
 	var view struct{ Change struct{ ID ids.ID } }
-	if err := api.get("/changes/"+url.PathEscape(s), &view); err != nil {
-		return ids.Nil, err
-	}
-	return view.Change.ID, nil
+	err = api.get("/changes/"+url.PathEscape(ref), &view)
+	return view.Change.ID, err
 }
 
 // runRef resolves what a person typed for a run: its id, its friendly form
 // "<slug>#<n>" (the project's current slug and the run's number in it), or a
 // bare number inside a project, which is that project's run n.
 func runRef(s, project string) (ids.ID, error) {
+	id, ref, err := numberedRef(s, project, "run")
+	if err != nil || ref == "" {
+		return id, err
+	}
+	var view struct{ Run struct{ ID ids.ID } }
+	err = api.get("/runs/"+url.PathEscape(ref), &view)
+	return view.Run.ID, err
+}
+
+// numberedRef reads what a person typed for a change or a run (what): an
+// id, or the friendly form (numbered.Parse) for AppTown to resolve, a bare
+// number becoming <project>#<n>.
+func numberedRef(s, project, what string) (ids.ID, string, error) {
 	s = strings.TrimSpace(s)
 	if id, err := ids.Parse(s); err == nil && !id.IsZero() {
-		return id, nil
+		return id, "", nil
 	}
 	if n, err := strconv.ParseInt(strings.TrimPrefix(s, "#"), 10, 64); err == nil && n > 0 {
 		slug, err := resolveProject(project)
 		if err != nil {
-			return ids.Nil, fmt.Errorf("run %s: a bare number is a run within a project: %w", s, err)
+			return ids.Nil, "", fmt.Errorf("%s %s: a bare number is a %s within a project: %w", what, s, what, err)
 		}
 		s = fmt.Sprintf("%s#%d", slug, n)
 	}
-	slug, digits, found := strings.Cut(s, "#")
-	if n, err := strconv.ParseInt(digits, 10, 64); !found || slug == "" || err != nil || n <= 0 {
-		return ids.Nil, usagef("a run is its id or <project>#<number>, got %q", s)
+	if _, _, ok := numbered.Parse(s); !ok {
+		return ids.Nil, "", usagef("a %s is its id or <project>#<number>, got %q", what, s)
 	}
-	var view struct{ Run struct{ ID ids.ID } }
-	if err := api.get("/runs/"+url.PathEscape(s), &view); err != nil {
-		return ids.Nil, err
-	}
-	return view.Run.ID, nil
+	return ids.Nil, s, nil
 }
 
 // runArg resolves args[0] as a run (runRef) and rewrites it as the run's id.

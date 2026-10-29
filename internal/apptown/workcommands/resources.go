@@ -3,9 +3,10 @@ package workcommands
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
 	"os"
 	"path/filepath"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -65,8 +66,8 @@ func (a Resources) Change(ctx context.Context, changeID ids.ID) error {
 	if previewErr != nil {
 		return previewErr
 	}
-	if err := os.RemoveAll(filepath.Join(a.DataDir, "workspaces", fmt.Sprintf("asof-change-%d", changeID))); err != nil {
-		return fmt.Errorf("removing change %d's preview snapshots: %w", changeID, err)
+	if err := a.Previews.RemoveChangeSnapshots(changeID); err != nil {
+		return err
 	}
 	// Pruning registrations is safe to repeat. Non-repository projects have
 	// no registrations to prune; the forensic branch itself is retained.

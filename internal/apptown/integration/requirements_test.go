@@ -63,7 +63,7 @@ func TestRequiredCapabilitiesAreScopedRealAttachments(t *testing.T) {
 				}
 			case "wrong binding capability":
 				// sql-guarantee: Make an existing attachment disagree with its binding capability; binding capability is immutable in both owner commands and generated updates.
-				if _, err := db.Exec(`UPDATE integrations SET capability='errors' WHERE name='git'`); err != nil {
+				if _, err := db.SQL().ExecContext(context.Background(), `UPDATE integrations SET capability='errors' WHERE name='git'`); err != nil {
 					t.Fatal(err)
 				}
 			}

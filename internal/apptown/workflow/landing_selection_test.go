@@ -75,7 +75,7 @@ func landingRecheckFixture(t *testing.T) (landingRechecks, *Run, map[string]ids.
 			}
 		}
 		// sql-guarantee: Recheck must distinguish old execution timestamps from cleared timestamps while retaining ignored historical decisions; StartAttempt/FinishAttempt use database now() and cannot backdate either field.
-		completionExec(t, w, `UPDATE steps SET started_at=now()-interval '2 minutes',finished_at=now()-interval '1 minute' WHERE id=?`, id)
+		completionExec(t, w, `UPDATE steps SET started_at=now()-interval '2 minutes',finished_at=now()-interval '1 minute' WHERE id=$1`, id)
 		stepIDs[step.name] = id
 	}
 	return owner, run, stepIDs

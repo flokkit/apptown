@@ -30,7 +30,7 @@ func TestAttemptHistoryNeedsThreeSettledAttempts(t *testing.T) {
 			// sql-guarantee: the attempt's settlement, as the outcome store writes it.
 			requireStoredWrite(t)(queries(db).FinishAttempt(ctx, remediationsql.FinishAttemptParams{At: time.Now(), ItemID: item, N: 1, Outcome: outcome, Outcome2: outcome}))
 			// sql-guarantee: an attempt's cost; the roll-up derives it from another owner's usage records, which this read does not depend on.
-			if _, err := db.Exec(`UPDATE remediation_attempts SET cost_micros=? WHERE item_id=?`, cost, item); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), `UPDATE remediation_attempts SET cost_micros=$1 WHERE item_id=$2`, cost, item); err != nil {
 				t.Fatal(err)
 			}
 		}

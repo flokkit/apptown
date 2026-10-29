@@ -536,6 +536,10 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 	if err != nil {
 		return workerAgentRequest{}, err
 	}
+	gitBase, err := agentGit(ctx, c.source, c.commit, repo)
+	if err != nil {
+		return workerAgentRequest{}, err
+	}
 	out.spec = execution.TaskSpec{
 		Key:             agentOperation(step.ID, step.Attempt, c.invocation),
 		Admission:       execution.Admission{Profile: a.worker.Tasks.Profile.Name, Limits: limits, Network: execution.NetworkDefault, Expires: c.at.Add(timeout + taskGrace)},
@@ -544,7 +548,7 @@ func (a *Executor) buildAgentOnWorker(ctx context.Context, c workerAgentCall, cf
 		Env:             env,
 		Source:          &execution.TaskSource{Repository: repo, Commit: c.commit},
 		SharedWorkspace: workspace,
-		AgentGit:        agentGit(ctx, c.source, c.commit, repo),
+		AgentGit:        gitBase,
 		Files:           amb.Files,
 		Inputs:          inputs,
 		Results:         results,
@@ -647,26 +651,27 @@ func workerEntry(sessionFile string, link piharness.SentLink, carried []wroteFil
 
 // agentGit is the repository an agent or review is given at /work/.git:
 // the source's history on the change's branch, with the base branch at the
-// newest commit of the base the source contains: where the change started,
-// or the later main it has since caught up with, so a rework after a
-// catch-up compares its work with that main and not the old one. The base
-// is left out when the change's start is not in the source's history (a
-// branch rebuilt on another base); the agent then has no base branch to
-// compare with.
-func agentGit(ctx context.Context, source workflow.Source, commit, repo string) *execution.AgentGit {
+// change's fork point from main (scm.ForkBase, the one rule), which is the
+// later main it has caught up with after a catch-up, so a rework compares
+// its work with that main and not the old one. A project with no main
+// commit has no base branch to give; a fork point that cannot be read is an
+// error, as any other unreadable source is.
+func agentGit(ctx context.Context, source workflow.Source, commit, repo string) (*execution.AgentGit, error) {
 	out := &execution.AgentGit{Branch: strs.FirstNonBlank(source.Branch, "work")}
 	base := source.DefaultBranch
-	if base == "" || base == out.Branch || source.ChangeBaseSHA == "" || !gitexec.HubAncestor(ctx, repo, source.ChangeBaseSHA, commit) {
-		return out
+	if base == "" || base == out.Branch || gitexec.HubRef(ctx, repo, "refs/heads/"+base) == "" {
+		return out, nil
 	}
-	out.Base, out.BaseCommit = base, source.ChangeBaseSHA
-	if tip := gitexec.HubRef(ctx, repo, "refs/heads/"+base); tip != "" {
-		raw, err := gitexec.HubOutput(ctx, repo, nil, "merge-base", "--end-of-options", tip, commit)
-		if met := strings.TrimSpace(string(raw)); err == nil && commitPattern.MatchString(met) {
-			out.BaseCommit = met
-		}
+	fork, err := scm.ForkBase(ctx, repo, repo, base, commit, source.ChangeBaseSHA)
+	if err != nil {
+		return nil, fmt.Errorf("the base of the agent's repository: %w", err)
 	}
-	return out
+	// A merge-base is in the history; a recorded stand-in is checked.
+	if !gitexec.HubAncestor(ctx, repo, fork, commit) {
+		return out, nil
+	}
+	out.Base, out.BaseCommit = base, fork
+	return out, nil
 }
 
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }

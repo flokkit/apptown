@@ -56,11 +56,11 @@ func TestSampleReadinessJudgesOneAnswerWithoutFollowingRedirects(t *testing.T) {
 	if a := ask(ReadinessRequest{URL: "/moved"}); !a.Ready || a.Status != http.StatusFound {
 		t.Errorf("a redirect = %+v, want its own 302, not followed, ready", a)
 	}
-	if a := ask(ReadinessRequest{URL: "/release", Body: "r2"}); a.Ready {
-		t.Errorf("a body that differs = %+v, want not ready", a)
+	if a := ask(ReadinessRequest{URL: "/release", Release: "r2"}); a.Ready {
+		t.Errorf("a marker that names another release = %+v, want not ready", a)
 	}
-	if a := ask(ReadinessRequest{URL: "/release", Body: "r1"}); !a.Ready {
-		t.Errorf("the exact body = %+v, want ready", a)
+	if a := ask(ReadinessRequest{URL: "/release", Release: "r1"}); !a.Ready {
+		t.Errorf("the marker of this release = %+v, want ready", a)
 	}
 	ask(ReadinessRequest{URL: "/", Host: "app.example", Headers: map[string]string{"X-Forwarded-Proto": "https"}})
 	if host != "app.example" || header != "https" {

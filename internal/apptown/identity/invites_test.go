@@ -134,7 +134,7 @@ func TestDeadInvitesAreRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: No operation records an invite whose expiry has passed; move this one's expiry into the past to test refusal at acceptance.
-	if _, err := s.db.Exec(`UPDATE invites SET expires_at = now() - interval '1 minute' WHERE id = ?`, expired.Invite.ID); err != nil {
+	if _, err := s.db.SQL().ExecContext(context.Background(), `UPDATE invites SET expires_at = now() - interval '1 minute' WHERE id = $1`, expired.Invite.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: expired.Token, Password: "long-enough"}); !errors.Is(err, ErrInviteExpired) {
@@ -515,7 +515,7 @@ func TestPasswordLinkRefusals(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: No operation records a link whose expiry has passed; move this one's expiry into the past to test refusal at use.
-	if _, err := s.db.Exec(`UPDATE invites SET expires_at = now() - interval '1 minute' WHERE id = ?`, late.Invite.ID); err != nil {
+	if _, err := s.db.SQL().ExecContext(context.Background(), `UPDATE invites SET expires_at = now() - interval '1 minute' WHERE id = $1`, late.Invite.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: late.Token, Password: "new-password"}); !errors.Is(err, ErrInviteExpired) {
@@ -682,7 +682,7 @@ func TestALinkNamingNoPrincipalActsOnNoOne(t *testing.T) {
 			t.Fatal(err)
 		}
 		// sql-guarantee: no operation makes a link without its principals; the cutover leaves one so when it cannot place an account, which this stands for.
-		if _, err := s.db.Exec(`UPDATE invites SET `+c.column+` = NULL WHERE id = ?`, issued.Invite.ID); err != nil {
+		if _, err := s.db.SQL().ExecContext(context.Background(), `UPDATE invites SET `+c.column+` = NULL WHERE id = $1`, issued.Invite.ID); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := s.AcceptInvite(ctx, InviteAcceptance{Token: issued.Token, Password: "a-new-password"}); !errors.Is(err, c.want) {

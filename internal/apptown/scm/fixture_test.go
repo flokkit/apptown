@@ -71,12 +71,12 @@ func mergeFixture(t *testing.T) (mergeStore, *fixtureClaim) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: create the sparse Change owned by SCM's fake Work participant; importing Workflow's creator would form the production Workflow-to-SCM cycle.
-	change := completionInsert(t, db, `INSERT INTO changes(id,number,project_id,type,title,created_at) VALUES (?,?,?,'feature','Fixture','2026-10-09T00:00:00Z')`, fixtureNumber(), projectID)
+	change := completionInsert(t, db, `INSERT INTO changes(id,number,project_id,type,title,created_at) VALUES ($1,$2,$3,'feature','Fixture','2026-10-09T00:00:00Z')`, fixtureNumber(), projectID)
 	// sql-guarantee: create the sparse Run identity consumed by SCM's fake Work participant; importing Workflow admission would form the production Workflow-to-SCM cycle.
-	run := completionInsert(t, db, `INSERT INTO runs(id,number,project_id,change_id,workflow_name,workflow_version,kind,current_stage,definition_json,created_at,updated_at) VALUES (?,?,?,?,'fixture',1,'pipeline','finish','{}','2026-10-09T00:00:00Z','2026-10-09T00:00:00Z')`, fixtureNumber(), projectID, change)
+	run := completionInsert(t, db, `INSERT INTO runs(id,number,project_id,change_id,workflow_name,workflow_version,kind,current_stage,definition_json,created_at,updated_at) VALUES ($1,$2,$3,$4,'fixture',1,'pipeline','finish','{}','2026-10-09T00:00:00Z','2026-10-09T00:00:00Z')`, fixtureNumber(), projectID, change)
 	completionExec(t, db, `CREATE TABLE fixture_work(run_id uuid PRIMARY KEY,revision int NOT NULL DEFAULT 1,closed boolean NOT NULL DEFAULT false)`)
 	// sql-guarantee: seed the test-only external participant record whose revision and closure SCM must recheck atomically.
-	completionExec(t, db, `INSERT INTO fixture_work(run_id) VALUES (?)`, run)
+	completionExec(t, db, `INSERT INTO fixture_work(run_id) VALUES ($1)`, run)
 	// A real hub with one commit on main: settlement reads main back from it.
 	return mergeStore{db: db}, &fixtureClaim{source: Source{RunID: run, ProjectID: projectID, Repository: newMainHub(t), Workspace: "fixture-workspace", Branch: "work", DefaultBranch: "main", Candidate: "fixture-candidate", Target: "fixture-target", PinRequired: true}, changeID: change, revision: 1}
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -205,7 +206,7 @@ func TestIntegrationAnAgentAndAReviewRunOnTheWorkerAndNowhereElse(t *testing.T) 
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
 	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
-		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
+		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Docker: dockercli.LocalCLI("docker")}})
 	cfg := Config{DataDir: t.TempDir(), AuthMode: "internal", ConsoleAPIURL: apiURL, AgentImage: "apptown-agent",
 		ConsoleCLI: linuxAppTownCLI(t), Worker: workerClientConfig(t, ca, srv.URL), DockerClient: local,
 		ProcessRunner: execution.Runner{DockerBinary: localBinary},

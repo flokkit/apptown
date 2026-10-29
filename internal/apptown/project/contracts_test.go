@@ -33,7 +33,7 @@ func TestContractSnapshots(t *testing.T) {
 	}
 	var status string
 	// sql-guarantee: The stored snapshot bytes are the evidence guarantee, and no production read returns contract_snapshots rows; adding one would be test-only API.
-	if err := db.QueryRow(`SELECT status FROM contract_snapshots WHERE project_id=? AND sha='abc'`, id).Scan(&status); err != nil || status != "invalid" {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT status FROM contract_snapshots WHERE project_id=$1 AND sha='abc'`, id).Scan(&status); err != nil || status != "invalid" {
 		t.Fatalf("a repeat replaces: %v %q", err, status)
 	}
 }

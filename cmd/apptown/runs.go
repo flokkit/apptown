@@ -16,8 +16,8 @@ import (
 // waitVerdict reads AppTown's own activity for a running run (the state
 // the change page shows) and reports the moment waiting stops being useful:
 // "decision" (a person must approve), "wedged" (the stage is blocked and
-// cannot pass on its own), "reworking" (a verdict failed and the machine is
-// already reworking it), or "working". AppTown, not this client, decides
+// cannot pass on its own), "reworking" (AppTown says the stage's agent is
+// working from send-back words, a person's or a check's), or "working". AppTown, not this client, decides
 // what is settled: a verdict about to be checked again after a rework and a
 // landing still taking its acceptance read as working there, so wait no
 // longer calls them wedged or a person's move in the seconds before they
@@ -48,12 +48,11 @@ func waitVerdict(d runDetail) (kind string, stepID ids.ID, name string) {
 			return "wedged", ids.Nil, d.StateDetail
 		}
 		return "wedged", failed, fName
-	case "agent working", "queued":
-		// A failed verdict beside agent work is the machine reworking
-		// (autoRework) — announce it so no human plays redundant transport.
-		if !failed.IsZero() {
-			return "reworking", failed, fName
-		}
+	}
+	// A rework is announced so no human plays redundant transport: the
+	// server names the step and who sent it back.
+	if sb := d.SentBack; sb != nil {
+		return "reworking", sb.StepID, fmt.Sprintf("%s, sent back by %s", sb.Step, sb.By)
 	}
 	return "working", ids.Nil, ""
 }
@@ -240,7 +239,7 @@ func cmdWait(args []string) error {
 				case "wedged":
 					return stop(WaitOutcome{Outcome: "blocked", ExitCode: 1, Detail: name}, &d, sid, fmt.Sprintf("✗ change %s: run %d is blocked — %s failed; fix, send back, override, or abandon", id, d.Run.ID, stepRef(name, sid)))
 				case "reworking":
-					note(fmt.Sprintf("↻ change %s: %s rejected the work — the agent is reworking it (no action needed)", id, name))
+					note(fmt.Sprintf("↻ change %s: %s — the agent is reworking it (no action needed)", id, name))
 				}
 			case v.State == "queued":
 				// Accepted work whose landing has not started yet.
@@ -267,7 +266,7 @@ func cmdWait(args []string) error {
 				case "wedged":
 					return stop(WaitOutcome{Outcome: "blocked", ExitCode: 1, Detail: name}, &d, sid, fmt.Sprintf("✗ run %s is blocked — %s failed; fix, send back, override, or abandon", id, stepRef(name, sid)))
 				case "reworking":
-					note(fmt.Sprintf("↻ run %s: %s rejected the work — the agent is reworking it (no action needed)", id, name))
+					note(fmt.Sprintf("↻ run %s: %s — the agent is reworking it (no action needed)", id, name))
 				}
 			default:
 				return stop(WaitOutcome{Outcome: "failed", ExitCode: 1, Detail: endedDetail(d.Run.Status, &d)}, &d, ids.Nil, runEnded(id, d))
@@ -455,6 +454,13 @@ type runDetail struct {
 	}
 	State       string
 	StateDetail string
+	// SentBack is the rework AppTown says the current stage is in.
+	SentBack *struct {
+		StepID ids.ID
+		Step   string
+		By     string
+		Note   string
+	}
 	// Ending is why an abandoned run ended, with what to do next.
 	Ending string
 	Stages []string

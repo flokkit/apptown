@@ -118,7 +118,7 @@ func TestActiveGrantsFollowMembership(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: A revoked membership must exist beside its live group grant to prove it confers no authority; InsertMembership only creates live rows and deleting membership would bypass this filter.
-	if _, err := db.Exec(`INSERT INTO group_members (group_name, principal_id, created_by, created_at, revoked_at) VALUES ('old', ?, 'ops', ?, ?)`, principalOf(t, db, "alice"), time.Now(), time.Now()); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO group_members (group_name, principal_id, created_by, created_at, revoked_at) VALUES ('old', $1, 'ops', $2, $3)`, principalOf(t, db, "alice"), time.Now(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	g := NewGrants(db)

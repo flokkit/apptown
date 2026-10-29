@@ -58,7 +58,7 @@ func TestABuiltStaticSiteWithALinkIsRefused(t *testing.T) {
 		if err := tc.make(root); err != nil {
 			t.Fatal(err)
 		}
-		if site, err := ConfineStaticExport(root, tc.output); err == nil || !strings.Contains(err.Error(), tc.want) {
+		if site, err := ConfineStaticExport(t.Context(), root, tc.output); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: %q %v, want %q", name, site, err, tc.want)
 		}
 		if said, ok := checkScript(t, root, tc.output); ok || !strings.Contains(said, tc.want) {
@@ -76,10 +76,10 @@ func TestABuiltStaticSiteWithALinkIsRefused(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(root, "bin")); err != nil {
 		t.Fatal(err)
 	}
-	if site, err := ConfineStaticExport(root, "./dist"); err != nil || site != filepath.Join(root, "dist") {
+	if site, err := ConfineStaticExport(t.Context(), root, "./dist"); err != nil || site != filepath.Join(root, "dist") {
 		t.Fatalf("a plain site: %q %v", site, err)
 	}
-	if site, err := ConfineStaticExport(filepath.Join(root, "dist"), "."); err != nil || site != filepath.Join(root, "dist") {
+	if site, err := ConfineStaticExport(t.Context(), filepath.Join(root, "dist"), "."); err != nil || site != filepath.Join(root, "dist") {
 		t.Fatalf("the whole stage as the site: %q %v", site, err)
 	}
 	for _, output := range []string{"dist", "./dist"} {
@@ -89,6 +89,41 @@ func TestABuiltStaticSiteWithALinkIsRefused(t *testing.T) {
 	}
 	if said, ok := checkScript(t, filepath.Join(root, "dist"), "."); !ok {
 		t.Fatalf("the task's shell refused the whole stage as the site: %s", said)
+	}
+}
+
+// A folder in the site that cannot be read is refused, wherever it is: the
+// check reads find's own status, so a traversal that failed is not a site
+// that was clean. Skipped as root, who reads every folder.
+func TestABuiltStaticSiteWithAnUnreadableFolderIsRefused(t *testing.T) {
+	t.Parallel()
+	if os.Geteuid() == 0 {
+		t.Skip("root reads every folder")
+	}
+	root := t.TempDir()
+	if err := writeFile(root, "dist/index.html"); err != nil {
+		t.Fatal(err)
+	}
+	locked := filepath.Join(root, "dist", "private")
+	if err := os.MkdirAll(locked, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+	if site, err := ConfineStaticExport(t.Context(), root, "dist"); err == nil || !strings.Contains(err.Error(), "unreadable") {
+		t.Fatalf("a site with an unreadable folder: %q %v", site, err)
+	}
+}
+
+// An output outside the export is refused before anything runs.
+func TestAStaticOutputOutsideTheExportIsRefused(t *testing.T) {
+	t.Parallel()
+	for _, output := range []string{"..", "../x", "/etc"} {
+		if _, err := ConfineStaticExport(t.Context(), t.TempDir(), output); err == nil || !strings.Contains(err.Error(), "not inside the build's files") {
+			t.Errorf("%q: %v", output, err)
+		}
 	}
 }
 

@@ -66,7 +66,7 @@ func TestLandingDeployRecordsDeploymentGenerationAndBundle(t *testing.T) {
 	var attempts int
 	var attemptStatus string
 	// sql-guarantee: no owner read lists a deployment's attempts; exactly one attempt, finished, is the guarantee
-	_ = a.DB.QueryRow(`SELECT COUNT(*), MAX(status) FROM deployment_attempts WHERE deployment_id=?`, env.ID).Scan(&attempts, &attemptStatus)
+	_ = a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*), MAX(status) FROM deployment_attempts WHERE deployment_id=$1`, env.ID).Scan(&attempts, &attemptStatus)
 	if attempts != 1 || attemptStatus != "done" {
 		t.Fatalf("one finished attempt, got %d %s", attempts, attemptStatus)
 	}

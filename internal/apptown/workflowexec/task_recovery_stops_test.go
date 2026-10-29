@@ -31,7 +31,7 @@ func TestARecordedTimeoutSurvivesAFailedSettlement(t *testing.T) {
 	}
 	key := taskKeyOf(step)
 	// sql-guarantee: represent downtime beyond the original execution budget.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=?`, key); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=$1`, key); err != nil {
 		t.Fatal(err)
 	}
 	a.tasks.Driver = unansweredStop{fake}
@@ -114,7 +114,7 @@ func TestATimeoutKeepsItsUnfinishedStopRecoverable(t *testing.T) {
 	key := taskKeyOf(step)
 	t.Cleanup(func() { _ = fake.Release(context.Background(), execution.TaskRef{Key: key}) })
 	// sql-guarantee: model downtime beyond the admitted ten-minute budget.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=?`, key); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=$1`, key); err != nil {
 		t.Fatal(err)
 	}
 	a.tasks.Driver = unansweredCleanup{fake}

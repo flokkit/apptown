@@ -20,12 +20,12 @@ func moveDatabaseClock(t *testing.T, db *database.DB, by string) {
 		`CREATE OR REPLACE FUNCTION public.now() RETURNS timestamptz LANGUAGE plpgsql STABLE AS $$ BEGIN RETURN pg_catalog.now() + interval '` + by + `'; END $$`,
 		`DO $$ BEGIN EXECUTE format('ALTER DATABASE %I SET search_path = public, pg_catalog', current_database()); END $$`,
 	} {
-		if _, err := db.Exec(statement); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), statement); err != nil {
 			t.Fatal(err)
 		}
 	}
 	db.Pool().SetMaxIdleConns(0)
-	if _, err := db.Exec(`DO $$ BEGIN IF now() = pg_catalog.now() THEN RAISE EXCEPTION 'the database''s clock was not moved'; END IF; END $$`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `DO $$ BEGIN IF now() = pg_catalog.now() THEN RAISE EXCEPTION 'the database''s clock was not moved'; END IF; END $$`); err != nil {
 		t.Fatal(err)
 	}
 }

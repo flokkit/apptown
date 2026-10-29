@@ -166,27 +166,27 @@ func TestLandingAcceptanceCannotCrossItsScope(t *testing.T) {
 				// The landing record points at a different landing run than the one accepted.
 				other := insertStoredRun(t, store.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: landing.ProjectID, ChangeID: landing.ChangeID, WorkflowName: landing.WorkflowName, WorkflowVersion: int64(landing.WorkflowVersion), Kind: landing.Kind, CurrentStage: landing.CurrentStage, DefinitionJson: json.RawMessage(landing.DefinitionJSON), Status: RunRunning.String()}).ID
 				// sql-guarantee: the scope law changes only the coordinator landing identity; AttachAcceptedLanding is called only at the landing's creation.
-				completionExec(t, store.db, `UPDATE workflow_landings SET landing_run_id=? WHERE work_run_id=?`, other, work.ID)
+				completionExec(t, store.db, `UPDATE workflow_landings SET landing_run_id=$1 WHERE work_run_id=$2`, other, work.ID)
 			case "wrong project":
 				pid := workflowTestProject(t, store.db, "other", "Other", "")
 				// sql-guarantee: the landing scope law requires deliberately disagreeing stored project identities; owner mutations forbid project reassignment.
-				completionExec(t, store.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, pid, landing.ID)
+				completionExec(t, store.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, pid, landing.ID)
 			case "wrong change":
 				ch := admissionTestChange(t, store.db, work.ProjectID, "Other")
 				// sql-guarantee: the landing scope law requires a deliberately disagreeing stored Change identity; no Workflow mutation reassigns a run relationship.
-				completionExec(t, store.db, `UPDATE runs SET change_id=? WHERE id=?`, ch, landing.ID)
+				completionExec(t, store.db, `UPDATE runs SET change_id=$1 WHERE id=$2`, ch, landing.ID)
 			case "wrong owner":
 				pid := workflowTestProject(t, store.db, "other", "Other", "")
 				// sql-guarantee: the landing scope law requires deliberately disagreeing stored project identities; owner mutations forbid project reassignment.
-				completionExec(t, store.db, `UPDATE changes SET project_id=?,number=number+100000 WHERE id=?`, pid, work.ChangeID)
+				completionExec(t, store.db, `UPDATE changes SET project_id=$1,number=number+100000 WHERE id=$2`, pid, work.ChangeID)
 			case "active work":
 				transitionStoredRunForTest(t, store.db, work.ID, "", RunRunning)
 			case "child work":
 				// sql-guarantee: the landing scope matrix changes only immutable parent identity; no generated mutation changes parent_run_id.
-				completionExec(t, store.db, `UPDATE runs SET parent_run_id=? WHERE id=?`, landing.ID, work.ID)
+				completionExec(t, store.db, `UPDATE runs SET parent_run_id=$1 WHERE id=$2`, landing.ID, work.ID)
 			case "wrong role":
 				// sql-guarantee: the landing scope matrix changes only immutable role declaration; no generated mutation changes definition_json.
-				completionExec(t, store.db, `UPDATE runs SET definition_json='{"kind":"pipeline","role":"working","stages":[{"name":"start"}]}' WHERE id=?`, landing.ID)
+				completionExec(t, store.db, `UPDATE runs SET definition_json='{"kind":"pipeline","role":"working","stages":[{"name":"start"}]}' WHERE id=$1`, landing.ID)
 			}
 			if result, err := store.apply(context.Background(), work.ID, landing.ID); err == nil || result != nil {
 				t.Fatalf("scope admitted: %+v %v", result, err)
@@ -349,13 +349,13 @@ func TestLandingAcceptanceRetryRequiresItsCommittedScopeReceipt(t *testing.T) {
 			switch mutation {
 			case "missing":
 				// sql-guarantee: retry recovery must prove the committed landing receipt is mandatory; no owner command deletes a durable receipt.
-				completionExec(t, store.db, `DELETE FROM run_events WHERE run_id=? AND kind='landing.autostarted'`, landing.ID)
+				completionExec(t, store.db, `DELETE FROM run_events WHERE run_id=$1 AND kind='landing.autostarted'`, landing.ID)
 			case "malformed":
 				// sql-guarantee: retry recovery requires a receipt with a deliberately wrong or missing stage field; InsertRunEvent only appends a new receipt and cannot replace the committed one.
-				completionExec(t, store.db, `UPDATE run_events SET payload_json=jsonb_set(payload_json,'{stage}','17') WHERE run_id=? AND kind='landing.autostarted'`, landing.ID)
+				completionExec(t, store.db, `UPDATE run_events SET payload_json=jsonb_set(payload_json,'{stage}','17') WHERE run_id=$1 AND kind='landing.autostarted'`, landing.ID)
 			case "missing stage":
 				// sql-guarantee: retry recovery requires a receipt with a deliberately wrong or missing stage field; InsertRunEvent only appends a new receipt and cannot replace the committed one.
-				completionExec(t, store.db, `UPDATE run_events SET payload_json=payload_json-'stage' WHERE run_id=? AND kind='landing.autostarted'`, landing.ID)
+				completionExec(t, store.db, `UPDATE run_events SET payload_json=payload_json-'stage' WHERE run_id=$1 AND kind='landing.autostarted'`, landing.ID)
 			}
 			if result, err := store.apply(context.Background(), work.ID, landing.ID); err == nil || result != nil {
 				t.Fatalf("unproven retry advanced: %+v %v", result, err)

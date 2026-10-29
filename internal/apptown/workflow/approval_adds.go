@@ -69,6 +69,9 @@ type AddsQuestion struct {
 	ProjectID, ChangeID ids.ID
 	Head                string
 	DefaultBranch       string
+	// Recorded is the change's recorded base, which stands in for the fork
+	// point where Git says there is none to read (scm.ForkBase).
+	Recorded string
 	// Repositories are searched in order for a commit: the change's
 	// folder first, then the project's hub.
 	Repositories []string
@@ -229,7 +232,7 @@ func (a approvalAdds) forStep(ctx context.Context, run *Run, step *Step) (*Chang
 	if err != nil {
 		return nil, err
 	}
-	q := AddsQuestion{ProjectID: run.ProjectID, ChangeID: source.ChangeID, Head: head, DefaultBranch: source.DefaultBranch, Hub: hub}
+	q := AddsQuestion{ProjectID: run.ProjectID, ChangeID: source.ChangeID, Head: head, DefaultBranch: source.DefaultBranch, Recorded: source.ChangeBaseSHA, Hub: hub}
 	q.Repositories = []string{workspace, q.Hub}
 	if !source.ChangeID.IsZero() {
 		change, err := readChange(ctx, a.pins.db, source.ChangeID)

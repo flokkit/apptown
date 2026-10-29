@@ -246,12 +246,9 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 	// image does not carry.
 	host := dockerfake.New()
 	host.SetReply(func(args []string) ([]byte, error, bool) {
-		joined := strings.Join(args, " ")
-		switch {
-		case strings.Contains(joined, piharness.SubagentsLabel):
-			return []byte(hostSubagents), nil, true
-		case strings.Contains(joined, "apptown.pi-lsp.version"):
-			return []byte("host-lsp-1"), nil, true
+		if len(args) > 1 && args[0] == "image" && args[1] == "inspect" {
+			labels, _ := json.Marshal(map[string]string{piharness.SubagentsLabel: hostSubagents, "apptown.pi-lsp.version": "host-lsp-1"})
+			return []byte(`"` + dockerfake.ImageID(args[len(args)-1]) + `" ` + string(labels)), nil, true
 		}
 		return nil, nil, true
 	})
@@ -382,18 +379,20 @@ func TestAnAgentStepOnAWorkerIsSentWhatWasAdmitted(t *testing.T) {
 		t.Fatalf("source: %+v", spec.Source)
 	}
 	// The agent's own repository is on the change's branch; the base branch
-	// is named only at a change base in the source's history.
-	if spec.AgentGit == nil || *spec.AgentGit != (execution.AgentGit{Branch: "change-00000000-0029-7000-8000-000000000000"}) {
+	// is the change's fork point from main, recorded base or not.
+	if spec.AgentGit == nil || *spec.AgentGit != (execution.AgentGit{Branch: "change-00000000-0029-7000-8000-000000000000", Base: "main", BaseCommit: f.call.commit}) {
 		t.Fatalf("the agent's repository without a change base: %+v", spec.AgentGit)
 	}
 	for base, want := range map[string]execution.AgentGit{
 		f.call.commit:           {Branch: "change-00000000-0029-7000-8000-000000000000", Base: "main", BaseCommit: f.call.commit},
-		strings.Repeat("0", 40): {Branch: "change-00000000-0029-7000-8000-000000000000"},
+		"":                      {Branch: "change-00000000-0029-7000-8000-000000000000", Base: "main", BaseCommit: f.call.commit},
+		strings.Repeat("0", 40): {Branch: "change-00000000-0029-7000-8000-000000000000", Base: "main", BaseCommit: f.call.commit},
 	} {
 		source := f.call.source
 		source.ChangeBaseSHA = base
-		if got := agentGit(context.Background(), source, f.call.commit, f.hub); *got != want {
-			t.Fatalf("the agent's repository with the change base %s: %+v", base, got)
+		got, err := agentGit(context.Background(), source, f.call.commit, f.hub)
+		if err != nil || *got != want {
+			t.Fatalf("the agent's repository with the change base %q: %+v %v", base, got, err)
 		}
 	}
 	if spec.Workspace != "" || len(spec.Mounts) > 0 || len(spec.ExtraHosts) > 0 {

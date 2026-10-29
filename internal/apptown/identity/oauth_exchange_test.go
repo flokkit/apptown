@@ -46,7 +46,7 @@ func TestCodeExchangeValidation(t *testing.T) {
 		}
 	}
 	// sql-guarantee: Expire the same issued authorization code after other validation probes; InsertCode cannot replace it and ConsumeCode changes used_at instead of expiry.
-	if _, err := db.Exec(`UPDATE oauth_codes SET expires_at=$1 WHERE code_hash=$2`, time.Now().Add(-time.Minute), HashToken(in.Code)); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE oauth_codes SET expires_at=$1 WHERE code_hash=$2`, time.Now().Add(-time.Minute), HashToken(in.Code)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.ExchangeCode(ctx, in); err == nil {
@@ -82,7 +82,7 @@ func TestCodeExchangeSettlement(t *testing.T) {
 			}
 			var n int
 			// sql-guarantee: A failed exchange hands back nothing to look up, so only table totals prove no delegation, token or receipt survived the rollback.
-			if err := db.QueryRow(`SELECT (SELECT count(*) FROM delegations)+(SELECT count(*) FROM oauth_tokens)+(SELECT count(*) FROM audit_log WHERE kind='oauth.connected')`).Scan(&n); err != nil || n != 0 {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT (SELECT count(*) FROM delegations)+(SELECT count(*) FROM oauth_tokens)+(SELECT count(*) FROM audit_log WHERE kind='oauth.connected')`).Scan(&n); err != nil || n != 0 {
 				t.Fatalf("partial settlement: %d %v", n, err)
 			}
 			if _, err := s.ExchangeCode(ctx, in); err != nil {
@@ -148,7 +148,7 @@ func TestCodeReplayAfterStaleReadRevokesWinningTokens(t *testing.T) {
 	// past. The database server and Go process may have different clocks.
 	consumed := time.Now().Add(-time.Minute)
 	// sql-guarantee: Backdate the consumed code to the exact winning delegation creation time for stale-read replay detection; ConsumeCode only stamps database now() on unused codes.
-	if _, err := s.db.Exec(`UPDATE oauth_codes SET used_at=$1 WHERE code_hash=$2`, consumed, HashToken(in.Code)); err != nil {
+	if _, err := s.db.SQL().ExecContext(context.Background(), `UPDATE oauth_codes SET used_at=$1 WHERE code_hash=$2`, consumed, HashToken(in.Code)); err != nil {
 		t.Fatal(err)
 	}
 	winningToken, err := queries(s.db).TokenByHash(ctx, HashToken(winner.Access))

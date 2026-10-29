@@ -27,7 +27,7 @@ func TestApprovalBriefSnapshotAndCacheInvalidation(t *testing.T) {
 		t.Fatalf("finish historical worker: %d %v", n, err)
 	}
 	// sql-guarantee: The cache fixture requires worker.finished_at before the fixed Jan 2 artifact; FinishAttempt and RecordStepEvaluation stamp database now(), with no historical clock parameter.
-	completionExec(t, q.db, `UPDATE steps SET finished_at='2026-01-01T00:00:00Z' WHERE id=?`, worker)
+	completionExec(t, q.db, `UPDATE steps SET finished_at='2026-01-01T00:00:00Z' WHERE id=$1`, worker)
 	created, err := time.Parse(time.RFC3339, "2026-01-02T00:00:00Z")
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestApprovalBriefSnapshotAndCacheInvalidation(t *testing.T) {
 		t.Fatal(err)
 	} // establish the older snapshot
 	// sql-guarantee: Advance only worker.finished_at past the Jan 2 cache after the read snapshot is established; generated finish mutations cannot supply this exact historical timestamp.
-	completionExec(t, q.db, `UPDATE steps SET finished_at='2026-01-03T00:00:00Z' WHERE id=?`, worker)
+	completionExec(t, q.db, `UPDATE steps SET finished_at='2026-01-03T00:00:00Z' WHERE id=$1`, worker)
 	old, err := readApprovalBriefIn(ctx, tx, RunRef{ID: run.ID, ProjectID: run.ProjectID}, approval)
 	if err != nil || old.Cached != "cached" {
 		t.Fatalf("mixed snapshot %+v: %v", old, err)

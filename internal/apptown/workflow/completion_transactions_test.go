@@ -166,7 +166,7 @@ func TestWorkflowChildCompletionPreservesExactIdentity(t *testing.T) {
 			step := insertStoredStep(t, store, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: parent.ID, Stage: "finish", Name: "child", Type: "workflow/call", Status: StatusRunning.String()})
 			recordStoredCallEvidence(t, store, step, 0, json.RawMessage(fmt.Sprintf(`{"childRunId":%q,"identifier":9007199254740993,"startedAtMs":1}`, linked)))
 			// sql-guarantee: Force neighbouring identities to test exact child completion matching; InsertRun mints its own id and cannot supply either identity.
-			completionExec(t, store, `INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,kind,current_stage,definition_json,parent_run_id,parent_step_id,created_at,updated_at) VALUES (?,99,?,'child',1,'pipeline','finish',?,?,?,'2026-10-09T00:00:00Z','2026-10-09T00:00:00Z')`, childID, parent.ProjectID, mustJSON(spec), parent.ID, step)
+			completionExec(t, store, `INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,kind,current_stage,definition_json,parent_run_id,parent_step_id,created_at,updated_at) VALUES ($1,99,$2,'child',1,'pipeline','finish',$3,$4,$5,'2026-10-09T00:00:00Z','2026-10-09T00:00:00Z')`, childID, parent.ProjectID, mustJSON(spec), parent.ID, step)
 			child, err := readRun(context.Background(), store, childID)
 			if err != nil {
 				t.Fatal(err)
@@ -191,7 +191,7 @@ func TestWorkflowCompletionKeepsExistingLandingIntent(t *testing.T) {
 	t.Parallel()
 	store, run, _ := completionFixture(t, "working")
 	// sql-guarantee: Preserve a historical already-applied intent with no landing run; AttachAcceptedLanding always names one and cannot author this existing receipt.
-	completionExec(t, store, `INSERT INTO workflow_landings(work_run_id,acceptance_applied) VALUES (?,true)`, run.ID)
+	completionExec(t, store, `INSERT INTO workflow_landings(work_run_id,acceptance_applied) VALUES ($1,true)`, run.ID)
 	// The existing intent is sufficient even if an insert cannot create a row.
 	completionExec(t, store, `CREATE FUNCTION veto_landing() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`)
 	completionExec(t, store, `CREATE TRIGGER veto_landing BEFORE INSERT ON workflow_landings FOR EACH ROW EXECUTE FUNCTION veto_landing()`)
@@ -215,7 +215,7 @@ func TestWorkflowStoreTransitionCommitsWholeStage(t *testing.T) {
 	runID, store := run.ID, db
 	// Fail the second step insert, after the stage update, ledger writes, and
 	// first step insert have all happened. None may survive this transaction.
-	if _, err := db.Exec(`ALTER TABLE steps ADD CONSTRAINT reject_approval CHECK (name != 'approve')`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `ALTER TABLE steps ADD CONSTRAINT reject_approval CHECK (name != 'approve')`); err != nil {
 		t.Fatal(err)
 	}
 	if auto, err := (advanceStore{db: store, stages: NewStages(nil, func(kind string) bool { return kind == "script" })}).transition(context.Background(), run, "after", "alice"); err == nil || len(auto) != 0 {
@@ -231,7 +231,7 @@ func TestWorkflowStoreTransitionCommitsWholeStage(t *testing.T) {
 	if steps, events := seenSteps(t, store, runID), seenEvents(t, store, runID); len(steps) != 0 || len(events) != 0 {
 		t.Fatalf("partial records after rollback: %d steps, %d events", len(steps), len(events))
 	}
-	if _, err := db.Exec(`ALTER TABLE steps DROP CONSTRAINT reject_approval`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `ALTER TABLE steps DROP CONSTRAINT reject_approval`); err != nil {
 		t.Fatal(err)
 	}
 	auto, err := (advanceStore{db: store, stages: NewStages(nil, func(kind string) bool { return kind == "script" })}).transition(context.Background(), run, "after", "alice")
@@ -283,7 +283,7 @@ func TestWorkflowParentFollowUpCannotAdvanceAnotherStage(t *testing.T) {
 			switch mode {
 			case "new call":
 				// sql-guarantee: Change only the attempt of an already-completed call so the old child cannot advance its parent; StartParentCall also clears finished_at and cannot preserve this completed record.
-				completionExec(t, s, `UPDATE steps SET attempt=attempt+1 WHERE id=?`, step)
+				completionExec(t, s, `UPDATE steps SET attempt=attempt+1 WHERE id=$1`, step)
 			case "other child":
 				if err := requireAttemptWrite(workflowsql.New(s.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: step, Attempt: 0, ExpectedStatus: StatusPass.String(), Status: StatusPass.String(), EvidenceJson: json.RawMessage(`{"childRunId":"00000000-03e7-7000-8000-000000000000","outcome":"done"}`)})); err != nil {
 					t.Fatal(err)
@@ -298,7 +298,7 @@ func TestWorkflowParentFollowUpCannotAdvanceAnotherStage(t *testing.T) {
 					t.Fatalf("parent: %+v %v", snapshot, err)
 				}
 				// sql-guarantee: Isolate retry_revision on the captured Run; InvalidateRunDecision also changes UpdatedAt, which lockRunSnapshotIn compares and could independently reject this stale transition.
-				completionExec(t, s, `UPDATE runs SET retry_revision=retry_revision+1 WHERE id=?`, snapshot.ID)
+				completionExec(t, s, `UPDATE runs SET retry_revision=retry_revision+1 WHERE id=$1`, snapshot.ID)
 				_, err = owner.transition(context.Background(), snapshot, "later", "test")
 				if !errors.Is(err, ErrRunMoved) {
 					t.Fatalf("stale advance: %v", err)
@@ -380,7 +380,7 @@ func completionSnapshot(t *testing.T, db *database.DB) string {
 	t.Helper()
 	var snapshot string
 	// sql-guarantee: an exact image of every Work row and its relationships, compared across a failed completion; the storage representation is the guarantee
-	if err := db.QueryRow(`SELECT jsonb_build_array(
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT jsonb_build_array(
  (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM runs r),
  (SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM steps s),
  (SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM run_events e),
@@ -457,7 +457,7 @@ func TestCompletionReleaseNamesWhoApprovedTheLanding(t *testing.T) {
 		}
 		if overrideBy != "" {
 			// sql-guarantee: an overridden approval is a stored fact no test operation produces alone.
-			if _, err := db.Exec(`UPDATE steps SET override_by=$1 WHERE id=$2`, overrideBy, step); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), `UPDATE steps SET override_by=$1 WHERE id=$2`, overrideBy, step); err != nil {
 				t.Fatal(err)
 			}
 		}

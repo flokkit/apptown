@@ -58,9 +58,7 @@ func (h SetupModel) anthropicSonnet(ctx context.Context, key string) (string, er
 
 // openRouterSonnet is "openrouter/" and the latest-Sonnet alias's target.
 func (h SetupModel) openRouterSonnet(ctx context.Context) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	target, err := openrouter.AliasTarget(ctx, h.openRouterBase, openRouterSonnetAlias)
+	target, err := inference.OpenRouterAlias(ctx, h.openRouterBase, openRouterSonnetAlias)
 	if err != nil {
 		return "", err
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/fault"
 )
 
@@ -25,8 +26,8 @@ func TestStepInterruptStopsTheStepsContainers(t *testing.T) {
 	f.reply = func(args []string) (string, error, bool) {
 		if len(args) > 0 && args[0] == "ps" {
 			for _, x := range args {
-				if strings.HasPrefix(x, "name=apptown-review-") {
-					return fmt.Sprintf("apptown-review-%d-63865\n", stepID), nil, true
+				if strings.HasPrefix(x, "name="+execution.StepContainerPrefix(stepID)) {
+					return execution.StepContainer(stepID, "review-63865") + "\n", nil, true
 				}
 			}
 			return "", nil, true
@@ -61,10 +62,10 @@ func TestStepInterruptStopsTheStepsContainers(t *testing.T) {
 		t.Fatalf("Work let a viewer stop a step: %v", err)
 	}
 	w := authzCall(h, "jenny", "POST", fmt.Sprintf("/api/v1/steps/%d/interrupt", stepID), `{}`)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), fmt.Sprintf("apptown-review-%d-63865", stepID)) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), execution.StepContainer(stepID, "review-63865")) {
 		t.Fatalf("interrupt: %d %s", w.Code, w.Body.String())
 	}
-	if idx := f.indexOf("rm -f -v apptown-review-"); idx < 0 {
+	if idx := f.indexOf("rm -f -v " + execution.StepContainer(stepID, "review")); idx < 0 {
 		t.Fatalf("the container was not removed: %v", f.joined())
 	}
 	snap, err := a.Work.Snapshot(asPerson("bls"), runID, workflow.DetailView)
@@ -102,8 +103,8 @@ func TestStepInterruptFailureDoesNotRecordSuccess(t *testing.T) {
 					return "", fmt.Errorf("injected %s failure", failure), true
 				}
 				if args[0] == "ps" {
-					if strings.Contains(strings.Join(args, " "), "name=apptown-review-") {
-						return fmt.Sprintf("apptown-review-%d-63865\n", stepID), nil, true
+					if strings.Contains(strings.Join(args, " "), "name="+execution.StepContainerPrefix(stepID)) {
+						return execution.StepContainer(stepID, "review-63865") + "\n", nil, true
 					}
 					return "", nil, true
 				}

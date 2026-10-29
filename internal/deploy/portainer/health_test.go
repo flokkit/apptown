@@ -163,14 +163,14 @@ func TestHealthyReleaseRequiresAppliedExactProbeAndPostProbeIdentity(t *testing.
 			}
 			d.Diagnostics = func(context.Context, Target) (Diagnostic, func() error, error) {
 				daemon := containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
-					answer := "204 1"
+					answer := "204\n"
 					if c.Script == "printf apptown-readiness-v1" {
 						preflight++
 						answer = "apptown-readiness-v1"
 					} else {
 						probeCount++
 						if mode == "wrong-status" {
-							answer = "503 1"
+							answer = "503\n"
 						}
 					}
 					return containerresulttest.Answer{Answer: []byte(answer)}, true

@@ -234,7 +234,7 @@ func TestAHolderIsReleasedOnlyOnProof(t *testing.T) {
 			t.Fatalf("steps: %+v %v", snapshot, err)
 		}
 		// sql-guarantee: a step whose execution has not returned yet; no operation leaves one running without executing it.
-		completionExec(t, w.a.DB, `UPDATE steps SET status='running' WHERE id=?`, snapshot.Steps[0].ID)
+		completionExec(t, w.a.DB, `UPDATE steps SET status='running' WHERE id=$1`, snapshot.Steps[0].ID)
 		if _, err := w.a.Work.Abandon(asPerson("owner"), workflow.StopWork{RunID: run.ID, Reason: "test"}); err != nil {
 			t.Fatal(err)
 		}
@@ -431,7 +431,7 @@ func TestAChatWhoseChangeCannotBeReadIsEndedAtStartup(t *testing.T) {
 		t.Fatalf("open: %d %s", code, body)
 	}
 	// sql-guarantee: a change state no operation writes is the malformed record under test; no owner operation can produce it.
-	completionExec(t, w.a.DB, `UPDATE changes SET state='garbled' WHERE id=?`, w.change.ID)
+	completionExec(t, w.a.DB, `UPDATE changes SET state='garbled' WHERE id=$1`, w.change.ID)
 	w.agent.FailRemove(id, 1)
 	if err := w.a.changeConsole.EndChatsWithoutTheirChange(context.Background()); err == nil || !strings.Contains(err.Error(), id) {
 		t.Fatalf("startup went ahead beside a chat that may still write: %v", err)

@@ -32,13 +32,13 @@ func TestRemediationCandidateWorkScopeAndFailedRead(t *testing.T) {
 			case "foreign":
 				other := a.project(t, "other")
 				// sql-guarantee: Rehome the shipped Change while preserving its original remediation item; no Change operation mutates its project identity.
-				completionExec(t, a.db, `UPDATE changes SET project_id=?,number=number+100000 WHERE id=?`, other, item.ChangeID)
+				completionExec(t, a.db, `UPDATE changes SET project_id=$1,number=number+100000 WHERE id=$2`, other, item.ChangeID)
 			case "missing":
 				// sql-guarantee: Remove only the shipped Change while retaining its item and history; project deletion would erase the orphan candidate under test.
-				completionExec(t, a.db, `DELETE FROM changes WHERE id=?`, item.ChangeID)
+				completionExec(t, a.db, `DELETE FROM changes WHERE id=$1`, item.ChangeID)
 			case "active missing":
 				// sql-guarantee: Remove only the shipped Change while retaining its item and history; project deletion would erase the orphan candidate under test.
-				completionExec(t, a.db, `DELETE FROM changes WHERE id=?`, item.ChangeID)
+				completionExec(t, a.db, `DELETE FROM changes WHERE id=$1`, item.ChangeID)
 				requireStoredWrite(t)(queries(a.db).SetItemState(context.Background(), remediationsql.SetItemStateParams{UpdatedAt: time.Now(), ID: item.ID, State: ItemWorking, Reason: item.Reason}))
 				want = 1
 			case "failed read":

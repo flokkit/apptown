@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -491,16 +490,12 @@ var errNoSuchImage = errors.New("no such image")
 
 // Labels answers an image's labels.
 func (d DockerImages) Labels(ctx context.Context, image string) (map[string]string, error) {
-	out, err := exec.CommandContext(ctx, d.Binary, "image", "inspect", "--format", "{{json (index .Config \"Labels\")}}", image).CombinedOutput()
+	answer, found, err := d.Docker.Image(ctx, image)
 	if err != nil {
-		if strings.Contains(strings.ToLower(string(out)), "no such image") {
-			return nil, fmt.Errorf("%w: %s", errNoSuchImage, image)
-		}
-		return nil, fmt.Errorf("docker image inspect: %v: %s", err, strings.TrimSpace(string(out)))
+		return nil, err
 	}
-	var labels map[string]string
-	if err := json.Unmarshal(out, &labels); err != nil {
-		return nil, fmt.Errorf("reading %s's labels: %w", image, err)
+	if !found {
+		return nil, fmt.Errorf("%w: %s", errNoSuchImage, image)
 	}
-	return labels, nil
+	return answer.Labels, nil
 }

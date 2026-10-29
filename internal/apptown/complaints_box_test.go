@@ -39,7 +39,7 @@ func TestComplaintsArchiveAndDelete(t *testing.T) {
 	old := "2026-01-01T00:00:00Z"
 	oldOne := ids.New(time.Now())
 	// sql-guarantee: Archive-by-age needs an old complaint before the HTTP request; File always uses the current clock and the timestamp-capable generated insert is private to Complaint.
-	if _, err := a.DB.Exec(`INSERT INTO complaints (id,number,at,text) VALUES (?,1000,?,'old one')`, oldOne, old); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `INSERT INTO complaints (id,number,at,text) VALUES ($1,1000,$2,'old one')`, oldOne, old); err != nil {
 		t.Fatal(err)
 	}
 	filed := map[string]ids.ID{}

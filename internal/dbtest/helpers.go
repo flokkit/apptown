@@ -1,6 +1,7 @@
 package dbtest
 
 import (
+	"context"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/database"
@@ -20,7 +21,7 @@ func FailNextStatement(t testing.TB, db *database.DB, fragment string) {
 func Count(t testing.TB, db *database.DB, want int, q string, args ...any) {
 	t.Helper()
 	var got int
-	if err := db.QueryRow(q, args...).Scan(&got); err != nil || got != want {
+	if err := db.SQL().QueryRowContext(context.Background(), q, args...).Scan(&got); err != nil || got != want {
 		t.Fatalf("count %d want %d: %v (%s)", got, want, err, q)
 	}
 }

@@ -83,10 +83,10 @@ func TestWorkflowGateIsRecheckedBeforeSettlement(t *testing.T) {
 				case "retried":
 					// The engine holds an observation the run has already left behind.
 					// sql-guarantee: Law refresh and settlement lockRunSnapshotIn compares the whole Run, including UpdatedAt; InvalidateRunDecision also stamps updated_at and could reject the snapshot without checking retry_revision, so change only retry_revision at this original interference point.
-					completionExec(t, store, `UPDATE runs SET retry_revision=retry_revision+1 WHERE id=?`, run.ID)
+					completionExec(t, store, `UPDATE runs SET retry_revision=retry_revision+1 WHERE id=$1`, run.ID)
 				case "abandoned":
 					// sql-guarantee: Law refresh and settlement lockRunSnapshotIn compares the whole Run, including UpdatedAt; TransitionRun also stamps updated_at and could reject the snapshot without checking status, so change only status at this original interference point.
-					completionExec(t, store, `UPDATE runs SET status='abandoned' WHERE id=?`, run.ID)
+					completionExec(t, store, `UPDATE runs SET status='abandoned' WHERE id=$1`, run.ID)
 				}
 				out, err := policyEngine(store, &completionCalls).AdvanceRun(context.Background(), run, "test")
 				if err != nil && !errors.Is(err, ErrRunMoved) || err == nil && out != nil && out.Advanced {
@@ -142,7 +142,7 @@ func TestWorkflowStageReceiptSurvivesInventoryChangesAndMissingSteps(t *testing.
 	// Neither today's attachment set (the engine now sees no bindings at all)
 	// nor deleting an old scanner can reduce the stage's expected checks.
 	// sql-guarantee: Delete only the second previously receipted scanner while preserving the first check and stage receipt; DeleteProjectSteps removes the whole inventory and no owner operation deletes an individual admitted check.
-	completionExec(t, store, `DELETE FROM steps WHERE run_id=? AND name='security:second'`, run.ID)
+	completionExec(t, store, `DELETE FROM steps WHERE run_id=$1 AND name='security:second'`, run.ID)
 	out, err := policyEngine(store, &completionCalls).AdvanceRun(context.Background(), run, "system")
 	if err != nil && !errors.Is(err, ErrRunMoved) || err == nil && out != nil && out.Advanced {
 		t.Fatalf("lost scanner completed: %+v %v", out, err)

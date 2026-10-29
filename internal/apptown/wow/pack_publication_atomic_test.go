@@ -1,6 +1,7 @@
 package wow
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -31,7 +32,7 @@ func TestPackPublicationsAreAtomicAndImmutable(t *testing.T) {
 	}
 	var original string
 	// sql-guarantee: the whole stored version row, compared byte for byte after a stock sync; immutability of the stored publication is the guarantee
-	if err := db.QueryRow(`SELECT to_jsonb(v)::text FROM pack_versions v JOIN packs p ON p.id=v.pack_id WHERE p.name='atomic'`).Scan(&original); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT to_jsonb(v)::text FROM pack_versions v JOIN packs p ON p.id=v.pack_id WHERE p.name='atomic'`).Scan(&original); err != nil {
 		t.Fatal(err)
 	}
 	changed, err := json.Marshal(PackSpec{Guidance: []string{"arch/boring-technology"}})
@@ -55,7 +56,7 @@ func TestPackPublicationsAreAtomicAndImmutable(t *testing.T) {
 	ways.SyncStockPacks(t.Context())
 	var after string
 	// sql-guarantee: the whole stored version row, compared byte for byte after a stock sync; immutability of the stored publication is the guarantee
-	if err := db.QueryRow(`SELECT to_jsonb(v)::text FROM pack_versions v JOIN packs p ON p.id=v.pack_id WHERE p.name='atomic' AND v.version=1`).Scan(&after); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT to_jsonb(v)::text FROM pack_versions v JOIN packs p ON p.id=v.pack_id WHERE p.name='atomic' AND v.version=1`).Scan(&after); err != nil {
 		t.Fatal(err)
 	}
 	if after != original {

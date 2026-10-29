@@ -279,7 +279,7 @@ func TestConsoleTokenWorksInInternalMode(t *testing.T) {
 		t.Fatalf("console token must authenticate with provenance identity: %d %s", w.Code, w.Body.String())
 	}
 	var minted int
-	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE username LIKE '%via console%'`).Scan(&minted)
+	_ = a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM users WHERE username LIKE '%via console%'`).Scan(&minted)
 	if minted != 0 {
 		t.Fatal("a console must not mint a users row — it is an instrument, not a person")
 	}
@@ -464,7 +464,7 @@ func TestSessionExpiry(t *testing.T) {
 	a, h := internalApp(t)
 	cookie := sessionFrom(t, postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "boss", "boss-password")))
 	// sql-guarantee: Age an issued HTTP session without deleting it, so middleware must detect expiry; Identity issues with the current clock and has no expiry mutation.
-	if _, err := a.DB.Exec(`UPDATE sessions SET expires_at='2020-01-01T00:00:00Z'`); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE sessions SET expires_at='2020-01-01T00:00:00Z'`); err != nil {
 		t.Fatal(err)
 	}
 	req := httptest.NewRequest("GET", "/api/v1/me", nil)
@@ -475,7 +475,7 @@ func TestSessionExpiry(t *testing.T) {
 		t.Fatalf("expired session must 401: %d", w.Code)
 	}
 	var n int
-	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM sessions`).Scan(&n)
+	_ = a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM sessions`).Scan(&n)
 	if n != 0 {
 		t.Fatalf("expired session should be reaped, %d remain", n)
 	}

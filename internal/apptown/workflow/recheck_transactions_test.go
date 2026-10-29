@@ -15,12 +15,12 @@ func recheckFixture(t *testing.T) (reworkStore, *Run) {
 	storedReadyStart(t, w, run.ID)
 	// sql-guarantee: Seed checks on both sides of the producer's historical finish time, including an override; no step mutation accepts finished_at.
 	completionExec(t, w, `INSERT INTO steps(id,run_id,stage,name,type,status,evidence_json,finished_at,override_by) VALUES
-		(?,?,'finish','work','agent/pi','pass','{}',now()-interval '1 minute',''),
-		(?,?,'finish','scan','scan','pass','{"findings":["old"]}',now()-interval '2 minutes',''),
-		(?,?,'finish','review','agent/review','fail','{"reason":"old"}',now()-interval '2 minutes',''),
-		(?,?,'finish','accept','approval','fail','{"decisions":[{"approver":"alice","decision":"reject"}],"comment":"fix this","identifier":9007199254740993}',now()-interval '2 minutes',''),
-		(?,?,'finish','override','preview','pass','{}',now()-interval '2 minutes','alice'),
-		(?,?,'finish','fresh','tests','pass','{}',now(),'')`, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID)
+		($1,$2,'finish','work','agent/pi','pass','{}',now()-interval '1 minute',''),
+		($3,$4,'finish','scan','scan','pass','{"findings":["old"]}',now()-interval '2 minutes',''),
+		($5,$6,'finish','review','agent/review','fail','{"reason":"old"}',now()-interval '2 minutes',''),
+		($7,$8,'finish','accept','approval','fail','{"decisions":[{"approver":"alice","decision":"reject"}],"comment":"fix this","identifier":9007199254740993}',now()-interval '2 minutes',''),
+		($9,$10,'finish','override','preview','pass','{}',now()-interval '2 minutes','alice'),
+		($11,$12,'finish','fresh','tests','pass','{}',now(),'')`, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID)
 	return reworkStore{w, clocked{}}, run
 }
 func TestStepRecheckConcurrentBatchPreservesHistoryAndFencesAdvancement(t *testing.T) {

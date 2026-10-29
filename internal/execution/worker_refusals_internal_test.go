@@ -15,7 +15,7 @@ import (
 func refusedWith(write func(http.ResponseWriter)) error {
 	rec := httptest.NewRecorder()
 	write(rec)
-	return workerRefusal(rec.Result())
+	return WorkerRefusal(rec.Result())
 }
 
 // rawRefusal answers a body as given, under a content type.
@@ -122,7 +122,7 @@ func TestAnUnrecognisedRefusalIsNoClass(t *testing.T) {
 		if c.cut {
 			resp.Body = io.NopCloser(io.MultiReader(resp.Body, iotest.ErrReader(io.ErrUnexpectedEOF)))
 		}
-		err := workerRefusal(resp)
+		err := WorkerRefusal(resp)
 		if got := classOf(err); err == nil || len(got) != 0 || errors.Is(err, ErrWorkerUnavailable) != c.unavailable {
 			t.Errorf("%s: read as %v (%v)", name, got, err)
 		}

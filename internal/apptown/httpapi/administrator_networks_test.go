@@ -92,7 +92,7 @@ func adminNetworksAre(t *testing.T, db *database.DB, accounts *identity.Service,
 	}
 	var rows int
 	// sql-guarantee: No owner read lists instance settings, and AdministratorNetworks reads a missing row and an empty stored value alike.
-	if err := db.QueryRow(`SELECT count(*) FROM instance_settings WHERE key<>'setup_completed'`).Scan(&rows); err != nil || rows != want {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM instance_settings WHERE key<>'setup_completed'`).Scan(&rows); err != nil || rows != want {
 		t.Fatalf("instance setting rows %d want %d: %v", rows, want, err)
 	}
 }

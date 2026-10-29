@@ -68,7 +68,7 @@ func snapshot(t *testing.T, db *database.DB) string {
 	t.Helper()
 	var out string
 	// sql-guarantee: A failed command must leave every stored column of every record and receipt unchanged; the full-row image is the guarantee.
-	if err := db.QueryRow(`SELECT jsonb_build_object('records',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY id),'[]') FROM adrs a),'receipts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY id),'[]') FROM audit_log a))::text`).Scan(&out); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT jsonb_build_object('records',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY id),'[]') FROM adrs a),'receipts',(SELECT COALESCE(jsonb_agg(to_jsonb(a) ORDER BY id),'[]') FROM audit_log a))::text`).Scan(&out); err != nil {
 		t.Fatal(err)
 	}
 	return out
@@ -340,7 +340,7 @@ func TestCommandsRejectForeignChangeAndPredecessor(t *testing.T) {
 	db := s.records.db
 	other := projectFixture(t, db, "other", "Other")
 	// sql-guarantee: Foreign Change identity for the ADR ownership fence; workflow imports adrs, so this private owner test cannot call CreateChangeIn or import its internal sqlc writer.
-	foreign := completionInsert(t, db, `INSERT INTO changes(id,number,project_id,type,title,created_at) VALUES (?,?,?,'feature','foreign','2026-10-09T00:00:00Z')`, fixtureNumber(), other)
+	foreign := completionInsert(t, db, `INSERT INTO changes(id,number,project_id,type,title,created_at) VALUES ($1,$2,$3,'feature','foreign','2026-10-09T00:00:00Z')`, fixtureNumber(), other)
 	v := create(t, s, p, "local")
 	for _, id := range []ids.ID{foreign, idstest.N(99999)} {
 		before := snapshot(t, db)

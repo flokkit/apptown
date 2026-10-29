@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/scm"
-	"github.com/flokkit/apptown/internal/gitlab"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +12,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/scm"
+	"github.com/flokkit/apptown/internal/gitlab"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -433,7 +434,7 @@ func TestPurgeResolvesRepositoryAndDeletionByImmutableProjectID(t *testing.T) {
 		t.Fatalf("purge admission: %+v %v", st, err)
 	}
 	// sql-guarantee: forge a stale operation slug; admission always records the current slug and cannot make this state.
-	if _, err := w.db.Exec(`UPDATE operations SET input=jsonb_set(input, '{slug}', '"neighbor"') WHERE id=?`, st.Purge.ID); err != nil {
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE operations SET input=jsonb_set(input, '{slug}', '"neighbor"') WHERE id=$1`, st.Purge.ID); err != nil {
 		t.Fatal(err)
 	}
 	op, err := w.ops.RunHere(t.Context(), st.Purge.ID)

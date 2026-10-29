@@ -20,13 +20,13 @@ func TestReleaseChangeBatchChecksBothProjectsAndKeepsEmptyLists(t *testing.T) {
 	other := workflowTestProject(t, q.db, "private", "Private", "")
 	foreign := admissionTestChange(t, q.db, other, "secret")
 	// sql-guarantee: the Workflow private batch reader needs released ledgers with exact per-project numbers and no release-operation side effects; Deployment Start cannot create this immutable released snapshot.
-	release := completionInsert(t, q.db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES (?,?,1,'released','main','2026-10-01')`, run.ProjectID)
+	release := completionInsert(t, q.db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES ($1,$2,1,'released','main','2026-10-01')`, run.ProjectID)
 	// sql-guarantee: the Workflow private batch reader needs released ledgers with exact per-project numbers and no release-operation side effects; Deployment Start cannot create this immutable released snapshot.
-	empty := completionInsert(t, q.db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES (?,?,2,'released','main','2026-10-01')`, run.ProjectID)
+	empty := completionInsert(t, q.db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES ($1,$2,2,'released','main','2026-10-01')`, run.ProjectID)
 	// sql-guarantee: the Workflow private batch reader needs released ledgers with exact per-project numbers and no release-operation side effects; Deployment Start cannot create this immutable released snapshot.
-	foreignRelease := completionInsert(t, q.db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES (?,?,1,'released','main','2026-10-01')`, other)
+	foreignRelease := completionInsert(t, q.db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES ($1,$2,1,'released','main','2026-10-01')`, other)
 	// sql-guarantee: the project fence requires deliberately cross-project release membership that Deployment operations reject, so only the private read representation can create it.
-	completionExec(t, q.db, `INSERT INTO release_changes(release_id,change_id) VALUES (?,?),(?,?),(?,?)`, release, run.ChangeID, release, foreign, foreignRelease, foreign)
+	completionExec(t, q.db, `INSERT INTO release_changes(release_id,change_id) VALUES ($1,$2),($3,$4),($5,$6)`, release, run.ChangeID, release, foreign, foreignRelease, foreign)
 	counted := &countedQueries{Handle: q.db.SQL()}
 	contents, err := readReleaseChanges(ctx, counted, run.ProjectID, []ids.ID{release, empty, foreignRelease, idstest.N(99999)})
 	if err != nil || counted.reads != 1 || len(contents[release]) != 1 || contents[release][0].ID != run.ChangeID {
@@ -58,12 +58,12 @@ func TestShippedSinceAndSBOMCutoffs(t *testing.T) {
 	ctx := context.Background()
 	cutoff := time.Date(2026, 9, 12, 0, 0, 0, 0, time.UTC)
 	// sql-guarantee: the cutoff law requires exact closed_at boundary timestamps or an abandoned comparator; TransitionChange always stamps the current database time.
-	completionExec(t, q.db, `UPDATE changes SET state='shipped',closed_at=? WHERE id=?`, cutoff, run.ChangeID)
+	completionExec(t, q.db, `UPDATE changes SET state='shipped',closed_at=$1 WHERE id=$2`, cutoff, run.ChangeID)
 	// sql-guarantee: the cutoff law requires exact closed_at boundary timestamps or an abandoned comparator; TransitionChange always stamps the current database time.
-	newer := completionInsert(t, q.db, `INSERT INTO changes(id,number,project_id,type,title,state,closed_at,created_at) VALUES (?,?,?,'feature','new','shipped',?,'2026-10-09T00:00:00Z')`, fixtureNumber(), run.ProjectID, cutoff.Add(time.Second))
+	newer := completionInsert(t, q.db, `INSERT INTO changes(id,number,project_id,type,title,state,closed_at,created_at) VALUES ($1,$2,$3,'feature','new','shipped',$4,'2026-10-09T00:00:00Z')`, fixtureNumber(), run.ProjectID, cutoff.Add(time.Second))
 	insertChangeForTest(t, q.db, workflowsql.InsertChangeParams{ID: ids.New(time.Now()), CreatedAt: time.Now(), ProjectID: run.ProjectID, Type: "feature", Title: "undated", State: ChangeShipped.String()})
 	// sql-guarantee: the cutoff law requires exact closed_at boundary timestamps or an abandoned comparator; TransitionChange always stamps the current database time.
-	completionInsert(t, q.db, `INSERT INTO changes(id,number,project_id,type,title,state,closed_at,created_at) VALUES (?,?,?,'feature','abandoned','abandoned',?,'2026-10-09T00:00:00Z')`, fixtureNumber(), run.ProjectID, cutoff.Add(time.Hour))
+	completionInsert(t, q.db, `INSERT INTO changes(id,number,project_id,type,title,state,closed_at,created_at) VALUES ($1,$2,$3,'feature','abandoned','abandoned',$4,'2026-10-09T00:00:00Z')`, fixtureNumber(), run.ProjectID, cutoff.Add(time.Hour))
 	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
 	changes, err := s.ShippedChangesSince(ctx, run.ProjectID, cutoff, 30)
 	if err != nil || len(changes) != 1 || changes[0].ID != newer {

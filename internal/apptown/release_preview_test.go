@@ -50,7 +50,7 @@ func TestReleasePreviewUsesSelectedTreeAndOriginalImage(t *testing.T) {
 	// A historical receipt need not name the runnable source. Deliberately poison
 	// just that field; lifecycle creation and settlement use Deployment operations.
 	// sql-guarantee: Poison only the immutable release source while preserving the original image receipt; release admission fixes commit_sha and settlement cannot rewrite that historical identity.
-	completionExec(t, a.DB, `UPDATE releases SET commit_sha='original-unavailable' WHERE id=?`, cut.ID)
+	completionExec(t, a.DB, `UPDATE releases SET commit_sha='original-unavailable' WHERE id=$1`, cut.ID)
 	if _, err := a.Access.EnsureUser(context.Background(), "preview-owner"); err != nil {
 		t.Fatal(err)
 	}

@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/toolversions"
@@ -71,6 +70,10 @@ func main() {
 	if err := flagenv.Bind(flag.CommandLine, os.Getenv, "version", "check-metadata"); err != nil {
 		log.Fatal(err)
 	}
+	// Every Docker call of this program goes through one scope: the docker
+	// binary (after the environment form of -docker is applied) against the
+	// daemon its environment names.
+	scope := dockercli.LocalCLI(*docker)
 	// The worker process's context: it runs until the process is killed.
 	ctx := context.Background()
 	if *showVersion {
@@ -99,7 +102,7 @@ func main() {
 	}
 	if *checkMetadata {
 		loadImages()
-		fmt.Println("the cloud metadata service from a container: " + metadataReach(ctx, dockercli.CLI{Binary: *docker}, *dindImage))
+		fmt.Println("the cloud metadata service from a container: " + metadataReach(ctx, scope.Client, *dindImage))
 		return
 	}
 	if *installation == "" || *state == "" || *certFile == "" || *keyFile == "" || *clientCA == "" {
@@ -163,7 +166,7 @@ func main() {
 	// resolvers are this machine's. Its caches are its own, removed with it,
 	// but for the worker's tool cache.
 	sessions := pi.New(pi.Config{
-		Run:             pi.CLI(*docker),
+		Run:             scope.Run,
 		Binary:          *docker, // saves and terminals run it directly
 		Image:           func() string { return "" },
 		Dind:            pi.DindConfig{Image: *dindImage},
@@ -176,7 +179,7 @@ func main() {
 	// cannot provide is refused with the reason.
 	agentImage := ""
 	if *agentContext != "" {
-		if image, err := worker.BuildAgentImage(ctx, *docker, *agentContext); err != nil {
+		if image, err := worker.BuildAgentImage(ctx, scope, *agentContext); err != nil {
 			log.Printf("apptown-worker: no agent image; chats will be refused: %v", err)
 		} else {
 			log.Printf("apptown-worker: agent image %s", image)
@@ -185,14 +188,18 @@ func main() {
 	}
 	// Previews are reached at the ports they publish on this machine's
 	// loopback: a Docker on another machine runs none.
-	var previews dockercli.Client = dockercli.CLI{Binary: *docker}
-	if host := os.Getenv("DOCKER_HOST"); host != "" && !strings.HasPrefix(host, "unix://") {
+	var previews dockercli.Client = scope.Client
+	daemon := execution.SelectDocker()
+	if daemon.Refused != nil {
+		log.Fatalf("apptown-worker: cannot tell which Docker it uses: %v", daemon.Refused)
+	}
+	if host := daemon.OtherMachine(); host != "" {
 		log.Printf("apptown-worker: Docker is at %s, not on this machine; this worker runs no previews", host)
 		previews = nil
 	}
 	w := &worker.Server{Installation: *installation, State: *state, Tasks: execution.DockerTasks{Binary: *docker, CallerAdmitsDisk: true, ToolVersions: tools}, ToolVersions: tools, Sessions: sessions,
-		Images: worker.DockerImages{Binary: *docker}, AgentImage: agentImage, ImageLabels: worker.DockerImages{Binary: *docker}, Checks: execution.Runner{DockerBinary: *docker, ServiceLimits: serviceLimits}, Previews: previews,
-		DindImage: *dindImage, Docker: dockercli.CLI{Binary: *docker}, ServiceLimits: serviceLimits, ToolCache: toolCache, Now: now}
+		Images: worker.DockerImages{Docker: scope}, AgentImage: agentImage, ImageLabels: worker.DockerImages{Docker: scope}, Checks: execution.Runner{DockerBinary: *docker, ServiceLimits: serviceLimits}, Previews: previews,
+		DindImage: *dindImage, Docker: scope.Client, ServiceLimits: serviceLimits, ToolCache: toolCache, Now: now}
 	// What private Docker rests on is measured now, and reported with what
 	// the operator declares; AppTown records it with every attempt
 	// admitted with private Docker (worker/profile.go).
@@ -204,11 +211,11 @@ func main() {
 	// again each minute (worker/previews.go); a task's private Docker goes
 	// once its admission has expired (worker/private.go); the build cache is
 	// kept within its budget.
-	w.SweepChecks(ctx, dockercli.CLI{Binary: *docker}, true)
+	w.SweepChecks(ctx, scope.Client, true)
 	w.SweepPreviews(ctx, true)
 	go func() {
 		for range time.Tick(time.Minute) {
-			w.SweepChecks(ctx, dockercli.CLI{Binary: *docker}, false)
+			w.SweepChecks(ctx, scope.Client, false)
 			w.SweepPreviews(ctx, false)
 			w.SweepPrivate(ctx)
 			w.TrimBuildCache(ctx)

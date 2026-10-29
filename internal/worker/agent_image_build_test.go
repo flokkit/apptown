@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,7 +34,7 @@ esac
 	if err := execfile.Write(docker, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	image, err := BuildAgentImage(context.Background(), docker, dir)
+	image, err := BuildAgentImage(context.Background(), dockercli.LocalCLI(docker), dir)
 	if err != nil {
 		t.Fatal(err)
 	}

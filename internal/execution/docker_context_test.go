@@ -209,3 +209,27 @@ func TestAnUnreadableDockerConfigurationRefusesTheSelection(t *testing.T) {
 		t.Fatalf("no configuration: %+v", got)
 	}
 }
+
+// The daemon is on another machine when its address, from DOCKER_HOST or a
+// Docker context alike, is tcp:// or ssh://; a socket and an unreadable
+// selection name no other machine.
+func TestADockerSelectionNamesTheOtherMachineItRunsOn(t *testing.T) {
+	config := t.TempDir()
+	writeDockerContext(t, config, "remote", "tcp://h:2375")
+	writeDockerContext(t, config, "over-ssh", "ssh://me@box:22")
+	writeDockerContext(t, config, "local", "unix:///run/docker.sock")
+	for _, tc := range []struct{ host, context, want string }{
+		{"tcp://dind:2375", "", "dind"},
+		{"tcp://10.0.0.5:2376/", "", "10.0.0.5"},
+		{"unix:///var/run/docker.sock", "", ""},
+		{"", "remote", "h"},
+		{"", "over-ssh", "box"},
+		{"", "local", ""},
+		{"", "", ""},
+		{"", "unreadable", ""},
+	} {
+		if got := selectWith(t, tc.host, tc.context, config).OtherMachine(); got != tc.want {
+			t.Errorf("DOCKER_HOST=%q context %q: %q, want %q", tc.host, tc.context, got, tc.want)
+		}
+	}
+}

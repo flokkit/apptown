@@ -97,7 +97,7 @@ func TestLandingRecheckRechecksChangeProjectAfterLock(t *testing.T) {
 	}()
 	dbtest.WaitForLock(t, q.db, "-- name: ProjectForUpdate")
 	// sql-guarantee: Reparent change.project_id inside the held project-lock transaction after recheck starts waiting; Change transitions preserve ownership and no generated mutation reparents a change.
-	if _, err = lock.Exec(`UPDATE changes SET project_id=?,number=number+100000 WHERE id=?`, other, run.ChangeID); err != nil {
+	if _, err = lock.SQL().ExecContext(context.Background(), `UPDATE changes SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ChangeID); err != nil {
 		t.Fatal(err)
 	}
 	if err = lock.Commit(); err != nil {

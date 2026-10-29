@@ -113,7 +113,7 @@ func TestConsentOperationBindingAndClaim(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: Expire the prepared consent before its decision; InsertConsent cannot replace the existing token and ConsumeConsent deletes it, bypassing the expiry check.
-	if _, err := db.Exec(`UPDATE oauth_consents SET expires_at=$1 WHERE token_hash=$2`, time.Now().Add(-time.Minute), HashToken(prepared.Token)); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE oauth_consents SET expires_at=$1 WHERE token_hash=$2`, time.Now().Add(-time.Minute), HashToken(prepared.Token)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.DecideConsent(ctx, ConsentDecision{Browser: b, Token: prepared.Token, Choice: ConsentAllow}); err == nil {
@@ -153,7 +153,7 @@ func TestConsentFailureKeepsExistingSettlement(t *testing.T) {
 	}
 	var n int
 	// sql-guarantee: A denial hands back no code, so no owner read could find one; only the table total proves none was minted.
-	if err := db.QueryRow(`SELECT count(*) FROM oauth_codes`).Scan(&n); err != nil || n != 0 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM oauth_codes`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("denial minted a code: %d %v", n, err)
 	}
 }

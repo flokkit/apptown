@@ -3,10 +3,10 @@
 package worker_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,7 +40,7 @@ func removeNamespace(t *testing.T, namespace string) {
 func putInput(t *testing.T, blobs worker.SessionClient, path string, content []byte, mode os.FileMode) execution.Input {
 	t.Helper()
 	sum, body := blobOf(t, content)
-	if err := blobs.PutBlob(context.Background(), sum, bytes.NewReader(body)); err != nil {
+	if err := blobs.EnsureBlob(context.Background(), sum, body); err != nil {
 		t.Fatal(err)
 	}
 	return execution.Input{Blob: sum, Path: path, Mode: mode}
@@ -248,7 +248,7 @@ func TestIntegrationAWorkerReportsItsAgentImageLabels(t *testing.T) {
 		t.Fatalf("building a labelled image: %v: %s", err, out)
 	}
 	t.Cleanup(func() { _ = exec.Command("docker", "rmi", image).Run() })
-	images := worker.DockerImages{Binary: "docker"}
+	images := worker.DockerImages{Docker: dockercli.LocalCLI("docker")}
 	hs := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions()}, AgentImage: image, ImageLabels: images})
 	got, err := workertest.Driver(t, ca, hs).AgentImage(context.Background())
 	if err != nil || got.Name != image || got.Labels["forge.subagents"] != "reviewer" || got.Labels["apptown.pi.version"] != "1.2.3" {

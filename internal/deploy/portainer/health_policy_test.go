@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/poll"
 	"slices"
 	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/flokkit/apptown/internal/poll"
 
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
@@ -156,7 +157,7 @@ func TestPolicyDiagnosticSharesTimeoutWithStaticIdentity(t *testing.T) {
 					if !slices.Contains(c.Env, "PROBE_TIMEOUT=10") {
 						t.Errorf("admitted timeout absent: %v", c.Env)
 					}
-					return containerresulttest.Answer{Answer: []byte("204 1")}, true
+					return containerresulttest.Answer{Answer: []byte("204\n")}, true
 				}}
 				start := time.Now()
 				d := Diagnostic{Allowed: func(ctx context.Context) error { return ctx.Err() }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {

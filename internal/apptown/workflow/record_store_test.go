@@ -27,10 +27,10 @@ func TestWorkflowRecordsPreserveProjectionAndLocks(t *testing.T) {
 	pid := workflowTestProject(t, db, "records", "Records", "")
 	// sql-guarantee: Seed an exact historical run for identity projection; InsertRun stamps its own creation time.
 	completionExec(t, db, `INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,kind,current_stage,definition_json,inputs_json,retry_revision,parent_step_attempt,created_at,updated_at)
-		VALUES (?,1,?,'pinned',7,'lifecycle','build','{"number":9007199254740993}','{"input":9007199254740993}',3,4,'2020-01-02T03:04:05.123456+11:00','2020-01-02T03:04:05.123456+11:00')`, runID, pid)
+		VALUES ($1,1,$2,'pinned',7,'lifecycle','build','{"number":9007199254740993}','{"input":9007199254740993}',3,4,'2020-01-02T03:04:05.123456+11:00','2020-01-02T03:04:05.123456+11:00')`, runID, pid)
 	// sql-guarantee: Seed exact historical stamps; InsertStageStep has no timestamp parameters.
 	completionExec(t, db, `INSERT INTO steps(id,run_id,stage,name,type,config_json,evidence_json,status,attempt,override_by,override_reason,started_at,finished_at)
-		VALUES (?,?,'build','verify','tests','{"value":9007199254740993}','{"number":9007199254740993}','pass',5,'reviewer','accepted exception','2020-01-02T03:04:05.123456+11:00','2020-01-02T03:04:06.123456+11:00')`, stepID, runID)
+		VALUES ($1,$2,'build','verify','tests','{"value":9007199254740993}','{"number":9007199254740993}','pass',5,'reviewer','accepted exception','2020-01-02T03:04:05.123456+11:00','2020-01-02T03:04:06.123456+11:00')`, stepID, runID)
 	ctx := context.Background()
 	run, err := ReadRunIn(ctx, db, runID)
 	if err != nil || run.ID != runID || run.CreatedAt != "2020-01-01T16:04:05.123456Z" || run.UpdatedAt != run.CreatedAt || run.RetryRevision != 3 || run.ParentStepAttempt != 4 || !strings.Contains(run.DefinitionJSON, "9007199254740993") || !strings.Contains(run.InputsJSON, "9007199254740993") {
@@ -56,18 +56,18 @@ func TestWorkflowRecordsPreserveProjectionAndLocks(t *testing.T) {
 	}
 	// A second transaction cannot claim the same rows while these reads hold locks.
 	// sql-guarantee: a NOWAIT row-lock probe is the observation; it proves whether the owner still holds the row lock.
-	for _, query := range []string{`SELECT id FROM runs WHERE id=? FOR UPDATE NOWAIT`, `SELECT id FROM steps WHERE id=? FOR UPDATE NOWAIT`} {
+	for _, query := range []string{`SELECT id FROM runs WHERE id=$1 FOR UPDATE NOWAIT`, `SELECT id FROM steps WHERE id=$1 FOR UPDATE NOWAIT`} {
 		id := runID
 		if strings.Contains(query, "steps") {
 			id = stepID
 		}
 		var got int64
-		if err := db.QueryRow(query, id).Scan(&got); err == nil || !strings.Contains(err.Error(), "55P03") {
+		if err := db.SQL().QueryRowContext(context.Background(), query, id).Scan(&got); err == nil || !strings.Contains(err.Error(), "55P03") {
 			t.Fatalf("read did not retain its lock: %s: %v", query, err)
 		}
 	}
 	// sql-guarantee: Edit only an existing override's reason inside the read transaction; OverrideStep rejects an already overridden row.
-	if _, err := tx.Exec(`UPDATE steps SET override_reason='uncommitted' WHERE id=?`, stepID); err != nil {
+	if _, err := tx.SQL().ExecContext(context.Background(), `UPDATE steps SET override_reason='uncommitted' WHERE id=$1`, stepID); err != nil {
 		t.Fatal(err)
 	}
 	inside, err := stepResult(workflowsql.New(tx.SQL()).StepForUpdate(ctx, workflowsql.StepForUpdateParams{ID: stepID}))
@@ -135,7 +135,7 @@ func TestWorkflowStageReadsAreBulkAndConsistent(t *testing.T) {
 		}
 		var id int64
 		// sql-guarantee: a NOWAIT row-lock probe is the observation; it proves whether the owner still holds the row lock.
-		if err := db.QueryRow(`SELECT id FROM steps WHERE id=? FOR UPDATE NOWAIT`, step.ID).Scan(&id); err == nil || !strings.Contains(err.Error(), "55P03") {
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT id FROM steps WHERE id=$1 FOR UPDATE NOWAIT`, step.ID).Scan(&id); err == nil || !strings.Contains(err.Error(), "55P03") {
 			t.Fatalf("step %d not locked: %v", step.ID, err)
 		}
 	}

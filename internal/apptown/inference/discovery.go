@@ -1,12 +1,9 @@
 package inference
 
 import (
+	"context"
 	"crypto/sha256"
-	"encoding/json"
-	"fmt"
-	"io"
 	"maps"
-	"net/http"
 	"slices"
 	"strings"
 	"sync"
@@ -14,7 +11,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/clock"
-	"github.com/flokkit/apptown/internal/trust"
 )
 
 type inferenceDiscovery struct {
@@ -41,7 +37,7 @@ type inferenceDiscoveryEntry struct {
 // The provider is asked under its binding's own lock only. A failed request
 // is cached as a failure for the same minute: its ids are never the list an
 // earlier request saw, so an unknown list is never shown as current.
-func (d *inferenceDiscovery) models(p *inferenceProvider, now time.Time) ([]string, error) {
+func (d *inferenceDiscovery) models(ctx context.Context, p *inferenceProvider, now time.Time) ([]string, error) {
 	key := discoveryKey(p)
 	d.mu.Lock()
 	if d.entries == nil {
@@ -60,50 +56,14 @@ func (d *inferenceDiscovery) models(p *inferenceProvider, now time.Time) ([]stri
 		return old.ids, old.err
 	}
 	entry := inferenceDiscoveryEntry{key: key, at: now}
-	entry.ids, entry.err = fetchModels(p)
+	// The answer is cached for every caller this minute: one caller
+	// stopping must not leave a failure the others read.
+	entry.ids, entry.err = fetchModels(context.WithoutCancel(ctx), p)
 	if entry.err != nil {
 		entry.ids = nil
 	}
 	slot.entry = entry
 	return entry.ids, entry.err
-}
-
-// fetchModels lists the model IDs an OpenAI-style provider offers at
-// /models, with the binding's own headers and credential, no proxy and no
-// redirects.
-func fetchModels(p *inferenceProvider) ([]string, error) {
-	req, err := http.NewRequest("GET", p.baseURL+"/models", nil)
-	if err != nil {
-		return nil, err
-	}
-	p.authorize(req.Header)
-	transport := trust.Transport(trust.Inference)
-	transport.Proxy = nil
-	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: 3 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("the %s provider could not be asked for its models", p.name)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("the %s provider answered HTTP %d when asked for its models", p.name, resp.StatusCode)
-	}
-	var list struct {
-		Data []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&list); err != nil {
-		return nil, fmt.Errorf("the %s provider's model list could not be read", p.name)
-	}
-	var ids []string
-	for _, m := range list.Data {
-		if m.ID != "" {
-			ids = append(ids, m.ID)
-		}
-	}
-	return ids, nil
 }
 
 // discoverable is a binding whose provider is asked for its models: one
@@ -116,11 +76,11 @@ func discoverable(p *inferenceProvider, cfg integration.ModelConfig) bool {
 // discoverModels adds what the provider lists live to what the binding
 // declares. A list that cannot be read adds nothing and is kept on the
 // provider (discoveryErr), so a refusal of an undeclared model says why.
-func (catalog Catalog) discoverModels(p *inferenceProvider, cfg integration.ModelConfig) {
+func (catalog Catalog) discoverModels(ctx context.Context, p *inferenceProvider, cfg integration.ModelConfig) {
 	if !discoverable(p, cfg) {
 		return
 	}
-	ids, err := catalog.discovery.models(p, clock.Or(catalog.Now)())
+	ids, err := catalog.discovery.models(ctx, p, clock.Or(catalog.Now)())
 	p.discoveryErr = err
 	for _, id := range ids {
 		if len(cfg.Models) == 0 {

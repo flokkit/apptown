@@ -22,7 +22,7 @@ type CompletionTask struct {
 }
 
 func parseCompletionEffect(value string) (CompletionEffect, error) {
-	for _, effect := range []CompletionEffect{CompletionCleanup, CompletionNarrative, CompletionAdopt, CompletionLand, CompletionParent} {
+	for _, effect := range []CompletionEffect{CompletionCleanup, CompletionAdopt, CompletionLand, CompletionParent} {
 		if effect.String() == value {
 			return effect, nil
 		}

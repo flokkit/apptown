@@ -1,7 +1,6 @@
 package execution
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -48,23 +47,36 @@ func (w WorkerTasks) Capabilities() Capabilities {
 	return Capabilities{Inputs: true, Results: true, Images: true, PrivateDocker: true}
 }
 
-// workerRequest mirrors the worker's wire form of an ensured task.
-type workerRequest struct {
-	Key       string         `json:"key"`
-	Admission Admission      `json:"admission"`
-	Image     string         `json:"image"`
-	Argv      []string       `json:"argv"`
-	Env       []string       `json:"env"`
-	Workspace string         `json:"workspace,omitempty"`
-	Source    string         `json:"source,omitempty"`
-	Request   string         `json:"request,omitempty"`
-	ReadOnly  bool           `json:"readOnly,omitempty"`
-	Labels    []string       `json:"labels,omitempty"`
-	Files     []File         `json:"files,omitempty"`
-	Inputs    []Input        `json:"inputs,omitempty"`
-	Results   []Result       `json:"results,omitempty"`
-	Images    []ImageResult  `json:"images,omitempty"`
-	Private   *PrivateDocker `json:"private,omitempty"`
+// WorkerTaskRequest is the wire form of an ensured task: the contract's
+// spec without host paths. AppTown sends it and the worker decodes it, so
+// the two cannot disagree on a field. Workspace names a workspace uploaded
+// to the worker.
+type WorkerTaskRequest struct {
+	Key       string    `json:"key"`
+	Admission Admission `json:"admission"`
+	Image     string    `json:"image"`
+	Argv      []string  `json:"argv"`
+	Env       []string  `json:"env"`
+	Workspace string    `json:"workspace,omitempty"`
+	// Source is the commit the workspace was uploaded with.
+	Source string `json:"source,omitempty"`
+	// Request is the client's identity for what the task runs. The worker
+	// holds a key to it; without one, to the request as sent.
+	Request  string   `json:"request,omitempty"`
+	ReadOnly bool     `json:"readOnly,omitempty"`
+	Labels   []string `json:"labels,omitempty"`
+	// Files are generated files the task sees read-only, kept in the
+	// task's own folder until it is released.
+	Files []File `json:"files,omitempty"`
+	// Inputs name blobs sent to the worker, presented read-only under
+	// /apptown/in; Results are files captured when the task exits.
+	Inputs  []Input  `json:"inputs,omitempty"`
+	Results []Result `json:"results,omitempty"`
+	// Images are OCI image layouts a release build leaves in its
+	// workspace's state, captured when it exits.
+	Images []ImageResult `json:"images,omitempty"`
+	// Private is the task's own network, services and daemon.
+	Private *PrivateDocker `json:"private,omitempty"`
 }
 
 // ErrWorkspaceGone: the worker answered that the workspace does not exist.
@@ -75,51 +87,20 @@ var ErrWorkspaceGone = errors.New("the worker has no such workspace")
 // not be read. What it did is unknown; it is never absence or refusal.
 var ErrWorkerUnavailable = errors.New("the worker could not be reached")
 
+func (w WorkerTasks) client() WorkerClient { return WorkerClient{URL: w.URL, Client: w.Client} }
+
 func (w WorkerTasks) do(ctx context.Context, method, path string, body io.Reader, contentType string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, strings.TrimRight(w.URL, "/")+path, body)
-	if err != nil {
-		return nil, err
-	}
+	var header http.Header
 	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
+		header = http.Header{"Content-Type": {contentType}}
 	}
-	client := w.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrWorkerUnavailable, err)
-	}
-	return resp, nil
+	return w.client().Do(ctx, method, path, body, header)
 }
 
 // call sends a request and decodes a JSON answer into out (when not nil).
 // A refusal (4xx) is the worker's answer; a 5xx or a broken reply is not.
 func (w WorkerTasks) call(ctx context.Context, method, path string, in, out any) error {
-	var body io.Reader
-	if in != nil {
-		encoded, err := json.Marshal(in)
-		if err != nil {
-			return err
-		}
-		body = bytes.NewReader(encoded)
-	}
-	resp, err := w.do(ctx, method, path, body, "application/json")
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return workerRefusal(resp)
-	}
-	if out == nil {
-		return nil
-	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 32<<20)).Decode(out); err != nil {
-		return fmt.Errorf("%w: reading its answer: %w", ErrWorkerUnavailable, err)
-	}
-	return nil
+	return w.client().Call(ctx, method, path, in, out, 32<<20, WorkerRefusal)
 }
 
 func taskPath(ref TaskRef, suffix string) string {
@@ -145,7 +126,7 @@ func (w WorkerTasks) Ensure(ctx context.Context, spec TaskSpec) (TaskObservation
 	}
 	// The generated files travel with the request: the worker keeps them
 	// in the task's own folder. Inputs travel ahead of it, as blobs.
-	req := workerRequest{Key: spec.Key, Admission: spec.Admission, Image: spec.Image, Argv: spec.Argv, Env: spec.Env, ReadOnly: spec.WorkspaceRO, Labels: spec.Labels, Request: spec.Digest(), Files: spec.Files,
+	req := WorkerTaskRequest{Key: spec.Key, Admission: spec.Admission, Image: spec.Image, Argv: spec.Argv, Env: spec.Env, ReadOnly: spec.WorkspaceRO, Labels: spec.Labels, Request: spec.Digest(), Files: spec.Files,
 		Inputs: spec.Inputs, Results: spec.Results, Images: spec.Images, Private: spec.Private}
 	// A task's workspace is its own, under its key, unless it names one it
 	// shares: the worker leaves a shared workspace when the task is released.
@@ -212,26 +193,7 @@ func (w WorkerTasks) sendInputs(ctx context.Context, inputs []Input) error {
 			continue
 		}
 		sent[in.Blob] = true
-		resp, err := w.do(ctx, http.MethodHead, "/v1/blobs/"+in.Blob, nil, "")
-		if err != nil {
-			return err
-		}
-		resp.Body.Close()
-		switch {
-		case resp.StatusCode == http.StatusOK:
-			continue
-		case resp.StatusCode != http.StatusNotFound:
-			return workerRefusal(resp)
-		}
-		resp, err = w.do(ctx, http.MethodPut, "/v1/blobs/"+in.Blob, bytes.NewReader(in.tar), "application/x-tar")
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode >= 300 {
-			err = workerRefusal(resp)
-		}
-		resp.Body.Close()
-		if err != nil {
+		if err := w.client().EnsureBlob(ctx, in.Blob, in.tar); err != nil {
 			return fmt.Errorf("sending the input %s: %w", in.Path, err)
 		}
 	}
@@ -252,7 +214,7 @@ func (w WorkerTasks) Results(ctx context.Context, ref TaskRef) (map[string]Resul
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		return nil, workerRefusal(resp)
+		return nil, WorkerRefusal(resp)
 	}
 	var out map[string]ResultFile
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResultsAnswer)).Decode(&out); err != nil {
@@ -329,7 +291,7 @@ func imageRefusal(resp *http.Response) error {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("the worker has not captured the task's images: %s", strings.TrimSpace(string(msg)))
 	}
-	return workerRefusal(resp)
+	return WorkerRefusal(resp)
 }
 
 // AgentImage asks the worker for its agent image: the name its build
@@ -404,7 +366,7 @@ func (w WorkerTasks) sendSource(ctx context.Context, key string, src TaskSource,
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		return workerRefusal(resp)
+		return WorkerRefusal(resp)
 	}
 	return nil
 }
@@ -474,7 +436,7 @@ func (w WorkerTasks) ReleaseWorkspace(ctx context.Context, key string) error {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return fmt.Errorf("%w: %s", ErrWorkspaceInUse, strings.TrimSpace(string(msg)))
 	case resp.StatusCode >= 300:
-		return workerRefusal(resp)
+		return WorkerRefusal(resp)
 	}
 	return nil
 }
@@ -498,7 +460,7 @@ func (w WorkerTasks) Collect(ctx context.Context, key, base, message, dest strin
 		return "", fmt.Errorf("%w: %s", ErrWorkspaceGone, strings.TrimSpace(string(msg)))
 	}
 	if resp.StatusCode >= 300 {
-		return "", workerRefusal(resp)
+		return "", WorkerRefusal(resp)
 	}
 	// Only 204 says "no changes". A bundle must name its tip; a reply that
 	// does not is malformed, and is asked for again, never taken as empty.

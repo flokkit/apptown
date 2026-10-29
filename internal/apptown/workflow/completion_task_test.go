@@ -15,12 +15,12 @@ func TestCompletionTaskChecksStateAndClassifiesFailures(t *testing.T) {
 	q, run, _ := activityFixture(t)
 	service := newService(q.db, allowProject(run.ProjectID), Runtime{})
 	ctx := context.Background()
-	key := fmt.Sprintf("%d/narrative", run.ID)
+	key := fmt.Sprintf("%d/cleanup", run.ID)
 	if _, err := service.FollowUp(ctx, key); !errors.Is(err, ErrCompletionTask) {
 		t.Fatalf("unfinished Run admitted: %v", err)
 	}
 	transitionStoredRunForTest(t, q.db, run.ID, "", RunDone)
-	for _, effect := range []CompletionEffect{CompletionCleanup, CompletionNarrative, CompletionAdopt, CompletionLand, CompletionParent} {
+	for _, effect := range []CompletionEffect{CompletionCleanup, CompletionAdopt, CompletionLand, CompletionParent} {
 		task, err := service.FollowUp(ctx, fmt.Sprintf("%d/%s", run.ID, effect))
 		if err != nil || task.Removed || task.Run.ID != run.ID || task.Effect != effect {
 			t.Fatalf("task %+v %v", task, err)
@@ -59,13 +59,13 @@ func TestCompletionTaskDerivesPreviewCleanupFromPinnedRun(t *testing.T) {
 		t.Fatalf("working preview: %+v %v", task, err)
 	}
 	// sql-guarantee: the same completed run is reread first as working and then landing; declarations are immutable after admission and no generated mutation changes only definition_json.
-	completionExec(t, q.db, `UPDATE runs SET definition_json='{"kind":"pipeline","role":"landing","stages":[{"name":"finish"}]}' WHERE id=?`, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET definition_json='{"kind":"pipeline","role":"landing","stages":[{"name":"finish"}]}' WHERE id=$1`, run.ID)
 	task, err = service.FollowUp(ctx, key)
 	if err != nil || task.PreviewChangeID != run.ChangeID {
 		t.Fatalf("root landing: %+v %v", task, err)
 	}
 	// sql-guarantee: the cleanup projection must reread the same run after only parent identity changes; parent linkage is immutable and has no generated mutation.
-	completionExec(t, q.db, `UPDATE runs SET parent_run_id='00000000-0007-7000-8000-000000000000' WHERE id=?`, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET parent_run_id='00000000-0007-7000-8000-000000000000' WHERE id=$1`, run.ID)
 	task, err = service.FollowUp(ctx, key)
 	if err != nil || !task.PreviewChangeID.IsZero() {
 		t.Fatalf("child cleanup: %+v %v", task, err)
@@ -86,7 +86,7 @@ func TestCompletionFollowUpRequiresAuthorityAndRetainsScope(t *testing.T) {
 	service.authority = authorityFunc(func(_ context.Context, p operationPermission) (string, error) {
 		if p.Action == actionAdvanceRun {
 			// sql-guarantee: authority admits the original completion task before only its project identity moves; no Workflow mutation exposes project reassignment.
-			completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+			completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 		}
 		return "engine", nil
 	})

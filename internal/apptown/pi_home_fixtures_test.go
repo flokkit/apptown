@@ -11,12 +11,17 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/docker"
 )
 
+// imageInspectAnswer is what `docker image inspect` answers the image probe
+// (execution.InspectImage) for an image carrying labels.
+func imageInspectAnswer(labels map[string]string) string {
+	body, _ := json.Marshal(labels)
+	return `"sha256:` + strings.Repeat("a", 64) + `" ` + string(body)
+}
+
 func fakeAgentLabels(labels map[string]string) docker.Client {
 	return dockerClientFunc(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-		for label, value := range labels {
-			if strings.Contains(strings.Join(req.Args, " "), "\""+label+"\"") {
-				return []byte(value), nil
-			}
+		if strings.HasPrefix(strings.Join(req.Args, " "), "image inspect") {
+			return []byte(imageInspectAnswer(labels)), nil
 		}
 		return nil, nil
 	})

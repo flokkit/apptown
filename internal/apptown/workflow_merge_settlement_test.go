@@ -125,7 +125,7 @@ func TestALandingAdmittedBeforePinningMergesNothing(t *testing.T) {
 	t.Parallel()
 	a, source := mergeSettlementFixture(t)
 	// sql-guarantee: model a landing admitted before step 1b, which recorded no candidate and no pinning marker.
-	completionExec(t, a.DB, `DELETE FROM run_events WHERE run_id=? AND kind IN ('landing.candidate','landing.pin.required')`, source.RunID)
+	completionExec(t, a.DB, `DELETE FROM run_events WHERE run_id=$1 AND kind IN ('landing.candidate','landing.pin.required')`, source.RunID)
 	run, err := workflow.ReadRunIn(context.Background(), a.DB, source.RunID)
 	if err != nil {
 		t.Fatal(err)
@@ -268,7 +268,7 @@ func TestALandingStartedBeforeGuardedPublicationCanStillMerge(t *testing.T) {
 	t.Parallel()
 	a, source := mergeSettlementFixture(t)
 	// sql-guarantee: migration 90 creates an empty authority table for pre-existing runs.
-	completionExec(t, a.DB, "DELETE FROM branch_authority WHERE project_id=?", source.ProjectID)
+	completionExec(t, a.DB, "DELETE FROM branch_authority WHERE project_id=$1", source.ProjectID)
 	if err := a.RecoverLandings(context.Background()); err != nil {
 		t.Fatal(err)
 	}

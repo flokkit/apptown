@@ -47,7 +47,7 @@ func TestWorkflowTimingWindowAndQueryCount(t *testing.T) {
 		for range 2 {
 			// sql-guarantee: Seed duplicate step rows with precise historical start/finish times for timing aggregation; no step mutation accepts finished_at.
 			completionExec(t, db, `INSERT INTO steps(id,run_id,stage,name,type,status,started_at,finished_at,evidence_json)
-  VALUES (?,?,'apply','build','agent/pi','pass',?,?,?)`, ids.New(time.Now()), rid, born.Add(2*time.Second), born.Add(3*time.Second), `{"usage":{"cost":{"total":0.015}}}`)
+  VALUES ($1,$2,'apply','build','agent/pi','pass',$3,$4,$5)`, ids.New(time.Now()), rid, born.Add(2*time.Second), born.Add(3*time.Second), `{"usage":{"cost":{"total":0.015}}}`)
 		}
 		for _, payload := range []string{`{"step":"build"}`, `{"step":"build"}`, `{"step":1}`, `{}`} {
 			if rows, err := workflowsql.New(db.SQL()).InsertRunEvent(context.Background(), workflowsql.InsertRunEventParams{ID: ids.New(time.Now()), RunID: rid, At: time.Now(), Kind: "step.rework", PayloadJson: []byte(payload)}); err != nil || rows != 1 {
@@ -91,7 +91,7 @@ func TestWorkflowTimingWindowAndQueryCount(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback() }()
 	// sql-guarantee: Rename the same immutable workflow identity only inside the transaction to test local projection visibility and isolation.
-	if _, err := tx.Exec(`UPDATE runs SET workflow_name='uncommitted' WHERE id=?`, first); err != nil {
+	if _, err := tx.SQL().ExecContext(context.Background(), `UPDATE runs SET workflow_name='uncommitted' WHERE id=$1`, first); err != nil {
 		t.Fatal(err)
 	}
 	inside, err := readTimingsIn(context.Background(), tx, []ids.ID{pid}, TimingWindow{RunID: &first})
@@ -130,7 +130,7 @@ func TestTimingProjectionPreservesNullAndFractionalStamps(t *testing.T) {
 	}
 	for _, step := range expected {
 		// sql-guarantee: Seed independent nullable and fractional start/finish stamps, including pending finished rows; no step mutation accepts these timestamps.
-		completionExec(t, db, `INSERT INTO steps(id,run_id,stage,name,type,started_at,finished_at) VALUES (?,?,?,?,?,?,?)`, ids.New(time.Now()), rid, step.stage, step.name, step.typ, step.start, step.finish)
+		completionExec(t, db, `INSERT INTO steps(id,run_id,stage,name,type,started_at,finished_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`, ids.New(time.Now()), rid, step.stage, step.name, step.typ, step.start, step.finish)
 	}
 	if rows, err := workflowsql.New(db.SQL()).InsertRunEvent(context.Background(), workflowsql.InsertRunEventParams{ID: ids.New(time.Now()), RunID: rid, At: time.Now(), Kind: "step.rework", PayloadJson: []byte(`{"step":"build"}`)}); err != nil || rows != 1 {
 		t.Fatalf("stored historical receipt: rows=%d err=%v", rows, err)

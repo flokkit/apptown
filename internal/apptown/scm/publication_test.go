@@ -329,7 +329,7 @@ func TestTheFirstPublicationAndTheFirstHandoverAreSerialized(t *testing.T) {
 		// that a transaction is waiting at the injected trigger.
 		var waiting bool
 		// sql-guarantee: only Postgres's lock table can say a transaction is waiting at the injected barrier; no owner read can
-		if err := f.db.QueryRow(`SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND objid=8675309 AND NOT granted)`).Scan(&waiting); err != nil {
+		if err := f.db.SQL().QueryRowContext(context.Background(), `SELECT EXISTS(SELECT 1 FROM pg_locks WHERE locktype='advisory' AND objid=8675309 AND NOT granted)`).Scan(&waiting); err != nil {
 			t.Fatal(err)
 		}
 		if waiting {

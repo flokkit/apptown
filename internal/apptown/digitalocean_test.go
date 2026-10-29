@@ -137,7 +137,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	}
 	var leaks int
 	// sql-guarantee: the admin credential must reach no stored record at all; the stored bytes are the guarantee, which no owner read can show.
-	_ = a.DB.QueryRow(`SELECT (SELECT COUNT(*) FROM need_instances WHERE handle_json::text LIKE '%doadmin%' OR binding_json::text LIKE '%doadmin%')
+	_ = a.DB.SQL().QueryRowContext(context.Background(), `SELECT (SELECT COUNT(*) FROM need_instances WHERE handle_json::text LIKE '%doadmin%' OR binding_json::text LIKE '%doadmin%')
 		+ (SELECT COUNT(*) FROM release_events WHERE text LIKE '%doadmin%')
 		+ (SELECT COUNT(*) FROM deployment_attempts WHERE observed_json::text LIKE '%doadmin%')`).Scan(&leaks)
 	if leaks != 0 {

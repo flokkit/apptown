@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/scm"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -15,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/scm"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -180,7 +181,7 @@ func TestCleanupUsesRetainedDeletionOwnershipAfterProjectRowsAreGone(t *testing.
 		}
 	}
 	// sql-guarantee: preserve deletion identity but forge a disagreeing cleanup payload; normal deletion cannot do this.
-	if _, err := c.DB.Exec(`UPDATE project_deletions SET plan=jsonb_set(plan, '{slug}', '"neighbor"') WHERE project_id=?`, idstest.N(100)); err != nil {
+	if _, err := c.DB.SQL().ExecContext(context.Background(), `UPDATE project_deletions SET plan=jsonb_set(plan, '{slug}', '"neighbor"') WHERE project_id=$1`, idstest.N(100)); err != nil {
 		t.Fatal(err)
 	}
 	for range 2 {

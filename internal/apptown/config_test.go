@@ -42,7 +42,7 @@ func TestConstructionHasNoDatabaseOrFilesystemEffects(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: a statement that must still find the pending fault, proving construction ran no SQL; not a read
-	if _, err := db.Exec("SELECT 42"); !errors.Is(err, database.ErrInjectedFailure) {
+	if _, err := db.SQL().ExecContext(context.Background(), "SELECT 42"); !errors.Is(err, database.ErrInjectedFailure) {
 		t.Fatalf("construction consumed the statement fault: %v", err)
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {

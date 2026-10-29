@@ -132,15 +132,17 @@ type CommittedDiff struct {
 
 // ForkBase is where an active change's work starts, for a gate that asks
 // what the change introduces: the merge-base of the project's default
-// branch and tip (the commit being checked), read in the hub. After the
+// branch (resolved in hub) and tip (the commit being checked), read in
+// repo, the repository that holds the tip: the hub, or a change's folder.
+// After the
 // change catches up with main it is the main it merged, so main's own
 // findings are not the change's. recorded stands in only where Git says
-// there is no fork to read: the hub has no default branch, the hub does
-// not hold tip yet (work still only in a change's folder), or tip has no
-// history in common with it. Git failing to answer any of these is an
+// there is no fork to read: the hub has no default branch, repo does not
+// hold tip or main's commit, or tip has no history in common with it. Git
+// failing to answer any of these is an
 // error, never a stand-in (fallback audit F18).
-func ForkBase(ctx context.Context, hub, defaultBranch, tip, recorded string) (string, error) {
-	fork, why, err := forkPoint(ctx, hub, defaultBranch, tip)
+func ForkBase(ctx context.Context, hub, repo, defaultBranch, tip, recorded string) (string, error) {
+	fork, why, err := forkPoint(ctx, hub, repo, defaultBranch, tip)
 	if err != nil {
 		return "", err
 	}
@@ -150,24 +152,29 @@ func ForkBase(ctx context.Context, hub, defaultBranch, tip, recorded string) (st
 	return fork, nil
 }
 
-// forkPoint is the merge-base of the default branch and tip in hub, or why
+// forkPoint is the merge-base of the default branch and tip in repo, or why
 // there is none to read ("" fork with a reason); err is Git failing.
-func forkPoint(ctx context.Context, hub, defaultBranch, tip string) (fork, why string, err error) {
+func forkPoint(ctx context.Context, hub, repo, defaultBranch, tip string) (fork, why string, err error) {
 	if defaultBranch == "" {
 		return "", "the project has no default branch to compare with", nil
 	}
-	main := "refs/heads/" + defaultBranch
-	if at, err := gitexec.HubReadRef(ctx, hub, main+"^{commit}"); err != nil {
+	main, err := gitexec.HubReadRef(ctx, hub, "refs/heads/"+defaultBranch+"^{commit}")
+	if err != nil {
 		return "", "", err
-	} else if at == "" {
+	} else if main == "" {
 		return "", "the project has no default branch to compare with", nil
 	}
-	if at, err := gitexec.HubReadRef(ctx, hub, tip+"^{commit}"); err != nil {
+	if at, err := gitexec.HubReadRef(ctx, repo, tip+"^{commit}"); err != nil {
 		return "", "", err
 	} else if at == "" {
-		return "", "the project's repository does not hold " + tip + " yet", nil
+		return "", "the repository does not hold " + tip + " yet", nil
 	}
-	fork, found, err := gitexec.HubMergeBase(ctx, hub, main, tip)
+	if at, err := gitexec.HubReadRef(ctx, repo, main+"^{commit}"); err != nil {
+		return "", "", err
+	} else if at == "" {
+		return "", "the repository does not hold " + defaultBranch + "'s commit " + main, nil
+	}
+	fork, found, err := gitexec.HubMergeBase(ctx, repo, main, tip)
 	switch {
 	case err != nil:
 		return "", "", fmt.Errorf("reading where the change forked from %s: %w", defaultBranch, err)
@@ -186,7 +193,7 @@ func forkPoint(ctx context.Context, hub, defaultBranch, tip string) (fork, why s
 // a change fast-forwarded onto main, which no merge records. An error is
 // "could not be read", never "nothing changed". A gate asks ForkBase.
 func ChangeBase(ctx context.Context, hub, defaultBranch, tip, recorded string) (string, error) {
-	fork, why, err := forkPoint(ctx, hub, defaultBranch, tip)
+	fork, why, err := forkPoint(ctx, hub, hub, defaultBranch, tip)
 	if err != nil {
 		return "", err
 	}

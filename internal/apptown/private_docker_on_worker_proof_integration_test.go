@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -99,7 +100,7 @@ func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *test
 				namespace := "privproof" + strings.ReplaceAll(time.Now().Format("150405.000000"), ".", "")
 				removeTaskContainers(t, namespace)
 				agent := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(),
-					Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace}, AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"},
+					Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace}, AgentImage: image, ImageLabels: worker.DockerImages{Docker: dockercli.LocalCLI("docker")},
 					DindImage: "docker:27-dind", Docker: docker.CLI{Binary: "docker"}, Checks: execution.Runner{DockerBinary: "docker"}}
 				agent.Profile = agent.MeasureProfile(ctx, true)
 				removePrivateDockerOf(t, agent)

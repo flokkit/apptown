@@ -9,6 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -199,7 +200,15 @@ func newPromotionTargetsWith(t *testing.T, noLocalDocker bool, appYAML string) *
 		remote.Diagnostics = func(context.Context, portainer.Target) (portainer.Diagnostic, func() error, error) {
 			daemon := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
 				p.diagnosticCalls.Add(1)
-				answer := "200 1"
+				answer := "200\n"
+				if slices.Contains(c.Env, "PROBE_BODY=1") {
+					// The file server's release marker for the published tree.
+					parsed, err := appcontract.Parse(p.contract)
+					if err != nil {
+						t.Error(err)
+					}
+					answer += parsed.PublicRelease(strings.TrimSpace(p.revision)) + "\n"
+				}
 				if c.Script == "printf apptown-readiness-v1" {
 					answer = "apptown-readiness-v1"
 				}

@@ -498,7 +498,7 @@ func (v *Changes) forkBase(ctx context.Context, ch *workflow.Change, tip string)
 	if err != nil {
 		return "", err
 	}
-	base, err := scm.ForkBase(ctx, repo, p.DefaultBranch, tip, ch.BaseSHA)
+	base, err := scm.ForkBase(ctx, repo, repo, p.DefaultBranch, tip, ch.BaseSHA)
 	if err != nil {
 		return "", fmt.Errorf("reading the commit this change is compared with: %w", err)
 	}

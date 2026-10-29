@@ -93,7 +93,7 @@ func TestAbandonmentRollsBackRequiredRecords(t *testing.T) {
 				for _, table := range []string{"run_events", "audit_log", "river_job"} {
 					var n int
 					// sql-guarantee: the failed abandonment must leave no hidden row in any of these tables; only a whole-table count can prove nothing was written.
-					if err := db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&n); err != nil {
+					if err := db.SQL().QueryRowContext(context.Background(), "SELECT COUNT(*) FROM "+table).Scan(&n); err != nil {
 						t.Fatal(err)
 					}
 					before[table] = n
@@ -188,7 +188,7 @@ func TestAbandonmentConcurrentWinner(t *testing.T) {
 	child := abandonChild(t, a, root.ID, false)
 	var beforeAudit int
 	// sql-guarantee: the race must add exactly one ledger row of any kind; only a whole-table count bounds every kind.
-	if err := w.QueryRow(`SELECT COUNT(*) FROM audit_log`).Scan(&beforeAudit); err != nil {
+	if err := w.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM audit_log`).Scan(&beforeAudit); err != nil {
 		t.Fatal(err)
 	}
 	result := race(8, func(int) int {

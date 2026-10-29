@@ -84,11 +84,11 @@ func TestBindingListDiscardsPartialScan(t *testing.T) {
 	}
 	// This malformed owner row is the representation under test: a later scan
 	// failure must discard every earlier valid binding.
-	if _, err := db.Exec(`ALTER TABLE integrations RENAME TO integration_rows`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `ALTER TABLE integrations RENAME TO integration_rows`); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: the view that serves one malformed version row to the owner's scan; DDL for the representation under test, not a read
-	if _, err := db.Exec(`CREATE VIEW integrations AS SELECT id,name,capability,provider,config_json,
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE VIEW integrations AS SELECT id,name,capability,provider,config_json,
  CASE WHEN name='a-second' THEN 'invalid' ELSE version::text END AS version, managed, created_at, updated_at FROM integration_rows`); err != nil {
 		t.Fatal(err)
 	}

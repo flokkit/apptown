@@ -89,7 +89,7 @@ func TestRequireStillResolvesTheCredentialThatAsked(t *testing.T) {
 		}
 		// An expired session that was not yet removed on sight still refuses.
 		// sql-guarantee: no operation expires a session early; the clock passing its expiry is the state.
-		if _, err := s.db.Exec(`UPDATE sessions SET expires_at = now() - interval '1 minute' WHERE principal_id = ?`, principalOf(t, s.db, "alice")); err != nil {
+		if _, err := s.db.SQL().ExecContext(context.Background(), `UPDATE sessions SET expires_at = now() - interval '1 minute' WHERE principal_id = $1`, principalOf(t, s.db, "alice")); err != nil {
 			t.Fatal(err)
 		}
 		if err := s.RequireStill(ctx, pr, read); !errors.Is(err, ErrCredentialGone) {

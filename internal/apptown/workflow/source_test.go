@@ -147,10 +147,10 @@ func TestWorkflowSourceRejectsBrokenContinuationsAndDeclarations(t *testing.T) {
 					if mutation == "different project" {
 						pid := workflowTestProject(t, store, "other", "Other", "")
 						// sql-guarantee: the broken-source law needs the same continuation graph with only its root project identity corrupted; no Workflow mutation reassigns project_id.
-						completionExec(t, store, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, pid, run.ID)
+						completionExec(t, store, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, pid, run.ID)
 					} else {
 						// sql-guarantee: the broken-source law needs the same continuation graph with only its root Change link cleared; no Workflow mutation reassigns change_id.
-						completionExec(t, store, `UPDATE runs SET change_id=NULL WHERE id=?`, run.ID)
+						completionExec(t, store, `UPDATE runs SET change_id=NULL WHERE id=$1`, run.ID)
 					}
 					run.ID = id
 				}

@@ -197,7 +197,7 @@ func Witness(ctx context.Context, address, identity string, tries int, interval 
 		switch {
 		case err != nil:
 			last = err.Error()
-		case status == http.StatusOK && body == identity:
+		case appcontract.ServesRelease(status, []byte(body), identity):
 			logf("the address serves this publication: %s answers %s", url, identity)
 			return nil
 		default:
@@ -260,7 +260,7 @@ func fetch(ctx context.Context, url string, try int) (int, string, error) {
 	defer res.Body.Close()
 	// A body that could not be read whole is no answer: a prefix that
 	// happens to match the identity is not the marker.
-	body, err := io.ReadAll(io.LimitReader(res.Body, 4<<10))
+	body, err := io.ReadAll(io.LimitReader(res.Body, appcontract.MaxReleaseAnswer))
 	if err != nil {
 		return 0, "", fmt.Errorf("reading the answer from %s: %w", url, err)
 	}

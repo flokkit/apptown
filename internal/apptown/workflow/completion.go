@@ -19,7 +19,6 @@ type CompletionEffect uint8
 
 const (
 	CompletionCleanup CompletionEffect = iota + 1
-	CompletionNarrative
 	CompletionAdopt
 	CompletionLand
 	CompletionParent
@@ -29,8 +28,6 @@ func (e CompletionEffect) String() string {
 	switch e {
 	case CompletionCleanup:
 		return "cleanup"
-	case CompletionNarrative:
-		return "narrative"
 	case CompletionAdopt:
 		return "adopt"
 	case CompletionLand:
@@ -50,6 +47,9 @@ type CompletedRun struct {
 	// no approval passed by a vote.
 	ApprovedBy string
 	Effects    []CompletionEffect
+	// Narrative asks for the change's narrative to be refreshed: set for a
+	// root run of a change.
+	Narrative bool
 }
 type ReleaseReceipt struct {
 	ID     ids.ID `json:"release"`
@@ -111,7 +111,7 @@ func (w advanceStore) complete(ctx context.Context, run *Run) error {
 		}
 		completed := CompletedRun{RunID: run.ID, ProjectID: run.ProjectID, ChangeID: run.ChangeID, Effects: []CompletionEffect{CompletionCleanup}}
 		if run.ParentRunID.IsZero() && !run.ChangeID.IsZero() {
-			completed.Effects = append(completed.Effects, CompletionNarrative)
+			completed.Narrative = true
 			// A landing ships its change. So does a record run (research, a
 			// specification): accepting it closes the change, and with
 			// nothing committed there is nothing to land.

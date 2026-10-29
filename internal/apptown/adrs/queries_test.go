@@ -21,7 +21,7 @@ func TestQueriesShareScopeOrderingAndExactTagRules(t *testing.T) {
 	db := s.records.db
 	other := projectFixture(t, db, "foreign", "Foreign")
 	// sql-guarantee: Scoped Change identity for private ADR matching/locking checks; workflow imports adrs and its generated writer is internal, so no callable owner writer exists from this test package.
-	change := completionInsert(t, db, `INSERT INTO changes(id,number,project_id,type,title,created_at) VALUES (?,?,?,'feature','local','2026-10-09T00:00:00Z')`, fixtureNumber(), p)
+	change := completionInsert(t, db, `INSERT INTO changes(id,number,project_id,type,title,created_at) VALUES ($1,$2,$3,'feature','local','2026-10-09T00:00:00Z')`, fixtureNumber(), p)
 	a := create(t, s, p, "one")
 	b := create(t, s, p, "two")
 	create(t, s, other, "foreign")

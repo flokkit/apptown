@@ -36,11 +36,23 @@ func TestAppTownsNarrativeRefreshPublishesAfterARunEndsButNeverTheBrief(t *testi
 			return "TITLE: Runner lifecycle\nASKED: yes\n\nThe runner now finishes its work.", &modelcall.Usage{}, nil
 		}),
 	}
-	followUps := workflowFollowUps(a)
-	followUps.Narratives = b
-	if _, err := followUps.Complete(context.Background(), fmt.Sprintf("%d/%s", runID, workflow.CompletionNarrative), nil); err != nil {
+	a.narratives.builder = b
+	snapshot, err := a.Work.Snapshot(asPerson("alice"), runID, workflow.DetailView)
+	if err != nil {
 		t.Fatal(err)
 	}
+	// The run's completion queued the one narrative job for the change, and
+	// no completion job for it.
+	key := fmt.Sprintf("change/%d", snapshot.Run.ChangeID)
+	if queued := operationJobs(t, a, narrativeJob); len(queued) != 1 || queued[0].Key != key {
+		t.Fatalf("completion queued %+v", queued)
+	}
+	for _, queued := range operationJobs(t, a, workflowCompletionJob) {
+		if strings.HasSuffix(queued.Key, "/narrative") {
+			t.Fatalf("completion queued a narrative job of its own: %+v", queued)
+		}
+	}
+	runQueuedJobForTest(t, a, narrativeJob, key)
 	snap, err := a.Work.Snapshot(asPerson("alice"), runID, workflow.DetailView)
 	if err != nil {
 		t.Fatal(err)

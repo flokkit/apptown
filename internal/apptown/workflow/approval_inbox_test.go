@@ -70,7 +70,7 @@ func TestApprovalInboxUsesCanonicalRecordsAndVisibility(t *testing.T) {
 		}
 		if p.Action == actionReadEvidence {
 			// sql-guarantee: Move run.project_id during evidence authorization to test inbox scope revalidation; admission fixes project ownership and no generated mutation reparents an existing run.
-			completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+			completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 		}
 		return "reader", nil
 	})}, Runtime{})

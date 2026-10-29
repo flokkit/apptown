@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -47,17 +45,3 @@ func (e missingNumbered) Error() string {
 }
 func (missingNumbered) FaultKind() fault.Kind { return fault.NotFound }
 func (missingNumbered) Unwrap() error         { return sql.ErrNoRows }
-
-// ParseChangeNumber reads the friendly form of a change or a run,
-// "<slug>#<n>": the project's current slug and the record's number within it.
-func ParseChangeNumber(s string) (slug string, number int64, ok bool) {
-	slug, digits, found := strings.Cut(s, "#")
-	if !found || slug == "" {
-		return "", 0, false
-	}
-	n, err := strconv.ParseInt(digits, 10, 64)
-	if err != nil || n <= 0 {
-		return "", 0, false
-	}
-	return slug, n, true
-}

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -237,7 +238,7 @@ func newWorkerStepWorld(t *testing.T, step schema.Step, files map[string]string,
 	removeTaskContainers(t, w.namespace)
 	ca := workertest.NewCA(t)
 	server := &worker.Server{ToolVersions: stock.Versions(), Installation: workertest.Installation, State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: w.namespace},
-		AgentImage: w.image, ImageLabels: worker.DockerImages{Binary: "docker"}, DindImage: "docker:27-dind"}
+		AgentImage: w.image, ImageLabels: worker.DockerImages{Docker: dockercli.LocalCLI("docker")}, DindImage: "docker:27-dind"}
 	for _, c := range configure {
 		c(server)
 	}
@@ -921,7 +922,7 @@ func TestIntegrationReviewS5OldRunContinuesItsFolderTranscriptOnWorker(t *testin
 	w.execute(t, w.a)
 	receipt, raw := w.transcript(t, 1)
 	// sql-guarantee: A run from before agent_transcripts has a start receipt and no record; no operation removes a record, so it is deleted to construct that era.
-	if _, err := w.a.DB.Exec("DELETE FROM agent_transcripts WHERE step_id=$1", w.step.ID); err != nil {
+	if _, err := w.a.DB.SQL().ExecContext(context.Background(), "DELETE FROM agent_transcripts WHERE step_id=$1", w.step.ID); err != nil {
 		t.Fatal(err)
 	}
 	dir := filepath.Join(requireLocation(t)(w.source.Workspace(w.a.cfg.dataDir)), ".apptown", "sessions")

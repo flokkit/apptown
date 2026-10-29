@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/flokkit/apptown/internal/execution"
 
 	"github.com/flokkit/apptown/internal/dind"
 	"github.com/flokkit/apptown/internal/poll"
@@ -278,14 +280,22 @@ func (dk Scope) FrontDoor(servingLabel, deployment string, hostPort int) string 
 	return fmt.Sprintf("http://%s:%d", dk.Hostname, hostPort)
 }
 
-// ImageExists: is this image present in the local daemon? This is the one
-// image-inspect probe; callers use it rather than writing their own.
-func (dk Scope) ImageExists(ctx context.Context, ref string) bool {
-	// The answer cannot say "unknown", so a stop must not shape it: this
-	// bounded read runs to its end though the caller stops.
+// LocalCLI is the scope of the docker binary run directly against the
+// daemon its environment names (apptown-worker, and tests): the one place a
+// program with no daemon of its own of this kind gets its Docker calls.
+func LocalCLI(binary string) Scope { return Scope{Client: CLI{Binary: binary}} }
+
+// Image is the one image probe (execution.InspectImage): found with its ID
+// and labels, absent (the daemon says there is no such image), or an error
+// (the daemon could not be asked or its answer not read). Callers decide
+// what an error means; none reads it as absent.
+func (dk Scope) Image(ctx context.Context, ref string) (execution.ImageAnswer, bool, error) {
+	// A stop must not shape this bounded read: it runs to its end though
+	// the caller stops.
 	ctx = context.WithoutCancel(ctx)
-	_, err := dk.Run(ctx, "image", "inspect", ref)
-	return err == nil
+	return execution.InspectImage(ctx, func(ctx context.Context, _ io.Reader, args ...string) ([]byte, error) {
+		return dk.Run(ctx, args...)
+	}, ref)
 }
 
 // Lines runs a listing and returns its non-empty Lines. A non-zero
@@ -457,7 +467,11 @@ func (dk Scope) AgentRuntimeVersion(ctx context.Context, image string) string {
 // AgentImageLabel reads a version label baked into the agent image —
 // receipts should say which runtimes ran, and the mutable tag doesn't.
 func (dk Scope) AgentImageLabel(ctx context.Context, image, label string) string {
-	return dk.Text(ctx, "image", "inspect", "-f", "{{with index .Config \"Labels\"}}{{index . \""+label+"\"}}{{end}}", image)
+	answer, found, err := dk.Image(ctx, image)
+	if err != nil || !found {
+		return ""
+	}
+	return answer.Labels[label]
 }
 
 func loopbackURL(port int) string {

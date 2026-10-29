@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -63,7 +62,7 @@ func (a FollowUps) Abandon(ctx context.Context, key string, args map[string]any)
 		if err := errors.Join(failed...); err != nil {
 			return nil, err
 		}
-	case parts[0] == "run" && parts[2] == "narrative":
+	case parts[0] == "run" && parts[2] == "ended":
 		run, err := workflow.ReadRunIn(ctx, a.DB, id)
 		if errors.Is(err, sql.ErrNoRows) {
 			return map[string]any{"skipped": "run was removed"}, nil
@@ -74,14 +73,8 @@ func (a FollowUps) Abandon(ctx context.Context, key string, args map[string]any)
 		if run.Status != workflow.RunAbandoned {
 			return map[string]any{"skipped": "run is no longer abandoned"}, nil
 		}
-		told := a.tellLandingEnded(ctx, run)
-		// Narrative and container cleanup retain their existing best-effort policy.
-		// The narrative is a summary: the next read refreshes it again.
-		if err := a.Narratives.Refresh(engineCaller(ctx), run.ChangeID); err != nil {
-			log.Printf("change %d: refreshing its narrative: %v", run.ChangeID, err)
-		}
-		if told != nil {
-			return nil, told
+		if err := a.tellLandingEnded(ctx, run); err != nil {
+			return nil, err
 		}
 	default:
 		return nil, jobs.Permanent(fmt.Errorf("unknown abandonment effect %q", key))

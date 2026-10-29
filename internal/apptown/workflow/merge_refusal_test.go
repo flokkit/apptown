@@ -154,14 +154,14 @@ func TestAMergeIsRefusedWithoutItsEvidenceOrUnderCurrentLaw(t *testing.T) {
 			switch failure {
 			case "missing gate":
 				// sql-guarantee: remove the passed gate while keeping the run's declaration and merge step; no owner command deletes one admitted step.
-				completionExec(t, l.db, `DELETE FROM steps WHERE id=?`, l.gate)
+				completionExec(t, l.db, `DELETE FROM steps WHERE id=$1`, l.gate)
 			case "wrong check type":
 				// sql-guarantee: keep the passed verdict but replace its immutable runner kind; no owner command changes a step's type.
-				completionExec(t, l.db, `UPDATE steps SET type='tests' WHERE id=?`, l.gate)
+				completionExec(t, l.db, `UPDATE steps SET type='tests' WHERE id=$1`, l.gate)
 			case "missing scanners":
 				spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish", Steps: []schema.Step{{Name: "scan", Uses: "scan", With: map[string]any{"on": "source"}}, {Name: "merge", Uses: "scm/merged"}}}}}
 				// sql-guarantee: replace the pinned declaration without its steps; admission creates a declaration and its steps together.
-				completionExec(t, l.db, `UPDATE runs SET definition_json=? WHERE id=?`, mustJSON(spec), l.run.ID)
+				completionExec(t, l.db, `UPDATE runs SET definition_json=$1 WHERE id=$2`, mustJSON(spec), l.run.ID)
 			case "law violation":
 				installPolicy(t, l.db, l.run.ProjectID, "scan-first", "requireStepBefore", map[string]any{"uses": "scm/merged", "requires": "scan"})
 			case "malformed law":
@@ -174,7 +174,7 @@ func TestAMergeIsRefusedWithoutItsEvidenceOrUnderCurrentLaw(t *testing.T) {
 				dbtest.FailNextStatement(t, l.db, "FROM policies")
 			case "stale uplift":
 				// sql-guarantee: make the admitted Change an uplift prepared against another revision; creation would allocate another Change.
-				completionExec(t, l.db, `UPDATE changes SET type='uplift',expected_revision=99 WHERE id=?`, l.run.ChangeID)
+				completionExec(t, l.db, `UPDATE changes SET type='uplift',expected_revision=99 WHERE id=$1`, l.run.ChangeID)
 			}
 			driver := gitDriver{t: t}
 			if failure == "" {
@@ -224,7 +224,7 @@ func TestAMergeIsAdmittedOnlyForItsPreparedCaller(t *testing.T) {
 			case "wrong advancement stage":
 				spec := schema.Spec{Kind: "pipeline", Role: "landing", Stages: []schema.Stage{{Name: "finish"}, {Name: "middle"}, {Name: "last"}}}
 				// sql-guarantee: replace the pinned declaration without its steps, to present a stale prepared caller; admission creates a declaration and its steps together.
-				completionExec(t, l.db, `UPDATE runs SET definition_json=? WHERE id=?`, mustJSON(spec), l.run.ID)
+				completionExec(t, l.db, `UPDATE runs SET definition_json=$1 WHERE id=$2`, mustJSON(spec), l.run.ID)
 				call = l.call(t)
 				call.Purpose, call.Step = MergeForAdvance, Step{}
 			}
@@ -249,7 +249,7 @@ func TestALocalMergeRechecksItsGatesWhenRecordingItsIntent(t *testing.T) {
 			driver := gitDriver{t: t, prepared: func() {
 				if change == "gate reset" {
 					// sql-guarantee: reset only the observed verdict and evidence after preparation; a retry also clears attempt timestamps and would mask this late-verdict fence.
-					completionExec(t, l.db, `UPDATE steps SET status='pending',evidence_json='{}' WHERE id=?`, l.gate)
+					completionExec(t, l.db, `UPDATE steps SET status='pending',evidence_json='{}' WHERE id=$1`, l.gate)
 				} else {
 					installPolicy(t, l.db, l.run.ProjectID, "new", "requireStepBefore", map[string]any{"uses": "scm/merged", "requires": "scan"})
 				}

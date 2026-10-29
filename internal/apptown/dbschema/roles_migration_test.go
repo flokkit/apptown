@@ -1,6 +1,7 @@
 package dbschema
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"testing"
@@ -33,8 +34,8 @@ func TestMigration187DeletesGrantsThatConferNothing(t *testing.T) {
 	// sql-guarantee: grants of removed roles and scopes that this build
 	// refuses to record; only an earlier release could have written them.
 	for i, g := range append(append([]row{}, gone...), kept...) {
-		if _, err := db.Exec(`INSERT INTO grants (id, subject_type, subject, role_name, capability, scope_type, scope_id, created_at) VALUES (` +
-			id(i) + `, 'user', 'alice', '` + g.role + `', '` + g.capability + `', '` + g.scope + `', '` + g.scopeID + `', ` + at + `)`); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO grants (id, subject_type, subject, role_name, capability, scope_type, scope_id, created_at) VALUES (`+
+			id(i)+`, 'user', 'alice', '`+g.role+`', '`+g.capability+`', '`+g.scope+`', '`+g.scopeID+`', `+at+`)`); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -42,7 +43,7 @@ func TestMigration187DeletesGrantsThatConferNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	var left int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM grants WHERE subject = 'alice'`).Scan(&left); err != nil || left != len(kept) {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM grants WHERE subject = 'alice'`).Scan(&left); err != nil || left != len(kept) {
 		t.Fatalf("%d grants left, want the %d kept: %v", left, len(kept), err)
 	}
 }

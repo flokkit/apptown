@@ -94,4 +94,14 @@ func TestAWorkerChatSaveUsesTheConfiguredDocker(t *testing.T) {
 	if want := "image inspect --format {{.Id}} " + stock.Images().PrivateDocker; !strings.Contains(string(called), want) {
 		t.Fatalf("the worker did not take its private Docker image from its shipped tool versions (want a call %q):\n%s", want, called)
 	}
+	// The environment form of the option selects the same binary for the
+	// scoped calls (the scope is built after the environment is applied):
+	// the metadata probe runs Docker once more, through the fake.
+	before := len(called)
+	probe := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
+		Argv: []string{binary, "-check-metadata", "-shipped", stockupdatetest.Dir(t)}, Env: []string{"PATH=" + dir, "APPTOWN_DOCKER=" + fake}, Timeout: time.Minute,
+	})
+	if after, err := os.ReadFile(calls); probe.RunErr != nil || err != nil || len(after) <= before {
+		t.Fatalf("the scoped calls bypassed APPTOWN_DOCKER: %v %v %s", probe.RunErr, err, probe.Output)
+	}
 }

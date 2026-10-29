@@ -97,11 +97,11 @@ func TestGrantLookupIsOneReadAndUsesCurrentAuthority(t *testing.T) {
 		t.Fatal("direct or inherited authority missing")
 	}
 	// sql-guarantee: Keep a revoked membership row to test the revoked_at filter independently of absence; existing membership mutations only insert or delete rows.
-	if _, err := db.Exec(`UPDATE group_members SET revoked_at=now() WHERE principal_id=? AND group_name='query-group-0'`, principalOf(t, db, user)); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE group_members SET revoked_at=now() WHERE principal_id=$1 AND group_name='query-group-0'`, principalOf(t, db, user)); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: Keep an expired membership row to test expires_at independently of revocation or absence; no named membership mutation accepts expiry.
-	if _, err := db.Exec(`UPDATE group_members SET expires_at=now()-interval '1 second' WHERE principal_id=? AND group_name='query-group-1'`, principalOf(t, db, user)); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE group_members SET expires_at=now()-interval '1 second' WHERE principal_id=$1 AND group_name='query-group-1'`, principalOf(t, db, user)); err != nil {
 		t.Fatal(err)
 	}
 	expireStoredGrant(t, db, grantIDs[2])

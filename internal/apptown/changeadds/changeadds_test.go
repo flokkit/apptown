@@ -365,3 +365,32 @@ func TestALinkedFolderMakesItsDeclarationUnknownNotEmpty(t *testing.T) {
 		})
 	}
 }
+
+// A change whose history shares nothing with main reads against its
+// recorded base, as every other gate does (scm.ForkBase); with none
+// recorded its rows are unknown, with the reason.
+func TestAChangeWithNoHistoryInCommonReadsAgainstItsRecordedBase(t *testing.T) {
+	ctx := context.Background()
+	hub := t.TempDir()
+	git(t, hub, "init", "-q", "-b", "main")
+	recorded := commitFiles(t, hub, map[string]string{contractPath: contract})
+	git(t, hub, "checkout", "-q", "--orphan", "change")
+	git(t, hub, "rm", "-rfq", ".")
+	head := commitFiles(t, hub, map[string]string{contractPath: contract, "secretspec.toml": spec})
+	q := workflow.AddsQuestion{Head: head, DefaultBranch: "main", Hub: hub, Repositories: []string{hub}, Recorded: recorded}
+	adds, err := Comparer{}.ChangeAdds(ctx, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adds.Base != recorded || !slices.Equal(rowNamed(t, adds.Rows, Secrets).Added, []string{"STRIPE_KEY"}) {
+		t.Fatalf("read against the recorded base: %+v", adds)
+	}
+	q.Recorded = ""
+	adds, err = Comparer{}.ChangeAdds(ctx, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := rowNamed(t, adds.Rows, Secrets); !strings.Contains(got.Unknown, "no history in common") {
+		t.Fatalf("with no recorded base: %+v", got)
+	}
+}

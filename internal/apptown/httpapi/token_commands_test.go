@@ -42,7 +42,7 @@ func vetoHTTPRecord(t *testing.T, db *database.DB, table, operation, body string
 	t.Helper()
 	exec := func(q string) {
 		t.Helper()
-		if _, err := db.Exec(q); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), q); err != nil {
 			t.Fatal(err)
 		}
 	}

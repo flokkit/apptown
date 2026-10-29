@@ -64,18 +64,18 @@ func TestRemediationPageReadsBatchActivityAndHistory(t *testing.T) {
 		wantDoing[id] = tc.want
 		if tc.status == "running" {
 			// sql-guarantee: Keep an earlier-ID manual approval in legacy needs_human state to prove running work outranks it; manual approval admission remains pending and cannot claim work.
-			completionExec(t, db, `UPDATE steps SET status='needs_human' WHERE run_id=? AND name='waiting'`, run)
+			completionExec(t, db, `UPDATE steps SET status='needs_human' WHERE run_id=$1 AND name='waiting'`, run)
 		}
 		// sql-guarantee: Project historical attempt ordering and fractional started_at values alongside fixed costs; InsertAttempt sets no outcome, reason or cost.
 		completionExec(t, db, `INSERT INTO remediation_attempts(id,item_id,n,change_id,run_id,base_sha,outcome,reason,cost_micros,started_at)
-  VALUES (?,?,2,'00000000-0016-7000-8000-000000000000',?,'second-sha','landed','second',200,'2020-01-02T03:04:05.123456+11:00'),
-   (?,?,1,'00000000-000b-7000-8000-000000000000',?,'first-sha','stuck','first',100,'2020-01-01T00:00:00Z')`, ids.New(time.Now()), id, run, ids.New(time.Now()), id, run)
+  VALUES ($1,$2,2,'00000000-0016-7000-8000-000000000000',$3,'second-sha','landed','second',200,'2020-01-02T03:04:05.123456+11:00'),
+   ($4,$5,1,'00000000-000b-7000-8000-000000000000',$6,'first-sha','stuck','first',100,'2020-01-01T00:00:00Z')`, ids.New(time.Now()), id, run, ids.New(time.Now()), id, run)
 	}
 	// A stale/foreign run reference cannot show another project's activity.
 	foreign := insertItem(job, p, ItemWorking, 0)
 	run := admitPageRun(t, db, other, "private", []schema.Step{{Name: "private activity", Uses: "agent/pi"}}, map[string]workflow.StepState{"private activity": workflow.StatusRunning})
 	// sql-guarantee: Bind a foreign run while attempt stays zero so activity and history both remain hidden; StartItem would increment attempt and remove the unattempted-history guarantee.
-	completionExec(t, db, `UPDATE remediation_items SET run_id=? WHERE id=?`, run, foreign)
+	completionExec(t, db, `UPDATE remediation_items SET run_id=$1 WHERE id=$2`, run, foreign)
 	wantDoing[foreign] = ""
 	// History left behind on an unattempted item remains omitted from this view.
 	if err := queries(db).InsertAttempt(ctx, remediationsql.InsertAttemptParams{ID: ids.New(time.Now()), StartedAt: time.Now(), ItemID: foreign, N: 1, ChangeID: idstest.N(1), RunID: idstest.N(1)}); err != nil {
@@ -158,7 +158,7 @@ func TestRemediationPageReadsBatchActivityAndHistory(t *testing.T) {
 	// Project and rank precede ID in a job; occupancy follows update time.
 	early := insertStoredItem(t, db, remediationsql.InsertItemParams{ID: ids.New(time.Now()), RemediationID: job, ProjectID: other, ProjectSlug: "aaa", CheckKey: "check", Block: "hygiene", Version: 1, CheckName: "clean", State: ItemDone, Rank: 99}, 0, ids.Nil)
 	// sql-guarantee: Change ordering only after verifying initial ID order, using a precise historical update stamp; no item mutation changes rank or accepts updated_at.
-	completionExec(t, db, `UPDATE remediation_items SET rank=-1,updated_at='2000-01-01' WHERE id=?`, foreign)
+	completionExec(t, db, `UPDATE remediation_items SET rank=-1,updated_at='2000-01-01' WHERE id=$1`, foreign)
 	ordered := check(32, 2)
 	if ordered[0].ID != early || ordered[1].ID != foreign {
 		t.Fatalf("project/rank ordering: %+v", ordered)
@@ -175,7 +175,7 @@ func TestRemediationPageReadsBatchActivityAndHistory(t *testing.T) {
 	const exact int64 = 9007199254740993 // a cost above 2^53
 	change := idstest.Parse(t, "ffffffff-ffff-7fff-bfff-ffffffffffff")
 	// sql-guarantee: Change an existing attempt identity and exact cost above 2^53 only inside the read transaction; no mutation edits its immutable Change binding.
-	if _, err := tx.Exec(`UPDATE remediation_attempts SET cost_micros=?,change_id=?,reason='uncommitted' WHERE item_id=? AND n=1`, exact, change, itemIDs[0]); err != nil {
+	if _, err := tx.SQL().ExecContext(context.Background(), `UPDATE remediation_attempts SET cost_micros=$1,change_id=$2,reason='uncommitted' WHERE item_id=$3 AND n=1`, exact, change, itemIDs[0]); err != nil {
 		t.Fatal(err)
 	}
 	inside, err := readAttempts(ctx, tx, job)

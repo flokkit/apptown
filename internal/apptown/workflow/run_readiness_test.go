@@ -165,7 +165,7 @@ func TestHistoricalRunReadinessDoesNotBecomePreparation(t *testing.T) {
 	owner, run, _ := completedSendBackFixture(t)
 	// sql-guarantee: Model supported terminal history predating run starts.
 	// sql-guarantee: Construct supported missing-start history; no runtime operation removes a start.
-	completionExec(t, owner.db, `DELETE FROM run_starts WHERE run_id=?`, run.ID)
+	completionExec(t, owner.db, `DELETE FROM run_starts WHERE run_id=$1`, run.ID)
 	ctx := context.Background()
 	if pending, err := (runStartStore{db: owner.db}).pendingPreparation(ctx, run.ID); err != nil || pending != nil {
 		t.Fatalf("terminal preparation: %+v %v", pending, err)
@@ -193,7 +193,7 @@ func TestRunReadinessRefusesStaleCheckReset(t *testing.T) {
 		t.Run(fmt.Sprint(missing), func(t *testing.T) {
 			owner, run, _, review := retryFixture(t)
 			// sql-guarantee: Stale checks need historical finish times, and absent or reversed start evidence is deliberately outside runtime transitions.
-			completionExec(t, owner.db, `UPDATE steps SET finished_at=now()-interval '1 minute' WHERE id=?`, review)
+			completionExec(t, owner.db, `UPDATE steps SET finished_at=now()-interval '1 minute' WHERE id=$1`, review)
 			if missing {
 				// sql-guarantee: Construct supported missing-start history; no runtime operation removes a start.
 				completionExec(t, owner.db, `DELETE FROM run_starts`)
@@ -263,7 +263,7 @@ func TestHistoricalAcceptedWorkStartsFreshLandingPreparation(t *testing.T) {
 	transitionStoredRunForTest(t, admissions.records.db, source.ID, "", RunDone)
 	// sql-guarantee: Completed accepted work can predate start records; the new landing must own readiness without backfilling its source.
 	// sql-guarantee: Construct supported missing-start history; no runtime operation removes a start.
-	completionExec(t, admissions.records.db, `DELETE FROM run_starts WHERE run_id=?`, source.ID)
+	completionExec(t, admissions.records.db, `DELETE FROM run_starts WHERE run_id=$1`, source.ID)
 	request.AcceptedRunID = source.ID
 	request.WorkflowName = "land"
 	definition.Workflow.Name = "land"

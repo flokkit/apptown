@@ -19,8 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/oci"
@@ -668,32 +666,19 @@ func StackFile(ctx context.Context, cfg *Target, stackID string) (string, error)
 }
 
 // stackVolumes names the volumes a stack's compose file declares, as the
-// endpoint holds them (<stack>_<name>, or the name it sets).
+// endpoint holds them (composeVolumeNames).
 func stackVolumes(ctx context.Context, cfg *Target, st deploy.Owned) ([]string, error) {
 	content, err := StackFile(ctx, cfg, st.ID)
 	if err != nil {
 		return nil, err
 	}
-	file := struct{ Content string }{content}
-	var compose struct {
-		Volumes map[string]*struct {
-			Name     string `yaml:"name"`
-			External any    `yaml:"external"`
-		} `yaml:"volumes"`
-	}
-	if err := yaml.Unmarshal([]byte(file.Content), &compose); err != nil {
+	vols, err := composeVolumeNames(st.Name, content)
+	if err != nil {
 		return nil, err
 	}
-	var out []string
-	for key, v := range compose.Volumes {
-		switch {
-		case v != nil && v.External != nil && v.External != false:
-			continue // not the stack's
-		case v != nil && v.Name != "":
-			out = append(out, v.Name)
-		default:
-			out = append(out, st.Name+"_"+key)
-		}
+	out := make([]string, len(vols))
+	for i, v := range vols {
+		out[i] = v.Name
 	}
 	sort.Strings(out)
 	return out, nil

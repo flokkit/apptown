@@ -111,7 +111,7 @@ func TestWorkflowEvidenceViewsUseOneDatabaseSnapshot(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer func() { _ = gate.Rollback() }()
-			if _, err := gate.Exec(`LOCK TABLE artifacts IN ACCESS EXCLUSIVE MODE`); err != nil {
+			if _, err := gate.SQL().ExecContext(context.Background(), `LOCK TABLE artifacts IN ACCESS EXCLUSIVE MODE`); err != nil {
 				t.Fatal(err)
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -135,7 +135,7 @@ func TestWorkflowEvidenceViewsUseOneDatabaseSnapshot(t *testing.T) {
 				t.Fatalf("change step in competing snapshot: changed=%d %v", changed, err)
 			}
 			// sql-guarantee: the competing transaction must change the already-read artifact body under the held table lock; artifact storage has no generated update mutation.
-			if _, err := gate.Exec(`UPDATE artifacts SET body='after'`); err != nil {
+			if _, err := gate.SQL().ExecContext(context.Background(), `UPDATE artifacts SET body='after'`); err != nil {
 				t.Fatal(err)
 			}
 			if changed, err := workflowsql.New(gate.SQL()).InsertRunEvent(context.Background(), workflowsql.InsertRunEventParams{ID: ids.New(time.Now().UTC()), RunID: run.ID, At: time.Now().UTC(), Kind: "after", PayloadJson: []byte(`{}`)}); err != nil || changed != 1 {
@@ -185,7 +185,7 @@ func TestWorkflowEvidenceCancellationReleasesReadSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = gate.Rollback() }()
-	if _, err := gate.Exec(`LOCK TABLE artifacts IN ACCESS EXCLUSIVE MODE`); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `LOCK TABLE artifacts IN ACCESS EXCLUSIVE MODE`); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -229,7 +229,7 @@ func TestWorkflowEvidenceRejectsAmbiguousArtifactEncoding(t *testing.T) {
 	t.Parallel()
 	q, run, _ := activityFixture(t)
 	// sql-guarantee: the decoder law requires one deliberately ambiguous row with both text and bytes populated; typed artifact inserts enforce exactly one representation.
-	id := completionInsert(t, q.db, `INSERT INTO artifacts(id,run_id,kind,name,body,body_bytes,created_at) VALUES (?,?,'file','ambiguous','text',?,'2026-10-09T00:00:00Z')`, run.ID, []byte{0, 255})
+	id := completionInsert(t, q.db, `INSERT INTO artifacts(id,run_id,kind,name,body,body_bytes,created_at) VALUES ($1,$2,'file','ambiguous','text',$3,'2026-10-09T00:00:00Z')`, run.ID, []byte{0, 255})
 	if artifact, err := newService(q.db, allowProject(run.ProjectID), Runtime{}).Artifact(context.Background(), id); artifact != nil || err == nil {
 		t.Fatalf("ambiguous body was selected: %+v %v", artifact, err)
 	}

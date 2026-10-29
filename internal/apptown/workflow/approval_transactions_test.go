@@ -97,10 +97,10 @@ func TestStepApprovalFencesAuthoritySnapshot(t *testing.T) {
 					}
 				case "type":
 					// sql-guarantee: Change the approval's immutable runner kind after authorization to test the saved decision fence.
-					completionExec(t, store.db, `UPDATE steps SET type='script' WHERE id=?`, id)
+					completionExec(t, store.db, `UPDATE steps SET type='script' WHERE id=$1`, id)
 				case "scope":
 					// sql-guarantee: No owner mutation detaches an existing run's Change; erase that binding after authorization to isolate its scope fence.
-					completionExec(t, store.db, `UPDATE runs SET change_id=NULL WHERE id=?`, run.ID)
+					completionExec(t, store.db, `UPDATE runs SET change_id=NULL WHERE id=$1`, run.ID)
 				case "attempt":
 					{
 						current, err := workflowsql.New(store.db.SQL()).StepByID(context.Background(), id)

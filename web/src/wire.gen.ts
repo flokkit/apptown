@@ -2210,6 +2210,7 @@ export type RunSnapshot = {
   landingMeans: string[]
   landingQueued?: boolean
   next: NextAct[]
+  sentBack?: SentBack | null
 }
 
 export type ChangeRunSummary = {
@@ -4195,6 +4196,13 @@ export type ChangeSummary = {
   stage: string
   runStatus: RunState | ""
   workflowName: string
+}
+
+export type SentBack = {
+  stepId: string | null
+  step: string
+  by: string
+  note: string
 }
 
 export type ShippedComparison = {

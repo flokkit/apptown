@@ -20,53 +20,17 @@ func testDB(t *testing.T) *database.DB { t.Helper(); return suite.New(t) }
 func TestMain(m *testing.M)            { os.Exit(suite.Run(m)) }
 func execTest(t *testing.T, db *database.DB, q string, args ...any) {
 	t.Helper()
-	if _, err := db.Exec(q, args...); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), q, args...); err != nil {
 		t.Fatal(err)
 	}
 }
 func countTest(t *testing.T, db *database.DB, want int, q string, args ...any) {
 	t.Helper()
 	var got int
-	if err := db.QueryRow(q, args...).Scan(&got); err != nil || got != want {
+	if err := db.SQL().QueryRowContext(context.Background(), q, args...).Scan(&got); err != nil || got != want {
 		t.Fatalf("count: %d want %d: %v", got, want, err)
 	}
 }
-func TestRebind(t *testing.T) {
-	t.Parallel()
-	cases := map[string]string{
-		`SELECT 1`:                                                `SELECT 1`,
-		`SELECT a FROM t WHERE b=? AND c=?`:                       `SELECT a FROM t WHERE b=$1 AND c=$2`,
-		`SELECT '?' AS q, x FROM t WHERE y=?`:                     `SELECT '?' AS q, x FROM t WHERE y=$1`,
-		`SELECT 'it''s?' FROM t WHERE y=?`:                        `SELECT 'it''s?' FROM t WHERE y=$1`,
-		"SELECT x -- what? \nFROM t WHERE y=?":                    "SELECT x -- what? \nFROM t WHERE y=$1",
-		`SELECT $$why?$$ FROM t WHERE y=?`:                        `SELECT $$why?$$ FROM t WHERE y=$1`,
-		`INSERT INTO t (a,b) VALUES (?,?) ON CONFLICT DO NOTHING`: `INSERT INTO t (a,b) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
-	}
-	for in, want := range cases {
-		if got := database.Rebind(in); got != want {
-			t.Errorf("rebind(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
-func TestSQLParameterBoundaries(t *testing.T) {
-	t.Parallel()
-	db := testDB(t)
-	var value, quoted, escaped string
-	var number int64
-	err := db.QueryRow(`SELECT '?' || ?::text, $$why?$$, 'it''s?', ?::bigint`, "value", int64(9007199254740993)).Scan(&value, &quoted, &escaped, &number)
-	if err != nil || value != "?value" || quoted != "why?" || escaped != "it's?" || number != 9007199254740993 {
-		t.Fatalf("rebound parameters: %q %q %q %d: %v", value, quoted, escaped, number, err)
-	}
-	var present bool
-	err = db.SQL().QueryRowContext(context.Background(),
-		`SELECT $1::jsonb ? 'enabled', $1::jsonb->>'message', $2::bigint`,
-		`{"enabled":true,"message":"native?"}`, int64(9007199254740993)).Scan(&present, &value, &number)
-	if err != nil || !present || value != "native?" || number != 9007199254740993 {
-		t.Fatalf("native parameters: %v %q %d: %v", present, value, number, err)
-	}
-}
-
 func TestTimestamptzAdapterPreservesStampValuesNullsAndUTCStrings(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
@@ -76,7 +40,7 @@ func TestTimestamptzAdapterPreservesStampValuesNullsAndUTCStrings(t *testing.T) 
 
 	var valued, stringed, closed stamp.Time
 	var closedIsNull bool
-	if err := db.QueryRow(`SELECT ?::timestamptz,?::timestamptz,?::timestamptz,?::timestamptz IS NULL`, written, stringAt, stamp.Time{}, stamp.Time{}).Scan(&valued, &stringed, &closed, &closedIsNull); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT $1::timestamptz,$2::timestamptz,$3::timestamptz,$4::timestamptz IS NULL`, written, stringAt, stamp.Time{}, stamp.Time{}).Scan(&valued, &stringed, &closed, &closedIsNull); err != nil {
 		t.Fatal(err)
 	}
 	if !valued.Valid || !valued.Time.Equal(written.Time) || !stringed.Valid || !stringed.Time.Equal(fixed) || closed.Valid || !closedIsNull {
@@ -84,7 +48,7 @@ func TestTimestamptzAdapterPreservesStampValuesNullsAndUTCStrings(t *testing.T) 
 	}
 
 	var text string
-	if err := db.QueryRow(`SELECT ?::timestamptz`, stringAt).Scan(&text); err != nil || text != stringAt {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT $1::timestamptz`, stringAt).Scan(&text); err != nil || text != stringAt {
 		t.Fatalf("UTC string=%q err=%v", text, err)
 	}
 }
@@ -93,16 +57,18 @@ func TestErrorsNameTheirStatement(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	execTest(t, db, `CREATE TABLE query_probe(id bigint)`)
-	_, err := db.Exec(`UPDATE no_such_table SET x=1 WHERE id=?`, 1)
+	_, err := db.SQL().ExecContext(context.Background(), `UPDATE no_such_table SET x=1 WHERE id=$1`, 1)
 	if err == nil || !strings.Contains(err.Error(), "UPDATE no_such_table SET x=1") {
 		t.Fatalf("an Exec failure must carry its statement: %v", err)
 	}
 	var n int
-	err = db.QueryRow(`SELECT nope FROM query_probe WHERE id=?`, 1).Scan(&n)
-	if err == nil || !strings.Contains(err.Error(), "SELECT nope FROM query_probe") {
+	// A single-row read's failure surfaces at Scan, which carries no statement
+	// of its own; its owner attaches it (QueryError).
+	err = db.SQL().QueryRowContext(context.Background(), `SELECT nope FROM query_probe WHERE id=$1`, 1).Scan(&n)
+	if err == nil || !strings.Contains(database.QueryError(err, `SELECT nope FROM query_probe WHERE id=$1`).Error(), "SELECT nope FROM query_probe") {
 		t.Fatalf("a QueryRow failure must carry its statement: %v", err)
 	}
-	found, err := database.Lookup(db.QueryRow(`SELECT id FROM query_probe WHERE id=?`, 424242).Scan(&n))
+	found, err := database.Lookup(db.SQL().QueryRowContext(context.Background(), `SELECT id FROM query_probe WHERE id=$1`, 424242).Scan(&n))
 	if found || err != nil {
 		t.Fatalf("no row is absent, not failed: %v %v", found, err)
 	}
@@ -113,7 +79,8 @@ func TestErrorsNameTheirStatement(t *testing.T) {
 
 func err2(db *database.DB) string {
 	var n int
-	return db.QueryRow(`SELECT nope FROM query_probe`).Scan(&n).Error()
+	const q = `SELECT nope FROM query_probe`
+	return database.QueryError(db.SQL().QueryRowContext(context.Background(), q).Scan(&n), q).Error()
 }
 
 func TestContextAndFaultScopesFollowEveryHandle(t *testing.T) {
@@ -133,7 +100,7 @@ func TestContextAndFaultScopesFollowEveryHandle(t *testing.T) {
 	if _, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO scope_probe VALUES (1)`); !errors.Is(err, database.ErrInjectedFailure) {
 		t.Fatalf("transaction lost pool fault: %v", err)
 	}
-	if _, err := tx.Exec(`INSERT INTO scope_probe VALUES (2)`); err != nil {
+	if _, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO scope_probe VALUES (2)`); err != nil {
 		t.Fatalf("fault was not one-shot: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -143,9 +110,9 @@ func TestContextAndFaultScopesFollowEveryHandle(t *testing.T) {
 	// Every wrapper must retain the same pool-local injector. This is our
 	// adapter contract, not a PostgreSQL failure-isolation test.
 	for _, run := range []func() error{
-		func() error { _, err := a.Exec(`SELECT 42`); return err },
+		func() error { _, err := a.SQL().ExecContext(context.Background(), `SELECT 42`); return err },
 		func() error {
-			rows, err := a.Query(`SELECT 42`)
+			rows, err := a.SQL().QueryContext(context.Background(), `SELECT 42`)
 			if rows != nil {
 				rows.Close()
 			}
@@ -158,7 +125,7 @@ func TestContextAndFaultScopesFollowEveryHandle(t *testing.T) {
 			}
 			defer tx.Rollback()
 			var n int
-			return tx.QueryRow(`SELECT 42`).Scan(&n)
+			return tx.SQL().QueryRowContext(context.Background(), `SELECT 42`).Scan(&n)
 		},
 		func() error {
 			tx, err := a.Begin(context.Background())

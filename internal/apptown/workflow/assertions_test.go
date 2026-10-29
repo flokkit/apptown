@@ -60,7 +60,7 @@ func TestAssertionADRRequiresProjectChangeStatusAndEveryTag(t *testing.T) {
 	} {
 		if value.project == other {
 			// sql-guarantee: The ADR belongs to the foreign project but references this project's change, isolating the project filter; ADR Create/Edit reject this inconsistent association and its internal generated writer is inaccessible here.
-			completionInsert(t, s.db, `INSERT INTO adrs(id,project_id,change_id,number,title,status,tags,created_at,updated_at) VALUES (?,?,?,1,'Decision','accepted',?,'2026-10-01','2026-10-01')`, value.project, value.change, value.tags)
+			completionInsert(t, s.db, `INSERT INTO adrs(id,project_id,change_id,number,title,status,tags,created_at,updated_at) VALUES ($1,$2,$3,1,'Decision','accepted',$4,'2026-10-01','2026-10-01')`, value.project, value.change, value.tags)
 		} else {
 			createScopeADR(t, s.db, adrs.Create{ProjectID: value.project, ChangeID: value.change, Title: "Decision", Tags: value.tags}, value.status == "accepted")
 		}
@@ -160,21 +160,21 @@ func TestAssertionMergeResultRequiresItsPreparedScope(t *testing.T) {
 				switch name {
 				case "run ended":
 					// sql-guarantee: assertionScope.matches compares the whole Run, including UpdatedAt; TransitionRun also stamps updated_at and could reject the snapshot without checking status, so change only status at this original interference point.
-					completionExec(t, s.db, `UPDATE runs SET status='done' WHERE id=?`, run.ID)
+					completionExec(t, s.db, `UPDATE runs SET status='done' WHERE id=$1`, run.ID)
 				case "stage":
 					// sql-guarantee: assertionScope.matches compares the whole Run, including UpdatedAt; TransitionRun also stamps updated_at and could reject the snapshot without checking current_stage, so change only current_stage at this original interference point.
-					completionExec(t, s.db, `UPDATE runs SET current_stage='later' WHERE id=?`, run.ID)
+					completionExec(t, s.db, `UPDATE runs SET current_stage='later' WHERE id=$1`, run.ID)
 				case "revision":
 					// sql-guarantee: assertionScope.matches compares the whole Run, including UpdatedAt; InvalidateRunDecision also stamps updated_at and could reject the snapshot without checking retry_revision, so change only retry_revision at this original interference point.
-					completionExec(t, s.db, `UPDATE runs SET retry_revision=retry_revision+1 WHERE id=?`, run.ID)
+					completionExec(t, s.db, `UPDATE runs SET retry_revision=retry_revision+1 WHERE id=$1`, run.ID)
 				case "definition":
 					// sql-guarantee: Replace the pinned definition during the external merge observation so the prepared assertion must be rejected; admission pins definitions and no generated mutation rewrites one.
-					completionExec(t, s.db, `UPDATE runs SET definition_json='{}' WHERE id=?`, run.ID)
+					completionExec(t, s.db, `UPDATE runs SET definition_json='{}' WHERE id=$1`, run.ID)
 				case "attempt":
 					incrementScopeAttempt(t, s.db, id)
 				case "status":
 					// sql-guarantee: SameStep compares FinishedAt as well as Status; RecordApproval and RecordStepEvaluation stamp finished_at for fail, so isolate status after the merge snapshot without an independent timestamp mismatch.
-					completionExec(t, s.db, `UPDATE steps SET status='fail' WHERE id=?`, id)
+					completionExec(t, s.db, `UPDATE steps SET status='fail' WHERE id=$1`, id)
 				case "configuration":
 					retryScopeStep(t, s.db, id, json.RawMessage(`{"different":true}`))
 				case "evidence":
@@ -185,7 +185,7 @@ func TestAssertionMergeResultRequiresItsPreparedScope(t *testing.T) {
 					}
 				case "override":
 					// sql-guarantee: SameStep compares FinishedAt independently of the override fields; OverrideStep also stamps finished_at, so retain the exact status/actor/reason mutation without masking its snapshot fence.
-					completionExec(t, s.db, `UPDATE steps SET status='pass',override_by='alice',override_reason='reviewed' WHERE id=?`, id)
+					completionExec(t, s.db, `UPDATE steps SET status='pass',override_by='alice',override_reason='reviewed' WHERE id=$1`, id)
 				}
 				return MergeObservation{Merged: true}, nil
 			})
@@ -395,10 +395,10 @@ func TestAssertionCommandFencesAuthorizedSnapshot(t *testing.T) {
 					switch changed {
 					case "project":
 						// sql-guarantee: Reparent run.project_id inside authorization while preserving its step and attempt, isolating the authorized-project fence; admission and existing mutations do not reparent runs.
-						completionExec(t, owner.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+						completionExec(t, owner.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 					case "run":
 						// sql-guarantee: Replace run.change_id with a missing change inside authorization to invalidate the authorized source; admission requires an owned change and no generated mutation changes this identity.
-						completionExec(t, owner.db, `UPDATE runs SET change_id='00000000-03db-7000-8000-000000000000' WHERE id=?`, run.ID)
+						completionExec(t, owner.db, `UPDATE runs SET change_id='00000000-03db-7000-8000-000000000000' WHERE id=$1`, run.ID)
 					case "attempt":
 						incrementScopeAttempt(t, owner.db, id)
 					case "config":

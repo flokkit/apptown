@@ -140,7 +140,7 @@ func TestRotationLeaksAndRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: No owner read lists authorization codes; the sweep's promise is that the table holds none.
-	if err := db.QueryRow(`SELECT COUNT(*) FROM oauth_codes`).Scan(&n); err != nil || n != 0 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM oauth_codes`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("the sweep drops used codes: %v %d", err, n)
 	}
 }
@@ -159,7 +159,7 @@ func TestADamagedTicketIsRefused(t *testing.T) {
 			t.Fatal(err)
 		}
 		// sql-guarantee: no operation records a ticket it cannot read back; this proves a damaged one is refused.
-		if _, err := db.Exec(`UPDATE object_capabilities SET `+damage+` WHERE id=$1`, ticket.ID); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `UPDATE object_capabilities SET `+damage+` WHERE id=$1`, ticket.ID); err != nil {
 			t.Fatal(err)
 		}
 		if got, err := k.ByToken(context.Background(), tok); err == nil || got != nil {

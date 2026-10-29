@@ -31,7 +31,7 @@ func TestTargetAdmissionRejectsForgedAcceptanceAndRollsBackParticipants(t *testi
 		t.Fatal(err)
 	}
 	// sql-guarantee: change the exact immutable version already pinned by the target; BumpBlock would create a different version.
-	if _, err := db.Exec(`UPDATE guidance_block_versions SET checks_json='[{"appliesTo": ["repository"], "name":"works","title":"Works","expects":"start succeeds"}]' WHERE block_id=? AND version=1`, c.Receipt.Guidance[0].BlockID); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE guidance_block_versions SET checks_json='[{"appliesTo": ["repository"], "name":"works","title":"Works","expects":"start succeeds"}]' WHERE block_id=$1 AND version=1`, c.Receipt.Guidance[0].BlockID); err != nil {
 		t.Fatal(err)
 	}
 	err := db.InTx(context.Background(), func(tx *database.Tx) error {

@@ -295,7 +295,7 @@ func (s *Service) manifest(ctx context.Context, dump string, provenance *Databas
 	if m.AppTown, err = identity.AppTownIDIn(ctx, s.deps.DB, now); err != nil {
 		return m, fmt.Errorf("reading AppTown's id: %w", err)
 	}
-	if m.Schema, err = dbschema.Version(s.deps.DB); err != nil {
+	if m.Schema, err = dbschema.Version(ctx, s.deps.DB); err != nil {
 		return m, err
 	}
 	if m.Dump, err = backuparchive.SumFile(dump); err != nil {

@@ -39,6 +39,21 @@ func TestAScannersTestConnectionAsksForItsImageWhereChecksRun(t *testing.T) {
 	if h := TestScannerImage(t.Context(), "scanner:1", &docker.Scope{Client: local}, never); h.OK || !strings.Contains(h.Detail, "pull access denied") {
 		t.Fatalf("an image that will not pull: %+v", h)
 	}
+	// A daemon that cannot answer is not one that lacks the image: nothing
+	// is pulled, and the answer says it is unknown.
+	unknown := dockerfake.New()
+	unknown.SetReply(func(args []string) ([]byte, error, bool) {
+		switch args[0] {
+		case "image":
+			return []byte("Cannot connect to the Docker daemon"), errors.New("exit status 1"), true
+		case "pull":
+			t.Error("an image was pulled though whether it is present is unknown")
+		}
+		return nil, nil, false
+	})
+	if h := TestScannerImage(t.Context(), "scanner:1", &docker.Scope{Client: unknown}, never); h.OK || !strings.Contains(h.Detail, "could not be read") {
+		t.Fatalf("an unreadable answer: %+v", h)
+	}
 	var asked []execution.ImageRequest
 	worker := func(_ context.Context, req execution.ImageRequest) execution.ImageAnswer {
 		asked = append(asked, req)

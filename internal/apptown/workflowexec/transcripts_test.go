@@ -204,7 +204,7 @@ func TestAnOldRunsFolderHistoryIsImportedAtStartupThenContinued(t *testing.T) {
 				t.Fatal(err)
 			}
 			// sql-guarantee: A run from before agent_transcripts has a start receipt and no record; no operation removes a record, so it is deleted to construct that era.
-			if _, err := a.db.Exec("DELETE FROM agent_transcripts WHERE step_id=$1", stepID); err != nil {
+			if _, err := a.db.SQL().ExecContext(context.Background(), "DELETE FROM agent_transcripts WHERE step_id=$1", stepID); err != nil {
 				t.Fatal(err)
 			}
 			if folder == "gone" {
@@ -278,7 +278,7 @@ func TestAnImportGivesTheFolderFileOnlyToTheSessionsLatestAttempt(t *testing.T) 
 		t.Fatal(err)
 	}
 	// sql-guarantee: A run from before agent_transcripts has start receipts and no records; no operation removes a record, so they are deleted to construct that era.
-	if _, err := a.db.Exec("DELETE FROM agent_transcripts WHERE step_id=$1", stepID); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), "DELETE FROM agent_transcripts WHERE step_id=$1", stepID); err != nil {
 		t.Fatal(err)
 	}
 	a.agents.BackfillTranscripts(context.Background())

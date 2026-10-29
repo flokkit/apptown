@@ -98,7 +98,8 @@ func TestWorkflowCompletionConcurrentWinner(t *testing.T) {
 	requireReleases(t, a, run.ProjectID, 1, func(r *deployment.Release) bool { return r.RunID == run.ID && r.BundleID == bundle })
 	requireChangeReleases(t, a, run.ProjectID, run.ChangeID, 1)
 	requireEvents(t, a, 1, runEventKind(run.ID, "run.done"))
-	requireJobs(t, a, 2, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == workflowCompletionJob })
+	requireJobs(t, a, 1, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == workflowCompletionJob })
+	requireJobs(t, a, 1, func(_ *rivertype.JobRow, r jobs.Request) bool { return r.Operation == narrativeJob })
 }
 
 func TestWorkflowCompletionExplicitRetryOnlyRequeues(t *testing.T) {

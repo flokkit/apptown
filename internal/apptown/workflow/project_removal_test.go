@@ -57,7 +57,7 @@ func TestProjectRemovalRefusesRunningAndPreservesOtherProjects(t *testing.T) {
 		id    ids.ID
 	}{{"steps", step}, {"run_events", event}, {"artifacts", artifact}, {"runs", run.ID}, {"changes", run.ChangeID}} {
 		// sql-guarantee: removal proves each exact row across five tables is gone (or kept); events and artifacts have no by-id owner read, and one storage check keeps the five rows uniform.
-		completionCount(t, q.db, 0, `SELECT COUNT(*) FROM `+row.table+` WHERE id=?`, row.id)
+		completionCount(t, q.db, 0, `SELECT COUNT(*) FROM `+row.table+` WHERE id=$1`, row.id)
 	}
 	if _, err := workflowsql.New(q.db.SQL()).ProjectByID(context.Background(), run.ProjectID); err != nil {
 		t.Fatalf("project row removed: %v", err)
@@ -121,7 +121,7 @@ func TestProjectRemovalRollsBackFailureAndSuppressedDelete(t *testing.T) {
 				id    ids.ID
 			}{{"steps", step}, {"run_events", event}, {"artifacts", artifact}, {"runs", run.ID}, {"changes", run.ChangeID}} {
 				// sql-guarantee: removal proves each exact row across five tables is gone (or kept); events and artifacts have no by-id owner read, and one storage check keeps the five rows uniform.
-				completionCount(t, q.db, 1, `SELECT COUNT(*) FROM `+row.table+` WHERE id=?`, row.id)
+				completionCount(t, q.db, 1, `SELECT COUNT(*) FROM `+row.table+` WHERE id=$1`, row.id)
 			}
 		})
 	}

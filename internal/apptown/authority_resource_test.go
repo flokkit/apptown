@@ -129,5 +129,5 @@ func TestContributionScopeFailureMintsNoTicket(t *testing.T) {
 		t.Fatalf("unreadable scope issued checkout: %+v %v", got, err)
 	}
 	// sql-guarantee: tickets are readable only by secret, so total absence requires the persisted kind count.
-	completionCount(t, a.DB, 0, `SELECT count(*) FROM object_capabilities WHERE kind=?`, identity.TicketKindGit)
+	completionCount(t, a.DB, 0, `SELECT count(*) FROM object_capabilities WHERE kind=$1`, identity.TicketKindGit)
 }

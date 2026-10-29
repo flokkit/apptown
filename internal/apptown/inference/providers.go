@@ -61,7 +61,7 @@ func (catalog Catalog) providers(ctx context.Context) (map[string]*inferenceProv
 		}
 		// An unconfigured seed is not a usable backend.
 		if p != nil {
-			catalog.discoverModels(p, cfg)
+			catalog.discoverModels(ctx, p, cfg)
 			providers[name] = p
 		}
 	}

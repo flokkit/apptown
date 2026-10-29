@@ -171,7 +171,7 @@ func TestSettleRetainedCancelsBlockedUpdate(t *testing.T) {
 	}
 	defer func() { _ = lock.Rollback() }()
 	// sql-guarantee: the test holds one retained row's lock to block settlement; the owner has no statement that only locks it.
-	if err := lock.QueryRow(`SELECT id FROM retained_resources WHERE id=? FOR UPDATE`, in.ResourceID).Scan(new(ids.ID)); err != nil {
+	if err := lock.SQL().QueryRowContext(context.Background(), `SELECT id FROM retained_resources WHERE id=$1 FOR UPDATE`, in.ResourceID).Scan(new(ids.ID)); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

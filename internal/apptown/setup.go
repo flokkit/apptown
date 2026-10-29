@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -98,7 +99,9 @@ func (a *App) EnsureAgentImage() {
 	// An image without AppTown's version label was not built from this
 	// release's recipe (one built before 1.0 carries forge.pi.version): it
 	// is fetched again, so every step records which tools it ran.
-	if v := a.docker.AgentRuntimeVersion(a.life, a.cfg.agentImage); a.docker.ImageExists(a.life, a.cfg.agentImage) && v != "" && v != "<no value>" {
+	// A daemon that cannot answer is fetched from too: the fetch reports
+	// its own failure, and a daemon that cannot inspect cannot build either.
+	if answer, found, err := a.docker.Image(a.life, a.cfg.agentImage); err == nil && found && answer.Labels[dockerlabel.PiVersion] != "" {
 		a.setup.mu.Lock()
 		a.setup.agentImage = "present"
 		a.setup.mu.Unlock()

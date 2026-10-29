@@ -13,7 +13,7 @@ func TestTransactionResultsRequireCommitAndAlwaysRelease(t *testing.T) {
 	db := testDB(t)
 	execTest(t, db, `CREATE TABLE transaction_probe(n int UNIQUE DEFERRABLE INITIALLY DEFERRED)`)
 	value, err := database.Transact(context.Background(), db, func(tx *database.Tx) (string, error) {
-		_, err := tx.Exec(`INSERT INTO transaction_probe VALUES (1)`)
+		_, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO transaction_probe VALUES (1)`)
 		return "committed", err
 	})
 	if value != "committed" || err != nil {
@@ -26,7 +26,7 @@ func TestTransactionResultsRequireCommitAndAlwaysRelease(t *testing.T) {
 			if commitFailure {
 				n = 1 // duplicate is rejected only at commit
 			}
-			if _, err := tx.Exec(`INSERT INTO transaction_probe VALUES (?)`, n); err != nil {
+			if _, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO transaction_probe VALUES ($1)`, n); err != nil {
 				t.Fatalf("failure must occur after the insert: %v", err)
 			}
 			if !commitFailure {
@@ -46,7 +46,7 @@ func TestTransactionResultsRequireCommitAndAlwaysRelease(t *testing.T) {
 			}
 		}()
 		_ = db.InTx(context.Background(), func(tx *database.Tx) error {
-			if _, err := tx.Exec(`INSERT INTO transaction_probe VALUES (3)`); err != nil {
+			if _, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO transaction_probe VALUES (3)`); err != nil {
 				t.Fatal(err)
 			}
 			panic("operation panicked")

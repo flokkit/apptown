@@ -148,7 +148,7 @@ func TestATakeDownNeverDeletesAClusterHoldingOtherData(t *testing.T) {
 			switch other {
 			case "a retained database":
 				// sql-guarantee: a standing restore leaves the displaced database retained on its cluster; that is the next slice, so no operation makes this row yet.
-				if _, err := w.db.Exec(`INSERT INTO retained_resources (id,project_id, deployment, target_id, need, handle_json, retained_by, holds_data, retained_at) VALUES ($1,$2, 'prod', $3, 'postgres', $4, 'alice', true, '2026-10-01')`, ids.New(time.Now()), w.project, w.target.ID, fmt.Sprintf(`{"id":%q,"name":%q,"database":"app_before_restore"}`, id, clusterOf(w, "prod"))); err != nil {
+				if _, err := w.db.SQL().ExecContext(context.Background(), `INSERT INTO retained_resources (id,project_id, deployment, target_id, need, handle_json, retained_by, holds_data, retained_at) VALUES ($1,$2, 'prod', $3, 'postgres', $4, 'alice', true, '2026-10-01')`, ids.New(time.Now()), w.project, w.target.ID, fmt.Sprintf(`{"id":%q,"name":%q,"database":"app_before_restore"}`, id, clusterOf(w, "prod"))); err != nil {
 					t.Fatal(err)
 				}
 				rows, err := w.s.Retained.ForProject(ctx, w.project)
@@ -677,7 +677,7 @@ func TestAQueuedReleaseFillsOnlyTheCopyItWasAuthorisedFor(t *testing.T) {
 	// holds to what it was admitted with.
 	dep, _ := w.s.Deployments.ByName(ctx, w.project, "prod")
 	// sql-guarantee: no operation changes a start while a release is in flight; this proves the fill holds to its release's record anyway.
-	if _, err := w.db.Exec(`UPDATE deployments SET start_from_backup=$1 WHERE id=$2`, set.ID, dep.ID); err != nil {
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE deployments SET start_from_backup=$1 WHERE id=$2`, set.ID, dep.ID); err != nil {
 		t.Fatal(err)
 	}
 	_ = w.s.ExecuteRelease(ctx, accepted.ID)
@@ -720,7 +720,7 @@ func TestAStoreIsNotReplacedUnderTheSetsItHolds(t *testing.T) {
 		t.Fatalf("the same bucket again: %v", err)
 	}
 	// sql-guarantee: no operation moves the store under held sets; this proves a set is never read from a store it was not written to.
-	if _, err := w.db.Exec(`UPDATE backup_store SET bucket='elsewhere'`); err != nil {
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE backup_store SET bucket='elsewhere'`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := w.bind(w.project, "prod", "production", set.ID); err != nil {

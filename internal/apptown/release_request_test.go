@@ -129,7 +129,7 @@ func TestReleaseRequestStartupOwnership(t *testing.T) {
 			}
 			if scenario == "claimed" {
 				// sql-guarantee: Model a process lost after request claim but before any provider effect; ExecuteRelease proceeds into placement/execution, and the isolated claim mutation is private to Deployment.
-				completionExec(t, a.DB, `UPDATE release_requests SET claimed_at=now() WHERE release_id=?`, got.ID)
+				completionExec(t, a.DB, `UPDATE release_requests SET claimed_at=now() WHERE release_id=$1`, got.ID)
 			}
 			if scenario == "cancelled" || scenario == "discarded" || scenario == "completed" {
 				pending, err := a.Jobs().Client.JobList(context.Background(), river.NewJobListParams())

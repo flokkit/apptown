@@ -105,7 +105,7 @@ func TestDefaultPortainerReleaseRemovalRevokesOnlyItsIssuedKey(t *testing.T) {
 			return containerresulttest.Answer{Answer: []byte("apptown-readiness-v1")}, true
 		}
 		if strings.Contains(c.Script, "PROBE_PATH") {
-			return containerresulttest.Answer{Answer: []byte("200 1")}, true
+			return containerresulttest.Answer{Answer: []byte("200\n")}, true
 		}
 		return containerresulttest.Answer{}, false
 	})

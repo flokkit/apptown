@@ -23,5 +23,5 @@ func WorkflowProvenanceBase(ctx context.Context, dataDir string, source workflow
 	if err != nil {
 		return "", err
 	}
-	return scm.ForkBase(ctx, hub, source.DefaultBranch, tip, source.ChangeBaseSHA)
+	return scm.ForkBase(ctx, hub, hub, source.DefaultBranch, tip, source.ChangeBaseSHA)
 }

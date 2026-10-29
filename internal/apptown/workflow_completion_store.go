@@ -29,6 +29,11 @@ func (w workflowCompletionEffects) RecordCompletionIn(ctx context.Context, tx *d
 		}
 		receipt = workflow.ReleaseReceipt{ID: release.ID, Number: release.Number}
 	}
+	if in.Narrative {
+		if err := (narratives{}).requestIn(ctx, tx, in.ChangeID); err != nil {
+			return receipt, err
+		}
+	}
 	for _, effect := range in.Effects {
 		if err := (jobQueue{}).EnqueueIn(ctx, tx, jobs.Request{Operation: workflowCompletionJob, Key: completionKey(in.RunID, effect), Values: map[string]any{"runId": in.RunID, "effect": effect.String()}}); err != nil {
 			return receipt, err
