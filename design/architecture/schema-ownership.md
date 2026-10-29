@@ -8,7 +8,8 @@ facade does not gain permission to write its participants' tables directly.
 `internal/apptown/dbschema/fragments.json` lists the current DDL fragments in
 foreign-key order. `dbschema/version.sql` owns only the schema stamp. The
 assembler concatenates the fragments into the checked-in `dbschema/schema.sql`
-bundle and supplies the same ordered schema list to each sqlc query entry.
+bundle, which every sqlc query entry in `sqlc.yaml` reads as its schema (River's
+queries read River's own schema file, which stays out of the bundle).
 This is data assembly: dbschema never imports a domain service to obtain DDL.
 Normal Go builds embed the generated bundle and need no generation step.
 
@@ -20,13 +21,13 @@ To change the schema:
    changing its meaning does not need a migration.
 2. For a new owner, add its fragment to the manifest after its foreign-key
    dependencies. Keep table indexes and constraints beside their table.
-3. Run `make generate-sql`. The generated bundle and sqlc schema lists are
+3. Run `make generate-sql`. The generated bundle is
    checked by `make check-generated`, which is part of `make check-go`.
 4. Add the data/upgrade tests appropriate to the change and run the required
    Go, shape and reachability gates on the private test database.
 
 The assembler checks missing, duplicated and unlisted fragments, duplicate
-application tables, stale generated output and stale sqlc schema lists. Table
+application tables and stale generated output. Table
 ownership is derived from the declaring fragment; there is no parallel table
 registry to keep aligned. Current fragments use canonical unquoted, lowercase
 public table declarations. Unsupported declaration syntax is refused rather

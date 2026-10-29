@@ -21,7 +21,6 @@
 #   share/apptown/updates  the stock and tool versions the binaries read at
 #                       start (scripts/stock-files.go)
 #   deploy/apptown-agent, deploy/systemd   the agent image's recipe, units
-#   scripts/apptown-db-backup.sh             the checked backup upgrading runs
 #   LICENSE, NOTICE, README.md, THIRD_PARTY_NOTICES
 set -eu
 [ $# -eq 3 ] || { echo "usage: $0 <version> <revision> <out-dir>" >&2; exit 2; }
@@ -55,7 +54,7 @@ for p in $platforms; do
 	os=${p%/*} arch=${p#*/}
 	name=apptown-$version-$os-$arch
 	d=$work/$name
-	mkdir -p "$d/bin" "$d/deploy" "$d/scripts" "$d/share/apptown"
+	mkdir -p "$d/bin" "$d/deploy" "$d/share/apptown"
 	cp -R "$work/updates" "$d/share/apptown/updates"
 	for c in apptownd apptown-worker; do
 		build "$os" "$arch" "$c" "$d/bin/$c"
@@ -67,7 +66,6 @@ for p in $platforms; do
 	fi
 	cp "$work/apptown-linux-$arch" "$d/bin/apptown-linux"
 	cp -R deploy/apptown-agent deploy/systemd "$d/deploy/"
-	cp scripts/apptown-db-backup.sh "$d/scripts/"
 	cp LICENSE NOTICE README.md "$work/THIRD_PARTY_NOTICES" "$d/"
 	COPYFILE_DISABLE=1 tar -C "$work" -czf "$out/$name.tar.gz" "$name"
 	echo "$out/$name.tar.gz"

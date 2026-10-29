@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Assemble current schema fragments as data; numbered migrations stay in Go.
 
-The manifest is ordered explicitly. This tool concatenates files and updates
-sqlc schema lists; PostgreSQL/sqlc validate SQL and its dependency ordering.
+The manifest is ordered explicitly. This tool concatenates the files into the
+bundle every sqlc query block reads (sqlc.yaml names it); PostgreSQL/sqlc
+validate SQL and its dependency ordering.
 """
 import argparse
 import json
@@ -12,10 +13,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = Path('internal/apptown/dbschema/fragments.json')
 BUNDLE = Path('internal/apptown/dbschema/schema.sql')
-# Library tables have compile-time read surfaces, never AppTown migrations.
-EXTERNAL_QUERIES = {
-    'internal/apptown/jobs/internal/jobsql/queries.sql': ['internal/apptown/jobs/internal/jobsql/river-schema.sql'],
-}
 
 
 def fragments(root=ROOT):
@@ -75,23 +72,10 @@ def assemble(root, paths):
         f'-- Source: {p}\n' + (root / p).read_text().rstrip() + '\n\n' for p in paths)
 
 
-def sqlc_config(text, paths):
-    # Only schema entries are generated. Query ownership and generator settings
-    # remain ordinary reviewed sqlc configuration. No YAML dependency is needed.
-    pattern = re.compile(r'^    schema:[^\n]*\n(?:      - [^\n]*\n)*(?=    queries: ([^\n]+))', re.M)
-    def replace(match):
-        inputs = EXTERNAL_QUERIES.get(match[1], paths)
-        return '    schema:\n' + ''.join('      - ' + p + '\n' for p in inputs)
-    out, count = pattern.subn(replace, text)
-    if count == 0 or count != len(re.findall(r'^    queries:', text, re.M)):
-        raise ValueError('each sqlc query entry needs one schema list')
-    return out
-
-
 def outputs(root=ROOT):
     paths = fragments(root)
     table_owners(root)
-    return {BUNDLE: assemble(root, paths), Path('sqlc.yaml'): sqlc_config((root / 'sqlc.yaml').read_text(), paths)}
+    return {BUNDLE: assemble(root, paths)}
 
 
 def run(root=ROOT, check=False):
@@ -103,7 +87,7 @@ def run(root=ROOT, check=False):
         else:
             (root / path).write_text(text)
     if stale:
-        raise ValueError('generated schema/config is stale: ' + ', '.join(stale))
+        raise ValueError('generated schema is stale: ' + ', '.join(stale))
 
 
 def main():

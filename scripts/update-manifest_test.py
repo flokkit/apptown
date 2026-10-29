@@ -38,8 +38,7 @@ class Publication(unittest.TestCase):
         files.update({'bin/apptown-linux':('linux-cli-'+arch).encode(),
                       'share/apptown/updates/stock.toml':b'stock',
                       'deploy/apptown-agent/Dockerfile':b'FROM pinned',
-                      'deploy/systemd/apptown.service':b'service',
-                      'scripts/apptown-db-backup.sh':b'checked dump'})
+                      'deploy/systemd/apptown.service':b'service'})
         if platform.startswith('linux/'):
             files['bin/apptown']=files['bin/apptown-linux']
         if change: files.update(change)
