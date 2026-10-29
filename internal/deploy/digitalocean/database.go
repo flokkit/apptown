@@ -166,7 +166,7 @@ func (d *Driver) FulfilNeed(ctx context.Context, p deploy.Placement, need string
 			Database doDatabase `json:"database"`
 		}
 		body := map[string]any{"name": name, "engine": "pg", "version": version, "region": doDBRegion(cfg.Region),
-			"size": cfg.DBSize, "num_nodes": 1, "tags": clusterTags(slug, p.Name)}
+			"size": cfg.DBSize, "num_nodes": 1, "tags": d.madeTags(slug, p.Name)}
 		if err := c.Call(ctx, "POST", "/v2/databases", body, &made); err != nil {
 			return deploy.NeedBinding{}, nil, fmt.Errorf("creating the database cluster: %w", err)
 		}
@@ -258,6 +258,15 @@ func clusterName(key string) string { return "apptown-db-" + key }
 // cluster found by name is this deployment's.
 func clusterTags(slug, deployment string) []string {
 	return []string{"apptown", "apptown-project-" + slug, "apptown-deployment-" + deployment}
+}
+
+// madeTags are a new cluster's tags: its clusterTags and the installation's.
+func (d *Driver) madeTags(slug, deployment string) []string {
+	tags := clusterTags(slug, deployment)
+	if d.Installation != "" {
+		tags = append(tags, InstallationTag(d.Installation))
+	}
+	return tags
 }
 
 func (d *Driver) findDatabase(ctx context.Context, c *Client, name string) (*doDatabase, error) {

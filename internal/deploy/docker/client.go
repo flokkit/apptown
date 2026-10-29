@@ -130,7 +130,7 @@ func (dk Scope) WithHost(host, hostname, domain string) Scope {
 	if r, ok := client.(Refusing); ok && host != "" {
 		client = r.Attached
 	}
-	return Scope{Client: client, Host: host, Hostname: hostname, Domain: domain, Now: dk.Now}
+	return Scope{Client: client, Host: host, Hostname: hostname, Domain: domain, Now: dk.Now, Instance: dk.Instance}
 }
 
 func (dk Scope) Command(ctx context.Context, req Command) ([]byte, error) {

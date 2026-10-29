@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,8 +52,8 @@ func (e *Error) Error() string {
 
 // IsCode says whether err is the provider refusing with code.
 func IsCode(err error, code string) bool {
-	e, ok := err.(*Error)
-	return ok && e.Code == code
+	var e *Error
+	return errors.As(err, &e) && e.Code == code
 }
 
 // Object is one listed object.

@@ -38,9 +38,12 @@ const Root = "/srv"
 const MaxBytes = 200 << 20
 
 // EnvKey and ReleaseKey are the two files AppTown writes into every set.
+// InstanceKey is reserved too: a bucket website's private mark naming the
+// installation that made the bucket (s3bucket), never a site's file.
 var (
-	EnvKey     = strings.TrimPrefix("/_apptown/env.js", "/")
-	ReleaseKey = strings.TrimPrefix(appcontract.ReleasePath, "/")
+	EnvKey      = strings.TrimPrefix("/_apptown/env.js", "/")
+	ReleaseKey  = strings.TrimPrefix(appcontract.ReleasePath, "/")
+	InstanceKey = "_apptown/instance"
 )
 
 // Pass is when a file is uploaded: assets first, then the entry files
@@ -122,7 +125,7 @@ func Publish(files []oci.File, release, imageDigest string, browser map[string]s
 	var set Set
 	for _, f := range files {
 		key := strings.TrimPrefix(path.Clean("/"+f.Path), "/")
-		if key == EnvKey || key == ReleaseKey {
+		if key == EnvKey || key == ReleaseKey || key == InstanceKey {
 			continue
 		}
 		pass := Assets

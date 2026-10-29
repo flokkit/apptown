@@ -69,7 +69,7 @@ func TestInfrastructureRemovalChecksFreshSharedPlacement(t *testing.T) {
 			}
 			return []byte(daemonID), nil
 		case strings.HasPrefix(line, "volume ls"):
-			return []byte(sharedName + "\t\t" + stack + "\n" + orphanName + "\t\t\n"), nil
+			return []byte(sharedName + "\t\t" + stack + "\t" + testInstallation + "\n" + orphanName + "\t\t\t" + testInstallation + "\n"), nil
 		case strings.HasPrefix(line, "volume rm"):
 			removed++
 			return nil, nil
@@ -135,10 +135,14 @@ func (siblingInventoryCache) Live(ctx context.Context, _ *jobs.Queue, _ string, 
 func (siblingInventoryCache) Invalidate() {}
 
 type siblingStack struct {
-	ID         int64  `json:"Id"`
-	Name       string `json:"Name"`
-	EndpointID int64  `json:"EndpointId"`
+	ID         int64            `json:"Id"`
+	Name       string           `json:"Name"`
+	EndpointID int64            `json:"EndpointId"`
+	Env        []map[string]any `json:"Env"`
 }
+
+// ours is the stack variable this installation applies its stacks with.
+var ours = []map[string]any{{"name": portainer.InstanceEnv, "value": testInstallation}}
 
 type siblingInventoryWorld struct {
 	w                              *targetHTTPWorld
@@ -210,9 +214,9 @@ func newSiblingInventoryWorld(t *testing.T) *siblingInventoryWorld {
 		if err := f.w.deployment.Deployments.RecordOwned(t.Context(), dep.ID, "stack", stack); err != nil {
 			t.Fatal(err)
 		}
-		f.stacks = append(f.stacks, siblingStack{ID: int64(i + 7), Name: stack, EndpointID: 3})
+		f.stacks = append(f.stacks, siblingStack{ID: int64(i + 7), Name: stack, EndpointID: 3, Env: ours})
 	}
-	f.stacks = append(f.stacks, siblingStack{ID: 9, Name: "ordinary-orphan", EndpointID: 3})
+	f.stacks = append(f.stacks, siblingStack{ID: 9, Name: "ordinary-orphan", EndpointID: 3, Env: ours})
 	f.w.infra.cache = siblingInventoryCache{}
 	return f
 }
@@ -341,7 +345,7 @@ func TestUnverifiedPlacementKeepsOtherInfrastructureVisible(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.mu.Lock()
-	f.stacks = append(f.stacks, siblingStack{ID: 10, Name: stack, EndpointID: 3})
+	f.stacks = append(f.stacks, siblingStack{ID: 10, Name: stack, EndpointID: 3, Env: ours})
 	f.mu.Unlock()
 	// No infrastructure GET precedes this direct mutation: read availability
 	// cannot supply the verified placement that deletion requires.
@@ -391,7 +395,9 @@ func TestUnverifiedPlacementKeepsOtherInfrastructureVisible(t *testing.T) {
 	}
 }
 
-func TestInventoryAdapterFailureIsVisibleAtItsTarget(t *testing.T) {
+// A kind with no inventory reader is unknown at its target: not an error,
+// not live, never an empty success.
+func TestKindWithoutInventoryReaderIsUnknownNotAnError(t *testing.T) {
 	w := newTargetHTTPWorld(t)
 	if _, err := w.deployment.Targets.Put(t.Context(), &deployment.Target{Name: "unsupported-provider", Kind: "operator-provider", Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
@@ -408,7 +414,70 @@ func TestInventoryAdapterFailureIsVisibleAtItsTarget(t *testing.T) {
 	if err := json.Unmarshal(body, &view); err != nil {
 		t.Fatal(err)
 	}
-	if len(view.Targets) != 1 || view.Targets[0].Live || !strings.Contains(view.Targets[0].Error, "has no inventory") || len(view.Targets[0].Resources) != 0 {
-		t.Fatalf("adapter failure became an empty success: %+v", view)
+	if len(view.Targets) != 1 || view.Targets[0].Live || !view.Targets[0].Unreported || view.Targets[0].Error != "" || len(view.Targets[0].Resources) != 0 {
+		t.Fatalf("a kind without a reader is not shown as unknown: %+v", view)
+	}
+}
+
+// AppTown owns what carries this installation's mark. Another
+// installation's stack and one applied before the mark are neither listed
+// as not accounted for nor removable; a recorded stack without the mark
+// stays recorded, never missing.
+func TestPortainerStackWithoutThisInstallationsMarkIsNotAnOrphan(t *testing.T) {
+	f := newSiblingInventoryWorld(t)
+	f.mu.Lock()
+	f.stacks[0].Env = nil // recorded, applied before the mark
+	f.stacks = append(f.stacks,
+		siblingStack{ID: 11, Name: "other-installations", EndpointID: 3, Env: []map[string]any{{"name": portainer.InstanceEnv, "value": "inst-other"}}},
+		siblingStack{ID: 12, Name: "before-the-mark", EndpointID: 3})
+	f.mu.Unlock()
+	code, answer := targetCall(t, f.w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	if code != http.StatusOK {
+		t.Fatalf("inventory: %d %+v", code, answer)
+	}
+	body, err := json.Marshal(answer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var view InfrastructureTargets
+	if err := json.Unmarshal(body, &view); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, target := range view.Targets {
+		if target.Target != f.targets[0].Name {
+			continue
+		}
+		found = true
+		records := map[string]string{}
+		for _, r := range target.Resources {
+			records[r.Name] = r.Record
+		}
+		if records[f.stacks[0].Name] != deploy.RecordRecorded {
+			t.Fatalf("recorded stack without the mark is not recorded: %+v", target.Resources)
+		}
+		if _, listed := records["other-installations"]; listed {
+			t.Fatalf("another installation's stack is listed: %+v", target.Resources)
+		}
+		if _, listed := records["before-the-mark"]; listed {
+			t.Fatalf("an unmarked stack is listed: %+v", target.Resources)
+		}
+		if records["ordinary-orphan"] != deploy.RecordUnrecorded {
+			t.Fatalf("this installation's leftover is not reported: %+v", target.Resources)
+		}
+	}
+	if !found {
+		t.Fatal("first customer target missing")
+	}
+	for _, stack := range []string{"11", "12"} {
+		name := map[string]string{"11": "other-installations", "12": "before-the-mark"}[stack]
+		if code, answer := f.remove(t, name, stack); code != http.StatusConflict {
+			t.Fatalf("remove %s: %d %+v", name, code, answer)
+		}
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.deleted) != 0 {
+		t.Fatalf("an unmarked stack reached provider DELETE: %v", f.deleted)
 	}
 }

@@ -226,7 +226,15 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if cfg.noLocalDocker {
 		client = docker.Refusing{Attached: client}
 	}
-	a := &App{cfg: cfg, images: images, docker: docker.Scope{Client: client, Now: cfg.clock.Now}, probe: input.DockerProbe, DB: db,
+	// The installation's id marks what it makes at targets; the inventory
+	// counts only what carries it. Construction only reads it (the daemon's
+	// data layout step writes it first): without one, nothing reads as this
+	// installation's.
+	installation, err := existingInstanceID(cfg.dataDir)
+	if err != nil {
+		return nil, fmt.Errorf("reading the installation id: %w", err)
+	}
+	a := &App{cfg: cfg, images: images, docker: docker.Scope{Client: client, Now: cfg.clock.Now, Instance: installation}, probe: input.DockerProbe, DB: db,
 		processRunner: input.ProcessRunner,
 		consoleStop:   make(chan struct{}),
 		cli:           agentenv.NewCLI(cfg.consoleCLI),

@@ -17,10 +17,12 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
+	"github.com/flokkit/apptown/internal/deploy/staticsite"
 )
 
 func TestAttachHostTarget(t *testing.T) {
@@ -530,5 +532,88 @@ func TestTargetDomainValidationBeforeProbe(t *testing.T) {
 				t.Fatal("invalid domain saved a target")
 			}
 		})
+	}
+}
+
+// A bucket-website target reports what its store holds: a recorded bucket
+// is recorded, a bucket carrying this installation's mark that nothing
+// records is not accounted for, and any other bucket is ignored. Marking
+// gives a recorded bucket made before the mark its mark, once.
+func TestBucketTargetCountsMarkedBucketsAndMarksRecordedOnes(t *testing.T) {
+	w := newTargetHTTPWorld(t)
+	store := s3fake.New(t, "AKFORGE")
+	writeTargetSecret(t, w, "SPACES_ACCESS_KEY=AKFORGE\nSPACES_SECRET_KEY=never-shown\n")
+	body := `{"kind":"s3-bucket","name":"spaces","endpoint":"` + store.API.URL + `","region":"syd1","websiteEndpoint":"` + store.WebsiteTemplate() + `","accessKeyFrom":"SPACES_ACCESS_KEY","secretKeyFrom":"SPACES_SECRET_KEY"}`
+	if code, out := targetCall(t, w.targets.AttachTarget, "POST", "/api/v1/targets", body, nil); code != 200 {
+		t.Fatalf("attach: %d %v", code, out)
+	}
+	target, err := w.deployment.Targets.ByName(t.Context(), "spaces")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := w.deployment.Deployments.EnsureStanding(t.Context(), w.createProject(t, "site"), "main", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "synthetic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.deployment.Deployments.RecordOwned(t.Context(), dep.ID, "bucket", "apptown-legacy-1"); err != nil {
+		t.Fatal(err)
+	}
+	mark := func(bucket, installation string) {
+		store.AddBucket(bucket)
+		if installation != "" {
+			store.Put(bucket, staticsite.InstanceKey, s3fake.Object{Body: []byte(installation)})
+		}
+	}
+	mark("apptown-legacy-1", "")
+	mark("apptown-leftover-1", testInstallation)
+	mark("apptown-other-1", "inst-other")
+	mark("apptown-unmarked-2", "")
+	w.infra.cache = siblingInventoryCache{}
+	code, answer := targetCall(t, w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	if code != http.StatusOK {
+		t.Fatalf("inventory: %d %+v", code, answer)
+	}
+	raw, err := json.Marshal(answer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var view InfrastructureTargets
+	if err := json.Unmarshal(raw, &view); err != nil {
+		t.Fatal(err)
+	}
+	var spaces *InfrastructureView
+	for i := range view.Targets {
+		if view.Targets[i].Target == "spaces" {
+			spaces = &view.Targets[i]
+		}
+	}
+	if spaces == nil || spaces.Unreported || spaces.Error != "" || !spaces.Live {
+		t.Fatalf("the bucket target's inventory: %+v", spaces)
+	}
+	records := map[string]string{}
+	for _, r := range spaces.Resources {
+		records[r.Name] = r.Record
+	}
+	want := map[string]string{"apptown-legacy-1": deploy.RecordRecorded, "apptown-leftover-1": deploy.RecordUnrecorded}
+	if len(records) != len(want) || records["apptown-legacy-1"] != want["apptown-legacy-1"] || records["apptown-leftover-1"] != want["apptown-leftover-1"] {
+		t.Fatalf("bucket inventory %v, want %v", records, want)
+	}
+	if marked, err := w.providers.MarkRecorded(t.Context()); err != nil || marked != 1 {
+		t.Fatalf("marking recorded buckets: %d %v", marked, err)
+	}
+	if got, ok := store.Get("apptown-legacy-1", staticsite.InstanceKey); !ok || string(got.Body) != testInstallation || got.Public {
+		t.Fatalf("the recorded bucket's mark: %+v %v", got, ok)
+	}
+	if got, _ := store.Get("apptown-other-1", staticsite.InstanceKey); string(got.Body) != "inst-other" {
+		t.Fatal("marking touched another installation's bucket")
+	}
+	if _, ok := store.Get("apptown-unmarked-2", staticsite.InstanceKey); ok {
+		t.Fatal("marking touched a bucket no record names")
+	}
+	if marked, err := w.providers.MarkRecorded(t.Context()); err != nil || marked != 0 {
+		t.Fatalf("a second pass: %d %v", marked, err)
+	}
+	if receipts := receiptsOfKind(t, w.db, "deployment.resources-marked"); len(receipts) != 1 {
+		t.Fatalf("marking receipts: %d", len(receipts))
 	}
 }

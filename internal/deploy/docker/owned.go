@@ -81,7 +81,7 @@ func ensureNetwork(ctx context.Context, dk Scope, network string, own Ownership)
 	if dk.OK(ctx, "network", "inspect", network) {
 		return nil
 	}
-	if out, err := dk.Run(ctx, append(append([]string{"network", "create"}, own.Info...), network)...); err != nil {
+	if out, err := dk.Run(ctx, append(append(append([]string{"network", "create"}, dk.InstanceLabel()...), own.Info...), network)...); err != nil {
 		if dk.OK(ctx, "network", "inspect", network) {
 			return nil // another boot made it: not ours to record
 		}
@@ -124,7 +124,7 @@ func ensureVolume(ctx context.Context, dk Scope, volume, stackID, need string, o
 
 // createVolume follows a successful absence observation under deployment serialization.
 func createVolume(ctx context.Context, dk Scope, volume, stackID, need string, own Ownership) error {
-	if out, err := dk.Run(ctx, append(append([]string{"volume", "create", "--label", dockerlabel.Owner + "=" + stackID}, own.Info...), volume)...); err != nil {
+	if out, err := dk.Run(ctx, append(append(append([]string{"volume", "create", "--label", dockerlabel.Owner + "=" + stackID}, dk.InstanceLabel()...), own.Info...), volume)...); err != nil {
 		return fmt.Errorf("volume create %s: %v: %s", volume, err, strings.TrimSpace(string(out)))
 	}
 	return own.created(deploy.Owned{Kind: "volume", ID: volume, Data: true, Need: need})

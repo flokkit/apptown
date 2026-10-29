@@ -44,4 +44,14 @@ describe('infrastructure inventory availability', () => {
     expect(unknown).toContain('Inventory is unknown.')
     expect(unknown).not.toContain('Empty inventory.')
   })
+
+  it('shows a kind without an inventory reader as unknown, not as a failure', () => {
+    const html = show([target('bucket', { kind: 's3-bucket', unreported: true, resources: [{ kind: 'bucket', name: 'apptown-site', record: 'recorded' }] })])
+    expect(html).toContain("This kind of target doesn&#x27;t report what it holds")
+    expect(html).toContain('inventory unknown')
+    expect(html).toContain('apptown-site')
+    expect(html).not.toContain('inventory unavailable')
+    expect(html).not.toContain('class="error')
+    expect(html).not.toContain('chip fail')
+  })
 })

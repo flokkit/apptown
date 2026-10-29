@@ -42,6 +42,11 @@ type doApp struct {
 	} `json:"pending_deployment"`
 	Spec struct {
 		Name string `json:"name"`
+		// Envs are the app-wide variables: the installation's mark.
+		Envs []struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		} `json:"envs"`
 		// Services are read for a gated app's mark (FindMade).
 		Services []struct {
 			Name string `json:"name"`

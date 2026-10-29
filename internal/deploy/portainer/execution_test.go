@@ -64,11 +64,16 @@ func TestPortainerExecutionUsesCheckpointedEndpointAndStack(t *testing.T) {
 						if body["stackFileContent"] != scopeFixtureCompose("services: {}\nx-original: original compose\n") {
 							t.Errorf("changed compose: %v", body)
 						}
+						// Created and updated alike, the stack carries this
+						// installation's mark: the inventory counts only those.
+						if !reflect.DeepEqual(body["env"], []any{map[string]any{"name": InstanceEnv, "value": "inst-a"}}) {
+							t.Errorf("stack applied without the installation's mark: %v", body["env"])
+						}
 						fmt.Fprint(w, `{}`)
 					}
 				}))
 				defer server.Close()
-				cfg := Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, PortainerKey: "secret", EnvName: "selected"}
+				cfg := Target{Scope: scopeFixtureScope(server.URL), PortainerURL: server.URL, PortainerKey: "secret", EnvName: "selected", Installation: "inst-a"}
 				save := func(v map[string]any) error { mu.Lock(); defer mu.Unlock(); checkpoint = v; return nil }
 				var got deploy.Observation
 				var err error

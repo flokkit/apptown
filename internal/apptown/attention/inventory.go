@@ -20,6 +20,9 @@ type InventoryReading struct {
 	Items          []deploy.Resource
 	ObservedAt     time.Time
 	Unknown, Stale bool
+	// Unreported: the target's kind has no inventory reader. Its presence is
+	// unknown by design, not a failed assessment, so it raises no warning.
+	Unreported bool
 }
 type comparedInventory struct {
 	revision int64
@@ -106,7 +109,7 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 			}
 		}
 		out.Items = append(out.Items, items...)
-		if unknown {
+		if unknown && !sample.Unreported {
 			out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Title: "Target inventory could not be assessed", Detail: label + ": current resource presence and target availability could not be confirmed.", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
 		}
 	}

@@ -45,6 +45,26 @@ type Scope struct {
 	// cut short (Boot sets it once its needs are resolved); nil keeps the
 	// text. It is never applied to what AppTown compares or acts on.
 	Redact func(string) string
+	// Instance is the installation id every container, volume and network
+	// made through this scope is labelled with (dockerlabel.Instance): the
+	// inventory reports as not accounted for only what carries it. "" labels
+	// nothing, and then nothing reads as this installation's.
+	Instance string
+}
+
+// Installs reports whether a thing labelled with installation was made by
+// this scope's installation; with no id of its own, nothing is.
+func (dk Scope) Installs(installation string) bool {
+	return dk.Instance != "" && installation == dk.Instance
+}
+
+// InstanceLabel is the --label argument naming this scope's installation;
+// none when it has no id.
+func (dk Scope) InstanceLabel() []string {
+	if dk.Instance == "" {
+		return nil
+	}
+	return []string{"--label", dockerlabel.Instance + "=" + dk.Instance}
 }
 
 // redacted is a container's own output as a failure may keep it (Redact).

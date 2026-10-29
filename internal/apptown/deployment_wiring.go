@@ -86,5 +86,5 @@ func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
 // providerDependencies are the providers' owners and settings.
 func providerDependenciesFor(a *App, digitalOcean digitalocean.Options) deployment.ProviderDependencies {
 	return deployment.ProviderDependencies{Projects: a.Projects, Secrets: a.Secrets, Integrations: a.Integrations, DigitalOcean: digitalOcean,
-		AfterRelease: (backupRequests{db: a.DB, life: a.life}).AfterRelease, DatabaseContainer: builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, Applied: a.inventory.Invalidate, Now: a.cfg.clock.Now}
+		AfterRelease: (backupRequests{db: a.DB, life: a.life}).AfterRelease, DatabaseContainer: builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, Applied: a.inventory.Invalidate, Now: a.cfg.clock.Now, Installation: a.docker.Instance}
 }

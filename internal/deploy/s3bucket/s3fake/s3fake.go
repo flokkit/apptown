@@ -293,14 +293,22 @@ func (s *Store) serveAPI(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	switch {
 	case name == "" && r.Method == "GET":
+		// One <Bucket> element per bucket, as S3 answers.
+		type listed struct {
+			Name string `xml:"Name"`
+		}
 		var out struct {
 			XMLName xml.Name `xml:"ListAllMyBucketsResult"`
-			Names   []string `xml:"Buckets>Bucket>Name"`
+			Buckets []listed `xml:"Buckets>Bucket"`
 		}
+		var names []string
 		for n := range s.buckets {
-			out.Names = append(out.Names, n)
+			names = append(names, n)
 		}
-		sort.Strings(out.Names)
+		sort.Strings(names)
+		for _, n := range names {
+			out.Buckets = append(out.Buckets, listed{Name: n})
+		}
 		_ = xml.NewEncoder(w).Encode(out)
 	case key == "" && r.Method == "PUT" && q.Has("website"):
 		if b == nil {

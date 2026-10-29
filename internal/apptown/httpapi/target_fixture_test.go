@@ -109,14 +109,18 @@ func (w *targetHTTPWorld) createProject(t *testing.T, slug string) ids.ID {
 	return id
 }
 
+// testInstallation is the installation id the world's targets are marked
+// with: what carries it is this AppTown's.
+const testInstallation = "inst-test"
+
 // setDockerClient builds the world's deployment owner and its handlers
 // over client as this AppTown's Docker.
 func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	targets, deployments := deployment.NewTargets(w.db, targetTestConnectors{}), deployment.NewDeployments(w.db)
-	w.hosts = deployment.NewHosts(targets, w.secrets, deployment.HostSettings{Scope: docker.Scope{Client: client}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), BuiltInTarget: targetTestBuiltin})
+	w.hosts = deployment.NewHosts(targets, w.secrets, deployment.HostSettings{Scope: docker.Scope{Client: client, Instance: testInstallation}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), BuiltInTarget: targetTestBuiltin})
 	environment := deployment.NewEnvironment(deployment.EnvironmentDependencies{ToolVersions: stock.Versions(), Secrets: w.secrets, Integrations: w.integrations, Needs: w.needs, Projects: w.projects})
 	w.providers = deployment.NewProviders(context.Background(), w.db, deployment.ProviderRecords{Targets: targets, Deployments: deployments}, w.hosts, environment,
-		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud})
+		deployment.ProviderDependencies{Projects: w.projects, Secrets: w.secrets, Integrations: w.integrations, DigitalOcean: w.cloud, Installation: testInstallation})
 	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Groups: w.identity, Authority: access.Checked{Authority: w.identity, Projects: w.projects}, Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,
 		Projects: w.projects, Declared: targetTestDeclarations{}})
 	w.targets = NewTargets(w.deployment, w.providers, w.projects, w.identity, w.db, nil)

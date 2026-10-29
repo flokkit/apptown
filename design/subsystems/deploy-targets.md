@@ -183,6 +183,46 @@ witnessed outcomes):
 - Take-down on a Docker host: final backup, then deletion:
   `TestTakeDownBacksUpWhatTheDeploymentHoldsThenDeletesIt`.
 
+## What a target holds: the installation's mark
+
+AppTown owns what carries its installation's mark, not a cloud account or a
+host. The mark is the installation's id (`<dataDir>/instance-id`), the same id
+the built-in database's container and volume carry. Each provider has one
+carrier:
+
+| Provider | Carrier | Given |
+| --- | --- | --- |
+| Docker host | label `apptown.instance` on containers, deployment volumes and networks | at creation |
+| Portainer | stack variable `APPTOWN_INSTANCE` | at every create and update |
+| App Platform app | app-wide spec variable `APPTOWN_INSTANCE` (apps take no tags) | at every release |
+| Managed database cluster | DigitalOcean tag `apptown-instance:<id>` | at creation |
+| Bucket website bucket | private object `_apptown/instance` holding the id (Spaces has no bucket tags) | at every release |
+
+An inventory reader returns what the provider lists and marks anything without
+this installation's mark as reported only to confirm a record. The comparison
+is the same for every kind: a record matches a listed resource whether or not
+it carries the mark, so a recorded resource is never hidden or called missing
+for lacking it. Only a marked resource nothing records is "unrecorded" (not
+accounted for), and only a marked one can be removed from the infrastructure
+page. Another installation sharing the account or host, and anything a person
+or script made (such as the database AppTown itself runs on), is not listed.
+
+Resources made before the mark keep matching their records. At each start,
+AppTown gives the mark in place to what deployment records name where the
+provider allows it: managed database clusters get the tag and bucket-website
+buckets the private object. The pass is idempotent, and one that marks anything
+records an audit event, `deployment.resources-marked`, with the count marked in
+that pass. Docker labels cannot be added to an existing object, and a
+Portainer stack's variables or an App Platform spec change only with a
+redeploy, so those gain the mark at their next release. Until then, once their
+record goes, they are not reported as leftovers. The DigitalOcean registry is
+one per account and is never reported as unrecorded; Spaces keys confirm
+records only, except a left maker key, which shows by its name.
+
+A target kind without an inventory reader reports what it holds as unknown:
+the page says "This kind of target doesn't report what it holds" beside the
+records, not an error, and the inventory job and attention skip it.
+
 ## Docker target inventory
 
 A target's inventory compares recorded resource claims with a complete scoped
@@ -353,7 +393,9 @@ the driver's need module (`internal/deploy/digitalocean/storage.go`):
   and keeps the bucket as a retained resource; synthetic data goes with it.
   A restored copy's bucket and key go when it does.
 - The account inventory lists Spaces keys (a left maker key reads
-  unrecorded); buckets are not listed, and a recorded key names its bucket.
+  unrecorded); buckets are not listed there, and a recorded key names its
+  bucket. Its bucket carries no installation mark, so a bucket-website
+  target on the same store does not report it.
 
 ## Bucket websites
 
@@ -387,7 +429,14 @@ sentence.
   incomplete publication: the address still answers the previous one.
   After a witnessed release, objects in neither this nor the previous
   publication are deleted, so an open tab can still load the previous
-  release's hashed files.
+  release's hashed files. Every release also writes the private
+  `_apptown/instance` object, the installation's mark: the website does not
+  serve it, a site's own file of that name is dropped, and the clean-up keeps
+  it.
+- **Inventory** lists the store's buckets; a bucket whose mark names this
+  installation and that no deployment records is not accounted for, and any
+  other bucket is reported only to confirm a record. A mark that cannot be
+  read fails the read; it is never taken as absent.
 - **What visitors can see**: entry files change one at a time, so a page
   can briefly get new HTML with old browser values; a file whose name is
   the same in both releases can change under an open page; a page the

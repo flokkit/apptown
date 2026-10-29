@@ -3025,6 +3025,7 @@ export type InfrastructureView = {
   vendor: string
   live: boolean
   error?: string
+  unreported?: boolean
   asOf?: string
   refreshing: boolean
   resources: Resource[]

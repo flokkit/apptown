@@ -48,6 +48,9 @@ type Dependencies struct {
 	// need is refused.
 	Holdings Holdings
 	Secrets  KeySecrets
+	// Installation is this installation's id, carried by what the driver
+	// makes: an app's spec variable InstanceEnv, a cluster's InstallationTag.
+	Installation string
 }
 
 // Options configures one provider instance. Zero settings use production defaults.
@@ -179,6 +182,9 @@ var (
 // databases and the registry. Built for a target, it can look, never deploy.
 type Inventory struct {
 	Client func(context.Context) (*Client, Config, error)
+	// Installation is this installation's id: only an app or cluster that
+	// carries it can be not accounted for.
+	Installation string
 }
 
 var _ deploy.Inventorier = Inventory{}

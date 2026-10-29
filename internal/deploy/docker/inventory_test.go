@@ -24,18 +24,18 @@ func inventoryFixture(t *testing.T, fail string) ([]deploy.Resource, error) {
 			return []byte("daemon-a\n"), nil
 		case strings.HasPrefix(line, "ps -a"):
 			if strings.Contains(line, "name=^apptown-dep-") {
-				return []byte("apptown-dep-k1\tUp 1 hour\tapp\tdep-k1\t\n"), nil
+				return []byte("apptown-dep-k1\tUp 1 hour\tapp\tdep-k1\t\tinst-a\napptown-dep-k2\tUp 1 hour\tapp\tdep-k2\t\tinst-b\napptown-dep-k3\tUp 1 hour\tapp\tdep-k3\t\t\n"), nil
 			}
 		case strings.HasPrefix(line, "volume ls"):
 			if strings.Contains(line, "--filter") {
 				t.Errorf("volumes are listed whole: an approved older volume has no AppTown prefix: %s", line)
 			}
-			return []byte("apptown-data-shop\tdep-k1\t\napptown-need-shop\tdep-k1\t\n0a1b2c\t\t\n"), nil
+			return []byte("apptown-data-shop\tdep-k1\t\tinst-a\napptown-need-shop\tdep-k1\t\tinst-a\n0a1b2c\t\t\tinst-a\napptown-data-old\tdep-k3\t\t\n"), nil
 		case strings.HasPrefix(line, "network ls"):
 			if !strings.Contains(line, "name=apptown-net-") {
 				t.Errorf("network listing must be scoped: %s", line)
 			}
-			return []byte("apptown-net-dep-k1\tdep-k1\t\n"), nil
+			return []byte("apptown-net-dep-k1\tdep-k1\t\tinst-a\napptown-net-dep-k2\tdep-k2\t\tinst-b\n"), nil
 		case strings.HasPrefix(line, "image inspect"):
 			return inspectAnswer(req,
 				[]string{`["reg/shop:latest","reg/shop:alias"]` + "\t" + `["reg/shop@sha256:aaa"]` + "\t" + `"sha256:1"`,
@@ -48,7 +48,9 @@ func inventoryFixture(t *testing.T, fail string) ([]deploy.Resource, error) {
 	images := func(context.Context) ([]string, error) {
 		return []string{"reg/shop@sha256:aaa", "reg/shop@sha256:bbb", Current.BuildTag("shop"), "reg/gone@sha256:ccc", "reg/shop@sha256:aaa"}, nil
 	}
-	out, err := (Inventory{Scope: func(context.Context) (Scope, error) { return Scope{Client: client, Host: "ssh://target"}, nil }, Images: images}).Inventory(t.Context())
+	out, err := (Inventory{Scope: func(context.Context) (Scope, error) {
+		return Scope{Client: client, Host: "ssh://target", Instance: "inst-a"}, nil
+	}, Images: images}).Inventory(t.Context())
 	for _, host := range client.hosts {
 		if host != "ssh://target" {
 			t.Fatalf("inventory escaped its target: %q", host)
@@ -85,11 +87,13 @@ func TestInventoryConfirmsNeedVolumesNetworksAndExactImageReferences(t *testing.
 		}
 	}
 	for _, r := range out {
-		// A volume AppTown did not name only confirms a record.
-		if confirms := slices.Contains(r.Tags, deploy.TagConfirmsOnly); confirms != (r.Name == "0a1b2c") {
+		// A volume AppTown did not name, and anything another installation
+		// made or made before the installation label, only confirms a record.
+		notOurs := map[string]bool{"0a1b2c": true, "apptown-dep-k2": true, "apptown-dep-k3": true, "apptown-data-old": true, "apptown-net-dep-k2": true}
+		if confirms := slices.Contains(r.Tags, deploy.TagConfirmsOnly); r.Kind != "image" && confirms != notOurs[r.Name] {
 			t.Errorf("confirm-only marking wrong: %+v", r)
 		}
-		if (r.Kind == "volume" || r.Kind == "network") && r.Name != "0a1b2c" {
+		if (r.Kind == "volume" || r.Kind == "network") && r.Name != "0a1b2c" && !notOurs[r.Name] {
 			if r.Owner != "dep-k1" {
 				t.Errorf("lost attribution: %+v", r)
 			}
@@ -170,8 +174,10 @@ func TestInventoryListsContainersOnceWithEveryName(t *testing.T) {
 		return []byte(out.String()), nil
 	}}
 	inv := Inventory{
-		Scope: func(context.Context) (Scope, error) { return Scope{Client: client, Host: "ssh://target"}, nil },
-		Also:  []string{"apptown-postgres"},
+		Scope: func(context.Context) (Scope, error) {
+			return Scope{Client: client, Host: "ssh://target", Instance: "inst-a"}, nil
+		},
+		Also: []string{"apptown-postgres"},
 	}
 	out, err := inv.Inventory(t.Context())
 	if err != nil {
@@ -300,5 +306,64 @@ func TestInventoryRefusesAnUnidentifiedDaemon(t *testing.T) {
 	resources, err := (Inventory{Scope: func(context.Context) (Scope, error) { return Scope{Client: client}, nil }}).Inventory(t.Context())
 	if err == nil || resources != nil {
 		t.Fatalf("blank identity published inventory: %+v %v", resources, err)
+	}
+}
+
+// What a deployment makes on a host carries the installation label, so the
+// inventory can tell this installation's things from anyone else's.
+func TestDeploymentThingsCarryTheInstallationLabel(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{reply: func(req Command) ([]byte, error) {
+		if req.Args[0] == "network" && req.Args[1] == "inspect" {
+			return nil, errors.New("No such network")
+		}
+		return nil, nil
+	}}
+	dk := Scope{Client: client, Instance: "inst-a"}
+	own := Ownership{Record: func(deploy.Owned) error { return nil }}
+	if err := createVolume(t.Context(), dk, "apptown-data-shop", "dep-k1", "", own); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensureNetwork(t.Context(), dk, "apptown-net-dep-k1", own); err != nil {
+		t.Fatal(err)
+	}
+	labelled := map[string]bool{}
+	for _, args := range client.args {
+		if len(args) > 1 && args[1] == "create" && slices.Contains(args, "apptown.instance=inst-a") {
+			labelled[args[0]] = true
+		}
+	}
+	if !labelled["volume"] || !labelled["network"] {
+		t.Fatalf("created without the installation label: %v", client.args)
+	}
+	if !slices.Contains(dk.Labels("env", "dep-k1"), "apptown.instance=inst-a") {
+		t.Fatal("container labels lack the installation")
+	}
+}
+
+// An attached host's scope is derived with WithHost; it keeps the
+// installation, so what is made there carries the mark and what carries it
+// is this installation's.
+func TestAnAttachedHostKeepsTheInstallationsMark(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{reply: func(req Command) ([]byte, error) {
+		switch req.Args[0] {
+		case "info":
+			return []byte("attached-daemon"), nil
+		case "ps":
+			return []byte("apptown-dep-k1\tUp 1 hour\timage\tdep-k1\t\tinst-a\n"), nil
+		}
+		return nil, nil
+	}}
+	attached := (Scope{Client: client, Instance: "inst-a"}).WithHost("ssh://attached", "", "")
+	if !slices.Contains(attached.Labels("env", "dep-k1"), "apptown.instance=inst-a") {
+		t.Error("an attached host makes things without this installation's mark")
+	}
+	got, err := (Inventory{Scope: func(context.Context) (Scope, error) { return attached, nil }}).Inventory(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || slices.Contains(got[0].Tags, deploy.TagConfirmsOnly) {
+		t.Fatalf("this installation's container on an attached host: %+v", got)
 	}
 }

@@ -1,8 +1,15 @@
 package deploy
 
-import "github.com/flokkit/apptown/internal/ids"
+import (
+	"errors"
 
-import "github.com/flokkit/apptown/internal/stamp"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/stamp"
+)
+
+// ErrNoInventory is a target whose kind has no inventory reader: what it
+// holds is unknown, which is neither an error nor empty.
+var ErrNoInventory = errors.New("this kind of target doesn't report what it holds")
 
 // Resource is one thing at a target, in the same words whatever the
 // provider. A driver reports what it sees; the caller lays its records over it.

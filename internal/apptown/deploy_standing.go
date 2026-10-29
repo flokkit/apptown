@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -18,7 +19,14 @@ import (
 // each from its immutable admitted deployment inputs, on the same stable
 // port: the data directory travels with a host move, the containers do
 // not.
-func (a *App) EnsureDeployments(ctx context.Context) { go a.ensureDeploymentsOnce(ctx) }
+func (a *App) EnsureDeployments(ctx context.Context) {
+	go a.ensureDeploymentsOnce(ctx)
+	// What records name and was made before the installation's mark gets
+	// it, once a boot (deployment.Providers.MarkRecorded).
+	if _, err := a.Jobs().Enqueue(ctx, deployment.MarkInstallationJob, "boot", nil, time.Time{}); err != nil {
+		log.Printf("deployments: asking to mark recorded resources: %v", err)
+	}
+}
 
 // ensureDeploymentsOnce reconciles recorded deployments against the hosts
 // at boot: previews whose container is gone are forgotten, standing
