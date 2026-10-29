@@ -14,6 +14,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/testinputs"
 )
 
 // testdata/sealed-app is an app behind a host allow-list built from
@@ -69,6 +70,7 @@ func TestIntegrationASealedBootHasNoAddressAndAnswersOnlyStatuses(t *testing.T) 
 	t.Cleanup(cleanup)
 
 	build := filepath.Join("testdata", "sealed-app")
+	testinputs.Files(t, build)
 	if out, err := exec.Command("docker", "build", "-q", "-t", image, build).CombinedOutput(); err != nil {
 		t.Fatalf("building the app: %v %s", err, out)
 	}

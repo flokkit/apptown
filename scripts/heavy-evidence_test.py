@@ -1,5 +1,6 @@
-"""Tests for scripts/heavy-evidence.py: a release's images need a heavy.yml
-run on the commit that passed on its first attempt. gh is a stub that serves
+"""Tests for scripts/heavy-evidence.py: a release's images need a heavy-main.yml
+run (fresh execution, never a queue run that may reuse cached results) on the
+commit that passed on its first attempt. gh is a stub that serves
 recorded API responses by path from STUB_DIR and fails for any other path.
 """
 
@@ -51,7 +52,7 @@ class HeavyEvidence(unittest.TestCase):
             json.dump(body, f)
 
     def runs(self, *runs):
-        self.record(f"repos/{REPO}/actions/workflows/heavy.yml/runs?head_sha={SHA}&per_page=100",
+        self.record(f"repos/{REPO}/actions/workflows/heavy-main.yml/runs?head_sha={SHA}&per_page=100",
                     {"total_count": len(runs), "workflow_runs": list(runs)})
 
         for run in runs:
@@ -85,7 +86,7 @@ class HeavyEvidence(unittest.TestCase):
         code, out = self.check()
         self.assertEqual(code, 1, out)
         self.assertIn("attempt 1 failure; passed only on re-run 2", out)
-        self.assertIn("::error::newest heavy.yml run decides", out)
+        self.assertIn("::error::newest heavy-main.yml run decides", out)
 
     def test_a_rerun_of_a_first_attempt_pass_is_still_evidence(self):
         self.runs(run(3, attempt=2))
@@ -115,13 +116,20 @@ class HeavyEvidence(unittest.TestCase):
         self.assertEqual(code, 1, out)
         self.assertIn("a pull_request run", out)
 
-    def test_queue_run_on_exact_commit_is_evidence(self):
-        self.runs(run(10, event="merge_group"))
+    def test_main_push_on_exact_commit_is_evidence(self):
+        self.runs(run(10))
         code, out = self.check()
         self.assertEqual(code, 0, out)
 
-    def test_queue_rerun_does_not_erase_first_failure(self):
-        self.runs(run(10, event="merge_group", attempt=2))
+    def test_a_queue_run_is_not_evidence(self):
+        # A queue run may reuse cached results: it is not full execution.
+        self.runs(run(10, event="merge_group"))
+        code, out = self.check()
+        self.assertEqual(code, 1, out)
+        self.assertIn("a merge_group run", out)
+
+    def test_rerun_does_not_erase_first_failure(self):
+        self.runs(run(10, attempt=2))
         self.first_attempt(10, "failure")
         code, out = self.check()
         self.assertEqual(code, 1, out)
@@ -129,13 +137,13 @@ class HeavyEvidence(unittest.TestCase):
     def test_newer_failure_or_pending_run_outvotes_older_success(self):
         for status, conclusion in [("completed", "failure"), ("in_progress", None)]:
             with self.subTest(status=status):
-                self.runs(run(11, event="merge_group", status=status, conclusion=conclusion), run(10))
+                self.runs(run(11, event="workflow_dispatch", status=status, conclusion=conclusion), run(10))
                 code, out = self.check()
                 self.assertEqual(code, 1, out)
-                self.assertIn("newest heavy.yml run decides", out)
+                self.assertIn("newest heavy-main.yml run decides", out)
 
     def test_wrong_sha_is_never_evidence(self):
-        wrong = dict(run(10, event="merge_group"), head_sha="f" * 40)
+        wrong = dict(run(10), head_sha="f" * 40)
         self.runs(wrong)
         code, out = self.check()
         self.assertEqual(code, 1, out)
@@ -153,7 +161,7 @@ class HeavyEvidence(unittest.TestCase):
         for jobs, total in [(full[:-1], None), (full + [full[0]], None), (full, len(full) + 1),
                             ([dict(job, conclusion='skipped') if job['name'] != 'heavy-ok' else job for job in full], None)]:
             with self.subTest(jobs=jobs, total=total):
-                self.runs(run(10, event='merge_group'))
+                self.runs(run(10))
                 self.jobs(10, jobs=jobs, total=total)
                 code, out = self.check()
                 self.assertEqual(code, 1, out)
@@ -169,7 +177,7 @@ class HeavyEvidence(unittest.TestCase):
 
     def test_truncated_runs_refuse_even_when_visible_run_passed(self):
         self.runs(run(10))
-        self.record(f"repos/{REPO}/actions/workflows/heavy.yml/runs?head_sha={SHA}&per_page=100",
+        self.record(f"repos/{REPO}/actions/workflows/heavy-main.yml/runs?head_sha={SHA}&per_page=100",
                     {'total_count': 101, 'workflow_runs': [run(10)]})
         self.assertEqual(self.check()[0], 1)
 

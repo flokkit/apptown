@@ -26,6 +26,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/poll"
+	"github.com/flokkit/apptown/internal/testinputs"
 )
 
 const authentikProofImage = "ghcr.io/goauthentik/server:2026.8.3@sha256:ab9b4e8cc4ab3f8d1198d2db6aeea66bafea1963b3f2843589e0d163f97d9849"
@@ -643,6 +644,7 @@ fi
 			t.Fatal(err)
 		}
 	}
+	testinputs.Files(t, "testdata/authentik/settle.sh")
 	run := func(job, retain string) execution.Outcome {
 		return (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"sh", "testdata/authentik/settle.sh", job}, Env: []string{"PATH=" + dir + string(os.PathListSeparator) + os.Getenv("PATH"), "STATE=" + dir, "RETAIN=" + retain}, Timeout: 5 * time.Second})
 	}
@@ -703,6 +705,7 @@ fi
 			if err := os.WriteFile(filepath.Join(dir, "stopped"), nil, 0600); err != nil {
 				t.Fatal(err)
 			}
+			testinputs.Files(t, "testdata/authentik/settle.sh")
 			out := (execution.Runner{}).Run(t.Context(), execution.Local, execution.Request{Argv: []string{"sh", "testdata/authentik/settle.sh", "owned-job"}, Env: []string{"PATH=" + dir + string(os.PathListSeparator) + os.Getenv("PATH"), "STATE=" + dir, "MODE=" + mode}, Timeout: 5 * time.Second})
 			if mode == "unknown" {
 				if out.Exited0() {

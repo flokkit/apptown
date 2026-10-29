@@ -3,10 +3,12 @@
 # the race detector.
 #
 # They execute on the merge queue unless narrow documentation reuse qualifies,
-# and always on manual dispatch. PRs report admission
-# only; main warms caches in heavy-cache.yml without executing tests.
-# A release tag's images are built only for a commit
-# with a run that passed on its first attempt (images.yml, heavy-evidence).
+# and always on manual dispatch. PRs report admission only. Go's test cache
+# reuses results that main's fresh runs stored (heavy-main.yml) for packages
+# whose inputs are unchanged (ci-test-environment.sh, ci-test-partition.sh),
+# so a run here can be partly cached: it is queue qualification, not release
+# evidence. A release tag's images need a heavy-main.yml run (images.yml,
+# heavy-evidence).
 # The main ruleset requires heavy-ok, so a red run blocks merging. No label
 # changes what runs.
 #
@@ -95,8 +97,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: integration-root
-            args: test-partition integration root
+          - name: integration-root-a
+            args: test-partition integration root-a
+            require: ""
+          - name: integration-root-b
+            args: test-partition integration root-b
+            require: ""
+          - name: integration-root-c
+            args: test-partition integration root-c
             require: ""
           - name: integration-dependency
             args: test-partition integration dependency
@@ -110,7 +118,7 @@ jobs:
           # The era-upgrade suite is not part of this run: it was retired
           # with the SQLite format (design/architecture/testing-map.md §5).
           - name: journeys
-            args: test -tags=journey ./internal/apptown/ -run TestJourney -count=1 -timeout 30m -v
+            args: test -tags=journey ./internal/apptown/ -run TestJourney -timeout 30m -v
             require: ""
           # The test image carries Playwright's Chromium and the pinned Pi.
           # A skip is not evidence: the job fails unless each test passed.
@@ -118,18 +126,25 @@ jobs:
           # and a container the console test starts adds a host interface,
           # which aborts a navigation in flight (ERR_NETWORK_CHANGED).
           - name: opt-in-tiers
-            args: test -tags=browser,pi,inference_docker -p 1 ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -count=1 -timeout 20m -v
+            args: test -tags=browser,pi,inference_docker -p 1 ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -timeout 20m -v
             require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary
     name: ${{ matrix.name }}
+    # The job's name is its ID: the runner is this job's alone, and the
+    # tests' temporary folder (TMPDIR, which they read) is then the same in
+    # every run, so it does not stop Go's test cache from matching.
     env:
-      CI_HEAVY_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.name }}
+      CI_HEAVY_ID: ${{ matrix.name }}
       CI_HEAVY_REQUIRE: ${{ matrix.require }}
+      CI_TEST_RESULTS: reuse
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: web-dist
           path: web/dist/
+      # Every file's time from its content, so equal content is equal to
+      # Go's test cache in every run (scripts/ci-content-mtimes.py).
+      - run: python3 scripts/ci-content-mtimes.py .
       - name: configure host compilation caches
         run: |
           echo "CI_HEAVY_GOMOD=$HOME/go/pkg/mod" >> "$GITHUB_ENV"
@@ -160,7 +175,6 @@ jobs:
           load: true
           tags: apptown-agent
           cache-from: type=gha,version=2,scope=ci-heavy-agent-linux-amd64
-          cache-to: ${{ github.ref == 'refs/heads/main' && matrix.name == 'integration-root' && 'type=gha,version=2,scope=ci-heavy-agent-linux-amd64,mode=min' || '' }}
       - name: build test runner image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
@@ -170,21 +184,12 @@ jobs:
           load: true
           tags: apptown-ci-heavy
           cache-from: type=gha,version=2,scope=ci-heavy-runner-linux-amd64
-          cache-to: ${{ github.ref == 'refs/heads/main' && matrix.name == 'integration-root' && 'type=gha,version=2,scope=ci-heavy-runner-linux-amd64,mode=min' || '' }}
       - name: go test (${{ matrix.name }})
         env:
           CI_HEAVY_PREBUILT: "1"
         run: eval "sh scripts/ci-heavy.sh ${{ matrix.args }}"
       - if: always()
         run: sh scripts/ci-heavy.sh cleanup
-
-      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
-        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
-      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/go-build
-          key: ${{ steps.gobuild.outputs.cache-primary-key }}
 
   race:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'merge_group' && needs.qualification-report.outputs.decision == 'execute')
@@ -206,9 +211,9 @@ jobs:
         with:
           name: web-dist
           path: web/dist/
-      # Go's module and build caches: restored by prefix from main's, saved
-      # only on main (as in ci.yml); each successful commit refreshes compilation. ci.yml's
-      # checks job saves the modules.
+      - run: python3 scripts/ci-content-mtimes.py .
+      # Go's module and build caches, with main's stored test results:
+      # restored by prefix from heavy-main.yml's, which alone saves them.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: gomod
         with:
@@ -223,14 +228,8 @@ jobs:
           restore-keys: go-build-race-${{ matrix.group }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum') }}-
       - name: pull test images
         run: sh scripts/ci-heavy.sh pull
+      - run: sh scripts/ci-test-environment.sh reuse
       - run: sh scripts/ci-test-partition.sh race "${{ matrix.group }}"
-      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
-        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
-      - if: github.ref == 'refs/heads/main' && steps.gobuild.outputs.cache-hit != 'true'
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/go-build
-          key: ${{ steps.gobuild.outputs.cache-primary-key }}
 
   # A check the main ruleset requires, beside ci.yml's ci-ok: it passes only
   # when execution succeeds or explicit queue reuse skips every execution

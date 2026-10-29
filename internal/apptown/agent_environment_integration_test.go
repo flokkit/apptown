@@ -25,6 +25,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
+	"github.com/flokkit/apptown/internal/testinputs"
 )
 
 // This launches the real image through AppTown's assembled environment, but sends
@@ -34,6 +35,7 @@ func TestIntegrationAgentEnvironmentConsoleLaunch(t *testing.T) {
 	// Packaging supplies a Linux artifact. Launch outside the source tree to
 	// exercise the real mount without relying on runtime source compilation.
 	cli := filepath.Join(t.TempDir(), "apptown-linux")
+	testinputs.GoBuild(t, "", []string{"GOOS=linux", "CGO_ENABLED=0"}, "../../cmd/apptown")
 	if out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: time.Minute,
 	}); out.RunErr != nil {

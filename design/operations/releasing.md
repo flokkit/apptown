@@ -27,10 +27,10 @@ tag starts publication automatically; a local tag does not. What a release promi
    removal was announced a minor release before. That is the person
    releasing's job.
 3. **Exact candidate qualification.** Land the notes and fixes on `main`.
-   Require a `heavy.yml` full execution run on that exact commit that passed
-   on its first attempt ([GitHub](github.md)); admission, reused execution,
-   cache warming and a passing rerun do not count. If execution was reused,
-   dispatch a full heavy run on the candidate. Fix a code failure in a new
+   Require a `heavy-main.yml` run on that exact commit that passed on its
+   first attempt ([GitHub](github.md)): every landed commit gets one, with
+   every test fresh. A queue run, which may reuse cached results, admission
+   and a passing rerun do not count. Fix a code failure in a new
    commit; for an infrastructure failure, start a new full run on the same
    commit, retaining the failed evidence.
 4. **Local tag and builds.** Create `git tag -a v<version>` at that qualified

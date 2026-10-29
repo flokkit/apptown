@@ -27,6 +27,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
+	"github.com/flokkit/apptown/internal/testinputs"
 	"github.com/flokkit/apptown/internal/worker"
 	"github.com/flokkit/apptown/internal/worker/workertest"
 	"github.com/flokkit/apptown/stock"
@@ -37,6 +38,7 @@ import (
 func linuxAppTownCLI(t *testing.T) string {
 	t.Helper()
 	cli := filepath.Join(t.TempDir(), "apptown-linux")
+	testinputs.GoBuild(t, "", []string{"GOOS=linux", "CGO_ENABLED=0"}, "../../cmd/apptown")
 	if out := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{"go", "build", "-o", cli, "../../cmd/apptown"}, Env: []string{"GOOS=linux", "CGO_ENABLED=0"}, Timeout: 2 * time.Minute,
 	}); out.RunErr != nil {

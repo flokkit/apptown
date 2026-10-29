@@ -1,0 +1,10 @@
+# Tests that CI runs with -count=1 every time, never from Go's test cache
+# (scripts/ci-test-partition.sh): their outcome depends on content they
+# download while they run, which no input Go or ci-test-environment.sh sees
+# can describe. One per line: tier, package, test name, then the reason.
+# A new test that installs from a package registry or fetches from the
+# network while it runs adds its line; nothing detects a missing one.
+integration github.com/flokkit/apptown/internal/apptown/verification TestIntegrationNodeSeedImageShipsNoDevDependencies # builds the Node seed: apt and npm ci from the registries
+integration github.com/flokkit/apptown/internal/apptown/verification TestIntegrationDotnetSeedBootsOnPostgres # builds the .NET seed: apt and a NuGet restore
+integration github.com/flokkit/apptown/internal/apptown/dependency TestIntegrationWordPressSeedKeepsDataAndMediaOutsideTheWebContainer # builds the WordPress seed: apt, composer and a download from GitHub
+integration github.com/flokkit/apptown/internal/apptown/instanceupdate/supervisor TestIntegrationManagedSupervisorAdaptersSurviveRestartAndFenceBoot # builds its host image: apt, and two scripts only Docker reads

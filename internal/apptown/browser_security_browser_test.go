@@ -39,6 +39,7 @@ import (
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/testinputs"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -146,6 +147,7 @@ func TestBrowserSecurityChromium(t *testing.T) {
 		_, _ = fmt.Fprint(w, "<!doctype html><title>Untrusted site fixture</title><body>untrusted site</body>")
 	})
 	server.StartTLS()
+	testinputs.Files(t, "testdata/browser_security.mjs")
 	run := (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{
 		Argv: []string{"node", "testdata/browser_security.mjs"},
 		Env: []string{

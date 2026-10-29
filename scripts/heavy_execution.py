@@ -1,9 +1,12 @@
-"""Named jobs that constitute full heavy execution, shared by evidence readers."""
+"""Named jobs that constitute full heavy execution, shared by evidence readers.
+
+heavy.yml and heavy-main.yml run the same jobs (scripts/ci_workflows_test.py).
+"""
 from collections import Counter
 
 EXECUTION_JOBS = {'web', 'heavy-ok', 'journeys', 'opt-in-tiers'} | {
     'race-' + part for part in ('root', 'backup', 'workflow', 'rest')} | {
-    'integration-' + part for part in ('root', 'dependency', 'worker', 'rest')}
+    'integration-' + part for part in ('root-a', 'root-b', 'root-c', 'dependency', 'worker', 'rest')}
 
 
 def complete(jobs):

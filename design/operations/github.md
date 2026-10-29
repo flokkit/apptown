@@ -155,15 +155,19 @@ pull request restores. Jobs:
   published against an unchanged lockfile fails the next pull request,
   whatever it changes: take the fixed version. It passes `web/dist` to the
   Go jobs, since Go embeds it.
-- `checks`: gofmt and generated code, schema ownership, vet, staticcheck,
-  the lint rules and their fixtures, the shape rules and the scripts' tests,
-  exec, sqlnow, reachability, the heavy runner's test, the tool and base
-  image pins, the npm install-script rule, govulncheck and the
-  gate runner's own test. The pinned analyzers are cached by the Makefile.
-- `test`, four parts: the root package's two halves, the rest of
-  `internal/apptown`, and every other package. The database tests use the
-  harness's own disposable PostgreSQL container (`internal/dbtest`), as a
-  local `make check` does.
+- `checks`, three jobs, so the analyzers that type-check every package do
+  not share one runner's cores: gofmt and generated code, schema ownership,
+  vet, staticcheck, the lint rules and their fixtures, the shape rules and
+  the scripts' tests, exec, sqlnow, reachability, the heavy runner's test,
+  the tool and base image pins, the npm install-script rule, govulncheck and
+  the gate runner's own test. Together they run every stage once
+  (`scripts/ci_workflows_test.py`). The pinned analyzers are cached by the
+  Makefile.
+- `test`, four parts (`scripts/ci-test-partition.sh unit`): the root
+  package's two halves, the rest of `internal/apptown`, and every other
+  package. The database tests use the harness's own disposable PostgreSQL
+  container (`internal/dbtest`), as a local `make check` does. Results are
+  reused from Go's test cache as **Test results** below says.
 - `public`: the public gate (`make check-public`, `scripts/public-check.py`):
   the committed tree has nothing under `private/` and none of the
   maintainers' root files, names none of their home-lab hosts (listed in
@@ -178,24 +182,59 @@ pull request restores. Jobs:
   so its `needs:` list names every job, and a job added to `ci.yml` is added
   there too.
 
-**Caches.** Main publishes Go module and compilation caches, with heavy compilation owned
-by `heavy-cache.yml`; pull requests
-restore them without publishing. Modules (`go-mod-*`) use dependency hashes.
-Compilation keys include platform, architecture, dependencies and commit; each
-successful main job publishes its current compilation cache, and later runs
-restore the newest compatible prefix. Container-tier keys also include the
-runner Dockerfile and tier. Each compilation archive retains at most 256 MiB
-of its newest files (`scripts/ci-cache-trim.py`); older generations compete for
-the repository's Actions cache budget and may be evicted. Eviction causes
-recompilation, never omission of tests. Tests run with `-count=1`.
+**Caches.** Main publishes Go module caches and Go caches (compiled packages
+and test results), the heavy tiers' from `heavy-main.yml`; pull requests and
+the queue restore them without publishing. Modules (`go-mod-*`) use
+dependency hashes. Go cache keys include platform, architecture, dependencies
+and commit; each successful main job publishes its current cache, and later
+runs restore the newest compatible prefix. Container-tier keys also include
+the runner Dockerfile and tier. Each archive retains at most 256 MiB of its
+newest entries (`scripts/ci-cache-trim.py`), never Go's own control files
+beside them; older generations compete for the repository's Actions cache
+budget and may be evicted. Eviction causes recompilation and re-execution,
+never omission of tests.
+
+**Test results.** A pull request's and the queue's test jobs reuse a
+package's passing result from main's when its inputs are identical, and run
+it otherwise. Go reuses a result only for the same test binary (sources,
+dependencies, embedded files, build flags, Go version), the same test flags,
+the same values of every environment variable the tests read and the same
+size and modification time of every module file they opened. Three things
+make that sufficient here:
+
+- `scripts/ci-content-mtimes.py` sets every file's and directory's time from
+  its content after checkout, so equal content looks equal in every run and
+  any difference, a same-size edit too, looks different.
+- `scripts/ci-test-environment.sh` records, with the stored results, what Go
+  cannot see: the runner image, the Docker daemon and client, git, the ID of
+  every image in `deploy/ci-heavy/test-images.txt` (pulled first; tags move)
+  and of the images CI builds from the checkout. A different record, or none,
+  expires every stored result before the tests run; compiled packages stay.
+- A test that hands repository files to a child process (a script, a
+  `docker build` context, a binary built with `go build`) reads them first
+  with `internal/testinputs`, so they are its inputs too. A test whose outcome
+  depends on what it downloads while it runs (a seed build's package
+  installs) is listed in `scripts/ci-uncached-tests.txt` and runs with
+  `-count=1` every time; nothing detects a missing line.
+
+Main never reuses: a push to main runs every test fresh
+(`ci-test-environment.sh fresh`) and only its passing jobs save, so every
+stored result is a full execution of a landed commit, and each landed commit
+is a full chance for a flaky test to fail, visibly on main. A failed job
+saves nothing; until a later main commit passes, pull requests and the queue
+may still reuse the last successful main result of that test for identical
+inputs. A reused result is that same execution, not a new one: the job log
+marks the package `(cached)`. Local `make` gates keep `-count=1`: a
+developer machine records no environment.
 
 The container tiers restore the same host module path as the producer and mount
 it with their compilation cache into the Linux runner. `CI_HEAVY_GOMOD` and
 `CI_HEAVY_GOCACHE` select absolute host paths; local runs default to the existing
 named Docker volumes. The runner restores host ownership before archiving.
 Neither database state nor Docker daemon state is cached. Hosted tiers build and load both current-checkout images with Buildx, restoring
-GitHub Actions layer caches in separate runner and agent scopes. Only main's
-integration-root job exports those rolling scopes. The harness's explicit
+GitHub Actions layer caches in separate runner and agent scopes. Only
+`heavy-main.yml`'s integration-root-a job on main exports those rolling
+scopes. The harness's explicit
 prebuilt mode requires both images to exist; local runs still build by default.
 Layer-cache eviction causes a rebuild, never omission of tests.
 
@@ -206,12 +245,12 @@ that tag.
 
 **`heavy.yml`** executes the Docker integration tier, journeys, opt-in browser,
 pi and inference_docker tests, and the race detector on `merge_group` and
-manual dispatch. A pull request runs the qualification report and reports
+manual dispatch, reusing main's stored results as above. A pull request runs the qualification report and reports
 admission-only `heavy-ok`; the queue qualifies the actual commit before
 merging. Manual runs always execute every heavy job. No label
 changes what executes. Each job first pulls the images its tests start, listed in
-`deploy/ci-heavy/test-images.txt` (`scripts/ci-heavy.sh pull`, three
-attempts each), so a registry error while fetching them fails that step,
+`deploy/ci-heavy/test-images.txt` (`scripts/ci-heavy.sh pull`, four at once,
+three attempts each), so a registry error while fetching them fails that step,
 naming the image, and not a test. A test that starts a new image adds it to
 the list. Tests can still reach a registry: AppTown's own deliberate pulls
 (a selected image, an image preview, a Portainer stack), BuildKit resolving
@@ -223,10 +262,12 @@ groups to be skipped. Partial execution fails. The ruleset requires the
 aggregate, so a red heavy run blocks merging.
 As with `ci-ok`, a job added to `heavy.yml` is added to its `needs:` list.
 Race uses four package partitions: the root package, backup/data protection,
-workflow execution, and the rest. Integration uses four: root, dependencies,
-worker, and the rest. `scripts/ci-test-partition.sh` lists packages with the
-execution build tags and assigns every package to exactly one partition; new
-packages default to the rest. Every matrix entry must succeed. Local
+workflow execution, and the rest. Integration uses six: the root package's tests
+split by name three ways (two named sets of its longest serial tests, and
+every other test, where a new one lands), dependencies, worker, and the rest.
+`scripts/ci-test-partition.sh` lists packages with the execution build tags
+and assigns every package to exactly one partition; new packages default to
+the rest. Every matrix entry must succeed. Local
 `make check-race` still runs the entire race suite.
 
 The queue can reuse full heavy execution only when its exact base and candidate
@@ -238,29 +279,30 @@ first-attempt execution. Reuse-only runs cannot supply another reuse; a newer
 failure or unfinished run prevents an older green source from winning.
 Missing or uncertain evidence selects execution. The qualification artifact
 records the candidate, source commit/run, input digest, policy and decision.
-PR reports do not activate reuse, and manual dispatch always executes. Reuse
+PR reports do not activate reuse, and manual dispatch always executes. A
+source run's jobs may themselves have reused cached test results. Reuse
 qualifies a queue landing but supplies no release execution evidence.
 
 Both CI workflows handle `merge_group: checks_requested`; a PR check alone
-is never release evidence. `heavy-cache.yml` runs on main pushes to compile
-race/integration/journey/opt-in test binaries and refresh image layers. Its
-compiler uses `go test -c` and never executes test binaries or TestMain. Cache
-warming supplies no `heavy-ok` or release evidence. Its groups, cache keys and
-budget match the executing jobs; a failed or late warm run causes later
-compilation, never omission of qualification.
+is never release evidence. **`heavy-main.yml`** runs heavy.yml's jobs on every
+push to main, and by hand, with every test fresh: it re-validates each landed
+commit, saves the caches heavy.yml restores, refreshes image layers, and is
+the release evidence below. It is a separate workflow so that landing, which
+waits for heavy.yml's run on the landed commit, does not also wait for it.
+Its matrix and cache keys are heavy.yml's (`scripts/ci_workflows_test.py`).
 
 **`images.yml`** runs when a `v*` tag is pushed. That push starts publication,
 not a preparation-only build. Complete local builds, fresh installs and the
 isolated matched-data rehearsal in [Releasing](releasing.md) before pushing;
 this workflow does not enforce the rehearsal. Its first job, `heavy-evidence`
-(`scripts/heavy-evidence.py`), asks the API for a `heavy.yml` run (on
-`main`, its merge queue, or by hand) on the exact tagged commit that passed on its first attempt,
+(`scripts/heavy-evidence.py`), asks the API for a `heavy-main.yml` run (a
+push to `main`, or by hand) on the exact tagged commit that passed on its
+first attempt; a queue run, which may reuse cached results, is not evidence,
 and builds nothing without one: CI must pass, not pass eventually. Both its
 first and latest attempt must contain the complete successful execution jobs;
-a green admission or reuse aggregate does not qualify. A reused commit needs
-a full manual run before release images or archives can be published. The newest
+a green admission or reuse aggregate does not qualify. The newest
 applicable run decides; an older success never hides a newer failure or a run
-still executing. A queue result must name the tagged SHA; matching trees do not
+still executing. A run must name the tagged SHA; matching trees do not
 count. A run
 that failed and then passed on a re-run is not evidence, nor is a red,
 missing or unreadable result. A re-run of failed jobs keeps the green jobs'
@@ -268,7 +310,7 @@ results and replaces the failure inside the same run; a new run by hand is
 a complete run of its own, with the red run left beside it. So when heavy
 failed, fix the cause in a new commit and tag that, or, when the failure
 was not the code's (a lost runner, a registry outage), start a new run by
-hand on the commit (Actions, heavy, Run workflow; not "Re-run"). Then
+hand on the commit (Actions, heavy-main, Run workflow; not "Re-run"). Then
 re-run `images.yml`. The job's log lists the red runs on the commit beside
 the one it accepts. Every tag pushes each image to
 GHCR by digest with BuildKit's provenance (`mode=max`) and SBOM attached,
