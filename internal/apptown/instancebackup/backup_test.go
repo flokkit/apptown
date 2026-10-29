@@ -216,8 +216,8 @@ func TestTheControlSocketAnswersOneRequest(t *testing.T) {
 	if r, err := ask(ControlRequest{Op: "format the disk"}); err != nil || !strings.Contains(r.Error, "unknown request") {
 		t.Fatalf("an unknown request: %+v %v", r, err)
 	}
-	if r, err := ask(ControlRequest{Op: "backup", Archive: filepath.Join(t.TempDir(), "a.backup"), Passphrase: backupPassphrase}); err != nil || !strings.Contains(r.Error, "not the built-in one") {
-		t.Fatalf("a backup of an AppTown on another database: %+v %v", r, err)
+	if r, err := ask(ControlRequest{Op: "backup", Archive: filepath.Join(t.TempDir(), "a.backup"), Passphrase: backupPassphrase}); err != nil || !strings.Contains(r.Error, "no database to back up") {
+		t.Fatalf("a backup AppTown refuses: %+v %v", r, err)
 	}
 	if _, err := AskControl(t.Context(), t.TempDir(), ControlRequest{Op: "backup"}, nil); err == nil || !strings.Contains(err.Error(), "cannot reach") {
 		t.Fatalf("no AppTown running: %v", err)

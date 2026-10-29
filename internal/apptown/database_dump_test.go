@@ -21,6 +21,7 @@ import (
 	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -44,7 +45,7 @@ func TestDatabaseDumpPublishesOnlyCompleteOutput(t *testing.T) {
 			dir := t.TempDir()
 			name := filepath.Join(dir, "today's $HOME backup.sql.gz")
 			scope := docker.Scope{Client: dumpCommand(func(_ context.Context, _ string, req docker.Command) ([]byte, error) {
-				if !slices.Equal(req.Args, []string{"exec", "forge-db", "sh", "-c", "'pg_dump' '-U' 'postgres' '--no-owner' '" + before1.Database + "'"}) {
+				if !slices.Equal(req.Args, []string{"exec", "forge-db", "sh", "-c", "'pg_dump' '-U' 'postgres' '--no-owner' '--no-privileges' '" + before1.Database + "'"}) {
 					t.Fatalf("dump command: %v", req.Args)
 				}
 				_, err := containerresulttest.WriteString(req.Stdout, "CREATE TABLE demo (id bigint);\n")
@@ -535,12 +536,20 @@ func TestBackupRequiresObservedDumpClient(t *testing.T) {
 		{"unreadable", "", errors.New("client unavailable")},
 		{"empty", "", nil},
 		{"malformed", "not a PostgreSQL version", nil},
+		// The test server is PostgreSQL 16: a 15 client cannot dump it, and
+		// a 17 client's dump does not load into a 16 database.
+		{"older than the server", "pg_dump (PostgreSQL) 15.8", nil},
+		{"newer than the server", "pg_dump (PostgreSQL) 17.5", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			a := backupWorldVersion(t, nil, tc.version, tc.err)
+			dumped := false
+			a := backupWorldVersion(t, func() { dumped = true }, tc.version, tc.err)
 			archive := filepath.Join(t.TempDir(), "refused.backup")
 			if _, err := a.Backups.Backup(t.Context(), instancebackup.Request{Archive: archive, Passphrase: backupPassphrase}); err == nil {
 				t.Fatal("backup published without provenance")
+			}
+			if dumped {
+				t.Fatal("the database was dumped before the client was checked")
 			}
 			if _, err := os.Stat(archive); !errors.Is(err, os.ErrNotExist) {
 				t.Fatalf("archive exists: %v", err)
@@ -549,5 +558,71 @@ func TestBackupRequiresObservedDumpClient(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+// A -db-url database is dumped by the host's pg_dump with the same dump as
+// the built-in database's (no owners, no privileges, plain, compressed), so
+// it loads into the built-in database a restore makes, and the connection
+// travels in libpq's environment, never in the command line, where any
+// user of the host could read the password. A URL setting the backup does
+// not pass on is refused, not dropped; a failed pg_dump leaves no file.
+//
+// Kills: a dump that keeps the managed server's owners or grants; the
+// password in argv; an unknown URL setting silently ignored; a partial dump
+// published.
+func TestAnExternalDatabaseIsDumpedByTheHostsPGDump(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	argv, env := filepath.Join(dir, "argv"), filepath.Join(dir, "env")
+	fake := filepath.Join(dir, "pg_dump")
+	// The fake writes a gzipped dump where --file= says, or fails when told.
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > " + argv + "\nenv | grep '^PG' | sort > " + env + "\n" +
+		"[ \"$PGDATABASE\" = broken ] && { echo 'pg_dump: error: connection failed' >&2; exit 1; }\n" +
+		"for a; do case $a in --file=*) printf 'SELECT 1;\\n' | gzip > \"${a#--file=}\";; esac; done\n"
+	if err := execfile.Write(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	db := ExternalDatabase{URL: "postgres://doadmin:s3cret@db.internal:25060/forge?sslmode=require", PGDump: fake}
+	out := filepath.Join(dir, "database.sql.gz")
+	if err := db.Dump(t.Context(), out); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	zr, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body, _ := io.ReadAll(zr); string(body) != "SELECT 1;\n" {
+		t.Fatalf("the dump holds %q", body)
+	}
+	gotArgv, _ := os.ReadFile(argv)
+	args := strings.Fields(string(gotArgv))
+	if !slices.Contains(args, "--no-owner") || !slices.Contains(args, "--no-privileges") || strings.Contains(string(gotArgv), "s3cret") {
+		t.Fatalf("pg_dump was run with %q", args)
+	}
+	gotEnv, _ := os.ReadFile(env)
+	for _, want := range []string{"PGHOST=db.internal", "PGPORT=25060", "PGUSER=doadmin", "PGPASSWORD=s3cret", "PGDATABASE=forge", "PGSSLMODE=require"} {
+		if !strings.Contains(string(gotEnv), want+"\n") {
+			t.Fatalf("pg_dump's environment lacks %s:\n%s", want, gotEnv)
+		}
+	}
+
+	failed := filepath.Join(dir, "failed.sql.gz")
+	if err := (ExternalDatabase{URL: "postgres://u:p@h/broken", PGDump: fake}).Dump(t.Context(), failed); err == nil || !strings.Contains(err.Error(), "connection failed") {
+		t.Fatalf("a failed pg_dump: %v", err)
+	}
+	if _, err := os.Stat(failed); !os.IsNotExist(err) {
+		t.Fatalf("a failed pg_dump left %s: %v", failed, err)
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, ".apptown-dump-*")); len(left) != 0 {
+		t.Fatalf("a failed pg_dump left %v", left)
+	}
+	if err := (ExternalDatabase{URL: "postgres://u:p@h/forge?application_name=x", PGDump: fake}).Dump(t.Context(), failed); err == nil || !strings.Contains(err.Error(), "application_name") {
+		t.Fatalf("an unknown URL setting: %v", err)
 	}
 }

@@ -14,8 +14,17 @@ Give each the same flags and `APPTOWN_*` settings `apptownd` runs with, at
 least `-data` (the data directory). Put the flags first, then the command.
 In a container install, run them in the container (`docker exec`).
 
-Both need the built-in database. An AppTown on `-db-url` keeps its database
-elsewhere: back that database up yourself, as "By hand" below says.
+An AppTown on `-db-url` is backed up the same way: the host's own
+`pg_dump` dumps that database, so install the database server's major
+version of it (`pg_dump` 16 for PostgreSQL 16; the backup refuses another
+major before it holds anything). A restore always loads the archive into a
+new built-in database on the new host, so the restored AppTown runs on the
+built-in database; the server backed up must be PostgreSQL 16, as the
+built-in one is. Restore it, and start it afterwards, without `-db-url`
+(`APPTOWN_DB_URL`) and without `-no-local-docker`
+(`APPTOWN_NO_LOCAL_DOCKER`), which a restore refuses: the new host's
+AppTown runs on its own built-in database and Docker, with the new data
+directory.
 
 ## Backing up
 
@@ -90,7 +99,7 @@ built-in database is created. A newer schema needs a build that supports it.
 5. It records what the restored AppTown does when it first starts (below)
    and stops.
 
-Then start AppTown normally, with the same flags. Start it once with
+Then start AppTown normally, with the same flags as the restore. Start it once with
 `-verify-only` first if you want to look before anything runs. The restored
 AppTown has the same id as the one backed up: run only one of them.
 
@@ -177,8 +186,8 @@ it.
 
 ## By hand
 
-These steps are for an AppTown on `-db-url`, and for loading one nightly
-dump.
+These steps are for loading one nightly dump, and for backing up an
+AppTown on `-db-url` with that database's own tools instead.
 
 **What the data directory holds.** Deployment backups under `backups/`,
 project repositories and change folders under `workspaces/`, the built-in
@@ -205,7 +214,7 @@ through the normal startup, which upgrades the database and the data
 directory to this build, then serves reads only, with no recovery, scheduler
 or workers. It is not a dry run of an upgrade. Then restart without it.
 
-**An AppTown on `-db-url`.** Back up that database with its own tools, and
+**An AppTown on `-db-url`, by hand.** Back up that database with its own tools, and
 the data directory with it, taken at the same moment (a file-system
 snapshot of the data directory taken with the dump is the reliable way).
 The data directory holds every secret as files, and the database holds the
