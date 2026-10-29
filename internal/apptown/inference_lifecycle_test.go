@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/inference"
-	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -74,11 +73,6 @@ func TestInferenceLifecycleAndTrustedReceipts(t *testing.T) {
 				gateway.ServeHTTP(response, request)
 				if response.Code != 200 {
 					t.Fatalf("actual inference: %d %s", response.Code, response.Body.String())
-				}
-				var actor, outcome, raw string
-				// sql-guarantee: inference request receipts have no owner read (usage only writes them); adding one would be test-only API.
-				if err := a.DB.QueryRow(`SELECT actor,outcome,usage_json FROM inference_requests WHERE provider=?`, "paid").Scan(&actor, &outcome, &raw); err != nil || actor != "alice" || outcome != "complete" || !strings.Contains(raw, `"input": 8`) {
-					t.Fatalf("bad receipt %s %s %s %v", actor, outcome, raw, err)
 				}
 				// An AppTown with another key (another data directory) does
 				// not recognise this attempt's token.
@@ -182,31 +176,12 @@ func TestInferenceChatSurvivesIdleAndRecoveryButNotEnd(t *testing.T) {
 		t.Fatal("removed chat admitted")
 	}
 }
-func TestInferenceRecoveryPreservesCompletedReceiptsAndConversationFiles(t *testing.T) {
+
+// Startup repair of model calls leaves a chat's conversation files and a
+// change's workspace as they were, and a database failure is reported.
+func TestInferenceRecoveryPreservesConversationFiles(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
-	who := usage.Request{Kind: "console", Actor: "alice", Provider: "paid", Model: "model"}
-	openID, err := a.Usage.Requests.Begin(context.Background(), who)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var originalUsage string
-	// sql-guarantee: inference request receipts have no owner read (usage only writes them); adding one would be test-only API.
-	if err := a.DB.QueryRow(`SELECT usage_json FROM inference_requests WHERE id=?`, openID).Scan(&originalUsage); err != nil {
-		t.Fatal(err)
-	}
-	closedID, err := a.Usage.Requests.Begin(context.Background(), who)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := a.Usage.Requests.Finish(context.Background(), closedID, 200, "complete", `{"observed":true,"input":8,"output":3}`); err != nil {
-		t.Fatal(err)
-	}
-	var before string
-	// sql-guarantee: a settled receipt must stay byte-identical across recovery; inference requests have no owner read, and the whole stored row is the guarantee.
-	if err := a.DB.QueryRow(`SELECT row_to_json(r)::text FROM inference_requests r WHERE id=?`, closedID).Scan(&before); err != nil {
-		t.Fatal(err)
-	}
 	files := []string{"console/chat/pi-home/.pi/agent/models.json", "console/chat/sessions/conversation.jsonl", "workspaces/change-00000000-0001-7000-8000-000000000000/source.go"}
 	for _, path := range files {
 		full := filepath.Join(a.cfg.dataDir, path)
@@ -220,34 +195,14 @@ func TestInferenceRecoveryPreservesCompletedReceiptsAndConversationFiles(t *test
 	if err := a.RecoverInferenceRequests(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	var outcome, usage, first string
-	var finished bool
-	// sql-guarantee: a settled receipt must stay byte-identical across recovery; inference requests have no owner read, and the whole stored row is the guarantee.
-	if err := a.DB.QueryRow(`SELECT outcome,usage_json,finished_at IS NOT NULL,row_to_json(r)::text FROM inference_requests r WHERE id=?`, openID).Scan(&outcome, &usage, &finished, &first); err != nil {
-		t.Fatal(err)
-	}
-	if outcome != "interrupted_restart" || !finished || usage != originalUsage {
-		t.Fatalf("interrupted receipt invented completion or usage: %s %s %t", outcome, usage, finished)
-	}
-	if err := a.RecoverInferenceRequests(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	for id, want := range map[ids.ID]string{openID: first, closedID: before} {
-		var got string
-		// sql-guarantee: a settled receipt must stay byte-identical across recovery; inference requests have no owner read, and the whole stored row is the guarantee.
-		if err := a.DB.QueryRow(`SELECT row_to_json(r)::text FROM inference_requests r WHERE id=?`, id).Scan(&got); err != nil || got != want {
-			t.Fatalf("settled receipt %d changed: %v", id, err)
-		}
-	}
 	for _, path := range files {
 		body, err := os.ReadFile(filepath.Join(a.cfg.dataDir, path))
 		if err != nil || string(body) != "canary" {
 			t.Fatalf("recovery changed %s: %v", path, err)
 		}
 	}
-	if _, err := a.DB.Exec(`DROP TABLE inference_requests`); err != nil {
-		t.Fatal(err)
-	}
+	restore := a.DB.FailNextStatement("-- name: LockInAllPendingLines")
+	defer restore()
 	if err := a.RecoverInferenceRequests(context.Background()); err == nil {
 		t.Fatal("recovery hid a database failure")
 	}

@@ -530,8 +530,7 @@ func TestStartupRepairEndsAQueuedReview(t *testing.T) {
 // AppTown's own model calls go through the gateway on every instance, so
 // startup repair closes the calls an old process sent on every instance,
 // including one without the runtime inference listener: the spend line is
-// locked in as unknown at once, before its own time would run out. (That
-// MarkInterrupted also closes the receipt is the usage owner's test.)
+// locked in as unknown at once, before its own time would run out.
 //
 // Kills: recovery of model calls run only when the listener is enabled.
 func TestStartupRepairClosesModelCallsWithoutTheInferenceListener(t *testing.T) {
@@ -542,8 +541,7 @@ func TestStartupRepairClosesModelCallsWithoutTheInferenceListener(t *testing.T) 
 		t.Fatal("the fixture has an inference listener")
 	}
 	pid := createReadTestProject(t, old, "shop")
-	receipt, err := old.Usage.Requests.OpenCall(context.Background(), usage.Request{Kind: "forge", Actor: "apptown-system", ProjectID: pid, Provider: "native", Model: "judge"},
-		usage.Entry{Kind: "narrative", ProjectID: pid, Actor: "apptown-system", Provider: "native", Model: "judge"}, time.Hour)
+	receipt, err := old.Usage.Requests.OpenCall(context.Background(), usage.Entry{Kind: "narrative", ProjectID: pid, Actor: "apptown-system", Provider: "native", Model: "judge"}, time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}

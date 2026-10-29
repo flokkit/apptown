@@ -765,14 +765,6 @@ func apiDescription() (map[string]any, error) {
 				if err != nil {
 					return nil, fmt.Errorf("%s request: %w", route.pattern, err)
 				}
-				if _, configuration := d.request.(httpapi.DeploymentConfigurationRequest); configuration {
-					name := strings.TrimPrefix(ref["$ref"].(string), "#/components/schemas/")
-					policy := schemas.Components[name]["properties"].(map[string]any)["deploymentPolicy"].(map[string]any)
-					policy["type"] = []string{"string", "null"}
-					policy["enum"] = []any{nil, "", deployment.CompatibleUpdate, deployment.ProtectedMaintenance}
-					policy["default"] = deployment.CompatibleUpdate
-					policy["description"] = "compatible-update names the existing procedure, without compatibility certification or automatic data restore. Omitted, null or empty uses that default. protected-maintenance is recognized but unavailable: 422 with deployment_policy_not_implemented, before configuration effects; other contract-assessment 422 responses can follow saved settings."
-				}
 				if d.strict {
 					name := strings.TrimPrefix(ref["$ref"].(string), "#/components/schemas/")
 					schemas.Components[name]["additionalProperties"] = false

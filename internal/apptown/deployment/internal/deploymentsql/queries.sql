@@ -139,17 +139,16 @@ INSERT INTO deployments (display_label, id, project_id, name, kind, change_id, t
   url=excluded.url, desired_generation=deployments.desired_generation+1, observed_generation=deployments.desired_generation+1, updated_at=excluded.updated_at RETURNING *;
 
 -- name: InsertTarget :one
-INSERT INTO targets (display_label, id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at)
-  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(created_at),sqlc.arg(updated_at))
+INSERT INTO targets (display_label, id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, status, created_at, updated_at)
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(status),sqlc.arg(created_at),sqlc.arg(updated_at))
   ON CONFLICT (name) DO NOTHING
   RETURNING *;
 
 -- name: PutTarget :one
-INSERT INTO targets (display_label, id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, secrets_delivery, status, created_at, updated_at)
-  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(created_at),sqlc.arg(updated_at))
+INSERT INTO targets (display_label, id, name, kind, provider, address_json, origin, capabilities_json, ingress_json, needs_mode, status, created_at, updated_at)
+  VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(status),sqlc.arg(created_at),sqlc.arg(updated_at))
   ON CONFLICT (name) DO UPDATE SET kind=excluded.kind, provider=excluded.provider, address_json=excluded.address_json,
   capabilities_json=excluded.capabilities_json, ingress_json=excluded.ingress_json, needs_mode=excluded.needs_mode,
-  secrets_delivery=excluded.secrets_delivery,
   status=CASE WHEN targets.status=sqlc.arg(retired_state) THEN targets.status ELSE excluded.status END, updated_at=excluded.updated_at,
   settings_revision=targets.settings_revision + CASE WHEN (targets.capabilities_json, targets.ingress_json, targets.needs_mode)
     IS DISTINCT FROM (excluded.capabilities_json, excluded.ingress_json, excluded.needs_mode) THEN 1 ELSE 0 END
@@ -157,7 +156,7 @@ INSERT INTO targets (display_label, id, name, kind, provider, address_json, orig
 
 -- name: RefreshTarget :one
 UPDATE targets SET kind=sqlc.arg(kind), provider=sqlc.arg(provider), address_json=sqlc.arg(address_json), capabilities_json=sqlc.arg(capabilities_json),
-  ingress_json=sqlc.arg(ingress_json), needs_mode=sqlc.arg(needs_mode), secrets_delivery=sqlc.arg(secrets_delivery),
+  ingress_json=sqlc.arg(ingress_json), needs_mode=sqlc.arg(needs_mode),
   settings_revision=settings_revision+1, updated_at=sqlc.arg(updated_at)
 WHERE id=sqlc.arg(id) RETURNING *;
 
@@ -227,9 +226,6 @@ SELECT * FROM retained_resources WHERE project_id=sqlc.arg(project_id) AND deplo
 INSERT INTO retained_resources (id, project_id, deployment, target_id, need, handle_json, retained_by, retained_by_principal, retained_by_via, retained_at, disposition, holds_data)
   VALUES (sqlc.arg(id), sqlc.arg(project_id),sqlc.arg(deployment),sqlc.arg(target_id),sqlc.arg(need),sqlc.arg(handle_json),sqlc.arg(retained_by),sqlc.arg(retained_by_principal),sqlc.arg(retained_by_via),sqlc.arg(retained_at),sqlc.arg(disposition),sqlc.arg(holds_data)) RETURNING *;
 
--- name: InsertReconciliation :one
-INSERT INTO reconciliations (id, deployment_id, kind, status, actor, actor_principal, actor_via, started_at) VALUES (sqlc.arg(id), sqlc.arg(deployment_id),'reconcile',sqlc.arg(status),sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(started_at)) RETURNING *;
-
 -- name: InsertAttempt :one
 INSERT INTO deployment_attempts (id, deployment_id, generation, idempotency_key, status, started_at) VALUES (sqlc.arg(id), sqlc.arg(deployment_id),sqlc.arg(generation),sqlc.arg(idempotency_key),sqlc.arg(status),sqlc.arg(started_at)) RETURNING *;
 
@@ -257,9 +253,6 @@ UPDATE need_instances SET handle_json=sqlc.arg(handle_json) WHERE deployment_id=
 
 -- name: SettleRetainedResource :execrows
 UPDATE retained_resources SET disposition=sqlc.arg(disposition), note=sqlc.arg(note), settled_by=sqlc.arg(settled_by), settled_by_principal=sqlc.arg(settled_by_principal), settled_by_via=sqlc.arg(settled_by_via), settled_at=sqlc.arg(settled_at) WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id) AND disposition=sqlc.arg(open_state);
-
--- name: EndReconciliation :execrows
-UPDATE reconciliations SET status=sqlc.arg(status), receipt_json=sqlc.arg(receipt_json), finished_at=sqlc.arg(finished_at) WHERE id=sqlc.arg(id) AND status=sqlc.arg(running_state);
 
 -- name: SupersedeAttempts :execrows
 UPDATE deployment_attempts SET status=sqlc.arg(status), terminal=true, superseded_by=sqlc.arg(superseded_by), finished_at=sqlc.arg(finished_at) WHERE deployment_id=sqlc.arg(deployment_id) AND status=sqlc.arg(running_state) AND id!=sqlc.arg(id);
@@ -469,8 +462,8 @@ WHERE id=sqlc.arg(id) AND target_id=sqlc.arg(target_id) AND desired_generation=s
  AND handle_json=sqlc.arg(expected_handle)::jsonb;
 
 -- name: InsertProviderTarget :one
-INSERT INTO targets(id,name,display_label,kind,provider,connection_id,provider_scope_json,address_json,origin,capabilities_json,ingress_json,needs_mode,secrets_delivery,status,created_at,updated_at)
-VALUES(sqlc.arg(id),sqlc.arg(name),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(connection_id),sqlc.arg(provider_scope_json),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(secrets_delivery),sqlc.arg(status),sqlc.arg(at),sqlc.arg(at))
+INSERT INTO targets(id,name,display_label,kind,provider,connection_id,provider_scope_json,address_json,origin,capabilities_json,ingress_json,needs_mode,status,created_at,updated_at)
+VALUES(sqlc.arg(id),sqlc.arg(name),sqlc.arg(name),sqlc.arg(kind),sqlc.arg(provider),sqlc.arg(connection_id),sqlc.arg(provider_scope_json),sqlc.arg(address_json),sqlc.arg(origin),sqlc.arg(capabilities_json),sqlc.arg(ingress_json),sqlc.arg(needs_mode),sqlc.arg(status),sqlc.arg(at),sqlc.arg(at))
 ON CONFLICT(name) DO NOTHING RETURNING *;
 
 -- name: ConnectorHasRetainedIdentity :one

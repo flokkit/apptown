@@ -80,29 +80,6 @@ CREATE TABLE IF NOT EXISTS grants (
 CREATE INDEX IF NOT EXISTS grants_subject ON grants(subject_type, subject, revoked_at);
 CREATE INDEX IF NOT EXISTS grants_scope ON grants(scope_type, scope_id, revoked_at);
 CREATE UNIQUE INDEX IF NOT EXISTS grants_live_identity ON grants(subject_type, subject, role_name, capability, scope_type, scope_id) WHERE revoked_at IS NULL;
--- One row per consequential decision (allow or deny) on a protected act:
--- the receipt an audit row points at. Identifiers, never names, are the
--- truth here; the actor string on audit_log is a display snapshot.
-CREATE TABLE IF NOT EXISTS authorization_decisions (
-  id UUID PRIMARY KEY,
-  decided_at           TIMESTAMPTZ NOT NULL,
-  outcome              TEXT NOT NULL,            -- allow | deny
-  reason_code          TEXT NOT NULL DEFAULT '',
-  principal_type       TEXT NOT NULL,
-  principal            TEXT NOT NULL,
-  delegation_kind      TEXT NOT NULL DEFAULT '',
-  delegation_id        TEXT NOT NULL DEFAULT '',
-  capability           TEXT NOT NULL,
-  resource_type        TEXT NOT NULL DEFAULT '',
-  resource_id          TEXT NOT NULL DEFAULT '',
-  project_id UUID,
-  grant_ids_json       JSONB NOT NULL DEFAULT '[]'::jsonb,
-  roles_json   JSONB NOT NULL DEFAULT '[]'::jsonb,
-  membership_paths_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-  constraints_json     JSONB NOT NULL DEFAULT '{}'::jsonb,
-  context_json         JSONB NOT NULL DEFAULT '{}'::jsonb,
-  reason               TEXT NOT NULL DEFAULT ''
-);
 -- Small instance-wide settings the code reads by key (the authorization
 -- profile, migration flags).
 CREATE TABLE IF NOT EXISTS instance_settings (
@@ -358,7 +335,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
   kind         TEXT NOT NULL,
   subject      TEXT NOT NULL DEFAULT '',
   payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  authorization_decision_id UUID,
   -- The work the line names, typed (audit.Ref): derived by the writer from
   -- the subject, payload and actor, so nothing parses the text afterwards.
   refs         JSONB NOT NULL DEFAULT '[]'::jsonb
@@ -485,13 +461,6 @@ CREATE TABLE IF NOT EXISTS integrations (
   created_at  TIMESTAMPTZ NOT NULL,
   updated_at  TIMESTAMPTZ NOT NULL,
   display_label TEXT NOT NULL DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS integration_versions (
-  id UUID PRIMARY KEY,
-  integration_id UUID NOT NULL REFERENCES integrations(id) ON DELETE CASCADE,
-  version        BIGINT NOT NULL,
-  config_json    JSONB NOT NULL,
-  created_at     TIMESTAMPTZ NOT NULL
 );
 CREATE TABLE IF NOT EXISTS project_integrations (
   project_id UUID NOT NULL,
@@ -682,28 +651,6 @@ CREATE TABLE IF NOT EXISTS secret_profiles (
 );
 
 -- Source: internal/apptown/usage/schema.sql
-CREATE TABLE IF NOT EXISTS inference_requests (
-  id UUID PRIMARY KEY,
-  started_at TIMESTAMPTZ NOT NULL,
-  finished_at TIMESTAMPTZ,
-  kind TEXT NOT NULL,
-  actor TEXT NOT NULL,
-  -- The caller's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
-  actor_principal UUID,
-  actor_via TEXT NOT NULL DEFAULT '',
-  project_id UUID,
-  run_id UUID,
-  step_id UUID,
-  attempt BIGINT NOT NULL DEFAULT 0,
-  session_id TEXT NOT NULL DEFAULT '',
-  provider TEXT NOT NULL,
-  model TEXT NOT NULL,
-  http_status INT NOT NULL DEFAULT 0,
-  outcome TEXT NOT NULL DEFAULT 'in_flight',
-  usage_json JSONB NOT NULL DEFAULT '{"observed":false}'::jsonb
-);
-CREATE INDEX IF NOT EXISTS idx_inference_requests_actor ON inference_requests(actor, started_at);
-CREATE INDEX IF NOT EXISTS idx_inference_requests_run ON inference_requests(run_id, started_at);
 CREATE TABLE IF NOT EXISTS token_usage (
   id UUID PRIMARY KEY,
   at               TIMESTAMPTZ NOT NULL,
@@ -1520,7 +1467,6 @@ CREATE TABLE IF NOT EXISTS targets (
   capabilities_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   ingress_json      JSONB NOT NULL DEFAULT '{}'::jsonb,
   needs_mode        TEXT NOT NULL DEFAULT 'emulators', -- emulators | managed | register
-  secrets_delivery  TEXT NOT NULL DEFAULT 'inject',
   status            TEXT NOT NULL DEFAULT 'ready',
   created_at        TIMESTAMPTZ NOT NULL,
   updated_at        TIMESTAMPTZ NOT NULL,
@@ -1607,20 +1553,6 @@ CREATE TABLE IF NOT EXISTS need_instances (
   status           TEXT NOT NULL,  -- creating | ready | failed | orphaned
   updated_at       TIMESTAMPTZ NOT NULL,
   UNIQUE(deployment_id, need)
-);
--- A deployment reconcile (§4.1) and its receipt.
-CREATE TABLE IF NOT EXISTS reconciliations (
-  id UUID PRIMARY KEY,
-  deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
-  kind           TEXT NOT NULL DEFAULT 'reconcile',
-  status         TEXT NOT NULL DEFAULT 'running',   -- running | done | failed
-  receipt_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
-  actor          TEXT NOT NULL DEFAULT '',
-  -- The starter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
-  actor_principal UUID,
-  actor_via TEXT NOT NULL DEFAULT '',
-  started_at     TIMESTAMPTZ NOT NULL,
-  finished_at    TIMESTAMPTZ
 );
 -- What AppTown created for a deployment at its target, recorded when the
 -- provider confirmed the creation (design/subsystems/deployment.md).

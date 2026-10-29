@@ -339,15 +339,6 @@ INSERT INTO instance_settings (key, value) VALUES ($1, $2)
 ON CONFLICT (key) DO UPDATE SET value = excluded.value
 RETURNING *;
 
--- name: InsertDecision :one
-INSERT INTO authorization_decisions (id, decided_at, outcome, reason_code, principal_type, principal,
-  delegation_kind, delegation_id, capability, resource_type, resource_id, project_id, grant_ids_json, roles_json,
-  membership_paths_json, constraints_json, context_json, reason)
-VALUES (sqlc.arg(id), sqlc.arg(decided_at), sqlc.arg(outcome), sqlc.arg(reason_code), sqlc.arg(principal_type), sqlc.arg(principal),
-  sqlc.arg(delegation_kind), sqlc.arg(delegation_id), sqlc.arg(capability), sqlc.arg(resource_type), sqlc.arg(resource_id), sqlc.arg(project_id),
-  sqlc.arg(grant_ids_json), sqlc.arg(roles_json), sqlc.arg(membership_paths_json), '{}', sqlc.arg(context_json), sqlc.arg(reason))
-RETURNING *;
-
 -- ===== oauth clients, codes, consents =================================
 
 -- name: InsertClient :one

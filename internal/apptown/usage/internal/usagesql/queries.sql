@@ -19,16 +19,6 @@ INSERT INTO usage_cursors(path,byte_offset) VALUES ($1,$2) ON CONFLICT(path) DO 
 -- name: RunTotal :one
 SELECT COALESCE(SUM(total),0)::bigint AS total, COALESCE(SUM(cost_micros),0)::bigint AS cost_micros FROM token_usage WHERE root_run_id=ANY(sqlc.arg(root_run_ids)::uuid[]);
 
--- name: BeginRequest :one
-INSERT INTO inference_requests(id, kind,actor,actor_principal,actor_via,project_id,run_id,step_id,attempt,session_id,provider,model,started_at)
-VALUES (sqlc.arg(id), sqlc.arg(kind),sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(project_id),sqlc.arg(run_id),sqlc.arg(step_id),sqlc.arg(attempt),sqlc.arg(session_id),sqlc.arg(provider),sqlc.arg(model),sqlc.arg(started_at)::timestamptz) RETURNING *;
-
--- name: FinishRequest :exec
-UPDATE inference_requests SET finished_at=sqlc.arg(finished_at),http_status=sqlc.arg(http_status)::bigint::integer,outcome=sqlc.arg(outcome),usage_json=sqlc.arg(usage_json) WHERE id=sqlc.arg(id);
-
--- name: InterruptRequests :execrows
-UPDATE inference_requests SET outcome='interrupted_restart',finished_at=$1 WHERE finished_at IS NULL;
-
 -- A report reads the whole instance, or only the listed projects; an empty
 -- list selects nothing.
 -- name: UsageTotals :one
@@ -72,7 +62,7 @@ COUNT(*) FILTER (WHERE incomplete <> '' OR pending_until <= sqlc.arg(now)::times
 FROM token_usage WHERE project_id = ANY(sqlc.arg(project_ids)::uuid[]);
 
 -- An AppTown model call's spend line, opened before the call is sent: keyed by
--- its receipt, zero until settled, pending until pending_until.
+-- its call's id, zero until settled, pending until pending_until.
 -- name: OpenCallLine :exec
 INSERT INTO token_usage(id, at,kind,project_id,run_id,actor,actor_principal,actor_via,provider,model,observation,pending_until)
 VALUES (sqlc.arg(id), sqlc.arg(at),sqlc.arg(kind),sqlc.arg(project_id),sqlc.arg(run_id),sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(provider),sqlc.arg(model),sqlc.arg(observation),sqlc.arg(pending_until)::timestamptz);

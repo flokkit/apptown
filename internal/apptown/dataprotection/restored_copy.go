@@ -591,7 +591,7 @@ func (s *Service) bootRestoredCopy(ctx context.Context, t *tracker, p *restoredP
 	if err := t.allowed(ctx); err != nil {
 		return "", c, "making its databases", err
 	}
-	bindings, err := s.providers.PrepareNeeds(ctx, d, p.target, dep, src.Contract, t.op.AskedBy, logf)
+	bindings, err := s.providers.PrepareNeeds(ctx, d, p.target, dep, src.Contract, logf)
 	if err != nil {
 		return "", c, "making its databases", err
 	}

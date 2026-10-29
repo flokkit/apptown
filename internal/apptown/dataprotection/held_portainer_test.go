@@ -20,7 +20,7 @@ func TestAPortainerDeploymentHoldsWhatItsDeploysMadeAndItsStackDeclares(t *testi
 	t.Parallel()
 	s, _, _, _, pid := backupWorld(t, "pl", answeringPort(t))
 	ctx := context.Background()
-	target, err := s.Targets.Put(ctx, &deployment.Target{Name: "lanp", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady})
+	target, err := s.Targets.Put(ctx, &deployment.Target{Name: "lanp", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}

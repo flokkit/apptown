@@ -365,7 +365,7 @@ func TestAuthzApprovalEligibility(t *testing.T) {
 }
 
 // Grants API: a project maintainer may add people to their project, a
-// contributor may not; receipts and audit rows are written on denial.
+// contributor may not; a denial is written to the audit log.
 func TestAuthzGrantsAPI(t *testing.T) {
 	t.Parallel()
 	a := authzFixture(t)
@@ -374,12 +374,6 @@ func TestAuthzGrantsAPI(t *testing.T) {
 	w := authzCall(h, "outsider", "POST", "/api/v1/authz/grants", `{"subject":"outsider","role":"project-owner","scope":"project","scopeId":"00000000-0001-7000-8000-000000000000"}`)
 	if w.Code != 403 {
 		t.Fatalf("self-grant should be refused: %d %s", w.Code, w.Body.String())
-	}
-	var n int
-	// sql-guarantee: authorization_decisions is write-only receipt storage; no owner read lists decisions
-	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM authorization_decisions WHERE outcome='deny' AND principal='outsider'`).Scan(&n)
-	if n == 0 {
-		t.Error("a denied consequential act should leave a receipt")
 	}
 	if !slices.ContainsFunc(auditEntries(t, a.DB, "authz.denied"), func(e audit.Entry) bool { return e.Actor == "outsider" }) {
 		t.Error("a denied consequential act should be audited")
@@ -736,9 +730,9 @@ func TestAStepTokenDoesNotReadTheInstancesOwnRecords(t *testing.T) {
 	}
 }
 
-// A route guard that cannot read the caller's grants, or cannot write the
-// receipt of its decision, answers 503: unreadable authority is neither a
-// refusal nor a permission, and nothing behind the guard runs.
+// A route guard that cannot read the caller's grants, or cannot record a
+// denial, answers 503: unreadable authority is neither a refusal nor a
+// permission, and nothing behind the guard runs.
 func TestTheRouteGuardAnswers503WhenAuthorityCannotBeReadOrRecorded(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
@@ -746,14 +740,19 @@ func TestTheRouteGuardAnswers503WhenAuthorityCannotBeReadOrRecorded(t *testing.T
 	if w := authzCall(h, "owner", "GET", "/api/v1/projects/game", ""); w.Code != 200 {
 		t.Fatalf("owner reads game: %d %s", w.Code, w.Body)
 	}
-	for _, failed := range []string{"-- name: ActiveGrantsOfPrincipal", "-- name: InsertDecision"} {
-		restore := a.DB.FailNextStatement(failed)
-		w := authzCall(h, "owner", "GET", "/api/v1/projects/game", "")
+	grant := `{"subject":"outsider","role":"project-owner","scope":"project","scopeId":"00000000-0001-7000-8000-000000000000"}`
+	for _, tc := range []struct{ who, method, path, body, failed string }{
+		{"owner", "GET", "/api/v1/projects/game", "", "-- name: ActiveGrantsOfPrincipal"},
+		{"outsider", "POST", "/api/v1/authz/grants", grant, "-- name: AppendReceipt"},
+	} {
+		restore := a.DB.FailNextStatement(tc.failed)
+		w := authzCall(h, tc.who, tc.method, tc.path, tc.body)
 		restore()
 		if w.Code != 503 {
-			t.Errorf("%s failed: the guard answered %d %s, want 503", failed, w.Code, w.Body)
+			t.Errorf("%s for %s failed: the guard answered %d %s, want 503", tc.failed, tc.who, w.Code, w.Body)
 		}
 	}
+
 }
 
 // Disabling a person stops their open chats making requests: the chat's

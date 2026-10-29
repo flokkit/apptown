@@ -362,7 +362,7 @@ func TestDuplicateTargetAttachmentPreservesActiveAndRetiredRecords(t *testing.T)
 			db := testDB(t)
 			targets := NewTargets(db, noRetirement{})
 			initial, err := targets.Attach(t.Context(), &Target{Name: "kept", Kind: KindDockerHost, Provider: "original", Origin: OriginAttached,
-				Address: map[string]any{"host": "original"}, Ingress: map[string]any{"domain": "original.example"}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: TargetReady}, Attachment{By: "fixture"})
+				Address: map[string]any{"host": "original"}, Ingress: map[string]any{"domain": "original.example"}, NeedsMode: "emulators", Status: TargetReady}, Attachment{By: "fixture"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -380,7 +380,7 @@ func TestDuplicateTargetAttachmentPreservesActiveAndRetiredRecords(t *testing.T)
 				t.Fatal(err)
 			}
 			replacement := &Target{Name: initial.Name, Kind: KindS3Bucket, Provider: "replacement", Origin: OriginProvisioned,
-				Address: map[string]any{"endpoint": "other"}, Ingress: map[string]any{"domain": "other.example"}, NeedsMode: "managed", SecretsDelivery: "other", Status: TargetReady}
+				Address: map[string]any{"endpoint": "other"}, Ingress: map[string]any{"domain": "other.example"}, NeedsMode: "managed", Status: TargetReady}
 			if _, err = targets.Attach(t.Context(), replacement, Attachment{By: "fixture"}); fault.KindOf(err) != fault.Conflict {
 				t.Fatalf("duplicate attachment: %v", err)
 			}
@@ -400,7 +400,7 @@ func TestDuplicateTargetAttachmentPreservesActiveAndRetiredRecords(t *testing.T)
 
 func TestCloudAttachmentCommitsOnlyWithANewBindingAndTarget(t *testing.T) {
 	t.Parallel()
-	for _, scenario := range []string{"success", "binding", "managed-binding", "target", "retired-target", "binding-insert", "binding-version", "first-receipt", "second-receipt", "third-receipt"} {
+	for _, scenario := range []string{"success", "binding", "managed-binding", "target", "retired-target", "binding-insert", "first-receipt", "second-receipt", "third-receipt"} {
 		t.Run(scenario, func(t *testing.T) {
 			db := testDB(t)
 			integrations := integration.NewService(db, integration.Dependencies{})
@@ -437,8 +437,6 @@ func TestCloudAttachmentCommitsOnlyWithANewBindingAndTarget(t *testing.T) {
 			switch scenario {
 			case "binding-insert":
 				t.Cleanup(db.FailNextStatement("-- name: CreateBinding"))
-			case "binding-version":
-				t.Cleanup(db.FailNextStatement("-- name: InsertBindingVersion"))
 			case "first-receipt":
 				t.Cleanup(db.FailStatementAfter("-- name: AppendReceipt", 0))
 			case "second-receipt":

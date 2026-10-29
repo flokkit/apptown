@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -111,12 +112,11 @@ func TestMCPWritesAreBoundedByRoleAndConsent(t *testing.T) {
 	if !strings.Contains(text, "viewer may not open a change") || !strings.Contains(text, "Project contributor") {
 		t.Errorf("the refusal should say who, what and which role carries it: %s", text)
 	}
-	// A denied consequential act is receipted and audited.
-	var n int
-	// sql-guarantee: authorization_decisions is write-only receipt storage; no owner read lists decisions
-	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM authorization_decisions WHERE outcome='deny' AND principal='viewer' AND capability='change:create'`).Scan(&n)
-	if n == 0 {
-		t.Error("a refused MCP write should leave a decision receipt")
+	// A denied consequential act is audited.
+	if !slices.ContainsFunc(auditEntries(t, a.DB, "authz.denied"), func(e audit.Entry) bool {
+		return e.Actor == "viewer" && e.Subject == string(access.CapChangeCreate)
+	}) {
+		t.Error("a refused MCP write should leave a denial in the audit log")
 	}
 	// An OAuth delegation narrows even the sovereign: boss consented to reads only.
 	client, err := a.Access.RegisterOAuthClient(context.Background(), identity.Registration{Name: "Codex", RedirectURIs: []string{"http://127.0.0.1:9999/callback"}})

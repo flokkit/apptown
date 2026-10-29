@@ -1,6 +1,6 @@
-// Package usage stores observed model usage and inference-request receipts.
-// [Service] exposes [Ledger] and [Requests], which describe overlapping activity
-// at different points in execution. Their totals must not be added together.
+// Package usage stores observed model usage. [Service] exposes [Ledger] and
+// [Requests], the spend lines of AppTown's own model calls; both write
+// token_usage rows, read by the same reports.
 //
 // # Observed usage
 //
@@ -22,21 +22,12 @@
 // micro-dollars, not reconciled provider invoices. Token/cache categories retain
 // provider semantics and can overlap.
 //
-// # Inference receipts
-//
-// The gateway calls [Requests.Begin] before contacting a provider and refuses
-// dispatch if receipt creation fails. It later calls [Requests.Finish] with the
-// HTTP status, outcome and observed usage. Those calls do not enclose the provider
-// request in a database transaction. A failed final write leaves the prior record
-// available for diagnosis.
-//
 // # AppTown's own model calls
 //
 // For a call AppTown makes for itself (inference.Gateway.Ask),
-// [Requests.OpenCall] writes the receipt and a pending spend line in one
-// transaction before anything is sent, and [Requests.SettleCall] closes the
-// receipt and settles the line, only while it is pending and its time has not
-// run out. A pending line counts nothing until its time runs out, and then
+// [Requests.OpenCall] writes a pending spend line before anything is sent,
+// and [Requests.SettleCall] settles the line, only while it is pending and its
+// time has not run out. A pending line counts nothing until its time runs out, and then
 // counts as unknown spend. [Ledger.LockInUnknownIn] turns expired pending
 // lines into unknown lines that can never change, under their row locks, and
 // counts the unknown lines: an eval's acknowledgement saved from that count
@@ -44,11 +35,10 @@
 // covers a later unknown charge. A settlement that comes after a lock-in
 // changes nothing.
 //
-// Startup calls [Requests.MarkInterrupted] before admitting requests to close
-// unfinished receipts without inventing final token counts, and to lock in
-// every pending spend line: the restart cut those calls off. Missing usage is
-// unknown consumption, not zero cost. Receipts contain workload attribution and
-// usage, not prompts, completions or credentials.
+// Startup calls [Requests.MarkInterrupted] before admitting requests to lock
+// in every pending spend line as unknown: the restart cut those calls off.
+// Missing usage is unknown consumption, not zero cost. Spend lines contain
+// attribution and usage, not prompts, completions or credentials.
 //
 // Callers establish authorization and workload identity. These storage operations
 // neither reserve money nor enforce budgets. Inference owns admission limits and

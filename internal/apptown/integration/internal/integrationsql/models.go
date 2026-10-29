@@ -24,14 +24,6 @@ type Integration struct {
 	DisplayLabel string
 }
 
-type IntegrationVersion struct {
-	ID            ids.ID
-	IntegrationID ids.ID
-	Version       int64
-	ConfigJson    json.RawMessage
-	CreatedAt     time.Time
-}
-
 type ProjectIntegration struct {
 	ProjectID    ids.ID
 	Capability   string

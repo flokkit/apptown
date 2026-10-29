@@ -32,8 +32,8 @@ const settleWithin = 5 * time.Minute
 // Ask answers one of AppTown's own calls (modelcall.Call) through the same
 // provider resolution and admission as a runtime's request: the binding the
 // model names, the model's eligibility in it, the eval model choice (or,
-// for Judge, the judge's door), the concurrency limit, a receipt and a
-// pending spend line written before anything is sent, cancellation through
+// for Judge, the judge's door), the concurrency limit, a pending spend
+// line written before anything is sent, cancellation through
 // ctx, and the spend line settled once, on its own context, when the call
 // ends. It skips the network check and the bearer token: the caller is AppTown
 // code, already authorized by the route or job that asked.
@@ -100,7 +100,7 @@ func (g *Gateway) Ask(ctx context.Context, call modelcall.Call) (string, *modelc
 	// call, not the accounting for it.
 	settleCtx, done := context.WithTimeout(context.WithoutCancel(ctx), settleWithin)
 	defer done()
-	if settled, err := g.settle(settleCtx, receipt, a.status, a.outcome, a.usage, a.incomplete); err != nil || !settled {
+	if settled, err := g.settle(settleCtx, receipt, a.usage, a.incomplete); err != nil || !settled {
 		// The line stays pending and counts as unknown spend once its time
 		// runs out (or is already locked in as unknown).
 		log.Printf("inference: AppTown call %d's spend was not settled (settled=%v): %v", receipt, settled, err)

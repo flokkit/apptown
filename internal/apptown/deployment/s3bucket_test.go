@@ -74,7 +74,7 @@ func TestABucketTargetNeedsAReleaseByDigest(t *testing.T) {
 func TestABucketTargetHoldsEachDeploymentsBucket(t *testing.T) {
 	t.Parallel()
 	s, _, _, projectID, _ := healthWorld(t)
-	target, err := s.Targets.Put(context.Background(), &Target{Name: "spaces", Kind: KindS3Bucket, Origin: OriginAttached, Address: map[string]any{"endpoint": "https://syd1.example"}, Ingress: map[string]any{}, NeedsMode: "managed", SecretsDelivery: "none", Status: TargetReady})
+	target, err := s.Targets.Put(context.Background(), &Target{Name: "spaces", Kind: KindS3Bucket, Origin: OriginAttached, Address: map[string]any{"endpoint": "https://syd1.example"}, Ingress: map[string]any{}, NeedsMode: "managed", Status: TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}

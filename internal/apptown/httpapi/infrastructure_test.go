@@ -43,7 +43,7 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 	}
 	h := Infrastructure{deployment: d, projects: projects, db: db}
 	if _, err := d.Targets.Put(context.Background(), &deployment.Target{Name: "lan", Kind: deployment.KindPortainer, Provider: "portainer-deploy", Origin: deployment.OriginAttached,
-		Address: map[string]any{}, Capabilities: deployment.TargetCapabilities{}, Ingress: map[string]any{}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady}); err != nil {
+		Address: map[string]any{}, Capabilities: deployment.TargetCapabilities{}, Ingress: map[string]any{}, NeedsMode: "emulators", Status: deployment.TargetReady}); err != nil {
 		t.Fatal(err)
 	}
 	host, _ := d.Targets.ByName(t.Context(), "forge")

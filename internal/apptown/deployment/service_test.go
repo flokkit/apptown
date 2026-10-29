@@ -54,7 +54,7 @@ func TestServiceIsBuiltFromDeclaredDependencies(t *testing.T) {
 	inventoryOverride := func(*Target) (deploy.Inventorier, error) { return nil, inventoryFailure }
 	s := New(context.Background(), db, assembled(db, testRuntime{Inventories: map[string]InventoryFactory{KindDockerHost: inventoryOverride, KindPortainer: inventoryOverride, KindDOApp: inventoryOverride}, Connectors: noRetirement{}, OfferedByConstruction: []string{"lan"}, Drivers: map[string]DriverFactory{KindDockerHost: driverOverride, KindPortainer: driverOverride, KindDOApp: driverOverride}}, Dependencies{Followups: noFollowups{}, Declared: noDeclaration{}}))
 	if s.Targets == nil || s.Deployments == nil || s.Releases == nil || s.Outcomes == nil ||
-		s.Bundles == nil || s.Retained == nil || s.Reconciliations == nil || s.Inventory == nil {
+		s.Bundles == nil || s.Retained == nil || s.Inventory == nil {
 		t.Fatal("every store is built once by New")
 	}
 	for _, kind := range []string{KindDockerHost, KindPortainer, KindDOApp} {

@@ -72,12 +72,12 @@ func (r storageRecorder) Establish(ctx context.Context, b deploy.StorageBinding)
 		if err != nil {
 			return false, err
 		}
-		return establishStorageIn(ctx, tx, dep, b, "apptown-system", clock.Or(r.now)().UTC())
+		return establishStorageIn(ctx, tx, dep, b, clock.Or(r.now)().UTC())
 	})
 	return err
 }
 
-func establishStorageIn(ctx context.Context, tx *database.Tx, dep *Deployment, b deploy.StorageBinding, actor string, at time.Time) (bool, error) {
+func establishStorageIn(ctx context.Context, tx *database.Tx, dep *Deployment, b deploy.StorageBinding, at time.Time) (bool, error) {
 	if err := validateStorage(b); err != nil {
 		return false, err
 	}
@@ -95,7 +95,7 @@ func establishStorageIn(ctx context.Context, tx *database.Tx, dep *Deployment, b
 	if err := q.EstablishStorageBinding(ctx, deploymentsql.EstablishStorageBindingParams{ID: ids.New(at), DeploymentID: dep.ID, Need: b.Need, Volume: b.Volume, DataPath: b.DataPath, DeclaredImage: b.DeclaredImage, ImageID: b.ImageID, RepoDigest: b.RepoDigest, VolumeCreated: b.VolumeCreated.UTC().Format(time.RFC3339Nano), VolumeDriver: b.VolumeDriver, Origin: b.Origin, RecordedAt: at}); err != nil {
 		return false, err
 	}
-	return true, audit.At(at).RecordIn(ctx, tx, actor, dep.ProjectID, "deployment.storage-established", dep.Name, b)
+	return true, audit.At(at).RecordIn(ctx, tx, "apptown-system", dep.ProjectID, "deployment.storage-established", dep.Name, b)
 }
 
 func (r storageRecorder) Retire(ctx context.Context, need, volume string) error {

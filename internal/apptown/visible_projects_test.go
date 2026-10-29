@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -86,9 +88,9 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	// If an aggregate records a decision, it consumes this failure. The explicit
-	// detail request afterwards must still encounter it (HTTP logs receipt errors).
-	clear := a.DB.FailNextStatement("-- name: InsertDecision")
+	// If an aggregate records a denial, it consumes this failure. The explicit
+	// detail request afterwards must still encounter it (HTTP logs recording errors).
+	clear := a.DB.FailNextStatement("-- name: AppendReceipt")
 	defer clear()
 	h := a.Handler()
 	for _, who := range []string{"owner", "project-reader", "run-reader", "no-projects", "boss"} {
@@ -206,9 +208,9 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 	if err != nil || !reflect.DeepEqual(auditBefore, auditAfter) {
 		t.Fatalf("aggregate wrote audit: %v", err)
 	}
-	// Calling the kernel's explicit receipt operation must encounter the still-
+	// Calling the kernel's explicit decision, a denial, must encounter the still-
 	// armed fault. A swallowed HTTP recording error cannot make this test pass.
-	if _, err := a.Access.Decide(context.Background(), access.Principal{Kind: "user", Name: "no-projects"}, access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "project", ProjectID: idstest.N(1)}}); err == nil || !strings.Contains(err.Error(), "forge_injected_failure") {
+	if _, err := a.Access.Decide(context.Background(), access.Principal{Kind: "user", Name: "no-projects"}, access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "project", ProjectID: idstest.N(1)}}); !errors.Is(err, database.ErrInjectedFailure) {
 		t.Fatalf("aggregate consumed decision tripwire: %v", err)
 	}
 	clear()

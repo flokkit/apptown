@@ -50,7 +50,7 @@ afterwards, including after a failure. The step's outcome, not the last
 line, says whether the deploy worked.
 
 **How a deploy replaces what runs.** A deploy starts the new release in place
-of the old one (the procedure called `compatible-update`). It does not check
+of the old one. It does not check
 that the new code can read the old data, and it does not put data back if the
 new release fails. A change that rewrites data incompatibly needs its own
 plan: stop writes, take and test a backup, then deploy.

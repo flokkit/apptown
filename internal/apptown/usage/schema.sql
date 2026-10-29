@@ -1,25 +1,3 @@
-CREATE TABLE IF NOT EXISTS inference_requests (
-  id UUID PRIMARY KEY,
-  started_at TIMESTAMPTZ NOT NULL,
-  finished_at TIMESTAMPTZ,
-  kind TEXT NOT NULL,
-  actor TEXT NOT NULL,
-  -- The caller's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
-  actor_principal UUID,
-  actor_via TEXT NOT NULL DEFAULT '',
-  project_id UUID,
-  run_id UUID,
-  step_id UUID,
-  attempt BIGINT NOT NULL DEFAULT 0,
-  session_id TEXT NOT NULL DEFAULT '',
-  provider TEXT NOT NULL,
-  model TEXT NOT NULL,
-  http_status INT NOT NULL DEFAULT 0,
-  outcome TEXT NOT NULL DEFAULT 'in_flight',
-  usage_json JSONB NOT NULL DEFAULT '{"observed":false}'::jsonb
-);
-CREATE INDEX IF NOT EXISTS idx_inference_requests_actor ON inference_requests(actor, started_at);
-CREATE INDEX IF NOT EXISTS idx_inference_requests_run ON inference_requests(run_id, started_at);
 CREATE TABLE IF NOT EXISTS token_usage (
   id UUID PRIMARY KEY,
   at               TIMESTAMPTZ NOT NULL,

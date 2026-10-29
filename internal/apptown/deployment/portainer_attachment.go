@@ -115,7 +115,7 @@ func (s *Service) AttachPortainerTarget(ctx context.Context, in PortainerAttachm
 	}
 	scopeJSON := json.RawMessage(encoded)
 	at := s.now()
-	target := &Target{ID: ids.New(at), Name: in.Name, Kind: KindPortainer, ConnectionID: in.ConnectionID, ProviderScope: scopeJSON, Address: map[string]any{AddressEnvironment: in.Environment, "endpoint": endpoint}, Origin: OriginAttached, Capabilities: StockCapabilities(KindPortainer, needs), Ingress: map[string]any{"binding": "traefik", "domain": in.Domain}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: TargetReady}
+	target := &Target{ID: ids.New(at), Name: in.Name, Kind: KindPortainer, ConnectionID: in.ConnectionID, ProviderScope: scopeJSON, Address: map[string]any{AddressEnvironment: in.Environment, "endpoint": endpoint}, Origin: OriginAttached, Capabilities: StockCapabilities(KindPortainer, needs), Ingress: map[string]any{"binding": "traefik", "domain": in.Domain}, NeedsMode: "emulators", Status: TargetReady}
 	if in.DryRun {
 		return target, nil
 	}
@@ -128,7 +128,7 @@ func (s *Service) AttachPortainerTarget(ctx context.Context, in PortainerAttachm
 		} else if err := integration.MatchConnectionIn(ctx, tx, binding.ID, binding.Version); err != nil {
 			return nil, err
 		}
-		row, err := deploymentsql.New(tx.SQL()).InsertProviderTarget(ctx, deploymentsql.InsertProviderTargetParams{ID: target.ID, Name: target.Name, Kind: target.Kind, Provider: binding.Name, ConnectionID: binding.ID, ProviderScopeJson: &scopeJSON, AddressJson: json.RawMessage(jsonText(target.Address)), Origin: target.Origin, CapabilitiesJson: json.RawMessage(jsonText(target.Capabilities)), IngressJson: json.RawMessage(jsonText(target.Ingress)), NeedsMode: target.NeedsMode, SecretsDelivery: target.SecretsDelivery, Status: target.Status.String(), At: at})
+		row, err := deploymentsql.New(tx.SQL()).InsertProviderTarget(ctx, deploymentsql.InsertProviderTargetParams{ID: target.ID, Name: target.Name, Kind: target.Kind, Provider: binding.Name, ConnectionID: binding.ID, ProviderScopeJson: &scopeJSON, AddressJson: json.RawMessage(jsonText(target.Address)), Origin: target.Origin, CapabilitiesJson: json.RawMessage(jsonText(target.Capabilities)), IngressJson: json.RawMessage(jsonText(target.Ingress)), NeedsMode: target.NeedsMode, Status: target.Status.String(), At: at})
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fault.New(fault.Conflict, "a target with this name already exists")
 		}

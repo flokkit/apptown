@@ -31,8 +31,7 @@ func newCallWorld(t *testing.T) *callWorld {
 
 func (w *callWorld) open(t *testing.T, pending time.Duration) ids.ID {
 	t.Helper()
-	id, err := w.requests.OpenCall(context.Background(), Request{Kind: "forge", Actor: "apptown-system", ProjectID: w.project, Provider: "native", Model: "judge"},
-		Entry{Kind: "narrative", ProjectID: w.project, Actor: "apptown-system", Provider: "native", Model: "judge"}, pending)
+	id, err := w.requests.OpenCall(context.Background(), Entry{Kind: "narrative", ProjectID: w.project, Actor: "apptown-system", Provider: "native", Model: "judge"}, pending)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +40,7 @@ func (w *callWorld) open(t *testing.T, pending time.Duration) ids.ID {
 
 func (w *callWorld) settle(t *testing.T, id ids.ID, u Totals, incomplete string) bool {
 	t.Helper()
-	settled, err := w.requests.SettleCall(context.Background(), id, 200, "complete", "{}", u, incomplete)
+	settled, err := w.requests.SettleCall(context.Background(), id, u, incomplete)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +185,7 @@ func TestSettlementAndLockInAreDecidedOnTheRow(t *testing.T) {
 		t.Parallel()
 		w := newCallWorld(t)
 		_, tx := w.heldBeforeExpiry(t, func(tx *database.Tx, a ids.ID) bool {
-			settled, err := settleCallIn(ctx, tx, a, 200, "complete", "{}", paid, "", time.Now())
+			settled, err := settleCallIn(ctx, tx, a, paid, "", time.Now())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -254,7 +253,7 @@ func TestSettlementAndLockInAreDecidedOnTheRow(t *testing.T) {
 		if n := w.lockIn(t); n != 1 {
 			t.Fatalf("locked in: %d", n)
 		}
-		if settled, err := settleCallIn(ctx, tx, a, 200, "complete", "{}", paid, "", time.Now()); err != nil || settled {
+		if settled, err := settleCallIn(ctx, tx, a, paid, "", time.Now()); err != nil || settled {
 			t.Fatalf("a settlement after the lock-in: %v %v", settled, err)
 		}
 		if err := tx.Commit(); err != nil {

@@ -43,14 +43,11 @@ type Service struct {
 	tokens    *tokenStore
 	oauth     *oauthStore
 	tickets   *Tickets
-	decisions decisionRecorder
+	denials   denialRecorder
 	now       func() time.Time
 }
 
-type decisionRecorder struct {
-	db  *database.DB
-	now func() time.Time
-}
+type denialRecorder struct{ db *database.DB }
 
 // New constructs Access once and performs no reads, writes or background work.
 func New(db *database.DB, cfg Config) *Service {
@@ -60,7 +57,7 @@ func New(db *database.DB, cfg Config) *Service {
 	now := clock.Or(cfg.Now)
 	s := &Service{db: db, cfg: cfg, directory: &directoryStore{db: db, clock: now}, grants: NewGrants(db),
 		sessions: &sessionStore{db: db, ttl: cfg.SessionTTL, now: now}, tokens: &tokenStore{db: db, now: now}, oauth: &oauthStore{db: db, clock: now},
-		tickets: NewTickets(db), decisions: decisionRecorder{db: db, now: now}, now: now}
+		tickets: NewTickets(db), denials: denialRecorder{db: db}, now: now}
 	s.grants.clock = now
 	s.tickets.clock = now
 	return s

@@ -25,11 +25,14 @@ func (f *fakeClient) Run(_ context.Context, host string, req Command) ([]byte, e
 	if f.reply != nil {
 		out, err = f.reply(req)
 	}
-	// A fake not scripted for the disk admission's questions answers them
-	// as a daemon with room.
+	// A fake not scripted for the disk admission's or the builder's
+	// questions answers them as a daemon with room and with buildx.
 	if err == nil && len(strings.TrimSpace(string(out))) == 0 {
 		if roomy, diskErr, ok := f.disk.Roomy(req.Args); ok {
 			return roomy, diskErr
+		}
+		if own, ok := ownBuilderAnswer(req.Args); ok {
+			return own, nil
 		}
 	}
 	return out, err
@@ -87,4 +90,22 @@ func TestExistsTellsAbsenceFromNotKnowing(t *testing.T) {
 			t.Errorf("%q: there=%v err=%v", c.out, there, err)
 		}
 	}
+}
+
+// ownBuilderAnswer is what a Docker with buildx answers to Build's
+// questions about its own builder (ownBuilder): buildx's version, the
+// context in use, and a builder of the docker driver.
+func ownBuilderAnswer(args []string) ([]byte, bool) {
+	if len(args) > 1 && args[0] == "--config" {
+		args = args[2:]
+	}
+	switch {
+	case len(args) == 2 && args[0] == "buildx" && args[1] == "version":
+		return []byte("github.com/docker/buildx v0.38.1"), true
+	case len(args) == 3 && args[0] == "buildx" && args[1] == "inspect":
+		return []byte("Name:          " + args[2] + "\nDriver:        docker\n"), true
+	case len(args) == 2 && args[0] == "context" && args[1] == "show":
+		return []byte("default\n"), true
+	}
+	return nil, false
 }

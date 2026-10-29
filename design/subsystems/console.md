@@ -37,7 +37,7 @@ terminal opened to type), so its waking is recorded under whoever woke it.
 A chat's own credential reaches its own chat and no other, for reading as
 for acting; no other instrument acts on a chat.
 `conversation.Chats` holds this rule at each operation, whichever door asks,
-and keeps an authorization receipt of each decision; the routes check only
+and records each denial in the activity log; the routes check only
 that the caller can read the project (`project:read`, however it is held:
 a project role, an owning group's or an instance grant such as Auditor). A
 terminal opened to type asks again before each keystroke or resize, so

@@ -212,11 +212,9 @@ func TestReleasePreviewChecksCurrentAuthorityAndHTTP(t *testing.T) {
 	if _, err := call(access.Principal{}); !errors.Is(err, access.ErrPrincipalRequired) {
 		t.Fatal(err)
 	}
-	for _, statement := range []string{"-- name: UserByName :one", "-- name: InsertDecision"} {
-		dbtest.FailNextStatement(t, a.DB, statement)
-		if out, err := call(owner); err == nil || out != (preview.ReleaseResult{}) || host.calls != 0 {
-			t.Fatalf("failed authority/receipt: %+v %v", out, err)
-		}
+	dbtest.FailNextStatement(t, a.DB, "-- name: UserByName :one")
+	if out, err := call(owner); err == nil || out != (preview.ReleaseResult{}) || host.calls != 0 {
+		t.Fatalf("failed authority: %+v %v", out, err)
 	}
 	if out, err := a.Preview.RequestReleasePreview(verifiedContext(ctx, owner), preview.ReleaseSelection{ProjectID: other, Number: 1}); err == nil || out != (preview.ReleaseResult{}) || host.calls != 0 {
 		t.Fatalf("foreign project's release: %+v %v", out, err)

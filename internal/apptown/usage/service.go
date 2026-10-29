@@ -12,7 +12,7 @@ import (
 )
 
 // Service is the usage subsystem built once: the ledger of model usage
-// and the inference request receipts.
+// and the spend lines of AppTown's own model calls.
 type Service struct {
 	Ledger    *Ledger
 	Requests  *Requests

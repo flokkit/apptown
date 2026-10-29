@@ -329,6 +329,18 @@ func (f *fakeDocker) run(args ...string) ([]byte, error) {
 			return []byte("sha256:built\n"), nil
 		}
 		return []byte(""), nil
+	case "buildx", "context":
+		// The client has buildx, and the daemon's builder is its own
+		// (docker.Scope.Build asks before every build).
+		switch {
+		case len(args) == 2 && args[1] == "version":
+			return []byte("github.com/docker/buildx v0.38.1"), nil
+		case len(args) == 3 && args[1] == "inspect":
+			return []byte("Name:          " + args[2] + "\nDriver:        docker\n"), nil
+		case len(args) == 2 && args[1] == "show":
+			return []byte("default\n"), nil
+		}
+		return nil, nil
 	case "image":
 		if slices.Contains(args, "{{json .}}") {
 			return json.Marshal(map[string]any{"Id": dockerfake.ImageID(args[len(args)-1])})

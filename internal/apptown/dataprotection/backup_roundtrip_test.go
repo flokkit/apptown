@@ -205,7 +205,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 	// scheduled backup fails rather than being skipped.
 	lan, _ := s.Targets.ByName(t.Context(), "lanx")
 	if lan == nil {
-		lan, _ = s.Targets.Put(context.Background(), &deployment.Target{Name: "lanx", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady,
+		lan, _ = s.Targets.Put(context.Background(), &deployment.Target{Name: "lanx", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", Status: deployment.TargetReady,
 			Address: map[string]any{"urlFrom": "NO_SUCH_PORTAINER_URL", "apiKeyFrom": "NO_SUCH_PORTAINER_KEY", "environment": "lan"}})
 	}
 	if _, err := s.Deployments.EnsureStanding(t.Context(), pid, "lan", lan.ID, deployment.Attributes{}.WithDefaults()); err != nil {
@@ -234,7 +234,7 @@ func TestBackupPlanAndTake(t *testing.T) {
 func TestABackupWhoseTargetCannotBeReadIsRefused(t *testing.T) {
 	t.Parallel()
 	s, db, _, _, pid := backupWorld(t, "tr", 40002)
-	lan, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "lanx", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady})
+	lan, err := s.Targets.Put(context.Background(), &deployment.Target{Name: "lanx", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}

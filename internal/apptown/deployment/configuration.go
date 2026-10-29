@@ -22,10 +22,9 @@ import (
 // ConfigureDeployment selects settings; identity and project ownership come from
 // the authority port, never from caller-supplied attribution or group names.
 type ConfigureDeployment struct {
-	ProjectID        ids.ID
-	Name             string
-	Target           string
-	DeploymentPolicy DeploymentPolicy
+	ProjectID ids.ID
+	Name      string
+	Target    string
 	Attributes
 	// StartFrom is a set in the backup store a new deployment's first
 	// release fills its data from (0: it starts empty).
@@ -72,10 +71,6 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (Config
 	}
 	if actor.Principal.Name == "" {
 		return ConfigurationResult{}, errors.New("configuration caller required")
-	}
-	policy, err := in.DeploymentPolicy.available()
-	if err != nil {
-		return ConfigurationResult{}, err
 	}
 	proj, err := s.configuration.Projects.Project(ctx, in.ProjectID)
 	if err != nil {
@@ -150,7 +145,7 @@ func (s *Service) Configure(ctx context.Context, in ConfigureDeployment) (Config
 		if !dep.StartFrom.IsZero() && !dep.StartedFrom.Valid && dep.Feed == "landing" {
 			return ConfigurationResult{}, fmt.Errorf("%w: %s starts from a copy, so it is fed by a person's deploy, not by every landing", ErrStartFrom, dep.Name)
 		}
-		if err := audit.At(at).RecordIn(ctx, tx, actor.Principal.Name, in.ProjectID, "deployment.bound", in.Name, map[string]any{"target": target.Name, "kind": target.Kind, "deploymentPolicy": policy, "feed": dep.Feed, "audience": dep.Audience, "data": dep.DataClass, "protected": dep.Protected(), "startFrom": dep.StartFrom}); err != nil {
+		if err := audit.At(at).RecordIn(ctx, tx, actor.Principal.Name, in.ProjectID, "deployment.bound", in.Name, map[string]any{"target": target.Name, "kind": target.Kind, "feed": dep.Feed, "audience": dep.Audience, "data": dep.DataClass, "protected": dep.Protected(), "startFrom": dep.StartFrom}); err != nil {
 			return ConfigurationResult{}, err
 		}
 		result := ConfigurationResult{Deployment: dep}

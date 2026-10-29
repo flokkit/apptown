@@ -135,7 +135,7 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 // The caller filters project visibility before reaching or observing its target.
 func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment.Deployment) TierApp {
 	reach := h.deployment.Reach(ctx, p.Slug, d)
-	app := TierApp{DeploymentID: d.ID, DeploymentLabel: d.DisplayLabel, DeploymentPolicy: d.UpdatePolicy(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: reach.URL, HostOnly: reach.HostOnly}
+	app := TierApp{DeploymentID: d.ID, DeploymentLabel: d.DisplayLabel, Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: reach.URL, HostOnly: reach.HostOnly}
 	switch o := h.deployment.ObserveContainer(ctx, d); o.State {
 	case deployment.ContainerUnavailable, deployment.ContainerUnknown:
 		app.Observed = o.State.String()
@@ -202,14 +202,13 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 }
 
 type TierApp struct {
-	DeploymentID     ids.ID                      `json:"deploymentId,omitzero"`
-	DeploymentLabel  string                      `json:"deploymentLabel,omitempty"`
-	DeploymentPolicy deployment.DeploymentPolicy `json:"deploymentPolicy,omitempty"`
-	Slug             string                      `json:"slug"`
-	Name             string                      `json:"name"`
-	Icon             string                      `json:"icon,omitempty"`
-	Detail           string                      `json:"detail,omitempty"`
-	URL              string                      `json:"url,omitempty"`
+	DeploymentID    ids.ID `json:"deploymentId,omitzero"`
+	DeploymentLabel string `json:"deploymentLabel,omitempty"`
+	Slug            string `json:"slug"`
+	Name            string `json:"name"`
+	Icon            string `json:"icon,omitempty"`
+	Detail          string `json:"detail,omitempty"`
+	URL             string `json:"url,omitempty"`
 	// HostOnly: URL answers on the AppTown host only (deployment.Reach).
 	HostOnly bool `json:"hostOnly,omitempty"`
 	Running  bool `json:"running"`

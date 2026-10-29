@@ -107,7 +107,7 @@ export function TargetPage() {
           </div>
           <span className={`chip ${t.status === 'ready' ? 'pass' : retired ? 'muted' : 'fail'}`}>{t.status}</span>
         </div>
-        <div className="muted small" style={{ marginTop: 6 }}>{facts.join(' · ')} · needs are {t.needsMode} · secrets {t.secretsDelivery}</div>
+        <div className="muted small" style={{ marginTop: 6 }}>{facts.join(' · ')} · needs are {t.needsMode}</div>
         {t.ingress?.rehearsals === true && <div className="small" style={{ marginTop: 6 }}><b>Kept for restore rehearsals.</b> {rehearsalHostMeaning}</div>}
         {t.copies && <CopyRunnerLine t={t} />}
         {(concrete.length > 0 || t.provider) && (

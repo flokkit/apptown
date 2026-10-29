@@ -4,34 +4,6 @@
 
 package usagesql
 
-import (
-	"database/sql"
-	"encoding/json"
-	"time"
-
-	"github.com/flokkit/apptown/internal/ids"
-)
-
-type InferenceRequest struct {
-	ID             ids.ID
-	StartedAt      time.Time
-	FinishedAt     sql.NullTime
-	Kind           string
-	Actor          string
-	ActorPrincipal ids.ID
-	ActorVia       string
-	ProjectID      ids.ID
-	RunID          ids.ID
-	StepID         ids.ID
-	Attempt        int64
-	SessionID      string
-	Provider       string
-	Model          string
-	HttpStatus     int32
-	Outcome        string
-	UsageJson      json.RawMessage
-}
-
 type UsageCursor struct {
 	Path       string
 	ByteOffset int64

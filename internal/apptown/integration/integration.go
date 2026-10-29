@@ -148,10 +148,9 @@ func (s *Bindings) Count(ctx context.Context, name, capability string) (int, err
 	return 0, nil
 }
 
-// Upsert records a binding's configuration: version 1 with its version
-// row for a new name, the next version when the configuration changed,
-// nothing when it did not. The row and its version row commit together.
-// It returns the version that stands.
+// Upsert records a binding's configuration: version 1 for a new name, the
+// next version when the configuration changed, nothing when it did not. It
+// returns the version that stands.
 func (s *Bindings) Upsert(ctx context.Context, name, capability, provider, configJSON string, managed bool) (int, error) {
 	return s.upsertAt(ctx, s.now(), name, capability, provider, configJSON, managed, nil)
 }
@@ -185,9 +184,6 @@ func (s *Bindings) upsertAt(ctx context.Context, now time.Time, name, capability
 			if err != nil {
 				return err
 			}
-		}
-		if _, err = q.InsertBindingVersion(ctx, integrationsql.InsertBindingVersionParams{ID: ids.New(now), IntegrationID: current.ID, Version: int64(version), ConfigJson: json.RawMessage(configJSON), CreatedAt: now}); err != nil {
-			return err
 		}
 		if receipt == nil {
 			return nil
@@ -228,15 +224,12 @@ func (s *Bindings) CreateIn(ctx context.Context, tx *database.Tx, name, capabili
 	}
 	now := s.now()
 	q := integrationsql.New(tx.SQL())
-	binding, err := q.CreateBinding(ctx, integrationsql.CreateBindingParams{ID: ids.New(now), Name: name, Capability: capability, Provider: provider,
+	_, err := q.CreateBinding(ctx, integrationsql.CreateBindingParams{ID: ids.New(now), Name: name, Capability: capability, Provider: provider,
 		ConfigJson: json.RawMessage(configJSON), Managed: false, CreatedAt: now, UpdatedAt: now})
 	if errors.Is(err, sql.ErrNoRows) {
 		return fault.New(fault.Conflict, fmt.Sprintf("a binding named %q already exists", name))
 	}
 	if err != nil {
-		return err
-	}
-	if _, err = q.InsertBindingVersion(ctx, integrationsql.InsertBindingVersionParams{ID: ids.New(now), IntegrationID: binding.ID, Version: 1, ConfigJson: json.RawMessage(configJSON), CreatedAt: now}); err != nil {
 		return err
 	}
 	return audit.At(now).RecordIn(ctx, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": capability, "provider": provider})
@@ -313,10 +306,6 @@ func (s *Bindings) StockUpdate(ctx context.Context, name, configJSON string) (in
 		}
 		version = int(current.Version) + 1
 		_, err = q.SetBindingConfiguration(ctx, integrationsql.SetBindingConfigurationParams{ID: current.ID, ConfigJson: json.RawMessage(configJSON), Version: int64(version), UpdatedAt: now})
-		if err != nil {
-			return err
-		}
-		_, err = q.InsertBindingVersion(ctx, integrationsql.InsertBindingVersionParams{ID: ids.New(now), IntegrationID: current.ID, Version: int64(version), ConfigJson: json.RawMessage(configJSON), CreatedAt: now})
 		return err
 	})
 	return version, err

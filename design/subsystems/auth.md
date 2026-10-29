@@ -224,8 +224,8 @@ Project visibility is not inferred from the ability to read runs or from a singl
 instance-level authorization decision.
 
 Fact memoization lasts one visibility operation only; later operations read grants
-and account state again. Enumeration does not emit decision receipts for every
-candidate. An empty visible set is different from a policy/database failure.
+and account state again. Enumeration records nothing for a candidate it
+leaves out. An empty visible set is different from a policy/database failure.
 A person holding only Project creator and the roles on their own projects can
 open every page the menu shows them: aggregate pages are filtered to their
 projects, and instance-only pages are left out of the menu and refused (see

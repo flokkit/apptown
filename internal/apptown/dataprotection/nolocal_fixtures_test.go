@@ -221,7 +221,7 @@ func noLocalDockerWorld(t *testing.T, yaml string) *noLocalWorld {
 		return assembled(db, testRuntime{Scope: docker.Scope{Client: w.daemon}, Probe: &docker.Probe{Settle: time.Millisecond}, DataDir: w.dir, SSHConfigPath: filepath.Join(w.dir, "ssh-config"), Projects: projects, Secrets: secrets, Integrations: integrations, Needs: dependency.NewCatalog(db, nil), ChownImage: "test-helper", BuiltInTarget: "local", NoLocalDocker: noLocal}, deployment.Dependencies{Followups: noFollowups{}, Configuration: deployment.ConfigurationDependencies{Projects: w.sources}, Releases: deployment.ReleaseDependencies{Authority: &requestAuthority{}, Sources: w.sources, Secrets: requestSecrets{}, Queue: requestQueue{}}})
 	}
 	w.remote, err = w.service(true).Targets.Put(context.Background(), &deployment.Target{Name: "remote", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetReady,
-		Address: map[string]any{"host": "ssh://deploy@127.0.0.1", "keyFrom": "REMOTE_KEY"}, NeedsMode: "emulators", SecretsDelivery: "inject"})
+		Address: map[string]any{"host": "ssh://deploy@127.0.0.1", "keyFrom": "REMOTE_KEY"}, NeedsMode: "emulators"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -27,7 +27,7 @@ func TestADockerHostsInventoryAsksForTheImagesItsDeploymentsRecorded(t *testing.
 			t.Fatal(err)
 		}
 	}
-	other, err := s.Targets.Put(context.Background(), &Target{Name: "elsewhere", Kind: KindDockerHost, Origin: OriginAttached, Address: map[string]any{"host": "ssh://elsewhere"}, Ingress: map[string]any{}, NeedsMode: "managed", SecretsDelivery: "none", Status: TargetReady})
+	other, err := s.Targets.Put(context.Background(), &Target{Name: "elsewhere", Kind: KindDockerHost, Origin: OriginAttached, Address: map[string]any{"host": "ssh://elsewhere"}, Ingress: map[string]any{}, NeedsMode: "managed", Status: TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}

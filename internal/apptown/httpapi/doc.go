@@ -44,7 +44,7 @@
 // Each owner obtains capability-specific project visibility from Identity;
 // transports never turn an ID slice into authority. Fleet uses one bulk
 // Adoption observation alongside shared pack metadata. Visibility enumeration
-// and caller-filtered route admission do not record authorization receipts.
+// and caller-filtered route admission do not record denials.
 // Atomic settings edits call projectlifecycle.UpdateSettings or
 // wow.EditBlock once, rather than coordinating independent persistence commands.
 // Groups consume

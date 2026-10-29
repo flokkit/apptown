@@ -102,7 +102,7 @@ func (s *Service) prepareDecision(ctx context.Context, id ids.ID, action command
 
 // MayApprove answers whether the caller could approve this step now, by the
 // same checks a vote passes, without voting. The check is not consequential,
-// so it records no authorization receipt. A refusal is a *DecisionDenied;
+// so it records no denial. A refusal is a *DecisionDenied;
 // any other error means eligibility could not be read.
 func (s *Service) MayApprove(ctx context.Context, id ids.ID) error {
 	_, _, err := s.prepareDecision(ctx, id, actionApproveStep)

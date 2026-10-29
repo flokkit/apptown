@@ -34,6 +34,9 @@ func (c *recordingClient) Run(_ context.Context, _ string, req Command) ([]byte,
 	if out, err, ok := c.disk.Roomy(req.Args); ok {
 		return out, err
 	}
+	if out, ok := ownBuilderAnswer(req.Args); ok {
+		return out, nil
+	}
 	args := req.Args
 	if len(args) > 1 && args[0] == "--config" {
 		args = args[2:]
@@ -325,10 +328,11 @@ func normalised(calls []string) string {
 	config := regexp.MustCompile(`^--config \S+ `)
 	var out []string
 	for _, call := range calls {
+		call = config.ReplaceAllString(call, "")
 		if call == "context show" {
-			continue // a prepared boot asks, for its own configuration
+			continue // a prepared boot asks, for its own configuration, as a build does for its builder
 		}
-		words := strings.Fields(probe.ReplaceAllString(created.ReplaceAllString(config.ReplaceAllString(call, ""), dockerlabel.Created), "result"))
+		words := strings.Fields(probe.ReplaceAllString(created.ReplaceAllString(call, dockerlabel.Created), "result"))
 		sort.Strings(words)
 		out = append(out, strings.Join(words, " "))
 	}

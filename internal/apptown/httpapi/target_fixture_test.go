@@ -91,7 +91,7 @@ func (w *targetHTTPWorld) seedBuiltin(t *testing.T) *deployment.Target {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bi, err := w.deployment.Targets.Put(context.Background(), &deployment.Target{Name: targetTestBuiltin, Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Address: map[string]any{"daemon": "local"}, Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: true, Needs: emulators}, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady})
+	bi, err := w.deployment.Targets.Put(context.Background(), &deployment.Target{Name: targetTestBuiltin, Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Address: map[string]any{"daemon": "local"}, Capabilities: deployment.TargetCapabilities{PersistentVolumes: true, Previews: true, Needs: emulators}, NeedsMode: "emulators", Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}

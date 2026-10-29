@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS audit_log (
   kind         TEXT NOT NULL,
   subject      TEXT NOT NULL DEFAULT '',
   payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  authorization_decision_id UUID,
   -- The work the line names, typed (audit.Ref): derived by the writer from
   -- the subject, payload and actor, so nothing parses the text afterwards.
   refs         JSONB NOT NULL DEFAULT '[]'::jsonb

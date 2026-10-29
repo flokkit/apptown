@@ -110,21 +110,20 @@ type Resource struct {
 	RunID       ids.ID
 }
 
-// Context describes the decision receipt.
+// Context describes where a decision is made.
 type Context struct {
-	Consequential bool   // write a decision receipt (protected acts: yes)
-	Route         string // for the receipt's context
+	Consequential bool   // a denial is recorded in the activity log (protected acts: yes)
+	Route         string // recorded with a denial
 }
 
 // Decision is the one answer.
 type Decision struct {
-	Allow     bool     `json:"allow"`
-	Code      string   `json:"code,omitempty"`
-	Reason    string   `json:"reason"`
-	GrantIDs  []ids.ID `json:"grantIds,omitzero"`
-	Roles     []string `json:"roles,omitempty"`
-	Paths     []string `json:"paths,omitempty"` // membership paths that mattered, e.g. group:approvers
-	ReceiptID ids.ID   `json:"receiptId,omitzero"`
+	Allow    bool     `json:"allow"`
+	Code     string   `json:"code,omitempty"`
+	Reason   string   `json:"reason"`
+	GrantIDs []ids.ID `json:"grantIds,omitzero"`
+	Roles    []string `json:"roles,omitempty"`
+	Paths    []string `json:"paths,omitempty"` // membership paths that mattered, e.g. group:approvers
 }
 
 // Grant is a grant row as the rule reads it.

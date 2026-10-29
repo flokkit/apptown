@@ -42,7 +42,7 @@ contract. These declarations identify where enforcement belongs; an owner/public
 exception is not automatic proof its implementation is correct.
 
 Visibility-aware reads select authorized projects before pagination and counts.
-Read enumeration does not create a receipt for every project. Consequential
+Read enumeration records nothing for every project. Consequential
 operations preserve their required authorization/audit records. Ordinary record
 lookups and transaction participants are not universally self-authorizing APIs.
 
@@ -96,8 +96,10 @@ project's address reveals nothing about it.
   separately. Attribution never grants authority; commands that take an actor
   check it equals the verified receipt actor.
 - A failed policy read is an operational error, never an authorization answer
-  (503 on HTTP). Required receipts stay required: a route or tool decision
-  whose receipt cannot be written does not proceed.
+  (503 on HTTP). A route or tool guard, and a consequential owner check,
+  records a denial in the activity log (`authz.denied`); a denial that
+  cannot be recorded is a failure, not a refusal. An allowed decision is not
+  stored: the act's own record carries who did it.
 - A consequential act (changing who may do what, disclosing or changing a
   secret or credential, changing what runs, destroying work) writes its
   receipt in the act's transaction. An act outside the database records its

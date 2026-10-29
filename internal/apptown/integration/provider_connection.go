@@ -89,9 +89,6 @@ func CreatePortainerConnectionIn(ctx context.Context, tx *database.Tx, name, url
 	if err != nil {
 		return nil, err
 	}
-	if _, err = q.InsertBindingVersion(ctx, integrationsql.InsertBindingVersionParams{ID: ids.New(at), IntegrationID: row.ID, Version: row.Version, ConfigJson: config, CreatedAt: at}); err != nil {
-		return nil, err
-	}
 	if err := audit.At(at).RecordIn(ctx, tx, who, ids.Nil, "integration.saved", name, map[string]any{"capability": "deploy", "provider": "portainer"}); err != nil {
 		return nil, err
 	}

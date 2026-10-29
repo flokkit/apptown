@@ -161,7 +161,7 @@ func TestAStandingStaticBuildIsPackedAndRunAsAnImage(t *testing.T) {
 			builds = append(builds, strings.Join(args, " "))
 		}
 	}
-	if len(builds) != 2 || !strings.HasPrefix(builds[0], "build --label apptown.built=1 --target out --output type=local,dest=") || !strings.HasSuffix(builds[0], filepath.Join(ws, "site")) ||
+	if len(builds) != 2 || !strings.HasPrefix(builds[0], "build --label apptown.built=1 --builder default --target out --output type=local,dest=") || !strings.HasSuffix(builds[0], filepath.Join(ws, "site")) ||
 		!strings.Contains(builds[1], "-f ") || !strings.HasSuffix(builds[1], "/dist") {
 		t.Fatalf("export then pack: %q", builds)
 	}

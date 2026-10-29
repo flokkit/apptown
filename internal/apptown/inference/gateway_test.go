@@ -12,6 +12,10 @@ import (
 	"testing"
 	"time"
 
+	noopmetric "go.opentelemetry.io/otel/metric/noop"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -34,13 +38,6 @@ func inferenceFixture(t *testing.T, upstream http.HandlerFunc) (*Gateway, *atomi
 	g.providers = func(context.Context) (map[string]*inferenceProvider, error) {
 		return map[string]*inferenceProvider{"paid": {name: "paid", baseURL: server.URL, api: "openai-completions", key: "provider-canary", patterns: []string{"allowed"}}}, nil
 	}
-	g.begin = func(_ context.Context, w identity.Workload, p, m string) (ids.ID, error) {
-		if w.Actor != "alice" || w.SessionID != "chat-1" || p != "paid" || m != "allowed" {
-			t.Errorf("wrong trusted attribution: %+v %s %s", w, p, m)
-		}
-		return idstest.N(1), nil
-	}
-	g.finish = func(context.Context, ids.ID, int, string, inferenceUsage) {}
 	return g, live
 }
 func inferenceRequest(path, body string) *http.Request {
@@ -121,8 +118,7 @@ func TestInferenceStreamingCancellationAndReceipt(t *testing.T) {
 		<-r.Context().Done()
 		close(upstreamCancelled)
 	})
-	finished := make(chan string, 1)
-	g.finish = func(_ context.Context, _ ids.ID, _ int, outcome string, _ inferenceUsage) { finished <- outcome }
+	outcome := recordOutcome(g)
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { r.RemoteAddr = "192.0.2.10:40"; g.ServeHTTP(w, r) }))
 	defer proxy.Close()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -145,13 +141,35 @@ func TestInferenceStreamingCancellationAndReceipt(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("client cancellation did not cancel upstream")
 	}
-	select {
-	case result := <-finished:
-		if result == "complete" {
-			t.Fatal("cancelled stream marked complete")
+	if result := outcome(t); result == "complete" {
+		t.Fatal("cancelled stream reported complete")
+	}
+}
+
+// recordOutcome instruments g with an in-memory tracer and returns a wait
+// for the outcome its one request reports.
+func recordOutcome(g *Gateway) func(*testing.T) string {
+	spans := tracetest.NewSpanRecorder()
+	g.Instrument(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)).Tracer("test"), noopmetric.NewMeterProvider().Meter("test"))
+	return func(t *testing.T) string {
+		t.Helper()
+		deadline := time.After(3 * time.Second)
+		tick := time.NewTicker(10 * time.Millisecond)
+		defer tick.Stop()
+		for len(spans.Ended()) == 0 {
+			select {
+			case <-deadline:
+				t.Fatal("the request reported no outcome")
+			case <-tick.C:
+			}
 		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("missing terminal receipt")
+		for _, a := range spans.Ended()[0].Attributes() {
+			if a.Key == "apptown.inference.outcome" {
+				return a.Value.AsString()
+			}
+		}
+		t.Fatal("the request's span has no outcome")
+		return ""
 	}
 }
 func TestInferenceUsageProtocols(t *testing.T) {
@@ -183,7 +201,7 @@ func TestInferenceUsageProtocols(t *testing.T) {
 		})
 	}
 }
-func TestInferenceRejectsRedirectErrorsAndUnrecordedRequests(t *testing.T) {
+func TestInferenceRejectsRedirectsAndLimitsConcurrency(t *testing.T) {
 	t.Parallel()
 	var calls atomic.Int32
 	g, _ := inferenceFixture(t, func(w http.ResponseWriter, r *http.Request) {
@@ -196,14 +214,6 @@ func TestInferenceRejectsRedirectErrorsAndUnrecordedRequests(t *testing.T) {
 	g.ServeHTTP(w, inferenceRequest("/providers/paid/chat/completions", `{"model":"allowed"}`))
 	if w.Code != 502 || strings.Contains(w.Body.String()+fmt.Sprint(w.Header()), "provider-canary") {
 		t.Fatalf("redirect leaked or followed: %+v", w)
-	}
-	g.begin = func(context.Context, identity.Workload, string, string) (ids.ID, error) {
-		return ids.Nil, fmt.Errorf("database down")
-	}
-	w = httptest.NewRecorder()
-	g.ServeHTTP(w, inferenceRequest("/providers/paid/chat/completions", `{"model":"allowed"}`))
-	if w.Code != 503 || calls.Load() != 1 {
-		t.Fatal("unrecorded request dispatched")
 	}
 	for i := 0; i < 8; i++ {
 		if !g.acquire("session-secret") {
@@ -247,10 +257,6 @@ func TestInferenceRevocationDuringPreparationAndStreaming(t *testing.T) {
 			live.Store(false)
 			return providers(context.Background())
 		}
-		g.begin = func(context.Context, identity.Workload, string, string) (ids.ID, error) {
-			t.Error("revoked request admitted")
-			return idstest.N(1), nil
-		}
 		w := httptest.NewRecorder()
 		g.ServeHTTP(w, inferenceRequest("/providers/paid/chat/completions", `{"model":"allowed"}`))
 		if w.Code != 401 {
@@ -267,11 +273,7 @@ func TestInferenceRevocationDuringPreparationAndStreaming(t *testing.T) {
 			<-r.Context().Done()
 			close(cancelled)
 		})
-		g.finish = func(_ context.Context, _ ids.ID, _ int, outcome string, _ inferenceUsage) {
-			if outcome != "cancelled" {
-				t.Errorf("revocation outcome %s", outcome)
-			}
-		}
+		outcome := recordOutcome(g)
 		go func() {
 			defer close(done)
 			g.ServeHTTP(httptest.NewRecorder(), inferenceRequest("/providers/paid/chat/completions", `{"model":"allowed","stream":true}`))
@@ -284,6 +286,9 @@ func TestInferenceRevocationDuringPreparationAndStreaming(t *testing.T) {
 			t.Fatal("revoked token kept upstream alive")
 		}
 		<-done
+		if got := outcome(t); got != "cancelled" {
+			t.Errorf("revocation outcome %s", got)
+		}
 	})
 }
 

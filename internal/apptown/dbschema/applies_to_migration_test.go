@@ -3,6 +3,7 @@ package dbschema
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -55,7 +56,10 @@ func TestMigration169StatesWhatEachStoredCheckAppliesTo(t *testing.T) {
 			t.Fatalf("%s: %v", s, err)
 		}
 	}
-	if _, err := Migrate(t.Context(), db); err != nil {
+	// Through 169 only: a later migration drops integration_versions, whose
+	// rows this released migration still rewrites.
+	through169 := slices.IndexFunc(migrations, func(m migration) bool { return m.n == 169 }) + 1
+	if _, err := applyMigrations(t.Context(), db, migrations[:through169]); err != nil {
 		t.Fatal(err)
 	}
 	read := func() (blocks map[string]string, scanners map[string]string) {

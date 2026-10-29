@@ -66,17 +66,16 @@ type NeedSummary struct {
 	Status                                NeedState
 }
 type Summary struct {
-	TargetID         ids.ID
-	DisplayLabel     string
-	DeploymentPolicy DeploymentPolicy
-	ID               ids.ID
-	Name             string
-	Kind             Kind
-	URL              string
-	HostOnly         bool // URL answers on the AppTown host only (Reach)
-	HostPort         int
-	ReleaseRun       ids.ID
-	UpdatedAt        string
+	TargetID     ids.ID
+	DisplayLabel string
+	ID           ids.ID
+	Name         string
+	Kind         Kind
+	URL          string
+	HostOnly     bool // URL answers on the AppTown host only (Reach)
+	HostPort     int
+	ReleaseRun   ids.ID
+	UpdatedAt    string
 	Attributes
 	RequirePromotion bool
 	PolicyRevision   int64
@@ -222,7 +221,7 @@ func (s *Service) listRecords(ctx context.Context, projectIDs []ids.ID) ([]listi
 			}
 		}
 		out[i] = listingRecord{project: row.Slug, deployment: e, target: byTarget[e.TargetID], summary: Summary{DisplayLabel: e.DisplayLabel,
-			DeploymentPolicy: e.UpdatePolicy(), ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
+			ID: e.ID, TargetID: e.TargetID, Name: e.Name, RestoreCheck: e.RestoreCheck, Kind: e.Kind, URL: e.URL, HostPort: e.HostPort, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt,
 			Attributes: e.releaseAttributes(), Protected: e.Protected(), RequirePromotion: e.RequirePromotion, PolicyRevision: e.PolicyRevision, Generation: e.ObservedGeneration, Readiness: e.Readiness,
 			ChangeID: e.ChangeID, Target: summaries[e.TargetID], Needs: needs, AIModelsKeys: keys,
 		}}

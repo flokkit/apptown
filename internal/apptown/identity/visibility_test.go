@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -75,9 +74,6 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 			t.Fatalf("oracle: %v != %v", got, oracle)
 		}
 	}
-	// Leave a fault armed, then prove the first explicit receipt still hits it.
-	clear := db.FailNextStatement("-- name: InsertDecision")
-	defer clear()
 	checkCases := func() {
 		read(admittedPrincipal(t, s, "boss"), projectIDs)
 		read(admittedPrincipal(t, s, "reader"), projectIDs[:1])
@@ -91,11 +87,7 @@ func TestVisibleProjectsUsesCurrentCheckedAuthorityWithoutReceipts(t *testing.T)
 		read(access.Principal{Kind: "user", Name: "reader", Via: "oauth", Scopes: []string{"apptown:change:check"}}, projectIDs[:1])
 		read(access.Principal{Kind: "user", Name: "reader", Via: "oauth"}, nil)
 	}
-	checkCases()
-	if _, err := s.Decide(context.Background(), admittedPrincipal(t, s, "outsider"), access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "instance"}}); err == nil || !strings.Contains(err.Error(), "forge_injected_failure") {
-		t.Fatalf("enumeration consumed receipt tripwire: %v", err)
-	}
-	clear()
+	// Enumeration writes nothing: an armed audit fault is still armed after it.
 	clearAudit := db.FailNextStatement("-- name: AppendReceipt")
 	defer clearAudit()
 	checkCases()

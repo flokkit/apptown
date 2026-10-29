@@ -23,9 +23,8 @@ import (
 // a session is a browser's proof of a login, a personal token is a
 // command line's, and both are bounds on the person's current authority,
 // never frozen authority of their own. Only hashes are stored; the
-// plaintext is returned once. A decision receipt records what the rule
-// decided and on what grounds, and a denial of a consequential act is
-// also a ledger line pointing at its receipt.
+// plaintext is returned once. A denial of a consequential act is a ledger
+// line saying what was refused and why.
 
 const (
 	SessionTTL  = 30 * 24 * time.Hour
@@ -169,65 +168,20 @@ func (d *directoryStore) SeedAdministrator(ctx context.Context, username string)
 	})
 }
 
-// --- decision receipts ------------------------------------------------------------
+// --- denials ----------------------------------------------------------------------
 
-func recordDecision(requestContext context.Context, db *database.DB, pr access.Principal, d access.Channel, c access.Capability, res access.Resource, ctx access.Context, dec access.Decision, at time.Time) (ids.ID, error) {
-	outcome := "deny"
+// recordDenial writes a denied decision's authz.denied line in the activity
+// log; an allowed decision writes nothing. A denial that cannot be recorded is
+// an error, so the caller reports a failure rather than a silent refusal.
+func recordDenial(ctx context.Context, db *database.DB, pr access.Principal, c access.Capability, res access.Resource, actx access.Context, dec access.Decision, at time.Time) error {
 	if dec.Allow {
-		outcome = "allow"
+		return nil
 	}
-	grants, err := rawJSON(orEmpty(dec.GrantIDs))
-	if err != nil {
-		return ids.Nil, err
-	}
-	roles, err := rawJSON(orEmptyS(dec.Roles))
-	if err != nil {
-		return ids.Nil, err
-	}
-	paths, err := rawJSON(orEmptyS(dec.Paths))
-	if err != nil {
-		return ids.Nil, err
-	}
-	route, err := rawJSON(map[string]any{"route": ctx.Route})
-	if err != nil {
-		return ids.Nil, err
-	}
-	var id ids.ID
-	err = db.InTx(requestContext, func(tx *database.Tx) error {
-		bg := requestContext
-		row, err := queries(tx).InsertDecision(bg, accesssql.InsertDecisionParams{ID: ids.New(at.UTC()),
-			DecidedAt: at.UTC(), Outcome: outcome, ReasonCode: dec.Code, PrincipalType: pr.Kind, Principal: pr.Name,
-			DelegationKind: d.Kind, DelegationID: d.ID, Capability: string(c), ResourceType: res.Type, ResourceID: res.ID, ProjectID: res.ProjectID,
-			GrantIdsJson: grants, RolesJson: roles, MembershipPathsJson: paths,
-			ContextJson: route, Reason: dec.Reason})
-		if err != nil {
-			return err
-		}
-		id = row.ID
-		if dec.Allow {
-			return nil
-		}
-		return audit.At(at).RecordDecisionIn(bg, tx, id, pr.Name, res.ProjectID, "authz.denied", string(c),
-			map[string]any{"code": dec.Code, "reason": dec.Reason, "resource": res.Type + ":" + res.ID, "route": ctx.Route})
-	})
-	return id, err
+	return audit.At(at).Record(ctx, db, pr.Name, res.ProjectID, "authz.denied", string(c),
+		map[string]any{"code": dec.Code, "reason": dec.Reason, "resource": res.Type + ":" + res.ID, "route": actx.Route})
 }
 
 func rawJSON(v any) (json.RawMessage, error) {
 	text, err := strs.JSON(v)
 	return json.RawMessage(text), err
-}
-
-func orEmpty(xs []ids.ID) []ids.ID {
-	if xs == nil {
-		return []ids.ID{}
-	}
-	return xs
-}
-
-func orEmptyS(xs []string) []string {
-	if xs == nil {
-		return []string{}
-	}
-	return xs
 }

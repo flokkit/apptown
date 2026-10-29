@@ -334,6 +334,16 @@ CREATE TABLE IF NOT EXISTS external_signin_sessions (
  UNIQUE(issuer_id,request_id)
 );
 CREATE UNIQUE INDEX IF NOT EXISTS routine_publication_active_digest ON routine_publication_classifications(digest) WHERE revocation_json = 'null'::jsonb;`}},
+	{n: 182, note: "drop records nothing reads: decision receipts, inference request rows, integration config history, need reconciliations", stmts: []string{
+		`DROP TABLE IF EXISTS authorization_decisions`,
+		`ALTER TABLE audit_log DROP COLUMN IF EXISTS authorization_decision_id`,
+		`DROP TABLE IF EXISTS inference_requests`,
+		`DROP TABLE IF EXISTS integration_versions`,
+		`DROP TABLE IF EXISTS reconciliations`,
+	}},
+	{n: 183, note: "drop the target secrets delivery setting nothing reads", stmts: []string{
+		`ALTER TABLE targets DROP COLUMN IF EXISTS secrets_delivery`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

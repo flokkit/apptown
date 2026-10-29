@@ -1585,9 +1585,6 @@
           "data": {
             "type": "string"
           },
-          "deploymentPolicy": {
-            "type": "string"
-          },
           "desiredGeneration": {
             "type": "integer"
           },
@@ -1714,20 +1711,6 @@
           "data": {
             "type": "string"
           },
-          "deploymentPolicy": {
-            "default": "compatible-update",
-            "description": "compatible-update names the existing procedure, without compatibility certification or automatic data restore. Omitted, null or empty uses that default. protected-maintenance is recognized but unavailable: 422 with deployment_policy_not_implemented, before configuration effects; other contract-assessment 422 responses can follow saved settings.",
-            "enum": [
-              null,
-              "",
-              "compatible-update",
-              "protected-maintenance"
-            ],
-            "type": [
-              "string",
-              "null"
-            ]
-          },
           "feed": {
             "type": "string"
           },
@@ -1850,9 +1833,6 @@
                 "type": "null"
               }
             ]
-          },
-          "deploymentPolicy": {
-            "type": "string"
           },
           "displayLabel": {
             "type": "string"
@@ -11822,82 +11802,6 @@
           "capability": "deployment:restore",
           "kind": "capability",
           "scope": "project-slug"
-        },
-        "x-apptown-stability": "experimental"
-      }
-    },
-    "/api/v1/projects/{slug}/deployments/{name}/storage-bindings": {
-      "get": {
-        "operationId": "getProjectsSlugDeploymentsNameStorageBindings",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "contract": "deployments.DeploymentStorageBindings",
-          "kind": "owner"
-        },
-        "x-apptown-stability": "experimental"
-      },
-      "post": {
-        "operationId": "postProjectsSlugDeploymentsNameStorageBindings",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "2XX": {
-            "description": "the operation's result; its shape is not described in 1.0"
-          },
-          "default": {
-            "$ref": "#/components/responses/Refusal"
-          }
-        },
-        "tags": [
-          "projects"
-        ],
-        "x-apptown-access": {
-          "contract": "deployments.AdoptDeploymentStorageBindings",
-          "kind": "owner"
         },
         "x-apptown-stability": "experimental"
       }
