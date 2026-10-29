@@ -40,8 +40,8 @@ on that data directory to write one archive. It does this, in order:
    The data directory includes the deployment backups kept on AppTown's
    disk.
 3. With `-store`, the archive is also copied to the backup store that
-   deployment backups use (Settings, Backup store). The store takes one
-   object of up to 5 GB.
+   deployment backups use (Settings, Backup store). It goes up in parts, so
+   its size has no single-upload limit.
 
 Nothing is stopped: the backup is AppTown's own. Apps keep their data in
 their own deployment backups (the Backups page), and a restore brings

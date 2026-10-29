@@ -32,6 +32,16 @@ type Object struct {
 	ACL string
 	// SHA256 is the x-amz-meta-sha256 the writer sent.
 	SHA256 string
+	// ETag is the store's ETag for it: the MD5 of a single PUT's body, or a
+	// multipart upload's MD5 of its parts' MD5s and "-" and their number.
+	ETag string
+}
+
+// upload is a multipart upload begun and not yet completed or aborted.
+type upload struct {
+	bucket, key string
+	object      Object         // the headers given when it was begun
+	parts       map[int][]byte // what the store kept of each part
 }
 
 type bucket struct {
@@ -58,6 +68,8 @@ type Store struct {
 	fail          map[string]int // "METHOD bucket/key" -> status to answer
 	frozen        map[string]*bucket
 	websiteStatus int
+	uploads       map[string]*upload
+	nextUpload    int
 
 	// Mangle, when set, changes what the store keeps of a written object,
 	// as a store that lost or altered bytes would; its answer to a later
@@ -202,6 +214,14 @@ func (s *Store) Put(name, key string, o Object) {
 	}
 }
 
+// OpenUploads is the number of multipart uploads begun and neither
+// completed nor aborted.
+func (s *Store) OpenUploads() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.uploads)
+}
+
 // AddBucket makes a bucket as someone else would.
 func (s *Store) AddBucket(name string) {
 	s.mu.Lock()
@@ -343,6 +363,78 @@ func (s *Store) serveAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		delete(s.buckets, name)
 		w.WriteHeader(204)
+	case r.Method == "POST" && q.Has("uploads"):
+		if b == nil {
+			errXML(w, 404, "NoSuchBucket")
+			return
+		}
+		if s.uploads == nil {
+			s.uploads = map[string]*upload{}
+		}
+		s.nextUpload++
+		id := "upload-" + strconv.Itoa(s.nextUpload)
+		s.uploads[id] = &upload{bucket: name, key: key, parts: map[int][]byte{}, object: Object{ContentType: r.Header.Get("Content-Type"),
+			Public: r.Header.Get("x-amz-acl") == "public-read", ACL: r.Header.Get("x-amz-acl"), SHA256: r.Header.Get("x-amz-meta-sha256")}}
+		fmt.Fprintf(w, `<InitiateMultipartUploadResult><Bucket>%s</Bucket><Key>%s</Key><UploadId>%s</UploadId></InitiateMultipartUploadResult>`, name, key, id)
+	case r.Method == "PUT" && q.Has("uploadId"):
+		u, ok := s.uploads[q.Get("uploadId")]
+		n, err := strconv.Atoi(q.Get("partNumber"))
+		if !ok || u.bucket != name || u.key != key || err != nil || n < 1 {
+			errXML(w, 404, "NoSuchUpload")
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		if sum := sha256.Sum256(body); r.Header.Get("x-amz-content-sha256") != hex.EncodeToString(sum[:]) {
+			errXML(w, 400, "XAmzContentSHA256Mismatch")
+			return
+		}
+		if s.Mangle != nil {
+			body = s.Mangle(key, body)
+		}
+		u.parts[n] = body
+		sum := md5.Sum(body)
+		w.Header().Set("ETag", `"`+hex.EncodeToString(sum[:])+`"`)
+	case r.Method == "POST" && q.Has("uploadId"):
+		u, ok := s.uploads[q.Get("uploadId")]
+		if !ok || u.bucket != name || u.key != key {
+			errXML(w, 404, "NoSuchUpload")
+			return
+		}
+		var done struct {
+			Parts []struct {
+				PartNumber int    `xml:"PartNumber"`
+				ETag       string `xml:"ETag"`
+			} `xml:"Part"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		if err := xml.Unmarshal(raw, &done); err != nil || len(done.Parts) == 0 {
+			errXML(w, 400, "MalformedXML")
+			return
+		}
+		o := u.object
+		var sums []byte
+		for i, p := range done.Parts {
+			body, ok := u.parts[p.PartNumber]
+			sum := md5.Sum(body)
+			if !ok || p.PartNumber != i+1 || strings.Trim(p.ETag, `"`) != hex.EncodeToString(sum[:]) {
+				errXML(w, 400, "InvalidPart")
+				return
+			}
+			o.Body = append(o.Body, body...)
+			sums = append(sums, sum[:]...)
+		}
+		all := md5.Sum(sums)
+		o.ETag = hex.EncodeToString(all[:]) + "-" + strconv.Itoa(len(done.Parts))
+		b.objects[key] = o
+		delete(s.uploads, q.Get("uploadId"))
+		fmt.Fprintf(w, `<CompleteMultipartUploadResult><Key>%s</Key><ETag>"%s"</ETag></CompleteMultipartUploadResult>`, key, o.ETag)
+	case r.Method == "DELETE" && q.Has("uploadId"):
+		if _, ok := s.uploads[q.Get("uploadId")]; !ok {
+			errXML(w, 404, "NoSuchUpload")
+			return
+		}
+		delete(s.uploads, q.Get("uploadId"))
+		w.WriteHeader(204)
 	case r.Method == "PUT":
 		if b == nil {
 			errXML(w, 404, "NoSuchBucket")
@@ -369,8 +461,12 @@ func (s *Store) serveAPI(w http.ResponseWriter, r *http.Request) {
 			errXML(w, 404, "NoSuchKey")
 			return
 		}
-		sum := md5.Sum(o.Body)
-		w.Header().Set("ETag", `"`+hex.EncodeToString(sum[:])+`"`)
+		etag := o.ETag
+		if etag == "" {
+			sum := md5.Sum(o.Body)
+			etag = hex.EncodeToString(sum[:])
+		}
+		w.Header().Set("ETag", `"`+etag+`"`)
 		w.Header().Set("Content-Length", strconv.Itoa(len(o.Body)))
 		if o.SHA256 != "" {
 			w.Header().Set("x-amz-meta-sha256", o.SHA256)
