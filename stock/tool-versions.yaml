@@ -6,9 +6,8 @@
 # In this release AppTown uses only the four runtime images below (apptown-sh,
 # apptown-df, static-server, private-docker). The other entries are the lines
 # packs may name; resolving them for runs and new projects comes later.
-# Runtime proposals do not qualify a changed daemon. private-docker moves only
-# with an AppTown release: its digest is part of the
-# qualified worker profile (internal/execution/qualified_profiles.json).
+# private-docker moves only with an AppTown release; a changed daemon is
+# accepted after the external-worker private Docker tests pass against it.
 #
 # Every image names a digest. Lines are only added; a line past its end of
 # life stays with its last exact version.

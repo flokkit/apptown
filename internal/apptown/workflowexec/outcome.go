@@ -116,7 +116,7 @@ func (a *Executor) recordAgentOutcome(ctx context.Context, r agentRecord) (workf
 		evidence.Image = r.image
 	}
 	if w := r.worker; w != nil {
-		evidence.Worker, evidence.Source, evidence.UsageUnknown, evidence.PrivateDocker, evidence.WorkerProfile = w.backend, w.source, w.outputUnread, w.privateDocker, w.profile
+		evidence.Worker, evidence.Source, evidence.UsageUnknown, evidence.WorkerProfile = w.backend, w.source, w.outputUnread, w.profile
 		if w.candidate.Ref != "" {
 			evidence.Result = &taskResultEvidence{Ref: w.candidate.Ref, Commit: w.candidate.Tip, Refused: w.candidate.Refused}
 		}

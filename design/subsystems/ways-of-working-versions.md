@@ -74,8 +74,8 @@ exactly, and a pack may name only lines the list has. A proposed service's
 image tag is on its tool's line. Changing a line is a new version of the
 pack. The runtime images AppTown runs for itself (the shell guidance checks
 run in, df, the static server, the private Docker daemon) are read from the
-list, by digest; the private Docker image's digest is part of the qualified
-worker profile. The list has one owner per process (`internal/toolversions`,
+list, by digest; the private Docker image is release-bound, and an
+attempt with private Docker records the digest the worker measured. The list has one owner per process (`internal/toolversions`,
 `Versions`), filled at start from the shipped update; owners that run these
 images take it, and each unit of work (a check, a guidance step, a review,
 a what-if, a boot, a release build, a preview, a backup, restore or

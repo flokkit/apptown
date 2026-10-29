@@ -404,14 +404,14 @@
       "matchPackageNames": ["docker"],
       "allowedVersions": "/^27(?:\\.|$)/",
       "groupName": "runtime private Docker 27",
-      "prBodyNotes": ["Docker CLI archive checksums require manual verification for both architectures. A changed private daemon requires runtime qualification before acceptance; qualification records and profile facts are not updated by Renovate."]
+      "prBodyNotes": ["Docker CLI archive checksums require manual verification for both architectures. A changed private daemon is accepted only after the external-worker private Docker tests (internal/worker, TestIntegrationExternalWorker) pass against it."]
     },
     {
       "matchFileNames": ["deploy/Dockerfile"],
       "matchPackageNames": ["docker"],
       "allowedVersions": "/^29(?:\\.|$)/",
       "groupName": "deployment Docker 29",
-      "prBodyNotes": ["These CLI and daemon bases are separate from the qualified private Docker runtime. Runtime and deployment acceptance remain manual."]
+      "prBodyNotes": ["These CLI and daemon bases are separate from the private Docker runtime. Runtime and deployment acceptance remain manual."]
     }
   ],
   "vulnerabilityAlerts": {

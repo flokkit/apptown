@@ -43,12 +43,9 @@ type agentEvidence struct {
 	// UsageUnknown says why no usage was recorded for an invocation: its
 	// output could not be read. Unknown is never zero.
 	UsageUnknown string `json:"usageUnknown,omitempty"`
-	// PrivateDocker says what the private Docker an attempt on a worker had
-	// rests on: "qualified: <profile> (<record>)" when the worker's measured
-	// profile matches a qualified one, otherwise "unqualified: ...".
-	PrivateDocker string `json:"privateDocker,omitempty"`
 	// WorkerProfile is what the worker measured, and its operator declared,
-	// of the machine its private Docker ran on.
+	// of the machine an attempt's private Docker or services ran on: the
+	// observed facts, with no verdict on them.
 	WorkerProfile *execution.WorkerProfile `json:"workerProfile,omitempty"`
 }
 

@@ -956,7 +956,7 @@ func postgresKind(version string) string {
 // needs as the admitted commit declares them (parameters included),
 // resolved against the catalog now, with the environment reaching them;
 // a daemon; limits that are never zero; the integration environment as on
-// AppTown's host; and "unqualified" for its evidence. They are part of
+// AppTown's host; and the worker's measured profile. They are part of
 // the request's identity: the same step admitted after the catalog changed
 // is another request, so only the kept one is ever sent again.
 func TestPrivateDockerOnTheWorkerIsFrozenInTheRequest(t *testing.T) {
@@ -975,8 +975,8 @@ func TestPrivateDockerOnTheWorkerIsFrozenInTheRequest(t *testing.T) {
 	if l := req.spec.Admission.Limits; l.CPUs <= 0 || l.MemoryBytes <= 0 || l.PIDs <= 0 {
 		t.Errorf("limits: %+v", l)
 	}
-	if !strings.HasPrefix(req.privateDocker, "unqualified") || req.profile == nil || *req.profile != workerProfile || p.Profile != req.profile {
-		t.Errorf("evidence: %q, the profile it was admitted on: %+v, in the request: %+v", req.privateDocker, req.profile, p.Profile)
+	if req.profile == nil || *req.profile != workerProfile || p.Profile != req.profile {
+		t.Errorf("the profile it was admitted on: %+v, in the request: %+v", req.profile, p.Profile)
 	}
 	if !strings.Contains(req.steering.Text, "Your private Docker") || strings.Contains(req.steering.Text, "preloaded") {
 		t.Error("the steering does not say what the agent has")
@@ -991,7 +991,7 @@ func TestPrivateDockerOnTheWorkerIsFrozenInTheRequest(t *testing.T) {
 
 	// A step with none of these has none; a review never has them.
 	f = agentOnWorkerFixture(t, nil)
-	if req := f.build(t); req.spec.Private != nil || req.privateDocker != "" {
+	if req := f.build(t); req.spec.Private != nil || req.profile != nil {
 		t.Fatalf("private Docker for a step declaring none: %+v", req.spec.Private)
 	}
 }
@@ -1017,44 +1017,8 @@ func TestPrivateDockerOnAWorkerNeedsTheOperatorsOptIn(t *testing.T) {
 	f = agentOnWorkerFixture(t, map[string]any{"services": []map[string]any{{"name": "cache", "image": "redis:7-alpine"}}})
 	f.exec.cfg.PrivateDockerOnWorker = false
 	req := f.build(t)
-	if p := req.spec.Private; p == nil || p.Daemon || p.Profile == nil || *p.Profile != workerProfile || !strings.HasPrefix(req.privateDocker, "unqualified") {
-		t.Fatalf("services without the opt-in: %+v %q", p, req.privateDocker)
-	}
-}
-
-// An invocation with private Docker admitted on a worker whose measured
-// profile matches a qualified fact set records "qualified" with that
-// qualification's record; with any of those facts different (here the
-// daemon's image), it records "unqualified". The opt-in is needed either
-// way.
-func TestPrivateDockerRecordsWhetherItsProfileIsQualified(t *testing.T) {
-	qualified, err := execution.QualifiedProfiles()
-	if err != nil || len(qualified) == 0 {
-		t.Fatalf("no qualified profile to admit on: %v", err)
-	}
-	q := qualified[0]
-	measured := execution.WorkerProfile{Name: q.Name, OS: q.OS, Architecture: q.Architecture, Kernel: "6.17.2-1-pve", Cgroup: q.Cgroup, Docker: q.DockerMajor + ".1.5",
-		StorageDriver: q.StorageDriver, DindImage: "docker:27-dind", DindImageID: "sha256:d8", DindDigest: q.DindDigest, DindVersion: q.DindVersion,
-		Privileged: "yes", Exclusive: true, Egress: "not contained"}
-	f := agentOnWorkerFixture(t, map[string]any{"docker": true})
-	f.worker.reported = &measured
-	if req := f.build(t); req.privateDocker != "qualified: worker-vm ("+q.Record+")" || req.profile == nil || *req.profile != measured {
-		t.Errorf("on a qualified profile: %q, admitted on %+v", req.privateDocker, req.profile)
-	}
-
-	changed := measured
-	changed.DindDigest = "docker@sha256:another"
-	f = agentOnWorkerFixture(t, map[string]any{"docker": true})
-	f.worker.reported = &changed
-	if req := f.build(t); !strings.HasPrefix(req.privateDocker, "unqualified") {
-		t.Errorf("on a profile matching none: %q", req.privateDocker)
-	}
-
-	f = agentOnWorkerFixture(t, map[string]any{"docker": true})
-	f.worker.reported, f.exec.cfg.PrivateDockerOnWorker, f.worker.imageAllowed = &measured, false, false
-	var refusal *WorkerRefusal
-	if _, err := f.exec.prepareAgentOnWorker(context.Background(), f.call); !errors.As(err, &refusal) {
-		t.Errorf("a qualified profile without the opt-in: %v", err)
+	if p := req.spec.Private; p == nil || p.Daemon || p.Profile == nil || *p.Profile != workerProfile || req.profile != p.Profile {
+		t.Fatalf("services without the opt-in: %+v %+v", p, req.profile)
 	}
 }
 

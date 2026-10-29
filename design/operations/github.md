@@ -56,12 +56,10 @@ person supplies the verified replacement hashes, so the download verification
 continues to reject unmatched archives. The other remaining manual pins are
 glab's GitLab archive and checksums.
 
-Renovate does not update `internal/execution/qualified_profiles.json` or
-qualification records. Its private Docker proposal notes require qualification
-before acceptance: a changed daemon does not inherit the previous receipt.
-Complete the runtime qualification procedure before accepting that update or
-including it in a release. A proposal supplies no qualification or release
-authority. Other native Dockerfile bases retain their existing coverage.
+Its private Docker proposal notes require the external-worker private Docker
+tests ([workers](workers.md), "Private Docker on the worker") to pass against
+the changed daemon before that update is accepted or included in a release.
+A proposal supplies no release authority. Other native Dockerfile bases retain their existing coverage.
 
 Nothing opens by itself. Renovate keeps one issue, the **Dependency
 Dashboard**, listing the available updates, grouped so that one pull request

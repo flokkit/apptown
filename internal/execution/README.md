@@ -94,11 +94,6 @@ named by the backend itself; AppTown never sends it. A start the backend
 refuses with its reason is `ErrStartRefused`.
 
 `WorkerProfile` is what a worker measured of the Docker its private Docker
-rests on; `Changed` says how a later measurement differs. `qualified.go`
-reads the qualified fact sets from `qualified_profiles.json`, each naming the
-record of the qualification run behind it: `WorkerProfile.Qualification`
-names the record a profile's measured facts match, or "" (unqualified). It
-compares facts; it does not run or read a qualification. The shipped facts
-are the maintainers' attestation: the records (`private/design/reviews/qualification/` in
-their development repository) are not published with the code. Qualifying
-another set of facts is a data change with its record, not a code change.
+rests on; `Changed` says how a later measurement differs. The profile is
+observed facts: AppTown records it with each attempt and passes no
+verdict on it.

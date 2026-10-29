@@ -20,18 +20,19 @@ import (
 	"github.com/flokkit/apptown/stock"
 )
 
-// Qualification of the worker-vm profile (design/operations/workers.md,
-// "Private Docker on the worker"): the private-Docker suite with the worker as a real apptown-worker
-// process on a separate Linux machine that shares no files with this one.
-// This test is AppTown's side: it sends requests over mutual TLS
-// (workertest.External names the worker), observes the worker's Docker
-// through DOCKER_HOST, and restarts the worker through its machine's
-// control command. Skipped unless APPTOWN_QUAL_WORKER_URL is set. The record
-// of a run is private/design/reviews/qualification/.
+// Private Docker on a worker on another machine (design/operations/workers.md,
+// "Private Docker on the worker"): the private-Docker suite with the worker
+// as a real apptown-worker process on a separate Linux machine that shares
+// no files with this one. This test is AppTown's side: it sends requests
+// over mutual TLS (workertest.External names the worker), observes the
+// worker's Docker through DOCKER_HOST, and restarts the worker through its
+// machine's control command. Skipped unless APPTOWN_EXTERNAL_WORKER_URL is
+// set. It checks that private Docker works on that machine; it makes no
+// claim about isolation.
 
-// newQualFixture is a fixture over the external worker, checked to observe
+// newExternalFixture is a fixture over the external worker, checked to observe
 // that worker's Docker and not this machine's.
-func newQualFixture(t *testing.T) *privateFixture {
+func newExternalFixture(t *testing.T) *privateFixture {
 	t.Helper()
 	f := newPrivateFixtureOn(t, workertest.ExternalWorker(t))
 	out, err := exec.Command("docker", "info", "--format", "{{.KernelVersion}}|{{.ServerVersion}}|{{.Driver}}").CombinedOutput()
@@ -52,8 +53,8 @@ func newQualFixture(t *testing.T) *privateFixture {
 // the worker process is killed between the ensure and the start and
 // started again over the same state. Limits are configured; after the task
 // exits its daemon and service are stopped; its release leaves nothing.
-func TestIntegrationQualificationATaskHasItsOwnDockerAndServices(t *testing.T) {
-	f := newQualFixture(t)
+func TestIntegrationExternalWorkerATaskHasItsOwnDockerAndServices(t *testing.T) {
+	f := newExternalFixture(t)
 	ctx := context.Background()
 	private := &execution.PrivateDocker{Daemon: true, Services: []deploy.ServiceSpec{
 		{Name: "cache", Image: "redis:7-alpine", Env: map[string]string{"GREETING_DB": "sourdough"}, Health: "redis-cli ping"}}}
@@ -131,8 +132,8 @@ docker buildx inspect apptown >/dev/null && echo "builder apptown"
 // is refused, and after the release the request is stale. A task whose
 // admission expires is stopped and its private Docker removed by the
 // worker's own sweep, with nothing asking it.
-func TestIntegrationQualificationAnInterruptedWorkerRecoversAndAStopFences(t *testing.T) {
-	f := newQualFixture(t)
+func TestIntegrationExternalWorkerAnInterruptedWorkerRecoversAndAStopFences(t *testing.T) {
+	f := newExternalFixture(t)
 	ctx := context.Background()
 	spec := f.spec("interrupted", `docker info >/dev/null && echo up; sleep 15; echo done > /work/done.txt`, &execution.PrivateDocker{Daemon: true},
 		execution.Result{Name: "done", Path: "/work/done.txt", Max: 64})
@@ -255,8 +256,8 @@ sleep 300`, &execution.PrivateDocker{Daemon: true}, execution.Result{Name: "tick
 
 // The daemon's limits and a service's budget hold on the separate worker
 // (limitsHold, observed from the cgroups there).
-func TestIntegrationQualificationLimitsHold(t *testing.T) {
-	limitsHold(t, newQualFixture(t))
+func TestIntegrationExternalWorkerLimitsHold(t *testing.T) {
+	limitsHold(t, newExternalFixture(t))
 }
 
 // Disk exhaustion by nested work. A task's nested container writes until
@@ -267,15 +268,15 @@ func TestIntegrationQualificationLimitsHold(t *testing.T) {
 // task is stopped and released, which removes its daemon with everything
 // it wrote; the disk returns to what it was, and new work runs.
 //
-// It fills the worker's real disk, so it runs only with APPTOWN_QUAL_DISK=1
+// It fills the worker's real disk, so it runs only with APPTOWN_EXTERNAL_WORKER_DISK=1
 // exactly, and the worker's control command must answer reserve (write a
 // reserve file), unreserve (remove it) and avail (bytes available on the
 // worker's state directory's file system).
-func TestIntegrationQualificationDiskExhaustionIsRefusedAndRecovered(t *testing.T) {
-	if os.Getenv("APPTOWN_QUAL_DISK") != "1" {
-		t.Skip("APPTOWN_QUAL_DISK is not 1: this test fills the worker's disk")
+func TestIntegrationExternalWorkerDiskExhaustionIsRefusedAndRecovered(t *testing.T) {
+	if os.Getenv("APPTOWN_EXTERNAL_WORKER_DISK") != "1" {
+		t.Skip("APPTOWN_EXTERNAL_WORKER_DISK is not 1: this test fills the worker's disk")
 	}
-	f := newQualFixture(t)
+	f := newExternalFixture(t)
 	ctx := context.Background()
 	avail := func() int64 {
 		n, err := strconv.ParseInt(f.external.Ctl(t, "avail"), 10, 64)

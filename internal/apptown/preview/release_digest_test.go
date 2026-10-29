@@ -216,7 +216,7 @@ const (
 )
 
 func digestOrigin(by deployment.AttemptClaim) deployment.BundleOrigin {
-	return deployment.BundleOrigin{Registry: releaseRepo, Platform: "linux/amd64", Build: deployment.BundleBuild{Worker: "http://worker:7070", Role: "agent", Qualification: "design/qualification/worker-vm.md"}, By: by}
+	return deployment.BundleOrigin{Registry: releaseRepo, Platform: "linux/amd64", Build: deployment.BundleBuild{Worker: "http://worker:7070", Role: "agent"}, By: by}
 }
 
 // claimedAttempt is Work's claim of a deploy step attempt, which a digest

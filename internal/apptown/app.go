@@ -212,8 +212,8 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if cfg.stock.FS == nil || cfg.stock.Tools == nil || cfg.stock.Name == "" {
 		return nil, fmt.Errorf("no stock: AppTown reads its ways of working and tool versions from the update files its release shipped with")
 	}
-	// The start snapshot: what is release-bound (the private Docker image,
-	// in its qualified profile) is read from it once; the rest follows the
+	// The start snapshot: what is release-bound (the private Docker image)
+	// is read from it once; the rest follows the
 	// owner, one snapshot per unit of work.
 	images := cfg.stock.Tools.Current().Images
 	cfg.proxies.hosts = hostAddressSnapshot(input.HostAddresses)

@@ -66,7 +66,6 @@ try {
   assert.equal(deps(agent).filter(d => d.datasource === 'github-release-attachments').length, 10);
   assert.equal(deps('.github/workflows/ci.yml', 'gitleaks/gitleaks').length, 2);
   const catalog = 'stock/tool-versions.yaml';
-  const qualification = await fs.readFile('internal/execution/qualified_profiles.json', 'utf8');
   const dockerHashes = content.get(agent).match(/^ARG DOCKER_SHA256_.*$/gm);
   const runtimes = [
     ['alpine/git', 'runtime Alpine Git', 'v2.47.3'],
@@ -87,7 +86,7 @@ try {
       assert(!new RegExp(d.allowedVersions.slice(1, -1)).test('99.0.0'), `future line ${name}`);
     }
   }
-  assert(!records.some(d => d.packageFile.includes('qualified_profiles') || d.packageFile.startsWith('private/')));
+  assert(!records.some(d => d.packageFile.startsWith('private/')));
   assert.equal(config.minimumReleaseAge, '3 days');
   assert.equal(config.dependencyDashboardApproval, true);
   assert.equal(config.automerge, false);
@@ -153,7 +152,6 @@ try {
   assert.deepEqual(content.get(agent).match(/^ARG DOCKER_SHA256_.*$/gm), dockerHashes, 'CLI checksums require manual verification');
   for (const d of deployDocker) await update(d, d.currentValue.replace('29.9.2', '29.9.3'), 'sha256:' + 'e'.repeat(64));
   assert.equal((content.get('deploy/Dockerfile').match(/docker:29\.9\.3-(?:cli|dind)@sha256:/g) ?? []).length, 2);
-  assert.equal(await fs.readFile('internal/execution/qualified_profiles.json', 'utf8'), qualification);
   // The actual pin gate must accept a complete temporary grouped update.
   for (const file of files.filter(f => !f.startsWith('private/'))) {
     const dest = path.join(temp, file); await fs.mkdir(path.dirname(dest), {recursive: true});
@@ -161,7 +159,6 @@ try {
   }
   for (const [file, text] of content) await fs.writeFile(path.join(temp, file), text);
   execFileSync('python3', ['scripts/pins-check.py', temp], {cwd: root});
-  assert.equal(await fs.readFile(path.join(temp, 'internal/execution/qualified_profiles.json'), 'utf8'), qualification);
   console.log(`Renovate ${require('./package.json').version}: ${live.length} extracted dependencies; grouped version, architecture checksum, CI, stock and digest replacements passed.`);
   if (process.env.RENOVATE_EVIDENCE) await fs.writeFile(process.env.RENOVATE_EVIDENCE, JSON.stringify(live.map(({packageFile, depName, currentValue, currentDigest, datasource, groupName, allowedVersions, enabled}) => ({packageFile, depName, currentValue, currentDigest, datasource, groupName, allowedVersions, enabled})), null, 2));
 } finally { await fs.rm(temp, {recursive: true, force: true}); }

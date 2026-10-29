@@ -81,9 +81,9 @@ type Config struct {
 	HostAddresses   []net.IP
 	NoPrivateDocker bool
 	// PrivateDocker admits private Docker (docker: true) for agent steps on
-	// a worker: the operator's opt-in. Each attempt records whether the
-	// worker's measured profile is a qualified one (design/operations/workers.md,
-	// "Private Docker on the worker").
+	// a worker: the operator's opt-in. Each attempt records the worker's
+	// measured profile (design/operations/workers.md, "Private Docker on
+	// the worker").
 	PrivateDocker bool
 	// NoLocalDocker runs AppTown with no local Docker daemon and no
 	// project process on its own host (-no-local-docker): its own Docker

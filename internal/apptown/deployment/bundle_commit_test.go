@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -57,7 +58,8 @@ const (
 )
 
 func digestOrigin(by AttemptClaim) BundleOrigin {
-	return BundleOrigin{Registry: releaseRepo, Platform: "linux/amd64", Build: BundleBuild{Worker: "http://worker:7070", Role: "agent", Qualification: "design/qualification/worker-vm.md"}, By: by}
+	return BundleOrigin{Registry: releaseRepo, Platform: "linux/amd64", Build: BundleBuild{Worker: "http://worker:7070", Role: "agent",
+		Profile: execution.WorkerProfile{Name: "worker-vm", OS: "linux Debian GNU/Linux 13 (trixie)", Architecture: "x86_64", Docker: "26.1.5", DindDigest: "docker@sha256:d1", Privileged: "yes", Exclusive: true}}, By: by}
 }
 
 // A bundle committed by a claimed deploy step attempt is committed only
@@ -102,7 +104,8 @@ func TestABundleIsCommittedOnlyByTheAttemptThatOwnsTheStep(t *testing.T) {
 	}
 }
 
-// A digest bundle records its registry, platform and build, and names every
+// A digest bundle records its registry, platform and build (the worker and
+// the profile it measured, which read back whole), and names every
 // image by digest in that registry. Anything else is refused before it is
 // written, and a bundle of daemon image IDs names none of these.
 func TestADigestBundleNamesItsRegistryPlatformAndBuild(t *testing.T) {

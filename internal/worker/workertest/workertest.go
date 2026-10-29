@@ -485,16 +485,16 @@ func (w *Container) Restart() {
 }
 
 // External is a apptown-worker this test did not start: a real process on
-// another machine, for the qualification of a worker profile
+// another machine, for testing private Docker on that machine
 // (design/operations/workers.md, "Private Docker on the worker"). The test is AppTown's side, on its own machine; the two share
 // no files. It is named by the environment:
-//   - APPTOWN_QUAL_WORKER_URL: the worker's address;
-//   - APPTOWN_QUAL_WORKER_CA: the CA that signs the worker's certificate;
-//   - APPTOWN_QUAL_WORKER_CERT, APPTOWN_QUAL_WORKER_KEY: the installation's
+//   - APPTOWN_EXTERNAL_WORKER_URL: the worker's address;
+//   - APPTOWN_EXTERNAL_WORKER_CA: the CA that signs the worker's certificate;
+//   - APPTOWN_EXTERNAL_WORKER_CERT, APPTOWN_EXTERNAL_WORKER_KEY: the installation's
 //     client certificate (Common Name Installation) and key;
-//   - APPTOWN_QUAL_WORKER_STATE: the worker's -state, on its machine (it names
+//   - APPTOWN_EXTERNAL_WORKER_STATE: the worker's -state, on its machine (it names
 //     what the worker labels);
-//   - APPTOWN_QUAL_WORKER_CTL: a command run with sh -c and a verb appended,
+//   - APPTOWN_EXTERNAL_WORKER_CTL: a command run with sh -c and a verb appended,
 //     that acts on the worker's machine (restart: kill the worker by its
 //     recorded pid and start it again over the same state; fresh: start
 //     the worker again on empty state, as a new AppTown's worker).
@@ -511,7 +511,7 @@ func ExternalWorker(t *testing.T) *External {
 	t.Helper()
 	e := LookupExternal(t)
 	if e == nil {
-		t.Skip("APPTOWN_QUAL_WORKER_URL names no external worker")
+		t.Skip("APPTOWN_EXTERNAL_WORKER_URL names no external worker")
 	}
 	return e
 }
@@ -519,13 +519,13 @@ func ExternalWorker(t *testing.T) *External {
 // LookupExternal is the worker the environment names, or nil.
 func LookupExternal(t *testing.T) *External {
 	t.Helper()
-	e := &External{URL: os.Getenv("APPTOWN_QUAL_WORKER_URL"), CA: os.Getenv("APPTOWN_QUAL_WORKER_CA"),
-		Cert: os.Getenv("APPTOWN_QUAL_WORKER_CERT"), Key: os.Getenv("APPTOWN_QUAL_WORKER_KEY"), State: os.Getenv("APPTOWN_QUAL_WORKER_STATE"), Control: os.Getenv("APPTOWN_QUAL_WORKER_CTL")}
+	e := &External{URL: os.Getenv("APPTOWN_EXTERNAL_WORKER_URL"), CA: os.Getenv("APPTOWN_EXTERNAL_WORKER_CA"),
+		Cert: os.Getenv("APPTOWN_EXTERNAL_WORKER_CERT"), Key: os.Getenv("APPTOWN_EXTERNAL_WORKER_KEY"), State: os.Getenv("APPTOWN_EXTERNAL_WORKER_STATE"), Control: os.Getenv("APPTOWN_EXTERNAL_WORKER_CTL")}
 	if e.URL == "" {
 		return nil
 	}
 	if e.CA == "" || e.Cert == "" || e.Key == "" || e.State == "" || e.Control == "" {
-		t.Fatal("an external worker needs APPTOWN_QUAL_WORKER_CA, _CERT, _KEY, _STATE and _CTL")
+		t.Fatal("an external worker needs APPTOWN_EXTERNAL_WORKER_CA, _CERT, _KEY, _STATE and _CTL")
 	}
 	return e
 }
