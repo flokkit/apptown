@@ -63,7 +63,7 @@ sys.exit('unexpected fixture command '+name)
 
 
 class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
-    def run_cleanup(self, expected=LOCK, actual=LOCK, original_status=0, **faults):
+    def run_cleanup(self, expected=LOCK, actual=LOCK, original_status=0, archive=False, **faults):
         tmp = tempfile.TemporaryDirectory(prefix='apptown-recovery-lock-')
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
@@ -81,10 +81,14 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
             (d/('before.'+kind)).write_text('existing-'+kind+'\n')
             (root/(kind+'.current')).write_text('existing-'+kind+'\ncreated-'+kind+'\n')
         work=root/'work';work.mkdir()
+        data=root/'remote/srv/data';data.mkdir(parents=True);(data/'db.env').write_text('restored\n')
+        srcarchive=root/'remote/source/apptown-rehearsal.backup'
+        if archive:srcarchive.parent.mkdir(parents=True);srcarchive.write_text('every secret\n')
         source=SCRIPT.read_text()
         cleanup=source[source.index('end_rehearsal() {'):source.index('\n# owned')]
         finish=source[source.index('owned="" locked=""'):source.index('\ntrap finish EXIT')]+'\ntrap finish EXIT'
-        program='set -euo pipefail\n'+f'tgt=fixture\nlock={shlex.quote(expected)}\nwork={shlex.quote(str(work))}\n'+cleanup+'\n'+finish+f'\nowned=1\nexit {original_status}\n'
+        program=('set -euo pipefail\n'+f'tgt=fixture\nsrc=fixture-source\nsrcarchive={shlex.quote(str(srcarchive)) if archive else ""}\ntdata={shlex.quote(str(data))}\nlock={shlex.quote(expected)}\nwork={shlex.quote(str(work))}\n'
+                 +cleanup+'\n'+finish+f'\nowned=1\nexit {original_status}\n')
         env={**os.environ,'PATH':str(bindir)+os.pathsep+os.environ['PATH'],'FIXTURE_ROOT':str(root),**faults}
         # Allow the child hang guard to report failure and the EXIT trap to finish.
         result=subprocess.run(['bash','-s'],input=program,text=True,capture_output=True,env=env,timeout=150)
@@ -98,6 +102,7 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
             self.assertEqual((root/(kind+'.current')).read_text(),'existing-'+kind+'\n')
             self.assertFalse((root/'remote/opt/forge-restore'/('before.'+kind)).exists())
         self.assertEqual((root/'remote/etc/hosts').read_text(),'127.0.0.1 localhost\n')
+        self.assertFalse((root/'remote/srv/data').exists(),'the restored data outlived the rehearsal')
 
     def assert_no_remote_cleanup(self, root, calls):
         remote=[c for c in calls if c['remote']]
@@ -125,6 +130,13 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
         result,root,_=self.run_cleanup()
         self.assertEqual(result.returncode,0,result.stderr)
         self.assert_completed(root)
+
+    def test_the_sources_archive_is_deleted_however_the_run_ends(self):
+        for status in (0, 3):
+            with self.subTest(status=status):
+                result,root,_=self.run_cleanup(original_status=status,archive=True)
+                self.assertEqual(result.returncode,status,result.stderr)
+                self.assertFalse((root/'remote/source/apptown-rehearsal.backup').exists())
 
     def test_failure_cleanup_releases_lock_but_preserves_original_failure(self):
         result,root,_=self.run_cleanup(original_status=3)
@@ -190,80 +202,76 @@ class RecoveryResetRequiresProcessInventory(unittest.TestCase):
                 self.assertEqual(calls.exists(),status==1,'reset removed files without confirming process absence')
 
 
-class RecoveryNeedsItsDestination(unittest.TestCase):
-    def test_no_registry_refuses_with_the_usage_before_any_effect(self):
-        with tempfile.TemporaryDirectory(prefix='apptown-recovery-registry-') as tmp:
-            bindir=Path(tmp)/'bin';bindir.mkdir()
-            calls=Path(tmp)/'calls'
-            for name in ('ssh','mktemp'):
-                p=bindir/name;p.write_text('#!/bin/sh\necho "$0" >> '+shlex.quote(str(calls))+'\nexit 99\n');p.chmod(0o755)
-            env={k:v for k,v in os.environ.items() if k!='REGISTRY'}
-            env['PATH']=str(bindir)+os.pathsep+env['PATH']
-            result=subprocess.run(['bash',str(SCRIPT),'all','src','/data','app/prod','tgt'],text=True,capture_output=True,env=env,timeout=30)
-            self.assertEqual(result.returncode,2,result.stderr)
-            self.assertIn('REGISTRY is not set',result.stderr)
-            self.assertIn('Environment: REGISTRY (required',result.stderr)
-            self.assertFalse(calls.exists(),'the script acted before refusing')
-
-
-class RecoveryUsesTheSourcesOwnDatabase(unittest.TestCase):
-    # The rehearsal dumps, restores and queries the database the source's
-    # db.env names: on an install made before 1.0 it is forge, on one made
-    # since apptown. Only the names come back from the source, never the password.
-    def names(self, dbenv):
-        with tempfile.TemporaryDirectory(prefix='apptown-recovery-db-') as tmp:
-            root = Path(tmp)
-            (root/'data').mkdir()
-            (root/'data'/'db.env').write_text(dbenv)
-            bindir = root/'bin'; bindir.mkdir()
-            ssh = bindir/'ssh'
-            ssh.write_text('#!/bin/sh\nshift\nexec /bin/sh -c "$*"\n'); ssh.chmod(0o755)
-            source = SCRIPT.read_text()
-            lookup = source[source.index("# The source's built-in database"):source.index("# end of the source's database")]
-            program = f'set -euo pipefail\nsrc=fixture srcdata={shlex.quote(str(root/"data"))}\n' + lookup + 'echo "$srcdb $dbname"\n'
-            env = {**os.environ, 'PATH': str(bindir)+os.pathsep+os.environ['PATH']}
-            return subprocess.run(['bash', '-s'], input=program, text=True, capture_output=True, env=env, timeout=60)
-
-    def test_an_install_made_before_1_0_and_one_made_since(self):
-        for container, name in (('forge-db', 'forge'), ('apptown-db', 'apptown')):
-            with self.subTest(name=name):
-                r = self.names(f'APPTOWN_DB_URL=postgres://postgres:s3cret@127.0.0.1:54321/{name}\nAPPTOWN_DB_PASSWORD=s3cret\n'
-                               f'APPTOWN_DB_CONTAINER={container}\nAPPTOWN_DB_VOLUME=v\n')
-                self.assertEqual(r.returncode, 0, r.stderr)
-                self.assertEqual(r.stdout, f'{container} {name}\n')
-                self.assertNotIn('s3cret', r.stdout + r.stderr)
-
-    def test_every_dump_restore_and_query_uses_that_database(self):
+class RecoveryHoldsTheTargetToTheSourcesKeys(unittest.TestCase):
+    # Each key file the source has is on the target unchanged; a source on
+    # -db-url has no db.env, and the target's own (the built-in database the
+    # restore made) is not compared; AppTown's own keys must be on the source.
+    def compare(self, src, tgt):
         source = SCRIPT.read_text()
-        self.assertNotRegex(source, r'-d forge\b|postgres forge\b')
-        self.assertEqual(len(re.findall(r'-d \$dbname|-d "\$name"|postgres "\$dbname"|-U postgres "\$name"', source)), 3)
+        fn = source[source.index('compare_keys() {'):source.index('\n}\n', source.index('compare_keys() {')) + 3]
+        with tempfile.TemporaryDirectory() as tmp:
+            a, b = Path(tmp)/'src', Path(tmp)/'tgt'
+            a.write_text(''.join(l + '\n' for l in src))
+            b.write_text(''.join(l + '\n' for l in tgt))
+            return subprocess.run(['bash', '-c', fn + f'\ncompare_keys {shlex.quote(str(a))} {shlex.quote(str(b))}'],
+                                  text=True, capture_output=True, timeout=30)
 
-    def test_a_db_env_naming_no_database_stops_it(self):
-        r = self.names('APPTOWN_DB_CONTAINER=apptown-db\n')
-        self.assertNotEqual(r.returncode, 0)
-        self.assertIn('names no built-in database container and database', r.stderr)
+    def test_an_external_database_source_passes_beside_the_targets_own_db_env(self):
+        r = self.compare(['db.env missing', 'instance-id 1', 'runtime-token-key 2'],
+                         ['db.env 9', 'instance-id 1', 'runtime-token-key 2'])
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_a_changed_or_lost_file_and_a_source_without_its_keys_fail(self):
+        for src, tgt, said in ((['db.env 3', 'instance-id 1', 'runtime-token-key 2'], ['db.env 9', 'instance-id 1', 'runtime-token-key 2'], 'db.env'),
+                               (['instance-id 1', 'runtime-token-key 2', 'ssh/host-key 4'], ['instance-id 1', 'runtime-token-key 2'], 'ssh/host-key'),
+                               (['instance-id 1', 'runtime-token-key missing'], ['instance-id 1', 'runtime-token-key missing'], 'runtime-token-key')):
+            with self.subTest(said=said):
+                r = self.compare(src, tgt)
+                self.assertNotEqual(r.returncode, 0)
+                self.assertIn(said, r.stderr)
 
 
-class RecoveryPreservesTheDataQuery(unittest.TestCase):
-    def test_sql_survives_ssh_command_joining(self):
+class RecoveryChecksHealthAndKeepsStoredBackupsOpenable(unittest.TestCase):
+    def test_an_unhealthy_start_fails_though_it_names_the_version(self):
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        import threading
+
+        class Down(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                self.send_response(503)
+                self.send_header('X-AppTown-Version', 'v1.2.3')
+                self.end_headers()
+
+        server = HTTPServer(('127.0.0.1', 0), Down)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
         source = SCRIPT.read_text()
-        query = source[source.index('query() {'):source.index('\nkeys=')]
-        for sql in ('SELECT 1', 'SELECT count(*) FROM widgets'):
-            with self.subTest(sql=sql), tempfile.TemporaryDirectory() as tmp:
-                bindir = Path(tmp)
-                docker = bindir / 'docker'
-                docker.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\"\n")
-                docker.chmod(0o755)
-                # Like OpenSSH, join command arguments before the remote shell.
-                program = ('ssh() { shift; /bin/sh -c "$*"; }\n'
-                           + 'DATA_QUERY=' + shlex.quote(sql) + '\n'
-                           + query + '\nquery fixture postgres\n')
-                env = {**os.environ, 'PATH': str(bindir) + os.pathsep + os.environ['PATH']}
-                r = subprocess.run(['bash', '-s'], input=program, text=True,
-                                   capture_output=True, env=env, timeout=30)
-                self.assertEqual(r.returncode, 0, r.stderr)
-                self.assertEqual(r.stdout.splitlines()[-1], sql,
-                                 'docker exec received a different SQL query')
+        block = source.split('\n\tstep "start normally:', 1)[1]
+        block = '\tstep "start normally:' + block.split('\n\tstep "clean up:', 1)[0]
+        with tempfile.TemporaryDirectory() as work:
+            program = ('set -euo pipefail\nstep() { :; }; start() { :; }\n'
+                       f'expected=v1.2.3\nwork={shlex.quote(work)}\nturl=http://127.0.0.1:{server.server_port}\n' + block)
+            r = subprocess.run(['bash', '-c', program], capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(r.returncode, 0, r.stdout)
+        self.assertIn('answers 503', r.stderr)
+
+    def test_a_kept_backup_needs_a_kept_passphrase(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            calls = Path(tmp)/'calls'
+            ssh = Path(tmp)/'ssh'
+            ssh.write_text('#!/bin/sh\necho ssh >> ' + shlex.quote(str(calls)) + '\nexit 99\n'); ssh.chmod(0o755)
+            for store, said in (('1', 'PASSPHRASE_FILE'), ('true', 'STORE is 1 or unset')):
+                with self.subTest(store=store):
+                    env = {**os.environ, 'PATH': tmp + os.pathsep + os.environ['PATH'], 'STORE': store}
+                    env.pop('PASSPHRASE_FILE', None)
+                    r = subprocess.run(['bash', str(SCRIPT), 'src', '/data', 'tgt'], capture_output=True, text=True, env=env, timeout=30)
+                    self.assertEqual(r.returncode, 2, r.stderr)
+                    self.assertIn(said, r.stderr)
+                    self.assertFalse(calls.exists(), 'the script acted before refusing')
 
 
 if __name__=='__main__':unittest.main()
