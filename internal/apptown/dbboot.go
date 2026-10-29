@@ -240,6 +240,22 @@ func databaseInURL(raw string) string {
 	return strings.TrimPrefix(u.Path, "/")
 }
 
+// existingInstanceID reads the installation's id without making one: ""
+// when there is no data folder or no id yet.
+func existingInstanceID(dataDir string) (string, error) {
+	if dataDir == "" {
+		return "", nil
+	}
+	raw, err := os.ReadFile(filepath.Join(dataDir, "instance-id"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(raw)), nil
+}
+
 func instanceID(dataDir string) (string, error) {
 	path := filepath.Join(dataDir, "instance-id")
 	if raw, err := os.ReadFile(path); err == nil && strings.TrimSpace(string(raw)) != "" {

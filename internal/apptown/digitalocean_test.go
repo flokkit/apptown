@@ -1,9 +1,12 @@
 package apptown
 
 import (
+	"slices"
+
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"strings"
 	"testing"
 
@@ -140,9 +143,25 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if leaks != 0 {
 		t.Fatalf("the admin credential reached %d records", leaks)
 	}
+	// The cluster AppTown made carries this installation's tag. One made
+	// before the tag is given it, in place, once.
+	mine := digitalocean.InstallationTag(a.docker.Instance)
+	if tags, _ := f.Snapshot().Databases[0]["tags"].([]any); !slices.Contains(tags, any(mine)) {
+		t.Fatalf("the made cluster lacks the installation's tag: %v", f.Snapshot().Databases[0]["tags"])
+	}
+	f.SetDatabaseTags("db-1", "apptown")
+	if marked, err := a.targetProviders.MarkRecorded(t.Context()); err != nil || marked != 1 {
+		t.Fatalf("marking the recorded cluster: %d %v", marked, err)
+	}
+	if marked, err := a.targetProviders.MarkRecorded(t.Context()); err != nil || marked != 0 {
+		t.Fatalf("a second marking pass: %d %v", marked, err)
+	}
 	// Infrastructure: what is at the provider and what it hosts. A cluster
-	// nobody recorded shows as unrecorded; AppTown's own shows its host.
-	f.SeedDatabase(map[string]any{"id": "db-stray", "name": "someones-cluster", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online"})
+	// this installation tagged that nobody records shows as unrecorded; one
+	// without its tag (another installation's, or one a script made) is not
+	// listed; AppTown's own shows its host.
+	f.SeedDatabase(map[string]any{"id": "db-stray", "name": "someones-cluster", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online", "tags": []any{mine}})
+	f.SeedDatabase(map[string]any{"id": "db-script", "name": "forge-demo-pg", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online"})
 	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	var infra struct {
 		Targets []infrastructureResponse `json:"targets"`
@@ -170,6 +189,9 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	}
 	if r := byName["database/someones-cluster"]; r.Record != "unrecorded" {
 		t.Fatalf("a stray cluster is unrecorded: %+v", r)
+	}
+	if r, listed := byName["database/forge-demo-pg"]; listed {
+		t.Fatalf("a cluster without this installation's tag is listed: %+v", r)
 	}
 	if r := byName["registry/forge-test"]; r.Record != "recorded" {
 		t.Fatalf("the registry is the target's own: %+v", r)
@@ -200,7 +222,7 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	}
 	w = tgReq(httpapi.NewDeployments(a.Deployment, a.DataProtection, a.Projects).DeleteDeployment, "DELETE", "/api/v1/projects/expense/deployments/cloud", `{"withoutFinalCopy":"cloud"}`, map[string]string{"slug": "expense", "name": "cloud"})
 	state = f.Snapshot()
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "apptown-db-"+deploy.HostKey(env.ID)) || len(state.Apps) != 0 || len(state.Databases) != 2 {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "apptown-db-"+deploy.HostKey(env.ID)) || len(state.Apps) != 0 || len(state.Databases) != 3 {
 		t.Fatalf("teardown: %d %s apps %d dbs %d", w.Code, w.Body.String(), len(state.Apps), len(state.Databases))
 	}
 	// The release it served is ended: its log says who took it down, and it

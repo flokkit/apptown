@@ -115,11 +115,13 @@ function TargetSection({ t: tIn, onRefresh, refreshing, onChanged }: { t: Target
         <h2 style={{ margin: 0 }}><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></h2>
         <span className="muted">{t.place}{t.domain ? ` · *.${t.domain}` : ''}</span>
         <span className={`chip ${t.status === 'ready' ? 'pass' : t.status === 'retired' ? 'muted' : 'fail'}`}>{t.status}</span>
-        {t.live
+        {t.unreported
+          ? <span className="chip muted" title={UNREPORTED}>inventory unknown</span>
+          : t.live
           ? <span className="chip pass" title={t.asOf ? `the provider answered ${relTime(t.asOf)}` : 'the provider answered'}>as of {t.asOf ? relTime(t.asOf) : 'now'}</span>
           : <span className="chip fail" title={t.error}>inventory unavailable{t.asOf ? ` — showing its answer from ${relTime(t.asOf)}` : ''}</span>}
         {(t.refreshing || refreshing) && <span className="chip running">refreshing…</span>}
-        {!t.refreshing && !refreshing && <button className="subtle" onClick={onRefresh} title="ask the provider now">refresh</button>}
+        {!t.unreported && !t.refreshing && !refreshing && <button className="subtle" onClick={onRefresh} title="ask the provider now">refresh</button>}
         {unrecorded > 0 && <span className="chip pending">{unrecorded} unrecorded</span>}
         {missing > 0 && <span className="chip fail">{missing} missing</span>}
         <span style={{ flex: 1 }} />
@@ -130,6 +132,7 @@ function TargetSection({ t: tIn, onRefresh, refreshing, onChanged }: { t: Target
         {t.facts && <span>{t.facts}</span>}
         {check && <span className={check.ok ? '' : 'error'}> · {check.ok ? '✓' : '✗'} {check.detail}</span>}
       </div>
+      {t.unreported && <div className="muted small" style={{ marginBottom: 8 }}>{UNREPORTED} — showing {PRODUCT}'s records only.</div>}
       {t.error && !t.live && <div className="error small" style={{ marginBottom: 8 }}>{t.error}{t.asOf ? ' — showing the last inventory read.' : ` — showing ${PRODUCT}'s records only.`}</div>}
       <ResourceTables t={t} onChanged={onChanged} />
       {t.shared && <div className="muted small" style={{ marginTop: 6 }}>{t.shared}</div>}
@@ -137,13 +140,17 @@ function TargetSection({ t: tIn, onRefresh, refreshing, onChanged }: { t: Target
   )
 }
 
+// UNREPORTED: a target whose kind has no inventory reader. What it holds
+// is unknown, which is neither a failure nor empty.
+const UNREPORTED = "This kind of target doesn't report what it holds"
+
 // ResourceTables: what is at a target, by kind, with the remove control on
 // anything AppTown does not claim. The fleet view and a target's own page
 // both show it.
 export function ResourceTables({ t: tIn, onChanged, only, empty }: { t: TargetInfra; onChanged: () => void; only?: (r: Resource) => boolean; empty?: string }) {
   const t = { ...tIn, resources: (tIn.resources ?? []).filter(only ?? (() => true)) }
   const kinds = [...KIND_ORDER.filter((k) => t.resources.some((r) => r.kind === k)), ...[...new Set(t.resources.map((r) => r.kind))].filter((k) => !KIND_ORDER.includes(k))]
-  if (t.resources.length === 0) return <div className="muted small">{empty ?? (t.live ? 'Empty inventory.' : t.asOf ? `No resources in the inventory read ${relTime(t.asOf)}.` : 'Inventory is unknown.')}</div>
+  if (t.resources.length === 0) return <div className="muted small">{empty ?? (t.live ? 'Empty inventory.' : t.asOf ? `No resources in the inventory read ${relTime(t.asOf)}.` : t.unreported ? 'No recorded resources.' : 'Inventory is unknown.')}</div>
   return (
     <>
       {kinds.map((k) => (

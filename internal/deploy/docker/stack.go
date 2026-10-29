@@ -28,11 +28,11 @@ import (
 // by apptown.created, stamped from the scope's clock. class is one of
 // preview|service|step|dind|console|env; env/infra are never reaped.
 func (dk Scope) Labels(class, owner string) []string {
-	return []string{
+	return append([]string{
 		"--label", dockerlabel.Class + "=" + class,
 		"--label", dockerlabel.Owner + "=" + owner,
 		"--label", dockerlabel.Created + "=" + clock.Or(dk.Now)().UTC().Format(time.RFC3339),
-	}
+	}, dk.InstanceLabel()...)
 }
 
 // TeardownBound is how long a step's returned teardown may take: it runs

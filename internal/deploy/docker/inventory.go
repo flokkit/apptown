@@ -16,7 +16,8 @@ import (
 // Inventory answers what a Docker host holds: the standing containers
 // named by AppTown, its volumes and networks, and image references, as the daemon reports
 // them, over the host's scope so an attached host answers for itself. It
-// is built for a target, not a deployment: it can look, never boot.
+// is built for a target, not a deployment: it can look, never boot. What
+// does not carry the scope's installation label confirms records only.
 type Inventory struct {
 	Scope func(context.Context) (Scope, error)
 	Also  []string // containers the host also reports by name (the caller's own database on its built-in host)
@@ -57,7 +58,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	}
 	// The labels say who made a thing (apptown.owner) and which compose
 	// stack it belongs to; the page attributes leftovers by them.
-	args = append(args, "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}\t"+ownerLabel+"\t{{.Label \"com.docker.compose.project\"}}")
+	args = append(args, "--format", "{{.Names}}\t{{.Status}}\t{{.Image}}\t"+ownerLabel+"\t{{.Label \"com.docker.compose.project\"}}\t"+instanceLabel)
 	out, err := dk.Run(ctx, args...)
 	if err != nil {
 		// The error itself too: an ssh that failed before docker said
@@ -83,6 +84,9 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		if len(f) >= 5 {
 			r.Owner, r.Stack = strings.TrimSpace(f[3]), strings.TrimSpace(f[4])
 		}
+		if len(f) < 6 || !dk.Installs(strings.TrimSpace(f[5])) {
+			r.Tags = []string{deploy.TagConfirmsOnly}
+		}
 		res = append(res, r)
 	}
 	// Volumes are listed whole: AppTown names data folders and need
@@ -98,7 +102,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		if list.filter != "" {
 			args = append(args, "--filter", "name="+string(Current)+list.filter)
 		}
-		args = append(args, "--format", "{{.Name}}\t"+ownerLabel+"\t{{.Label \"com.docker.compose.project\"}}")
+		args = append(args, "--format", "{{.Name}}\t"+ownerLabel+"\t{{.Label \"com.docker.compose.project\"}}\t"+instanceLabel)
 		out, err := dk.Run(ctx, args...)
 		if err != nil {
 			return nil, fmt.Errorf("listing %ss: %w: %s", list.kind, err, strings.TrimSpace(string(out)))
@@ -113,7 +117,7 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 			if len(f) >= 3 {
 				r.Owner, r.Stack = strings.TrimSpace(f[1]), strings.TrimSpace(f[2])
 			}
-			if list.kind == "volume" && !IsNamedVolume(name) {
+			if (list.kind == "volume" && !IsNamedVolume(name)) || len(f) < 4 || !dk.Installs(strings.TrimSpace(f[3])) {
 				r.Tags = []string{deploy.TagConfirmsOnly}
 			}
 			res = append(res, r)
@@ -144,6 +148,12 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 
 // ownerLabel is a `docker ps` or `ls` format reading who made a thing.
 var ownerLabel = `{{.Label "` + dockerlabel.Owner + `"}}`
+
+// instanceLabel is a `docker ps` or `ls` format reading which installation
+// made a thing. Only what this installation made can be not accounted for:
+// anything else (another AppTown's, or made before the label) is reported
+// only to confirm a record (deploy.TagConfirmsOnly).
+var instanceLabel = `{{.Label "` + dockerlabel.Instance + `"}}`
 
 // recordedImages answers which of refs are on dk, with one `docker image
 // inspect` for all of them (an attached host is an ssh round trip a call).

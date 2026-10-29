@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -388,7 +389,7 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{cache: a.inventory, requests: inventoryRequests{db: a.DB}}}
+	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{cache: a.inventory, requests: inventoryRequests{db: a.DB}, providers: a.targetProviders}}
 	read := func() attention.Snapshot {
 		t.Helper()
 		before := f.Snapshot().ListRequests
@@ -450,4 +451,42 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 	if recovered := read(); !recovered.Known || len(missing(recovered)) != 0 {
 		t.Fatalf("provider recovery not observed %+v", recovered)
 	}
+}
+
+// A kind with no inventory reader is skipped, not failed: the job succeeds
+// without asking anything, and attention neither requests a read nor warns
+// that the target could not be assessed.
+func TestKindWithoutInventoryReaderIsSkippedNotFailed(t *testing.T) {
+	t.Parallel()
+	a, _, _, _ := doWorld(t)
+	ctx := t.Context()
+	target, err := a.targets.Put(ctx, &deployment.Target{Name: "future-kind", Kind: "future-kind", Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := inventoryRefresh{targets: a.targets, providers: a.targetProviders, cache: a.inventory}
+	if _, err := job.Run(ctx, target.Name, nil); err != nil {
+		t.Fatalf("a kind without a reader failed its inventory job: %v", err)
+	}
+	requests := &countingInventoryRequests{}
+	source := &attention.Inventory{Targets: inventoryTargetOnly{target}, Records: a.Deployment.Inventory, Observer: attentionInventory{cache: a.inventory, requests: requests, providers: a.targetProviders}}
+	got, err := source.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests.n != 0 {
+		t.Fatalf("attention requested an inventory a kind cannot give: %d", requests.n)
+	}
+	for _, item := range got.Items {
+		if strings.HasSuffix(item.Key, "/unassessed") {
+			t.Fatalf("a kind without a reader warned as unassessed: %+v", item)
+		}
+	}
+}
+
+type countingInventoryRequests struct{ n int }
+
+func (c *countingInventoryRequests) RequestInventory(context.Context, string) error {
+	c.n++
+	return nil
 }

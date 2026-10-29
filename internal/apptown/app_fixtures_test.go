@@ -34,6 +34,11 @@ func newApp(t *testing.T, db *database.DB, configs ...Config) *App {
 			cfg.DataDir = t.TempDir()
 		}
 	}
+	// The daemon's data layout step gives the installation its id before
+	// New reads it.
+	if _, err := instanceID(cfg.DataDir); err != nil {
+		t.Fatal(err)
+	}
 	a := startApp(t, db, cfg)
 	// A test AppTown has a model, as one with a key added does: run
 	// admission refuses model work on one with none. A test about an AppTown

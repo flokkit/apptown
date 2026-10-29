@@ -155,6 +155,10 @@ func (w inventoryRefresh) Run(ctx context.Context, key string, _ map[string]any)
 	}
 	identity := inventoryTargetIdentity(t)
 	inv, err := w.providers.TargetInventory(t)
+	if errors.Is(err, deploy.ErrNoInventory) {
+		// Nothing to ask: the kind does not report what it holds.
+		return map[string]any{"unreported": true}, nil
+	}
 	var items []deploy.Resource
 	if err == nil {
 		items, err = inv.Inventory(ctx)

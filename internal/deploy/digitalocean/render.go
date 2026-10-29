@@ -29,7 +29,18 @@ type AppSpec struct {
 	Jobs      []Component      `json:"jobs,omitempty"`
 	Databases []map[string]any `json:"databases,omitempty"`
 	Ingress   *doIngress       `json:"ingress,omitempty"`
+	// Envs are app-wide: the installation's mark (InstanceEnv). App Platform
+	// apps take no tags, and the listed spec carries its variables.
+	Envs []doEnv `json:"envs,omitempty"`
 }
+
+// InstanceEnv is the app-wide variable naming the installation that made
+// an app: App Platform has no tags, so the spec carries the mark.
+const InstanceEnv = "APPTOWN_INSTANCE"
+
+// InstallationTag is the DigitalOcean tag naming the installation that
+// made a resource (a database cluster).
+func InstallationTag(installation string) string { return "apptown-instance:" + installation }
 
 type Component struct {
 	Name             string  `json:"name"`
@@ -192,6 +203,9 @@ func (d *Driver) Render(ctx context.Context, p deploy.Placement, src deploy.Sour
 		return img, nil
 	}
 	spec := AppSpec{Name: doAppName(deploy.HostKey(p.ID)), Region: cfg.Region}
+	if d.Installation != "" {
+		spec.Envs = []doEnv{{Key: InstanceEnv, Value: d.Installation, Scope: "RUN_TIME", Type: "GENERAL"}}
+	}
 	// Each consumer gets its own environment, resolved need connections,
 	// then the secrets its scope names. Public-part values are never global.
 	base, needSecrets := map[string]string{}, map[string]string{}

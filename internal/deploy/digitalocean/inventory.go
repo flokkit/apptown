@@ -3,6 +3,7 @@ package digitalocean
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -14,7 +15,10 @@ import (
 // the account's API does not list, so they are not here: a deployment's
 // bucket is shown by its key, whose grant names it. A key is reported only
 // to confirm a record, except a maker key an AppTown left (its name says so),
-// which shows as unrecorded: a live full-access credential.
+// which shows as unrecorded: a live full-access credential. An app or
+// cluster without this installation's mark (InstanceEnv, InstallationTag)
+// confirms a record only: another installation's, one made before the mark,
+// or one AppTown never made (its own database) is never called a leftover.
 func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 	c, cfg, err := i.Client(ctx)
 	if err != nil {
@@ -67,11 +71,23 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		case app.ActiveDeployment != nil:
 			status = strings.ToLower(app.ActiveDeployment.Phase)
 		}
-		out = append(out, deploy.Resource{Kind: "app", Name: app.Spec.Name, ID: app.ID, Status: status, URL: app.LiveURL, Region: app.Region.Slug})
+		r := deploy.Resource{Kind: "app", Name: app.Spec.Name, ID: app.ID, Status: status, URL: app.LiveURL, Region: app.Region.Slug}
+		marked := false
+		for _, e := range app.Spec.Envs {
+			marked = marked || i.Installation != "" && e.Key == InstanceEnv && e.Value == i.Installation
+		}
+		if !marked {
+			r.Tags = []string{deploy.TagConfirmsOnly}
+		}
+		out = append(out, r)
 	}
 	for _, db := range dbs {
-		out = append(out, deploy.Resource{Kind: "database", Name: db.Name, ID: db.ID, Status: db.Status, Region: db.Region, Size: db.Size,
-			Version: db.Engine + " " + db.Version, Tags: db.Tags})
+		r := deploy.Resource{Kind: "database", Name: db.Name, ID: db.ID, Status: db.Status, Region: db.Region, Size: db.Size,
+			Version: db.Engine + " " + db.Version, Tags: db.Tags}
+		if i.Installation == "" || !slices.Contains(db.Tags, InstallationTag(i.Installation)) {
+			r.Tags = append(slices.Clone(db.Tags), deploy.TagConfirmsOnly)
+		}
+		out = append(out, r)
 	}
 	if regErr == nil && reg.Registry.Name != "" {
 		r := deploy.Resource{Kind: "registry", Name: reg.Registry.Name, Region: reg.Registry.Region, Status: "ready", Record: deploy.RecordRecorded}

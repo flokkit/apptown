@@ -50,6 +50,10 @@ type Dependencies struct {
 	ReleaseLogin func(ref string) (oci.Credential, error)
 	// BrowserValues are the project's browser-safe values, for env.js.
 	BrowserValues func(context.Context) (map[string]string, error)
+	// Installation is this installation's id, written into every bucket it
+	// publishes to as the private mark staticsite.InstanceKey (Spaces has no
+	// bucket tags); the inventory counts only buckets that carry it.
+	Installation string
 }
 
 // Options are timings and naming; zero values are production's.
@@ -202,6 +206,11 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err := c.PutWebsite(ctx, bucket); err != nil {
 		return deploy.Observation{}, refused("setting the website configuration of "+bucket, err)
 	}
+	// Every release marks the bucket, so one published before the mark
+	// carries it from its next release.
+	if err := MarkInstallation(ctx, c, bucket, d.Installation); err != nil {
+		return deploy.Observation{}, refused("marking "+bucket+" as this installation's", err)
+	}
 	for _, pass := range []staticsite.Pass{staticsite.Assets, staticsite.Entries, staticsite.Marker} {
 		n := 0
 		for _, f := range set.Files {
@@ -261,7 +270,7 @@ func (d *Driver) create(ctx context.Context, c *Client, key string, logf func(st
 // only AppTown writes there. A failure leaves files until the next
 // release's clean-up; the release stands.
 func (d *Driver) clean(ctx context.Context, c *Client, bucket string, current, previous []string, logf func(string, ...any)) {
-	keep := map[string]bool{}
+	keep := map[string]bool{staticsite.InstanceKey: true} // the installation's mark is no site file
 	for _, k := range append(current, previous...) {
 		keep[k] = true
 	}

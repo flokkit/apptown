@@ -60,6 +60,9 @@ type Providers struct {
 	// host's inventory knows is there.
 	afterRelease      func(projectID ids.ID, deployment string)
 	databaseContainer string
+	installation      string
+	// markers mark in place what records name, by kind (MarkRecorded).
+	markers map[string]markerFactory
 	// portainerProxies are the Docker proxies data work in Portainer
 	// environments runs through, by target and environment.
 	portainerMu      sync.Mutex
@@ -84,6 +87,9 @@ type ProviderDependencies struct {
 	Applied func()
 	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
+	// Installation is this installation's id: what it makes at a target
+	// carries it, and only what carries it can be not accounted for.
+	Installation string
 }
 
 // DriverFactory builds the driver that runs one deployment on its target.
@@ -101,7 +107,7 @@ func NewProviders(ctx context.Context, db *database.DB, records ProviderRecords,
 		hosts: hosts, env: env, projects: deps.Projects, secrets: deps.Secrets, integrations: deps.Integrations,
 		drivers: maps.Clone(deps.Drivers), inventories: maps.Clone(deps.Inventories),
 		digitalOcean: deps.DigitalOcean, s3Bucket: deps.S3Bucket,
-		afterRelease: deps.AfterRelease, databaseContainer: deps.DatabaseContainer}
+		afterRelease: deps.AfterRelease, databaseContainer: deps.DatabaseContainer, installation: deps.Installation}
 	// The DigitalOcean driver judges its deadlines and grace on AppTown's
 	// clock too, unless its options name a clock of their own.
 	if p.digitalOcean.Now == nil {
@@ -141,11 +147,12 @@ func (p *Providers) Driver(ctx context.Context, t *Target, dep *Deployment) (dep
 	return f(ctx, t, dep)
 }
 
-// TargetInventory is what can say what a target holds, for its kind.
+// TargetInventory is what can say what a target holds, for its kind. A
+// kind with no reader is deploy.ErrNoInventory: unknown, not a failure.
 func (p *Providers) TargetInventory(t *Target) (deploy.Inventorier, error) {
 	f, ok := p.inventories[t.Kind]
 	if !ok {
-		return nil, fmt.Errorf("%s has no inventory", t.Name)
+		return nil, deploy.ErrNoInventory
 	}
 	return f(t)
 }
@@ -295,6 +302,7 @@ func (p *Providers) PortainerConfig(ctx context.Context, target *Target) (*porta
 	cfg.Scope = &scope
 	cfg.AppsDomain, _ = t.Ingress["domain"].(string)
 	cfg.EnvName, _ = t.Address[AddressEnvironment].(string)
+	cfg.Installation = p.installation
 	return cfg, nil
 }
 
@@ -390,18 +398,8 @@ func (p *Providers) newS3BucketDriver(ctx context.Context, t *Target, dep *Deplo
 	}
 	targetID := t.ID
 	return s3bucket.NewDriver(s3bucket.Dependencies{
-		Client: func(ctx context.Context) (*s3bucket.Client, s3bucket.Config, error) {
-			current, err := p.targets.ByID(ctx, targetID)
-			if err != nil {
-				return nil, s3bucket.Config{}, err
-			}
-			cfg := S3BucketConfig(current)
-			c, err := p.S3BucketClient(ctx, cfg)
-			if err != nil {
-				return nil, cfg, deploy.Terminal(err)
-			}
-			return c, cfg, nil
-		},
+		Client:       p.s3BucketClientFor(targetID),
+		Installation: p.installation,
 		Slug:         proj.Slug,
 		Own:          func(bucket string) error { return p.deployments.RecordOwned(ctx, dep.ID, "bucket", bucket) },
 		ReleaseLogin: func(ref string) (oci.Credential, error) { return p.releaseCredential(ctx, dep.ProjectID, ref) },
@@ -453,8 +451,9 @@ func (p *Providers) newDOAppDriver(ctx context.Context, t *Target, dep *Deployme
 		// The gate image is read with the project's registry credential
 		// only when it lives on that registry's host; a credential is never
 		// sent to another host.
-		GateLogin:  func(ref string) (oci.Credential, error) { return p.releaseCredential(ctx, dep.ProjectID, ref) },
-		Repository: repositoryRecorder{db: p.db, project: dep.ProjectID, connector: t.Provider, connection: connection.ID, now: p.clock},
+		GateLogin:    func(ref string) (oci.Credential, error) { return p.releaseCredential(ctx, dep.ProjectID, ref) },
+		Repository:   repositoryRecorder{db: p.db, project: dep.ProjectID, connector: t.Provider, connection: connection.ID, now: p.clock},
+		Installation: p.installation,
 	}, p.digitalOcean), nil
 }
 
@@ -531,10 +530,33 @@ func (p *Providers) configureProviders(ctx context.Context) {
 			return portainer.Inventory{Config: func(ctx context.Context) (*portainer.Target, error) { return p.PortainerConfig(ctx, t) }}, nil
 		}
 	}
+	p.markers = map[string]markerFactory{KindDOApp: p.markClusters, KindS3Bucket: p.markBuckets}
+	if p.inventories[KindS3Bucket] == nil {
+		p.inventories[KindS3Bucket] = func(t *Target) (deploy.Inventorier, error) {
+			return s3bucket.Inventory{Client: p.s3BucketClientFor(t.ID), Installation: p.installation}, nil
+		}
+	}
 	if p.inventories[KindDOApp] == nil {
 		p.inventories[KindDOApp] = func(t *Target) (deploy.Inventorier, error) {
-			return digitalocean.Inventory{Client: p.cloudClientFor(t.Provider)}, nil
+			return digitalocean.Inventory{Client: p.cloudClientFor(t.Provider), Installation: p.installation}, nil
 		}
+	}
+}
+
+// s3BucketClientFor resolves a bucket-website target's store and key pair
+// at use time, from its current record.
+func (p *Providers) s3BucketClientFor(targetID ids.ID) func(context.Context) (*s3bucket.Client, s3bucket.Config, error) {
+	return func(ctx context.Context) (*s3bucket.Client, s3bucket.Config, error) {
+		current, err := p.targets.ByID(ctx, targetID)
+		if err != nil {
+			return nil, s3bucket.Config{}, err
+		}
+		cfg := S3BucketConfig(current)
+		c, err := p.S3BucketClient(ctx, cfg)
+		if err != nil {
+			return nil, cfg, deploy.Terminal(err)
+		}
+		return c, cfg, nil
 	}
 }
 

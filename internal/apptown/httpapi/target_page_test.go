@@ -100,12 +100,12 @@ func TestRemoveUnrecordedInfrastructure(t *testing.T) {
 	w.setDockerClient(targetDockerClientFunc(func(ctx context.Context, host string, req docker.Command) ([]byte, error) {
 		if len(req.Args) > 1 && req.Args[0] == "ps" && req.Args[1] == "-a" {
 			if w.docker.Running("apptown-dep-orphan") {
-				return []byte("apptown-dep-orphan\tUp 1 hour\tsha256:orphan\t\t\n"), nil
+				return []byte("apptown-dep-orphan\tUp 1 hour\tsha256:orphan\t\t\t" + testInstallation + "\n"), nil
 			}
 			return nil, nil
 		}
 		if len(req.Args) > 1 && req.Args[0] == "volume" && req.Args[1] == "ls" {
-			return []byte("apptown-data-apptown-env-old-main\t\t\n"), nil
+			return []byte("apptown-data-apptown-env-old-main\t\t\t" + testInstallation + "\n"), nil
 		}
 		return w.docker.Run(ctx, host, req)
 	}))

@@ -70,6 +70,7 @@ func (w *world) driver() *Driver {
 			return nil
 		},
 		BrowserValues: func(context.Context) (map[string]string, error) { return w.browser, nil },
+		Installation:  "inst-a",
 	}, Options{WitnessTries: 2, WitnessInterval: time.Millisecond, Suffix: func() string { return w.suffix }})
 }
 
@@ -172,7 +173,7 @@ func TestTheFirstReleaseOwnsABucketAndPublishesInOrder(t *testing.T) {
 			puts = append(puts, c.Key)
 		}
 	}
-	want := []string{"assets/app-1.js", "logo.png", "_apptown/env.js", "index.html", "_apptown/release"}
+	want := []string{staticsite.InstanceKey, "assets/app-1.js", "logo.png", "_apptown/env.js", "index.html", "_apptown/release"}
 	if !slices.Equal(puts, want) {
 		t.Fatalf("uploads %v, want %v", puts, want)
 	}

@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -96,7 +98,9 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		recorded := v.Resources
-		if inv, err := h.providers.TargetInventory(t); err != nil {
+		if inv, err := h.providers.TargetInventory(t); errors.Is(err, deploy.ErrNoInventory) {
+			v.Unreported = true // unknown, not an error: the records stand alone
+		} else if err != nil {
 			v.Error = err.Error()
 		} else {
 			{
@@ -270,6 +274,10 @@ func (h Infrastructure) requireUnclaimedResource(ctx context.Context, inventory 
 	}
 	if len(selected) != 1 {
 		return fault.New(fault.Conflict, "not removed: refresh the inventory; the exact resource was not observed uniquely")
+	}
+	if slices.Contains(selected[0].Tags, deploy.TagConfirmsOnly) {
+		// AppTown owns what carries this installation's tag, nothing else.
+		return fault.New(fault.Conflict, fmt.Sprintf("not removed: %s does not carry this installation's mark", name))
 	}
 	shared, err := h.deployment.Inventory.Shared(ctx, selected)
 	if err != nil {

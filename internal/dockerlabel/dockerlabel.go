@@ -16,7 +16,7 @@ const (
 	Created     = "apptown.created"     // when it was made (RFC 3339), for the reaper's age rules
 	Expires     = "apptown.expires"     // when a task's container may be removed (RFC 3339)
 	Deadline    = "apptown.deadline"    // when a check's container may be removed (Unix seconds)
-	Instance    = "apptown.instance"    // which AppTown started the built-in database
+	Instance    = "apptown.instance"    // which AppTown installation made it (its instance-id); the inventory counts only these
 	Stack       = "apptown.stack"       // a preview's stack
 	Source      = "apptown.source"      // the worktree fingerprint an app container was built from
 	Incarnation = "apptown.incarnation" // which boot of a preview a container is

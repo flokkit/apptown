@@ -37,6 +37,23 @@ type Target struct {
 	AppsDomain        string
 	EnvName           string
 	ReleaseDeployment string // the tier name on release rows (default "lan")
+	// Installation is this installation's id, carried by every stack it
+	// creates or updates as the stack variable InstanceEnv; the inventory
+	// counts only stacks that carry it.
+	Installation string
+}
+
+// InstanceEnv is the stack variable naming the installation that applied a
+// stack. Portainer lists a stack's variables with the stack, and they carry
+// no meaning for the compose file, which does not use it.
+const InstanceEnv = "APPTOWN_INSTANCE"
+
+// stackEnv is the variables a stack is applied with: the installation's mark.
+func (cfg *Target) stackEnv() []map[string]string {
+	if cfg.Installation == "" {
+		return []map[string]string{}
+	}
+	return []map[string]string{{"name": InstanceEnv, "value": cfg.Installation}}
 }
 
 // ---- the Portainer API (the deploy surface the platform registered for us) ----
@@ -230,7 +247,7 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 			}
 			code, raw, err = JSON(ctx, cfg, "PUT",
 				fmt.Sprintf("/api/stacks/%d?endpointId=%d", st.ID, endpointID),
-				map[string]any{"stackFileContent": compose, "pullImage": true, "prune": true})
+				map[string]any{"stackFileContent": compose, "env": cfg.stackEnv(), "pullImage": true, "prune": true})
 			if err != nil {
 				return fmt.Errorf("updating stack %s: %w", name, err)
 			}
@@ -243,12 +260,12 @@ func deployStack(ctx context.Context, cfg *Target, endpointID int64, name, compo
 	}
 	code, raw, err = JSON(ctx, cfg, "POST",
 		fmt.Sprintf("/api/stacks/create/standalone/string?endpointId=%d", endpointID),
-		map[string]any{"name": name, "stackFileContent": compose})
+		map[string]any{"name": name, "stackFileContent": compose, "env": cfg.stackEnv()})
 	if err == nil && (code == 404 || code == 405) {
 		// Older Portainer route shape.
 		code, raw, err = JSON(ctx, cfg, "POST",
 			fmt.Sprintf("/api/stacks?type=2&method=string&endpointId=%d", endpointID),
-			map[string]any{"name": name, "stackFileContent": compose})
+			map[string]any{"name": name, "stackFileContent": compose, "env": cfg.stackEnv()})
 	}
 	if err != nil {
 		return fmt.Errorf("creating stack %s: %w", name, err)
@@ -808,7 +825,9 @@ func (p Execution) Execute(ctx context.Context, generation int64, checkpoint dep
 
 // Inventory answers what the Portainer endpoint holds: the stacks it runs,
 // as Portainer reports them for the target's endpoint. Built for a target,
-// it can look, never deploy.
+// it can look, never deploy. A stack without this installation's variable
+// (InstanceEnv) confirms a record only: someone else's stack, or one applied
+// before the variable, is never offered as AppTown's leftover.
 type Inventory struct {
 	Config func(context.Context) (*Target, error)
 }
@@ -836,6 +855,10 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		Name       string `json:"Name"`
 		EndpointID int64  `json:"EndpointId"`
 		Status     int    `json:"Status"`
+		Env        []struct {
+			Name  string `json:"name"`
+			Value string `json:"value"`
+		} `json:"Env"`
 	}
 	if err := json.Unmarshal(raw, &stacks); err != nil {
 		return nil, err
@@ -849,7 +872,14 @@ func (i Inventory) Inventory(ctx context.Context) ([]deploy.Resource, error) {
 		if st.Status == 2 {
 			status = "inactive"
 		}
-		res = append(res, deploy.Resource{Kind: "stack", Name: st.Name, ID: fmt.Sprint(st.ID), Status: status, Stack: st.Name, ObservedDaemonID: cfg.Scope.DaemonID})
+		r := deploy.Resource{Kind: "stack", Name: st.Name, ID: fmt.Sprint(st.ID), Status: status, Stack: st.Name, ObservedDaemonID: cfg.Scope.DaemonID,
+			Tags: []string{deploy.TagConfirmsOnly}}
+		for _, v := range st.Env {
+			if v.Name == InstanceEnv && cfg.Installation != "" && v.Value == cfg.Installation {
+				r.Tags = nil
+			}
+		}
+		res = append(res, r)
 	}
 	return res, nil
 }

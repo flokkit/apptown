@@ -96,7 +96,7 @@ func (inv *Inventory) Recorded(ctx context.Context, t *Target) ([]deploy.Resourc
 			continue
 		case KindS3Bucket:
 			// The deployment's own bucket, recorded when it was created; the
-			// AppTown does not list the store, so nothing reads unrecorded.
+			// store's buckets marked as this installation's are laid over it.
 			if bucket, _ := e.Handle["bucket"].(string); bucket != "" {
 				out = append(out, deploy.Resource{Kind: "bucket", Name: bucket, URL: e.URL, Status: e.Readiness.String(), Record: deploy.RecordRecorded, Hosts: []deploy.ResourceHost{host}})
 			}

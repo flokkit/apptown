@@ -46,6 +46,8 @@ func (f *API) ServeSpaces(store SpacesStore) {
 
 type Request struct{ Method, Path string }
 type State struct {
+	// Tags are the tags made on the account (POST /v2/tags).
+	Tags     []string
 	Registry string
 	// The registry's subscription tier and the repositories it includes;
 	// unset is DigitalOcean's free starter tier, one repository.
@@ -227,6 +229,18 @@ func (f *API) SetConnection(cluster, host string, port int, adminURI string) {
 	}
 }
 
+// SetDatabaseTags replaces a cluster's tags, as a cluster made before a
+// tag was given would carry.
+func (f *API) SetDatabaseTags(id string, tags ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, db := range f.state.Databases {
+		if db["id"] == id {
+			db["tags"] = tags
+		}
+	}
+}
+
 func (f *API) SeedDatabase(database map[string]any) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -403,6 +417,66 @@ func (f *API) Handler() http.Handler {
 		defer f.mu.Unlock()
 		f.state.Registry, _ = in["name"].(string)
 		j(w, 201, map[string]any{"registry": map[string]any{"name": f.state.Registry}})
+	})
+	// Tags: a tag is made once, then assigned to resources; only database
+	// clusters are tagged here.
+	mux.HandleFunc("POST /v2/tags", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Name == "" {
+			j(w, 422, map[string]any{"id": "unprocessable_entity", "message": "a tag needs a name"})
+			return
+		}
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if !slices.Contains(f.state.Tags, in.Name) {
+			f.state.Tags = append(f.state.Tags, in.Name)
+		}
+		j(w, 201, map[string]any{"tag": map[string]any{"name": in.Name}})
+	})
+	mux.HandleFunc("POST /v2/tags/{tag}/resources", func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Resources []struct {
+				ID   string `json:"resource_id"`
+				Type string `json:"resource_type"`
+			} `json:"resources"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			j(w, 400, map[string]any{"id": "bad_request", "message": err.Error()})
+			return
+		}
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		tag := r.PathValue("tag")
+		if !slices.Contains(f.state.Tags, tag) {
+			j(w, 404, map[string]any{"id": "not_found", "message": "no such tag"})
+			return
+		}
+		for _, res := range in.Resources {
+			if res.Type != "database" {
+				j(w, 422, map[string]any{"id": "unprocessable_entity", "message": "unsupported resource type"})
+				return
+			}
+			for _, db := range f.state.Databases {
+				if db["id"] != res.ID {
+					continue
+				}
+				var tags []any
+				switch have := db["tags"].(type) {
+				case []any:
+					tags = have
+				case []string:
+					for _, t := range have {
+						tags = append(tags, t)
+					}
+				}
+				if !slices.Contains(tags, any(tag)) {
+					db["tags"] = append(tags, tag)
+				}
+			}
+		}
+		w.WriteHeader(204)
 	})
 	mux.HandleFunc("GET /v2/databases", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()

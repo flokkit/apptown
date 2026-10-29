@@ -50,18 +50,24 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 	deployments := deployment.JobWorker{Service: a.Deployment, Projects: a.Projects, DataDir: a.cfg.dataDir, Reporter: selfErrorsFor(a)}
 	data := dataprotection.JobWorker{Service: a.DataProtection, Projects: a.Projects, Backups: backupRequests{db: a.DB, life: a.life}}
 	inventory := inventoryRefresh{targets: a.targets, providers: a.targetProviders, cache: a.inventory}
+	providers := a.targetProviders
 	backup := databaseBackup{db: a.DB, dump: databaseDump{DB: a.DB, Place: &a.dumps, Tools: a.cfg.stock.Tools, DataDir: a.cfg.dataDir}, dataDir: a.cfg.dataDir, enabled: a.cfg.usingBuiltinDB, now: a.cfg.clock.Now}
 	fleet := fleetReviewsFor(a)
 	disks := a.diskObserver
 	workers := a.workerObserver
 
 	kinds := map[string]jobs.Kind{
-		deployment.ReleaseJob:                   {Run: jobErrors(deployments.Release), Timeout: 20 * time.Minute},
-		workflowCompletionJob:                   {Run: jobErrors(followups.Complete)},
-		deployment.RecoveryJob:                  {Run: jobErrors(deployments.Recover), Timeout: 20 * time.Minute},
-		workflowAbandonmentJob:                  {Run: jobErrors(followups.Abandon)},
-		"backup":                                {Run: jobErrors(data.Backup)},
-		"inventory":                             {Run: jobErrors(inventory.Run)},
+		deployment.ReleaseJob:  {Run: jobErrors(deployments.Release), Timeout: 20 * time.Minute},
+		workflowCompletionJob:  {Run: jobErrors(followups.Complete)},
+		deployment.RecoveryJob: {Run: jobErrors(deployments.Recover), Timeout: 20 * time.Minute},
+		workflowAbandonmentJob: {Run: jobErrors(followups.Abandon)},
+		"backup":               {Run: jobErrors(data.Backup)},
+		"inventory":            {Run: jobErrors(inventory.Run)},
+		// Once a boot: mark what records name and was made before the mark.
+		deployment.MarkInstallationJob: {Run: func(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
+			marked, err := providers.MarkRecorded(ctx)
+			return map[string]any{"marked": marked}, err
+		}},
 		deployment.CapacityObservationJob:       {Run: a.capacityObserver.RunJob, Timeout: 30 * time.Second},
 		dataprotection.ProtectionObservationJob: {Run: a.protectionObserver.RunJob, Timeout: 30 * time.Second},
 		workerObservationJob: {Run: func(ctx context.Context, key string, _ map[string]any) (map[string]any, error) {
@@ -121,6 +127,7 @@ var jobBudgets = map[string]int{
 	workflowAbandonmentJob:                  3,
 	"backup":                                1,
 	"inventory":                             2,
+	deployment.MarkInstallationJob:          1,
 	diskObservationJob:                      1,
 	workerObservationJob:                    1,
 	deployment.CapacityObservationJob:       1,
