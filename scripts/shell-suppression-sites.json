@@ -46,31 +46,6 @@
   },
   {
     "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "\t\tfill=$(ssh \"$tgt\" \"docker exec $db psql -U postgres -d $dbname -At -c \\\"SELECT f.state || ' ' || f.detail FROM restore_fills f JOIN deployments d ON d.id=f.deployment_id JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\\\"\" 2>/dev/null || true)",
-    "reason": "A transient restore-state read failure leaves this bounded poll unsatisfied. Success still requires filled state and a successful HTTP response; exhaustion fails."
-  },
-  {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "\t\tcontainer=$(ssh \"$tgt\" \"docker exec $db psql -U postgres -d $dbname -At -c \\\"SELECT d.container FROM deployments d JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\\\"\" 2>/dev/null || true)",
-    "reason": "A transient container read failure leaves this bounded poll without a usable endpoint. Success still requires filled state and a successful HTTP response; exhaustion fails."
-  },
-  {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "\t\thostport=$(ssh \"$tgt\" \"docker port ${container:-none} 2>/dev/null | sed -n 's/.*127.0.0.1:\\([0-9]*\\)$/\\1/p' | head -1\" || true)",
-    "reason": "A transient port read failure leaves this bounded poll without a usable endpoint. Success still requires filled state and a successful HTTP response; exhaustion fails."
-  },
-  {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "\t\t[ -n \"$hostport\" ] && code=$(ssh \"$tgt\" \"curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:$hostport/\" || true)",
-    "reason": "An unsuccessful HTTP poll is not readiness. The loop requires the expected successful response and fails on exhaustion."
-  },
-  {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
-    "source": "\t\t\tdiff \"$out/data.src\" \"$work/data.tgt\" >&2 || true",
-    "reason": "The data mismatch already fails this rehearsal. A diagnostic diff cannot replace or suppress that failure."
-  },
-  {
-    "file": "scripts/apptown-recovery-rehearsal.sh",
     "source": "p=$(cat $d/pid 2>/dev/null || true)",
     "reason": "The PID file is only an optional hint for stopping the recorded process. Checked process inventory below must still establish absence before resource cleanup."
   },
@@ -128,6 +103,21 @@
     "file": "site/try.sh",
     "source": "\tfor image in $(printf '%s\\n' \"$images\" | grep '^ghcr.io/flokkit/apptown' || :); do",
     "reason": "The image inventory was checked before this filter. grep may find no AppTown image; that means there is no matching image to remove."
+  },
+  {
+    "file": "scripts/apptown-recovery-rehearsal.sh",
+    "source": "\tdiffer=$(grep -v ' missing$' \"$1\" | grep -F -x -v -f \"$2\" | cut -d' ' -f1 || true)",
+    "reason": "grep exits 1 when every source key file is on the target unchanged, which is the passing case; an empty result is the pass and any listed file fails the check below."
+  },
+  {
+    "file": "scripts/native-install-check.sh",
+    "source": "\t[ -z \"$pid\" ] || { kill \"$pid\" 2>/dev/null || true; wait \"$pid\" 2>/dev/null || true; }",
+    "reason": "Exit cleanup stops the AppTown this check started; it may already have exited. The check's own status is kept, and the database container and volume are then removed with their failures reported."
+  },
+  {
+    "file": "scripts/native-install-check.sh",
+    "source": "\twait \"$pid\" 2>/dev/null || true",
+    "reason": "A stopped AppTown exits by the signal it was sent; its exit status is not the check's result, which the health and version checks already decided."
   },
   {
     "file": "scripts/release-notes-check.sh",

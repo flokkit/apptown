@@ -1,69 +1,67 @@
 #!/bin/bash
 # Back up a whole AppTown with `apptownd backup`, restore the archive onto a
-# replacement host with `apptownd restore`, and check what came back, timing
-# each step (the procedure is the guide's, stock/docs/guides/apptown-backups.md).
+# spare host with `apptownd restore`, check what came back and start it,
+# timing each step (the procedure is the guide's,
+# stock/docs/guides/apptown-backups.md). With CANDIDATE, the restore and the
+# start use a release archive's apptownd: the rehearsal is then that
+# release's upgrade of the source's data (design/operations/releasing.md).
 #
-#   APPTOWN_URL=<source url> APPTOWN_TOKEN=<source CLI token> \
-#   apptown-recovery-rehearsal.sh backup <source ssh> <source data dir> <slug/deployment> <out dir>
-#   apptown-recovery-rehearsal.sh restore <out dir> <target ssh>
-#   apptown-recovery-rehearsal.sh all <source ssh> <source data dir> <slug/deployment> <target ssh>
+#   APPTOWN_URL=<source url> APPTOWN_TOKEN=<source CLI token> [CANDIDATE=<linux release archive>] \
+#   apptown-recovery-rehearsal.sh <source ssh> <source data dir> <target ssh>
 #
-# backup writes on the source: `apptownd backup` holds new work for the
-# dump; no app is stopped. The checked deployment's data comes back from its
-# own newest whole deployment backup kept on the source's disk, so it needs
-# one. It copies the archive (encrypted with a passphrase made for the
-# run), the passphrase, the source's apptownd and the update files it reads
-# its stock from (share/apptown/updates beside its bin/), the key files' digests and
-# what the source answers (restore-check.py capture; DATA_QUERY) into <out
-# dir>, and removes the archive from the source.
+# On the source, `apptownd backup` writes the archive on the source's disk;
+# nothing is stopped and new work is held for the dump. With STORE=1 it is
+# also copied to the source's backup store (backup -store). The archive is
+# encrypted with the passphrase in PASSPHRASE_FILE, which is kept, or else
+# with one made for the run and lost with it: STORE=1 needs PASSPHRASE_FILE.
+# The archive goes from the source to the target through this machine's
+# pipe, never written here, and is deleted on both when the run ends,
+# however it ends. Before the backup, restore-check.py captures what the
+# source answers (with APPTOWN_TOKEN, a CLI token made on the source).
 #
-# restore cuts the target off from everything a restored AppTown would act
-# on (upstream Git, cloud APIs, attached hosts, model providers) except the
-# one registry the rebuild pulls from, before apptownd starts there. What
-# the rehearsal makes on the target is known by what Docker holds before it
-# starts: on every exit the restored AppTown is stopped, everything created
-# since is removed, and only then is the cut lifted; if any of it remains,
-# the cut stays. A lock file (/root/.lab-lock) keeps two runs, or other work
-# on a shared target, apart. It checks: the key files came across unchanged
-# (apptownd restore checks them too, against the archive's manifest); reads
-# through the API with -verify-only (restore-check.py verify); after a normal
-# start, the deployment was rebuilt with its data filled before its app
-# started, answers HTTP, and DATA_QUERY answers what it answered on the source.
+# The target is cut off from everything a restored AppTown would act on
+# (upstream Git, cloud APIs, attached hosts, model providers, registries)
+# before apptownd starts there: an nftables table allowing only loopback,
+# DNS and Docker's own networks, and /etc/hosts entries for BLOCK_NAMES.
+# What the rehearsal makes on the target is known by what Docker holds before
+# it starts: on every exit the restored AppTown is stopped, everything created
+# since is removed, its data directory deleted, and only then is the cut
+# lifted; if any of it remains, the cut stays. A lock file (/root/.lab-lock)
+# keeps two runs, or other work on a shared target, apart. It checks: the key
+# files the source has came across unchanged (a restore into the built-in
+# database writes a new db.env when the source ran on -db-url); reads through
+# the API with -verify-only (restore-check.py verify, a sample: activity
+# history and recent changes per project); after a normal start, AppTown
+# answers its health check (HTTP 200) and names the expected version (the candidate's, or the
+# source's). Built-in apps are not checked: their data comes from their own
+# deployment backups, and the cut target cannot pull their images.
 #
-# restore-check.py reads APPTOWN_TOKEN, a CLI token made on the source
-# before the backup, on both sides.
-# Environment: REGISTRY (required for restore: the registry hosts the target
-# may still reach, space-separated, every address of each, e.g.
-# registry.example.com, or for Docker Hub "registry-1.docker.io
-# auth.docker.io production.cloudflare.docker.com"), TARGET_DATA
-# (/srv/apptown-restore/data), TARGET_PORT (47777), BLOCK_NAMES
-# (space-separated host names sent to 127.0.0.1 on the target, e.g. the
-# source AppTown's own name and its Git, error and telemetry hosts; none by
-# default), RESET_TARGET=1 (first clean up what an earlier run left, by that
-# run's own record), SOURCE_BIN (the source's apptownd,
-# /opt/apptown/bin/apptownd), DATA_QUERY (SQL whose answer must come back
-# unchanged, run in the deployment's DATA_NEED container, postgres by default).
+# Environment: TARGET_DATA (/srv/apptown-restore/data), TARGET_PORT (47777),
+# BLOCK_NAMES (space-separated host names sent to 127.0.0.1 on the target,
+# e.g. the source AppTown's own name; none by default), RESET_TARGET=1
+# (first clean up what an earlier run left, by that run's own record),
+# SOURCE_BIN (the source's apptownd, /opt/apptown/bin/apptownd), CANDIDATE,
+# STORE, PASSPHRASE_FILE.
 set -euo pipefail
-usage() { sed -n 2,43p "$0" >&2; exit 2; }
-cmd=${1:-}
-[ $# -gt 0 ] && shift
-case "$cmd" in
-backup) [ $# -eq 4 ] || usage ;;
-restore) [ $# -eq 2 ] || usage ;;
-all) [ $# -eq 4 ] || usage ;;
-*) usage ;;
-esac
-if [ "$cmd" != backup ] && [ -z "${REGISTRY:-}" ]; then
-	echo "REGISTRY is not set: name the registry the rebuild pulls from" >&2
-	usage
-fi
+usage() { sed -n 2,44p "$0" >&2; exit 2; }
+[ $# -eq 3 ] || usage
+src=$1 srcdata=$2 tgt=$3
 here=$(cd "$(dirname "$0")" && pwd)
 srcbin=${SOURCE_BIN:-/opt/apptown/bin/apptownd}
 tdata=${TARGET_DATA:-/srv/apptown-restore/data}
 port=${TARGET_PORT:-47777}
-need=${DATA_NEED:-postgres}
 block=${BLOCK_NAMES:-}
-tgt="" lock="" allout=""
+candidate=${CANDIDATE:-}
+[ -z "$candidate" ] || [ -f "$candidate" ] || { echo "CANDIDATE $candidate is not a file" >&2; exit 2; }
+passfile=${PASSPHRASE_FILE:-}
+[ -z "$passfile" ] || [ -s "$passfile" ] || { echo "PASSPHRASE_FILE $passfile is not a file with a passphrase" >&2; exit 2; }
+store=
+case ${STORE:-} in
+"") ;;
+1) store=-store; [ -n "$passfile" ] || { echo "STORE=1 keeps the archive beyond the run: give its passphrase in PASSPHRASE_FILE" >&2; exit 2; } ;;
+*) echo "STORE is 1 or unset, not $STORE" >&2; exit 2 ;;
+esac
+lock="" srcarchive=""
 work=$(mktemp -d)
 t0=$(date +%s) last=$t0 current=""
 step() { # names the next step and says how long the previous one took
@@ -73,19 +71,6 @@ step() { # names the next step and says how long the previous one took
 	current=$* last=$now
 }
 
-# needs <ssh> <slug> <deployment>: the deployment's need container, by the
-# labels standing deployments carry for people and the need's name.
-need_container() {
-	ssh "$1" "docker ps --filter label=apptown.project=$2 --filter label=apptown.deployment.name=$3 --format '{{.Names}}'" | grep -- "-$need\$" | head -1
-}
-# query <ssh> <container>: DATA_QUERY's answer in the need's own database.
-query() {
-	# ssh joins its arguments into one command line: each is quoted for the
-	# remote shell, so the whole query arrives as one word.
-	ssh "$1" "bash -s -- $(printf '%q %q' "$2" "$DATA_QUERY")" <<'EOF'
-docker exec "$1" sh -c 'psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-$POSTGRES_USER}" -At -c "$1"' _ "$2"
-EOF
-}
 keys="runtime-token-key secrets.env db.env instance-id"
 sum() { # sum <ssh> <data dir>: "<file> <sha256>" per key file, or "<file> missing"
 	# ssh joins its arguments into one command line: the names go as words.
@@ -97,59 +82,9 @@ done
 EOF
 }
 
-do_backup() { # do_backup <source ssh> <source data dir> <slug/deployment> <out dir>
-	local src=$1 srcdata=$2 redeploy=$3 out=$4
-	local slug=${redeploy%/*} depname=${redeploy#*/}
-	mkdir -p "$out"
-	[ -z "$(ls -A "$out")" ] || { echo "$out is not empty" >&2; exit 1; }
-	echo "$redeploy" > "$out/deployment"
-	# The source's built-in database, as the db.env in its data directory
-	# records it: the container (APPTOWN_DB_CONTAINER) and the database
-	# APPTOWN_DB_URL names (an install made before 1.0 keeps the names it was
-	# made with). Only the two names leave the source, never the URL's password.
-	srcdb=$(ssh "$src" "sed -n 's/^APPTOWN_DB_CONTAINER=//p' '$srcdata/db.env'")
-	dbname=$(ssh "$src" "sed -n 's|^APPTOWN_DB_URL=.*/\\([^/?]*\\).*|\\1|p' '$srcdata/db.env'")
-	[ -n "$srcdb" ] && [ -n "$dbname" ] || { echo "$srcdata/db.env on $src names no built-in database container and database" >&2; exit 1; }
-	# end of the source's database
-
-	step "capture what the source holds (reads)"
-	python3 "$here/apptown-restore-check.py" capture "$APPTOWN_URL" "$out/expected.json"
-	# The deployment is rebuilt from its recorded release: a deployment
-	# whose release recorded no rebuild inputs cannot be.
-	art=$(ssh "$src" "docker exec $srcdb psql -U postgres -d $dbname -At -c \"SELECT i.artifact_hash FROM deployments d JOIN projects p ON p.id=d.project_id JOIN deployment_attempts a ON a.deployment_id=d.id AND a.generation=d.observed_generation JOIN deployment_attempt_inputs i ON i.attempt_id=a.id WHERE p.slug='$slug' AND d.name='$depname' AND a.status='done'\"")
-	[ -n "$art" ] || { echo "$redeploy has no recorded rebuild inputs on the source: pick another deployment" >&2; exit 1; }
-	sum "$src" "$srcdata" | sort > "$out/keys.src"
-	if [ -n "${DATA_QUERY:-}" ]; then
-		c=$(need_container "$src" "$slug" "$depname")
-		[ -n "$c" ] || { echo "$redeploy has no $need container on the source" >&2; exit 1; }
-		query "$src" "$c" > "$out/data.src"
-		echo "DATA_QUERY on the source ($c): $(wc -l < "$out/data.src") lines"
-	fi
-
-	step "back up the source with apptownd backup"
-	openssl rand -hex 24 > "$out/passphrase"
-	chmod 600 "$out/passphrase"
-	remote=/root/apptown-rehearsal-$$.backup
-	ssh "$src" "umask 077; cat > /root/.apptown-rehearsal-pass-$$" < "$out/passphrase"
-	ssh "$src" "APPTOWN_BACKUP_PASSPHRASE_FILE=/root/.apptown-rehearsal-pass-$$ $srcbin -data '$srcdata' backup $remote; s=\$?; rm -f /root/.apptown-rehearsal-pass-$$; exit \$s"
-	ssh "$src" cat "$remote" > "$out/apptown.backup"
-	ssh "$src" cat "$srcbin" > "$out/apptownd"
-	# The stock and tool versions that apptownd reads at start, shipped
-	# beside its bin/ folder.
-	ssh "$src" tar -C "$(dirname "$(dirname "$srcbin")")/share/apptown" -cf - updates > "$out/updates.tar"
-	ssh "$src" rm -f "$remote"
-	ls -l "$out/apptown.backup"
-}
-
-do_restore() { # do_restore <out dir> <target ssh>
-	local out=$1
-	tgt=$2
-	local redeploy slug depname
-	redeploy=$(cat "$out/deployment")
-	slug=${redeploy%/*} depname=${redeploy#*/}
+rehearse() {
 	local tgthost=${tgt#*@}
 	local turl=http://$tgthost:$port
-	registry=$REGISTRY
 
 	# The lock names this invocation; only it removes its own lock.
 	lock="apptown-recovery-rehearsal $$ from $(hostname) at $(date -u +%FT%TZ)"
@@ -177,7 +112,7 @@ rm -rf "$1" /opt/forge-restore
 EOF
 	fi
 
-	step "prepare the target: record what Docker holds; pull what a fresh host lacks"
+	step "prepare the target: record what Docker holds; pull the built-in database's image"
 	ssh "$tgt" bash -s -- "$tdata" <<'EOF'
 set -euo pipefail
 [ ! -e /opt/forge-restore ] && { [ ! -e "$1" ] || [ -z "$(ls -A "$1")" ]; } || { echo "an earlier rehearsal's files are on the target; run with RESET_TARGET=1" >&2; exit 1; }
@@ -190,14 +125,10 @@ EOF
 	owned=yes
 
 	step "isolate the target before anything of AppTown starts there"
-	# Every address of every registry host: a name with several answers is
-	# reached at any of them.
-	ip=$(for h in $registry; do ssh "$tgt" getent ahostsv4 "$h" | awk '{print $1}'; done | sort -u | paste -sd, -)
-	[ -n "$ip" ] || { echo "no address for $registry" >&2; exit 1; }
 	dns=$(ssh "$tgt" "awk '/^nameserver/{print \$2; exit}' /etc/resolv.conf")
-	ssh "$tgt" bash -s -- "$ip" "$dns" "$block" <<'EOF'
+	ssh "$tgt" bash -s -- "$dns" "$block" <<'EOF'
 set -euo pipefail
-ip=$1 dns=$2 names=${3:-} # ssh drops an empty BLOCK_NAMES argument
+dns=$1 names=${2:-} # ssh drops an empty BLOCK_NAMES argument
 sed -i '/# apptown-recovery-rehearsal/d' /etc/hosts
 for n in $names; do echo "127.0.0.1 $n # apptown-recovery-rehearsal" >> /etc/hosts; done
 nft delete table inet forge_rehearsal 2>/dev/null || true
@@ -211,7 +142,6 @@ table inet forge_rehearsal {
     oifname "br-*" accept
     ip daddr $dns udp dport 53 accept
     ip daddr $dns tcp dport 53 accept
-    ip daddr { $ip } tcp dport 443 accept
     counter drop
   }
   chain forwarded {
@@ -227,40 +157,52 @@ table inet forge_rehearsal {
 }
 NFT
 EOF
-	for probe in https://github.com https://api.digitalocean.com https://openrouter.ai; do
+	for probe in https://github.com https://api.digitalocean.com https://openrouter.ai https://ghcr.io; do
 		if ssh "$tgt" curl -s -m 5 -o /dev/null "$probe"; then echo "the target still reaches $probe" >&2; exit 1; fi
 	done
-	first=${registry%% *}
-	ssh "$tgt" curl -s -m 5 -o /dev/null -w '%{http_code}' "https://$first/v2/" | grep -q 401 || { echo "the target cannot reach $first" >&2; exit 1; }
-	echo "cut off; $registry reachable"
+	echo "cut off"
 
-	step "copy the archive, its passphrase and the source's apptownd"
-	ssh "$tgt" "umask 077; cat > /opt/forge-restore/apptown.backup" < "$out/apptown.backup"
-	ssh "$tgt" "umask 077; cat > /opt/forge-restore/passphrase" < "$out/passphrase"
-	ssh "$tgt" "cat > /opt/forge-restore/apptownd && chmod 755 /opt/forge-restore/apptownd" < "$out/apptownd"
-	ssh "$tgt" "rm -rf /opt/forge-restore/updates && tar -C /opt/forge-restore -xf -" < "$out/updates.tar"
+	if [ -n "$candidate" ]; then
+		step "the candidate restores and starts: $(basename "$candidate")"
+		ssh "$tgt" "mkdir -p /opt/forge-restore/candidate && tar --no-same-owner -xzf - -C /opt/forge-restore/candidate --strip-components=1" < "$candidate"
+		ssh "$tgt" "cp /opt/forge-restore/candidate/bin/apptownd /opt/forge-restore/apptownd && rm -rf /opt/forge-restore/updates && cp -R /opt/forge-restore/candidate/share/apptown/updates /opt/forge-restore/updates"
+	else
+		step "the source's apptownd restores and starts"
+		ssh "$src" cat "$srcbin" | ssh "$tgt" "cat > /opt/forge-restore/apptownd && chmod 755 /opt/forge-restore/apptownd"
+		# The stock and tool versions that apptownd reads at start, shipped
+		# beside its bin/ folder.
+		ssh "$src" tar -C "$(dirname "$(dirname "$srcbin")")/share/apptown" -cf - updates | ssh "$tgt" "rm -rf /opt/forge-restore/updates && tar -C /opt/forge-restore -xf -"
+	fi
+	expected=$(ssh "$tgt" /opt/forge-restore/apptownd -version | awk '{print $2}')
+	[ -n "$expected" ] || { echo "the restoring apptownd names no version" >&2; exit 1; }
+	echo "restores and starts as $expected"
+
+	step "capture what the source holds (reads)"
+	python3 "$here/apptown-restore-check.py" capture "$APPTOWN_URL" "$work/expected.json"
+	sum "$src" "$srcdata" | sort > "$work/keys.src"
+
+	step "back up the source with apptownd backup (nothing stops)"
+	if [ -n "$passfile" ]; then
+		cp "$passfile" "$work/passphrase"
+	else
+		openssl rand -hex 24 > "$work/passphrase"
+	fi
+	chmod 600 "$work/passphrase"
+	srcarchive=/root/apptown-rehearsal-$$.backup
+	ssh "$src" "umask 077; cat > /root/.apptown-rehearsal-pass-$$" < "$work/passphrase"
+	ssh "$src" "APPTOWN_BACKUP_PASSPHRASE_FILE=/root/.apptown-rehearsal-pass-$$ $srcbin -data '$srcdata' backup $store $srcarchive; s=\$?; rm -f /root/.apptown-rehearsal-pass-$$; exit \$s"
+
+	step "carry the archive from the source to the target (through this machine's pipe, not its disk)"
+	ssh "$src" cat "$srcarchive" | ssh "$tgt" "umask 077; cat > /opt/forge-restore/apptown.backup"
+	ssh "$tgt" "umask 077; cat > /opt/forge-restore/passphrase" < "$work/passphrase"
+	ssh "$tgt" ls -l /opt/forge-restore/apptown.backup
 
 	step "apptownd restore: refuse an AppTown already there, unpack, check the key files, load the dump"
 	ssh "$tgt" "APPTOWN_BACKUP_PASSPHRASE_FILE=/opt/forge-restore/passphrase /opt/forge-restore/apptownd -shipped /opt/forge-restore/updates -data '$tdata' -addr 0.0.0.0:$port -console-addr 127.0.0.1:$((port + 1)) -auth internal -public-host $turl restore /opt/forge-restore/apptown.backup < /dev/null"
 
-	step "the key and secret files came across unchanged (names only; no contents)"
-	# Each side hashes the files; only the comparison leaves this machine's
-	# memory, never a value.
+	step "the source's key and secret files came across unchanged (names only; no contents)"
 	sum "$tgt" "$tdata" | sort > "$work/keys.tgt"
-	# AppTown's keys and its database's bootstrap must be there; secrets.env
-	# is written only once something is set in it, and may be absent on both
-	# sides alike.
-	if grep -E -q '^(runtime-token-key|db.env|instance-id) missing$' "$out/keys.src" "$work/keys.tgt"; then
-		echo "required key files are missing or unreadable:" >&2
-		grep -h -E '^(runtime-token-key|db.env|instance-id) missing$' "$out/keys.src" "$work/keys.tgt" | cut -d' ' -f1 | sort -u >&2
-		exit 1
-	fi
-	if ! cmp -s "$out/keys.src" "$work/keys.tgt"; then
-		echo "key or secret files differ on the target:" >&2
-		diff "$out/keys.src" "$work/keys.tgt" | sed -n 's/^[<>] \([^ ]*\) .*/\1/p' | sort -u >&2
-		exit 1
-	fi
-	echo "same on both sides: $(cut -d' ' -f1 "$work/keys.tgt" | tr '\n' ' ')"
+	compare_keys "$work/keys.src" "$work/keys.tgt"
 
 	start() { # start <flags…>: apptownd on the target, its pid in /opt/forge-restore/pid
 		# stdin from /dev/null, or AppTown holds the ssh session open.
@@ -272,68 +214,60 @@ EOF
 		ssh "$tgt" 'p=$(cat /opt/forge-restore/pid); [ "$(readlink /proc/$p/exe)" = /opt/forge-restore/apptownd ] && kill "$p"; while kill -0 "$p" 2>/dev/null; do sleep 1; done'
 	}
 
-	if [ -s "$out/expected.json" ]; then
-		step "verify read-only (-verify-only): credentials, history, evidence, repositories"
-		start -verify-only
-		python3 "$here/apptown-restore-check.py" verify "$turl" "$out/expected.json" || { stop; exit 1; }
-		stop
-	fi
+	step "verify read-only (-verify-only): credentials, history, evidence, repositories"
+	start -verify-only
+	python3 "$here/apptown-restore-check.py" verify "$turl" "$work/expected.json" || { stop; exit 1; }
+	stop
 
-	step "start normally; $redeploy is rebuilt with its data put back before its app starts"
+	step "start normally: AppTown is healthy and names $expected"
 	start
-	local db dbname
-	db=$(ssh "$tgt" "sed -n 's/^APPTOWN_DB_CONTAINER=//p' '$tdata/db.env'")
-	dbname=$(ssh "$tgt" "sed -n 's|^APPTOWN_DB_URL=.*/\\([^/?]*\\).*|\\1|p' '$tdata/db.env'")
-	# Witnesses on the target, not the restored record's word alone: the
-	# restored AppTown's fill of the deployment ended filled, its container
-	# runs and answers HTTP, and DATA_QUERY answers as it did on the source.
-	ok="" fill="" code=""
-	for _ in $(seq 1 60); do
-		fill=$(ssh "$tgt" "docker exec $db psql -U postgres -d $dbname -At -c \"SELECT f.state || ' ' || f.detail FROM restore_fills f JOIN deployments d ON d.id=f.deployment_id JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\"" 2>/dev/null || true)
-		case "$fill" in failed*) break ;; esac
-		container=$(ssh "$tgt" "docker exec $db psql -U postgres -d $dbname -At -c \"SELECT d.container FROM deployments d JOIN projects p ON p.id=d.project_id WHERE p.slug='$slug' AND d.name='$depname'\"" 2>/dev/null || true)
-		hostport=$(ssh "$tgt" "docker port ${container:-none} 2>/dev/null | sed -n 's/.*127.0.0.1:\([0-9]*\)$/\1/p' | head -1" || true)
-		code=""
-		[ -n "$hostport" ] && code=$(ssh "$tgt" "curl -s -m 5 -o /dev/null -w '%{http_code}' http://127.0.0.1:$hostport/" || true)
-		if [ "${fill%% *}" = filled ] && [[ "$code" =~ ^[23] ]]; then
-			echo "rebuilt with its data; answers HTTP $code on 127.0.0.1:$hostport"
-			ok=yes
-			break
-		fi
-		sleep 10
-	done
-	[ -n "$ok" ] || { echo "$redeploy did not come back with its data within 10 minutes (fill: ${fill:-none}; HTTP ${code:-none})" >&2; exit 1; }
-	if [ -n "${DATA_QUERY:-}" ]; then
-		c=$(need_container "$tgt" "$slug" "$depname")
-		[ -n "$c" ] || { echo "$redeploy has no $need container on the target" >&2; exit 1; }
-		query "$tgt" "$c" > "$work/data.tgt"
-		if ! cmp -s "$out/data.src" "$work/data.tgt"; then
-			echo "DATA_QUERY answers differently on the target:" >&2
-			diff "$out/data.src" "$work/data.tgt" >&2 || true
-			exit 1
-		fi
-		echo "DATA_QUERY answers as on the source ($(wc -l < "$work/data.tgt") lines)"
-	fi
+	code=$(curl -s -o /dev/null -D "$work/health" -w '%{http_code}' "$turl/healthz") || code=none
+	got=$(tr -d '\r' < "$work/health" | sed -n 's/^[Xx]-[Aa]pp[Tt]own-[Vv]ersion: //p')
+	[ "$code" = 200 ] || { echo "the restored AppTown's health check answers $code" >&2; exit 1; }
+	[ "$got" = "$expected" ] || { echo "the restored AppTown names version '${got:-none}', not $expected" >&2; exit 1; }
+	echo "healthy, as $got"
 
-	step "clean up: stop the restored AppTown, remove what it made, lift the cut"
+	step "clean up: stop the restored AppTown, remove what it made and its data, lift the cut"
 	end_rehearsal
 	owned=""
 	locked=""
-	step "done: the restored AppTown and what it made are removed, its data kept under $tdata; the network cut is lifted"
+	step "done: the restored AppTown, what it made and its data are removed; the network cut is lifted"
+}
+
+# compare_keys <source sums> <target sums>: each key file the source has is
+# on the target unchanged. Only the comparison leaves the hosts' memory,
+# never a value. AppTown's own keys must be on the source. A source on
+# -db-url has no db.env; the restore writes the built-in database's own,
+# which is the target's and not compared.
+compare_keys() {
+	if grep -E -q '^(runtime-token-key|instance-id) missing$' "$1"; then
+		echo "the source's key files are missing or unreadable:" >&2
+		grep -E '^(runtime-token-key|instance-id) missing$' "$1" | cut -d' ' -f1 >&2
+		return 1
+	fi
+	local differ
+	differ=$(grep -v ' missing$' "$1" | grep -F -x -v -f "$2" | cut -d' ' -f1 || true)
+	if [ -n "$differ" ]; then
+		echo "key or secret files differ on the target:" >&2
+		echo "$differ" >&2
+		return 1
+	fi
+	echo "same on both sides: $(grep -v ' missing$' "$1" | cut -d' ' -f1 | tr '\n' ' ')"
 }
 
 # end_rehearsal runs on the target, within this invocation's exclusive use:
 # stop the restored AppTown (only a process whose binary is the rehearsal's),
 # remove what was created since this run's record of Docker
-# (/opt/forge-restore/before.*), and only when every observation succeeded
+# (/opt/forge-restore/before.*) and the restored data directory, and only
+# when every observation succeeded
 # and none of it remains, retire the record, lift the cut and release the
 # lock. Unconfirmed ownership refuses all cleanup. Later cleanup failures
 # require inspection: the cut may already be lifted when lock release fails.
 end_rehearsal() {
-	ssh "$tgt" "bash -s -- $(printf '%q' "$lock")" <<'EOF'
+	ssh "$tgt" "bash -s -- $(printf '%q %q' "$lock" "$tdata")" <<'EOF'
 set -u
 d=/opt/forge-restore
-expected=$1
+expected=$1 data=$2
 held=$(cat /root/.lab-lock 2>/dev/null) || { echo "cleanup on the target: lock ownership could not be read; no cleanup attempted" >&2; exit 1; }
 [ "$held" = "$expected" ] || { echo "cleanup on the target: this invocation does not own the lock; no cleanup attempted" >&2; exit 1; }
 fail() { echo "cleanup on the target: $*; cleanup is incomplete: inspect the target before reuse, recover by hand" >&2; exit 1; }
@@ -356,6 +290,7 @@ for kind in container network volume; do
 	[ -z "$(printf '%s\n' "$now" | sed '/^$/d' | sort | comm -13 $d/before.$kind -)" ] || fail "$kind""s the rehearsal made remain"
 done
 rm -f $d/before.container $d/before.network $d/before.volume $d/apptown.backup $d/passphrase
+rm -rf "$data" $d/candidate || fail "could not remove the restored data directory $data"
 # The cut is lifted only on a successful reading of the firewall that no
 # longer holds the table: an unreadable firewall is not an absent table.
 nft delete table inet forge_rehearsal 2>/dev/null
@@ -381,19 +316,13 @@ finish() {
 	elif [ -n "$locked" ]; then
 		ssh "$tgt" "[ \"\$(cat /root/.lab-lock 2>/dev/null)\" = '$lock' ] && rm -f /root/.lab-lock" || true
 	fi
-	rm -rf "$work" ${allout:+"$allout"}
+	# The archive opens every secret of the source: it goes, however the run ends.
+	if [ -n "$srcarchive" ]; then
+		ssh "$src" rm -f "$srcarchive" || { echo "the archive $srcarchive is still on $src: remove it by hand" >&2; status=1; }
+	fi
+	rm -rf "$work"
 	exit $status
 }
 trap finish EXIT
 
-case "$cmd" in
-backup) do_backup "$1" "$2" "$3" "$4" ;;
-restore) do_restore "$1" "$2" ;;
-all)
-	# The archive and its passphrase together open every secret: they go
-	# with the run, however it ends.
-	allout=$work/run
-	do_backup "$1" "$2" "$3" "$allout"
-	do_restore "$allout" "$4"
-	;;
-esac
+rehearse
