@@ -551,17 +551,18 @@ func TestStepLimitsFitTheDockerHostsCPUs(t *testing.T) {
 	}
 }
 
-// The maintenance sweep removes leftovers only when the machine's owner
-// started AppTown with -reap; otherwise it only logs them.
+// The maintenance sweep removes leftovers unless the machine's owner
+// started AppTown with -disable-reap; then it only logs them.
 //
-// Kills: Config.Reap not carried into the configuration the scheduler reads.
-func TestTheSweepRemovesOnlyWhenStartedWithReap(t *testing.T) {
+// Kills: Config.DisableReap not carried into the configuration the
+// scheduler reads, or cleanup off by default.
+func TestTheSweepRemovesUnlessStartedWithDisableReap(t *testing.T) {
 	t.Parallel()
-	if testApp(t).cfg.reap {
-		t.Fatal("an AppTown started without -reap removes leftovers")
+	if testApp(t).cfg.disableReap {
+		t.Fatal("an AppTown started without -disable-reap only logs leftovers")
 	}
-	if !testApp(t, Config{Reap: true}).cfg.reap {
-		t.Fatal("an AppTown started with -reap only logs leftovers")
+	if !testApp(t, Config{DisableReap: true}).cfg.disableReap {
+		t.Fatal("an AppTown started with -disable-reap removes leftovers")
 	}
 }
 

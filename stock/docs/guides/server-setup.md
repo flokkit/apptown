@@ -172,6 +172,9 @@ use the whole-AppTown backup or a PostgreSQL dump with the matching directory
 copy. That container belongs to one
 installation: for a second AppTown on the same machine, give it a separate
 PostgreSQL database with `-db-url`; changing only `-data` is refused.
+Cleanup does not tell two AppTowns' containers apart either: give the second
+its own Docker daemon, or start both with `-disable-reap` and accept that
+each one's start removes the other's previews.
 
 On a split install, AppTown's machine runs no Docker daemon. It needs Git,
 an `ssh` client and the `docker` command (only to reach attached Docker

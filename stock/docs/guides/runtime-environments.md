@@ -202,7 +202,7 @@ credential files to diagnose availability; probe the specific tool or service.
 |---|---|---|---|
 | AppTown restart | Kept | Container remains; AppTown reconnects | Kept |
 | Unattached and inactive for 30 minutes | Kept | Stopped; shell processes end | Stopped; images and container records remain |
-| About two hours idle, with reaping enabled | Kept for resume | Container can be removed | Daemon, nested state and private network removed |
+| About two hours idle (unless cleanup is disabled) | Kept for resume | Container can be removed | Daemon, nested state and private network removed |
 | End session | Conversation retained; change worktree retained | Removed | Removed |
 | Container removed or refreshed | Mounted session files and change worktree remain | Recreated; manual container-only installs are lost | Reused if valid, rebuilt if missing |
 

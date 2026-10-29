@@ -117,9 +117,10 @@ type Config struct {
 	// AppTown's working directory: AppTown builds it, and a worker's image
 	// is named by it (worker.AgentImage). "" is deploy/apptown-agent.
 	AgentContext string
-	// Reap lets the maintenance sweep remove what nothing uses any more;
-	// off, it only logs what it would remove (apptownd -reap).
-	Reap              bool
+	// DisableReap keeps what nothing uses any more: the maintenance sweep
+	// only logs what it would remove (apptownd -disable-reap). By default
+	// it removes them.
+	DisableReap       bool
 	TierDomains       []string
 	TrustedProxies    []string
 	InferenceURL      string
@@ -205,7 +206,7 @@ type configuration struct {
 	authMode, authHeader, authProxySecret          string
 	agentExecutor, agentImage                      string
 	agentContext                                   string
-	reap                                           bool
+	disableReap                                    bool
 	taskLimits, chatLimits                         execution.Limits
 	hostScripts                                    bool
 	localTLS                                       *console.LocalTLS
@@ -300,7 +301,7 @@ func (c Config) prepare() (configuration, error) {
 	}
 	return configuration{stock: c.Stock, clock: clock, worker: worker, seeding: c.Seeding, verifyOnly: c.VerifyOnly, usingBuiltinDB: c.UsingBuiltinDB, noPrivateDocker: c.NoPrivateDocker, privateDocker: c.PrivateDocker, noLocalDocker: c.NoLocalDocker, localTLS: c.LocalTLS, dataDir: c.DataDir, sshConfigPath: c.SSHConfigPath, publicHost: publicHost, publicHostScheme: publicHostScheme, listenAddr: c.ListenAddr, restoreGateImage: strings.TrimSpace(c.RestoreGateImage),
 		consoleAPIURL: c.ConsoleAPIURL, consoleCLI: c.ConsoleCLI, authMode: c.AuthMode, authHeader: c.AuthHeader, authProxySecret: c.AuthProxySecret,
-		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, reap: c.Reap,
+		agentExecutor: c.AgentExecutor, agentImage: c.AgentImage, agentContext: c.AgentContext, disableReap: c.DisableReap,
 		taskLimits: withDefaults(c.TaskLimits, execution.DefaultTaskLimits), chatLimits: withDefaults(c.ChatLimits, execution.DefaultChatLimits), hostScripts: c.HostScripts,
 		tierDomains: tiers, proxies: proxyPolicy{networks: parseCIDRs(c.TrustedProxies)},
 		inferenceURL: c.InferenceURL, inferenceNetworks: networks, otlpEndpoint: strings.TrimSpace(c.OTLPEndpoint), otlpProtocol: strings.ToLower(strings.TrimSpace(c.OTLPProtocol))}, nil

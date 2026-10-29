@@ -24,13 +24,13 @@ func (a *App) RunScheduler(ctx context.Context) {
 		if now.Sub(lastReap) > reapEvery {
 			lastReap = now
 			for _, duty := range []func(){
-				func() { a.reaper.Containers(ctx, !a.cfg.reap) },
+				func() { a.reaper.Containers(ctx, a.cfg.disableReap) },
 				// Previews nobody has looked at stop, and what a change's
 				// kept goes a month after the last look.
-				func() { a.Preview.Tend(ctx, !a.cfg.reap) },
-				func() { a.reaper.Images(ctx, !a.cfg.reap) },
-				func() { a.reaper.Cache(ctx, !a.cfg.reap) },
-				func() { a.reaper.Workspaces(ctx, !a.cfg.reap) },
+				func() { a.Preview.Tend(ctx, a.cfg.disableReap) },
+				func() { a.reaper.Images(ctx, a.cfg.disableReap) },
+				func() { a.reaper.Cache(ctx, a.cfg.disableReap) },
+				func() { a.reaper.Workspaces(ctx, a.cfg.disableReap) },
 				func() { a.sweepExpiredCredentials(ctx) }, func() { a.sweepOldComplaints(ctx) },
 				// Kept transcripts a crash left without a receipt, a day on,
 				// judged by the files' modification times: the system clock.

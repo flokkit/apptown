@@ -17,7 +17,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 	for flagName, env := range map[string]string{
 		"db-url": "APPTOWN_DB_URL", "console-cli": "APPTOWN_CONSOLE_CLI", "inference-addr": "APPTOWN_INFERENCE_ADDR",
 		"inference-url": "APPTOWN_INFERENCE_URL", "inference-networks": "APPTOWN_INFERENCE_NETWORKS",
-		"otlp-endpoint": "APPTOWN_OTLP_ENDPOINT", "otlp-protocol": "APPTOWN_OTLP_PROTOCOL", "reap": "APPTOWN_REAP",
+		"otlp-endpoint": "APPTOWN_OTLP_ENDPOINT", "otlp-protocol": "APPTOWN_OTLP_PROTOCOL", "disable-reap": "APPTOWN_DISABLE_REAP",
 	} {
 		if got := flagenv.Name(flagName); got != env {
 			t.Fatalf("%s reads %s, want %s", flagName, got, env)
@@ -37,7 +37,7 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			v = "1.5"
 		case "task-memory-mib", "task-pids", "chat-memory-mib", "chat-pids":
 			v = "512"
-		case "update-checks", "verify-only", "reap", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network", "host-scripts":
+		case "update-checks", "verify-only", "disable-reap", "no-private-docker", "private-docker", "no-local-docker", "local-tls", "git-import-allow-private", "open-on-network", "host-scripts":
 			v = "true"
 		case "tier-domain":
 			v = "preview=p.example,main=m.example"
@@ -62,16 +62,41 @@ func TestEveryFlagHasAnEnvironmentBinding(t *testing.T) {
 			t.Fatalf("%s: %q, want %q from %s", f.Name, f.Value.String(), want, flagenv.Name(f.Name))
 		}
 	})
-	if count < 25 || o.taskPIDs != 512 || !o.verifyOnly || !o.apptownConfig("/data").Reap || strings.Join(o.tierDomains, " ") != "preview=p.example main=m.example" {
-		t.Fatalf("%d flags; pids %d, verify %v, reap %v, tiers %v", count, o.taskPIDs, o.verifyOnly, o.reap, o.tierDomains)
+	if count < 25 || o.taskPIDs != 512 || !o.verifyOnly || !o.apptownConfig("/data").DisableReap || strings.Join(o.tierDomains, " ") != "preview=p.example main=m.example" {
+		t.Fatalf("%d flags; pids %d, verify %v, disable-reap %v, tiers %v", count, o.taskPIDs, o.verifyOnly, o.disableReap, o.tierDomains)
 	}
 	// A malformed value names the variable instead of starting half-configured.
 	fs = flag.NewFlagSet("apptownd", flag.ContinueOnError)
 	defineFlags(fs)
 	_ = fs.Parse(nil)
-	err := bindEnv(fs, func(k string) string { return map[string]string{"APPTOWN_REAP": "on"}[k] })
-	if err == nil || !strings.Contains(err.Error(), "APPTOWN_REAP") {
+	err := bindEnv(fs, func(k string) string { return map[string]string{"APPTOWN_DISABLE_REAP": "on"}[k] })
+	if err == nil || !strings.Contains(err.Error(), "APPTOWN_DISABLE_REAP") {
 		t.Fatalf("malformed value: %v", err)
+	}
+}
+
+// Cleanup removes leftovers unless -disable-reap is given, and the old
+// -reap is not a flag: a command line that still passes it stops apptownd
+// rather than starting with a setting it no longer means.
+//
+// Kills: cleanup off by default, or -reap kept as an alias.
+func TestCleanupIsOnUnlessDisabled(t *testing.T) {
+	t.Parallel()
+	parse := func(args ...string) (*daemonFlags, error) {
+		fs := flag.NewFlagSet("apptownd", flag.ContinueOnError)
+		fs.SetOutput(io.Discard)
+		o := defineFlags(fs)
+		return o, fs.Parse(args)
+	}
+	o, err := parse()
+	if err != nil || o.apptownConfig("/data").DisableReap {
+		t.Fatalf("no flags: err %v, cleanup disabled %v", err, o.disableReap)
+	}
+	if o, err = parse("-disable-reap"); err != nil || !o.apptownConfig("/data").DisableReap {
+		t.Fatalf("-disable-reap: err %v, cleanup disabled %v", err, o.disableReap)
+	}
+	if _, err = parse("-reap"); err == nil {
+		t.Fatal("-reap was accepted")
 	}
 }
 

@@ -100,7 +100,7 @@ AppTown runs is set in AppTown itself, not here.
 `-git-import-allow-private`, `-agent-image`, `-agent-executor`,
 `-restore-gate-image`, `-task-cpus`, `-task-memory-mib`, `-task-pids`,
 `-chat-cpus`, `-chat-memory-mib`, `-chat-pids`, `-import-bundle-max-bytes`,
-`-otlp-endpoint`, `-otlp-protocol`, `-reap`, `-verify-only` and
+`-otlp-endpoint`, `-otlp-protocol`, `-disable-reap`, `-verify-only` and
 `-reset-password`. `-version` is promised too, on the command line only:
 `APPTOWN_VERSION` names the release the install scripts and the one-server
 compose file use, and does not make apptownd print its version.
