@@ -49,7 +49,7 @@ type privateFixture struct {
 	// request is admitted on it.
 	profile execution.WorkerProfile
 	// external is a worker process on another machine
-	// (qualification_integration_test.go); srv then only names its labels.
+	// (external_worker_integration_test.go); srv then only names its labels.
 	external *workertest.External
 	// skew is how far the worker's clock is ahead of the real one: a test
 	// moves it to pass an expiry without waiting for it.

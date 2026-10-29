@@ -4,7 +4,6 @@ package apptown
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -52,13 +51,11 @@ import (
 // runs a container with its tree at the same path, and reaches the need's
 // service by name; its work is published; the tests run over it and
 // satisfy the stage's gate, with their placement recorded: the same
-// worker. The implementation's evidence records the worker's profile and
-// "unqualified".
+// worker. The implementation's evidence records the worker's profile.
 //
-// With APPTOWN_QUAL_WORKER_URL (workertest.External), the worker is instead a
-// real apptown-worker process on another machine, sharing no files with this
-// one: the qualification's topology, and the evidence must say the profile
-// is qualified.
+// With APPTOWN_EXTERNAL_WORKER_URL (workertest.External), the worker is
+// instead a real apptown-worker process on another machine, sharing no
+// files with this one.
 func TestIntegrationAnImplementationStepBuildsWithPrivateDockerOnAWorker(t *testing.T) {
 	requireDocker(t)
 	agentContext, image := composedAgentImage(t)
@@ -147,22 +144,7 @@ say "built, ran and reached the service"`,
 				}
 			}
 			profile, _ := ev["workerProfile"].(map[string]any)
-			// The evidence says the profile is qualified exactly when its
-			// facts match a qualified one: always, on the external worker.
-			var measured execution.WorkerProfile
-			if raw, err := json.Marshal(profile); err != nil || json.Unmarshal(raw, &measured) != nil {
-				t.Fatalf("the evidence's profile: %v", profile)
-			}
-			wantLabel := "unqualified"
-			if record := measured.Qualification(); record != "" {
-				wantLabel = "qualified: worker-vm (" + record + ")"
-			} else if external != nil {
-				t.Errorf("the external worker's profile matches no qualified one: %+v", measured)
-			}
-			if private, _ := ev["privateDocker"].(string); !strings.HasPrefix(private, wantLabel) {
-				t.Errorf("the evidence says %q, want %q", ev["privateDocker"], wantLabel)
-			}
-			t.Logf("the attempt's evidence: privateDocker %q, workerProfile %v", ev["privateDocker"], profile)
+			t.Logf("the attempt's evidence: workerProfile %v", profile)
 			if profile["name"] != "worker-vm" || profile["docker"] != strings.TrimSpace(string(version)) || profile["privileged"] != "yes" ||
 				profile["exclusive"] != true || profile["egress"] != "not contained" || profile["dindImage"] != "docker:27-dind" ||
 				!strings.HasPrefix(fmt.Sprint(profile["dindImageId"]), "sha256:") || !strings.HasPrefix(fmt.Sprint(profile["dindDigest"]), "docker@sha256:") ||

@@ -797,27 +797,22 @@ on that network (`DOCKER_HOST=tcp://dind:2375`), with a buildx builder,
 is refused on the worker with "private Docker on a worker is the
 operator's opt-in: start AppTown with -private-docker".
 
-**Qualified, or not.** The `worker-vm` profile is qualified on the facts a
-separate Linux host measured; the facts each qualified set rests on ship in
-`internal/execution/qualified_profiles.json`, and the maintainers keep the
-qualification records.
-Every attempt admitted with private Docker or services
-records the worker's profile (`workerProfile`) and what it rests on
-(`privateDocker`):
-- `qualified: worker-vm (private/design/reviews/qualification/worker-vm-2026-10-01.md)`
-  when the worker's measured facts match a qualified set: Debian 13,
-  `x86_64`, cgroup `v2 (systemd)`, `overlay2`, Docker 26, the daemon image
-  `docker@sha256:aa3df78e…` whose dockerd is `27.5.1, build 4c9b3b0`,
-  with `-exclusive` declared and a privileged container that ran;
-- `unqualified: ...` otherwise: the attempt is still admitted (the opt-in
-  decides that), but nothing qualified it.
+**What an attempt records.** Every attempt admitted with private Docker
+or services records the worker's profile (`workerProfile`) as the worker
+measured it: its OS, architecture, kernel, cgroup version, storage driver,
+Docker version, the private daemon's image, digest and version, whether a
+privileged container ran, the operator's `-exclusive` declaration, and
+that egress is not contained. These are observed facts; AppTown does not
+judge them. A request is refused if the worker's facts have changed since
+it was admitted.
 
-The qualified sets are data in `internal/execution/qualified_profiles.json`,
-each naming its record. To qualify another set of facts, run the
-qualification tests against a worker on that machine
-(`go test -tags integration ./internal/worker -run '^TestIntegrationQualification'`,
-with the `APPTOWN_QUAL_*` settings those tests read naming the worker) and add
-its entry with its record.
+To check that private Docker works on a given machine, run the
+external-worker tests against a worker there
+(`go test -tags integration ./internal/worker -run '^TestIntegrationExternalWorker'`,
+with the `APPTOWN_EXTERNAL_WORKER_*` settings `workertest.External` reads
+naming the worker). They test function: a task's own daemon and services,
+recovery after the worker is interrupted, limits, and disk exhaustion
+(only with `APPTOWN_EXTERNAL_WORKER_DISK=1`). They do not assess isolation.
 
 **The `worker-vm` profile.** A machine, physical or virtual, that runs one
 installation's worker and its Docker. What it is:
@@ -841,8 +836,8 @@ What it is not:
 - not host separation from AppTown when the worker runs on AppTown's
   machine (as in the local tests below): that is dispatch confinement only;
 - **no disk limit per invocation.** Nested work can fill the worker's disk;
-  the qualification showed new work refused with the reason ("Disk quota
-  exceeded" on the test host's ZFS) and recovery by freeing space and releasing
+  the external-worker tests showed new work refused with the reason ("Disk
+  quota exceeded" on the test host's ZFS) and recovery by freeing space and releasing
   the full task, not prevention. New work is refused below a floor of free
   space (see "Disk space on the worker"); work already admitted is not
   stopped.
@@ -1120,7 +1115,7 @@ against its digest and the platform, writes it to the project's
 container registry with the attachment's credential, and reads it back
 by digest. Only the registry's answer is recorded. The bundle names every
 part and init image as `<repository>@sha256:<digest>`, with the
-platform, the worker that built it and its profile qualification. It is
+platform, the worker that built it and the profile that worker measured. It is
 committed once, by the step attempt that still owns the step. The step
 then deploys to `main`, a Docker host, which pulls those digests.
 

@@ -42,7 +42,7 @@ type Config struct {
 	DataDir, Image, Backend, APIURL string
 	NoPrivateDocker                 bool // apptownd -no-private-docker: a step declaring it is refused
 	// PrivateDockerOnWorker is apptownd -private-docker: a step declaring
-	// private Docker is admitted on a worker, qualified or not by the
+	// private Docker is admitted on a worker, and its attempt records the
 	// worker's measured profile. Without it, it is refused there.
 	PrivateDockerOnWorker bool
 }

@@ -148,7 +148,7 @@ func (a *Shipping) buildRelease(task *workflow.Execution, in releaseTarget) (*de
 		releaseRefused(task, err.Error())
 		return nil, false
 	}
-	build := deployment.BundleBuild{Worker: runner.backend(), Role: "agent", Qualification: profile.Qualification()}
+	build := deployment.BundleBuild{Worker: runner.backend(), Role: "agent", Profile: profile}
 	publication := deployment.ReleasePublication{By: task, ChangeID: run.ChangeID, Tree: in.commit, Contract: in.raw, Plan: plan, Platform: platform, Build: build}
 	publication.Log = logf
 	if len(images) == 0 {

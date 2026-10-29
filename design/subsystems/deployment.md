@@ -163,8 +163,8 @@ It has one of two forms.
   connector, attached at that landing, when the project has none) and reads
   it back; the bundle
   records each part and init image as `<repository>@sha256:<digest>` with
-  the repository, the platform (`os/arch`), where it was built and the
-  qualification of that worker's profile (or the Docker host's name, role
+  the repository, the platform (`os/arch`), where it was built (the
+  worker with the profile it measured, or the Docker host's name, role
   `docker-host`), and the run, step and attempt.
   It is committed once, in a transaction that checks the attempt still owns
   the step, and never changes afterwards. Landing deployment inputs carry

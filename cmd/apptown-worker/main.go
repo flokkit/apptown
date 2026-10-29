@@ -91,8 +91,8 @@ func main() {
 			log.Fatalf("apptown-worker: the tool versions this release shipped with: %v", err)
 		}
 		tools = toolversions.New(snapshot)
-		// The private Docker image is release-bound (its qualified
-		// profile): the start snapshot's, never a later one's.
+		// The private Docker image is release-bound: the start
+		// snapshot's, never a later one's.
 		if *dindImage == "" {
 			*dindImage = snapshot.Images.PrivateDocker
 		}

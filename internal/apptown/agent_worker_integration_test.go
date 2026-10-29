@@ -421,8 +421,8 @@ func TestIntegrationAnEmptyTurnOnTheWorkerIsRetriedOnceAfterItExits(t *testing.T
 
 // An agent step declaring private Docker and a service runs on the worker:
 // it reaches its own daemon as dind and the service by name, its
-// empty turn is not run again (as on AppTown's host), its evidence says
-// the private Docker is unqualified, and its release leaves nothing of it.
+// empty turn is not run again (as on AppTown's host), its evidence records
+// the worker's measured profile, and its release leaves nothing of it.
 func TestIntegrationAnAgentStepWithPrivateDockerRunsOnTheWorker(t *testing.T) {
 	t.Parallel()
 	w := newAgentWorkerWorld(t, map[string]any{"docker": true, "services": []map[string]any{{"name": "cache", "image": "redis:7-alpine", "health": "redis-cli ping"}}},
@@ -434,8 +434,8 @@ func TestIntegrationAnAgentStepWithPrivateDockerRunsOnTheWorker(t *testing.T) {
 			t.Errorf("%s: %q, want %q", name, got, want)
 		}
 	}
-	if private, _ := ev["privateDocker"].(string); !strings.HasPrefix(private, "unqualified") {
-		t.Errorf("the evidence: %v", ev)
+	if profile, _ := ev["workerProfile"].(map[string]any); profile["name"] != "worker-vm" || profile["docker"] == "" || profile["docker"] == nil {
+		t.Errorf("the evidence's worker profile: %v", ev)
 	}
 	invocations := w.invocations(t, 1)
 	if len(invocations) != 1 || !invocations[0].Released {

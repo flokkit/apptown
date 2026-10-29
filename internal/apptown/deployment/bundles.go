@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/execution"
 )
 
 // Release bundles (design/subsystems/deployment.md §2.8): the immutable thing
@@ -71,13 +72,13 @@ type BundleOrigin struct {
 func (b *ReleaseBundle) ByDigest() bool { return b.BuiltFrom.Registry != "" }
 
 // BundleBuild is where a digest bundle's images were built: the worker by
-// its address and role ("agent"), and the qualified profile it ran under,
-// by its qualification record, or "" when unqualified; or a Docker host
-// target by its name, role "docker-host".
+// its address and role ("agent"), with the profile it measured of the
+// machine its build's private Docker ran on (observed facts, no verdict);
+// or a Docker host target by its name, role "docker-host".
 type BundleBuild struct {
-	Worker        string `json:"worker,omitempty"`
-	Role          string `json:"role,omitempty"`
-	Qualification string `json:"qualification,omitempty"`
+	Worker  string                  `json:"worker,omitempty"`
+	Role    string                  `json:"role,omitempty"`
+	Profile execution.WorkerProfile `json:"profile,omitzero"`
 }
 
 // AttemptClaim is Work's claimed step attempt, able to fence a

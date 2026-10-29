@@ -122,9 +122,6 @@ type agentAdmission struct {
 	} `json:"steering"`
 	// Delegated: the steering promised subagents.
 	Delegated bool `json:"delegated,omitempty"`
-	// PrivateDocker is what the invocation's private Docker rests on; ""
-	// for none.
-	PrivateDocker string `json:"privateDocker,omitempty"`
 	// Profile is the worker's profile it was admitted on.
 	Profile *execution.WorkerProfile `json:"profile,omitempty"`
 	// Dispatches is the step's dispatch count, the evidence's attempts.
@@ -295,7 +292,7 @@ func (a *Executor) runOnWorker(task *workflow.Execution, attempt *stepAttempt, r
 // startAttempt reserves an attempt's first invocation, with what its
 // request was built from, and drives the attempt from there.
 func (a *Executor) startAttempt(ctx context.Context, w *workerAttempt, call workerAgentCall, req workerAgentRequest, meta agentAdmission, fail func(workflow.StepState, map[string]any)) {
-	meta.Number, meta.Image, meta.Began, meta.PrivateDocker, meta.Profile = 1, req.image, call.at, req.privateDocker, req.profile
+	meta.Number, meta.Image, meta.Began, meta.Profile = 1, req.image, call.at, req.profile
 	meta.Model, meta.ModelSlot, meta.ModelProfile = req.model, req.modelSlot, req.modelProfile
 	meta.Timeout = req.spec.Admission.Limits.WallClock
 	meta.Steering.Hash, meta.Steering.GuidanceHash, meta.Steering.Skills, meta.Steering.Resources = req.steering.Hash, req.steering.GuidanceHash, req.steering.Skills, req.steering.Resources
@@ -801,7 +798,7 @@ func (a *Executor) finishAttempt(ctx context.Context, w *workerAttempt, inv task
 // result files, with its artifacts.
 func (a *Executor) recordWorkerAgent(ctx context.Context, w *workerAttempt, inv tasks.Attempt, res invocationResult, meta agentAdmission, hub string, candidate repositoryedit.Candidate, published error) (string, error) {
 	h, filesErr := candidateHarvest(ctx, hub, candidate, res.Text)
-	rec := &workerRecord{image: meta.Image, backend: a.worker.Tasks.backend(), source: inv.Source, candidate: candidate, published: published, privateDocker: meta.PrivateDocker, profile: meta.Profile}
+	rec := &workerRecord{image: meta.Image, backend: a.worker.Tasks.backend(), source: inv.Source, candidate: candidate, published: published, profile: meta.Profile}
 	switch {
 	case errors.Is(res.outputErr, errTaskGone):
 		// Its result is kept; what it said is not.
@@ -857,10 +854,9 @@ type workerRecord struct {
 	// outputUnread: the invocation's output could not be read; its usage
 	// is unknown.
 	outputUnread string
-	// privateDocker is what its private Docker rested on, and profile the
-	// worker's profile (agentAdmission).
-	privateDocker string
-	profile       *execution.WorkerProfile
+	// profile is the worker's profile its private Docker or services ran
+	// on (agentAdmission).
+	profile *execution.WorkerProfile
 }
 
 // declaredOutput reads the step's declared output file, as the worker

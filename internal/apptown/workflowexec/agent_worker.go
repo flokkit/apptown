@@ -154,10 +154,9 @@ type workerAgentRequest struct {
 	sessionFile string
 	// claim is what a review's brief carries for its claim.
 	claim string
-	// privateDocker is what the invocation's evidence says of its private
-	// Docker; "" for none. profile is the worker's, as it reported it.
-	privateDocker string
-	profile       *execution.WorkerProfile
+	// profile is the worker's, as it reported it, when the invocation has
+	// private Docker or services; nil for none.
+	profile *execution.WorkerProfile
 }
 
 // privateLimits are an invocation's limits with private Docker: its
@@ -208,25 +207,10 @@ func (a *Executor) prepareAgentOnWorker(ctx context.Context, c workerAgentCall) 
 	}
 	req, err := a.buildAgentOnWorker(ctx, c, &cfg, k, image, private, needEnv)
 	if err == nil && private != nil {
-		req.privateDocker, req.profile = privateDockerQualification(*private.Profile), private.Profile
+		req.profile = private.Profile
 	}
 	return req, err
 }
-
-// privateDockerQualification is what an invocation with private Docker on a
-// worker records of what it rests on (design/operations/workers.md,
-// "Private Docker on the worker"): the qualification record of the profile
-// the worker's measured facts match, or "unqualified" when they match none.
-func privateDockerQualification(p execution.WorkerProfile) string {
-	if record := p.Qualification(); record != "" {
-		return "qualified: " + p.Name + " (" + record + ")"
-	}
-	return privateDockerUnqualified
-}
-
-// privateDockerUnqualified is what an invocation records when its worker's
-// measured profile matches no qualified one.
-const privateDockerUnqualified = "unqualified: private Docker on a worker whose measured profile matches no qualified one (internal/execution/qualified_profiles.json)"
 
 // privateDockerOptIn is why a step declaring private Docker is refused on a
 // worker without the operator's opt-in.
