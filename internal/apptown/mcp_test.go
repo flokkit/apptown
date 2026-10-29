@@ -19,6 +19,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -808,5 +809,19 @@ func TestMCPModernHeaderCannotBypassLegacySessionOwnership(t *testing.T) {
 	}
 	if w := mcp_raw(a, tok, sid, mcp_rpc(2, "ping", nil)); w.Code != 200 {
 		t.Fatalf("legacy session remains usable: %d %s", w.Code, w.Body.String())
+	}
+}
+
+// The MCP read of a project's contract is the one contract reader's
+// (docker.ContractFileAt): one over its size bound is refused, saying why,
+// not returned. It used to be read whole with git show.
+func TestMCPRefusesAnOversizedContract(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	fleetRepo(t, a, "big", map[string]string{".apptown/app.yaml": "# " + strings.Repeat("x", docker.MaxContractBytes) + "\n"})
+	tok := mcp_token(t, a, "laptop", "bls", "member")
+	res := mcp_call(t, a, tok, "get_application_contract", map[string]any{"slug": "big"})
+	if res["isError"] != true || !strings.Contains(res["content"].([]any)[0].(map[string]any)["text"].(string), "over") {
+		t.Fatalf("an oversized contract: %v", res)
 	}
 }

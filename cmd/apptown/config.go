@@ -192,11 +192,9 @@ func buildStaticSites(builds []devStaticBuild, build func(args ...string) error)
 		if err := os.RemoveAll(b.Folder); err != nil {
 			return err
 		}
-		args := []string{"build"}
-		if b.Target != "" {
-			args = append(args, "--target", b.Target)
-		}
-		args = append(args, "--output", "type=local,dest="+b.Folder, b.Context)
+		// The deploy's own arguments (docker.StaticExportArgs); the build
+		// runs on the person's own docker client and builder.
+		args := append([]string{"build"}, docker.StaticExportArgs(b.Target, b.Context, b.Folder)...)
 		fmt.Printf("$ docker %s\n", strings.Join(args, " "))
 		if err := build(args...); err != nil {
 			return fmt.Errorf("building the static site %s: %w", b.Part, err)

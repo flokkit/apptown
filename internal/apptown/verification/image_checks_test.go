@@ -81,7 +81,9 @@ func TestAnImageScanReadsTheImageOfItsCommit(t *testing.T) {
 		return nil, errors.New("unexpected Docker command")
 	}
 	exec := Executor{Image: func(ctx context.Context, req execution.ImageRequest) execution.ImageAnswer {
-		return execution.PrepareImage(ctx, cli, req)
+		return execution.PrepareImage(ctx, cli, func(ctx context.Context, args ...string) ([]byte, error) {
+			return cli(ctx, nil, append([]string{"build"}, args...)...)
+		}, req)
 	}}
 	steps := ScanSteps{exec: exec, scanners: &Scanners{exec: exec}}
 	tree, _ := baselineTree(t, "app:\n  web:\n    build: .\n    ports: [\"8080\"]\n    public: true\n")

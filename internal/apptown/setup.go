@@ -16,9 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/trust"
 )
 
 // First-run setup: a fresh AppTown must not be
@@ -157,18 +155,20 @@ func (s *setupState) fetch(ctx context.Context, dk docker.Scope, image, buildCon
 // fetchAgentImage pulls the agent image (pull) or builds it from the
 // build context, writing Docker's output to out when it is given.
 func fetchAgentImage(ctx context.Context, dk docker.Scope, image, buildContext string, pull bool, out io.Writer) error {
-	// The extra certificates as the build's secret: its RUN lines download
-	// (internal/trust, deploy/apptown-agent/Dockerfile).
-	req := docker.Command{Args: append(append(append([]string{"build"}, trust.BuildArgs(!dk.Remote())...), dockerlabel.BuiltArgs()...), "-t", image, buildContext)}
-	what := "build"
+	req := docker.Command{Stdout: out, Stderr: out}
 	if pull {
-		req, what = docker.Command{Args: []string{"pull", image}}, "pull of "+image
+		req.Args = []string{"pull", image}
+		if _, err := dk.Command(ctx, req); err != nil {
+			return fmt.Errorf("pull of %s failed", image)
+		}
+		return nil
 	}
-	if out != nil {
-		req.Stdout, req.Stderr = out, out
-	}
-	if _, err := dk.Command(ctx, req); err != nil {
-		return fmt.Errorf("%s failed", what)
+	// The one build rule (Scope.Build): the daemon's own builder, and the
+	// extra certificates as the build's secret, which its RUN lines
+	// download with (internal/trust, deploy/apptown-agent/Dockerfile).
+	req.Args = []string{"-t", image, buildContext}
+	if said, err := dk.BuildCommand(ctx, req); err != nil {
+		return fmt.Errorf("build failed: %s", strings.TrimSpace(err.Error()+" "+string(said)))
 	}
 	return nil
 }

@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
 import { settled } from '../settled'
-import { UsageView } from './Usage'
+import { TimingView, UsageView } from './Usage'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -68,6 +68,38 @@ describe('the daily usage chart', () => {
       await settled(client)
       expect(el.textContent).toContain('at least $')
       expect(el.textContent).toContain('2 model calls spent an unknown amount')
+    } finally {
+      act(() => root.unmount())
+      client.clear()
+    }
+  })
+})
+
+describe('where the time goes', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  // A step's spend is the ledger's: "at least" when some of it went
+  // unrecorded, "spend unknown" when none of it was recorded.
+  it('qualifies a step spend the ledger could not count whole', async () => {
+    const step = (name: string, costMicros: number, costIncomplete: number) => ({
+      stage: 'apply', name, type: 'agent/pi', runs: 1, medianMs: 1000, p90Ms: 1000, maxMs: 1000, waitMedianMs: 0, costMicros, costIncomplete, reworks: 0,
+    })
+    const report = { days: 7, workflows: [{ workflow: 'quick-change', days: 7, runs: 1, totalMedianMs: 2000, steps: [step('build', 30000, 1), step('review', 0, 1), step('plan', 20000, 0)] }] }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(report))))
+    const client = newQueryClient()
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    try {
+      await act(async () => {
+        root.render(<QueryClientProvider client={client}><TimingView days={7} /></QueryClientProvider>)
+      })
+      await settled(client)
+      const rows = [...el.querySelectorAll('.bar-row-head')].map((r) => r.textContent ?? '')
+      expect(rows[0]).toContain('· at least $0.0300')
+      expect(rows[1]).toContain('· spend unknown')
+      expect(rows[2]).toContain('· $0.0200')
+      expect(rows[2]).not.toContain('at least')
+      expect(el.textContent).toContain('at least $0.0500 in agent time')
     } finally {
       act(() => root.unmount())
       client.clear()

@@ -94,5 +94,8 @@ func (c imageChecks) Run(context.Context, string, execution.Request) execution.O
 }
 
 func (c imageChecks) PrepareImage(ctx context.Context, req execution.ImageRequest) execution.ImageAnswer {
-	return execution.PrepareImage(ctx, func(_ context.Context, _ io.Reader, args ...string) ([]byte, error) { return c.answer(args) }, req)
+	return execution.PrepareImage(ctx, func(_ context.Context, _ io.Reader, args ...string) ([]byte, error) { return c.answer(args) },
+		func(_ context.Context, args ...string) ([]byte, error) {
+			return c.answer(append([]string{"build"}, args...))
+		}, req)
 }

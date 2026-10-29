@@ -614,7 +614,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		{"a project without a repository", nil, func(t *testing.T, f *agentOnWorker) { f.call.source.DefaultBranch = "" }, "not repository-backed"},
 		{"a declaration that is a link", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
 			f.call.commit = hubCommit(t, f.hub, map[string]string{"elsewhere.yaml": "needs:\n  postgres: {}\n", ".apptown/app.yaml": "link:../elsewhere.yaml"})
-		}, "not a regular file"},
+		}, "is a link"},
 		{"a commit the hub does not hold", map[string]any{"needs": true}, func(t *testing.T, f *agentOnWorker) {
 			f.call.commit = strings.Repeat("ab", 20)
 		}, "could not be read from commit"},

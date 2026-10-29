@@ -53,7 +53,7 @@ var policyEvidence = map[string]func(*testing.T){
 	"adrs.ADRLibrary":           checkFilteredHTTPPolicies,
 	"fleet.Fleet":               checkFilteredHTTPPolicies,
 	"runs.ListRuns":             checkFilteredHTTPPolicies,
-	"runs.Timing":               checkFilteredHTTPPolicies,
+	"timing.Timing":             checkFilteredHTTPPolicies,
 
 	"usage.Usage":                 checkMemberScopedReads,
 	"tiers.Tiers":                 checkMemberScopedReads,

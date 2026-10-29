@@ -873,7 +873,7 @@ func (s *Service) rehearse(ctx context.Context, t *tracker, p *rehearsalPlan, pl
 		return ok
 	}
 	rp := docker.RenderColdBootProbe(c.PublicPart(), nil)
-	passed := ask("readiness", readiness, func(n int) bool { return rp.Expect == 0 || n == rp.Expect })
+	passed := ask("readiness", readiness, func(n int) bool { return appcontract.Ready(n, rp.Expect) })
 	passed = ask("page", "", func(n int) bool { return check.PageRefusal(n, "/") == "" }) && passed
 	for _, line := range c.RehearsalChecks {
 		path, expect, err := appcontract.ParseDataCheck(line)

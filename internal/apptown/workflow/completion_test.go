@@ -144,8 +144,13 @@ func TestARecordRunClosesItsChangeWithoutLanding(t *testing.T) {
 		t.Fatalf("a record run's completion effects: %v", effects)
 	}
 	ch, err := readChange(ctx, q.db, working.ChangeID)
-	if err != nil || !ch.State.Closed() || ch.State != ChangeShipped {
+	if err != nil || !ch.State.Closed() || ch.State != ChangeShipped || ch.ClosedAs != closedRecord || ch.StateLabel != "finished" {
 		t.Fatalf("the change after its record was accepted: %+v %v", ch, err)
+	}
+	// The board and the lists read the same words: the fact is the change's.
+	listed, err := readChangeList(ctx, q.db, working.ProjectID, ChangeList{})
+	if err != nil || len(listed) != 1 || listed[0].StateLabel != "finished" {
+		t.Fatalf("the change as listed: %+v %v", listed, err)
 	}
 	pending, err := (landings{db: q.db}).pending(ctx, record.ID)
 	if err != nil || !pending.LandingID.IsZero() {

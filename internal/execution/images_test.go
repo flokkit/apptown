@@ -14,10 +14,18 @@ import (
 	"github.com/flokkit/apptown/internal/execfile"
 )
 
+// noBuild is the build of a preparation that must build nothing.
+func noBuild(t *testing.T) Build {
+	return func(context.Context, ...string) ([]byte, error) {
+		t.Error("a preparation that builds nothing built")
+		return nil, errors.New("no build expected")
+	}
+}
+
 func TestAnUnavailableDockerIsNotACacheMiss(t *testing.T) {
 	a := PrepareImage(context.Background(), func(context.Context, io.Reader, ...string) ([]byte, error) {
 		return []byte("Cannot connect to the Docker daemon"), errors.New("exit 1")
-	}, ImageRequest{Tag: "forge-conform:abc", Context: ".", AllowBuild: false})
+	}, noBuild(t), ImageRequest{Tag: "forge-conform:abc", Context: ".", AllowBuild: false})
 	if a.Err == "" || a.NotBuilt {
 		t.Fatalf("unavailable Docker was answered as an ordinary cache miss: %+v", a)
 	}
@@ -58,7 +66,7 @@ func TestARequestsLoginUsesTheSameDocker(t *testing.T) {
 		}
 		return nil, nil
 	}
-	a := PrepareImage(context.Background(), cli, ImageRequest{Pull: "registry.example/app:1", Scratch: scratch,
+	a := PrepareImage(context.Background(), cli, noBuild(t), ImageRequest{Pull: "registry.example/app:1", Scratch: scratch,
 		Registry: &RegistryLogin{Host: "registry.example", Username: "u", Token: "t"}})
 	if a.ID != "sha256:app" || len(configs) != 2 || configs[0] != configs[1] {
 		t.Fatalf("a private pull: %+v %v", a, configs)
@@ -159,7 +167,7 @@ func TestAnonymousImagePreparationDoesNotUseAmbientCredentials(t *testing.T) {
 			return nil, nil
 		}
 	}
-	got := PrepareImage(t.Context(), cli, ImageRequest{Pull: "registry.example/app@sha256:" + strings.Repeat("a", 64), Anonymous: true, Scratch: scratch})
+	got := PrepareImage(t.Context(), cli, noBuild(t), ImageRequest{Pull: "registry.example/app@sha256:" + strings.Repeat("a", 64), Anonymous: true, Scratch: scratch})
 	if got.Err != "" || got.ID != "sha256:prepared" || !pulled {
 		t.Fatalf("anonymous preparation: %+v", got)
 	}
@@ -177,11 +185,11 @@ func TestAnonymousImagePreparationRefusesSuppliedAndEnvironmentAuthority(t *test
 		return nil, nil
 	}
 	t.Setenv("DOCKER_AUTH_CONFIG", "")
-	if got := PrepareImage(t.Context(), cli, ImageRequest{Anonymous: true, Registry: &RegistryLogin{Token: "secret"}}); got.Err == "" {
+	if got := PrepareImage(t.Context(), cli, noBuild(t), ImageRequest{Anonymous: true, Registry: &RegistryLogin{Token: "secret"}}); got.Err == "" {
 		t.Fatal("mixed authority accepted")
 	}
 	t.Setenv("DOCKER_AUTH_CONFIG", `{"auths":{"registry.example":{"auth":"dTpw"}}}`)
-	if got := PrepareImage(t.Context(), cli, ImageRequest{Anonymous: true, Pull: "registry.example/app:1"}); got.Err == "" || strings.Contains(got.Err, "dTpw") {
+	if got := PrepareImage(t.Context(), cli, noBuild(t), ImageRequest{Anonymous: true, Pull: "registry.example/app:1"}); got.Err == "" || strings.Contains(got.Err, "dTpw") {
 		t.Fatalf("environment authority: %+v", got)
 	}
 }

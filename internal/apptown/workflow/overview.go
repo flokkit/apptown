@@ -40,6 +40,7 @@ type ChangeHistory struct {
 	Type          string      `json:"type"`
 	State         ChangeState `json:"state"`
 	ClosedAs      string      `json:"closedAs,omitempty"` // as Change.ClosedAs
+	StateLabel    string      `json:"stateLabel"`         // ChangeState.Label
 	Project       string      `json:"project,omitempty"`
 	Workflows     string      `json:"workflows"`
 	Runs          int         `json:"runs"`
@@ -75,7 +76,7 @@ func readChangeHistory(ctx context.Context, q database.Queryer, in HistoryQuery,
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, ChangeHistory{ChangeID: row.ID, ChangeNumber: row.Number, Title: row.Title, Type: row.Type, State: state, Project: row.Project, Workflows: row.Workflows, Runs: int(row.Runs), When: row.ActivityAt.Format(time.RFC3339Nano), TookS: row.TookS, CompletedRuns: int(row.Completed), Merged: row.Merged, ClosedAs: row.ClosedAs})
+		out = append(out, ChangeHistory{ChangeID: row.ID, ChangeNumber: row.Number, Title: row.Title, Type: row.Type, State: state, Project: row.Project, Workflows: row.Workflows, Runs: int(row.Runs), When: row.ActivityAt.Format(time.RFC3339Nano), TookS: row.TookS, CompletedRuns: int(row.Completed), Merged: row.Merged, ClosedAs: row.ClosedAs, StateLabel: state.Label(row.ClosedAs)})
 	}
 	return out, nil
 }

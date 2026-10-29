@@ -142,18 +142,21 @@ func (d *Driver) sampleFrontDoor(ctx context.Context, rawURL string, expect int,
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
 		return false, errors.New("App Platform health has no usable public URL")
 	}
+	if err := allowed(ctx); err != nil {
+		return false, err
+	}
+	if release == "" {
+		a, err := appcontract.SampleReadiness(ctx, d.frontDoor.Transport, appcontract.ReadinessRequest{URL: rawURL, Expect: expect, Timeout: d.frontDoor.Timeout})
+		return a.Ready, err
+	}
+	// The release identity (a static site's) follows the platform's
+	// redirects and wants 200 with the release's own words.
 	client := *d.frontDoor
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if expect != 0 {
-			return http.ErrUseLastResponse
-		}
 		if len(via) >= 10 {
 			return errors.New("too many health redirects")
 		}
 		return allowed(req.Context())
-	}
-	if err := allowed(ctx); err != nil {
-		return false, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
@@ -164,12 +167,9 @@ func (d *Driver) sampleFrontDoor(ctx context.Context, rawURL string, expect int,
 		return false, err
 	}
 	defer response.Body.Close()
-	if release != "" {
-		body, err := io.ReadAll(io.LimitReader(response.Body, 4<<10))
-		if err != nil {
-			return false, err
-		}
-		return response.StatusCode == http.StatusOK && strings.TrimSpace(string(body)) == release, nil
+	body, err := io.ReadAll(io.LimitReader(response.Body, 4<<10))
+	if err != nil {
+		return false, err
 	}
-	return (expect == 0 && response.StatusCode < 300) || (expect != 0 && response.StatusCode == expect), nil
+	return response.StatusCode == http.StatusOK && strings.TrimSpace(string(body)) == release, nil
 }

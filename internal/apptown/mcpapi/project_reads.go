@@ -2,6 +2,7 @@ package mcpapi
 
 import (
 	"context"
+	"errors"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
@@ -11,7 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
-	"github.com/flokkit/apptown/internal/gitexec"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -182,13 +183,16 @@ func (h projectReads) getApplicationContract(c *Call, args map[string]any) (any,
 	if err != nil {
 		return nil, err
 	}
-	raw, err := gitexec.Run(c.Context, repo, "show", p.DefaultBranch+":.apptown/app.yaml")
-	if err != nil {
-		return nil, refuse("project %q has no .apptown/app.yaml committed on %s", p.Slug, p.DefaultBranch)
+	raw, err := docker.ContractFileAt(c.Context, repo, p.DefaultBranch)
+	if errors.Is(err, docker.ErrNoContract) {
+		return nil, refuse("project %q has no %s committed on %s", p.Slug, docker.ContractPath, p.DefaultBranch)
 	}
-	out := map[string]any{"slug": p.Slug, "branch": p.DefaultBranch, "path": ".apptown/app.yaml",
-		"text": raw, "webUrl": c.projectURL(p.Slug)}
-	if contract, perr := appcontract.Parse([]byte(raw)); perr == nil {
+	if err != nil {
+		return nil, refuse("project %q's %s on %s cannot be read: %v", p.Slug, docker.ContractPath, p.DefaultBranch, err)
+	}
+	out := map[string]any{"slug": p.Slug, "branch": p.DefaultBranch, "path": docker.ContractPath,
+		"text": string(raw), "webUrl": c.projectURL(p.Slug)}
+	if contract, perr := appcontract.Parse(raw); perr == nil {
 		out["parsed"] = contract
 	} else {
 		out["parseError"] = perr.Error()

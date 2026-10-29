@@ -129,7 +129,7 @@ allowance and does not certify those unactivated areas or generated output.
 
 **`internal/<x>` — a library.** Knows nothing of AppTown. No AppTown imports,
 no tables, no vocabulary from the product. `access`, `check`, `clock`, `console`,
-`database`, `dbtest`, `deploy`, `diskspace`, `dockerlabel`, `durable`, `enum`, `execfile`, `execution`, `fault`, `gitexec`, `hostmem`, `oci`, `poll`, `progress`, `stamp`, `strs`, `trailer`, `wiregen`, `worker`. A library can
+`database`, `dbtest`, `deploy`, `diskspace`, `dockerbuild`, `dockerlabel`, `durable`, `enum`, `execfile`, `execution`, `fault`, `gitexec`, `hostmem`, `oci`, `poll`, `progress`, `stamp`, `strs`, `trailer`, `wiregen`, `worker`. A library can
 be read, tested and understood without knowing what a Change is.
 *Gate: `layering`.*
 

@@ -54,7 +54,7 @@ func (h ConsoleChanges) ConsoleChanges(w http.ResponseWriter, r *http.Request) {
 		if ch == nil {
 			continue
 		}
-		out = append(out, ConsoleChange{ChangeID: id, Title: ch.Title, State: ch.State, ClosedAs: ch.ClosedAs, runID: ch.RunID})
+		out = append(out, ConsoleChange{ChangeID: id, Title: ch.Title, State: ch.State, ClosedAs: ch.ClosedAs, StateLabel: ch.StateLabel, runID: ch.RunID})
 		if !ch.RunID.IsZero() {
 			runIDs = append(runIDs, ch.RunID)
 		}
@@ -153,8 +153,10 @@ type (
 		Title    string               `json:"title"`
 		State    workflow.ChangeState `json:"state"`
 		ClosedAs string               `json:"closedAs,omitempty"` // as workflow.Change.ClosedAs
-		Doing    string               `json:"doing"`
-		Detail   string               `json:"detail"`
+		// StateLabel is workflow.Change.StateLabel.
+		StateLabel string `json:"stateLabel"`
+		Doing      string `json:"doing"`
+		Detail     string `json:"detail"`
 	}
 	ConsoleChangeList struct {
 		Changes []ConsoleChange `json:"changes"`

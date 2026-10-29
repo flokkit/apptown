@@ -81,7 +81,7 @@ func TestContractSnapshotNativeOnly(t *testing.T) {
 	assertStatus(t, c, pid, sha["compose"], "absent", "none")
 
 	// Evidence retains the exact native bytes, including need and init metadata.
-	original, err := docker.ContractBytesAt(context.Background(), filepath.Join(dataDir, "workspaces", "project-"+pid.String()), sha["appyaml"])
+	original, err := docker.ContractFileAt(context.Background(), filepath.Join(dataDir, "workspaces", "project-"+pid.String()), sha["appyaml"])
 	if err != nil {
 		t.Fatal(err)
 	}

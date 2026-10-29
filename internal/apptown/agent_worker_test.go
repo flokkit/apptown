@@ -138,7 +138,7 @@ func TestAnAgentStepTheWorkerCannotRunIsRefusedBeforeAnyEffect(t *testing.T) {
 		// A declaration the agent could fix (an unknown need) is told to it
 		// instead (workflowexec's TestAnAgentIsToldOfTheNeedsAReleaseRefusesAndTestsRefuseThem);
 		// one that cannot even be read is refused.
-		"a declaration too large to read": {with: map[string]any{"needs": true}, want: ".apptown/app.yaml is 1048577 bytes, over 1048576",
+		"a declaration too large to read": {with: map[string]any{"needs": true}, want: "is 1048577 bytes, over 1048576",
 			files: map[string]string{".apptown/app.yaml": strings.Repeat("#", 1<<20+1)}},
 		// AppTown was started with -private-docker=false (Config's zero value).
 		"private Docker turned off": {with: map[string]any{"docker": true}, want: "this AppTown was started with -private-docker=false"},

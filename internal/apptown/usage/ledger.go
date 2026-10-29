@@ -191,6 +191,30 @@ func (l *Ledger) RunTotal(ctx context.Context, rootRunIDs ...ids.ID) (total, cos
 	return r.Total, r.CostMicros, err
 }
 
+// StepCost is what one step spent across every turn: the sum, and how
+// many of its observations may be lower than what was spent (so the sum is
+// "at least" when Incomplete > 0).
+type StepCost struct {
+	CostMicros, Incomplete int64
+}
+
+// StepCosts reads what each of steps spent; a step that spent nothing
+// recorded is absent.
+func (l *Ledger) StepCosts(ctx context.Context, steps []ids.ID) (map[ids.ID]StepCost, error) {
+	out := map[ids.ID]StepCost{}
+	if len(steps) == 0 {
+		return out, nil
+	}
+	rows, err := usagesql.New(l.db.SQL()).StepCosts(ctx, steps)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.StepID] = StepCost{CostMicros: r.CostMicros, Incomplete: r.Incomplete}
+	}
+	return out, nil
+}
+
 // Line is one row of a rollup.
 type Line struct {
 	Key                              string

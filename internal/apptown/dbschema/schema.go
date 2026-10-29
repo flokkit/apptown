@@ -424,6 +424,20 @@ FROM apptown_address_settlement a WHERE s.deployment_id=a.deployment_id`,
 		`ALTER TABLE deployment_address_settings DROP COLUMN legacy_evidence_json`,
 		`ALTER TABLE deployment_address_settings ADD CONSTRAINT deployment_address_ready_fields CHECK (generated_hostname<>'' AND certificate_domain<>'')`,
 	}},
+	// A change a record run (research, a specification) shipped with
+	// nothing to land is closed as 'record', so every read of it says
+	// finished, not shipped. A shipped change is marked only when nothing
+	// of a landing is recorded for it: no root landing run (one that ships
+	// main with no code of its own included), no merge receipt and no
+	// landed commit.
+	{n: 191, note: "record how a change a record run shipped was closed", stmts: []string{
+		`ALTER TABLE changes DROP CONSTRAINT change_closed_as`,
+		`ALTER TABLE changes ADD CONSTRAINT change_closed_as CHECK(closed_as IN ('','nothing-to-change','shipped-with','record'))`,
+		`UPDATE changes c SET closed_as='record'
+WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
+  AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.parent_run_id IS NULL AND r.definition_json->>'role'='landing')
+  AND NOT EXISTS(SELECT 1 FROM run_events e JOIN runs r ON r.id=e.run_id WHERE r.change_id=c.id AND r.project_id=c.project_id AND e.kind='merge.completed')`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

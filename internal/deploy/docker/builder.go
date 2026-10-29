@@ -2,75 +2,30 @@ package docker
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"strings"
 
-	"github.com/flokkit/apptown/internal/dockerlabel"
-	"github.com/flokkit/apptown/internal/trust"
+	"github.com/flokkit/apptown/internal/dockerbuild"
 )
 
-// Build runs `docker build args...` on dk's daemon, with that daemon's own
-// builder named explicitly. Every build of a project's source AppTown
-// makes on a daemon goes through it, so the source and its build go to the
-// daemon AppTown selected and nowhere else.
-//
-// Naming the builder is the one rule: plain `docker build` otherwise
-// honours an ambient selection, a builder alias (`docker buildx install`)
-// with a saved remote builder, or BUILDX_BUILDER. The builder is the daemon's own: "default" for a
-// daemon chosen by --host, otherwise the one named after the Docker context
-// in use. It must use the docker driver (the daemon's own BuildKit), or the
-// build is refused before anything is sent. Buildx is required beside the
-// docker CLI AppTown runs (it runs locally, with --host for another daemon):
-// without it the build is refused, saying so, rather than falling back to
-// the daemon's legacy builder.
+// Build runs `docker build args...` on dk's daemon by the one build rule
+// (internal/dockerbuild): that daemon's own builder named explicitly, the
+// extra certificates as the build's secret, AppTown's label. Every build of
+// a project's source AppTown makes on a daemon goes through it, so the
+// source and its build go to the daemon AppTown selected and nowhere else.
 func (dk Scope) Build(ctx context.Context, args ...string) ([]byte, error) {
-	builder, err := dk.ownBuilder(ctx)
+	return dk.BuildCommand(ctx, Command{Args: args})
+}
+
+// BuildCommand is Build with the command's other settings (where its output
+// goes): req.Args are the build's own arguments, its context last.
+func (dk Scope) BuildCommand(ctx context.Context, req Command) ([]byte, error) {
+	full, err := dockerbuild.Daemon{Run: dk.Run, HostChosen: dk.Host != "", Local: !dk.Remote()}.Args(ctx, req.Args...)
 	if err != nil {
 		return nil, err
 	}
-	args = append([]string{"--builder", builder}, args...)
-	// The extra certificates, as the secret a Dockerfile's RUN lines may
-	// mount (internal/trust).
-	// Who made the image, for the maintenance sweep (PruneBuiltImages).
-	args = append(dockerlabel.BuiltArgs(), args...)
-	args = append(trust.BuildArgs(!dk.Remote()), args...)
-	return dk.Run(ctx, append([]string{"build"}, args...)...)
-}
-
-func (dk Scope) ownBuilder(ctx context.Context) (string, error) {
-	if out, err := dk.Run(ctx, "buildx", "version"); err != nil || !strings.Contains(string(out), "buildx") {
-		said := strings.TrimSpace(string(out))
-		if err != nil {
-			said = strings.TrimSpace(err.Error() + " " + said)
-		}
-		return "", fmt.Errorf("building images needs Docker's buildx plugin, and AppTown's Docker client could not run `docker buildx version` (%q): install the buildx plugin beside the docker CLI AppTown runs (the docker-buildx-plugin package)", said)
-	}
-	name := "default"
-	if dk.Host == "" {
-		out, err := dk.Run(ctx, "context", "show")
-		if err != nil {
-			return "", fmt.Errorf("asking Docker which context it uses: %w: %s", err, strings.TrimSpace(string(out)))
-		}
-		if ctx := strings.TrimSpace(string(out)); ctx != "" {
-			name = ctx
-		}
-	}
-	out, err := dk.Run(ctx, "buildx", "inspect", name)
-	if err != nil {
-		return "", fmt.Errorf("asking Docker for the daemon's own builder %q: %w: %s", name, err, strings.TrimSpace(string(out)))
-	}
-	driver := ""
-	for _, line := range strings.Split(string(out), "\n") {
-		if v, ok := strings.CutPrefix(strings.TrimSpace(line), "Driver:"); ok {
-			driver = strings.TrimSpace(v)
-			break
-		}
-	}
-	if driver != "docker" {
-		return "", fmt.Errorf("the builder %q is not the selected daemon's own (its driver is %q, not docker): the build is not sent to it", name, driver)
-	}
-	return name, nil
+	req.Args = full
+	return dk.Command(ctx, req)
 }
 
 // buildPreviewImage builds a preview's image as tag (args are the rest of

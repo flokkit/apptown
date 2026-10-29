@@ -3,6 +3,7 @@ package docker
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,7 +15,9 @@ import (
 // The exported stage is the project's own output: the site folder is
 // served only when nothing on the way to it, or in it, is a link, so a
 // build cannot make the apptown pack files from outside its own output.
-// Each case names what the refusal must say.
+// Each case names what the refusal must say, and the shell a release
+// task checks its export with (StaticExportCheckScript) refuses and passes
+// exactly the trees ConfineStaticExport does, with the same reasons.
 func TestABuiltStaticSiteWithALinkIsRefused(t *testing.T) {
 	t.Parallel()
 	outside := t.TempDir()
@@ -58,6 +61,9 @@ func TestABuiltStaticSiteWithALinkIsRefused(t *testing.T) {
 		if site, err := ConfineStaticExport(root, tc.output); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%s: %q %v, want %q", name, site, err, tc.want)
 		}
+		if said, ok := checkScript(t, root, tc.output); ok || !strings.Contains(said, tc.want) {
+			t.Errorf("%s, the task's shell: passed %v, said %q, want %q", name, ok, said, tc.want)
+		}
 	}
 	root := t.TempDir()
 	if err := writeFile(root, "dist/index.html"); err != nil {
@@ -76,6 +82,22 @@ func TestABuiltStaticSiteWithALinkIsRefused(t *testing.T) {
 	if site, err := ConfineStaticExport(filepath.Join(root, "dist"), "."); err != nil || site != filepath.Join(root, "dist") {
 		t.Fatalf("the whole stage as the site: %q %v", site, err)
 	}
+	for _, output := range []string{"dist", "./dist"} {
+		if said, ok := checkScript(t, root, output); !ok {
+			t.Fatalf("the task's shell refused a plain site at %s: %s", output, said)
+		}
+	}
+	if said, ok := checkScript(t, filepath.Join(root, "dist"), "."); !ok {
+		t.Fatalf("the task's shell refused the whole stage as the site: %s", said)
+	}
+}
+
+// checkScript runs StaticExportCheckScript over root, as a release task's
+// shell does, and answers what it said and whether it passed.
+func checkScript(t *testing.T, root, output string) (string, bool) {
+	t.Helper()
+	out, err := exec.CommandContext(t.Context(), "sh", "-c", "set -e\n"+StaticExportCheckScript(root, output)).CombinedOutput()
+	return string(out), err == nil
 }
 
 func writeFile(root, rel string) error {

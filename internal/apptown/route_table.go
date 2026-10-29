@@ -28,6 +28,7 @@ func appRoutes(a *App) []routeSpec {
 	var remediations httpapi.Remediations
 	var conformance httpapi.Conformance
 	var usage httpapi.Usage
+	var timing httpapi.Timing
 	var dependencies httpapi.Dependencies
 	var jobs httpapi.Jobs
 	var projectPolicies httpapi.ProjectPolicies
@@ -225,6 +226,7 @@ func appRoutes(a *App) []routeSpec {
 		jobs = httpapi.NewJobs(a.DB)
 		dependencies = httpapi.NewDependencies(a.Dependencies, a.Access)
 		usage = httpapi.NewUsage(a.Usage, a.Projects)
+		timing = httpapi.NewTiming(a.Work, a.Usage.Ledger)
 		conformance = httpapi.NewConformance(a.conformance, a.Projects, a.cfg.clock.Now)
 		remediations = httpapi.NewRemediations(a.Fixes)
 		serviceKinds = httpapi.NewServiceKinds(a.Integrations, a.Access)
@@ -461,8 +463,8 @@ func appRoutes(a *App) []routeSpec {
 		requireRoute("POST /api/v1/projects/{slug}/policies", projectPolicies.CreatePolicy, access.CapProjectWayOfWorking, "project-slug"),
 		requireRoute("DELETE /api/v1/policies/{id}", projectPolicies.DeletePolicy, access.CapStandardsPolicies, "instance"),
 		filteredRoute("GET /api/v1/usage", usage.Usage, "usage.Usage"),
-		filteredRoute("GET /api/v1/timing", runs.Timing, "runs.Timing"),
-		requireRoute("GET /api/v1/runs/{id}/timing", runs.RunTiming, access.CapRunRead, "run"),
+		filteredRoute("GET /api/v1/timing", timing.Timing, "timing.Timing"),
+		requireRoute("GET /api/v1/runs/{id}/timing", timing.RunTiming, access.CapRunRead, "run"),
 		filteredRoute("GET /api/v1/policy-library", policyLibrary.PolicyLibrary, "policyLibrary.PolicyLibrary"),
 		requireRoute("POST /api/v1/policy-library", policyLibrary.SaveLibraryPolicy, access.CapStandardsPolicies, "instance"),
 		requireRoute("DELETE /api/v1/policy-library/{name}", policyLibrary.DeleteLibraryPolicy, access.CapStandardsPolicies, "instance"),

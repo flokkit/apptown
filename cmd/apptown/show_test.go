@@ -130,21 +130,23 @@ func TestShowSaysWhatTheChangeIsDoing(t *testing.T) {
 	}
 }
 
-// A change AppTown closed because there was nothing to change says so in
-// changes, show and their --json, from the closedAs AppTown recorded; an
-// abandonment, whatever its reason's words, still says abandoned.
-func TestAChangeClosedAsNothingToChangeSaysSo(t *testing.T) {
-	const closed, abandoned = "00000000-0008-7000-8000-000000000000", "00000000-0009-7000-8000-000000000000"
+// changes, show and their --json say a change's state in AppTown's own
+// words (stateLabel), never words of their own: a change AppTown closed
+// because there was nothing to change says so, an abandonment says
+// abandoned, and a record change says finished.
+func TestTheCLISaysAppTownsStateLabel(t *testing.T) {
+	const closed, abandoned, record = "00000000-0008-7000-8000-000000000000", "00000000-0009-7000-8000-000000000000", "00000000-0010-7000-8000-000000000000"
 	fakeAppTown(t, func(_, path string) (int, string) {
 		switch path {
 		case "/projects/speed/board":
 			return 200, `{"columns":[{"state":"abandoned","total":2,"items":[
-				{"id":"` + closed + `","number":8,"title":"update dependencies","closedAs":"nothing-to-change"},
-				{"id":"` + abandoned + `","number":9,"title":"try a thing"}]}]}`
+				{"id":"` + closed + `","number":8,"title":"update dependencies","closedAs":"nothing-to-change","stateLabel":"closed: nothing to change"},
+				{"id":"` + abandoned + `","number":9,"title":"try a thing","stateLabel":"abandoned"}]},
+				{"state":"shipped","total":1,"items":[{"id":"` + record + `","number":10,"title":"research a thing","closedAs":"record","stateLabel":"finished"}]}]}`
 		case "/changes/" + closed:
-			return 200, `{"projectSlug":"speed","change":{"id":"` + closed + `","number":8,"title":"update dependencies","state":"abandoned","closedAs":"nothing-to-change"},"state":"abandoned","stateDetail":"Nothing to update","runs":[]}`
+			return 200, `{"projectSlug":"speed","change":{"id":"` + closed + `","number":8,"title":"update dependencies","state":"abandoned","closedAs":"nothing-to-change","stateLabel":"closed: nothing to change"},"state":"abandoned","stateDetail":"Nothing to update","runs":[]}`
 		case "/changes/" + abandoned:
-			return 200, `{"projectSlug":"speed","change":{"id":"` + abandoned + `","number":9,"title":"try a thing","state":"abandoned"},"state":"abandoned","stateDetail":"Nothing to update","runs":[]}`
+			return 200, `{"projectSlug":"speed","change":{"id":"` + abandoned + `","number":9,"title":"try a thing","state":"abandoned","stateLabel":"abandoned"},"state":"abandoned","stateDetail":"Nothing to update","runs":[]}`
 		case "/runs":
 			return 200, `[]`
 		}
@@ -159,13 +161,13 @@ func TestAChangeClosedAsNothingToChangeSaysSo(t *testing.T) {
 		return ""
 	}
 	out, err := run(t, "changes", "-p", "speed", "--all")
-	if err != nil || !strings.Contains(line(out, "update dependencies"), "closed: nothing to change") || !strings.Contains(line(out, "try a thing"), "abandoned") {
+	if err != nil || !strings.Contains(line(out, "update dependencies"), "closed: nothing to change") || !strings.Contains(line(out, "try a thing"), "abandoned") || !strings.Contains(line(out, "research a thing"), "finished") {
 		t.Fatalf("changes --all: %v\n%s", err, out)
 	}
 	out, err = run(t, "changes", "-p", "speed", "--all", "--json")
 	var list ChangeList
-	if err != nil || json.Unmarshal([]byte(out), &list) != nil || len(list.Changes) != 2 ||
-		list.Changes[0].ClosedAs != "nothing-to-change" || list.Changes[0].State != "abandoned" || list.Changes[1].ClosedAs != "" {
+	if err != nil || json.Unmarshal([]byte(out), &list) != nil || len(list.Changes) != 3 ||
+		list.Changes[0].ClosedAs != "nothing-to-change" || list.Changes[0].StateLabel != "closed: nothing to change" || list.Changes[2].StateLabel != "finished" || list.Changes[0].State != "abandoned" || list.Changes[1].ClosedAs != "" {
 		t.Fatalf("changes --json: %v\n%s", err, out)
 	}
 	out, err = run(t, "show", closed)
@@ -178,7 +180,7 @@ func TestAChangeClosedAsNothingToChangeSaysSo(t *testing.T) {
 	}
 	out, err = run(t, "show", closed, "--json")
 	var detail ChangeDetail
-	if err != nil || json.Unmarshal([]byte(out), &detail) != nil || detail.ClosedAs != "nothing-to-change" || detail.State != "abandoned" {
+	if err != nil || json.Unmarshal([]byte(out), &detail) != nil || detail.ClosedAs != "nothing-to-change" || detail.State != "abandoned" || detail.StateLabel != "closed: nothing to change" {
 		t.Fatalf("show --json: %v\n%s", err, out)
 	}
 }

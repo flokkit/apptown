@@ -463,34 +463,24 @@ func (d *Driver) awaitProviderName(ctx context.Context, rawURL string, until tim
 }
 
 // probeFrontDoor asks the real front door for the readiness path: six
-// tries, ten seconds apart by default. An explicit status must match without
-// following redirects; omitted expectations retain the successful-response
-// predicate and redirect policy. Before until,
-// a try the platform's new name did not answer is not counted (notYet).
+// tries, ten seconds apart by default, each judged by the one readiness
+// rule (appcontract.SampleReadiness: below 400 or the declared status, no
+// redirect followed). Before until, a try the platform's new name did not
+// answer is not counted (notYet).
 func probeFrontDoor(ctx context.Context, client *http.Client, url string, expect int, until time.Time, logf func(string, ...any), interval time.Duration, now func() time.Time) error {
-	if expect != 0 {
-		copy := *client
-		copy.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-		client = &copy
-	}
 	var last string
 	waiting := false
 	for tries := 0; tries < 6; {
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-		if err != nil {
-			return err
-		}
-		res, err := client.Do(req)
+		a, err := appcontract.SampleReadiness(ctx, client.Transport, appcontract.ReadinessRequest{URL: url, Expect: expect, Timeout: client.Timeout})
 		if !notYet(err, now(), until, &waiting, logf) {
 			tries++ // a request the new name did not answer yet is not a try
 		}
 		if err == nil {
-			res.Body.Close()
-			if (expect == 0 && res.StatusCode < 300) || (expect != 0 && res.StatusCode == expect) {
-				logf("the front door answers %s (%d)", url, res.StatusCode)
+			if a.Ready {
+				logf("the front door answers %s (%d)", url, a.Status)
 				return nil
 			}
-			last = fmt.Sprintf("%d", res.StatusCode)
+			last = fmt.Sprintf("%d", a.Status)
 		} else {
 			last = err.Error()
 		}

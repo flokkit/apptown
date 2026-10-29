@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/containerresult"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/poll"
 )
 
@@ -168,7 +169,7 @@ func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container st
 					diagnosticErr = err
 					cancel()
 				}
-				return err == nil && (rp.Expect == 0 || status == rp.Expect)
+				return err == nil && appcontract.Ready(status, rp.Expect)
 			})
 		})
 		return ready, diagnosticErr
@@ -182,7 +183,7 @@ func (s *Sealed) awaitReady(ctx context.Context, dk Scope, network, container st
 			return true // stopped: it will not answer
 		}
 		status, err := s.Get(ctx, dk, network, container, port, path)
-		ready = err == nil && (rp.Expect == 0 || status == rp.Expect)
+		ready = err == nil && appcontract.Ready(status, rp.Expect)
 		return ready
 	})
 	return ready, nil

@@ -112,7 +112,9 @@ func (d Diagnostic) http(ctx context.Context, container string, p Probe, path st
 	if err != nil || status < 100 || status > 599 || (fields[1] != "0" && fields[1] != "1") {
 		return errors.New("Portainer readiness diagnostic returned an invalid verdict")
 	}
-	if (expect != 0 && status != expect) || fields[1] != "1" {
+	// The shell only fetches; the answer is judged by the one readiness
+	// rule every target applies (below 400 or the declared status).
+	if !appcontract.Ready(status, expect) || fields[1] != "1" {
 		return &predicateFailure{reason: fmt.Sprintf("Portainer readiness predicate failed (HTTP %d, identity match %s)", status, fields[1])}
 	}
 	return nil

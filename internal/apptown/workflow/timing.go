@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -28,10 +27,10 @@ type RunTiming struct {
 	Steps     []StepTiming
 }
 type StepTiming struct {
+	ID                    ids.ID
 	Stage, Name, Type     string
 	Status                StepState
 	StartedAt, FinishedAt stamp.Time
-	Evidence              json.RawMessage
 	Reworks               int
 }
 
@@ -89,9 +88,8 @@ func readTimingsIn(ctx context.Context, q database.Queryer, projects []ids.ID, i
 			if err != nil {
 				return nil, err
 			}
-			step := StepTiming{Stage: row.Stage, Name: row.Name, Type: row.Type, Status: state,
-				StartedAt: stamp.Time{NullTime: row.StartedAt}, FinishedAt: stamp.Time{NullTime: row.FinishedAt},
-				Evidence: row.EvidenceJson, Reworks: int(row.Reworks)}
+			step := StepTiming{ID: row.StepID, Stage: row.Stage, Name: row.Name, Type: row.Type, Status: state,
+				StartedAt: stamp.Time{NullTime: row.StartedAt}, FinishedAt: stamp.Time{NullTime: row.FinishedAt}, Reworks: int(row.Reworks)}
 			out[len(out)-1].Steps = append(out[len(out)-1].Steps, step)
 		}
 	}

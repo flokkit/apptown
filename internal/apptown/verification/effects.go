@@ -55,14 +55,14 @@ type Executor struct {
 
 // LocalExecutor is this machine's Docker as the check executor: checks run
 // through runner, and their images are prepared through AppTown's own
-// Docker access (dk).
+// Docker access (dk), built by its one build rule (Scope.Build).
 func LocalExecutor(runner execution.Runner, dk *docker.Scope, agentImage string, now func() time.Time) Executor {
 	cli := func(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
 		return dk.Command(ctx, docker.Command{Args: args, Stdin: stdin})
 	}
 	return Executor{Run: LocalChecks(runner, now), Local: true, AgentImage: agentImage,
 		Image: func(ctx context.Context, req execution.ImageRequest) execution.ImageAnswer {
-			return execution.PrepareImage(ctx, cli, req)
+			return execution.PrepareImage(ctx, cli, dk.Build, req)
 		}}
 }
 

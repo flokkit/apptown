@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -82,27 +81,16 @@ func (d *Driver) Sample(ctx context.Context, in ReadinessSample, allowed func(co
 	if err := allowed(ctx); err != nil {
 		return unknown, err
 	}
-	probeCtx, stopProbe := context.WithTimeout(ctx, timeout)
-	req, err := http.NewRequestWithContext(probeCtx, http.MethodGet, strings.TrimRight(dk.ProbeURL(p.HostPort), "/")+"/"+strings.TrimLeft(probe.Path, "/"), nil)
-	if err != nil {
-		stopProbe()
-		return unknown, err
-	}
-	for key, value := range probe.Headers {
-		req.Header.Set(key, value)
-	}
+	ask := appcontract.ReadinessRequest{URL: strings.TrimRight(dk.ProbeURL(p.HostPort), "/") + "/" + strings.TrimLeft(probe.Path, "/"),
+		Headers: probe.Headers, Expect: probe.Expect, Timeout: timeout}
 	if in.Part.Intent == nil || in.Part.Intent.Readiness == nil || in.Part.Intent.Readiness.RequestContext != "direct" {
-		req.Host = origin.Host
+		ask.Host = origin.Host
 	}
-	client := &http.Client{Transport: check.ProbeTransport, Timeout: timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	resp, err := client.Do(req)
+	answer, err := appcontract.SampleReadiness(ctx, check.ProbeTransport, ask)
 	if err != nil {
-		stopProbe()
 		return unknown, fmt.Errorf("Docker readiness probe: %w", err)
 	}
-	healthy := probe.Expect == 0 || resp.StatusCode == probe.Expect
-	drainAndClose(resp.Body)
-	stopProbe()
+	healthy := answer.Ready
 	after, err := Inspect(ctx, dk, p.Container)
 	if err != nil {
 		return unknown, err

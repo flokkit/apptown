@@ -89,6 +89,15 @@ type recordingDocker struct {
 func (r *recordingDocker) Run(_ context.Context, _ string, req docker.Command) ([]byte, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// The build rule's questions (docker.Scope.Build) are not recorded.
+	switch strings.Join(req.Args, " ") {
+	case "buildx version":
+		return []byte("github.com/docker/buildx v0.38.1"), nil
+	case "context show":
+		return []byte("default\n"), nil
+	case "buildx inspect default":
+		return []byte("Name: default\nDriver: docker\n"), nil
+	}
 	r.commands = append(r.commands, strings.Join(req.Args, " "))
 	if r.fail {
 		return []byte("denied"), errors.New("exit status 1")
@@ -157,7 +166,7 @@ func TestAMissingBareAgentImageIsBuilt(t *testing.T) {
 	if state, reason := agentImageSettled(t, &s); state != "present" {
 		t.Fatalf("after a build: %q %q", state, reason)
 	}
-	if got := rec.seen(); len(got) != 1 || got[0] != "build --label apptown.built=1 -t apptown-agent ../../deploy/apptown-agent" {
+	if got := rec.seen(); len(got) != 1 || got[0] != "build --label apptown.built=1 --builder default -t apptown-agent ../../deploy/apptown-agent" {
 		t.Fatalf("commands: %v", got)
 	}
 }

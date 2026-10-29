@@ -318,7 +318,7 @@ type Attachment struct {
 	CreatedAt                                                 time.Time
 	WireChangeID                                              ids.ID
 	WireChangeNumber                                          int64 // within the project; 0 when none or gone
-	WireState, WireTitle                                      string
+	WireState, WireClosedAs, WireTitle                        string
 	KindYAML                                                  string
 }
 
@@ -333,7 +333,7 @@ func AttachedRows(ctx context.Context, q database.Queryer, projectID ids.ID) ([]
 	}
 	out := make([]Attachment, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, Attachment{Capability: r.Capability, Binding: r.Binding, ResourceJSON: string(r.ResourceJson), ConfigJSON: string(r.ConfigJson), Provenance: r.Provenance, CreatedAt: r.CreatedAt, WireChangeID: r.ChangeID, WireChangeNumber: r.ChangeNumber, WireState: r.ChangeState, WireTitle: r.ChangeTitle, KindYAML: r.KindYaml})
+		out = append(out, Attachment{Capability: r.Capability, Binding: r.Binding, ResourceJSON: string(r.ResourceJson), ConfigJSON: string(r.ConfigJson), Provenance: r.Provenance, CreatedAt: r.CreatedAt, WireChangeID: r.ChangeID, WireChangeNumber: r.ChangeNumber, WireState: r.ChangeState, WireClosedAs: r.ChangeClosedAs, WireTitle: r.ChangeTitle, KindYAML: r.KindYaml})
 	}
 	return out, err
 }

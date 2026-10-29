@@ -10,7 +10,7 @@ import { ChangeHeader, ChangesTab } from './Head'
 const CHANGE = '00000000-0001-7000-8000-000000000000'
 
 const view = (state: 'landing' | 'abandoned'): ChangeView => ({
-  change: { id: CHANGE, number: 1, title: 'Game', state, body: '', branch: 'change' },
+  change: { id: CHANGE, number: 1, title: 'Game', state, stateLabel: state, body: '', branch: 'change' },
   evidence: { merged: true }, editing: 0, runs: [], commits: [],
 } as unknown as ChangeView)
 

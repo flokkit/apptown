@@ -172,3 +172,34 @@ func TestExplicitSealedColdUsesOwnedProbeAndRuntimeStreak(t *testing.T) {
 		}
 	}
 }
+
+// A sealed boot (a restore rehearsal's) is judged by the readiness rule
+// every target applies (appcontract.Ready): with nothing declared, a 500
+// at the health path is not ready, in either branch. It used to be.
+func TestASealedBootJudgesByTheReadinessRule(t *testing.T) {
+	for _, policy := range []*appcontract.HealthPolicy{nil, {Explicit: true, Period: 5 * time.Second, Timeout: 10 * time.Second, SuccessThreshold: 1, FailureThreshold: 1}} {
+		synctest.Test(t, func(t *testing.T) {
+			daemon := containerresulttest.Daemon{Answers: func(containerresulttest.Command) (containerresulttest.Answer, bool) {
+				return containerresulttest.Answer{Answer: []byte("500")}, true
+			}}
+			dk := Scope{Client: coldClient(func(ctx context.Context, _ string, c Command) ([]byte, error) {
+				if c.Args[0] == "inspect" {
+					if slices.Contains(c.Args, RuntimeFormat) {
+						return []byte(`{"id":"a","running":true,"state":{"startedAt":"2026-10-26T00:00:00Z"}}`), nil
+					}
+					return []byte("true"), nil
+				}
+				out, err, ok := daemon.RunEnv(c.Args, c.Env)
+				if !ok {
+					return nil, fmt.Errorf("unexpected %v", c.Args)
+				}
+				return out, err
+			})}
+			s := &Sealed{ProbeImage: "pinned-probe", Host: "app.example"}
+			ready, _ := s.awaitReady(t.Context(), dk, "isolated", "app", 80, RenderedProbe{Path: "/healthz", Policy: policy}, 20*time.Second)
+			if ready {
+				t.Fatalf("a 500 at the health path (policy %v) read as ready", policy != nil)
+			}
+		})
+	}
+}

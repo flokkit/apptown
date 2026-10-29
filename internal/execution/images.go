@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/dockerbuild"
 	"github.com/flokkit/apptown/internal/dockerlabel"
-	"github.com/flokkit/apptown/internal/trust"
 	"github.com/google/go-containerregistry/pkg/name"
 	"io"
 	"os"
@@ -67,21 +67,31 @@ const CheckLabel = dockerlabel.Class + "=check"
 // machine's Docker, with stdin when given, and answers with its output.
 type DockerCLI func(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error)
 
-// PrepareImage answers an ImageRequest on this runner's Docker.
+// Build runs one image build on the Docker a DockerCLI runs: the build's
+// own arguments, its context last. It is the one build rule's
+// (dockerbuild.Daemon.Build): the daemon's own builder named, the extra
+// certificates as the build's secret, AppTown's label.
+type Build func(ctx context.Context, args ...string) ([]byte, error)
+
+// PrepareImage answers an ImageRequest on this runner's Docker, which is
+// this machine's (a worker's own).
 func (r Runner) PrepareImage(ctx context.Context, req ImageRequest) ImageAnswer {
 	if r.Refused != nil {
 		return ImageAnswer{Err: r.Refused.Error()}
 	}
-	return PrepareImage(ctx, func(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
+	docker := func(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
 		cmd := exec.CommandContext(ctx, r.dockerBinary(), args...)
 		cmd.Stdin = stdin
 		return cmd.CombinedOutput()
-	}, req)
+	}
+	run := func(ctx context.Context, args ...string) ([]byte, error) { return docker(ctx, nil, args...) }
+	return PrepareImage(ctx, docker, dockerbuild.Daemon{Run: run, Local: true}.Build, req)
 }
 
-// PrepareImage answers an ImageRequest on the Docker that docker runs. A
-// failure is Err, never an empty answer that reads as "no image".
-func PrepareImage(ctx context.Context, docker DockerCLI, req ImageRequest) (answer ImageAnswer) {
+// PrepareImage answers an ImageRequest on the Docker that docker runs,
+// building through build. A failure is Err, never an empty answer that
+// reads as "no image".
+func PrepareImage(ctx context.Context, docker DockerCLI, build Build, req ImageRequest) (answer ImageAnswer) {
 	if req.Anonymous {
 		if req.Registry != nil {
 			return ImageAnswer{Err: "anonymous image preparation cannot include registry credentials"}
@@ -164,11 +174,7 @@ func PrepareImage(ctx context.Context, docker DockerCLI, req ImageRequest) (answ
 		if err != nil || !fi.IsDir() {
 			return ImageAnswer{Err: fmt.Sprintf("the build context %s is not a folder in the tree: %v", req.Context, err)}
 		}
-		// The extra certificates as the build's secret (internal/trust).
-		build := append([]string{"build"}, trust.BuildArgs(true)...)
-		build = append(append(build, "--label", CheckLabel), dockerlabel.BuiltArgs()...)
-		build = append(build, "-t", req.Tag, filepath.Join(req.Tree, req.Context))
-		if out, err := docker(ctx, nil, build...); err != nil {
+		if out, err := build(ctx, "--label", CheckLabel, "-t", req.Tag, filepath.Join(req.Tree, req.Context)); err != nil {
 			return ImageAnswer{Err: fmt.Sprintf("building the app image: %v: %s", err, bounded(out))}
 		}
 		if a, found, err := inspectImage(ctx, docker, req.Tag); found && err == nil {

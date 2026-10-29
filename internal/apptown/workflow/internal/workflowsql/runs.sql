@@ -197,7 +197,7 @@ WITH selected AS (
 )
 SELECT r.id AS run_id,r.workflow_name,r.created_at,s.id AS step_id,
  COALESCE(s.stage,'')::text AS stage,COALESCE(s.name,'')::text AS name,COALESCE(s.type,'')::text AS type,COALESCE(s.status,'')::text AS status,
- s.started_at,s.finished_at,COALESCE(s.evidence_json,'{}'::jsonb) AS evidence_json,COALESCE(w.n,0)::bigint AS reworks
+ s.started_at,s.finished_at,COALESCE(w.n,0)::bigint AS reworks
 FROM selected r LEFT JOIN steps s ON s.run_id=r.id
 LEFT JOIN reworks w ON w.run_id=r.id AND w.step=s.name
 ORDER BY r.id,s.id;

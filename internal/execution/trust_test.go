@@ -11,17 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/trust"
 	"github.com/flokkit/apptown/internal/trust/trusttest"
 )
 
-// With extra certificates configured, a check image's build is given them
-// as its secret (and AppTown's build label), and a process run on this machine itself is not given the
-// containers' script, which run there would change this machine's store.
+// A check image is built only through the build it is given (the one
+// build rule's, dockerbuild), never by a `docker build` of its own; and a
+// process run on this machine itself is not given the containers'
+// certificate script, which run there would change this machine's store.
 // Not parallel: it installs the process's trust.
-func TestBuildsGetTheExtraCertificatesAndLocalProcessesDoNot(t *testing.T) {
+func TestBuildsGoThroughTheBuildRuleAndLocalProcessesGetNoCertificates(t *testing.T) {
 	trusttest.Install(t, trusttest.New(t, "Company CA").Bundle(t), trust.Bundle{})
 	tree := t.TempDir()
 	if err := os.Mkdir(filepath.Join(tree, "app"), 0o755); err != nil {
@@ -30,17 +30,15 @@ func TestBuildsGetTheExtraCertificatesAndLocalProcessesDoNot(t *testing.T) {
 	var build []string
 	execution.PrepareImage(context.Background(), func(_ context.Context, _ io.Reader, args ...string) ([]byte, error) {
 		if args[0] == "build" {
-			build = args
-			return nil, nil
+			t.Errorf("the check image was built by a docker build of its own: %q", args)
 		}
 		return nil, errors.New("Error: No such image")
+	}, func(_ context.Context, args ...string) ([]byte, error) {
+		build = args
+		return nil, nil
 	}, execution.ImageRequest{Tag: "apptown-conform:abc", Tree: tree, Context: "app", AllowBuild: true})
-	if !strings.Contains(strings.Join(build, " "), "--secret id=apptown-trust,env=APPTOWN_TRUST") {
-		t.Fatalf("the check image's build is not given the certificates: %q", build)
-	}
-	// And it says AppTown built it, for the maintenance sweep's prune.
-	if !strings.Contains(strings.Join(build, " "), strings.Join(dockerlabel.BuiltArgs(), " ")) {
-		t.Fatalf("the check image's build does not label it AppTown's: %q", build)
+	if want := []string{"--label", execution.CheckLabel, "-t", "apptown-conform:abc", filepath.Join(tree, "app")}; !slices.Equal(build, want) {
+		t.Fatalf("the check image's build: %q, want %q", build, want)
 	}
 
 	out := execution.Runner{}.Run(context.Background(), execution.Local, execution.Request{

@@ -58,16 +58,18 @@ func indentBody(s string, maxLines int) string {
 	return strings.Join(lines, "\n")
 }
 
-func stateChip(s string) string {
-	switch s {
+// stateChip is a change's state label (AppTown's words) marked by its
+// state: closed and shipped, closed otherwise, landing, or in progress.
+func stateChip(state, label string) string {
+	switch state {
 	case "shipped":
-		return green("● " + s)
-	case "abandoned", "closed: nothing to change":
-		return dim("○ " + s)
+		return green("● " + label)
+	case "abandoned":
+		return dim("○ " + label)
 	case "landing":
-		return yellow("◐ " + s)
+		return yellow("◐ " + label)
 	default:
-		return cyan("◉ " + s)
+		return cyan("◉ " + label)
 	}
 }
 

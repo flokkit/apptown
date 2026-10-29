@@ -1,7 +1,6 @@
 package workflowexec
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -25,6 +24,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/strs"
@@ -235,7 +235,13 @@ func (a *Executor) privateOnWorker(ctx context.Context, c workerAgentCall, cfg *
 		if err != nil {
 			return nil, nil, err
 		}
-		raw, err := appContractAt(ctx, hub, c.commit)
+		if !commitPattern.MatchString(c.commit) {
+			return nil, nil, &WorkerRefusal{Reason: fmt.Sprintf("the app's declared needs could not be read: %q is not a commit", c.commit)}
+		}
+		raw, err := docker.ContractFileAt(ctx, hub, c.commit)
+		if errors.Is(err, docker.ErrNoContract) {
+			raw, err = nil, nil
+		}
 		if err != nil {
 			return nil, nil, &WorkerRefusal{Reason: "the app's declared needs could not be read from commit " + c.commit + ": " + err.Error()}
 		}
@@ -319,38 +325,6 @@ func (a *Executor) refuseOnWorker(c workerAgentCall, cfg *agentConfig, k agentKn
 }
 
 var commitPattern = regexp.MustCompile(`^[0-9a-f]{40}([0-9a-f]{24})?$`)
-
-// maxContractBytes bounds the app declaration read from a commit.
-const maxContractBytes = 1 << 20
-
-// appContractAt is the app's declaration (.apptown/app.yaml) at commit, in
-// the project's hub, unparsed; nil when there is none. One that is not a
-// regular file, or cannot be read, is an error, never "nothing".
-func appContractAt(ctx context.Context, repo, commit string) ([]byte, error) {
-	if !commitPattern.MatchString(commit) {
-		return nil, fmt.Errorf("%q is not a commit", commit)
-	}
-	entry, err := gitexec.HubOutput(ctx, repo, nil, "ls-tree", "-z", "--full-tree", commit, "--", ".apptown/app.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("listing it: %w", err)
-	}
-	if len(entry) == 0 {
-		return nil, nil
-	}
-	meta, _, ok := bytes.Cut(bytes.TrimSuffix(entry, []byte{0}), []byte("\t"))
-	fields := strings.Fields(string(meta))
-	if !ok || len(fields) != 3 || fields[1] != "blob" || (fields[0] != "100644" && fields[0] != "100755") {
-		return nil, fmt.Errorf(".apptown/app.yaml is not a regular file (%s)", meta)
-	}
-	raw, err := gitexec.HubOutput(ctx, repo, nil, "cat-file", "blob", fields[2])
-	if err != nil {
-		return nil, fmt.Errorf("reading it: %w", err)
-	}
-	if len(raw) > maxContractBytes {
-		return nil, fmt.Errorf(".apptown/app.yaml is %d bytes, over %d", len(raw), maxContractBytes)
-	}
-	return raw, nil
-}
 
 var (
 	sessionIDPattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
