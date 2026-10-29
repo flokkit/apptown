@@ -68,7 +68,7 @@ func TestEveryUnsettledDockerAttemptCanBeSettled(t *testing.T) {
 			boot, fail := run(ctx, cancel, daemon)
 			noted := map[string]any{}
 			d := &Driver{ServingLabel: "stable-serving", Scope: func(context.Context) (Scope, error) { return Scope{Client: daemon}, nil }, Boot: boot,
-				URL: func(_, _ string, _ int) string { return "http://game" }, AfterRelease: func(deploy.Placement) {}}
+				URL: func(_, _ string, _ int) (string, error) { return "http://game", nil }, AfterRelease: func(deploy.Placement) {}}
 			_, err := d.Reconcile(ctx, place, generation, art, "key", func(string, ...any) {}, func(values map[string]any) error {
 				if fail != nil {
 					if err := fail(values); err != nil {

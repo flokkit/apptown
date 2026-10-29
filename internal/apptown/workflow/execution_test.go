@@ -107,7 +107,7 @@ func TestExecutionClaimsOnceAfterWaitingAndRejectsMovedScope(t *testing.T) {
 			case "project moved":
 				other := workflowTestProject(t, q.db, "other", "Other", "")
 				// sql-guarantee: the claim fence changes only the admitted run project while the runner is blocked; no Workflow mutation exposes project reassignment.
-				completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+				completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 			case "attempt moved":
 				step, err := readStep(context.Background(), q.db, id)
 				if err != nil {

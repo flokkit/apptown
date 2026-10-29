@@ -25,7 +25,7 @@ func TestShippedByComparesWithThePreviousReleaseOnTheDeployment(t *testing.T) {
 	}
 	release := func(number int, state, deployment, commit string) ids.ID {
 		// sql-guarantee: TestShippedByComparesWithThePreviousReleaseOnTheDeployment needs released, failed and other-deployment releases in one history to test the read's selection; settling a release needs a deployment attempt per row, which is not what this read depends on.
-		return mustInsert(t, db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at,bundle_id) VALUES (?,?,?,?,?,'2026-10-21',?)`, p, number, state, deployment, bundle(commit))
+		return mustInsert(t, db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at,bundle_id) VALUES ($1,$2,$3,$4,$5,'2026-10-21',$6)`, p, number, state, deployment, bundle(commit))
 	}
 	change := shippedChangeAt(t, db, p, at)
 	carry := func(rel ids.ID) {

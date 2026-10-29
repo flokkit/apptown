@@ -64,7 +64,7 @@ func TestProjectActivityUsesScopedBulkCounts(t *testing.T) {
 		t.Fatalf("usage %+v: %v", usage, err)
 	}
 	// sql-guarantee: the scoped reader needs a deliberately foreign run while retaining its existing child/step links; no Workflow mutation reassigns project_id.
-	completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 	visible, err = s.ProjectActivity(ctx, run.ProjectID)
 	if err != nil || visible[run.ProjectID].ActiveItems != 0 || visible[run.ProjectID].RunningRuns != 0 {
 		t.Fatalf("foreign current Run counted %+v: %v", visible, err)
@@ -82,14 +82,14 @@ func TestDashboardPartitionsVisibleCurrentStages(t *testing.T) {
 	other := workflowTestProject(t, q.db, "private", "Private", "")
 	foreign := admissionTestChange(t, q.db, other, "secret")
 	// sql-guarantee: the dashboard scope law needs an existing run linked to a foreign Change; no Workflow mutation reassigns change_id.
-	completionExec(t, q.db, `UPDATE runs SET change_id=? WHERE id=?`, foreign, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET change_id=$1 WHERE id=$2`, foreign, run.ID)
 	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
 	dashboard, err := s.Dashboard(ctx)
 	if err != nil || len(dashboard.PendingApprovals) != 1 || len(dashboard.ActiveRuns) != 0 || dashboard.PendingApprovals[0].ItemTitle != "" {
 		t.Fatalf("approval %+v: %v", dashboard, err)
 	}
 	// sql-guarantee: the dashboard current-stage filter must observe the same step moved to a future stage; step stage is immutable and has no generated mutation.
-	completionExec(t, q.db, `UPDATE steps SET stage='future' WHERE id=?`, step)
+	completionExec(t, q.db, `UPDATE steps SET stage='future' WHERE id=$1`, step)
 	dashboard, err = s.Dashboard(ctx)
 	if err != nil || len(dashboard.PendingApprovals) != 0 || len(dashboard.ActiveRuns) != 1 || dashboard.ActiveRuns[0].ItemTitle != "" {
 		t.Fatalf("active %+v: %v", dashboard, err)
@@ -101,7 +101,7 @@ func TestDashboardPartitionsVisibleCurrentStages(t *testing.T) {
 		t.Fatalf("active run state %+v, activity %+v: %v", dashboard.ActiveRuns[0], activities, err)
 	}
 	// sql-guarantee: the scoped reader needs a deliberately foreign run while retaining its existing child/step links; no Workflow mutation reassigns project_id.
-	completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 	dashboard, err = s.Dashboard(ctx)
 	if err != nil || dashboard.PendingApprovals == nil || dashboard.ActiveRuns == nil || len(dashboard.ActiveRuns) != 0 {
 		t.Fatalf("private %+v: %v", dashboard, err)

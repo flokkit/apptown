@@ -40,7 +40,7 @@ func TestVaultVersionsAndObfuscates(t *testing.T) {
 		t.Fatalf("get: %v %q %d", err, got, ver)
 	}
 	var stored string
-	if err := db.QueryRow(`SELECT value FROM secret_values WHERE scope='env:p:main' AND name='TOKEN' AND version=2`).Scan(&stored); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT value FROM secret_values WHERE scope='env:p:main' AND name='TOKEN' AND version=2`).Scan(&stored); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(stored, "hunter") {
@@ -63,7 +63,7 @@ func TestVaultVersionsAndObfuscates(t *testing.T) {
 		t.Fatal("the key must be minted once and kept")
 	}
 	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE kind='secrets.store-initialised'`).Scan(&n); err != nil || n != 1 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM audit_log WHERE kind='secrets.store-initialised'`).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("one receipt for the minting: %v %d", err, n)
 	}
 }
@@ -112,7 +112,7 @@ func TestBindingsAndProfiles(t *testing.T) {
 		t.Fatalf("the stored value must go with its last binding: %v", err)
 	}
 	var n int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE kind='secret.unbound' AND subject='TOKEN' AND project_id=?`, pid).Scan(&n); err != nil || n != 1 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM audit_log WHERE kind='secret.unbound' AND subject='TOKEN' AND project_id=$1`, pid).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("unbind receipt: %v %d", err, n)
 	}
 	p := NewProfiles(db, nil)
@@ -155,7 +155,7 @@ func TestSecretVersionsDistinctUnderRace(t *testing.T) {
 		}
 	}
 	var versions int
-	if err := db.QueryRow(`SELECT COUNT(DISTINCT version) FROM secret_values WHERE scope='env:p:main' AND name='KEY'`).Scan(&versions); err != nil || versions != writes {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(DISTINCT version) FROM secret_values WHERE scope='env:p:main' AND name='KEY'`).Scan(&versions); err != nil || versions != writes {
 		t.Fatalf("distinct versions: %d %v", versions, err)
 	}
 	_, version, err := clients[0].Get(t.Context(), "env:p:main", "KEY")

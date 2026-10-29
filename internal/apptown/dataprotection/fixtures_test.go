@@ -142,7 +142,7 @@ func (doReleaseSecrets) ResolveRelease(context.Context, deployment.Application, 
 func markCopy(t *testing.T, db *database.DB, projectID ids.ID) {
 	t.Helper()
 	// sql-guarantee: no owner operation changes a project's purpose (see above).
-	if _, err := db.Exec(`UPDATE projects SET purpose='eval-copy' WHERE id=?`, projectID); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE projects SET purpose='eval-copy' WHERE id=$1`, projectID); err != nil {
 		t.Fatal(err)
 	}
 }

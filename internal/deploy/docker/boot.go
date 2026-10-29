@@ -603,7 +603,7 @@ func (h *Host) boot(ctx context.Context, t BootRequest, c *appcontract.Contract)
 	// /_apptown/env.js.
 	switch {
 	case t.release != "":
-		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: appcontract.ReleasePath, Expect: 200, Body: t.release}); !up {
+		if up, logTail := h.prober().Check(ctx, t.Docker, t.Name, probeU, t.Probe, RenderedProbe{Path: appcontract.ReleasePath, Release: t.release}); !up {
 			return res, &BootError{Phase: PhaseProbe, Err: fmt.Errorf("the static site's file server does not answer %s with this release (%s): its image does not carry AppTown's file server configuration, or it serves another release", appcontract.ReleasePath, t.release), LogTail: logTail}
 		}
 	case wasStatic || plan.PublicPart().ServesStatic:

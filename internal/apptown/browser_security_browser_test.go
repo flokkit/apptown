@@ -176,7 +176,7 @@ func TestBrowserSecurityChromium(t *testing.T) {
 		t.Fatalf("disallowed resource server received %d requests", blockedRequests.Load())
 	}
 	var unexpected int
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM projects WHERE slug IN ('csrf-created','file-executed')`).Scan(&unexpected); err != nil || unexpected != 0 {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM projects WHERE slug IN ('csrf-created','file-executed')`).Scan(&unexpected); err != nil || unexpected != 0 {
 		t.Fatalf("browser attack mutated state: %d %v", unexpected, err)
 	}
 	if b := agent.Input(); b != "legitimate-terminal-input" {

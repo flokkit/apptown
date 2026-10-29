@@ -26,7 +26,7 @@ func TestRecordKeepsExactAttributionAndFailure(t *testing.T) {
 	}
 	var count, brief, narrative int
 	// sql-guarantee: Exact attribution columns are the guarantee (see the comment above); a rollup could agree with a writer that swapped them.
-	if err := db.QueryRow(`SELECT COUNT(*), COUNT(*) FILTER (WHERE run_id='00000000-0007-7000-8000-000000000000' AND kind='approval-brief'), COUNT(*) FILTER (WHERE run_id IS NULL AND kind='narrative') FROM token_usage WHERE project_id='00000000-002a-7000-8000-000000000000' AND provider='openrouter'
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*), COUNT(*) FILTER (WHERE run_id='00000000-0007-7000-8000-000000000000' AND kind='approval-brief'), COUNT(*) FILTER (WHERE run_id IS NULL AND kind='narrative') FROM token_usage WHERE project_id='00000000-002a-7000-8000-000000000000' AND provider='openrouter'
   AND model='vendor/model' AND actor='apptown-system' AND input=10 AND output=5 AND total=15
   AND cost_micros=1000 AND cache_read=0 AND cache_write=0 AND root_run_id IS NULL AND step_id IS NULL
   AND workflow_name='' AND workflow_version=0 AND session_id=''`).Scan(&count, &brief, &narrative); err != nil || count != 2 || brief != 1 || narrative != 1 {
@@ -37,7 +37,7 @@ func TestRecordKeepsExactAttributionAndFailure(t *testing.T) {
 		t.Fatalf("write failure: %v", err)
 	}
 	// sql-guarantee: The failed write must leave no row of any attribution, which no rollup can prove.
-	if err := db.QueryRow(`SELECT COUNT(*) FROM token_usage`).Scan(&count); err != nil || count != 2 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM token_usage`).Scan(&count); err != nil || count != 2 {
 		t.Fatalf("failed write changed ledger: %d %v", count, err)
 	}
 }

@@ -102,7 +102,7 @@ func TestChoosingAReleaseDefaultDoesNotInventAServingAddress(t *testing.T) {
 	t.Parallel()
 	p := newPromotionTargets(t, false)
 	// sql-guarantee: retain legacy project-address evidence without creating desired deployment routing.
-	if _, err := p.db.Exec(`UPDATE projects SET release_domain=$2 WHERE id=$1`, p.project, "feedback.example"); err != nil {
+	if _, err := p.db.SQL().ExecContext(context.Background(), `UPDATE projects SET release_domain=$2 WHERE id=$1`, p.project, "feedback.example"); err != nil {
 		t.Fatal(err)
 	}
 	selected := p.chooseDefault(t)
@@ -111,7 +111,7 @@ func TestChoosingAReleaseDefaultDoesNotInventAServingAddress(t *testing.T) {
 		t.Fatalf("initial address: %+v %v", dep, err)
 	}
 	// sql-guarantee: changing raw legacy evidence cannot invent a serving observation.
-	if _, err := p.db.Exec(`UPDATE projects SET release_domain=$2 WHERE id=$1`, p.project, "changed.example"); err != nil {
+	if _, err := p.db.SQL().ExecContext(context.Background(), `UPDATE projects SET release_domain=$2 WHERE id=$1`, p.project, "changed.example"); err != nil {
 		t.Fatal(err)
 	}
 	dep, err = p.s.Deployments.ByID(t.Context(), selected.DeploymentID)

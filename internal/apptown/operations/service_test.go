@@ -357,7 +357,7 @@ func TestARestartSettlesRunningUnknownAndRequeuesQueued(t *testing.T) {
 	if err := w.db.InTx(ctx, func(tx *database.Tx) error {
 		// What a crash leaves behind: no owner operation loses a job.
 		// sql-guarantee: the job row is gone as after a crash; no operation removes one.
-		_, err := tx.Exec(`DELETE FROM river_job WHERE args->>'key' = ?`, jobless.ID.String())
+		_, err := tx.SQL().ExecContext(context.Background(), `DELETE FROM river_job WHERE args->>'key' = $1`, jobless.ID.String())
 		return err
 	}); err != nil {
 		t.Fatal(err)

@@ -143,7 +143,7 @@ func TestHealthControllerNeverUsesLocalDockerForInvalidTarget(t *testing.T) {
 			container := "apptown-env-p-" + name
 			if targetID.IsZero() || targetID == idstest.N(999999) {
 				// sql-guarantee: Direct INSERT injects an invalid target reference that EnsureStanding refuses, proving fail-closed Docker resolution.
-				if _, err := db.Exec(`INSERT INTO deployments (id,project_id,name,container,target_id,updated_at) VALUES (?,?,?,?,?,?)`, ids.New(time.Now()),
+				if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO deployments (id,project_id,name,container,target_id,updated_at) VALUES ($1,$2,$3,$4,$5,$6)`, ids.New(time.Now()),
 					projectID, name, container, targetID, time.Now().UTC()); err != nil {
 					t.Fatal(err)
 				}

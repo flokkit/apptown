@@ -185,7 +185,7 @@ func TestAMergeRefusesUnboundChecksAndApprovalsLeftBehind(t *testing.T) {
 			{Name: "ship"},
 		}})
 		// sql-guarantee: place the run past a stage whose approval a new candidate reset, a state only a custom layout reaches.
-		if _, err := q.db.Exec(`UPDATE runs SET current_stage='ship' WHERE id=?`, run.ID); err != nil {
+		if _, err := q.db.SQL().ExecContext(context.Background(), `UPDATE runs SET current_stage='ship' WHERE id=$1`, run.ID); err != nil {
 			t.Fatal(err)
 		}
 		if refusal, err := landingCandidateRefusal(ctx, q.db, run.ID, pinned); err != nil || refusal == "" {

@@ -40,7 +40,7 @@ func TestARehearsalRefusesAWithdrawnNeedDeclaration(t *testing.T) {
 	// A release served before password declarations were withdrawn: current
 	// release admission cannot make that state, so it is written.
 	// sql-guarantee: no owner operation can serve a release whose declaration admission now refuses.
-	if _, err := w.db.Exec(`UPDATE releases SET bundle_id=$1 WHERE project_id=$2`, bid, w.project); err != nil {
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE releases SET bundle_id=$1 WHERE project_id=$2`, bid, w.project); err != nil {
 		t.Fatal(err)
 	}
 	op := w.rehearse()

@@ -191,10 +191,10 @@ func TestChangeCreationReadsCurrentProjectFactsAndCancelsLockWait(t *testing.T) 
 			switch mode {
 			case "rename":
 				// sql-guarantee: commit the competing metadata edit through the transaction already holding the project lock.
-				_, err = gate.Exec(`UPDATE projects SET slug='renamed',default_branch='current' WHERE id=?`, draft.ProjectID)
+				_, err = gate.SQL().ExecContext(context.Background(), `UPDATE projects SET slug='renamed',default_branch='current' WHERE id=$1`, draft.ProjectID)
 			case "remove repository":
 				// sql-guarantee: the competing project edit must commit through the transaction already holding the project lock; Projects setters use a separate transaction and cannot preserve this lock race.
-				_, err = gate.Exec(`UPDATE projects SET default_branch='' WHERE id=?`, draft.ProjectID)
+				_, err = gate.SQL().ExecContext(context.Background(), `UPDATE projects SET default_branch='' WHERE id=$1`, draft.ProjectID)
 			case "cancel":
 				cancel()
 			}

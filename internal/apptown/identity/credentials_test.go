@@ -34,7 +34,7 @@ func TestSessions(t *testing.T) {
 		t.Fatalf("unknown: %v %v", err, ok)
 	}
 	// sql-guarantee: Expire the already issued and successfully resolved session without replacing its token; InsertSession cannot update its expiry and deleting it would bypass expiry-triggered cleanup.
-	if _, err := db.Exec(`UPDATE sessions SET expires_at=? WHERE token_hash=?`, time.Now().Add(-time.Minute), HashToken(tok)); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE sessions SET expires_at=$1 WHERE token_hash=$2`, time.Now().Add(-time.Minute), HashToken(tok)); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, ok, _ := s.Resolve(context.Background(), tok); ok {
@@ -45,7 +45,7 @@ func TestSessions(t *testing.T) {
 	}
 	var stored int
 	// sql-guarantee: No owner read lists sessions; removal on sight must leave the table empty, not replace the expired row with another.
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sessions`).Scan(&stored); err != nil || stored != 0 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM sessions`).Scan(&stored); err != nil || stored != 0 {
 		t.Fatalf("the expired row is removed on sight: %d %v", stored, err)
 	}
 	tok, _ = issueSessionIn(context.Background(), db, "alice", s.ttl, time.Now())

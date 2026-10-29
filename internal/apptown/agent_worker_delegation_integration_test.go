@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -229,7 +230,7 @@ func runDelegation(t *testing.T, background bool) delegationRun {
 	}
 	ca := workertest.NewCA(t)
 	srv := workertest.StartServerWith(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
-		AgentImage: subagentsTestImage, ImageLabels: worker.DockerImages{Binary: "docker"}}, capture)
+		AgentImage: subagentsTestImage, ImageLabels: worker.DockerImages{Docker: dockercli.LocalCLI("docker")}}, capture)
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
 	cfg := Config{DataDir: t.TempDir(), AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),

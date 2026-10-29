@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -184,8 +185,12 @@ func (d *labelledImageDocker) Run(ctx context.Context, binary string, req docker
 	switch {
 	case strings.HasPrefix(args, "info"):
 		return []byte("ok"), nil
-	case strings.HasPrefix(args, "image inspect -f") && strings.Contains(args, dockerlabel.PiVersion):
-		return []byte(d.version), nil
+	case strings.HasPrefix(args, "image inspect"):
+		labels := "null"
+		if d.version != "" {
+			labels = fmt.Sprintf(`{%q:%q}`, dockerlabel.PiVersion, d.version)
+		}
+		return []byte(`"sha256:` + strings.Repeat("a", 64) + `" ` + labels), nil
 	}
 	return nil, nil
 }

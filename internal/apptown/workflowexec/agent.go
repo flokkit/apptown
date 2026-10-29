@@ -323,7 +323,7 @@ func (a *Executor) Run(task *workflow.Execution) {
 	res := a.piInvoke(task.Context(), piCall{
 		Source: source, Step: step, Image: k.image, Workspace: ws,
 		Args: args, Env: env, Network: network, Timeout: timeout,
-		Name: execution.UniqueName(fmt.Sprintf("apptown-step-%d", stepID)),
+		Name: execution.UniqueName(execution.StepContainer(stepID, "agent")),
 		// An agent with a private Docker daemon is not re-run in place: what
 		// it started there would still be running beside the re-run. A
 		// retry of the step starts afresh.

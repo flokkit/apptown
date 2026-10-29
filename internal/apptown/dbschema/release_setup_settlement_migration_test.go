@@ -1,6 +1,7 @@
 package dbschema
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ func TestMigration188SettlesImportedSetupAndKeepsChoicesAndAdmittedNeeds(t *test
 	now := time.Now()
 	exec := func(query string, args ...any) {
 		t.Helper()
-		if _, err := db.Exec(query, args...); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), query, args...); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -49,23 +50,23 @@ func TestMigration188SettlesImportedSetupAndKeepsChoicesAndAdmittedNeeds(t *test
 	}
 
 	var n int
-	if err := db.QueryRow(`SELECT count(*) FROM project_release_settings WHERE project_id=$1`, legacy).Scan(&n); err != nil || n != 0 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM project_release_settings WHERE project_id=$1`, legacy).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("imported setup kept: %d %v", n, err)
 	}
 	var selected ids.ID
 	var revision int64
-	if err := db.QueryRow(`SELECT default_deployment_id,revision FROM project_release_settings WHERE project_id=$1`, chosen).Scan(&selected, &revision); err != nil || selected != dep || revision != 9 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT default_deployment_id,revision FROM project_release_settings WHERE project_id=$1`, chosen).Scan(&selected, &revision); err != nil || selected != dep || revision != 9 {
 		t.Fatalf("chosen preference changed: %s %d %v", selected, revision, err)
 	}
-	if err := db.QueryRow(`SELECT revision FROM project_release_settings WHERE project_id=$1 AND default_deployment_id IS NULL`, cleared).Scan(&revision); err != nil || revision != 7 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT revision FROM project_release_settings WHERE project_id=$1 AND default_deployment_id IS NULL`, cleared).Scan(&revision); err != nil || revision != 7 {
 		t.Fatalf("cleared preference changed: %d %v", revision, err)
 	}
 	var admitted bool
-	if err := db.QueryRow(`SELECT require_promotion FROM release_requests WHERE release_id=$1`, release).Scan(&admitted); err != nil || !admitted {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT require_promotion FROM release_requests WHERE release_id=$1`, release).Scan(&admitted); err != nil || !admitted {
 		t.Fatalf("admitted promotion need lost: %v %v", admitted, err)
 	}
 	for _, column := range []struct{ table, name string }{{"deployments", "require_promotion"}, {"deployments", "policy_revision"}, {"project_release_settings", "legacy_setup_json"}} {
-		if err := db.QueryRow(`SELECT count(*) FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$1 AND column_name=$2`, column.table, column.name).Scan(&n); err != nil || n != 0 {
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM information_schema.columns WHERE table_schema=current_schema() AND table_name=$1 AND column_name=$2`, column.table, column.name).Scan(&n); err != nil || n != 0 {
 			t.Fatalf("%s.%s remains: %d %v", column.table, column.name, n, err)
 		}
 	}

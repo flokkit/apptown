@@ -159,7 +159,7 @@ func stepRollbackSnapshot(t *testing.T, db *database.DB) string {
 	t.Helper()
 	var snapshot string
 	// sql-guarantee: an independent whole-table snapshot of runs, steps, events and Remediation items; matching writer/reader bugs must not hide a rollback leak.
-	err := db.QueryRow(`SELECT jsonb_build_array(
+	err := db.SQL().QueryRowContext(context.Background(), `SELECT jsonb_build_array(
         (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM runs r),
         (SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM steps s),
         (SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM run_events e),

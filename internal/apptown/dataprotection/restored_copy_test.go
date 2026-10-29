@@ -803,7 +803,7 @@ func TestARestoredCopyOfAMultiImageReleaseIsRefusedWhenAskedFor(t *testing.T) {
 	t.Parallel()
 	w := newRestoredWorld(t, nil)
 	// sql-guarantee: no operation releases a multi-image bundle to App Platform any more; such a release exists only from before that refusal.
-	if _, err := w.db.Exec(`UPDATE release_bundles SET init_json = jsonb_build_object('migrate', ?::text) WHERE id = ?`, releaseRepo+digestB, w.bundle.ID); err != nil {
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE release_bundles SET init_json = jsonb_build_object('migrate', $1::text) WHERE id = $2`, releaseRepo+digestB, w.bundle.ID); err != nil {
 		t.Fatal(err)
 	}
 	opsBefore, err := w.opsOn("prod")

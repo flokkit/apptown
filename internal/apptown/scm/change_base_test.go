@@ -120,11 +120,11 @@ func TestAGatesBaseIsGitsForkOrAnError(t *testing.T) {
 	caughtUp := commit("b")
 	git("branch", "apptown/change-1") // caught up with main, nothing of its own yet
 	commit("c")
-	if base, err := ForkBase(ctx, hub, "main", "refs/heads/apptown/change-1", recorded); err != nil || base != caughtUp {
+	if base, err := ForkBase(ctx, hub, hub, "main", "refs/heads/apptown/change-1", recorded); err != nil || base != caughtUp {
 		t.Fatalf("an active change at an old main commit: base %s %v, want %s", base, err, caughtUp)
 	}
 	const elsewhere = "0123456789abcdef0123456789abcdef01234567"
-	if base, err := ForkBase(ctx, hub, "main", elsewhere, recorded); err != nil || base != recorded {
+	if base, err := ForkBase(ctx, hub, hub, "main", elsewhere, recorded); err != nil || base != recorded {
 		t.Fatalf("a tip the hub does not hold: %s %v", base, err)
 	}
 
@@ -136,7 +136,9 @@ func TestAGatesBaseIsGitsForkOrAnError(t *testing.T) {
 	if err := os.Remove(filepath.Join(hub, ".git", "objects", shared[:2], shared[2:])); err != nil {
 		t.Fatal(err)
 	}
-	for name, read := range map[string]func(context.Context, string, string, string, string) (string, error){"ForkBase": ForkBase, "ChangeBase": ChangeBase} {
+	for name, read := range map[string]func(context.Context, string, string, string, string) (string, error){"ForkBase": func(ctx context.Context, hub, branch, tip, recorded string) (string, error) {
+		return ForkBase(ctx, hub, hub, branch, tip, recorded)
+	}, "ChangeBase": ChangeBase} {
 		if base, err := read(ctx, hub, "main", tip, recorded); err == nil {
 			t.Fatalf("%s: unreadable history gave base %s", name, base)
 		}

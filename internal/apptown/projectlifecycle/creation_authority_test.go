@@ -15,15 +15,15 @@ import (
 
 func ownerVeto(t *testing.T, db *database.DB, table string) func() {
 	t.Helper()
-	if _, err := db.Exec(`CREATE FUNCTION veto_authorization_record() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE FUNCTION veto_authorization_record() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TRIGGER veto_authorization_record BEFORE INSERT ON ` + table + ` FOR EACH ROW EXECUTE FUNCTION veto_authorization_record()`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE TRIGGER veto_authorization_record BEFORE INSERT ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_authorization_record()`); err != nil {
 		t.Fatal(err)
 	}
 	return func() {
 		t.Helper()
-		if _, err := db.Exec(`DROP TRIGGER veto_authorization_record ON ` + table); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `DROP TRIGGER veto_authorization_record ON `+table); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -49,7 +49,7 @@ func TestProjectCreationRejectsRetiredPersonalGroup(t *testing.T) {
 			// Keep the recorded personal-group identity but retire it before
 			// creation; deletion would erase the historical choice.
 			// sql-guarantee: Keep the recorded personal-group identity but retire it before project creation; SaveGroup preserves retired_at and DeleteGroup would remove the historical choice.
-			if _, err := f.db.Exec(`UPDATE groups SET retired_at=now() WHERE name=?`, name); err != nil {
+			if _, err := f.db.SQL().ExecContext(context.Background(), `UPDATE groups SET retired_at=now() WHERE name=$1`, name); err != nil {
 				t.Fatal(err)
 			}
 			if err := f.identity.SeedAdministrator(context.Background(), "alice"); err != nil {
@@ -64,7 +64,7 @@ func TestProjectCreationRejectsRetiredPersonalGroup(t *testing.T) {
 				t.Fatalf("retired group still reads as live: %q %v", kind, err)
 			}
 			// sql-guarantee: identity reads hide retired groups and answer the same for a missing one; only the row shows retirement rather than deletion.
-			ownerCount(t, f.db, 1, `SELECT COUNT(*) FROM groups WHERE name=? AND retired_at IS NOT NULL`, name)
+			ownerCount(t, f.db, 1, `SELECT COUNT(*) FROM groups WHERE name=$1 AND retired_at IS NOT NULL`, name)
 			if _, err := f.lifecycle.Create(context.Background(), Draft{Slug: "retired-owner", Name: "P", Group: name, Actor: "alice"}); err == nil {
 				t.Fatal("created a project in a retired group")
 			}
@@ -134,7 +134,7 @@ func TestProjectCreationIncludesOwnershipAndReceipt(t *testing.T) {
 				t.Fatalf("owner grants: %+v", atProject)
 			}
 			// sql-guarantee: identity reads list only unrevoked grants; creation must record exactly one owner grant row, not one live row beside others.
-			ownerCount(t, f.db, 1, `SELECT COUNT(*) FROM grants_named WHERE scope_type='project' AND scope_id=? AND role_name=? AND subject='alice'`, p.ID.String(), access.RoleProjectOwner)
+			ownerCount(t, f.db, 1, `SELECT COUNT(*) FROM grants_named WHERE scope_type='project' AND scope_id=$1 AND role_name=$2 AND subject='alice'`, p.ID.String(), access.RoleProjectOwner)
 			created := lifecycleReceipts(t, f.db, "project.created")
 			// A map, not a struct: encoding/json matches struct fields without
 			// regard to case, and the receipt's key is exactly ownerGroup.

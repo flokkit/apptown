@@ -5,6 +5,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,11 +41,11 @@ func TestIntegrationTheAgentImageBuildTrustsTheWorkersExtraCertificates(t *testi
 	}
 	// Without the certificates the build fails on the server's certificate
 	// (curl exits 60), not on reaching it.
-	if _, err := BuildAgentImage(context.Background(), "docker", dir); err == nil || !strings.Contains(err.Error(), "exit code: 60") {
+	if _, err := BuildAgentImage(context.Background(), dockercli.LocalCLI("docker"), dir); err == nil || !strings.Contains(err.Error(), "exit code: 60") {
 		t.Fatalf("with nothing configured the build did not fail on the company's certificate: %v", err)
 	}
 	trusttest.Install(t, company.Bundle(t), trust.Bundle{})
-	image, err := BuildAgentImage(context.Background(), "docker", dir)
+	image, err := BuildAgentImage(context.Background(), dockercli.LocalCLI("docker"), dir)
 	if err != nil {
 		t.Fatal(err)
 	}

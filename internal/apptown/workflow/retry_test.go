@@ -65,7 +65,7 @@ func TestRetryKeepsExactConfigurationAndSessionAndInvalidatesOldDecisions(t *tes
 	t.Parallel()
 	owner, run, id, check := retryFixture(t)
 	// sql-guarantee: Keep the failed verdict and its evidence while adding historical override attribution; OverrideStep would pass it and change retry feedback.
-	completionExec(t, owner.db, `UPDATE steps SET override_by='person',override_reason='old exception' WHERE id=?`, check)
+	completionExec(t, owner.db, `UPDATE steps SET override_by='person',override_reason='old exception' WHERE id=$1`, check)
 	if rows, err := workflowsql.New(owner.db.SQL()).InsertRunEvent(context.Background(), workflowsql.InsertRunEventParams{ID: ids.New(time.Now()), RunID: run.ID, At: time.Now(), Kind: "step.started", PayloadJson: []byte(`{"step":"build","sessionId":"long-lived-session"}`)}); err != nil || rows != 1 {
 		t.Fatalf("stored historical receipt: rows=%d err=%v", rows, err)
 	}
@@ -244,14 +244,14 @@ func TestRetryServiceRequiresAuthorityAndRechecksItsSnapshot(t *testing.T) {
 					foreign := workflowTestProject(t, owner.db, "other", "Other", "")
 					ch := admissionTestChange(t, owner.db, foreign, "Other")
 					// sql-guarantee: No owner mutation rehomes a run's project/Change binding; change that same identity inside retry authorization to isolate its scope fence.
-					completionExec(t, owner.db, `UPDATE runs SET project_id=?,number=number+100000,change_id=? WHERE id=?`, foreign, ch, run.ID)
+					completionExec(t, owner.db, `UPDATE runs SET project_id=$1,number=number+100000,change_id=$2 WHERE id=$3`, foreign, ch, run.ID)
 				case "run":
 					other := insertStoredRun(t, owner.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: run.ProjectID, WorkflowName: "other", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "finish", DefinitionJson: []byte(`{"stages":[{"name":"finish"}]}`)}).ID
 					// sql-guarantee: No owner mutation reparents an existing step; move the authorized row to another run to invalidate its captured identity.
-					completionExec(t, owner.db, `UPDATE steps SET run_id=? WHERE id=?`, other, id)
+					completionExec(t, owner.db, `UPDATE steps SET run_id=$1 WHERE id=$2`, other, id)
 				case "change":
 					// sql-guarantee: No owner mutation detaches an existing run's Change; erase the authorized binding to isolate the retry scope fence.
-					completionExec(t, owner.db, `UPDATE runs SET change_id=NULL WHERE id=?`, run.ID)
+					completionExec(t, owner.db, `UPDATE runs SET change_id=NULL WHERE id=$1`, run.ID)
 				case "attempt":
 					{
 						current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)
@@ -284,7 +284,7 @@ func TestRetryServiceRequiresAuthorityAndRechecksItsSnapshot(t *testing.T) {
 					}
 				case "type":
 					// sql-guarantee: Replace the step's immutable type inside retry authorization to invalidate its admitted runner identity.
-					completionExec(t, owner.db, `UPDATE steps SET type='script' WHERE id=?`, id)
+					completionExec(t, owner.db, `UPDATE steps SET type='script' WHERE id=$1`, id)
 				case "configuration":
 					{
 						current, err := workflowsql.New(owner.db.SQL()).StepByID(context.Background(), id)

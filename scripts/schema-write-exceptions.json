@@ -11,22 +11,6 @@
   ],
   "dynamic": [
     {
-      "file": "internal/database/database.go",
-      "declaration": "DB.Exec",
-      "text": "Rebind(query)",
-      "declaration_hash": "f7bde37acfd8c413f4878fd23d6f064273c80a8557b74af36df7e05268ecd15d",
-      "tables": [],
-      "reason": "Database adapter forwards its caller SQL through placeholder rebinding; callsite literals checked separately."
-    },
-    {
-      "file": "internal/database/database.go",
-      "declaration": "Tx.Exec",
-      "text": "Rebind(query)",
-      "declaration_hash": "d46b727990163f662c015232566e238791ba90ba4ec8afeb46e85eb9d0794006",
-      "tables": [],
-      "reason": "Transaction adapter forwards its caller SQL through placeholder rebinding; callsite literals checked separately."
-    },
-    {
       "file": "internal/database/queries.go",
       "declaration": "Handle.ExecContext",
       "text": "q",
@@ -70,7 +54,7 @@
       "file": "internal/apptown/dbschema/schema.go",
       "declaration": "Migrate",
       "text": "schemaSQL",
-      "declaration_hash": "665970e0c52b53fb50db5e05347c6586295151e1ae6f66a82201753b7915c3be",
+      "declaration_hash": "dce457b27be22424b354fed8f35525624687d087124b2af1e8f08a2ba8b5b3bf",
       "tables": [],
       "reason": "Executes the embedded canonical DDL for an empty database only."
     },
@@ -78,7 +62,7 @@
       "file": "internal/apptown/dbschema/schema.go",
       "declaration": "applyMigration",
       "text": "q",
-      "declaration_hash": "8188df70641d0f8258ccbff465eda4fc0f24dde45ed7eb0ac1f631a827560d51",
+      "declaration_hash": "c419742bf08073cc7f0cb6c95a66ecf01032df9b3a55784ded3f26d2495cbe71",
       "tables": [],
       "reason": "Executes statements from the central checked numbered migration list."
     },

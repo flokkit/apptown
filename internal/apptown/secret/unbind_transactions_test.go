@@ -39,7 +39,7 @@ func unbindFixture(t *testing.T) (*database.DB, *Vault, *Bindings, ids.ID, Bindi
 
 func execUnbindTestSQL(t *testing.T, db *database.DB, query string) {
 	t.Helper()
-	if _, err := db.Exec(query); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), query); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -39,16 +39,16 @@ func TestCompletionRetryRechecksTheAdmittedRunBeforeTheParticipant(t *testing.T)
 			case "project":
 				other := workflowTestProject(t, q.db, "other", "Other", "")
 				// sql-guarantee: the stale completion snapshot must be fenced by changing only the stored project identity; no Workflow mutation exposes ownership reassignment.
-				completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+				completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 			case "status":
 				// sql-guarantee: Change only the completed run status after its snapshot; TransitionRun also changes UpdatedAt, an independent lockRunSnapshotIn mismatch that would mask this status fence.
-				completionExec(t, q.db, `UPDATE runs SET status='running' WHERE id=?`, run.ID)
+				completionExec(t, q.db, `UPDATE runs SET status='running' WHERE id=$1`, run.ID)
 			case "stage":
 				// sql-guarantee: Change only the completed run stage after its snapshot; TransitionRun also changes UpdatedAt and would mask a missing stage check in lockRunSnapshotIn.
-				completionExec(t, q.db, `UPDATE runs SET current_stage='different' WHERE id=?`, run.ID)
+				completionExec(t, q.db, `UPDATE runs SET current_stage='different' WHERE id=$1`, run.ID)
 			case "revision":
 				// sql-guarantee: the stale completed-run snapshot must differ only in retry_revision; InvalidateRunDecision intentionally rejects completed runs.
-				completionExec(t, q.db, `UPDATE runs SET retry_revision=retry_revision+1 WHERE id=?`, run.ID)
+				completionExec(t, q.db, `UPDATE runs SET retry_revision=retry_revision+1 WHERE id=$1`, run.ID)
 			case "parent attempt":
 				changed, err := workflowsql.New(q.db.SQL()).SetParentStepAttempt(context.Background(), workflowsql.SetParentStepAttemptParams{ParentStepAttempt: 1, ID: run.ID})
 				if err != nil || changed != 1 {
@@ -56,7 +56,7 @@ func TestCompletionRetryRechecksTheAdmittedRunBeforeTheParticipant(t *testing.T)
 				}
 			case "change":
 				// sql-guarantee: the stale completion snapshot must be fenced by clearing only its Change identity; no Workflow mutation exposes relationship reassignment.
-				completionExec(t, q.db, `UPDATE runs SET change_id=NULL WHERE id=?`, run.ID)
+				completionExec(t, q.db, `UPDATE runs SET change_id=NULL WHERE id=$1`, run.ID)
 			}
 			calls := 0
 			owner := newAdvancer(q.db, advanceRuntime{Completion: retryScopeRecorder{retry: func(context.Context, *database.Tx, ids.ID) (bool, error) { calls++; return true, nil }}})

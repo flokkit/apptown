@@ -174,7 +174,7 @@ func TestNarrativeSourceOwnsSelectionOrderingAndOneSnapshot(t *testing.T) {
 	defer gate.Rollback()
 	// This is a storage snapshot test: hold its final read while a valid edit
 	// and a new evidence record commit together in the owning transaction.
-	if _, err := gate.Exec(`LOCK TABLE artifacts IN ACCESS EXCLUSIVE MODE`); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `LOCK TABLE artifacts IN ACCESS EXCLUSIVE MODE`); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

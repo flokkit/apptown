@@ -90,7 +90,7 @@ func TestRetryRunOperationsPreservesSelectionAndRiverState(t *testing.T) {
 		var state rivertype.JobState
 		var attempts int
 		// sql-guarantee: The retry must leave other jobs' max_attempts alone, and no owner read exposes max_attempts.
-		if err := db.QueryRow(`SELECT state,max_attempts FROM river_job WHERE args->>'key'=?`, test.key).Scan(&state, &attempts); err != nil {
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT state,max_attempts FROM river_job WHERE args->>'key'=$1`, test.key).Scan(&state, &attempts); err != nil {
 			t.Fatal(err)
 		}
 		if state != test.state || attempts != test.attempts {
@@ -142,7 +142,7 @@ func TestRetryRunOperationsRetainsLocksUntilCallerCommit(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = other.Rollback() }()
-	if _, err := other.Exec(`SET LOCAL lock_timeout='100ms'`); err != nil {
+	if _, err := other.SQL().ExecContext(context.Background(), `SET LOCAL lock_timeout='100ms'`); err != nil {
 		t.Fatal(err)
 	}
 	lockedOut, lockedErr := jobs.RetryRunOperationsIn(context.Background(), other.Native(), in)
@@ -169,7 +169,7 @@ func TestRetryRunOperationsRollsBackEarlierRetryWhenRiverFails(t *testing.T) {
 	db := databaseSuite.New(t)
 	insertJob(t, db, "complete", "a", idstest.N(123), rivertype.JobStateCancelled)
 	insertJob(t, db, "complete", "b", idstest.N(123), rivertype.JobStateDiscarded)
-	if _, err := db.Exec(`ALTER TABLE river_job ADD CONSTRAINT reject_second_retry CHECK (args->>'key' <> 'b' OR max_attempts=1)`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `ALTER TABLE river_job ADD CONSTRAINT reject_second_retry CHECK (args->>'key' <> 'b' OR max_attempts=1)`); err != nil {
 		t.Fatal(err)
 	}
 	out, err := database.Transact(context.Background(), db, func(tx *database.Tx) (jobs.RetryResult, error) {
@@ -180,7 +180,7 @@ func TestRetryRunOperationsRollsBackEarlierRetryWhenRiverFails(t *testing.T) {
 	}
 	var unchanged int
 	// sql-guarantee: As above: a failed retry must not raise max_attempts, which no owner read exposes.
-	if err := db.QueryRow(`SELECT count(*) FROM river_job WHERE state IN ('cancelled','discarded') AND max_attempts=1`).Scan(&unchanged); err != nil || unchanged != 2 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM river_job WHERE state IN ('cancelled','discarded') AND max_attempts=1`).Scan(&unchanged); err != nil || unchanged != 2 {
 		t.Fatalf("unchanged %d: %v", unchanged, err)
 	}
 }

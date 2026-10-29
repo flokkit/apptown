@@ -31,14 +31,14 @@ func TestReleaseCreationMembership(t *testing.T) {
 		t.Run(string(source), func(t *testing.T) {
 			db, store, draft := releaseCreationFixture(t, source)
 			// sql-guarantee: TestReleaseCreationMembership needs one historical row numbered seven to distinguish MAX(number)+1 from COUNT(*)+1; CreateRelease only allocates numbers, and its January 2 date is the branch cutoff.
-			mustInsert(t, db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES (?,?,7,'released','main','2026-01-02')`, draft.ProjectID)
+			mustInsert(t, db, `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES ($1,$2,7,'released','main','2026-01-02')`, draft.ProjectID)
 			var changes []ids.ID
 			for _, day := range []int{1, 3, 4} {
 				// Straddling the January 2 release and the January 3 bundle.
 				changes = append(changes, shippedChangeAt(t, db, draft.ProjectID, time.Date(2026, 1, day, 0, 0, 0, 0, time.UTC)))
 			}
 			// sql-guarantee: TestReleaseCreationMembership gives an open Change a matching closed_at to test the shipped-state predicate independently; Workflow transitions cannot create that contradiction and its queries are internal.
-			open := mustInsert(t, db, `INSERT INTO changes(id,number,project_id,title,type,state,closed_at,created_at) VALUES (?,?,?,'Not shipped','feature','in_progress','2026-01-03','2026-10-09T00:00:00Z')`, fixtureNumber(), draft.ProjectID)
+			open := mustInsert(t, db, `INSERT INTO changes(id,number,project_id,title,type,state,closed_at,created_at) VALUES ($1,$2,$3,'Not shipped','feature','in_progress','2026-01-03','2026-10-09T00:00:00Z')`, fixtureNumber(), draft.ProjectID)
 			r, err := store.Start(context.Background(), draft, "started by alice")
 			if err != nil || r.Number != 8 {
 				t.Fatalf("admission: %+v %v", r, err)
@@ -169,7 +169,7 @@ func TestReleaseCreationWaitsForCurrentCutoff(t *testing.T) {
 	go func() { _, err := store.Start(context.Background(), draft, "waiting release"); result <- err }()
 	dbtest.WaitForLock(t, db, "")
 	// sql-guarantee: TestReleaseCreationWaitsForCurrentCutoff commits one sparse number-seven row and the new cutoff under this transaction lock; CreateRelease allocates one, while seven sequential rows would mask COUNT-based numbering.
-	if _, err := tx.Exec(`INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES (?,?,7,'released','main','2026-01-03')`, ids.New(time.Now()), draft.ProjectID); err != nil {
+	if _, err := tx.SQL().ExecContext(context.Background(), `INSERT INTO releases(id,project_id,number,state,deployment,created_at) VALUES ($1,$2,7,'released','main','2026-01-03')`, ids.New(time.Now()), draft.ProjectID); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

@@ -62,7 +62,7 @@ func TestRunRecordsWorkflowOrigin(t *testing.T) {
 	}
 	var origin string
 	// sql-guarantee: workflow_origin is recorded on the run but no owner read exposes it; the run must record what ran
-	_ = db.QueryRow(`SELECT workflow_origin FROM runs WHERE id=?`, run.ID).Scan(&origin)
+	_ = db.SQL().QueryRowContext(context.Background(), `SELECT workflow_origin FROM runs WHERE id=$1`, run.ID).Scan(&origin)
 	if !strings.HasPrefix(origin, "stock/research@") {
 		t.Fatalf("run must record what ran: %q", origin)
 	}

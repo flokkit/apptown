@@ -13,7 +13,7 @@ import (
 
 func keyExec(t *testing.T, db *database.DB, q string, args ...any) {
 	t.Helper()
-	if _, err := db.Exec(q, args...); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), q, args...); err != nil {
 		t.Fatal(err)
 	}
 }

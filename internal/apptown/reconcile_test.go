@@ -194,7 +194,7 @@ func TestAChangesChatIsToldOnceWhenItsLandingEnds(t *testing.T) {
 	if err != nil || back.State != workflow.ChangeInProgress {
 		t.Fatalf("the change of an ended landing must be back in progress: %+v %v", back, err)
 	}
-	runQueuedJobForTest(t, a, workflowAbandonmentJob, fmt.Sprintf("run/%d/narrative", run.ID))
+	runQueuedJobForTest(t, a, workflowAbandonmentJob, fmt.Sprintf("run/%d/ended", run.ID))
 	n, text := notices()
 	if n != 1 || !strings.Contains(text, fmt.Sprintf("landing (run %d) ended", run.ID)) || !strings.Contains(text, "behind main") || !strings.Contains(text, `git fetch "$APPTOWN_MAIN_REMOTE" main`) {
 		t.Fatalf("the chat must be told once why its landing ended and how to catch up, got %d: %q", n, text)

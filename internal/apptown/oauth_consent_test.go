@@ -54,7 +54,7 @@ func TestOAuthConsentBoundToSessionAndRequest(t *testing.T) {
 	}
 	var codes int
 	// sql-guarantee: codes are readable only by hash; a apptownd consent must mint no code at all, which only a store-wide count shows
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM oauth_codes`).Scan(&codes); err != nil || codes != 0 {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM oauth_codes`).Scan(&codes); err != nil || codes != 0 {
 		t.Fatalf("apptownd consent minted a code: %d %v", codes, err)
 	}
 	if w := postConsent(h, q, who); w.Code != 302 || !strings.Contains(w.Header().Get("Location"), "code=") {
@@ -72,7 +72,7 @@ func TestOAuthConsentExpiryDenialAndConcurrentUse(t *testing.T) {
 	prepareConsent(t, h, who, q)
 	q.Set("decision", "allow")
 	// sql-guarantee: Expire the browser-prepared consent before the HTTP decision; normal consumption deletes it and cannot test expiry refusal on the same token.
-	if _, err := a.DB.Exec(`UPDATE oauth_consents SET expires_at=CURRENT_TIMESTAMP - INTERVAL '1 second'`); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE oauth_consents SET expires_at=CURRENT_TIMESTAMP - INTERVAL '1 second'`); err != nil {
 		t.Fatal(err)
 	}
 	if w := postConsent(h, q, who); w.Code != 403 {
@@ -104,7 +104,7 @@ func TestOAuthConsentExpiryDenialAndConcurrentUse(t *testing.T) {
 	a.sweepExpiredCredentials(context.Background())
 	var pending int
 	// sql-guarantee: the sweep must delete expired and consumed consents; no owner read lists consents
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM oauth_consents`).Scan(&pending); err != nil || pending != 0 {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM oauth_consents`).Scan(&pending); err != nil || pending != 0 {
 		t.Fatalf("expired/consumed consent retained: %d %v", pending, err)
 	}
 }
@@ -138,7 +138,7 @@ func TestOAuthProxyConsentBoundToBrowserAndPerson(t *testing.T) {
 	}
 	var consents int
 	// sql-guarantee: failed admission must not persist an OAuth consent; no public owner list exposes pending consents.
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM oauth_consents`).Scan(&consents); err != nil || consents != 0 {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM oauth_consents`).Scan(&consents); err != nil || consents != 0 {
 		t.Fatalf("failed admission wrote consent: %d %v", consents, err)
 	}
 	if w := call("GET", "run/1", nil); w.Code != 401 {
@@ -167,7 +167,7 @@ func TestOAuthProxyConsentBoundToBrowserAndPerson(t *testing.T) {
 	}
 	var codes int
 	// sql-guarantee: failed admission cannot mint an OAuth code; codes have no public listing operation.
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM oauth_codes`).Scan(&codes); err != nil || codes != 0 {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM oauth_codes`).Scan(&codes); err != nil || codes != 0 {
 		t.Fatalf("failed admission minted code: %d %v", codes, err)
 	}
 	if w := call("POST", "boss", cookie); w.Code != 302 {

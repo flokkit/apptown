@@ -260,7 +260,7 @@ func TestMergeSettlementCancelsWhileWaitingForAdmission(t *testing.T) {
 	}
 	defer lock.Rollback()
 	// sql-guarantee: holds the project row lock open so settlement waits at admission; no owner operation holds that lock across a test step
-	if err := lock.QueryRow(`SELECT id FROM projects WHERE id=? FOR UPDATE`, p.source.ProjectID).Scan(new(ids.ID)); err != nil {
+	if err := lock.SQL().QueryRowContext(context.Background(), `SELECT id FROM projects WHERE id=$1 FOR UPDATE`, p.source.ProjectID).Scan(new(ids.ID)); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

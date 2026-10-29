@@ -74,7 +74,7 @@ func TestActivityTreatsAVerdictOlderThanTheReworkAsBeingRechecked(t *testing.T) 
 		s, run := recheckFixture(t)
 		if fresh {
 			// sql-guarantee: a verdict finished after the agent's work; no step mutation accepts finished_at.
-			completionExec(t, s.db, `INSERT INTO steps(id,run_id,stage,name,type,status,evidence_json,finished_at,override_by) VALUES (?,?,'finish','late-review','agent/review','fail','{}',now(),'')`, ids.New(time.Now()), run.ID)
+			completionExec(t, s.db, `INSERT INTO steps(id,run_id,stage,name,type,status,evidence_json,finished_at,override_by) VALUES ($1,$2,'finish','late-review','agent/review','fail','{}',now(),'')`, ids.New(time.Now()), run.ID)
 		}
 		want := ActivityWorking
 		if fresh {
@@ -105,7 +105,7 @@ func TestActivityShowsALandingTakingItsAcceptanceAsWorking(t *testing.T) {
 		landing := insertStoredRun(t, q.db, workflowsql.InsertRunParams{ID: ids.New(time.Now()), ProjectID: work.ProjectID, ChangeID: work.ChangeID, WorkflowName: "land", WorkflowVersion: 1, Kind: "pipeline", Status: RunRunning.String(), CurrentStage: "land", DefinitionJson: json.RawMessage(`{"kind":"pipeline","role":"landing","stages":[{"name":"land"}]}`)})
 		insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: landing.ID, Stage: "land", Name: "ship", Type: "approval", Status: StatusPending.String()})
 		// sql-guarantee: the handoff row exactly as the landing start and apply leave it; reaching it through them needs the whole landing runtime.
-		completionExec(t, q.db, `INSERT INTO workflow_landings(work_run_id,landing_run_id,acceptance_applied) VALUES (?,?,?)`, work.ID, landing.ID, applied)
+		completionExec(t, q.db, `INSERT INTO workflow_landings(work_run_id,landing_run_id,acceptance_applied) VALUES ($1,$2,$3)`, work.ID, landing.ID, applied)
 		want := ActivityWorking
 		if applied {
 			want = ActivityWaiting
@@ -134,10 +134,10 @@ func TestDoneWorkWithAReservedLandingReadsAsQueued(t *testing.T) {
 		db, run, _ := completionFixture(t, "working")
 		svc := newService(db, allowProject(run.ProjectID), Runtime{})
 		// sql-guarantee: a finished working run; completing it through the engine also starts its follow-up jobs.
-		completionExec(t, db, `UPDATE runs SET status='done' WHERE id=?`, run.ID)
+		completionExec(t, db, `UPDATE runs SET status='done' WHERE id=$1`, run.ID)
 		if reserved {
 			// sql-guarantee: the reservation completion makes (EnsureLanding) before the landing job runs.
-			completionExec(t, db, `INSERT INTO workflow_landings(work_run_id) VALUES (?)`, run.ID)
+			completionExec(t, db, `INSERT INTO workflow_landings(work_run_id) VALUES ($1)`, run.ID)
 		}
 		detail, err := svc.Snapshot(context.Background(), run.ID, DetailView)
 		if err != nil {

@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/deploy"
-	"github.com/flokkit/apptown/internal/ids"
-	"github.com/flokkit/apptown/internal/ids/idstest"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
 func TestCurrentStackProofGuardsActualUpdateAndDelete(t *testing.T) {

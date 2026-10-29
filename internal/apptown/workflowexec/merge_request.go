@@ -3,8 +3,9 @@ package workflowexec
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/database"
 	"strconv"
+
+	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/project"
 

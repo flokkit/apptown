@@ -166,12 +166,9 @@ func (p *Providers) dockerDriver(ctx context.Context, t *Target, dep *Deployment
 		ServingLabel: owner.ServingLabel,
 		Scope:        func(ctx context.Context) (docker.Scope, error) { return p.hosts.DockerScope(ctx, t) },
 		Boot:         p.env.Host(dep.ProjectID, p.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(p.db, p.clock, dep, slug) }),
-		URL: func(servingLabel, name string, port int) string {
-			routes := p.env.RoutesFor(ctx, dep.ProjectID)
-			if name == "main" {
-				return routes.DeploymentURL(servingLabel, port)
-			}
-			return routes.PublicURL(port)
+		URL: func(servingLabel, name string, port int) (string, error) {
+			reach, err := dockerReach(p.env.RoutesFor(ctx, dep.ProjectID), t, servingLabel, name, port)
+			return reach.URL, err
 		},
 		AfterRelease: func(pl deploy.Placement) {
 			if p.afterRelease != nil {

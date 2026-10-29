@@ -46,16 +46,16 @@ func TestCompletionParentRequiresCurrentChildScope(t *testing.T) {
 			switch mutation {
 			case "parent project":
 				// sql-guarantee: Move the previously validated parent's immutable project binding and require the same completed-child snapshot to lose its parent.
-				completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, parent.ID)
+				completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, parent.ID)
 			case "child project":
 				// sql-guarantee: Move the previously validated child's immutable project binding after caching its completion scope.
-				completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, child.ID)
+				completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, child.ID)
 			case "child parent":
 				// sql-guarantee: Erase the child's parent link after a valid completed-parent read; no owner mutation detaches an admitted child.
-				completionExec(t, q.db, `UPDATE runs SET parent_run_id=NULL WHERE id=?`, child.ID)
+				completionExec(t, q.db, `UPDATE runs SET parent_run_id=NULL WHERE id=$1`, child.ID)
 			case "child step":
 				// sql-guarantee: No owner mutation erases an admitted child's owning call-step link; invalidate that same cached relationship after its valid read.
-				completionExec(t, q.db, `UPDATE runs SET parent_step_id=NULL WHERE id=?`, child.ID)
+				completionExec(t, q.db, `UPDATE runs SET parent_step_id=NULL WHERE id=$1`, child.ID)
 			case "child attempt":
 				if err := requireRunWrite(workflowsql.New(q.db.SQL()).SetParentStepAttempt(context.Background(), workflowsql.SetParentStepAttemptParams{ID: child.ID, ParentStepAttempt: child.ParentStepAttempt + 1})); err != nil {
 					t.Fatal(err)

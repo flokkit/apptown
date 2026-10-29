@@ -456,7 +456,7 @@ func TestRequestReleasePinsLatestBundle(t *testing.T) {
 		t.Fatalf("pinned release: %+v", r)
 	}
 	// sql-guarantee: test_release_queue is this test's own queue double; no owner reads it.
-	dbtest.Count(t, s.db, 1, `SELECT COUNT(*) FROM test_release_queue WHERE release_id=?`, got.ID)
+	dbtest.Count(t, s.db, 1, `SELECT COUNT(*) FROM test_release_queue WHERE release_id=$1`, got.ID)
 	if got.Deployment != in.DeploymentName {
 		t.Fatal(fmt.Sprint(got))
 	}

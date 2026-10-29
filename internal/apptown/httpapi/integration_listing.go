@@ -93,10 +93,16 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 				list[i].Health = integration.Health{OK: false, Detail: "no image configured"}
 			case h.docker.Absent():
 				list[i].Health = integration.Health{OK: true, Detail: "image " + image + " pulls on the worker on first use"}
-			case h.docker.ImageExists(r.Context(), image):
-				list[i].Health = integration.Health{OK: true, Detail: "image " + image + " present"}
 			default:
-				list[i].Health = integration.Health{OK: true, Detail: "image " + image + " not pulled yet (pulls on first use)"}
+				_, found, err := h.docker.Image(r.Context(), image)
+				switch {
+				case err != nil:
+					list[i].Health = integration.Health{OK: false, Detail: err.Error()}
+				case found:
+					list[i].Health = integration.Health{OK: true, Detail: "image " + image + " present"}
+				default:
+					list[i].Health = integration.Health{OK: true, Detail: "image " + image + " not pulled yet (pulls on first use)"}
+				}
 			}
 			list[i].Health = list[i].Health.At(h.now())
 			continue

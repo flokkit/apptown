@@ -160,8 +160,8 @@ func TestAnExistingAccountIsDisabledWhateverItsName(t *testing.T) {
 	// A row recorded before names were checked. No operation records such a
 	// name any more, so the test writes the old row directly.
 	// sql-guarantee: ValidName now refuses this name at every door; only a pre-existing row can carry it.
-	if _, err := s.db.Exec(`WITH p AS (INSERT INTO principals (id, kind, name, created_at) VALUES (?, 'person', 'bob via console/x', ?), (?, 'person', 'system', ?) RETURNING id, name)
-		INSERT INTO users (username, principal_id, created_at) SELECT name, id, ? FROM p`, ids.New(time.Now()), time.Now(), ids.New(time.Now()), time.Now(), time.Now()); err != nil {
+	if _, err := s.db.SQL().ExecContext(context.Background(), `WITH p AS (INSERT INTO principals (id, kind, name, created_at) VALUES ($1, 'person', 'bob via console/x', $2), ($3, 'person', 'system', $4) RETURNING id, name)
+		INSERT INTO users (username, principal_id, created_at) SELECT name, id, $5 FROM p`, ids.New(time.Now()), time.Now(), ids.New(time.Now()), time.Now(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"bob via console/x", "system"} {

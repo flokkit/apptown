@@ -451,7 +451,7 @@ func latestSchemaVersion() int {
 // Migrate creates an empty database, or validates and upgrades a supported one.
 func Migrate(ctx context.Context, db *database.DB) (applied int, err error) {
 	var tables int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&tables); err != nil {
+	if err := db.SQL().QueryRowContext(ctx, `SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'`).Scan(&tables); err != nil {
 		return 0, fmt.Errorf("schema: %w", err)
 	}
 	if tables != 0 {
@@ -470,7 +470,7 @@ func Migrate(ctx context.Context, db *database.DB) (applied int, err error) {
 	if _, err := tx.Native().Exec(schemaSQL); err != nil {
 		return 0, fmt.Errorf("schema: create: %w", err)
 	}
-	if _, err := tx.Exec(`INSERT INTO schema_version (version) VALUES (?)`, latestSchemaVersion()); err != nil {
+	if _, err := tx.SQL().ExecContext(ctx, `INSERT INTO schema_version (version) VALUES ($1)`, latestSchemaVersion()); err != nil {
 		return 0, fmt.Errorf("schema: stamp fresh database: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -479,9 +479,9 @@ func Migrate(ctx context.Context, db *database.DB) (applied int, err error) {
 	return 0, nil
 }
 
-func schemaVersion(db *database.DB) (int, error) {
+func schemaVersion(ctx context.Context, db *database.DB) (int, error) {
 	var count, version int
-	if err := db.QueryRow(`SELECT COUNT(*), COALESCE(MIN(version), 0) FROM schema_version`).Scan(&count, &version); err != nil {
+	if err := db.SQL().QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(MIN(version), 0) FROM schema_version`).Scan(&count, &version); err != nil {
 		return 0, fmt.Errorf("existing database has no readable schema version: %w", err)
 	}
 	if count != 1 {
@@ -491,7 +491,7 @@ func schemaVersion(db *database.DB) (int, error) {
 }
 
 func applyMigrations(ctx context.Context, db *database.DB, list []migration) (applied int, err error) {
-	version, err := schemaVersion(db)
+	version, err := schemaVersion(ctx, db)
 	if err != nil {
 		return 0, fmt.Errorf("schema: %w", err)
 	}
@@ -525,15 +525,15 @@ func applyMigration(ctx context.Context, db *database.DB, m migration) error {
 		// The build running the migration, for statements that record it
 		// (current_setting('migration.build')): the numbered SQL stays fixed
 		// while naming the binary that applied it. Local to the transaction.
-		if _, err := tx.Exec(`SELECT set_config('migration.build', ?, true)`, version.String()); err != nil {
+		if _, err := tx.SQL().ExecContext(ctx, `SELECT set_config('migration.build', $1, true)`, version.String()); err != nil {
 			return err
 		}
 		for _, q := range m.stmts {
-			if _, err := tx.Exec(q); err != nil {
+			if _, err := tx.SQL().ExecContext(ctx, q); err != nil {
 				return err
 			}
 		}
-		if _, err := tx.Exec(`UPDATE schema_version SET version=?`, m.n); err != nil {
+		if _, err := tx.SQL().ExecContext(ctx, `UPDATE schema_version SET version=$1`, m.n); err != nil {
 			return err
 		}
 		return nil
@@ -564,7 +564,7 @@ func Baseline() int { return schemaBaseline }
 func Latest() int { return latestSchemaVersion() }
 
 // Version is the schema version a database is at.
-func Version(db *database.DB) (int, error) { return schemaVersion(db) }
+func Version(ctx context.Context, db *database.DB) (int, error) { return schemaVersion(ctx, db) }
 
 // Queryer is what reads a database outside AppTown's own handle (a restore
 // reads the database it just loaded, before AppTown opens it).

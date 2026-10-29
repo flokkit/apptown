@@ -128,14 +128,8 @@ func (a *RemoteAgent) sendBlob(ctx context.Context, path string) (string, error)
 	if sent {
 		return sum, nil
 	}
-	has, err := a.Sessions.HasBlob(ctx, sum)
-	if err != nil {
+	if err := a.Sessions.EnsureBlob(ctx, sum, body); err != nil {
 		return "", err
-	}
-	if !has {
-		if err := a.Sessions.PutBlob(ctx, sum, bytes.NewReader(body)); err != nil {
-			return "", err
-		}
 	}
 	a.mu.Lock()
 	a.sent[sum] = true

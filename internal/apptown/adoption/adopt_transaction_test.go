@@ -70,7 +70,7 @@ func TestAdoptInSettlesSelectionsAndReceiptTogether(t *testing.T) {
 	}
 	for _, table := range []string{"guidance_imports", "project_lanes", "project_packs", "project_adoptions", "policies", "project_pi_extensions"} {
 		// sql-guarantee: rollback proof over every table adoption writes, including lane rows whatever their name; no owner read lists a project's rows of every table.
-		dbtest.Count(t, db, 0, `SELECT count(*) FROM `+table+` WHERE project_id=?`, pid)
+		dbtest.Count(t, db, 0, `SELECT count(*) FROM `+table+` WHERE project_id=$1`, pid)
 	}
 	if cur := currentOf(t, db, pid); cur.Revision != 0 || cur.Pack != "" || cur.Drift != "review" {
 		t.Fatalf("failed adoption moved the current aggregate: %+v", cur)
@@ -133,10 +133,10 @@ func TestAdoptInChecksExtensionMembershipAfterSuppressedInsert(t *testing.T) {
 			return err
 		})
 	}
-	if _, err := db.Exec(`CREATE FUNCTION suppress_adopt_extension() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE FUNCTION suppress_adopt_extension() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TRIGGER suppress_adopt_extension BEFORE INSERT ON project_pi_extensions FOR EACH ROW EXECUTE FUNCTION suppress_adopt_extension()`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE TRIGGER suppress_adopt_extension BEFORE INSERT ON project_pi_extensions FOR EACH ROW EXECUTE FUNCTION suppress_adopt_extension()`); err != nil {
 		t.Fatal(err)
 	}
 	if err := adopt(); err == nil {
@@ -148,13 +148,13 @@ func TestAdoptInChecksExtensionMembershipAfterSuppressedInsert(t *testing.T) {
 	if cur := currentOf(t, db, pid); cur.Revision != 0 {
 		t.Fatalf("suppressed extension moved the aggregate: %+v", cur)
 	}
-	if _, err := db.Exec(`DROP TRIGGER suppress_adopt_extension ON project_pi_extensions`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `DROP TRIGGER suppress_adopt_extension ON project_pi_extensions`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := adoptionsql.New(db.SQL()).EnableProjectExtension(t.Context(), adoptionsql.EnableProjectExtensionParams{ProjectID: pid, Name: "addon"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TRIGGER suppress_adopt_extension BEFORE INSERT ON project_pi_extensions FOR EACH ROW EXECUTE FUNCTION suppress_adopt_extension()`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE TRIGGER suppress_adopt_extension BEFORE INSERT ON project_pi_extensions FOR EACH ROW EXECUTE FUNCTION suppress_adopt_extension()`); err != nil {
 		t.Fatal(err)
 	}
 	if err := adopt(); err != nil {

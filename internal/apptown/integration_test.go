@@ -96,7 +96,7 @@ func TestIntegrationStaticPreviewBoot(t *testing.T) {
 
 			chID := ids.New(time.Now()) // a random id: its container names collide with no other AppTown's
 			// sql-guarantee: a bare change row for the preview; admission would start a run this test does not want.
-			if _, err := a.DB.Exec(`INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES (?,1,?,'feature','t','in_progress','forge/x',?)`, chID, pid, now()); err != nil {
+			if _, err := a.DB.SQL().ExecContext(context.Background(), `INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES ($1,1,$2,'feature','t','in_progress','forge/x',$3)`, chID, pid, now()); err != nil {
 				t.Fatal(err)
 			}
 			ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", chID))
@@ -150,7 +150,7 @@ func TestIntegrationServiceBackedPreviewBoots(t *testing.T) {
 	pid := plainTestProject(t, a.DB, "p", "P")
 	chID := ids.New(time.Now()) // a random id: its container names collide with no other AppTown's
 	// sql-guarantee: a bare change row for the preview; admission would start a run this test does not want.
-	if _, err := a.DB.Exec(`INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES (?,1,?,'feature','t','in_progress','forge/x',?)`, chID, pid, now()); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES ($1,1,$2,'feature','t','in_progress','forge/x',$3)`, chID, pid, now()); err != nil {
 		t.Fatal(err)
 	}
 	ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", chID))
@@ -204,7 +204,7 @@ func TestIntegrationBuildContractBoots(t *testing.T) {
 	pid := plainTestProject(t, a.DB, "p", "P")
 	chID := ids.New(time.Now()) // a random id: its container names collide with no other AppTown's
 	// sql-guarantee: a bare change row for the preview; admission would start a run this test does not want.
-	if _, err := a.DB.Exec(`INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES (?,1,?,'feature','t','in_progress','forge/x',?)`, chID, pid, now()); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `INSERT INTO changes (id, number, project_id, type, title, state, branch, created_at) VALUES ($1,1,$2,'feature','t','in_progress','forge/x',$3)`, chID, pid, now()); err != nil {
 		t.Fatal(err)
 	}
 	ws := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", chID))
@@ -556,16 +556,16 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		t.Fatal(err)
 	}
 	// sql-guarantee: this archive fixture retains an address revision the owner would not produce in one step; no live provider observation is claimed.
-	if _, err := db.Exec(`INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain,revision) VALUES($1,'legacy.apps.example','customer.example','apps.example',4)`, addressDep.ID); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO deployment_address_settings(deployment_id,generated_hostname,custom_hostname,certificate_domain,revision) VALUES($1,'legacy.apps.example','customer.example','apps.example',4)`, addressDep.ID); err != nil {
 		t.Fatal(err)
 	}
 	for _, host := range []string{"legacy.apps.example", "customer.example", "previous.example"} {
 		// sql-guarantee: include an old retained claim absent from current desired ingress, to prove dump/restore does not recompute reservations.
-		if _, err := db.Exec(`INSERT INTO deployment_hostname_claims(hostname) VALUES($1)`, host); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO deployment_hostname_claims(hostname) VALUES($1)`, host); err != nil {
 			t.Fatal(err)
 		}
 		// sql-guarantee: the membership is retained archive state, not a new hostname acquisition.
-		if _, err := db.Exec(`INSERT INTO deployment_hostname_claimants(hostname,deployment_id) VALUES($1,$2)`, host, addressDep.ID); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO deployment_hostname_claimants(hostname,deployment_id) VALUES($1,$2)`, host, addressDep.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -574,7 +574,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		t.Fatal(err)
 	}
 	// sql-guarantee: an already-admitted historical request must retain its exact immutable ingress across the archive boundary.
-	if _, err := db.Exec(`INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,ingress_json,require_promotion) VALUES($1,$2,0,'{}',$3,true)`, addressRelease.ID, addressTarget.ID, addressJSON); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO release_requests(release_id,target_id,base_generation,attributes_json,ingress_json,require_promotion) VALUES($1,$2,0,'{}',$3,true)`, addressRelease.ID, addressTarget.ID, addressJSON); err != nil {
 		t.Fatal(err)
 	}
 	addressAttempt, _, err := app.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: addressDep.ID, TargetID: addressTarget.ID, Key: "address-archive", Inputs: deployment.Inputs{ReleaseID: addressRelease.ID, Revision: mainSHA, ArtifactHash: "retained-address-artifact", Address: &addressSnapshot}})
@@ -616,7 +616,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 	if refuseRestoreWrite {
 		// sql-guarantee: test-only archive fault injection. The constraint allows
 		// existing history to restore but refuses the daemon's disabled revision.
-		if _, err := db.Exec(`ALTER TABLE standing_rule_revisions ADD CONSTRAINT test_restore_standing_write CHECK (revision = 1)`); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `ALTER TABLE standing_rule_revisions ADD CONSTRAINT test_restore_standing_write CHECK (revision = 1)`); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -674,7 +674,7 @@ func restoredStartupCase(t *testing.T, dk docker.Scope, binary, shipped string, 
 		}
 		// sql-guarantee: remove only this test's fault after observing the real
 		// daemon refusal, allowing its loaded-intent restart to retry normally.
-		_, repairErr := repair.Exec(`ALTER TABLE standing_rule_revisions DROP CONSTRAINT test_restore_standing_write`)
+		_, repairErr := repair.SQL().ExecContext(context.Background(), `ALTER TABLE standing_rule_revisions DROP CONSTRAINT test_restore_standing_write`)
 		closeErr := repair.Close()
 		if repairErr != nil || closeErr != nil {
 			t.Fatalf("remove injected fault: %v %v", repairErr, closeErr)

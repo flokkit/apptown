@@ -115,15 +115,15 @@ func TestSupersessionEligibilityKeepsProjectAndChangeLocks(t *testing.T) {
 		id    ids.ID
 	}{
 		// sql-guarantee: This independent no-op UPDATE must block on the project's retained lock; an owner read is not the contention assertion.
-		{`UPDATE projects SET name=name WHERE id=?`, run.ProjectID},
+		{`UPDATE projects SET name=name WHERE id=$1`, run.ProjectID},
 		// sql-guarantee: This independent no-op UPDATE must block on the Change's retained lock after eligibility returns.
-		{`UPDATE changes SET title=title WHERE id=?`, run.ChangeID},
+		{`UPDATE changes SET title=title WHERE id=$1`, run.ChangeID},
 	} {
 		err := q.db.InTx(context.Background(), func(other *database.Tx) error {
-			if _, err := other.Exec(`SET LOCAL lock_timeout='100ms'`); err != nil {
+			if _, err := other.SQL().ExecContext(context.Background(), `SET LOCAL lock_timeout='100ms'`); err != nil {
 				return err
 			}
-			_, err := other.Exec(probe.query, probe.id)
+			_, err := other.SQL().ExecContext(context.Background(), probe.query, probe.id)
 			return err
 		})
 		var locked *pgconn.PgError

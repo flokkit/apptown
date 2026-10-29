@@ -26,11 +26,11 @@ func attemptFixture(t *testing.T) (*Records, Admission) {
 	}
 	var runID, stepID ids.ID
 	// sql-guarantee: create the sparse run and step a task attempt references; importing Workflow's admission would give this lower owner a dependency on its caller.
-	if err := db.QueryRow(`INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,kind,current_stage,definition_json,created_at,updated_at) VALUES (?,1000,?,'fixture',1,'pipeline','build','{}','2026-10-09T00:00:00Z','2026-10-09T00:00:00Z') RETURNING id`, ids.New(time.Now()), projectID).Scan(&runID); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `INSERT INTO runs(id,number,project_id,workflow_name,workflow_version,kind,current_stage,definition_json,created_at,updated_at) VALUES ($1,1000,$2,'fixture',1,'pipeline','build','{}','2026-10-09T00:00:00Z','2026-10-09T00:00:00Z') RETURNING id`, ids.New(time.Now()), projectID).Scan(&runID); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: see above.
-	if err := db.QueryRow(`INSERT INTO steps(id,run_id,stage,name,type,status) VALUES (?,?,'build','make','script','running') RETURNING id`, ids.New(time.Now()), runID).Scan(&stepID); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `INSERT INTO steps(id,run_id,stage,name,type,status) VALUES ($1,$2,'build','make','script','running') RETURNING id`, ids.New(time.Now()), runID).Scan(&stepID); err != nil {
 		t.Fatal(err)
 	}
 	return New(db), Admission{Operation: "step-1-attempt-1", Invocation: ScriptInvocation, Owner: Owner{ProjectID: projectID, RunID: runID, StepID: stepID, Attempt: 1},

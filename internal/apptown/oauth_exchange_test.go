@@ -1,6 +1,7 @@
 package apptown
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -63,7 +64,7 @@ func TestOAuthRefreshRotatedOnceUnderRace(t *testing.T) {
 	// A reuse is a leak by design: the delegation has been ended.
 	var revoked stamp.Time
 	// sql-guarantee: no owner read returns an ended delegation's revoked_at; the owner lists only live delegations
-	_ = a.DB.QueryRow(`SELECT revoked_at FROM delegations ORDER BY id DESC LIMIT 1`).Scan(&revoked)
+	_ = a.DB.SQL().QueryRowContext(context.Background(), `SELECT revoked_at FROM delegations ORDER BY id DESC LIMIT 1`).Scan(&revoked)
 	if !revoked.Valid {
 		t.Fatal("a raced refresh is a reuse; the connection must be ended")
 	}

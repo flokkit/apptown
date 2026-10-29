@@ -14,13 +14,14 @@ import (
 	"testing"
 	"time"
 
+	"slices"
+
 	"github.com/flokkit/apptown/internal/apptown/tasks"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/poll"
 	"github.com/flokkit/apptown/internal/worker/workertest"
-	"slices"
 )
 
 // recordingDriver keeps every request sent to Ensure, as bytes, and the
@@ -311,7 +312,7 @@ func TestAReleasePassRemovesAnOwnTaskFoundByItsRequest(t *testing.T) {
 	// No owner operation clears a recorded provider ID; this represents an
 	// old row that has none, so ownership rests on the request digest alone.
 	// sql-guarantee: an unreleased settled row without a provider ID; no operation clears one.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET provider_id='' WHERE operation=$1`, key); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET provider_id='' WHERE operation=$1`, key); err != nil {
 		t.Fatal(err)
 	}
 	driver.mu.Lock()
@@ -355,7 +356,7 @@ func TestAReleasePassLeavesAnotherRequestsTaskUnderTheKey(t *testing.T) {
 	// No owner operation makes this historical state: migration 97 adds NULL
 	// released_at to every old settled row, including key-conflict refusals.
 	// sql-guarantee: a settled refusal left unreleased by migration 97; SettleNothingHeld always marks it released.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET released_at=NULL WHERE operation=$1`, key); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET released_at=NULL WHERE operation=$1`, key); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.tasks.ReleaseSettled(ctx); err != nil {

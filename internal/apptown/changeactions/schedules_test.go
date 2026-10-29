@@ -391,7 +391,7 @@ func TestAnUnreadableWorkflowIsShownAsUnknownNotAsNoSchedule(t *testing.T) {
 	// Publishing validates a definition, so no operation stores one that
 	// fails to parse; this stands for older stored content.
 	// sql-guarantee: no owner operation can store an unparseable workflow.
-	if _, err := w.schedules.DB.Exec(`UPDATE lib_workflow_versions SET yaml='spec: [' WHERE yaml LIKE '%name: hourly}%'`); err != nil {
+	if _, err := w.schedules.DB.SQL().ExecContext(context.Background(), `UPDATE lib_workflow_versions SET yaml='spec: [' WHERE yaml LIKE '%name: hourly}%'`); err != nil {
 		t.Fatal(err)
 	}
 	base := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)

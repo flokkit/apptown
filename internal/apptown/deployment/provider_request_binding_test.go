@@ -1,6 +1,7 @@
 package deployment
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -23,7 +24,7 @@ func TestQueuedPortainerReleaseRefusesMissingOrChangedBinding(t *testing.T) {
 				// sql-guarantee: simulate a queued request recorded for a different provider identity, unavailable through current admission.
 				statement = "UPDATE release_requests SET provider_binding_json=jsonb_set(provider_binding_json,'{scope,daemonId}', '\"different-engine\"'::jsonb) WHERE release_id=$1"
 			}
-			if _, err := p.s.db.Exec(statement, accepted.ID); err != nil {
+			if _, err := p.s.db.SQL().ExecContext(context.Background(), statement, accepted.ID); err != nil {
 				t.Fatal(err)
 			}
 			err = p.s.ExecuteRelease(t.Context(), accepted.ID)

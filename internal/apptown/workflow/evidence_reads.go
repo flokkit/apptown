@@ -83,6 +83,9 @@ type RunSnapshot struct {
 	// Next is what a person can do on the run now, each with its step
 	// (nextActs); empty while AppTown has the next move or the run ended.
 	Next []NextAct `json:"next"`
+	// SentBack is the rework a running run's current stage is in and who
+	// sent it back (sentBackOf); omitted when the stage is not reworking.
+	SentBack *SentBack `json:"sentBack,omitempty"`
 }
 
 func (q queries) scopedSnapshot(ctx context.Context, id ids.ID, view ReadView, project ids.ID) (*RunSnapshot, error) {
@@ -148,6 +151,9 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 	out.Events, err = readWorkflowEvents(ctx, db, id, view)
 	if err != nil {
 		return nil, err
+	}
+	if view == DetailView {
+		out.SentBack = sentBackOf(run, steps, out.Events)
 	}
 	artifactView := artifactText
 	if view == DetailView {

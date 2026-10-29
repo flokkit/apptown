@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/dockerbuild"
 )
 
@@ -47,12 +47,14 @@ func AgentImage(dir string) (string, error) {
 
 // BuildAgentImage builds the agent image from dir with docker, unless the
 // worker's Docker has it. It answers the image's name.
-func BuildAgentImage(ctx context.Context, docker, dir string) (string, error) {
+func BuildAgentImage(ctx context.Context, dk dockercli.Scope, dir string) (string, error) {
 	image, err := AgentImage(dir)
 	if err != nil {
 		return "", err
 	}
-	if exec.CommandContext(ctx, docker, "image", "inspect", image).Run() == nil {
+	// An answer that is not "absent" goes on to the build, which reports
+	// its own failure: a daemon that cannot inspect cannot build either.
+	if _, found, err := dk.Image(ctx, image); err == nil && found {
 		return image, nil
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Hour)
@@ -60,10 +62,7 @@ func BuildAgentImage(ctx context.Context, docker, dir string) (string, error) {
 	// The one build rule (internal/dockerbuild): the worker's daemon's own
 	// builder named, and the worker's extra certificates as the build's
 	// secret, which the agent image's RUN lines download with.
-	run := func(ctx context.Context, args ...string) ([]byte, error) {
-		return exec.CommandContext(ctx, docker, args...).CombinedOutput()
-	}
-	out, err := dockerbuild.Daemon{Run: run, Local: true}.Build(ctx, "-t", image, dir)
+	out, err := dockerbuild.Daemon{Run: dk.Run, Local: true}.Build(ctx, "-t", image, dir)
 	if err != nil {
 		tail := strings.TrimSpace(string(out))
 		if len(tail) > 2000 {
@@ -74,16 +73,13 @@ func BuildAgentImage(ctx context.Context, docker, dir string) (string, error) {
 	return image, nil
 }
 
-// DockerImages answers whether the worker's Docker has an image.
-type DockerImages struct{ Binary string }
+// DockerImages answers whether the worker's Docker has an image, and its
+// labels.
+type DockerImages struct{ Docker dockercli.Scope }
 
+// Has: an image the daemon does not know is false; a daemon that cannot be
+// asked is an error, never "absent".
 func (d DockerImages) Has(ctx context.Context, image string) (bool, error) {
-	out, err := exec.CommandContext(ctx, d.Binary, "image", "inspect", "--format", "{{.Id}}", image).CombinedOutput()
-	if err == nil {
-		return true, nil
-	}
-	if strings.Contains(strings.ToLower(string(out)), "no such image") {
-		return false, nil
-	}
-	return false, fmt.Errorf("docker image inspect: %v: %s", err, strings.TrimSpace(string(out)))
+	_, found, err := d.Docker.Image(ctx, image)
+	return found, err
 }

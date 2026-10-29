@@ -54,7 +54,7 @@ func TestGroupSaveRejectsFailedMemberObservation(t *testing.T) {
 	}
 	var groups int
 	// sql-guarantee: Groups lists only unretired groups and no exported read sees a retired one, so only the table proves the failed save left no group row at all.
-	if err := db.QueryRow(`SELECT count(*) FROM groups WHERE name='kids'`).Scan(&groups); err != nil || groups != 0 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM groups WHERE name='kids'`).Scan(&groups); err != nil || groups != 0 {
 		t.Fatalf("failed member observation left a group row: %d %v", groups, err)
 	}
 	drop()

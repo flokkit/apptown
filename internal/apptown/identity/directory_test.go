@@ -109,7 +109,7 @@ func TestSaveFollowsTheRole(t *testing.T) {
 	}
 	var sessions int
 	// sql-guarantee: No owner read lists an account's sessions; disabling must leave the account none, not only end the one this test knows.
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sessions_named WHERE username='root'`).Scan(&sessions); err != nil || sessions != 0 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM sessions_named WHERE username='root'`).Scan(&sessions); err != nil || sessions != 0 {
 		t.Fatalf("disabling ends sessions: %v %d", err, sessions)
 	}
 	group := "kids"

@@ -139,40 +139,10 @@ type record struct {
 	Private *privateSet `json:"private,omitempty"`
 }
 
-// TaskRequest is the wire form of an ensured task: the contract's spec
-// without host paths. Workspace names a workspace uploaded to this worker.
-type TaskRequest struct {
-	Key       string              `json:"key"`
-	Admission execution.Admission `json:"admission"`
-	Image     string              `json:"image"`
-	Argv      []string            `json:"argv"`
-	Env       []string            `json:"env"`
-	Workspace string              `json:"workspace,omitempty"`
-	// Source is the commit the workspace was uploaded with.
-	Source string `json:"source,omitempty"`
-	// Request is the client's identity for what the task runs. The worker
-	// holds a key to it; without one, to the request as sent.
-	Request  string   `json:"request,omitempty"`
-	ReadOnly bool     `json:"readOnly,omitempty"`
-	Labels   []string `json:"labels,omitempty"`
-	// Files are generated files the task sees read-only (execution.File),
-	// kept in the task's own folder until it is released.
-	Files []execution.File `json:"files,omitempty"`
-	// Inputs name blobs sent to this worker, presented read-only under
-	// /apptown/in; Results are files captured when the task exits (task_io.go).
-	Inputs  []execution.Input  `json:"inputs,omitempty"`
-	Results []execution.Result `json:"results,omitempty"`
-	// Images are OCI image layouts a release build leaves in its
-	// workspace's state, captured when it exits (task_images.go).
-	Images []execution.ImageResult `json:"images,omitempty"`
-	// Private is the task's own network, services and daemon (private.go).
-	Private *execution.PrivateDocker `json:"private,omitempty"`
-}
-
 // digest identifies what a key was ensured with, so a retry with the same
 // key but a different request is refused. The expiry is left out: a retry
 // may carry a later one for the same work.
-func (r TaskRequest) digest() string {
+func requestDigest(r execution.WorkerTaskRequest) string {
 	if r.Request != "" {
 		// The client's identity covers what the task runs, including its
 		// source commit; the worker keeps it, so a client can check it.
@@ -572,7 +542,7 @@ func (s *Server) workspaceResult(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
-	var req TaskRequest
+	var req execution.WorkerTaskRequest
 	if err := json.NewDecoder(io.LimitReader(r.Body, 4<<20)).Decode(&req); err != nil || req.Key != r.PathValue("key") {
 		http.Error(w, "an invalid task request", http.StatusBadRequest)
 		return
@@ -588,7 +558,7 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 		httpError(w, err)
 		return
 	}
-	if found && existing.Digest != req.digest() {
+	if found && existing.Digest != requestDigest(req) {
 		execution.WriteRefusal(w, http.StatusConflict, fmt.Errorf("%w: this key was ensured with a different request", execution.ErrTaskConflict))
 		return
 	}
@@ -596,7 +566,7 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "this task was released: a request for it is stale", http.StatusGone)
 		return
 	}
-	spec := execution.TaskSpec{Key: req.Key, Admission: req.Admission, Image: req.Image, Argv: req.Argv, Env: req.Env, Labels: req.Labels, WorkspaceRO: req.ReadOnly, Request: req.digest(), Private: req.Private}
+	spec := execution.TaskSpec{Key: req.Key, Admission: req.Admission, Image: req.Image, Argv: req.Argv, Env: req.Env, Labels: req.Labels, WorkspaceRO: req.ReadOnly, Request: requestDigest(req), Private: req.Private}
 	if err := spec.Validate(s.now()); err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, execution.ErrExpired) || errors.Is(err, execution.ErrUnsupported) {
@@ -679,7 +649,7 @@ func (s *Server) ensure(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !found {
-		existing = record{Key: req.Key, Digest: req.digest(), Workspace: req.Workspace, Base: req.Source, Created: s.now().UTC()}
+		existing = record{Key: req.Key, Digest: requestDigest(req), Workspace: req.Workspace, Base: req.Source, Created: s.now().UTC()}
 		if req.Private != nil {
 			existing.Private = s.privateSetFor(req.Key, req)
 		}

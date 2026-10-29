@@ -103,7 +103,11 @@ func (h connectorHealth) check(ctx context.Context, capability, provider string,
 		}
 		detail := "daemon ok"
 		if capability == integration.CapExecutor {
-			if !h.docker.ImageExists(ctx, h.agentImage) {
+			_, found, err := h.docker.Image(ctx, h.agentImage)
+			if err != nil {
+				return integration.Health{OK: false, Detail: err.Error()}, true
+			}
+			if !found {
 				return integration.Health{OK: false, Detail: "image " + h.agentImage + " missing"}, true
 			}
 			detail = "daemon ok · image " + h.agentImage + " present"

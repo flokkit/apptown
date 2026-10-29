@@ -282,7 +282,7 @@ func (a *Executor) Review(task *workflow.Execution) {
 		})
 	}
 	outcome := pi(piharness.ReviewArgs(model, thinking, false, brief.prompt()), timeout,
-		execution.UniqueName(fmt.Sprintf("apptown-review-%d", stepID)))
+		execution.UniqueName(execution.StepContainer(stepID, "review")))
 	attempt.harness(outcome)
 
 	evidence := map[string]any{
@@ -498,7 +498,7 @@ func reviewBase(ctx context.Context, hub string, source workflow.Source, tip str
 	case !source.RepoBacked():
 		return recorded, nil
 	case !source.ChangeID.IsZero():
-		return scm.ForkBase(ctx, hub, source.DefaultBranch, tip, recorded)
+		return scm.ForkBase(ctx, hub, hub, source.DefaultBranch, tip, recorded)
 	case recorded != "":
 		return recorded, nil
 	}
@@ -655,7 +655,7 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, o
 	}
 	if _, statErr := os.Stat(verdictPath); statErr != nil {
 		a.progress.Append(stepID, "⏸ no verdict yet — resuming session to write it")
-		if failure := usageFailure(pi(piharness.ReviewArgs(model, "", true, reviewWrapUp), followUps[reviewWrapUpInvocation].allowance, fmt.Sprintf("apptown-review-%d-resume", stepID))); failure != "" {
+		if failure := usageFailure(pi(piharness.ReviewArgs(model, "", true, reviewWrapUp), followUps[reviewWrapUpInvocation].allowance, execution.StepContainer(stepID, "review-resume"))); failure != "" {
 			return reviewVerdict{}, failure
 		}
 		evidence["resumed"] = true
@@ -672,7 +672,7 @@ func (a *Executor) readReviewVerdict(stepID ids.ID, verdictPath, model string, o
 		// Exists-but-invalid is the third face of the same failure (a
 		// review.json truncated mid-write). One resume, same wrap-up.
 		a.progress.Append(stepID, "⏸ verdict file invalid — resuming session to rewrite it")
-		if failure := usageFailure(pi(piharness.ReviewArgs(model, "", true, reviewFixUp), followUps[reviewFixUpInvocation].allowance, fmt.Sprintf("apptown-review-%d-fixup", stepID))); failure != "" {
+		if failure := usageFailure(pi(piharness.ReviewArgs(model, "", true, reviewFixUp), followUps[reviewFixUpInvocation].allowance, execution.StepContainer(stepID, "review-fixup"))); failure != "" {
 			return reviewVerdict{}, failure
 		}
 		evidence["resumed"] = true

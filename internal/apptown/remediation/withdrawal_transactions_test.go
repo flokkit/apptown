@@ -103,7 +103,7 @@ func TestRemediationWithdrawalScopeAndInvalidEvidenceCannotProduceSkip(t *testin
 			case "wrong project":
 				other := f.project(t, "other")
 				// sql-guarantee: Rehome the same accepted run while preserving its Change and item bindings; no Workflow operation edits its immutable project identity.
-				completionExec(t, db, `UPDATE runs SET project_id=?,number=number+100000`, other)
+				completionExec(t, db, `UPDATE runs SET project_id=$1,number=number+100000`, other)
 			default:
 				completionExec(t, db, mutation)
 			}

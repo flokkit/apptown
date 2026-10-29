@@ -30,9 +30,9 @@ func TestCompletionOwnerRequiresPinnedSnapshotAndAllParticipants(t *testing.T) {
 			transitionStoredStepForTest(t, q.db, id, StatusPass)
 			if failure == "no release receipt" {
 				// sql-guarantee: the no-release-receipt branch needs the same receipt-free stored run to become a landing declaration; no generated mutation changes definition_json.
-				completionExec(t, q.db, `UPDATE runs SET definition_json='{"kind":"pipeline","role":"landing","stages":[{"name":"finish"}]}' WHERE id=?`, run.ID)
+				completionExec(t, q.db, `UPDATE runs SET definition_json='{"kind":"pipeline","role":"landing","stages":[{"name":"finish"}]}' WHERE id=$1`, run.ID)
 				// sql-guarantee: the no-release-receipt branch needs the same receipt-free step to become a deploy declaration; no generated mutation changes type and config together.
-				completionExec(t, q.db, `UPDATE steps SET type='deploy',config_json='{"deployment":"main"}' WHERE id=?`, id)
+				completionExec(t, q.db, `UPDATE steps SET type='deploy',config_json='{"deployment":"main"}' WHERE id=$1`, id)
 				var err error
 				run, err = readRun(context.Background(), q.db, run.ID)
 				if err != nil {
@@ -45,7 +45,7 @@ func TestCompletionOwnerRequiresPinnedSnapshotAndAllParticipants(t *testing.T) {
 				if in.RunID != run.ID || in.ProjectID != run.ProjectID || in.ChangeID != run.ChangeID {
 					t.Fatalf("scope %+v", in)
 				}
-				if !in.Release && !reflect.DeepEqual(in.Effects, []CompletionEffect{CompletionCleanup, CompletionNarrative, CompletionLand}) {
+				if !in.Release && !reflect.DeepEqual(in.Effects, []CompletionEffect{CompletionCleanup, CompletionLand}) || !in.Narrative {
 					t.Fatalf("effects %+v", in.Effects)
 				}
 				if err := recordReceiptIn(ctx, tx, in.RunID, "test.external.receipt", struct{}{}, time.Now()); err != nil {
@@ -140,7 +140,7 @@ func TestARecordRunClosesItsChangeWithoutLanding(t *testing.T) {
 	if err := (advanceStore{db: q.db, completion: recorder}).complete(ctx, record); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(effects, []CompletionEffect{CompletionCleanup, CompletionNarrative}) {
+	if !reflect.DeepEqual(effects, []CompletionEffect{CompletionCleanup}) {
 		t.Fatalf("a record run's completion effects: %v", effects)
 	}
 	ch, err := readChange(ctx, q.db, working.ChangeID)

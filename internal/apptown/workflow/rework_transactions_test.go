@@ -116,7 +116,7 @@ func TestWorkflowReworkRefusesIneligibleProducer(t *testing.T) {
 				}
 			case "missing producer":
 				// sql-guarantee: Remove only the producer after claiming its reviewer; project-wide deletion would also remove the reviewer whose late verdict is tested.
-				completionExec(t, s.db, `DELETE FROM steps WHERE id=?`, agent)
+				completionExec(t, s.db, `DELETE FROM steps WHERE id=$1`, agent)
 			case "already pending":
 				{
 					current, err := workflowsql.New(s.db.SQL()).StepByID(context.Background(), agent)

@@ -26,7 +26,11 @@ func TestScannerImage(ctx context.Context, image string, dk *docker.Scope, image
 		}
 		return integration.Health{OK: true, Detail: "image pulled on the worker"}
 	}
-	if dk.ImageExists(ctx, image) {
+	_, found, err := dk.Image(ctx, image)
+	if err != nil {
+		return integration.Health{OK: false, Detail: "whether " + image + " is present could not be read: " + strs.Truncate(err.Error(), 200)}
+	}
+	if found {
 		return integration.Health{OK: true, Detail: "image present locally"}
 	}
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)

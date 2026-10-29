@@ -1,6 +1,7 @@
 package dbschema
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -32,7 +33,7 @@ func TestMigration190SettlesLegacyAddressesFromTheRecordedRule(t *testing.T) {
 	now := time.Now()
 	target, bare := ids.New(now), ids.New(now)
 	// sql-guarantee: pre-174 Portainer targets existed before the address owner; no current operation writes this historical shape.
-	if _, err := db.Exec(`INSERT INTO targets(id,name,kind,ingress_json,created_at,updated_at) VALUES ($1,'settle-intranet','portainer','{"domain":"Apps.Example."}',$3,$3),($2,'settle-bare','portainer','{}',$3,$3)`, target, bare, now); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO targets(id,name,kind,ingress_json,created_at,updated_at) VALUES ($1,'settle-intranet','portainer','{"domain":"Apps.Example."}',$3,$3),($2,'settle-bare','portainer','{}',$3,$3)`, target, bare, now); err != nil {
 		t.Fatal(err)
 	}
 	deployment := func(slug, releaseDomain, url string, on ids.ID) ids.ID {
@@ -40,11 +41,11 @@ func TestMigration190SettlesLegacyAddressesFromTheRecordedRule(t *testing.T) {
 		project, dep := ids.New(now), ids.New(now)
 		insert := `INSERT INTO projects(id,slug,name,release_domain,created_at) VALUES ($1,$2,$2,$3,$4)`
 		// sql-guarantee: a pre-174 project's release domain is historical input no current operation writes.
-		if _, err := db.Exec(insert, project, slug, releaseDomain, now); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), insert, project, slug, releaseDomain, now); err != nil {
 			t.Fatal(err)
 		}
 		// sql-guarantee: the stored serving URL is the pre-174 release's record, which the settlement compares.
-		if _, err := db.Exec(`INSERT INTO deployments(id,project_id,name,target_id,url,updated_at,handle_json) VALUES ($1,$2,'lan',$3,$4,$5,'{}')`, dep, project, on, url, now); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO deployments(id,project_id,name,target_id,url,updated_at,handle_json) VALUES ($1,$2,'lan',$3,$4,$5,'{}')`, dep, project, on, url, now); err != nil {
 			t.Fatal(err)
 		}
 		return dep
@@ -63,11 +64,11 @@ func TestMigration190SettlesLegacyAddressesFromTheRecordedRule(t *testing.T) {
 	}
 	ready := ids.New(now)
 	// sql-guarantee: a second deployment of an existing project, recorded after 174 with a ready address.
-	if _, err := db.Exec(`INSERT INTO deployments(id,project_id,name,target_id,url,updated_at,handle_json) SELECT $1,project_id,'current',target_id,'',$2,'{}' FROM deployments WHERE id=$3`, ready, now, plain); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO deployments(id,project_id,name,target_id,url,updated_at,handle_json) SELECT $1,project_id,'current',target_id,'',$2,'{}' FROM deployments WHERE id=$3`, ready, now, plain); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: a row confirmed before this migration; the settlement must leave it as it is.
-	if _, err := db.Exec(`INSERT INTO deployment_address_settings(deployment_id,generated_hostname,certificate_domain,revision,verification_state) VALUES ($1,'app-current.apps.example','apps.example',3,'ready')`, ready); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO deployment_address_settings(deployment_id,generated_hostname,certificate_domain,revision,verification_state) VALUES ($1,'app-current.apps.example','apps.example',3,'ready')`, ready); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := applyMigrations(t.Context(), db, migrations[:migrationIndex(t, 190)+1]); err != nil {
@@ -82,7 +83,7 @@ func TestMigration190SettlesLegacyAddressesFromTheRecordedRule(t *testing.T) {
 		t.Helper()
 		var r row
 		// sql-guarantee: the settled storage is the migration's guarantee.
-		err := db.QueryRow(`SELECT generated_hostname,custom_hostname,certificate_domain,revision FROM deployment_address_settings WHERE deployment_id=$1`, dep).Scan(&r.generated, &r.custom, &r.certificate, &r.revision)
+		err := db.SQL().QueryRowContext(context.Background(), `SELECT generated_hostname,custom_hostname,certificate_domain,revision FROM deployment_address_settings WHERE deployment_id=$1`, dep).Scan(&r.generated, &r.custom, &r.certificate, &r.revision)
 		if errors.Is(err, sql.ErrNoRows) {
 			return r, false
 		}
@@ -117,16 +118,16 @@ func TestMigration190SettlesLegacyAddressesFromTheRecordedRule(t *testing.T) {
 	}
 	var claims int
 	// sql-guarantee: deleted desired settings are not a teardown; retained claims are storage the migration must keep.
-	if err := db.QueryRow(`SELECT count(*) FROM deployment_hostname_claimants WHERE deployment_id=$1`, disagrees).Scan(&claims); err != nil || claims == 0 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM deployment_hostname_claimants WHERE deployment_id=$1`, disagrees).Scan(&claims); err != nil || claims == 0 {
 		t.Fatalf("a deleted row's claims were released: %d %v", claims, err)
 	}
 	var columns int
 	// sql-guarantee: the dropped confirmation state is a storage fact.
-	if err := db.QueryRow(`SELECT count(*) FROM information_schema.columns WHERE table_name='deployment_address_settings' AND column_name IN ('verification_state','legacy_evidence_json')`).Scan(&columns); err != nil || columns != 0 {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM information_schema.columns WHERE table_name='deployment_address_settings' AND column_name IN ('verification_state','legacy_evidence_json')`).Scan(&columns); err != nil || columns != 0 {
 		t.Fatalf("confirmation columns remain: %d %v", columns, err)
 	}
 	// sql-guarantee: the unconditional ready check is a storage constraint.
-	if _, err := db.Exec(`INSERT INTO deployment_address_settings(deployment_id) VALUES ($1)`, neverReleased); err == nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO deployment_address_settings(deployment_id) VALUES ($1)`, neverReleased); err == nil {
 		t.Fatal("an empty address row was accepted")
 	}
 }

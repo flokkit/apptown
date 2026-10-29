@@ -19,9 +19,11 @@ type Diagnostic struct {
 	Allowed func(context.Context) error
 }
 
-// HTTP/1.0 avoids chunked transfer for the bounded exact static identity body.
+// HTTP/1.0 avoids chunked transfer for the bounded release marker's body.
 // Requests never follow redirects and never name a destination other than the
-// inspected container's loopback namespace. Only status and comparison escape.
+// inspected container's loopback namespace. The script only fetches: it
+// prints the status, and with PROBE_BODY set the first 4 KiB of the body
+// on the lines after it. Go judges both (appcontract.Ready, ServesRelease).
 const readinessScript = `ulimit -f 128
 {
  printf 'GET %s HTTP/1.0\r\nHost: %s\r\n' "$PROBE_PATH" "$PROBE_HOST"
@@ -31,15 +33,13 @@ const readinessScript = `ulimit -f 128
 } | nc -w "$PROBE_TIMEOUT" 127.0.0.1 "$PROBE_PORT" > /tmp/reply || exit 3
 status=$(awk 'NR==1 {gsub("\r", ""); if ($1 ~ /^HTTP\/1\.[01]$/ && $2 ~ /^[1-5][0-9][0-9]$/) print $2; exit}' /tmp/reply)
 [ -n "$status" ] || exit 4
-matched=1
-if [ -n "$PROBE_EXPECT_BODY" ]; then
+printf '%s\n' "$status"
+if [ -n "$PROBE_BODY" ]; then
  offset=$(awk '{n+=length($0)+1; if ($0=="\r") {print n;exit}}' /tmp/reply)
  [ -n "$offset" ] || exit 5
  dd if=/tmp/reply of=/tmp/body bs=1 skip="$offset" 2>/dev/null || exit 6
- printf '%s' "$PROBE_EXPECT_BODY" > /tmp/expected
- cmp -s /tmp/body /tmp/expected || matched=0
-fi
-printf '%s %s\n' "$status" "$matched"`
+ head -c 4096 /tmp/body || exit 7
+fi`
 
 func (d Diagnostic) sample(ctx context.Context, container string, p Probe) error {
 	if d.Command == nil || d.Allowed == nil {
@@ -71,12 +71,15 @@ func (d Diagnostic) sample(ctx context.Context, container string, p Probe) error
 		return err
 	}
 	if p.StaticRelease != "" {
-		return d.http(ctx, container, p, appcontract.ReleasePath, 200, p.StaticRelease)
+		return d.http(ctx, container, p, appcontract.ReleasePath, 0, p.StaticRelease)
 	}
 	return nil
 }
 
-func (d Diagnostic) http(ctx context.Context, container string, p Probe, path string, expect int, body string) error {
+// http asks path once: judged by its status (appcontract.Ready with
+// expect), or with release set by whether it serves that release
+// (appcontract.ServesRelease).
+func (d Diagnostic) http(ctx context.Context, container string, p Probe, path string, expect int, release string) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	timeout := 8
@@ -87,7 +90,11 @@ func (d Diagnostic) http(ctx context.Context, container string, p Probe, path st
 	if host == "" {
 		host = "127.0.0.1:" + strconv.Itoa(p.Port)
 	}
-	env := []string{"PROBE_TIMEOUT=" + strconv.Itoa(timeout), "PROBE_PATH=" + path, "PROBE_PORT=" + strconv.Itoa(p.Port), "PROBE_HOST=" + host, "PROBE_FORWARDED_HOST=" + p.Headers["X-Forwarded-Host"], "PROBE_FORWARDED_PROTO=" + p.Headers["X-Forwarded-Proto"], "PROBE_EXPECT_BODY=" + body}
+	wantBody := ""
+	if release != "" {
+		wantBody = "1"
+	}
+	env := []string{"PROBE_TIMEOUT=" + strconv.Itoa(timeout), "PROBE_PATH=" + path, "PROBE_PORT=" + strconv.Itoa(p.Port), "PROBE_HOST=" + host, "PROBE_FORWARDED_HOST=" + p.Headers["X-Forwarded-Host"], "PROBE_FORWARDED_PROTO=" + p.Headers["X-Forwarded-Proto"], "PROBE_BODY=" + wantBody}
 	command := func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 		if len(args) == 0 {
 			return nil, errors.New("empty diagnostic command")
@@ -100,22 +107,25 @@ func (d Diagnostic) http(ctx context.Context, container string, p Probe, path st
 		}
 		return d.Command(ctx, env, args...)
 	}
-	out, err := containerresult.RunOwned(ctx, command, containerresult.Spec{Image: p.ToolImage, Options: []string{"--network", "container:" + container, "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "32", "--memory", "32m", "--cpus", "0.1"}, Env: env, Script: readinessScript, Max: 32})
+	out, err := containerresult.RunOwned(ctx, command, containerresult.Spec{Image: p.ToolImage, Options: []string{"--network", "container:" + container, "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "32", "--memory", "32m", "--cpus", "0.1"}, Env: env, Script: readinessScript, Max: 8 + appcontract.MaxReleaseAnswer})
 	if err != nil {
 		return fmt.Errorf("Portainer readiness diagnostic: %w", err)
 	}
-	fields := strings.Fields(string(out))
-	if len(fields) != 2 {
-		return errors.New("Portainer readiness diagnostic returned no bounded verdict")
-	}
-	status, err := strconv.Atoi(fields[0])
-	if err != nil || status < 100 || status > 599 || (fields[1] != "0" && fields[1] != "1") {
+	line, body, _ := strings.Cut(string(out), "\n")
+	status, err := strconv.Atoi(line)
+	if err != nil || status < 100 || status > 599 {
 		return errors.New("Portainer readiness diagnostic returned an invalid verdict")
 	}
-	// The shell only fetches; the answer is judged by the one readiness
-	// rule every target applies (below 400 or the declared status).
-	if !appcontract.Ready(status, expect) || fields[1] != "1" {
-		return &predicateFailure{reason: fmt.Sprintf("Portainer readiness predicate failed (HTTP %d, identity match %s)", status, fields[1])}
+	// The shell only fetches; the answer is judged by the rules every
+	// target applies.
+	if release != "" {
+		if !appcontract.ServesRelease(status, []byte(body), release) {
+			return &predicateFailure{reason: fmt.Sprintf("Portainer readiness predicate failed (HTTP %d, not serving %s)", status, release)}
+		}
+		return nil
+	}
+	if !appcontract.Ready(status, expect) {
+		return &predicateFailure{reason: fmt.Sprintf("Portainer readiness predicate failed (HTTP %d)", status)}
 	}
 	return nil
 }

@@ -1,7 +1,6 @@
 package worker_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -628,7 +627,7 @@ func TestARestartedWorkerKeepsTheBlobsChatContainersMount(t *testing.T) {
 	for _, name := range []string{"old cli", "new cli", "orphan"} {
 		body := tarOf(t, entry{name: "content", body: name})
 		sums[name] = digest(body)
-		if err := client.PutBlob(ctx, sums[name], bytes.NewReader(body)); err != nil {
+		if err := client.EnsureBlob(ctx, sums[name], body); err != nil {
 			t.Fatal(err)
 		}
 	}

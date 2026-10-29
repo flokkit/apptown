@@ -16,7 +16,7 @@ func WaitForLock(t testing.TB, db *database.DB, query string) {
 	var err error
 	if poll.Until(context.Background(), 5*time.Second, 5*time.Millisecond, func() bool {
 		var n int
-		err = db.QueryRow(`SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE ?`, "%"+query+"%").Scan(&n)
+		err = db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE $1`, "%"+query+"%").Scan(&n)
 		return err != nil || n > 0
 	}) {
 		if err != nil {

@@ -70,7 +70,7 @@ func TestSpecializedUpliftCommitsExactTargetAndRequiredAttribution(t *testing.T)
 		t.Fatalf("acceptance: %+v %v", acc, err)
 	}
 	// sql-guarantee: project_adoptions belongs to Adoption; the target row's exact encoding (its change, digest and author) is the guarantee.
-	completionCount(t, c.db, 1, `SELECT count(*) FROM project_adoptions WHERE id=? AND project_id=? AND revision=0 AND change_id=? AND kind='target' AND digest=? AND created_by=?`, ch.TargetAdoptionID, in.ProjectID, ch.ID, in.Acceptance.TargetDigest, "alice via mcp/test")
+	completionCount(t, c.db, 1, `SELECT count(*) FROM project_adoptions WHERE id=$1 AND project_id=$2 AND revision=0 AND change_id=$3 AND kind='target' AND digest=$4 AND created_by=$5`, ch.TargetAdoptionID, in.ProjectID, ch.ID, in.Acceptance.TargetDigest, "alice via mcp/test")
 	wantJSONField(t, "target candidate", json.RawMessage(storedChange(t, c.db, ch.ID).TargetCandidateJSON), "exact", "9007199254740993")
 	wantReceiptCount(t, c.db, 1, inProject(in.ProjectID, receiptWith("change.created", "alice via mcp/test", "changeId", fmt.Sprint(ch.ID))))
 	wantReceiptCount(t, c.db, 1, inProject(in.ProjectID, receiptWith("wow.uplift.opened", "alice via mcp/test")))

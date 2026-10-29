@@ -186,7 +186,7 @@ func TestExternalCallbackRechecksRevisionAndRollsBackSessionFailures(t *testing.
 				t.Fatalf("%s issued session %+v err=%v", kind, got, e)
 			}
 			var n int
-			if e := f.s.db.QueryRow("SELECT count(*) FROM sessions WHERE principal_id=?", admittedPrincipal(t, f.s, "alice").ID).Scan(&n); e != nil || n != 0 {
+			if e := f.s.db.SQL().QueryRowContext(context.Background(), "SELECT count(*) FROM sessions WHERE principal_id=$1", admittedPrincipal(t, f.s, "alice").ID).Scan(&n); e != nil || n != 0 {
 				t.Fatalf("failed callback persisted sessions=%d err=%v", n, e)
 			}
 		})

@@ -101,7 +101,7 @@ func TestFinishedTestsWaitWhenDropsFallBehind(t *testing.T) {
 			for i := range tests {
 				t.Run(fmt.Sprint(i), func(t *testing.T) {
 					var name string
-					if err := suite.New(t).QueryRow(`SELECT current_database()`).Scan(&name); err != nil {
+					if err := suite.New(t).SQL().QueryRowContext(context.Background(), `SELECT current_database()`).Scan(&name); err != nil {
 						t.Fatal(err)
 					}
 					// Registered after New's, so it runs just before New's cleanup.

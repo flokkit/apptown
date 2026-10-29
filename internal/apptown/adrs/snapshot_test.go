@@ -28,7 +28,7 @@ func TestDetailKeepsDecisionAndSuccessorInOneSnapshot(t *testing.T) {
 	}
 	defer func() { _ = gate.Rollback() }()
 	// sql-guarantee: takes the advisory lock the barrier view waits on; a held lock, not a read
-	if _, err := gate.Exec(`SELECT pg_advisory_xact_lock(913)`); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `SELECT pg_advisory_xact_lock(913)`); err != nil {
 		t.Fatal(err)
 	}
 	type result struct {
@@ -39,12 +39,12 @@ func TestDetailKeepsDecisionAndSuccessorInOneSnapshot(t *testing.T) {
 	go func() { d, err := s.Get(testCaller(), old.ID); done <- result{d, err} }()
 	dbtest.WaitForLock(t, db, "SELECT a.id, a.project_id")
 	// sql-guarantee: Change the backing row while the ADR view read waits; EditADR also writes the view's computed body column and cannot update this renamed backing table.
-	if _, err := gate.Exec(`UPDATE adr_snapshot_records SET status='deprecated' WHERE id=?`, old.ID); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `UPDATE adr_snapshot_records SET status='deprecated' WHERE id=$1`, old.ID); err != nil {
 		t.Fatal(err)
 	}
 	next := ids.New(time.Now())
 	// sql-guarantee: Commit a successor behind the blocked view; InsertADR writes the computed body column and cannot insert through that view or address its renamed backing table.
-	if _, err := gate.Exec(`INSERT INTO adr_snapshot_records(id,project_id,number,title,status,supersedes_id,created_at,updated_at) VALUES (?,?,2,'new successor','accepted',?,'2026-10-01','2026-10-01')`, next, p, old.ID); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `INSERT INTO adr_snapshot_records(id,project_id,number,title,status,supersedes_id,created_at,updated_at) VALUES ($1,$2,2,'new successor','accepted',$3,'2026-10-01','2026-10-01')`, next, p, old.ID); err != nil {
 		t.Fatal(err)
 	}
 	if err := gate.Commit(); err != nil {

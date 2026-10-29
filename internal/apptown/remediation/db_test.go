@@ -27,7 +27,7 @@ func testDB(t *testing.T) *database.DB { t.Helper(); return databaseSuite.New(t)
 
 func completionExec(t *testing.T, db *database.DB, q string, args ...any) {
 	t.Helper()
-	if _, err := db.Exec(q, args...); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), q, args...); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -35,7 +35,7 @@ func completionExec(t *testing.T, db *database.DB, q string, args ...any) {
 func completionCount(t *testing.T, db *database.DB, want int, q string, args ...any) {
 	t.Helper()
 	var got int
-	if err := db.QueryRow(q, args...).Scan(&got); err != nil || got != want {
+	if err := db.SQL().QueryRowContext(context.Background(), q, args...).Scan(&got); err != nil || got != want {
 		t.Fatalf("count %d want %d: %v", got, want, err)
 	}
 }
@@ -312,7 +312,7 @@ func outcomeSnapshot(t *testing.T, db *database.DB) string {
 	t.Helper()
 	var snapshot string
 	// sql-guarantee: rollback proof — every stored column of every job, item, attempt and receipt, so no hidden row or field a reader omits can change unnoticed.
-	if err := db.QueryRow(`SELECT jsonb_build_object(
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT jsonb_build_object(
 		'items',(SELECT jsonb_agg(i ORDER BY id) FROM remediation_items i),
 		'attempts',(SELECT jsonb_agg(a ORDER BY id) FROM remediation_attempts a),
 		'jobs',(SELECT jsonb_agg(j ORDER BY id) FROM remediations j),

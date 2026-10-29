@@ -21,7 +21,7 @@ func TestSlotSpendInUsesRecentModelReceipts(t *testing.T) {
 	}
 	// sql-guarantee: the reporting-window law requires a completed receipt at a fixed 2020 finished_at; RecordApproval always stamps the current database time.
 	completionInsert(t, db, `INSERT INTO steps(id,run_id,stage,name,type,status,config_json,evidence_json,finished_at)
-		VALUES (?,?,'work','old','agent/pi','pass','{}',?::jsonb,?)`, run.ID,
+		VALUES ($1,$2,'work','old','agent/pi','pass','{}',$3::jsonb,$4)`, run.ID,
 		`{"modelSlot":"plan","usage":{"input":999,"output":999}}`, time.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC))
 	spend, err := SlotSpendIn(context.Background(), db, time.Now().Add(-7*24*time.Hour))
 	if err != nil {

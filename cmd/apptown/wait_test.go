@@ -13,6 +13,10 @@ import (
 // wait judges from AppTown's activity, not from step statuses: a failed
 // verdict AppTown is about to check again after a rework is working, not
 // wedged, and only AppTown's "blocked" and "waiting on you" stop the wait.
+func sentBack(by string) string {
+	return `,"sentBack":{"stepId":"` + idstest.N(1).String() + `","step":"work","by":"` + by + `","note":"use crypto/rand"}`
+}
+
 func TestWaitJudgesFromAppTownsActivity(t *testing.T) {
 	steps := `[{"id":"00000000-0001-7000-8000-000000000000","stage":"build","name":"work","type":"agent/pi","status":"pass"},
 		{"id":"00000000-0002-7000-8000-000000000000","stage":"build","name":"review","type":"agent/review","status":"fail"},
@@ -20,19 +24,24 @@ func TestWaitJudgesFromAppTownsActivity(t *testing.T) {
 		{"id":"00000000-0009-7000-8000-000000000000","stage":"old","name":"gone","type":"tests","status":"fail"}]`
 	for _, c := range []struct {
 		state, detail string
+		sentBack      string
 		kind          string
 		id            ids.ID
 		name          string
 	}{
-		{"working", "checking review again after the rework", "working", ids.Nil, ""},
-		{"blocked", "review (fail)", "wedged", idstest.N(2), "review"},
-		{"waiting on you", "accept", "decision", idstest.N(3), "accept"},
-		{"agent working", "work", "reworking", idstest.N(2), "review"},
-		{"queued", "work — waiting for a slot", "reworking", idstest.N(2), "review"},
-		{"ready to advance", "", "working", ids.Nil, ""},
+		{"working", "checking review again after the rework", "", "working", ids.Nil, ""},
+		{"blocked", "review (fail)", "", "wedged", idstest.N(2), "review"},
+		{"waiting on you", "accept", "", "decision", idstest.N(3), "accept"},
+		// A failed verdict beside agent work is no rework unless AppTown
+		// says the agent has send-back words; a person's send-back with no
+		// failed verdict is one.
+		{"agent working", "work", "", "working", ids.Nil, ""},
+		{"agent working", "work", sentBack("a person"), "reworking", idstest.N(1), "work, sent back by a person"},
+		{"queued", "work — waiting for a slot", sentBack("a check"), "reworking", idstest.N(1), "work, sent back by a check"},
+		{"ready to advance", "", "", "working", ids.Nil, ""},
 	} {
 		var d runDetail
-		if err := json.Unmarshal([]byte(`{"run":{"status":"running","currentStage":"build"},"state":"`+c.state+`","stateDetail":"`+c.detail+`","steps":`+steps+`}`), &d); err != nil {
+		if err := json.Unmarshal([]byte(`{"run":{"status":"running","currentStage":"build"},"state":"`+c.state+`","stateDetail":"`+c.detail+`","steps":`+steps+c.sentBack+`}`), &d); err != nil {
 			t.Fatal(err)
 		}
 		kind, id, name := waitVerdict(d)

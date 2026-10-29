@@ -51,10 +51,10 @@ func TestProjectIntegrationReadBatchesAndContainsPrivateRecords(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: The joined projection requires a historical attachment timestamp and foreign/missing wire Change IDs; Attach stamps now and does not expose wire_change_id, and the generated insert is owner-private.
-	if _, err := db.Exec(`INSERT INTO project_integrations(project_id,capability,binding,resource_json,provenance,wire_change_id,created_at) VALUES
- (?,'mailer','mail','{"domain":"shop.invalid"}','service-editor',?,'2020-01-02T03:04:05.123456+11:00'),
- (?,'errors','mail','{"dsn":"dsn-canary"}','direct',?,now()),
- (?,'feedback','gone','{"appKey":"app-key-canary"}','direct',?,now())`, projectIDs[0], changeIDs[0], projectIDs[0], changeIDs[1], projectIDs[0], idstest.N(999)); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO project_integrations(project_id,capability,binding,resource_json,provenance,wire_change_id,created_at) VALUES
+ ($1,'mailer','mail','{"domain":"shop.invalid"}','service-editor',$2,'2020-01-02T03:04:05.123456+11:00'),
+ ($3,'errors','mail','{"dsn":"dsn-canary"}','direct',$4,now()),
+ ($5,'feedback','gone','{"appKey":"app-key-canary"}','direct',$6,now())`, projectIDs[0], changeIDs[0], projectIDs[0], changeIDs[1], projectIDs[0], idstest.N(999)); err != nil {
 		t.Fatal(err)
 	}
 	if err := integrations.Attachments.Attach(ctx, projectIDs[0], "container-registry", "gone", `{"token":"registry-canary"}`, integration.Provenance("direct"), "fixture", nil); err != nil {

@@ -105,12 +105,12 @@ func TestChatContinuationIsCanonicalAndProjectScoped(t *testing.T) {
 		t.Fatal("foreign Step associated with requested Change")
 	}
 	// sql-guarantee: Move the existing run's change association after a successful continuation read to test source revalidation; admission fixes change_id and no generated run mutation reparents it.
-	completionExec(t, q.db, `UPDATE runs SET change_id=? WHERE id=?`, foreign, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET change_id=$1 WHERE id=$2`, foreign, run.ID)
 	if _, err := service.ChatContinuation(ctx, run.ChangeID, first); err == nil {
 		t.Fatal("changed Run association leaked")
 	}
 	// sql-guarantee: Restore the original run.change_id before the independent Step-read failure case; existing mutations cannot repair a run's immutable change association.
-	completionExec(t, q.db, `UPDATE runs SET change_id=? WHERE id=?`, run.ChangeID, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET change_id=$1 WHERE id=$2`, run.ChangeID, run.ID)
 	dbtest.FailNextStatement(t, q.db, "-- name: RunSteps")
 	if _, err := service.ChatContinuation(ctx, run.ChangeID, first); !errors.Is(err, database.ErrInjectedFailure) {
 		t.Fatalf("hidden Step read failure: %v", err)

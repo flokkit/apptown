@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/flokkit/apptown/internal/strs"
+
 	"github.com/flokkit/apptown/internal/apptown/dependency"
 	"github.com/flokkit/apptown/internal/toolversions"
 
@@ -92,11 +94,12 @@ func (h Configuration) ConfigValidate(w http.ResponseWriter, r *http.Request) {
 		// shape boot would refuse (a secretspec.toml without [project]
 		// revision, say) is refused here first.
 		if strings.TrimSpace(in.SecretSpec) != "" {
+			specPath := strs.FirstNonBlank(c.SecretSpecPath, secret.SpecFile)
 			if spec, err := secret.ParseSpec([]byte(in.SecretSpec)); err != nil {
-				errs = append(errs, secret.SpecFile+": "+err.Error())
+				errs = append(errs, specPath+": "+err.Error())
 			} else {
 				for _, ig := range spec.Ignored {
-					warns = append(warns, secret.SpecFile+": "+ig+" is not read by AppTown")
+					warns = append(warns, specPath+": "+ig+" is not read by AppTown")
 				}
 			}
 		}

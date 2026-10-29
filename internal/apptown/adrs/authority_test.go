@@ -66,7 +66,7 @@ func TestChangedScopeAfterAuthorityCannotMoveTheWrite(t *testing.T) {
 				t.Fatalf("wrong admission scope: %+v", req)
 			}
 			// sql-guarantee: Move the same ADR after authority admission; EditADR guards project identity and no owner mutation transfers an ADR between projects.
-			completionExec(t, s.records.db, `UPDATE adrs SET project_id=? WHERE id=?`, other, v.ID)
+			completionExec(t, s.records.db, `UPDATE adrs SET project_id=$1 WHERE id=$2`, other, v.ID)
 		}
 		return "alice", nil
 	}), nil, nil)

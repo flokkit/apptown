@@ -97,12 +97,12 @@ func WriteRefusal(w http.ResponseWriter, status int, err error) {
 	_ = json.NewEncoder(w).Encode(r)
 }
 
-// workerRefusal reads a worker's answer of 300 or over. A 5xx, or a body
+// WorkerRefusal reads a worker's answer of 300 or over. A 5xx, or a body
 // that cannot be read, is the worker unavailable whatever it says; a
 // classified refusal, read whole, is its class; anything else, a body
 // longer than the client reads among it, is a plain refusal, whatever its
 // status.
-func workerRefusal(resp *http.Response) error {
+func WorkerRefusal(resp *http.Response) error {
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxRefusalBody+1))
 	whole := len(body) <= maxRefusalBody
 	body = body[:min(len(body), maxRefusalBody)]

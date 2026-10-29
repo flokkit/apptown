@@ -1,7 +1,6 @@
 package inference
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -144,21 +143,24 @@ type answer struct {
 // send makes the upstream call and reads its answer whole.
 func (g *Gateway) send(ctx context.Context, p *inferenceProvider, path string, raw []byte) answer {
 	var a answer
-	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+path, bytes.NewReader(raw))
-	if err != nil {
+	protocol := http.Header{}
+	if p.api == "anthropic-messages" {
+		protocol.Set("Anthropic-Version", "2023-06-01")
+	}
+	resp, err := g.dispatch(ctx, p, path, raw, "application/json", protocol)
+	var rejected upstreamRejected
+	switch {
+	case errors.Is(err, errUnsendable):
 		// Nothing was sent: a configuration the resolver accepted cannot
 		// make a request. Nothing is owed either.
 		a.rejected, a.err = true, fmt.Errorf("invalid inference provider configuration")
 		return a
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	if p.api == "anthropic-messages" {
-		req.Header.Set("Anthropic-Version", "2023-06-01")
-	}
-	p.authorize(req.Header)
-	resp, err := g.client.Do(req)
-	if err != nil {
+	case errors.As(err, &rejected):
+		// Upstream errors may echo credentials: keep the status, never the body.
+		a.status, a.outcome, a.rejected = rejected.status, "rejected", true
+		a.err = fmt.Errorf("the %s provider rejected the call (HTTP %d)", p.name, a.status)
+		return a
+	case err != nil:
 		if ctx.Err() != nil {
 			a.outcome = "cancelled"
 		}
@@ -169,12 +171,6 @@ func (g *Gateway) send(ctx context.Context, p *inferenceProvider, path string, r
 	}
 	defer resp.Body.Close()
 	a.status = resp.StatusCode
-	if a.status < 200 || a.status >= 300 {
-		// Upstream errors may echo credentials: keep the status, never the body.
-		a.outcome, a.rejected = "rejected", true
-		a.err = fmt.Errorf("the %s provider rejected the call (HTTP %d)", p.name, a.status)
-		return a
-	}
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	reader := newInferenceUsageReader()
 	_, _ = reader.Write(body)

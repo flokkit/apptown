@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
@@ -300,7 +301,8 @@ func (s side) parentsAreFolders(ctx context.Context, path string) error {
 	return nil
 }
 
-// baseOf is where q.Head meets main, and a repository that holds both.
+// baseOf is where q.Head forked from main (scm.ForkBase, the one rule), and
+// the first repository holding both commits, which the rows are read in.
 // Main with no commit yet is an empty base.
 func baseOf(ctx context.Context, q workflow.AddsQuestion) (base, repo string, err error) {
 	main, err := gitexec.HubReadRef(ctx, q.Hub, "refs/heads/"+q.DefaultBranch)
@@ -308,24 +310,16 @@ func baseOf(ctx context.Context, q workflow.AddsQuestion) (base, repo string, er
 		return "", "", fmt.Errorf("main could not be read: %v", gitError(err))
 	}
 	for _, r := range q.Repositories {
-		if r == "" || !holds(ctx, r, q.Head) {
+		if r == "" || !holds(ctx, r, q.Head) || (main != "" && !holds(ctx, r, main)) {
 			continue
 		}
 		if main == "" {
+			// Main before its first commit: everything the change declares
+			// is added, which a fork point (there is none) cannot say.
 			return "", r, nil
 		}
-		if !holds(ctx, r, main) {
-			continue
-		}
-		out, err := gitexec.HubOutput(ctx, r, nil, "merge-base", "--end-of-options", q.Head, main)
-		if err != nil {
-			var exit *exec.ExitError
-			if errors.As(err, &exit) && exit.ExitCode() == 1 && len(strings.TrimSpace(string(out))) == 0 {
-				return "", "", fmt.Errorf("commit %s shares no history with main", short(q.Head))
-			}
-			return "", "", fmt.Errorf("where commit %s meets main could not be read: %v", short(q.Head), gitError(err))
-		}
-		return strings.TrimSpace(string(out)), r, nil
+		base, err := scm.ForkBase(ctx, q.Hub, r, q.DefaultBranch, q.Head, q.Recorded)
+		return base, r, err
 	}
 	return "", "", fmt.Errorf("commit %s and main are not both in the change's folder or the project's repository", short(q.Head))
 }

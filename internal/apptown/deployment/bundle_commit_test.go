@@ -205,7 +205,7 @@ func TestABundleWithUnreadableEvidenceIsAnError(t *testing.T) {
 			t.Fatal(err)
 		}
 		// sql-guarantee: no operation records evidence of the wrong shape; this proves a damaged record is not read as empty.
-		if _, err := db.Exec(`UPDATE release_bundles SET `+column+`='["damaged"]'::jsonb WHERE id=$1`, id); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `UPDATE release_bundles SET `+column+`='["damaged"]'::jsonb WHERE id=$1`, id); err != nil {
 			t.Fatal(err)
 		}
 		if b, err := s.Bundles.ByID(context.Background(), id); err == nil {

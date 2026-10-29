@@ -1,6 +1,7 @@
 package dbschema
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestMigration168RecordsEachVersionsSourceAndSigner(t *testing.T) {
 		)
 	}
 	for _, s := range stmts {
-		if _, err := db.Exec(s); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), s); err != nil {
 			t.Fatalf("%s: %v", s, err)
 		}
 	}
@@ -50,7 +51,7 @@ func TestMigration168RecordsEachVersionsSourceAndSigner(t *testing.T) {
 		{"pack_versions", "packs", "pack_id"},
 	} {
 		var stocks, stockLabelled, others, othersLabelled int
-		if err := db.QueryRow(`SELECT count(*) FILTER (WHERE l.origin = 'stock'), count(*) FILTER (WHERE l.origin = 'stock' AND v.source = 'flokkit' AND v.signer = ?),
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FILTER (WHERE l.origin = 'stock'), count(*) FILTER (WHERE l.origin = 'stock' AND v.source = 'flokkit' AND v.signer = $1),
 			count(*) FILTER (WHERE l.origin <> 'stock'), count(*) FILTER (WHERE l.origin <> 'stock' AND v.source = 'here' AND v.signer = '')
 			FROM `+q.table+` v JOIN `+q.library+` l ON l.id = v.`+q.key, signer).Scan(&stocks, &stockLabelled, &others, &othersLabelled); err != nil {
 			t.Fatal(err)
@@ -58,7 +59,7 @@ func TestMigration168RecordsEachVersionsSourceAndSigner(t *testing.T) {
 		if stocks == 0 || others == 0 || stocks != stockLabelled || others != othersLabelled {
 			t.Errorf("%s: %d stock, %d flokkit signed %q; %d others, %d here", q.table, stocks, stockLabelled, signer, others, othersLabelled)
 		}
-		if _, err := db.Exec(`UPDATE ` + q.table + ` SET source = ''`); err == nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `UPDATE `+q.table+` SET source = ''`); err == nil {
 			t.Errorf("%s accepts an empty source", q.table)
 		}
 	}

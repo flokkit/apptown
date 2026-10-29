@@ -60,10 +60,10 @@ func TestRemoveProjectInKeepsOtherProjects(t *testing.T) {
 	for _, table := range []string{"policies", "guidance_imports", "project_lanes", "project_pi_extensions", "project_packs", "project_adoptions", "adoptions"} {
 		var na, nb int
 		// sql-guarantee: removal must clear every table adoption owns for one project and leave a neighbour's rows; no owner read lists every table's rows.
-		if err := db.QueryRow(`SELECT COUNT(*) FROM `+table+` WHERE project_id=?`, a).Scan(&na); err != nil {
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM `+table+` WHERE project_id=$1`, a).Scan(&na); err != nil {
 			t.Fatal(err)
 		}
-		if err := db.QueryRow(`SELECT COUNT(*) FROM `+table+` WHERE project_id=?`, b).Scan(&nb); err != nil {
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM `+table+` WHERE project_id=$1`, b).Scan(&nb); err != nil {
 			t.Fatal(err)
 		}
 		if na != 0 || nb != 1 {

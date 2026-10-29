@@ -58,7 +58,7 @@ func TestTransparentReadSeedFailureAndExistingChoices(t *testing.T) {
 		// An earlier release's owner recorded an Auditor grant at a project
 		// when asked; this build's owner refuses a role away from its scope.
 		// sql-guarantee: a revoked Auditor grant at a project, which no current owner operation can write.
-		if _, err := db.Exec(`INSERT INTO grants (id, subject_type, subject, role_name, scope_type, scope_id, created_at, revoked_at) VALUES (?, 'group', ?, ?, 'project', ?, ?, ?)`,
+		if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO grants (id, subject_type, subject, role_name, scope_type, scope_id, created_at, revoked_at) VALUES ($1, 'group', $2, $3, 'project', $4, $5, $6)`,
 			idstest.N(900), GroupAllUsers, access.RoleAuditor, idstest.N(1).String(), time.Now(), time.Now()); err != nil {
 			t.Fatal(err)
 		}

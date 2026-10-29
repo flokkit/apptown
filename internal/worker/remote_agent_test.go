@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/execfile"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/stock"
 
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
@@ -287,6 +288,20 @@ func TestAChatsFilesStayInsideItsDirectory(t *testing.T) {
 	}
 }
 
+// hasBlob asks the worker whether it keeps the blob (HEAD /v1/blobs/{sum}).
+func hasBlob(t *testing.T, c worker.SessionClient, sum string) bool {
+	t.Helper()
+	resp, err := execution.WorkerClient{URL: c.URL, Client: c.Client}.Do(context.Background(), http.MethodHead, "/v1/blobs/"+sum, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("asking for blob %s: %s", sum, resp.Status)
+	}
+	return resp.StatusCode == http.StatusOK
+}
+
 // A blob is kept only under the digest of what was sent, holds one entry
 // named "content", and carries no symbolic links.
 func TestBlobsAreNamedByTheirContent(t *testing.T) {
@@ -297,21 +312,21 @@ func TestBlobsAreNamedByTheirContent(t *testing.T) {
 		"another name": tarOf(t, entry{name: "other", body: "x"}),
 		"a link":       tarOf(t, entry{name: "content", link: "/etc/passwd"}),
 	} {
-		if err := c.client.PutBlob(ctx, digest(body), bytes.NewReader(body)); err == nil {
+		if err := c.client.EnsureBlob(ctx, digest(body), body); err == nil {
 			t.Fatalf("%s was accepted", name)
 		}
 	}
-	if err := c.client.PutBlob(ctx, digest(good), bytes.NewReader(tarOf(t, entry{name: "content", body: "other"}))); err == nil {
+	if err := c.client.EnsureBlob(ctx, digest(good), tarOf(t, entry{name: "content", body: "other"})); err == nil {
 		t.Fatal("a blob whose digest is not its name was accepted")
 	}
-	if has, err := c.client.HasBlob(ctx, digest(good)); err != nil || has {
-		t.Fatalf("a refused blob is kept: %v %v", has, err)
+	if has := hasBlob(t, c.client, digest(good)); has {
+		t.Fatal("a refused blob is kept")
 	}
-	if err := c.client.PutBlob(ctx, digest(good), bytes.NewReader(good)); err != nil {
+	if err := c.client.EnsureBlob(ctx, digest(good), good); err != nil {
 		t.Fatal(err)
 	}
-	if has, err := c.client.HasBlob(ctx, digest(good)); err != nil || !has {
-		t.Fatalf("a sent blob: %v %v", has, err)
+	if has := hasBlob(t, c.client, digest(good)); !has {
+		t.Fatal("a sent blob is not kept")
 	}
 	if got, err := os.ReadFile(filepath.Join(c.state, "blobs", digest(good), "content")); err != nil || string(got) != "binary" {
 		t.Fatalf("the blob's content: %q %v", got, err)

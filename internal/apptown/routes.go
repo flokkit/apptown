@@ -12,6 +12,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/numbered"
 
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
@@ -325,7 +326,7 @@ func webHandler() http.HandlerFunc { return web.DistHandler().ServeHTTP }
 // change's or a run's friendly form ("egg-catch#12", read with the project's
 // current slug). Anything else is not a reference to the resolver's record.
 func recordByName(ctx context.Context, projects *project.Projects, db database.Queryer, resolver, ref string) (ids.ID, error) {
-	if slug, number, ok := workflow.ParseChangeNumber(ref); ok && (resolver == "change" || resolver == "run") {
+	if slug, number, ok := numbered.Parse(ref); ok && (resolver == "change" || resolver == "run") {
 		p, err := projects.BySlug(ctx, slug)
 		if err != nil {
 			return ids.Nil, err

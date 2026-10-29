@@ -23,7 +23,7 @@ func TestRefreshAssertionsOwnsSelectionAndContinuesAfterFailure(t *testing.T) {
 		id := insertStoredStep(t, q.db, workflowsql.InsertStageStepParams{ID: ids.New(time.Now()), RunID: run.ID, Stage: row.stage, Name: "leave-alone", Type: "artifact/require", Status: row.status})
 		if row.override != "" {
 			// sql-guarantee: the selection law needs a failed overridden row; OverrideStep also changes status, reason, finish time, and emits the command receipt.
-			completionExec(t, q.db, `UPDATE steps SET override_by=? WHERE id=?`, row.override, id)
+			completionExec(t, q.db, `UPDATE steps SET override_by=$1 WHERE id=$2`, row.override, id)
 		}
 	}
 	insertTextArtifactForTest(t, q.db, run.ID, "report", "", "", "", time.Time{})
@@ -53,7 +53,7 @@ func TestStaleVerdictReopens(t *testing.T) {
 	q, run, _ := activityFixture(t)
 	storedReadyStart(t, q.db, run.ID)
 	// sql-guarantee: stale-verdict recovery starts after the prior stage rows are removed; no owner command deletes every step of a live run.
-	completionExec(t, q.db, `DELETE FROM steps WHERE run_id=?`, run.ID)
+	completionExec(t, q.db, `DELETE FROM steps WHERE run_id=$1`, run.ID)
 	dispatched := map[ids.ID]bool{}
 	runners := map[string]Runner{}
 	for _, kind := range []string{"scan", "preview"} {
@@ -64,11 +64,11 @@ func TestStaleVerdictReopens(t *testing.T) {
 	// Agent finished at t2; a scan verdict finished at t1 (before the work)
 	// and another at t3 (after it).
 	// sql-guarantee: stale-verdict ordering depends on four fixed finished_at values; guarded step mutations stamp the current database time.
-	_, _ = q.db.Exec(`INSERT INTO steps (id,run_id, stage, name, type, status, config_json, evidence_json, finished_at) VALUES
-		(?,?,'finish','work','agent/pi','pass','{}','{}','2026-01-01T00:00:02Z'),
-		(?,?,'finish','scan-old','scan','pass','{}','{}','2026-01-01T00:00:01Z'),
-		(?,?,'finish','scan-new','scan','pass','{}','{}','2026-01-01T00:00:03Z'),
-		(?,?,'finish','boot-skipped','preview','skipped','{}','{}','2026-01-01T00:00:01Z')`, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID)
+	_, _ = q.db.SQL().ExecContext(context.Background(), `INSERT INTO steps (id,run_id, stage, name, type, status, config_json, evidence_json, finished_at) VALUES
+		($1,$2,'finish','work','agent/pi','pass','{}','{}','2026-01-01T00:00:02Z'),
+		($3,$4,'finish','scan-old','scan','pass','{}','{}','2026-01-01T00:00:01Z'),
+		($5,$6,'finish','scan-new','scan','pass','{}','{}','2026-01-01T00:00:03Z'),
+		($7,$8,'finish','boot-skipped','preview','skipped','{}','{}','2026-01-01T00:00:01Z')`, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID, ids.New(time.Now()), run.ID)
 	var oldID, newID, skippedID ids.ID
 	for _, step := range storedSteps(t, q.db) {
 		switch step.Name {

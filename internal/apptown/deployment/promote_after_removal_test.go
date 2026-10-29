@@ -20,7 +20,7 @@ func TestAReleaseAdmittedWithAPromoteAfterKeyStillExecutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: the stored attributes of a request admitted by an older AppTown, which the current API cannot write.
-	if _, err := w.db.Exec(`UPDATE release_requests SET attributes_json='{"feed":"promotion","audience":"team","data":"synthetic","promoteAfter":"main"}' WHERE release_id=$1`, accepted.ID); err != nil {
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE release_requests SET attributes_json='{"feed":"promotion","audience":"team","data":"synthetic","promoteAfter":"main"}' WHERE release_id=$1`, accepted.ID); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.s.ExecuteRelease(context.Background(), accepted.ID); err != nil {

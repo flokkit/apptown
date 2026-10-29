@@ -66,7 +66,7 @@ func (r RoutineInspector) observe(ctx context.Context, source workflow.Source) (
 		if err != nil {
 			return err
 		}
-		out.base, err = scm.ForkBase(ctx, repo, source.DefaultBranch, out.tip, source.ChangeBaseSHA)
+		out.base, err = scm.ForkBase(ctx, repo, repo, source.DefaultBranch, out.tip, source.ChangeBaseSHA)
 		if err != nil {
 			return err
 		}

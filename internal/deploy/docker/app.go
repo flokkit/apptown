@@ -404,7 +404,7 @@ func (p *Probe) check(ctx context.Context, dk Scope, container, url string, time
 		defer stop()
 
 		target := strings.TrimRight(url, "/") + "/" + strings.TrimLeft(probe.Path, "/")
-		ask := appcontract.ReadinessRequest{URL: target, Headers: probe.Headers, Expect: probe.Expect, Body: probe.Body, Timeout: probe.Policy.Timeout}
+		ask := appcontract.ReadinessRequest{URL: target, Headers: probe.Headers, Expect: probe.Expect, Release: probe.Release, Timeout: probe.Policy.Timeout}
 		ready := probe.Path != "" && coldPolicyReady(ctx, probe.Policy, max(timeout, probe.Grace), func(one context.Context) (string, bool) {
 			return coldSample(one, dk, container, func(one context.Context) bool {
 				a, err := appcontract.SampleReadiness(one, check.ProbeTransport, ask)
@@ -439,7 +439,7 @@ func (p *Probe) check(ctx context.Context, dk Scope, container, url string, time
 	}
 	// The front-door headers are the ingress contract's signal (ingress.go);
 	// the answer is judged by the one readiness rule (appcontract.Ready).
-	ask := appcontract.ReadinessRequest{URL: target, Headers: probe.Headers, Expect: probe.Expect, Body: probe.Body, Timeout: 2 * time.Second}
+	ask := appcontract.ReadinessRequest{URL: target, Headers: probe.Headers, Expect: probe.Expect, Release: probe.Release, Timeout: 2 * time.Second}
 	answers := func() bool {
 		a, err := appcontract.SampleReadiness(ctx, check.ProbeTransport, ask)
 		return err == nil && a.Ready

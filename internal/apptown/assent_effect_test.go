@@ -190,7 +190,7 @@ func TestARunAdmittedBeforeTheRuleDoesNotLandOnRecovery(t *testing.T) {
 		t.Fatalf("setup: %+v %v", run, err)
 	}
 	// sql-guarantee: a run admitted before landing authority was recorded; no operation makes one now.
-	if _, err := a.DB.Exec(`UPDATE runs SET landing_authority='' WHERE id=$1`, run.ID); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE runs SET landing_authority='' WHERE id=$1`, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	rebuildWork(t, a, func(*workflow.Dependencies) {})
@@ -212,7 +212,7 @@ func TestTheMergeWaitsForAPersonsApproval(t *testing.T) {
 	ch := engineLandingChange(t, a, p)
 	run := engineLandingRun(t, a, p, ch)
 	// sql-guarantee: the same run without its landing fact, as one admitted by an agent's request.
-	if _, err := a.DB.Exec(`UPDATE runs SET landing_authority='' WHERE id=$1`, run.ID); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE runs SET landing_authority='' WHERE id=$1`, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	observed, err := mergeEffectForTest(t, a, mergeSourceForTest(t, a, run))

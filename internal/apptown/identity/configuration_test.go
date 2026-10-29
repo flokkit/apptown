@@ -75,7 +75,7 @@ func TestConfigurationCommandsRequireCapability(t *testing.T) {
 					}
 					var settings int
 					// sql-guarantee: No owner read lists instance settings; a refused or failed change must store no row at all, and an empty stored value reads the same as none through AdministratorNetworks.
-					if err := s.db.QueryRow(`SELECT count(*) FROM instance_settings WHERE key<>'setup_completed'`).Scan(&settings); err != nil || settings != 0 {
+					if err := s.db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM instance_settings WHERE key<>'setup_completed'`).Scan(&settings); err != nil || settings != 0 {
 						t.Fatalf("denied write: %d settings stored: %v", settings, err)
 					}
 				}
@@ -172,7 +172,7 @@ func TestConfigurationFailuresLeaveNoChange(t *testing.T) {
 				}
 				var settings int
 				// sql-guarantee: No owner read lists instance settings; a refused or failed change must store no row at all, and an empty stored value reads the same as none through AdministratorNetworks.
-				if err := s.db.QueryRow(`SELECT count(*) FROM instance_settings WHERE key<>'setup_completed'`).Scan(&settings); err != nil || settings != 0 {
+				if err := s.db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM instance_settings WHERE key<>'setup_completed'`).Scan(&settings); err != nil || settings != 0 {
 					t.Fatalf("changed setting: %d settings stored: %v", settings, err)
 				}
 				if receipts := ledger(t, s.db, "auth.admin-networks"); len(receipts) != 0 {

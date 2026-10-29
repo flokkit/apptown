@@ -51,7 +51,7 @@ func TestRunServiceAdmitsScopeBeforeResolutionAndBindsInferenceOwner(t *testing.
 				case "moved":
 					other := workflowTestProject(t, db, "other", "Other", "")
 					// sql-guarantee: No owner mutation rehomes a Change; change its project inside authority before resolution to test the admission scope fence.
-					completionExec(t, db, `UPDATE changes SET project_id=?,number=number+100000 WHERE id=?`, other, req.ChangeID)
+					completionExec(t, db, `UPDATE changes SET project_id=$1,number=number+100000 WHERE id=$2`, other, req.ChangeID)
 				case "missing billing identity":
 					who.InferenceOwner = ""
 				}

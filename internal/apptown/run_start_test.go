@@ -82,7 +82,7 @@ func TestRunStartRecoveryPreparesBeforeDispatch(t *testing.T) {
 			}
 			if scenario != "ready" {
 				// sql-guarantee: readiness publication is the run_starts row itself; Work exposes no read of it, and the guarantee is that this exact row stays unready until recovery.
-				completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM run_starts WHERE run_id=? AND NOT ready`, run.ID)
+				completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM run_starts WHERE run_id=$1 AND NOT ready`, run.ID)
 				requireEvents(t, a, 1, runEventKind(run.ID, "branch.error"))
 			}
 			// This new composition has no original request or in-memory definition.
@@ -99,7 +99,7 @@ func TestRunStartRecoveryPreparesBeforeDispatch(t *testing.T) {
 				deps.Runners = map[string]workflow.Runner{"script": func(task *workflow.Execution) {
 					var ready bool
 					// sql-guarantee: readiness publication is the run_starts row itself; Work exposes no read of it, and the guarantee is that this exact row stays unready until recovery.
-					if err := a.DB.QueryRow(`SELECT ready FROM run_starts WHERE run_id=?`, run.ID).Scan(&ready); err != nil || !ready {
+					if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT ready FROM run_starts WHERE run_id=$1`, run.ID).Scan(&ready); err != nil || !ready {
 						t.Errorf("runner started before readiness: %t %v", ready, err)
 						return
 					}
@@ -177,7 +177,7 @@ func TestRunStartRecoveryPreservesChildInvocation(t *testing.T) {
 			}
 			if !empty {
 				// sql-guarantee: readiness publication is the run_starts row itself; Work exposes no read of it, and the guarantee is that this exact row stays unready until recovery.
-				completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM run_starts WHERE run_id=? AND NOT ready`, child.ID)
+				completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM run_starts WHERE run_id=$1 AND NOT ready`, child.ID)
 			}
 			restarted := restartApp(t, a.DB)
 			rebuildWork(t, restarted, func(deps *workflow.Dependencies) {

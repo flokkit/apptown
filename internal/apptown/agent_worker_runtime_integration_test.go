@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	dockercli "github.com/flokkit/apptown/internal/deploy/docker"
 	"io"
 	"net"
 	"net/http"
@@ -91,7 +92,7 @@ func TestIntegrationThePackagedCLIAnswersInsideAStepWithTheDerivedToken(t *testi
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
 	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
-		AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"}})
+		AgentImage: image, ImageLabels: worker.DockerImages{Docker: dockercli.LocalCLI("docker")}})
 	// The API's address is known only once it listens: the App is served
 	// behind a handler that is set once it exists.
 	var api http.Handler
@@ -141,7 +142,7 @@ func TestIntegrationAppTownCheckOnTheWorkerChecksTheAgentsCommitAsFeedback(t *te
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
 	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
-		AgentImage: image, ImageLabels: worker.DockerImages{Binary: "docker"}})
+		AgentImage: image, ImageLabels: worker.DockerImages{Docker: dockercli.LocalCLI("docker")}})
 	var api http.Handler
 	apiURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { api.ServeHTTP(w, r) }))
 	a := testApp(t, Config{AuthMode: "internal", ConsoleAPIURL: apiURL, AgentImage: "apptown-agent",
@@ -212,7 +213,7 @@ func TestIntegrationThePackagedPiRuntimeRunsAnAgentStepOnTheWorker(t *testing.T)
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
 	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
-		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
+		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Docker: dockercli.LocalCLI("docker")}})
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
 	cfg := Config{DataDir: t.TempDir(), AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),
@@ -319,7 +320,7 @@ func TestIntegrationThePackagedPiRuntimeResumesOnlyTheNamedTranscript(t *testing
 	removeTaskContainers(t, namespace)
 	ca := workertest.NewCA(t)
 	srv := workertest.StartServer(t, ca, &worker.Server{ToolVersions: stock.Versions(), State: t.TempDir(), Tasks: execution.DockerTasks{ToolVersions: stock.Versions(), Namespace: namespace},
-		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Binary: "docker"}})
+		AgentImage: runtimeImage, ImageLabels: worker.DockerImages{Docker: dockercli.LocalCLI("docker")}})
 	var gateway http.Handler
 	gatewayURL := serveOnHost(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { gateway.ServeHTTP(w, r) }))
 	cfg := Config{DataDir: t.TempDir(), AgentImage: "apptown-agent", ConsoleCLI: fixtureCLI(t), Worker: workerClientConfig(t, ca, srv.URL),

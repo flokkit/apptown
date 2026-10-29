@@ -45,8 +45,8 @@ cancelled follow-ups; it does not execute them inside the request.
 | Completion cleanup, adoption, parent handoff, landing admission | 3 | Repeat only under existing domain identity and revision checks. |
 | Abandonment cleanup | 3 | Cleanup may retry. |
 | Deleted project's cleanup (`project-cleanup`) | 5 per round | Then the cleanup is marked as needing a person ([project deletion](project-deletion.md)). |
-| Completion/abandonment narrative | 1 | Explicit regeneration/rerun after interruption. |
-| Narrative refresh (`narrative`, key `change/<id>`) | 1 | Asked for when a chat ends, a turn hands back new work, or a branch is imported; merged while queued or running. It runs as AppTown's engine. A refresh that returns an error fails the job; completion is not a publication receipt (`change.narrative-updated` is). The next trigger or the Distill button refreshes again. |
+| Landing-ended notice (`workflow-abandonment`, key `run/<id>/ended`) | 1 | Tells the change's chats once; a chat that could not be told fails the job. |
+| Narrative refresh (`narrative`, key `change/<id>`) | 1 | Asked for when a run completes or is abandoned, a chat ends, a turn hands back new work, or a branch is imported; merged while queued or running. It runs as AppTown's engine. A refresh that returns an error fails the job; completion is not a publication receipt (`change.narrative-updated` is). The next trigger or the Distill button refreshes again. |
 | Backup (`backup`), backup sweep (`backup-sweep`), database backup (`db-backup`) | 1 | Explicit rerun or a later calendar tick. |
 | Release execution and Docker rebuild | 1, 20-minute handler budget | Inspect the admitted attempt or explicitly redeploy. |
 | Operation (`operation`, the `operations` queue) | 1, two-hour handler budget | The operation reads unknown; asking again is a fresh admission. |

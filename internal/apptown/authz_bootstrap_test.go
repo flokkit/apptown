@@ -47,7 +47,7 @@ func TestTransparentReadRevocationSurvivesStartup(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: revoked grants have no owner read; counting live and revoked rows proves startup recorded no new grant, not even one it revoked.
-	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM grants WHERE subject=? AND role_name=?`, identity.GroupAllUsers, access.RoleAuditor)
+	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM grants WHERE subject=$1 AND role_name=$2`, identity.GroupAllUsers, access.RoleAuditor)
 	if got := testGrantID(t, restarted.DB, "group", identity.GroupAllUsers, access.RoleAuditor, "", access.ScopeInstance, ""); !got.IsZero() {
 		t.Fatalf("startup recreated revoked authority: grant %d", got)
 	}
@@ -63,9 +63,9 @@ func TestTransparentReadRevocationSurvivesStartup(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: revoked grants have no owner read; the revoked default must still be recorded beside the regrant.
-	completionCount(t, a.DB, 2, `SELECT COUNT(*) FROM grants WHERE subject=? AND role_name=?`, identity.GroupAllUsers, access.RoleAuditor)
+	completionCount(t, a.DB, 2, `SELECT COUNT(*) FROM grants WHERE subject=$1 AND role_name=$2`, identity.GroupAllUsers, access.RoleAuditor)
 	// sql-guarantee: LiveGrant cannot tell a revoked grant from a missing one.
-	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM grants WHERE id=? AND revoked_at IS NOT NULL`, id)
+	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM grants WHERE id=$1 AND revoked_at IS NOT NULL`, id)
 	if !mayRead(t, restarted, reader, resource) {
 		t.Fatal("explicit read regrant did not authorize the reader")
 	}

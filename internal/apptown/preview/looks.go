@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerlabel"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerlabel"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -359,6 +360,15 @@ func (s *Service) removePreviewForGood(ctx context.Context, name string) error {
 	}
 	if _, err := previewsql.New(s.db.SQL()).ForgetPreviewView(ctx, name); err != nil {
 		return fmt.Errorf("forgetting the look at %s: %w", name, err)
+	}
+	return nil
+}
+
+// RemoveChangeSnapshots removes the snapshots of history a change's
+// previews served, once its preview is gone.
+func (s *Service) RemoveChangeSnapshots(changeID ids.ID) error {
+	if err := os.RemoveAll(s.changeSnapshots(changeID)); err != nil {
+		return fmt.Errorf("removing change %d's preview snapshots: %w", changeID, err)
 	}
 	return nil
 }

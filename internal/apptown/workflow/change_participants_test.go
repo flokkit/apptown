@@ -89,7 +89,7 @@ func TestUpliftAdoptionRequiresShippedScopeBeforeReplay(t *testing.T) {
 				// The foreign type was selected at insertion; a persisted adoption stamp
 				// on a feature is intentionally impossible through StampUpliftAdoption.
 				// sql-guarantee: A feature carrying an adoption stamp must still fail the type guard; StampUpliftAdoption only stamps uplift rows.
-				completionExec(t, q.db, `UPDATE changes SET adopted_revision=7 WHERE id=?`, run.ChangeID)
+				completionExec(t, q.db, `UPDATE changes SET adopted_revision=7 WHERE id=$1`, run.ChangeID)
 			case "state":
 				if err := requireRunWrite(workflowsql.New(q.db.SQL()).StampUpliftAdoption(context.Background(), workflowsql.StampUpliftAdoptionParams{ID: run.ChangeID, ProjectID: run.ProjectID, State: ChangeShipped.String(), AdoptedRevision: 7})); err != nil {
 					t.Fatal(err)

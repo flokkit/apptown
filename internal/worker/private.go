@@ -72,7 +72,7 @@ type privateSet struct {
 
 // privateSetFor names a task's private resources: its worker's and its
 // key's, so no other worker or task shares a name.
-func (s *Server) privateSetFor(key string, req TaskRequest) *privateSet {
+func (s *Server) privateSetFor(key string, req execution.WorkerTaskRequest) *privateSet {
 	prefix := "apptown-private-" + strings.TrimPrefix(s.CheckOwnerLabel(), dockerlabel.Worker+"=") + "-" + key
 	p := &privateSet{Spec: *req.Private, Limits: req.Admission.Limits, Expires: req.Admission.Expires, Network: prefix}
 	if p.Spec.Daemon {

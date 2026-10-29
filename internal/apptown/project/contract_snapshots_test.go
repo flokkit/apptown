@@ -87,7 +87,7 @@ func TestContractSnapshotNativeOnly(t *testing.T) {
 	}
 	var stored string
 	// sql-guarantee: The stored snapshot bytes are the evidence guarantee, and no production read returns contract_snapshots rows; adding one would be test-only API.
-	if err := c.db.QueryRow(`SELECT app_yaml FROM contract_snapshots WHERE project_id=? AND sha=?`, pid, sha["appyaml"]).Scan(&stored); err != nil || stored != string(original) {
+	if err := c.db.SQL().QueryRowContext(context.Background(), `SELECT app_yaml FROM contract_snapshots WHERE project_id=$1 AND sha=$2`, pid, sha["appyaml"]).Scan(&stored); err != nil || stored != string(original) {
 		t.Fatalf("snapshot changed native evidence: %v", err)
 	}
 	assertStatus(t, c, pid, sha["appyaml"], "present", "app-yaml")
@@ -100,7 +100,7 @@ func TestContractSnapshotNativeOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: The stored snapshot bytes are the evidence guarantee, and no production read returns contract_snapshots rows; adding one would be test-only API.
-	if err := c.db.QueryRow(`SELECT app_yaml FROM contract_snapshots WHERE project_id=? AND sha=?`, pid, sha["appyaml"]).Scan(&stored); err != nil || stored != string(original) {
+	if err := c.db.SQL().QueryRowContext(context.Background(), `SELECT app_yaml FROM contract_snapshots WHERE project_id=$1 AND sha=$2`, pid, sha["appyaml"]).Scan(&stored); err != nil || stored != string(original) {
 		t.Fatalf("original evidence unavailable after source removal: %v", err)
 	}
 }
@@ -118,7 +118,7 @@ func TestContractSnapshotIdempotentPerSHA(t *testing.T) {
 	assertStatus(t, c, pid, sha["appyaml"], "present", "app-yaml")
 	var n int
 	// sql-guarantee: The stored snapshot bytes are the evidence guarantee, and no production read returns contract_snapshots rows; adding one would be test-only API.
-	if err := c.db.QueryRow(`SELECT COUNT(*) FROM contract_snapshots WHERE project_id=? AND sha=?`, pid, sha["appyaml"]).Scan(&n); err != nil {
+	if err := c.db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM contract_snapshots WHERE project_id=$1 AND sha=$2`, pid, sha["appyaml"]).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	if n != 1 {
@@ -130,7 +130,7 @@ func assertStatus(t *testing.T, c *Contracts, pid ids.ID, sha, wantStatus, wantF
 	t.Helper()
 	var status, format string
 	// sql-guarantee: The stored snapshot bytes are the evidence guarantee, and no production read returns contract_snapshots rows; adding one would be test-only API.
-	if c.db.QueryRow(`SELECT status, source_format FROM contract_snapshots WHERE project_id=? AND sha=?`, pid, sha).Scan(&status, &format) != nil {
+	if c.db.SQL().QueryRowContext(context.Background(), `SELECT status, source_format FROM contract_snapshots WHERE project_id=$1 AND sha=$2`, pid, sha).Scan(&status, &format) != nil {
 		t.Fatalf("no snapshot row for %s", sha)
 	}
 	if status != wantStatus || format != wantFormat {

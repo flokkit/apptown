@@ -54,7 +54,7 @@ func TestChangeParticipantRequiresProjectAndOwnedRoot(t *testing.T) {
 	}
 	for _, mutation := range []string{"project_id", "change_id", "parent_run_id"} {
 		// sql-guarantee: Independently corrupt project_id, change_id or parent_run_id on the same candidate root to test attachment scope; existing run mutations preserve these admission identities.
-		completionExec(t, w, `UPDATE runs SET `+mutation+`=? WHERE id=?`, other, run.ID)
+		completionExec(t, w, `UPDATE runs SET `+mutation+`=$1 WHERE id=$2`, other, run.ID)
 		err := w.InTx(context.Background(), func(tx *database.Tx) error {
 			if _, err := workflowsql.New(tx.SQL()).ProjectForUpdate(context.Background(), run.ProjectID); err != nil {
 				return err
@@ -66,7 +66,7 @@ func TestChangeParticipantRequiresProjectAndOwnedRoot(t *testing.T) {
 			t.Fatalf("foreign %s attached: %v", mutation, err)
 		}
 		// sql-guarantee: Restore the original candidate's three admission identities between independent attachment-fence cases; no generated run mutation can reparent or repair these fields.
-		completionExec(t, w, `UPDATE runs SET project_id=?,number=number+100000,change_id=?,parent_run_id=NULL WHERE id=?`, run.ProjectID, run.ChangeID, run.ID)
+		completionExec(t, w, `UPDATE runs SET project_id=$1,number=number+100000,change_id=$2,parent_run_id=NULL WHERE id=$3`, run.ProjectID, run.ChangeID, run.ID)
 	}
 	ch := seenChange(t, w, run.ChangeID)
 	expect(t, ch.RunID.IsZero() && ch.State == "in_progress", "refused attachment moved the change: %+v", ch)

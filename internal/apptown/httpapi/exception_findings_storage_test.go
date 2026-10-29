@@ -104,7 +104,7 @@ func TestProjectFindingsListUnreadableReportsAndTheirChange(t *testing.T) {
 		t.Fatalf("a run's unreadable reports must be listed with their reasons, and only those: %s", body)
 	}
 	// sql-guarantee: the fixture's run has a pending approval; no operation completes it.
-	if _, err := f.DB.Exec(`UPDATE runs SET status='done' WHERE id=?`, run.ID); err != nil {
+	if _, err := f.DB.SQL().ExecContext(context.Background(), `UPDATE runs SET status='done' WHERE id=$1`, run.ID); err != nil {
 		t.Fatal(err)
 	}
 	var posture struct {

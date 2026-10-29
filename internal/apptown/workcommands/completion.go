@@ -3,7 +3,6 @@ package workcommands
 import (
 	"context"
 	"errors"
-	"log"
 
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -42,12 +41,6 @@ func (a FollowUps) Complete(ctx context.Context, key string, _ map[string]any) (
 			if ch.State != workflow.ChangeInProgress {
 				err = errors.Join(err, a.Chats.EndChangeChats(ctx, run.ProjectID, ch.ID))
 			}
-		}
-	case workflow.CompletionNarrative:
-		// Durable invocation; replaceable prose retains its best-effort policy.
-		// The narrative is a summary: the next read refreshes it again.
-		if err := a.Narratives.Refresh(engineCaller(ctx), run.ChangeID); err != nil {
-			log.Printf("change %d: refreshing its narrative: %v", run.ChangeID, err)
 		}
 	}
 	if err != nil {

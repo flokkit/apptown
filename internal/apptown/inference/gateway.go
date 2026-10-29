@@ -307,23 +307,31 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-	upstream, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+path, bytes.NewReader(body))
-	if err != nil {
-		fail(503, "invalid inference provider configuration")
-		return
-	}
-	upstream.Header.Set("Content-Type", "application/json")
-	upstream.Header.Set("Accept", r.Header.Get("Accept"))
 	// SDK protocol negotiation only. No cookies, caller identity, supplied
 	// upstream keys, routing headers, or forwarded headers cross this boundary.
+	protocol := http.Header{}
 	for _, h := range []string{"Anthropic-Version", "Anthropic-Beta"} {
 		if v := r.Header.Get(h); v != "" {
-			upstream.Header.Set(h, v)
+			protocol.Set(h, v)
 		}
 	}
-	p.authorize(upstream.Header)
-	resp, err := g.client.Do(upstream)
-	if err != nil {
+	resp, err := g.dispatch(ctx, p, path, body, r.Header.Get("Accept"), protocol)
+	var rejected upstreamRejected
+	switch {
+	case errors.As(err, &rejected):
+		// Upstream errors may echo headers/URLs including provider credentials.
+		// Keep the useful status, but never reflect their body or Location.
+		status, outcome = rejected.status, "rejected"
+		code := status
+		if status < 400 {
+			code = 502
+		}
+		fail(code, fmt.Sprintf("inference provider rejected the request (HTTP %d)", status))
+		return
+	case errors.Is(err, errUnsendable):
+		fail(503, "invalid inference provider configuration")
+		return
+	case err != nil:
 		if ctx.Err() != nil {
 			outcome = "cancelled"
 		}
@@ -332,17 +340,6 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 	status = resp.StatusCode
-	if status < 200 || status >= 300 {
-		// Upstream errors may echo headers/URLs including provider credentials.
-		// Keep the useful status, but never reflect their body or Location.
-		outcome = "rejected"
-		code := status
-		if status < 400 {
-			code = 502
-		}
-		fail(code, fmt.Sprintf("inference provider rejected the request (HTTP %d)", status))
-		return
-	}
 	usage.sse = strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream")
 	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
 	w.WriteHeader(status)
@@ -370,6 +367,46 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+// errUnsendable: the request could not be made from the binding, so
+// nothing was sent and nothing is owed.
+var errUnsendable = errors.New("invalid inference provider configuration")
+
+// upstreamRejected is a provider's answer outside 2xx. Its body is never
+// read: upstream errors may echo credentials.
+type upstreamRejected struct{ status int }
+
+func (e upstreamRejected) Error() string {
+	return fmt.Sprintf("the provider rejected the call (HTTP %d)", e.status)
+}
+
+// dispatch is the one way AppTown sends a model request upstream, for the
+// runtime's streamed calls and for AppTown's own buffered ones: a POST of
+// body to the provider at path with accept, the protocol headers given
+// (an SDK's Anthropic-Version and Anthropic-Beta), and the binding's own
+// headers and credential (authorize). A transport failure is its error; an
+// answer outside 2xx is upstreamRejected, its body closed unread.
+func (g *Gateway) dispatch(ctx context.Context, p *inferenceProvider, path string, body []byte, accept string, protocol http.Header) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+path, bytes.NewReader(body))
+	if err != nil {
+		return nil, errUnsendable
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", accept)
+	for k, v := range protocol {
+		req.Header[k] = v
+	}
+	p.authorize(req.Header)
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		resp.Body.Close()
+		return nil, upstreamRejected{resp.StatusCode}
+	}
+	return resp, nil
 }
 
 // authorize sets the binding's own upstream headers and its credential, in

@@ -76,13 +76,13 @@ func TestWorkOverviewOpenChangesAndRunningStepsKeepTheirScope(t *testing.T) {
 		t.Fatalf("active Change marked idle %+v: %v", open, err)
 	}
 	// sql-guarantee: visibility requires changing only the run Change link to a foreign or restored Change; no Workflow mutation reassigns change_id.
-	completionExec(t, q.db, `UPDATE runs SET change_id=? WHERE id=?`, private, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET change_id=$1 WHERE id=$2`, private, run.ID)
 	running, err = service.RunningSteps(context.Background())
 	if err != nil || len(running) != 1 || running[0].Title != "" {
 		t.Fatalf("foreign Change title leaked %+v: %v", running, err)
 	}
 	// sql-guarantee: visibility requires a deliberately foreign run identity while retaining its existing step and Change links; no Workflow mutation reassigns project_id.
-	completionExec(t, q.db, `UPDATE runs SET change_id=?,project_id=? WHERE id=?`, run.ChangeID, other, run.ID)
+	completionExec(t, q.db, `UPDATE runs SET change_id=$1,project_id=$2 WHERE id=$3`, run.ChangeID, other, run.ID)
 	running, err = service.RunningSteps(context.Background())
 	if err != nil || running == nil || len(running) != 0 {
 		t.Fatalf("foreign Run leaked %+v: %v", running, err)
@@ -110,7 +110,7 @@ func TestWorkOverviewRefusesChangedScopeDuringAuthorization(t *testing.T) {
 		}
 		if p.Action == actionReadRun {
 			// sql-guarantee: visibility requires a deliberately foreign run identity while retaining its existing step and Change links; no Workflow mutation reassigns project_id.
-			completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+			completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 		}
 		return "reader", nil
 	})}, Runtime{})

@@ -198,7 +198,7 @@ func TestMCPInitialize(t *testing.T) {
 	}
 	// One audit row per session, naming the client.
 	var kind, subject, actor string
-	if err := a.DB.QueryRow(`SELECT kind, subject, actor FROM audit_log WHERE kind='mcp.session'`).Scan(&kind, &subject, &actor); err != nil {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT kind, subject, actor FROM audit_log WHERE kind='mcp.session'`).Scan(&kind, &subject, &actor); err != nil {
 		t.Fatalf("initialize must audit the session: %v", err)
 	}
 	if subject != "claude-code" || actor != "bls" {

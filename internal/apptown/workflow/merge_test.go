@@ -47,7 +47,7 @@ func TestMergeOwnerSettlesOnlyTheGateObservedBeforeExternalWork(t *testing.T) {
 				}
 				if changed {
 					// sql-guarantee: Merge settlement lockRunSnapshotIn compares the whole Run, including UpdatedAt; InvalidateRunDecision also stamps updated_at and could reject the snapshot without checking retry_revision, so change only retry_revision at this original interference point.
-					completionExec(t, q.db, `UPDATE runs SET retry_revision=1 WHERE id=?`, run.ID)
+					completionExec(t, q.db, `UPDATE runs SET retry_revision=1 WHERE id=$1`, run.ID)
 				}
 			}}
 			service := scm.New(q.db, NewSCMWork(q.db, t.TempDir(), nil), &scm.RepositoryLocks{}, nil)

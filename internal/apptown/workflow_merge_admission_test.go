@@ -189,7 +189,7 @@ func TestUpliftRefusalIsNotReportedAsAGitConflict(t *testing.T) {
 	a, source, approval, _ := mergeAdmissionFixture(t)
 	approveMergeFixture(t, a, approval)
 	// sql-guarantee: Make the same admitted Change an uplift with a deliberately stale expected revision; creation would allocate another Change and cannot mutate this pinned source under the merge gate.
-	completionExec(t, a.DB, `UPDATE changes SET type='uplift',expected_revision=99 WHERE id=?`, source.ChangeID)
+	completionExec(t, a.DB, `UPDATE changes SET type='uplift',expected_revision=99 WHERE id=$1`, source.ChangeID)
 	run, err := workflow.ReadRunIn(context.Background(), a.DB, source.RunID)
 	if err != nil {
 		t.Fatal(err)

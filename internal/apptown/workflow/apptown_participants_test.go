@@ -54,11 +54,11 @@ func TestAppTownParticipants(t *testing.T) {
 	var body string
 	var bytes []byte
 	// sql-guarantee: which column holds the body (text or bytes) is the storage guarantee; the artifact read merges them.
-	if err := db.QueryRow(`SELECT body, body_bytes FROM artifacts WHERE id=?`, bid).Scan(&body, &bytes); err != nil || body != "" || string(bytes) != binary {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT body, body_bytes FROM artifacts WHERE id=$1`, bid).Scan(&body, &bytes); err != nil || body != "" || string(bytes) != binary {
 		t.Fatalf("bytes go to body_bytes unchanged: %v %q %q", err, body, bytes)
 	}
 	// sql-guarantee: which column holds the body (text or bytes) is the storage guarantee; the artifact read merges them.
-	if err := db.QueryRow(`SELECT body, body_bytes FROM artifacts WHERE id=?`, id).Scan(&body, &bytes); err != nil || body != "all good" || bytes != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT body, body_bytes FROM artifacts WHERE id=$1`, id).Scan(&body, &bytes); err != nil || body != "all good" || bytes != nil {
 		t.Fatalf("text goes to body: %v %q", err, body)
 	}
 }

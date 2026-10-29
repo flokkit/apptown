@@ -207,7 +207,7 @@ func TestAnAgentAndAScriptNeverShareTheFolder(t *testing.T) {
 				if failedStop {
 					// Timeout, failed stop, step failure and task retention use production recovery.
 					// sql-guarantee: the deadline passes during the outage, without waiting out the ten-minute budget.
-					if _, err := a.DB.Exec(`UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=?`, key); err != nil {
+					if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=$1`, key); err != nil {
 						t.Fatal(err)
 					}
 					e, err := a.Work.RecoverExecution(a.asEngine(ctx), script.ID, 1)
@@ -901,7 +901,7 @@ func TestNoAttemptStartsBesideAScriptTaskThatHasNotStopped(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: the recorded deadline passes during the outage, without waiting out the ten-minute budget.
-	if _, err := a.DB.Exec(`UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=?`, first); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=$1`, first); err != nil {
 		t.Fatal(err)
 	}
 	b := restarted(t, a)
@@ -1093,7 +1093,7 @@ func TestARestartWaitsForASiblingStepLeftWritingTheFolder(t *testing.T) {
 	calls := 0
 	installFakePi(t, a, func(_ int, req ExecRequest) ExecOutcome {
 		calls++
-		if strings.HasPrefix(req.Name, "apptown-review-") {
+		if strings.HasPrefix(req.Name, execution.StepContainer(review, "review")) {
 			d.survive(req)
 			return ExecOutcome{TimedOut: true, RunErr: context.DeadlineExceeded, CleanupErr: errors.New("reviewer still writing")}
 		}

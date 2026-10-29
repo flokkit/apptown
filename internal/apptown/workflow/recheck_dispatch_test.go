@@ -36,7 +36,7 @@ func TestStaleCheckRefreshDispatchAndRestart(t *testing.T) {
 				}
 			}
 			// sql-guarantee: Backdate only finished scan/review rows so recheck's clearing of their prior finished_at is observable; generated finishing operations use database now() without a clock parameter.
-			completionExec(t, owner.db, `UPDATE steps SET finished_at=now()-interval '1 minute' WHERE run_id=? AND type IN ('scan','agent/review')`, run.ID)
+			completionExec(t, owner.db, `UPDATE steps SET finished_at=now()-interval '1 minute' WHERE run_id=$1 AND type IN ('scan','agent/review')`, run.ID)
 			var calls atomic.Int32
 			bind := func() *Service {
 				deps := Dependencies{Automatic: []string{"scan", "agent/review", "agent/pi"}, Runners: map[string]Runner{}, Report: func(err error) { t.Error(err) }}

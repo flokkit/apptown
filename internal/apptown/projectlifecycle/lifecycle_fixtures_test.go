@@ -51,7 +51,7 @@ func newOwnerFixtureOn(t *testing.T, syncStock bool, now func() time.Time) owner
 func ownerCount(t *testing.T, db *database.DB, want int, query string, args ...any) {
 	t.Helper()
 	var got int
-	if err := db.QueryRow(query, args...).Scan(&got); err != nil || got != want {
+	if err := db.SQL().QueryRowContext(context.Background(), query, args...).Scan(&got); err != nil || got != want {
 		t.Fatalf("count %d, want %d: %v", got, want, err)
 	}
 }

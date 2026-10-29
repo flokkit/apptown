@@ -84,10 +84,10 @@ func TestQueuedReleaseRechecksTheRequestersCurrentAuthority(t *testing.T) {
 			case "renamed requester", "old name reused":
 				// sql-guarantee: no current account command renames an account;
 				// sql-guarantee: model retained UUID identity across a name change and reuse.
-				completionExec(t, a.DB, `UPDATE users SET username='alice-renamed' WHERE principal_id=?`, captured.ID)
+				completionExec(t, a.DB, `UPDATE users SET username='alice-renamed' WHERE principal_id=$1`, captured.ID)
 				// sql-guarantee: keep the principal's display name consistent
 				// sql-guarantee: previously admitted authority retains its UUID.
-				completionExec(t, a.DB, `UPDATE principals SET name='alice-renamed' WHERE id=?`, captured.ID)
+				completionExec(t, a.DB, `UPDATE principals SET name='alice-renamed' WHERE id=$1`, captured.ID)
 				if _, err := a.Access.EnsureUser(t.Context(), "alice"); err != nil {
 					t.Fatal(err)
 				}
@@ -112,7 +112,7 @@ func TestQueuedReleaseRechecksTheRequestersCurrentAuthority(t *testing.T) {
 				}
 				// sql-guarantee: represent installed legacy/corrupt request
 				// sql-guarantee: current admission cannot create these snapshots.
-				completionExec(t, a.DB, `UPDATE release_requests SET authority_json=?::jsonb WHERE release_id=?`, raw, accepted.ID)
+				completionExec(t, a.DB, `UPDATE release_requests SET authority_json=$1::jsonb WHERE release_id=$2`, raw, accepted.ID)
 			case "account disabled":
 				disabled := true
 				if err := a.Access.SaveUser(t.Context(), identity.AccountChange{Username: "alice", Disabled: &disabled}, admin); err != nil {

@@ -162,7 +162,7 @@ func TestRiverPeriodicJobsDoNotRunOnRestart(t *testing.T) {
 		}
 		var stray int
 		// sql-guarantee: jobs.List reads only forge.operation rows; a calendar job enqueued under any other River kind must also be absent.
-		if err := db.QueryRow(`SELECT COUNT(*) FROM river_job WHERE args->>'operation'='backup'`).Scan(&stray); err != nil || stray != 0 {
+		if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM river_job WHERE args->>'operation'='backup'`).Scan(&stray); err != nil || stray != 0 {
 			t.Fatalf("restart enqueued a calendar job: %d %v", stray, err)
 		}
 	}
@@ -181,7 +181,7 @@ func failNextJobInsert(t *testing.T, db *database.DB) {
 }
 func queueExec(t *testing.T, db *database.DB, query string) {
 	t.Helper()
-	if _, err := db.Exec(query); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), query); err != nil {
 		t.Fatal(err)
 	}
 }

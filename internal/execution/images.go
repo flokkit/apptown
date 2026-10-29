@@ -4,9 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/dockerbuild"
-	"github.com/flokkit/apptown/internal/dockerlabel"
-	"github.com/google/go-containerregistry/pkg/name"
 	"io"
 	"os"
 	"os/exec"
@@ -14,6 +11,10 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/dockerbuild"
+	"github.com/flokkit/apptown/internal/dockerlabel"
+	"github.com/google/go-containerregistry/pkg/name"
 )
 
 // ImageRequest asks for an application image a check runs in or scans
@@ -111,7 +112,7 @@ func PrepareImage(ctx context.Context, docker DockerCLI, build Build, req ImageR
 	ctx, cancel := context.WithTimeout(ctx, req.Timeout)
 	defer cancel()
 	if req.Tag != "" {
-		if a, found, err := inspectImage(ctx, docker, req.Tag); err != nil {
+		if a, found, err := InspectImage(ctx, docker, req.Tag); err != nil {
 			return ImageAnswer{Err: err.Error()}
 		} else if found {
 			return a
@@ -152,7 +153,7 @@ func PrepareImage(ctx context.Context, docker DockerCLI, build Build, req ImageR
 		if out, err := docker(ctx, nil, append(config, "pull", req.Pull)...); err != nil {
 			return ImageAnswer{Err: fmt.Sprintf("docker pull %s: %v: %s", req.Pull, err, bounded(out))}
 		}
-		if a, found, err := inspectImage(ctx, docker, req.Pull); found && err == nil {
+		if a, found, err := InspectImage(ctx, docker, req.Pull); found && err == nil {
 			return a
 		} else if err != nil {
 			return ImageAnswer{Err: err.Error()}
@@ -177,7 +178,7 @@ func PrepareImage(ctx context.Context, docker DockerCLI, build Build, req ImageR
 		if out, err := build(ctx, "--label", CheckLabel, "-t", req.Tag, filepath.Join(req.Tree, req.Context)); err != nil {
 			return ImageAnswer{Err: fmt.Sprintf("building the app image: %v: %s", err, bounded(out))}
 		}
-		if a, found, err := inspectImage(ctx, docker, req.Tag); found && err == nil {
+		if a, found, err := InspectImage(ctx, docker, req.Tag); found && err == nil {
 			return a
 		} else if err != nil {
 			return ImageAnswer{Err: err.Error()}
@@ -187,10 +188,10 @@ func PrepareImage(ctx context.Context, docker DockerCLI, build Build, req ImageR
 	return ImageAnswer{} // asked only whether Tag is there, and it is not
 }
 
-// inspectImage answers whether ref is on the Docker: found, not found (the
+// InspectImage answers whether ref is on the Docker: found, not found (the
 // daemon says there is no such image), or an error (it could not be asked,
 // or its answer could not be read). Only "not found" is a cache miss.
-func inspectImage(ctx context.Context, docker DockerCLI, ref string) (ImageAnswer, bool, error) {
+func InspectImage(ctx context.Context, docker DockerCLI, ref string) (ImageAnswer, bool, error) {
 	out, err := docker(ctx, nil, "image", "inspect", "--format", "{{json .Id}} {{json (index .Config \"Labels\")}}", ref)
 	if err != nil {
 		said := strings.ToLower(string(out) + " " + err.Error())

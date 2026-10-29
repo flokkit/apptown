@@ -20,11 +20,11 @@ type Driver struct {
 	Now func() time.Time // completion time of a current readiness sample
 	// Allowed rechecks the caller before boot phases; nil is an unguarded caller.
 	Allowed      func(context.Context) error
-	ServingLabel string                                                 // immutable owner-supplied routing label, independent of source.Slug
-	Scope        func(context.Context) (Scope, error)                   // which daemon: AppTown's own, or an attached host's
-	Boot         Booter                                                 // the stack boot
-	URL          func(servingLabel, deployment string, port int) string // the address a deployment is reached at
-	AfterRelease func(p deploy.Placement)                               // what follows a release (a backup)
+	ServingLabel string                                                          // immutable owner-supplied routing label, independent of source.Slug
+	Scope        func(context.Context) (Scope, error)                            // which daemon: AppTown's own, or an attached host's
+	Boot         Booter                                                          // the stack boot
+	URL          func(servingLabel, deployment string, port int) (string, error) // the address a deployment is reached at
+	AfterRelease func(p deploy.Placement)                                        // what follows a release (a backup)
 	// Registry is the credential a release's images by digest are pulled
 	// with, and Scratch the folder each pull's own Docker configuration is
 	// written under (RecordedImages). A credential that cannot be read is
@@ -98,9 +98,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err := ctx.Err(); err != nil {
 		return deploy.Observation{}, err
 	}
-	originURL := d.URL(d.ServingLabel, p.Name, p.HostPort)
-	if dk.Remote() {
-		originURL = dk.FrontDoor(d.ServingLabel, p.Name, p.HostPort)
+	originURL, err := d.URL(d.ServingLabel, p.Name, p.HostPort)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	origin, err := ExactOrigin(originURL)
 	if err != nil {
@@ -142,9 +142,9 @@ func (d *Driver) Reconcile(ctx context.Context, p deploy.Placement, generation i
 	if err != nil {
 		return deploy.Observation{}, err
 	}
-	url := d.URL(d.ServingLabel, p.Name, res.HostPort)
-	if dk.Remote() {
-		url = dk.FrontDoor(d.ServingLabel, p.Name, res.HostPort)
+	url, err := d.URL(d.ServingLabel, p.Name, res.HostPort)
+	if err != nil {
+		return deploy.Observation{}, deploy.Terminal(err)
 	}
 	o, err := RecordBoot(ctx, dk, id, name, res.Image(), url, res.HostPort, checkpoint)
 	if err != nil {

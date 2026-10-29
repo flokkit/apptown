@@ -85,7 +85,7 @@ func TestDriverRunsAPlacementFromSource(t *testing.T) {
 	d := &Driver{ServingLabel: "stable-serving",
 		Scope:        func(context.Context) (Scope, error) { return Scope{Client: daemon}, nil },
 		Boot:         boot,
-		URL:          func(_, _ string, port int) string { return fmt.Sprintf("http://127.0.0.1:%d", port) },
+		URL:          func(_, _ string, port int) (string, error) { return fmt.Sprintf("http://127.0.0.1:%d", port), nil },
 		AfterRelease: func(p deploy.Placement) { released = append(released, p.Name) },
 		DataClass:    "production",
 	}
@@ -295,7 +295,7 @@ func TestAFailedBootIsAKnownFailure(t *testing.T) {
 			d := &Driver{ServingLabel: "stable-serving",
 				Scope: func(context.Context) (Scope, error) { return Scope{Client: &fakeDaemon{}}, nil },
 				Boot:  failingBoot{phasedErr(phase)},
-				URL:   func(_, _ string, port int) string { return "" },
+				URL:   func(_, _ string, port int) (string, error) { return "", nil },
 			}
 			c, err := appcontract.Parse([]byte("app:\n  game:\n    static: .\n    public: true\n"))
 			if err != nil {
@@ -319,7 +319,7 @@ func TestADriverBootWhoseNeedDockerCalledUnhealthyIsAKnownFailure(t *testing.T) 
 	d := &Driver{ServingLabel: "stable-serving",
 		Scope: func(context.Context) (Scope, error) { return Scope{Client: &fakeDaemon{}}, nil },
 		Boot:  failingBoot{&BootError{Phase: PhaseNeeds, Err: deploy.Terminal(errors.New("the postgres service is unhealthy"))}},
-		URL:   func(_, _ string, port int) string { return "" },
+		URL:   func(_, _ string, port int) (string, error) { return "", nil },
 	}
 	c, err := appcontract.Parse([]byte("app:\n  game:\n    static: .\n    public: true\n"))
 	if err != nil {
@@ -361,7 +361,7 @@ func TestDriverBootsTheImagesItsSourceNames(t *testing.T) {
 		daemon := &fakeDaemon{}
 		boot := &fakeBoot{daemon: daemon}
 		d := &Driver{ServingLabel: "stable-serving", Scope: func(context.Context) (Scope, error) { return Scope{Client: daemon}, nil }, Boot: boot,
-			URL: func(_, _ string, port int) string { return "https://stable-serving.example" }, AfterRelease: func(deploy.Placement) {}}
+			URL: func(_, _ string, port int) (string, error) { return "https://stable-serving.example", nil }, AfterRelease: func(deploy.Placement) {}}
 		art := deploy.Artifact{Kind: "docker-source", Body: body, Hash: deploy.ConfigHash(string(body)),
 			Source: &deploy.Source{Workspace: t.TempDir(), Revision: "abc", Slug: "game", Contract: c, Images: images, Init: map[string]string{}}}
 		if _, err := d.Reconcile(context.Background(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil }); err != nil {
@@ -416,9 +416,14 @@ func TestDriverKeepsServingIdentitySeparateFromDisplayAddress(t *testing.T) {
 				scope = scope.WithHost("ssh://target", "host.example", "apps.example")
 			}
 			var observedLabel string
-			d := Driver{ServingLabel: "original", Scope: func(context.Context) (Scope, error) { return scope, nil }, Boot: boot, AfterRelease: func(deploy.Placement) {}, URL: func(label, _ string, _ int) string {
+			d := Driver{ServingLabel: "original", Scope: func(context.Context) (Scope, error) { return scope, nil }, Boot: boot, AfterRelease: func(deploy.Placement) {}, URL: func(label, _ string, _ int) (string, error) {
 				observedLabel = label
-				return "https://" + label + ".main.example"
+				// The address is the caller's choice (deployment.dockerReach):
+				// the attached host's front door, or this AppTown's routes.
+				if remote {
+					return "https://" + label + ".apps.example", nil
+				}
+				return "https://" + label + ".main.example", nil
 			}}
 			out, err := d.Reconcile(t.Context(), deploy.Placement{ID: idstest.N(7), Label: "7", Name: "main"}, 1, art, "key", func(string, ...any) {}, func(map[string]any) error { return nil })
 			want := "https://original.main.example"

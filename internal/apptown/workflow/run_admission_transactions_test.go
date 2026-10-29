@@ -297,7 +297,7 @@ func TestRunStartChildConfigPreservesExactIdentity(t *testing.T) {
 					t.Fatalf("changed exact configuration was accepted: %+v %v", child, err)
 				}
 				// sql-guarantee: no child of this call exists under any change; no owner read lists runs by parent step.
-				completionCount(t, store.db, 0, `SELECT COUNT(*) FROM runs WHERE parent_step_id=?`, id)
+				completionCount(t, store.db, 0, `SELECT COUNT(*) FROM runs WHERE parent_step_id=$1`, id)
 				call := storedStep(t, store.db, id)
 				expect(t, call.Status == StatusPending && call.Attempt == 0, "refused call: %s %d", call.Status, call.Attempt)
 			} else if err != nil || child == nil {

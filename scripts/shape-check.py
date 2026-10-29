@@ -96,7 +96,7 @@ ALLOWED = {
     "workcommands":     {"adoption", "conformance", "integration", "preview", "project", "projectlifecycle",
                          "remediation", "repositoryedit", "scm", "verification", "workflow"},
     "inference":        {"console", "conversation", "integration", "modelcall", "secret", "usage", "workflow"},
-    "changeadds":       {"adoption", "secret", "workflow"},
+    "changeadds":       {"adoption", "scm", "secret", "workflow"},
     "evals":            {"adoption", "complaint", "conformance", "project", "projectlifecycle", "scm", "usage",
                          "verification", "workflow", "wow"},
     "instancebackup":   {"dataprotection", "deployment", "secret", "version"},

@@ -66,7 +66,7 @@ func TestATaskThatExitedInTimeKeepsItsResultAfterAnOutage(t *testing.T) {
 		t.Fatalf("must finish before simulated outage: %+v %v", obs, err)
 	}
 	// sql-guarantee: represent the clock passing during downtime, after exit.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=?`, key); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=$1`, key); err != nil {
 		t.Fatal(err)
 	}
 	a.tasks.Driver = slowWait{fake}
@@ -88,7 +88,7 @@ func TestNothingStartsAfterTheRecordedDeadline(t *testing.T) {
 	key := taskKeyOf(step)
 	// The execution budget ended, but the five-minute grace for observing and stopping has not: grace must not authorize fresh execution.
 	// sql-guarantee: time cannot pass in a test; the deadline is moved instead of waiting for it.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=?`, key); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=$1`, key); err != nil {
 		t.Fatal(err)
 	}
 	b := restarted(t, a)
@@ -176,7 +176,7 @@ func TestAnUnansweredBackendCannotHoldRecoveryPastTheDeadline(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: simulate an outage extending past the recorded deadline.
-	if _, err := a.db.Exec(`UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=?`, taskKeyOf(step)); err != nil {
+	if _, err := a.db.SQL().ExecContext(context.Background(), `UPDATE task_attempts SET deadline=now()-interval '1 second' WHERE operation=$1`, taskKeyOf(step)); err != nil {
 		t.Fatal(err)
 	}
 	release := make(chan struct{})

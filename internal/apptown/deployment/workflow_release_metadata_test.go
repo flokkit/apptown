@@ -36,7 +36,7 @@ func TestWorkflowReleaseSelectsScopedMetadata(t *testing.T) {
 			run := idstest.N(17) // opaque Work identity supplied to the participant
 			deployment := storedDeploymentFixture(t, db, deploymentsql.EnsureStandingParams{ID: ids.New(time.Now()), ProjectID: project, Name: "main"})
 			// sql-guarantee: TestWorkflowReleaseSelectsScopedMetadata needs one sparse planned number-seven row so MAX-based numbering yields eight independently of row count and state; CreateRelease only allocates numbers.
-			mustInsert(t, db, `INSERT INTO releases(id,project_id,number,state,created_at) VALUES (?,?,7,'planned','2026-10-01')`, project)
+			mustInsert(t, db, `INSERT INTO releases(id,project_id,number,state,created_at) VALUES ($1,$2,7,'planned','2026-10-01')`, project)
 			var bundle ids.ID
 			if scenario != "missing bundle" {
 				if scenario == "malformed bundle" {
@@ -67,7 +67,7 @@ func TestWorkflowReleaseSelectsScopedMetadata(t *testing.T) {
 					t.Fatal("malformed bundle became an empty link")
 				}
 				// sql-guarantee: no release of this run may exist at any number; the typed listing refuses the sparse planned #7, so only a raw count sees every row.
-				dbtest.Count(t, db, 0, `SELECT COUNT(*) FROM releases WHERE run_id=?`, run)
+				dbtest.Count(t, db, 0, `SELECT COUNT(*) FROM releases WHERE run_id=$1`, run)
 				// The one change is every change.
 				wantN(t, "releases carrying the change", changeReleases(t, db, project, change.ID), 0)
 				return

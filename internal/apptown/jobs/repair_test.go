@@ -229,17 +229,17 @@ func TestInterruptedJobsRollbackOnInvalidOwnershipOrReceiptFailure(t *testing.T)
 			switch failure {
 			case "missing owner":
 				// sql-guarantee: an unidentifiable persisted owner must stop repair, not be skipped by SQL NULL.
-				if _, err := db.Exec(`UPDATE river_job SET attempted_by='{}' WHERE id=?`, ids[1]); err != nil {
+				if _, err := db.SQL().ExecContext(context.Background(), `UPDATE river_job SET attempted_by='{}' WHERE id=$1`, ids[1]); err != nil {
 					t.Fatal(err)
 				}
 			case "invalid request":
 				// sql-guarantee: malformed saved policy is unreachable through admission and must roll back earlier settlements.
-				if _, err := db.Exec(`UPDATE river_job SET args=jsonb_set(args,'{retryOnInterrupt}','"invalid"') WHERE id=?`, ids[1]); err != nil {
+				if _, err := db.SQL().ExecContext(context.Background(), `UPDATE river_job SET args=jsonb_set(args,'{retryOnInterrupt}','"invalid"') WHERE id=$1`, ids[1]); err != nil {
 					t.Fatal(err)
 				}
 			case "missing key":
 				// sql-guarantee: an incomplete saved request cannot be guessed during repair.
-				if _, err := db.Exec(`UPDATE river_job SET args=args-'key' WHERE id=?`, ids[1]); err != nil {
+				if _, err := db.SQL().ExecContext(context.Background(), `UPDATE river_job SET args=args-'key' WHERE id=$1`, ids[1]); err != nil {
 					t.Fatal(err)
 				}
 			case "mutation":
@@ -247,10 +247,10 @@ func TestInterruptedJobsRollbackOnInvalidOwnershipOrReceiptFailure(t *testing.T)
 			case "receipt":
 				defer db.FailNextStatement("INSERT INTO audit_log")()
 			case "suppressed update":
-				if _, err := db.Exec(`CREATE FUNCTION suppress_repair() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
+				if _, err := db.SQL().ExecContext(context.Background(), `CREATE FUNCTION suppress_repair() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
 					t.Fatal(err)
 				}
-				if _, err := db.Exec(`CREATE TRIGGER suppress_repair BEFORE UPDATE ON river_job FOR EACH ROW EXECUTE FUNCTION suppress_repair()`); err != nil {
+				if _, err := db.SQL().ExecContext(context.Background(), `CREATE TRIGGER suppress_repair BEFORE UPDATE ON river_job FOR EACH ROW EXECUTE FUNCTION suppress_repair()`); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -355,7 +355,7 @@ func TestInterruptedJobsAbsentPolicyAndCancellationPresence(t *testing.T) {
 	}
 	claimRepairJobs(t, db, "dead-owner", 2)
 	// sql-guarantee: historical requests without a saved flag must retain the decoder's false default, regardless of MaxAttempts.
-	if _, err := db.Exec(`UPDATE river_job SET args=args-'retryOnInterrupt' WHERE id=?`, absent); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE river_job SET args=args-'retryOnInterrupt' WHERE id=$1`, absent); err != nil {
 		t.Fatal(err)
 	}
 	// Pinned River contract checks key presence, not the validity of its timestamp.

@@ -12,12 +12,12 @@ import (
 )
 
 func TestDiagnosticUsesExactContainerNamespaceAndBoundedVerdict(t *testing.T) {
-	for _, mode := range []string{"exact", "wrong-status", "wrong-static-identity", "invalid-verdict", "external-url", "revoked", "cleanup-failed"} {
+	for _, mode := range []string{"exact", "wrong-status", "static-identity", "wrong-static-identity", "invalid-verdict", "external-url", "revoked", "cleanup-failed"} {
 		t.Run(mode, func(t *testing.T) {
 			_, r := readinessFixture(t)
 			p := r.Public
 			p.Headers = map[string]string{"Host": "app.example", "X-Forwarded-Host": "app.example", "X-Forwarded-Proto": "https"}
-			if mode == "wrong-static-identity" {
+			if mode == "static-identity" || mode == "wrong-static-identity" {
 				p.StaticRelease = "release-id"
 			}
 			if mode == "external-url" {
@@ -37,15 +37,23 @@ func TestDiagnosticUsesExactContainerNamespaceAndBoundedVerdict(t *testing.T) {
 				if !slices.Contains(command.Env, "PROBE_HOST=app.example") || !slices.Contains(command.Env, "PROBE_FORWARDED_PROTO=https") {
 					t.Errorf("lost front-door predicate: %v", command.Env)
 				}
-				answer := "204 1\n"
+				answer := "204\n"
 				if mode == "wrong-status" {
-					answer = "302 1\n"
+					answer = "302\n"
 				}
 				if mode == "invalid-verdict" {
 					answer = "healthy\n"
 				}
-				if mode == "wrong-static-identity" && slices.Contains(command.Env, "PROBE_PATH=/_apptown/release") {
-					answer = "200 0\n"
+				if slices.Contains(command.Env, "PROBE_PATH=/_apptown/release") {
+					if !slices.Contains(command.Env, "PROBE_BODY=1") {
+						t.Errorf("the release marker was asked without its body: %v", command.Env)
+					}
+					// The file server's marker, judged by
+					// appcontract.ServesRelease: its line ending is not part of it.
+					answer = "200\nrelease-id\n"
+					if mode == "wrong-static-identity" {
+						answer = "200\nother-release\n"
+					}
 				}
 				return containerresulttest.Answer{Answer: []byte(answer)}, true
 			}}
@@ -69,7 +77,7 @@ func TestDiagnosticUsesExactContainerNamespaceAndBoundedVerdict(t *testing.T) {
 				return out, err
 			}}
 			err := d.sample(t.Context(), id, p)
-			if mode == "exact" {
+			if mode == "exact" || mode == "static-identity" {
 				if err != nil {
 					t.Fatal(err)
 				}

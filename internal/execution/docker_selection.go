@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 )
@@ -96,6 +97,22 @@ func SelectDocker() DockerSelection {
 	}
 	host, err := dockerContextHost(dir, name)
 	return DockerSelection{Host: host, Context: name, Refused: err}
+}
+
+// OtherMachine is the address of the machine the daemon runs on when that
+// is not this one: the host of a tcp:// or ssh:// address, from DOCKER_HOST
+// or a Docker context alike. "" for a local socket (and for a refused
+// selection, which names no daemon). It is the one answer to "is Docker on
+// this machine", and where published ports answer when it is not.
+func (s DockerSelection) OtherMachine() string {
+	if s.Refused != nil {
+		return ""
+	}
+	u, err := url.Parse(s.Host)
+	if err != nil || (u.Scheme != "tcp" && u.Scheme != "ssh") {
+		return ""
+	}
+	return u.Hostname()
 }
 
 // Backend names the selection in task records: the daemon's address, so the

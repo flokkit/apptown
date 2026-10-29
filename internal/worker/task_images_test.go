@@ -83,7 +83,7 @@ func TestAWorkerServesAnImageByItsIndexAndBlobsAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	escape, _ := json.Marshal(worker.TaskRequest{Key: "escape", Image: "fake", Argv: []string{"run"}, Admission: admission, Workspace: "build", Source: base,
+	escape, _ := json.Marshal(execution.WorkerTaskRequest{Key: "escape", Image: "fake", Argv: []string{"run"}, Admission: admission, Workspace: "build", Source: base,
 		Images: []execution.ImageResult{{Name: "web", Path: "/apptown/state/../../records", Max: 1 << 20}}})
 	if code, body := call(http.MethodPost, "/v1/tasks/escape", string(escape)); code != http.StatusBadRequest || !strings.Contains(body, "images") {
 		t.Errorf("an image declared through ..: %d %s", code, body)

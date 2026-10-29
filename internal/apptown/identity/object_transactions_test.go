@@ -46,7 +46,7 @@ func TestRefreshTransactionRollsBackFailedWrites(t *testing.T) {
 			}
 			var n int
 			// sql-guarantee: A failed rotation hands back no pair, so only the table total proves no new token row survived.
-			if err := db.QueryRow(`SELECT count(*) FROM oauth_tokens`).Scan(&n); err != nil || n != 2 {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM oauth_tokens`).Scan(&n); err != nil || n != 2 {
 				t.Fatalf("failed rotation left minted tokens: %d %v", n, err)
 			}
 			if _, err := s.Refresh(context.Background(), pair.Refresh); err != nil {
@@ -121,7 +121,7 @@ func TestRefreshRejectsPartialTokenWrites(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if _, err := db.Exec(`CREATE FUNCTION veto_access_token() RETURNS trigger LANGUAGE plpgsql AS $$
+			if _, err := db.SQL().ExecContext(context.Background(), `CREATE FUNCTION veto_access_token() RETURNS trigger LANGUAGE plpgsql AS $$
 			BEGIN IF NEW.kind = 'access' THEN RETURN NULL; END IF; RETURN NEW; END $$`); err != nil {
 				t.Fatal(err)
 			}
@@ -129,7 +129,7 @@ func TestRefreshRejectsPartialTokenWrites(t *testing.T) {
 			if operation == "revoke" {
 				statement = `CREATE TRIGGER veto_token BEFORE UPDATE ON oauth_tokens FOR EACH ROW EXECUTE FUNCTION veto_access_token()`
 			}
-			if _, err := db.Exec(statement); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), statement); err != nil {
 				t.Fatal(err)
 			}
 			if got, err := s.Refresh(context.Background(), first.Refresh); err == nil || errors.Is(err, ErrLeaked) || got.Access != "" {
@@ -143,7 +143,7 @@ func TestRefreshRejectsPartialTokenWrites(t *testing.T) {
 			if err != nil || at == nil || at.Revoked {
 				t.Fatal("partial write altered existing token")
 			}
-			if _, err := db.Exec(`DROP TRIGGER veto_token ON oauth_tokens`); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), `DROP TRIGGER veto_token ON oauth_tokens`); err != nil {
 				t.Fatal(err)
 			}
 			_, err = s.Refresh(context.Background(), first.Refresh)

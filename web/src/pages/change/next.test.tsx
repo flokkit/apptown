@@ -26,6 +26,7 @@ type Opts = {
   state?: string; stateDetail?: string; runStatus?: 'running' | 'done' | 'abandoned'
   steps?: Step[]; events?: { kind: string; payload: Record<string, unknown> }[]
   landingMeans?: string[]; noRun?: boolean; next?: Act[]; changeNext?: Act[]; landingQueued?: boolean
+  sentBack?: { by: string; note: string }
   artifacts?: { kind: string; ref: string }[]; releases?: { number: number; deployment: string; state: string; serving: boolean }[]; merged?: boolean
 }
 const view = (o: Opts): ChangeView => ({
@@ -38,7 +39,7 @@ const view = (o: Opts): ChangeView => ({
     run: { id: RUN, number: 7, workflowName: o.change === 'landing' ? 'land' : 'quick-change', workflowVersion: 3, status: o.runStatus ?? 'running', currentStage: 'build', createdAt: '' },
     stages: ['build'], steps: o.steps ?? [], events: (o.events ?? []).map((e, i) => ({ id: uuid(200 + i), runId: RUN, at: '', ...e })),
     artifacts: (o.artifacts ?? []).map((a, i) => ({ id: uuid(300 + i), runId: RUN, name: a.kind, body: '', createdAt: '', ...a })),
-    landingMeans: o.landingMeans ?? [], next: o.next ?? [], landingQueued: o.landingQueued,
+    landingMeans: o.landingMeans ?? [], next: o.next ?? [], landingQueued: o.landingQueued, sentBack: o.sentBack,
   },
 } as unknown as ChangeView)
 
@@ -73,7 +74,7 @@ const cases: { name: string; v: ChangeView; primary: Primary; headline: RegExp; 
     name: 'sent back by a person, the agent reworking it',
     v: view({
       state: 'agent working', steps: [step({ type: 'agent/pi', name: 'apply-change', status: 'running', config: { sendback: 'use crypto/rand' } })],
-      events: [{ kind: 'step.sendback', payload: { by: 'bls', note: 'use crypto/rand', step: 'apply-change' } }],
+      sentBack: { by: 'bls', note: 'use crypto/rand' },
     }),
     primary: 'none', headline: /^Sent back: the agent is reworking it$/, waitingOn: /the agent/,
   },

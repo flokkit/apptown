@@ -35,11 +35,11 @@ func TestCreateRunRollsBackWhole(t *testing.T) {
 	service := newService(db, authorityFunc(func(context.Context, operationPermission) (string, error) { return "operator", nil }), Runtime{Starter: starter})
 	var runsBefore, eventsBefore int
 	// sql-guarantee: rollback must leave no run, receipt or step anywhere; no owner read enumerates every run.
-	if err := db.QueryRow(`SELECT COUNT(*) FROM runs`).Scan(&runsBefore); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM runs`).Scan(&runsBefore); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: rollback must leave no run event anywhere; no owner read enumerates every run's events store-wide
-	if err := db.QueryRow(`SELECT COUNT(*) FROM run_events`).Scan(&eventsBefore); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM run_events`).Scan(&eventsBefore); err != nil {
 		t.Fatal(err)
 	}
 	dbtest.FailNextStatement(t, db, "INSERT INTO steps")
@@ -48,15 +48,15 @@ func TestCreateRunRollsBackWhole(t *testing.T) {
 	}
 	var runs, events, steps int
 	// sql-guarantee: rollback must leave no run anywhere; no owner read enumerates every run store-wide
-	if err := db.QueryRow(`SELECT COUNT(*) FROM runs`).Scan(&runs); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM runs`).Scan(&runs); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: rollback must leave no run event anywhere; no owner read enumerates every run's events store-wide
-	if err := db.QueryRow(`SELECT COUNT(*) FROM run_events`).Scan(&events); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM run_events`).Scan(&events); err != nil {
 		t.Fatal(err)
 	}
 	// sql-guarantee: rollback must leave no step anywhere, including one with no readable run; no owner read lists steps store-wide
-	if err := db.QueryRow(`SELECT COUNT(*) FROM steps`).Scan(&steps); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM steps`).Scan(&steps); err != nil {
 		t.Fatal(err)
 	}
 	if runs != runsBefore || events != eventsBefore || steps != 0 {

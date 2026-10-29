@@ -56,7 +56,7 @@ func TestTargetLateCheckCannotUndoRetirement(t *testing.T) {
 			return nil, nil, false
 		}
 		// sql-guarantee: The checked snapshot must become attached before RecordCheck; Put preserves origin, so direct UPDATE isolates this retirement race.
-		if _, err := w.db.Exec(`UPDATE targets SET origin='attached' WHERE id=?`, target.ID); err != nil {
+		if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE targets SET origin='attached' WHERE id=$1`, target.ID); err != nil {
 			t.Fatal(err)
 		}
 		if err := w.deployment.Targets.Retire(context.Background(), target.Name, "alice"); err != nil {

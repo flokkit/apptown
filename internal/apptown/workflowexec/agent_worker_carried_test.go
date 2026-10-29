@@ -143,7 +143,7 @@ func TestAWorkerAgentsBaseIsTheMainItsChangeContains(t *testing.T) {
 
 	source := f.call.source
 	source.ChangeBaseSHA = started
-	if got := agentGit(context.Background(), source, caughtUp, f.hub); *got != (execution.AgentGit{Branch: "change-00000000-0029-7000-8000-000000000000", Base: "main", BaseCommit: moved}) {
-		t.Fatalf("the base of a change that caught up: %+v (started %s, caught up with %s)", got, started[:8], moved[:8])
+	if got, err := agentGit(context.Background(), source, caughtUp, f.hub); err != nil || *got != (execution.AgentGit{Branch: "change-00000000-0029-7000-8000-000000000000", Base: "main", BaseCommit: moved}) {
+		t.Fatalf("the base of a change that caught up: %+v %v (started %s, caught up with %s)", got, err, started[:8], moved[:8])
 	}
 }

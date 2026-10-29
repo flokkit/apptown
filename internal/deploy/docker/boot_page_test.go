@@ -128,7 +128,7 @@ type witnessProbe struct {
 
 func (p witnessProbe) Check(ctx context.Context, _ Scope, _, _ string, _ time.Duration, probe RenderedProbe) (bool, string) {
 	*p.asked = append(*p.asked, probe)
-	return probe.Path != appcontract.ReleasePath || probe.Body == p.serves, ""
+	return probe.Path != appcontract.ReleasePath || probe.Release == p.serves, ""
 }
 
 // A standing static deployment is told its release, as App Platform's is
@@ -190,7 +190,7 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 			}
 			var witnessed, envJS bool
 			for _, p := range asked {
-				witnessed = witnessed || (p.Path == appcontract.ReleasePath && p.Body == tc.wantRelease && p.Expect == 200)
+				witnessed = witnessed || (p.Path == appcontract.ReleasePath && p.Release == tc.wantRelease)
 				envJS = envJS || p.Path == "/_apptown/env.js"
 			}
 			switch {
@@ -205,20 +205,22 @@ func TestAStandingStaticSiteIsWitnessedServingItsRelease(t *testing.T) {
 	}
 }
 
-// A probe that asks for a body is up only when the answer is exactly that
-// body: a file server answering another release is not this one.
-func TestAProbeWithABodyNeedsExactlyThatAnswer(t *testing.T) {
+// A probe that asks for a release is up only when the marker names exactly
+// that release (appcontract.ServesRelease): a file server answering another
+// release is not this one. White space around the marker is not part of
+// it, as every other witness of a static site reads it.
+func TestAProbeForAReleaseNeedsThatReleasesMarker(t *testing.T) {
 	t.Parallel()
 	served := "web@new"
-	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(served)) }))
+	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(served + "\n")) }))
 	t.Cleanup(app.Close)
 	dk := Scope{Client: &fakeClient{out: "true"}}
 	probe := &Probe{}
-	if up, _ := probe.check(t.Context(), dk, "app", app.URL, 2*time.Second, RenderedProbe{Path: appcontract.ReleasePath, Expect: 200, Body: "web@new"}, answerOnce); !up {
+	if up, _ := probe.check(t.Context(), dk, "app", app.URL, 2*time.Second, RenderedProbe{Path: appcontract.ReleasePath, Release: "web@new"}, answerOnce); !up {
 		t.Fatal("the exact answer was not up")
 	}
 	for _, want := range []string{"web@ne", "web@new2", "web@old"} {
-		if up, _ := probe.check(t.Context(), dk, "app", app.URL, 1100*time.Millisecond, RenderedProbe{Path: appcontract.ReleasePath, Expect: 200, Body: want}, answerOnce); up {
+		if up, _ := probe.check(t.Context(), dk, "app", app.URL, 1100*time.Millisecond, RenderedProbe{Path: appcontract.ReleasePath, Release: want}, answerOnce); up {
 			t.Fatalf("%q answered for %q", served, want)
 		}
 	}

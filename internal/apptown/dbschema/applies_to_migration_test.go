@@ -1,6 +1,7 @@
 package dbschema
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -52,7 +53,7 @@ func TestMigration169StatesWhatEachStoredCheckAppliesTo(t *testing.T) {
 		`INSERT INTO integration_versions (id, integration_id, version, config_json, created_at) VALUES (` + id(11) + `, ` + id(9) + `, 2, '` + manual + `', ` + at + `)`,
 	}
 	for _, s := range stmts {
-		if _, err := db.Exec(s); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), s); err != nil {
 			t.Fatalf("%s: %v", s, err)
 		}
 	}
@@ -64,7 +65,7 @@ func TestMigration169StatesWhatEachStoredCheckAppliesTo(t *testing.T) {
 	}
 	read := func() (blocks map[string]string, scanners map[string]string) {
 		blocks, scanners = map[string]string{}, map[string]string{}
-		rows, err := db.Query(`SELECT b.name || ' v' || v.version, v.checks_json::text FROM guidance_block_versions v JOIN guidance_blocks b ON b.id = v.block_id WHERE b.name IN ('stock/block', 'own/block')`)
+		rows, err := db.SQL().QueryContext(context.Background(), `SELECT b.name || ' v' || v.version, v.checks_json::text FROM guidance_block_versions v JOIN guidance_blocks b ON b.id = v.block_id WHERE b.name IN ('stock/block', 'own/block')`)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,7 +77,7 @@ func TestMigration169StatesWhatEachStoredCheckAppliesTo(t *testing.T) {
 			blocks[k] = v
 		}
 		rows.Close()
-		rows, err = db.Query(`SELECT i.name || ' binding', i.config_json::text FROM integrations i WHERE i.name IN ('semgrep', 'lister')
+		rows, err = db.SQL().QueryContext(context.Background(), `SELECT i.name || ' binding', i.config_json::text FROM integrations i WHERE i.name IN ('semgrep', 'lister')
 			UNION ALL SELECT i.name || ' v' || v.version, v.config_json::text FROM integration_versions v JOIN integrations i ON i.id = v.integration_id WHERE i.name IN ('semgrep', 'lister')`)
 		if err != nil {
 			t.Fatal(err)
@@ -151,7 +152,7 @@ func TestMigration169StatesWhatEachStoredCheckAppliesTo(t *testing.T) {
 			continue
 		}
 		for _, stmt := range s.stmts {
-			if _, err := db.Exec(stmt); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), stmt); err != nil {
 				t.Fatal(err)
 			}
 		}

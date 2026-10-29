@@ -3,8 +3,6 @@ package apptown
 import (
 	"context"
 	"fmt"
-	"github.com/flokkit/apptown/internal/apptown/project"
-	"github.com/flokkit/apptown/internal/database"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +13,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/database"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -466,7 +467,7 @@ func recordServing(t *testing.T, a *App, projectID ids.ID, container string) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: a serving container is recorded by a boot on Docker; this test serves from a plain HTTP backend, so no boot can.
-	if _, err := a.DB.Exec(`UPDATE deployments SET container = $1 WHERE id = $2`, container, dep.ID); err != nil {
+	if _, err := a.DB.SQL().ExecContext(context.Background(), `UPDATE deployments SET container = $1 WHERE id = $2`, container, dep.ID); err != nil {
 		t.Fatal(err)
 	}
 }

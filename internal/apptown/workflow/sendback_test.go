@@ -38,7 +38,7 @@ func TestSendBackRequiresAuthorityAndRechecksScope(t *testing.T) {
 						return "", &access.Denied{Reason: "no permission"}
 					}
 					// sql-guarantee: No owner mutation rehomes a Change; move the authorized identity to another project to isolate send-back's scope fence.
-					completionExec(t, owner.db, `UPDATE changes SET project_id=?,number=number+100000 WHERE id=?`, other, run.ChangeID)
+					completionExec(t, owner.db, `UPDATE changes SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ChangeID)
 				}
 				return "verified", nil
 			}), Runtime{Automatic: owner.automatic})

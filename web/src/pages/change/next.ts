@@ -1,6 +1,6 @@
 import { PRODUCT } from '../../brand'
-import type { ApprovalConfig, ChangeView, RunEvent, Step } from '../../api'
-import type { NextAct } from '../../wire.gen'
+import type { ApprovalConfig, ChangeView, Step } from '../../api'
+import type { NextAct, SentBack } from '../../wire.gen'
 import { chipFor, closedNothingToChange } from '../../states'
 
 // What a change is doing, said once, with the one next action for whoever
@@ -41,8 +41,6 @@ export type NextStep = {
   // A person's (or a check's) words the agent is reworking from.
   sentBack?: SentBack
 }
-
-export type SentBack = { by: string; note: string }
 
 // offered: the act AppTown offers, on stepId when given (Work's next acts:
 // the run's on detail.next, the change's on view.next). What can be done is
@@ -98,28 +96,6 @@ export function isLandingApproval(view: ChangeView, step: Step): boolean {
   const d = view.detail
   if (!d) return false
   return step.stage === d.stages[d.stages.length - 1] && d.landingMeans.length > 0
-}
-
-// sentBackOf: the words a rework in the current stage is working from, while
-// it runs or waits — a person's send-back (its receipt names them), a
-// rejection's comment, or a check's report handed back to the agent.
-export function sentBackOf(view: ChangeView): SentBack | undefined {
-  const d = view.detail
-  if (!d || d.run.status !== 'running') return undefined
-  const stage = d.steps.filter((s) => s.stage === d.run.currentStage)
-  const agent = stage.find((s) => s.type === 'agent/pi' && (s.status === 'running' || s.status === 'pending'))
-  if (!agent) return undefined
-  const words = typeof (agent.config as Record<string, unknown>).sendback === 'string' ? String((agent.config as Record<string, unknown>).sendback) : ''
-  const receipt = [...d.events].reverse().find((e: RunEvent) => e.kind === 'step.sendback')
-  if (receipt && (!words || String(receipt.payload.note ?? '') === words)) {
-    return { by: String(receipt.payload.by ?? 'a person'), note: String(receipt.payload.note ?? words) }
-  }
-  const rejected = stage.find((s) => s.type === 'approval' && s.evidence.lastRejection)
-  if (rejected?.type === 'approval' && rejected.evidence.lastRejection) {
-    return { by: rejected.evidence.lastRejection.approver, note: rejected.evidence.lastRejection.comment }
-  }
-  if (words) return { by: words.startsWith('The previous check reported') ? 'a check' : 'a person', note: words }
-  return undefined
 }
 
 // Around: what the page knows beside the change's own payload. chat is
@@ -293,7 +269,8 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
       sentence: reason, primary: 'take-to-chat',
     }
   }
-  const sentBack = sentBackOf(view)
+  // The server works out the rework (RunSnapshot.sentBack).
+  const sentBack = view.detail?.sentBack ?? undefined
   if (state === 'queued') {
     return {
       tone: 'neutral', stamp: 'queued',

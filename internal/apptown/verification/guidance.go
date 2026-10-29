@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/repositoryedit"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/check"
+	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/toolversions"
 )
 
@@ -111,7 +112,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 	if adoption != nil {
 		evidence["adoption"] = map[string]any{"revision": adoption.Revision, "digest": adoption.Digest}
 	}
-	said, err := a.judgeDeclared(task.Context(), task.RunScope(), tools, run, source, checks, checkedAt, cfg.FailOn, fmt.Sprintf("apptown-conform-%d", stepID))
+	said, err := a.judgeDeclared(task.Context(), task.RunScope(), tools, run, source, checks, checkedAt, cfg.FailOn, execution.StepContainer(stepID, "conform"))
 	results, findings, shErrors, unjudged := said.results, said.findings, said.errors, said.unjudged
 	if said.llm != nil {
 		evidence["llm"] = said.llm
@@ -139,7 +140,7 @@ func (a *Guidance) RunGuidanceConformance(task *workflow.Execution) {
 		finish(workflow.StatusError, evidence)
 		return
 	}
-	base := a.verification.baselineFor(conformance.WithRun(task.Context(), task.RunScope()), tools, run.ProjectID, checks, baseSHA, fmt.Sprintf("apptown-conform-%d", stepID))
+	base := a.verification.baselineFor(conformance.WithRun(task.Context(), task.RunScope()), tools, run.ProjectID, checks, baseSHA, execution.StepContainer(stepID, "conform"))
 	// Model rubrics and runtime probes are not in the cached deterministic
 	// baseline: a failing one is judged on main here — the rubric on the
 	// base tree, the probe on main's deployment when it serves the base.

@@ -18,11 +18,11 @@ func TestTemplateInitializesOnceAndClonesAreIndependent(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		if _, err := db.Exec(`CREATE TABLE seed_probe(n int)`); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `CREATE TABLE seed_probe(n int)`); err != nil {
 			_ = db.Close()
 			return nil, err
 		}
-		if _, err := db.Exec(`INSERT INTO seed_probe VALUES (42)`); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `INSERT INTO seed_probe VALUES (42)`); err != nil {
 			_ = db.Close()
 			return nil, err
 		}
@@ -38,13 +38,13 @@ func TestTemplateInitializesOnceAndClonesAreIndependent(t *testing.T) {
 			t.Parallel()
 			db := suite.New(t)
 			var count int
-			if err := db.QueryRow(`SELECT count(*) FROM seed_probe WHERE n=42`).Scan(&count); err != nil || count != 1 {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM seed_probe WHERE n=42`).Scan(&count); err != nil || count != 1 {
 				t.Fatalf("missing template seed: %d %v", count, err)
 			}
 			if calls.Load() != 1 {
 				t.Fatalf("initializer ran %d times", calls.Load())
 			}
-			if _, err := db.Exec(`DELETE FROM seed_probe`); err != nil {
+			if _, err := db.SQL().ExecContext(context.Background(), `DELETE FROM seed_probe`); err != nil {
 				t.Fatal(err)
 			}
 		})

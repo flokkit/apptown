@@ -1,6 +1,7 @@
 package apptown
 
 import (
+	"context"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/database"
@@ -10,7 +11,7 @@ func workflowResetSnapshot(t *testing.T, db *database.DB) string {
 	t.Helper()
 	var snapshot string
 	// sql-guarantee: a failed settlement must leave every Work row and column exactly as it was, including columns no owner read returns.
-	err := db.QueryRow(`SELECT jsonb_build_array(
+	err := db.SQL().QueryRowContext(context.Background(), `SELECT jsonb_build_array(
         (SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM runs r),
         (SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM steps s),
         (SELECT jsonb_agg(to_jsonb(e) ORDER BY id) FROM run_events e),

@@ -56,7 +56,7 @@ func runQueuedJobForTest(t *testing.T, a *App, kind, key string) *rivertype.JobR
 	}
 	queue := fmt.Sprintf("test_job_%d", id)
 	// sql-guarantee: Move only the selected existing job onto this test consumer queue and make it due; River JobUpdateFull has neither queue nor scheduled_at, and re-enqueueing would change the tested job identity.
-	completionExec(t, a.DB, `UPDATE river_job SET queue=?,state='available',scheduled_at=now() WHERE id=?`, queue, id)
+	completionExec(t, a.DB, `UPDATE river_job SET queue=$1,state='available',scheduled_at=now() WHERE id=$2`, queue, id)
 	workers := river.NewWorkers()
 	river.AddWorker(workers, jobs.Worker(apptownJobKinds(a)))
 	client, err := river.NewClient(riverdatabasesql.New(a.DB.Pool()), &river.Config{Workers: workers, Queues: map[string]river.QueueConfig{queue: {MaxWorkers: 1}}, PollOnly: true, TestOnly: true})
@@ -186,8 +186,11 @@ func TestEveryJobKindHasOneBudget(t *testing.T) {
 	if n, err := jobAttempts(narrativeJob, "change/1"); err != nil || n != 1 {
 		t.Errorf("a narrative refresh is retried: %d %v", n, err)
 	}
-	if n, err := jobAttempts(workflowCompletionJob, "1/narrative"); err != nil || n != 1 {
-		t.Errorf("a narrative is retried: %d %v", n, err)
+	if _, err := jobAttempts(workflowCompletionJob, "1/narrative"); err == nil {
+		t.Errorf("a completion narrative job is admitted; the narrative job owns refreshes")
+	}
+	if n, err := jobAttempts(workflowAbandonmentJob, "run/1/ended"); err != nil || n != 1 {
+		t.Errorf("an ended-landing notice is retried: %d %v", n, err)
 	}
 }
 

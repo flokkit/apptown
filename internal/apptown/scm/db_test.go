@@ -27,14 +27,14 @@ func completionInsert(t *testing.T, db *database.DB, q string, args ...any) ids.
 	t.Helper()
 	// The query's first column and placeholder are the new row's id.
 	id := ids.New(time.Now())
-	if _, err := db.Exec(q, append([]any{id}, args...)...); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), q, append([]any{id}, args...)...); err != nil {
 		t.Fatal(err)
 	}
 	return id
 }
 func completionExec(t *testing.T, db *database.DB, q string, args ...any) {
 	t.Helper()
-	if _, err := db.Exec(q, args...); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), q, args...); err != nil {
 		t.Fatal(err)
 	}
 }

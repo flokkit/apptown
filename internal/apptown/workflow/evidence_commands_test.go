@@ -50,7 +50,7 @@ func TestAttachArtifactCommitsReceiptBeforeRefreshing(t *testing.T) {
 			wantEventCount(t, q.db, 1, kindWith("artifact.added", "id", fmt.Sprint(artifact)))
 			var body []byte
 			// sql-guarantee: the binary body column's exact bytes are the storage guarantee; the artifact read decodes them.
-			if err := q.db.QueryRow(`SELECT body_bytes FROM artifacts WHERE id=?`, artifact).Scan(&body); err != nil || string(body) != "\x00binary\xff" {
+			if err := q.db.SQL().QueryRowContext(context.Background(), `SELECT body_bytes FROM artifacts WHERE id=$1`, artifact).Scan(&body); err != nil || string(body) != "\x00binary\xff" {
 				t.Fatalf("body=%q err=%v", body, err)
 			}
 			if fault == "refresh" {
@@ -93,7 +93,7 @@ func TestEvidenceAndExecutionCommandsRequireScope(t *testing.T) {
 	moved := newServiceWithAuthority(q.db, Dependencies{}, authorityFunc(func(_ context.Context, p operationPermission) (string, error) {
 		if p.Action == actionAttachEvidence {
 			// sql-guarantee: authority admits this run before only its project identity moves; no Workflow mutation exposes project reassignment.
-			completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, other, run.ID)
+			completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, other, run.ID)
 		}
 		return "caller", nil
 	}))

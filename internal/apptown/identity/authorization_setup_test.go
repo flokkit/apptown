@@ -15,7 +15,7 @@ import (
 func identityCount(t *testing.T, db *database.DB, want int, query string, args ...any) {
 	t.Helper()
 	var got int
-	if err := db.QueryRow(query, args...).Scan(&got); err != nil || got != want {
+	if err := db.SQL().QueryRowContext(context.Background(), query, args...).Scan(&got); err != nil || got != want {
 		t.Fatalf("count %d want %d: %v", got, want, err)
 	}
 }
@@ -48,17 +48,17 @@ func identityResultCount(results []int, want int) int {
 // tests. It deliberately suppresses one owner's write participant.
 func vetoIdentityWrite(t *testing.T, db *database.DB, table, operation, body string) func() {
 	t.Helper()
-	if _, err := db.Exec(`CREATE FUNCTION veto_identity_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN ` + body + ` END $$`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE FUNCTION veto_identity_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN `+body+` END $$`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TRIGGER veto_identity_write BEFORE ` + operation + ` ON ` + table + ` FOR EACH ROW EXECUTE FUNCTION veto_identity_write()`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE TRIGGER veto_identity_write BEFORE `+operation+` ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_identity_write()`); err != nil {
 		t.Fatal(err)
 	}
 	return func() {
-		if _, err := db.Exec(`DROP TRIGGER veto_identity_write ON ` + table); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `DROP TRIGGER veto_identity_write ON `+table); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := db.Exec(`DROP FUNCTION veto_identity_write()`); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `DROP FUNCTION veto_identity_write()`); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -312,7 +312,7 @@ func TestUserSaveRequiresPromotionAndSessionRemoval(t *testing.T) {
 // and owner grant rows are revoked and expired; retired names remain choices.
 func personalGroupExec(t *testing.T, db *database.DB, query string, args ...any) {
 	t.Helper()
-	if _, err := db.Exec(query, args...); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), query, args...); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -333,7 +333,7 @@ func TestPersonalGroupPreservesRecordedChoices(t *testing.T) {
 				t.Fatal(err)
 			}
 			// sql-guarantee: Keep the same membership both revoked and expired so personal-group lookup cannot restore it; named membership mutations insert live rows or delete them, losing this historical choice.
-			personalGroupExec(t, s.db, `UPDATE group_members SET revoked_at=now(),expires_at=now()-interval '1 day' WHERE principal_id=?`, principalOf(t, s.db, "alice"))
+			personalGroupExec(t, s.db, `UPDATE group_members SET revoked_at=now(),expires_at=now()-interval '1 day' WHERE principal_id=$1`, principalOf(t, s.db, "alice"))
 			recorded, err := queries(s.db).AllGrants(context.Background())
 			if err != nil {
 				t.Fatal(err)
@@ -366,7 +366,7 @@ func TestPersonalGroupPreservesRecordedChoices(t *testing.T) {
 				}
 			}
 			// sql-guarantee: Retire the recorded personal group without deleting its identity; SaveGroup cannot set retired_at and DeleteGroup would test a missing choice instead.
-			personalGroupExec(t, s.db, `UPDATE groups SET retired_at=now() WHERE name=?`, name)
+			personalGroupExec(t, s.db, `UPDATE groups SET retired_at=now() WHERE name=$1`, name)
 			if chosen, err := s.PersonalGroup(context.Background(), "alice", "boss"); err != nil || chosen != name {
 				t.Fatalf("retired choice: %s %v", chosen, err)
 			}

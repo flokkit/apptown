@@ -67,7 +67,7 @@ func TestOAuthResolutionRejectsInvalidCredentials(t *testing.T) {
 				audience = "/mcp/admin"
 			case "expired-token":
 				// sql-guarantee: Expire only the existing access token while its delegation remains live; RevokeRefreshToken cannot update access tokens and InsertTokenPair cannot replace their hashes.
-				_, err = db.Exec(`UPDATE oauth_tokens SET expires_at=$1 WHERE token_hash=$2`, time.Now().Add(-time.Minute), HashToken(token))
+				_, err = db.SQL().ExecContext(context.Background(), `UPDATE oauth_tokens SET expires_at=$1 WHERE token_hash=$2`, time.Now().Add(-time.Minute), HashToken(token))
 			case "revoked-token":
 				_, err = queries(db).RevokeDelegationTokens(context.Background(), accesssql.RevokeDelegationTokensParams{DelegationID: id, At: time.Now()})
 			case "expired-delegation":

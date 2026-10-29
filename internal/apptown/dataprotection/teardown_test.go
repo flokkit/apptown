@@ -59,7 +59,7 @@ func TestRemoveRetainsManagedNeedsAndRecordsTogether(t *testing.T) {
 	// Emulator rows are not produced by managed-need operations. Seed one here
 	// to prove the persistence distinction, without starting a real emulator.
 	// sql-guarantee: TestRemoveRetainsManagedNeedsAndRecordsTogether proves emulator rows are excluded from retention; RecordNeedIntent and RecordNeedFulfilled hardcode managed mode and cannot create this projection.
-	mustExec(t, s.db, `INSERT INTO need_instances(id,deployment_id,need,mode,status,updated_at) VALUES (?,?,'redis','emulator','ready','2026-10-01')`, ids.New(time.Now()), dep.ID)
+	mustExec(t, s.db, `INSERT INTO need_instances(id,deployment_id,need,mode,status,updated_at) VALUES ($1,$2,'redis','emulator','ready','2026-10-01')`, ids.New(time.Now()), dep.ID)
 	result, err := s.Remove(context.Background(), removeSelection(dep))
 	if err != nil || len(result.Retained) != 1 || !strings.HasPrefix(result.Retained[0], "postgres: retained-pg") {
 		t.Fatalf("removal: %+v %v", result, err)

@@ -163,7 +163,7 @@ func startupSnapshot(t *testing.T, db *database.DB) string {
 	t.Helper()
 	var snapshot string
 	// sql-guarantee: a failed or repeated repair must leave every step, release, release event and review byte-identical, timestamps included; only the whole tables, read independently of the repair, show that.
-	if err := db.QueryRow(`SELECT jsonb_build_object(
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT jsonb_build_object(
 		'steps',(SELECT jsonb_agg(s ORDER BY id) FROM steps s),
 		'releases',(SELECT jsonb_agg(r ORDER BY id) FROM releases r),
 		'events',(SELECT jsonb_agg(e ORDER BY id) FROM release_events e),

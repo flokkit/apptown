@@ -333,7 +333,7 @@ func (f *attemptScenario) snapshot(t *testing.T) string {
 	t.Helper()
 	var work string
 	// sql-guarantee: rollback proof — Work's raw rows (including run_starts, which no read exposes) must be byte-identical after a refused command.
-	if err := f.db.QueryRow(`SELECT jsonb_build_object(
+	if err := f.db.SQL().QueryRowContext(context.Background(), `SELECT jsonb_build_object(
   'changes',(SELECT jsonb_agg(c ORDER BY id) FROM changes c),
   'runs',(SELECT jsonb_agg(r ORDER BY id) FROM runs r),
   'steps',(SELECT jsonb_agg(s ORDER BY id) FROM steps s),

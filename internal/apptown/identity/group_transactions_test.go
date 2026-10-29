@@ -11,15 +11,15 @@ import (
 
 func vetoGroupWrite(t *testing.T, db *database.DB, table, operation string) func() {
 	t.Helper()
-	if _, err := db.Exec(`CREATE FUNCTION veto_group_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE FUNCTION veto_group_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TRIGGER veto_group BEFORE ` + operation + ` ON ` + table + ` FOR EACH ROW EXECUTE FUNCTION veto_group_write()`); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `CREATE TRIGGER veto_group BEFORE `+operation+` ON `+table+` FOR EACH ROW EXECUTE FUNCTION veto_group_write()`); err != nil {
 		t.Fatal(err)
 	}
 	return func() {
 		t.Helper()
-		if _, err := db.Exec(`DROP TRIGGER veto_group ON ` + table); err != nil {
+		if _, err := db.SQL().ExecContext(context.Background(), `DROP TRIGGER veto_group ON `+table); err != nil {
 			t.Fatal(err)
 		}
 	}

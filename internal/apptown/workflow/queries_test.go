@@ -125,7 +125,7 @@ func TestWorkflowActivityBatchesNestedCallsAndChecksOwnership(t *testing.T) {
 			case "foreign project":
 				project := workflowTestProject(t, q.db, "private", "Private", "")
 				// sql-guarantee: Move an already-linked child into a foreign project without changing its identity; run admission allocates a new identity and no run mutation reassigns project_id.
-				completionExec(t, q.db, `UPDATE runs SET project_id=?,number=number+100000 WHERE id=?`, project, child.ID)
+				completionExec(t, q.db, `UPDATE runs SET project_id=$1,number=number+100000 WHERE id=$2`, project, child.ID)
 			case "old attempt":
 				current, err := workflowsql.New(q.db.SQL()).StepByID(context.Background(), call)
 				if err != nil {
@@ -136,7 +136,7 @@ func TestWorkflowActivityBatchesNestedCallsAndChecksOwnership(t *testing.T) {
 				}
 			case "wrong parent":
 				// sql-guarantee: Detach the already-linked child while leaving its call evidence intact; no existing run mutation changes parent_run_id.
-				completionExec(t, q.db, `UPDATE runs SET parent_run_id=NULL WHERE id=?`, child.ID)
+				completionExec(t, q.db, `UPDATE runs SET parent_run_id=NULL WHERE id=$1`, child.ID)
 			case "missing child":
 				recordStoredCallEvidence(t, q.db, call, 2, json.RawMessage(`{"childRunId":"00000001-869f-7000-8000-000000000000"}`))
 			case "malformed":
@@ -181,7 +181,7 @@ func TestWorkflowActivityRejectsCyclicCallsWithoutUnboundedReads(t *testing.T) {
 	child, _ := activityChild(t, q.db, root, "child")
 	cycle := insertStoredCall(t, q.db, child.ID, "finish", "back to root", 2, json.RawMessage(fmt.Sprintf(`{"childRunId":%q,"workflow":"root"}`, root.ID)))
 	// sql-guarantee: Make the existing root its descendant's child to test bounded cycle detection; admission cannot rewrite these parent identities into a cycle.
-	completionExec(t, q.db, `UPDATE runs SET parent_run_id=?,parent_step_id=?,parent_step_attempt=2 WHERE id=?`, child.ID, cycle, root.ID)
+	completionExec(t, q.db, `UPDATE runs SET parent_run_id=$1,parent_step_id=$2,parent_step_attempt=2 WHERE id=$3`, child.ID, cycle, root.ID)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if _, err := newService(q.db, allowProject(root.ProjectID), Runtime{}).Activities(ctx, []ids.ID{root.ID}); err == nil || !strings.Contains(err.Error(), "cyclic") {
@@ -197,7 +197,7 @@ func TestWorkflowListKeepsOneDatabaseSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = gate.Rollback() }()
-	if _, err := gate.Exec(`LOCK TABLE steps IN ACCESS EXCLUSIVE MODE`); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `LOCK TABLE steps IN ACCESS EXCLUSIVE MODE`); err != nil {
 		t.Fatal(err)
 	}
 	if err := requireAttemptWrite(workflowsql.New(gate.SQL()).RecordApproval(context.Background(), workflowsql.RecordApprovalParams{At: time.Now(), ID: step, Attempt: 0, ExpectedStatus: StatusPending.String(), Status: StatusPass.String(), EvidenceJson: json.RawMessage(`{}`)})); err != nil {
@@ -243,7 +243,7 @@ func TestWorkflowActivityCancellationAndMissingRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = gate.Rollback() }()
-	if _, err := gate.Exec(`LOCK TABLE steps IN ACCESS EXCLUSIVE MODE`); err != nil {
+	if _, err := gate.SQL().ExecContext(context.Background(), `LOCK TABLE steps IN ACCESS EXCLUSIVE MODE`); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())

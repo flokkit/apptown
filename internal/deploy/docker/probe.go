@@ -21,7 +21,7 @@ type RenderedProbe struct {
 	Path        string            // HTTP path to hit (default "/")
 	Headers     map[string]string // front-door shaping (ingress.go), nil = probe naked
 	Expect      int               // required HTTP status; 0 = below 400 (appcontract.Ready)
-	Body        string            // required exact body (a release identity); "" = any
+	Release     string            // a release identity the answer must serve (appcontract.ServesRelease); "" = none
 	Grace       time.Duration     // startupGrace floor — extends the probe deadline
 	// The controller's liveness variants (probeApp/cold-boot uses only the HTTP
 	// fields above): a TCP connect, or a command run inside the container.

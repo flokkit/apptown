@@ -65,8 +65,14 @@ func (n narratives) Refresh(ctx context.Context, changeID ids.ID) error {
 // running for it adds nothing; the queued one reads the newest evidence.
 func (n narratives) Request(ctx context.Context, changeID ids.ID) error {
 	return n.db.InTx(ctx, func(tx *database.Tx) error {
-		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: narrativeJob, Key: fmt.Sprintf("change/%d", changeID)})
+		return n.requestIn(ctx, tx, changeID)
 	})
+}
+
+// requestIn queues the refresh in a transaction that records what it is
+// about: the one place a narrative refresh is queued.
+func (narratives) requestIn(ctx context.Context, tx *database.Tx, changeID ids.ID) error {
+	return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: narrativeJob, Key: fmt.Sprintf("change/%d", changeID)})
 }
 
 // RunJob is the job queue's handler for narrativeJob, refreshing as the

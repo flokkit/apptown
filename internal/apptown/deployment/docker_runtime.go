@@ -94,22 +94,35 @@ func (s *Service) reachedAt(ctx context.Context, _ string, d *Deployment, t *Tar
 			}
 			servingLabel = owner.ServingLabel
 		}
-		switch t.Origin {
-		case OriginBuiltIn:
-			if d.Name == "main" && routes.MainDomain != "" {
-				return Reach{URL: routes.DeploymentURL(servingLabel, d.HostPort)}
-			}
-			return Reach{URL: routes.PublicURL(d.HostPort), HostOnly: routes.PortAddressesHostOnly()}
-		case OriginAttached:
-			if addr, _, err := HostTargetAddress(t); err == nil {
-				return Reach{URL: attachedFrontDoor(t, addr.Host).FrontDoor(servingLabel, d.Name, d.HostPort)}
-			}
+		if reach, err := dockerReach(routes, t, servingLabel, d.Name, d.HostPort); err == nil {
+			return reach
 		}
 	}
 	if observed != "" {
 		return Reach{URL: observed}
 	}
 	return Reach{URL: d.URL}
+}
+
+// dockerReach is the one place a Docker deployment's address is chosen, for
+// the driver, the landing and reads alike: on this AppTown's own host by its
+// routes (main at its domain when it has one, else the published port,
+// which answers there only); on an attached host by that host's front door.
+func dockerReach(routes Routing, t *Target, servingLabel, name string, port int) (Reach, error) {
+	switch t.Origin {
+	case OriginBuiltIn:
+		if name == "main" && routes.MainDomain != "" {
+			return Reach{URL: routes.DeploymentURL(servingLabel, port)}, nil
+		}
+		return Reach{URL: routes.PublicURL(port), HostOnly: routes.PortAddressesHostOnly()}, nil
+	case OriginAttached:
+		addr, _, err := HostTargetAddress(t)
+		if err != nil {
+			return Reach{}, err
+		}
+		return Reach{URL: attachedFrontDoor(t, addr.Host).FrontDoor(servingLabel, name, port)}, nil
+	}
+	return Reach{}, fmt.Errorf("Docker target %s has no supported connection", t.Name)
 }
 
 // attachedFrontDoor is an attached host as its front door is named: its

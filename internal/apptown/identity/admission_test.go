@@ -41,7 +41,7 @@ func TestPasswordAdmissionAndSessionFailure(t *testing.T) {
 	}
 	var n int
 	// sql-guarantee: The failed sign-in handed back no token, so no owner read can name a phantom session; only the table total can prove none was stored.
-	if err := s.db.QueryRow(`SELECT count(*) FROM sessions`).Scan(&n); err != nil || n != 0 {
+	if err := s.db.SQL().QueryRowContext(context.Background(), `SELECT count(*) FROM sessions`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("phantom session: %d %v", n, err)
 	}
 	result, err = s.SignIn(ctx, PasswordLogin{Username: "alice", Password: "admission-password"})

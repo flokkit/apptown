@@ -148,8 +148,8 @@ func TestDeploymentRecoveryMissingIdentityRemainsUncertain(t *testing.T) {
 	if result, err := service.Recoverer().Run(context.Background(), attempt.ID); err == nil || result.Outcome != "uncertain" {
 		t.Fatalf("missing identity: %+v %v", result, err)
 	}
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE id=? AND status='uncertain' AND finished_at IS NULL`, attempt.ID)
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=? AND state='releasing'`, started.ID)
+	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE id=$1 AND status='uncertain' AND finished_at IS NULL`, attempt.ID)
+	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=$1 AND state='releasing'`, started.ID)
 }
 
 func TestDeploymentAdmissionReplayDoesNotExecuteProviderAgain(t *testing.T) {
@@ -159,7 +159,7 @@ func TestDeploymentAdmissionReplayDoesNotExecuteProviderAgain(t *testing.T) {
 	if err := service.ExecuteRelease(context.Background(), accepted.ID); err != nil {
 		t.Fatal(err)
 	}
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=? AND state='released'`, accepted.ID)
+	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=$1 AND state='released'`, accepted.ID)
 	if err := service.ExecuteRelease(context.Background(), accepted.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -177,9 +177,9 @@ func TestDeploymentProviderCheckpointFailureStopsBeforeObservation(t *testing.T)
 	if err := service.ExecuteRelease(context.Background(), accepted.ID); err == nil || !strings.Contains(err.Error(), "injected statement failure") {
 		t.Fatalf("checkpoint failure: %v", err)
 	}
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE deployment_id=? AND status='uncertain' AND NOT jsonb_exists(observed_json,'appId') AND NOT jsonb_exists(observed_json,'deploymentId')`, dep.ID)
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=? AND state='releasing'`, accepted.ID)
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM river_job WHERE (args->>'operation')=?`, RecoveryJob)
+	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE deployment_id=$1 AND status='uncertain' AND NOT jsonb_exists(observed_json,'appId') AND NOT jsonb_exists(observed_json,'deploymentId')`, dep.ID)
+	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM releases WHERE id=$1 AND state='releasing'`, accepted.ID)
+	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM river_job WHERE (args->>'operation')=$1`, RecoveryJob)
 	state := provider.Snapshot()
 	if state.DeploymentGeneration != 1 || state.DeploymentReads != 0 {
 		t.Fatalf("checkpoint failure continued execution: created=%d observed=%d", state.DeploymentGeneration, state.DeploymentReads)

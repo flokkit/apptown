@@ -37,7 +37,7 @@ func TestSweepKeepsASuiteWhileItsOwnerIsConnected(t *testing.T) {
 	}
 	clone := owning.New(t)
 	var cloneName string
-	if err := clone.QueryRow(`SELECT current_database()`).Scan(&cloneName); err != nil {
+	if err := clone.SQL().QueryRowContext(context.Background(), `SELECT current_database()`).Scan(&cloneName); err != nil {
 		t.Fatal(err)
 	}
 	owned := []string{owning.template, cloneName}

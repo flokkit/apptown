@@ -3,7 +3,6 @@ package worker_test
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/stock"

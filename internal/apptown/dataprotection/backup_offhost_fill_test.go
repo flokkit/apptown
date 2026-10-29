@@ -160,7 +160,7 @@ func TestASetOfOnlyTheAppsFilesRehearses(t *testing.T) {
 		t.Fatal(err)
 	}
 	// sql-guarantee: as newRehearsalWorld, a digest bundle's App Platform release copies images between registries this world has none of; the rehearsal reads only which bundle the served release names.
-	if _, err := w.db.Exec(`UPDATE releases SET bundle_id=$1 WHERE id=$2`, bid, rel.ID); err != nil {
+	if _, err := w.db.SQL().ExecContext(context.Background(), `UPDATE releases SET bundle_id=$1 WHERE id=$2`, bid, rel.ID); err != nil {
 		t.Fatal(err)
 	}
 	for _, chosen := range []ids.ID{set.ID, ids.Nil} {

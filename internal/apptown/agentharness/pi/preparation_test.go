@@ -41,11 +41,8 @@ type bakedLabels struct{}
 
 func (bakedLabels) Run(_ context.Context, _ string, command docker.Command) ([]byte, error) {
 	args := strings.Join(command.Args, " ")
-	if strings.Contains(args, "apptown.pi-subagents.version") {
-		return []byte("1.0"), nil
-	}
-	if strings.Contains(args, "apptown.pi-lsp.version") {
-		return []byte("2.0"), nil
+	if strings.HasPrefix(args, "image inspect") {
+		return []byte(`"sha256:` + strings.Repeat("b", 64) + `" {"apptown.pi-subagents.version":"1.0","apptown.pi-lsp.version":"2.0"}`), nil
 	}
 	return nil, errors.New("unexpected image query")
 }

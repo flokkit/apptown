@@ -1,6 +1,7 @@
 package dbschema
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -52,7 +53,7 @@ func TestAnUpgradedAppTownHasTheFreshSchemasShape(t *testing.T) {
 		out := map[string]bool{}
 		// A column's place is its rank among the table's columns: a dropped
 		// column leaves a gap in ordinal_position that SELECT * never sees.
-		rows, err := db.Query(`SELECT 'column ' || table_name || '.' || column_name || ' #' || row_number() OVER (PARTITION BY table_name ORDER BY ordinal_position) || ' ' || data_type || ' null=' || is_nullable || ' default=' || COALESCE(column_default, '')
+		rows, err := db.SQL().QueryContext(context.Background(), `SELECT 'column ' || table_name || '.' || column_name || ' #' || row_number() OVER (PARTITION BY table_name ORDER BY ordinal_position) || ' ' || data_type || ' null=' || is_nullable || ' default=' || COALESCE(column_default, '')
 FROM information_schema.columns WHERE table_schema = 'public'
 UNION ALL
 SELECT 'check ' || rel.relname || '.' || con.conname || ' ' || pg_get_constraintdef(con.oid)
@@ -95,13 +96,13 @@ func TestSupportedIntermediateSchemaAndLatestReplay(t *testing.T) {
 	if _, err := applyMigrations(t.Context(), db, migrations[:1]); err != nil {
 		t.Fatal(err)
 	}
-	if v, err := schemaVersion(db); err != nil || v != 168 {
+	if v, err := schemaVersion(context.Background(), db); err != nil || v != 168 {
 		t.Fatalf("intermediate schema %d: %v", v, err)
 	}
 	if _, err := Migrate(t.Context(), db); err != nil {
 		t.Fatal(err)
 	}
-	if v, err := schemaVersion(db); err != nil || v != Latest() {
+	if v, err := schemaVersion(context.Background(), db); err != nil || v != Latest() {
 		t.Fatalf("upgraded schema %d: %v", v, err)
 	}
 	if _, err := Migrate(t.Context(), db); err != nil {

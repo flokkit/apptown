@@ -1,6 +1,7 @@
 package apptown
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -22,13 +23,13 @@ func TestChangeCompletionCannotShipInactiveOrClosedWork(t *testing.T) {
 			for _, table := range []string{"run_events", "releases", "river_job"} {
 				var count int
 				// sql-guarantee: a refused completion must add no row to any of these tables, including rows no owner read lists.
-				if err := a.DB.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&count); err != nil {
+				if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM `+table).Scan(&count); err != nil {
 					t.Fatal(err)
 				}
 				baseline[table] = count
 			}
 			// sql-guarantee: Keep the admitted landing run live and closed_at NULL while changing only Change state; lifecycle commands close work and write receipts, masking the completion state guard.
-			completionExec(t, a.DB, `UPDATE changes SET state=? WHERE id=?`, state, run.ChangeID)
+			completionExec(t, a.DB, `UPDATE changes SET state=$1 WHERE id=$2`, state, run.ChangeID)
 			if err := completeWorkflowForTest(a.Work, run); !errors.Is(err, workflow.ErrChangeTransition) {
 				t.Fatalf("inactive Change shipped: %v", err)
 			}

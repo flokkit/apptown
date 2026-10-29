@@ -115,7 +115,7 @@ func TestAHoldTheRecordRefusesEndsTheStepFromTheRecord(t *testing.T) {
 		corruptResult(func() {
 			var running ids.ID
 			// sql-guarantee: the fixture's one step, read from inside the worker's reply; the test holds no handle on it yet.
-			if err := db.QueryRow(`SELECT id FROM steps WHERE status='running'`).Scan(&running); err != nil {
+			if err := db.SQL().QueryRowContext(context.Background(), `SELECT id FROM steps WHERE status='running'`).Scan(&running); err != nil {
 				t.Error(err)
 			}
 			if err := tasks.New(db).Hold(context.Background(), "step-"+running.String()+"-attempt-1", "held meanwhile"); err != nil {

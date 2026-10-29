@@ -215,7 +215,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 			finish(workflow.StatusError, evidence)
 			return
 		}
-		imageBase = a.scanners.baseImageFingerprints(task.Context(), run.ProjectID, ws, baseSHA, m, binding, scanSrc, argv, fmt.Sprintf("apptown-scan-%d", stepID))
+		imageBase = a.scanners.baseImageFingerprints(task.Context(), run.ProjectID, ws, baseSHA, m, binding, scanSrc, argv, execution.StepContainer(stepID, "scan"))
 		exportImage = ref // saved into the tree where the scan runs
 		evidence["image"] = ref
 		// What this receipt covers, and what it does not: the public part's
@@ -279,7 +279,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 	start := a.now()
 	req := m.Request(scanSrc, argv)
 	req.History, req.Report, req.ExportImage, req.Timeout = history, m.Report, exportImage, timeout
-	req.Name = execution.UniqueName(fmt.Sprintf("apptown-scan-%d", stepID))
+	req.Name = execution.UniqueName(execution.StepContainer(stepID, "scan"))
 	outcome := a.exec.Run(task.Context(), req)
 	evidence["durationMs"] = a.now().Sub(start).Milliseconds()
 
@@ -353,7 +353,7 @@ func (a *ScanSteps) RunScan(task *workflow.Execution) {
 				finish(workflow.StatusError, evidence)
 				return
 			}
-			base = a.scanners.baseScanFingerprints(task.Context(), ws, baseSHA, m, binding, fmt.Sprintf("apptown-scan-%d", stepID))
+			base = a.scanners.baseScanFingerprints(task.Context(), ws, baseSHA, m, binding, execution.StepContainer(stepID, "scan"))
 		case m.Looks() == "image":
 			base = imageBase
 		default:

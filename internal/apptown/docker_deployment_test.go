@@ -46,7 +46,7 @@ func TestDockerRebuildReplayQueuesObservationWithoutBoot(t *testing.T) {
 		t.Fatal("cancelled source preparation contacted Docker")
 	}
 	// sql-guarantee: no owner read lists a deployment's settled attempts; only the count proves no further attempt was admitted.
-	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE deployment_id=?`, env.ID)
+	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE deployment_id=$1`, env.ID)
 	names, err := env.HostNames()
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestDockerSelectedDeploymentKeepsResolvedSecretsOutOfInputsAndProof(t *test
 	}
 	var input, proof string
 	// sql-guarantee: no secret may be stored anywhere in the attempt's inputs or proof; the stored bytes are the guarantee, and the stored Docker source has no owner read.
-	if err := a.DB.QueryRow(`SELECT i.docker_source,a.observed_json FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id WHERE a.id=?`, at.ID).Scan(&input, &proof); err != nil {
+	if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT i.docker_source,a.observed_json FROM deployment_attempt_inputs i JOIN deployment_attempts a ON a.id=i.attempt_id WHERE a.id=$1`, at.ID).Scan(&input, &proof); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(input+proof, "private-value-") {
@@ -215,7 +215,7 @@ func TestDockerRebuildInspectionFailureDoesNotAdmitReplacement(t *testing.T) {
 		t.Fatal("failed inspection must stop the rebuild")
 	}
 	// sql-guarantee: no owner read lists a deployment's settled attempts; only the count proves no further attempt was admitted.
-	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE deployment_id=?`, env.ID)
+	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM deployment_attempts WHERE deployment_id=$1`, env.ID)
 	for _, call := range f.joined() {
 		if strings.HasPrefix(call, "run ") || strings.HasPrefix(call, "rm ") || strings.HasPrefix(call, "build ") {
 			t.Fatalf("inspection failure caused replacement: %s", call)

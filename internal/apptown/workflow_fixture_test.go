@@ -22,21 +22,21 @@ func completionInsert(t *testing.T, db *database.DB, q string, args ...any) ids.
 	t.Helper()
 	// The query's first column and placeholder are the new row's id.
 	id := ids.New(time.Now())
-	if _, err := db.Exec(q, append([]any{id}, args...)...); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), q, append([]any{id}, args...)...); err != nil {
 		t.Fatal(err)
 	}
 	return id
 }
 func completionExec(t *testing.T, db *database.DB, query string, args ...any) {
 	t.Helper()
-	if _, err := db.Exec(query, args...); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), query, args...); err != nil {
 		t.Fatal(err)
 	}
 }
 func completionCount(t *testing.T, db *database.DB, want int, query string, args ...any) {
 	t.Helper()
 	var n int
-	if err := db.QueryRow(query, args...).Scan(&n); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), query, args...).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	if n != want {

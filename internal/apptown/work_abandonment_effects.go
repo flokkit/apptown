@@ -28,7 +28,10 @@ func (e abandonmentEffects) RecordAbandonIn(ctx context.Context, tx *database.Tx
 		return recordAbandonJob(ctx, tx, fmt.Sprintf("change/%d/cleanup", in.ChangeID), map[string]any{"changeId": in.ChangeID, "runIds": in.RunIDs})
 	}
 	if in.Root && !in.ChangeID.IsZero() {
-		return recordAbandonJob(ctx, tx, fmt.Sprintf("run/%d/narrative", in.RunID), map[string]any{"runId": in.RunID, "changeId": in.ChangeID})
+		if err := (narratives{}).requestIn(ctx, tx, in.ChangeID); err != nil {
+			return err
+		}
+		return recordAbandonJob(ctx, tx, fmt.Sprintf("run/%d/ended", in.RunID), map[string]any{"runId": in.RunID, "changeId": in.ChangeID})
 	}
 	return nil
 }

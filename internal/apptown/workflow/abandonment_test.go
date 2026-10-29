@@ -159,10 +159,10 @@ func TestAbandonmentScopeIsRecheckedAfterAuthorityAndBeforeEffects(t *testing.T)
 				}
 				if change {
 					// sql-guarantee: Move the authorized Change to another project inside the authority callback; no command may rehome its immutable identity.
-					completionExec(t, db, `UPDATE changes SET project_id=?,number=number+100000 WHERE id=?`, other, root.ChangeID)
+					completionExec(t, db, `UPDATE changes SET project_id=$1,number=number+100000 WHERE id=$2`, other, root.ChangeID)
 				} else {
 					// sql-guarantee: No owner mutation rehomes an existing run's project/Change binding; replace that identity after authorization to fence its effects.
-					completionExec(t, db, `UPDATE runs SET project_id=?,number=number+100000,change_id=NULL WHERE id=?`, other, root.ID)
+					completionExec(t, db, `UPDATE runs SET project_id=$1,number=number+100000,change_id=NULL WHERE id=$2`, other, root.ID)
 				}
 				return actor, nil
 			})
@@ -270,7 +270,7 @@ func TestFailedLandingSupersessionRechecksCurrentWork(t *testing.T) {
 				}
 			case "role":
 				// sql-guarantee: Change the pinned landing role after supersession selection; admission cannot rewrite a selected run's declaration.
-				completionExec(t, db, `UPDATE runs SET definition_json=jsonb_set(definition_json,'{role}','"working"') WHERE id=?`, run.ID)
+				completionExec(t, db, `UPDATE runs SET definition_json=jsonb_set(definition_json,'{role}','"working"') WHERE id=$1`, run.ID)
 			case "read failure":
 				dbtest.FailNextStatement(t, db, "-- name: AbandonFailedLandingEligible")
 			}

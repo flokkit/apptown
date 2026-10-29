@@ -205,7 +205,7 @@ func (a *Commands) RunTests(task *workflow.Execution) {
 			Argv:     []string{"sh", "-c", testsScript(command)},
 			Image:    checks.Image,
 			Timeout:  timeout,
-			Name:     execution.UniqueName(fmt.Sprintf("apptown-tests-%d%s", stepID, label)),
+			Name:     execution.UniqueName(execution.StepContainer(stepID, "tests"+label)),
 			Files:    amb.Files,
 			Env:      append(env[:len(env):len(env)], testReportEnv+"="+testReportPath),
 			Services: services,

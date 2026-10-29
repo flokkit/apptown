@@ -76,7 +76,7 @@ func TestSecretsBoundToInfisical(t *testing.T) {
 	// Nothing from Infisical lands in AppTown's database.
 	var n int
 	// sql-guarantee: absence from storage in every scope is the guarantee; the owner reads one scope and name at a time
-	_ = a.DB.QueryRow(`SELECT COUNT(*) FROM secret_values WHERE name IN ('STRIPE_API_KEY','MIGRATION_DB_ROLE')`).Scan(&n)
+	_ = a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM secret_values WHERE name IN ('STRIPE_API_KEY','MIGRATION_DB_ROLE')`).Scan(&n)
 	if n != 0 {
 		t.Fatal("an Infisical-bound value must never be stored by AppTown")
 	}

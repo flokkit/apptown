@@ -72,7 +72,7 @@ func (catalog Catalog) Models(ctx context.Context) (entries []ModelEntry, unlist
 		if p == nil || !discoverable(p, cfg) {
 			continue
 		}
-		ids, err := catalog.discovery.models(p, clock.Or(catalog.Now)())
+		ids, err := catalog.discovery.models(ctx, p, clock.Or(catalog.Now)())
 		if err != nil {
 			unlisted = append(unlisted, UnlistedBinding{Binding: b.Name, Error: err.Error()})
 		}
@@ -107,7 +107,7 @@ func (catalog Catalog) Discover(ctx context.Context, name string, config map[str
 	if p == nil || p.api != "openai-completions" && p.api != "openai-responses" {
 		return nil, ErrNoEndpoint
 	}
-	ids, err := fetchModels(p)
+	ids, err := fetchModels(ctx, p)
 	if err != nil {
 		return nil, err
 	}

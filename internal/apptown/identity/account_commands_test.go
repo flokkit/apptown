@@ -124,7 +124,7 @@ func TestBootstrapSessionFailureRollsBack(t *testing.T) {
 	for _, table := range []string{"users", "groups", "group_members", "grants", "audit_log", "sessions"} {
 		var n int
 		// sql-guarantee: Rollback must leave no row of any kind, including ones no owner read lists (a session with no token handed back).
-		if err := s.db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&n); err != nil || n != 0 {
+		if err := s.db.SQL().QueryRowContext(context.Background(), "SELECT COUNT(*) FROM "+table).Scan(&n); err != nil || n != 0 {
 			t.Errorf("failed bootstrap left %s rows: %d, %v", table, n, err)
 		}
 	}
@@ -153,7 +153,7 @@ func TestCompletedSetupCannotReopenAfterAuthorityLoss(t *testing.T) {
 	}
 	// Simulate expired or externally removed authority, beyond the last-root guard.
 	// sql-guarantee: Remove even the last root grant after setup; Revoke refuses this state and no named query deletes all authority. The persisted setup marker must still prevent a second bootstrap.
-	if _, err := s.db.Exec(`DELETE FROM grants`); err != nil {
+	if _, err := s.db.SQL().ExecContext(context.Background(), `DELETE FROM grants`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := queries(s.db).DeleteUser(context.Background(), "root"); err != nil {

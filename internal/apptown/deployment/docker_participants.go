@@ -122,24 +122,26 @@ func (s *Service) RunLanding(ctx context.Context, claim ClaimedExecution, in Lan
 		}
 		request.Recorded = &docker.RecordedImages{Parts: in.Bundle.Parts, Init: in.Bundle.Init, Login: login, Scratch: s.hosts.BootScratch()}
 	}
+	// An attached host is reached at that host, main too: this AppTown's
+	// routes serve only its own host.
+	routes := s.env.RoutesFor(ctx, projectID)
 	reached := func(port int) string {
-		// An attached host is reached at that host, main too: this
-		// AppTown's routes serve only its own host.
-		if dk.Remote() {
-			return dk.FrontDoor(p.ServingLabel, dep.Name, port)
+		reach, err := dockerReach(routes, target, p.ServingLabel, dep.Name, port)
+		if err != nil {
+			return ""
 		}
-		routes := s.env.RoutesFor(ctx, projectID)
-		if dep.Name == "main" {
-			return routes.DeploymentURL(p.ServingLabel, port)
-		}
-		return routes.PublicURL(port)
+		return reach.URL
 	}
-	origin, err := docker.ExactOrigin(reached(in.HostPort))
+	reach, err := dockerReach(routes, target, p.ServingLabel, dep.Name, in.HostPort)
+	if err != nil {
+		return fail(err)
+	}
+	origin, err := docker.ExactOrigin(reach.URL)
 	if err != nil {
 		return fail(err)
 	}
 	request.ExactOrigins = &origin
-	request.VisitorHost = docker.VisitorHost(reached(in.HostPort))
+	request.VisitorHost = docker.VisitorHost(reach.URL)
 	executor := landingDeploymentExecution{label: dep.Label(), target: request, contract: effective, artifact: in.Start.Inputs.ArtifactHash, boot: s.env.Host(projectID, s.env.NeedCredentials(NeedSecretsScope(dep.ID)), func(slug string) KeyOwner { return deploymentKeys(s.db, s.clock, dep, slug) }).Boot,
 		url: reached}
 	// ctx bounds what comes before admission. Once admitted, the attempt

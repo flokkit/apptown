@@ -75,7 +75,7 @@ func TestCandidatePublicationPreservesExactContents(t *testing.T) {
 		}
 	}
 	// sql-guarantee: corrupt the pins of the already selected immutable publication; PublishPack can only append a valid version.
-	if _, err := db.Exec(`UPDATE pack_versions SET pins_json='{"blocks":"bad"}' WHERE pack_id=? AND version=1`, pack); err != nil {
+	if _, err := db.SQL().ExecContext(context.Background(), `UPDATE pack_versions SET pins_json='{"blocks":"bad"}' WHERE pack_id=$1 AND version=1`, pack); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := builder.packPublication(t.Context(), "pinned", 1); err == nil {

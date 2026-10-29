@@ -171,13 +171,11 @@ func jobAttempts(kind, key string) (int, error) {
 			return 0, fmt.Errorf("invalid completion key %q", key)
 		}
 		switch effect {
-		case "narrative":
-			return 1, nil
 		case "cleanup", "adopt", "parent", "land":
 			return jobBudgets[kind], nil
 		}
 	case workflowAbandonmentJob:
-		if strings.HasSuffix(key, "/narrative") {
+		if strings.HasSuffix(key, "/ended") {
 			return 1, nil
 		}
 		if strings.HasPrefix(key, "change/") && strings.HasSuffix(key, "/cleanup") {

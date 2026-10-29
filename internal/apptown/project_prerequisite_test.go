@@ -170,7 +170,7 @@ func nextFixtureProject(t *testing.T, db *database.DB) ids.ID {
 	t.Helper()
 	var made int64
 	// sql-guarantee: a count of every project, deleted ones included, to number the next; no owner read counts them all.
-	if err := db.QueryRow(`SELECT COUNT(*) FROM projects`).Scan(&made); err != nil {
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM projects`).Scan(&made); err != nil {
 		t.Fatal(err)
 	}
 	return idstest.N(uint64(made + 1))

@@ -75,15 +75,6 @@ type Config struct {
 	LocalTLS *console.LocalTLS
 }
 
-// CLI is a Config.Run for a program with no daemon scope of its own
-// (apptown-worker): the docker binary, run directly against
-// the daemon its environment names, with stdout and stderr together.
-func CLI(binary string) func(ctx context.Context, args ...string) ([]byte, error) {
-	return func(ctx context.Context, args ...string) ([]byte, error) {
-		return exec.CommandContext(ctx, binary, args...).CombinedOutput()
-	}
-}
-
 // Limits are one container's CPU, memory and PID limits.
 type Limits struct {
 	CPUs        float64

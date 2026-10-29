@@ -4273,6 +4273,16 @@
               }
             ]
           },
+          "sentBack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SentBack"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "stages": {
             "items": {
               "type": "string"
@@ -4388,6 +4398,33 @@
           "name",
           "required",
           "bound"
+        ],
+        "type": "object"
+      },
+      "SentBack": {
+        "properties": {
+          "by": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "step": {
+            "type": "string"
+          },
+          "stepId": {
+            "format": "uuid",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "stepId",
+          "step",
+          "by",
+          "note"
         ],
         "type": "object"
       },

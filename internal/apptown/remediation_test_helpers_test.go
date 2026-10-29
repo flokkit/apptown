@@ -66,7 +66,7 @@ func outcomeSnapshot(t *testing.T, db *database.DB) string {
 	t.Helper()
 	var snapshot string
 	// sql-guarantee: a failed transaction must leave every remediation row, attempt, job and receipt byte-identical; only the whole tables, read independently of their writers, show that.
-	if err := db.QueryRow(`SELECT jsonb_build_object(
+	if err := db.SQL().QueryRowContext(context.Background(), `SELECT jsonb_build_object(
 		'items',(SELECT jsonb_agg(i ORDER BY id) FROM remediation_items i),
 		'attempts',(SELECT jsonb_agg(a ORDER BY id) FROM remediation_attempts a),
 		'jobs',(SELECT jsonb_agg(j ORDER BY id) FROM remediations j),

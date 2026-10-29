@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 )
@@ -58,7 +59,7 @@ func ExportStaticBuild(ctx context.Context, dk Scope, contextDir string, sb appc
 		done()
 		return "", func() {}, BuildFailure("building the static site", out, err)
 	}
-	if site, err = ConfineStaticExport(export, sb.Output); err != nil {
+	if site, err = ConfineStaticExport(ctx, export, sb.Output); err != nil {
 		done()
 		return "", func() {}, err
 	}
@@ -82,54 +83,25 @@ func StaticExportArgs(target, contextDir, dest string) []string {
 // is the project's own build output, so it is read without following a
 // link: every folder on the way to output, and everything under it, must
 // be a plain folder or file. A link anywhere there is refused, wherever it
-// points (built static output holds no links). Links
-// elsewhere in the stage are never read.
-func ConfineStaticExport(root, output string) (string, error) {
-	site := root
-	if clean := filepath.Clean(output); clean != "." {
-		if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-			return "", fmt.Errorf("the static site's output %q is not inside the build's files", output)
-		}
-		for _, part := range strings.Split(clean, string(filepath.Separator)) {
-			site = filepath.Join(site, part)
-			info, err := os.Lstat(site)
-			if errors.Is(err, fs.ErrNotExist) {
-				return "", fmt.Errorf("the build wrote no %s: the static site's output folder is missing from the built stage's files", output)
-			}
-			if err != nil {
-				return "", err
-			}
-			if info.Mode()&fs.ModeSymlink != 0 {
-				rel, _ := filepath.Rel(root, site)
-				return "", fmt.Errorf("the built static site's %s is a symbolic link; a static site's output holds only folders and files", filepath.ToSlash(rel))
-			}
-			if !info.IsDir() {
-				rel, _ := filepath.Rel(root, site)
-				return "", fmt.Errorf("the built static site's %s is not a folder", filepath.ToSlash(rel))
-			}
-		}
+// points (built static output holds no links). Links elsewhere in the stage
+// are never read. An output that is absolute or leaves the export is
+// refused before anything runs; the rest is StaticExportCheckScript, the
+// one check, run here under /bin/sh (it and find exist on macOS and Linux).
+func ConfineStaticExport(ctx context.Context, root, output string) (string, error) {
+	clean := filepath.Clean(output)
+	if filepath.IsAbs(clean) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("the static site's output %q is not inside the build's files", output)
 	}
-	files := 0
-	err := filepath.WalkDir(site, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.Type()&fs.ModeSymlink != 0 || !(d.IsDir() || d.Type().IsRegular()) {
-			rel, _ := filepath.Rel(root, path)
-			return fmt.Errorf("the built static site holds %s, which is not a plain folder or file (a symbolic link is refused, wherever it points)", filepath.ToSlash(rel))
-		}
-		if !d.IsDir() {
-			files++
-		}
-		return nil
-	})
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "/bin/sh", "-c", "set -e\n"+StaticExportCheckScript(root, filepath.ToSlash(clean))).CombinedOutput()
 	if err != nil {
-		return "", err
+		if said := strings.TrimSpace(string(out)); said != "" {
+			return "", errors.New(said)
+		}
+		return "", fmt.Errorf("checking the built static site: %w", err)
 	}
-	if files == 0 {
-		return "", fmt.Errorf("the build's %s holds no files: the static site is empty", output)
-	}
-	return site, nil
+	return filepath.Join(root, clean), nil
 }
 
 // StaticExportCheckScript is ConfineStaticExport for a shell where the
@@ -154,9 +126,14 @@ func StaticExportCheckScript(export, output string) string {
 		}
 	}
 	site := quote(at)
+	// find's own status is read (no pipeline): a folder it cannot read
+	// refuses the site rather than passing as empty or clean.
+	unreadable := fail("the built static site cannot be read through; a folder in it is unreadable")
 	checks = append(checks,
-		"bad=$(find "+site+" ! -type d ! -type f | head -1); [ -z \"$bad\" ] || { echo \"the built static site holds ${bad#"+quote(export+"/")+"}, which is not a plain folder or file (a symbolic link is refused, wherever it points)\" >&2; exit 1; }",
-		"[ -n \"$(find "+site+" -type f | head -1)\" ] || "+fail("the build's "+output+" holds no files: the static site is empty"))
+		"bad=$(find "+site+" ! -type d ! -type f -print) || "+unreadable,
+		"[ -z \"$bad\" ] || { bad=${bad%%\n*}; echo \"the built static site holds ${bad#"+quote(export+"/")+"}, which is not a plain folder or file (a symbolic link is refused, wherever it points)\" >&2; exit 1; }",
+		"files=$(find "+site+" -type f -print) || "+unreadable,
+		"[ -n \"$files\" ] || "+fail("the build's "+output+" holds no files: the static site is empty"))
 	return strings.Join(checks, "\n")
 }
 

@@ -154,7 +154,7 @@ func TestRemediationAttemptRollsBackWithAppTownsCleanupJob(t *testing.T) {
 	for _, table := range []string{"river_job", "run_events", "audit_log", "run_starts"} {
 		var n int
 		// sql-guarantee: failed admission leaves no hidden row in these tables; only a whole-table count proves nothing was written.
-		if err := a.DB.QueryRow(`SELECT COUNT(*) FROM ` + table).Scan(&n); err != nil {
+		if err := a.DB.SQL().QueryRowContext(context.Background(), `SELECT COUNT(*) FROM `+table).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
 		before[table] = n
@@ -329,7 +329,7 @@ func TestRemediationAttemptPreparationRetriesInSameProcess(t *testing.T) {
 		t.Fatalf("preparations=%d executions=%d", preparations.Load(), executions.Load())
 	}
 	// sql-guarantee: Work's readiness observation reports "not unready" alike for a prepared start and a missing one; only the stored start shows this run was recorded ready.
-	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM run_starts WHERE ready AND run_id=?`, run.ID)
+	completionCount(t, a.DB, 1, `SELECT COUNT(*) FROM run_starts WHERE ready AND run_id=$1`, run.ID)
 	if n := len(remediationAttempts(t, a, item.RemediationID)); n != 1 {
 		t.Fatalf("%d attempts", n)
 	}

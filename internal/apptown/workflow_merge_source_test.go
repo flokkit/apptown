@@ -46,7 +46,7 @@ func mergeSourceRun(t *testing.T, branch string, steps ...schema.Step) (*App, *w
 	// failure paths; a landing admitted now would have nothing to pin and be
 	// refused before them.
 	// sql-guarantee: model a landing admitted before step 1b, which recorded no candidate and no pinning marker.
-	completionExec(t, a.DB, `DELETE FROM run_events WHERE run_id=? AND kind IN ('landing.candidate','landing.pin.required')`, run.ID)
+	completionExec(t, a.DB, `DELETE FROM run_events WHERE run_id=$1 AND kind IN ('landing.candidate','landing.pin.required')`, run.ID)
 	return a, run
 }
 
