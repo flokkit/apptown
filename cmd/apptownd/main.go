@@ -66,7 +66,7 @@ type daemonFlags struct {
 	otlpEndpoint                                     string
 	otlpProtocol                                     string
 	verifyOnly                                       bool
-	reap                                             bool
+	disableReap                                      bool
 	noPrivateDocker                                  bool
 	noLocalDocker                                    bool
 	localTLS                                         bool
@@ -95,7 +95,7 @@ func defineFlags(fs *flag.FlagSet) *daemonFlags {
 	fs.StringVar(&o.trustAppTown, "trust-apptown", "", "a PEM file of extra certificate authorities AppTown's other connections trust, beside the system's: Git hosts, integration providers, cloud provider APIs")
 	fs.BoolVar(&o.noLocalDocker, "no-local-docker", false, "run with no local Docker daemon and no project process on this host: everything runs on the worker (-worker-url), releases go to attached Docker targets, and the database is external (-db-url) (Running AppTown: Workers and running without local Docker)")
 	fs.StringVar(&o.resetPassword, "reset-password", "", "one-shot break-glass, with this AppTown's normal settings on its host: give the named existing account a new random password (its sessions end; one receipt names apptown-operator (host)), print only that password on stdout, and exit without serving (Running AppTown)")
-	fs.BoolVar(&o.reap, "reap", false, "remove what AppTown made and nothing uses any more (step, service and chat containers, previews nobody looks at, images, caches, folders) instead of only logging it; set it only when this Docker is used by this AppTown alone: the sweep does not ask other AppTowns what they still use")
+	fs.BoolVar(&o.disableReap, "disable-reap", false, "keep what AppTown made and nothing uses any more (step, service and chat containers, previews nobody looks at, images, caches, folders) and only log what cleanup would remove; cleanup removes them unless this is set. Set it when this Docker is shared with another AppTown: the sweep does not ask other AppTowns what they still use")
 	fs.StringVar(&o.updateSupervisorSocket, "update-supervisor-socket", "", "explicit managed update supervisor socket; empty means unmanaged")
 	fs.StringVar(&o.updateChannel, "update-channel", "stable", "release notifications: stable | prerelease (explicit opt-in)")
 	fs.BoolVar(&o.updateChecks, "update-checks", true, "periodically check public authenticated release metadata; manual checks remain available")
@@ -454,7 +454,7 @@ func (o *daemonFlags) apptownConfig(dataDir string) apptown.Config {
 		HostScripts: o.hostScripts,
 		TaskLimits:  execution.Limits{CPUs: o.taskCPUs, MemoryBytes: o.taskMemoryMiB << 20, PIDs: o.taskPIDs},
 		ChatLimits:  execution.Limits{CPUs: o.chatCPUs, MemoryBytes: o.chatMemoryMiB << 20, PIDs: o.chatPIDs}, Seeding: projectlifecycle.Seeding{AllowPrivate: o.gitImportPrivate, BundleMaxBytes: o.bundleMaxBytes}, VerifyOnly: o.verifyOnly, ConsoleCLI: o.consoleCLI, NoPrivateDocker: o.noPrivateDocker, PrivateDocker: o.privateDocker, NoLocalDocker: o.noLocalDocker, UsingBuiltinDB: o.dbURL == "", DataDir: dataDir, PublicHost: o.publicHost, RestoreGateImage: o.restoreGateImage, ListenAddr: o.addr,
-		AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, Reap: o.reap,
+		AgentExecutor: o.agentExecutor, AgentImage: o.agentImage, DisableReap: o.disableReap,
 		AuthMode: o.authMode, AuthHeader: o.authHeader, AuthProxySecret: os.Getenv(o.authSecretEnv),
 		TrustedProxies: strings.Split(o.trustedProxies, ","), TierDomains: o.tierDomains,
 		OTLPEndpoint: o.otlpEndpoint, OTLPProtocol: o.otlpProtocol}

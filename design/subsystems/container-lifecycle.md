@@ -4,10 +4,11 @@ Maintenance owns periodic cleanup policy; Docker implements the commands.
 Normal operation cleanup handles completed work. The periodic reaper provides
 a fallback for resources left behind by missed cleanup or process interruption.
 
-The daemon schedules maintenance about every five minutes. `apptownd -reap`
-(`APPTOWN_REAP=true`) enables deletion; without it maintenance only logs. It
-is the machine owner's choice because reaping does not ask other AppTowns
-sharing the Docker daemon what they still use. Reaping selects labelled resource
+The daemon schedules maintenance about every five minutes, and it removes
+what it finds. `apptownd -disable-reap` (`APPTOWN_DISABLE_REAP=true`) turns
+deletion off, so maintenance only logs what it would remove. Set it when
+another AppTown shares the Docker daemon: reaping does not ask other AppTowns
+what they still use. Reaping selects labelled resource
 classes and retains persistent `env`/infrastructure resources and unknown classes.
 Execution cleanup uses the observed container ID, not a reusable name.
 
@@ -111,8 +112,8 @@ worker.
   sweep all remove that way. A run's completion removes every one of its
   preview-step stacks.
 - **Preview tends its previews** every five minutes with the other
-  maintenance duties (`preview.Service.Tend`, log-only unless
-  apptownd runs with `-reap`). It lists the previews present on AppTown's Docker
+  maintenance duties (`preview.Service.Tend`, log-only when
+  apptownd runs with `-disable-reap`). It lists the previews present on AppTown's Docker
   (running or exited) and on the worker, and stops each whose last look is
   over eight hours old, or that has none. Each decision is read again under
   the preview's boot lock, so a boot or a look since keeps it. Looks that
