@@ -98,10 +98,18 @@ if [ -n "$uncached" ]; then
     skip="${skip}${skip:+|}^($uncached)\$"
 fi
 printf 'CI partition %s/%s: %s packages\n' "$tier" "$wanted" "$selected"
+# The uncached tests run beside the others, not after them: they are the
+# longest in their groups (image builds), and run every time.
+uncached_status=0
+if [ -n "$uncached" ]; then
+    printf 'CI partition %s/%s: uncached tests, run every time, alongside (scripts/ci-uncached-tests.txt)\n' "$tier" "$wanted"
+    go test "$@" -count=1 -run "^($uncached)\$" $uncached_packages &
+    uncached_pid=$!
+fi
 status=0
 go test "$@" ${run:+-run "$run"} ${skip:+-skip "$skip"} $selected_packages || status=$?
 if [ -n "$uncached" ]; then
-    printf 'CI partition %s/%s: uncached tests, run every time (scripts/ci-uncached-tests.txt)\n' "$tier" "$wanted"
-    go test "$@" -count=1 -run "^($uncached)\$" $uncached_packages || status=$?
+    wait "$uncached_pid" || uncached_status=$?
 fi
+[ "$status" -ne 0 ] || status=$uncached_status
 exit "$status"
