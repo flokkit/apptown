@@ -105,16 +105,6 @@
     "reason": "grep returns 1 when it counts zero matches. Its numeric output is still checked below; no empty or malformed count is accepted as zero."
   },
   {
-    "file": "scripts/release.sh",
-    "source": "at=$(git describe --tags --exact-match HEAD 2>/dev/null || true)",
-    "reason": "A missing exact tag produces an empty value which the following release-tag check refuses."
-  },
-  {
-    "file": "scripts/release.sh",
-    "source": "previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD^ 2>/dev/null || true)",
-    "reason": "Without a discoverable previous release, only the optional prior-API comparison is omitted. This is not proof that no API changed."
-  },
-  {
     "file": "scripts/stranger-install.sh",
     "source": "apptown version 2>/dev/null | head -1 || true",
     "reason": "The version line is optional diagnostic output; install and subsequent daemon checks provide their own evidence."
@@ -138,5 +128,10 @@
     "file": "site/try.sh",
     "source": "\tfor image in $(printf '%s\\n' \"$images\" | grep '^ghcr.io/flokkit/apptown' || :); do",
     "reason": "The image inventory was checked before this filter. grep may find no AppTown image; that means there is no matching image to remove."
+  },
+  {
+    "file": "scripts/release-notes-check.sh",
+    "source": "previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)",
+    "reason": "Without a discoverable previous release, only the optional prior-API comparison is omitted. This is not proof that no API changed."
   }
 ]

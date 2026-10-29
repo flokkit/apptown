@@ -1,7 +1,7 @@
 #!/bin/sh
 # The heavy tiers' jobs in .github/workflows/heavy.yml (integration, journeys,
 # opt-in-tiers, race; design/architecture/testing.md), and the release's UI
-# tour (images.yml's tour job):
+# tour (candidate.yml's tour job):
 #   ci-heavy.sh test <go test arguments...>
 #   ci-heavy.sh test-partition integration <group>   (scripts/ci-test-partition.sh)
 #   ci-heavy.sh tour           make tour, with site/tour and web/dist left in

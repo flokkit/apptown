@@ -1,13 +1,19 @@
 # Releasing
 
-How an AppTown release is qualified and published, in order. Pushing a `v*`
-tag starts publication automatically; a local tag does not. What a release promises is
-[What 1.0 promises](../../stock/docs/guides/compatibility.md).
+How an AppTown release is built, qualified and published, in order. A
+release is built once, in CI, before its version tag exists; qualification,
+rehearsal, publication and deployment all use those exact bytes. What a
+release promises is [What 1.0 promises](../../stock/docs/guides/compatibility.md).
 
-1. **The upgrade test.** On the candidate commit, run `make upgrade-test`.
-   Every earlier release's frozen AppTown (`internal/apptown/testdata/upgrade`)
-   must upgrade to it and keep its records.
-2. **The notes.** Write `releases/v<version>.md` and commit it. The file is
+1. **The notes, as an ordinary change.** Write `releases/v<version>.md` and
+   run `sh scripts/release-prepare.sh <version>`: it adds the previous
+   release's upgrade fixture (`internal/apptown/testdata/upgrade/<previous>`),
+   from that release's `upgrade-fixture-<previous>.tar.gz` asset, checked
+   against the digest GitHub records, and checks the notes
+   (`scripts/release-notes-check.sh`). Land both through the merge queue like
+   any change. Like every landed commit it gets a `heavy-main.yml` run with
+   every test fresh, and CI's unit tests upgrade every frozen release's
+   AppTown, the previous one's included, to it. The notes file is
    also the GitHub Release's text, where a relative link does not resolve,
    so it links a repository file by its full address,
    `https://github.com/flokkit/apptown/blob/main/<path>` (`make check-docs`
@@ -19,59 +25,48 @@ tag starts publication automatically; a local tag does not. What a release promi
    - `## Deprecations`: what will go, in which later release (at least one
      minor release ahead), and what to use instead.
 
-   Write "None." under a section with nothing to say. The release script
-   refuses a release without the file or either section. It also refuses a
-   release whose API description (`stock/docs/api/openapi.json`) changed
-   since the previous release tag while the HTTP section says "None.". It
-   cannot check the rest: whether every change is named, and whether a
-   removal was announced a minor release before. That is the person
-   releasing's job.
-3. **Exact candidate qualification.** Land the notes and fixes on `main`.
-   Require a `heavy-main.yml` run on that exact commit that passed on its
-   first attempt ([GitHub](github.md)): every landed commit gets one, with
-   every test fresh. A queue run, which may reuse cached results, admission
-   and a passing rerun do not count. Fix a code failure in a new
-   commit; for an infrastructure failure, start a new full run on the same
-   commit, retaining the failed evidence.
-4. **Local tag and builds.** Create `git tag -a v<version>` at that qualified
-   commit, without pushing it. From a clean checkout at the local tag,
-   `sh scripts/release.sh <version>` checks the notes, reruns the upgrade
-   tests and writes local qualification artifacts under `dist/release/v<version>/`.
-   It does not publish. Its archive set and names differ from the workflow's:
-   also build the publication archive set with
-   `sh scripts/release-archives.sh <version> <commit> <output-directory>`.
-   That script is the workflow's archive owner; it requires the built web
-   bundle and does not replace the preceding qualification checks.
-   Also build the workflow's container targets from this exact source before
-   pushing the tag: `deploy/Dockerfile` targets `server` and `worker`, each for
-   `linux/amd64` and `linux/arm64`. Set build arguments `VERSION=v<version>` and
-   `REVISION=<commit>`. Keep these builds local (no push), retaining their build
-   logs and image IDs. Archive builds do not exercise the container's source
-   copies or notices stage. A failed image build stops publication; fix and
-   qualify the new candidate before its tag is pushed.
-5. **Fresh install and real-data upgrade rehearsal.** Test the publication
-   archives with `sh scripts/stranger-install.sh <archive>`. It installs into
-   a disposable Docker daemon and reaches a first preview without a model
-   key, using the admitted change's exact UUID. Check the other supported
-   installation paths affected by the release, including native Mac storage
-   when changed. Then complete the isolated rehearsal below with matched
-   database and file copies from maintained installations. Frozen fixtures and
-   a fresh install do not substitute for this. A failure stops publication:
-   fix the candidate and repeat qualification, builds and rehearsal at its
-   new exact commit. Keep the failure evidence.
-6. **Publish by pushing the tag.** Only after those checks pass, push the
-   qualified local tag. `.github/workflows/images.yml` automatically builds
-   and publishes images and the signed release archives using
-   `scripts/release-archives.sh`; it does not upload the local `release.sh`
-   output. It also publishes the site and versioned tour. There is no later
-   manual approval between the tag push and these publication steps.
-   Verify the published checksums, signatures, source identity, archive contents
-   and image digests, then perform and verify the maintained rollout with
-   matching rollback backups. Record the binaries actually running.
-7. **Freeze the release's AppTown** for later releases, from the exact tag:
-   `go test ./internal/apptown -run '^TestAnUpgradeKeepsWhatThePreviousReleaseRecorded$' -update-upgrade-fixture=<version>`.
-   Land only the generated fixture in its own follow-up pull request after
-   maintained rollout verification; do not move the release tag.
+   Write "None." under a section with nothing to say. The check refuses
+   notes without either section, and an API description
+   (`stock/docs/api/openapi.json`) changed since the previous release tag
+   while the HTTP section says "None.". It cannot check the rest: whether
+   every change is named, and whether a removal was announced a minor
+   release before. That is the person releasing's job.
+
+   Until the next release's notes change lands, `main` is not tested against
+   upgrading from the newest release's frozen AppTown; its real-data
+   rehearsal (step 3) is.
+2. **The candidate.** Choose the commit C: a commit of `main` with the notes,
+   whose `heavy-main.yml` run passed on its first attempt
+   ([GitHub](github.md)); a queue run, which may reuse cached results,
+   admission and a passing rerun do not count. For an infrastructure failure,
+   start a new `heavy-main.yml` run by hand on the same commit. Choosing C freezes the release's scope; a
+   change to it is a new candidate. Push the tag
+   `candidate/v<version>/<first 12 characters of C>` at C. `candidate.yml`
+   builds everything the release publishes, once: the three images for
+   `linux/amd64` and `linux/arm64`, pushed by digest, smoke-checked on their
+   own runners and joined into indexes tagged `candidate-<sha12>`; the
+   release archives (`scripts/release-archives.sh`), `SHA256SUMS`, the update
+   manifest and the notes; the upgrade fixture this release leaves for later
+   ones; a stranger's install of the linux/amd64 archive
+   (`scripts/stranger-install.sh`, first preview without a model key); and the
+   UI tour. A failure stops the release: fix `main` and push a new candidate
+   tag for the same version, since no version tag was pushed.
+3. **Qualification on the candidate's bytes.** From the candidate's
+   `archives` artifact, in parallel: rehearse the upgrade on copies of
+   maintained installations' data (below), install the darwin archive
+   natively on a Mac, and deploy the candidate to a running installation
+   that exercises chat on a worker and check a chat receives a reply. A
+   failure stops the release before publication.
+4. **Publish by pushing the version tag.** Push `v<version>` at C. The
+   pre-push hook checks the candidate run instead of rerunning the gate.
+   `images.yml` finds the candidate run and publishes its bytes without
+   building anything: it gives each image index the version's tags and signs
+   it, signs `SHA256SUMS`, creates the GitHub Release from the candidate's
+   `release` artifact with the upgrade fixture beside it, and publishes the
+   site with the candidate's tour. There is no later manual approval. A
+   failed job (a signing service's error, say) is re-run as it is. Verify
+   that the published `SHA256SUMS` is the candidate's, its signature, and
+   that each image's version tag names the candidate's index digest.
 
    A final release (`vX.Y.Z`, no `-`) also updates the Homebrew formula:
    the workflow's `homebrew` job writes `Formula/apptown.rb` from the
@@ -83,41 +78,29 @@ tag starts publication automatically; a local tag does not. What a release promi
 
    For a local tour preview, use `make tour`. A pushed test tag (`-test.N`)
    still publishes images and creates a draft release, so it is not a way to
-   bypass prepublication qualification. Its `tour` job runs and the site is
-   left alone; the run's `tour` artifact
-   holds the screenshots and the page (open `index.html` from the
-   downloaded archive). `make tour` makes the same pictures locally, as a
+   bypass the candidate. `make tour` makes the same pictures locally, as a
    preview, with Playwright and Chromium (the version
    `deploy/ci-heavy/Dockerfile` pins, named by `APPTOWN_PLAYWRIGHT_MODULE`).
-   After a release, the published tour is at apptown.dev/tour/ and the run
-   keeps its artifact for 30 days. A wrong picture is fixed on `main` and
-   goes out with the next release.
+   After a release, the published tour is at apptown.dev/tour/. A wrong
+   picture is fixed on `main` and goes out with the next release.
 
-## Isolated rehearsal before publication
+## The upgrade rehearsal
 
-Take a matched database dump and data-directory copy with application writers
-stopped, following [upgrading](../../stock/docs/guides/upgrading.md). Keep that
-pair unchanged for rollback and rehearse on a disposable copy. Include retained
-history: archived and deleted projects, older consoles and sessions, repository
-metadata, and pending or interrupted operations. Do not filter the copy down to
-active projects or repair troublesome rows just to make the rehearsal pass.
-
-Before any copied application starts, isolate its database, files and Docker
-resources from the maintained instances. Deny outbound access to real model
-providers, agents, workers, deployment targets and webhook destinations; copied
-credentials must not authorize effects outside the rehearsal. Use isolated
-networking and local substitutes where needed. Disabling one scheduler or using
-`-verify-only` is not a general side-effect boundary. Never mount live data
-writable or give the rehearsal the host's production Docker socket.
-
-Run the candidate's migration/startup checks against the copy, then exercise
-normal startup and representative reads within that isolation. Record the
-source version and backup pair, candidate commit and binary hashes, included
-record/file counts and retained-history cases, checks performed, exclusions,
-results and cleanup. A subset rehearsal proves only that subset; missing state
-or an unexercised migration is a qualification gap to resolve before publication.
-These are release procedures, not a new automated gate: the tag workflow checks
-CI evidence but does not enforce this rehearsal.
+Rehearse each release's upgrade on the data of the installations that will
+take it, by restoring a whole-AppTown backup with the candidate
+([AppTown's own backups](../../stock/docs/guides/apptown-backups.md)):
+`apptownd backup` on the installation, nothing stopped, then
+`scripts/apptown-recovery-rehearsal.sh` restores the archive with the
+candidate's `apptownd` onto a spare host cut off from everything a restored
+AppTown would act on (upstream Git, cloud APIs, attached hosts, model
+providers) before it starts. It compares API reads taken before the backup
+with the restored candidate's, and starts it normally. Every release thereby
+also proves restore. The comparison is a sample of activity history and
+recent changes per project, not every record; the frozen fixtures cover the
+retained history of every earlier release. Never give a rehearsal the
+host's production Docker socket or live data. Record the source version,
+the candidate, what was compared and the cleanup. A failure stops the
+release: fix the candidate and rehearse its replacement.
 
 ## While a release candidate runs in production
 
@@ -129,8 +112,8 @@ The maintainers run each release candidate in production before the release:
   not redeployed from `main` while the candidate runs. Its `X-AppTown-Version`
   response header names the tag.
 - **A fix for the candidate is a new candidate.** A defect found while the
-  candidate runs is fixed on `main` and qualified as the next release candidate (a new
-  tag, archives, fixture and the steps above). Routine corrected RC version
+  candidate runs is fixed on `main` and released as the next release candidate
+  (the steps above). Routine corrected RC version
   increments belong to completing an authorized release; the number alone is
   not a reason to stop for approval. Production then moves to that tag.
 - **Published bytes are not silently replaced.** Withdraw a failed release and
