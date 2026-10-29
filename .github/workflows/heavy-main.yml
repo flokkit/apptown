@@ -6,7 +6,13 @@
 # landed commit is thereby a full chance for a flaky test to fail, visibly
 # here. A release tag's images need a run of this workflow on the tag's commit
 # that passed on its first attempt (images.yml, heavy-evidence). The matrix
-# and cache keys are heavy.yml's (scripts/ci_workflows_test.py).
+# and cache keys are heavy.yml's (scripts/ci_workflows_test.py). Each job's
+# archive holds up to 1 GiB, enough for one large partition's compiled
+# packages and test results together: at 256 MiB, results were trimmed and
+# the queue re-ran them. Twelve such archives (about 250 MB each once
+# compressed) and ci.yml's seven at 256 MiB make one main commit's caches
+# about 3.5 GB, inside the repository's 10 GB, which GitHub keeps by evicting
+# the least recently used: older commits' archives first.
 name: heavy-main
 
 on:
@@ -155,7 +161,7 @@ jobs:
       - if: always()
         run: sh scripts/ci-heavy.sh cleanup
       - if: github.ref == 'refs/heads/main'
-        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
+        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 1024
       - if: github.ref == 'refs/heads/main'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -201,7 +207,7 @@ jobs:
       - run: sh scripts/ci-test-environment.sh fresh
       - run: sh scripts/ci-test-partition.sh race "${{ matrix.group }}"
       - if: github.ref == 'refs/heads/main'
-        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 256
+        run: python3 scripts/ci-cache-trim.py ~/.cache/go-build --max-mib 1024
       - if: github.ref == 'refs/heads/main'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:

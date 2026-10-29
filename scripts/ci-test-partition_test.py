@@ -55,7 +55,14 @@ with open(os.environ['CALLS'], 'a') as f: f.write(json.dumps(sys.argv[1:]) + '\\
 if sys.argv[1] == 'list':
     print(os.environ['PACKAGES'])
     sys.exit(int(os.environ.get('LIST_STATUS', '0')))
-if '-count=1' in sys.argv: sys.exit(int(os.environ.get('UNCACHED_STATUS', '0')))
+import time
+if '-count=1' in sys.argv:
+    if os.environ.get('TIMES'):
+        with open(os.environ['TIMES'], 'a') as f: f.write(f'uncached-start {time.monotonic()}\\n')
+    sys.exit(int(os.environ.get('UNCACHED_STATUS', '0')))
+if os.environ.get('TIMES'):
+    time.sleep(1)
+    with open(os.environ['TIMES'], 'a') as f: f.write(f'cached-end {time.monotonic()}\\n')
 sys.exit(int(os.environ.get('TEST_STATUS', '0')))
 ''')
         stub.chmod(0o755)
@@ -69,7 +76,8 @@ sys.exit(int(os.environ.get('TEST_STATUS', '0')))
         return r, [json.loads(line) for line in calls.read_text().splitlines()]
 
     def go_tests(self, calls):
-        return [c for c in calls if c[0] == 'test']
+        """The go test calls, the cached one first (the two run at once)."""
+        return sorted((c for c in calls if c[0] == 'test'), key=lambda c: '-count=1' in c)
 
     def packages(self, call):
         return [a for a in call if a.startswith(M)]
@@ -171,6 +179,13 @@ sys.exit(int(os.environ.get('TEST_STATUS', '0')))
         self.assertEqual(len(self.go_tests(calls)), 2)
         r, calls = self.run_partition('integration', 'rest', UNCACHED_STATUS='23')
         self.assertEqual(r.returncode, 23)
+
+    def test_the_uncached_tests_run_alongside_the_others(self):
+        times = self.root / 'times'
+        r, _ = self.run_partition('integration', 'rest', TIMES=str(times))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        marks = dict(line.split() for line in times.read_text().splitlines())
+        self.assertLess(float(marks['uncached-start']), float(marks['cached-end']))
 
     def test_list_only_never_tests(self):
         calls_file = self.root / 'calls'

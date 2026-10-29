@@ -188,10 +188,13 @@ the queue restore them without publishing. Modules (`go-mod-*`) use
 dependency hashes. Go cache keys include platform, architecture, dependencies
 and commit; each successful main job publishes its current cache, and later
 runs restore the newest compatible prefix. Container-tier keys also include
-the runner Dockerfile and tier. Each archive retains at most 256 MiB of its
-newest entries (`scripts/ci-cache-trim.py`), never Go's own control files
-beside them; older generations compete for the repository's Actions cache
-budget and may be evicted. Eviction causes recompilation and re-execution,
+the runner Dockerfile and tier. Each archive retains its newest entries
+(`scripts/ci-cache-trim.py`), never Go's own control files beside them: at
+most 1 GiB for a heavy or race job, whose partitions' compiled packages and
+test results together need it, and 256 MiB for ci.yml's jobs. One main
+commit's archives are then about 3.5 GB compressed, inside the repository's
+10 GB Actions cache, which GitHub keeps by evicting the least recently
+accessed archives, usually older generations. Eviction causes recompilation and re-execution,
 never omission of tests.
 
 **Test results.** A pull request's and the queue's test jobs reuse a

@@ -119,6 +119,29 @@ class TestCache(unittest.TestCase):
                     self.assertLess(section.index('sh scripts/ci-heavy.sh pull'), section.index('ci-test-environment.sh'), (workflow, name))
                     self.assertLess(section.index('ci-test-environment.sh'), section.index('ci-test-partition.sh'), (workflow, name))
 
+    def test_archive_budgets_fit_the_repository_cache(self):
+        # GitHub keeps 10 GB of caches per repository. One main commit's Go
+        # archives, compressed at about 4:1 as observed, must leave room for
+        # the next commit's beside them.
+        total = 0
+        for workflow in ['ci.yml', 'heavy-main.yml']:
+            t = text(workflow)
+            for name in re.findall(r'^  ([\w-]+):\n', t, re.M):
+                section = job(t, name)
+                budgets = [int(m) for m in re.findall(r'ci-cache-trim.py ~/.cache/go-build --max-mib (\d+)', section)]
+                if not budgets:
+                    continue
+                entries = len(re.findall(r'^          - name: ', section, re.M)) or len(re.findall(r'^          - group: ', section, re.M))
+                if 'group: [root, backup, workflow, rest]' in section:
+                    entries = 4
+                if 'part: [root-a, root-b, subsystems, rest]' in section:
+                    entries = 4
+                total += max(budgets) * max(entries, 1)
+        self.assertGreater(total, 0)
+        self.assertLessEqual(total / 4 / 1024, 5, f'{total} MiB of archives per main commit')
+        self.assertIn('--max-mib 1024', job(text('heavy-main.yml'), 'tier'))
+        self.assertIn('--max-mib 1024', job(text('heavy-main.yml'), 'race'))
+
     def test_no_workflow_disables_the_cache_by_hand(self):
         for workflow in ['ci.yml', 'heavy.yml', 'heavy-main.yml']:
             self.assertNotIn('-count=1', text(workflow), workflow)
