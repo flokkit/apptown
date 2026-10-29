@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/deploy/docker"
@@ -53,6 +55,44 @@ func TestIntegrationRunInAnswersThroughAFileAndRemovesIt(t *testing.T) {
 	}
 	if left, _ := cli(ctx, nil, "exec", id, "sh", "-c", "ls /tmp | grep -c apptown-result || true"); strings.TrimSpace(string(left)) != "0" {
 		t.Fatalf("left %s result files in the container", left)
+	}
+}
+
+// A running container whose single-file bind source has been removed
+// cannot be read: Docker recreates the source as a directory, which it
+// cannot mount over the container's file. The read fails, never an absent
+// or empty answer. This is the Docker behaviour the worker's blob reaper
+// guards against (internal/worker, reapBlobs).
+func TestIntegrationRunInFailsWhenAFileMountsSourceIsGone(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	// The source is made and removed on the daemon's own host (through a
+	// container that mounts its /tmp), so the daemon sees the removal
+	// whatever shares files between it and this test.
+	dir := "/tmp/apptown-test-" + strings.TrimPrefix(t.Name(), "TestIntegration") + "-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	onHost := func(script string) {
+		t.Helper()
+		if out, err := cli(ctx, nil, "run", "--rm", "--network", "none", "--label", "apptown.class=test", "-v", "/tmp:/tmp", busybox, "sh", "-c", script); err != nil {
+			t.Fatalf("%v: %s", err, out)
+		}
+	}
+	onHost("mkdir -p " + dir + " && echo cli > " + dir + "/content")
+	t.Cleanup(func() {
+		_, _ = cli(context.Background(), nil, "run", "--rm", "--network", "none", "-v", "/tmp:/tmp", busybox, "rm", "-rf", dir)
+	})
+	out, err := cli(ctx, nil, "run", "-d", "--rm", "--network", "none", "--label", "apptown.class=test", "-v", dir+"/content:/opt/apptown/bin/apptown:ro", busybox, "sleep", "120")
+	if err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	id := strings.TrimSpace(string(out))
+	t.Cleanup(func() { _, _ = cli(context.Background(), nil, "rm", "-f", id) })
+	if got, err := containerresult.RunIn(ctx, cli, id, containerresult.Spec{Script: "echo ready"}); err != nil || string(got) != "ready\n" {
+		t.Fatalf("got %q, %v; want the answer while the source is there", got, err)
+	}
+	onHost("rm " + dir + "/content")
+	got, err := containerresult.RunIn(ctx, cli, id, containerresult.Spec{Script: "echo ready"})
+	if err == nil || errors.Is(err, containerresult.ErrNoResult) || got != nil {
+		t.Fatalf("got %q, %v; want the copy's failure", got, err)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/flokkit/apptown/internal/console"
@@ -99,4 +100,61 @@ func TestWordsWaitForPiToStart(t *testing.T) {
 	if want := []string{"ask", "ask", "ask", "type", "enter"}; !slices.Equal(seen, want) {
 		t.Fatalf("the terminal saw %v, want %v", seen, want)
 	}
+}
+
+// A terminal that cannot be read ends the wait at once, with the reason:
+// waiting does not mend it. On the demo (29 Oct 2026) every copy of tmux's
+// answer out of a chat whose bind source had been removed failed, and the
+// page sat on "Asking your helper…" for ten minutes with nothing said. Tmux
+// itself exiting non-zero (no server yet while run-pi.sh comes up) is still
+// not started yet, and is waited out.
+//
+// Kills: awaitPi treating every probe error as not started yet; or treating
+// tmux's own exit as a failed probe.
+func TestATerminalThatCannotBeReadEndsTheWaitWithTheReason(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var mu sync.Mutex
+		asked, typed := 0, false
+		d := &containerresulttest.Daemon{Answers: func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+			if !strings.Contains(c.Script, "display-message") {
+				return containerresulttest.Answer{}, false
+			}
+			asked++
+			if asked == 1 {
+				return containerresulttest.Answer{Code: 1, Said: "no server running on /tmp/tmux-0/default"}, true
+			}
+			return containerresulttest.Answer{Answer: []byte("pi\n")}, true
+		}}
+		r := New(Config{Run: func(_ context.Context, args ...string) ([]byte, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			if args[0] == "cp" {
+				return []byte("Error response from daemon: mkdir opt/apptown/bin/apptown: not a directory"), errors.New("exit status 1")
+			}
+			if out, err, ok := d.Run(args); ok {
+				return out, err
+			}
+			if slices.Contains(args, "send-keys") {
+				typed = true
+			}
+			return nil, nil
+		}})
+		defer r.Close()
+		start := time.Now()
+		err := r.Deliver(t.Context(), console.Launch{ID: "c1", Dir: t.TempDir()}, "hello")
+		mu.Lock()
+		defer mu.Unlock()
+		if err == nil || !strings.Contains(err.Error(), "mkdir opt/apptown/bin/apptown: not a directory") {
+			t.Fatalf("got %v; want the copy's failure", err)
+		}
+		if asked != 2 {
+			t.Fatalf("asked tmux %d times; want tmux's own exit waited out, then the failed read to end the wait", asked)
+		}
+		if waited := time.Since(start); waited > 5*time.Second {
+			t.Fatalf("the wait lasted %s after the terminal could not be read", waited)
+		}
+		if typed {
+			t.Fatal("words were typed at a terminal that could not be read")
+		}
+	})
 }

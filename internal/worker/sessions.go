@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/console"
+	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
 // A session is a chat that runs on this worker (design/operations/workers.md,
@@ -580,12 +581,17 @@ func (s *Server) ReapSessions(ctx context.Context) error {
 	if err := s.Sessions.Reap(ctx, alive); err != nil {
 		return err
 	}
-	return s.reapBlobs(recs)
+	return s.reapBlobs(ctx, recs)
 }
 
-// reapBlobs removes blobs no live session mounts. An upload in progress
-// is under a temporary name and untouched.
-func (s *Server) reapBlobs(recs []sessionRecord) error {
+// reapBlobs removes blobs no live session names and no chat container
+// mounts. A stale container keeps the blobs it was created with until it is
+// rebuilt, though its record now names others: Docker recreates a missing
+// bind source as a directory, after which the container can be neither
+// copied from nor started. What is mounted is asked of Docker; when it
+// cannot be asked, no blob is removed. An upload in progress is under a
+// temporary name and untouched.
+func (s *Server) reapBlobs(ctx context.Context, recs []sessionRecord) error {
 	used := map[string]bool{}
 	for _, rec := range recs {
 		if !rec.Removed {
@@ -601,12 +607,54 @@ func (s *Server) reapBlobs(recs []sessionRecord) error {
 	if err != nil {
 		return err
 	}
+	var unnamed []string
 	for _, e := range entries {
 		if blobPattern.MatchString(e.Name()) && !used[e.Name()] {
-			if err := os.RemoveAll(filepath.Join(s.State, "blobs", e.Name())); err != nil {
-				log.Printf("worker: removing blob %s: %v", e.Name(), err)
-			}
+			unnamed = append(unnamed, e.Name())
+		}
+	}
+	if len(unnamed) == 0 {
+		return nil
+	}
+	mounted, err := s.mountedBlobs(ctx)
+	if err != nil {
+		return fmt.Errorf("keeping every blob: which blobs chat containers mount is not known: %w", err)
+	}
+	for _, sum := range unnamed {
+		if mounted[sum] {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(s.State, "blobs", sum)); err != nil {
+			log.Printf("worker: removing blob %s: %v", sum, err)
 		}
 	}
 	return nil
+}
+
+// mountedBlobs are the blobs any chat container on the worker's Docker
+// mounts, running or stopped, by their content's path.
+func (s *Server) mountedBlobs(ctx context.Context) (map[string]bool, error) {
+	out, err := s.command(ctx, "ps", "-a", "--filter", "label="+dockerlabel.Class+"=console", "--format", "{{.ID}}")
+	if err != nil {
+		return nil, err
+	}
+	ids := strings.Fields(string(out))
+	mounted := map[string]bool{}
+	if len(ids) == 0 {
+		return mounted, nil
+	}
+	out, err = s.command(ctx, append([]string{"inspect", "--type", "container", "--format", `{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}`}, ids...)...)
+	if err != nil {
+		return nil, err
+	}
+	for _, src := range strings.Split(string(out), "\n") {
+		dir, name := filepath.Split(strings.TrimSpace(src))
+		if name != "content" {
+			continue
+		}
+		if sum := filepath.Base(dir); filepath.Clean(dir) == filepath.Join(s.State, "blobs", sum) {
+			mounted[sum] = true
+		}
+	}
+	return mounted, nil
 }
