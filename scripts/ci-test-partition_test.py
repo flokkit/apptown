@@ -16,7 +16,7 @@ ROOT = M + '/internal/apptown'
 PACKAGES = [ROOT, ROOT + '/dependency', ROOT + '/dependency/new',
             ROOT + '/instancebackup', ROOT + '/dataprotection/new',
             ROOT + '/workflow', ROOT + '/workflowexec/new', ROOT + '/workflowextra',
-            ROOT + '/verification', ROOT + '/instanceupdate/supervisor',
+            ROOT + '/verification',
             M + '/internal/worker', M + '/internal/worker/new', M + '/internal/workers',
             M + '/internal/future', M + '/cmd/apptownd']
 GROUPS = {'unit': ['root-a', 'root-b', 'subsystems', 'rest'],

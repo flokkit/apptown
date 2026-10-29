@@ -21,28 +21,22 @@ const (
 	BundleName    = "SHA256SUMS.sigstore.json"
 )
 
-// Manifest binds every artifact to one authenticated release. Zero updater
-// protocol and unqualified worker state explicitly decline replacement support.
+// Manifest binds every artifact to one authenticated release. It names what a
+// notification shows; nothing reads it to install a release.
 type Manifest struct {
-	Format        int                `json:"format"`
-	Version       string             `json:"version"`
-	Commit        string             `json:"commit"`
-	Notes         Artifact           `json:"notes"`
-	Archives      map[string]Archive `json:"archives"`
-	Images        map[string]Image   `json:"images"`
-	Compatibility Compatibility      `json:"compatibility"`
+	Format        int                 `json:"format"`
+	Version       string              `json:"version"`
+	Commit        string              `json:"commit"`
+	Notes         Artifact            `json:"notes"`
+	Archives      map[string]Artifact `json:"archives"`
+	Images        map[string]Image    `json:"images"`
+	Compatibility Compatibility       `json:"compatibility"`
 }
 
 type Artifact struct {
 	Name   string `json:"name"`
 	SHA256 string `json:"sha256"`
 	Size   int64  `json:"size"`
-}
-
-type Archive struct {
-	Artifact
-	// Members names paths relative to the archive's single release directory.
-	Members map[string]string `json:"members"`
 }
 
 type Image struct {
@@ -57,18 +51,13 @@ type Range struct {
 }
 
 type Compatibility struct {
-	Schema               Range  `json:"sourceSchema"`
-	Layout               Range  `json:"sourceLayout"`
-	SchemaResult         int    `json:"schemaResult"`
-	LayoutResult         int    `json:"layoutResult"`
-	CLIProtocol          int    `json:"cliProtocol"`
-	DaemonWorkerProtocol int    `json:"daemonWorkerProtocol"`
-	WorkerProtocol       Range  `json:"workerProtocol"`
-	UpdaterProtocol      int    `json:"updaterProtocol"`
-	WorkerStateQualified bool   `json:"workerStateQualified"`
-	AgentABIQualified    bool   `json:"agentABIQualified"`
-	DatabaseTransition   string `json:"databaseTransition"`
-	RuntimeTransition    string `json:"runtimeTransition"`
+	Schema               Range `json:"sourceSchema"`
+	Layout               Range `json:"sourceLayout"`
+	SchemaResult         int   `json:"schemaResult"`
+	LayoutResult         int   `json:"layoutResult"`
+	CLIProtocol          int   `json:"cliProtocol"`
+	DaemonWorkerProtocol int   `json:"daemonWorkerProtocol"`
+	WorkerProtocol       Range `json:"workerProtocol"`
 }
 
 func decodeManifest(raw []byte, tag string) (Manifest, error) {
@@ -88,7 +77,7 @@ func decodeManifest(raw []byte, tag string) (Manifest, error) {
 }
 
 func (m Manifest) validate(tag string) error {
-	if m.Format != 1 || !validTag(tag) || m.Version != tag || !hexOf(m.Commit, 40) {
+	if m.Format != 2 || !validTag(tag) || m.Version != tag || !hexOf(m.Commit, 40) {
 		return fmt.Errorf("unsupported update manifest identity")
 	}
 	if m.Notes.Name != NotesName || !validArtifact(m.Notes) {
@@ -100,24 +89,8 @@ func (m Manifest) validate(tag string) error {
 	for _, platform := range []string{"linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"} {
 		a, ok := m.Archives[platform]
 		name := "apptown-" + strings.TrimPrefix(tag, "v") + "-" + strings.ReplaceAll(platform, "/", "-") + ".tar.gz"
-		if !ok || a.Name != name || !validArtifact(a.Artifact) {
+		if !ok || a.Name != name || !validArtifact(a) {
 			return fmt.Errorf("invalid archive for %s", platform)
-		}
-		for _, required := range []string{"bin/apptownd", "bin/apptown", "bin/apptown-worker", "bin/apptown-linux", "deploy/apptown-agent/Dockerfile", "scripts/apptown-db-backup.sh"} {
-			if !hexOf(a.Members[required], 64) {
-				return fmt.Errorf("archive %s lacks paired asset %s", platform, required)
-			}
-		}
-		stock, units := false, false
-		for member, digest := range a.Members {
-			if !validMember(member) || !hexOf(digest, 64) {
-				return fmt.Errorf("archive %s has invalid member identity", platform)
-			}
-			stock = stock || strings.HasPrefix(member, "share/apptown/updates/")
-			units = units || strings.HasPrefix(member, "deploy/systemd/")
-		}
-		if !stock || !units {
-			return fmt.Errorf("archive %s lacks stock or service assets", platform)
 		}
 	}
 	for _, name := range []string{"apptown", "apptown-worker", "apptown-agent"} {
@@ -132,11 +105,8 @@ func (m Manifest) validate(tag string) error {
 		}
 	}
 	c := m.Compatibility
-	if !validRange(c.Schema) || !validRange(c.Layout) || c.SchemaResult < c.Schema.Max || c.LayoutResult < c.Layout.Max || c.CLIProtocol < 1 || !validRange(c.WorkerProtocol) || c.DaemonWorkerProtocol < c.WorkerProtocol.Min || c.DaemonWorkerProtocol > c.WorkerProtocol.Max || c.UpdaterProtocol < 0 {
+	if !validRange(c.Schema) || !validRange(c.Layout) || c.SchemaResult < c.Schema.Max || c.LayoutResult < c.Layout.Max || c.CLIProtocol < 1 || !validRange(c.WorkerProtocol) || c.DaemonWorkerProtocol < c.WorkerProtocol.Min || c.DaemonWorkerProtocol > c.WorkerProtocol.Max {
 		return fmt.Errorf("invalid release compatibility declaration")
-	}
-	if c.DatabaseTransition != "same-major" || c.RuntimeTransition != "unchanged" {
-		return fmt.Errorf("unsupported engine transition declaration")
 	}
 	return nil
 }

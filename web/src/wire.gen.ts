@@ -811,9 +811,6 @@ export type InstanceUpdateEvidence = {
 }
 
 export type InstanceUpdateStatus = {
-  supervisorState: string
-  supervisorReason: string
-  supervisorPhase?: string
   build: string
   platform: string
   channel: string
@@ -823,8 +820,6 @@ export type InstanceUpdateStatus = {
   candidate?: InstanceUpdateCandidate | null
   reasonCode?: string
   reason?: string
-  automaticReplacement: boolean
-  replacementReason: string
 }
 
 export type IntegrationDocs = {

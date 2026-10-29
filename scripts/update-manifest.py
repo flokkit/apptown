@@ -54,6 +54,8 @@ def image_facts(tag, commit, name, digest, document):
             'index': digest, 'platforms': platforms}
 
 
+# Member digests are computed to check the archives agree with each other;
+# they are not published (nothing installs from the manifest).
 def archive_facts(out, tag, platform):
     base = 'apptown-' + tag[1:] + '-' + platform.replace('/', '-')
     archive = out / (base + '.tar.gz')
@@ -73,18 +75,16 @@ def archive_facts(out, tag, platform):
                 raise ValueError('archive contains duplicate members')
             with tar.extractfile(entry) as f:
                 members[relative] = digest_stream(f)
-    required = {'bin/apptownd', 'bin/apptown', 'bin/apptown-worker', 'bin/apptown-linux', 'bin/apptown-update',
+    required = {'bin/apptownd', 'bin/apptown', 'bin/apptown-worker', 'bin/apptown-linux',
                 'deploy/apptown-agent/Dockerfile', 'scripts/apptown-db-backup.sh'}
     if not required <= members.keys() or not any(n.startswith('share/apptown/updates/') for n in members) or not any(n.startswith('deploy/systemd/') for n in members):
         raise ValueError('archive lacks paired release assets')
-    result['members'] = dict(sorted(members.items()))
-    return result
+    return result, members
 
 
 def validate_compatibility(facts):
     keys = {'sourceSchema', 'sourceLayout', 'schemaResult', 'layoutResult', 'cliProtocol',
-            'daemonWorkerProtocol', 'workerProtocol', 'updaterProtocol',
-            'workerStateQualified', 'agentABIQualified', 'databaseTransition', 'runtimeTransition'}
+            'daemonWorkerProtocol', 'workerProtocol'}
     if set(facts) != keys:
         raise ValueError('compatibility declaration is incomplete')
     for key in ('sourceSchema', 'sourceLayout', 'workerProtocol'):
@@ -96,8 +96,6 @@ def validate_compatibility(facts):
             raise ValueError('invalid compatibility build fact')
     if facts['schemaResult'] < facts['sourceSchema']['max'] or facts['layoutResult'] < facts['sourceLayout']['max'] or not facts['workerProtocol']['min'] <= facts['daemonWorkerProtocol'] <= facts['workerProtocol']['max']:
         raise ValueError('contradictory compatibility declaration')
-    if type(facts['updaterProtocol']) is not int or facts['updaterProtocol'] != 0 or facts['workerStateQualified'] is not False or facts['agentABIQualified'] is not False or facts['databaseTransition'] != 'same-major' or facts['runtimeTransition'] != 'unchanged':
-        raise ValueError('notification publication cannot claim updater or engine-transition readiness')
 
 
 def generate(tag, commit, out, image_dir, facts):
@@ -116,19 +114,21 @@ def generate(tag, commit, out, image_dir, facts):
             raise ValueError('image facts contain unexpected fields')
         images[name] = row
     validate_compatibility(facts)
-    archives = {p: archive_facts(out, tag, p) for p in PLATFORMS}
+    facts_by_platform = {p: archive_facts(out, tag, p) for p in PLATFORMS}
+    archives = {p: a for p, (a, _) in facts_by_platform.items()}
+    members = {p: m for p, (_, m) in facts_by_platform.items()}
     # Darwin ships the very same Linux CLI its architecture's Linux archive uses.
     for arch in ('amd64', 'arm64'):
-        if archives['darwin/' + arch]['members']['bin/apptown-linux'] != archives['linux/' + arch]['members']['bin/apptown-linux'] or archives['linux/' + arch]['members']['bin/apptown'] != archives['linux/' + arch]['members']['bin/apptown-linux']:
+        if members['darwin/' + arch]['bin/apptown-linux'] != members['linux/' + arch]['bin/apptown-linux'] or members['linux/' + arch]['bin/apptown'] != members['linux/' + arch]['bin/apptown-linux']:
             raise ValueError('paired Linux CLI differs across archives')
-    stock = lambda a: {k: v for k, v in a['members'].items() if k.startswith(('share/apptown/updates/', 'deploy/apptown-agent/', 'deploy/systemd/'))}
-    first = stock(archives[PLATFORMS[0]])
-    if any(stock(a) != first for a in archives.values()):
+    stock = lambda m: {k: v for k, v in m.items() if k.startswith(('share/apptown/updates/', 'deploy/apptown-agent/', 'deploy/systemd/'))}
+    first = stock(members[PLATFORMS[0]])
+    if any(stock(m) != first for m in members.values()):
         raise ValueError('paired stock/agent/service content differs across archives')
     notes = (out / 'RELEASE-NOTES.md').read_bytes()
     if not notes.strip() or len(notes) > 256 << 10:
         raise ValueError('release notes are empty or exceed the published limit')
-    manifest = {'format': 1, 'version': tag, 'commit': commit,
+    manifest = {'format': 2, 'version': tag, 'commit': commit,
                 'notes': artifact(out / 'RELEASE-NOTES.md'), 'archives': archives,
                 'images': images, 'compatibility': facts}
     path = out / 'UPDATE-MANIFEST.json'

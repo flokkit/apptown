@@ -279,7 +279,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 		values, err := a.Secrets.WithContext(ctx)
 		return values[name], err
 	}}})
-	a.InstanceUpdates, err = instanceupdate.New(instanceupdate.Options{DataDir: cfg.dataDir, Build: version.String(), Platform: runtime.GOOS + "/" + runtime.GOARCH, Channel: input.UpdateChannel, SupervisorSocket: input.UpdateSupervisorSocket, Authority: access.Checked{Authority: a.Access}, Now: cfg.clock.Now})
+	a.InstanceUpdates, err = instanceupdate.New(instanceupdate.Options{DataDir: cfg.dataDir, Build: version.String(), Platform: runtime.GOOS + "/" + runtime.GOARCH, Channel: input.UpdateChannel, Authority: access.Checked{Authority: a.Access}, Now: cfg.clock.Now})
 	if err != nil {
 		return nil, err
 	}

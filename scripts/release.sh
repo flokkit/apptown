@@ -101,7 +101,7 @@ for platform in linux/amd64 linux/arm64 darwin/arm64; do
 	dir=$work/$name
 	mkdir -p "$dir/bin" "$dir/deploy" "$dir/share/apptown"
 	cp -R "$work/updates" "$dir/share/apptown/updates"
-	for cmd in apptownd apptown apptown-worker apptown-update; do
+	for cmd in apptownd apptown apptown-worker; do
 		CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "$ldflags" -o "$dir/bin/$cmd" "./cmd/$cmd"
 	done
 	# Containers are Linux on the host's architecture.

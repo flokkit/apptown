@@ -25,10 +25,6 @@ function AvailabilityRead() {
   return <div className="card small" role="status">{PRODUCT} {data.candidate.version} is available. <Link to="/updates">Review the authenticated release</Link></div>
 }
 
-const supervisorStates: Record<string, string> = {
-  'not-enrolled': 'Not enrolled', unavailable: 'Supervisor unavailable', enrolled: 'Registered supervisor',
-}
-
 const states: Record<string, string> = {
   unknown: 'Release availability has not been assessed.',
   checking: 'Checking authenticated release information…',
@@ -58,23 +54,38 @@ function UpdateDetails() {
       <p role="status">{states[data.state] ?? states.unknown}</p>
       <dl>
         <dt>Installed build</dt><dd>{data.build} ({data.platform})</dd>
-        <dt>Managed supervisor</dt><dd>{supervisorStates[data.supervisorState] ?? 'Supervisor unavailable'}</dd>
         <dt>Channel</dt><dd>{data.channel}</dd>
         <dt>Last attempted check</dt><dd>{data.lastAttempt ?? 'Never'}</dd>
         <dt>Last successful check</dt><dd>{data.lastSuccess ?? 'Never'}</dd>
       </dl>
       {data.reason && <p>{data.reason}</p>}
-      <p>{data.supervisorReason}</p>
-      {data.supervisorPhase && <p>Update phase: {data.supervisorPhase}</p>}
-      <p>{data.replacementReason}</p>
       <p><Link to="/docs/guides/upgrading">Read the upgrade guide</Link></p>
       {data.candidate && <section>
         <h2>{data.candidate.version}</h2>
         <p>Verified source commit: <code>{data.candidate.commit}</code></p>
         <p>Archive: <code>{data.candidate.archive.name}</code></p>
         <p>SHA-256: <code>{data.candidate.archive.sha256}</code></p>
+        {data.state === 'available' && <HowToUpdate version={data.candidate.version} />}
         <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMd(data.candidate.notes) }} />
       </section>}
     </>}
   </div>
+}
+
+// AppTown does not know how it was installed, so it shows each way. The
+// upgrade guide's earlier steps (nothing executing, a backup) come first.
+function HowToUpdate({ version }: { version: string }) {
+  const bare = version.replace(/^v/, '')
+  return <section>
+    <h3>How to update</h3>
+    <p>First check nothing is executing and take a backup: steps 1 and 2 of the <Link to="/docs/guides/upgrading">upgrade guide</Link>.</p>
+    <dl>
+      <dt>Docker (one-server compose)</dt>
+      <dd>Set <code>APPTOWN_VERSION={bare}</code> in <code>.env</code>, then <code>docker compose pull &amp;&amp; docker compose up -d</code></dd>
+      <dt>Release archive</dt>
+      <dd>Unpack the {version} archive over <code>/opt/apptown</code> and restart: step 3 of the upgrade guide</dd>
+      <dt>Homebrew (CLI)</dt>
+      <dd><code>brew upgrade apptown</code></dd>
+    </dl>
+  </section>
 }

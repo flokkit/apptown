@@ -7,4 +7,3 @@
 integration github.com/flokkit/apptown/internal/apptown/verification TestIntegrationNodeSeedImageShipsNoDevDependencies # builds the Node seed: apt and npm ci from the registries
 integration github.com/flokkit/apptown/internal/apptown/verification TestIntegrationDotnetSeedBootsOnPostgres # builds the .NET seed: apt and a NuGet restore
 integration github.com/flokkit/apptown/internal/apptown/dependency TestIntegrationWordPressSeedKeepsDataAndMediaOutsideTheWebContainer # builds the WordPress seed: apt, composer and a download from GitHub
-integration github.com/flokkit/apptown/internal/apptown/instanceupdate/supervisor TestIntegrationManagedSupervisorAdaptersSurviveRestartAndFenceBoot # builds its host image: apt, and two scripts only Docker reads

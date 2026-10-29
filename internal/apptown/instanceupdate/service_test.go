@@ -1,9 +1,10 @@
 package instanceupdate
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -94,7 +95,7 @@ func TestVerifiedCandidateSurvivesFailedChecksAndRestartButNotCorruptEvidence(t 
 	}
 	s.source.verify.trust = func(context.Context) (root.TrustedMaterial, error) { return f.trust, nil }
 	first, err := s.Check(context.Background())
-	if err != nil || first.State != "available" || first.Candidate == nil || first.AutomaticReplacement {
+	if err != nil || first.State != "available" || first.Candidate == nil {
 		t.Fatalf("verified candidate: %+v %v", first, err)
 	}
 	success := *first.LastSuccess
@@ -127,7 +128,7 @@ func TestReleaseIdentityIsImmutableAcrossRestarts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := cacheStore{dir: filepath.Join(t.TempDir(), "instance-updates")}
+	store := cacheStore{dir: filepath.Join(t.TempDir(), cacheFolder)}
 	if err := store.retain(release); err != nil {
 		t.Fatal(err)
 	}
@@ -253,31 +254,60 @@ func TestPersistenceFailuresCannotReportSuccessfulCheck(t *testing.T) {
 	}
 }
 
-func TestConfiguredMissingSupervisorIsUnavailableNotUnenrolled(t *testing.T) {
-	for _, configured := range []bool{false, true} {
-		t.Run(fmt.Sprint(configured), func(t *testing.T) {
-			options := Options{DataDir: t.TempDir(), Build: "v1.0.0", Platform: "linux/amd64", Authority: authorityFunc(permitted)}
-			if configured {
-				options.SupervisorSocket = filepath.Join(t.TempDir(), "absent.sock")
-			}
-			s, err := New(options)
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := s.Status(context.Background())
-			if err != nil {
-				t.Fatal(err)
-			}
-			want := "not-enrolled"
-			if configured {
-				want = "unavailable"
-			}
-			if got.SupervisorState != want || got.AutomaticReplacement {
-				t.Fatalf("supervisor state=%q replacement=%v", got.SupervisorState, got.AutomaticReplacement)
-			}
-			if got.State != "unknown" {
-				t.Fatal("supervisor outage changed release evidence", got.State)
-			}
-		})
+// An installation that checked under manifest format 1 keeps that candidate in
+// the old cache folder, which the strict decoder refuses. It must not stop the
+// upgraded build from fetching and authenticating a format-2 release.
+func TestAFormatOneCacheDoesNotBlockChecks(t *testing.T) {
+	f := newSignedFixture(t)
+	transport := transportFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.Host == "api.github.com" {
+			return response(200, `[{"tag_name":"v1.1.0"}]`), nil
+		}
+		bodies := map[string][]byte{ManifestName: f.manifest, ChecksumsName: f.checksums, BundleName: f.signature, NotesName: f.notes}
+		body, ok := bodies[filepath.Base(r.URL.Path)]
+		if !ok {
+			t.Fatalf("unexpected public fetch %s", r.URL)
+		}
+		return response(200, string(body)), nil
+	})
+	options := Options{DataDir: t.TempDir(), Build: "custom", Platform: "linux/amd64", Authority: authorityFunc(permitted), Transport: transport}
+	// The old folder: a checked candidate whose retained manifest is format 1.
+	old, err := New(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old.cache.dir = filepath.Join(options.DataDir, "instance-updates")
+	old.source.verify.trust = func(context.Context) (root.TrustedMaterial, error) { return f.trust, nil }
+	if _, err := old.Check(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	packetPath := filepath.Join(old.cache.dir, f.tag+".json")
+	raw, err := os.ReadFile(packetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var packet evidencePacket
+	if err := json.Unmarshal(raw, &packet); err != nil {
+		t.Fatal(err)
+	}
+	packet.Manifest = bytes.Replace(packet.Manifest, []byte(`"format":2`), []byte(`"format":1`), 1)
+	if raw, err = json.Marshal(packet); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(packetPath, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := old.cache.read("stable"); err == nil {
+		t.Fatal("precondition: the old cache should be unreadable to this build")
+	}
+
+	s, err := New(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.source.verify.trust = func(context.Context) (root.TrustedMaterial, error) { return f.trust, nil }
+	got, err := s.Check(context.Background())
+	if err != nil || got.State != "available" || got.Candidate == nil || got.Candidate.Version != f.tag {
+		t.Fatalf("check after a format-1 cache: %+v %v", got, err)
 	}
 }

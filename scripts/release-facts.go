@@ -41,9 +41,6 @@ func main() {
 			"schemaResult": dbschema.Latest(), "layoutResult": datalayout.Version,
 			"cliProtocol": version.CLIProtocol, "daemonWorkerProtocol": worker.Protocol,
 			"workerProtocol": map[string]int{"min": worker.ProtocolMin, "max": worker.ProtocolMax},
-			// Notification is qualified independently of supervised execution/recovery.
-			"updaterProtocol": 0, "workerStateQualified": false, "agentABIQualified": false,
-			"databaseTransition": "same-major", "runtimeTransition": "unchanged",
 		}
 		if err := json.NewEncoder(os.Stdout).Encode(facts); err != nil {
 			fmt.Fprintln(os.Stderr, err)

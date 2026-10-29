@@ -164,7 +164,7 @@ func (s cacheStore) checkEvidence(c *Candidate) error {
 		return err
 	}
 	a, ok := m.Archives[c.Platform]
-	if !ok || a.Artifact != c.Archive || m.Commit != c.Commit || m.Notes.SHA256 != hashBytes(p.Notes) {
+	if !ok || a != c.Archive || m.Commit != c.Commit || m.Notes.SHA256 != hashBytes(p.Notes) {
 		return fmt.Errorf("cached release projection disagrees with evidence")
 	}
 	return nil
