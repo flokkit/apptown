@@ -7,73 +7,11 @@ package usagesql
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/lib/pq"
 )
-
-const beginRequest = `-- name: BeginRequest :one
-INSERT INTO inference_requests(id, kind,actor,actor_principal,actor_via,project_id,run_id,step_id,attempt,session_id,provider,model,started_at)
-VALUES ($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::timestamptz) RETURNING id, started_at, finished_at, kind, actor, actor_principal, actor_via, project_id, run_id, step_id, attempt, session_id, provider, model, http_status, outcome, usage_json
-`
-
-type BeginRequestParams struct {
-	ID             ids.ID
-	Kind           string
-	Actor          string
-	ActorPrincipal ids.ID
-	ActorVia       string
-	ProjectID      ids.ID
-	RunID          ids.ID
-	StepID         ids.ID
-	Attempt        int64
-	SessionID      string
-	Provider       string
-	Model          string
-	StartedAt      time.Time
-}
-
-func (q *Queries) BeginRequest(ctx context.Context, arg BeginRequestParams) (InferenceRequest, error) {
-	row := q.db.QueryRowContext(ctx, beginRequest,
-		arg.ID,
-		arg.Kind,
-		arg.Actor,
-		arg.ActorPrincipal,
-		arg.ActorVia,
-		arg.ProjectID,
-		arg.RunID,
-		arg.StepID,
-		arg.Attempt,
-		arg.SessionID,
-		arg.Provider,
-		arg.Model,
-		arg.StartedAt,
-	)
-	var i InferenceRequest
-	err := row.Scan(
-		&i.ID,
-		&i.StartedAt,
-		&i.FinishedAt,
-		&i.Kind,
-		&i.Actor,
-		&i.ActorPrincipal,
-		&i.ActorVia,
-		&i.ProjectID,
-		&i.RunID,
-		&i.StepID,
-		&i.Attempt,
-		&i.SessionID,
-		&i.Provider,
-		&i.Model,
-		&i.HttpStatus,
-		&i.Outcome,
-		&i.UsageJson,
-	)
-	return i, err
-}
 
 const cursor = `-- name: Cursor :one
 SELECT path, byte_offset FROM usage_cursors WHERE path=$1
@@ -84,41 +22,6 @@ func (q *Queries) Cursor(ctx context.Context, path string) (UsageCursor, error) 
 	var i UsageCursor
 	err := row.Scan(&i.Path, &i.ByteOffset)
 	return i, err
-}
-
-const finishRequest = `-- name: FinishRequest :exec
-UPDATE inference_requests SET finished_at=$1,http_status=$2::bigint::integer,outcome=$3,usage_json=$4 WHERE id=$5
-`
-
-type FinishRequestParams struct {
-	FinishedAt sql.NullTime
-	HttpStatus int64
-	Outcome    string
-	UsageJson  json.RawMessage
-	ID         ids.ID
-}
-
-func (q *Queries) FinishRequest(ctx context.Context, arg FinishRequestParams) error {
-	_, err := q.db.ExecContext(ctx, finishRequest,
-		arg.FinishedAt,
-		arg.HttpStatus,
-		arg.Outcome,
-		arg.UsageJson,
-		arg.ID,
-	)
-	return err
-}
-
-const interruptRequests = `-- name: InterruptRequests :execrows
-UPDATE inference_requests SET outcome='interrupted_restart',finished_at=$1 WHERE finished_at IS NULL
-`
-
-func (q *Queries) InterruptRequests(ctx context.Context, finishedAt sql.NullTime) (int64, error) {
-	result, err := q.db.ExecContext(ctx, interruptRequests, finishedAt)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
 }
 
 const lockInAllPendingLines = `-- name: LockInAllPendingLines :execrows
@@ -215,7 +118,7 @@ type OpenCallLineParams struct {
 }
 
 // An AppTown model call's spend line, opened before the call is sent: keyed by
-// its receipt, zero until settled, pending until pending_until.
+// its call's id, zero until settled, pending until pending_until.
 func (q *Queries) OpenCallLine(ctx context.Context, arg OpenCallLineParams) error {
 	_, err := q.db.ExecContext(ctx, openCallLine,
 		arg.ID,

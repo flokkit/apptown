@@ -93,7 +93,7 @@ func TestListReturnsOrderedTypedFactsAndIndependentObservations(t *testing.T) {
 		t.Fatalf("listing: %+v %v", got, err)
 	}
 	for i, r := range got {
-		if r.DeploymentPolicy != CompatibleUpdate || r.Name != envs[i].Name || r.Kind != Standing || r.Readiness != envs[i].Readiness || r.Target == nil || r.Target.Name != "cloud" || len(r.Needs) != 1 {
+		if r.Name != envs[i].Name || r.Kind != Standing || r.Readiness != envs[i].Readiness || r.Target == nil || r.Target.Name != "cloud" || len(r.Needs) != 1 {
 			t.Fatalf("row %d: %+v", i, r)
 		}
 		if r.Needs[0].Need != "postgres" {

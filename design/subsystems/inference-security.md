@@ -84,19 +84,23 @@ limit. New sessions can consume additional capacity. Hard user/project/instance
 budgets, transactional reservations across replicas and provider-side billing
 backstops remain follow-up work under TM-02. Within the configured model set, an authorized runtime can make arbitrary inference requests.
 
-## Receipts
+## What is recorded
 
-`inference_requests` records admission before upstream dispatch: actor, workload
-kind, project, chat or run/step/attempt, provider and requested model. Receipt
-creation failure denies dispatch. Completion records upstream status, outcome
-and provider-reported token counts observed on the response transport. Prompts,
-completions, provider keys and AppTown tokens are not stored in these receipts.
+A workload's request through the gateway is not stored per request. Its
+telemetry (a span and the `apptown_inference_*` metrics) carries provider,
+model, workload kind, project, run and step, the upstream status, the outcome
+and the provider-reported token counts observed on the response transport. A
+workload's spend is recorded by its owner from the harness's own usage report
+(usage's ledger). AppTown's own calls write a pending spend line before
+dispatch and settle it from the answer; failure to write it denies dispatch.
+The gateway's telemetry and spend lines do not record prompts, completions,
+provider keys or AppTown tokens.
 
 Usage can be missing or partial after rejection, cancellation or provider
-failure. `observed: false` does not mean free inference. Native input/cache
+failure; that is unknown consumption, not free inference. Native input/cache
 counts retain provider semantics; they are not a normalized bill. A restart
-marks unfinished receipts interrupted without inventing final usage. Failed
-finalization is logged by receipt ID and leaves the incomplete record visible.
+locks in AppTown's own calls still pending as unknown spend without inventing
+final usage.
 
 The existing Pi-derived usage dashboard remains a separate, advisory accounting
 surface. Do not add these two ledgers together: they can describe the same
@@ -132,7 +136,7 @@ routing in the deployment; do not infer protection from an RFC1918 address or
 an application proxy's access rules. Use a protected transport/network between
 hosts; the listener does not add TLS itself.
 
-Startup repairs unfinished inference receipts. A restart does not scrub
+Startup locks in AppTown's own calls still pending. A restart does not scrub
 credential copies made elsewhere.
 
 Consoles recreate their generated homes and drop old Pi auth files when
@@ -148,8 +152,8 @@ If an upstream provider key has ever been delivered into a workspace or
 transcript, rotate it and review retained transcripts and backups with a secret
 scanner.
 
-Gateway tests cover native routes, credential and network checks, receipt
-failure, error containment, cancellation and revocation. Budget enforcement and host isolation remain open in the
+Gateway tests cover native routes, credential and network checks, error
+containment, cancellation and revocation. Budget enforcement and host isolation remain open in the
 [threat register](../architecture/threat-register.md).
 
 ## Implementation references

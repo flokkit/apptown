@@ -93,12 +93,9 @@ func TestPreviewCommandChecksCurrentAuthorityAndTransports(t *testing.T) {
 	if _, err := call(access.Principal{}); !errors.Is(err, access.ErrPrincipalRequired) {
 		t.Fatal(err)
 	}
-	for _, statement := range []string{"-- name: UserByName :one", "-- name: InsertDecision"} {
-		dbtest.FailNextStatement(t, a.DB, statement)
-		out, err := call(owner)
-		if err == nil || out != (preview.Result{}) || host.calls != before {
-			t.Fatalf("failed %s: %+v %v", statement, out, err)
-		}
+	dbtest.FailNextStatement(t, a.DB, "-- name: UserByName :one")
+	if out, err := call(owner); err == nil || out != (preview.Result{}) || host.calls != before {
+		t.Fatalf("an unread authority fact reached the provider: %+v %v", out, err)
 	}
 	for _, suffix := range []string{"", "/restart"} {
 		response := authzCall(a.Handler(), "owner", "POST", fmt.Sprintf("/api/v1/changes/%d/preview%s", ch.ID, suffix), "")
@@ -126,10 +123,6 @@ func TestPreviewCommandChecksCurrentAuthorityAndTransports(t *testing.T) {
 		t.Fatalf("MCP source: %+v", out)
 	}
 	before = host.calls
-	dbtest.FailNextStatement(t, a.DB, "-- name: InsertDecision")
-	if _, err := tool.Run(c, map[string]any{"id": ch.ID.String()}); err == nil || host.calls != before {
-		t.Fatalf("MCP missing decision reached provider: %v", err)
-	}
 
 	meta := consoleMetaFor("preview-session", projectID, ch.ID)
 	meta.Actor, meta.Token = "owner", "preview-test-session-token"

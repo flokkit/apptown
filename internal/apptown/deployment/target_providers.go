@@ -60,7 +60,7 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 			Address:      map[string]any{"daemon": "local"},
 			Capabilities: StockCapabilities(KindDockerHost, emulators),
 			Ingress:      map[string]any{"binding": "apptown-vhost", "domains": ingressDomains},
-			NeedsMode:    stockNeedsMode(KindDockerHost), SecretsDelivery: "inject", Status: TargetReady,
+			NeedsMode:    stockNeedsMode(KindDockerHost), Status: TargetReady,
 		}, who)
 		if err != nil {
 			log.Printf("targets: seeding the built-in Docker host: %v", err)
@@ -81,7 +81,7 @@ func (s *Service) SeedTargets(ctx context.Context, ingressDomains []string) {
 			Address:      map[string]any{"url": cfg.PortainerURL, AddressEnvironment: DefaultPortainerEnvironment, "tier": cfg.ReleaseDeployment},
 			Capabilities: StockCapabilities(KindPortainer, emulators),
 			Ingress:      map[string]any{"binding": "traefik", "domain": cfg.AppsDomain},
-			NeedsMode:    stockNeedsMode(KindPortainer), SecretsDelivery: "inject", Status: TargetReady,
+			NeedsMode:    stockNeedsMode(KindPortainer), Status: TargetReady,
 		}, who); err != nil {
 			log.Printf("targets: recording the intranet target: %v", err)
 		}
@@ -190,7 +190,7 @@ func cloudTarget(account string, cfg digitalocean.Config) *Target {
 		Address:      map[string]any{"region": cfg.Region, "registry": cfg.Registry, "instanceSize": cfg.InstanceSize, "dbSize": cfg.DBSize},
 		Capabilities: StockCapabilities(KindDOApp, nil),
 		Ingress:      map[string]any{"binding": "provider-issued", "domain": "ondigitalocean.app"},
-		NeedsMode:    stockNeedsMode(KindDOApp), SecretsDelivery: "inject", Status: TargetReady,
+		NeedsMode:    stockNeedsMode(KindDOApp), Status: TargetReady,
 	}
 }
 

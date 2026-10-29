@@ -3,6 +3,7 @@ package identity
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/access"
@@ -33,10 +34,14 @@ func TestScopedAuthorityRecordsOwnerAndKeepsIdentity(t *testing.T) {
 	if err != nil || got.Name != pr.Name || got.Via != pr.Via {
 		t.Fatalf("identity: %+v %v", got, err)
 	}
-	var route string
-	// sql-guarantee: The decision receipt's recorded route is the guarantee, and no owner read returns authorization_decisions rows.
-	if err := svc.db.QueryRow(`SELECT context_json->>'route' FROM authorization_decisions ORDER BY id DESC LIMIT 1`).Scan(&route); err != nil || route != "work:read" {
-		t.Fatalf("scoped receipt: %q %v", route, err)
+	elsewhere := p
+	elsewhere.Resource.ProjectID = idstest.N(8)
+	if _, err := Scoped(svc, "work").Require(context.Background(), pr, elsewhere); err == nil {
+		t.Fatal("alice read a project she holds nothing on")
+	}
+	denied := ledger(t, svc.db, "authz.denied")
+	if len(denied) != 1 || !strings.Contains(string(denied[0].Payload), `"route":"work:read"`) {
+		t.Fatalf("scoped denial: %+v", denied)
 	}
 	if p.Context.Route != "read" {
 		t.Fatal("scoping mutated caller's permission")

@@ -96,7 +96,6 @@ CREATE TABLE IF NOT EXISTS targets (
   capabilities_json JSONB NOT NULL DEFAULT '{}'::jsonb,
   ingress_json      JSONB NOT NULL DEFAULT '{}'::jsonb,
   needs_mode        TEXT NOT NULL DEFAULT 'emulators', -- emulators | managed | register
-  secrets_delivery  TEXT NOT NULL DEFAULT 'inject',
   status            TEXT NOT NULL DEFAULT 'ready',
   created_at        TIMESTAMPTZ NOT NULL,
   updated_at        TIMESTAMPTZ NOT NULL,
@@ -183,20 +182,6 @@ CREATE TABLE IF NOT EXISTS need_instances (
   status           TEXT NOT NULL,  -- creating | ready | failed | orphaned
   updated_at       TIMESTAMPTZ NOT NULL,
   UNIQUE(deployment_id, need)
-);
--- A deployment reconcile (§4.1) and its receipt.
-CREATE TABLE IF NOT EXISTS reconciliations (
-  id UUID PRIMARY KEY,
-  deployment_id UUID NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
-  kind           TEXT NOT NULL DEFAULT 'reconcile',
-  status         TEXT NOT NULL DEFAULT 'running',   -- running | done | failed
-  receipt_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
-  actor          TEXT NOT NULL DEFAULT '',
-  -- The starter's principal and way of acting (access.Actor); NULL for AppTown, or one not resolved to a person.
-  actor_principal UUID,
-  actor_via TEXT NOT NULL DEFAULT '',
-  started_at     TIMESTAMPTZ NOT NULL,
-  finished_at    TIMESTAMPTZ
 );
 -- What AppTown created for a deployment at its target, recorded when the
 -- provider confirmed the creation (design/subsystems/deployment.md).

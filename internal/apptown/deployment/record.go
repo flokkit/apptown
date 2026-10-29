@@ -29,25 +29,24 @@ import (
 
 // Deployment is one row of the deployments table.
 type Deployment struct {
-	RequirePromotion   bool             `json:"requirePromotion"`
-	PolicyRevision     int64            `json:"policyRevision"`
-	DisplayLabel       string           `json:"displayLabel"`
-	DeploymentPolicy   DeploymentPolicy `json:"deploymentPolicy,omitempty"` // enforced standing procedure, not persisted
-	ID                 ids.ID           `json:"id"`
-	ProjectID          ids.ID           `json:"projectId"`
-	Kind               Kind             `json:"kind"`
-	Name               string           `json:"name"`
-	ChangeID           ids.ID           `json:"changeId,omitzero"`
-	TargetID           ids.ID           `json:"targetId"`
-	Handle             map[string]any   `json:"handle"`
-	DesiredGeneration  int64            `json:"desiredGeneration"`
-	ObservedGeneration int64            `json:"observedGeneration"`
-	Readiness          Readiness        `json:"readiness"`
-	Feed               string           `json:"feed"`
-	Audience           string           `json:"audience"`
-	DataClass          string           `json:"data"`
-	PromoteAfter       string           `json:"promoteAfter,omitempty"`
-	URL                string           `json:"url"`
+	RequirePromotion   bool           `json:"requirePromotion"`
+	PolicyRevision     int64          `json:"policyRevision"`
+	DisplayLabel       string         `json:"displayLabel"`
+	ID                 ids.ID         `json:"id"`
+	ProjectID          ids.ID         `json:"projectId"`
+	Kind               Kind           `json:"kind"`
+	Name               string         `json:"name"`
+	ChangeID           ids.ID         `json:"changeId,omitzero"`
+	TargetID           ids.ID         `json:"targetId"`
+	Handle             map[string]any `json:"handle"`
+	DesiredGeneration  int64          `json:"desiredGeneration"`
+	ObservedGeneration int64          `json:"observedGeneration"`
+	Readiness          Readiness      `json:"readiness"`
+	Feed               string         `json:"feed"`
+	Audience           string         `json:"audience"`
+	DataClass          string         `json:"data"`
+	PromoteAfter       string         `json:"promoteAfter,omitempty"`
+	URL                string         `json:"url"`
 	// The built-in host's handle, as columns (the Docker driver reads them).
 	HostPort  int    `json:"-"`
 	Container string `json:"-"`
@@ -196,7 +195,6 @@ func deploymentRecord(r deploymentsql.Deployment, err error) (*Deployment, error
 	if err := e.Kind.Scan(r.Kind); err != nil {
 		return nil, err
 	}
-	e.DeploymentPolicy = e.UpdatePolicy()
 	if err := e.Readiness.Scan(r.Readiness); err != nil {
 		return nil, err
 	}

@@ -216,7 +216,8 @@ func resolveNewEngine(ctx context.Context, dk Scope, image string) (string, stri
 }
 
 // ObserveExistingStorage reads one existing service without starting, pulling,
-// creating or deleting anything. Boot and administrative adoption share it.
+// creating or deleting anything. Boot records what it observes for an
+// existing engine that has no binding yet.
 func ObserveExistingStorage(ctx context.Context, dk Scope, stackID, path string, svc deploy.ServiceSpec, current *deploy.StorageBinding) (deploy.StorageBinding, error) {
 	volume := Current.NeedVolume(stackID, svc.Name)
 	fail := func(err error) (deploy.StorageBinding, error) { return deploy.StorageBinding{}, err }

@@ -13,19 +13,19 @@ runtime environment delivery surfaces.
 
 `New` binds Identity, Catalog and Usage.Requests into the dedicated HTTP gateway.
 A request passes network and credential checks, capacity admission, provider/model
-validation and a second current-identity check before its durable usage admission.
-Only then is the upstream called. Streaming observes usage and cancellation;
-completion records the outcome even on disconnect or provider failure. A bounded
-watcher rechecks authority while the stream lives. No provider credential reaches
-a harness, client response or receipt.
+validation and a second current-identity check. Only then is the upstream
+called. Streaming observes usage and cancellation; the request's telemetry
+reports the outcome even on disconnect or provider failure. A bounded watcher
+rechecks authority while the stream lives. No provider credential reaches a
+harness, client response or telemetry.
 
 `Gateway.Ask` is the one path for AppTown's own model calls (narratives,
 approval briefs, pack assistance, checks, what-ifs and the eval
 judge; `modelcall.Call`). It resolves the binding the model names, requires the
 model to be enabled in it, asks the eval model choice for a project's call (or,
 for `Judge`, the judge's door, `ChooseJudge`, instead), takes a concurrency slot
-under `forge/<purpose>/<project>`, and writes the receipt and a pending spend
-line (`usage.Requests.OpenCall`) before sending. When the call ends it settles
+under `forge/<purpose>/<project>`, and writes a pending spend line
+(`usage.Requests.OpenCall`) before sending. When the call ends it settles
 that line once, on its own context, with the provider's counts and price;
 unknown spend (no usage, tokens with no price, an unreadable or cut-off answer)
 settles as incomplete, and a line never settled counts as unknown once its time

@@ -17,22 +17,20 @@ import (
 // runs once: a top-level test on its own, a helper through
 // TestRegisteredPolicyEvidence.
 var policyEvidence = map[string]func(*testing.T){
-	"deployment.InspectProviderAssociation":      TestProviderAssociationHTTPChecksCurrentAuthority,
-	"deployment.AssociateProvider":               TestProviderAssociationHTTPChecksCurrentAuthority,
-	"catalogChanges.CatalogApply":                TestCatalogApplyHTTPKeepsProjectMembershipAndCaller,
-	"accounts.CreateToken":                       TestTokenHTTPKeepsMetadataAndRoleBounds,
-	"accounts.ListTokens":                        TestTokenHTTPKeepsMetadataAndRoleBounds,
-	"accounts.RevokeToken":                       TestTokenHTTPKeepsMetadataAndRoleBounds,
-	"deployments.CreateDeployment":               TestDeploymentConfigurationHTTP,
-	"deployments.DeleteDeployment":               TestDeploymentRemovalChecksAuthorityAndHTTPOutcome,
-	"deployments.DeployDeployment":               TestDeploymentConfigurationHTTP,
-	"deployments.DeploymentResources":            TestDeploymentResourcesHTTP,
-	"deployments.DeploymentStorageBindings":      TestDeploymentStorageAuthorityHTTP,
-	"deployments.AdoptDeploymentStorageBindings": TestDeploymentStorageAuthorityHTTP,
-	"deployments.DeploymentDiagnostics":          TestDeploymentDiagnosticsHTTP,
-	"deployments.DeploymentLog":                  TestDeploymentDiagnosticsHTTP,
-	"deployments.SetResourceOverride":            TestDeploymentResourcesHTTP,
-	"deployments.ClearResourceOverride":          TestDeploymentResourcesHTTP,
+	"deployment.InspectProviderAssociation": TestProviderAssociationHTTPChecksCurrentAuthority,
+	"deployment.AssociateProvider":          TestProviderAssociationHTTPChecksCurrentAuthority,
+	"catalogChanges.CatalogApply":           TestCatalogApplyHTTPKeepsProjectMembershipAndCaller,
+	"accounts.CreateToken":                  TestTokenHTTPKeepsMetadataAndRoleBounds,
+	"accounts.ListTokens":                   TestTokenHTTPKeepsMetadataAndRoleBounds,
+	"accounts.RevokeToken":                  TestTokenHTTPKeepsMetadataAndRoleBounds,
+	"deployments.CreateDeployment":          TestDeploymentConfigurationHTTP,
+	"deployments.DeleteDeployment":          TestDeploymentRemovalChecksAuthorityAndHTTPOutcome,
+	"deployments.DeployDeployment":          TestDeploymentConfigurationHTTP,
+	"deployments.DeploymentResources":       TestDeploymentResourcesHTTP,
+	"deployments.DeploymentDiagnostics":     TestDeploymentDiagnosticsHTTP,
+	"deployments.DeploymentLog":             TestDeploymentDiagnosticsHTTP,
+	"deployments.SetResourceOverride":       TestDeploymentResourcesHTTP,
+	"deployments.ClearResourceOverride":     TestDeploymentResourcesHTTP,
 }
 
 func TestRegisteredPolicyEvidence(t *testing.T) {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/integration/internal/integrationsql"
 	"github.com/flokkit/apptown/internal/database"
-	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
@@ -29,8 +28,9 @@ func TestBindingsVersionsAndRules(t *testing.T) {
 	if v, err := bs.Upsert(t.Context(), "semgrep", "scanner", "tool", `{"image":"semgrep:2"}`, true); err != nil || v != 2 {
 		t.Fatalf("changed: %d %v", v, err)
 	}
-	// sql-guarantee: The append-only version history is the guarantee, and no owner read lists integration_versions rows.
-	dbtest.Count(t, db, 2, `SELECT COUNT(*) FROM integration_versions`)
+	if row, err := bs.ByName(t.Context(), "semgrep"); err != nil || row.Version != 2 || !sameJSON(row.ConfigJSON, `{"image":"semgrep:2"}`) {
+		t.Fatalf("the binding stands at its latest configuration: %+v %v", row, err)
+	}
 	if _, err := bs.Save(context.Background(), "semgrep", "scanner", "tool", `{}`, "alice"); !errors.Is(err, ErrManaged) {
 		t.Fatalf("a person overwrote a managed binding: %v", err)
 	}
@@ -161,37 +161,15 @@ func TestAttachmentsRulesAndReceipts(t *testing.T) {
 	}
 }
 
-// Generated statements must keep the pool's fault hook, so a failed version
-// record cannot leave the binding pointing at a version that does not exist.
-func TestBindingVersionFailureRollsBackConfiguration(t *testing.T) {
-	t.Parallel()
-	db := testDB(t)
-	bindings := NewWithClock(db, nil)
-	if _, err := bindings.Upsert(t.Context(), "cache", "cache", "redis", `{"image":"one"}`, false); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(db.FailNextStatement("INSERT INTO integration_versions"))
-	if _, err := bindings.Upsert(t.Context(), "cache", "cache", "redis", `{"image":"two"}`, false); err == nil {
-		t.Fatal("version failure was swallowed")
-	}
-	row, err := bindings.ByName(t.Context(), "cache")
-	if err != nil || row.Version != 1 || !sameJSON(row.ConfigJSON, `{"image":"one"}`) {
-		t.Fatalf("configuration escaped rollback: %+v %v", row, err)
-	}
-	// sql-guarantee: The append-only version history is the guarantee, and no owner read lists integration_versions rows.
-	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM integration_versions`)
-}
-
 func TestCreateBindingParticipatesInCallerTransaction(t *testing.T) {
 	t.Parallel()
-	for _, scenario := range []string{"success", "rollback", "version-failure", "receipt-failure", "existing", "managed"} {
+	for _, scenario := range []string{"success", "rollback", "receipt-failure", "existing", "managed"} {
 		t.Run(scenario, func(t *testing.T) {
 			db := testDB(t)
 			bindings := NewWithClock(db, nil)
 			called := false
 			bindings.committed = func() { called = true }
 			var before *Binding
-			wantVersions := 0
 			if scenario == "existing" || scenario == "managed" {
 				if _, err := bindings.Upsert(t.Context(), "account", "cloud-account", "digitalocean", `{"region":"original"}`, scenario == "managed"); err != nil {
 					t.Fatal(err)
@@ -201,10 +179,6 @@ func TestCreateBindingParticipatesInCallerTransaction(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				wantVersions = 1
-			}
-			if scenario == "version-failure" {
-				t.Cleanup(db.FailNextStatement("-- name: InsertBindingVersion"))
 			}
 			if scenario == "receipt-failure" {
 				t.Cleanup(db.FailNextStatement("-- name: AppendReceipt"))
@@ -223,7 +197,6 @@ func TestCreateBindingParticipatesInCallerTransaction(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				wantVersions = 1
 			} else if err == nil {
 				t.Fatal("failed admission succeeded")
 			}
@@ -245,8 +218,6 @@ func TestCreateBindingParticipatesInCallerTransaction(t *testing.T) {
 					t.Fatalf("rolled-back binding: %+v %v", after, readErr)
 				}
 			}
-			// sql-guarantee: The caller's rollback must also remove the independent version ledger; no owner reader lists it.
-			dbtest.Count(t, db, wantVersions, `SELECT COUNT(*) FROM integration_versions`)
 			receipts := integrationReceipts(t, db, "integration.saved", "account")
 			wantReceipts := 0
 			if scenario == "success" {

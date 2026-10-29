@@ -10,7 +10,7 @@ import { OfferStep } from './InfrastructureNew'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 const target = (revision = 7, domain = 'old.example'): Target => ({
-  id: 'target-id', provider: '', origin: 'attached', secretsDelivery: 'env', status: 'ready',
+  id: 'target-id', provider: '', origin: 'attached', status: 'ready',
   name: 'test-host', displayLabel: 'Test host', kind: 'docker-host', ingress: { domain }, address: {},
   settingsRevision: revision, needsMode: 'emulators',
   capabilities: { persistentVolumes: true, previews: false, ownLiveness: false, rollout: [], needs: [] },

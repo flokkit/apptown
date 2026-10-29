@@ -13,7 +13,6 @@ var (
 	alice  = access.Principal{Kind: "user", Name: "alice", Via: "session"}
 	nobody = access.Principal{Kind: "anonymous", Name: "anonymous"}
 	change = access.Resource{Type: "change", ID: "40", ProjectID: idstest.N(7), Group: "kids", ChangeID: idstest.N(40)}
-	full   = access.Channel{Kind: "full-breadth"}
 )
 
 func role(id ids.ID, subjectType, subject, name string, scope access.ScopeKind, scopeID string) access.Grant {

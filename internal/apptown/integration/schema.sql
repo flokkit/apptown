@@ -10,13 +10,6 @@ CREATE TABLE IF NOT EXISTS integrations (
   updated_at  TIMESTAMPTZ NOT NULL,
   display_label TEXT NOT NULL DEFAULT ''
 );
-CREATE TABLE IF NOT EXISTS integration_versions (
-  id UUID PRIMARY KEY,
-  integration_id UUID NOT NULL REFERENCES integrations(id) ON DELETE CASCADE,
-  version        BIGINT NOT NULL,
-  config_json    JSONB NOT NULL,
-  created_at     TIMESTAMPTZ NOT NULL
-);
 CREATE TABLE IF NOT EXISTS project_integrations (
   project_id UUID NOT NULL,
   capability    TEXT NOT NULL,

@@ -11,8 +11,8 @@ import (
 // Every build names the selected daemon's own builder: "default" for a
 // daemon chosen by --host, the context's own otherwise, and only when that
 // builder is the daemon's (docker driver). A builder of another driver is
-// refused before anything is sent; without buildx the daemon's legacy
-// builder builds, which nothing can redirect.
+// refused before anything is sent, and so is every build on a Docker
+// without buildx: there is no legacy-builder fallback.
 func TestABuildNamesTheSelectedDaemonsOwnBuilder(t *testing.T) {
 	t.Parallel()
 	answer := func(driver string, buildx bool) func(Command) ([]byte, error) {
@@ -53,9 +53,14 @@ func TestABuildNamesTheSelectedDaemonsOwnBuilder(t *testing.T) {
 	if _, err := (Scope{Client: remote}).Build(context.Background(), "-t", "x", "ctx"); err == nil || !strings.Contains(err.Error(), `its driver is "remote"`) || len(builds(remote)) != 0 {
 		t.Fatalf("a remote builder: %q %v", builds(remote), err)
 	}
-	legacy := &fakeClient{reply: answer("", false)}
-	if _, err := (Scope{Client: legacy}).Build(context.Background(), "-t", "x", "ctx"); err != nil || strings.Join(builds(legacy), "|") != "build --label apptown.built=1 -t x ctx" {
-		t.Fatalf("no buildx: %q %v", builds(legacy), err)
+	for name, scope := range map[string]func(Client) Scope{
+		"AppTown's own daemon": func(c Client) Scope { return Scope{Client: c} },
+		"an attached host":     func(c Client) Scope { return (Scope{Client: c}).WithHost("ssh://lab", "lab", "") },
+	} {
+		legacy := &fakeClient{reply: answer("", false)}
+		if _, err := scope(legacy).Build(context.Background(), "-t", "x", "ctx"); err == nil || !strings.Contains(err.Error(), "AppTown's Docker client could not run `docker buildx version`") || !strings.Contains(err.Error(), "not a docker command") || len(builds(legacy)) != 0 {
+			t.Fatalf("no buildx, %s: %q %v", name, builds(legacy), err)
+		}
 	}
 }
 
@@ -74,8 +79,6 @@ func TestAPreviewBuildCachesFromItsKeptImageAndRemovesTheOneItReplaced(t *testin
 		f := &fakeClient{reply: func(req Command) ([]byte, error) {
 			a := req.Args
 			switch {
-			case strings.Join(a, " ") == "buildx version":
-				return []byte("docker: 'buildx' is not a docker command."), errors.New("exit status 1")
 			case a[0] == "image" && a[1] == "inspect" && a[3] == "{{.Id}}":
 				if id, ok := images[a[4]]; ok {
 					return []byte(id + "\n"), nil
@@ -117,10 +120,10 @@ func TestAPreviewBuildCachesFromItsKeptImageAndRemovesTheOneItReplaced(t *testin
 		}
 		return calls, images
 	}
-	if got, _ := run(map[string]string{}, nil, "sha256:new", false); strings.Join(got, "\n") != "build --label apptown.built=1 -t "+tag+" --build-arg BUILDKIT_INLINE_CACHE=1 /ctx" {
+	if got, _ := run(map[string]string{}, nil, "sha256:new", false); strings.Join(got, "\n") != "build --label apptown.built=1 --builder default -t "+tag+" --build-arg BUILDKIT_INLINE_CACHE=1 /ctx" {
 		t.Fatalf("a first build: %v", got)
 	}
-	want := "build --label apptown.built=1 -t " + tag + " --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from " + tag + " /ctx"
+	want := "build --label apptown.built=1 --builder default -t " + tag + " --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from " + tag + " /ctx"
 	if got, _ := run(map[string]string{tag: "sha256:old"}, nil, "sha256:new", false); strings.Join(got, "\n") != want+"\nrmi sha256:old" {
 		t.Fatalf("a rebuild to a new image: %v", got)
 	}

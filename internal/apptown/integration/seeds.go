@@ -11,9 +11,10 @@ import (
 // already has are seed bindings, pinned into every run's ledger and listed
 // read-only with live health.
 //
-// Config rows hold NO secret material — only references (key names). Config
-// history is append-only (integration_versions); a run pins {version,
-// configHash}, so later edits never retro-change what a receipt attests.
+// Config rows hold NO secret material — only references (key names). A
+// binding's version counts its configuration changes; earlier
+// configurations are not kept. A run records the {version, configHash} it
+// used, so a later edit never changes what the run's record says.
 
 // The compiled-in capabilities.
 const (

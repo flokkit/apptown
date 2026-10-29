@@ -8,12 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"encoding/json"
 	"github.com/flokkit/apptown/internal/apptown/deployment/internal/deploymentsql"
 	"github.com/flokkit/apptown/internal/dbtest"
-	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/ids"
-	"reflect"
 
 	"github.com/flokkit/apptown/internal/access"
 
@@ -86,7 +83,7 @@ func TestConfigureDefaultsAndContractAssessment(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if dep.DeploymentPolicy != CompatibleUpdate || dep.TargetID != target.ID || dep.Feed != "promotion" || dep.Audience != "team" || dep.DataClass != "non-production" {
+			if dep.TargetID != target.ID || dep.Feed != "promotion" || dep.Audience != "team" || dep.DataClass != "non-production" {
 				t.Fatalf("defaults: %+v", dep)
 			}
 			if result.ContractChecked != (scenario == "compatible" || scenario == "incompatible") || (result.ContractIssue == "") != (scenario == "compatible") {
@@ -345,125 +342,4 @@ func TestConfigureFailedUpdateKeepsPriorSettings(t *testing.T) {
 		t.Fatalf("failed update changed settings: %+v", current)
 	}
 	wantN(t, "bound receipts", receipts(t, s.db, "deployment.bound"), 1)
-}
-
-// Unsupported choices must not silently configure a different procedure.
-// Reconfiguration preserves the recorded placement, and source work is never
-// reached for a refused procedure; authority refusals still take precedence.
-func TestDeploymentPolicyRefusedBeforeConfigurationEffects(t *testing.T) {
-	for _, value := range []DeploymentPolicy{ProtectedMaintenance, "other", "Compatible-Update", " compatible-update"} {
-		for _, existing := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/existing=%v", value, existing), func(t *testing.T) {
-				t.Parallel()
-				s, w, in, _ := configurationFixture(t)
-				var before *Deployment
-				if existing {
-					before = configureForTest(t, s, in)
-				}
-				n := len(receipts(t, s.db, "deployment.bound"))
-				w.before = func() { t.Error("policy refusal reached source contract preparation") }
-				in.DeploymentPolicy = value
-				in.Audience = "public"
-				result, err := s.Configure(t.Context(), in)
-				if err == nil || result.Deployment != nil {
-					t.Fatalf("unavailable procedure configured: %+v %v", result, err)
-				}
-				want := fault.Invalid
-				if value == ProtectedMaintenance {
-					want = fault.Unprocessable
-					if fault.CodeOf(err) != "deployment_policy_not_implemented" || !strings.Contains(err.Error(), "use compatible-update") {
-						t.Fatalf("reserved refusal: %v", err)
-					}
-				}
-				if fault.KindOf(err) != want {
-					t.Fatalf("policy classification: %v", err)
-				}
-				rows, err := s.Deployments.ForProject(t.Context(), in.ProjectID)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if existing {
-					if len(rows) != 1 || !reflect.DeepEqual(rows[0], before) {
-						t.Fatalf("refusal changed settings: %+v", rows)
-					}
-				} else if len(rows) != 0 {
-					t.Fatalf("refusal created settings: %+v", rows)
-				}
-				if len(receipts(t, s.db, "deployment.bound")) != n {
-					t.Fatal("policy refusal wrote configuration receipt")
-				}
-				w.denial = errors.New("no binding authority")
-				if _, err := s.Configure(t.Context(), in); err != w.denial {
-					t.Fatalf("policy leaked before authority refusal: %v", err)
-				}
-			})
-		}
-	}
-}
-
-func TestStandingDeploymentPolicyDefaultsAreExplicit(t *testing.T) {
-	t.Parallel()
-	s, _, in, _ := configurationFixture(t)
-	for _, value := range []DeploymentPolicy{"", CompatibleUpdate, ""} {
-		in.DeploymentPolicy = value
-		dep := configureForTest(t, s, in)
-		if dep.DeploymentPolicy != CompatibleUpdate || dep.UpdatePolicy() != CompatibleUpdate {
-			t.Fatalf("default policy: %+v", dep)
-		}
-		rows, err := s.Deployments.ByID(t.Context(), dep.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if rows.DeploymentPolicy != CompatibleUpdate {
-			t.Fatalf("record read default: %+v", rows)
-		}
-	}
-	in.Name = "explicit-new"
-	in.DeploymentPolicy = CompatibleUpdate
-	if dep := configureForTest(t, s, in); dep.DeploymentPolicy != CompatibleUpdate {
-		t.Fatalf("explicit new default: %+v", dep)
-	}
-	entries := receipts(t, s.db, "deployment.bound")
-	for _, entry := range entries {
-		var payload map[string]any
-		if err := json.Unmarshal(entry.Payload, &payload); err != nil {
-			t.Fatal(err)
-		}
-		if payload["deploymentPolicy"] != string(CompatibleUpdate) {
-			t.Fatalf("configured procedure receipt: %+v", payload)
-		}
-	}
-	for _, kind := range []Kind{Preview, Restored} {
-		d := Deployment{Kind: kind}
-		if d.UpdatePolicy() != "" {
-			t.Fatalf("non-standing placement claims a selected procedure: %+v", d)
-		}
-	}
-}
-
-// Existing stored records gain the implemented default without a migration;
-// preview and restored-copy records omit an update-policy claim entirely.
-func TestDeploymentPolicyReadDefaultsExcludeTemporaryCopies(t *testing.T) {
-	t.Parallel()
-	for _, kind := range []Kind{Standing, Preview, Restored} {
-		d, err := deploymentRecord(deploymentsql.Deployment{Kind: kind.String(), Readiness: Reconciled.String()}, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		raw, err := json.Marshal(d)
-		if err != nil {
-			t.Fatal(err)
-		}
-		var view map[string]any
-		if err = json.Unmarshal(raw, &view); err != nil {
-			t.Fatal(err)
-		}
-		if kind == Standing {
-			if view["deploymentPolicy"] != "compatible-update" {
-				t.Fatalf("standing record default: %s", raw)
-			}
-		} else if _, ok := view["deploymentPolicy"]; ok {
-			t.Fatalf("temporary copy claims selected update policy: %s", raw)
-		}
-	}
 }

@@ -29,35 +29,13 @@ did not change with the owner.
 
 ## Deployment procedure
 
-Standing placements execute `compatible-update`, the name for the existing
-release admission, preparation, provider update and settlement procedure. The
-name does not certify application backwards compatibility or promise automatic
-application/data rollback or a verified complete recovery set. Makers and
-operators must choose application changes suitable for this procedure.
-
-The existing configuration API (`POST /api/v1/projects/{slug}/deployments`)
-accepts `deploymentPolicy`. Omitted, null, empty and explicit `compatible-update`
-use the implemented default on new and reconfigured placements. Unknown nonempty
-values and non-string JSON are invalid (400). Configuration and the named deploy
-request reject unknown keys, so a misspelled safety choice is not ignored.
-`deploymentPolicy` belongs only to configuration, not a per-release/bundle
-override; supplying it at `.../deployments/{name}/deploy` is invalid (400).
-
-`protected-maintenance` names a planned procedure: quiescence, a verified complete
-recovery set, private validation and reopening. It is unavailable. An authorized
-selection is refused before source preparation, settings writes or provider
-effects: 422, readable `error`, and `X-AppTown-Deny-Code:
-deployment_policy_not_implemented`. The refusal tells the caller to use
-`compatible-update`; existing settings remain committed as they were. Caller
-visibility and binding authority are checked before policy-specific refusal.
-
-Exactly one procedure can execute, so no policy column or per-generation setting
-is stored. Existing and new standing deployment reads report the enforced
-`deploymentPolicy: compatible-update`, and accepted configuration receipts name
-it. Reserved choices are never saved. Adding an executable second procedure
-requires an append-only migration/backfill; previews and restored copies do not
-claim a selected standing update procedure. CLI/MCP command arguments, app
-contracts and bundle data are unchanged.
+A deploy of a standing placement uses one procedure: release admission,
+preparation, provider update and settlement, replacing what runs in place. It
+does not certify application backwards compatibility, and it promises no
+automatic application or data rollback and no verified complete recovery set.
+Makers and operators must choose application changes suitable for it. There is
+no setting to choose another procedure; one is added when a second procedure
+can execute.
 
 ## Requesting and executing a release
 
@@ -93,8 +71,7 @@ task is reserved, and records the refusal in its log and evidence;
 need registered. It is early, not final: boot and `ExecuteRelease`
 resolve authority and settings again, so a setting removed during a build
 still refuses there. Existing target and registry selection at landing is
-unchanged. A deployment policy other than `compatible-update` cannot be
-saved, so the check has no policy to refuse.
+unchanged.
 
 **Needs fulfilled by registering.** A need whose dependency
 kind has a `register:` block is not asked of the target (`refusesContract`,
@@ -1326,33 +1303,18 @@ physical copies without this provenance refuse automatic fill.
 
 A custom catalogue change cannot discard an existing binding by clearing its
 engine flag or data path. Standing-service preflight refuses that change before
-provider effects, and administrative preview reports the conflicting binding.
-Recovery also compares a nonempty changed mount destination with the recorded
-path, including when the original container is gone. Physical restore preserves
-that source path before creating its target; logical import records its explicit
-fresh target's intended path. Ordinary unbound non-engine stores remain outside
+provider effects. Recovery also compares a nonempty changed mount destination with
+the recorded path, including when the original container is gone. Physical restore
+preserves that source path before creating its target; logical import records its
+explicit fresh target's intended path. Ordinary unbound non-engine stores remain outside
 this engine binding contract. Application dataDir uses a separate named-volume
 identity and cannot select a need's retained volume.
 
-Existing running engines can be inventoried with
-`GET /api/v1/projects/{slug}/deployments/{name}/storage-bindings` and adopted with
-`POST` to the same path (an empty body or `{}`). Preview needs deployment-read;
-adoption needs deployment-operate and records the authenticated actor. Adoption
-accepts no supplied engine evidence or override. It re-reads the exact settled
-source revision and observes every persistent engine's actual image, mounted
-volume and incarnation. A missing resource or conflicting observation refuses the
-whole adoption. Preview never establishes bindings; repeated matching adoption
-is idempotent, including containers started by their bound image ID.
-
-Both operations require a settled Docker deployment with no open attempt,
-release in flight, restore hold or take-down. Project and deployment admission
-locks remain held during bounded inspection and atomic recording. They do not
-start, pull, create, stop or delete Docker resources. Before upgrading an existing
-instance, preserve a paired controller database/files recovery point and inventory
-its persistent needs. Qualifying an installed candidate requires adoption and
-readback of every applicable deployment before resuming writable reconciliation;
-a restart that skips running containers is not adoption evidence. Conflicts retain
-the original data and require explicit operator diagnosis.
+An engine that was already running before its deployment had a binding is
+bound by the next ordinary deploy: reconcile inspects the matching existing
+container and records its actual image, mount and volume incarnation before any
+writable start or container removal. Conflicting evidence refuses the deploy,
+retains the original data and requires explicit operator diagnosis.
 
 A failed restore or process exit after target creation can leave storage requiring
 explicit operator recovery. A later restore boot refuses preexisting engine-data

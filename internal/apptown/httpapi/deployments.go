@@ -54,18 +54,16 @@ type (
 )
 
 // DeploymentConfigurationRequest selects settings on the existing configuration
-// door. Only compatible-update can execute; null/empty/omitted use that default.
-// protected-maintenance is recognized but refused, before settings or effects.
+// door. Unknown keys are refused, so a misspelled setting is not ignored.
 type DeploymentConfigurationRequest struct {
 	Name   string `json:"name"`
 	Target string `json:"target"`
 	deployment.Attributes
-	StartFrom        ids.ID                      `json:"startFrom"`
-	DeploymentPolicy deployment.DeploymentPolicy `json:"deploymentPolicy"`
+	StartFrom ids.ID `json:"startFrom"`
 }
 
 // handleCreateDeployment: POST /projects/{slug}/deployments
-// {name, target, feed, audience, data, promoteAfter, startFrom?, deploymentPolicy?} — project
+// {name, target, feed, audience, data, promoteAfter, startFrom?} — project
 // deployment settings (§2.7): a standing deployment bound to an offered
 // target; startFrom names a copy its first release fills its data from.
 func (h Deployments) CreateDeployment(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +72,7 @@ func (h Deployments) CreateDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonCommand(w, r, jsonBody{strict: true}, func(in DeploymentConfigurationRequest) {
-		result, err := h.deployment.Configure(r.Context(), deployment.ConfigureDeployment{ProjectID: p.ID, Name: in.Name, Target: in.Target, Attributes: in.Attributes, StartFrom: in.StartFrom, DeploymentPolicy: in.DeploymentPolicy})
+		result, err := h.deployment.Configure(r.Context(), deployment.ConfigureDeployment{ProjectID: p.ID, Name: in.Name, Target: in.Target, Attributes: in.Attributes, StartFrom: in.StartFrom})
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -289,36 +287,6 @@ func (h Deployments) resourceOverride(w http.ResponseWriter, r *http.Request, se
 			}
 		}
 		out, err := h.deployment.SetOverride(r.Context(), change)
-		if err != nil {
-			WriteFault(w, err)
-			return
-		}
-		WriteJSON(w, 200, out)
-	})
-}
-
-// DeploymentStorageBindings previews only fresh existing-engine evidence.
-func (h Deployments) DeploymentStorageBindings(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
-	if !ok {
-		return
-	}
-	out, err := h.deployment.PreviewStorage(r.Context(), p.ID, r.PathValue("name"))
-	if err != nil {
-		WriteFault(w, err)
-		return
-	}
-	WriteJSON(w, 200, out)
-}
-
-// AdoptDeploymentStorageBindings accepts no supplied or overriding evidence.
-func (h Deployments) AdoptDeploymentStorageBindings(w http.ResponseWriter, r *http.Request) {
-	p, ok := ProjectFromPath(h.projects, w, r)
-	if !ok {
-		return
-	}
-	jsonCommand(w, r, jsonBody{optional: true, strict: true}, func(_ struct{}) {
-		out, err := h.deployment.AdoptStorage(r.Context(), p.ID, r.PathValue("name"))
 		if err != nil {
 			WriteFault(w, err)
 			return

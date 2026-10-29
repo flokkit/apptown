@@ -41,11 +41,8 @@
 // ([Deployments.RecordStartedFrom]). Deployment imports no data protection
 // code.
 //
-// Standing placements use [CompatibleUpdate], the name of today's procedure,
-// not compatibility certification or automatic data recovery. Configure defaults
-// omitted policy input to it and refuses [ProtectedMaintenance] before source,
-// settings or provider effects. Only one procedure executes; its read-side value
-// is derived without a saved alternate choice. Preview/restored records omit it.
+// A deploy replaces what runs in place. It certifies no backwards
+// compatibility and restores no application data if the new release fails.
 //
 // # Request, execution and settlement
 //

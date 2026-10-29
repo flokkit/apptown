@@ -463,6 +463,16 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if args[0] == "info" && len(args) == 3 && args[2] == "{{.ID}}" {
 		return []byte("fake-daemon"), nil
 	}
+	// The daemon has buildx, and its builder is its own (docker.Scope.Build).
+	if len(args) == 2 && args[0] == "buildx" && args[1] == "version" {
+		return []byte("github.com/docker/buildx v0.38.1"), nil
+	}
+	if len(args) == 3 && args[0] == "buildx" && args[1] == "inspect" {
+		return []byte("Name:          " + args[2] + "\nDriver:        docker\n"), nil
+	}
+	if len(args) == 2 && args[0] == "context" && args[1] == "show" {
+		return []byte("default\n"), nil
+	}
 	if args[0] == "info" && len(args) == 3 && strings.Contains(args[2], "MemTotal") {
 		return []byte(d.host + "\n"), nil
 	}

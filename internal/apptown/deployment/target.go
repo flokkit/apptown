@@ -37,20 +37,19 @@ const (
 
 // Target is one row of the targets table.
 type Target struct {
-	DisplayLabel    string             `json:"displayLabel"`
-	ConnectionID    ids.ID             `json:"connectionId,omitempty"`
-	ProviderScope   json.RawMessage    `json:"providerScope,omitempty"`
-	ID              ids.ID             `json:"id"`
-	Name            string             `json:"name"`
-	Kind            string             `json:"kind"`
-	Provider        string             `json:"provider"` // integration name; "" for the built-in host
-	Address         map[string]any     `json:"address"`
-	Origin          string             `json:"origin"`
-	Capabilities    TargetCapabilities `json:"capabilities"`
-	Ingress         map[string]any     `json:"ingress"`
-	NeedsMode       string             `json:"needsMode"`
-	SecretsDelivery string             `json:"secretsDelivery"`
-	Status          TargetState        `json:"status"`
+	DisplayLabel  string             `json:"displayLabel"`
+	ConnectionID  ids.ID             `json:"connectionId,omitempty"`
+	ProviderScope json.RawMessage    `json:"providerScope,omitempty"`
+	ID            ids.ID             `json:"id"`
+	Name          string             `json:"name"`
+	Kind          string             `json:"kind"`
+	Provider      string             `json:"provider"` // integration name; "" for the built-in host
+	Address       map[string]any     `json:"address"`
+	Origin        string             `json:"origin"`
+	Capabilities  TargetCapabilities `json:"capabilities"`
+	Ingress       map[string]any     `json:"ingress"`
+	NeedsMode     string             `json:"needsMode"`
+	Status        TargetState        `json:"status"`
 	// SettingsRevision advances with every edit and with every sync that
 	// changes a configuration fact; an edit sends the one it started from.
 	SettingsRevision int64 `json:"settingsRevision"`
@@ -127,7 +126,7 @@ func targetRecord(r deploymentsql.Target, err error) (*Target, error) {
 	if err != nil {
 		return nil, err
 	}
-	t := &Target{ID: r.ID, Name: r.Name, DisplayLabel: r.DisplayLabel, Kind: r.Kind, Provider: r.Provider, ConnectionID: r.ConnectionID, Address: jsonMap(string(r.AddressJson)), Origin: r.Origin, Ingress: jsonMap(string(r.IngressJson)), NeedsMode: r.NeedsMode, SecretsDelivery: r.SecretsDelivery, SettingsRevision: r.SettingsRevision}
+	t := &Target{ID: r.ID, Name: r.Name, DisplayLabel: r.DisplayLabel, Kind: r.Kind, Provider: r.Provider, ConnectionID: r.ConnectionID, Address: jsonMap(string(r.AddressJson)), Origin: r.Origin, Ingress: jsonMap(string(r.IngressJson)), NeedsMode: r.NeedsMode, SettingsRevision: r.SettingsRevision}
 	if r.ProviderScopeJson != nil {
 		t.ProviderScope = *r.ProviderScopeJson
 	}
@@ -224,7 +223,7 @@ func (s *Targets) attachIn(ctx context.Context, tx *database.Tx, t *Target, at A
 	saved, err := targetRecord(deploymentsql.New(tx.SQL()).InsertTarget(ctx, deploymentsql.InsertTargetParams{
 		ID: p.ID, Name: p.Name, Kind: p.Kind, Provider: p.Provider, AddressJson: p.AddressJson,
 		Origin: p.Origin, CapabilitiesJson: p.CapabilitiesJson, IngressJson: p.IngressJson,
-		NeedsMode: p.NeedsMode, SecretsDelivery: p.SecretsDelivery, Status: p.Status,
+		NeedsMode: p.NeedsMode, Status: p.Status,
 		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 	}))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -246,7 +245,6 @@ func putTargetParams(t *Target, now time.Time) deploymentsql.PutTargetParams {
 		CapabilitiesJson: json.RawMessage(jsonText(t.Capabilities)),
 		IngressJson:      json.RawMessage(jsonText(t.Ingress)),
 		NeedsMode:        t.NeedsMode,
-		SecretsDelivery:  t.SecretsDelivery,
 		Status:           t.Status.String(),
 		CreatedAt:        now,
 		UpdatedAt:        now,
@@ -298,7 +296,7 @@ func (s *Targets) syncIn(ctx context.Context, tx *database.Tx, t *Target, who st
 	saved, err := targetRecord(q.RefreshTarget(ctx, deploymentsql.RefreshTargetParams{
 		ID: stored.ID, Kind: next.Kind, Provider: next.Provider, AddressJson: json.RawMessage(jsonText(next.Address)),
 		CapabilitiesJson: json.RawMessage(jsonText(next.Capabilities)), IngressJson: json.RawMessage(jsonText(next.Ingress)),
-		NeedsMode: next.NeedsMode, SecretsDelivery: next.SecretsDelivery, UpdatedAt: now,
+		NeedsMode: next.NeedsMode, UpdatedAt: now,
 	}))
 	if err != nil {
 		return nil, err
@@ -323,7 +321,6 @@ func configurationChanges(stored, next *Target) (before, after map[string]any) {
 		{"capabilities", stored.Capabilities, next.Capabilities},
 		{"ingress", stored.Ingress, next.Ingress},
 		{"needsMode", stored.NeedsMode, next.NeedsMode},
-		{"secretsDelivery", stored.SecretsDelivery, next.SecretsDelivery},
 	} {
 		if jsonText(part.was) != jsonText(part.now) {
 			before[part.name], after[part.name] = part.was, part.now

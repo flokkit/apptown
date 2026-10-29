@@ -55,6 +55,6 @@ On AppTown each deployment and preview has its own bucket, and backups copy its
 objects and MariaDB, not as one snapshot. Elsewhere, arrange and test both. Core updates
 do not run every plugin migration. Default request-driven cron serves one replica;
 an external coordinated scheduler is a separate operational choice.
-compatible-update certifies no backwards compatibility or automatic data rollback.
-Protected maintenance and multiple replicas are unavailable. See AppTown's WordPress
+A deploy certifies no backwards compatibility and does no automatic data rollback.
+A maintenance mode and multiple replicas are unavailable. See AppTown's WordPress
 guide for deployment and recovery obligations.

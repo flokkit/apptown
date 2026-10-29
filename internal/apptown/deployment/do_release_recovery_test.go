@@ -106,7 +106,7 @@ func doReleaseWorldNeeding(t *testing.T, more string) (*Service, *dofake.API, *d
 			return &digitalocean.Client{Base: server.URL, HTTP: server.Client()}, digitalocean.Config{Region: "syd", Registry: "forge-test", DBSize: "db-s-1vcpu-1gb", InstanceSize: "basic-xxs"}, nil
 		}}, options), nil
 	}}}, Dependencies{Followups: recoveryJobFollowups{}, Releases: ReleaseDependencies{Authority: &requestAuthority{}, Still: &requestAuthority{}, Sources: doReleaseSource{project: ReleaseProject{Application: Application{ID: pid, Slug: "expense"}, Repository: repo}, contract: contract, revision: revision}, Secrets: doReleaseSecrets{}, Queue: doReleaseQueue{}}}))
-	target, err := service.Targets.Put(context.Background(), &Target{Name: "do-syd", Kind: KindDOApp, Origin: OriginAttached, Status: TargetReady, NeedsMode: "managed", SecretsDelivery: "provider", Capabilities: TargetCapabilities{Needs: []string{"postgres"}}})
+	target, err := service.Targets.Put(context.Background(), &Target{Name: "do-syd", Kind: KindDOApp, Origin: OriginAttached, Status: TargetReady, NeedsMode: "managed", Capabilities: TargetCapabilities{Needs: []string{"postgres"}}})
 	if err != nil {
 		t.Fatal(err)
 	}

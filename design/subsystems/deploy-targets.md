@@ -281,8 +281,10 @@ build of a project's source on a daemon (`docker.Scope.Build`, which
 `build:` parts use too) names that daemon's builder (`default` for a
 `--host` daemon, else the context's own) and refuses one whose driver is not
 `docker`, so neither a builder alias with a saved remote builder nor an
-inherited `BUILDX_BUILDER` or `BUILDX_CONFIG` takes it elsewhere. Without
-buildx the daemon's legacy builder builds. The worker's task keeps its
+inherited `BUILDX_BUILDER` or `BUILDX_CONFIG` takes it elsewhere. Buildx
+is required beside the docker CLI AppTown runs (locally, with `--host` for
+an attached daemon): without it the build is refused, saying to install it.
+The worker's task keeps its
 private `apptown` builder. Recorded release images are
 never rebuilt.
 

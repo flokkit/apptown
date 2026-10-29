@@ -564,7 +564,6 @@ export type DeploymentView = {
   policyRevision?: number
   id: string | null
   displayLabel: string
-  deploymentPolicy?: string
   name: string
   kind: string
   url: string
@@ -2132,7 +2131,6 @@ export type Decision = {
   grantIds?: (string | null)[]
   roles?: string[]
   paths?: string[]
-  receiptId?: string | null
 }
 
 export type BackupStore = {
@@ -2329,7 +2327,6 @@ export type Target = {
   capabilities: TargetCapabilities
   ingress: Record<string, unknown>
   needsMode: string
-  secretsDelivery: string
   status: TargetState
   settingsRevision: number
 }
@@ -3962,7 +3959,6 @@ export type TargetView = {
   capabilities: TargetCapabilities
   ingress: Record<string, unknown>
   needsMode: string
-  secretsDelivery: string
   status: TargetState
   settingsRevision: number
   kindInfo: KindInfo
@@ -4631,7 +4627,6 @@ export type Split = {
 }
 
 export type TargetDeployment = {
-  deploymentPolicy?: string
   project: string
   name: string
   url: string
@@ -4650,7 +4645,6 @@ export type OfferCaps = {
 export type TierApp = {
   deploymentId?: string | null
   deploymentLabel?: string
-  deploymentPolicy?: string
   slug: string
   name: string
   icon?: string

@@ -20,19 +20,18 @@ import (
 // with a saved remote builder, or BUILDX_BUILDER. The builder is the daemon's own: "default" for a
 // daemon chosen by --host, otherwise the one named after the Docker context
 // in use. It must use the docker driver (the daemon's own BuildKit), or the
-// build is refused before anything is sent. Without buildx the CLI builds
-// with the daemon's legacy builder, which nothing can redirect.
+// build is refused before anything is sent. Buildx is required beside the
+// docker CLI AppTown runs (it runs locally, with --host for another daemon):
+// without it the build is refused, saying so, rather than falling back to
+// the daemon's legacy builder.
 func (dk Scope) Build(ctx context.Context, args ...string) ([]byte, error) {
 	builder, err := dk.ownBuilder(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if builder != "" {
-		args = append([]string{"--builder", builder}, args...)
-	}
+	args = append([]string{"--builder", builder}, args...)
 	// The extra certificates, as the secret a Dockerfile's RUN lines may
-	// mount (internal/trust). It needs BuildKit, so a Docker without buildx
-	// cannot take it, and refuses the build saying so.
+	// mount (internal/trust).
 	// Who made the image, for the maintenance sweep (PruneBuiltImages).
 	args = append(dockerlabel.BuiltArgs(), args...)
 	args = append(trust.BuildArgs(!dk.Remote()), args...)
@@ -41,7 +40,11 @@ func (dk Scope) Build(ctx context.Context, args ...string) ([]byte, error) {
 
 func (dk Scope) ownBuilder(ctx context.Context) (string, error) {
 	if out, err := dk.Run(ctx, "buildx", "version"); err != nil || !strings.Contains(string(out), "buildx") {
-		return "", nil // no buildx: the daemon's own legacy builder
+		said := strings.TrimSpace(string(out))
+		if err != nil {
+			said = strings.TrimSpace(err.Error() + " " + said)
+		}
+		return "", fmt.Errorf("building images needs Docker's buildx plugin, and AppTown's Docker client could not run `docker buildx version` (%q): install the buildx plugin beside the docker CLI AppTown runs (the docker-buildx-plugin package)", said)
 	}
 	name := "default"
 	if dk.Host == "" {

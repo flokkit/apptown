@@ -46,7 +46,7 @@ func TestTargetCheckAndRetire(t *testing.T) {
 		t.Fatalf("unreachable: %d %v", code, out)
 	}
 
-	target, err := w.deployment.Targets.Put(context.Background(), &deployment.Target{Name: "spare-box", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady})
+	target, err := w.deployment.Targets.Put(context.Background(), &deployment.Target{Name: "spare-box", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, NeedsMode: "emulators", Status: deployment.TargetReady})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,8 +62,8 @@ func TestTargetCheckAndRetire(t *testing.T) {
 		t.Fatalf("bound target read: %d %v", code, out)
 	}
 	placements := out["target"].(map[string]any)["deployments"].([]any)
-	if len(placements) != 1 || placements[0].(map[string]any)["deploymentPolicy"] != "compatible-update" {
-		t.Fatalf("target deployment procedure: %+v", placements)
+	if len(placements) != 1 {
+		t.Fatalf("target deployments: %+v", placements)
 	}
 	code, out = call(w.targets.RetireTarget, "POST", "/api/v1/targets/spare-box/retire", `{"confirm":"spare-box"}`, "spare-box")
 	if code != 409 || !strings.Contains(out["error"].(string), "tp/main") {

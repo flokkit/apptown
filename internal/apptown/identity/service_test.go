@@ -40,15 +40,15 @@ func TestServiceReadsCurrentGrantsAndRequiresReceipt(t *testing.T) {
 	if got, err := svc.Require(context.Background(), pr, p); err != nil || got.Name != pr.Name {
 		t.Fatalf("current grant: %+v %v", got, err)
 	}
-	restore := db.FailNextStatement("-- name: InsertDecision")
-	if _, err := svc.Require(context.Background(), pr, p); err == nil {
-		t.Fatal("a missing required receipt admitted the operation")
-	}
-	restore()
 	if _, err := svc.Revoke(context.Background(), id, "setup"); err != nil {
 		t.Fatal(err)
 	}
 	var denied *access.Denied
+	restore := db.FailNextStatement("-- name: AppendReceipt")
+	if _, err := svc.Require(context.Background(), pr, p); err == nil || errors.As(err, &denied) {
+		t.Fatalf("an unrecorded denial became a policy result: %v", err)
+	}
+	restore()
 	if _, err := svc.Require(context.Background(), pr, p); !errors.As(err, &denied) {
 		t.Fatalf("revocation was not observed: %v", err)
 	}

@@ -571,38 +571,6 @@ func (q *Queries) InsertBinding(ctx context.Context, arg InsertBindingParams) (I
 	return i, err
 }
 
-const insertBindingVersion = `-- name: InsertBindingVersion :one
-INSERT INTO integration_versions (id, integration_id, version, config_json, created_at)
-VALUES ($1, $2,$3,$4,$5) RETURNING id, integration_id, version, config_json, created_at
-`
-
-type InsertBindingVersionParams struct {
-	ID            ids.ID
-	IntegrationID ids.ID
-	Version       int64
-	ConfigJson    json.RawMessage
-	CreatedAt     time.Time
-}
-
-func (q *Queries) InsertBindingVersion(ctx context.Context, arg InsertBindingVersionParams) (IntegrationVersion, error) {
-	row := q.db.QueryRowContext(ctx, insertBindingVersion,
-		arg.ID,
-		arg.IntegrationID,
-		arg.Version,
-		arg.ConfigJson,
-		arg.CreatedAt,
-	)
-	var i IntegrationVersion
-	err := row.Scan(
-		&i.ID,
-		&i.IntegrationID,
-		&i.Version,
-		&i.ConfigJson,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const kindAttachmentCount = `-- name: KindAttachmentCount :one
 SELECT COUNT(*) FROM project_integrations WHERE capability=$1 AND provenance!=''
 `

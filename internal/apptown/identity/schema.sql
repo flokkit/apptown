@@ -71,29 +71,6 @@ CREATE TABLE IF NOT EXISTS grants (
 CREATE INDEX IF NOT EXISTS grants_subject ON grants(subject_type, subject, revoked_at);
 CREATE INDEX IF NOT EXISTS grants_scope ON grants(scope_type, scope_id, revoked_at);
 CREATE UNIQUE INDEX IF NOT EXISTS grants_live_identity ON grants(subject_type, subject, role_name, capability, scope_type, scope_id) WHERE revoked_at IS NULL;
--- One row per consequential decision (allow or deny) on a protected act:
--- the receipt an audit row points at. Identifiers, never names, are the
--- truth here; the actor string on audit_log is a display snapshot.
-CREATE TABLE IF NOT EXISTS authorization_decisions (
-  id UUID PRIMARY KEY,
-  decided_at           TIMESTAMPTZ NOT NULL,
-  outcome              TEXT NOT NULL,            -- allow | deny
-  reason_code          TEXT NOT NULL DEFAULT '',
-  principal_type       TEXT NOT NULL,
-  principal            TEXT NOT NULL,
-  delegation_kind      TEXT NOT NULL DEFAULT '',
-  delegation_id        TEXT NOT NULL DEFAULT '',
-  capability           TEXT NOT NULL,
-  resource_type        TEXT NOT NULL DEFAULT '',
-  resource_id          TEXT NOT NULL DEFAULT '',
-  project_id UUID,
-  grant_ids_json       JSONB NOT NULL DEFAULT '[]'::jsonb,
-  roles_json   JSONB NOT NULL DEFAULT '[]'::jsonb,
-  membership_paths_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-  constraints_json     JSONB NOT NULL DEFAULT '{}'::jsonb,
-  context_json         JSONB NOT NULL DEFAULT '{}'::jsonb,
-  reason               TEXT NOT NULL DEFAULT ''
-);
 -- Small instance-wide settings the code reads by key (the authorization
 -- profile, migration flags).
 CREATE TABLE IF NOT EXISTS instance_settings (

@@ -134,12 +134,12 @@ func TestAdministratorNetworkChangeRules(t *testing.T) {
 func TestConfigurationFailuresLeaveNoChange(t *testing.T) {
 	t.Parallel()
 	for _, op := range []string{"networks"} {
-		for _, failure := range []string{"facts", "decision", "lock", "write", "receipt", "skipped write", "skipped receipt", "invalid", "cancelled", "before"} {
+		for _, failure := range []string{"facts", "lock", "write", "receipt", "skipped write", "skipped receipt", "invalid", "cancelled", "before"} {
 			t.Run(op+"/"+failure, func(t *testing.T) {
 				t.Parallel()
 				s, pr := configurationFixture(t)
 				ctx := context.Background()
-				marker := map[string]string{"facts": "-- name: UserByName :one", "decision": "-- name: InsertDecision", "lock": "-- name: LockInstanceSetting", "write": "-- name: PutInstanceSetting", "receipt": "INSERT INTO audit_log", "before": "-- name: InstanceSetting :one"}[failure]
+				marker := map[string]string{"facts": "-- name: UserByName :one", "lock": "-- name: LockInstanceSetting", "write": "-- name: PutInstanceSetting", "receipt": "INSERT INTO audit_log", "before": "-- name: InstanceSetting :one"}[failure]
 				restore := func() {}
 				if marker != "" {
 					restore = s.db.FailNextStatement(marker)

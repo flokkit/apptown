@@ -55,15 +55,14 @@ type Service struct {
 	// can set it.
 	clock func() time.Time // nil is the real clock
 
-	Targets         *Targets
-	Deployments     *Deployments
-	Releases        *Releases
-	Outcomes        *Outcomes
-	Bundles         *Bundles
-	Retained        *Retained
-	Reconciliations *Reconciliations
-	Needs           NeedStore
-	Inventory       *Inventory
+	Targets     *Targets
+	Deployments *Deployments
+	Releases    *Releases
+	Outcomes    *Outcomes
+	Bundles     *Bundles
+	Retained    *Retained
+	Needs       NeedStore
+	Inventory   *Inventory
 }
 
 // Dependencies is what Deployment asks of the world. Every field is an
@@ -158,7 +157,6 @@ func New(ctx context.Context, db *database.DB, deps Dependencies) *Service {
 		starter:            deps.CopyStarter,
 		filler:             deps.RestoreFiller,
 		copyCheck:          deps.CopyCheck,
-		Reconciliations:    NewReconciliations(db),
 		Needs:              NewNeedStore(db, nil),
 		Inventory:          NewInventory(db, deps.Declared),
 	}
@@ -177,6 +175,6 @@ func (s *Service) now() time.Time { return clock.Or(s.clock)() }
 func (s *Service) setClock(now func() time.Time) {
 	s.clock = now
 	s.Releases.clock, s.Bundles.clock, s.Outcomes.clock, s.Targets.clock = now, now, now, now
-	s.Deployments.clock, s.Reconciliations.clock, s.Needs.clock = now, now, now
+	s.Deployments.clock, s.Needs.clock = now, now
 	s.Inventory.deployments.clock, s.Inventory.needs.clock = now, now
 }

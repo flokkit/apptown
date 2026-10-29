@@ -21,6 +21,9 @@ func (c *remoteAppClient) Run(_ context.Context, host string, req Command) ([]by
 	if len(req.Args) == 0 {
 		return nil, nil
 	}
+	if out, ok := ownBuilderAnswer(req.Args); ok {
+		return out, nil
+	}
 	switch req.Args[0] {
 	case "port":
 		return []byte("0.0.0.0:40001\n"), nil
@@ -53,7 +56,7 @@ func TestRemoteScopeBootsOnTheAttachedHost(t *testing.T) {
 	}
 	joined := strings.Join(remote, "\n")
 	for _, want := range []string{
-		"ssh://apptown-target-droplet build --label apptown.built=1 -t apptown-preview-build-apptown-env-waypoint-main",
+		"ssh://apptown-target-droplet build --label apptown.built=1 --builder default -t apptown-preview-build-apptown-env-waypoint-main",
 		"traefik.http.routers.apptown-env-waypoint-main.rule=Host(`waypoint.apps.example.com`)",
 		"traefik.http.services.apptown-env-waypoint-main.loadbalancer.server.port=8080",
 		"traefik.docker.network=traefik",

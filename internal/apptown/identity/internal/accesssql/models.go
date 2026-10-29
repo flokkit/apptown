@@ -24,27 +24,6 @@ type AuthTokensNamed struct {
 	Username    string
 }
 
-type AuthorizationDecision struct {
-	ID                  ids.ID
-	DecidedAt           time.Time
-	Outcome             string
-	ReasonCode          string
-	PrincipalType       string
-	Principal           string
-	DelegationKind      string
-	DelegationID        string
-	Capability          string
-	ResourceType        string
-	ResourceID          string
-	ProjectID           ids.ID
-	GrantIdsJson        json.RawMessage
-	RolesJson           json.RawMessage
-	MembershipPathsJson json.RawMessage
-	ConstraintsJson     json.RawMessage
-	ContextJson         json.RawMessage
-	Reason              string
-}
-
 type DelegationsNamed struct {
 	ID                ids.ID
 	PrincipalID       ids.ID

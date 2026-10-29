@@ -268,30 +268,12 @@ func TestManagedTargetsFulfilOnlyTheirOwnNeeds(t *testing.T) {
 	}
 	c, _ := llmContract(t, "app:\n  web:\n    image: reg.example/app:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  llm: {}\n  postgres: {}\n")
 	d := &needDriver{}
-	bindings, err := s.providers.PrepareNeeds(context.Background(), d, target, dep, c, "alice", func(string, ...any) {})
+	bindings, err := s.providers.PrepareNeeds(context.Background(), d, target, dep, c, func(string, ...any) {})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Join(d.asked, ",") != "postgres" || len(bindings) != 1 {
 		t.Fatalf("the target was asked for %v", d.asked)
-	}
-}
-
-// A reconciliation whose needs were fulfilled but whose outcome cannot be
-// recorded is not a success: the needs it made are not handed to a release.
-func TestAReconciliationWithoutItsOutcomeDoesNotFulfil(t *testing.T) {
-	t.Parallel()
-	s, _, _, dep := removalFixture(t)
-	target, err := s.Targets.ByID(t.Context(), dep.TargetID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c, _ := llmContract(t, "app:\n  web:\n    image: reg.example/app:1\n    ports: [\"8080\"]\n    public: true\nneeds:\n  postgres: {}\n")
-	restore := s.db.FailNextStatement("-- name: EndReconciliation")
-	bindings, err := s.providers.PrepareNeeds(context.Background(), &needDriver{}, target, dep, c, "alice", func(string, ...any) {})
-	restore()
-	if err == nil || bindings != nil {
-		t.Fatalf("an unrecorded reconciliation fulfilled: %v %v", bindings, err)
 	}
 }
 

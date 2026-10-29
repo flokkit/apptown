@@ -119,7 +119,7 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (Target
 			Address:      map[string]any{"host": in.Host, "keyFrom": in.KeyFrom, "user": addr.User, "hostname": addr.Host, "port": addr.Port},
 			Capabilities: TargetCapabilities{PersistentVolumes: true, Previews: false, OwnLiveness: false, Rollout: []string{"replace"}, Needs: needs},
 			Ingress:      map[string]any{},
-			NeedsMode:    "emulators", SecretsDelivery: "inject", Status: TargetReady,
+			NeedsMode:    "emulators", Status: TargetReady,
 		}
 	case KindPortainer:
 		saved, err := s.AttachPortainerTarget(ctx, PortainerAttachment{Name: in.Name, ConnectionID: in.ConnectionID, EndpointID: in.EndpointID, Environment: strings.TrimSpace(in.Environment), Domain: in.Domain, URLFrom: strings.TrimSpace(in.URLFrom), APIKeyFrom: strings.TrimSpace(in.APIKeyFrom), DryRun: in.DryRun})
@@ -195,7 +195,7 @@ func (s *Service) AttachTarget(ctx context.Context, in TargetAttachment) (Target
 			Address:      address,
 			Capabilities: TargetCapabilities{PersistentVolumes: false, Previews: false, OwnLiveness: true, Rollout: []string{"replace"}},
 			Ingress:      map[string]any{"binding": "provider-issued"},
-			NeedsMode:    "managed", SecretsDelivery: "none", Status: TargetReady,
+			NeedsMode:    "managed", Status: TargetReady,
 		}
 	default:
 		return TargetAttachmentResult{}, fault.Wrap(fault.Invalid, fmt.Errorf("kind must be %s, %s, %s or %s", KindDockerHost, KindPortainer, KindDOApp, KindS3Bucket))

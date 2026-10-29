@@ -757,9 +757,10 @@ partial failure accurately and be safely repeatable.
 
 ### TM-26 — mutable evidence gives misleading assurance
 
-**Status: partly mitigated.** Inference receipts are
-written by the gateway, before dispatch and from the response transport
-([inference security](../subsystems/inference-security.md), "Receipts"); a
+**Status: partly mitigated.** The gateway's telemetry and AppTown's own
+spend lines are written by the gateway from the response transport, not from
+a workload's report
+([inference security](../subsystems/inference-security.md), "What is recorded"); a
 tests step's answer comes only from a witnessed exit
 ([workers](../operations/workers.md)). Remaining: audit records and receipts
 are rows in AppTown's own database and share its administrator's trust;

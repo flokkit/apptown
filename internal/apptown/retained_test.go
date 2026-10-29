@@ -93,9 +93,9 @@ func TestRetainedSettlementChecksAuthorityAndHTTPOutcome(t *testing.T) {
 			t.Fatalf("%s %s %s: %d %s, want %d", tc.who, tc.path, tc.body, w.Code, w.Body.String(), tc.code)
 		}
 	}
-	dbtest.FailNextStatement(t, a.DB, "-- name: InsertDecision")
+	dbtest.FailNextStatement(t, a.DB, "-- name: ActiveGrantsOfPrincipal")
 	if w := authzCall(h, "owner", http.MethodPost, path, body); w.Code != 500 {
-		t.Fatalf("authority receipt: %d %s", w.Code, w.Body.String())
+		t.Fatalf("unread authority: %d %s", w.Code, w.Body.String())
 	}
 	requireAudits(t, a.DB, 0, "retained.settled")
 	rows, err = a.Deployment.Retained.ForProject(ctx, idstest.N(1))

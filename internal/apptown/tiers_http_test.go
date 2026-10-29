@@ -29,7 +29,7 @@ func TestTiersHTTP(t *testing.T) {
 	if c, _ := get("/api/v1/tiers"); c != 200 {
 		t.Fatalf("tiers: %d", c)
 	}
-	if c, body := get("/api/v1/tiers?project=policy-app"); c != 200 || !strings.Contains(body, `"deploymentPolicy":"compatible-update"`) {
-		t.Fatalf("fleet procedure: %d %s", c, body)
+	if c, body := get("/api/v1/tiers?project=policy-app"); c != 200 || !strings.Contains(body, `"slug":"policy-app"`) {
+		t.Fatalf("fleet: %d %s", c, body)
 	}
 }

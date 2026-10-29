@@ -33,16 +33,14 @@ import (
 )
 
 // Gateway owns transport and admission. Authentication, bindings and
-// receipts are narrow dependencies; the proxy never has an App or a database.
+// spend lines are narrow dependencies; the proxy never has an App or a database.
 type Gateway struct {
 	networks     []netip.Prefix
 	authenticate func(context.Context, string) (identity.Workload, error)
 	providers    func(context.Context) (map[string]*inferenceProvider, error)
-	begin        func(context.Context, identity.Workload, string, string) (ids.ID, error)
-	finish       func(context.Context, ids.ID, int, string, inferenceUsage)
-	// open and settle are an AppTown call's receipt and spend line (Ask).
+	// open and settle are an AppTown call's spend line (Ask).
 	open        func(context.Context, identity.Workload, string, string, string, time.Duration) (ids.ID, error)
-	settle      func(context.Context, ids.ID, int, string, inferenceUsage, string) (bool, error)
+	settle      func(context.Context, ids.ID, inferenceUsage, string) (bool, error)
 	instruments sync.Once
 	links       func(runID ids.ID, stepID ids.ID, attempt int64) (trace.SpanContext, bool)
 	tracer      trace.Tracer
@@ -91,9 +89,9 @@ func New(networks []netip.Prefix, identities Identity, catalog *Catalog, request
 	transport := trust.Transport(trust.Inference)
 	transport.Proxy = nil
 	transport.ResponseHeaderTimeout = 2 * time.Minute
-	accounting := receipts{requests: requests}
+	accounting := spendLines{requests: requests}
 	g := &Gateway{networks: append([]netip.Prefix(nil), networks...),
-		authenticate: identities.Authenticate, providers: catalog.providers, begin: accounting.begin, finish: accounting.finish, open: accounting.open, settle: accounting.settle,
+		authenticate: identities.Authenticate, providers: catalog.providers, open: accounting.open, settle: accounting.settle,
 		client: &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		active: map[string]int{}, slots: make(chan struct{}, 64), timeout: 20 * time.Minute}
 	g.Instrument(nooptrace.NewTracerProvider().Tracer("forge/inference"), noopmetric.NewMeterProvider().Meter("forge/inference"))
@@ -274,11 +272,6 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	id, err := g.begin(r.Context(), who, p.name, model)
-	if err != nil {
-		fail(503, "cannot record inference admission")
-		return
-	}
 	status, outcome := 0, "upstream_error"
 	usage := newInferenceUsageReader()
 	started := g.now()
@@ -293,10 +286,7 @@ func (g *Gateway) admitted(w http.ResponseWriter, r *http.Request) {
 		attribute.String("apptown.workload.kind", who.Kind), attribute.String("apptown.project", who.ProjectID.String()), attribute.String("apptown.run", who.RunID.String()), attribute.String("apptown.step", who.StepID.String())))...)
 	r = r.WithContext(spanCtx)
 	defer func() {
-		u := usage.result()
-		// The receipt records a call already made: written though the request ended.
-		g.finish(context.WithoutCancel(spanCtx), id, status, outcome, u)
-		g.observe(spanCtx, span, p.name, model, status, outcome, u, g.now().Sub(started))
+		g.observe(spanCtx, span, p.name, model, status, outcome, usage.result(), g.now().Sub(started))
 	}()
 	ctx, cancel := context.WithTimeout(r.Context(), g.timeout)
 	defer cancel()

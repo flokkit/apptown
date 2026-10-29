@@ -30,10 +30,6 @@ VALUES (sqlc.arg(id), sqlc.arg(name),sqlc.arg(capability),sqlc.arg(provider),sql
 INSERT INTO integrations (display_label, id, name, capability, provider, config_json, version, managed, created_at, updated_at)
 VALUES (sqlc.arg(name), sqlc.arg(id), sqlc.arg(name),sqlc.arg(capability),sqlc.arg(provider),sqlc.arg(config_json),1,sqlc.arg(managed),sqlc.arg(created_at),sqlc.arg(updated_at)) RETURNING *;
 
--- name: InsertBindingVersion :one
-INSERT INTO integration_versions (id, integration_id, version, config_json, created_at)
-VALUES (sqlc.arg(id), sqlc.arg(integration_id),sqlc.arg(version),sqlc.arg(config_json),sqlc.arg(created_at)) RETURNING *;
-
 -- name: SetBindingConfiguration :one
 UPDATE integrations SET config_json=sqlc.arg(config_json), version=sqlc.arg(version), updated_at=sqlc.arg(updated_at)
 WHERE id=sqlc.arg(id) RETURNING *;

@@ -151,11 +151,6 @@ func TestIntegrationAgentEnvironmentConsoleLaunch(t *testing.T) {
 		t.Fatal("reconnection lost the session")
 	}
 	turn(2)
-	var receipts int
-	// sql-guarantee: inference_requests is written by the gateway and read back by no owner per request; each console turn's attribution and observed usage receipt is the guarantee
-	if err := a.DB.QueryRow(`SELECT COUNT(*) FROM inference_requests WHERE kind='console' AND actor='fixture' AND session_id=? AND outcome='complete' AND usage_json->>'observed'='true'`, s.ID).Scan(&receipts); err != nil || receipts != 2 {
-		t.Fatalf("console attribution/receipts: %d %v", receipts, err)
-	}
 
 }
 

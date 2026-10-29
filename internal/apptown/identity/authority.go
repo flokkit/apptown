@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/flokkit/apptown/internal/ids"
-
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/database"
 )
@@ -13,7 +11,8 @@ import (
 var _ access.Authority = (*Service)(nil)
 
 // Require returns the supplied identity only after current policy permits the
-// operation. A required receipt that cannot be written fails the operation.
+// operation. A consequential denial is recorded in the activity log, and one
+// that cannot be recorded fails the operation.
 func (s *Service) Require(ctx context.Context, pr access.Principal, p access.Permission) (access.Principal, error) {
 	if pr.Name == "" {
 		return access.Principal{}, access.ErrPrincipalRequired
@@ -24,7 +23,7 @@ func (s *Service) Require(ctx context.Context, pr access.Principal, p access.Per
 		return access.Principal{}, err
 	}
 	if p.Context.Consequential {
-		if _, err = s.decisions.record(ctx, pr, access.DelegationOf(pr), p, dec, now); err != nil {
+		if err = s.denials.record(ctx, pr, p, dec, now); err != nil {
 			return access.Principal{}, err
 		}
 	}
@@ -34,8 +33,8 @@ func (s *Service) Require(ctx context.Context, pr access.Principal, p access.Per
 	return pr, nil
 }
 
-// Decide is the decision on an act: it records the receipt, a denial's
-// included, and a fact or receipt that cannot be read or written is an
+// Decide is the decision on an act: a denial is recorded in the activity log,
+// and a fact that cannot be read or a denial that cannot be recorded is an
 // error, never an answer. Route guards and tool guards use it.
 func (s *Service) Decide(ctx context.Context, pr access.Principal, p access.Permission) (access.Decision, error) {
 	now := s.now()
@@ -43,15 +42,14 @@ func (s *Service) Decide(ctx context.Context, pr access.Principal, p access.Perm
 	if err != nil {
 		return access.Decision{}, err
 	}
-	dec.ReceiptID, err = s.decisions.record(ctx, pr, access.DelegationOf(pr), p, dec, now)
-	if err != nil {
+	if err = s.denials.record(ctx, pr, p, dec, now); err != nil {
 		return access.Decision{}, err
 	}
 	return dec, nil
 }
 
 // Explain answers a question (a menu, a holding, a visibility filter)
-// without recording a receipt; unavailable facts are errors.
+// without recording a denial; unavailable facts are errors.
 func (s *Service) Explain(ctx context.Context, pr access.Principal, p access.Permission) (access.Decision, error) {
 	return s.explain(ctx, pr, access.DelegationOf(pr), p, s.now())
 }
@@ -80,8 +78,8 @@ func explainWithFacts(ctx context.Context, pr access.Principal, d access.Channel
 	return dec, nil
 }
 
-func (r decisionRecorder) record(ctx context.Context, pr access.Principal, d access.Channel, p access.Permission, dec access.Decision, at time.Time) (ids.ID, error) {
-	return recordDecision(ctx, r.db, pr, d, p.Capability, p.Resource, p.Context, dec, at)
+func (r denialRecorder) record(ctx context.Context, pr access.Principal, p access.Permission, dec access.Decision, at time.Time) error {
+	return recordDenial(ctx, r.db, pr, p.Capability, p.Resource, p.Context, dec, at)
 }
 
 // access.Facts are read only when the pure decision reaches them. Remember errors

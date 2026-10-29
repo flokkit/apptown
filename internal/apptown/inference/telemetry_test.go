@@ -40,7 +40,6 @@ func TestGatewayObservesRequestsWithoutCredentials(t *testing.T) {
 	g.authenticate = func(context.Context, string) (identity.Workload, error) {
 		return identity.Workload{Kind: "step", Actor: "alice", ProjectID: idstest.N(3), RunID: idstest.N(9), StepID: idstest.N(4), Attempt: 1}, nil
 	}
-	g.begin = func(context.Context, identity.Workload, string, string) (ids.ID, error) { return idstest.N(1), nil }
 	w := httptest.NewRecorder()
 	g.ServeHTTP(w, inferenceRequest("/providers/paid/chat/completions", `{"model":"allowed","messages":[{"role":"user","content":"prompt-canary"}]}`))
 	if w.Code != 200 {

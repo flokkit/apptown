@@ -47,12 +47,12 @@ func TestDeploymentRemovalChecksAuthorityAndHTTPOutcome(t *testing.T) {
 		t.Fatal("denied caller reached provider")
 	}
 	a.grant(t, "owner", access.CapDeploymentTeardown)
-	t.Cleanup(a.db.FailNextStatement("-- name: InsertDecision"))
+	t.Cleanup(a.db.FailNextStatement("-- name: UserByName :one"))
 	if w := deploymentRequest(h.DeleteDeployment, "owner", http.MethodDelete, path, values); w.Code != 500 {
-		t.Fatalf("authority receipt: %d %s", w.Code, w.Body.String())
+		t.Fatalf("unread authority: %d %s", w.Code, w.Body.String())
 	}
 	if driver.calls != 0 {
-		t.Fatal("failed authority receipt reached provider")
+		t.Fatal("unread authority reached provider")
 	}
 	driver.err = errors.New("provider response lost")
 	if w := deploymentRequest(h.DeleteDeployment, "owner", http.MethodDelete, path, values); w.Code != 409 {

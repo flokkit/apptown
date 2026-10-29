@@ -137,33 +137,25 @@ func TestAccountCredentialFacts(t *testing.T) {
 	}
 }
 
-// A consequential decision leaves a receipt; a denial also a ledger line
-// pointing at it.
-func TestRecordDecision(t *testing.T) {
+// A denial leaves a ledger line naming the project, capability and route;
+// an allowance leaves nothing.
+func TestRecordDenial(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	allow := access.Decision{Allow: true, GrantIDs: []ids.ID{idstest.N(3)}, Roles: []string{"project-owner@1"}, Reason: "alice may land: Project owner"}
-	id, err := recordDecision(context.Background(), db, alice, full, access.CapChangeLand, change, access.Context{Route: "POST /land"}, allow, time.Now())
-	if err != nil || id.IsZero() {
-		t.Fatalf("allow receipt: %v %d", err, id)
+	if err := recordDenial(context.Background(), db, alice, access.CapChangeLand, change, access.Context{Route: "POST /land"}, allow, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if lines := ledger(t, db, ""); len(lines) != 0 {
+		t.Fatalf("an allowance leaves no ledger line: %+v", lines)
 	}
 	deny := access.Decision{Code: access.DenyOutsideScope, Reason: "alice may not land here"}
-	did, err := recordDecision(context.Background(), db, alice, full, access.CapChangeLand, change, access.Context{Route: "POST /land"}, deny, time.Now())
-	if err != nil || did.IsZero() {
-		t.Fatalf("deny receipt: %v %d", err, did)
+	if err := recordDenial(context.Background(), db, alice, access.CapChangeLand, change, access.Context{Route: "POST /land"}, deny, time.Now()); err != nil {
+		t.Fatal(err)
 	}
-	var outcome, grants string
-	// sql-guarantee: The decision receipt's stored encoding is the guarantee, and no owner read returns authorization_decisions rows.
-	if err := db.QueryRow(`SELECT outcome, grant_ids_json::text FROM authorization_decisions WHERE id=?`, id).Scan(&outcome, &grants); err != nil || outcome != "allow" || grants != `["`+idstest.N(3).String()+`"]` {
-		t.Fatalf("allow row: %v %q %q", err, outcome, grants)
-	}
-	var lines int
-	// sql-guarantee: The ledger line's link to its decision receipt is a column no ledger read exposes.
-	if err := db.QueryRow(`SELECT COUNT(*) FROM audit_log WHERE kind='authz.denied' AND authorization_decision_id=? AND project_id=?`, did, idstest.N(7)).Scan(&lines); err != nil || lines != 1 {
-		t.Fatalf("the denial's ledger line: %v %d", err, lines)
-	}
-	if denied := ledger(t, db, "authz.denied"); len(denied) != 1 {
-		t.Fatalf("an allowance leaves no ledger line: %+v", denied)
+	denied := ledger(t, db, "authz.denied")
+	if len(denied) != 1 || denied[0].Subject != string(access.CapChangeLand) || denied[0].ProjectID != idstest.N(7) || !strings.Contains(string(denied[0].Payload), "POST /land") {
+		t.Fatalf("the denial's ledger line: %+v", denied)
 	}
 }
 

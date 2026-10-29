@@ -23,7 +23,7 @@ func networkCall(h AdministratorNetworks, who, method, path, body string) *httpt
 	return w
 }
 
-func TestConfigurationHTTPRequiresDecisionReceiptAndMapsErrors(t *testing.T) {
+func TestConfigurationHTTPRequiresReadableAuthorityAndMapsErrors(t *testing.T) {
 	t.Parallel()
 	for _, path := range []string{"/api/v1/auth/admin-networks"} {
 		t.Run(path, func(t *testing.T) {
@@ -34,11 +34,11 @@ func TestConfigurationHTTPRequiresDecisionReceiptAndMapsErrors(t *testing.T) {
 			if w := networkCall(h, "boss", "PUT", path, invalid); w.Code != 400 {
 				t.Fatalf("invalid configuration: %d %s", w.Code, w.Body)
 			}
-			restore := db.FailNextStatement("-- name: InsertDecision")
+			restore := db.FailNextStatement("-- name: UserByName :one")
 			w := networkCall(h, "boss", "PUT", path, valid)
 			restore()
 			if w.Code != 500 {
-				t.Fatalf("lost authorization receipt: %d %s", w.Code, w.Body)
+				t.Fatalf("unread authority: %d %s", w.Code, w.Body)
 			}
 			adminNetworksAre(t, db, accounts, 0)
 			if w := networkCall(h, "boss", "PUT", path, valid); w.Code != 200 {

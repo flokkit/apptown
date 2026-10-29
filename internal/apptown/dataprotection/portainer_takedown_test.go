@@ -62,7 +62,7 @@ func TestAnUnverifiedAsyncEdgeRefusesEvenExplicitNoCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	target, err := s.Targets.Put(ctx, &deployment.Target{Name: "edge", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", SecretsDelivery: "inject", Status: deployment.TargetReady,
+	target, err := s.Targets.Put(ctx, &deployment.Target{Name: "edge", Kind: deployment.KindPortainer, Origin: deployment.OriginAttached, NeedsMode: "emulators", Status: deployment.TargetReady,
 		Address: map[string]any{"urlFrom": "EDGE_URL", "apiKeyFrom": "EDGE_KEY", "environment": "lan"}})
 	if err != nil {
 		t.Fatal(err)

@@ -49,8 +49,6 @@ type Providers struct {
 	projects     *project.Projects
 	secrets      *secret.Service
 	integrations *integration.Service
-	// reconciliations records each pass that fulfils a deployment's needs.
-	reconciliations *Reconciliations
 	// applied is told an effect may have changed what a target holds.
 	applied      func()
 	drivers      map[string]DriverFactory
@@ -99,7 +97,7 @@ type InventoryFactory func(t *Target) (deploy.Inventorier, error)
 // write (what a deployment owns, its buckets and need instances), the
 // hosts they reach and the environment their boots are given.
 func NewProviders(ctx context.Context, db *database.DB, records ProviderRecords, hosts *Hosts, env *Environment, deps ProviderDependencies) *Providers {
-	p := &Providers{db: db, clock: deps.Now, targets: records.Targets, deployments: records.Deployments, needs: NeedStore{db: db, clock: deps.Now}, reconciliations: &Reconciliations{db: db, clock: deps.Now}, applied: deps.Applied,
+	p := &Providers{db: db, clock: deps.Now, targets: records.Targets, deployments: records.Deployments, needs: NeedStore{db: db, clock: deps.Now}, applied: deps.Applied,
 		hosts: hosts, env: env, projects: deps.Projects, secrets: deps.Secrets, integrations: deps.Integrations,
 		drivers: maps.Clone(deps.Drivers), inventories: maps.Clone(deps.Inventories),
 		digitalOcean: deps.DigitalOcean, s3Bucket: deps.S3Bucket,
@@ -552,7 +550,7 @@ func (p *Providers) ManagedData(t *Target) deploy.ManagedData {
 // PrepareNeeds fulfils the contract's needs on the target and records
 // the need instances (§4.1). Emulator targets fulfil at boot, in the
 // driver; managed targets go through the driver's need module.
-func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target, dep *Deployment, c *appcontract.Contract, actor string, logf deploy.Logf) (deploy.NeedBindings, error) {
+func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target, dep *Deployment, c *appcontract.Contract, logf deploy.Logf) (deploy.NeedBindings, error) {
 	out := deploy.NeedBindings{}
 	if t.NeedsMode != "managed" || len(c.Needs) == 0 {
 		return out, nil
@@ -561,11 +559,6 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 	if !ok {
 		return nil, fmt.Errorf("%s has no managed need module", t.Kind)
 	}
-	recID, err := p.reconciliations.Begin(ctx, dep.ID, actor)
-	if err != nil {
-		return nil, err
-	}
-	receipt := map[string]any{}
 	for _, need := range c.Needs {
 		if k, err := p.env.registerKind(ctx, need); err != nil {
 			return nil, err
@@ -574,17 +567,12 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 		}
 		b, handle, err := f.FulfilNeed(ctx, dep.Placement(), need, c.NeedParams[need], logf)
 		if err != nil {
-			err = fmt.Errorf("fulfilling %s on %s: %w", need, t.Name, err)
-			if endErr := p.reconciliations.End(ctx, recID, true, map[string]any{"need": need, "error": err.Error()}); endErr != nil {
-				return nil, fmt.Errorf("%w; and recording that it failed: %v", err, endErr)
-			}
-			return nil, err
+			return nil, fmt.Errorf("fulfilling %s on %s: %w", need, t.Name, err)
 		}
 		out[need] = b
 		if handle == nil {
 			// A need the driver keeps on the deployment's owned list (an
 			// object store's bucket and key), not a managed instance.
-			receipt[need] = "fulfilled; what it made is on the deployment's owned list"
 			continue
 		}
 		// The need is fulfilled on the target: its record is written though
@@ -592,12 +580,6 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 		if err := p.needs.RecordFulfilled(context.WithoutCancel(ctx), dep.ID, need, b.Native, handle); err != nil {
 			return nil, err
 		}
-		receipt[need] = handle
-	}
-	// The needs are fulfilled; the reconciliation is not done until its
-	// outcome is recorded.
-	if err := p.reconciliations.End(ctx, recID, false, receipt); err != nil {
-		return nil, fmt.Errorf("the needs were fulfilled on %s, but the reconciliation's outcome was not recorded: %w", t.Name, err)
 	}
 	if p.applied != nil {
 		p.applied()

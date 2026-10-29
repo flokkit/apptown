@@ -11,8 +11,8 @@ import (
 
 // RemoveProjectIn removes Delivery's rows for a project inside the
 // caller's transaction: releases with their events and change links,
-// bundles, and deployments with what hangs off them (attempts, need
-// instances, reconciliations follow by key). Retained resources are the
+// bundles, and deployments with what hangs off them (attempts and need
+// instances follow by key). Retained resources are the
 // record of what was kept and survive.
 func RemoveProjectIn(ctx context.Context, tx *database.Tx, projectID ids.ID) error {
 	q := deploymentsql.New(tx.SQL())

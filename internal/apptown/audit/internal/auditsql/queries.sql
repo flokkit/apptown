@@ -1,6 +1,6 @@
 -- name: AppendReceipt :execrows
-INSERT INTO audit_log(id, at,actor,actor_principal,actor_via,project_id,kind,subject,payload_json,authorization_decision_id,refs)
-VALUES (sqlc.arg(id), sqlc.arg(at)::text::timestamptz,sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(project_id),sqlc.arg(kind),sqlc.arg(subject),sqlc.arg(payload_json),sqlc.arg(authorization_decision_id),sqlc.arg(refs));
+INSERT INTO audit_log(id, at,actor,actor_principal,actor_via,project_id,kind,subject,payload_json,refs)
+VALUES (sqlc.arg(id), sqlc.arg(at)::text::timestamptz,sqlc.arg(actor),sqlc.arg(actor_principal),sqlc.arg(actor_via),sqlc.arg(project_id),sqlc.arg(kind),sqlc.arg(subject),sqlc.arg(payload_json),sqlc.arg(refs));
 
 -- name: RecentReceipts :many
 SELECT a.*, COALESCE(p.slug,'')::text AS project_slug

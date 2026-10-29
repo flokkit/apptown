@@ -214,9 +214,6 @@ func (h projectReads) deploymentsFor(ctx context.Context, p *project.Project) ([
 		// "running" is absent, never false, when it could not be observed:
 		// "observed" says why ("unavailable" or "unknown").
 		entry := map[string]any{"name": e.Name, "url": url, "releaseRun": e.ReleaseRun, "updatedAt": e.UpdatedAt}
-		if policy := e.UpdatePolicy(); policy != "" {
-			entry["deploymentPolicy"] = policy
-		}
 		switch o := h.deployments.ObserveContainer(ctx, e); o.State {
 		case deployment.ContainerUnavailable, deployment.ContainerUnknown:
 			entry["observed"] = o.State.String()

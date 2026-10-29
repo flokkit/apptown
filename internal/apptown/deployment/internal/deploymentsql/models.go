@@ -150,19 +150,6 @@ type ProjectReleaseSetting struct {
 	LegacySetupJson     *json.RawMessage
 }
 
-type Reconciliation struct {
-	ID             ids.ID
-	DeploymentID   ids.ID
-	Kind           string
-	Status         string
-	ReceiptJson    json.RawMessage
-	Actor          string
-	ActorPrincipal ids.ID
-	ActorVia       string
-	StartedAt      time.Time
-	FinishedAt     sql.NullTime
-}
-
 type Release struct {
 	ID           ids.ID
 	ProjectID    ids.ID
@@ -252,7 +239,6 @@ type Target struct {
 	CapabilitiesJson  json.RawMessage
 	IngressJson       json.RawMessage
 	NeedsMode         string
-	SecretsDelivery   string
 	Status            string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
