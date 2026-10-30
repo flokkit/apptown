@@ -556,6 +556,37 @@ func (q *Queries) InsertChange(ctx context.Context, arg InsertChangeParams) (Cha
 	return i, err
 }
 
+const lastLandedTitles = `-- name: LastLandedTitles :many
+SELECT c.title FROM changes c
+JOIN runs r ON r.change_id=c.id AND r.project_id=c.project_id
+JOIN run_events e ON e.run_id=r.id AND e.kind='merge.completed'
+WHERE c.project_id=$1 AND c.landed_sha<>''
+GROUP BY c.id ORDER BY max(e.at) DESC,c.id DESC LIMIT 10
+`
+
+func (q *Queries) LastLandedTitles(ctx context.Context, projectID ids.ID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, lastLandedTitles, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var title string
+		if err := rows.Scan(&title); err != nil {
+			return nil, err
+		}
+		items = append(items, title)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markChangeClosedAs = `-- name: MarkChangeClosedAs :execrows
 UPDATE changes SET closed_as=$1 WHERE id=$2 AND project_id=$3 AND state=$4
 `
@@ -850,7 +881,7 @@ func (q *Queries) ProjectActivityReport(ctx context.Context, arg ProjectActivity
 }
 
 const projectByID = `-- name: ProjectByID :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=$1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id=$1
 `
 
 func (q *Queries) ProjectByID(ctx context.Context, id ids.ID) (Project, error) {
@@ -873,6 +904,7 @@ func (q *Queries) ProjectByID(ctx context.Context, id ids.ID) (Project, error) {
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }
@@ -905,7 +937,7 @@ func (q *Queries) ProjectChangesForRemovalMeta(ctx context.Context, projectID id
 }
 
 const projectForUpdate = `-- name: ProjectForUpdate :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=$1 FOR UPDATE
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id=$1 FOR UPDATE
 `
 
 // Project identity/configuration is the existing project-first admission lock.
@@ -929,6 +961,7 @@ func (q *Queries) ProjectForUpdate(ctx context.Context, id ids.ID) (Project, err
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }

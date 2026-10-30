@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -409,6 +410,7 @@ func TestAbandonmentFailureKeepsWorkspace(t *testing.T) {
 	t.Parallel()
 	a, root := abandonmentScenario(t, "working", nil, Config{DockerClient: newFakeDocker()})
 	w := a.DB
+	priorJobs := len(operationJobs(t, a, project.DescriptionJob))
 	workspace := filepath.Join(a.cfg.dataDir, "workspaces", fmt.Sprintf("change-%d", root.ChangeID))
 	if err := os.MkdirAll(workspace, 0755); err != nil {
 		t.Fatal(err)
@@ -425,6 +427,6 @@ func TestAbandonmentFailureKeepsWorkspace(t *testing.T) {
 		t.Fatalf("workspace changed: %q %v", content, err)
 	}
 	requireChangeState(t, a, root.ChangeID, workflow.ChangeInProgress)
-	// sql-guarantee: rollback proves no job of any kind was queued; the jobs page lists only AppTown operations.
-	completionCount(t, w, 0, `SELECT COUNT(*) FROM river_job`)
+	// sql-guarantee: rollback leaves only creation's preexisting description job, with no new job of any kind.
+	completionCount(t, w, priorJobs, `SELECT COUNT(*) FROM river_job`)
 }

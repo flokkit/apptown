@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../../brand'
 import { RepositoryAttachment } from './RepositoryAttachment'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -229,7 +230,15 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
         <div className="form-grid" style={{ marginTop: 10 }}>
           <FieldRow label="Name"><input value={shown?.name ?? ''} onChange={(e) => edit('name')(e.target.value)} /></FieldRow>
           <FieldRow label="Icon" help="an emoji"><input value={shown?.icon ?? ''} onChange={(e) => edit('icon')(e.target.value)} maxLength={8} style={{ width: 90 }} /></FieldRow>
-          <FieldRow label="One line about it"><input value={shown?.blurb ?? ''} onChange={(e) => edit('blurb')(e.target.value)} maxLength={140} placeholder="one sentence" /></FieldRow>
+          <FieldRow label="One line about it">
+            <div>
+              <div className="row" style={{ gap: 8 }}>
+                <input value={shown?.blurb ?? ''} onChange={(e) => edit('blurb')(e.target.value)} maxLength={140} placeholder="a few words" style={{ flex: 1, minWidth: 0 }} />
+                <span className="muted small">{project.blurbSource === 'person' ? 'yours' : 'suggested'}</span>
+              </div>
+              <div className="muted small">Clear it to let {PRODUCT} suggest a description.</div>
+            </div>
+          </FieldRow>
           <FieldRow label="Group" help="how projects are grouped on the front page">
             <input value={shown?.namespace ?? ''} onChange={(e) => edit('namespace')(e.target.value)} list="known-namespaces" placeholder="(none)" style={{ width: 200 }} />
           </FieldRow>

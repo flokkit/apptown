@@ -3,7 +3,9 @@ package audit
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -87,4 +89,14 @@ func ActorsAmongIn(ctx context.Context, q database.Queryer, names []string) (map
 		acted[n] = true
 	}
 	return acted, err
+}
+
+// CreationRequest reads the original request from the project's creation record.
+// The caller establishes project read authority, or acts as its background worker.
+func CreationRequest(ctx context.Context, q database.Queryer, id ids.ID) (string, error) {
+	text, err := auditsql.New(q.SQL()).ProjectCreationRequest(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return text, err
 }

@@ -188,9 +188,14 @@ func (h ProjectViews) GetProject(w http.ResponseWriter, r *http.Request) {
 		}
 		main = &standing
 	}
+	request, err := h.projects.OriginalRequest(r.Context(), p.ID)
+	if err != nil {
+		WriteFault(w, err)
+		return
+	}
 	WriteJSON(w, 200, ProjectDetail{
 		ID: p.ID, Slug: p.Slug, Name: p.Name, Namespace: p.Namespace,
-		Icon: p.Icon, Blurb: p.Blurb, DefaultBranch: p.DefaultBranch,
+		Icon: p.Icon, Blurb: p.Blurb, BlurbSource: p.BlurbSource, OriginalRequest: request, DefaultBranch: p.DefaultBranch,
 		CreatedAt:   p.CreatedAt,
 		RuntimeForm: form, IntranetReady: releasable,
 		OutOfBandEdits:             drift,
@@ -258,17 +263,19 @@ type ProjectPage struct {
 // ProjectDetail is one project: what it is, what form its app takes, and any
 // files changed outside AppTown.
 type ProjectDetail struct {
-	ID             ids.ID   `json:"id"`
-	Slug           string   `json:"slug"`
-	Name           string   `json:"name"`
-	Namespace      string   `json:"namespace"`
-	Icon           string   `json:"icon"`
-	Blurb          string   `json:"blurb"`
-	DefaultBranch  string   `json:"defaultBranch"`
-	CreatedAt      string   `json:"createdAt"`
-	RuntimeForm    string   `json:"runtimeForm"`
-	IntranetReady  bool     `json:"intranetReady"`
-	OutOfBandEdits []string `json:"outOfBandEdits"`
+	ID              ids.ID   `json:"id"`
+	Slug            string   `json:"slug"`
+	Name            string   `json:"name"`
+	Namespace       string   `json:"namespace"`
+	Icon            string   `json:"icon"`
+	Blurb           string   `json:"blurb"`
+	BlurbSource     string   `json:"blurbSource"`
+	OriginalRequest string   `json:"originalRequest"`
+	DefaultBranch   string   `json:"defaultBranch"`
+	CreatedAt       string   `json:"createdAt"`
+	RuntimeForm     string   `json:"runtimeForm"`
+	IntranetReady   bool     `json:"intranetReady"`
+	OutOfBandEdits  []string `json:"outOfBandEdits"`
 	// Main compares the hub's main with where AppTown last recorded it;
 	// absent for a project without a repository.
 	Main                       *scm.MainStanding `json:"main,omitempty"`

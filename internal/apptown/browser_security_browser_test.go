@@ -34,6 +34,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/verification"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -303,6 +304,18 @@ func TestTour(t *testing.T) {
 	verification.SyncStockScanners(ctx, a.Integrations, stock.FS)
 	a.SyncStockDependencies(ctx)
 	configureConsoleModel(t, a)
+	setFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(q providerQuestion) (int, string) {
+		phrase := "Project work"
+		switch {
+		case strings.Contains(q.User, "Lunch Orders"):
+			phrase = "Daily lunch orders"
+		case strings.Contains(q.User, "Club Newsletter"):
+			phrase = "Cycling club news"
+		case strings.Contains(q.User, "Rocket Garden"):
+			phrase = "Growing and launching rockets"
+		}
+		return 200, chatAnswer(phrase, 20, 5, 0)
+	}))
 	// The conformance review's checks run where the tour can run them; then
 	// Work, stopped by that rewiring, is built again with the tour's
 	// landing workflow.
@@ -322,6 +335,9 @@ func TestTour(t *testing.T) {
 		s.call("sam", "POST", "/api/v1/users", map[string]string{"username": u, "role": "member", "password": password})
 	}
 	made := s.play(start)
+	for _, job := range operationJobs(t, a, project.DescriptionJob) {
+		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
+	}
 	moveClock(a, -a.cfg.clock.ahead)
 	tourRuntimeDeployments(t, a)
 	runtimeCtx, stopRuntime := context.WithCancel(context.Background())

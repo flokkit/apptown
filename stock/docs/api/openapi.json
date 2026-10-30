@@ -2933,6 +2933,9 @@
           "blurb": {
             "type": "string"
           },
+          "blurbSource": {
+            "type": "string"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -2973,6 +2976,7 @@
           "namespace",
           "icon",
           "blurb",
+          "blurbSource",
           "createdAt",
           "requireIndependentApproval",
           "settingsRevision"
@@ -3121,6 +3125,9 @@
           "blurb": {
             "type": "string"
           },
+          "blurbSource": {
+            "type": "string"
+          },
           "createdAt": {
             "type": "string"
           },
@@ -3215,6 +3222,7 @@
           "namespace",
           "icon",
           "blurb",
+          "blurbSource",
           "createdAt",
           "requireIndependentApproval",
           "settingsRevision",

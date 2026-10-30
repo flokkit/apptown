@@ -41,4 +41,5 @@ type Project struct {
 	SettingsRevision           int64
 	Purpose                    string
 	ServingLabel               string
+	BlurbSource                string
 }

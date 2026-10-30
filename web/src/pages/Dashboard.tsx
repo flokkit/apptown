@@ -235,6 +235,7 @@ export default function Dashboard() {
                 {p.icon && <span aria-hidden>{p.icon}</span>}
                 <strong>{p.name}</strong>
               </Link>
+              {p.blurb && <div className="muted small project-description">{p.blurb}</div>}
               <div className="muted small">{p.lastRunAt ? rel(p.lastRunAt) : 'nothing shipped yet'}</div>
               <HomeDeployments slug={p.slug} />
             </div>

@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
 	"github.com/flokkit/apptown/internal/gitexec"
 )
@@ -157,7 +158,9 @@ func (s *Service) seed(ctx context.Context, p *project.Project, who string, via 
 	source["branch"] = branch
 	source["head"] = gitexec.HubRef(ctx, dir, "refs/heads/"+branch)
 	audit.At(s.now()).BestEffort(ctx, s.db, who, p.ID, "project.repo.seeded", p.Slug, source)
-	return nil
+	return s.db.InTx(ctx, func(tx *database.Tx) error {
+		return s.queueDescriptionIn(ctx, tx, p.ID, "seed/"+source["head"].(string))
+	})
 }
 
 // WriteBundle writes p's default branch and tags as a Git bundle: the

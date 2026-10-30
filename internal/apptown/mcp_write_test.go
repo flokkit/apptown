@@ -11,6 +11,7 @@ import (
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -159,8 +160,10 @@ func TestMCPWritesAreBoundedByRoleAndConsent(t *testing.T) {
 func TestMCPCreateProject(t *testing.T) {
 	t.Parallel()
 	a, boss := mcpWriteFixture(t)
+	setFastSlot(t, a, fakeModelProvider(t, a.Integrations.Bindings, func(providerQuestion) (int, string) { return 503, `{"error":{"message":"offline"}}` }))
 	a.SyncStock(t.Context()) // the packs and their guidance, as apptownd has them at boot
-	res := mcp_call(t, a, boss, "create_project", map[string]any{"slug": "snake", "name": "Snake", "blurb": "a snake game", "packs": []any{"html-game"}})
+	request := strings.Repeat("A snake game with growing snakes, obstacles, levels and saved high scores. ", 10)
+	res := mcp_call(t, a, boss, "create_project", map[string]any{"slug": "snake", "name": "Snake", "blurb": request, "packs": []any{"html-game"}})
 	sc, _ := res["structuredContent"].(map[string]any)
 	if sc == nil || res["isError"] == true {
 		t.Fatalf("create_project: %v", res)
@@ -168,6 +171,16 @@ func TestMCPCreateProject(t *testing.T) {
 	p, err := a.Projects.BySlug(context.Background(), "snake")
 	if err != nil || p.DefaultBranch == "" {
 		t.Fatalf("the project should exist with a repo: %+v %v", p, err)
+	}
+	for _, job := range operationJobs(t, a, project.DescriptionJob) {
+		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
+	}
+	if p.Blurb != "" || p.BlurbSource != "generated" {
+		t.Fatalf("creation without a model: %+v", p)
+	}
+	original, err := a.Projects.OriginalRequest(asPerson("boss"), p.ID)
+	if err != nil || original != request {
+		t.Fatalf("MCP creation history: %q %v", original, err)
 	}
 	if sc["ownerGroup"] != "boss" || p.OwnerGroup != "boss" {
 		t.Errorf("the creator's personal group owns it: %v", sc["ownerGroup"])

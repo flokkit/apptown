@@ -9,7 +9,8 @@ is in [Running AppTown](running-apptown.md).
 
 ## Make something
 
-1. Open **Projects → + New project**, choose a name and describe the app.
+1. Open **Projects → + New project**, choose a name and describe the app. AppTown keeps the full request and
+   suggests a short description; see [New project](new-project.md).
    Choose a setup by hand if you do not want the interview with a model.
 2. Review the setup and services. A GitLab copy is made only when that
    integration is set up; a project needs no GitLab.

@@ -6,6 +6,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../data'
 import Projects from './Projects'
+// @ts-expect-error -- this package has no Node types; only this read is used.
+import { readFileSync } from 'node:fs'
+const css = readFileSync('src/styles.css', 'utf8')
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -52,7 +55,7 @@ async function listing(): Promise<HTMLElement> {
     if (url.includes('/project-cleanups')) return new Response(JSON.stringify({ cleanups: [] }))
     return new Response(JSON.stringify({ projects: [
       { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '', deployed: false, observation: 'unknown', observationStale: true },
-      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: '', icon: '⛵', deployed: true, observation: 'unknown', observationStale: true },
+      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: 'A long description that must stay on one line in both the desktop list and phone cards', icon: '⛵', deployed: true, observation: 'unknown', observationStale: true },
     ], total: 2 }))
   }))
   const client = newQueryClient()
@@ -86,4 +89,15 @@ it('stamps only the projects that have a deployment', async () => {
   const stamp = card('boat').querySelector('.chip.unknown')
   expect(stamp?.textContent).toBe('● unknown')
   expect(stamp?.getAttribute('title')).toBe('Not checked yet.')
+})
+
+
+it('keeps list descriptions on one line with an ellipsis', async () => {
+  const el = await listing()
+  expect(el.querySelector('.project-description')?.textContent).toContain('A long description')
+  const rule = css.match(/\.project-description\s*\{([^}]+)\}/)?.[1] ?? ''
+  expect(rule).toMatch(/white-space:\s*nowrap/)
+  expect(rule).toMatch(/overflow:\s*hidden/)
+  expect(rule).toMatch(/text-overflow:\s*ellipsis/)
+  expect(el.querySelector('table')?.classList.contains('stack')).toBe(true)
 })

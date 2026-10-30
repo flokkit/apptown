@@ -80,6 +80,18 @@ func (q *Queries) AppendReceipt(ctx context.Context, arg AppendReceiptParams) (i
 	return result.RowsAffected()
 }
 
+const projectCreationRequest = `-- name: ProjectCreationRequest :one
+SELECT COALESCE(payload_json->>'request','')::text FROM audit_log
+WHERE project_id=$1 AND kind='project.created' ORDER BY at,id LIMIT 1
+`
+
+func (q *Queries) ProjectCreationRequest(ctx context.Context, projectID ids.ID) (string, error) {
+	row := q.db.QueryRowContext(ctx, projectCreationRequest, projectID)
+	var column_1 string
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const recentReceipts = `-- name: RecentReceipts :many
 SELECT a.id, a.at, a.actor, a.actor_principal, a.actor_via, a.project_id, a.kind, a.subject, a.payload_json, COALESCE(p.slug,'')::text AS project_slug
 FROM audit_log a LEFT JOIN projects p ON p.id=a.project_id

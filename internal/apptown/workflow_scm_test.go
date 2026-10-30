@@ -116,7 +116,7 @@ func TestSCMWorkRequiresItsExactMintedClaim(t *testing.T) {
 		t.Fatalf("one run granted global inspection: %v", err)
 	}
 	other := testDB(t)
-	foreign := scm.New(other, workflow.NewSCMWork(other, a.cfg.dataDir, workflowLawRules{}), &scm.RepositoryLocks{}, nil)
+	foreign := scm.New(other, workflow.NewSCMWork(other, a.cfg.dataDir, workflowLawRules{}, nil), &scm.RepositoryLocks{}, nil)
 	if _, err := foreign.InspectPending(workflow.SCMInspectionContext(context.Background(), a.DB), provenMergeDriver{}); !errors.Is(err, scm.ErrCaller) {
 		t.Fatalf("inspection escaped database: %v", err)
 	}

@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS projects (
   -- owners ask Project what the purpose allows (project/purpose.go).
   purpose TEXT NOT NULL DEFAULT 'ordinary' CONSTRAINT projects_purpose CHECK (purpose IN ('ordinary','eval-copy')),
   -- Captured at creation; independent of the mutable AppTown navigation address.
-  serving_label TEXT NOT NULL CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$') CONSTRAINT projects_serving_label_unique UNIQUE
+  serving_label TEXT NOT NULL CONSTRAINT projects_serving_label_shape CHECK (serving_label ~ '^[a-z0-9][a-z0-9-]*$') CONSTRAINT projects_serving_label_unique UNIQUE,
+  blurb_source TEXT NOT NULL DEFAULT 'generated' CONSTRAINT projects_blurb_source CHECK (blurb_source IN ('generated','person'))
 );
 -- A project that is not active (design/subsystems/project-deletion.md): no
 -- row is active. Importing and deleting refuse new work; deleted is kept,

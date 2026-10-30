@@ -43,6 +43,19 @@ function mount(answer: () => Response, onChanged: () => void = () => {}) {
 describe('project settings form', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
+  it('shows description ownership and sends an explicit empty value to resume suggestions', async () => {
+    const f = mount(() => new Response(JSON.stringify({ ...project(''), blurbSource: 'generated' })))
+    try {
+      await f.render({ ...project('Truck roster'), blurbSource: 'person' })
+      expect(f.el.textContent).toContain('yours')
+      await act(async () => { type(f.inputs()[2], '') })
+      await act(async () => { f.button('Save')!.click() })
+      expect(f.sent).toEqual([{ expectedRevision: 1, blurb: '' }])
+      await f.render({ ...project('', 'Shop', 2), blurbSource: 'generated' })
+      expect(f.el.textContent).toContain('suggested')
+    } finally { act(() => f.root.unmount()) }
+  })
+
   // The form starts only from an answer the page read itself, keeps a
   // person's edits through refreshes, and saves only what they changed with
   // the revision they started from.

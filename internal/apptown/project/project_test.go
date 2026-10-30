@@ -139,9 +139,9 @@ func TestAProjectsPurposeIsWrittenWithIt(t *testing.T) {
 // every question, and a copy is given none of what an ordinary project is.
 func TestEveryPurposeAnswersEveryAllowance(t *testing.T) {
 	t.Parallel()
-	want := map[Purpose][5]bool{
-		Ordinary: {true, false, true, true, true},
-		EvalCopy: {false, true, false, false, false},
+	want := map[Purpose][6]bool{
+		Ordinary: {true, false, true, true, true, true},
+		EvalCopy: {false, true, false, false, false, false},
 	}
 	if len(want) != len(Purposes) {
 		t.Fatalf("purposes %v, table %v", Purposes, want)
@@ -150,7 +150,7 @@ func TestEveryPurposeAnswersEveryAllowance(t *testing.T) {
 		if _, ok := allowances[p]; !ok {
 			t.Fatalf("purpose %q has no allowances", p)
 		}
-		got := [5]bool{p.Integrations(), p.EvalDomainOnly(), p.Schedules(), p.Moves(), p.KeepsData()}
+		got := [6]bool{p.Integrations(), p.EvalDomainOnly(), p.Schedules(), p.Moves(), p.KeepsData(), p.Descriptions()}
 		if got != want[p] {
 			t.Fatalf("%q allows %v, want %v", p, got, want[p])
 		}

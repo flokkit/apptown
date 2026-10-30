@@ -34,11 +34,13 @@ type Project struct {
 	DefaultBranch              string `json:"defaultBranch"` // non-empty = repo-backed
 	Namespace                  string `json:"namespace"`     // display grouping on the Projects page
 	Icon                       string `json:"icon"`          // an emoji — the project's face on cards
-	Blurb                      string `json:"blurb"`         // one friendly sentence: what this project is
+	Blurb                      string `json:"blurb"`         // a short phrase: what this project is
+	BlurbSource                string `json:"blurbSource"`
 	CreatedAt                  string `json:"createdAt"`
 	RequireIndependentApproval bool   `json:"requireIndependentApproval"`
 	// SettingsRevision advances with every write of the name, slug, namespace,
-	// icon or blurb. An edit sends the revision it started from.
+	// icon, blurb or its source. Generated text also advances it. An edit
+	// sends the revision it started from.
 	SettingsRevision int64 `json:"settingsRevision"`
 
 	OwnerGroup       string `json:"-"`
@@ -66,7 +68,7 @@ const SlugShape = `^[a-z0-9][a-z0-9-]*$`
 func ValidSlug(slug string) bool { return slugRe.MatchString(slug) }
 
 func record(r projectsql.Project) Project {
-	return Project{ID: r.ID, Slug: r.Slug, Name: r.Name, DefaultBranch: r.DefaultBranch, Namespace: r.Namespace, Icon: r.Icon, Blurb: r.Blurb,
+	return Project{ID: r.ID, Slug: r.Slug, Name: r.Name, DefaultBranch: r.DefaultBranch, Namespace: r.Namespace, Icon: r.Icon, Blurb: r.Blurb, BlurbSource: r.BlurbSource,
 		CreatedAt:  r.CreatedAt.Format(time.RFC3339Nano),
 		OwnerGroup: r.OwnerGroup, DefaultApprovers: r.DefaultApprovers, ReleaseDomain: r.ReleaseDomain, ModelProfile: r.ModelProfile, RequireIndependentApproval: r.RequireIndependentApproval, SettingsRevision: r.SettingsRevision, Purpose: Purpose(r.Purpose), ServingLabel: r.ServingLabel}
 }
@@ -173,7 +175,11 @@ func CreateAt(ctx context.Context, tx *database.Tx, at time.Time, in Spec) (ids.
 	if err := AddressFreeIn(ctx, tx, id, in.Slug); err != nil {
 		return ids.Nil, err
 	}
-	r, err := queries(tx).InsertProject(ctx, projectsql.InsertProjectParams{ID: id, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, OwnerGroup: in.OwnerGroup, DefaultApprovers: in.DefaultApprovers, CreatedAt: at.UTC(), Purpose: string(in.Purpose), ServingLabel: in.Slug})
+	source := "person"
+	if in.Purpose.Descriptions() {
+		source = "generated"
+	}
+	r, err := queries(tx).InsertProject(ctx, projectsql.InsertProjectParams{ID: id, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, BlurbSource: source, Icon: in.Icon, OwnerGroup: in.OwnerGroup, DefaultApprovers: in.DefaultApprovers, CreatedAt: at.UTC(), Purpose: string(in.Purpose), ServingLabel: in.Slug})
 	if slugTaken(err) {
 		return ids.Nil, ErrSlugTaken
 	}
@@ -282,4 +288,12 @@ func (s *Projects) Visible(ctx context.Context) ([]Project, error) {
 func slugTaken(err error) bool {
 	var state interface{ SQLState() string }
 	return errors.As(err, &state) && state.SQLState() == "23505"
+}
+
+// OriginalRequest returns the unabridged creation request to a project reader.
+func (s *Projects) OriginalRequest(ctx context.Context, id ids.ID) (string, error) {
+	if _, err := s.authority.Require(ctx, access.Permission{Capability: access.CapProjectRead, Resource: access.Resource{Type: "project", ID: id.String(), ProjectID: id}}); err != nil {
+		return "", err
+	}
+	return audit.CreationRequest(ctx, s.db, id)
 }

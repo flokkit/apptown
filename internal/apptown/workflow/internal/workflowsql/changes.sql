@@ -203,3 +203,10 @@ ORDER BY c.number;
 -- name: SettledSince :one
 SELECT (EXISTS(SELECT 1 FROM changes WHERE closed_at>=sqlc.arg(since)::timestamptz) OR
  EXISTS(SELECT 1 FROM runs WHERE status<>sqlc.arg(running)::text AND updated_at>=sqlc.arg(since)::timestamptz))::boolean;
+
+-- name: LastLandedTitles :many
+SELECT c.title FROM changes c
+JOIN runs r ON r.change_id=c.id AND r.project_id=c.project_id
+JOIN run_events e ON e.run_id=r.id AND e.kind='merge.completed'
+WHERE c.project_id=$1 AND c.landed_sha<>''
+GROUP BY c.id ORDER BY max(e.at) DESC,c.id DESC LIMIT 10;

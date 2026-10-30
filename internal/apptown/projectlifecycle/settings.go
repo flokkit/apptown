@@ -2,6 +2,7 @@ package projectlifecycle
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -33,6 +34,11 @@ func (s *Service) UpdateSettings(ctx context.Context, id ids.ID, in project.Sett
 		changed, err := project.UpdateSettingsIn(ctx, tx, id, observed.Slug, in)
 		if err != nil {
 			return err
+		}
+		if in.Blurb != nil && changed.After.BlurbSource == "generated" && changed.After.Blurb == "" {
+			if err := s.queueDescriptionIn(ctx, tx, id, "settings/"+strconv.FormatInt(changed.After.SettingsRevision, 10)); err != nil {
+				return err
+			}
 		}
 		before := changed.Before
 		after = changed.After

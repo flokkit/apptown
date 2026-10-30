@@ -51,7 +51,7 @@ func TestAdmittedMergeDetachesCallerAndRechecksBeforeEffect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner := NewSCMWork(q.db, t.TempDir(), nil)
+	owner := NewSCMWork(q.db, t.TempDir(), nil, nil)
 	claim, err := owner.Prepare(scoped, scm.NewEffect, run.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -95,7 +95,7 @@ func TestSCMWorkReceiptAndChangeSourceAreAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	owner := NewSCMWork(q.db, t.TempDir(), nil)
+	owner := NewSCMWork(q.db, t.TempDir(), nil, nil)
 	claim, err := owner.claim(*run, source, nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -250,7 +250,7 @@ func TestTheEvalGateHoldsAtTheClaimThatMerges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := NewSCMWork(q.db, t.TempDir(), nil).Prepare(scoped, scm.NewEffect, run.ID)
+	claim, err := NewSCMWork(q.db, t.TempDir(), nil, nil).Prepare(scoped, scm.NewEffect, run.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

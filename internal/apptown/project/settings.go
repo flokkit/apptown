@@ -2,11 +2,12 @@ package project
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/ids"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/project/internal/projectsql"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/fault"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/strs"
 )
 
@@ -43,7 +44,9 @@ func (settingsMoved) FaultCode() string     { return "settings-moved" }
 // the caller are not overwritten with an earlier snapshot. The patch must name
 // the settings revision it started from; a record that has moved on since is
 // refused with ErrSettingsMoved before anything is written, and a write
-// advances the revision.
+// advances the revision. A changed nonempty description belongs to the
+// person; empty returns ownership to generation. Repeating the current
+// nonempty description does not transfer ownership.
 func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedSlug string, in SettingsPatch) (SettingsChange, error) {
 	var result SettingsChange
 	q := queries(tx)
@@ -82,13 +85,19 @@ func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedS
 		held.Namespace = *in.Namespace
 	}
 	if in.Blurb != nil {
-		held.Blurb = strs.Truncate(*in.Blurb, 140)
+		text := strs.Truncate(strings.TrimSpace(*in.Blurb), 140)
+		if text == "" {
+			held.BlurbSource = "generated"
+		} else if text != held.Blurb {
+			held.BlurbSource = "person"
+		}
+		held.Blurb = text
 	}
 	if record(held) == result.Before {
 		result.After = result.Before
 		return result, nil
 	}
-	updated, err := q.UpdateProjectSettings(ctx, projectsql.UpdateProjectSettingsParams{ID: id, Slug: held.Slug, Name: held.Name, Icon: held.Icon, Blurb: held.Blurb, Namespace: held.Namespace})
+	updated, err := q.UpdateProjectSettings(ctx, projectsql.UpdateProjectSettingsParams{ID: id, Slug: held.Slug, Name: held.Name, Icon: held.Icon, Blurb: held.Blurb, Namespace: held.Namespace, BlurbSource: held.BlurbSource})
 	if slugTaken(err) {
 		return result, ErrSlugTaken
 	}
@@ -98,3 +107,20 @@ func UpdateSettingsIn(ctx context.Context, tx *database.Tx, id ids.ID, reservedS
 	result.After = record(updated)
 	return result, nil
 }
+
+// PublishDescription rechecks ownership under the same lock as settings edits.
+// Model work happens before this operation; publication changes only the text.
+func (s *Projects) PublishDescription(ctx context.Context, id ids.ID, text string) error {
+	return s.db.InTx(ctx, func(tx *database.Tx) error {
+		if _, err := queries(tx).ProjectByIDForUpdate(ctx, id); err != nil {
+			return err
+		}
+		if err := RefuseUnlessActiveIn(ctx, tx, id); err != nil {
+			return err
+		}
+		return queries(tx).PublishGeneratedDescription(ctx, projectsql.PublishGeneratedDescriptionParams{ID: id, Blurb: text})
+	})
+}
+
+// DescriptionJob is the queued refresh of a generated project description.
+const DescriptionJob = "project-description"

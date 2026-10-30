@@ -1155,6 +1155,7 @@ export type Project = {
   namespace: string
   icon: string
   blurb: string
+  blurbSource: string
   createdAt: string
   requireIndependentApproval: boolean
   settingsRevision: number
@@ -1244,6 +1245,8 @@ export type ProjectDetail = {
   namespace: string
   icon: string
   blurb: string
+  blurbSource: string
+  originalRequest: string
   defaultBranch: string
   createdAt: string
   runtimeForm: string
@@ -1331,6 +1334,7 @@ export type ProjectRow = {
   namespace: string
   icon: string
   blurb: string
+  blurbSource: string
   createdAt: string
   requireIndependentApproval: boolean
   settingsRevision: number

@@ -13,6 +13,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -58,6 +59,30 @@ func TestACopyIsTheSourceAtOneCommitWithItsWayOfWorking(t *testing.T) {
 	}
 	if got, err := project.PurposeIn(ctx, f.db, copy.ID); err != nil || got != project.EvalCopy {
 		t.Fatalf("the copy's purpose is %q (%v), want an eval copy", got, err)
+	}
+	// Eval labels stay fixed through seed and later refresh jobs.
+	wantDescription := "A throwaway copy of " + src.Name + " made for an eval"
+	if copy.BlurbSource != "person" || copy.Blurb != wantDescription {
+		t.Fatalf("copy description: %+v", copy)
+	}
+	d := Descriptions{Service: f.lifecycle, Models: descriptionModel("fixture/fast"), Completion: descriptionAnswer(func(context.Context, modelcall.Call) (string, *modelcall.Usage, error) {
+		t.Fatal("eval copy called the description model")
+		return "", nil, nil
+	})}
+	if err := d.Refresh(ctx, copy.ID); err != nil {
+		t.Fatal(err)
+	}
+	held, err := f.lifecycle.projects.ByID(ctx, copy.ID)
+	if err != nil || held.Blurb != wantDescription || held.BlurbSource != "person" {
+		t.Fatalf("refreshed copy: %+v %v", held, err)
+	}
+	// Even clearing the label must not opt a non-ordinary project into generation.
+	empty := ""
+	if _, err := f.lifecycle.UpdateSettings(ctx, copy.ID, project.SettingsPatch{ExpectedRevision: &copy.SettingsRevision, Blurb: &empty}, "eval/1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Refresh(ctx, copy.ID); err != nil {
+		t.Fatal(err)
 	}
 	hub := filepath.Join(f.lifecycle.dataDir, "workspaces", "project-"+copy.ID.String())
 	if head := gittest.RunAsTester(t, hub, "rev-parse", "HEAD"); head != base {
