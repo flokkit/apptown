@@ -239,15 +239,7 @@ export function ReleaseRows({ slug, releases }: { slug: string; releases: Releas
                   }}>▶ #{r.number} <span className="muted small">{fmtWhen(r.releasedAt || r.createdAt)}{r.origin === 'observed-after-restore' ? ' · observed after restore' : ''}</span></button>
               ))}
             </span>
-            {live && (live.changes ?? []).length > 0 && (
-              <span className="muted small">— {(live.changes ?? []).map((c) => c.title).join(', ').slice(0, 80)}</span>
-            )}
           </div>
-          {live?.notes && (
-            <div className="muted small" style={{ marginTop: 6, maxWidth: 720 }} title="Release notes, composed from the change's approved narrative.">
-              {live.notes.length > 260 ? live.notes.slice(0, 260) + '…' : live.notes}
-            </div>
-          )}
         </div>
       )}
   </>

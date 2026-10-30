@@ -992,17 +992,17 @@ a.btn.primary:hover { background: var(--accent-hover); border-color: var(--accen
 }
 .ch-ledger-head strong { color: var(--text); font-family: var(--font-heading); font-size: 15px; }
 .ch-line {
-  display: grid; grid-template-columns: 116px minmax(0, 1fr) 210px 96px 48px; gap: 14px; align-items: baseline;
+  display: grid; grid-template-columns: 116px minmax(0, 1fr) minmax(0, 210px) minmax(0, max-content) max-content; gap: 14px; align-items: baseline;
   padding: 10px 18px; border-bottom: 1px solid var(--rule-faint);
 }
 .ch-line:last-child { border-bottom: none; }
 .ch-line > .chip { justify-self: start; max-width: 100%; white-space: normal; }
-.ch-line-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ch-line-what { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
 .ch-line-title { font-weight: var(--fw-strong); }
 .ch-line-name { font-weight: var(--fw-regular); color: var(--subtle); font-family: var(--font-mono); font-size: var(--fs-xs); }
 .ch-line-sentence { color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
 .ch-line-by { font-size: var(--fs-sm); color: var(--subtle); overflow-wrap: anywhere; }
-.ch-line-when { font-size: var(--fs-sm); color: var(--subtle); white-space: nowrap; }
+.ch-line-when { font-size: var(--fs-sm); color: var(--subtle); overflow-wrap: anywhere; }
 .ch-line-link { font-size: var(--fs-sm); text-align: right; }
 .ch-line:target { background: var(--accent-bg); }
 

@@ -19,7 +19,8 @@ export function overviewActivity(data: OverviewData, deployments: DeploymentView
   return [
     ...data.history.map(c => ({ id: `change-${c.changeId}`, when: c.when, title: c.title, source: `Change #${c.changeNumber}`, word: c.statusLabel, to: `/changes/${c.changeId}` })),
     ...deployments.filter(d => d.observedAt).map(d => ({ id: `deployment-${d.id}`, when: d.observedAt!, title: `${d.displayLabel || d.name} checked`, source: d.targetName, word: d.observation, help: runtimeDescription(d), to: `/projects/${slug}/settings/deployments` })),
-    ...backups.map(b => ({ id: `backup-${b.id}`, when: b.takenAt, title: `${deployments.find(d => d.name === b.deployment)?.displayLabel || b.deployment} backup`, source: b.trigger, word: b.statusLabel, help: b.error, to: `/projects/${slug}/settings/deployments` })),
+    // Filter recorded outcomes so stale failures stay visible with an unknown light.
+    ...backups.filter(b => b.trigger === 'manual' || b.status === 'failed' || b.status === 'partial' || b.status === 'pruned').map(b => ({ id: `backup-${b.id}`, when: b.takenAt, title: `${deployments.find(d => d.name === b.deployment)?.displayLabel || b.deployment} backup`, source: b.trigger, word: b.statusLabel, help: b.error, to: `/projects/${slug}/settings/deployments` })),
     ...releases.map(r => ({ id: `release-${r.number}`, when: r.releasedAt || r.createdAt, title: `Release #${r.number}`, source: r.deployment, word: r.statusLabel, to: `/projects/${slug}/releases/${r.number}` })),
   ].sort((a, b) => b.when.localeCompare(a.when))
 }

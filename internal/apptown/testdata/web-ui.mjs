@@ -15,10 +15,11 @@ try {
     const activity = await read('/projects/club-newsletter/overview');
     const deployments = await read('/projects/club-newsletter/deployments');
     const backups = await read('/projects/club-newsletter/deployments/main/backups');
+    const releases = await read('/projects/club-newsletter/releases');
     const reviews = await Promise.all(activity.active.map(r => read('/changes/' + r.changeId)));
-    return { history: activity.history.length, deployments, backupBytes: backups.backups[0]?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
+    return { releases, idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.length, backups: backups.backups, stoppedCheck: activity.history.some(c => c.title === "Release check: a chat answers" && c.statusLabel === "stopped"), deployments, backupBytes: backups.backups[0]?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
   });
-  if (facts.history < 8 || facts.history > 10 || !facts.failingCheck || !facts.backupBytes) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
+  if (facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length !== 5 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("To satisfy it:"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
   if (!facts.deployments.some(d => d.displayLabel === 'Production' && d.running === true) || !facts.deployments.some(d => d.kind === 'preview' && d.running === null && d.observation === 'unreachable')) throw new Error('deployment seed is not running production + unavailable preview: ' + JSON.stringify(facts.deployments));
   const seeded = await page.evaluate(async () => {
     const request = async (path, body) => {
@@ -35,6 +36,8 @@ try {
     const views = await Promise.all(changes.map(c => request('/changes/' + c.id)));
     const failed = views.find(v => v.detail?.steps.some(s => s.status === 'fail'));
     const form = await request('/evals/start');
+    const delivered = views.find(v => v.evidence?.releases?.some(r => r.serving && r.observedAt));
+    if (!delivered) throw new Error('no delivery receipts in design seed');
     const source = views.find(v => v.change.state === 'shipped' && v.runs?.some(r => r.role === 'working')).change;
     const evaluation = await request('/evals', { changes: [source.id], profile: form.profiles[0], budgetDollars: 5, shown: form.meaning });
     const history = await request('/conformance/projects/club-newsletter/history');
@@ -43,7 +46,7 @@ try {
     const remediation = await request('/conformance/remediations', { scope: 'all', concurrency: 1 });
     const backups = await request('/projects/club-newsletter/deployments/main/backups');
     const operation = await request('/projects/club-newsletter/deployments/main/backups/' + backups.backups[0].id + '/restore', { confirm: 'main' });
-    return { review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
+    return { delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
   });
   const routes = {
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', deployments: '/deployments', backups: '/deployments/backups',
@@ -59,6 +62,7 @@ try {
     overview: '/projects/club-newsletter', console: '/projects/club-newsletter/console',
     security: '/projects/club-newsletter/security', suppressions: '/projects/club-newsletter/security/suppressions',
     janitor: '/projects/club-newsletter/janitor', release: '/projects/club-newsletter/release',
+    'change-delivery': `/changes/${seeded.delivered}`,
     change: `/changes/${process.env.DESIGN_CHANGE}`,
     'change-non-approver': `/changes/${process.env.DESIGN_CHANGE}`,
     'change-failed': `/changes/${seeded.failed}`, 'overview-empty': '/projects/shared-notes',
@@ -160,6 +164,37 @@ try {
             const r = el.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth;
           }));
           if (clipped) throw new Error(screen + ': account control clipped by the topbar');
+        }
+        if (process.env.DESIGN_BASELINE) {
+          if (screen === 'home' && (!words.includes('Release check: a chat answers') || !words.includes('127.4h'))) throw new Error('Home seed does not reproduce stopped work and idle duration');
+          if (screen === 'overview' && !words.includes('To satisfy it:')) throw new Error('overview seed does not reproduce leaked release notes');
+          if (screen === 'change-delivery' && !/Checked \d{1,2} \w+, \d{2}:\d{2}/.test(words)) throw new Error('delivery seed lacks a full Checked date');
+        } else {
+          if (screen === 'home' && (words.includes('Release check: a chat answers') || words.includes('Replace the old ride archive') || words.includes('127.4h'))) throw new Error('Home still shows stopped work');
+          if (screen === 'overview') {
+            const rows = await page.locator('.activity-ledger tbody tr').allTextContents();
+            if (rows.some(r => /backup/.test(r) && !/failed|stopped|manual/.test(r))) throw new Error('routine automated backup in Activity');
+            if (await page.locator('.application-details').getByText('To satisfy it:', { exact: false }).count()) throw new Error('release narrative leaked into the overview');
+          }
+          if (screen === 'change-delivery') {
+            const widths = size === 'desktop' ? [320, 390, 600, 768, 800, 801, 900, 1024, 1280, 1440, 1920] : [viewport.width];
+            for (const width of widths) {
+              await page.setViewportSize({ width, height: viewport.height });
+              const overlap = await page.locator('.ch-line').evaluateAll(rows => rows.some(row => {
+                const cells = [...row.children].filter(el => el.textContent.trim());
+                const rects = cells.map(el => {
+                  const range = document.createRange();
+                  range.selectNodeContents(el);
+                  return [...range.getClientRects()].filter(r => r.width && r.height);
+                });
+                return rects.some((a, i) => rects.slice(i + 1).some(b => a.some(x => b.some(y =>
+                  x.left < y.right && y.left < x.right && x.top < y.bottom && y.top < x.bottom))));
+              }));
+              if (overlap) throw new Error(`delivery columns overlap at ${width}px`);
+              if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error(`delivery overflows at ${width}px`);
+            }
+            await page.setViewportSize(viewport);
+          }
         }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
         const headings = await page.getByRole('heading', { level: 1 }).allTextContents();
