@@ -237,7 +237,11 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: gh run download "${{ needs.candidate.outputs.run }}" -R "$GITHUB_REPOSITORY" -n tour -D site/tour
+      # The repository's site/tour holds the tour's sources (index.html among
+      # them); the built tour replaces them, so it unpacks beside and is copied over.
+      - run: |
+          gh run download "${{ needs.candidate.outputs.run }}" -R "$GITHUB_REPOSITORY" -n tour -D "$RUNNER_TEMP/tour"
+          cp -R "$RUNNER_TEMP/tour/." site/tour/
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::078142186677:role/apptown-site-publisher
