@@ -210,7 +210,7 @@ func TestAnOverrideIsARecordedActAndTheCommittedProfileClearsIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range res.Parts {
-		if p.Part == "worker" && (p.Override == nil || !p.OverrideApplied || p.Memory != "2Gi") {
+		if p.Part == "worker" && (p.Override == nil || !p.OverrideApplied || p.OverrideLabel != ProgressLabelExcepted || p.Memory != "2Gi") {
 			t.Errorf("the worker's resources read %+v", p)
 		}
 	}

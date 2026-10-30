@@ -64,7 +64,7 @@ export function SecretNameStatus({ name }: { name: string }) {
     <div className="row small" style={{ gap: 8, flexWrap: 'wrap' }}>
       <span className={`dot ${namesQ.err || !namesQ.data ? 'unknown' : store ? 'ok' : 'bad'}`} />
       <code>{n}</code>
-      {namesQ.err ? <span className="error">unknown — the secrets could not be read: {namesQ.reason}</span>
+      {namesQ.err ? <span className="error">unknown · the secrets could not be read: {namesQ.reason}</span>
         : !namesQ.data ? <span className="muted">checking…</span>
           : store ? <span className="muted">held in {storeWords(store)}</span>
             : <span className="muted">{PRODUCT} does not hold this yet</span>}
@@ -91,8 +91,7 @@ export function InstanceSecretsPanel() {
   return (
     <div style={{ maxWidth: 760 }}>
       <div className="muted small" style={{ marginBottom: 12 }}>
-        Targets and connectors name the secret that holds their credential. Values are written here and never shown again;
-        each set and removal is on the record with who did it. A secret held in Infisical is changed in Infisical.
+        Targets and connectors use these secret names. Values stay hidden. Edit Infisical secrets in Infisical.
       </div>
       {/* Here a failed refresh hides the list too, rather than marking it stale. */}
       {namesQ.err && <div className="error small">Unknown: {PRODUCT}'s secrets could not be read. {namesQ.reason}</div>}

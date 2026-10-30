@@ -78,7 +78,7 @@ describe('choosing a chat', () => {
   it('opens no chat when the list of chats could not be read, and says so', async () => {
     const opens = fakeAppTown(() => ({ status: 400, body: { error: 'database unavailable' } }))
     const { el, done } = await page(`?change=${C1}`)
-    await vi.waitFor(() => expect(el.textContent).toContain("This project's chats could not be read: database unavailable"))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain("database unavailable"))
     await settle()
     expect(opens).toEqual([])
     done()
@@ -108,7 +108,7 @@ describe('choosing a chat', () => {
       const client = newQueryClient()
       client.setQueryData(getKey('/projects/p/console'), { sessions: held })
       const { el, done } = await page(`?change=${C1}`, client)
-      await vi.waitFor(() => expect(el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(database unavailable)'))
+      await vi.waitFor(() => expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(database unavailable)'))
       await settle()
       expect(opens).toEqual([])
       done()

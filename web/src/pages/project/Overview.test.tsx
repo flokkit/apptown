@@ -111,7 +111,7 @@ it('withdraws Release and selected-default preference after a failed plan refres
   try {
     await h.refresh(true)
     expect(h.el.textContent).not.toContain('publish the latest')
-    expect(h.el.textContent).toContain('out of date')
+    expect(h.el.textContent).toContain('unknown')
     h.clickOpen()
     expect(h.opened).toHaveBeenCalledWith('https://old.example', '_blank')
   } finally { h.close() }

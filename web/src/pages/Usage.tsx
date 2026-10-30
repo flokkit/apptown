@@ -143,7 +143,7 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
   const maxDay = Math.max(1, ...[...perDay.values()].map((x) => x.step + x.console))
   const label = new Date(day + 'T00:00:00Z').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' })
   const detail = !e ? `${label}: no use`
-    : `${label}: ${fmtTokens(total)} tokens — ${LANE_LABEL.step} ${fmtTokens(e.step)}, ${LANE_LABEL.console} ${fmtTokens(e.console)}`
+    : `${label}: ${fmtTokens(total)} tokens · ${LANE_LABEL.step} ${fmtTokens(e.step)}, ${LANE_LABEL.console} ${fmtTokens(e.console)}`
       + (e.cost > 0 ? ` · ${fmtCost(e.cost)}` : '')
   const pickAt = (el: HTMLElement, clientX: number) => {
     const r = el.getBoundingClientRect()

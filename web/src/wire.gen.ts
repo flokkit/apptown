@@ -3,6 +3,7 @@
 //   go test ./internal/apptown/httpapi -run TestWebTypesAreCurrent -update-wire
 
 export type ADRChangeSummary = {
+  statusLabel: ADRLabel
   id: string | null
   number: number
   title: string
@@ -11,6 +12,7 @@ export type ADRChangeSummary = {
 }
 
 export type ADRRecord = {
+  statusLabel: ADRLabel
   id: string | null
   projectId: string | null
   projectSlug?: string
@@ -125,6 +127,7 @@ export type AttentionCoverage = {
 }
 
 export type AttentionItem = {
+  statusLabel: AttentionLabel
   severity: string
   key: string
   title: string
@@ -163,6 +166,27 @@ export type AuthzHoldings = {
   createIn?: string[] | null
   defaultGroup?: string | null
   project?: Record<string, boolean>
+}
+
+export type Backup = {
+  statusLabel: BackupLabel
+  id: string | null
+  apptown?: string | null
+  projectId: string | null
+  deployment: string
+  takenAt: string
+  trigger: string
+  actor: string
+  actorPrincipal?: string | null
+  path: string
+  bytes: number
+  items: BackupItem[]
+  status: BackupState
+  error?: string
+  store: string
+  dataClass?: string
+  storeEndpoint?: string
+  storeBucket?: string
 }
 
 export type BackupStoreState = {
@@ -221,6 +245,7 @@ export type ChangeCockpit = {
   committedDiff: CommittedComparison
   report: string
   editing: number
+  statusLabel: DisplayStatus
   state: string
   stateDetail: string
   usage: ChangeUsage
@@ -240,6 +265,7 @@ export type ChangePreview = {
 }
 
 export type ChangeRelease = {
+  statusLabel: ReleaseLabel
   number: number
   deployment: string
   state: ReleaseState
@@ -276,6 +302,7 @@ export type CloudTargetAttached = {
 }
 
 export type CockpitEvidence = {
+  mergeLabel: DisplayStatus
   targets: AcceptanceCheck[]
   merged: boolean
   releases: ChangeRelease[]
@@ -327,6 +354,7 @@ export type ConformanceObservation = {
   at: string
   exceptedBy?: string
   evidenceHash?: string
+  statusLabel: CheckLabel
   state: string
 }
 
@@ -407,6 +435,12 @@ export type ContractCheck = {
 export type ContractUnparsed = {
   ok: boolean
   errors: string[]
+}
+
+export type Coverage = {
+  statusLabel: BackupLabel
+  assessed: string[]
+  notAssessed: string[]
 }
 
 export type CreatedChange = {
@@ -549,6 +583,8 @@ export type DeploymentResources = {
 }
 
 export type DeploymentView = {
+  readinessLabel: ProgressLabel
+  restoreLabel: ProgressLabel
   targetId: string | null
   id: string | null
   displayLabel: string
@@ -561,10 +597,12 @@ export type DeploymentView = {
   updatedAt: string
   static?: boolean
   target?: DeploymentTargetView | null
-  observation: string
+  observation: RuntimeState
   observationIssue?: string
   observedAt?: string
   observationAttemptedAt?: string
+  targetName: string
+  unreachableSince?: string
   observationStale: boolean
   feed?: string
   audience?: string
@@ -599,7 +637,7 @@ export type DispositionCreated = {
 }
 
 export type DispositionList = {
-  dispositions: Disposition[]
+  dispositions: DispositionView[]
 }
 
 export type DocGuide = {
@@ -626,6 +664,7 @@ export type EvalList = {
 }
 
 export type EvalScorecard = {
+  statusLabel: DisplayStatus
   id: string | null
   number: number
   startedBy: string
@@ -799,6 +838,7 @@ export type InstanceUpdateEvidence = {
 }
 
 export type InstanceUpdateStatus = {
+  statusLabel: UpdateLabel
   build: string
   platform: string
   channel: string
@@ -825,6 +865,7 @@ export type IntegrationField = {
 }
 
 export type IntegrationHealth = {
+  stateLabel: HealthStatus
   ok: boolean
   detail: string
   checked: boolean
@@ -878,6 +919,39 @@ export type IssuedToken = {
   role: string
   purpose: string
   note: string
+}
+
+export type Item = {
+  statusLabel: DisplayStatus
+  id: string | null
+  remediationId: string | null
+  projectId: string | null
+  projectSlug: string
+  checkKey: string
+  block: string
+  version: number
+  check: string
+  rank: number
+  state: string
+  reason?: string
+  originVerdictId: string | null
+  originSha: string
+  originEvaluatorVer?: string
+  originEvidenceHash?: string
+  originDetail?: string
+  attempt: number
+  transientRetries: number
+  changeId?: string | null
+  runId?: string | null
+  changeNumber: number
+  runNumber: number
+  leaseWorker?: string
+  leaseUntil?: string
+  notBefore?: string
+  verifiedReviewId?: string | null
+  costMicros: number
+  updatedAt: string
+  doing?: string
 }
 
 export type JobList = {
@@ -943,6 +1017,7 @@ export type OpenVEXDocument = {
 }
 
 export type Operation = {
+  statusLabel: OperationLabel
   id: string | null
   number: number
   kind: string
@@ -1094,6 +1169,28 @@ export type ProjectAdoptionRecord = {
   conditions: placementCondition[]
 }
 
+export type ProjectBackup = {
+  statusLabel: BackupLabel
+  id: string | null
+  apptown?: string | null
+  projectId: string | null
+  deployment: string
+  takenAt: string
+  trigger: string
+  actor: string
+  actorPrincipal?: string | null
+  path: string
+  bytes: number
+  items: BackupItem[]
+  status: BackupState
+  error?: string
+  store: string
+  dataClass?: string
+  storeEndpoint?: string
+  storeBucket?: string
+  project: string
+}
+
 export type ProjectCleanupList = {
   cleanups: Deletion[]
 }
@@ -1172,6 +1269,7 @@ export type ProjectDraft = {
 }
 
 export type ProjectFindingsView = {
+  statusLabel: CheckLabel
   findings: Finding[]
   sources: FindingSource[]
   dispositions: Disposition[]
@@ -1243,10 +1341,12 @@ export type ProjectRow = {
   toolchain: string[]
   prodRunning: boolean | null
   deployed: boolean
-  observation: string
+  observation: RuntimeState
   observationIssue?: string
   observedAt?: string
   observationAttemptedAt?: string
+  targetName: string
+  unreachableSince?: string
   observationStale: boolean
 }
 
@@ -1320,6 +1420,7 @@ export type ReleaseDefault = {
 }
 
 export type ReleaseDetail = {
+  statusLabel: ReleaseLabel
   release: Release | null
   changes: ReleaseChange[]
   isLive: boolean
@@ -1329,6 +1430,7 @@ export type ReleaseDetail = {
 }
 
 export type ReleaseListed = {
+  statusLabel: ReleaseLabel
   id: string | null
   projectId: string | null
   number: number
@@ -1379,6 +1481,27 @@ export type ReleaseRequested = {
   state: ReleaseState
 }
 
+export type Remediation = {
+  statusLabel: DisplayStatus
+  id: string | null
+  number: number
+  scope: string
+  scopeRef: string
+  mode: string
+  actor: string
+  actorPrincipal?: string | null
+  status: string
+  concurrency: number
+  retries: number
+  reviewId: string | null
+  createdAt: string
+  updatedAt: string
+  finishedAt?: string
+  counts?: Record<string, number>
+  sentence?: string
+  cost?: number
+}
+
 export type RemediationDetail = {
   remediation: Remediation
   items: Item[]
@@ -1427,6 +1550,25 @@ export type RepositoryAttachmentState = {
   providerProjectId: number
   request?: AttachmentRequest | null
   canResume: boolean
+}
+
+export type Resource = {
+  kind: string
+  name: string
+  id?: string
+  status?: string
+  region?: string
+  size?: string
+  version?: string
+  url?: string
+  detail?: string
+  tags?: string[]
+  record: string
+  owner?: string
+  stack?: string
+  hosts?: ResourceHost[]
+  retained?: RetainedNote | null
+  statusLabel: ResourceLabel
 }
 
 export type RestartedLanding = {
@@ -1522,6 +1664,7 @@ export type RunRow = {
   title: string
   status: RunState
   stage: string
+  statusLabel: DisplayStatus
   state?: string
   detail?: string
   project?: string
@@ -1805,6 +1948,23 @@ export type StandingValidation = {
   scratchSettlement: string
 }
 
+export type Step = {
+  statusLabel: DisplayStatus
+  id: string | null
+  runId: string | null
+  stage: string
+  name: string
+  type: string
+  config: unknown
+  status: StepState
+  evidence: unknown
+  overrideBy: string
+  overrideReason: string
+  startedAt: string
+  finishedAt: string
+  checkReading?: CheckReading | null
+}
+
 export type StepInterrupted = {
   ok: boolean
   stopped: string[]
@@ -1943,6 +2103,91 @@ export type UserList = {
   users: Account[]
 }
 
+export type Verdict = {
+  id: string | null
+  reviewId: string | null
+  projectId: string | null
+  projectSlug: string
+  sha: string
+  block: string
+  version: number
+  check: string
+  evaluator: string
+  evaluatorVer: string
+  mode: string
+  state: Outcome
+  severity: string
+  detail: string
+  at: string
+  exceptedBy?: string
+  evidenceHash?: string
+  statusLabel: CheckLabel
+}
+
+export type WhatIf = {
+  statusLabel: WhatIfLabel
+  outcomeLabels: Record<string, CheckLabel>
+  id: string | null
+  pack: string
+  version: number
+  requestedBy: string
+  requestedByPrincipal?: string | null
+  state: string
+  detail?: string
+  projectsTotal: number
+  projectsDone: number
+  createdAt: string
+  finishedAt: string
+  rubrics: boolean
+  spendLimitMicros: number
+  advanceWorkflows: boolean
+  also: PackVersion[]
+  costMicros: number
+  incomplete: number
+  rows: WhatIfRow[]
+  projects: WhatIfProject[]
+  fleet: WhatIfFleetGap[]
+  movesBackProjects: number
+}
+
+export type WhatIfProject = {
+  statusLabel: CheckLabel
+  projectId: string | null
+  projectSlug: string
+  sha?: string
+  adoptionRevision?: number
+  candidateDigest?: string
+  joins?: boolean
+  outcome: string
+  newFailures: WhatIfCheck[]
+  notAssessed: WhatIfCheck[]
+  fixed: number
+  score: WhatIfScore
+  notAssessedBy: WhatIfReasonCount[]
+  moves: WhatIfMove[]
+}
+
+export type WhatIfRow = {
+  statusLabel: CheckLabel
+  projectId: string | null
+  projectSlug: string
+  sha: string
+  adoptionRevision: number
+  candidateDigest?: string
+  block?: string
+  check?: string
+  currentVersion?: number
+  proposedVersion?: number
+  current?: string
+  proposed?: string
+  result: string
+  detail?: string
+  brief?: string
+  history?: AttemptHistory | null
+  reason?: string
+  joins?: boolean
+}
+
 export type WhatIfStarted = {
   id: string | null
 }
@@ -1981,6 +2226,8 @@ export type WorkflowTiming = {
   steps: StepTiming[]
 }
 
+export type ADRLabel = "unknown" | "waiting" | "waiting for you" | "passed" | "failed" | "stopped"
+
 export type Ingress = {
   hosts: string[]
   url: string
@@ -2009,43 +2256,6 @@ export type Candidate = {
 }
 
 export type RunState = "running" | "done" | "abandoned"
-
-export type Step = {
-  id: string | null
-  runId: string | null
-  stage: string
-  name: string
-  type: string
-  config: unknown
-  status: StepState
-  evidence: unknown
-  overrideBy: string
-  overrideReason: string
-  startedAt: string
-  finishedAt: string
-  checkReading?: CheckReading | null
-}
-
-export type ProjectBackup = {
-  id: string | null
-  apptown?: string | null
-  projectId: string | null
-  deployment: string
-  takenAt: string
-  trigger: string
-  actor: string
-  actorPrincipal?: string | null
-  path: string
-  bytes: number
-  items: BackupItem[]
-  status: BackupState
-  error?: string
-  store: string
-  dataClass?: string
-  storeEndpoint?: string
-  storeBucket?: string
-  project: string
-}
 
 export type ChangeAdds = {
   base: string
@@ -2079,6 +2289,8 @@ export type AttachmentView = {
   wire?: IntegrationWire | null
 }
 
+export type AttentionLabel = "unknown" | "waiting"
+
 export type Decision = {
   allow: boolean
   code?: string
@@ -2087,6 +2299,33 @@ export type Decision = {
   roles?: string[]
   paths?: string[]
 }
+
+export type BackupLabel = "unknown" | "finished" | "failed" | "stopped"
+
+export type BackupItem = {
+  engineImageID?: string
+  kind: string
+  name: string
+  file: string
+  bytes: number
+  sha256: string
+  error?: string
+  how: string
+  restore?: string
+  volume?: string
+  copy?: CopyMethod
+  restoreStopped?: boolean
+  verify?: string
+  caveat?: string
+  format?: string
+  instance?: string
+  database?: string
+  bucket?: string
+  asUser?: string
+  client?: string
+}
+
+export type BackupState = "ok" | "partial" | "failed" | "pruned"
 
 export type BackupStore = {
   endpoint: string
@@ -2098,26 +2337,6 @@ export type BackupStore = {
   attachedByPrincipal?: string | null
   attachedAt: string
   checkedAt: string
-}
-
-export type Backup = {
-  id: string | null
-  apptown?: string | null
-  projectId: string | null
-  deployment: string
-  takenAt: string
-  trigger: string
-  actor: string
-  actorPrincipal?: string | null
-  path: string
-  bytes: number
-  items: BackupItem[]
-  status: BackupState
-  error?: string
-  store: string
-  dataClass?: string
-  storeEndpoint?: string
-  storeBucket?: string
 }
 
 export type Change = {
@@ -2150,6 +2369,7 @@ export type Change = {
 }
 
 export type Run = {
+  statusLabel: DisplayStatus
   id: string | null
   number: number
   projectId: string | null
@@ -2211,6 +2431,7 @@ export type RunSnapshot = {
 }
 
 export type ChangeRunSummary = {
+  statusLabel: DisplayStatus
   id: string | null
   number: number
   workflowName: string
@@ -2232,6 +2453,8 @@ export type CommittedComparison = {
   message?: string
   shipped?: ShippedComparison | null
 }
+
+export type DisplayStatus = "unknown" | "working" | "waiting" | "failed" | "stopped" | "landed" | "finished" | "waiting for you" | "waiting for checks" | "passed" | "excepted" | "not applicable" | "none"
 
 export type ChangeUsage = {
   total: number
@@ -2259,6 +2482,8 @@ export type MainConflict = {
   files: string[]
   catchUp: string
 }
+
+export type ReleaseLabel = "deploying" | "deployed" | "failed"
 
 export type ReleaseState = "releasing" | "released" | "failed"
 
@@ -2356,6 +2581,8 @@ export type HistoryPoint = {
 
 export type Outcome = "conforms" | "does-not-conform" | "excepted" | "not-applicable" | "cannot-assess" | "error"
 
+export type CheckLabel = "unknown" | "passed" | "failed" | "excepted" | "not applicable"
+
 export type Review = {
   id: string | null
   number: number
@@ -2372,26 +2599,6 @@ export type Review = {
   projectsTotal: number
   projectsDone: number
   currentProject: string
-}
-
-export type Verdict = {
-  id: string | null
-  reviewId: string | null
-  projectId: string | null
-  projectSlug: string
-  sha: string
-  block: string
-  version: number
-  check: string
-  evaluator: string
-  evaluatorVer: string
-  mode: string
-  state: Outcome
-  severity: string
-  detail: string
-  at: string
-  exceptedBy?: string
-  evidenceHash?: string
 }
 
 export type ReviewSummary = {
@@ -2428,6 +2635,7 @@ export type ProjectStanding = {
   projectId: string | null
   slug: string
   name: string
+  statusLabel: CheckLabel
   standing: string
   sentence: string
   lanes: Lanes
@@ -2515,6 +2723,7 @@ export type ConsoleChange = {
   state: ChangeState
   closedAs?: string
   stateLabel: string
+  statusLabel: DisplayStatus
   doing: string
   detail: string
 }
@@ -2543,6 +2752,7 @@ export type ContractSummary = {
 }
 
 export type PendingApproval = {
+  statusLabel: DisplayStatus
   stepId: string | null
   stepName: string
   stage: string
@@ -2563,6 +2773,7 @@ export type ActiveRun = {
   workflow: string
   stage: string
   projectSlug: string
+  statusLabel: DisplayStatus
   state: string
   stateDetail?: string
 }
@@ -2589,7 +2800,7 @@ export type Departure = {
   tier: string
   label: string
   who?: string
-  state: string
+  state: DepartureLabel
   url?: string
 }
 
@@ -2698,6 +2909,7 @@ export type ItemProtection = {
   volume?: string
   where: string
   copy: string
+  copyLabel: CopyLabel
   copyNote?: string
   lastCopy?: CopyRef | null
   native?: NativeBackups | null
@@ -2747,17 +2959,13 @@ export type RestoredCopy = {
   protection?: string
 }
 
-export type Coverage = {
-  assessed: string[]
-  notAssessed: string[]
-}
-
 export type FinalSet = {
   id: string | null
   bytes: number
 }
 
 export type PartResource = {
+  overrideLabel: ProgressLabel
   size?: string
   suppliedService?: boolean
   memoryDefault?: MemoryDefaultSource | null
@@ -2791,6 +2999,8 @@ export type LimitCount = {
   last: string
 }
 
+export type ProgressLabel = "unknown" | "deployed" | "deploying" | "failed" | "passed" | "working" | "stopped" | "waiting" | "excepted"
+
 export type DeploymentTargetView = {
   displayLabel: string
   name: string
@@ -2802,7 +3012,10 @@ export type DeploymentTargetView = {
   region: string
 }
 
+export type RuntimeState = "unknown" | "running" | "stopped" | "unreachable"
+
 export type DeploymentNeedView = {
+  statusLabel: ProgressLabel
   need: string
   name: string
   id?: string
@@ -2840,6 +3053,20 @@ export type Reading = {
   readAt: string
 }
 
+export type DispositionView = {
+  id: string | null
+  fingerprint?: string
+  identifier?: string
+  package?: string
+  status: DispositionKind
+  justification: string
+  by: string
+  byPrincipal?: string | null
+  createdAt: string
+  expiresAt?: string
+  statusLabel: CheckLabel
+}
+
 export type DocLinks = {
   origin: DocLink
   mcp: DocLink
@@ -2858,6 +3085,7 @@ export type DocIntegrationEntry = {
 }
 
 export type Eval = {
+  statusLabel: DisplayStatus
   id: string | null
   number: number
   startedBy: string
@@ -2874,6 +3102,7 @@ export type Eval = {
 }
 
 export type Arm = {
+  statusLabel: DisplayStatus
   id: string | null
   sourceProjectId: string | null
   sourceChangeId: string | null
@@ -3011,6 +3240,7 @@ export type Declaration = {
 }
 
 export type InfrastructureView = {
+  statusLabel: TargetLabel
   target: string
   kind: string
   family: string
@@ -3048,6 +3278,7 @@ export type ChangeHistory = {
   type: string
   state: ChangeState
   closedAs?: string
+  statusLabel: DisplayStatus
   stateLabel: string
   project?: string
   workflows: string
@@ -3062,12 +3293,18 @@ export type ActivityDeployment = {
   url: string
   hostOnly?: boolean
   running: boolean | null
-  observation: string
+  observation: RuntimeState
   observationIssue?: string
   observedAt?: string
   observationAttemptedAt?: string
+  targetName: string
+  unreachableSince?: string
   observationStale: boolean
 }
+
+export type UpdateLabel = "unknown" | "waiting" | "none" | "current" | "available" | "failed"
+
+export type HealthStatus = "unknown" | "passed" | "failed"
 
 export type IntegrationEntry = {
   displayLabel: string
@@ -3102,6 +3339,7 @@ export type Job = {
   id: number
   kind: string
   key: string
+  statusLabel: JobLabel
   state: string
   attempts: number
   error?: string
@@ -3110,30 +3348,6 @@ export type Job = {
   startedAt?: string
   finishedAt?: string
   runAfter?: string
-}
-
-export type WhatIf = {
-  id: string | null
-  pack: string
-  version: number
-  requestedBy: string
-  requestedByPrincipal?: string | null
-  state: string
-  detail?: string
-  projectsTotal: number
-  projectsDone: number
-  createdAt: string
-  finishedAt: string
-  rubrics: boolean
-  spendLimitMicros: number
-  advanceWorkflows: boolean
-  also: PackVersion[]
-  costMicros: number
-  incomplete: number
-  rows: WhatIfRow[]
-  projects: WhatIfProject[]
-  fleet: WhatIfFleetGap[]
-  movesBackProjects: number
 }
 
 export type PackVersion = {
@@ -3187,6 +3401,8 @@ export type OpenVEXStatement = {
   impact_statement?: string
   timestamp: string
 }
+
+export type OperationLabel = "unknown" | "waiting" | "working" | "finished" | "failed" | "stopped"
 
 export type OperationState = "queued" | "running" | "succeeded" | "failed" | "unknown" | "cancelled"
 
@@ -3500,6 +3716,7 @@ export type OverviewRepo = {
 }
 
 export type OpenChange = {
+  statusLabel: DisplayStatus
   changeId: string | null
   changeNumber: number
   title: string
@@ -3620,58 +3837,6 @@ export type ShippedChange = {
   title: string
 }
 
-export type Remediation = {
-  id: string | null
-  number: number
-  scope: string
-  scopeRef: string
-  mode: string
-  actor: string
-  actorPrincipal?: string | null
-  status: string
-  concurrency: number
-  retries: number
-  reviewId: string | null
-  createdAt: string
-  updatedAt: string
-  finishedAt?: string
-  counts?: Record<string, number>
-  sentence?: string
-  cost?: number
-}
-
-export type Item = {
-  id: string | null
-  remediationId: string | null
-  projectId: string | null
-  projectSlug: string
-  checkKey: string
-  block: string
-  version: number
-  check: string
-  rank: number
-  state: string
-  reason?: string
-  originVerdictId: string | null
-  originSha: string
-  originEvaluatorVer?: string
-  originEvidenceHash?: string
-  originDetail?: string
-  attempt: number
-  transientRetries: number
-  changeId?: string | null
-  runId?: string | null
-  changeNumber: number
-  runNumber: number
-  leaseWorker?: string
-  leaseUntil?: string
-  notBefore?: string
-  verifiedReviewId?: string | null
-  costMicros: number
-  updatedAt: string
-  doing?: string
-}
-
 export type Attempt = {
   id: string | null
   itemId: string | null
@@ -3710,6 +3875,26 @@ export type AttachmentRequest = {
   repositoryName: string
   recoverProviderId: number
 }
+
+export type ResourceHost = {
+  projectId?: string | null
+  deploymentId?: string | null
+  project: string
+  deployment: string
+  generation?: number
+  need?: string
+}
+
+export type RetainedNote = {
+  id: string | null
+  project: string
+  deployment: string
+  retainedBy: string
+  retainedAt: string
+  reason?: string
+}
+
+export type ResourceLabel = "unknown" | "running" | "stopped" | "working" | "failed" | "passed"
 
 export type RestoreStatus = "restored" | "restored, not verified" | "partly restored"
 
@@ -3827,6 +4012,14 @@ export type NeedSelection = {
 
 export type StepState = "pending" | "running" | "pass" | "fail" | "needs_human" | "error" | "skipped" | "not_applicable"
 
+export type CheckReading = {
+  checkErrors?: number
+  undecided?: string[]
+  placement?: Placement | null
+  checks?: checkReceiptView[]
+  unreadable?: string
+}
+
 export type SystemWorkflowBinding = {
   stock: string
   name: string
@@ -3884,6 +4077,7 @@ export type Figure = {
 export type TargetState = "ready" | "unreachable" | "retired"
 
 export type TargetView = {
+  statusLabel: TargetLabel
   displayLabel: string
   connectionId?: string | null
   providerScope?: unknown
@@ -4035,6 +4229,60 @@ export type Account = {
   groups: string[]
 }
 
+export type WhatIfLabel = "unknown" | "waiting" | "working" | "finished" | "failed" | "stopped"
+
+export type WhatIfFleetGap = {
+  block: string
+  check: string
+  reason: string
+  words: string
+  remedy: string
+  projects: number
+}
+
+export type WhatIfCheck = {
+  block: string
+  check: string
+  exceptedToday?: boolean
+  reason?: string
+  why?: string
+}
+
+export type WhatIfScore = {
+  checks: number
+  judged: number
+  passed: number
+  failing: number
+  couldNotAssess: number
+  noLongerRequired: number
+  notApplicable: number
+  newFailures: number
+  fixed: number
+  movesBack: number
+  ruleChanges: number
+}
+
+export type WhatIfReasonCount = {
+  reason: string
+  words: string
+  remedy: string
+  count: number
+}
+
+export type WhatIfMove = {
+  rule: string
+  from: number
+  to: number
+  back: boolean
+}
+
+export type AttemptHistory = {
+  attempts: number
+  medianCost: number
+  medianMinutes: number
+  succeededShare: number
+}
+
 export type WorkerChatView = {
   chat: string
   live: boolean
@@ -4087,39 +4335,6 @@ export type CopySource = {
   revision?: number
 }
 
-export type CheckReading = {
-  checks?: CheckReceipt[]
-  checkErrors?: number
-  undecided?: string[]
-  placement?: Placement | null
-  unreadable?: string
-}
-
-export type BackupItem = {
-  engineImageID?: string
-  kind: string
-  name: string
-  file: string
-  bytes: number
-  sha256: string
-  error?: string
-  how: string
-  restore?: string
-  volume?: string
-  copy?: CopyMethod
-  restoreStopped?: boolean
-  verify?: string
-  caveat?: string
-  format?: string
-  instance?: string
-  database?: string
-  bucket?: string
-  asUser?: string
-  client?: string
-}
-
-export type BackupState = "ok" | "partial" | "failed" | "pruned"
-
 export type AddsRow = {
   name: string
   added: string[]
@@ -4140,6 +4355,8 @@ export type IntegrationWire = {
   stateLabel: string
   title: string
 }
+
+export type CopyMethod = "declared" | "files" | "live-files"
 
 export type ChangeState = "in_progress" | "landing" | "shipped" | "abandoned"
 
@@ -4273,6 +4490,8 @@ export type ConnectorPreset = {
   config: Record<string, unknown>
 }
 
+export type DepartureLabel = "running" | "deploying" | "deployed" | "failed"
+
 export type Reach = {
   how: string
   from: string
@@ -4309,6 +4528,8 @@ export type Availability = {
   reason?: string
   why?: string
 }
+
+export type CopyLabel = "unknown" | "fresh" | "overdue" | "missing" | "disposable"
 
 export type CopyRef = {
   backup: string | null
@@ -4396,73 +4617,14 @@ export type FleetPackVersion = {
   at: string
 }
 
-export type Resource = {
-  kind: string
-  name: string
-  id?: string
-  status?: string
-  region?: string
-  size?: string
-  version?: string
-  url?: string
-  detail?: string
-  tags?: string[]
-  record: string
-  owner?: string
-  stack?: string
-  hosts?: ResourceHost[]
-  retained?: RetainedNote | null
-}
+export type TargetLabel = "unknown" | "passed" | "failed" | "stopped"
 
 export type IntegrationUse = {
   projects: AttachedProject[]
   deployments: ProviderDeployment[]
 }
 
-export type WhatIfRow = {
-  projectId: string | null
-  projectSlug: string
-  sha: string
-  adoptionRevision: number
-  candidateDigest?: string
-  block?: string
-  check?: string
-  currentVersion?: number
-  proposedVersion?: number
-  current?: string
-  proposed?: string
-  result: string
-  detail?: string
-  brief?: string
-  history?: AttemptHistory | null
-  reason?: string
-  joins?: boolean
-}
-
-export type WhatIfProject = {
-  projectId: string | null
-  projectSlug: string
-  sha?: string
-  adoptionRevision?: number
-  candidateDigest?: string
-  joins?: boolean
-  outcome: string
-  newFailures: WhatIfCheck[]
-  notAssessed: WhatIfCheck[]
-  fixed: number
-  score: WhatIfScore
-  notAssessedBy: WhatIfReasonCount[]
-  moves: WhatIfMove[]
-}
-
-export type WhatIfFleetGap = {
-  block: string
-  check: string
-  reason: string
-  words: string
-  remedy: string
-  projects: number
-}
+export type JobLabel = "unknown" | "waiting" | "working" | "finished" | "failed" | "stopped"
 
 export type OpenVEXProduct = {
   "@id": string
@@ -4559,71 +4721,6 @@ export type ScheduleFiringView = {
   changeNumber: number
 }
 
-export type Promised = {
-  sum: Split
-  limited: Count
-  unlimited: Count
-  unread: Count
-}
-
-export type Split = {
-  apptown: Figure
-  other: Figure
-}
-
-export type TargetDeployment = {
-  project: string
-  name: string
-  url: string
-  generation: number
-  readiness: string
-  audience: string
-  data: string
-}
-
-export type OfferCaps = {
-  maxStanding?: number
-  audiences?: string[]
-  data?: string[]
-}
-
-export type TierApp = {
-  deploymentId?: string | null
-  deploymentLabel?: string
-  slug: string
-  name: string
-  icon?: string
-  detail?: string
-  url?: string
-  hostOnly?: boolean
-  running: boolean
-  observed?: string
-  static?: boolean
-  changeId?: string | null
-  changeNumber?: number
-}
-
-export type RefusedLastSave = {
-  commit: string
-  reason: string
-  at: string
-}
-
-export type ReceiptWorkflow = {
-  name: string
-  version: number
-  origin: string
-  yamlHash: string
-  system?: boolean
-}
-
-export type ReceiptPolicy = {
-  name: string
-  rule: string
-  configHash: string
-  origin?: string
-}
-
 export type CheckReceipt = {
   scanner?: string
   carried?: number
@@ -4659,7 +4756,108 @@ export type Placement = {
   local?: boolean
 }
 
-export type CopyMethod = "declared" | "files" | "live-files"
+export type checkReceiptView = {
+  scanner?: string
+  carried?: number
+  carriedNote?: string
+  baseNote?: string
+  block: string
+  version: number
+  check: string
+  evaluator: string
+  verdict: CheckVerdict
+  exitCode?: number | null
+  durationMs?: number | null
+  output?: string
+  detail?: string
+  note?: string
+  tool?: string
+  exceptedBy?: string
+  scope?: string
+  gates?: boolean | null
+  evaluatorVer?: string
+  evidenceHash?: string
+  evidence?: string
+  files?: string[]
+  occurrences?: string[]
+  apptownFault?: boolean
+  preexisting?: boolean
+  undecided?: boolean
+  image?: string
+  statusLabel: DisplayStatus
+}
+
+export type Promised = {
+  sum: Split
+  limited: Count
+  unlimited: Count
+  unread: Count
+}
+
+export type Split = {
+  apptown: Figure
+  other: Figure
+}
+
+export type TargetDeployment = {
+  statusLabel: ProgressLabel
+  project: string
+  name: string
+  url: string
+  generation: number
+  readiness: string
+  audience: string
+  data: string
+}
+
+export type OfferCaps = {
+  maxStanding?: number
+  audiences?: string[]
+  data?: string[]
+}
+
+export type TierApp = {
+  observation: RuntimeState
+  observationIssue?: string
+  observedAt?: string
+  observationAttemptedAt?: string
+  targetName: string
+  unreachableSince?: string
+  observationStale: boolean
+  deploymentId?: string | null
+  deploymentLabel?: string
+  slug: string
+  name: string
+  icon?: string
+  detail?: string
+  url?: string
+  hostOnly?: boolean
+  running: boolean
+  static?: boolean
+  changeId?: string | null
+  changeNumber?: number
+}
+
+export type RefusedLastSave = {
+  commit: string
+  reason: string
+  at: string
+}
+
+export type ReceiptWorkflow = {
+  name: string
+  version: number
+  origin: string
+  yamlHash: string
+  system?: boolean
+}
+
+export type ReceiptPolicy = {
+  name: string
+  rule: string
+  configHash: string
+  origin?: string
+}
 
 export type RehearsalCheck = {
   name: string
@@ -4669,6 +4867,7 @@ export type RehearsalCheck = {
 }
 
 export type CheckResult = {
+  statusLabel: DisplayStatus
   step: string
   type: string
   status: string
@@ -4681,24 +4880,6 @@ export type ArmCompared = {
   rows: CheckRow[]
 }
 
-export type ResourceHost = {
-  projectId?: string | null
-  deploymentId?: string | null
-  project: string
-  deployment: string
-  generation?: number
-  need?: string
-}
-
-export type RetainedNote = {
-  id: string | null
-  project: string
-  deployment: string
-  retainedBy: string
-  retainedAt: string
-  reason?: string
-}
-
 export type AttachedProject = {
   slug: string
   name: string
@@ -4709,49 +4890,6 @@ export type ProviderDeployment = {
   project: string
   name: string
   target: string
-}
-
-export type AttemptHistory = {
-  attempts: number
-  medianCost: number
-  medianMinutes: number
-  succeededShare: number
-}
-
-export type WhatIfCheck = {
-  block: string
-  check: string
-  exceptedToday?: boolean
-  reason?: string
-  why?: string
-}
-
-export type WhatIfScore = {
-  checks: number
-  judged: number
-  passed: number
-  failing: number
-  couldNotAssess: number
-  noLongerRequired: number
-  notApplicable: number
-  newFailures: number
-  fixed: number
-  movesBack: number
-  ruleChanges: number
-}
-
-export type WhatIfReasonCount = {
-  reason: string
-  words: string
-  remedy: string
-  count: number
-}
-
-export type WhatIfMove = {
-  rule: string
-  from: number
-  to: number
-  back: boolean
 }
 
 export type workflowStepSummary = {
@@ -4775,12 +4913,12 @@ export type Defaults = {
   image?: string
 }
 
+export type CheckVerdict = "pass" | "fail" | "error" | "cannot-assess" | "skipped" | "excepted" | "unclear" | "not-applicable"
+
 export type Count = {
   apptown: number
   other: number
 }
-
-export type CheckVerdict = "pass" | "fail" | "error" | "cannot-assess" | "skipped" | "excepted" | "unclear" | "not-applicable"
 
 export type CheckAnswer = {
   block: string

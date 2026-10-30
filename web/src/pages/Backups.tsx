@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { post } from '../api'
@@ -22,7 +23,7 @@ const itemName = (i: { kind: string; name: string }) => i.kind === 'volume' ? 'd
 // a known loss is said where the decision is made. Empty when none.
 export function caveatNote(items: { kind: string; name: string; caveat?: string }[]): string {
   const said = items.filter((i) => i.caveat).map((i) => `${itemName(i)}: ${i.caveat}`)
-  return said.length ? ` Not in this set — ${said.join('; ')}.` : ''
+  return said.length ? ` Not in this set · ${said.join('; ')}.` : ''
 }
 
 export function BackupsView() {
@@ -71,7 +72,7 @@ export function BackupsView() {
               <td>{b.deployment}</td>
               <td><KeptOn b={b} /></td>
               <td title={b.takenAt}>{fmtWhen(b.takenAt)}</td>
-              <td><span className={`chip ${b.status === 'ok' ? 'pass' : b.status === 'partial' ? 'pending' : 'fail'}`}>{b.status}</span></td>
+              <td><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || b.status} /></td>
               <td><Contents items={b.items} /></td>
               <td>{fmtBytes(b.bytes)}</td>
               <td>{b.trigger}</td>
@@ -124,7 +125,7 @@ function itemBadge(i: BackupItem): { text: string; tone: string } | null {
   if (i.error) return { text: 'not copied', tone: 'fail' }
   if (i.copy === 'declared') return { text: i.format ? 'database dump' : "service's own copy", tone: 'pass' }
   if (i.copy === 'files') return { text: 'file copy, app stopped', tone: 'pass' }
-  if (i.copy === 'live-files') return { text: 'file copy — may be inconsistent', tone: 'pending' }
+  if (i.copy === 'live-files') return { text: 'file copy · may be inconsistent', tone: 'pending' }
   return null
 }
 

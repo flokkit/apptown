@@ -125,6 +125,7 @@ func readWorkflowSnapshot(ctx context.Context, db database.Queryer, id ids.ID, v
 		return nil, err
 	}
 	for _, step := range steps {
+		step.runEnded = run.Status != RunRunning
 		if carriesCheckEvidence(step.Type) {
 			step.CheckReading = readingOf(step.Evidence)
 		}

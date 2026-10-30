@@ -37,8 +37,8 @@ export function OperationsSummary({ q }: { q: Read<AttentionView> }) {
     <StaleNote q={q} />
     {q.data && <p>
       <Link to="/attention">{state.count} {state.count === 1 ? 'condition needs' : 'conditions need'} attention</Link>.
-      {!state.known && ' Some observations are unavailable or out of date.'}
-      {state.known && state.count === 0 && ' No current conditions in the resources you can read.'}
+      {!state.known && ' Coverage incomplete.'}
+      {state.known && state.count === 0 && ''}
     </p>}
   </section>
 }

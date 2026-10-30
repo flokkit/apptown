@@ -72,10 +72,7 @@ export function ModelSlotsPanel() {
   return (
     <div className="conn-card" style={{ maxWidth: 980 }}>
       <div className="small conn-status">
-        Everything that uses a model names what it needs with a slot. A project declares a
-        profile — how demanding its work is — and each slot reads its column below. An
-        empty cell falls back: first to the <code>standard</code> column, then down the
-        slot's fallback chain.
+        Choose models by slot and project profile. Empty cells use <code>standard</code>, then the slot's fallback chain.
       </div>
       <StaleNote q={slotsQ} />
       {!modelsQ.data && <ReadStatus q={modelsQ} what="the model catalogue" className="small" />}

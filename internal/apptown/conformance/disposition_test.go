@@ -97,3 +97,23 @@ func TestExceptionMatchingOwnsSpecificityAndSnapshotMeaning(t *testing.T) {
 		t.Fatalf("identifier alias/package did not match: %+v", got)
 	}
 }
+
+func TestDispositionDisplayUsesReadTimeIncludingExpiryBoundary(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	for _, kind := range []conformance.DispositionKind{conformance.AcceptedRisk, conformance.FalsePositive} {
+		d := conformance.Disposition{Status: kind, ExpiresAt: stamp.Of(at)}
+		if d.DisplayAt(at.Add(-time.Second)) != conformance.CheckExcepted {
+			t.Fatal("live exception must be excepted")
+		}
+		if d.DisplayAt(at) != conformance.CheckFailed {
+			t.Fatal("expired exception must fail at expiry")
+		}
+		if d.DisplayAt(at.Add(time.Second)) != conformance.CheckFailed {
+			t.Fatal("expired exception must fail")
+		}
+	}
+	if (conformance.Disposition{}).DisplayAt(at) != conformance.CheckUnknown {
+		t.Fatal("invalid exception must be unknown")
+	}
+}

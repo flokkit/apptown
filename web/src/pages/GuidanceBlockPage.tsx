@@ -49,7 +49,7 @@ export default function GuidanceBlockPage() {
         <span className="chip" title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)}</span>
         {block.origin === 'stock'
           ? <span className="chip" title={`Ships with ${PRODUCT}; read-only, updates with each release`}>{PRODUCT}</span>
-          : <span className="chip pass" title="You authored this — editable">yours</span>}
+          : <span className="chip pass" title="You authored this · editable">yours</span>}
       </div>
       <div className="muted small" style={{ marginBottom: 12 }}>
         tags: {block.tags || '—'} · versions:{' '}
@@ -92,7 +92,7 @@ export default function GuidanceBlockPage() {
             <button className="primary" disabled={busy} onClick={() => void save()}>Save as v{block.latestVersion + 1}</button>
             <button onClick={() => { setEditing(false); load() }}>Cancel</button>
           </div>
-          <p className="muted small">Saving makes a new version; projects on v{block.latestVersion} keep it until they update.</p>
+          <p className="muted small">Saving creates a version. Projects update separately.</p>
         </div>
       ) : (
         <div className="card md" dangerouslySetInnerHTML={{ __html: renderMd(block.bodyMd || '_empty block_') }} />
@@ -112,8 +112,8 @@ export default function GuidanceBlockPage() {
                 <span className="chip">{c.evaluator}</span>
                 <span className="muted small">
                   {c.evaluator === 'llm' && (c.scope ?? 'diff') === 'diff'
-                    ? 'judged at landing only, on the change\'s diff — advisory, never blocks'
-                    : c.evaluator === 'llm' ? 'judged at landing and in every review — advisory, never blocks'
+                    ? 'judged at landing only, on the change\'s diff · advisory, never blocks'
+                    : c.evaluator === 'llm' ? 'judged at landing and in every review · advisory, never blocks'
                     : 'judged at landing and in every review'}
                 </span>
               </div>

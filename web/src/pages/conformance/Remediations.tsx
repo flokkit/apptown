@@ -1,10 +1,11 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { Link } from 'react-router-dom'
 import { put } from '../../api'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { Occupancy, RemediationList } from '../../wire.gen'
 import { fmtWhen } from '../../format'
-import { ITEM, JOB, ITEM_COLOR } from './parts'
+import { ITEM, ITEM_COLOR } from './parts'
 
 // --- Remediations ----------------------------------------------------------------------------------
 
@@ -62,7 +63,7 @@ export function RemediationsList() {
     <div>
       <StaleNote q={q} />
       <OccupancyCard occ={data.occupancy} />
-      {data.remediations.length === 0 && <div className="muted" style={{ padding: '30px 0', textAlign: 'center' }}>No remediations yet. Start one from a check ("Fix everywhere"), a project ("Fix all on this project"), or the header ("Fix all findings").</div>}
+      {data.remediations.length === 0 && <div className="muted" style={{ padding: '30px 0', textAlign: 'center' }}>No remediations. Choose a check, project or Fix all findings.</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         {data.remediations.map((m) => (
           <Link key={m.id} to={`/conformance/remediations/${m.id}`} className={`card${m.status === 'running' ? ' tone-busy' : m.status === 'completed_with_stuck' ? ' tone-bad' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
@@ -70,7 +71,7 @@ export function RemediationsList() {
               <div style={{ minWidth: 0 }}>
                 <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
                   <strong>#{m.number}</strong>
-                  <span className={`chip ${JOB[m.status]?.tone ?? ''}`}>{JOB[m.status]?.label ?? m.status}</span>
+                  <Status word={m.statusLabel} tone={STATUS_LIGHT[m.statusLabel]} help={m.status.replaceAll('_', ' ')} />
                   <span className="small">{m.sentence}</span>
                 </div>
                 <div className="muted small" style={{ marginTop: 2 }}>{m.actor} · {fmtWhen(m.createdAt)} · {m.mode}{m.cost ? ` · $${m.cost.toFixed(3)}` : ''}</div>

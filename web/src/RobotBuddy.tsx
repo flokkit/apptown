@@ -20,7 +20,7 @@ export default function RobotBuddy({ busy, connected }: { busy: boolean; connect
 
   if (min) {
     return (
-      <button className={`robot-buddy robot-min robot-${mode}`} title={caption} aria-label={`robot helper: ${caption} — show it`}
+      <button className={`robot-buddy robot-min robot-${mode}`} title={caption} aria-label={`robot helper: ${caption} · show it`}
         onClick={() => { setMin(false); localStorage.setItem('robot-min', '0') }}>
         <RobotFace mode={mode} small />
       </button>

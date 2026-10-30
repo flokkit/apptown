@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { renderMd } from '../md'
@@ -37,7 +38,7 @@ export default function AdrPage() {
   useEffect(() => {
     if (!adr) return
     setProjectScope(adr.projectSlug ?? null)
-    setPageContext({ crumbs: [{ label: `Decision ${String(adr.number).padStart(3, '0')} · ${adr.title}` }], chip: { text: adr.status, cls: adr.status } })
+    setPageContext({ crumbs: [{ label: `Decision ${String(adr.number).padStart(3, '0')} · ${adr.title}` }], chip: { text: adr.statusLabel, cls: STATUS_LIGHT[adr.statusLabel] } })
   }, [adr])
   // The editor starts only from an answer this page read itself (a held one
   // may be old), and follows each newer reading until someone edits. A save
@@ -85,7 +86,7 @@ export default function AdrPage() {
       </div>
       <div className="row">
         <h1 style={{ marginBottom: 0 }}>ADR-{String(adr.number).padStart(3, '0')} — {adr.title}</h1>
-        <span className={`chip ${adr.status}`}>{adr.status}</span>
+        <Status word={adr.statusLabel} tone={STATUS_LIGHT[adr.statusLabel]} help={`Decision: ${adr.status}.`} />
       </div>
       <div className="muted small" style={{ marginBottom: 12 }}>
         tags: {adr.tags || '—'} · updated {adr.updatedAt.slice(0, 10)}

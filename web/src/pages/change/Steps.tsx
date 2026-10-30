@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Run, Step, currentUser, post } from '../../api'
@@ -37,9 +38,7 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
   return (
     <div id={`step-${step.id}`} className="card step-card" style={quiet && !more ? { padding: '8px 12px' } : undefined}>
       <div className="row step-head">
-        <span className={`chip ${overridden ? 'overridden' : step.status}`}>
-          {overridden ? 'overridden' : step.status}
-        </span>
+        <Status word={step.statusLabel} tone={STATUS_LIGHT[step.statusLabel]} />
         <strong>{step.name}</strong>
         <span className="muted small">{step.type}{took && ` · ${took}`}{tests?.plain && ` · ${tests.note}`}</span>
         {tests && !tests.plain && <span className="chip stale small">{tests.note}</span>}
@@ -63,7 +62,7 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
       </div>
 
       {overridden && (
-        <div className="muted small">overridden by {step.overrideBy}: “{step.overrideReason}”</div>
+        <div className="muted small">Exception by {step.overrideBy}: “{step.overrideReason}”</div>
       )}
 
       {showBody && <>
@@ -106,7 +105,7 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
       ))}
       {step.type === 'approval' && step.evidence.decisions && ((step.evidence.quorum ?? 0) > 1 || step.evidence.decisions.length > 1) && (
         <div className="muted small">
-          {step.status === 'pending' && <>{step.evidence.approvals ?? 0} of {step.evidence.quorum} OKs so far — </>}
+          {step.status === 'pending' && <>{step.evidence.approvals ?? 0} of {step.evidence.quorum} OKs so far · </>}
           {step.evidence.decisions.map((d) => `${voterWords(d.approver, d.via)} ${d.decision === 'approve' ? '✓' : '✗'}`).join(', ')}
         </div>
       )}
@@ -208,11 +207,11 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
       {step.type === 'guidance/conformance' && step.checkReading && (
         <div style={{ marginTop: 6 }}>
           {step.checkReading.unreadable && (
-            <div className="row"><span className="chip fail">evidence unreadable</span> <span className="muted small">{step.checkReading.unreadable}</span></div>
+            <div className="row"><Status word="unknown" tone={STATUS_LIGHT.unknown} /> <span className="muted small">{step.checkReading.unreadable}</span></div>
           )}
           {(step.checkReading.checks ?? []).map((c, i) => (
             <div key={i} className="row" style={{ marginTop: 2 }}>
-              <span className={`chip ${c.verdict === 'pass' ? 'pass' : c.verdict === 'fail' && !c.preexisting && !c.undecided ? 'fail' : ''}`}>{c.verdict === 'not-applicable' ? 'not applicable' : c.verdict}</span>
+              <Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} />
               {c.undecided && <span className="chip pending" title="Not known whether this change introduced it; it does not block">undecided</span>}
               {c.preexisting && <span className="chip" title="Main already fails this check; it does not block">already on main</span>}
               <span className="small">{c.check}</span>
@@ -283,7 +282,7 @@ export function ChildRunSteps({ childId, childNumber, workflow, live, onChange }
         const reason = s.evidence?.reason
         return (
           <div key={s.id} className="row" style={{ marginTop: 4 }}>
-            <span className={`chip ${s.overrideBy ? 'overridden' : s.status}`}>{s.overrideBy ? 'overridden' : s.status}</span>
+            <Status word={s.statusLabel} tone={STATUS_LIGHT[s.statusLabel]} />
             <span className="small">{s.name}</span>
             <span className="muted small">{s.type}</span>
             {url != null && <a href={url} target="_blank" rel="noreferrer" className="small">{url}</a>}

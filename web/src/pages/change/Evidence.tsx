@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -34,8 +35,8 @@ export function verificationSummary(steps: Step[]): string {
 
 export type Receipt = {
   key: string
+  statusLabel: Step['statusLabel']
   result: string   // the stamp's words
-  cls: string      // the stamp's chip class
   title: string
   name?: string    // the step's own name, when it says more than the title
   sentence: string
@@ -70,26 +71,26 @@ export function testsNote(ev: TestsEvidence): { note: string; plain: boolean } {
 // unmetRules: the ways-of-working rules a conformance check found not met.
 const unmetRules = (s: Step) => s.type === 'guidance/conformance' ? (s.checkReading?.checks ?? []).filter((c) => c.verdict === 'fail').map((c) => c.check) : []
 
-function result(s: Step, live: boolean): { result: string; cls: string } {
-  if (s.overrideBy) return { result: 'overridden', cls: 'overridden' }
+function result(s: Step, live: boolean): { result: string } {
+  if (s.overrideBy) return { result: 'overridden' }
   // A conformance check can pass while some rules are not met (they do not
   // block); it never reads as a plain pass beside "not met".
-  if (s.status === 'pass' && unmetRules(s).length) return { result: 'passed with notes', cls: 'pass' }
-  if (s.type === 'tests' && s.status === 'pass' && !testsNote(s.evidence).plain) return { result: 'passed with notes', cls: 'pass' }
+  if (s.status === 'pass' && unmetRules(s).length) return { result: 'passed with notes' }
+  if (s.type === 'tests' && s.status === 'pass' && !testsNote(s.evidence).plain) return { result: 'passed with notes' }
   // Evidence the server could not read is unknown: never a plain pass.
-  if (s.status === 'pass' && s.checkReading?.unreadable) return { result: 'evidence unreadable', cls: 'stale' }
+  if (s.status === 'pass' && s.checkReading?.unreadable) return { result: 'evidence unreadable' }
   // A run that ended leaves its unfinished steps unfinished, not waiting.
-  if (!live && s.status === 'pending') return { result: s.type === 'approval' ? 'never decided' : 'never ran', cls: '' }
-  if (!live && s.status === 'running') return { result: 'stopped', cls: '' }
+  if (!live && s.status === 'pending') return { result: s.type === 'approval' ? 'never decided' : 'never ran' }
+  if (!live && s.status === 'running') return { result: 'stopped' }
   switch (s.status) {
-    case 'pass': return { result: s.type === 'approval' ? 'approved' : s.type === 'agent/pi' ? 'done' : 'passed', cls: 'pass' }
-    case 'fail': return { result: s.type === 'approval' ? 'rejected' : 'failed', cls: 'fail' }
-    case 'error': return { result: 'error', cls: 'fail' }
-    case 'needs_human': return { result: 'needs a person', cls: 'pending' }
-    case 'running': return { result: 'running', cls: 'running' }
-    case 'skipped': return { result: 'skipped', cls: 'skipped' }
-    case 'not_applicable': return { result: 'not applicable', cls: 'skipped' }
-    default: return s.type === 'approval' ? { result: 'waiting', cls: 'pending' } : { result: 'not run yet', cls: '' }
+    case 'pass': return { result: s.type === 'approval' ? 'approved' : s.type === 'agent/pi' ? 'done' : 'passed' }
+    case 'fail': return { result: s.type === 'approval' ? 'rejected' : 'failed' }
+    case 'error': return { result: 'error' }
+    case 'needs_human': return { result: 'needs a person' }
+    case 'running': return { result: 'running' }
+    case 'skipped': return { result: 'skipped' }
+    case 'not_applicable': return { result: 'not applicable' }
+    default: return s.type === 'approval' ? { result: 'waiting' } : { result: 'not run yet' }
   }
 }
 
@@ -211,7 +212,7 @@ export function receiptOf(s: Step, live = true): Receipt {
   const title = TITLE[s.type] ?? s.type
   const name = s.name && s.name.toLowerCase() !== title.toLowerCase() ? s.name : undefined
   return {
-    key: `step-${s.id}`, ...r, title, name, sentence: sentence(s, live), by: by(s),
+    key: `step-${s.id}`, statusLabel: s.statusLabel, ...r, title, name, sentence: sentence(s, live), by: by(s),
     when: fmtStamp(s.finishedAt || s.startedAt), stepId: s.id ?? undefined,
   }
 }
@@ -257,13 +258,13 @@ export function Evidence({ view, runs, workTab, extraErr }: {
           const receipts = steps.map((s) => receiptOf(s, live))
           // A finished run whose every receipt is a pass reads as one line
           // until asked; anything else shows every receipt.
-          const clean = !live && receipts.length > 0 && receipts.every((r) => r.cls === 'pass' && r.result !== 'passed with notes')
+          const clean = !live && receipts.length > 0 && receipts.every((r) => r.statusLabel === 'passed' && r.result !== 'passed with notes')
           return (
             <div key={run.id} className="ch-ledger-group">
               <div className="ch-ledger-head">
                 <strong>{role === 'landing' ? 'Landing' : role === 'working' || role === 'record' ? 'Work' : 'Run'}</strong>
                 <span>{run.workflowName} v{run.workflowVersion} · run {run.number}</span>
-                {run.status !== 'running' && <span className={`chip ${run.status === 'done' ? 'pass' : ''}`}>{run.status === 'done' ? 'finished' : run.status}</span>}
+                {run.status !== 'running' && <Status word={run.statusLabel} tone={STATUS_LIGHT[run.statusLabel]} />}
                 {commit && <span>· checked commit <code>{commit}</code></span>}
               </div>
               {steps.length === 0 && <div className="ch-line"><span className="muted">No steps recorded.</span></div>}
@@ -273,19 +274,19 @@ export function Evidence({ view, runs, workTab, extraErr }: {
             </div>
           )
         })}
-        {extraErr && <div className="ch-line"><span className="chip stale">not read</span><span className="ch-line-what">The work this landing carries could not be read: {extraErr}</span></div>}
+        {extraErr && <div className="ch-line"><Status word="unknown" tone={STATUS_LIGHT.unknown} /><span className="ch-line-what">The work this landing carries could not be read: {extraErr}</span></div>}
         {proof && (
           <div className="ch-ledger-group">
             <div className="ch-ledger-head"><strong>Delivery</strong></div>
             {(proof.merged || proof.releases.length > 0) && <div className="ch-line">
-              <span className={`chip ${proof.merged ? 'pass' : ''}`}>{proof.merged ? 'merged' : 'not merged'}</span>
+              <Status word={proof.mergeLabel} tone={STATUS_LIGHT[proof.mergeLabel]} />
               <span className="ch-line-what"><span className="ch-line-title">Merge</span>
                 <span className="ch-line-sentence">{proof.merged ? 'The merge into main is recorded.' : 'No merge is recorded for this change.'}</span></span>
               <span className="ch-line-by" /><span className="ch-line-when" /><span />
             </div>}
             {proof.releases.map(r => (
               <div className="ch-line" key={r.number}>
-                <span className={`chip ${r.state}`}>{r.state}</span>
+                <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} />
                 <span className="ch-line-what"><span className="ch-line-title">Release #{r.number}</span>
                   <span className="ch-line-sentence">to {r.deployment}{r.serving ? '' : r.observed ? ` · ${observedWords(r.observed)}` : ''}{!r.serving && r.reason ? ` (${r.reason})` : ''}</span></span>
                 <span className="ch-line-by">{r.serving && <span className="chip pass">running now</span>}</span>
@@ -334,7 +335,7 @@ const observedWords = (o: string) => o === 'stopped' ? 'stopped' : o === 'missin
 function Line({ r, to }: { r: Receipt; to: string }) {
   return (
     <div className="ch-line" id={r.key}>
-      <span className={`chip ${r.cls}`}>{r.result}</span>
+      <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.result} />
       <span className="ch-line-what">
         <span className="ch-line-title">{r.title}{r.name && <span className="ch-line-name"> · {r.name}</span>}</span>
         {r.sentence && <span className="ch-line-sentence">{r.sentence}</span>}

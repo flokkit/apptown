@@ -45,7 +45,6 @@ describe('receipts', () => {
   const approval = { id: '00000000-0001-7000-8000-000000000000', type: 'approval', name: 'accept', status: 'pending', config: { approvers: ['bls'] }, evidence: {}, overrideBy: '' } as unknown as Step
   expect(receiptOf(approval, true).result).toBe('waiting')
   expect(receiptOf(approval, false).result).toBe('never decided')
-  expect(receiptOf(approval, false).cls).not.toBe('pending')
  })
  it('says who approved and in their words', () => {
   const s = { id: '00000000-0002-7000-8000-000000000000', type: 'approval', name: 'accept', status: 'pass', config: {}, evidence: { approver: 'bls', decision: 'approve', comment: 'fine', decisions: [{ approver: 'bls', decision: 'approve' }] }, overrideBy: '' } as unknown as Step
@@ -167,7 +166,7 @@ describe('a finished run with unreadable check evidence', () => {
 // opened (soak finding 23).
 describe('a finished run with a tests receipt', () => {
  const run = { id: '00000000-0002-7000-8000-000000000000', number: 2, status: 'done', workflowName: 'land', workflowVersion: 1 } as Run
- const tests = (evidence: object) => ({ id: '00000000-0008-7000-8000-000000000000', runId: run.id, stage: 'check', name: 'tests', type: 'tests', status: 'pass', attempt: 1, config: {}, overrideBy: '',
+ const tests = (evidence: object) => ({ id: '00000000-0008-7000-8000-000000000000', runId: run.id, stage: 'check', name: 'tests', type: 'tests', status: 'pass', statusLabel: 'passed', attempt: 1, config: {}, overrideBy: '',
   evidence: { command: 'go test -json ./... > "$APPTOWN_TEST_REPORT"', ...evidence } }) as unknown as Step
  const rendered = (s: Step) => renderToStaticMarkup(<MemoryRouter><Evidence view={{ detail: { steps: [s] }, projectSlug: 'p' } as unknown as ChangeView} runs={[{ run, steps: [s] }]} workTab={() => '#'} /></MemoryRouter>)
  it('folds when the report counted no skips', () => {
@@ -209,4 +208,9 @@ describe('an approval cast through a token', () => {
   expect(receiptOf(approval('session')).sentence).toBe('Approved by bls: “delegated”')
   expect(receiptOf(approval('session')).by).toBe('bls')
  })
+})
+
+it('retains the owner label when a raw passing step has unread evidence', () => {
+ const s = { type: 'tests', status: 'pass', statusLabel: 'unknown', overrideBy: '', evidence: {}, checkReading: { unreadable: 'missing report' } } as unknown as Step
+ expect(receiptOf(s).statusLabel).toBe('unknown')
 })

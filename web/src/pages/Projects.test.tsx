@@ -84,6 +84,6 @@ it('stamps only the projects that have a deployment', async () => {
   expect(card('plain').querySelector('.chip')).toBeNull()
   expect(card('plain').textContent).not.toContain('deployed')
   const stamp = card('boat').querySelector('.chip.unknown')
-  expect(stamp?.textContent).toBe('not checked yet')
-  expect(stamp?.getAttribute('title')).toMatch(/status unknown/)
+  expect(stamp?.textContent).toBe('● unknown')
+  expect(stamp?.getAttribute('title')).toBe('Not checked yet.')
 })

@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { Fragment, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { openAfter, post } from '../../api'
@@ -45,7 +46,7 @@ function ReleasePage({ slug }: { slug: string }) {
       <div className="card" style={{ padding: 20, marginTop: 14 }}>
         <h2 style={{ marginTop: 0 }}>Release to {plan.deploymentLabel || plan.deployment || 'an environment'}</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          Release the selected software to this environment. Its release checks apply before it starts.
+          Release checks run before deployment.
         </p>
         {plan?.url && (
           <div style={{ margin: '14px 0' }}>
@@ -124,16 +125,15 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
         <div className="row">
           <h2 style={{ margin: 0 }}>Release #{r.number}</h2>
           {r.deployment && <span className="chip">{r.deployment}</span>}
-          {r.state === 'releasing' && <span className="chip running">releasing</span>}
-          {r.state === 'failed' && <span className="chip fail">failed</span>}
+          <Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} />
           {data.isLive && <span className="chip pass">current release</span>}
-          {r.origin === 'observed-after-restore' && <span className="chip overridden" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>observed after restore</span>}
+          {r.origin === 'observed-after-restore' && <span className="chip overridden" title={`found running after ${PRODUCT} was restored; ${PRODUCT} did not ship it`}>found after restore</span>}
         </div>
         <div style={{ margin: '10px 0' }}>
           {r.state === 'releasing'
-            ? <>Being released right now{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}. The log is below.</>
+            ? <>Deploying{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>
             : r.state === 'failed'
-              ? <>This release attempt{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null} failed. The log below shows where it stopped; the running app was not changed.</>
+              ? <>This release attempt{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null} failed. See the log for the failed step.</>
               : <>Released {new Date(when).toLocaleString()}{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>}
           {r.deployment && r.state !== 'releasing' && (r.state === 'failed' || data.isLive) && (
             <> <Link to={`/projects/${slug}/settings/deployments#diagnostics-${r.deployment}`}>Diagnostics of {r.deployment}</Link></>

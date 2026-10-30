@@ -59,7 +59,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 	for _, e := range summaries {
 		v := DeploymentView{ID: e.ID, TargetID: e.TargetID, DisplayLabel: e.DisplayLabel, Name: e.Name, Kind: e.Kind.String(), URL: e.URL, HostOnly: e.HostOnly, ReleaseRun: e.ReleaseRun, UpdatedAt: e.UpdatedAt, Static: isStatic,
 			Feed: e.Feed, Audience: e.Audience, Data: e.DataClass, Protected: e.Protected, Generation: e.Generation,
-			Readiness: e.Readiness.String(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.State.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
+			Readiness: e.Readiness.String(), ReadinessLabel: e.Readiness.Display(), RestoreLabel: e.RestoreCheck.Display(), ChangeID: e.ChangeID, AIModels: e.AIModelsKeys, Running: e.Observation.State.Running(), RuntimeObservationView: runtimeObservationView(e.Observation)}
 		if e.Observation.Err != nil {
 			v.ObservationIssue = "Runtime status is unavailable"
 		}
@@ -68,7 +68,7 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 			v.DataAfterRestore = &f
 		}
 		for _, n := range e.Needs {
-			v.Needs = append(v.Needs, DeploymentNeedView{Need: n.Need, Name: n.Name, ID: n.ID, Region: n.Region, Size: n.Size, Version: n.Version, Status: n.Status.String()})
+			v.Needs = append(v.Needs, DeploymentNeedView{Need: n.Need, Name: n.Name, ID: n.ID, Region: n.Region, Size: n.Size, Version: n.Version, Status: n.Status.String(), StatusLabel: n.Status.Display()})
 		}
 		if t := e.Target; t != nil {
 			k := deployment.DescribeTarget(&deployment.Target{Kind: t.Kind, Origin: t.Origin})
@@ -82,18 +82,20 @@ func (h DeploymentListing) Deployments(w http.ResponseWriter, r *http.Request) {
 // DeploymentView is one row of GET /projects/{slug}/deployments: a
 // deployment as the project's pages show it.
 type DeploymentView struct {
-	TargetID     ids.ID                `json:"targetId"`
-	ID           ids.ID                `json:"id"`
-	DisplayLabel string                `json:"displayLabel"`
-	Name         string                `json:"name"`
-	Kind         string                `json:"kind"`
-	URL          string                `json:"url"`
-	HostOnly     bool                  `json:"hostOnly,omitempty"` // URL answers on the AppTown host only
-	Running      *bool                 `json:"running"`
-	ReleaseRun   ids.ID                `json:"releaseRun"`
-	UpdatedAt    string                `json:"updatedAt"`
-	Static       bool                  `json:"static,omitempty"`
-	Target       *DeploymentTargetView `json:"target,omitempty"`
+	ReadinessLabel deployment.ProgressLabel `json:"readinessLabel"`
+	RestoreLabel   deployment.ProgressLabel `json:"restoreLabel"`
+	TargetID       ids.ID                   `json:"targetId"`
+	ID             ids.ID                   `json:"id"`
+	DisplayLabel   string                   `json:"displayLabel"`
+	Name           string                   `json:"name"`
+	Kind           string                   `json:"kind"`
+	URL            string                   `json:"url"`
+	HostOnly       bool                     `json:"hostOnly,omitempty"` // URL answers on the AppTown host only
+	Running        *bool                    `json:"running"`
+	ReleaseRun     ids.ID                   `json:"releaseRun"`
+	UpdatedAt      string                   `json:"updatedAt"`
+	Static         bool                     `json:"static,omitempty"`
+	Target         *DeploymentTargetView    `json:"target,omitempty"`
 	RuntimeObservationView
 	Feed       string               `json:"feed,omitempty"`
 	Audience   string               `json:"audience,omitempty"`
@@ -118,13 +120,14 @@ type DeploymentView struct {
 
 // DeploymentNeedView is a managed service fulfilled for a deployment.
 type DeploymentNeedView struct {
-	Need    string `json:"need"`
-	Name    string `json:"name"`
-	ID      string `json:"id,omitempty"`
-	Region  string `json:"region,omitempty"`
-	Size    string `json:"size,omitempty"`
-	Version string `json:"version,omitempty"`
-	Status  string `json:"status"`
+	StatusLabel deployment.ProgressLabel `json:"statusLabel"`
+	Need        string                   `json:"need"`
+	Name        string                   `json:"name"`
+	ID          string                   `json:"id,omitempty"`
+	Region      string                   `json:"region,omitempty"`
+	Size        string                   `json:"size,omitempty"`
+	Version     string                   `json:"version,omitempty"`
+	Status      string                   `json:"status"`
 }
 
 // DeploymentTargetView is the deployment target a deployment runs on.

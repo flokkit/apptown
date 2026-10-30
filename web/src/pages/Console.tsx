@@ -135,7 +135,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
       {session?.cliMissing && (
         <div className="error">
           This helper is missing its {PRODUCT} tools (a build problem on the
-          server) — it can chat and edit, but can't preview, start work, or
+          server) · it can chat and edit, but can't preview, start work, or
           file complaints. The server log says why.
         </div>
       )}
@@ -212,13 +212,9 @@ function ChatIntro({ changeName, slug, onDismiss }: { changeName?: string; slug:
     <div className="card row tone-accent" style={{ marginBottom: 8 }}>
       <span className="small" style={{ flex: 1, lineHeight: 1.5 }}>
         {changeName ? (
-          <>This chat works on <strong>{changeName}</strong>. Say what you want changed. The helper
-          reads and edits this change's copy of the app, and its work is saved on the change. When the
-          change is ready, {PRODUCT} checks it and asks for approval before it lands on main.</>
+          <>Say what to change. Checks and an approval come before it lands.</>
         ) : (
-          <>This is the project chat for <strong>{slug}</strong>. Ask how something works, get help
-          setting the project up, or start work. Nothing is built here: when you want something made,
-          the helper opens a change and gives you the link.</>
+          <>Ask about <strong>{slug}</strong> or describe what to build. The helper opens a change for the work.</>
         )}
       </span>
       <button className="subtle" onClick={onDismiss}>Dismiss</button>

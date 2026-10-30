@@ -20,6 +20,7 @@ import (
 	piharness "github.com/flokkit/apptown/internal/apptown/agentharness/pi"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/operations"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -414,15 +415,7 @@ func TestAMainOnAnAttachedHostIsObservedAndProbedThere(t *testing.T) {
 				t.Fatal(err)
 			}
 			w := authzCall(a.Handler(), "boss", "GET", "/api/v1/tiers", "")
-			var tiers struct {
-				Tiers []struct {
-					Name string
-					Apps []struct {
-						Slug, Observed string
-						Running        bool
-					}
-				}
-			}
+			var tiers httpapi.TierMap
 			if err := json.Unmarshal(w.Body.Bytes(), &tiers); err != nil || w.Code != 200 {
 				t.Fatalf("tiers: %d %s", w.Code, w.Body.String())
 			}
@@ -430,7 +423,7 @@ func TestAMainOnAnAttachedHostIsObservedAndProbedThere(t *testing.T) {
 			for _, tier := range tiers.Tiers {
 				for _, app := range tier.Apps {
 					if tier.Name == "main" && app.Slug == "game" {
-						running = app.Running && app.Observed == ""
+						running = app.Running && app.Observation == deployment.RuntimeRunning
 					}
 				}
 			}
@@ -501,15 +494,7 @@ func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := authzCall(h, "boss", "GET", "/api/v1/tiers", "")
-	var tiers struct {
-		Tiers []struct {
-			Name, Observed string
-			Apps           []struct {
-				Slug, Observed string
-				Running        bool
-			}
-		}
-	}
+	var tiers httpapi.TierMap
 	if err := json.Unmarshal(w.Body.Bytes(), &tiers); err != nil || w.Code != 200 {
 		t.Fatalf("tiers: %d %s", w.Code, w.Body.String())
 	}
@@ -521,11 +506,11 @@ func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
 		}
 		for _, app := range tier.Apps {
 			if tier.Name == "main" && !app.Running {
-				observed[app.Slug] = app.Observed
+				observed[app.Slug] = app.Observation.String()
 			}
 		}
 	}
-	if observed["game"] != "unavailable" || observed["open"] != "unknown" {
+	if observed["game"] != "unknown" || observed["open"] != "stopped" {
 		t.Fatalf("main tier: %s", w.Body.String())
 	}
 	if w := authzCall(h, "boss", "GET", "/api/v1/tiers/departures", ""); w.Code != 200 || strings.Contains(w.Body.String(), "previewsObserved") {

@@ -11,7 +11,7 @@ import { ReleaseAvailabilityNote, UpdatesPage } from './Updates'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
 const status = {
-  build: 'custom', platform: 'linux/amd64', channel: 'stable', state: 'available',
+  build: 'custom', platform: 'linux/amd64', channel: 'stable', state: 'available', statusLabel: 'available',
   lastAttempt: '2026-10-26T00:01:00Z', lastSuccess: '2026-10-26T00:01:00Z',
   candidate: { version: 'v1.2.0', commit: 'a'.repeat(40), notes: '# Signed notes\n<script>window.pwned=1</script>\n[unsafe](javascript:alert(1))', archive: { name: 'release.tar.gz', sha256: 'b'.repeat(64), size: 42 } },
 }
@@ -23,7 +23,7 @@ describe('authenticated update notifications', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ path: String(url), method: init?.method ?? 'GET' })
       if (String(url).includes('/authz/me')) return new Response(JSON.stringify(holdingsFailure ? { error: 'unavailable' } : { instance: { 'instance:updates': allowed } }), { status: holdingsFailure ? 503 : 200 })
-      return new Response(JSON.stringify({ ...status, state }))
+      return new Response(JSON.stringify({ ...status, state, statusLabel: state === 'stale' ? 'unknown' : state }))
     }))
     const client = newQueryClient()
     const el = document.createElement('div'); const root = createRoot(el)
@@ -62,7 +62,7 @@ describe('authenticated update notifications', () => {
     const view = await mount(true, 'stale')
     try {
       expect(view.el.querySelector('a[href="/updates"]')).toBeNull()
-      expect(view.el.textContent).toContain('Release information is stale')
+      expect(view.el.querySelector('.chip.unknown')?.getAttribute('title')).toContain('Release information expired')
       expect(view.el.textContent).toContain('v1.2.0')
       expect(view.el.textContent).not.toContain('How to update')
       expect(view.calls.every(c => c.method === 'GET')).toBe(true)
@@ -75,7 +75,7 @@ describe('authenticated update notifications', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       methods.push(init?.method ?? 'GET')
       if (String(url).includes('/authz/me')) return new Response(JSON.stringify({ instance: { 'instance:updates': true } }))
-      return new Response(JSON.stringify(phase === 'failed' ? { error: 'retained evidence unreadable' } : { ...status, state: phase }), { status: phase === 'failed' ? 503 : 200 })
+      return new Response(JSON.stringify(phase === 'failed' ? { error: 'retained evidence unreadable' } : { ...status, state: phase, statusLabel: phase === 'checking' ? 'waiting' : phase }), { status: phase === 'failed' ? 503 : 200 })
     }))
     const client = newQueryClient()
     const el = document.createElement('div'); const root = createRoot(el)
@@ -83,7 +83,7 @@ describe('authenticated update notifications', () => {
     try {
       await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ReleaseAvailabilityNote /><UpdatesPage /></MemoryRouter></QueryClientProvider>))
       await advance(1); await advance(1)
-      expect(el.textContent).toContain('Checking authenticated release information')
+      expect(el.querySelector('.chip.pending')?.getAttribute('title')).toContain('Checking release signatures')
       expect(el.querySelector<HTMLButtonElement>('button')!.disabled).toBe(true)
       phase = 'available'
       await advance(5_000); await advance(1)

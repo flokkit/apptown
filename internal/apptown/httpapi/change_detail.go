@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"net/http"
 	"slices"
 	"strings"
@@ -83,7 +84,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, run := range history {
-		rl := ChangeRunSummary{ID: run.ID, Number: run.Number, WorkflowName: run.WorkflowName, Status: run.Status, CurrentStage: run.CurrentStage, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt}
+		rl := ChangeRunSummary{ID: run.ID, Number: run.Number, WorkflowName: run.WorkflowName, Status: run.Status, StatusLabel: run.StatusLabel, CurrentStage: run.CurrentStage, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt}
 		var spec schema.Spec
 		if json.Unmarshal([]byte(run.DefinitionJSON), &spec) == nil {
 			rl.Role = spec.Role
@@ -187,7 +188,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	}
 	WriteJSON(w, 200, ChangeCockpit{Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
-		State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
+		StatusLabel: item.Display(detail), State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
 		Usage: ChangeUsage{Total: usageTotal, CostMicros: usageCost}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil)})
 }
 
@@ -241,6 +242,7 @@ type (
 		CommittedDiff CommittedComparison    `json:"committedDiff"`
 		Report        string                 `json:"report"`
 		Editing       int                    `json:"editing"`
+		StatusLabel   status.DisplayStatus   `json:"statusLabel"`
 		State         workflow.ActivityState `json:"state"`
 		StateDetail   string                 `json:"stateDetail"`
 		Usage         ChangeUsage            `json:"usage"`
@@ -268,14 +270,15 @@ type (
 		AddsError string               `json:"addsError,omitempty"`
 	}
 	ChangeRunSummary struct {
-		ID           ids.ID            `json:"id"`
-		Number       int64             `json:"number"` // within the project
-		WorkflowName string            `json:"workflowName"`
-		Status       workflow.RunState `json:"status"`
-		CurrentStage string            `json:"currentStage"`
-		Role         string            `json:"role,omitempty"`
-		CreatedAt    string            `json:"createdAt"`
-		UpdatedAt    string            `json:"updatedAt"`
+		StatusLabel  status.DisplayStatus `json:"statusLabel"`
+		ID           ids.ID               `json:"id"`
+		Number       int64                `json:"number"` // within the project
+		WorkflowName string               `json:"workflowName"`
+		Status       workflow.RunState    `json:"status"`
+		CurrentStage string               `json:"currentStage"`
+		Role         string               `json:"role,omitempty"`
+		CreatedAt    string               `json:"createdAt"`
+		UpdatedAt    string               `json:"updatedAt"`
 	}
 	ChangeCommit struct {
 		SHA     string `json:"sha"`

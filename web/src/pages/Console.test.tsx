@@ -27,7 +27,7 @@ import type { ChangeView } from '../api'
 const CHANGE = '00000000-0049-7000-8000-000000000000'
 const ON_CHANGE = `?change=${CHANGE}`
 
-const firstPaint = (search: string, view: object = { change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }) => {
+const firstPaint = (search: string, view: object = { statusLabel: 'waiting for you', change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' } }) => {
   window.history.replaceState(null, '', `/projects/p/console${search}`)
   const client = newQueryClient()
   client.setQueryData(getKey(`/changes/${CHANGE}`), view)
@@ -47,15 +47,15 @@ describe('a chat says which kind it is from its first paint', () => {
     const html = firstPaint(ON_CHANGE)
     expect(html).toContain('connecting…')
     expect(html).toContain('Change chat')
-    expect(html).toContain('works on <strong>change 49</strong>')
+    expect(html).toContain('Say what to change.')
     expect(html).not.toContain('Project chat')
-    expect(html).not.toContain('Nothing is built here')
+    expect(html).not.toContain('The helper opens a change for the work.')
     expect(html).not.toContain('questions &amp; setup')
   })
   it('the project chat says nothing is built in it', () => {
     const html = firstPaint('')
     expect(html).toContain('Project chat')
-    expect(html).toContain('Nothing is built here')
+    expect(html).toContain('The helper opens a change for the work.')
     expect(html).not.toContain('Change chat')
   })
   // The intro uses the glossary's names for the two chats, not room names.
@@ -77,7 +77,7 @@ describe('the chat keeps its input when the intro steps aside', () => {
     const el = document.createElement('div')
     el.innerHTML = firstPaint(ON_CHANGE)
     const extra = el.querySelector('.console-extra')!
-    expect(extra.textContent).toContain('This chat works on change 49')
+    expect(extra.textContent).toContain('Say what to change.')
     expect(el.querySelector('.console-head')!.closest('.console-extra')).toBeNull()
   })
 })
@@ -97,8 +97,8 @@ describe('what the chat is about folds to one line on a phone', () => {
     it('a change chat starts folded, its line naming the change and where it stands', () => {
       const about = parse(firstPaint(ON_CHANGE)).querySelector('details.console-about')!
       expect(about.hasAttribute('open')).toBe(false)
-      expect(about.querySelector('summary')!.textContent).toBe('change 49 · nothing changed yet')
-      expect(about.textContent).toContain('This chat works on change 49')
+      expect(about.querySelector('summary')!.textContent).toBe('change 49 · ● waiting for you')
+      expect(about.textContent).toContain('Say what to change.')
     })
     // A worker that cannot be reached qualifies the conversation itself:
     // that line stays in view with the fold closed, for someone who may
@@ -139,10 +139,10 @@ describe('what the chat is about folds to one line on a phone', () => {
       }
     })
     it('the line and the change card say the same words', () => {
-      const view = { change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' }, commits: [{}] }
+      const view = { statusLabel: 'waiting for you', change: { id: CHANGE, number: 49, title: 't', state: 'in_progress' }, commits: [{}] }
       const line = parse(firstPaint(ON_CHANGE, view)).querySelector('details.console-about > summary')!.textContent
-      expect(line).toBe('change 49 · saved, not landed yet')
-      expect(renderToStaticMarkup(<ChangeContext view={view as unknown as ChangeView} />)).toContain('saved, not landed yet')
+      expect(line).toBe('change 49 · ● waiting for you')
+      expect(renderToStaticMarkup(<ChangeContext view={view as unknown as ChangeView} />)).toContain('waiting for you')
     })
   })
   it('on a desk the fold is open', () => {

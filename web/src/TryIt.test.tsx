@@ -28,7 +28,7 @@ describe('the try-it button', () => {
   // or "didn't start", with the reason, and the person may try again.
   it('says when the preview state is not known, and why', async () => {
     const text = await render({ state: 'unavailable', reason: 'the worker could not be asked: connection refused' })
-    expect(text).toContain('preview state not known')
+    expect(text).toContain('unknown')
     expect(text).toContain('connection refused')
     expect(text).toContain('Try again')
     expect(text).not.toContain("didn't start")

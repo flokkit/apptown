@@ -90,7 +90,7 @@ it('says unknown when a schedule or the whole read failed, never none', async ()
   expect(problem.text).toContain('last: unknown')
   expect(problem.text).toContain('could not be read')
   const failed = await rows(new Response(JSON.stringify({ error: 'database down' }), { status: 500 }))
-  expect(failed.text).toContain('could not be read')
+  expect(failed.text).toContain('unknown')
   expect(await rows(list({ evalCopy: false, schedules: [] }))).toEqual({ text: '', html: '' })
   expect((await rows(list({ evalCopy: true, schedules: [] }))).text).toBe('Eval copy: runs no schedules.')
 })
@@ -99,10 +99,10 @@ it('keeps an old none or eval copy marked out of date when its refresh fails', a
   const down = new Response(JSON.stringify({ error: 'database down' }), { status: 422 }) // a 4xx is not retried
   const none = await rows(list({ evalCopy: false, schedules: [] }), down)
   expect(none.text).toContain('Schedules: none.')
-  expect(none.text).toContain('out of date')
+  expect(none.text).toContain('unknown')
   const copy = await rows(list({ evalCopy: true, schedules: [] }), down.clone())
   expect(copy.text).toContain('Eval copy: runs no schedules.')
-  expect(copy.text).toContain('out of date')
+  expect(copy.text).toContain('unknown')
 })
 
 it('says it is reading before the first answer, never nothing', async () => {
@@ -113,7 +113,7 @@ it('says it is reading before the first answer, never nothing', async () => {
   await act(async () => {
     root.render(<QueryClientProvider client={client}><MemoryRouter><ScheduleRows slug="p" /></MemoryRouter></QueryClientProvider>)
   })
-  expect(el.textContent).toBe('Reading the schedules…')
+  expect(el.textContent).toBe('Loading…')
   act(() => root.unmount())
   client.clear()
 })

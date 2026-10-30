@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
@@ -79,7 +80,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId }: { chan
   if (landed || changeState === 'landing') {
     return (
       <div className="workshop-actions">
-        <span className="small">The checks are running — <Link to={`/changes/${changeId}`}>watch them here</Link>. Nothing goes live until it is approved.</span>
+        <span className="small">The checks are running · <Link to={`/changes/${changeId}`}>watch them here</Link>. Nothing goes live until it is approved.</span>
       </div>
     )
   }
@@ -90,7 +91,7 @@ export function WorkshopActions({ changeId, view, robotBusy, sessionId }: { chan
           <TryIt changeId={changeId} className="primary btn-big" />
           <Link className="go-change" to={`/changes/${changeId}`}><button className="btn-big">Go to change</button></Link>
           <button className="finish btn-big" disabled={robotBusy}
-            title={robotBusy ? 'the helper is still working — check and land when it hands back' : `your helper runs ${PRODUCT}'s checks and starts the landing; nothing goes live until it is approved`}
+            title={robotBusy ? 'the helper is still working · check and land when it hands back' : `your helper runs ${PRODUCT}'s checks and starts the landing; nothing goes live until it is approved`}
             onClick={() => setConfirming(true)}>✓ Check and land</button>
         </>
       ) : (
@@ -142,20 +143,13 @@ export function ChangeContext({ view: v }: { view: ChangeView }) {
 // Where the change stands, as one chip: the status card and the chat's
 // folded line (Console.tsx) say it in the same words.
 export function changeChip(v: ChangeView) {
-  const doing = v.state ?? ''
-  return v.change.state === 'shipped' ? <span className="chip pass">{v.change.stateLabel} ✓</span>
-    : doing === 'waiting on you' ? <span className="chip pending">needs you</span>
-    : doing === 'blocked' ? <span className="chip fail">blocked</span>
-    : v.detail?.run?.status === 'running' ? <span className="chip running">in progress</span>
-    : (v.editing ?? 0) > 0 ? <span className="chip running">editing</span>
-    : (v.commits?.length ?? 0) > 0 ? <span className="chip">saved, not landed yet</span>
-    : <span className="chip">nothing changed yet</span>
+  return <Status word={v.statusLabel} tone={STATUS_LIGHT[v.statusLabel]} help={v.stateDetail || undefined} />
 }
 
 // The change state, REFLECTED not explained: every change this conversation
 // has started, live. A person's sentence visibly becomes a change and moves
 // through being built → needs you → shipped.
-export type StartedChange = { changeId: string | null; title: string; state: ChangeState; closedAs?: string; stateLabel: string; doing: Doing | ''; detail: string }
+export type StartedChange = { changeId: string | null; title: string; state: ChangeState; closedAs?: string; stateLabel: string; statusLabel: import('../../wire.gen').DisplayStatus; doing: Doing | ''; detail: string }
 
 export function StartedChanges({ sessionId }: { sessionId: string }) {
   const q = useGet<{ changes: StartedChange[] }>(`/console/${sessionId}/changes`, { poll: 4000 })
@@ -164,14 +158,7 @@ export function StartedChanges({ sessionId }: { sessionId: string }) {
   if (!q.data) return q.err ? <ReadStatus q={q} what="the changes this chat started" className="small" /> : null
   const changes = q.data.changes
   if (changes.length === 0) return <StaleNote q={q} />
-  const chip = (c: StartedChange) => {
-    if (c.state === 'shipped') return <span className="chip pass">{c.stateLabel} ✓</span>
-    if (c.state === 'abandoned') return <span className="chip">{c.stateLabel}</span>
-    if (c.doing === 'waiting on you') return <span className="chip pending">needs you</span>
-    if (c.doing === 'blocked') return <span className="chip fail">blocked</span>
-    if (c.state === 'landing') return <span className="chip pending">landing</span>
-    return <span className="chip running">in progress</span>
-  }
+  const chip = (c: StartedChange) => <Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} help={c.detail || undefined} />
   return (
     <div style={{ marginBottom: 8 }}>
       <StaleNote q={q} />

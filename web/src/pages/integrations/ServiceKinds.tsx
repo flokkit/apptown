@@ -1,4 +1,3 @@
-import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { del, post } from '../../api'
 import { QuietConfirm } from '../../QuietConfirm'
@@ -52,9 +51,7 @@ export function ServiceKindsPanel() {
   return (
     <div style={{ maxWidth: 720 }}>
       <div className="muted small" style={{ marginBottom: 12 }}>
-        A service kind teaches {PRODUCT} a new organisational service in YAML: the fields an admin
-        connector carries, the fields a project enters, the env injected into app containers,
-        and the steering agents read. Projects attach them on their Settings › Services tab.
+        Define service settings and agent guidance in YAML. Projects attach services under Settings › Services.
       </div>
       <ReadStatus q={kindsQ} what="the service kinds" />
       <StaleNote q={kindsQ} />

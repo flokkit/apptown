@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"math"
 	"time"
 
@@ -35,21 +36,22 @@ type RunQuery struct {
 	Limit       int // zero is uncapped, used by the project overview
 }
 type RunSummary struct {
-	ID              ids.ID        `json:"id"`
-	Number          int64         `json:"number"` // within its project
-	Status          RunState      `json:"status"`
-	CurrentStage    string        `json:"currentStage"`
-	WorkflowName    string        `json:"workflowName"`
-	WorkflowVersion int           `json:"workflowVersion"`
-	Kind            string        `json:"kind"`
-	ChangeID        ids.ID        `json:"changeId"`
-	ChangeNumber    int64         `json:"changeNumber"` // 0 when the run has no change
-	ItemTitle       string        `json:"itemTitle"`
-	ProjectSlug     string        `json:"projectSlug"`
-	State           ActivityState `json:"state,omitempty"`
-	StateDetail     string        `json:"stateDetail,omitempty"`
-	CreatedAt       string        `json:"createdAt"`
-	UpdatedAt       string        `json:"updatedAt"`
+	StatusLabel     status.DisplayStatus `json:"statusLabel"`
+	ID              ids.ID               `json:"id"`
+	Number          int64                `json:"number"` // within its project
+	Status          RunState             `json:"status"`
+	CurrentStage    string               `json:"currentStage"`
+	WorkflowName    string               `json:"workflowName"`
+	WorkflowVersion int                  `json:"workflowVersion"`
+	Kind            string               `json:"kind"`
+	ChangeID        ids.ID               `json:"changeId"`
+	ChangeNumber    int64                `json:"changeNumber"` // 0 when the run has no change
+	ItemTitle       string               `json:"itemTitle"`
+	ProjectSlug     string               `json:"projectSlug"`
+	State           ActivityState        `json:"state,omitempty"`
+	StateDetail     string               `json:"stateDetail,omitempty"`
+	CreatedAt       string               `json:"createdAt"`
+	UpdatedAt       string               `json:"updatedAt"`
 }
 
 func (q queries) list(ctx context.Context, query RunQuery) ([]RunSummary, error) {
@@ -102,7 +104,7 @@ func readWorkflowSummaries(ctx context.Context, db database.Queryer, query RunQu
 		if err != nil {
 			return nil, err
 		}
-		rows = append(rows, RunSummary{ID: row.ID, Number: row.Number, Status: state, CurrentStage: row.CurrentStage, WorkflowName: row.WorkflowName, WorkflowVersion: int(row.WorkflowVersion), Kind: row.Kind, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, ItemTitle: row.ItemTitle, ProjectSlug: row.ProjectSlug, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), UpdatedAt: row.UpdatedAt.Format(time.RFC3339Nano)})
+		rows = append(rows, RunSummary{StatusLabel: state.Display(), ID: row.ID, Number: row.Number, Status: state, CurrentStage: row.CurrentStage, WorkflowName: row.WorkflowName, WorkflowVersion: int(row.WorkflowVersion), Kind: row.Kind, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, ItemTitle: row.ItemTitle, ProjectSlug: row.ProjectSlug, CreatedAt: row.CreatedAt.Format(time.RFC3339Nano), UpdatedAt: row.UpdatedAt.Format(time.RFC3339Nano)})
 	}
 	idList := make([]ids.ID, 0, len(rows))
 	for _, row := range rows {

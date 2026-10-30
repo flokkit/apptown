@@ -1493,3 +1493,14 @@ application check. Rate limits and sweep delays may leave health unknown or stal
 Display inventory never starts this sample and ACTIVE alone is not health.
 The existing maintained-readiness cache admits only fresh matching generation
 and artifact evidence; historical release success cannot substitute for it.
+
+Runtime display separates `running`, `stopped`, `unknown` and `unreachable`.
+The deployment owner classifies reachability from typed provider connection
+errors, never error wording. Rejections, missing targets, replacement and
+mismatched generations are unknown. Expired evidence is unknown too. HTTP
+adapters classify network errors; Docker classifies a command timeout only
+while its parent context is live. An expired sweep or parent cancellation is
+unknown. Unclassified CLI failures remain unknown. A reachability failure keeps
+its first attempted time across subsequent unsuccessful reads, including unknown
+responses, until a successful sample or a placement identity change. The checked readers expose that time and the target display name;
+the web renders those facts without contacting the provider.

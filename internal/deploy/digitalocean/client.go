@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy"
 	"io"
 	"net/http"
 	"net/url"
@@ -95,7 +96,10 @@ func (c *Client) Call(ctx context.Context, method, path string, body any, out an
 	req.Header.Set("Content-Type", "application/json")
 	res, err := c.HTTP.Do(req)
 	if err != nil {
-		return err
+		if ctx.Err() != nil {
+			return err
+		}
+		return deploy.ConnectionError(err)
 	}
 	defer res.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(res.Body, 4<<20))

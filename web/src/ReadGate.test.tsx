@@ -28,6 +28,7 @@ type Row = {
   hides?: string[]
   // The .error element's text, or null when there must be none.
   error?: string | null
+  failure?: string
   // The out-of-date mark's text, and what its accessible name must say.
   mark?: string
   label?: string[]
@@ -38,15 +39,15 @@ const rows: Row[] = [
     first: () => reply(200, ['ada', 'grace']), refresh: () => reply(502, { error: 'AppTown is restarting' }),
     shows: ['grace'],
     // A compact mark with the time of the last good read, not a sentence.
-    mark: '⚠ out of date · last read 09:41',
+    mark: '● unknown',
     // The reason rides in the mark's accessible name, quoted as AppTown
     // gave it, not with the read's note about the answer shown.
     label: ['(AppTown is restarting)', '11 Oct, 09:41'],
-    hides: ['showing the last answer read', 'AppTown is restarting'],
+    hides: ['showing the last answer read'],
     error: null },
   { name: 'shows a failed first read as an error, never as an empty answer',
-    first: () => reply(404, { error: 'no such list' }), error: 'The names could not be read: no such list', hides: ['No names yet'] },
-  { name: 'says reading while the first answer is on its way', first: never, text: 'Reading the names…' },
+    first: () => reply(404, { error: 'no such list' }), error: '● unknownThe names could not be read: no such list', failure: 'The names could not be read: no such list', mark: '● unknown', hides: ['No names yet'] },
+  { name: 'says reading while the first answer is on its way', first: never, text: 'Loading…' },
   { name: 'says a refused read is not available, which is not an error',
     first: () => reply(403, { error: 'forbidden' }), text: 'Not available to you: the names.', error: null },
 ]
@@ -57,7 +58,8 @@ function expectShown(el: HTMLElement, row: Row) {
   for (const s of row.hides ?? []) expect(el.textContent).not.toContain(s)
   if (row.error === null) expect(el.querySelector('.error')).toBeNull()
   else if (row.error !== undefined) expect(el.querySelector('.error')?.textContent).toBe(row.error)
-  const mark = el.querySelector('.out-of-date')
+  if (row.failure) expect(el.querySelector('.error .chip')?.getAttribute('title')).toBe(row.failure)
+  const mark = el.querySelector('.chip.unknown')
   if (row.mark === undefined) expect(mark).toBeNull()
   else expect(mark?.textContent).toBe(row.mark)
   for (const s of row.label ?? []) expect(mark?.getAttribute('aria-label')).toContain(s)
@@ -92,7 +94,7 @@ describe('ReadGate', () => {
       await advance(retryDelay(0) + retryDelay(1) - 1)
       expect(fetch).toHaveBeenCalledTimes(2)
       expect(el.textContent).toContain('grace')
-      expect(el.querySelector('.out-of-date')).toBeNull()
+      expect(el.querySelector('.stale-note .chip.unknown')).toBeNull()
       await advance(1)
       await act(async () => { await refreshed })
       expect(fetch).toHaveBeenCalledTimes(3)
@@ -134,7 +136,7 @@ describe('StaleScope', () => {
     })
     done = () => { act(() => root.unmount()); client.clear() }
     await vi.waitFor(() => expect(el.textContent).toContain('Wellington'))
-    await vi.waitFor(() => expect(el.textContent).toContain('The broken list could not be read: no such list'))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('no such list'))
     // Nothing is old yet, so the page says nothing about it.
     expect(el.querySelector('.stale-notice')).toBeNull()
 
@@ -148,21 +150,21 @@ describe('StaleScope', () => {
     }
     down = true
     await refresh()
-    await vi.waitFor(() => expect(el.querySelectorAll('.out-of-date')).toHaveLength(2))
+    await vi.waitFor(() => expect(el.querySelectorAll('.stale-note .chip.unknown')).toHaveLength(2))
     const notices = el.querySelectorAll('.stale-notice')
     expect(notices).toHaveLength(1)
-    expect(notices[0].textContent).toBe('Some sections could not be refreshed; showing the last data read.')
+    expect(notices[0].textContent).toBe('Refresh failed. Last answer shown.')
     // The notice stands above the sections, and the reason is not repeated
     // as text in each one.
     expect(el.firstElementChild).toBe(notices[0])
-    expect(el.textContent).not.toContain('AppTown is restarting')
+    expect(el.querySelectorAll('details.status-help:not([open])')).toHaveLength(3)
     // The section that never had an answer is still an error, not old.
-    expect(el.querySelector('.error')?.textContent).toBe('The broken list could not be read: no such list')
+    expect(el.querySelector('.error')?.textContent).toBe('● unknownThe broken list could not be read: no such list')
     expect(el.textContent).toContain('grace')
 
     down = false
     await refresh()
-    await vi.waitFor(() => expect(el.querySelector('.out-of-date')).toBeNull())
+    await vi.waitFor(() => expect(el.querySelector('.stale-note .chip.unknown')).toBeNull())
     expect(el.querySelector('.stale-notice')).toBeNull()
   })
 })

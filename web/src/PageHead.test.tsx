@@ -23,10 +23,10 @@ const down = (target: Element) => act(() => { target.dispatchEvent(new MouseEven
 describe('page help', () => {
   afterEach(() => { document.body.innerHTML = '' })
 
-  it('shows the title and one line, with the explanation closed', () => {
+  it('shows the title with introductions behind help', () => {
     const el = render(<PageHead page="deployments" />)
     expect(el.querySelector('h1')?.textContent).toBe('Deployments')
-    expect(el.querySelector('.page-head-line')?.textContent).toBe(PAGE_HELP.deployments.line)
+    expect(el.textContent).not.toContain(PAGE_HELP.deployments.line)
     expect(q(el).getAttribute('aria-expanded')).toBe('false')
     expect(pop(el)).toBeNull()
   })
@@ -36,6 +36,7 @@ describe('page help', () => {
     act(() => q(el).click())
     expect(q(el).getAttribute('aria-expanded')).toBe('true')
     expect(q(el).getAttribute('aria-controls')).toBe(pop(el)?.id)
+    expect(pop(el)?.textContent).toContain(PAGE_HELP.deployments.line)
     expect(pop(el)?.textContent).toContain('Every change that lands updates it.')
     expect(pop(el)?.querySelector('a')?.getAttribute('href')).toBe('/docs/guides/container-lifecycle')
   })

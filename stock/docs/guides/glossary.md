@@ -27,10 +27,10 @@ accumulates commits and ends shipped or abandoned. A change whose workflow
 keeps a record instead of commits (research, a product spec) closes when
 its record is accepted; nothing lands, and it reads **finished** rather
 than shipped. A change AppTown closed because its run found nothing to
-change (a dependency update with nothing to update) reads **closed:
-nothing to change** rather than abandoned. While its landing runs, a
-change reads **landing**; a run that stopped on a failed step reads
-**blocked**.
+change (a dependency update with nothing to update) stops with that reason in
+its details. Landing runs the checks and approval before merging; a failed step
+blocks the run. The web uses the status words below and keeps lifecycle detail
+one click away.
 
 **Chat (helper)** — a conversational agent session on a project or a change.
 A change chat edits that change's working tree directly. A
@@ -49,6 +49,32 @@ its releases, what is happening now, and its history.
 **Home** — the instance's front page: one
 sentence on the situation, then what needs you, what is running across every
 project, projects, recently finished.
+
+## Status words
+
+A status has a short word and a coloured light. Help or details gives its reason.
+The same word has the same meaning on every page.
+
+| Word | Meaning |
+| --- | --- |
+| running | The app was checked and is running. |
+| working | Work is in progress. |
+| deploying | A release is in progress. |
+| stopped | The app was checked and is stopped, or work was stopped. |
+| unreachable | AppTown cannot contact the deployment host or provider. The app may still be running. Help names the target and when the uninterrupted failure began. |
+| unknown | AppTown cannot establish the current state. Missing or old evidence does not prove running, stopped or failed. |
+| waiting | A person, a check or queued work must act next. The label names what is awaited, such as “waiting for you” or “waiting for checks”. |
+| failed | An attempt or check failed. This does not prove that an app stopped. |
+| landed | Accepted work reached main. |
+| deployed | The release was deployed. Its runtime status is separate. |
+| finished | Work finished without claiming a merge or deployment. |
+| passed | The check passed. A configuration check does not prove a service is running. |
+| excepted | An exception covers a finding; the check did not pass. |
+| not applicable | The check does not apply. |
+| fresh / overdue | A backup is within / beyond its copy cadence and allowance. A failed latest copy also makes coverage overdue. |
+| missing | AppTown holds no copy of the item. |
+| disposable | The app declares that this data may start empty. |
+| available / current / none | An authenticated release is available / the installed build has no newer release / the channel has no release. |
 
 ## Workflows
 

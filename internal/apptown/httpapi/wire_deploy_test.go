@@ -3,12 +3,15 @@ package httpapi
 import (
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/wiregen"
 )
 
 // The deployment, target and release routes' responses.
 func init() {
+	registerWireMapped(deploy.Resource{}, "Resource")
 	registerWire(
+		wiregen.Named{Name: "Resource", Value: deploy.ResourceView{}},
 		wiregen.Named{Name: "DeploymentAddress", Value: deployment.AddressReading{}},
 		wiregen.Named{Name: "AddressSnapshot", Value: deployment.AddressSnapshot{}},
 		wiregen.Named{Name: "ReleaseDefault", Value: deployment.ReleaseDefault{}},

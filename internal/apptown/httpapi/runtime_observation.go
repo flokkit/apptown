@@ -8,15 +8,20 @@ import (
 
 // RuntimeObservationView carries freshness without exposing provider errors.
 type RuntimeObservationView struct {
-	Observation            string `json:"observation"`
-	ObservationIssue       string `json:"observationIssue,omitempty"`
-	ObservedAt             string `json:"observedAt,omitempty"`
-	ObservationAttemptedAt string `json:"observationAttemptedAt,omitempty"`
-	ObservationStale       bool   `json:"observationStale"`
+	Observation            deployment.RuntimeState `json:"observation"`
+	ObservationIssue       string                  `json:"observationIssue,omitempty"`
+	ObservedAt             string                  `json:"observedAt,omitempty"`
+	ObservationAttemptedAt string                  `json:"observationAttemptedAt,omitempty"`
+	TargetName             string                  `json:"targetName"`
+	UnreachableSince       string                  `json:"unreachableSince,omitempty"`
+	ObservationStale       bool                    `json:"observationStale"`
 }
 
 func runtimeObservationView(o deployment.RuntimeObservation) RuntimeObservationView {
-	v := RuntimeObservationView{Observation: o.State.String(), ObservationStale: o.Stale}
+	v := RuntimeObservationView{Observation: o.State, ObservationStale: o.Stale, TargetName: o.TargetName}
+	if !o.UnreachableSince.IsZero() {
+		v.UnreachableSince = o.UnreachableSince.UTC().Format(time.RFC3339Nano)
+	}
 	if !o.ObservedAt.IsZero() {
 		v.ObservedAt = o.ObservedAt.UTC().Format(time.RFC3339Nano)
 	}

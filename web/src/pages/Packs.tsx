@@ -51,7 +51,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
         <div className="small" style={{ marginBottom: 12 }}>{pack.description}</div>
         {loadErr && <div className="error small" style={{ marginBottom: 12 }}>The library could not be read, so sizes and details may be missing: {loadErr}</div>}
 
-        <div className="conn-section-head"><h2>Guidance blocks</h2><span className="muted small" title={sizeTitle(packBytes)}>{pack.guidance.length}, {fmtSize(packBytes)} in every agent's context — click to read</span></div>
+        <div className="conn-section-head"><h2>Guidance blocks</h2><span className="muted small" title={sizeTitle(packBytes)}>{pack.guidance.length}, {fmtSize(packBytes)} in every agent's context · click to read</span></div>
         {pack.guidance.map((name) => {
           const b = blocks.find((x) => x.name === name)
           return (
@@ -149,18 +149,18 @@ export default function Packs() {
               {p.version ? <span className="chip" title="New projects get this version">v{p.version}</span> : null}
               {p.enabled === false && <span className="chip" title="not offered when a project is made">not offered</span>}
             </div>
-            <div className="small" style={{ margin: '6px 0' }}>{p.description}</div>
+            <div className="small pack-description" title={p.description}>{p.description.split('\n\n')[0]}</div>
             {p.requires.some(r => !r.bound) && (
               <div className="small" style={{ marginTop: 10 }}>
                 <span className="chip pending">Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</span>
               </div>
             )}
             <div className="row pack-actions" style={{ marginTop: 10 }}>
-              <button className="subtle" onClick={() => setInspecting(p)}>View contents</button>
-              <button className="subtle" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy into a new pack…</button>
+              <button className="subtle" onClick={() => setInspecting(p)}>Contents</button>
+              <button className="subtle" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy</button>
               {p.enabled === false
-                ? <button className="subtle" disabled={busy} onClick={() => void setOn(p, true)}>Offer to new projects</button>
-                : <button className="subtle" disabled={busy} onClick={() => void setOn(p, false)}>Stop offering</button>}
+                ? <button className="subtle" disabled={busy} onClick={() => void setOn(p, true)}>Offer</button>
+                : <button className="subtle" disabled={busy} onClick={() => void setOn(p, false)}>Unlist</button>}
               {p.origin !== 'stock' && (
                 <>
                   <button className="subtle" onClick={() => setEditing({ draft: declared(p), existing: true })}>Edit</button>
@@ -205,7 +205,7 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
         <label>Version name</label>
         <input value={p.versionName} onChange={(e) => setP({ ...p, versionName: e.target.value })} placeholder="optional, e.g. stricter deps" />
       </div>
-      {existing && <div className="muted small" style={{ marginBottom: 8 }}>Saving makes a new version. It is not recommended until you recommend it on the pack's page.</div>}
+      {existing && <div className="muted small" style={{ marginBottom: 8 }}>Saving creates a version. Recommend it on the pack page.</div>}
       {keptAsWritten(p).length > 0 && <div className="muted small" style={{ marginBottom: 8 }}>Kept as written, not edited here: {keptAsWritten(p).join('; ')}.</div>}
 
       <h2>Workflows ({p.workflows.length})</h2>
@@ -221,7 +221,7 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
 
       <h2>Guidance blocks ({p.guidance.length}, {fmtSize(allGuidance.filter((g) => p.guidance.includes(g.name)).reduce((n, g) => n + (g.bytes ?? 0), 0))})</h2>
       <div className="muted small" style={{ marginBottom: 6 }}>
-        Every ticked block goes into the context of every agent on a project that takes this pack; the size beside each one is what it costs.
+        Selected blocks go to every project agent. Sizes show their context cost.
       </div>
       <div className="row" style={{ gap: 6 }}>
         {allGuidance.map((g) => (

@@ -1,7 +1,7 @@
 import { PRODUCT } from '../../brand'
 import { useGet } from '../../data'
 import { StaleNote } from '../../ReadGate'
-import { fmtBytes, relTime } from '../../format'
+import { fmtBytes, fmtStamp } from '../../format'
 import type { DiskCapacity, Figure, TargetCapacity, Tenant } from '../../wire.gen'
 import { disk, promised, usedMemory } from './capacitySegments'
 import { CapacityBar, CapacityTable } from './CapacityBars'
@@ -60,11 +60,11 @@ export function Capacity({ name }: { name: string }) {
   const q = useGet<TargetCapacity>(`/targets/${name}/capacity`)
   if (q.denied) return null
   if (q.loading) return <div className="muted small">reading its capacity…</div>
-  if (!q.data) return <div className="error small">capacity unknown — {q.err || 'no answer'}</div>
+  if (!q.data) return <div className="error small">capacity unknown · {q.err || 'no answer'}</div>
   const c = q.data
   return (
     <div className="small">
-      <div>{c.words} <span className="muted">· read {relTime(c.readAt)}</span></div>
+      <div>{c.words} <span className="muted">· read {fmtStamp(c.readAt)}</span></div>
       {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
         <table className="small" style={{ marginTop: 4 }}>
           <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'promised to containers'}</th><th>in use by containers</th></tr></thead>
@@ -120,7 +120,7 @@ function DiskLine({ d }: { d: DiskCapacity }) {
     <div style={{ marginTop: 4 }}>
       <span className="muted">{diskLabel(d)}</span>{' '}
       {why ? <>unknown <span className="muted">— {why}</span></> : <><FigureWords f={d.free} format={fmtBytes} /> free of <FigureWords f={d.total} format={fmtBytes} /></>}
-      {d.readAt && <span className="muted"> · read {relTime(d.readAt)}</span>}
+      {d.readAt && <span className="muted"> · read {fmtStamp(d.readAt)}</span>}
       {' '}<DiskState d={d} />
     </div>
   )
@@ -166,7 +166,7 @@ function Bars({ c }: { c: TargetCapacity }) {
           : `${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)}${c.cpu.overcommitted ? ` · over by ${cpuWords(pc.sum - c.cpu.total.value)}` : ''}`} />}
       {dk && c.disk ? (
         <>
-          <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt ? ` · read ${relTime(c.disk.readAt)}` : ''}`} />
+          <CapacityBar label={diskLabel(c.disk)} bar={dk} format={fmtBytes} sum={`${fmtBytes(c.disk.free.value)} free of ${fmtBytes(c.disk.total.value)}${c.disk.readAt ? ` · read ${fmtStamp(c.disk.readAt)}` : ''}`} />
           <DiskState d={c.disk} />
         </>
       ) : c.disk && <DiskLine d={c.disk} />}
@@ -183,7 +183,7 @@ function Bars({ c }: { c: TargetCapacity }) {
             ...(host ? [{ name: 'the whole host', kind: 'host', cells: ['', f(host, fmtBytes), '', '', ''] }] : []),
             { name: 'what the host has', kind: 'free', cells: ['', f(m.total, fmtBytes), '', '', c.cpu ? f(c.cpu.total, cpuWords) : ''] },
           ]} />
-        {host && !host.known && <div className="muted small">the whole host's use: unknown — {host.reason}</div>}
+        {host && !host.known && <div className="muted small">the whole host's use: unknown · {host.reason}</div>}
       </details>
     </div>
   )

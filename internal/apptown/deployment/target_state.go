@@ -81,3 +81,32 @@ func (s TargetState) MarshalJSON() ([]byte, error) { return targetStateCodec.JSO
 func (s *TargetState) UnmarshalJSON(data []byte) error {
 	return targetStateCodec.ReadJSON(s, data)
 }
+
+// TargetLabel describes the last target check without claiming an app is running.
+type TargetLabel uint8
+
+const (
+	TargetCheckUnknown TargetLabel = iota + 1
+	TargetCheckPassed
+	TargetCheckFailed
+	TargetCheckStopped
+)
+
+var targetLabelCodec = enum.Set[TargetLabel]{Names: []string{"unknown", "passed", "failed", "stopped"}, Invalid: "invalid-target-label", Err: errors.New("invalid target label"), ScanLabel: "value"}
+
+func (s TargetLabel) String() string                { return targetLabelCodec.String(s) }
+func (s TargetLabel) Value() (driver.Value, error)  { return targetLabelCodec.Value(s) }
+func (s TargetLabel) MarshalJSON() ([]byte, error)  { return targetLabelCodec.JSON(s) }
+func (s *TargetLabel) UnmarshalJSON(b []byte) error { return targetLabelCodec.ReadJSON(s, b) }
+func (s TargetState) Display() TargetLabel {
+	switch s {
+	case TargetReady:
+		return TargetCheckPassed
+	case TargetUnreachable:
+		return TargetCheckFailed
+	case TargetRetired:
+		return TargetCheckStopped
+	default:
+		return TargetCheckUnknown
+	}
+}

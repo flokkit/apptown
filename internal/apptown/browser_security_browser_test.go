@@ -29,6 +29,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -36,6 +37,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -261,6 +263,17 @@ func TestTour(t *testing.T) {
 	daemon := newFakeDocker()
 	daemon.reply = func(args []string) (string, error, bool) {
 		switch {
+		case len(args) > 0 && args[0] == "inspect" && strings.HasPrefix(args[len(args)-1], "tour-runtime-"):
+			switch strings.TrimPrefix(args[len(args)-1], "tour-runtime-") {
+			case "running":
+				return `{"id":"tour-running","running":true}`, nil, true
+			case "stopped":
+				return `{"id":"tour-stopped","running":false}`, nil, true
+			case "unreachable":
+				return "", deploy.Unreachable(&net.OpError{Op: "dial", Net: "tcp", Err: errors.New("tour host offline")}), true
+			default:
+				return "", errors.New("tour provider response could not be read"), true
+			}
 		case len(args) > 1 && args[0] == "image" && args[1] == "inspect":
 			return "Error: No such image", errors.New("exit status 1"), true
 		case len(args) > 0 && args[0] == "build":
@@ -305,6 +318,10 @@ func TestTour(t *testing.T) {
 	}
 	made := s.play(start)
 	moveClock(a, -a.cfg.clock.ahead)
+	tourRuntimeDeployments(t, a)
+	runtimeCtx, stopRuntime := context.WithCancel(context.Background())
+	t.Cleanup(stopRuntime)
+	go a.Deployment.RunObservations(runtimeCtx)
 	// Let the normal observation owners collect facts before photographing Home.
 	s.call("sam", "GET", "/api/v1/attention", nil)
 	for _, kind := range []string{diskObservationJob, workerObservationJob, "capacity-observation", "inventory", "protection-observation"} {
@@ -364,6 +381,52 @@ func TestTour(t *testing.T) {
 }
 
 // tourStop is one stop of site/tour/tour.yaml.
+// The tour cannot build images. Seed the persisted container pointer only:
+// no public operation can import an existing standing container without a release.
+// The provider fake supplies runtime facts; no release or check receipt is invented.
+func tourRuntimeDeployments(t *testing.T, a *App) {
+	t.Helper()
+	ctx := asPerson("sam")
+	p, err := a.Projects.BySlug(ctx, "lunch-orders")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := a.Deployment.Targets.ByName(ctx, "built-in-docker")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, word := range []string{"running", "stopped", "unknown", "unreachable"} {
+		d, err := a.Deployment.Deployments.EnsureStanding(ctx, p.ID, "tour-"+word, target.ID, deployment.Attributes{}.WithDefaults())
+		if err != nil {
+			t.Fatal(err)
+		}
+		// sql-guarantee: seed an existing container pointer; no owner operation imports one without creating release evidence.
+		if _, err := a.DB.SQL().ExecContext(ctx, `UPDATE deployments SET container=$1 WHERE id=$2`, "tour-runtime-"+word, d.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := a.Deployment.List(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, row := range rows {
+		if strings.HasPrefix(row.Name, "tour-") {
+			want := strings.TrimPrefix(row.Name, "tour-")
+			if row.Observation.State.String() != want {
+				t.Fatalf("tour %s: %+v", want, row.Observation)
+			}
+			seen[want] = true
+		}
+	}
+	if len(seen) != 4 {
+		t.Fatalf("tour runtime states: %v", seen)
+	}
+}
+
 type tourStop struct {
 	ID      string `yaml:"id"`
 	Title   string `yaml:"title"`

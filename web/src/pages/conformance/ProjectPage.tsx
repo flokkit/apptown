@@ -26,7 +26,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }
         </span>
         <span className="row" style={{ gap: 'var(--space-2)', flex: '0 0 auto' }}>
           {lane === 'flagged' && prior && <span className="muted small" title={`confirmed before at ${shortSha(prior.sha)} by ${prior.by}`}>confirmed before at {shortSha(prior.sha)}</span>}
-          <StateChip s={v.state} />
+          <StateChip label={v.statusLabel} help={v.detail} />
         </span>
       </div>
       {open && (
@@ -59,7 +59,7 @@ function HistoryStrip({ slug }: { slug: string }) {
   return (
     <div className="card" style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
       <StaleNote q={q} />
-      <div className="muted small mb-2">Across reviews, oldest → newest: findings (red) and AI flags (amber). Hover a bar for the review.</div>
+      <div className="muted small mb-2">Oldest → newest. Red: findings. Amber: AI flags. Hover for review.</div>
       <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 36 }}>
         {hist.map((h) => {
           const tot = h.findings + h.flagged
@@ -141,7 +141,7 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
           <div className="row" style={{ gap: 'var(--space-3)', alignItems: 'center' }}>
             <h2 style={{ margin: 0, textTransform: 'none', letterSpacing: 0 }}>{p.name || slug}</h2>
             {p.name && p.name !== slug && <span className="mono muted small">{slug}</span>}
-            <StandingChip s={p.standing}>{p.sentence}</StandingChip>
+            <StandingChip label={p.statusLabel} help={p.sentence} />
             <LaneBar lanes={p.lanes} total={p.total} width={200} />
           </div>
           <div className="muted small mt-1">

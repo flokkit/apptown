@@ -117,6 +117,9 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 		}
 		list[i].Health = h.health.Health(r.Context(), list[i].Capability, list[i].Provider, se)
 	}
+	for i := range list {
+		list[i].Health = list[i].Health.ForDisplay()
+	}
 	WriteJSON(w, 200, IntegrationList{Integrations: list})
 }
 

@@ -64,7 +64,7 @@ describe('the invite link page', () => {
     expect(moved.mock.calls.map((c) => c[2])).toContain('/invite')
     await act(async () => { root.render(<InvitePage token="" />) })
     expect(el.textContent).toContain('bls made a password reset link for kim')
-    expect(el.textContent).toContain('Your old password stops working and you are signed out everywhere else')
+    expect(el.textContent).toContain('replace the old one and end other browser sessions')
     expect(el.textContent).not.toContain('invited you')
     for (const input of [...el.querySelectorAll('input[type=password]')] as HTMLInputElement[]) {
       await act(async () => {
@@ -95,7 +95,7 @@ describe('the invite link page', () => {
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => { root.render(<InvitePage token="" />) })
-    expect(el.textContent).toContain('Open the link you were given again.')
+    expect(el.textContent).toContain('Reopen your invite link.')
     expect(fetched).not.toHaveBeenCalled()
     act(() => root.unmount())
   })

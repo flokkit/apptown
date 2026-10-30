@@ -127,7 +127,7 @@ func (h Targets) targetViews(ctx context.Context) ([]TargetView, error) {
 	}
 	out := []TargetView{}
 	for _, t := range ts {
-		v := TargetView{Target: *t, KindInfo: deployment.DescribeTarget(t), Offers: []deployment.Offer{}, Deployments: []TargetDeployment{}, Copies: dataprotection.CopiesOn(t)}
+		v := TargetView{Target: *t, StatusLabel: t.Status.Display(), KindInfo: deployment.DescribeTarget(t), Offers: []deployment.Offer{}, Deployments: []TargetDeployment{}, Copies: dataprotection.CopiesOn(t)}
 		if h.deployment.Targets.OfferedByConstruction(t) {
 			v.Offers = append(v.Offers, deployment.Offer{TargetID: t.ID, Group: "*", Implicit: true})
 		} else {
@@ -146,7 +146,7 @@ func (h Targets) targetViews(ctx context.Context) ([]TargetView, error) {
 				continue
 			}
 			v.Deployments = append(v.Deployments, TargetDeployment{Project: e.Project, Name: e.Name, URL: e.URL, Generation: e.ObservedGeneration,
-				Readiness: e.Readiness.String(), Audience: e.Audience, Data: e.DataClass})
+				Readiness: e.Readiness.String(), StatusLabel: e.Readiness.Display(), Audience: e.Audience, Data: e.DataClass})
 		}
 		if v.Retained, err = h.deployment.Retained.CountOpen(ctx, t.ID); err != nil {
 			return nil, err
@@ -199,16 +199,18 @@ type TargetRetired struct {
 
 // TargetDeployment is a standing deployment on a target.
 type TargetDeployment struct {
-	Project    string `json:"project"`
-	Name       string `json:"name"`
-	URL        string `json:"url"`
-	Generation int64  `json:"generation"`
-	Readiness  string `json:"readiness"`
-	Audience   string `json:"audience"`
-	Data       string `json:"data"`
+	StatusLabel deployment.ProgressLabel `json:"statusLabel"`
+	Project     string                   `json:"project"`
+	Name        string                   `json:"name"`
+	URL         string                   `json:"url"`
+	Generation  int64                    `json:"generation"`
+	Readiness   string                   `json:"readiness"`
+	Audience    string                   `json:"audience"`
+	Data        string                   `json:"data"`
 }
 
 type TargetView struct {
+	StatusLabel deployment.TargetLabel `json:"statusLabel"`
 	deployment.Target
 	KindInfo    deployment.KindInfo `json:"kindInfo"`
 	Offers      []deployment.Offer  `json:"offers"`

@@ -38,13 +38,13 @@ describe('the daily usage chart', () => {
       await settled(client)
       const shown = () => el.querySelector('.usage-day')?.textContent ?? ''
       const chart = el.querySelector<HTMLElement>('[role="slider"]')!
-      expect(shown()).toBe(`${label(1)}: 500 tokens — workflow 400, interactive 100`)
+      expect(shown()).toBe(`${label(1)}: 500 tokens · workflow 400, interactive 100`)
       expect(chart.getAttribute('aria-valuetext')).toBe(shown())
 
       await act(async () => { chart.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })) })
       expect(shown()).toBe(`${label(2)}: no use`)
       await act(async () => { chart.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })) })
-      expect(shown()).toBe(`${label(3)}: 1.0k tokens — workflow 1.0k, interactive 0`)
+      expect(shown()).toBe(`${label(3)}: 1.0k tokens · workflow 1.0k, interactive 0`)
     } finally {
       act(() => root.unmount())
       client.clear()

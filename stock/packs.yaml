@@ -9,7 +9,9 @@ packs:
   # never included in another pack and never offered in the wizard.
   - name: apptown
     platform: true
-    description: >-
+    description: |-
+      App health, repository rules and platform workflows.
+
       What any app AppTown runs must do, and AppTown's own workflows.
       Every project with a repository is on it.
     guidance:
@@ -20,7 +22,9 @@ packs:
       - repo/contract-matches-code
     workflows: [land, ship, adopt-integration, retire-integration]
   - name: conventions-only
-    description: >-
+    description: |-
+      Container builds, previews, reviews and deployment.
+
       AppTown's own conventions and nothing else: no language, no
       framework, no data opinion. Anything with a Dockerfile or a static
       folder gets previews, review, landing and deployment.
@@ -36,7 +40,9 @@ packs:
   # It gets the union; packs that disagree on a tool's line, the
   # toolchain, a service or a policy cannot be taken together.
   - name: server-base
-    description: >-
+    description: |-
+      Shared server architecture, builds, dependencies and reviews.
+
       What every server project shares: the container image, package
       registries, the mise toolchain, plain prose, boring technology, a
       modular monolith, few dependencies and plain REST. Take it with one
@@ -57,7 +63,9 @@ packs:
     workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
   - name: go
-    description: >-
+    description: |-
+      Go services using standard HTTP and gofmt.
+
       Go services: one static binary, the standard library's HTTP, gofmt.
       Take it with server-base.
     tools: {go: "1.27"}
@@ -69,7 +77,9 @@ packs:
       - lang/go/errors-are-values
       - lang/shell/fifty-line-budget
   - name: node
-    description: >-
+    description: |-
+      Experimental TypeScript services with Node and Fastify.
+
       Experimental: its landing fixes have not shipped a new app yet. TypeScript on Node: a Fastify
       server, one npm package graph, one image that runs `node --run start`.
       Take it with server-base. The first change writes the app.
@@ -79,7 +89,9 @@ packs:
     guidance:
       - lang/selection/node-fullstack
   - name: django
-    description: >-
+    description: |-
+      Django with forms, authentication, ORM and administration.
+
       Django with its ORM, forms, auth and admin. Take it with server-base
       and postgres.
     tools: {python: "3.12"}
@@ -88,7 +100,9 @@ packs:
     guidance:
       - lang/selection/django-fullstack
   - name: rails
-    description: >-
+    description: |-
+      Rails 8 with Puma and propshaft.
+
       Rails 8 on Ruby 3.4 with Puma and propshaft. Starts from `rails new` on
       the first change. Take it with server-base and postgres.
     tools: {ruby: "3.4"}
@@ -96,7 +110,9 @@ packs:
     guidance:
       - lang/selection/rails
   - name: java
-    description: >-
+    description: |-
+      Experimental Spring Boot services with Maven and Flyway.
+
       Experimental: its landing fixes have not shipped a new app yet. Spring Boot on Temurin 21, Maven
       and Flyway, deployed as an executable jar. Starts from Spring
       Initializr on the first change. Take it with server-base and postgres.
@@ -106,7 +122,9 @@ packs:
       - lang/selection/java-spring-boot
       - lang/java/spring-conventions
   - name: dotnet
-    description: >-
+    description: |-
+      Experimental ASP.NET Core APIs with EF Core.
+
       Experimental: not yet run in production by the maintainers for two weeks, and its SDK download is not mirrored. ASP.NET Core on .NET 10: minimal APIs and EF Core,
       one published app. Starts from the SDK's own templates on the first
       change. Take it with server-base and postgres.
@@ -115,7 +133,9 @@ packs:
     guidance:
       - lang/selection/dotnet-aspnet
   - name: rust
-    description: >-
+    description: |-
+      Experimental Rust services with minimal dependencies.
+
       Experimental: not yet run in production by the maintainers for two weeks with a clean image scan. Stable Rust, std-first services, minimal crates, deployed as a
       release binary. Take it with server-base.
     tools: {rust: "1.84"}
@@ -123,7 +143,9 @@ packs:
     guidance:
       - lang/selection/rust
   - name: wordpress
-    description: >-
+    description: |-
+      Experimental WordPress with MariaDB and object storage.
+
       Experimental: no app shipped from the current starter yet. WordPress with Composer-locked core and plugins, an
       immutable PHP/Apache image, deployment-owned MariaDB, and uploads in
       the deployment's own object storage. Starts with a small neutral
@@ -138,7 +160,9 @@ packs:
     guidance:
       - lang/selection/wordpress-bedrock
   - name: postgres
-    description: >-
+    description: |-
+      Deployment databases using Postgres.
+
       Records in Postgres, reached through the deployment's need: the
       database is a service, never a file.
     tools: {postgres: "16"}
@@ -150,20 +174,26 @@ packs:
       - data/postgres-maximalism
       - data/networked-database
   - name: vite-react
-    description: >-
+    description: |-
+      React browser interfaces built with Vite.
+
       A browser UI in TypeScript and React, built with Vite and served by
       the app's server.
     tools: {node: "24"}
     guidance:
       - frontend/vite-react
   - name: server-rendered
-    description: >-
+    description: |-
+      Server templates with HTMX or Hotwire.
+
       Pages rendered on the server with the framework's templates, and
       HTMX or Hotwire where a page must feel live. No JavaScript build.
     guidance:
       - frontend/server-rendered
   - name: html-game
-    description: >-
+    description: |-
+      Browser games in plain HTML, CSS and JavaScript.
+
       Browser games in plain HTML, CSS and JavaScript: no server, no build
       step, no dependencies. The file you edit is the file that ships.
       Starts with a small working game to change.
@@ -177,7 +207,9 @@ packs:
     workflows: [land, ship, implement, quick-change, fix-bug]
     policies: [deploy-requires-scan, scanner-bound]
   - name: godot-3d
-    description: >-
+    description: |-
+      Experimental Godot 3D games for the browser.
+
       Experimental: the current starter has not shipped an app yet. 3D games built with the Godot 4 engine and exported to the browser as
       WebAssembly. GDScript, the Compatibility renderer, threads off, and a
       Dockerfile that exports and serves the game. Starts with a small
@@ -193,7 +225,9 @@ packs:
     workflows: [land, ship, implement, quick-change, fix-bug]
     policies: [deploy-requires-scan, scanner-bound]
   - name: video-game
-    description: >-
+    description: |-
+      Experimental browser games using npm libraries.
+
       Experimental: the current starter has not shipped an app yet. Browser games built with npm libraries such as three.js, a bundler,
       and TypeScript where it helps. Players need only the link. Starts
       with a small working 3D game to change.
@@ -210,7 +244,9 @@ packs:
     workflows: [land, ship, implement, quick-change, fix-bug]
     policies: [deploy-requires-scan, scanner-bound]
   - name: frontend-only
-    description: >-
+    description: |-
+      Browser apps with local data and offline support.
+
       Apps that run entirely in the browser: no server. TypeScript built
       with Vite, a few npm libraries, tests with Vitest, data kept in the
       browser, and working offline where the app needs it. Starts with a

@@ -79,13 +79,15 @@ function AgentsCard({ canEdit }: { canEdit: boolean }) {
     <div className="card" style={{ display: 'grid', gap: 10 }}>
       <b>Connected coding agents</b>
       <div className="muted small">
+        <details><summary>About connected agents</summary>
         Coding agents that signed in through the browser. Each acts as the
         person who connected it, within what they allowed.
+        </details>
       </div>
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={q} what="the connected agents" className="small" />
       <StaleNote q={q} />
-      {q.data && list.length === 0 && <span className="muted small">none yet — see Docs → Connect a coding agent</span>}
+      {q.data && list.length === 0 && <span className="muted small">None yet · see Docs → Connect a coding agent</span>}
       {list.map(d => (
         <div key={d.id} className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{d.clientName}</span>
@@ -122,16 +124,18 @@ export function AdminNetworksCard({ canEdit }: { canEdit: boolean }) {
     <div className="card" style={{ display: 'grid', gap: 10 }}>
       <b>Where administrators may sign in</b>
       <div className="muted small">
+        <details><summary>About administrator networks</summary>
         An administrator account can sign in, connect a coding agent, or use an
         administrator token only from these networks. Members are not limited.
         Empty means anywhere; the machine {PRODUCT} runs on always passes.
+        </details>
         You are connecting from <code>{you || '…'}</code>{nets.length > 0 && (inside ? ', which is inside' : ', which is outside the list')}.
       </div>
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={q} what="the administrator networks" className="small" />
       <StaleNote q={q} />
       {q.data && <div className="row small" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {nets.length === 0 && <span className="muted">anywhere (no networks listed)</span>}
+        {nets.length === 0 && <span className="muted">Anywhere</span>}
         {nets.map((n) => (
           <span key={n} className="chip">{n}{editable && <>{' '}
             <button className="subtle" aria-label={`remove ${n}`} onClick={() => { void save(nets.filter((x) => x !== n)) }}>×</button></>}
@@ -171,15 +175,17 @@ export function TokensCard() {
     <div className="card" style={{ display: 'grid', gap: 10 }}>
       <b>API tokens</b>
       <div className="muted small">
+        <details><summary>About tokens</summary>
         A command-line token is for your own <code>apptown</code> CLI (set <code>APPTOWN_TOKEN</code>).
         An agent token is for a coding agent's MCP connection. A token is shown once.
+        </details>
       </div>
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={[tokensQ, usersQ]} what="the tokens" className="small" />
       <StaleNote q={[tokensQ, usersQ]} />
       {minted && (
         <div className="card tone-ok">
-          <div className="small">Copy it now — it is not retrievable again:</div>
+          <div className="small">Copy it now · it is not retrievable again:</div>
           <code style={{ userSelect: 'all', wordBreak: 'break-all' }}>{minted}</code>
         </div>
       )}
@@ -238,12 +244,9 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
     <div className="card" style={{ display: 'grid', gap: 10 }}>
       <b>Roles in {PRODUCT}</b>
       <div className="muted small">
-        A role is a named bundle of things a person may do. Nothing is
-        implied: if it is not on this list or a project's Members tab, nobody
-        holds it. Who can do what on one project is on that project's
-        Members tab.
+        Roles grant permissions. Project roles are under Settings › Members.
       </div>
-      <p className="muted small">Instance administrators act in every project and may approve their own changes. Each project can require other people to get an independent approval.</p>
+      <details className="small"><summary>About permissions</summary><p className="muted small">Instance administrators act in every project and may approve their own changes. Each project can require other people to get an independent approval.</p></details>
       {[...byRole.entries()].map(([title, gs]) => (
         <div key={title} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip" title={roles.find(r => r.title === title)?.description}>{title}</span>
@@ -310,9 +313,9 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
       {reset.err && <div className="error small">{reset.err}</div>}
       {resetLink && (
         <OneTimeLink made={resetLink} onDone={() => setResetLink(null)}>
-          Password reset link for <b>{resetLink.invite.username}</b>. Copy it now — it is not shown again.
+          Password reset link for <b>{resetLink.invite.username}</b>. Copy it now · it is not shown again.
           Their current password and sessions keep working until they use it. Using it signs them out of browsers;
-          their personal access tokens and agent connections keep working — revoke those on the People page if the account may be compromised:
+          their personal access tokens and agent connections keep working · revoke those on the People page if the account may be compromised:
         </OneTimeLink>
       )}
       <table className="stack">
@@ -339,7 +342,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                     disabled account: enable it first. */}
                 {canEdit && invites && !u.disabled && (
                   <QuietConfirm label="reset password" className="subtle" yes="Make link"
-                    ask={`Make a password reset link for ${u.username}? You give it to them; when they use it, their old password stops working. This signs them out of browsers. Their personal access tokens and agent connections keep working — revoke those on the People page if the account may be compromised.`}
+                    ask={`Make a password reset link for ${u.username}? You give it to them; when they use it, their old password stops working. This signs them out of browsers. Their personal access tokens and agent connections keep working · revoke those on the People page if the account may be compromised.`}
                     onYes={async () => {
                       const r = await reset.run(() => post<InviteLink>('/password-links', { username: u.username }))
                       if (r) setResetLink(r)
@@ -347,7 +350,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                 )}
                 {canEdit && (
                   <QuietPrompt label="set password" yes="Set"
-                    ask={`New password for ${u.username} — their current sessions will be signed out.`}
+                    ask={`New password for ${u.username} · their current sessions will be signed out.`}
                     fields={[{ key: 'password', type: 'password', placeholder: 'min 8 characters', required: true, minLength: 8, width: 180 }]}
                     onYes={(v) => act(() => post('/users', { username: u.username, password: v.password }))} />
                 )}
@@ -383,7 +386,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
         // person sets their own from the link.
         return invites ? (
           <details>
-            <summary className="muted small">Add a person with a password you choose instead</summary>
+            <summary className="muted small">Set their password instead</summary>
             <div className="muted small" style={{ margin: '6px 0' }}>
               You will have to pass the password on to them yourself.
             </div>
@@ -408,7 +411,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
               <span style={{ flex: 1 }} />
               {canEdit && <>
                 <QuietPrompt label="claim" yes="Claim"
-                  ask={`Set a password for ${u.username} — this makes it a sign-in account.`}
+                  ask={`Set a password for ${u.username} · this makes it a sign-in account.`}
                   fields={[{ key: 'password', type: 'password', placeholder: 'min 8 characters', required: true, minLength: 8, width: 180 }]}
                   onYes={(v) => act(() => post('/users', { username: u.username, password: v.password }))} />
                 <QuietConfirm label="remove" ask={`Remove the name ${u.username}? Its grants, tokens and invites are revoked; the ledger keeps its history.`}
@@ -441,16 +444,18 @@ export function InvitePerson() {
     <div style={{ display: 'grid', gap: 8 }}>
       <b className="small">Invite a person</b>
       <div className="muted small">
+        <details><summary>About invites</summary>
         {PRODUCT} makes a link for one account. Send it to the person yourself;
         they choose their own password and are signed in. It works once,
         for seven days.
+        </details>
       </div>
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={q} what="the invites waiting" className="small" />
       <StaleNote q={q} />
       {made && (
         <OneTimeLink made={made} onDone={() => setMade(null)}>
-          Invite for <b>{made.invite.username}</b> ({made.invite.role}). Copy the link now — it is not shown again:
+          Invite for <b>{made.invite.username}</b> ({made.invite.role}). Copy the link now · it is not shown again:
         </OneTimeLink>
       )}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -513,7 +518,7 @@ function GroupsCard({ groups, users, act, canEdit }: {
   return (
     <div className="card" style={{ display: 'grid', gap: 10 }}>
       <b>Groups</b>
-      {groups.length === 0 && <div className="muted small">No groups yet. Name a group (say, <code>reviewers</code>) in an approval step's approver list — any member's OK satisfies it.</div>}
+      {groups.length === 0 && <div className="muted small">No groups yet. Name a group (say, <code>reviewers</code>) in an approval step's approver list · any member's OK satisfies it.</div>}
       {groups.filter(g => g.kind === 'built-in' || g.kind === 'personal').map(g => (
         <div key={g.name} className="row small" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{g.name}</span>

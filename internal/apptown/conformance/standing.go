@@ -31,18 +31,19 @@ const (
 )
 
 type ProjectStanding struct {
-	ProjectID ids.ID   `json:"projectId"`
-	Slug      string   `json:"slug"`
-	Name      string   `json:"name"` // the name people know the project by
-	Standing  Standing `json:"standing"`
-	Sentence  string   `json:"sentence"`
-	Lanes     Lanes    `json:"lanes"`
-	Total     int      `json:"total"` // M: adopted checks excluding n/a
-	Judged    int      `json:"judged"`
-	High      int      `json:"high"` // findings at severity high
-	Adopted   []string `json:"adopted"`
-	SHA       string   `json:"sha"`
-	JudgedAt  string   `json:"judgedAt"`
+	ProjectID   ids.ID     `json:"projectId"`
+	Slug        string     `json:"slug"`
+	Name        string     `json:"name"` // the name people know the project by
+	StatusLabel CheckLabel `json:"statusLabel"`
+	Standing    Standing   `json:"standing"`
+	Sentence    string     `json:"sentence"`
+	Lanes       Lanes      `json:"lanes"`
+	Total       int        `json:"total"` // M: adopted checks excluding n/a
+	Judged      int        `json:"judged"`
+	High        int        `json:"high"` // findings at severity high
+	Adopted     []string   `json:"adopted"`
+	SHA         string     `json:"sha"`
+	JudgedAt    string     `json:"judgedAt"`
 }
 
 // Adjudication is a human confirmation of one immutable verdict.
@@ -195,6 +196,7 @@ func SummarizeProject(projectID ids.ID, slug string, vs []Observation, adj map[i
 	ps.Total = len(vs) - ps.Lanes.NA
 	ps.Judged = ps.Total - ps.Lanes.Unassessed
 	ps.Standing, ps.Sentence = standingFor(ps.Lanes, ps.High, ps.Total)
+	ps.StatusLabel = ps.Standing.Label()
 	return ps
 }
 

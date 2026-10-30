@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { useAttention, attentionState, OperationsSummary } from '../attention'
 import { PRODUCT } from '../brand'
 import { AppAddress, RuntimeObservation, RuntimeStatus } from '../runtime'
@@ -9,7 +10,7 @@ import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import { ActiveRunList, ChangeHistoryTable, ChangeRow, RunRow } from '../parts/runActivity'
 import type { Operation, ProjectRow, SetupState } from '../wire.gen'
-import { endedWords, operationTone } from './DataProtection'
+import { endedWords } from './DataProtection'
 import { LocalTrialNote } from '../LocalTrialNote'
 
 // Home (the glossary's front page of the instance): what is my whole AppTown
@@ -43,7 +44,7 @@ function SetupCard() {
     <>
       {setup.openNonLoopback && (
         <div className="card tone-warn" style={{ marginBottom: 10 }}>
-          ⚠ {PRODUCT} is listening on a non-loopback address with open auth — anyone who can
+          ⚠ {PRODUCT} is listening on a non-loopback address with open auth · anyone who can
           reach the port has full control. Bind to 127.0.0.1, or put an authenticating proxy
           in front and use trusted-header auth.
         </div>
@@ -71,13 +72,13 @@ function SetupCard() {
       )}
       {setup.agentImage === 'building' && (
         <div className="card" style={{ marginBottom: 10 }} >
-          <span className="chip running">working</span> Building the agent image (first run only) — a few
+          <Status word={"working"} tone={STATUS_LIGHT["working"]} /> Building the agent image (first run only) · a few
           minutes; agents queue until it finishes.
         </div>
       )}
       {setup.agentImage === 'pulling' && (
         <div className="card" style={{ marginBottom: 10 }} >
-          <span className="chip running">working</span> Downloading the agent image (first run only) — a few
+          <Status word={"working"} tone={STATUS_LIGHT["working"]} /> Downloading the agent image (first run only) · a few
           minutes; agents queue until it finishes.
         </div>
       )}
@@ -192,7 +193,6 @@ export default function Dashboard() {
 
       {noProjects && (
         <div className="dash-start">
-          <p>Each app here keeps a record of every change: who asked, what was checked, who approved it.</p>
           <Link to="/projects/_new"><button className="primary btn-big">+ New project</button></Link>
         </div>
       )}
@@ -204,18 +204,18 @@ export default function Dashboard() {
         <ActiveRunList runs={blocked} showProject />
         {waiting.map((a) => (
           <Link key={a.stepId} to={`/changes/${a.changeId}`} className="card row tone-warn" style={{ display: 'flex' }}>
-            <span className="chip pending">needs you</span>
+            <Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help="Waiting for approval" />
             <strong>{a.itemTitle || `change ${a.changeNumber}`}</strong>
             <span className="muted small">{a.projectSlug} · {a.stepName.replace(/[-_]/g, ' ')}</span>
             <span style={{ flex: 1 }} />
-            <span className="small">Have a look →</span>
+            <span className="small">Review →</span>
           </Link>
         ))}
       </>}
 
       {!noProjects && <>
       {happening.length > 0 && <>
-        <h2>Running ({happening.length})</h2>
+        <h2>Working ({happening.length})</h2>
         <ActiveRunList runs={happening} showProject />
       </>}
 
@@ -234,9 +234,9 @@ export default function Dashboard() {
               {envs.length > 0 && (
                 <div className="row" style={{ marginTop: 8, gap: 6 }}>
                   {envs.map((e) => (
-                    <AppAddress key={e.name} className="dash-app" url={e.url} hostOnly={e.hostOnly} title={e.url}>
-                      <span>{e.hostOnly ? e.name : e.name === 'main' ? 'Open app' : `Open ${e.name}`} </span><RuntimeStatus observation={e} />
-                    </AppAddress>
+                    <span key={e.name} className="row" style={{ gap: 4 }}><AppAddress className="dash-app" url={e.url} hostOnly={e.hostOnly} title={e.url}>
+                      {e.name}
+                    </AppAddress><RuntimeStatus observation={e} /></span>
                   ))}
                 </div>
               )}
@@ -263,7 +263,7 @@ function EndedOperation({ op }: { op: Operation }) {
   const { run, busy } = useAction(undefined, { affects: ['/dashboard'] })
   return (
     <div className="card row tone-warn" style={{ display: 'flex' }}>
-      <span className={`chip ${operationTone(op)}`}>{op.state}</span>
+      <Status word={op.statusLabel} tone={STATUS_LIGHT[op.statusLabel]} help={op.detail} />
       <Link to={`/operations/${op.id}`}><strong>{endedWords(op)}</strong></Link>
       {op.detail && <span className="muted small">{op.detail}</span>}
       <span style={{ flex: 1 }} />

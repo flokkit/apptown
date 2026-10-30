@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -10,11 +11,12 @@ import (
 )
 
 type PendingApproval struct {
-	StepID   ids.ID `json:"stepId"`
-	StepName string `json:"stepName"`
-	Stage    string `json:"stage"`
-	RunID    ids.ID `json:"runId"`
-	ChangeID ids.ID `json:"changeId"`
+	StatusLabel status.DisplayStatus `json:"statusLabel"`
+	StepID      ids.ID               `json:"stepId"`
+	StepName    string               `json:"stepName"`
+	Stage       string               `json:"stage"`
+	RunID       ids.ID               `json:"runId"`
+	ChangeID    ids.ID               `json:"changeId"`
 	// ChangeNumber is the change's number within its project; 0 for a run
 	// with no change.
 	ChangeNumber int64  `json:"changeNumber"`
@@ -34,8 +36,9 @@ type ActiveRun struct {
 	// State and StateDetail are the run's activity in the words the change
 	// page uses ("agent working: implement"); the stage name alone is the
 	// workflow's internal label.
-	State       ActivityState `json:"state"`
-	StateDetail string        `json:"stateDetail,omitempty"`
+	StatusLabel status.DisplayStatus `json:"statusLabel"`
+	State       ActivityState        `json:"state"`
+	StateDetail string               `json:"stateDetail,omitempty"`
 }
 type Dashboard struct {
 	PendingApprovals []PendingApproval
@@ -78,7 +81,7 @@ func readDashboard(ctx context.Context, q database.Queryer, projects []ids.ID, w
 		return Dashboard{}, err
 	}
 	for _, row := range pending {
-		out.PendingApprovals = append(out.PendingApprovals, PendingApproval{StepID: row.StepID, StepName: row.StepName, Stage: row.Stage, RunID: row.RunID, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, ItemTitle: row.ItemTitle, ProjectSlug: row.ProjectSlug, ProjectName: row.ProjectName})
+		out.PendingApprovals = append(out.PendingApprovals, PendingApproval{StatusLabel: status.DisplayWaitingForYou, StepID: row.StepID, StepName: row.StepName, Stage: row.Stage, RunID: row.RunID, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, ItemTitle: row.ItemTitle, ProjectSlug: row.ProjectSlug, ProjectName: row.ProjectName})
 	}
 	active, err := records.DashboardActiveRuns(ctx, workflowsql.DashboardActiveRunsParams{ProjectIds: projects, Running: RunRunning.String(), Pending: StatusPending.String(), NeedsHuman: StatusNeedsHuman.String()})
 	if err != nil {
@@ -101,6 +104,7 @@ func readDashboard(ctx context.Context, q database.Queryer, projects []ids.ID, w
 			return Dashboard{}, err
 		}
 		out.ActiveRuns[i].State, out.ActiveRuns[i].StateDetail = activity.State, activity.Detail
+		out.ActiveRuns[i].StatusLabel = activity.State.Display()
 	}
 	return out, nil
 }

@@ -37,7 +37,7 @@ export function CapacityBar({ label, bar, format, sum }: { label: string; bar: B
 const labelled = new Set(['free', 'unread'])
 
 function Seg({ s, width, share, format }: { s: Segment; width: string; share: number; format: (v: number) => string }) {
-  const title = `${s.name}: ${format(s.value)}${s.detail ? ` — ${s.detail}` : ''}`
+  const title = `${s.name}: ${format(s.value)}${s.detail ? ` · ${s.detail}` : ''}`
   const cls = `cap-seg cap-${s.kind}`
   // Each segment takes its share and shrinks to make room for the gaps
   // between them, so the bar never runs past its track.

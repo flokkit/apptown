@@ -109,7 +109,7 @@ func TestReleaseHistoryHTTPScopesNumbersAndDistinguishesLatestFromServing(t *tes
 	counts := map[string]int{}
 	for i, d := range departures.Departures {
 		counts[d.Slug]++
-		if d.Tier != "main deployment" || d.State != "released" || d.Label == "" || (i > 0 && departures.Departures[i-1].At < d.At) {
+		if d.Tier != "main deployment" || d.State != "deployed" || d.Label == "" || (i > 0 && departures.Departures[i-1].At < d.At) {
 			t.Fatalf("departure ordering/receipt: %+v", departures)
 		}
 	}
@@ -121,14 +121,15 @@ func TestReleaseHistoryHTTPScopesNumbersAndDistinguishesLatestFromServing(t *tes
 func TestReleaseTierObservesCurrentDeploymentInsteadOfReleaseHistory(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name, observed   string
+		name             string
+		state            deployment.RuntimeState
 		running, noLocal bool
 	}{
-		{name: "running", running: true},
-		{name: "stopped"},
-		{name: "gone"},
-		{name: "unknown", observed: "unknown"},
-		{name: "unavailable", observed: "unavailable", noLocal: true},
+		{name: "running", running: true, state: deployment.RuntimeRunning},
+		{name: "stopped", state: deployment.RuntimeStopped},
+		{name: "gone", state: deployment.RuntimeStopped},
+		{name: "unknown", state: deployment.RuntimeUnknown},
+		{name: "unavailable", state: deployment.RuntimeUnknown, noLocal: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := newFakeDocker()
@@ -196,7 +197,7 @@ func TestReleaseTierObservesCurrentDeploymentInsteadOfReleaseHistory(t *testing.
 				t.Fatal(err)
 			}
 			apps := read("owner", "/api/v1/tiers?project=game")
-			if len(apps) != 1 || apps[0].Running != tc.running || apps[0].Observed != tc.observed || apps[0].URL != "https://current.example" || apps[0].Detail != "" {
+			if len(apps) != 1 || apps[0].Running != tc.running || apps[0].Observation != tc.state || apps[0].URL != "https://current.example" || apps[0].Detail != "" {
 				t.Fatalf("runtime tier inherited history instead of current observation: %+v", apps)
 			}
 			before := inspections
@@ -232,7 +233,7 @@ func TestReleaseTierObservesCurrentDeploymentInsteadOfReleaseHistory(t *testing.
 				t.Fatal(err)
 			}
 			apps = read("owner", "/api/v1/tiers?project=game")
-			if len(apps) != 1 || apps[0].Running || apps[0].Observed != "unknown" || apps[0].URL != "https://replacement.example" || apps[0].Detail != "" {
+			if len(apps) != 1 || apps[0].Running || apps[0].Observation != deployment.RuntimeUnknown || apps[0].URL != "https://replacement.example" || apps[0].Detail != "" {
 				t.Fatalf("replacement inherited historical state: %+v", apps)
 			}
 		})
@@ -315,10 +316,10 @@ func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
 		if app.DeploymentID != idsByName[app.DeploymentLabel] {
 			t.Fatalf("placement identity/label mismatch: %+v", app)
 		}
-		if app.DeploymentLabel == "customer-a" && (!app.Running || app.Observed != "") {
+		if app.DeploymentLabel == "customer-a" && (!app.Running || app.Observation != deployment.RuntimeRunning) {
 			t.Fatalf("first placement: %+v", app)
 		}
-		if app.DeploymentLabel == "customer-b" && (app.Running || app.Observed != "unknown") {
+		if app.DeploymentLabel == "customer-b" && (app.Running || app.Observation != deployment.RuntimeUnknown) {
 			t.Fatalf("second placement: %+v", app)
 		}
 	}

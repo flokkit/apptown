@@ -1,3 +1,4 @@
+import { STATUS_LIGHT, Status } from '../../Status'
 import { offerTarget, targetOffer } from '../../targetCommands'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
@@ -30,12 +31,12 @@ export function TargetsPanel() {
   return (
     <div>
       <StaleNote q={q} />
-      <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
+      <details className="small"><summary>About resources</summary><p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
         A target is a place software can run: {PRODUCT}'s own Docker host, the intranet, a region of a
         cloud. Connecting a cloud account brings its targets here. A target is usable by a project only
-        once it is <b>offered</b> to that project's group — or to everyone — and the offer can cap what
+        once it is <b>offered</b> to that project's group · or to everyone · and the offer can cap what
         goes there.
-      </p>
+      </p></details>
       {cloud.length === 0 && (
         <div className="card" style={{ marginBottom: 14 }}>
           <div style={{ fontWeight: 600 }}>No cloud targets yet.</div>
@@ -67,7 +68,7 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
   const facts: string[] = []
   if (caps.needs?.length) facts.push(`provides ${caps.needs.join(', ')}`)
   if (caps.rollout?.length) facts.push(caps.rollout.join(', '))
-  facts.push(caps.persistentVolumes ? 'has disks' : 'no disks — networked databases only')
+  facts.push(caps.persistentVolumes ? 'has disks' : 'no disks · networked databases only')
   if (caps.previews) facts.push('previews')
   const domain = typeof t.ingress?.domain === 'string' ? t.ingress.domain : ''
   const withdraw = (id: string) => del(`/targets/${t.name}/offers/${id}`).then(onChanged)
@@ -79,7 +80,7 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
           <div style={{ fontWeight: 700 }}><Link to={`/infrastructure/${t.name}`}>{t.displayLabel || t.name}</Link></div>
           <div className="muted small">{placeOf(t.kindInfo, t.address)}{domain ? ` · *.${domain}` : ''}</div>
         </div>
-        <span className={`chip ${t.status === 'ready' ? 'pass' : 'pending'}`}>{t.status}</span>
+        <Status word={t.statusLabel} tone={STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}.`} />
       </div>
       <div className="muted small">{facts.join(' · ')}</div>
 
@@ -89,7 +90,7 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
         <span className="row" style={{ display: 'inline-flex', gap: 6 }}>
           {t.offers.map((o) => (
             <span key={o.id || 'implicit'} className="chip accent" title={o.implicit ? 'offered to everyone by construction' : `offered by ${o.createdBy}`}>
-              {o.group === '*' ? 'everyone' : o.group}{capsWords(o.caps) ? ` — ${capsWords(o.caps)}` : ''}
+              {o.group === '*' ? 'everyone' : o.group}{capsWords(o.caps) ? ` · ${capsWords(o.caps)}` : ''}
               {!o.implicit && (
                 <QuietConfirm label="×" ask={`Withdraw the offer to ${o.group === '*' ? 'everyone' : o.group}? Deployments already bound stay.`}
                   onYes={() => withdraw(o.id!)} className="subtle" yes="Withdraw" title="withdraw this offer" />
@@ -119,7 +120,7 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
       )}
       {t.retained > 0 && (
         <div className="small muted">
-          {t.retained} resource{t.retained === 1 ? '' : 's'} retained from deployments that were torn down — see the projects' Settings → Deployments.
+          {t.retained} resource{t.retained === 1 ? '' : 's'} retained from deployments that were torn down · see the projects' Settings → Deployments.
         </div>
       )}
     </div>

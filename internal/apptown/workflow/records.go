@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/apptown/status"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -11,27 +12,31 @@ import (
 // Run is a workflow execution pinned to its definition. RetryRevision fences
 // decisions made before changed work; it is distinct from a step's attempt.
 type Run struct {
-	ParentStepAttempt int64    `json:"-"`
-	RetryRevision     int64    `json:"-"` // changed work invalidates an earlier advancement read
-	ID                ids.ID   `json:"id"`
-	Number            int64    `json:"number"` // within its project
-	ProjectID         ids.ID   `json:"projectId"`
-	WorkflowName      string   `json:"workflowName"`
-	WorkflowVersion   int      `json:"workflowVersion"`
-	Kind              string   `json:"kind"`
-	Status            RunState `json:"status"`
-	CurrentStage      string   `json:"currentStage"`
-	DefinitionJSON    string   `json:"-"`
-	ChangeID          ids.ID   `json:"changeId"`
-	ParentRunID       ids.ID   `json:"parentRunId,omitzero"`
-	ParentStepID      ids.ID   `json:"parentStepId,omitzero"`
-	InputsJSON        string   `json:"-"`
-	AdoptionID        ids.ID   `json:"adoptionId,omitzero"` // the revision this run reads (§4.1); 0 = before receipts
-	CreatedAt         string   `json:"createdAt"`
-	UpdatedAt         string   `json:"updatedAt"`
+	StatusLabel       status.DisplayStatus `json:"statusLabel"`
+	ParentStepAttempt int64                `json:"-"`
+	RetryRevision     int64                `json:"-"` // changed work invalidates an earlier advancement read
+	ID                ids.ID               `json:"id"`
+	Number            int64                `json:"number"` // within its project
+	ProjectID         ids.ID               `json:"projectId"`
+	WorkflowName      string               `json:"workflowName"`
+	WorkflowVersion   int                  `json:"workflowVersion"`
+	Kind              string               `json:"kind"`
+	Status            RunState             `json:"status"`
+	CurrentStage      string               `json:"currentStage"`
+	DefinitionJSON    string               `json:"-"`
+	ChangeID          ids.ID               `json:"changeId"`
+	ParentRunID       ids.ID               `json:"parentRunId,omitzero"`
+	ParentStepID      ids.ID               `json:"parentStepId,omitzero"`
+	InputsJSON        string               `json:"-"`
+	AdoptionID        ids.ID               `json:"adoptionId,omitzero"` // the revision this run reads (§4.1); 0 = before receipts
+	CreatedAt         string               `json:"createdAt"`
+	UpdatedAt         string               `json:"updatedAt"`
 }
 
 type Step struct {
+	runEnded    bool
+	StatusLabel status.DisplayStatus `json:"statusLabel"`
+
 	Attempt                                 int64 `json:"-"`
 	ownedStepID, ownedRunID, ownedProjectID ids.ID
 	ownedAttempt                            int64           // only assigned by committed admission, never by a read
@@ -69,4 +74,11 @@ func (s Step) SourceGeneration() int64 {
 		return 0
 	}
 	return s.ownedSourceGeneration
+}
+
+func (s Step) MarshalJSON() ([]byte, error) {
+	type view Step
+	out := view(s)
+	out.StatusLabel = s.displayLabel()
+	return json.Marshal(out)
 }

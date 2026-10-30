@@ -1433,3 +1433,18 @@ button.page-help-q:hover, button.page-help-q[aria-expanded="true"] { color: var(
 @media (max-width: 800px), (pointer: coarse) {
   button.page-help-q { width: 44px; height: 44px; }
 }
+
+/* Status reasons stay one tap away on touch screens too. */
+.status-help { position: relative; display: inline-block; vertical-align: baseline; max-width: 100%; margin: 0; }
+.status-help > summary { display: inline; cursor: pointer; list-style: none; padding: 0; border: 0; background: none; }
+.status-help > summary::before, .status-help[open] > summary::before { content: none; }
+.status-help[open] > summary { margin: 0; }
+.status-help > summary::-webkit-details-marker { display: none; }
+.status-help > div { position: absolute; z-index: 100; top: 100%; left: 0; width: min(32rem, calc(100vw - 32px)); max-width: calc(100vw - 32px); box-sizing: border-box; white-space: normal; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+.int-table { display: table; width: 100%; }
+@media (max-width: 600px) { .topbar-chip { display: none; } }
+
+.pack-description { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.int-used > span { display: block; max-width: 28rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 700px) { .int-used > span { max-width: calc(100vw - 64px); } }

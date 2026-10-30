@@ -193,3 +193,14 @@ func New(starter *Starter, deps Dependencies) *Service {
 	s.registerKinds()
 	return s
 }
+
+// Manifests retain the portable backup format, without UI display labels.
+func (m backupManifest) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		backupFields
+		StatusLabel *BackupLabel `json:"statusLabel,omitempty"`
+		Format      string       `json:"format"`
+		Version     int          `json:"version"`
+		Path        string       `json:"path"`
+	}{backupFields: backupFields(m.Backup), Format: m.Format, Version: m.Version, Path: m.Path})
+}

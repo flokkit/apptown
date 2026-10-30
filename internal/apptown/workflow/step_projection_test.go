@@ -40,6 +40,15 @@ func TestWorkflowStepReadSurfacesShareSnapshot(t *testing.T) {
 		t.Fatalf("read must retain creation order across stages: %+v %v", steps, err)
 	}
 	detail, err := work.Snapshot(context.Background(), runID, DetailView)
+	// Snapshot display knows that the run ended; record readers retain the same stored facts.
+	if err == nil {
+		for _, step := range detail.Steps {
+			if !step.runEnded {
+				t.Fatal("ended run lost display context")
+			}
+			step.runEnded = false
+		}
+	}
 	if err != nil || !reflect.DeepEqual(steps, detail.Steps) {
 		t.Fatalf("detail has a different snapshot: %+v %v", detail, err)
 	}

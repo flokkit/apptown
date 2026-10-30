@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -44,15 +45,15 @@ export function StatePanel({ view, onChange, reading, workTab }: {
     : chats.data?.sessions.find((x) => x.changeId === view.change.id && x.state !== 'dead' && !!x.turn)
   const next = nextStep(view, { chat: live?.turn })
   const stale = !!reading?.refreshFailed
-  const tone = stale ? 'unknown' : next.tone
+  const light = stale ? 'unknown' : STATUS_LIGHT[view.statusLabel]
+  const tone = ({pass:'ok', pending:'warn', fail:'bad', unknown:'unknown', '':'neutral'} as Record<string, string>)[light]
   return (
     <section className={`ch-state tone-${tone}`} aria-label="Where this change is">
       <div className="ch-state-main">
-        <span className={`ch-dot ${tone}`} aria-hidden />
         <div className="ch-state-words">
           <div className="ch-state-head">
+            <Status word={stale ? 'unknown' : view.statusLabel} tone={light} />
             <span className="ch-headline">{next.headline}</span>
-            {stale && <span className="chip stale">not current</span>}
           </div>
           {next.sentBack && (
             <div className="ch-sentence">
@@ -135,9 +136,9 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
       )
       quiet = toLand && run.status === 'running'
         ? <KeepWorking runId={run.id!} view={view} />
-        : <span className="muted small">Not ready to decide?{' '}
+        : <span className="muted small">
             <button className="subtle" onClick={() => takeToChat(step)}>Take it to chat</button>
-            <span> stops this attempt; the same agent continues with you.</span> {stopAttempt}
+            {stopAttempt}
           </span>
       break
     }
@@ -160,7 +161,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
         <>
           {next.primary !== 'take-to-chat' && <button className="subtle" onClick={() => takeToChat(step)}>Take it to chat</button>}
           {next.primary !== 'pick-up' && offered(d?.next, 'retry', step.id) && <button className="subtle" onClick={() => rerun(step)}>{rerunLabel(step)}</button>}
-          <Link className="small" to={workTab(step.id)}>Override or see the full record</Link>
+          <Link className="small" to={workTab(step.id)}>Override or view record</Link>
           {next.primary === 'take-to-chat' && step.type !== 'agent/pi' && offered(view.next, 'send-back') && <SendBack changeId={changeId} onDone={onChange} />}
           {abandon}
           {stopAttempt}
@@ -176,7 +177,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
           <button className="primary" disabled={busy} onClick={() => rerun(step)}>{rerunLabel(step)}</button>
         </div>
       )
-      quiet = <><Link className="small" to={workTab(step.id)}>Override or see the full record</Link>{offered(view.next, 'abandon') && <CloseIt changeId={changeId} />}</>
+      quiet = <><Link className="small" to={workTab(step.id)}>Override or view record</Link>{offered(view.next, 'abandon') && <CloseIt changeId={changeId} />}</>
       break
     case 'restart-landing':
       if (!run) break
@@ -193,12 +194,12 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
       body = (
         <div className="row ch-primary">
           <button className="primary" disabled={busy} onClick={() => act(async () => setAdvance(await post<AdvanceResult>(`/runs/${run.id}/advance`)))}>Continue</button>
-          {advance?.followUpsPending && <span className="muted small">Workflow completed. Follow-up work is queued or running.</span>}
+          {advance?.followUpsPending && <span className="muted small">Workflow finished. Follow-ups pending.</span>}
           {advance && !advance.advanced && !!advance.blocking?.length && (
             <span className="error small">Blocked by: {advance.blocking.map((b) => `${b.name} (${b.status})`).join(', ')}</span>
           )}
           {!!advance?.missing?.length && <span className="error small">Missing required checks: {advance.missing.join(', ')}.</span>}
-          {advance?.advanced && <span className="muted small">Moved on.</span>}
+          {advance?.advanced && <span className="muted small">Continued.</span>}
         </div>
       )
       quiet = <>{stopAttempt}</>
@@ -387,7 +388,7 @@ export function KeepWorking({ runId, view }: { runId: string; view: ChangeView }
   return (
     <span className="muted small">
       {!confirming ? (
-        <>Not ready to decide?{' '}
+        <>{' '}
           <button className="subtle" onClick={() => setConfirming(true)}>Keep working</button>
           <span> stops the landing and reopens the chat; nothing is lost.</span>
         </>

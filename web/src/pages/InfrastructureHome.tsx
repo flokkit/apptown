@@ -1,3 +1,4 @@
+import { STATUS_LIGHT, Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useGet } from '../data'
@@ -74,7 +75,7 @@ export function InfrastructureHome() {
                   <div className="infra-title">{t.target}</div>
                   <div className="infra-kind">{FAMILY_TITLE[t.family] ?? t.family} · {t.place}{t.domain ? ` · *.${t.domain}` : ''}</div>
                 </div>
-                <span className={`chip ${t.status === 'ready' ? 'pass' : 'fail'}`}>{t.status}</span>
+                <Status word={t.statusLabel} tone={STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}.`} />
               </div>
               <div className="infra-facts" title={t.facts}>{t.facts}</div>
               <div className="infra-stats">
@@ -93,7 +94,7 @@ export function InfrastructureHome() {
                   : !t.live && <span className="chip pending">checking…</span>}
               </div>
               <div className="infra-foot">
-                <span><small>inventory</small>{t.live ? (t.asOf ? relTime(t.asOf) : 'just now') : t.error ? 'no answer' : 'checking…'}</span>
+                <span><small>inventory</small>{t.live ? (t.asOf ? relTime(t.asOf) : 'now') : t.error ? 'no answer' : 'checking…'}</span>
                 <span><small>backups</small>{!backups.data ? (backups.err ? 'could not be read' : 'reading…') : bk ? `${relTime(bk.latest)} · ${bk.kept} kept` : envs.length > 0 ? 'none yet' : 'no state'}</span>
                 <span><small>offered to</small>{offers.length > 0 ? offers.map((o) => o.group === '*' ? 'everyone' : o.group).join(', ') : 'nobody'}</span>
               </div>
@@ -150,7 +151,7 @@ function DiskChip({ d }: { d: Reading }) {
 // first, then the recent ones, each with its receipt or its failure.
 function JobQueue() {
   const jobs = useGet<JobList>('/jobs?limit=100', { poll: 10000 })
-  const stateWords: Record<string, string> = { available: 'queued', retryable: 'waiting to retry', scheduled: 'scheduled', pending: 'pending', running: 'running', completed: 'done', discarded: 'failed', cancelled: 'stopped' }
+
   if (!jobs.data) return <div style={{ marginTop: 14 }}><ReadStatus q={jobs} what="the job queue" /></div>
   const open = jobs.data.jobs.filter((j) => ['available', 'pending', 'running', 'retryable', 'scheduled'].includes(j.state)).length
   return (
@@ -167,7 +168,7 @@ function JobQueue() {
                 {jobs.data.jobs.map((j) => (
                   <tr key={j.id}>
                     <td>{JOB_WORDS[j.kind] ?? j.kind} <b>{j.key}</b></td>
-                    <td><span className={`chip ${j.state === 'completed' ? 'pass' : ['discarded', 'cancelled'].includes(j.state) ? 'fail' : j.state === 'running' ? 'running' : 'pending'}`}>{stateWords[j.state] ?? j.state}</span>{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
+                    <td><Status word={j.statusLabel} tone={STATUS_LIGHT[j.statusLabel]} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
                     <td className="muted">{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
                     <td className={j.error ? 'error' : ''}>{jobReceipt(j)}</td>
                   </tr>

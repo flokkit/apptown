@@ -94,7 +94,7 @@ describe('the conversation as read', () => {
 
   it('says a conversation that could not be read could not be read, with no starters', async () => {
     const { el, done } = await mount(down)
-    await vi.waitFor(() => expect(el.textContent).toContain('The conversation could not be read: the worker cannot be reached'))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('the worker cannot be reached'))
     expect(el.textContent).not.toContain('What does this project do right now?')
     done()
   })
@@ -107,7 +107,7 @@ describe('the conversation as read', () => {
 
   it('keeps an old conversation shown, saying it may be old, when its refresh fails', async () => {
     const { el, done } = await mount(down, [{ i: 0, role: 'you', text: 'make the cat blue' }])
-    await vi.waitFor(() => expect(el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(the worker cannot be reached)'))
+    await vi.waitFor(() => expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(the worker cannot be reached)'))
     expect(el.textContent).toContain('make the cat blue')
     done()
   })

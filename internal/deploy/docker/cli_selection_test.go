@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/execfile"
 	"github.com/flokkit/apptown/internal/poll/polltest"
 )
@@ -28,12 +29,21 @@ func TestDockerCLISelectionStreamsAndCancellation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	if _, err := client.Run(ctx, "", Command{Args: []string{"wait"}, Timeout: 30 * time.Second}); err == nil {
-		t.Fatal("canceled observation succeeded")
+	if _, err := client.Run(ctx, "", Command{Args: []string{"wait"}, Timeout: 30 * time.Second}); err == nil || deploy.IsUnreachable(err) {
+		t.Fatalf("caller cancellation classified as connectivity failure: %v", err)
 	}
 	if elapsed := time.Since(start); elapsed > 3*time.Second {
 		t.Fatalf("cancellation took %v", elapsed)
 	}
+	// The command's own timeout is a provider connectivity failure; a
+	// caller's cancellation above does not establish that the host is down.
+	t.Run("command timeout is unreachable", func(t *testing.T) {
+		_, err := client.Run(t.Context(), "", Command{Args: []string{"wait"}, Timeout: 20 * time.Millisecond})
+		if !deploy.IsUnreachable(err) {
+			t.Fatalf("timeout was not typed: %v", err)
+		}
+	})
+
 }
 
 // An AppTown with no local Docker refuses every call to its own daemon before

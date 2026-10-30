@@ -117,9 +117,9 @@ export function DangerZone({ slug }: { slug: string }) {
 export function LifecycleNote({ slug, lifecycle }: { slug: string; lifecycle?: Lifecycle }) {
   if (!lifecycle || lifecycle.state === 'active') return null
   const said = lifecycle.state === 'deleted'
-    ? <>Deleted — kept until {lifecycle.keptUntil ? fmtDay(lifecycle.keptUntil) : 'unknown'}. Read-only.</>
+    ? <>Deleted · kept until {lifecycle.keptUntil ? fmtDay(lifecycle.keptUntil) : 'unknown'}. Read-only.</>
     : lifecycle.state === 'deleting'
-    ? <>Being deleted{lifecycle.stalled ? ' — stopped' : ''}. No new work.</>
+    ? <>Being deleted{lifecycle.stalled ? ' · stopped' : ''}. No new work.</>
     : <>Being imported. No new work until it ends.</>
   return (
     <div className="card tone-bad small" style={{ margin: '8px 0' }}>

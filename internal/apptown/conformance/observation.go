@@ -131,7 +131,8 @@ func (o Observation) MarshalJSON() ([]byte, error) {
 	}
 	evidence.Detail = o.Detail()
 	return json.Marshal(struct {
-		Verdict
-		State ObservationState `json:"state"`
-	}{evidence, o.State})
+		VerdictFields
+		State       ObservationState `json:"state"`
+		StatusLabel CheckLabel       `json:"statusLabel"`
+	}{VerdictFields(evidence), o.State, displayLabel(o.State)})
 }

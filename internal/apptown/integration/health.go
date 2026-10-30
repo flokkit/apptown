@@ -7,15 +7,16 @@ import "time"
 // it did. An unchecked reading is not evidence either way, so OK and Detail
 // are empty: "no check" must never read as "working".
 type Health struct {
-	OK        bool   `json:"ok"`
-	Detail    string `json:"detail"`
-	Checked   bool   `json:"checked"`
-	CheckedAt string `json:"checkedAt,omitempty"`
+	StateLabel HealthStatus `json:"stateLabel"`
+	OK         bool         `json:"ok"`
+	Detail     string       `json:"detail"`
+	Checked    bool         `json:"checked"`
+	CheckedAt  string       `json:"checkedAt,omitempty"`
 }
 
 // At is the reading as one AppTown took at the given time.
 func (h Health) At(at time.Time) Health {
 	h.Checked = true
 	h.CheckedAt = at.UTC().Format(time.RFC3339)
-	return h
+	return h.ForDisplay()
 }

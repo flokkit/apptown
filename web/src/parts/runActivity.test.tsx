@@ -10,7 +10,7 @@ import { ActiveRunList, ChangeHistoryTable, ChangeRow, RunRow } from './runActiv
 const CHANGE = '00000000-0021-7000-8000-000000000000'
 
 const row = (over: Partial<ChangeRow> = {}): ChangeRow => ({
-  changeId: CHANGE, changeNumber: 21, title: 'Change the page heading', type: 'feature', state: 'shipped', stateLabel: 'shipped', completedRuns: 2, merged: true,
+  changeId: CHANGE, changeNumber: 21, title: 'Change the page heading', type: 'feature', state: 'shipped', stateLabel: 'shipped', statusLabel: 'landed', completedRuns: 2, merged: true,
   project: 'demo-smoke', workflows: 'quick-change', runs: 2, when: '2026-10-01T08:50:00Z', tookS: 120, ...over,
 })
 
@@ -60,7 +60,7 @@ describe('the change history counts runs in words', () => {
 describe('a blocked change on the needs-you list', () => {
   const blocked = (next: RunRow['next']): RunRow => ({
     runId: '00000000-0022-7000-8000-000000000000', runNumber: 3, changeId: CHANGE, changeNumber: 13, workflow: 'adopt', title: 'Adopt the way of working: html-game',
-    status: 'running', stage: 'checks', state: 'blocked', project: 'demo-smoke', startedAt: '2026-10-01T08:50:00Z', durationS: 60, next,
+    status: 'running', stage: 'checks', state: 'blocked', statusLabel: 'failed' as const, project: 'demo-smoke', startedAt: '2026-10-01T08:50:00Z', durationS: 60, next,
   })
   const buttons = (r: RunRow) => {
     const el = document.createElement('div')

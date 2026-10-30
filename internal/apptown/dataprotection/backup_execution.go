@@ -245,6 +245,7 @@ func (s *Service) takeSetWhere(ctx context.Context, dk docker.Scope, projectID i
 		}
 	}
 	b.Status = Taken(failed, len(b.Items))
+	b.StatusLabel = b.label()
 	if b.Status == BackupFailed {
 		b.Error = b.Items[0].Error
 	}

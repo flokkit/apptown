@@ -17,8 +17,8 @@ import type { AttentionView } from './wire.gen'
 const at = '2026-10-26T00:00:00Z'
 const known: AttentionView = { items: [], sources: [{ key: 'workers', name: 'Worker availability', observedAt: at, unknown: false, stale: false }] }
 const warning: AttentionView = { ...known, items: [
-  { key: 'workers/a', title: 'Worker unavailable', detail: 'Work is waiting.', href: '/infrastructure', severity: 'warning', observedAt: at, stale: false },
-  { key: 'protection/a', title: 'Recovery is untested', detail: 'No recovery evidence yet.', href: '/projects/game/settings/data', severity: 'advisory', observedAt: at, stale: false },
+  { key: 'workers/a', title: 'Worker unavailable', detail: 'Work is waiting.', href: '/infrastructure', statusLabel: 'waiting', severity: 'warning', observedAt: at, stale: false },
+  { key: 'protection/a', title: 'Recovery is untested', detail: 'No recovery evidence yet.', href: '/projects/game/settings/data', statusLabel: 'waiting', severity: 'advisory', observedAt: at, stale: false },
 ] }
 const emptyDashboard = { pendingApprovals: [], activeRuns: [], recentAdrs: [], endedOperations: [] }
 const emptyActivity = { agents: [], active: [], history: [], deployments: [] }
@@ -58,15 +58,15 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(v.el.querySelectorAll('article')).toHaveLength(2)
     expect(v.el.querySelector('a[href="/infrastructure"]')?.textContent).toBe('Worker unavailable')
     expect(v.el.querySelector('a[href="/projects/game/settings/data"]')?.textContent).toBe('Recovery is untested')
-    expect(v.el.querySelectorAll('article .chip.warn')).toHaveLength(1)
-    expect(v.el.querySelectorAll('article')[1].textContent).toContain('advisory')
+    expect(v.el.querySelectorAll('article .chip.pending')).toHaveLength(2)
+    expect(v.el.querySelectorAll('article')[1].textContent).toContain('waiting')
   })
   it.each(['unknown', 'stale', 'failed'] as const)('does not report all-clear for %s empty observations', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'observation read failed' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: mode === 'stale' }] }))
     const v = mount(<><AttentionBadge /><AttentionPage /></>); await settled(v.client)
     expect(badge(v.el).getAttribute('aria-label')).toContain('coverage incomplete')
     expect(v.el.textContent).not.toContain('No current conditions need attention')
-    expect(v.el.textContent).toContain(mode === 'failed' ? 'could not be read' : 'not an all-clear')
+    expect(v.el.textContent).toContain(mode === 'failed' ? 'failed' : 'Coverage incomplete')
   })
   it('retains conditions across a failed refresh and clears them only after successful recovery', async () => {
     let answer = () => json(warning)
@@ -76,12 +76,13 @@ describe('Attention surfaces share authorized current evidence', () => {
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
     expect(v.el.querySelectorAll('article')).toHaveLength(2)
     expect(badge(v.el).getAttribute('aria-label')).toContain('2 conditions, coverage incomplete')
-    expect(v.el.textContent).toContain('out of date')
+    expect(v.el.textContent).toContain('unknown')
     answer = () => json(known)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
     expect(v.el.querySelectorAll('article')).toHaveLength(0)
     expect(badge(v.el).getAttribute('aria-label')).toBe('Attention: 0 conditions')
-    expect(v.el.textContent).toContain('No current conditions need attention')
+    expect(v.el.textContent).toContain('0 conditions')
+    expect(v.el.textContent).not.toContain('Coverage incomplete')
   })
   it('polls the shared visible answer at thirty seconds and makes no signed-out request', async () => {
     vi.useFakeTimers(); focusManager.setFocused(true)

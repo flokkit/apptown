@@ -278,6 +278,7 @@ type AttemptHistory struct {
 // WhatIfRow is one project's answer for one check, or for the whole
 // project when Block is empty (no source, or it could not adopt the version).
 type WhatIfRow struct {
+	StatusLabel      CheckLabel      `json:"statusLabel"`
 	ProjectID        ids.ID          `json:"projectId"`
 	ProjectSlug      string          `json:"projectSlug"`
 	SHA              string          `json:"sha"`
@@ -302,10 +303,12 @@ type WhatIfRow struct {
 
 // WhatIf is one what-if with its rows.
 type WhatIf struct {
-	ID          ids.ID `json:"id"`
-	Pack        string `json:"pack"`
-	Version     int64  `json:"version"`
-	RequestedBy string `json:"requestedBy"`
+	StatusLabel   WhatIfLabel           `json:"statusLabel"`
+	OutcomeLabels map[string]CheckLabel `json:"outcomeLabels"`
+	ID            ids.ID                `json:"id"`
+	Pack          string                `json:"pack"`
+	Version       int64                 `json:"version"`
+	RequestedBy   string                `json:"requestedBy"`
 	// RequestedByPrincipal is the requester's principal; zero when not resolved to a person.
 	RequestedByPrincipal ids.ID     `json:"requestedByPrincipal,omitzero"`
 	State                string     `json:"state"`

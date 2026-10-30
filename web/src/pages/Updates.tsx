@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { post } from '../api'
@@ -22,17 +23,17 @@ export function ReleaseAvailabilityNote() {
 function AvailabilityRead() {
   const { data, err, refreshFailed, paused } = useGet<InstanceUpdateStatus>('/instance-updates', { kind: 'config', poll: 30_000 })
   if (err || refreshFailed || paused || data?.state !== 'available' || !data.candidate) return null
-  return <div className="card small" role="status">{PRODUCT} {data.candidate.version} is available. <Link to="/updates">Review the authenticated release</Link></div>
+  return <div className="card small" role="status">{PRODUCT} {data.candidate.version} is available. <Link to="/updates">View release</Link></div>
 }
 
 const states: Record<string, string> = {
-  unknown: 'Release availability has not been assessed.',
-  checking: 'Checking authenticated release information…',
-  'no-release': 'No releases were found in this channel during the last successful check.',
-  current: 'No newer release was found during the last successful check.',
-  available: 'An authenticated release is available.',
-  stale: 'Release information is stale. Check again before relying on it.',
-  unavailable: 'Release availability could not be authenticated.',
+  unknown: 'Not checked yet.',
+  checking: 'Checking release signatures.',
+  'no-release': 'No releases in this channel.',
+  current: 'Up to date.',
+  available: 'Release available.',
+  stale: 'Release information expired. Check for updates.',
+  unavailable: 'Release information could not be verified.',
 }
 function UpdateDetails() {
   const query = useGet<InstanceUpdateStatus>('/instance-updates', { kind: 'config', poll: 5_000 })
@@ -47,11 +48,10 @@ function UpdateDetails() {
   const data = query.data
   return <div>
     <h1>Updates</h1>
-    <p>Review signed {PRODUCT} release information before following the upgrade guide.</p>
     {(query.err || error) && <div className="error" role="alert">{error || query.err}</div>}
     <button disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>
     {!data ? <p role="status">Release status is unavailable.</p> : <>
-      <p role="status">{states[data.state] ?? states.unknown}</p>
+      <p><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} help={states[data.state]} /></p>
       <dl>
         <dt>Installed build</dt><dd>{data.build} ({data.platform})</dd>
         <dt>Channel</dt><dd>{data.channel}</dd>

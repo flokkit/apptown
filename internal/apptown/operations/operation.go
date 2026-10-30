@@ -131,6 +131,8 @@ const SystemActor = "apptown-system"
 
 // Operation is one row of the ledger.
 type Operation struct {
+	StatusLabel OperationLabel `json:"statusLabel"`
+
 	ID        ids.ID `json:"id"`
 	Number    int64  `json:"number"` // within AppTown, as people name it ("operation 9")
 	Kind      string `json:"kind"`
@@ -276,4 +278,17 @@ func validPath(p string) bool {
 		}
 	}
 	return true
+}
+
+func (o Operation) MarshalJSON() ([]byte, error) {
+	type view Operation
+	out := view(o)
+	out.StatusLabel = o.label()
+	if out.Holds == nil {
+		out.Holds = []string{}
+	}
+	if out.Steps == nil {
+		out.Steps = []OperationStep{}
+	}
+	return json.Marshal(out)
 }

@@ -70,15 +70,14 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 			if change == nil {
 				continue
 			}
-			projID, title := change.ProjectID, change.Title
+			projID := change.ProjectID
 			// A readable change is not a readable project: the tier map
 			// shows a preview only in a project the caller can read.
 			p := projects[projID]
 			if p == nil || (!onlyID.IsZero() && projID != onlyID) {
 				continue
 			}
-			app := TierApp{Detail: fmt.Sprintf("change %d: %s", change.Number, strs.Truncate(title, 50)), Running: true,
-				Slug: p.Slug, Name: p.Name, Icon: p.Icon, ChangeID: change.ID, ChangeNumber: change.Number}
+			app := previewTierApp(p, change)
 			preview.Apps = append(preview.Apps, app)
 		}
 	}
@@ -95,7 +94,11 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 		if p == nil || (!onlyID.IsZero() && p.ID != onlyID) {
 			continue
 		}
-		app := h.runtimeApp(r.Context(), p, &e.Deployment)
+		app, err := h.runtimeApp(r.Context(), p, &e.Deployment)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
 		repository, err := p.Repository(h.dataDir)
 		if err != nil {
 			WriteFault(w, err)
@@ -122,7 +125,12 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 		if p == nil || (!onlyID.IsZero() && p.ID != onlyID) {
 			continue
 		}
-		released.Apps = append(released.Apps, h.runtimeApp(r.Context(), p, &e.Deployment))
+		app, err := h.runtimeApp(r.Context(), p, &e.Deployment)
+		if err != nil {
+			WriteFault(w, err)
+			return
+		}
+		released.Apps = append(released.Apps, app)
 	}
 
 	net := TierView{Name: "net", Title: "Internet", Future: true, Apps: []TierApp{},
@@ -133,16 +141,22 @@ func (h Tiers) Tiers(w http.ResponseWriter, r *http.Request) {
 
 // runtimeApp projects the current placement, independently of release history.
 // The caller filters project visibility before reaching or observing its target.
-func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment.Deployment) TierApp {
-	reach := h.deployment.Reach(ctx, p.Slug, d)
-	app := TierApp{DeploymentID: d.ID, DeploymentLabel: d.DisplayLabel, Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: reach.URL, HostOnly: reach.HostOnly}
-	switch o := h.deployment.ObserveContainer(ctx, d); o.State {
-	case deployment.ContainerUnavailable, deployment.ContainerUnknown:
-		app.Observed = o.State.String()
-	default:
-		app.Running = o.State == deployment.ContainerRunning
+func (h Tiers) runtimeApp(ctx context.Context, p *project.Project, d *deployment.Deployment) (TierApp, error) {
+	rows, err := h.deployment.List(ctx, p.ID)
+	if err != nil {
+		return TierApp{}, err
 	}
-	return app
+	for _, row := range rows {
+		if row.ID != d.ID {
+			continue
+		}
+		app := TierApp{RuntimeObservationView: runtimeObservationView(row.Observation), DeploymentID: row.ID, DeploymentLabel: row.DisplayLabel, Slug: p.Slug, Name: p.Name, Icon: p.Icon, URL: row.URL, HostOnly: row.HostOnly}
+		if running := row.Observation.State.Running(); running != nil {
+			app.Running = *running
+		}
+		return app, nil
+	}
+	return TierApp{}, errors.New("deployment no longer exists")
 }
 
 // Departures: GET /api/v1/tiers/departures — movement through the
@@ -166,7 +180,7 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 		if p == nil {
 			continue
 		}
-		d := Departure{At: r.At(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, Who: r.ApprovedBy, State: r.State.String(),
+		d := Departure{At: r.At(), Slug: p.Slug, Name: p.Name, Icon: p.Icon, Who: r.ApprovedBy, State: r.State.DepartureLabel(),
 			Tier: r.Deployment + " deployment", Label: fmt.Sprintf("release #%d", r.Number)}
 		if r.State == deployment.Released && strings.HasPrefix(r.Notes, "http") {
 			d.URL = r.Notes
@@ -192,7 +206,7 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			d := Departure{At: pv.StartedAt, Tier: "preview", Slug: p.Slug, Name: p.Name, Icon: p.Icon,
-				Label: fmt.Sprintf("preview for change %s#%d", p.Slug, change.Number), State: "live"}
+				Label: fmt.Sprintf("preview for change %s#%d", p.Slug, change.Number), State: deployment.DepartureRunning}
 			out = append(out, d)
 		}
 	}
@@ -202,6 +216,7 @@ func (h Tiers) Departures(w http.ResponseWriter, r *http.Request) {
 }
 
 type TierApp struct {
+	RuntimeObservationView
 	DeploymentID    ids.ID `json:"deploymentId,omitzero"`
 	DeploymentLabel string `json:"deploymentLabel,omitempty"`
 	Slug            string `json:"slug"`
@@ -212,10 +227,8 @@ type TierApp struct {
 	// HostOnly: URL answers on the AppTown host only (deployment.Reach).
 	HostOnly bool `json:"hostOnly,omitempty"`
 	Running  bool `json:"running"`
-	// Observed is why Running was not observed: "unavailable" (the
-	// built-in host of an AppTown with no local Docker) or "unknown".
-	Observed string `json:"observed,omitempty"`
-	Static   bool   `json:"static,omitempty"`
+
+	Static bool `json:"static,omitempty"`
 	// ChangeID is the change a preview is of, and ChangeNumber its number
 	// within the project; absent on other tiers.
 	ChangeID     ids.ID `json:"changeId,omitzero"`
@@ -244,11 +257,11 @@ type Departure struct {
 	Icon string `json:"icon,omitempty"`
 	// Tier is where it went: the deployment's name with its kind ("main
 	// deployment", "intranet deployment"), or "preview".
-	Tier  string `json:"tier"`
-	Label string `json:"label"`
-	Who   string `json:"who,omitempty"`
-	State string `json:"state"`
-	URL   string `json:"url,omitempty"`
+	Tier  string                    `json:"tier"`
+	Label string                    `json:"label"`
+	Who   string                    `json:"who,omitempty"`
+	State deployment.DepartureLabel `json:"state"`
+	URL   string                    `json:"url,omitempty"`
 }
 
 type TierView struct {
@@ -303,4 +316,9 @@ func (h Tiers) visible(ctx context.Context) (map[ids.ID]*project.Project, error)
 		out[rows[i].ID] = &rows[i]
 	}
 	return out, nil
+}
+
+// Preview discovery establishes existence, not the app's runtime health.
+func previewTierApp(p *project.Project, change *workflow.Change) TierApp {
+	return TierApp{RuntimeObservationView: runtimeObservationView(deployment.RuntimeObservation{State: deployment.RuntimeUnknown}), Detail: fmt.Sprintf("change %d: %s", change.Number, strs.Truncate(change.Title, 50)), Slug: p.Slug, Name: p.Name, Icon: p.Icon, ChangeID: change.ID, ChangeNumber: change.Number}
 }

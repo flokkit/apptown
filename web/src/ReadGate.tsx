@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Read } from './data'
-import { fmtLastRead, fmtStamp } from './format'
+import { fmtStamp } from './format'
+import { Status } from './Status'
 
 // One place for what a read shows besides its answer: still on its way,
 // refused, broken, or shown but possibly old. design/architecture/web-data.md states the display rules:
@@ -11,7 +12,6 @@ import { fmtLastRead, fmtStamp } from './format'
 // read whatever its answer's type.
 export type Gated = Pick<Read<unknown>, 'data' | 'err' | 'reason' | 'loading' | 'denied' | 'refreshFailed' | 'answeredAt'>
 
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 // ReadStatus is what a read with no answer to show says: nothing while it
 // has no path, then refused, failed or still reading, in that order. A read
@@ -22,8 +22,8 @@ export function ReadStatus({ q, what, denied, className = '' }: { q: Gated | Gat
   if (missing.length === 0) return null
   if (missing.some((r) => r.denied)) return <div className={`muted ${className}`}>{denied ?? `Not available to you: ${what}.`}</div>
   const failed = missing.find((r) => r.err)
-  if (failed) return <div className={`error ${className}`}>{capital(what)} could not be read: {failed.reason || failed.err}</div>
-  if (missing.some((r) => r.loading)) return <div className={`muted ${className}`}>Reading {what}…</div>
+  if (failed) return <div className={`error ${className}`}><Status word="unknown" tone="unknown" help={`${what.charAt(0).toUpperCase() + what.slice(1)} could not be read: ${failed.reason || failed.err}`} /></div>
+  if (missing.some((r) => r.loading)) return <div className={`muted ${className}`}>Loading…</div>
   return null
 }
 
@@ -39,13 +39,8 @@ export function StaleNote({ q, className = '', inline = false }: { q: Gated | Ga
   const shown = !!old
   useEffect(() => (shown && scope ? scope.add() : undefined), [shown, scope])
   if (!old) return null
-  const at = old.answeredAt ? fmtLastRead(old.answeredAt) : ''
-  const full = `Out of date: this could not be refreshed (${old.reason}); showing what was read ${old.answeredAt ? fmtStamp(new Date(old.answeredAt).toISOString()) : 'earlier'}.`
-  const mark = (
-    <span className="chip out-of-date" role="status" title={full} aria-label={full}>
-      ⚠ out of date{at && ` · last read ${at}`}
-    </span>
-  )
+  const full = `Refresh failed (${old.reason}); showing what was read ${old.answeredAt ? fmtStamp(new Date(old.answeredAt).toISOString()) : 'earlier'}.`
+  const mark = <Status word="unknown" tone="unknown" help={full} />
   return inline ? <> {mark}</> : <div className={`stale-note${className ? ` ${className}` : ''}`}>{mark}</div>
 }
 
@@ -65,7 +60,7 @@ export function StaleScope({ children }: { children: ReactNode }) {
   }), [])
   return (
     <StaleContext.Provider value={scope}>
-      {count > 0 && <div className="warn-line small stale-notice" role="status">Some sections could not be refreshed; showing the last data read.</div>}
+      {count > 0 && <div className="warn-line small stale-notice" role="status">Refresh failed. Last answer shown.</div>}
       {children}
     </StaleContext.Provider>
   )

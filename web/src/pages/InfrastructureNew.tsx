@@ -53,7 +53,7 @@ export function InfrastructureNew() {
 function KindStep({ kind, onPick }: { kind: Kind | null; onPick: (k: Kind) => void }) {
   return (
     <div>
-      <p className="muted small" style={{ marginTop: 0 }}>What kind of target is this?</p>
+      <p className="muted small" style={{ marginTop: 0 }}>Target kind</p>
       <div className="infra-grid">
         {KINDS.map((k) => (
           <button key={k.kind} className={'card infra-card wiz-kind' + (kind === k.kind ? ' active' : '')} onClick={() => onPick(k.kind)}>
@@ -114,8 +114,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
   return (
     <div className="card" style={{ padding: 14 }}>
       <p className="muted small" style={{ marginTop: 0 }}>
-        {KINDS.find((k) => k.kind === kind)?.blurb} Each credential is the name of a secret {PRODUCT} holds. Set any missing one below; its value is stored
-        in {PRODUCT}'s secrets file, not on the target, and is not shown again.
+        {KINDS.find((k) => k.kind === kind)?.blurb} Enter secret names. Set missing values below; saved values are hidden.
       </p>
       <div className="wiz-fields">
         {field('name', name, setName, kind === 'do-app' ? 'do-syd' : kind === 'portainer' ? 'home-portainer' : kind === 's3-bucket' ? 'spaces-syd' : 'droplet-syd', 160)}
@@ -147,7 +146,7 @@ function ConnectionStep({ kind, onBack, onSaved }: { kind: Kind; onBack: () => v
         {busy ? <span className="muted small">checking…</span>
           : err ? <span className="error small">{err}</span>
           : checked ? <span className="small">✓ {answer.detail}</span>
-          : answer ? <span className="muted small">fields changed since the last check — check again</span>
+          : answer ? <span className="muted small">fields changed since the last check · check again</span>
           : <span className="muted small">not checked yet</span>}
       </div>
       {kind === 'do-app' && checked && answer.registry === '' && (
@@ -232,7 +231,7 @@ export function OfferStep({ target, onDone }: { target: Target; onDone: () => vo
   const cloud = target.kind === 'do-app'
   return (
     <div className="card" style={{ padding: 14 }}>
-      <p className="muted small" style={{ marginTop: 0 }}><b>{target.name}</b> is added. Choose who it is offered to, and describe what {PRODUCT} cannot detect.</p>
+      <p className="muted small" style={{ marginTop: 0 }}><b>{target.name}</b> added. Set its offers and capabilities.</p>
       <fieldset disabled={busy} style={{ border: 0, padding: 0, margin: 0 }}>
       <div className="wiz-section">Offer</div>
       <div className="form-grid" style={{ maxWidth: 'none' }}>

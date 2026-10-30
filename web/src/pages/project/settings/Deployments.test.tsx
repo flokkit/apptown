@@ -92,7 +92,7 @@ describe('an AI models key says what it may still spend', () => {
   })
   it('says unknown, never zero, when OpenRouter cannot be asked', () => {
     const words = allowanceWords({ name: 'k', unknown: 'OpenRouter read key: HTTP 503' })
-    expect(words).toContain('allowance unknown — OpenRouter read key: HTTP 503')
+    expect(words).toContain('allowance unknown · OpenRouter read key: HTTP 503')
     expect(words).not.toContain('$0')
   })
   it('reads the allowance on a card whose deployment owns a key', () => {

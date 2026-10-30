@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"math"
 	"time"
 
@@ -32,20 +33,21 @@ type HistoryQuery struct {
 }
 
 type ChangeHistory struct {
-	CompletedRuns int         `json:"completedRuns"`
-	Merged        bool        `json:"merged"`
-	ChangeID      ids.ID      `json:"changeId"`
-	ChangeNumber  int64       `json:"changeNumber"` // within its project
-	Title         string      `json:"title"`
-	Type          string      `json:"type"`
-	State         ChangeState `json:"state"`
-	ClosedAs      string      `json:"closedAs,omitempty"` // as Change.ClosedAs
-	StateLabel    string      `json:"stateLabel"`         // ChangeState.Label
-	Project       string      `json:"project,omitempty"`
-	Workflows     string      `json:"workflows"`
-	Runs          int         `json:"runs"`
-	When          string      `json:"when"`
-	TookS         int64       `json:"tookS"`
+	CompletedRuns int                  `json:"completedRuns"`
+	Merged        bool                 `json:"merged"`
+	ChangeID      ids.ID               `json:"changeId"`
+	ChangeNumber  int64                `json:"changeNumber"` // within its project
+	Title         string               `json:"title"`
+	Type          string               `json:"type"`
+	State         ChangeState          `json:"state"`
+	ClosedAs      string               `json:"closedAs,omitempty"` // as Change.ClosedAs
+	StatusLabel   status.DisplayStatus `json:"statusLabel"`
+	StateLabel    string               `json:"stateLabel"` // ChangeState.Label
+	Project       string               `json:"project,omitempty"`
+	Workflows     string               `json:"workflows"`
+	Runs          int                  `json:"runs"`
+	When          string               `json:"when"`
+	TookS         int64                `json:"tookS"`
 }
 
 func (s *Service) ChangeHistory(ctx context.Context, in HistoryQuery) ([]ChangeHistory, error) {
@@ -76,7 +78,7 @@ func readChangeHistory(ctx context.Context, q database.Queryer, in HistoryQuery,
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, ChangeHistory{ChangeID: row.ID, ChangeNumber: row.Number, Title: row.Title, Type: row.Type, State: state, Project: row.Project, Workflows: row.Workflows, Runs: int(row.Runs), When: row.ActivityAt.Format(time.RFC3339Nano), TookS: row.TookS, CompletedRuns: int(row.Completed), Merged: row.Merged, ClosedAs: row.ClosedAs, StateLabel: state.Label(row.ClosedAs)})
+		out = append(out, ChangeHistory{ChangeID: row.ID, ChangeNumber: row.Number, Title: row.Title, Type: row.Type, State: state, Project: row.Project, Workflows: row.Workflows, Runs: int(row.Runs), When: row.ActivityAt.Format(time.RFC3339Nano), TookS: row.TookS, CompletedRuns: int(row.Completed), Merged: row.Merged, ClosedAs: row.ClosedAs, StatusLabel: historyLabel(state, row.ClosedAs, row.Merged), StateLabel: state.Label(row.ClosedAs)})
 	}
 	return out, nil
 }
@@ -177,4 +179,11 @@ func (s *Service) OpenChangeBranches(ctx context.Context, project ids.ID) (map[i
 		out[row.Number] = row.Branch
 	}
 	return out, nil
+}
+
+func historyLabel(state ChangeState, closedAs string, merged bool) status.DisplayStatus {
+	if state == ChangeShipped && (merged || closedAs == ClosedShippedWith) {
+		return status.DisplayLanded
+	}
+	return (&Change{State: state, ClosedAs: closedAs}).Display(nil)
 }

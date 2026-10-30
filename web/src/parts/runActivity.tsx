@@ -1,7 +1,7 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChangeState, Doing, Release, RunStatus, post } from '../api'
-import { chipFor } from '../states'
 import { useAction } from '../data'
 import { count, fmtDuration, fmtWhen } from '../format'
 import type { NextAct, ProjectOverviewView } from '../wire.gen'
@@ -14,7 +14,7 @@ export type RunRow = {
   // changeId is null, and changeNumber 0, for a run with no change (a
   // scheduled uplift, a system run).
   runId: string | null; runNumber: number; changeId: string | null; changeNumber: number; workflow: string; title: string
-  status: RunStatus; stage: string; state?: Doing; detail?: string
+  status: RunStatus; statusLabel: import('../wire.gen').DisplayStatus; stage: string; state?: Doing; detail?: string
   project?: string; startedAt: string; durationS: number
   // What the server offers the reader on the row's change (abandon, for a blocked one they may close).
   next: NextAct[]
@@ -24,7 +24,7 @@ export type RunRow = {
 // which workflows carried it, how it ended, total wall time. The change page
 // holds the runs for the drill-in.
 export type ChangeRow = {
-  changeId: string | null; changeNumber: number; title: string; type: string; state: ChangeState; closedAs?: string; stateLabel: string; completedRuns?: number; merged?: boolean
+  changeId: string | null; changeNumber: number; title: string; type: string; state: ChangeState; closedAs?: string; stateLabel: string; statusLabel: import('../wire.gen').DisplayStatus; completedRuns?: number; merged?: boolean
   project?: string; workflows: string; runs: number; when: string; tookS: number
 }
 
@@ -40,9 +40,8 @@ export function ActiveRunList({ runs, showProject }: { runs: RunRow[]; showProje
       {runs.map((r) => {
         const body = (
           <>
-            {r.state
-              ? <span className={`chip ${chipFor(r.state)}`}>{r.state}{r.detail ? `: ${r.detail}` : ''}</span>
-              : <span className="chip running">in progress</span>}
+            <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} />
+            {r.detail && <span className="small">{r.detail}</span>}
             <strong>{r.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
             <span className="muted small">{showProject ? `${r.project} · ` : ''}{r.workflow} · {r.stage} · {fmtDuration(r.durationS)}</span>
           </>
@@ -113,7 +112,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
             {showProject && <td className="muted small">{e.c.project}</td>}
             <td className="stack-lead"><Link className="tap-open" to={`/changes/${e.c.changeId}`}><span className="muted small">#{e.c.changeNumber}</span> {e.c.title}</Link></td>
             <td className="muted small"><span title={e.c.workflows || undefined}>{e.c.completedRuns === undefined ? count(e.c.runs, 'run') : count(e.c.completedRuns, 'completed run')}{e.c.completedRuns !== undefined && e.c.runs > e.c.completedRuns && ` · ${e.c.runs - e.c.completedRuns} unfinished`}</span></td>
-            <td><span className={`chip ${e.c.state === 'shipped' ? 'pass' : ''}`}>{e.c.stateLabel}</span></td>
+            <td><Status word={e.c.statusLabel} tone={STATUS_LIGHT[e.c.statusLabel]} /></td>
             <td className="muted small" data-label="took">{fmtDuration(e.c.tookS)}</td>
           </tr>
         ) : (
@@ -129,7 +128,7 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
               )}
             </td>
             <td className="muted small">{e.r.deployment === 'lan' ? 'released to the intranet' : `released to ${e.r.deployment}`}{e.r.approvedBy ? ` by ${e.r.approvedBy}` : ''}</td>
-            <td><span className={`chip ${e.r.state === 'released' ? 'pass' : e.r.state === 'failed' ? 'fail' : 'running'}`}>{e.r.state}</span></td>
+            <td><Status word={e.r.statusLabel} tone={STATUS_LIGHT[e.r.statusLabel]} /></td>
             <td className="muted small stack-hide">—</td>
           </tr>
         ))}

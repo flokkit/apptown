@@ -28,7 +28,7 @@ describe('the desktop trial first run', () => {
   })
 
   it('warns on this computer and nowhere else', () => {
-    expect(render(<LocalTrialNote hostname="localhost" />).textContent).toContain('full control of your Docker')
+    expect(render(<LocalTrialNote hostname="localhost" />).textContent).toContain("controls this computer's Docker")
     expect(render(<LocalTrialNote hostname="127.0.0.1" />).textContent).toContain('Running AppTown')
     expect(render(<LocalTrialNote hostname="forge.example.com" />).textContent).toBe('')
   })

@@ -73,9 +73,9 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
             onYes={() => void run(() => post('/complaints/archive-older', { hours: 24 }))} />
         )}
       </div>
-      <p className="muted" style={{ maxWidth: 720, marginTop: 4 }}>
+      <details className="small"><summary>About complaints</summary><p className="muted" style={{ maxWidth: 720, marginTop: 4 }}>
         Agents file these when {PRODUCT} gets in their way. Filing one does not start any work.
-      </p>
+      </p></details>
       {actErr && <div className="error">{actErr}</div>}
       {showSteering && (
         <div className="card" style={{ marginBottom: 12 }}>

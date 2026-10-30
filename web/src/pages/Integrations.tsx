@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { DisplayLabelEdit } from '../DisplayLabel'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
@@ -17,7 +18,7 @@ import { ServiceKindsPanel } from './integrations/ServiceKinds'
 import { TargetsPanel } from './integrations/Targets'
 import { useNow } from '../hooks'
 import {
-  CAP_ORDER, HEALTH_CHIP, HEALTH_WORDS, HealthState, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedByCounts, usedFor,
+  CAP_ORDER, HealthState, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedByCounts, usedFor,
 } from './integrations/kinds'
 
 // Integrations: the outside services this AppTown works with. The list says,
@@ -132,7 +133,7 @@ function IntegrationsBook({ name }: { name?: string }) {
 type Reading = { q: Gated; now: number }
 
 
-const ago = (at: number, now: number) => relTime(new Date(at).toISOString(), now) || 'just now'
+const ago = (at: number, now: number) => relTime(new Date(at).toISOString(), now) === 'now' ? clock(at) : relTime(new Date(at).toISOString(), now)
 const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
 // uncheckedWords is what an unchecked reading means for a kind: one the
@@ -142,11 +143,8 @@ export const uncheckedWords = (testable: boolean) => testable
   : `${PRODUCT} has no live check for this kind of service, so whether it works is unknown.`
 
 function StatusChip({ state, stale, testable }: { state: HealthState; stale: boolean; testable: boolean }) {
-  if (stale && state !== 'unchecked') {
-    return <span className="chip stale" title={`${PRODUCT} could not check again; this is the last answer it gave.`}>{HEALTH_WORDS[state]} at last check</span>
-  }
-  return <span className={`chip ${HEALTH_CHIP[state]}`}
-    title={state === 'unchecked' ? uncheckedWords(testable) : undefined}>{HEALTH_WORDS[state]}</span>
+  const word = stale ? 'unknown' : state
+  return <Status word={word} tone={STATUS_LIGHT[word]} help={stale ? 'Refresh failed. Last answer shown.' : state === 'unknown' ? uncheckedWords(testable) : undefined} />
 }
 
 // When AppTown took a reading, by the server's clock; 0 for none.
@@ -193,12 +191,12 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
 
   const states = bindings.map((b) => healthState(b.health))
   const newest = Math.max(0, ...bindings.map((b) => checkedAt(b.health)))
-  const failing = states.filter((s) => s === 'failing').length
-  const unchecked = states.filter((s) => s === 'unchecked').length
+  const failing = states.filter((s) => s === 'failed').length
+  const unchecked = states.filter((s) => s === 'unknown').length
   const summary = [
     `${bindings.length} connected`,
-    failing > 0 ? `${failing} not working` : '',
-    unchecked > 0 ? `${unchecked} with no live check` : '',
+    failing > 0 ? `${failing} failed` : '',
+    unchecked > 0 ? `${unchecked} unknown` : '',
   ].filter(Boolean).join(' · ')
 
   return (
@@ -206,7 +204,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
       <div className="int-pagehead">
         <div>
           <h1>Integrations</h1>
-          <div className="int-sub">Outside services {PRODUCT} connects to.</div>
+
         </div>
         <button className="primary btn-big" onClick={onNew} disabled={offered.length === 0}
           title={offered.length === 0 ? 'The connector catalogue has not been read' : undefined}>Connect a service</button>
@@ -239,7 +237,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
               return (
                 <tbody key={cap} id={`kind-${cap}`} className={focus === cap ? 'int-focus' : undefined}>
                   <tr className="int-group">
-                    <th colSpan={6}>{meta.title}{meta.blurb && <span className="int-group-blurb">{meta.blurb}</span>}</th>
+                    <th colSpan={6}>{meta.title}</th>
                   </tr>
                   {rows.map((b) => {
                     const spec = specFor(catalog, b)
@@ -256,7 +254,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                             </div>
                           </div>
                         </td>
-                        <td className="int-used">{usedFor(b, spec)}</td>
+                        <td className="int-used"><span title={usedFor(b, spec)}>{purposeSummary(usedFor(b, spec))}</span></td>
                         <td className="int-usedby" data-label="used by">{usedByCounts(b.usedBy) || '—'}</td>
                         <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} /></td>
                         <td className="int-when">{lastChecked(b.health, reading.now)}</td>
@@ -272,9 +270,9 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                           <div><span className="int-name">{spare.title}</span><div className="int-kind">nothing connected</div></div>
                         </div>
                       </td>
-                      <td className="int-used">{usedFor({ capability: cap, config: {} }, spare)}</td>
+                      <td className="int-used"><span title={usedFor({ capability: cap, config: {} }, spare)}>{purposeSummary(usedFor({ capability: cap, config: {} }, spare))}</span></td>
                       <td className="int-usedby" data-label="used by">—</td>
-                      <td><span className="chip">Not connected</span></td>
+                      <td><Status word="none" tone={STATUS_LIGHT.none} help="No service connected." /></td>
                       <td className="int-when">—</td>
                       <td className="int-open"><button className="subtle" onClick={() => onConnect(spare)}>Connect</button></td>
                     </tr>
@@ -291,7 +289,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
         {Object.entries(SECTIONS).map(([k, s]) => (
           <Link key={k} to={`/integrations/${k}`} className="int-related-item">
             <span className="int-name">{s.title}</span>
-            <span className="muted">{s.blurb}</span>
+
           </Link>
         ))}
       </div>
@@ -332,7 +330,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
   const creds = credentialKeys(b, spec)
   // Every setting, empty ones included: a missing value is often why it is not working.
   const settings = Object.entries(b.config).filter(([k]) => !creds.includes(k))
-  const tone = reading.q.refreshFailed ? 'unknown' : state === 'working' ? 'ok' : state === 'failing' ? 'bad' : 'unknown'
+  const tone = reading.q.refreshFailed ? 'unknown' : state === 'passed' ? 'ok' : state === 'failed' ? 'bad' : 'unknown'
   const testState = test?.h ? healthState(test.h) : null
   const at = checkedAt(b.health)
 
@@ -355,27 +353,25 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         <div className="row">
           <StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} />
           <span className="int-lead">
-            {state === 'unchecked' ? uncheckedWords(b.testable) : b.health.detail}
+            {state === 'unknown' ? uncheckedWords(b.testable) : b.health.detail}
           </span>
         </div>
         <div className="muted int-checked">
-          {state === 'unchecked' || !at
+          {state === 'unknown' || !at
             ? (b.testable ? 'Its answer is shown here; nothing is saved.' : 'This kind has no test either.')
             : `Checked by ${PRODUCT} ${ago(at, reading.now)} (${clock(at)}).`}
         </div>
         <StaleNote q={reading.q} />
         {test?.h && testState && (
-          <div className={`int-test ${testState === 'failing' ? 'bad' : ''}`}>
-            <span className={`chip ${HEALTH_CHIP[testState]}`}>
-              {testState === 'working' ? 'Test passed' : testState === 'failing' ? 'Test failed' : 'No test for this kind'}
-            </span>{' '}
-            {testState === 'unchecked' ? '' : test.h.detail}
+          <div className={`int-test ${testState === 'failed' ? 'bad' : ''}`}>
+            <StatusChip state={testState} stale={false} testable={b.testable} />{' '}
+            {testState === 'unknown' ? '' : test.h.detail}
             <span className="muted"> · {clock(test.at)}</span>
           </div>
         )}
         {test?.err && <div className="int-test bad">The test could not be run: {test.err}</div>}
         <div className="row int-actions">
-          <button className={state === 'working' ? '' : 'primary'} onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
+          <button className={state === 'passed' ? '' : 'primary'} onClick={runTest} disabled={testing}>{testing ? 'Testing…' : 'Test connection'}</button>
           {editSpec && (
             <button onClick={() => onEdit(editSpec, b)} disabled={!current}
               title={current ? undefined : 'Waiting for the current settings'}>
@@ -444,8 +440,8 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
             <tr><td className="kv-key">kind</td><td className="kv-val">{b.capability} · {b.provider}</td></tr>
           </tbody>
         </table>
-        <p className="muted int-section-note">Each run records the version and configuration hash it used.
-          {b.managed ? ` ${PRODUCT} configures this one itself and re-syncs it with each release; clone it to change it.` : ''}</p>
+        <details className="small"><summary>About this connection</summary><p className="muted int-section-note">Each run records the version and configuration hash it used.
+          {b.managed ? ` ${PRODUCT} configures this one itself and re-syncs it with each release; clone it to change it.` : ''}</p></details>
       </section>
     </div>
   )
@@ -460,8 +456,7 @@ function UsedBy({ use }: { use: IntegrationUse }) {
     <section>
       <h2>Used by</h2>
       {none ? (
-        <p className="muted int-section-note">No project attaches it and no deployment runs on a target it reaches.
-          A service the whole of {PRODUCT} uses, such as source control, is not attached by projects.</p>
+        <div className="muted">0 projects · 0 deployments</div>
       ) : <>
         {use.projects.length > 0 && <>
           <div className="int-section-note">Projects that attach it</div>
@@ -497,4 +492,11 @@ function SectionPage({ which }: { which: string }) {
       {which === 'slots' ? <ModelSlotsPanel /> : which === 'targets' ? <TargetsPanel /> : which === 'secrets' ? <InstanceSecretsPanel /> : <ServiceKindsPanel />}
     </div>
   )
+}
+
+// The full purpose remains in the tooltip; the row needs one short clause.
+function purposeSummary(text: string): string {
+ const clause = text.split(/[.;] /)[0]
+ const words = clause.split(/\s+/)
+ return words.length > 12 ? words.slice(0, 12).join(' ') + '…' : clause
 }

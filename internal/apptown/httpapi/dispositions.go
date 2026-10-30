@@ -66,7 +66,12 @@ func (h Conformance) ListDispositions(w http.ResponseWriter, r *http.Request) {
 	}
 	slices.Reverse(out)
 
-	WriteJSON(w, 200, DispositionList{Dispositions: out})
+	views := make([]DispositionView, 0, len(out))
+	at := h.now()
+	for _, d := range out {
+		views = append(views, DispositionView{Disposition: d, StatusLabel: d.DisplayAt(at)})
+	}
+	WriteJSON(w, 200, DispositionList{Dispositions: views})
 }
 
 // RevokeDisposition: DELETE /dispositions/{id} — audited revoke.
@@ -134,7 +139,7 @@ type DispositionCreated struct {
 
 // DispositionList is a project's dispositions, newest first, expired included.
 type DispositionList struct {
-	Dispositions []conformance.Disposition `json:"dispositions"`
+	Dispositions []DispositionView `json:"dispositions"`
 }
 
 // OpenVEXDocument is the OpenVEX 0.2.0 export of a project's dispositions.
@@ -161,4 +166,10 @@ type OpenVEXStatement struct {
 // OpenVEXProduct names the product a statement is about.
 type OpenVEXProduct struct {
 	ID string `json:"@id"`
+}
+
+// DispositionView labels expiry at the checked read time, without changing saved evidence.
+type DispositionView struct {
+	conformance.Disposition
+	StatusLabel conformance.CheckLabel `json:"statusLabel"`
 }

@@ -1,5 +1,6 @@
+import { Status } from '../Status'
 import { PRODUCT } from '../brand'
-import { AppAddress, runtimeChip, runtimeDescription } from '../runtime'
+import { AppAddress, RuntimeStatus } from '../runtime'
 import { NavLink, useParams } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
@@ -47,7 +48,7 @@ function IntegrityBanner({ slug, files, onResolved }: {
     <div className="card" style={{ border: '1px solid var(--bad)', marginBottom: 14 }}>
       <div style={{ fontWeight: 600 }}>Someone changed this project's stored files directly, outside {PRODUCT}.</div>
       <div className="muted small" style={{ marginTop: 4 }}>
-        There is no authorized way to do that — until an admin explains it, treat it as tampering.
+        There is no authorized way to do that · until an admin explains it, treat it as tampering.
         {PRODUCT} will not merge or ship over it. Changed: {files.join(', ')}.
         The audit log holds what was found.
       </div>
@@ -131,22 +132,19 @@ function ProjectHeader({ project }: { project: ProjectT }) {
   const envs = q.data ?? []
 
   return (
+      <>
       <h1>
         {project.icon && <span style={{ marginRight: 8 }} aria-hidden>{project.icon}</span>}
         {project.name} <span className="muted">/{project.slug}</span>
-        {envs.map((e) => (
-          <AppAddress key={e.name} url={e.url} hostOnly={e.hostOnly} style={{ marginLeft: 10 }}>
-            <span className={`chip ${runtimeChip(e)}`} title={runtimeDescription(e)}>
-              {e.name === 'lan'
-                ? <>🏢 on the intranet</>
-                : e.static
-                  ? (e.running ? `Open app (${e.name})` : `○ ${e.name} ${e.running === null ? 'status unknown' : 'not running'}`)
-                  : <>{e.running ? '●' : '○'} {e.name}{e.hostOnly ? '' : ` → ${e.url.replace('http://', '')}`}</>}
-            <span className="small muted"> · {runtimeDescription(e)}</span></span>
-          </AppAddress>
-        ))}
-        {!q.data && q.err && <span className="chip fail" style={{ marginLeft: 10 }} title={q.err}>deployments could not be read</span>}
         {project.namespace && <span className="chip" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
       </h1>
+      <div className="row small" style={{ marginBottom: 10 }}>
+        {envs.map((e) => <span key={e.name} className="row" style={{ gap: 4 }}>
+          <RuntimeStatus observation={e} />
+          <AppAddress url={e.url} hostOnly={e.hostOnly}>{e.name}</AppAddress>
+        </span>)}
+        {!q.data && q.err && <Status word="unknown" tone="unknown" help={q.err} />}
+      </div>
+      </>
   )
 }

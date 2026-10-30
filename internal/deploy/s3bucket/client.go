@@ -9,6 +9,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/deploy"
 	"io"
 	"net/http"
 	"net/url"
@@ -195,7 +196,10 @@ func (c *Client) send(ctx context.Context, method, bucket, key string, query url
 	}
 	res, err := httpc.Do(req)
 	if err != nil {
-		return nil, err
+		if ctx.Err() != nil {
+			return nil, err
+		}
+		return nil, deploy.ConnectionError(err)
 	}
 	if res.StatusCode >= 300 {
 		defer res.Body.Close()

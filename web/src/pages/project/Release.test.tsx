@@ -69,7 +69,7 @@ it('reads a crash-loop note after successful release and marks a failed refresh'
     expect(el.textContent).toContain('Released')
     await act(async () => { await vi.advanceTimersByTimeAsync(8500) })
     expect(el.textContent).toContain(note)
-    expect(el.textContent).toContain('out of date')
+    expect(el.textContent).toContain('unknown')
   } finally {
     act(() => root.unmount())
     client.clear()
@@ -172,7 +172,7 @@ it('keeps choosing a preference separate from a refused release', async () => {
     await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Choose release preference') })
     expect(writes).toEqual([])
     await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Choose release preference')!.click() })
-    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('explicitly cleared') })
+    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Release preference cleared') })
     expect(writes).toEqual([])
     await act(async () => {
       const select = el.querySelector('select')!

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"slices"
 	"strings"
 	"time"
@@ -225,13 +226,14 @@ type Start struct {
 
 // Eval is an eval and its arms as the starter reads them.
 type Eval struct {
-	ID          ids.ID    `json:"id"`
-	Number      int64     `json:"number"` // within AppTown, as people name it ("eval 9")
-	StartedBy   string    `json:"startedBy"`
-	StartedAt   time.Time `json:"startedAt"`
-	Meaning     string    `json:"meaning"`
-	SubjectKind string    `json:"subjectKind"`
-	Subject     string    `json:"subject"`
+	StatusLabel status.DisplayStatus `json:"statusLabel"`
+	ID          ids.ID               `json:"id"`
+	Number      int64                `json:"number"` // within AppTown, as people name it ("eval 9")
+	StartedBy   string               `json:"startedBy"`
+	StartedAt   time.Time            `json:"startedAt"`
+	Meaning     string               `json:"meaning"`
+	SubjectKind string               `json:"subjectKind"`
+	Subject     string               `json:"subject"`
 	// SubjectDigest names exactly the pack version tested: its resolved
 	// spec and pins at start.
 	SubjectDigest string     `json:"subjectDigest,omitempty"`
@@ -244,9 +246,10 @@ type Eval struct {
 
 // Arm is one Change re-run under one setup.
 type Arm struct {
-	ID              ids.ID `json:"id"`
-	SourceProjectID ids.ID `json:"sourceProjectId"`
-	SourceChangeID  ids.ID `json:"sourceChangeId"`
+	StatusLabel     status.DisplayStatus `json:"statusLabel"`
+	ID              ids.ID               `json:"id"`
+	SourceProjectID ids.ID               `json:"sourceProjectId"`
+	SourceChangeID  ids.ID               `json:"sourceChangeId"`
 	// SourceChangeNumber and ChangeNumber name the source change and the
 	// arm's change within their projects; 0 when none or gone.
 	SourceChangeNumber int64             `json:"sourceChangeNumber"`
@@ -611,7 +614,7 @@ func evalIn(ctx context.Context, q database.Queryer, id ids.ID) (*Eval, error) {
 }
 
 func evalOf(r evalssql.Eval) Eval {
-	e := Eval{ID: r.ID, Number: r.Number, StartedBy: r.StartedBy, StartedAt: r.StartedAt, Meaning: r.Meaning, SubjectKind: r.SubjectKind, Subject: r.Subject, SubjectDigest: r.SubjectDigest,
+	e := Eval{StatusLabel: evalLabel(r.State), ID: r.ID, Number: r.Number, StartedBy: r.StartedBy, StartedAt: r.StartedAt, Meaning: r.Meaning, SubjectKind: r.SubjectKind, Subject: r.Subject, SubjectDigest: r.SubjectDigest,
 		BudgetMicros: r.BudgetMicros, State: r.State, Reason: r.Reason, Arms: []Arm{}}
 	if r.FinishedAt.Valid {
 		t := r.FinishedAt.Time
@@ -621,7 +624,7 @@ func evalOf(r evalssql.Eval) Eval {
 }
 
 func armOf(r evalssql.EvalArm, sourceChangeNumber, changeNumber int64) Arm {
-	a := Arm{ID: r.ID, SourceProjectID: r.SourceProjectID, SourceChangeID: r.SourceChangeID, SourceChangeNumber: sourceChangeNumber, ChangeNumber: changeNumber, Arm: r.Arm, Profile: r.Profile, State: r.State, Reason: r.Reason,
+	a := Arm{StatusLabel: armLabel(r.State), ID: r.ID, SourceProjectID: r.SourceProjectID, SourceChangeID: r.SourceChangeID, SourceChangeNumber: sourceChangeNumber, ChangeNumber: changeNumber, Arm: r.Arm, Profile: r.Profile, State: r.State, Reason: r.Reason,
 		ProjectID: r.ProjectID, ChangeID: r.ChangeID, RunID: r.RunID, LandingRunID: r.LandingRunID}
 	var plan armPlan
 	_ = json.Unmarshal(r.ModelsJson, &plan)
@@ -634,6 +637,9 @@ func armOf(r evalssql.EvalArm, sourceChangeNumber, changeNumber int64) Arm {
 	// of better and worse, saying why, never shown as an empty or known result.
 	if err := json.Unmarshal(r.ScoreJson, &a.Score); err != nil {
 		a.Score = Score{NotComparable: true, Unreadable: "its stored score could not be read: " + err.Error()}
+	}
+	for i := range a.Score.Checks {
+		a.Score.Checks[i].StatusLabel = checkLabel(a.Score.Checks[i].Status)
 	}
 	if a.Score.Checks == nil {
 		a.Score.Checks = []CheckResult{} // not scored yet: none, never null

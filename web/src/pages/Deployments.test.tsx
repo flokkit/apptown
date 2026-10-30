@@ -11,8 +11,8 @@ import Deployments from './Deployments'
 
 it('shows both customer placements with their own label, address and observation', async () => {
   const apps = [
-    { slug: 'ledger', name: 'Ledger', deploymentId: 'east', deploymentLabel: 'East office', running: true, url: 'https://east.example' },
-    { slug: 'ledger', name: 'Ledger', deploymentId: 'west', deploymentLabel: 'West office', running: false, observed: 'unknown', url: 'https://west.example' },
+    { slug: 'ledger', name: 'Ledger', deploymentId: 'east', deploymentLabel: 'East office', running: true, observation: 'running', targetName:'East host', observationStale:false, url: 'https://east.example' },
+    { slug: 'ledger', name: 'Ledger', deploymentId: 'west', deploymentLabel: 'West office', running: false, observation:'unknown', targetName:'West host', observationStale:true, url: 'https://west.example' },
   ]
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
     url.endsWith('/tiers') ? { tiers: [{ name: 'release', title: 'Released environments', apps }] }
@@ -28,7 +28,7 @@ it('shows both customer placements with their own label, address and observation
     expect(el.querySelector('a[href="https://east.example"]')).not.toBeNull()
     expect(el.querySelector('a[href="https://west.example"]')).not.toBeNull()
     expect(el.querySelectorAll('.chip.pass')).toHaveLength(1)
-    expect(el.querySelector('.chip.unknown')?.getAttribute('title')).toBe('unknown')
+    expect(el.querySelector('.chip.unknown')?.getAttribute('title')).toBe('Not checked yet.')
   } finally {
     act(() => root.unmount())
     client.clear()

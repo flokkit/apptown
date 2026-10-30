@@ -44,7 +44,7 @@ describe('a conformance step', () => {
   const render = (checkReading: object, expanded = false) => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     const step = {
-      id: STEP, runId: RUN, stage: 'check', name: 'guidance', type: 'guidance/conformance', status: 'pass', attempt: 1, overrideBy: '', config: {},
+      id: STEP, runId: RUN, stage: 'check', name: 'guidance', type: 'guidance/conformance', status: 'pass', statusLabel: 'unknown', attempt: 1, overrideBy: '', config: {},
       evidence: { checks: [{ check: 'tone', verdict: '' }] }, checkReading,
     } as unknown as Step
     const el = document.createElement('div')
@@ -57,13 +57,13 @@ describe('a conformance step', () => {
     return text
   }
   it('keeps a passing step with readable checks to one line', () => {
-    const text = render({ checks: [{ check: 'tidy', verdict: 'pass', block: 'b', version: 1, evaluator: 'sh' }] })
+    const text = render({ checks: [{ check: 'tidy', verdict: 'pass', statusLabel: 'passed', block: 'b', version: 1, evaluator: 'sh' }] })
     expect(text).not.toContain('tidy')
-    expect(render({ checks: [{ check: 'tidy', verdict: 'pass', block: 'b', version: 1, evaluator: 'sh' }] }, true)).toContain('tidy')
+    expect(render({ checks: [{ check: 'tidy', verdict: 'pass', statusLabel: 'passed', block: 'b', version: 1, evaluator: 'sh' }] }, true)).toContain('tidy')
   })
   it('opens a passing step whose evidence could not be read, and says so', () => {
     const text = render({ unreadable: 'unreadable check evidence: check "tone": invalid check verdict: ""' })
-    expect(text).toContain('evidence unreadable')
+    expect(text).toContain('unknown')
     expect(text).toContain('invalid check verdict')
   })
 })
@@ -74,7 +74,7 @@ describe('a child run', () => {
   it('marks a step whose check evidence could not be read', () => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     const step = {
-      id: STEP, runId: CHILD, stage: 'check', name: 'guidance', type: 'guidance/conformance', status: 'pass', attempt: 1, config: {}, overrideBy: '',
+      id: STEP, runId: CHILD, stage: 'check', name: 'guidance', type: 'guidance/conformance', status: 'pass', statusLabel: 'unknown', attempt: 1, config: {}, overrideBy: '',
       evidence: { checks: [{ check: 'tone', verdict: '' }] }, checkReading: { unreadable: 'unreadable check evidence' },
     } as unknown as Step
     const client = newQueryClient()
@@ -122,4 +122,14 @@ describe('step cards say what the record holds', () => {
     expect(el.textContent).toContain('approved by bls through CLI token claude-migrations-bls')
     done()
   })
+})
+
+it('uses the owner word for an excepted step in Work', () => {
+  const step = { id: STEP, runId: RUN, stage: 'checks', name: 'tests', type: 'tests', status: 'fail', statusLabel: 'excepted', overrideBy: 'Pat', overrideReason: 'Accepted for this change', config: {}, evidence: {} } as unknown as Step
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  act(() => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><StepCard step={step} onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
+  expect(el.querySelector('.chip')?.textContent).toBe('● excepted')
+  expect(el.querySelector('.chip')?.className).toContain('overridden')
+  act(() => root.unmount())
 })

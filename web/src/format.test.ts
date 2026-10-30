@@ -13,7 +13,7 @@ describe('stampDate', () => {
 
 describe('relTime', () => {
   it('says how long ago', () => {
-    expect(relTime('2026-09-03T09:59:30Z', NOW)).toBe('just now')
+    expect(relTime('2026-09-03T09:59:30Z', NOW)).toBe('now')
     expect(relTime('2026-09-03T09:55:00Z', NOW)).toBe('5m ago')
     expect(relTime('2026-09-03T07:00:00Z', NOW)).toBe('3h ago')
     expect(relTime('2026-09-01T10:00:00Z', NOW)).toBe('2d ago')

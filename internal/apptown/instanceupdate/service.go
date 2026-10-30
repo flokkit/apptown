@@ -49,15 +49,16 @@ type Candidate struct {
 }
 
 type Status struct {
-	Build       string     `json:"build"`
-	Platform    string     `json:"platform"`
-	Channel     string     `json:"channel"`
-	State       string     `json:"state"`
-	LastAttempt *time.Time `json:"lastAttempt,omitempty"`
-	LastSuccess *time.Time `json:"lastSuccess,omitempty"`
-	Candidate   *Candidate `json:"candidate,omitempty"`
-	ReasonCode  string     `json:"reasonCode,omitempty"`
-	Reason      string     `json:"reason,omitempty"`
+	StatusLabel UpdateLabel `json:"statusLabel"`
+	Build       string      `json:"build"`
+	Platform    string      `json:"platform"`
+	Channel     string      `json:"channel"`
+	State       string      `json:"state"`
+	LastAttempt *time.Time  `json:"lastAttempt,omitempty"`
+	LastSuccess *time.Time  `json:"lastSuccess,omitempty"`
+	Candidate   *Candidate  `json:"candidate,omitempty"`
+	ReasonCode  string      `json:"reasonCode,omitempty"`
+	Reason      string      `json:"reason,omitempty"`
 }
 
 // cacheFolder holds the notification cache under the data directory. Manifest
@@ -134,6 +135,7 @@ func (s *Service) view(st state) Status {
 	if s.checking {
 		v.State = "checking"
 	}
+	v.StatusLabel = updateLabel(v.State)
 	return v
 }
 

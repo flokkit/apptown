@@ -3,6 +3,7 @@ package dataprotection
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -104,6 +105,8 @@ type Protection struct {
 // answer here is a whole application's protection, even when no item of
 // its own is known.
 type Coverage struct {
+	StatusLabel BackupLabel `json:"statusLabel"`
+
 	Assessed    []string `json:"assessed"`
 	NotAssessed []string `json:"notAssessed"`
 }
@@ -115,6 +118,7 @@ const OutsideNotAssessed = "data the app keeps outside the needs it declares, su
 // assess adds an item's row and says whether it was assessed: an item
 // whose kind or place could not be read is listed with why, not assessed.
 func (p *Protection) assess(row ItemProtection, unresolved string) {
+	row.CopyLabel = row.Copy.Label()
 	p.Items = append(p.Items, row)
 	label := row.Need
 	if row.Volume != "" {
@@ -216,9 +220,10 @@ type ItemProtection struct {
 	Need string `json:"need"`
 	// Volume is the Docker volume the row is for: two of one need are
 	// two rows.
-	Volume string    `json:"volume,omitempty"`
-	Where  string    `json:"where"`
-	Copy   CopyState `json:"copy"`
+	Volume    string    `json:"volume,omitempty"`
+	Where     string    `json:"where"`
+	Copy      CopyState `json:"copy"`
+	CopyLabel CopyLabel `json:"copyLabel"`
 	// CopyNote says why it is stale, unknown, none or not copied.
 	CopyNote string         `json:"copyNote,omitempty"`
 	LastCopy *CopyRef       `json:"lastCopy,omitempty"`
@@ -604,4 +609,17 @@ func (s *Service) dockerProtection(ctx context.Context, out *Protection, dep *de
 		out.RestoreTestNote = "App Platform only; a rehearsal checks a Docker host's copies"
 	}
 	return nil
+}
+
+func (v Coverage) MarshalJSON() ([]byte, error) {
+	type view Coverage
+	out := view(v)
+	out.StatusLabel = LabelUnknown
+	if out.Assessed == nil {
+		out.Assessed = []string{}
+	}
+	if out.NotAssessed == nil {
+		out.NotAssessed = []string{}
+	}
+	return json.Marshal(out)
 }

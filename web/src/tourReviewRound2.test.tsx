@@ -34,7 +34,7 @@ it.each([false, true])('marks the held release configuration stale after a faile
   })
   await settled(client)
   expect(el.textContent?.includes('Release')).toBe(configured)
-  expect(el.querySelector('.out-of-date')).toBeNull()
+  expect(el.querySelector('.chip.unknown')).toBeNull()
   failed = true
   await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/p/release/plan') }) })
   await settled(client)
@@ -42,7 +42,7 @@ it.each([false, true])('marks the held release configuration stale after a faile
   const state = client.getQueryState(getKey('/projects/p/release/plan'))!
   expect(state.status).toBe('error')
   expect(state.data).toEqual({ configured })
-  const mark = el.querySelector('.out-of-date')
+  const mark = el.querySelector('.chip.unknown')
   expect(mark).not.toBeNull()
   expect(mark?.getAttribute('aria-label')).toContain('release plan unavailable')
 })

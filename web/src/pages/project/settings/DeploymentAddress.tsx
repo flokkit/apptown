@@ -19,7 +19,7 @@ function AddressForm({ path }: { path: string }) {
     <h4 style={{ marginBottom: 6 }}>Addresses</h4>
     <StaleNote q={current} />
     <p className="muted">Address changes take effect on the next release. Previous hostnames stay reserved until this deployment is taken down.</p>
-    {settings.servingURL && <p>Last observed serving address: <code>{settings.servingURL}</code></p>}
+    {settings.servingURL && <p>Last serving address: <code>{settings.servingURL}</code></p>}
     {settings.generatedHostname && <p>Generated address: <code>{settings.generatedHostname}</code></p>}
     <form onSubmit={async (event) => {
       event.preventDefault()
