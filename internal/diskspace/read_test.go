@@ -51,8 +51,8 @@ func TestDiskReadValidatesTheCopiedAnswer(t *testing.T) {
 			if tc.valid && (space.TotalBytes != 1000*1024 || space.FreeBytes != 900*1024) {
 				t.Fatalf("wrong copied space: %+v", space)
 			}
-			if d.Removed != 1 {
-				t.Fatalf("owned container removed %d times", d.Removed)
+			if len(d.Readers()) != 1 || d.Cleared != 1 {
+				t.Fatalf("readers %v, answer files cleared %d: want one standing reader, its answer file removed", d.Readers(), d.Cleared)
 			}
 		})
 	}

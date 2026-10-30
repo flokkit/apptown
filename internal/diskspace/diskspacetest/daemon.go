@@ -2,10 +2,13 @@
 package diskspacetest
 
 import (
+	"slices"
 	"strings"
 	"sync"
 
+	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/dockerlabel"
 )
 
@@ -15,18 +18,29 @@ type Daemon struct {
 	Answer  func() containerresulttest.Answer
 	once    sync.Once
 	results containerresulttest.Daemon
-	owned   sync.Map
 }
 
-// IsCreate recognizes the exact disk script in a shared result command.
+// Started counts the containers the disk reads started: the standing
+// reader, made or started again.
+func (d *Daemon) Started() int { return d.results.Started }
+
+// IsCreate recognizes the making of a daemon's standing disk reader.
 func IsCreate(args []string) bool {
 	if len(args) > 1 && args[0] == "--config" {
 		args = args[2:]
 	}
-	return len(args) > 4 && args[0] == "create" && strings.HasPrefix(args[len(args)-1], "( df -Pk /d\n) >")
+	return len(args) > 4 && args[0] == "run" && args[1] == "-d" && slices.Contains(args, dockerlabel.Class+"="+diskspace.ReaderClass)
+}
+
+// isReader names a standing disk reader.
+func isReader(name string) bool {
+	return strings.HasPrefix(name, containerresult.StandingPrefix+diskspace.ReaderClass+"-")
 }
 
 func (d *Daemon) Run(args []string) ([]byte, error, bool) {
+	if len(args) > 1 && args[0] == "--config" {
+		args = args[2:]
+	}
 	if len(args) == 6 && args[0] == "ps" && args[3] == "label="+dockerlabel.Class+"=disk-probe" {
 		return nil, nil, true
 	}
@@ -34,11 +48,6 @@ func (d *Daemon) Run(args []string) ([]byte, error, bool) {
 		d.results.Answers = func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
 			if c.Script != "df -Pk /d" {
 				return containerresulttest.Answer{}, false
-			}
-			for i, a := range c.Args {
-				if a == "--name" && i+1 < len(c.Args) {
-					d.owned.Store(c.Args[i+1], true)
-				}
 			}
 			if d.Answer != nil {
 				return d.Answer(), true
@@ -49,15 +58,21 @@ func (d *Daemon) Run(args []string) ([]byte, error, bool) {
 	return d.results.Run(args)
 }
 
-// Owns reports commands for this daemon's recorded disk containers, including
-// after cleanup so tests can inspect the completed command history.
+// Owns reports commands for the daemon's standing disk reader: its listing,
+// making, starting and the reads in it.
 func (d *Daemon) Owns(args []string) bool {
+	if len(args) > 1 && args[0] == "--config" {
+		args = args[2:]
+	}
 	if IsCreate(args) {
+		return true
+	}
+	if len(args) > 3 && args[0] == "ps" && slices.Contains(args, "label="+dockerlabel.Class+"="+diskspace.ReaderClass) {
 		return true
 	}
 	for _, arg := range args {
 		name, _, _ := strings.Cut(arg, ":")
-		if _, ok := d.owned.Load(name); ok {
+		if isReader(name) {
 			return true
 		}
 	}

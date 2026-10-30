@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -51,6 +52,7 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 		{Name: "forge-db", AppTown: true, Class: "infra"},
 		{Name: "apptown-env-gone-main", MemoryBytes: 64 << 20, AppTown: true, Class: "env"},
 		{Name: "traefik", MemoryBytes: 256 << 20},
+		{Name: "apptown-reader-disk-reader-0", AppTown: true, Class: diskspace.ReaderClass},
 	}
 	used := map[string]int64{}
 	for i, l := range limits {
@@ -70,7 +72,7 @@ func TestEveryRunningContainerIsCountedOnceUnderWhoHoldsIt(t *testing.T) {
 		"shop/main":                        {TenantDeployment, 2, 256 << 20, 1, (1 + 2) << 20, 1, 0, 1},
 		"previews":                         {TenantPreviews, 2, 192 << 20, 0, (3 + 4) << 20, 0, 0, 2},
 		"agent work":                       {TenantWork, 2, 2 << 30, 1, (5 + 6) << 20, 2, 1, 0},
-		"AppTown":                          {TenantAppTown, 1, 0, 1, 7 << 20, 0, 0, 1},
+		"AppTown":                          {TenantAppTown, 2, 0, 2, (7 + 10) << 20, 0, 0, 2},
 		"AppTown containers not on record": {TenantUnrecorded, 1, 64 << 20, 0, 8 << 20, 0, 0, 1},
 		"other containers":                 {TenantOther, 1, 256 << 20, 0, 9 << 20, 0, 0, 1},
 	}

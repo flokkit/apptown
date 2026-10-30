@@ -23,45 +23,34 @@ func recordingDocker(t *testing.T) (binary, calls string) {
 	dir := t.TempDir()
 	calls = filepath.Join(dir, "calls")
 	binary = filepath.Join(dir, "docker")
-	// A run's own inspection says it was not killed. The disk read's
-	// container leaves in its result file what dir/df holds, cannot be
-	// created while dir/unread exists, leaves df's stdout empty with a
-	// notice on its stderr (and a log with a line on each stream) while
-	// dir/silent exists, is refused by the daemon with a reason while
-	// dir/uncreated exists, and otherwise leaves a disk with room; its
-	// calls are not recorded. A task inspected is
-	// one already created while dir/exists exists, cannot be asked about
-	// while dir/offline exists, and is absent otherwise.
+	// A run's own inspection says it was not killed. The daemon's standing
+	// disk reader leaves in its answer file what dir/df holds, is gone and
+	// cannot be made while dir/unread exists, leaves an empty answer while
+	// dir/silent exists, is gone and refused by the daemon with a reason
+	// while dir/uncreated exists, and otherwise answers a disk with room; its
+	// calls are not recorded. A task inspected is one already created while
+	// dir/exists exists, cannot be asked about while dir/offline exists, and
+	// is absent otherwise.
 	script := `#!/bin/sh
 [ "$1" = inspect ] && [ "$2" != --type ] && { echo false; exit 0; }
 [ "$1" = inspect ] && { [ -f "` + dir + `/exists" ] && { echo "c1 created 0 false"; exit 0; }; [ -f "` + dir + `/offline" ] && exit 1; echo "Error: No such object: $4"; exit 1; }
 [ "$1" = info ] && { echo /var/lib/docker; exit 0; }
 case "$*" in
-"ps -a --filter label=apptown.class=disk-probe "*|"ps -a --filter label=apptown.class=container-result "*) exit 0;;
-"create --name apptown-result-"*"df -Pk /d"*)
+"ps -a --filter label=apptown.class=disk-reader "*)
+  [ -f "` + dir + `/unread" ] || [ -f "` + dir + `/uncreated" ] || [ ! -f "` + dir + `/reader" ] || printf '%s\trunning\n' "$(cat "` + dir + `/reader")"
+  exit 0;;
+"run -d --name apptown-reader-disk-reader-"*)
   [ -f "` + dir + `/unread" ] && exit 125
   [ -f "` + dir + `/uncreated" ] && { echo "docker: Error response from daemon: no space for the probe" >&2; exit 125; }
-  touch "` + dir + `/disk-$3"
-  echo "$3"; exit 0;;
-esac
-name=""
-case "$1" in
-start|wait|logs) name="$2";;
-rm) name="$4";;
-cp) name="${2%%:*}";;
-esac
-if [ -n "$name" ] && [ -f "` + dir + `/disk-$name" ]; then
- case "$1" in
- start|rm) exit 0;;
- wait) echo 0; exit 0;;
- cp)
+  echo "$4" > "` + dir + `/reader"
+  echo "$4"; exit 0;;
+"exec apptown-reader-disk-reader-"*) exit 0;;
+"cp apptown-reader-disk-reader-"*)
   if [ -f "` + dir + `/silent" ]; then : > "$3"
   elif [ -f "` + dir + `/df" ]; then cp "` + dir + `/df" "$3"
   else printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/x 104857600 10485760 94371840 10%% /d\n' > "$3"; fi
   exit 0;;
- logs) [ -f "` + dir + `/silent" ] && { echo "log out"; echo "log err" >&2; exit 0; }; exit 0;;
- esac
-fi
+esac
 echo "$@" >> "` + calls + `"
 prev=""
 for arg in "$@"; do
@@ -92,8 +81,8 @@ func TestADiskReadWithNoAnswerSaysWhatTheProbeShowed(t *testing.T) {
 		flag string
 		want []string
 	}{
-		{"silent", []string{`df answered ""`, "container apptown-result-", `container log "log out\nlog err"`}},
-		{"uncreated", []string{"creating apptown-result-", "exit status 125", "docker: Error response from daemon: no space for the probe"}},
+		{"silent", []string{`df answered ""`}},
+		{"uncreated", []string{"making the standing reader apptown-reader-disk-reader-", "exit status 125", "docker: Error response from daemon: no space for the probe"}},
 	} {
 		flag := filepath.Join(dir, tc.flag)
 		if err := os.WriteFile(flag, nil, 0o644); err != nil {

@@ -13,7 +13,6 @@ import (
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/diskspace"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 )
 
 // needCatalog fulfils postgres as a service and llm as a key that runs
@@ -461,47 +460,5 @@ func TestANeedWhoseDataFolderCannotBeReadStopsTheBoot(t *testing.T) {
 	}
 	if _, err := PrepareBoot(t.Context(), Dependencies{StaticServer: testStaticServer, DFImage: testDF, Needs: unreadableData{}}, nil, "shop", "preview", t.TempDir(), c); err == nil {
 		t.Fatal("a preparation went on without knowing where its database keeps its data")
-	}
-}
-
-// lifetimeClient ends its scope's lifetime when the disk read waits, and
-// records whether the read's removal still reached the daemon.
-type lifetimeClient struct {
-	disk    diskspacetest.Daemon
-	end     context.CancelFunc
-	removed bool
-}
-
-func (c *lifetimeClient) Run(ctx context.Context, _ string, req Command) ([]byte, error) {
-	switch {
-	case c.disk.IsRead(req.Args) && req.Args[0] == "wait":
-		c.end()
-		<-ctx.Done()
-		return nil, ctx.Err()
-	case c.disk.IsRead(req.Args) && req.Args[0] == "rm":
-		c.removed = ctx.Err() == nil
-	}
-	if out, err, ok := c.disk.Run(req.Args); ok {
-		return out, err
-	}
-	return nil, nil
-}
-
-// A disk read through a scope whose lifetime ends during the read (a boot
-// out of time) still removes its container: the lifetime stops the read,
-// not its cleanup.
-//
-// Kills: the read's calls left bounded by the scope's lifetime, which
-// refuses the removal once it has ended.
-func TestADiskReadRemovesItsContainerWhenItsScopesLifetimeEnds(t *testing.T) {
-	t.Parallel()
-	lifetime, end := context.WithCancel(t.Context())
-	defer end()
-	c := &lifetimeClient{end: end}
-	if _, err := ReadDisk(t.Context(), Scope{Client: c}.WithLifetime(lifetime), testDF, "/var/lib/docker"); err == nil {
-		t.Fatal("a read whose lifetime ended answered")
-	}
-	if !c.removed {
-		t.Fatal("the read's container was not removed after its scope's lifetime ended")
 	}
 }

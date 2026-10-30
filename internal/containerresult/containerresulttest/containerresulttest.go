@@ -51,6 +51,41 @@ type Daemon struct {
 	// Removed counts the throwaway containers removed and Cleared the
 	// files a RunIn removed, for tests of cleanup.
 	Removed, Cleared int
+
+	standing map[string]*reader // standing readers by name (RunStanding)
+	// Started counts the containers started: throwaway ones and standing
+	// readers made or started again.
+	Started int
+}
+
+// reader is a standing reader: how it was made, and whether it runs.
+type reader struct {
+	class, image string
+	args         []string
+	running      bool
+}
+
+// StopReader stops a standing reader (running false) or removes it
+// (gone), as a daemon restart or a person might.
+func (d *Daemon) StopReader(name string, gone bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if gone {
+		delete(d.standing, name)
+	} else if r := d.standing[name]; r != nil {
+		r.running = false
+	}
+}
+
+// Readers names the standing readers the daemon holds.
+func (d *Daemon) Readers() []string {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	var out []string
+	for n := range d.standing {
+		out = append(out, n)
+	}
+	return out
 }
 
 // Run answers args (after any --config) when they are a call of a result
@@ -72,14 +107,41 @@ func (d *Daemon) RunEnv(args, env []string) (out []byte, err error, ok bool) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.made == nil {
-		d.made, d.files = map[string]Answer{}, map[string]Answer{}
+		d.made, d.files, d.standing = map[string]Answer{}, map[string]Answer{}, map[string]*reader{}
 	}
 	last := args[len(args)-1]
 	switch args[0] {
 	case "ps":
-		if strings.Contains(strings.Join(args, " "), dockerlabel.Class+"="+containerresult.Class) {
+		line := strings.Join(args, " ")
+		if strings.Contains(line, dockerlabel.Class+"="+containerresult.Class) {
 			return nil, nil, true // nothing left over
 		}
+		if strings.Contains(line, "{{.Names}}\t{{.State}}") {
+			class := strings.TrimPrefix(flag(args, "--filter"), "label="+dockerlabel.Class+"=")
+			var out strings.Builder
+			for n, r := range d.standing {
+				if r.class == class {
+					state := "exited"
+					if r.running {
+						state = "running"
+					}
+					fmt.Fprintf(&out, "%s\t%s\n", n, state)
+				}
+			}
+			return []byte(out.String()), nil, true
+		}
+	case "run":
+		name := flag(args, "--name")
+		if len(args) < 2 || args[1] != "-d" || !strings.HasPrefix(name, containerresult.StandingPrefix) {
+			return nil, nil, false
+		}
+		if _, ok := d.standing[name]; ok {
+			return []byte("Error response from daemon: Conflict. The container name \"/" + name + "\" is already in use"), exitError(125), true
+		}
+		class := strings.TrimPrefix(flag(args, "--label"), dockerlabel.Class+"=")
+		d.standing[name] = &reader{class: class, image: args[len(args)-3], args: append([]string(nil), args...), running: true}
+		d.Started++
+		return []byte(name + "\n"), nil, true
 	case "create":
 		name := flag(args, "--name")
 		if !strings.HasPrefix(name, containerresult.Prefix) {
@@ -98,6 +160,12 @@ func (d *Daemon) RunEnv(args, env []string) (out []byte, err error, ok bool) {
 		return []byte(name + "\n"), nil, true
 	case "start":
 		if _, ok := d.made[last]; ok {
+			d.Started++
+			return nil, nil, true
+		}
+		if r, ok := d.standing[last]; ok {
+			r.running = true
+			d.Started++
 			return nil, nil, true
 		}
 	case "logs":
@@ -119,6 +187,10 @@ func (d *Daemon) RunEnv(args, env []string) (out []byte, err error, ok bool) {
 		if _, ok := d.made[last]; ok {
 			delete(d.made, last)
 			d.Removed++
+			return nil, nil, true
+		}
+		if _, ok := d.standing[last]; ok {
+			delete(d.standing, last)
 			return nil, nil, true
 		}
 	case "cp":
@@ -159,6 +231,15 @@ func (d *Daemon) RunEnv(args, env []string) (out []byte, err error, ok bool) {
 			return nil, nil, false
 		}
 		c := Command{Container: container, Script: inner, Args: append([]string(nil), args...), Env: env}
+		if r, ok := d.standing[container]; ok {
+			if !r.running {
+				return []byte("Error response from daemon: container " + container + " is not running"), exitError(1), true
+			}
+			// A standing reader's read is judged as the reader was made.
+			c.Image, c.Args = r.image, append(append([]string(nil), r.args...), args...)
+		} else if strings.HasPrefix(container, containerresult.StandingPrefix) {
+			return []byte("Error response from daemon: No such container: " + container), exitError(1), true
+		}
 		a, ok := d.Answers(c)
 		if !ok {
 			return nil, nil, false

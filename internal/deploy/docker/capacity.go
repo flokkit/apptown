@@ -166,20 +166,10 @@ func RunningMemoryUsage(ctx context.Context, dk Scope) (map[string]int64, error)
 	return parseMemoryUsage(out)
 }
 
-// ReadDisk reads the filesystem holding the daemon's data folder
-// (diskspace.ReadThroughDocker). Each call's output is combined, as every
-// call through a scope's client is.
+// ReadDisk reads the filesystem holding the daemon's data folder in the
+// daemon's standing disk reader (diskspace.ReadThroughDocker). Each call's
+// output is combined, as every call through a scope's client is.
 func ReadDisk(ctx context.Context, dk Scope, image, dataRoot string) (diskspace.Space, error) {
-	if dk.Lifetime != nil {
-		// The scope's lifetime bounds the read through ctx instead, so the
-		// read's removal of its container, which outlives ctx, outlives it
-		// too.
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithCancel(ctx)
-		defer cancel()
-		defer context.AfterFunc(dk.Lifetime, cancel)()
-		dk.Lifetime = nil
-	}
 	space, err := diskspace.ReadThroughDocker(ctx, func(ctx context.Context, args ...string) (string, string, error) {
 		out, err := dk.Run(ctx, args...)
 		return string(out), "", err
