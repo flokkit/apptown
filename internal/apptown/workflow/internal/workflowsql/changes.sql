@@ -193,3 +193,9 @@ SELECT id FROM changes WHERE project_id=sqlc.arg(project_id) AND branch=sqlc.arg
 SELECT c.number, c.branch FROM changes c
 WHERE c.project_id = sqlc.arg(project_id) AND c.branch <> '' AND c.state IN (sqlc.arg(in_progress), sqlc.arg(landing))
 ORDER BY c.number;
+
+-- Whether any change closed or any run stopped running at or after a time:
+-- the only events after which a workspace's state can be newly finished.
+-- name: SettledSince :one
+SELECT (EXISTS(SELECT 1 FROM changes WHERE closed_at>=sqlc.arg(since)::timestamptz) OR
+ EXISTS(SELECT 1 FROM runs WHERE status<>sqlc.arg(running)::text AND updated_at>=sqlc.arg(since)::timestamptz))::boolean;

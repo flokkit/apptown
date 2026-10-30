@@ -36,6 +36,9 @@ type Reaper struct {
 	dataDir  string
 	clock    func() time.Time
 	tools    toolversions.Source
+	// cacheSweptAt is when the last complete toolchain-cache sweep began
+	// (Cache); zero until one completes. Only the scheduler calls Cache.
+	cacheSweptAt time.Time
 }
 
 func New(db *database.DB, deps Dependencies, dataDir string) *Reaper {

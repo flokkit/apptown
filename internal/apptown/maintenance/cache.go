@@ -24,6 +24,13 @@ import (
 // named for a change or a run is left alone. The build cache is kept under a
 // budget and the dangling images AppTown built are pruned in the same sweep.
 
+// cacheListing lists a cache volume's per-workspace toolchain folders. A
+// volume no toolchain was installed in has no such folder: that is an empty
+// listing, not an unknown one (else an unused volume would keep every sweep
+// reading every volume). A folder that is there and cannot be listed is
+// still an error.
+const cacheListing = "[ ! -d /apptown-cache/mise/ws ] || ls /apptown-cache/mise/ws"
+
 // reapCacheDecision says whether one per-workspace cache directory is
 // reapable. Pure, so it is tested without a daemon.
 func reapCacheDecision(entry string, runStatus func(ids.ID) workflow.RunState, changeState func(ids.ID) workflow.ChangeState) (bool, string) {
@@ -56,13 +63,43 @@ func reapCacheDecision(entry string, runStatus func(ids.ID) workflow.RunState, c
 // one older steps wrote) once, through a throwaway container: the volume is
 // the daemon's; apptownd never assumes its host path. A chat's own cache
 // (apptown-cache-console-*) goes with its chat and is not swept here.
+//
+// Each read starts a container, and every container start costs the host's
+// init a scope, a network interface and mounts (a CT whose systemd kept a
+// little of each was killed for memory after weeks of a read of every volume
+// every five minutes). So after a sweep in which every volume's listing
+// came back, the volumes are read again only once a change has closed or a
+// run has stopped running since that sweep began (workflow.SettledSince),
+// the events that make an entry reapable. An idle AppTown starts no
+// container here. Accepted: an entry written for an already finished owner
+// after such a sweep, or kept because its owner could not be read or its
+// removal failed, stays until the next settlement or restart (a restart
+// sweeps once in full).
 func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 	if r.docker.Absent() {
 		return nil // no local Docker, nothing of it to reap
 	}
+	started := r.now()
+	if !r.cacheSweptAt.IsZero() {
+		settled, err := workflow.SettledSince(ctx, r.db, r.cacheSweptAt)
+		if err != nil {
+			log.Printf("reaper: toolchain caches not read: whether any work settled is unknown: %v", err)
+			return nil
+		}
+		if !settled {
+			r.trimBuilds(ctx, logOnly)
+			return nil
+		}
+	}
+	complete := true
 	pre := string(docker.Current) + "cache"
 	volumes := []string{pre}
-	for _, v := range r.docker.Lines(ctx, "volume", "ls", "--format", "{{.Name}}", "--filter", "name="+pre+"-") {
+	listed, err := r.docker.List(ctx, "volume", "ls", "--format", "{{.Name}}", "--filter", "name="+pre+"-")
+	if err != nil {
+		log.Printf("reaper: toolchain cache volumes not read: %v", err)
+		return nil
+	}
+	for _, v := range listed {
 		if strings.HasPrefix(v, pre+"-") && !strings.HasPrefix(v, pre+"-console-") {
 			volumes = append(volumes, v)
 		}
@@ -98,13 +135,14 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 	}
 	for _, volume := range volumes {
 		if ctx.Err() != nil {
-			return reaped // stopped: the rest wait for the next sweep
+			return reaped // stopped: the rest wait for the next sweep, in full
 		}
 		// The listing decides what is removed, so it is read from a file in
 		// the container (containerresult.Run), never its output: a volume
 		// whose listing did not come back is left as it is.
-		out, err := r.docker.Result(ctx, containerresult.Spec{Image: sh, Options: []string{"-v", volume + ":/apptown-cache"}, Script: "ls /apptown-cache/mise/ws"})
+		out, err := r.docker.Result(ctx, containerresult.Spec{Image: sh, Options: []string{"-v", volume + ":/apptown-cache"}, Script: cacheListing})
 		if err != nil {
+			complete = false
 			continue
 		}
 		for _, entry := range strings.Fields(string(out)) {
@@ -123,9 +161,18 @@ func (r *Reaper) Cache(ctx context.Context, logOnly bool) []string {
 			}
 		}
 	}
+	if complete && ctx.Err() == nil {
+		r.cacheSweptAt = started
+	}
+	r.trimBuilds(ctx, logOnly)
+	return reaped
+}
+
+// trimBuilds keeps the build cache under its budget and prunes the dangling
+// images AppTown built; neither starts a container.
+func (r *Reaper) trimBuilds(ctx context.Context, logOnly bool) {
 	if !logOnly {
 		_ = docker.TrimBuildCache(ctx, r.docker)
 		_ = docker.PruneBuiltImages(ctx, r.docker)
 	}
-	return reaped
 }

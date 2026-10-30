@@ -18,7 +18,9 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 	"github.com/flokkit/apptown/internal/stamp"
 )
 
@@ -381,5 +383,86 @@ func TestReaperEvictsAnIdleChatOnce(t *testing.T) {
 	}
 	if err := agent.Remove(t.Context(), "idle"); err == nil {
 		t.Fatal("the second pass asked the runtime to remove an evicted chat")
+	}
+}
+
+// An idle AppTown starts no container to sweep its toolchain caches: after
+// one complete sweep, an hour of five-minute sweeps with no work settling
+// starts none, and the first sweep after a change closes reads every cache
+// volume again. Each container start costs the host's init a scope, a
+// network interface and mounts; live's CT lost its systemd to memory after
+// weeks of one read of every cache volume every five minutes.
+//
+// Kills: a sweep that reads every volume each time, whatever settled.
+func TestAnIdleCacheSweepStartsNoContainers(t *testing.T) {
+	t.Parallel()
+	d := dockerfake.New()
+	d.SetReply(func(args []string) ([]byte, error, bool) {
+		line := strings.Join(args, " ")
+		switch {
+		case strings.HasPrefix(line, "volume ls") && strings.Contains(line, "name=apptown-cache-"):
+			return []byte("apptown-cache-game\n"), nil, true
+		case strings.HasPrefix(line, "volume ls"):
+			return nil, nil, true
+		}
+		return nil, nil, false
+	})
+	d.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		return containerresulttest.Answer{Answer: []byte("run-x\n")}, strings.HasSuffix(c.Script, "ls /apptown-cache/mise/ws")
+	})
+	a := testApp(t, Config{DockerClient: d})
+	pid := createReadTestProject(t, a, "idle-cache")
+	change := createReadTestChange(t, a, pid, "settles later")
+	starts := func() int { return len(d.Matching("start ")) }
+
+	a.reaper.Cache(t.Context(), false)
+	if got := starts(); got != 2 {
+		t.Fatalf("the first sweep started %d containers, want one per cache volume (apptown-cache, apptown-cache-game)", got)
+	}
+	for range 12 {
+		a.reaper.Cache(t.Context(), false)
+	}
+	if got := starts(); got != 2 {
+		t.Fatalf("an idle hour of sweeps started %d more containers, want none", got-2)
+	}
+	if _, err := a.Work.Abandon(asPerson("bls"), workflow.StopWork{ChangeID: change, Reason: "settles"}); err != nil {
+		t.Fatal(err)
+	}
+	a.reaper.Cache(t.Context(), false)
+	if got := starts(); got != 4 {
+		t.Fatalf("the sweep after a change closed started %d containers, want every volume read again", got-2)
+	}
+}
+
+// A sweep in which a volume's listing did not come back is not complete: the
+// next sweep reads every volume again, though nothing settled.
+//
+// Kills: marking a sweep complete whatever its reads answered.
+func TestACacheSweepWithAnUnreadVolumeIsRepeated(t *testing.T) {
+	t.Parallel()
+	d := dockerfake.New()
+	d.SetReply(func(args []string) ([]byte, error, bool) {
+		if strings.HasPrefix(strings.Join(args, " "), "volume ls") {
+			return nil, nil, true
+		}
+		return nil, nil, false
+	})
+	answered := false
+	d.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
+		if !strings.HasSuffix(c.Script, "ls /apptown-cache/mise/ws") {
+			return containerresulttest.Answer{}, false
+		}
+		if !answered {
+			answered = true
+			return containerresulttest.Answer{}, true // no listing came back
+		}
+		return containerresulttest.Answer{Answer: []byte{}}, true
+	})
+	a := testApp(t, Config{DockerClient: d})
+	for range 3 {
+		a.reaper.Cache(t.Context(), false)
+	}
+	if got := len(d.Matching("start ")); got != 2 {
+		t.Fatalf("started %d containers, want the unanswered read repeated once and then none", got)
 	}
 }

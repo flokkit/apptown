@@ -1157,6 +1157,25 @@ func (q *Queries) SetChangeWorkspaceBase(ctx context.Context, arg SetChangeWorks
 	return result.RowsAffected()
 }
 
+const settledSince = `-- name: SettledSince :one
+SELECT (EXISTS(SELECT 1 FROM changes WHERE closed_at>=$1::timestamptz) OR
+ EXISTS(SELECT 1 FROM runs WHERE status<>$2::text AND updated_at>=$1::timestamptz))::boolean
+`
+
+type SettledSinceParams struct {
+	Since   time.Time
+	Running string
+}
+
+// Whether any change closed or any run stopped running at or after a time:
+// the only events after which a workspace's state can be newly finished.
+func (q *Queries) SettledSince(ctx context.Context, arg SettledSinceParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, settledSince, arg.Since, arg.Running)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const shippedChangeBranchesMeta = `-- name: ShippedChangeBranchesMeta :many
 SELECT id,branch FROM changes WHERE project_id=$1 AND state=$2 AND branch<>'' ORDER BY id
 `
