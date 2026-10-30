@@ -43,6 +43,17 @@ def projects(base):
     return sorted(p["slug"] for p in (body if isinstance(body, list) else body["projects"]))
 
 
+def kept(before, after):
+    """What the source recorded is still there, unchanged. A newer AppTown
+    may answer with fields the source's version did not have (an upgrade
+    adds them); those are not differences."""
+    if isinstance(before, dict) and isinstance(after, dict):
+        return all(kept(v, after.get(k)) for k, v in before.items())
+    if isinstance(before, list) and isinstance(after, list):
+        return len(before) == len(after) and all(kept(b, a) for b, a in zip(before, after))
+    return before == after
+
+
 def recorded_change(base, cid):
     body = must(base, f"/api/v1/changes/{cid}")
     out = {k: v for k, v in body.items() if k not in VOLATILE}
@@ -96,8 +107,8 @@ def verify(base, path):
         problems.append(f"the audit log lacks its newest entry before the backup ({newest['id']} {newest['kind']})")
     for cid, before in snap["changes"].items():
         after = recorded_change(base, cid)
-        for key in sorted(set(before) | set(after)):
-            if before.get(key) != after.get(key):
+        for key in sorted(before):
+            if not kept(before[key], after.get(key)):
                 problems.append(f"change {cid}: {key} differs")
     # Each repository holds the main the source recorded. A project whose
     # source had no record is named as unverified, never counted as proof.
