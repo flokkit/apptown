@@ -215,6 +215,8 @@ func TestTakeDownDeletesAppTownsStackAndKeepsItsVolumes(t *testing.T) {
 					fmt.Fprint(w, `[{"Id":12,"Name":"shop-lan","EndpointId":3}]`)
 				case r.Method == "GET" && r.URL.Path == "/api/stacks/12/file":
 					_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}\nvolumes:\n  forge-data-shop: {}\n  named:\n    name: shop-uploads\n  shared:\n    external: true\n")})
+				case r.Method == "GET" && r.URL.Path == "/api/endpoints/3/docker/containers/json": // no readiness readers
+					fmt.Fprint(w, `[]`)
 				case r.Method == "DELETE" && r.URL.Path == "/api/stacks/12":
 					if scenario == "refused" {
 						http.Error(w, "no", 500)

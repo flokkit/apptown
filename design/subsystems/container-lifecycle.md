@@ -63,6 +63,17 @@ when it parses. Anything else is an unknown reading, which refuses new work;
 nothing falls back to a throwaway container. No reaper or sweep selects the
 reader, and the capacity view counts it as AppTown's own.
 
+Portainer readiness samples (one per sample period for each deployment under
+observation) run the same way. The probe joins the public container's network
+namespace, so the standing reader is per deployment: class
+`readiness-<deployment id>`, `--network container:<public container id>`, and a
+`apptown.ready-for` label holding the container's id and start time. A restart
+of the public container changes that label and so makes a new reader (a reader
+joined to the old namespace would probe a dead one); making one removes the
+deployment's older one. Taking the deployment down removes its readers through
+the endpoint's Docker API. The diagnostic's run and exec are gated by the same
+current-authority check as its other effects.
+
 A standing deployment's containers are removed without `-v`: one made before
 its data moved to named volumes may still hold its data in an anonymous one.
 For the same reason, do not clear volumes with `docker volume prune`.

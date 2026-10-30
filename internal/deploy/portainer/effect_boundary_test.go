@@ -29,6 +29,8 @@ func TestCurrentStackProofGuardsActualUpdateAndDelete(t *testing.T) {
 					switch r.URL.Path {
 					case "/api/stacks":
 						fmt.Fprint(w, `[{"Id":4,"Name":"app","EndpointId":3}]`)
+					case "/api/endpoints/3/docker/containers/json": // no readiness readers
+						fmt.Fprint(w, `[]`)
 					case "/api/stacks/4/file":
 						if proof == "empty" {
 							fmt.Fprint(w, `{}`)

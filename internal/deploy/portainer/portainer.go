@@ -644,6 +644,9 @@ func (d *Driver) Teardown(ctx context.Context, p deploy.Placement, generation in
 				Why: "kept, and not read before the stack went (" + verr.Error() + "); look for volumes named " + st.Name + "_… in Portainer"})
 		}
 	}
+	if err := removeReaders(ctx, cfg, endpointID, p.ID.String()); err != nil {
+		return out, fmt.Errorf("removing the deployment's readiness readers: %w", err)
+	}
 	return out, nil
 }
 

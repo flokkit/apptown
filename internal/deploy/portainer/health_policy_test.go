@@ -161,7 +161,7 @@ func TestPolicyDiagnosticSharesTimeoutWithStaticIdentity(t *testing.T) {
 				}}
 				start := time.Now()
 				d := Diagnostic{Allowed: func(ctx context.Context) error { return ctx.Err() }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
-					if args[0] == "start" {
+					if args[0] == "exec" {
 						select {
 						case <-time.After(tc.delay):
 						case <-ctx.Done():
@@ -174,7 +174,7 @@ func TestPolicyDiagnosticSharesTimeoutWithStaticIdentity(t *testing.T) {
 					}
 					return out, err
 				}}
-				err := d.sample(t.Context(), strings.Repeat("a", 64), p)
+				err := d.sample(t.Context(), strings.Repeat("a", 64), "run-1", "dep-1", p)
 				if (err == nil) != tc.success {
 					t.Fatalf("calls%d elapsed%v err%v", calls, time.Since(start), err)
 				}

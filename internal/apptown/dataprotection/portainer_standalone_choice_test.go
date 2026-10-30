@@ -39,6 +39,8 @@ func TestVerifiedStandaloneWithoutCopyKeepsDataAfterExplicitChoice(t *testing.T)
 			fmt.Fprint(out, `[{"Id":12,"Name":"apptown-ledger","EndpointId":5}]`)
 		case r.Method == "GET" && r.URL.Path == "/api/stacks/12/file":
 			json.NewEncoder(out).Encode(map[string]string{"StackFileContent": "x-apptown-deployment: " + deploymentID + "\nservices: {}\nvolumes:\n  apptown-need-ledger-postgres: {}\n"})
+		case r.Method == "GET" && r.URL.Path == "/api/endpoints/5/docker/containers/json": // no readiness readers
+			fmt.Fprint(out, `[]`)
 		case r.Method == "DELETE" && r.URL.Path == "/api/stacks/12":
 			deleted++
 			out.WriteHeader(http.StatusNoContent)
