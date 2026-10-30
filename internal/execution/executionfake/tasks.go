@@ -12,10 +12,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/execution"
 )
 
 type Tasks struct {
+	// Now is the clock an admission's expiry is judged by, as a real driver
+	// is given its caller's (AppTown's) clock: a test that moves that clock
+	// gives it here. Nil is the system clock.
+	Now func() time.Time
+
 	mu       sync.Mutex
 	next     int
 	tasks    map[string]*task // by key
@@ -39,7 +45,7 @@ var _ execution.TaskDriver = (*Tasks)(nil)
 func (f *Tasks) Capabilities() execution.Capabilities { return execution.Capabilities{} }
 
 func (f *Tasks) Ensure(_ context.Context, spec execution.TaskSpec) (execution.TaskObservation, error) {
-	if err := spec.Validate(time.Now()); err != nil {
+	if err := spec.Validate(clock.Or(f.Now)()); err != nil {
 		return execution.TaskObservation{}, err
 	}
 	if spec.SharedWorkspace != "" {

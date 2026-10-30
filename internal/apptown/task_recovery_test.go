@@ -496,7 +496,7 @@ type scriptTasks struct {
 // useScriptTasks makes a's script steps run on a scriptTasks over run.
 func useScriptTasks(t *testing.T, a *App, run func(execution.TaskSpec) (string, int)) *scriptTasks {
 	t.Helper()
-	d := &scriptTasks{Tasks: &executionfake.Tasks{}, run: run, given: map[string]execution.TaskSpec{}}
+	d := &scriptTasks{Tasks: &executionfake.Tasks{Now: a.cfg.clock.Now}, run: run, given: map[string]execution.TaskSpec{}}
 	a.tasks.Driver, a.tasks.Poll = d, 20*time.Millisecond
 	return d
 }
