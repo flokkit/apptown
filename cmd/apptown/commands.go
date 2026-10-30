@@ -117,8 +117,8 @@ var sections = []section{
 			{[]string{"timing"}, `  timing [<workflow>] [-days N] [-r <run-id>]
                                         where the time goes: per step across a workflow's runs, or one run's timeline`, cmdTiming},
 			{[]string{"advance"}, `  advance <run-id>                      request advance through the current gate`, cmdAdvance},
-			{[]string{"recheck"}, `  recheck <change-id> [-y] [--no-follow] after fixing what a landing gate rejected, run the landing's failed gates
-                                        again and follow it (bare, inside a change chat: that chat's change)`, cmdRecheck},
+			{[]string{"recheck"}, `  recheck [<change-id>] [-y] [--no-follow] after fixing what a landing gate rejected, run the landing's failed gates
+                                        again and follow it (<change-id> is optional inside a change chat: bare, it is that chat's change)`, cmdRecheck},
 			{[]string{"abandon-run"}, `  abandon-run <run-id> [-m reason]      abandon a single run (terminal; child runs follow)`, cmdAbandonRun},
 			{[]string{"invite"}, `  invite <username> [--role member|admin] [--label text] [--days N]
                                         print a one-time link that lets a person set their own password (admin)`, cmdInvite},
@@ -204,7 +204,15 @@ var helpCommand = command{names: []string{"help", "-h", "--help"}, run: func([]s
 // and they are in the table lookup reads, so it is bound at init.
 var commandNamed func(string) bool
 
-func init() { commandNamed = func(n string) bool { return lookup(n) != nil } }
+func init() {
+	commandNamed = func(n string) bool { return lookup(n) != nil }
+	helpLines = func(n string) string {
+		if c := lookup(n); c != nil {
+			return c.help
+		}
+		return ""
+	}
+}
 
 // lookup finds the command a name or alias selects, or nil.
 func lookup(name string) *command {

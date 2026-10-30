@@ -975,7 +975,7 @@ func cmdRecheck(args []string) error {
 	if len(args) == 0 {
 		sid, tok := os.Getenv("APPTOWN_SESSION_ID"), os.Getenv("APPTOWN_SESSION_TOKEN")
 		if sid == "" || tok == "" {
-			return usagef("usage: apptown recheck <change-id> [-y] [--no-follow] (bare, inside a change chat)")
+			return usagef("usage: apptown recheck [<change-id>] [-y] [--no-follow] (bare, inside a change chat)")
 		}
 		if err := api.post("/console/"+sid+"/recheck", map[string]any{}, &out); err != nil {
 			return err

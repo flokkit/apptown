@@ -61,8 +61,24 @@ func isBoolFlag(f *flag.Flag) bool {
 	return ok && b.IsBoolFlag()
 }
 
+// helpLines is a command's lines in the help table; the table refers to the
+// commands, which build flag sets, so it is bound at init.
+var helpLines func(name string) string
+
 // newFlags is a command's flag set; parseArgs ends the CLI on a bad flag.
-func newFlags(name string) *flag.FlagSet { return flag.NewFlagSet(name, flag.ContinueOnError) }
+// A bad flag (or -h) prints the command's lines from the help table, the one
+// place usage is written, then its flags. The name's first word is the command
+// ("eval start" is `eval`).
+func newFlags(name string) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.Usage = func() {
+		if help := helpLines(strings.Fields(name + " ")[0]); help != "" {
+			fmt.Fprintf(fs.Output(), "usage:\n%s\n", help)
+		}
+		fs.PrintDefaults()
+	}
+	return fs
+}
 
 // idFlag is a flag naming a record by its id; absent is Nil.
 func idFlag(fs *flag.FlagSet, name, usage string) *ids.ID {

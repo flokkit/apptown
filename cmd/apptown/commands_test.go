@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1509,5 +1510,55 @@ func TestNewWithoutAPackNamesThePackStepNotAChange(t *testing.T) {
 				t.Fatalf("new without a pack: %v\n%s", err, out)
 			}
 		})
+	}
+}
+
+// A command whose flags fail to parse says how it is used, from the help
+// table's lines, not only Go's flag defaults.
+func TestBadFlagPrintsTheCommandsHelpLines(t *testing.T) {
+	prev := exitProcess
+	code := -1
+	exitProcess = func(c int) { code = c }
+	t.Cleanup(func() { exitProcess = prev })
+	for _, tc := range []struct{ name, want string }{
+		{"recheck", "recheck [<change-id>] [-y] [--no-follow]"},
+		{"land", "land   <change-id> [-y]"},
+		{"eval start", "eval"},
+	} {
+		code = -1
+		fs := newFlags(tc.name)
+		var said bytes.Buffer
+		fs.SetOutput(&said)
+		fs.Bool("y", false, "")
+		parseArgs(fs, []string{"-c", "123"})
+		if code != exitUsage || !strings.Contains(said.String(), "usage:\n") || !strings.Contains(said.String(), tc.want) {
+			t.Fatalf("%s: exit %d, output %q; want usage naming %q", tc.name, code, said.String(), tc.want)
+		}
+	}
+}
+
+// Every flag set a command builds names a command in the help table, so a bad
+// flag always has usage lines to print.
+func TestEveryFlagSetHasHelpTableUsage(t *testing.T) {
+	files, _ := filepath.Glob("*.go")
+	re := regexp.MustCompile(`newFlags\("([a-z-]+)`)
+	n := 0
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range re.FindAllStringSubmatch(string(src), -1) {
+			n++
+			if c := lookup(m[1]); c == nil || strings.TrimSpace(c.help) == "" {
+				t.Errorf("%s: newFlags(%q) has no help-table usage", f, m[1])
+			}
+		}
+	}
+	if n < 40 {
+		t.Fatalf("found only %d flag sets; the scan is broken", n)
 	}
 }
