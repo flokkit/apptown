@@ -61,7 +61,7 @@ case ${STORE:-} in
 1) store=-store; [ -n "$passfile" ] || { echo "STORE=1 keeps the archive beyond the run: give its passphrase in PASSPHRASE_FILE" >&2; exit 2; } ;;
 *) echo "STORE is 1 or unset, not $STORE" >&2; exit 2 ;;
 esac
-lock="" srcarchive=""
+lock="" srcdir="" srcarchive=""
 work=$(mktemp -d)
 t0=$(date +%s) last=$t0 current=""
 step() { # names the next step and says how long the previous one took
@@ -188,7 +188,11 @@ EOF
 		openssl rand -hex 24 > "$work/passphrase"
 	fi
 	chmod 600 "$work/passphrase"
-	srcarchive=/root/apptown-rehearsal-$$.backup
+	# The running AppTown writes the archive (apptownd backup asks it over
+	# its control socket), as the user it runs as: the demo's is not root,
+	# so the archive goes in a folder of the data folder's owner.
+	srcdir=$(ssh "$src" "d=\$(mktemp -d /var/tmp/apptown-rehearsal-XXXXXX) && chown \$(stat -c %u:%g '$srcdata') \"\$d\" && echo \"\$d\"")
+	srcarchive=$srcdir/apptown.backup
 	ssh "$src" "umask 077; cat > /root/.apptown-rehearsal-pass-$$" < "$work/passphrase"
 	ssh "$src" "APPTOWN_BACKUP_PASSPHRASE_FILE=/root/.apptown-rehearsal-pass-$$ $srcbin -data '$srcdata' backup $store $srcarchive; s=\$?; rm -f /root/.apptown-rehearsal-pass-$$; exit \$s"
 
@@ -317,8 +321,8 @@ finish() {
 		ssh "$tgt" "[ \"\$(cat /root/.lab-lock 2>/dev/null)\" = '$lock' ] && rm -f /root/.lab-lock" || true
 	fi
 	# The archive opens every secret of the source: it goes, however the run ends.
-	if [ -n "$srcarchive" ]; then
-		ssh "$src" rm -f "$srcarchive" || { echo "the archive $srcarchive is still on $src: remove it by hand" >&2; status=1; }
+	if [ -n "$srcdir" ]; then
+		ssh "$src" rm -rf "$srcdir" || { echo "the archive's folder $srcdir is still on $src: remove it by hand" >&2; status=1; }
 	fi
 	rm -rf "$work"
 	exit $status
