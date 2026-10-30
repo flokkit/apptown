@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"sync"
 	"testing"
 	"time"
 
@@ -251,10 +252,14 @@ func TestTierDeploymentInventoryFailureIsNotAnEmptyRuntimeMap(t *testing.T) {
 func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
 	t.Parallel()
 	fake := newFakeDocker()
+	// The observer reads both placements concurrently.
+	var inspectedMu sync.Mutex
 	inspected := map[string]int{}
 	fake.reply = func(args []string) (string, error, bool) {
 		if len(args) == 4 && args[0] == "inspect" && args[2] == docker.RuntimeFormat {
+			inspectedMu.Lock()
 			inspected[args[3]]++
+			inspectedMu.Unlock()
 			if args[3] == "customer-b" {
 				return "", errors.New("provider unavailable"), true
 			}
@@ -317,14 +322,19 @@ func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
 			t.Fatalf("second placement: %+v", app)
 		}
 	}
-	beforeA, beforeB := inspected["customer-a"], inspected["customer-b"]
+	counts := func() (int, int) {
+		inspectedMu.Lock()
+		defer inspectedMu.Unlock()
+		return inspected["customer-a"], inspected["customer-b"]
+	}
+	beforeA, beforeB := counts()
 	if beforeA == 0 || beforeB == 0 {
-		t.Fatalf("each target was not observed: %v", inspected)
+		t.Fatalf("each target was not observed: a=%d b=%d", beforeA, beforeB)
 	}
 	if got := read("outsider"); len(got) != 0 {
 		t.Fatalf("foreign placement exposed: %+v", got)
 	}
-	if inspected["customer-a"] != beforeA || inspected["customer-b"] != beforeB {
+	if a, b := counts(); a != beforeA || b != beforeB {
 		t.Fatal("a read asked a host")
 	}
 }
