@@ -137,6 +137,8 @@ func (agentCatalog) Block(ctx context.Context, ref wow.BlockRef) (wow.BlockObser
 	switch {
 	case ref.Name == "rules/plain" || ref.ID == idstest.N(7):
 		return wow.BlockObservation{Block: wow.Block{ID: idstest.N(7), Name: "rules/plain", LatestVersion: 1}, Version: 1, Body: "Keep it plain."}, nil
+	case ref.ID == skillBlockID:
+		return wow.BlockObservation{Block: wow.Block{ID: skillBlockID, Name: "build/container-image", LatestVersion: 1}, Version: 1, Body: skillBlockBody}, nil
 	case ref.Name == "res/notes" || ref.ID == idstest.N(8):
 		return wow.BlockObservation{Block: wow.Block{ID: idstest.N(8), Name: "res/notes", LatestVersion: 1}, Version: 1, Body: "resource body"}, nil
 	}

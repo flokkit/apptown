@@ -34,7 +34,8 @@ func TestLibraryManifestRulesAndAtomicPut(t *testing.T) {
 	if err := ads.PutImports(t.Context(), pid, pins); err != nil {
 		t.Fatal(err)
 	}
-	text, hash, imports, err := ads.Compile(t.Context(), pid)
+	compiled, err := ads.Compile(t.Context(), pid)
+	text, hash, imports := compiled.Text, compiled.Hash, compiled.Imports
 	if err != nil || len(imports) != 2 || text != "# lang/go v2\n\ngo v2" || hash == "" {
 		t.Fatalf("compile skips disabled imports: %q %v %v", text, imports, err)
 	}

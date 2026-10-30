@@ -154,7 +154,7 @@ func (s *Service) Imports(ctx context.Context, projectID ids.ID) ([]Import, erro
 func (s *Service) PutImports(ctx context.Context, projectID ids.ID, pins []wow.ResolvedPin) error {
 	return s.library.PutImports(ctx, projectID, pins)
 }
-func (s *Service) Compile(ctx context.Context, projectID ids.ID) (text, hash string, imports []Import, err error) {
+func (s *Service) Compile(ctx context.Context, projectID ids.ID) (Resolved, error) {
 	return s.library.Compile(ctx, projectID)
 }
 func (s *Service) PlatformBlocksMissingFrom(ctx context.Context, projectID ids.ID) ([]wow.Block, error) {

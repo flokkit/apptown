@@ -126,7 +126,8 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, packs [
 		violations = []adoption.Violation{}
 	}
 	var hash string
-	_, hash, _, _ = s.adoption.Compile(ctx, p.ID)
+	compiled, _ := s.adoption.Compile(ctx, p.ID)
+	hash = compiled.Hash
 	audit.At(s.now()).BestEffort(ctx, s.db, who, p.ID, "pack.applied", label,
 		map[string]any{"packs": names, "guidance": pos, "workflows": installed, "policies": policiesInstalled,
 			"missing": missing, "guidanceHash": hash, "policyWarnings": len(violations), "seeded": seeded,

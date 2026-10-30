@@ -2,10 +2,6 @@ package adoption
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -91,40 +87,16 @@ func PutImportsIn(ctx context.Context, tx *database.Tx, projectID ids.ID, pins [
 // Compile deterministically materializes a project's effective guidance:
 // enabled imports, in manifest order, pinned bodies, joined with
 // separators. The hash is the identity of what actually steered a run.
-func (s *libraryStore) Compile(ctx context.Context, projectID ids.ID) (text, hash string, imports []Import, err error) {
-	imports, err = s.Imports(ctx, projectID)
+func (s *libraryStore) Compile(ctx context.Context, projectID ids.ID) (Resolved, error) {
+	imports, err := s.Imports(ctx, projectID)
 	if err != nil {
-		return "", "", nil, err
+		return Resolved{}, err
 	}
-	if text, hash, err = s.compileImports(ctx, imports); err != nil {
-		return "", "", nil, err
+	compiled, err := compileGuidance(ctx, s.ways, imports, "import ")
+	if err != nil {
+		return Resolved{}, err
 	}
-	return text, hash, imports, nil
-}
-
-// compileImports joins the enabled imports' pinned bodies. Pinned versions
-// are immutable, so the bodies need not come from the imports' snapshot.
-func (s *libraryStore) compileImports(ctx context.Context, imports []Import) (text, hash string, err error) {
-	var parts []string
-	for _, im := range imports {
-		if im.Disabled {
-			continue
-		}
-		if im.Version <= 0 {
-			return "", "", fmt.Errorf("import %s has no pinned version", im.Name)
-		}
-		if s.ways == nil {
-			return "", "", ErrCatalogUnavailable
-		}
-		block, err := s.ways.Block(ctx, wow.BlockRef{ID: im.BlockID, Version: im.Version})
-		if err != nil {
-			return "", "", fmt.Errorf("import %s v%d: %w", im.Name, im.Version, err)
-		}
-		parts = append(parts, fmt.Sprintf("# %s v%d\n\n%s", im.Name, im.Version, strings.TrimSpace(block.Body)))
-	}
-	text = strings.Join(parts, "\n\n---\n\n")
-	sum := sha256.Sum256([]byte(text))
-	return text, hex.EncodeToString(sum[:]), nil
+	return compiled, nil
 }
 
 // PlatformBlocksMissingFrom is the platform-tier blocks a project does

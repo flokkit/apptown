@@ -75,24 +75,43 @@ func renderSteering(title string, secs []steerSection, workshop bool) string {
 	return b.String()
 }
 
+// Guidance is the project's current guidance, selected once for a chat: its
+// rules go into the chat's prompt (Console, Workshop) and its skills into
+// the chat's home (SkillFiles), so both describe the same versions.
+func (s *Briefing) Guidance(ctx context.Context, p *project.Project) (adoption.Resolved, error) {
+	return s.adoption.Compile(ctx, p.ID)
+}
+
+// SkillFiles are the guidance's skills as files of the chat's session dir,
+// in its home (pi-home is the chat's HOME), placed once at open.
+func SkillFiles(guidance adoption.Resolved) map[string]console.Staged {
+	files := map[string]console.Staged{}
+	for _, s := range guidance.Skills {
+		for _, f := range agentenv.SkillFiles(s.Name, s.Description, s.Body) {
+			files["pi-home/"+f.Path] = console.Staged{Data: f.Content, Mode: 0o644}
+		}
+	}
+	return files
+}
+
 // Console: the front desk's prompt for a project console.
-func (s *Briefing) Console(ctx context.Context, p *project.Project, delegation string) string {
+func (s *Briefing) Console(ctx context.Context, p *project.Project, delegation string, guidance adoption.Resolved) string {
 	return renderSteering(fmt.Sprintf("AppTown console — the FRONT DESK of project %q (%s)", p.Name, p.Slug),
-		s.steerSections(ctx, p, false, delegation), false)
+		s.steerSections(ctx, p, false, delegation, guidance), false)
 }
 
 // Workshop: the same project's prompt for a change console — the
 // shared sections in workshop form, the front-desk-only ones dropped.
 // Change appends the change itself.
-func (s *Briefing) Workshop(ctx context.Context, p *project.Project, delegation string) string {
+func (s *Briefing) Workshop(ctx context.Context, p *project.Project, delegation string, guidance adoption.Resolved) string {
 	return renderSteering(fmt.Sprintf("AppTown console — the WORKSHOP for project %q (%s)", p.Name, p.Slug),
-		s.steerSections(ctx, p, true, delegation), true)
+		s.steerSections(ctx, p, true, delegation, guidance), true)
 }
 
 // steerSections builds the prompt's sections for a project. workshop picks
 // the writable wording where a section differs between the two kinds of
 // console; sections that exist only for the front desk are marked so.
-func (s *Briefing) steerSections(ctx context.Context, p *project.Project, workshop bool, delegation string) []steerSection {
+func (s *Briefing) steerSections(ctx context.Context, p *project.Project, workshop bool, delegation string, guidance adoption.Resolved) []steerSection {
 	var secs []steerSection
 
 	if workshop {
@@ -235,8 +254,8 @@ no word from you looks like AppTown is broken.
 			body: strings.Join(wf, "\n") + "\n"})
 	}
 
-	if guidance, _, _, err := s.adoption.Compile(ctx, p.ID); err == nil && guidance != "" {
-		secs = append(secs, steerSection{name: "Project guidance (pinned)", body: "\n" + guidance + "\n"})
+	if guidance.Text != "" {
+		secs = append(secs, steerSection{name: "Project guidance (pinned)", body: "\n" + guidance.Text + "\n"})
 	}
 	return secs
 }

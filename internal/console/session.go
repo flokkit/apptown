@@ -405,6 +405,28 @@ func (s *Session) Steering() string {
 
 // --- staged files: what the last provision placed, replaced each wake ----------
 
+// place writes files into the session dir, once: they are not in the staged
+// inventory, so no later provision replaces them.
+func place(dir string, files map[string]Staged) error {
+	for rel, f := range files {
+		if rel == "" || filepath.IsAbs(rel) || strings.Contains(rel, "..") || f.Link != "" {
+			return fmt.Errorf("placed file %q: paths are relative, inside the session, and regular files", rel)
+		}
+		path := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			return err
+		}
+		mode := f.Mode
+		if mode == 0 {
+			mode = 0o644
+		}
+		if err := os.WriteFile(path, f.Data, mode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // stage replaces what the last provision placed with files. Only a session
 // with no manifest yet starts from nothing: a manifest that cannot be read,
 // or a file it names that cannot be removed, fails the wake, since a

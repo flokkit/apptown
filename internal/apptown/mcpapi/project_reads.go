@@ -57,7 +57,8 @@ func NewProjectReads(deps ProjectReadsDependencies) []Tool {
 			Name:  "get_project_guidance",
 			order: 2,
 			Description: "Returns the project's adopted ways of working as one text: the exact guidance, at the exact pinned versions, that AppTown's own agents are steered by and that the landing checks hold every Change to. " +
-				"Strongly recommended before you write code on a project; AppTown does not push it into your context, so read it when you choose. get_project reports its size first so you can decide.",
+				"Strongly recommended before you write code on a project; AppTown does not push it into your context, so read it when you choose. get_project reports its size first so you can decide. " +
+				"Where the text names a skill, skills holds its how-to: read it when your work does what its description says.",
 			InputSchema: schemaObject(map[string]any{"slug": slugArg}, "slug"),
 			command:     ownerCommand("project_reads.getProjectGuidance", h.getProjectGuidance),
 		},
@@ -156,19 +157,25 @@ func (h projectReads) getProjectGuidance(c *Call, args map[string]any) (any, err
 	if err != nil {
 		return nil, err
 	}
-	text, hash, imports, err := h.adoption.Compile(c.Context, p.ID)
+	compiled, err := h.adoption.Compile(c.Context, p.ID)
 	if err != nil {
 		return nil, err
 	}
 	blocks := []map[string]any{}
-	for _, im := range imports {
+	for _, im := range compiled.Imports {
 		if !im.Disabled {
 			blocks = append(blocks, map[string]any{"name": im.Name, "version": im.Version, "bytes": im.Bytes})
 		}
 	}
+	// The skills AppTown's agents load on demand; an agent on someone's own
+	// computer reads one here when its rules name it.
+	skills := []map[string]any{}
+	for _, sk := range compiled.Skills {
+		skills = append(skills, map[string]any{"name": sk.Name, "description": sk.Description, "text": sk.Body})
+	}
 	return map[string]any{
-		"slug": p.Slug, "hash": hash, "bytes": len(text), "blocks": blocks, "text": text,
-		"webUrl": c.projectURL(p.Slug) + "/settings/working",
+		"slug": p.Slug, "hash": compiled.Hash, "bytes": len(compiled.Text), "blocks": blocks, "text": compiled.Text,
+		"skills": skills, "webUrl": c.projectURL(p.Slug) + "/settings/working",
 	}, nil
 }
 func (h projectReads) getApplicationContract(c *Call, args map[string]any) (any, error) {

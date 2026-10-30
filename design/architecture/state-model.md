@@ -185,7 +185,10 @@ queue is the pattern to generalise.
 Guidance has three genres, with rules and conventions in **the same
 block**. A guidance block is a markdown document with front matter —
 `name`, `tags`, `conflicts` (the blocks it cannot be held with), and
-`checks`. Its body steers every agent step; its checks run at the
+`checks`. Its body steers every agent step and chat; a body may end in a
+skill, after one `<!-- skill: <description> -->` line, which agents get as
+a SKILL.md in their home and load on demand (wow.SplitSkill owns the
+format, adoption's compile the split). Its checks run at the
 conformance gate and in reviews. A check has a name, what it expects, a
 severity (`note` … `critical`), an evaluator (`sh` for the deterministic
 subset, `llm` with a rubric and a file scope for judgment) and whether it

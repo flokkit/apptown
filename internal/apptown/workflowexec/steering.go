@@ -34,12 +34,13 @@ type steeringFile struct {
 
 // steeringPaths are where the agent finds what its steering names: the
 // resource files, the change's attachments and its own transcripts, as the
-// agent's container sees them.
-type steeringPaths struct{ Resources, Attachments, Sessions string }
+// agent's container sees them. Home is where the files of the agent's HOME
+// are placed (its guidance's skills go there), relative like Resources.
+type steeringPaths struct{ Resources, Attachments, Sessions, Home string }
 
 // folderSteering: an agent on AppTown's host finds them in the run's
 // folder, under .apptown.
-var folderSteering = steeringPaths{Resources: ".apptown/resources", Attachments: ".apptown/attachments", Sessions: ".apptown/sessions"}
+var folderSteering = steeringPaths{Resources: ".apptown/resources", Attachments: ".apptown/attachments", Sessions: ".apptown/sessions", Home: ".apptown/pi-home"}
 
 // steeringResource is a resource file the steering names, at Path.
 type steeringResource struct {
@@ -67,7 +68,11 @@ func (a *Executor) buildSteering(ctx context.Context, run *workflow.Run, step *w
 		return st, err
 	}
 	for _, r := range resources {
-		if err := os.WriteFile(filepath.Join(ws, filepath.FromSlash(r.Path)), r.Body, 0o644); err != nil {
+		at := filepath.Join(ws, filepath.FromSlash(r.Path))
+		if err := os.MkdirAll(filepath.Dir(at), 0o755); err != nil {
+			return st, err
+		}
+		if err := os.WriteFile(at, r.Body, 0o644); err != nil {
 			return st, err
 		}
 	}
@@ -199,6 +204,14 @@ func (a *Executor) composeSteering(ctx context.Context, run *workflow.Run, cfg *
 			steer.WriteString("- " + r.Path + "\n")
 		}
 		steer.WriteString("\n")
+	}
+	// The guidance's skills go into the agent's HOME, where it discovers
+	// skills and loads one when its rules name it; the steering names each
+	// one in the rules (adoption's compile), not here.
+	for _, s := range resolved.Skills {
+		for _, f := range agentenv.SkillFiles(s.Name, s.Description, s.Body) {
+			resources = append(resources, steeringResource{Path: at.Home + "/" + f.Path, Body: f.Content})
+		}
 	}
 	if len(cfg.Services) > 0 {
 		steer.WriteString("# Services\n\nThese sidecar services are running on your network, reachable by hostname (NOT localhost):\n")

@@ -220,6 +220,12 @@ func (a *Executor) Run(task *workflow.Execution) {
 		}
 	}
 	_ = os.MkdirAll(filepath.Join(ws, ".apptown", "resources"), 0o755)
+	// pi's generated home (provider config, settings), staged afresh for
+	// each attempt; the steering then adds the guidance's skills to it.
+	if _, err := a.home.Stage(task.Context(), ws, run.ProjectID); err != nil {
+		fail(workflow.StatusError, map[string]any{"reason": err.Error()})
+		return
+	}
 
 	st, err := a.buildSteering(task.Context(), run, step, &cfg, ws, k)
 	if err != nil {

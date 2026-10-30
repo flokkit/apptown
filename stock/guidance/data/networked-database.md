@@ -13,22 +13,31 @@ never hard-wires a host.
 
 Postgres is the default need for records; Redis for caches and queues
 where a second process reads them; `s3` for uploads and files. A database
-that is a file on disk is not persistence AppTown can promise: the
-deployment targets it prefers have no disk. `dataDir` is for caches and
-scratch the app can rebuild, nothing the app must keep.
-
-AppTown makes the database and the bucket before the app starts; the
-app never creates them. Migrations need only the database's owner: no
+that is a file on disk is not persistence AppTown can promise. `dataDir` is
+for caches and scratch the app can rebuild, nothing the app must keep.
+AppTown makes the database and the bucket before the app starts; the app
+never creates them. Migrations need only the database's owner: no
 `CREATE ROLE`, `CREATE DATABASE` or untrusted extension. The app's user is
-an ordinary owner on every target, and these are refused; only the
-AppTown's tests and agent steps make it a superuser, for test runners.
-Tests that need a declared need run whenever its connection env is set
-(`DATABASE_URL`, `REDIS_URL`): AppTown starts the need beside its tests and
-agent steps and sets it, so gate such tests on that env alone, never on an
-extra opt-in switch, which the tests check would only see as skipped. Address the bucket path-style, and serve objects through the
+an ordinary owner on every target, and these are refused there.
+
+<!-- skill: How to write migrations, tests and storage code against a declared need (postgres, redis, s3): what the app's database user may do, how tests find the need, bucket addressing, and moving off a SQLite file. Load it before adding a migration, a test that needs a database, or file storage. -->
+
+# Working against a declared need
+
+**Migrations.** Only AppTown's tests and agent steps make the app's user
+a superuser, for test runners, so a migration that needs more than an
+owner passes there and fails when deployed.
+
+**Tests.** Tests that need a declared need run whenever its connection env
+is set (`DATABASE_URL`, `REDIS_URL`): AppTown starts the need beside its
+tests and agent steps and sets it, so gate such tests on that env alone,
+never on an extra opt-in switch, which the tests check would only see as
+skipped.
+
+**Buckets.** Address the bucket path-style, and serve objects through the
 app: AppTown gives them no public address.
 
-Rationale: one shape of persistence that runs everywhere AppTown
-deploys, and a need is something AppTown can provision, back up and
-receipt; a file is not. An app that keeps its records in a SQLite file
-moves them to the `postgres` need.
+**Why.** One shape of persistence runs everywhere AppTown deploys, and a
+need is something AppTown can provision, back up and receipt; a file is
+not. The deployment targets AppTown prefers have no disk. An app that keeps
+its records in a SQLite file moves them to the `postgres` need.

@@ -147,6 +147,9 @@ func ParseStockGuidance(raw string) (StockBlock, error) {
 	if b.Name == "" {
 		return b, fmt.Errorf("frontmatter missing name")
 	}
+	if _, _, err := SplitSkill(b.Name, b.Body); err != nil {
+		return b, err
+	}
 	if b.Tier != "" && b.Tier != TierPlatform.String() {
 		return b, fmt.Errorf("frontmatter tier must be platform or absent, got %q", b.Tier)
 	}

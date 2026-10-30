@@ -6,13 +6,13 @@ import (
 	"github.com/flokkit/apptown/stock"
 )
 
-// Every agent step's system prompt carries the body of each guidance block
-// its project adopts, in full (adoption.Resolve), and build steps carry
+// Every agent step's system prompt carries the rules of each guidance block
+// its project adopts (adoption.Resolve), and build steps carry
 // skill/implementation on top. These limits hold the stock packs to what
 // decides the work; they only go down.
 const (
 	platformBodyLimit       = 6000
-	packBodyLimit           = 25000
+	packBodyLimit           = 23000
 	implementationBodyLimit = 7000
 )
 
@@ -22,9 +22,18 @@ func TestStockGuidanceFitsItsBudget(t *testing.T) {
 	if skipped != 0 || len(blocks) == 0 {
 		t.Fatalf("read %d stock blocks, skipped %d", len(blocks), skipped)
 	}
+	// What an agent reads up front: a block's rules and the line naming
+	// its skill; the skill itself is loaded only when needed.
 	body := map[string]int{}
 	for _, b := range blocks {
-		body[b.Name] = len(b.Body)
+		rules, skill, err := SplitSkill(b.Name, b.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if skill != nil {
+			rules += "\n\n" + SkillPointer(*skill)
+		}
+		body[b.Name] = len(rules)
 	}
 	packs, err := ReadStockPacks(stock.FS)
 	if err != nil {

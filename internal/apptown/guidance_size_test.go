@@ -103,7 +103,11 @@ func TestGuidanceSizesAndMCPOffer(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := out.(map[string]any)
-	text, hash, _, _ := a.Adoption.Compile(c.Context, idstest.N(1))
+	compiled, _ := a.Adoption.Compile(c.Context, idstest.N(1))
+	text, hash := compiled.Text, compiled.Hash
+	if skills, ok := got["skills"].([]map[string]any); !ok || len(skills) != len(compiled.Skills) {
+		t.Fatalf("tool skills: %#v", got["skills"])
+	}
 	if got["text"] != text || got["hash"] != hash || got["bytes"] != len(text) {
 		t.Fatalf("tool result: bytes=%v hash=%v", got["bytes"], got["hash"])
 	}
