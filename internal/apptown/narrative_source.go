@@ -7,7 +7,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
-	"github.com/flokkit/apptown/internal/strs"
 )
 
 // Git and chat are observations gathered after the database snapshot is closed.
@@ -37,5 +36,5 @@ func narrativeDiff(ctx context.Context, dataDir string, source workflow.Narrativ
 	if err != nil {
 		return narrativeEvidence{}, err
 	}
-	return narrativeEvidence{Text: "DIFF STAT:\n" + strs.Truncate(comparison.Stat, 800) + "\nDIFF:\n" + strs.Truncate(patch, 6000) + "\n"}, nil
+	return narrativeEvidence{Stat: comparison.Stat, Patch: patch}, nil
 }

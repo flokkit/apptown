@@ -33,8 +33,9 @@ type narrativeBuilder struct {
 // Empty is set only by a successful committed-tree comparison, never inferred
 // from missing transcripts or empty model output.
 type narrativeEvidence struct {
-	Text  string
-	Empty bool
+	Stat, Patch string // the committed diff
+	Text        string // the chats' reports
+	Empty       bool
 }
 
 func (b narrativeBuilder) Refresh(ctx context.Context, changeID ids.ID) (err error) {
@@ -57,6 +58,7 @@ func (b narrativeBuilder) Refresh(ctx context.Context, changeID ids.ID) (err err
 	if extra.Empty {
 		return b.work.PublishNarrative(ctx, workflow.NarrativePublication{Source: source, Draft: workflow.NarrativeDraft{Note: workflow.EmptyCommittedChange}, Model: "forge/committed-diff"})
 	}
+	source.Stat, source.Patch = extra.Stat, extra.Patch
 	pattern, slot, err := b.resolve(ctx, ch.ProjectID)
 	if err != nil {
 		return fmt.Errorf("choosing the narrative's model: %w", err)

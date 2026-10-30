@@ -34,7 +34,7 @@ func TestNarrativeDiffReadsWorkspaceWithoutPublishingAndFallsBackAfterRemoval(t 
 	source := workflow.NarrativeSource{Change: &workflow.Change{ID: idstest.N(1), ProjectID: idstest.N(2), Branch: "change", BaseSHA: base}, Slug: "game", DefaultBranch: "main"}
 	refs := gittest.Run(t, repo, "show-ref")
 	before, err := narrativeDiff(context.Background(), dir, source)
-	if err != nil || !strings.Contains(before.Text, "DIFF STAT:") || !strings.Contains(before.Text, "+historical game") {
+	if err != nil || before.Stat == "" || !strings.Contains(before.Patch, "+historical game") {
 		t.Fatalf("workspace evidence: %+v %v", before, err)
 	}
 	if got := gittest.Run(t, repo, "show-ref"); got != refs {
@@ -87,7 +87,7 @@ func TestEmptyNarrativeComparisonIgnoresDirtyWorkAndLaterMainCommits(t *testing.
 	gittest.Run(t, repo, "commit", "-qm", "main moved")
 	source := workflow.NarrativeSource{Change: &workflow.Change{ID: idstest.N(1), ProjectID: idstest.N(2), Branch: "change", BaseSHA: base}, Slug: "game", DefaultBranch: "main"}
 	got, err := narrativeDiff(context.Background(), dir, source)
-	if err != nil || !got.Empty || got.Text != "" {
+	if err != nil || !got.Empty || got.Patch != "" {
 		t.Fatalf("empty committed comparison: %+v %v", got, err)
 	}
 	for _, bad := range []string{"missing-base", ""} {

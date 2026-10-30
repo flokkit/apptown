@@ -2,7 +2,7 @@
 
 -- name: AssertionArtifact :one
 SELECT id,kind,name,ref FROM artifacts
-WHERE run_id=sqlc.arg(run_id) AND (sqlc.arg(kind)::text='' OR kind=sqlc.arg(kind)) AND (sqlc.arg(name)::text='' OR name=sqlc.arg(name))
+WHERE run_id=sqlc.arg(run_id) AND kind<>'agent-reported' AND (sqlc.arg(kind)::text='' OR kind=sqlc.arg(kind)) AND (sqlc.arg(name)::text='' OR name=sqlc.arg(name))
 ORDER BY id DESC LIMIT 1 FOR SHARE;
 
 -- name: CompletionCopyChildArtifacts :execrows
@@ -48,7 +48,7 @@ SELECT count(*) FROM artifacts WHERE run_id=$1;
 
 -- name: ExistingArtifactKinds :many
 SELECT DISTINCT a.kind FROM artifacts a JOIN runs r ON r.id=a.run_id
-WHERE r.project_id=sqlc.arg(project_id) AND a.kind=ANY(sqlc.arg(kinds)::text[]);
+WHERE r.project_id=sqlc.arg(project_id) AND a.kind<>'agent-reported' AND a.kind=ANY(sqlc.arg(kinds)::text[]);
 
 -- Artifact identity only; sbom bodies can be large.
 -- name: LatestSBOMIDBeforeMeta :many
@@ -57,6 +57,10 @@ WHERE r.project_id=$1 AND a.kind='sbom' AND a.created_at<=$2 ORDER BY a.id DESC 
 
 -- name: NarrativeArtifacts :many
 SELECT a.kind,a.body FROM artifacts a JOIN runs r ON a.run_id=r.id WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 AND (a.kind LIKE '%report' OR a.kind='plan') AND a.kind NOT LIKE '%scan%' ORDER BY a.id DESC LIMIT 2;
+
+-- name: NarrativeAgentReport :one
+-- The agent's own report: a claim the summary may read, never evidence.
+SELECT a.body FROM artifacts a JOIN runs r ON a.run_id=r.id WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 AND a.kind='agent-reported' ORDER BY a.id DESC LIMIT 1;
 
 -- name: ReadArtifacts :many
 SELECT id,run_id,kind,name,ref,
@@ -83,4 +87,4 @@ ORDER BY CASE WHEN sqlc.arg(latest)::boolean THEN a.id END DESC,CASE WHEN NOT sq
 SELECT (sqlc.arg(kinds)::text[])[i]::text AS kind
 FROM generate_subscripts(sqlc.arg(kinds)::text[],1) AS requested(i)
 WHERE NOT EXISTS(SELECT 1 FROM artifacts a JOIN runs r ON r.id=a.run_id
- WHERE r.project_id=sqlc.arg(project_id) AND a.kind=(sqlc.arg(kinds)::text[])[i]) ORDER BY i;
+ WHERE r.project_id=sqlc.arg(project_id) AND a.kind<>'agent-reported' AND a.kind=(sqlc.arg(kinds)::text[])[i]) ORDER BY i;

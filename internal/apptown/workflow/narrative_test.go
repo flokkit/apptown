@@ -76,3 +76,55 @@ func TestChangeMergeObservationUsesProjectScope(t *testing.T) {
 		}
 	}
 }
+
+func TestNarrativeDiffReadsPastTheOldCutAndSaysWhatItLeftOut(t *testing.T) {
+	t.Parallel()
+	patch := "diff --git a/small.txt b/small.txt\n+tiny\ndiff --git a/big.txt b/big.txt\n+" + strings.Repeat("x", 9000) + "\ndiff --git a/fix.go b/fix.go\n+restored the archived card"
+	if got := boundedPatch(patch, narrativeBudget); !strings.Contains(got, "restored the archived card") || strings.Contains(got, "not read") {
+		t.Fatalf("a fix past the old 6000-byte cut was dropped or flagged: %.200s", got)
+	}
+	got := boundedPatch(patch, 5000)
+	if !strings.HasPrefix(got, "DIFF: first 1 of 3 files shown; the rest were not read") || !strings.Contains(got, "Unread: a/big.txt b/big.txt; a/fix.go b/fix.go") || strings.Contains(got, "restored the archived card") {
+		t.Fatalf("truncation not stated: %.300s", got)
+	}
+	if got := boundedPatch(patch, 20); !strings.Contains(got, "first 1 of 3 files shown") || !strings.Contains(got, "cut short") || !strings.Contains(got, "a/small.txt b/small.txt; a/big.txt") {
+		t.Fatalf("oversize first file: %.300s", got)
+	}
+}
+
+func TestNarrativeEvidenceStatesUnreadArtifactAndKeepsWholeRequest(t *testing.T) {
+	t.Parallel()
+	body := strings.Repeat("r", 5000)
+	out := NarrativeEvidence(NarrativeSource{
+		Change:    &Change{Body: body},
+		Artifacts: []NarrativeArtifact{{Kind: "report", Body: strings.Repeat("a", narrativeBudget+10)}},
+	}, "")
+	if !strings.Contains(out, body) || !strings.Contains(out, "ARTIFACT report (first 120000 of 120010 bytes shown; the rest was not read)") {
+		t.Fatalf("evidence: request whole and artifact truncation stated: %.300s", out)
+	}
+	withReport := NarrativeEvidence(NarrativeSource{
+		Change:      &Change{},
+		Runs:        []NarrativeRun{{Name: "build", Steps: []string{"check/tests (command)"}}},
+		AgentReport: "I reviewed it and found nothing",
+	}, "")
+	if !strings.Contains(withReport, "REPORTED BY THE AGENT (its own claim, not checked by AppTown)") || !strings.Contains(withReport, "steps of this workflow: check/tests (command)") {
+		t.Fatalf("the report must be labelled a claim and the workflow's steps listed: %s", withReport)
+	}
+	for _, rule := range []string{"was not read", "never say", "unknown", "To satisfy it:", "the agent reports", "workflow has no step for"} {
+		if !strings.Contains(NarrativePrompt, rule) {
+			t.Errorf("prompt lacks the unread-evidence rule %q", rule)
+		}
+	}
+}
+
+func TestNarrativeKeepsWhatWouldSatisfyForUnknown(t *testing.T) {
+	t.Parallel()
+	d, err := ParseNarrative("TITLE: t\nASKED: unknown — the rest of the diff was not read. To satisfy it: the rest of the diff, files X and Y.\n\nNote")
+	if err != nil || d.Met != RequestMetUnknown || !strings.Contains(d.Gap, "To satisfy it: the rest of the diff") {
+		t.Fatalf("unknown lost what would settle it: %+v %v", d, err)
+	}
+	d, err = ParseNarrative("TITLE: t\nASKED: yes — done\n\nNote")
+	if err != nil || d.Gap != "" {
+		t.Fatalf("a met request carries no gap: %+v %v", d, err)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/schema"
@@ -102,4 +103,40 @@ func TestEvidenceAndExecutionCommandsRequireScope(t *testing.T) {
 	}
 	// sql-guarantee: rollback proves no artifact row was written; the artifact reads are scoped to a run and cannot prove a store-wide absence.
 	completionCount(t, q.db, 0, `SELECT count(*) FROM artifacts`)
+}
+
+// The agent's report is stored and shown as reported, and no gate counts it:
+// a step that requires an artifact of its kind stays unsatisfied, and a
+// requirement for that kind stays missing.
+func TestAgentReportIsStoredAndNeverSatisfiesAGate(t *testing.T) {
+	t.Parallel()
+	q, run, id := admitSingleStep(t, schema.Step{Name: "accept", Uses: "artifact/require", With: map[string]any{"kind": agentReportKind}})
+	s := newServiceWithAuthority(q.db, Dependencies{}, allowProject(run.ProjectID))
+	long := strings.Repeat("r", narrativeBudget+50)
+	if err := s.AttachAgentReport(context.Background(), run.ID, long); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := s.Snapshot(context.Background(), run.ID, DetailView)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored *Artifact
+	for i := range snap.Artifacts {
+		if snap.Artifacts[i].Kind == agentReportKind {
+			stored = &snap.Artifacts[i]
+		}
+	}
+	if stored == nil || !strings.Contains(stored.Body, "the rest was cut") {
+		t.Fatalf("report not stored with its truncation note: %+v", stored)
+	}
+	if err := s.RefreshAssertions(context.Background(), run.ID); err != nil {
+		t.Fatal(err)
+	}
+	if st := storedStep(t, q.db, id); st.Status == StatusPass {
+		t.Fatalf("an agent's report satisfied a gate: %s", st.Status)
+	}
+	missing, err := MissingArtifactKindsIn(context.Background(), q.db, run.ProjectID, []string{agentReportKind})
+	if err != nil || len(missing) != 1 {
+		t.Fatalf("a requirement counted the agent's report: %v %v", missing, err)
+	}
 }

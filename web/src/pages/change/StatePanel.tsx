@@ -121,7 +121,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
       body = (
         <>
           <ApproveEvidence changeId={changeId} soFar={ch.summary || view.report} diffstat={view.diffstat}
-            shortfall={ch.summary ? requestShortfall(ch) : undefined} boot={latestBoot(d.steps)} head={view.head}
+            shortfall={ch.summary ? requestShortfall(ch) : undefined} unchecked={ch.summary ? requestUnchecked(ch) : undefined} boot={latestBoot(d.steps)} head={view.head}
             notApplicable={notApplicableHere(d.steps)} />
           {/* Two roles, two zones: the DECISION is the approver's —
               approve, or reject with the words that travel back to the agent.
@@ -301,6 +301,14 @@ export function requestShortfall(ch: { requestMet?: string; requestGap?: string 
   return /[.!?]$/.test(gap) ? gap : gap + '.'
 }
 
+// requestUnchecked: when the summary's writer could not check all of the
+// work against the request, what it could not check and what would settle it.
+// This is unknown, not a shortfall: the page says "could not check", never "falls short".
+export function requestUnchecked(ch: { requestMet?: string; requestGap?: string }): string | undefined {
+  if (ch.requestMet !== 'unknown') return undefined
+  return ch.requestGap?.trim() || undefined
+}
+
 // notApplicableHere: every check and step of the run that applies to
 // nothing this app declares, each with its reason, so the person approving
 // sees them in the decision and never reads them as passed.
@@ -324,8 +332,8 @@ export function latestBoot(steps: Step[]): StepOf<'preview'> | undefined {
   return boots.length ? boots[boots.length - 1] : undefined
 }
 
-export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, boot, head, notApplicable }: {
-  changeId: string; soFar?: string; diffstat?: string; shortfall?: string; boot?: StepOf<'preview'>; head?: string
+export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, unchecked, boot, head, notApplicable }: {
+  changeId: string; soFar?: string; diffstat?: string; shortfall?: string; unchecked?: string; boot?: StepOf<'preview'>; head?: string
   notApplicable?: { name: string; why: string }[]
 }) {
   const asked = useRef(false)
@@ -352,6 +360,11 @@ export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, boot, he
           <summary>Not applicable here: {notApplicable.length} {notApplicable.length === 1 ? 'check' : 'checks'}, not passed</summary>
           <ul>{notApplicable.map((c, i) => <li key={i}><strong>{c.name}</strong>{c.why ? <span className="muted"> · {c.why}</span> : null}</li>)}</ul>
         </details>
+      )}
+      {unchecked && !shortfall && (
+        <div className="ch-unchecked" role="status">
+          <strong>The summary could not check all of the request:</strong> {unchecked}
+        </div>
       )}
       {shortfall && (
         <div className="ch-shortfall" role="alert">
