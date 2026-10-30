@@ -43,6 +43,12 @@ func (h Activity) Activity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	active := workflowRunRows(activeRuns, now)
+	for i := range active {
+		// A blocked run's change can be closed from the list by someone who may.
+		if active[i].State == workflow.ActivityBlocked && !active[i].ChangeID.IsZero() {
+			active[i].Next = work.AbandonOffer(ctx, active[i].ChangeID)
+		}
+	}
 	history, err := work.ChangeHistory(ctx, workflow.HistoryQuery{Limit: 10})
 	if err != nil {
 		WriteFault(w, err)

@@ -121,7 +121,7 @@ func TestPackPull(t *testing.T) {
 	if len(plan.Deprecated) != 1 || plan.Deprecated[0] != "dead-lane" {
 		t.Fatalf("deprecated: %v", plan.Deprecated)
 	}
-	handler := NewPackPull(f.adoption, f.projects, f.identity, f.ways, f.db, nil)
+	handler := NewPackPull(f.adoption, plainPull{f.adoption}, f.projects, f.identity, f.ways, f.db, nil)
 	req := httptest.NewRequest("POST", "/api/v1/projects/p/pack/pull", strings.NewReader(`{"pack":"test-pack"}`)).WithContext(f.ctx)
 	req.SetPathValue("slug", "p")
 	w := httptest.NewRecorder()

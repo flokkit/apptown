@@ -23,6 +23,9 @@ type runRowView struct {
 	Project      string                 `json:"project,omitempty"`
 	StartedAt    string                 `json:"startedAt"`
 	DurationS    int                    `json:"durationS"`
+	// Next is what the reader can do to the row's change from the list: close
+	// a blocked one, when they may.
+	Next []workflow.NextAct `json:"next"`
 }
 
 func durationSeconds(created, updated string) int {
@@ -47,7 +50,7 @@ func workflowRunRows(rows []workflow.RunSummary, now time.Time) []runRowView {
 		}
 		out = append(out, runRowView{RunID: row.ID, RunNumber: row.Number, ChangeID: row.ChangeID, ChangeNumber: row.ChangeNumber, Workflow: row.WorkflowName, Title: row.ItemTitle,
 			Status: row.Status, Stage: row.CurrentStage, State: row.State, Detail: row.StateDetail, Project: row.ProjectSlug,
-			StartedAt: row.CreatedAt, DurationS: durationSeconds(row.CreatedAt, end)})
+			StartedAt: row.CreatedAt, DurationS: durationSeconds(row.CreatedAt, end), Next: []workflow.NextAct{}})
 	}
 	return out
 }

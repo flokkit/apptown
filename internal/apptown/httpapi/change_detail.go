@@ -188,7 +188,7 @@ func (h ChangeDetail) GetChange(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, ChangeCockpit{Change: *item, ProjectSlug: slug, Detail: detail, ADRs: adrRecords, Evidence: evidence,
 		Runs: runs, Commits: commits, Head: head, Diffstat: diffstat, CommittedDiff: comparison, Report: report, Editing: editing,
 		State: state, StateDetail: stateDetail, Approval: h.approvalStanding(r, detail), MainConflict: mainConflict,
-		Usage: ChangeUsage{Total: usageTotal, CostMicros: usageCost}, Next: workflow.ChangeActs(item, detail, evidence.Merged)})
+		Usage: ChangeUsage{Total: usageTotal, CostMicros: usageCost}, Next: workflow.ChangeActs(item, detail, evidence.Merged, h.work.MayAbandon(r.Context(), id) == nil)})
 }
 
 // approvalStanding: whether the viewer could decide the approval the run

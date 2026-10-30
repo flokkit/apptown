@@ -30,6 +30,10 @@ const (
 	// NextSendBack sends the change's work back to its agent with a note
 	// (POST /changes/{id}/sendback).
 	NextSendBack NextActKind = "send-back"
+	// nextAbandon closes a blocked change with a reason
+	// (POST /changes/{id}/abandon). Unlike the other acts it is offered only
+	// to a reader who may abandon the change.
+	nextAbandon NextActKind = "abandon"
 )
 
 // NextAct is one act available now. A step act names its step; a run act
@@ -117,8 +121,10 @@ func overridable(state StepState) bool {
 // its current run's snapshot (nil when it has none) and whether its landing
 // merged: land an in-progress change nothing is running on and no landing is
 // queued for; send back the work of an open change whose current run is
-// blocked, until its landing has merged (the work is then on main).
-func ChangeActs(ch *Change, current *RunSnapshot, merged bool) []NextAct {
+// blocked, until its landing has merged (the work is then on main); and, to
+// a reader who mayAbandon, close that blocked change, so work that can never
+// pass is not left stuck.
+func ChangeActs(ch *Change, current *RunSnapshot, merged, mayAbandon bool) []NextAct {
 	acts := []NextAct{}
 	running := current != nil && current.Run != nil && current.Run.Status == RunRunning
 	queued := current != nil && current.LandingQueued
@@ -127,6 +133,9 @@ func ChangeActs(ch *Change, current *RunSnapshot, merged bool) []NextAct {
 	}
 	if ch.State.CanRun() && !merged && running && current.State == ActivityBlocked {
 		acts = append(acts, NextAct{Act: NextSendBack})
+		if mayAbandon {
+			acts = append(acts, NextAct{Act: nextAbandon})
+		}
 	}
 	return acts
 }

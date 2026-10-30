@@ -5,6 +5,7 @@ import { TryIt } from '../../TryIt'
 import { AdvanceResult, ChangeView, Step, StepOf, Workflow, isStep, post } from '../../api'
 import { Screenshots } from '../../Screenshots'
 import { QuietConfirm } from '../../QuietConfirm'
+import { CloseIt } from '../../CloseIt'
 import { DecisionForm, landingMeansFor } from '../../DecisionForm'
 import { useAction, useGet } from '../../data'
 import { StaleNote, type Gated } from '../../ReadGate'
@@ -175,7 +176,7 @@ function Actions({ view, next, onChange, workTab }: { view: ChangeView; next: Ne
           <button className="primary" disabled={busy} onClick={() => rerun(step)}>{rerunLabel(step)}</button>
         </div>
       )
-      quiet = <Link className="small" to={workTab(step.id)}>Override or see the full record</Link>
+      quiet = <><Link className="small" to={workTab(step.id)}>Override or see the full record</Link>{offered(view.next, 'abandon') && <CloseIt changeId={changeId} />}</>
       break
     case 'restart-landing':
       if (!run) break

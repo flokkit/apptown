@@ -5,6 +5,7 @@ package projectlifecycle
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"slices"
@@ -54,6 +55,12 @@ type Draft struct {
 	Packs []string
 }
 
+// SupersededUplifts is Work's participant for closing open adoption changes
+// whose target a changed pack set has retired, in the caller's transaction.
+type SupersededUplifts interface {
+	CloseSupersededUpliftsIn(ctx context.Context, tx *database.Tx, closure *scm.Closure, project ids.ID, who string, superseded func(target json.RawMessage) (bool, error), reason string) ([]ids.ID, error)
+}
+
 // Publisher publishes a committed branch with the established best-effort receipt policy.
 type Publisher interface {
 	PushBranch(ctx context.Context, projectID ids.ID, repoDir, branch string)
@@ -66,6 +73,8 @@ type Dependencies struct {
 	Repositories *scm.RepositoryLocks
 	Publisher    Publisher
 	Changes      Changes
+	// Superseded closes the adoption changes a changed pack set retires.
+	Superseded SupersededUplifts
 	// Secrets supplies a git credential an administrator names when a
 	// project starts from an https repository.
 	Secrets Secrets
@@ -88,6 +97,7 @@ type Service struct {
 	repositories *scm.RepositoryLocks
 	publisher    Publisher
 	changes      Changes
+	superseded   SupersededUplifts
 	extensions   []string
 	secrets      Secrets
 	seeding      Seeding
@@ -102,7 +112,7 @@ type Service struct {
 }
 
 func New(db *database.DB, deps Dependencies, cfg Config) *Service {
-	return &Service{db: db, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.Resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
+	return &Service{db: db, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.Resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
 }
 
 // Create is the application command behind the wizard, `apptown new` and the

@@ -258,7 +258,7 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 	run := func(status RunState, state ActivityState, queued bool) *RunSnapshot {
 		return &RunSnapshot{Run: &Run{Status: status}, State: state, LandingQueued: queued}
 	}
-	land, sendBack := NextAct{Act: NextLand}, NextAct{Act: NextSendBack}
+	land, sendBack, abandon := NextAct{Act: NextLand}, NextAct{Act: NextSendBack}, NextAct{Act: nextAbandon}
 	for _, c := range []struct {
 		name    string
 		state   ChangeState
@@ -271,15 +271,27 @@ func TestTheChangeOffersLandingAndSendingBack(t *testing.T) {
 		{"work stopped", ChangeInProgress, run(RunAbandoned, ActivityAbandoned, false), false, []NextAct{land}},
 		{"its landing queued", ChangeInProgress, run(RunDone, ActivityQueued, true), false, []NextAct{}},
 		{"work running", ChangeInProgress, run(RunRunning, ActivityWorking, false), false, []NextAct{}},
-		{"work blocked", ChangeInProgress, run(RunRunning, ActivityBlocked, false), false, []NextAct{sendBack}},
-		{"landing blocked", ChangeLanding, run(RunRunning, ActivityBlocked, false), false, []NextAct{sendBack}},
+		{"work blocked", ChangeInProgress, run(RunRunning, ActivityBlocked, false), false, []NextAct{sendBack, abandon}},
+		{"landing blocked", ChangeLanding, run(RunRunning, ActivityBlocked, false), false, []NextAct{sendBack, abandon}},
 		{"landing blocked after its merge", ChangeLanding, run(RunRunning, ActivityBlocked, false), true, []NextAct{}},
 		{"waiting on a person", ChangeLanding, run(RunRunning, ActivityWaiting, false), false, []NextAct{}},
 		{"shipped", ChangeShipped, run(RunDone, "", false), true, []NextAct{}},
 		{"abandoned", ChangeAbandoned, nil, false, []NextAct{}},
 	} {
-		if got := ChangeActs(&Change{State: c.state}, c.current, c.merged); !slices.Equal(got, c.want) {
+		if got := ChangeActs(&Change{State: c.state}, c.current, c.merged, true); !slices.Equal(got, c.want) {
 			t.Errorf("%s: %+v, want %+v", c.name, got, c.want)
 		}
+	}
+}
+
+// Closing a blocked change is offered only to a reader who may abandon it.
+func TestAbandonIsOfferedOnlyToWhoMayAbandon(t *testing.T) {
+	t.Parallel()
+	blocked := &RunSnapshot{Run: &Run{Status: RunRunning}, State: ActivityBlocked}
+	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, false); !slices.Equal(got, []NextAct{{Act: NextSendBack}}) {
+		t.Errorf("a reader who may not abandon was offered %+v", got)
+	}
+	if got := ChangeActs(&Change{State: ChangeInProgress}, blocked, false, true); !slices.Contains(got, NextAct{Act: nextAbandon}) {
+		t.Errorf("a reader who may abandon was offered %+v", got)
 	}
 }

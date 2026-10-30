@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -199,4 +201,36 @@ func replacePulledIn(ctx context.Context, tx *database.Tx, projectID ids.ID, sel
 // ProjectPacks is ProjectPacksIn on the service's database.
 func (s *Service) ProjectPacks(ctx context.Context, projectID ids.ID) ([]ProjectPackRecord, error) {
 	return ProjectPacksIn(ctx, s.db, projectID)
+}
+
+// SupersededBy judges an open adoption change's stored target against the
+// project's pack set now: superseded when the target takes a pack the set no
+// longer has, or a version below the set's, so it could never conform. A target
+// on a newer version than the set's is still a valid way forward. The reason is
+// the sentence recorded on each change it closes.
+func SupersededBy(set []ProjectPackRecord) (superseded func(target json.RawMessage) (bool, error), reason string) {
+	have := map[string]int64{}
+	names := make([]string, 0, len(set))
+	for _, m := range set {
+		have[m.Pack] = m.Version
+		names = append(names, fmt.Sprintf("%s v%d", m.Pack, m.Version))
+	}
+	reason = "superseded: the project now takes " + strings.Join(names, ", ")
+	if len(names) == 0 {
+		reason = "superseded: the project now takes no packs"
+	}
+	return func(target json.RawMessage) (bool, error) {
+		var c struct {
+			Packs []PackPick `json:"packs"`
+		}
+		if err := json.Unmarshal(target, &c); err != nil {
+			return false, fmt.Errorf("reading an adoption change's target: %w", err)
+		}
+		for _, pick := range c.Packs {
+			if v, ok := have[pick.Pack]; !ok || pick.Version < v {
+				return true, nil
+			}
+		}
+		return false, nil
+	}, reason
 }

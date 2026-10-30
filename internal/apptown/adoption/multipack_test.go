@@ -176,7 +176,7 @@ func TestPullRefusesAVersionThatDisagreesWithAHeldPack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.PullPack(adoptionTestCaller(), pid, *ui, "alice"); !errors.Is(err, ErrNotAdoptable) {
+	if _, err := s.PullPack(adoptionTestCaller(), pid, *ui, "alice", func(*database.Tx) error { return nil }); !errors.Is(err, ErrNotAdoptable) {
 		t.Fatalf("pulling a disagreeing version: %v", err)
 	}
 	if cur := currentOf(t, s.db, pid); cur.Revision != 2 {

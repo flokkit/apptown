@@ -1,6 +1,10 @@
 package httpapi
 
 import (
+	"context"
+	"github.com/flokkit/apptown/internal/apptown/adoption"
+	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/database"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -45,7 +49,7 @@ func TestPackPullRefusesAConflictingBlock(t *testing.T) {
 	if len(plan.Conflicting) != 1 || !strings.Contains(plan.Conflicting[0], "contradicts data/sqlite-everywhere") {
 		t.Fatalf("it is listed for a person to choose: %v", plan.Conflicting)
 	}
-	handler := NewPackPull(f.adoption, f.projects, f.identity, f.ways, f.db, nil)
+	handler := NewPackPull(f.adoption, plainPull{f.adoption}, f.projects, f.identity, f.ways, f.db, nil)
 	r := httptest.NewRequest("POST", "/api/v1/projects/p/pack/pull", strings.NewReader(`{"pack":"postgres"}`)).WithContext(f.ctx)
 	r.SetPathValue("slug", "p")
 	w := httptest.NewRecorder()
@@ -70,4 +74,12 @@ func TestPackPullRefusesAConflictingBlock(t *testing.T) {
 	if !found || len(plan.Conflicting) != 0 {
 		t.Fatalf("once the pin is gone it is offered: %v %v", plan.Guidance, plan.Conflicting)
 	}
+}
+
+// plainPull pulls without the lifecycle's closing of superseded changes,
+// which these handler tests do not exercise.
+type plainPull struct{ a *adoption.Service }
+
+func (p plainPull) PullPack(ctx context.Context, pr *project.Project, pack wow.Pack, who string) (adoption.Pulled, error) {
+	return p.a.PullPack(ctx, pr.ID, pack, who, func(*database.Tx) error { return nil })
 }

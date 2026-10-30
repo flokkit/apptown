@@ -514,6 +514,25 @@ func TestMayApproveAsksTheVoteRulesWithoutVoting(t *testing.T) {
 	}
 }
 
+// The offer to close a change follows the abandon permission, and asking
+// closes nothing.
+func TestMayAbandonFollowsTheAbandonPermissionWithoutAbandoning(t *testing.T) {
+	t.Parallel()
+	a := stepAuthorityFixture(t, ApprovalConfig{Approvers: []string{"owner"}})
+	owner := stepVerifiedContext(context.Background(), access.Principal{Kind: "user", Name: "owner", Via: "token"})
+	if err := a.Work.MayAbandon(owner, a.ChangeID); err != nil {
+		t.Fatalf("the project's maintainer may close its change: %v", err)
+	}
+	outsider := stepVerifiedContext(context.Background(), access.Principal{Kind: "user", Name: "outsider", Via: "token"})
+	if err := a.Work.MayAbandon(outsider, a.ChangeID); err == nil {
+		t.Fatal("another project's maintainer was offered the close")
+	}
+	got, err := a.Work.Change(owner, a.ChangeID)
+	if err != nil || got.State != ChangeInProgress {
+		t.Fatalf("asking closed the change: %+v %v", got, err)
+	}
+}
+
 // An approval's receipt in the run's history names the credential the vote
 // came through, as its evidence does: a vote through a person's CLI token
 // does not read as the person clicking Approve.

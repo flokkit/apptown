@@ -1525,6 +1525,7 @@ export type RunRow = {
   project?: string
   startedAt: string
   durationS: number
+  next: NextAct[]
 }
 
 export type RunTimeline = {

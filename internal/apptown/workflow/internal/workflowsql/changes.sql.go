@@ -698,6 +698,44 @@ func (q *Queries) OpenChangesWithoutRunsMeta(ctx context.Context, arg OpenChange
 	return items, nil
 }
 
+const openUpliftTargets = `-- name: OpenUpliftTargets :many
+SELECT id,target_candidate_json FROM changes
+WHERE project_id=$1 AND type='uplift' AND state=$2 ORDER BY id
+`
+
+type OpenUpliftTargetsParams struct {
+	ProjectID ids.ID
+	State     string
+}
+
+type OpenUpliftTargetsRow struct {
+	ID                  ids.ID
+	TargetCandidateJson json.RawMessage
+}
+
+func (q *Queries) OpenUpliftTargets(ctx context.Context, arg OpenUpliftTargetsParams) ([]OpenUpliftTargetsRow, error) {
+	rows, err := q.db.QueryContext(ctx, openUpliftTargets, arg.ProjectID, arg.State)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []OpenUpliftTargetsRow
+	for rows.Next() {
+		var i OpenUpliftTargetsRow
+		if err := rows.Scan(&i.ID, &i.TargetCandidateJson); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const pendingUpliftAdoptions = `-- name: PendingUpliftAdoptions :many
 SELECT id,project_id FROM changes WHERE type='uplift' AND state=$1 AND adopted_revision=0 ORDER BY id
 `

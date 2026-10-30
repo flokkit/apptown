@@ -201,7 +201,7 @@ func appRoutes(a *App) []routeSpec {
 		attachments = httpapi.NewAttachments(a.attachments, a.cfg.dataDir)
 		standingApprovals = httpapi.NewStandingApprovals(a.standingRules)
 		routinePublications = httpapi.NewRoutinePublications(a.routinePublications)
-		packPull = httpapi.NewPackPull(a.Adoption, a.Projects, a.Access, a.Ways, a.DB, a.cfg.clock.Now)
+		packPull = httpapi.NewPackPull(a.Adoption, a.lifecycle, a.Projects, a.Access, a.Ways, a.DB, a.cfg.clock.Now)
 		fleet = httpapi.NewFleet(a.Adoption, a.Ways)
 		adoptionCommands = httpapi.NewAdoptionCommands(a.Adoption, a.conformance, a.Projects, a.Access, a.Work, a.lifecycle)
 		workflowLibrary = httpapi.NewWorkflowLibrary(a.Ways, a.Access, a.Projects)

@@ -16,17 +16,24 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 )
 
-type PackPull struct {
-	adoption *adoption.Service
-	projects *project.Projects
-	access   *identity.Service
-	ways     *wow.Service
-	db       *database.DB
-	now      func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
+// PackPuller moves a project's membership of a pack to its latest version,
+// closing what that leaves behind (projectlifecycle.Service).
+type PackPuller interface {
+	PullPack(ctx context.Context, p *project.Project, pack wow.Pack, who string) (adoption.Pulled, error)
 }
 
-func NewPackPull(adoption *adoption.Service, projects *project.Projects, access *identity.Service, ways *wow.Service, db *database.DB, now func() time.Time) PackPull {
-	return PackPull{adoption: adoption, projects: projects, access: access, ways: ways, db: db, now: now}
+type PackPull struct {
+	adoption  *adoption.Service
+	lifecycle PackPuller
+	projects  *project.Projects
+	access    *identity.Service
+	ways      *wow.Service
+	db        *database.DB
+	now       func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
+}
+
+func NewPackPull(adoption *adoption.Service, lifecycle PackPuller, projects *project.Projects, access *identity.Service, ways *wow.Service, db *database.DB, now func() time.Time) PackPull {
+	return PackPull{adoption: adoption, lifecycle: lifecycle, projects: projects, access: access, ways: ways, db: db, now: now}
 }
 
 // PackPullPlan: GET /projects/{slug}/pack/pull-plan[?pack=name]
@@ -73,7 +80,7 @@ func (h PackPull) PackPull(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 422, "%v", err)
 			return
 		}
-		pulled, err := h.adoption.PullPack(r.Context(), p.ID, *pack, Actor(r))
+		pulled, err := h.lifecycle.PullPack(r.Context(), p, *pack, Actor(r))
 		if err != nil {
 			WriteFault(w, err)
 			return

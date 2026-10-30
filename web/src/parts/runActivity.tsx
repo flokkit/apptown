@@ -4,7 +4,8 @@ import { ChangeState, Doing, Release, RunStatus, post } from '../api'
 import { chipFor } from '../states'
 import { useAction } from '../data'
 import { count, fmtDuration, fmtWhen } from '../format'
-import type { ProjectOverviewView } from '../wire.gen'
+import type { NextAct, ProjectOverviewView } from '../wire.gen'
+import { CloseIt } from '../CloseIt'
 
 // Shared presentation pieces for run activity and change history, used by
 // the project's Overview tab and the front page.
@@ -15,6 +16,8 @@ export type RunRow = {
   runId: string | null; runNumber: number; changeId: string | null; changeNumber: number; workflow: string; title: string
   status: RunStatus; stage: string; state?: Doing; detail?: string
   project?: string; startedAt: string; durationS: number
+  // What the server offers the reader on the row's change (abandon, for a blocked one they may close).
+  next: NextAct[]
 }
 
 // History is CHANGE history: one row per finished change — what it was,
@@ -55,10 +58,19 @@ export function ActiveRunList({ runs, showProject }: { runs: RunRow[]; showProje
             </div>
           )
         }
-        return (
-          <Link key={r.runId} to={`/changes/${r.changeId}`} className="card row" style={{ display: 'flex' }}>
+        const closable = (r.next ?? []).some((a) => a.act === 'abandon')
+        const link = (
+          <Link key={r.runId} to={`/changes/${r.changeId}`} className={closable ? 'row' : 'card row'} style={{ display: 'flex', flex: closable ? 1 : undefined }}>
             {body}
           </Link>
+        )
+        if (!closable) return link
+        // The row stays a link; closing it is beside it, not inside it.
+        return (
+          <div key={r.runId} className="card row" style={{ display: 'flex' }}>
+            {link}
+            <CloseIt changeId={r.changeId} />
+          </div>
         )
       })}
     </div>

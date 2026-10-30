@@ -1,6 +1,7 @@
 package adoption
 
 import (
+	"github.com/flokkit/apptown/internal/database"
 	"slices"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ func TestPullKeepsAWorkflowCalledByAnotherHeldPacksLane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := s.PullPack(adoptionTestCaller(), pid, *p, "alice")
+	result, err := s.PullPack(adoptionTestCaller(), pid, *p, "alice", func(*database.Tx) error { return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
