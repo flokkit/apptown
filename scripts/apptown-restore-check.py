@@ -51,7 +51,7 @@ def recorded_change(base, cid):
     for c in out.get("commits") or []:
         c.pop("when", None)
     for r in (out.get("evidence") or {}).get("releases") or []:
-        for live in ("observed", "serving", "reason"):  # the reason explains the observation
+        for live in ("observed", "observedAt", "observationStale", "serving", "reason"):  # the reason explains the observation
             r.pop(live, None)
     return out
 
