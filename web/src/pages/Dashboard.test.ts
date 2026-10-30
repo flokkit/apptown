@@ -4,7 +4,7 @@ import { homeSections, homeStatus, type Activity } from './Dashboard'
 type Dep = Activity['deployments'][number]
 const dep = (project: string, over: Partial<Dep> = {}): Dep => ({
   project, name: 'main', url: 'http://x', running: true,
-  observation: 'running', observedAt: '2026-10-03T00:00:00Z', observationStale: false, ...over,
+  observation: 'running', targetName: 'Club host', observedAt: '2026-10-03T00:00:00Z', observationStale: false, ...over,
 })
 
 describe('the home status sentence', () => {

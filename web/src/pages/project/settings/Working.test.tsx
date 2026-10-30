@@ -46,7 +46,7 @@ describe('the guidance editor', () => {
       : otherReads(url)))
     const { el, unmount } = mount(client)
     try {
-      await vi.waitFor(() => expect(el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('not allowed'))
+      await vi.waitFor(() => expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('not allowed'))
       await vi.waitFor(() => expect(el.textContent).toContain('plain-words'))
       const picker = el.querySelector('select') as HTMLSelectElement
       await act(async () => {

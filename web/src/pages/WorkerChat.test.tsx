@@ -54,7 +54,7 @@ describe('a chat on the worker says where its work stands', () => {
   })
   it('says it is still checking before the first answer, not that nothing is saved', () => {
     const html = line(session({}), false)
-    expect(html).toContain('Reading where its work stands')
+    expect(html).toContain('Loading…')
     expect(html).not.toContain('Not saved yet')
   })
 })
@@ -94,9 +94,9 @@ describe("a change's chats on the worker", () => {
     expect(await changePage({ chats: [] }, false)).toBe('')
   })
   it('says a failed first read failed, rather than showing nothing', async () => {
-    expect(await changePage(null, true)).toContain('could not be read')
+    expect(await changePage(null, true)).toContain('unknown')
   })
   it('marks an empty answer whose refresh failed as the last answer read', async () => {
-    expect(await changePage({ chats: [] }, true)).toContain('out of date')
+    expect(await changePage({ chats: [] }, true)).toContain('unknown')
   })
 })

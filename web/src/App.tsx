@@ -180,12 +180,12 @@ export default function App() {
         {meQ.err && <div className="error small" style={{ marginBottom: 10 }}>{PRODUCT} could not say who you are: {meQ.err}</div>}
         <UpdateNote />
  <ReleaseAvailabilityNote />
-        {!online && <div className="muted small" style={{ marginBottom: 10 }}>You are offline. Pages keep what they last read and refresh when the connection returns.</div>}
+        {!online && <div className="muted small" style={{ marginBottom: 10 }}><span title="Pages refresh when the connection returns.">Offline</span></div>}
         {/* Keyed by identity as well: another person starts from fresh pages,
             with no draft or local state left from the one before. */}
         <ErrorBoundary key={`${identity ?? ''} ${routePath}`}>
         <StaleScope>
-        <Suspense fallback={<div className="muted">Opening the page…</div>}>
+        <Suspense fallback={<div className="muted">Loading…</div>}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/attention" element={<AttentionPage />} />

@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from './Status'
 import { PRODUCT } from './brand'
 import type { CSSProperties } from 'react'
 import { openAfter, post } from './api'
@@ -55,7 +56,7 @@ export function TryIt({ changeId, label, style, className }: {
   if (state === 'live' && st?.url && st.hostOnly) {
     return (
       <span className="row" style={{ gap: 6 }}>
-        <span className="chip pass" title={`${st.url} answers on ${PRODUCT}'s host only`}>preview running</span>
+        <Status word={"running"} tone={STATUS_LIGHT["running"]} help={`${st.url} answers on ${PRODUCT}'s host only`} />
         <span className="muted small">{hostOnlyWords(st.url)}</span>
         {builtWords(st) && <span className="muted small">{builtWords(st)}</span>}
         <button className="subtle" title="Stop the preview and start it again from the current files"
@@ -82,10 +83,10 @@ export function TryIt({ changeId, label, style, className }: {
   return (
     <span className="row" style={{ gap: 8, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%' }}>
       {state === 'broken' && (
-        <span className="chip fail" title={st?.reason}>didn't start</span>
+        <Status word={"failed"} tone={STATUS_LIGHT["failed"]} help={st?.reason} />
       )}
       {state === 'unavailable' && (
-        <span className="chip pending" title={st?.reason}>preview state not known</span>
+        <Status word={"unknown"} tone={STATUS_LIGHT["unknown"]} help={st?.reason} />
       )}
       <button className={cls} style={style} onClick={() => boot(`/changes/${changeId}/preview`)}>
         {state === 'broken' || state === 'unavailable' ? '▶ Try again' : label ?? '▶ Try it'}

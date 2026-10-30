@@ -80,7 +80,10 @@ func JSON(ctx context.Context, cfg *Target, method, path string, body any) (int,
 	}}).Do(req)
 
 	if err != nil {
-		return 0, nil, err
+		if ctx.Err() != nil {
+			return 0, nil, err
+		}
+		return 0, nil, deploy.ConnectionError(err)
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))

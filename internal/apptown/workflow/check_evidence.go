@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"slices"
 
 	"github.com/flokkit/apptown/internal/enum"
@@ -179,12 +180,34 @@ func ReadCheckEvidence(raw json.RawMessage) (CheckEvidence, error) {
 	return e, nil
 }
 
+// checkReceiptView adds presentation without changing saved evidence.
+type checkReceiptView struct {
+	CheckReceipt
+	StatusLabel status.DisplayStatus `json:"statusLabel"`
+}
+
+// Read the display label as well as the receipt; embedding must not promote
+// the stored receipt's decoder over the complete display response.
+func (v *checkReceiptView) UnmarshalJSON(data []byte) error {
+	type fields CheckReceipt
+	var out struct {
+		fields
+		StatusLabel status.DisplayStatus `json:"statusLabel"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return err
+	}
+	v.CheckReceipt, v.StatusLabel = CheckReceipt(out.fields), out.StatusLabel
+	return nil
+}
+
 // CheckReading is ReadCheckEvidence's answer for readers outside Go: the
 // facts, or why they could not be read. The run snapshot attaches it to each
 // step that carries check evidence, so the page judges nothing from raw JSON.
 type CheckReading struct {
 	CheckEvidence
-	Unreadable string `json:"unreadable,omitempty"`
+	Checks     []checkReceiptView `json:"checks,omitempty"`
+	Unreadable string             `json:"unreadable,omitempty"`
 }
 
 func readingOf(raw json.RawMessage) *CheckReading {
@@ -192,7 +215,11 @@ func readingOf(raw json.RawMessage) *CheckReading {
 	if err != nil {
 		return &CheckReading{Unreadable: err.Error()}
 	}
-	return &CheckReading{CheckEvidence: facts}
+	out := &CheckReading{CheckEvidence: facts}
+	for _, c := range facts.Checks {
+		out.Checks = append(out.Checks, checkReceiptView{CheckReceipt: c, StatusLabel: c.Display()})
+	}
+	return out
 }
 
 // carriesCheckEvidence: the step types whose evidence holds check facts —

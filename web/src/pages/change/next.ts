@@ -1,7 +1,8 @@
+import { STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import type { ApprovalConfig, ChangeView, Step } from '../../api'
 import type { NextAct, SentBack } from '../../wire.gen'
-import { chipFor, closedNothingToChange } from '../../states'
+import { closedNothingToChange } from '../../states'
 
 // What a change is doing, said once, with the one next action for whoever
 // is looking. The page's state panel renders this; the tests read it. It is
@@ -82,9 +83,7 @@ export function changeLanded(view: ChangeView): boolean {
 // change waiting on an approval says so (and says "your" only to someone who
 // may give it); otherwise the change's state.
 export function changeChip(view: ChangeView): { text: string; cls: string } {
-  const next = view.change.state === 'landing' || view.change.state === 'in_progress' ? nextStep(view) : undefined
-  if (next?.primary === 'approve') return { text: next.stamp, cls: 'pending' }
-  return { text: view.change.stateLabel, cls: chipFor(view.change.state) }
+  return { text: view.statusLabel, cls: STATUS_LIGHT[view.statusLabel] }
 }
 
 // isLandingApproval: the approval whose yes lands the change — the one in a

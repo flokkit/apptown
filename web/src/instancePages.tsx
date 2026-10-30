@@ -1,4 +1,3 @@
-import { PRODUCT } from './brand'
 import type { ReactNode } from 'react'
 import { useGet } from './data'
 import type { AuthzHoldings } from './wire.gen'
@@ -48,9 +47,7 @@ export function NotAvailable({ page, heading = true }: { page: InstancePage; hea
       <div className="card" role="status">
         <b>Not available to you.</b>
         <div className="muted small" style={{ marginTop: 6 }}>
-          This page is about the whole of {PRODUCT}, not one project, and your account
-          does not hold the role that reads it. Your own projects are under
-          Projects. Ask an administrator if you need it.
+          Ask an administrator for access. Your projects are under Projects.
         </div>
       </div>
     </div>
@@ -62,6 +59,6 @@ export function NotAvailable({ page, heading = true }: { page: InstancePage; hea
 // are not sent only to be refused.
 export function InstanceGate({ page, children }: { page: InstancePage; children: ReactNode }) {
   const may = useInstancePages()(page)
-  if (may === undefined) return <div className="muted small">Reading what you may open…</div>
+  if (may === undefined) return <div className="muted small">Checking access…</div>
   return may ? <>{children}</> : <NotAvailable page={page} />
 }

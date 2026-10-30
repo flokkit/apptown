@@ -1,54 +1,36 @@
 import { PRODUCT } from './brand'
 import type { CSSProperties, ReactNode } from 'react'
-import { relTime } from './format'
+import { fmtStamp } from './format'
 
-export type RuntimeObservation = {
-  // running, stopped or unknown, as AppTown words it.
-  observation: string
-  observationIssue?: string
-  observedAt?: string
-  observationAttemptedAt?: string
-  observationStale: boolean
-}
+import type { ActivityDeployment, RuntimeState } from './wire.gen'
+import { Status, STATUS_LIGHT } from './Status'
+
+export type RuntimeObservation = Pick<ActivityDeployment, 'observation' | 'observationIssue' | 'observedAt' | 'observationAttemptedAt' | 'observationStale' | 'targetName' | 'unreachableSince'>
+
+// Exhaustive against the generated server vocabulary. Classification belongs
+// to the deployment owner, including expired samples and reachability.
+export const RUNTIME_LIGHT: Record<RuntimeState, string> = STATUS_LIGHT
 
 export function runtimeDescription(o: RuntimeObservation): string {
-  if (!o.observedAt) return 'status unknown · not checked yet'
-  const state = o.observation === 'unknown' ? 'status unknown' : o.observation
-  return `${o.observationStale ? 'Last known: ' : ''}${state} · checked ${relTime(o.observedAt)}${o.observationIssue ? ' · refresh unavailable' : ''}`
+  if (o.observation === 'unreachable') return `${PRODUCT} can't reach ${o.targetName || 'the deployment host'}${o.unreachableSince ? ` since ${fmtStamp(o.unreachableSince)}` : ''}. The app may still be running.`
+  if (o.observationIssue) return o.observationIssue
+  return o.observedAt ? `Checked ${fmtStamp(o.observedAt)}.` : 'Not checked yet.'
 }
 
-// The chip tone for a runtime observation. Only a current observation is
-// drawn as running (pass) or stopped (neutral); a stale or unknown one gets
-// the unknown stamp, so "nobody knows" never looks like "stopped".
-export function runtimeChip(o: { observation: string, observationStale: boolean }): string {
-  if (o.observationStale || o.observation === 'unknown') return 'unknown'
-  return o.observation === 'running' ? 'pass' : ''
+export function runtimeChip(o: Pick<RuntimeObservation, 'observation'>): string {
+  return RUNTIME_LIGHT[o.observation]
 }
 
-// runtimeLabel is a badge's words: the state alone while the reading is
-// current, since every badge would otherwise repeat "checked just now". A
-// reading that is out of date says so and how old it is. The full sentence,
-// with when it was checked and whether a refresh failed, is the badge's
-// title; the unknown style marks both stale and never-checked badges.
-export function runtimeLabel(o: RuntimeObservation): string {
-  if (!o.observedAt) return 'not checked yet'
-  const state = o.observation === 'unknown' ? 'status unknown' : o.observation
-  if (!o.observationStale) return state
-  return `last known: ${state} · ${relTime(o.observedAt)}`
+export function runtimeLabel(o: Pick<RuntimeObservation, 'observation'>): string {
+  return o.observation
 }
 
-// checkedWords is when a reading was taken, for a line that already says
-// the state: an out-of-date reading says so, so an old "running" never reads
-// as current.
-export function checkedWords(o: { observedAt?: string, observationStale: boolean }): string {
-  if (!o.observedAt) return 'not checked yet'
-  return `${o.observationStale ? 'out of date · last ' : ''}checked ${relTime(o.observedAt)}`
+export function checkedWords(o: Pick<RuntimeObservation, 'observedAt' | 'observationStale'>): string {
+  return o.observedAt ? `Checked ${fmtStamp(o.observedAt)}` : 'Not checked yet'
 }
 
 export function RuntimeStatus({ observation }: { observation: RuntimeObservation }) {
-  return <span className={`chip ${runtimeChip(observation)}`} title={runtimeDescription(observation)}>
-    {runtimeLabel(observation)}
-  </span>
+  return <Status word={observation.observation} tone={runtimeChip(observation)} help={runtimeDescription(observation)} />
 }
 
 // AppAddress: where an app answers, as a link, unless AppTown says the

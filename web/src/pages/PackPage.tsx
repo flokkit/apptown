@@ -43,7 +43,7 @@ export default function PackPage() {
 
       <h2 style={{ marginTop: 20 }}>Versions</h2>
       <div className="muted small" style={{ marginBottom: 8 }}>
-        Recommending a version changes what new projects get and what the others are offered. No project moves until its owner adopts it.
+        New projects use the recommended version. Existing projects adopt it separately.
       </div>
       {h.versions.map((v) => (
         <div key={v.version} className={`card ${v.version === h.recommended ? 'tone-ok' : ''}`} style={{ padding: '8px 12px' }}>
@@ -116,7 +116,7 @@ function Limits({ v, base }: { v: Publication; base?: Publication }) {
       <strong>When a project adopts it.</strong>{' '}
       {kept.length > 0
         ? <>Projects on v{base?.version} keep {kept.map((k, i) => <span key={k}>{i > 0 ? ', ' : ''}<code>{k}</code></span>)} after adopting, though this version no longer carries {kept.length === 1 ? 'it' : 'them'}; removing {kept.length === 1 ? 'it' : 'them'} is an edit on each project.</>
-        : <>A project keeps any workflow or policy it already has that this version does not carry; removing one is an edit on the project.</>}
+        : <>Adoption keeps existing workflows and policies. Remove them in project settings.</>}
       {' '}Policies are named: a project gets the policy library's text when it installs this version, so two projects can hold different text for one name.
     </div>
   )

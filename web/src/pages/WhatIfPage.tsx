@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { currentUser, get, HttpError, post } from '../api'
@@ -39,7 +40,7 @@ export const OUTCOME_WORDS: Record<string, string> = {
   'not-evaluated': 'not evaluated',
   'not-yet-judged': 'not yet judged',
 }
-export const OUTCOME_TONE: Record<string, string> = { 'new-failures': 'fail', 'could-not-assess': 'pending', 'no-new-failures': 'pass', 'not-evaluated': 'pending', 'not-yet-judged': '' }
+
 export const OUTCOME_ORDER = ['new-failures', 'could-not-assess', 'no-new-failures', 'not-evaluated', 'not-yet-judged']
 
 export default function WhatIfPage() {
@@ -74,13 +75,7 @@ export default function WhatIfPage() {
 }
 
 function State({ w }: { w: WhatIf }) {
-  switch (w.state) {
-    case 'queued': return <span className="chip pending">queued</span>
-    case 'running': return <span className="chip pending">running · {w.projectsDone} of {w.projectsTotal}</span>
-    case 'done': return <span className="chip">done</span>
-    case 'interrupted': return <span className="chip fail" title={w.detail}>interrupted</span>
-    default: return <span className="chip fail" title={w.detail}>stopped: {w.detail}</span>
-  }
+  return <><Status word={w.statusLabel} tone={STATUS_LIGHT[w.statusLabel]} help={w.detail || w.state} /> <span>{w.projectsDone} of {w.projectsTotal}</span></>
 }
 
 // Decide: recommend the version (the pack page's own act) or try it in an
@@ -119,7 +114,7 @@ function Summary({ w }: { w: WhatIf }) {
   return (
     <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
       <strong>{projects.length} project{projects.length === 1 ? '' : 's'}</strong>
-      {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o} className={`chip ${OUTCOME_TONE[o]}`}>{counts[o]} {OUTCOME_WORDS[o]}</span>)}
+      {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} tone={STATUS_LIGHT[w.outcomeLabels[o]]} help={OUTCOME_WORDS[o]} /></span>)}
       {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
     </div>
   )
@@ -256,7 +251,7 @@ function Table({ w }: { w: WhatIf }) {
                   <td><input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
                     checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} /></td>
                   <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="chip" style={{ marginLeft: 6 }}>would join</span>}</td>
-                  <td><span className={`chip ${OUTCOME_TONE[p.outcome]}`}>{OUTCOME_WORDS[p.outcome] ?? p.outcome}</span></td>
+                  <td><Status word={p.statusLabel} tone={STATUS_LIGHT[p.statusLabel]} help={OUTCOME_WORDS[p.outcome]} /></td>
                   <td><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</td>
                   <td>{p.newFailures.map((c, i) => <div key={i}><Check c={c} />{c.exceptedToday && <span className="muted"> (excepted today)</span>}</div>)}</td>
                   <td>
@@ -337,7 +332,6 @@ const RESULT_WORDS: Record<string, string> = {
   'no-longer-required': 'no longer required',
   unchanged: 'unchanged',
 }
-const RESULT_TONE: Record<string, string> = { 'would-fail': 'fail', 'would-pass': 'pass', 'not-assessed': 'pending' }
 
 // Row is one check of one project: both sides, why it was not judged, what
 // past fixes cost, and the brief a fix would start from.
@@ -348,7 +342,7 @@ function Row({ r }: { r: WhatIfRow }) {
     <div className="card" style={{ padding: '6px 10px', marginTop: 6 }}>
       <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
         {what}
-        <span className={`chip ${RESULT_TONE[r.result] ?? ''}`}>{RESULT_WORDS[r.result] ?? r.result}</span>
+        <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={RESULT_WORDS[r.result] ?? r.result} />
         <span className="muted">{sides}</span>
       </div>
       {r.detail && <div className="muted" style={{ marginTop: 2 }}>{r.detail}</div>}

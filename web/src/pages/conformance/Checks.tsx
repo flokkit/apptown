@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, CheckDefinition } from '../../wire.gen'
@@ -9,8 +10,7 @@ function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict
   const remediation = useStartRemediation()
   const findings = vs.filter((v) => laneOf(v, view.adjudications) === 'findings').length
   const act = vs.filter((v) => ['findings', 'flagged', 'broken'].includes(laneOf(v, view.adjudications))).length
-  const unk = vs.filter((v) => laneOf(v, view.adjudications) === 'unassessed').length
-  const na = vs.filter((v) => v.state === 'not-applicable').length
+  const labels = [...new Set(vs.map(v => v.statusLabel))]
   const [open, setOpen] = useState(act > 0)
   const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
   return (
@@ -23,28 +23,25 @@ function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict
             <span className="muted small">{def?.judgedWhere}</span>
           </span>
           <span className="small" style={{ flex: '0 0 auto' }}>
-            {act > 0 && <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{act} to look at</span>}
-            {act === 0 && unk === 0 && na === 0 && <span style={{ color: 'var(--ok)', fontWeight: 600 }}>✓ all conform</span>}
-            {unk > 0 && <span className="muted">{act > 0 ? ' · ' : ''}{unk} not judged</span>}
-            {na > 0 && <span className="muted">{act > 0 || unk > 0 ? ' · ' : ''}{na} not applicable</span>}
+            {labels.map(label => <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8 }}>{vs.filter(v => v.statusLabel === label).length} <Status word={label} tone={STATUS_LIGHT[label]} /></span>)}
           </span>
         </div>
-        {def?.expects && <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 5, maxWidth: 760 }}>{def.expects}</div>}
+
       </div>
       {open && (
         <div style={{ borderTop: '1px solid var(--border)' }}>
-          <HowJudged def={def} />
+          <details><summary>Check details</summary><HowJudged def={def} /></details>
           {view.lens.kind === 'current' && findings > 0 && def && (
             <div className="row" style={{ padding: '8px 14px', gap: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
               <button disabled={remediation.busy} onClick={() => remediation.start('check', def.key)}>Fix everywhere · {findings} project{findings === 1 ? '' : 's'}</button>
-              <span className="muted small">Opens one change per project at a time; each waits for your approval.</span>
+              <span className="muted small">Each change needs approval.</span>
               {remediation.err && <span className="error small">{remediation.err}</span>}
             </div>
           )}
           {sorted.map((v) => (
             <div key={v.projectSlug} className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', padding: '7px 14px', borderTop: '1px solid var(--border)' }}>
               <Link to={`${base}/projects/${v.projectSlug}`} style={{ fontWeight: 600, textDecoration: 'none', color: 'inherit' }}>{v.projectSlug}</Link>
-              <StateChip s={v.state} />
+              <StateChip label={v.statusLabel} help={v.detail} />
             </div>
           ))}
         </div>
@@ -60,7 +57,7 @@ export function ChecksList({ view, base }: { view: ConformanceView; base: string
   if (checks.length === 0) return <div className="muted" style={{ padding: '40px 0', textAlign: 'center' }}>No checks recorded.</div>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <div className="muted small">Every check the fleet has adopted: what it requires, how and where it's judged, and each project's verdict.</div>
+      <div className="muted small">Adopted checks and project results.</div>
       {checks.map(([key, vs]) => <CheckCard key={key} def={view.checkDefs[key]} vs={vs} view={view} base={base} />)}
     </div>
   )

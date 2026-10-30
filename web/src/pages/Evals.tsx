@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -17,11 +18,6 @@ import { PageHead } from '../PageHead'
 
 const dollars = (micros: number, incomplete = 0) => `${incomplete > 0 ? 'at least ' : ''}$${(micros / 1e6).toFixed(2)}`
 
-const ARM_WORDS: Record<string, string> = {
-  queued: 'waiting to start', copying: 'making its copy', copied: 'copy made, waiting for the eval to continue', starting: 'starting its lane', working: 'working', landing: 'ready to land, landing', scored: 'scored', failed: 'failed', 'not-run': 'not run',
-}
-const ARM_TONE: Record<string, string> = { copied: 'needs_human', working: 'pending', landing: 'pending', scored: 'pass', failed: 'fail' }
-const EVAL_TONE: Record<string, string> = { running: 'pending', held: 'needs_human', finished: 'pass', stopped: '' }
 
 // What an eval read refused to the caller says: who may, not an error.
 const EVALS_DENIED = 'Evals are read by standards administrators and auditors, and started by people who manage packs; you are neither.'
@@ -45,7 +41,7 @@ function EvalRow({ e }: { e: Eval }) {
       <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
         <Link to={`/evals/${e.id}`}><strong>Eval {e.number}</strong></Link>
         <span>{e.subject} against what projects run now</span>
-        <span className={`chip ${EVAL_TONE[e.state] ?? ''}`}>{e.state}</span>
+        <Status word={e.statusLabel} tone={STATUS_LIGHT[e.statusLabel]} help={e.reason || e.state} />
         <span style={{ flex: 1 }} />
         <span className="muted small">started by {e.startedBy} {relTime(e.startedAt)}</span>
       </div>
@@ -184,7 +180,7 @@ export function EvalScorecardPage() {
         <>
           <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
             <h2 style={{ margin: 0 }}>Eval {e.number}: {e.subject} against what projects run now</h2>
-            <span className={`chip ${EVAL_TONE[e.state] ?? ''}`}>{e.state}</span>
+            <Status word={e.statusLabel} tone={STATUS_LIGHT[e.statusLabel]} help={e.reason || e.state} />
           </div>
           <div className="muted small" style={{ marginTop: 4 }}>
             Started by {e.startedBy} {relTime(e.startedAt)}, meaning “{e.meaning}”
@@ -282,7 +278,7 @@ function ArmCard({ e, a, label, cost, complaints }: { e: EvalScorecard; a: Arm; 
       <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         <strong>{label}</strong>
         <span className="muted small">{a.profile}</span>
-        <span className={`chip ${ARM_TONE[a.state] ?? ''}`}>{ARM_WORDS[a.state] ?? a.state}</span>
+        <Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help={a.reason || a.state} />
         {s.notComparable && <span className="chip">not comparable</span>}
       </div>
       {a.reason && <div className="small" style={{ marginTop: 4 }}>{a.reason}</div>}
@@ -309,7 +305,7 @@ function ArmCard({ e, a, label, cost, complaints }: { e: EvalScorecard; a: Arm; 
       {(s.checks ?? []).length > 0 && (
         <div className="row small" style={{ gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
           <span className="muted">landing gates:</span>
-          {(s.checks ?? []).map((c) => <span key={c.step} className={`chip ${c.status === 'pass' ? 'pass' : c.status === 'pending' ? 'pending' : 'fail'}`}>{c.step}: {c.status}</span>)}
+          {(s.checks ?? []).map((c) => <span key={c.step}>{c.step}: <Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} /></span>)}
         </div>
       )}
       {a.projectId ? (
@@ -395,7 +391,7 @@ function ComplaintsByAbout({ complaints, arms }: { complaints: Complaint[]; arms
   return (
     <section className="card">
       <h3 style={{ marginTop: 0 }}>Complaints filed in the eval</h3>
-      <p className="muted small" style={{ marginTop: 0 }}>A signal, not a defect count. Only those about {PRODUCT} also reach {PRODUCT}'s queue.</p>
+      <p className="muted small" style={{ marginTop: 0 }}>Reports about {PRODUCT} also enter its queue.</p>
       {[...groups.entries()].map(([about, list]) => (
         <div key={about} style={{ marginBottom: 8 }}>
           <strong className="small">About {ABOUT_WORDS[about] ?? about} ({list.length})</strong>

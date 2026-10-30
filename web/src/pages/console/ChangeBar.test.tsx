@@ -76,7 +76,7 @@ describe("the change a chat works on", () => {
   it('offers no Check and land on a change it could not read, and says so', async () => {
     change = down
     const { el, done } = await mount()
-    await vi.waitFor(() => expect(el.textContent).toContain('This change could not be read: database unavailable'))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('database unavailable'))
     expect(el.textContent).not.toContain('Check and land')
     done()
   })
@@ -96,7 +96,7 @@ describe("the change a chat works on", () => {
       // so wait for the whole picture, not the stale note alone (a push gate
       // saw the note before the list answered, 11 October).
       await vi.waitFor(() => {
-        expect(el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(database unavailable)')
+        expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(database unavailable)')
         expect(el.textContent).toContain(shows)
         expect(el.textContent).toContain('Blue cat')
       })
@@ -123,7 +123,7 @@ describe('the changes a chat started', () => {
   const down = () => new Response(JSON.stringify({ error: 'database unavailable' }), { status: 400 })
   it('says a failed read failed, never shows it as none', async () => {
     const { el, done } = await mount(down)
-    await vi.waitFor(() => expect(el.textContent).toContain('The changes this chat started could not be read: database unavailable'))
+    await vi.waitFor(() => expect(el.querySelector('.error .chip')?.getAttribute('title')).toContain('database unavailable'))
     done()
   })
   it('shows nothing for an answer of none', async () => {
@@ -134,7 +134,7 @@ describe('the changes a chat started', () => {
   })
   it('says an old answer of none may be old when its refresh fails', async () => {
     const { el, done } = await mount(down, { changes: [] })
-    await vi.waitFor(() => expect(el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(database unavailable)'))
+    await vi.waitFor(() => expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(database unavailable)'))
     done()
   })
 })

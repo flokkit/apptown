@@ -17,7 +17,7 @@ const PROJECT = '00000000-0001-7000-8000-000000000000'
 const now = new Date().toISOString()
 const protection = {
   deployment: 'prod', dataClass: 'production', offHost: true, recent: [], running: null, restoredCopies: [], coverage: { assessed: ['postgres'], notAssessed: [] },
-  items: [{ need: 'postgres', where: 'database app on forge-ledger-prod', copy: 'fresh', lastCopy: { backup: SET, takenAt: now, bytes: 2048, sha256: 'ab' } }],
+  items: [{ need: 'postgres', where: 'database app on forge-ledger-prod', copy: 'fresh', copyLabel: 'fresh', lastCopy: { backup: SET, takenAt: now, bytes: 2048, sha256: 'ab' } }],
 }
 const takeDown = { id: OPERATION, projectId: PROJECT, subject: 'project:1/deployment:2', holds: ['project:1/deployment:2'], input: { deployment: 'prod' }, kind: 'deployment.take-down',
   askedBy: 'bls', state: 'running', result: { writesStopped: true }, cancellable: true, createdAt: now, touchedAt: now, startedAt: now,
@@ -44,14 +44,14 @@ describe('a protection reading whose refresh failed', () => {
   }
   it('says the copies were fresh when last read, not that they are', async () => {
     const { el, done } = await mount('/projects/ledger/deployments/prod/protection', <ProtectionLines slug="ledger" name="prod" />, protection)
-    await vi.waitFor(() => expect(el.textContent).toContain('out of date'))
+    await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
     expect(el.textContent).toContain('as read')
     expect(el.querySelector('.chip.pass')).toBeNull()
     done()
   })
   it('says writes were stopped when last read, not that they are', async () => {
     const { el, done } = await mount(`/operations/${OPERATION}`, <Routes><Route path="/operations/:id" element={<OperationPage />} /></Routes>, takeDown)
-    await vi.waitFor(() => expect(el.textContent).toContain('out of date'))
+    await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
     expect(el.textContent).toContain('writes stopped as read')
     done()
   })

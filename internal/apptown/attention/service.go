@@ -5,6 +5,7 @@ package attention
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"sort"
@@ -24,6 +25,8 @@ const (
 )
 
 type Item struct {
+	StatusLabel AttentionLabel `json:"statusLabel"`
+
 	Severity   string    `json:"severity"`
 	Key        string    `json:"key"`
 	Title      string    `json:"title"`
@@ -249,4 +252,14 @@ func (s *Service) observe(ctx context.Context, key string, read func(context.Con
 	snapshot.Known = false
 	snapshot.Stale = true
 	return snapshot, err
+}
+
+func (v Item) MarshalJSON() ([]byte, error) {
+	type view Item
+	out := view(v)
+	out.StatusLabel = LabelWaiting
+	if v.Stale {
+		out.StatusLabel = LabelUnknown
+	}
+	return json.Marshal(out)
 }

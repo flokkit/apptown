@@ -5,7 +5,8 @@ Dashboard, project, Change, deployment, conformance and console pages consume
 HTTP projections and invoke the corresponding application commands.
 
 Dashboard/project lists use visibility-filtered server queries. The interface
-must distinguish unknown or stale runtime observations from a stopped application.
+distinguishes running, stopped, unknown and unreachable. Status words come from
+their owners; a word and light appear together, with reasons in help or details.
 A page rendering successfully does not prove every optional request succeeded;
 approver hints and policy lists still need the recorded narrow-account usability
 smoke.
@@ -20,7 +21,7 @@ The look is "Ledger": warm paper, ink text, ruled lines and serif headings.
 Every colour, font, size and radius is a token at the top of
 `web/src/styles.css`; components name a role (`--ok`, `--rule`,
 `--font-serif`), never a value. Status colours each have one job, and
-unknown or stale state has its own dashed, hatched stamp so it never reads
+unknown state has its own dashed, hatched stamp so it never reads
 as passed, stopped or empty. Fonts are bundled by the build
 (`web/src/fonts.ts`); the app fetches nothing from a font CDN. A dark
 variant keeps the same roles and follows the system unless a person pins

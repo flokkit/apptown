@@ -23,7 +23,7 @@ export function ReviewsList() {
   const all = data.reviews ?? []
   const rows = all.filter(isFleetReview)
   const single = all.length - rows.length
-  if (rows.length === 0) return <><StaleNote q={q} /><div className="muted" style={{ padding: '30px 0', textAlign: 'center' }}>No fleet review yet.{single ? ` ${single} single-project review${single === 1 ? '' : 's'} on file — see each project's page.` : ''}</div></>
+  if (rows.length === 0) return <><StaleNote q={q} /><div className="muted" style={{ padding: '30px 0', textAlign: 'center' }}>No fleet review yet.{single ? ` ${single} single-project review${single === 1 ? '' : 's'} on file · see each project's page.` : ''}</div></>
   const trend = [...rows].reverse().slice(-40)
   const max = Math.max(1, ...trend.map((r) => r.findings + r.flagged))
   return (
@@ -68,7 +68,7 @@ export function ReviewsList() {
       </div>
       {single > 0 && (
         <div className="muted small mt-3">
-          {single} single-project review{single === 1 ? '' : 's'} (a project's re-run, a remediation's verification) are not listed here; each project's page and each remediation link to theirs.
+          {single} single-project review{single === 1 ? '' : 's'} appear on their project or remediation page.
         </div>
       )}
     </div>

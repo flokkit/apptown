@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, ProjectStanding } from '../../wire.gen'
@@ -15,7 +16,7 @@ function ProjectRow({ p, base }: { p: ProjectStanding; base: string }) {
             <strong style={{ fontSize: 'var(--fs-base)' }}>{p.name || p.slug}</strong>
             {p.name && p.name !== p.slug && <span className="mono muted small" style={{ marginLeft: 'var(--space-2)' }}>{p.slug}</span>}
           </span>
-          <StandingChip s={p.standing}>{p.sentence}</StandingChip>
+          <StandingChip label={p.statusLabel} help={p.sentence} />
         </div>
         <LaneBar lanes={p.lanes} total={p.total} />
       </div>
@@ -48,8 +49,8 @@ export function ProjectsList({ view, base }: { view: ConformanceView; base: stri
       {quiet.length > 0 && (
         <div className="card" style={{ marginBottom: 0, padding: '10px 14px', cursor: 'pointer' }} onClick={() => setShowQuiet(!showQuiet)}>
           <span className="muted small">{showQuiet ? '▾' : '▸'} </span>
-          <span className="chip pass" style={{ marginRight: 'var(--space-2)' }}>conforms</span>
-          <span className="small">{quiet.length} project{quiet.length === 1 ? '' : 's'} meet everything they adopted{showQuiet ? ':' : ` — ${quiet.map((p) => p.name || p.slug).join(', ')}`}</span>
+          <Status word={quiet[0].statusLabel} tone={STATUS_LIGHT[quiet[0].statusLabel]} />
+          <span className="small">{quiet.length} project{quiet.length === 1 ? '' : 's'} meet everything they adopted{showQuiet ? ':' : ` · ${quiet.map((p) => p.name || p.slug).join(', ')}`}</span>
         </div>
       )}
       {showQuiet && quiet.map((p) => <ProjectRow key={p.slug} p={p} base={base} />)}

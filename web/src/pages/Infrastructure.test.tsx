@@ -7,7 +7,7 @@ import type { InfrastructureView as TargetInfra } from '../wire.gen'
 import { InfrastructureView, ResourceTables } from './Infrastructure'
 
 const target = (name: string, fields: Partial<TargetInfra> = {}): TargetInfra => ({
-  target: name, kind: 'portainer', family: 'containers', origin: 'attached', status: 'ready',
+  target: name, kind: 'portainer', family: 'containers', origin: 'attached', status: 'ready', statusLabel: 'passed',
   facts: '', place: name, vendor: '', live: false, refreshing: false, resources: [], ...fields,
 })
 
@@ -20,14 +20,14 @@ const show = (targets: TargetInfra[]) => {
 describe('infrastructure inventory availability', () => {
   it('preserves healthy targets alongside a records-only unknown target without offering unknown resources for removal', () => {
     const html = show([
-      target('healthy', { live: true, asOf: '2026-10-29T00:00:00Z', resources: [{ kind: 'stack', name: 'healthy-app', record: 'recorded' }] }),
-      target('unbound', { error: 'Inventory placement could not be verified: provider association required', resources: [{ kind: 'stack', name: 'recorded-app', record: 'recorded' }] }),
+      target('healthy', { live: true, asOf: '2026-10-29T00:00:00Z', resources: [{ kind: 'stack', name: 'healthy-app', record: 'recorded', statusLabel: 'unknown' }] }),
+      target('unbound', { error: 'Inventory placement could not be verified: provider association required', resources: [{ kind: 'stack', name: 'recorded-app', record: 'recorded', statusLabel: 'unknown' }] }),
       target('unknown-empty', { error: 'provider association required' }),
     ])
     expect(html).toContain('healthy-app')
     expect(html).toContain('recorded-app')
     expect(html).toContain('provider association required')
-    expect(html).toContain('inventory unavailable')
+    expect(html).toContain('unknown')
     expect(html).toContain('records only')
     expect(html).toContain('Inventory is unknown.')
     expect(html).not.toContain('Empty inventory.')
@@ -46,9 +46,9 @@ describe('infrastructure inventory availability', () => {
   })
 
   it('shows a kind without an inventory reader as unknown, not as a failure', () => {
-    const html = show([target('bucket', { kind: 's3-bucket', unreported: true, resources: [{ kind: 'bucket', name: 'apptown-site', record: 'recorded' }] })])
+    const html = show([target('bucket', { kind: 's3-bucket', unreported: true, resources: [{ kind: 'bucket', name: 'apptown-site', record: 'recorded', statusLabel: 'unknown' }] })])
     expect(html).toContain("This kind of target doesn&#x27;t report what it holds")
-    expect(html).toContain('inventory unknown')
+    expect(html).toContain('unknown')
     expect(html).toContain('apptown-site')
     expect(html).not.toContain('inventory unavailable')
     expect(html).not.toContain('class="error')

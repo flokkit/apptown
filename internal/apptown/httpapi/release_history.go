@@ -29,6 +29,7 @@ func NewReleaseHistory(projects *project.Projects, work *workflow.Service, deplo
 // ReleaseListed is one release in a project's list, with the titles of the
 // Changes it carries.
 type ReleaseListed struct {
+	StatusLabel deployment.ReleaseLabel `json:"statusLabel"`
 	deployment.Release
 	Changes []ReleaseChangeTitle `json:"changes"`
 	// Serving: the release is its deployment's live one (Releases.Live)
@@ -67,7 +68,7 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []ReleaseListed{}
 	for _, r := range releases {
-		out = append(out, ReleaseListed{Release: *r})
+		out = append(out, ReleaseListed{Release: *r, StatusLabel: r.State.Display()})
 	}
 	idList := make([]ids.ID, 0, len(out))
 	for _, release := range out {
@@ -157,7 +158,7 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	events := append([]deployment.ReleaseEvent{}, logged...)
-	out := ReleaseDetail{Release: rel, Changes: changes, IsLive: live, Events: events}
+	out := ReleaseDetail{Release: rel, StatusLabel: rel.State.Display(), Changes: changes, IsLive: live, Events: events}
 	// The bundle's form and images, so a person can see before promoting
 	// whether the release can go where only images by digest go.
 	if !rel.BundleID.IsZero() {
@@ -183,6 +184,7 @@ func (h ReleaseHistory) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 // ReleaseDetail is one release: what it is, the changes it carried, whether
 // it is what the deployment serves now, and its log.
 type ReleaseDetail struct {
+	StatusLabel  deployment.ReleaseLabel   `json:"statusLabel"`
 	Release      *deployment.Release       `json:"release"`
 	Changes      []ReleaseChange           `json:"changes"`
 	IsLive       bool                      `json:"isLive"`

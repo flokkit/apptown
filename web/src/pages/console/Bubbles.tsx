@@ -239,7 +239,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
         {helperBusy && (
           <div className="row" style={{ margin: '6px 0', gap: 10 }}>
             <span className="small robot-busy" style={{ border: 'none', padding: 0 }}>Working…</span>
-            {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now — then tell it what you'd rather have"
+            {readOnly === undefined && <button className="subtle" title="Stop what it's doing right now · then tell it what you'd rather have"
               onClick={() => { setStopErr(''); post(`/console/${sessionId}/interrupt`, {}).catch((e) => setStopErr(`It could not be stopped: ${(e as Error).message}`)) }}>
               ⏹ stop
             </button>}

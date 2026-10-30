@@ -1,7 +1,9 @@
 package apptown
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -44,8 +46,13 @@ func TestConsoleChangesUsesCurrentBatchedActivityAndPreservesHistory(t *testing.
 		return out
 	}
 	out := get()
-	if out.Code != 200 || !strings.Contains(out.Body.String(), `"doing":"waiting on you"`) || !strings.Contains(out.Body.String(), `"title":"shipped one","state":"shipped","stateLabel":"shipped","doing":""`) {
-		t.Fatalf("console history: %d %s", out.Code, out.Body.String())
+	var history httpapi.ConsoleChangeList
+	if err := json.Unmarshal(out.Body.Bytes(), &history); err != nil || out.Code != 200 || len(history.Changes) != 2 {
+		t.Fatalf("console history: %d %s (%v)", out.Code, out.Body.String(), err)
+	}
+	if history.Changes[0].ChangeID != active.ID || history.Changes[0].Doing != "waiting on you" || history.Changes[0].StatusLabel != status.DisplayWaitingForYou ||
+		history.Changes[1].ChangeID != shipped.ID || history.Changes[1].State != workflow.ChangeShipped || history.Changes[1].StateLabel != "shipped" || history.Changes[1].StatusLabel != status.DisplayFinished || history.Changes[1].Doing != "" {
+		t.Fatalf("console labels changed lifecycle or hid waiting party: %s", out.Body.String())
 	}
 	dbtest.FailNextStatement(t, a.DB, "WITH RECURSIVE activity_tree")
 	if out := get(); out.Code != 500 {

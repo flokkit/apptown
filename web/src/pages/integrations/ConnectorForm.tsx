@@ -26,7 +26,7 @@ function SecretRefPicker({ value, onChange, help }: {
       {value.map((n) => (
         <div className="row" key={n} style={{ marginBottom: 6 }}>
           <span className={`dot ${unknown ? '' : available.includes(n) ? 'ok' : 'bad'}`}
-            title={unknown ? 'unknown — the secret store could not be read' : available.includes(n) ? `held in ${storeWords(namesQ.data?.stores?.[n])}` : 'not in the secret store yet — add this key to it'} />
+            title={unknown ? 'unknown · the secret store could not be read' : available.includes(n) ? `held in ${storeWords(namesQ.data?.stores?.[n])}` : 'not in the secret store yet · add this key to it'} />
           <code>{n}</code>
           {!unknown && !available.includes(n) && <span className="muted small">not resolved yet</span>}
           <button className="subtle danger" onClick={() => onChange(value.filter((v) => v !== n))}>remove</button>
@@ -125,7 +125,7 @@ function ModelListPicker({ value, onChange, providerName, config, help }: {
                 <code>{id}</code>
               </label>
             ))}
-            {listed.length > 200 && <div className="muted small" style={{ padding: 6 }}>…{listed.length - 200} more — narrow the filter</div>}
+            {listed.length > 200 && <div className="muted small" style={{ padding: 6 }}>…{listed.length - 200} more · narrow the filter</div>}
           </div>
         </>
       )}

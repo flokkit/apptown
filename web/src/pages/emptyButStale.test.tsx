@@ -35,15 +35,15 @@ async function emptyThenDown(ui: React.ReactNode, path: string, empty: unknown) 
 
 it('says an empty rule list may be old when its refresh failed', async () => {
   const { el, done } = await emptyThenDown(<PoliciesCard slug="shop" />, '/projects/shop/policies', { policies: [], violations: [] })
-  await vi.waitFor(() => expect(el.textContent).toContain('out of date'))
-  expect(el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(database unavailable)')
+  await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
+  expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(database unavailable)')
   expect(el.textContent).toContain('No rules adopted')
   done()
 })
 
 it('says "no cleanups under way" may be old when its refresh failed', async () => {
   const { el, done } = await emptyThenDown(<DeletedProjects />, '/project-cleanups', { cleanups: [] })
-  await vi.waitFor(() => expect(el.textContent).toContain('out of date'))
-  expect(el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(database unavailable)')
+  await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
+  expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(database unavailable)')
   done()
 })

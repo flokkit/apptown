@@ -3,6 +3,7 @@ package evals
 import (
 	"context"
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"strings"
 	"time"
 
@@ -47,9 +48,10 @@ type Score struct {
 
 // CheckResult is one gate step of the landing.
 type CheckResult struct {
-	Step   string `json:"step"`
-	Type   string `json:"type"`
-	Status string `json:"status"`
+	StatusLabel status.DisplayStatus `json:"statusLabel"`
+	Step        string               `json:"step"`
+	Type        string               `json:"type"`
+	Status      string               `json:"status"`
 }
 
 var gateSteps = map[string]bool{"tests": true, "scan": true, "guidance/conformance": true, "reconcile": true}
@@ -76,7 +78,7 @@ func (s *Service) score(ctx context.Context, a Arm, ch *workflow.Change, work, l
 				case st.Type == "deploy":
 					sc.Deploy = deployOutcome(st)
 				case gateSteps[st.Type]:
-					sc.Checks = append(sc.Checks, CheckResult{Step: st.Name, Type: st.Type, Status: st.Status.String()})
+					sc.Checks = append(sc.Checks, CheckResult{StatusLabel: checkLabel(st.Status.String()), Step: st.Name, Type: st.Type, Status: st.Status.String()})
 				}
 			}
 		}

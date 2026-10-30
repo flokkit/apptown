@@ -174,17 +174,18 @@ func hostsWords(hs []deploy.ResourceHost) string {
 }
 
 type InfrastructureView struct {
-	Target string `json:"target"`
-	Kind   string `json:"kind"`
-	Family string `json:"family"`
-	Origin string `json:"origin"`
-	Status string `json:"status"` // the target's own: ready | unreachable | retired
-	Facts  string `json:"facts"`  // the concrete address, in words
-	Domain string `json:"domain,omitempty"`
-	Place  string `json:"place"`
-	Vendor string `json:"vendor"`
-	Live   bool   `json:"live"`
-	Error  string `json:"error,omitempty"`
+	StatusLabel deployment.TargetLabel `json:"statusLabel"`
+	Target      string                 `json:"target"`
+	Kind        string                 `json:"kind"`
+	Family      string                 `json:"family"`
+	Origin      string                 `json:"origin"`
+	Status      string                 `json:"status"` // the target's own: ready | unreachable | retired
+	Facts       string                 `json:"facts"`  // the concrete address, in words
+	Domain      string                 `json:"domain,omitempty"`
+	Place       string                 `json:"place"`
+	Vendor      string                 `json:"vendor"`
+	Live        bool                   `json:"live"`
+	Error       string                 `json:"error,omitempty"`
 	// Unreported: the target's kind has no inventory reader, so what it
 	// holds beyond the records is unknown (deploy.ErrNoInventory).
 	Unreported bool              `json:"unreported,omitempty"`

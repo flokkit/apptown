@@ -7,14 +7,14 @@ export function stampDate(ts: string): Date {
   return new Date(ts.trim())
 }
 
-// "just now", "5m ago", "3h ago", "2d ago". Empty for anything unparseable
+// "now", "5m ago", "3h ago", "2d ago". Empty for anything unparseable
 // or in the future — callers put their own words there ("nothing shipped
 // yet").
 export function relTime(ts: string, now = Date.now()): string {
   if (!ts) return ''
   const d = (now - stampDate(ts).getTime()) / 1000
   if (!(d >= 0)) return ''
-  if (d < 90) return 'just now'
+  if (d < 90) return 'now'
   if (d < 3600) return `${Math.round(d / 60)}m ago`
   if (d < 86400) return `${Math.round(d / 3600)}h ago`
   return `${Math.round(d / 86400)}d ago`

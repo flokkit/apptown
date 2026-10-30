@@ -72,13 +72,13 @@ describe('pages about the whole AppTown', () => {
     vi.useFakeTimers()
     answer(null)
     const { el } = await render(<InstanceGate page="people"><div>the people page</div></InstanceGate>)
-    expect(el.textContent).toContain('Reading what you may open')
+    expect(el.textContent).toContain('Checking access')
     expect(el.textContent).not.toContain('Not available')
     // A failed read is retried before it counts as failed: until the last
     // retry on the client's schedule fails, the gate is still reading.
     await advance(retryDelay(0) + retryDelay(1) - 1)
     expect(authzReads()).toBe(2)
-    expect(el.textContent).toContain('Reading what you may open')
+    expect(el.textContent).toContain('Checking access')
     await advance(1)
     expect(authzReads()).toBe(3)
     await vi.waitFor(() => expect(el.textContent).toContain('the people page'))

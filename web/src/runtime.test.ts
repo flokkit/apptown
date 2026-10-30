@@ -1,36 +1,27 @@
 import { describe, expect, it } from 'vitest'
-import { checkedWords, runtimeChip, runtimeDescription, runtimeLabel } from './runtime'
+import { RUNTIME_LIGHT, runtimeChip, runtimeDescription, runtimeLabel, type RuntimeObservation } from './runtime'
+import { fmtStamp } from './format'
+import type { RuntimeState } from './wire.gen'
 
-describe('runtime status', () => {
-  const unobserved = { observation: 'unknown' as const, observationStale: true }
-  it('keeps unknown for a deployment nobody has observed', () => {
-    expect(runtimeDescription(unobserved)).toMatch(/unknown/)
-    expect(runtimeLabel(unobserved)).toBe('not checked yet')
-    expect(runtimeChip(unobserved)).toBe('unknown')
-  })
-
-  const now = new Date().toISOString()
-  it('says only the state on a current badge, with the check time in the title', () => {
-    for (const [observation, label, chip] of [['running', 'running', 'pass'], ['stopped', 'stopped', ''], ['unknown', 'status unknown', 'unknown']]) {
-      const o = { observation, observedAt: now, observationStale: false }
-      expect(runtimeLabel(o)).toBe(label)
-      expect(runtimeChip(o)).toBe(chip)
-      expect(runtimeDescription(o)).toBe(`${label} · checked just now`)
+describe('server runtime status', () => {
+  it('maps every server state to a light and renders its word unchanged', () => {
+    const states: Record<RuntimeState, string> = { running: 'pass', stopped: '', unknown: 'unknown', unreachable: 'fail' }
+    for (const [state, light] of Object.entries(states)) expect(RUNTIME_LIGHT[state as RuntimeState]).toBe(light)
+    for (const observation of Object.keys(states) as RuntimeState[]) {
+      expect(runtimeLabel({ observation })).toBe(observation)
+      expect(runtimeChip({ observation })).toBe(states[observation])
     }
   })
-
-  it('says how old an out-of-date reading is, and never draws it as current', () => {
-    const old = new Date(Date.now() - 10 * 60 * 1000).toISOString()
-    const o = { observation: 'running', observedAt: old, observationStale: true, observationIssue: 'refresh failed' }
-    expect(runtimeLabel(o)).toBe('last known: running · 10m ago')
-    expect(runtimeDescription(o)).toBe('Last known: running · checked 10m ago · refresh unavailable')
-    expect(runtimeChip(o)).toBe('unknown')
+  it('keeps the host and first failure time in help', () => {
+    const o: RuntimeObservation = { observation: 'unreachable', targetName: 'Club host', unreachableSince: '2026-10-31T00:00:00Z', observationStale: true }
+    expect(runtimeDescription(o)).toBe(`AppTown can't reach Club host since ${fmtStamp('2026-10-31T00:00:00Z')}. The app may still be running.`)
   })
+})
 
-  it('says when a reading was taken, and marks an old one out of date', () => {
-    const at = new Date(Date.now() - 10 * 60_000).toISOString()
-    expect(checkedWords({ observationStale: true })).toBe('not checked yet')
-    expect(checkedWords({ observedAt: at, observationStale: false })).toMatch(/^checked /)
-    expect(checkedWords({ observedAt: at, observationStale: true })).toMatch(/^out of date · last checked /)
-  })
+it('names the deployment host when its display name is absent', () => {
+ expect(runtimeDescription({observation: 'unreachable', observationStale: true, targetName: '', unreachableSince: '2026-10-31T00:00:00Z'})).toBe(`AppTown can't reach the deployment host since ${fmtStamp('2026-10-31T00:00:00Z')}. The app may still be running.`)
+})
+
+it('omits the since clause when no failure time is available', () => {
+ expect(runtimeDescription({ observation: 'unreachable', targetName: 'Club host', observationStale: true })).toBe("AppTown can't reach Club host. The app may still be running.")
 })

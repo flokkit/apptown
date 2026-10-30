@@ -197,9 +197,21 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 		t.Fatalf("the registry is the target's own: %+v", r)
 	}
 	w = tgReq(httpapi.NewDeploymentListing(a.Projects, a.Deployment, a.cfg.dataDir, a.DataProtection.FillsOf).Deployments, "GET", "/api/v1/projects/expense/deployments", "", map[string]string{"slug": "expense"})
-	if !strings.Contains(w.Body.String(), `"needs":[{"need":"postgres","name":"apptown-db-`+deploy.HostKey(env.ID)+`"`) {
-		t.Fatalf("the environment says what backs it: %s", w.Body.String())
+	var listed []httpapi.DeploymentView
+	if err := json.Unmarshal(w.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
 	}
+	if w.Code != 200 || len(listed) != 1 {
+		t.Fatalf("deployment listing: %d %s", w.Code, w.Body.String())
+	}
+	cloudDeployment := listed[0]
+	if cloudDeployment.Name != "cloud" || cloudDeployment.ReadinessLabel.String() != "deployed" || cloudDeployment.RestoreLabel.String() != "unknown" || cloudDeployment.TargetName != "do-syd" || len(cloudDeployment.Needs) != 1 {
+		t.Fatalf("cloud deployment display: %+v", cloudDeployment)
+	}
+	if need := cloudDeployment.Needs[0]; need.Need != "postgres" || need.Name != "apptown-db-"+deploy.HostKey(env.ID) || need.StatusLabel.String() != "passed" {
+		t.Fatalf("the environment says what backs it: %+v", need)
+	}
+
 	// Teardown, chosen without a final copy, deletes the app and retains
 	// the database with its ownership on record, never deleting it.
 	if _, err := a.Access.Grant(context.Background(), identity.Spec{SubjectType: "user", Subject: "bls", Capability: string(access.CapDeploymentTeardown), Scope: access.ScopeProject, ScopeID: fmt.Sprint(p.ID), By: "fixture"}, ""); err != nil {

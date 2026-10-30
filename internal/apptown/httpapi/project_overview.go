@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"net/http"
 	"strings"
 
@@ -93,6 +94,7 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 				}
 			}
 		}
+		oc.StatusLabel = oc.State.OpenDisplay(oc.Editing)
 		open = append(open, oc)
 	}
 
@@ -102,6 +104,7 @@ func (h ProjectOverview) ProjectOverview(w http.ResponseWriter, r *http.Request)
 // OpenChange is an open change with no running run, and how many files it is
 // editing.
 type OpenChange struct {
+	StatusLabel  status.DisplayStatus `json:"statusLabel"`
 	ChangeID     ids.ID               `json:"changeId"`
 	ChangeNumber int64                `json:"changeNumber"` // within the project
 	Title        string               `json:"title"`

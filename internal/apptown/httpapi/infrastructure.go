@@ -91,7 +91,7 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 		k := deployment.DescribeTarget(t)
 		region := deployment.TargetPlace(t)
 		domain, _ := t.Ingress["domain"].(string)
-		v := InfrastructureView{Target: t.Name, Kind: t.Kind, Family: k.Family, Origin: t.Origin, Status: t.Status.String(), Facts: targetFacts(t), Domain: domain,
+		v := InfrastructureView{Target: t.Name, Kind: t.Kind, Family: k.Family, Origin: t.Origin, Status: t.Status.String(), StatusLabel: t.Status.Display(), Facts: targetFacts(t), Domain: domain,
 			Vendor: k.Vendor, Place: strings.Join(nonEmpty(k.Title, k.Vendor, region), " · "), Resources: []deploy.Resource{}}
 		if v.Resources, err = h.recordedResources(r.Context(), t); err != nil {
 			WriteFault(w, err) // an unread record is not an orphan

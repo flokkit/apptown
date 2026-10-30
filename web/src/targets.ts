@@ -33,6 +33,3 @@ export const capsWords = (c: OfferCaps | undefined) => {
   if (c.maxStanding) parts.push(`up to ${c.maxStanding} per project`)
   return parts.join(', ')
 }
-
-export const readinessChip = (r?: string) =>
-  r === 'reconciled' ? 'pass' : r === 'failed' ? 'fail' : r === 'reconciling' ? 'running' : ''

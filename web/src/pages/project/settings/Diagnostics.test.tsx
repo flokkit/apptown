@@ -96,7 +96,7 @@ describe('a deployment’s diagnostics', () => {
     const { el, client, done } = await mount()
     serve(() => ({ status: 502, body: { error: 'AppTown is restarting' } }))
     await act(async () => { await client.refetchQueries({ queryKey: getKey(PATH) }).catch(() => {}) })
-    await vi.waitFor(() => expect(el.textContent).toContain('out of date'))
+    await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
     expect(el.textContent).toContain('worker: stopped')
     done()
   })

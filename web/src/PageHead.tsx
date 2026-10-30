@@ -84,10 +84,9 @@ export function PageHead({ page, actions }: { page: HelpPage; actions?: ReactNod
     <div className="page-head">
       <div className="page-head-row">
         <h1>{h.title}</h1>
-        <HelpButton about={h.title} guide={h.guide}>{h.help}</HelpButton>
+        <HelpButton about={h.title} guide={h.guide}><p>{h.line}</p>{h.help}</HelpButton>
         {actions && <><span style={{ flex: 1 }} />{actions}</>}
       </div>
-      <p className="page-head-line">{h.line}</p>
     </div>
   )
 }

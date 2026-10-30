@@ -36,7 +36,7 @@ export function SecretsTab({ slug }: { slug: string }) {
       <div>
         <StaleNote q={q} />
         <div className="error">{data.problem}</div>
-        <p className="muted small">The declaration is read from <code>{data.spec}</code> on the main branch. Fix it in a Change and this page follows.</p>
+        <p className="muted small">Declared in <code>{data.spec}</code> on main. Edit through a Change.</p>
       </div>
     )
   }
@@ -44,12 +44,12 @@ export function SecretsTab({ slug }: { slug: string }) {
     return (
       <div>
         <StaleNote q={q} />
-        <p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
-          This app declares no secrets. When it needs one — a signing key, an API key — it
+        <details className="small"><summary>About secrets</summary><p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
+          This app declares no secrets. When it needs one · a signing key, an API key · it
           commits a <code>secretspec.toml</code> naming the secret (never the value), and this
           page is where each deployment gets its value from. {PRODUCT} generates keys it can
           make itself.
-        </p>
+        </p></details>
         <StoresNote internal={internal} infisical={infisical} />
       </div>
     )
@@ -183,13 +183,13 @@ function BindModal({ slug, env, name, stores, onClose, onDone }: {
       </div>
       {store === 'internal' ? (
         <>
-          <textarea rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="the value — pasted once, never shown again" autoFocus style={{ width: '100%' }} />
-          <p className="muted small">Kept by {PRODUCT} itself, in its own database, with the key that encrypts it. Anyone with a dump or backup of the database can read every value: it is not a vault. For a team, use Infisical.</p>
+          <textarea rows={3} value={value} onChange={(e) => setValue(e.target.value)} placeholder="the value · pasted once, never shown again" autoFocus style={{ width: '100%' }} />
+          <p className="muted small">Database backups include the encryption key and can reveal all secret values. Use Infisical for team secrets.</p>
         </>
       ) : (
         <>
           <input value={ref} onChange={(e) => setRef(e.target.value)} placeholder="KEY_NAME in Infisical" autoFocus style={{ width: '100%' }} />
-          <p className="muted small">The key must already exist in the Infisical project and environment {PRODUCT} reads. {PRODUCT} names it and never copies it.</p>
+          <p className="muted small">The key must exist in the configured Infisical project and environment.</p>
         </>
       )}
       {err && <div className="error">{err}</div>}

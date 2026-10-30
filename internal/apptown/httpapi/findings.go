@@ -193,7 +193,11 @@ func (h Findings) ProjectFindings(w http.ResponseWriter, r *http.Request) {
 			repoState.Stale = &stale
 		}
 	}
-	WriteJSON(w, 200, ProjectFindingsView{Findings: findings, Sources: sources, Dispositions: dispositions,
+	unread := false
+	for _, source := range sources {
+		unread = unread || source.Unreadable != ""
+	}
+	WriteJSON(w, 200, ProjectFindingsView{StatusLabel: conformance.FindingsLabel(total-dispositioned, len(sources), unread), Findings: findings, Sources: sources, Dispositions: dispositions,
 		ProjectSlug: p.Slug, Repo: repoState,
 		Summary: FindingsSummary{Total: total, Dispositioned: dispositioned, Actionable: total - dispositioned, BySeverity: bySev}})
 }
@@ -304,6 +308,7 @@ type RunFindingsView struct {
 // ProjectFindingsView is a project's accepted posture: the latest report per
 // scanner, every disposition, and whether main has moved since the scan.
 type ProjectFindingsView struct {
+	StatusLabel  conformance.CheckLabel    `json:"statusLabel"`
 	Findings     []conformance.Finding     `json:"findings"`
 	Sources      []FindingSource           `json:"sources"`
 	Dispositions []conformance.Disposition `json:"dispositions"`

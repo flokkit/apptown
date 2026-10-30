@@ -24,6 +24,8 @@ import (
 const BackupKeep = 7
 
 type Backup struct {
+	StatusLabel BackupLabel `json:"statusLabel"`
+
 	ID ids.ID `json:"id"`
 	// AppTown is the AppTown that took the set, named in its manifest so a set
 	// read from a bucket says whose it is; records leave it unset.
@@ -197,6 +199,7 @@ func backupRecord(r protectionsql.Backup, err error) (Backup, error) {
 	if b.Items == nil {
 		b.Items = []BackupItem{}
 	}
+	b.StatusLabel = b.label()
 	return b, nil
 }
 
@@ -290,4 +293,27 @@ func (s *Service) DeploymentSets(ctx context.Context, projectID ids.ID, deployme
 // project.
 func (s *Service) AllSets(ctx context.Context, limit int) ([]ProjectBackup, error) {
 	return s.backups.All(ctx, limit)
+}
+
+// backupFields avoids promoting JSON methods into embedding records.
+type backupFields Backup
+
+func (b Backup) MarshalJSON() ([]byte, error) {
+	out := backupFields(b)
+	out.StatusLabel = b.label()
+	if out.Items == nil {
+		out.Items = []BackupItem{}
+	}
+	return json.Marshal(out)
+}
+func (b ProjectBackup) MarshalJSON() ([]byte, error) {
+	out := backupFields(b.Backup)
+	out.StatusLabel = b.Backup.label()
+	if out.Items == nil {
+		out.Items = []BackupItem{}
+	}
+	return json.Marshal(struct {
+		backupFields
+		Project string `json:"project"`
+	}{out, b.Project})
 }

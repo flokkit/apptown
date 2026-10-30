@@ -152,12 +152,12 @@ export function ServicesTab({ slug }: { slug: string }) {
       <StaleNote q={svcQ} />
       <ReadStatus q={catQ} what="the service catalogue" className="small" />
       <StaleNote q={catQ} />
-      <p className="muted small" style={{ maxWidth: 580 }}>
+      <details className="small"><summary>About services</summary><p className="muted small" style={{ maxWidth: 580 }}>
         The services this app uses: each is a need declared in the app's contract, fulfilled by the
         deployment's target or through an integration. Saving opens a change you preview and land.
         A container not in this list is part of the app. What each gives the app: <Link to="/docs/guides/services-and-data">Services and data</Link>.
         {contract === 'none' && <> <strong>No runtime contract yet</strong> — build the app first.</>}
-      </p>
+      </p></details>
 
       <div className="pick-grid" style={{ marginTop: 8 }}>
         {catalog.map((k) => {
@@ -193,7 +193,7 @@ export function ServicesTab({ slug }: { slug: string }) {
         })}
       </div>
       {needs.length === 0 &&
-        <div className="muted small" style={{ marginTop: 10 }}>None declared — fine for a client-only site or a stateless service.</div>}
+        <div className="muted small" style={{ marginTop: 10 }}>None declared · fine for a client-only site or a stateless service.</div>}
 
       {conflict && draft && (
         <div className="card tone-warn" style={{ marginTop: 10 }}>
@@ -214,7 +214,7 @@ export function ServicesTab({ slug }: { slug: string }) {
           {busy ? 'opening a change…' : 'Save as a change'}
         </button>
         {createdChange && (
-          <span className="small">✓ Change {createdChange.number} opened — <Link to={`/changes/${createdChange.id}`}>preview &amp; land it</Link></span>
+          <span className="small">✓ Change {createdChange.number} opened · <Link to={`/changes/${createdChange.id}`}>preview &amp; land it</Link></span>
         )}
         {err && !conflict && <span className="error small">{err}</span>}
       </div>
@@ -342,7 +342,7 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
               {i.capability === 'errors' && (
                 last
                   ? <span className="small" title={i.lastEvent}>last error seen {last}</span>
-                  : <span className="muted small">no events seen yet{i.wire?.state === 'shipped' ? ' — try the test hook (in the guide)' : ''}</span>
+                  : <span className="muted small">no events seen yet{i.wire?.state === 'shipped' ? ' · try the test hook (in the guide)' : ''}</span>
               )}
               {(!i.wire || i.wire.state === 'abandoned') && (
                 <>
@@ -392,7 +392,7 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
           {adding.provisionable && adding.resourceFields.length > 0 && (
             <label className="row" style={{ gap: 6, marginBottom: 6 }}>
               <input type="checkbox" checked={direct} onChange={(e) => setDirect(e.target.checked)} />
-              <span className="small">direct — enter the resource myself instead of provisioning via a connector</span>
+              <span className="small">direct · enter the resource myself instead of provisioning via a connector</span>
             </label>
           )}
           {(!direct || !adding.provisionable) && adding.connectors.length > 0 && (

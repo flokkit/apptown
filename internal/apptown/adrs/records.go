@@ -4,20 +4,21 @@ import "github.com/flokkit/apptown/internal/ids"
 
 // Record is a detached decision snapshot, not authority to edit it.
 type Record struct {
-	ID           ids.ID `json:"id"`
-	ProjectID    ids.ID `json:"projectId"`
-	ProjectSlug  string `json:"projectSlug,omitempty"`
-	ProjectName  string `json:"projectName,omitempty"`
-	Number       int64  `json:"number"`
-	Title        string `json:"title"`
-	Status       State  `json:"status"`
-	BodyMD       string `json:"bodyMd"`
-	Tags         string `json:"tags"`
-	SupersedesID ids.ID `json:"supersedesId"`
-	ChangeID     ids.ID `json:"changeId"`
-	ChangeNumber int64  `json:"changeNumber"` // within the project; 0 when no change
-	CreatedAt    string `json:"createdAt"`
-	UpdatedAt    string `json:"updatedAt"`
+	StatusLabel  ADRLabel `json:"statusLabel"`
+	ID           ids.ID   `json:"id"`
+	ProjectID    ids.ID   `json:"projectId"`
+	ProjectSlug  string   `json:"projectSlug,omitempty"`
+	ProjectName  string   `json:"projectName,omitempty"`
+	Number       int64    `json:"number"`
+	Title        string   `json:"title"`
+	Status       State    `json:"status"`
+	BodyMD       string   `json:"bodyMd"`
+	Tags         string   `json:"tags"`
+	SupersedesID ids.ID   `json:"supersedesId"`
+	ChangeID     ids.ID   `json:"changeId"`
+	ChangeNumber int64    `json:"changeNumber"` // within the project; 0 when no change
+	CreatedAt    string   `json:"createdAt"`
+	UpdatedAt    string   `json:"updatedAt"`
 }
 type Detail struct {
 	ADR            Record  `json:"adr"`
@@ -67,11 +68,12 @@ type MatchRequest struct {
 	Tags                []string
 }
 type ChangeSummary struct {
-	ID     ids.ID `json:"id"`
-	Number int64  `json:"number"`
-	Title  string `json:"title"`
-	Status State  `json:"status"`
-	Tags   string `json:"tags"`
+	StatusLabel ADRLabel `json:"statusLabel"`
+	ID          ids.ID   `json:"id"`
+	Number      int64    `json:"number"`
+	Title       string   `json:"title"`
+	Status      State    `json:"status"`
+	Tags        string   `json:"tags"`
 }
 
 // Options describe lifecycle eligibility. Commands still require current authority

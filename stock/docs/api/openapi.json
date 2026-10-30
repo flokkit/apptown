@@ -41,6 +41,9 @@
           "status": {
             "$ref": "#/components/schemas/State"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/ADRLabel"
+          },
           "tags": {
             "type": "string"
           },
@@ -49,6 +52,7 @@
           }
         },
         "required": [
+          "statusLabel",
           "id",
           "number",
           "title",
@@ -56,6 +60,17 @@
           "tags"
         ],
         "type": "object"
+      },
+      "ADRLabel": {
+        "enum": [
+          "unknown",
+          "waiting",
+          "waiting for you",
+          "passed",
+          "failed",
+          "stopped"
+        ],
+        "type": "string"
       },
       "ADRRecord": {
         "properties": {
@@ -101,6 +116,9 @@
           "status": {
             "$ref": "#/components/schemas/ADRState"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/ADRLabel"
+          },
           "supersedesId": {
             "format": "uuid",
             "type": [
@@ -119,6 +137,7 @@
           }
         },
         "required": [
+          "statusLabel",
           "id",
           "projectId",
           "number",
@@ -447,6 +466,13 @@
         ],
         "type": "object"
       },
+      "AttentionLabel": {
+        "enum": [
+          "unknown",
+          "waiting"
+        ],
+        "type": "string"
+      },
       "Backup": {
         "properties": {
           "actor": {
@@ -504,6 +530,9 @@
           "status": {
             "$ref": "#/components/schemas/BackupState"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/BackupLabel"
+          },
           "store": {
             "type": "string"
           },
@@ -521,6 +550,7 @@
           }
         },
         "required": [
+          "statusLabel",
           "id",
           "projectId",
           "deployment",
@@ -607,6 +637,15 @@
           "how"
         ],
         "type": "object"
+      },
+      "BackupLabel": {
+        "enum": [
+          "unknown",
+          "finished",
+          "failed",
+          "stopped"
+        ],
+        "type": "string"
       },
       "BackupState": {
         "enum": [
@@ -927,6 +966,9 @@
           "stateDetail": {
             "type": "string"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          },
           "usage": {
             "$ref": "#/components/schemas/ChangeUsage"
           }
@@ -943,6 +985,7 @@
           "committedDiff",
           "report",
           "editing",
+          "statusLabel",
           "state",
           "stateDetail",
           "usage",
@@ -1034,6 +1077,9 @@
           "status": {
             "$ref": "#/components/schemas/RunState"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          },
           "updatedAt": {
             "type": "string"
           },
@@ -1042,6 +1088,7 @@
           }
         },
         "required": [
+          "statusLabel",
           "id",
           "number",
           "workflowName",
@@ -1227,7 +1274,7 @@
           },
           "checks": {
             "items": {
-              "$ref": "#/components/schemas/CheckReceipt"
+              "$ref": "#/components/schemas/checkReceiptView"
             },
             "type": "array"
           },
@@ -1251,126 +1298,6 @@
             "type": "string"
           }
         },
-        "type": "object"
-      },
-      "CheckReceipt": {
-        "properties": {
-          "apptownFault": {
-            "type": "boolean"
-          },
-          "baseNote": {
-            "type": "string"
-          },
-          "block": {
-            "type": "string"
-          },
-          "carried": {
-            "type": "integer"
-          },
-          "carriedNote": {
-            "type": "string"
-          },
-          "check": {
-            "type": "string"
-          },
-          "detail": {
-            "type": "string"
-          },
-          "durationMs": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "evaluator": {
-            "type": "string"
-          },
-          "evaluatorVer": {
-            "type": "string"
-          },
-          "evidence": {
-            "type": "string"
-          },
-          "evidenceHash": {
-            "type": "string"
-          },
-          "exceptedBy": {
-            "type": "string"
-          },
-          "exitCode": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "files": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "gates": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "image": {
-            "type": "string"
-          },
-          "note": {
-            "type": "string"
-          },
-          "occurrences": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "output": {
-            "type": "string"
-          },
-          "preexisting": {
-            "type": "boolean"
-          },
-          "scanner": {
-            "type": "string"
-          },
-          "scope": {
-            "type": "string"
-          },
-          "tool": {
-            "type": "string"
-          },
-          "undecided": {
-            "type": "boolean"
-          },
-          "verdict": {
-            "$ref": "#/components/schemas/CheckVerdict"
-          },
-          "version": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "block",
-          "version",
-          "check",
-          "evaluator",
-          "verdict"
-        ],
         "type": "object"
       },
       "CheckVerdict": {
@@ -1742,11 +1669,15 @@
           "status": {
             "type": "string"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/ProgressLabel"
+          },
           "version": {
             "type": "string"
           }
         },
         "required": [
+          "statusLabel",
           "need",
           "name",
           "status"
@@ -1855,7 +1786,7 @@
             "type": "array"
           },
           "observation": {
-            "type": "string"
+            "$ref": "#/components/schemas/RuntimeState"
           },
           "observationAttemptedAt": {
             "type": "string"
@@ -1875,6 +1806,9 @@
           "readiness": {
             "type": "string"
           },
+          "readinessLabel": {
+            "$ref": "#/components/schemas/ProgressLabel"
+          },
           "releaseRun": {
             "format": "uuid",
             "type": [
@@ -1884,6 +1818,9 @@
           },
           "restoreCheck": {
             "type": "string"
+          },
+          "restoreLabel": {
+            "$ref": "#/components/schemas/ProgressLabel"
           },
           "running": {
             "anyOf": [
@@ -1915,6 +1852,12 @@
               "null"
             ]
           },
+          "targetName": {
+            "type": "string"
+          },
+          "unreachableSince": {
+            "type": "string"
+          },
           "updatedAt": {
             "type": "string"
           },
@@ -1923,6 +1866,8 @@
           }
         },
         "required": [
+          "readinessLabel",
+          "restoreLabel",
           "targetId",
           "id",
           "displayLabel",
@@ -1933,10 +1878,29 @@
           "releaseRun",
           "updatedAt",
           "observation",
+          "targetName",
           "observationStale",
           "protected"
         ],
         "type": "object"
+      },
+      "DisplayStatus": {
+        "enum": [
+          "unknown",
+          "working",
+          "waiting",
+          "failed",
+          "stopped",
+          "landed",
+          "finished",
+          "waiting for you",
+          "waiting for checks",
+          "passed",
+          "excepted",
+          "not applicable",
+          "none"
+        ],
+        "type": "string"
       },
       "Done": {
         "properties": {
@@ -2181,11 +2145,15 @@
           "stale": {
             "type": "boolean"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/AttentionLabel"
+          },
           "title": {
             "type": "string"
           }
         },
         "required": [
+          "statusLabel",
           "severity",
           "key",
           "title",
@@ -2572,6 +2540,9 @@
           "state": {
             "$ref": "#/components/schemas/OperationState"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/OperationLabel"
+          },
           "steps": {
             "items": {
               "$ref": "#/components/schemas/OperationStep"
@@ -2597,6 +2568,7 @@
           }
         },
         "required": [
+          "statusLabel",
           "id",
           "number",
           "kind",
@@ -2612,6 +2584,17 @@
           "touchedAt"
         ],
         "type": "object"
+      },
+      "OperationLabel": {
+        "enum": [
+          "unknown",
+          "waiting",
+          "working",
+          "finished",
+          "failed",
+          "stopped"
+        ],
+        "type": "string"
       },
       "OperationState": {
         "enum": [
@@ -2931,6 +2914,20 @@
         },
         "type": "object"
       },
+      "ProgressLabel": {
+        "enum": [
+          "unknown",
+          "deployed",
+          "deploying",
+          "failed",
+          "passed",
+          "working",
+          "stopped",
+          "waiting",
+          "excepted"
+        ],
+        "type": "string"
+      },
       "Project": {
         "properties": {
           "blurb": {
@@ -3164,7 +3161,7 @@
             "type": "string"
           },
           "observation": {
-            "type": "string"
+            "$ref": "#/components/schemas/RuntimeState"
           },
           "observationAttemptedAt": {
             "type": "string"
@@ -3197,11 +3194,17 @@
           "slug": {
             "type": "string"
           },
+          "targetName": {
+            "type": "string"
+          },
           "toolchain": {
             "items": {
               "type": "string"
             },
             "type": "array"
+          },
+          "unreachableSince": {
+            "type": "string"
           }
         },
         "required": [
@@ -3223,6 +3226,7 @@
           "prodRunning",
           "deployed",
           "observation",
+          "targetName",
           "observationStale"
         ],
         "type": "object"
@@ -3570,9 +3574,13 @@
               "string",
               "null"
             ]
+          },
+          "statusLabel": {
+            "$ref": "#/components/schemas/ReleaseLabel"
           }
         },
         "required": [
+          "statusLabel",
           "release",
           "changes",
           "isLive",
@@ -3609,6 +3617,14 @@
           "subject"
         ],
         "type": "object"
+      },
+      "ReleaseLabel": {
+        "enum": [
+          "deploying",
+          "deployed",
+          "failed"
+        ],
+        "type": "string"
       },
       "ReleasePlan": {
         "properties": {
@@ -4152,6 +4168,9 @@
           "status": {
             "$ref": "#/components/schemas/RunState"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          },
           "updatedAt": {
             "type": "string"
           },
@@ -4163,6 +4182,7 @@
           }
         },
         "required": [
+          "statusLabel",
           "id",
           "number",
           "projectId",
@@ -4271,6 +4291,15 @@
           "running",
           "done",
           "abandoned"
+        ],
+        "type": "string"
+      },
+      "RuntimeState": {
+        "enum": [
+          "unknown",
+          "running",
+          "stopped",
+          "unreachable"
         ],
         "type": "string"
       },
@@ -5135,11 +5164,15 @@
           "status": {
             "$ref": "#/components/schemas/StepState"
           },
+          "statusLabel": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          },
           "type": {
             "type": "string"
           }
         },
         "required": [
+          "statusLabel",
           "id",
           "runId",
           "stage",
@@ -5322,6 +5355,9 @@
               }
             ]
           },
+          "mergeLabel": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          },
           "merged": {
             "type": "boolean"
           },
@@ -5339,6 +5375,7 @@
           }
         },
         "required": [
+          "mergeLabel",
           "targets",
           "merged",
           "releases"
@@ -5370,14 +5407,142 @@
           },
           "state": {
             "$ref": "#/components/schemas/ReleaseState"
+          },
+          "statusLabel": {
+            "$ref": "#/components/schemas/ReleaseLabel"
           }
         },
         "required": [
+          "statusLabel",
           "number",
           "deployment",
           "state",
           "serving",
           "observationStale"
+        ],
+        "type": "object"
+      },
+      "checkReceiptView": {
+        "properties": {
+          "apptownFault": {
+            "type": "boolean"
+          },
+          "baseNote": {
+            "type": "string"
+          },
+          "block": {
+            "type": "string"
+          },
+          "carried": {
+            "type": "integer"
+          },
+          "carriedNote": {
+            "type": "string"
+          },
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "durationMs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evaluator": {
+            "type": "string"
+          },
+          "evaluatorVer": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "evidenceHash": {
+            "type": "string"
+          },
+          "exceptedBy": {
+            "type": "string"
+          },
+          "exitCode": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "gates": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "image": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "occurrences": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "output": {
+            "type": "string"
+          },
+          "preexisting": {
+            "type": "boolean"
+          },
+          "scanner": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "statusLabel": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "undecided": {
+            "type": "boolean"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/CheckVerdict"
+          },
+          "version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "block",
+          "version",
+          "check",
+          "evaluator",
+          "verdict",
+          "statusLabel"
         ],
         "type": "object"
       },

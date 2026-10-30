@@ -1,10 +1,11 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { post } from '../api'
 import { firstErr, useAction, useGet } from '../data'
 import { relTime } from '../format'
 import type { FleetView, LatestWhatIf, ProjectRow, WhatIf, WhatIfStarted } from '../wire.gen'
-import { OUTCOME_ORDER, OUTCOME_TONE, OUTCOME_WORDS } from './WhatIfPage'
+import { OUTCOME_ORDER, OUTCOME_WORDS } from './WhatIfPage'
 
 // What-if on one pack version (design/subsystems/conformance.md): by
 // default on every eligible project (on an earlier version of the pack), or
@@ -123,13 +124,10 @@ function Latest({ w }: { w: WhatIf }) {
   return (
     <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
       <Link to={`/conformance/what-ifs/${w.id}`}>Open the what-if</Link>
-      {w.state === 'queued' && <span className="chip pending">queued</span>}
-      {w.state === 'running' && <span className="chip pending">running · {w.projectsDone} of {w.projectsTotal} projects</span>}
-      {w.state === 'error' && <span className="chip fail" title={w.detail}>stopped</span>}
-      {w.state === 'interrupted' && <span className="chip fail">interrupted</span>}
+      <Status word={w.statusLabel} tone={STATUS_LIGHT[w.statusLabel]} help={w.detail || w.state} />
       <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
       {OUTCOME_ORDER.filter((o) => counts[o]).map((o) =>
-        <span key={o} className={`chip ${OUTCOME_TONE[o]}`}>{counts[o]} {OUTCOME_WORDS[o]}</span>)}
+        <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} tone={STATUS_LIGHT[w.outcomeLabels[o]]} help={OUTCOME_WORDS[o]} /></span>)}
       {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
       <Link to="/conformance/what-ifs" className="muted">all what-ifs</Link>
     </div>

@@ -30,6 +30,7 @@ type Opts = {
   artifacts?: { kind: string; ref: string }[]; releases?: { number: number; deployment: string; state: string; serving: boolean }[]; merged?: boolean
 }
 const view = (o: Opts): ChangeView => ({
+  statusLabel: o.change === 'shipped' ? 'landed' : o.change === 'abandoned' ? 'stopped' : o.state === 'blocked' ? 'failed' : o.state === 'working' || o.state === 'agent working' ? 'working' : 'waiting for you',
   change: { id: uuid(9), number: 9, title: 'Say the coin is fair', state: o.change ?? 'in_progress', closedAs: o.closedAs, stateLabel: o.stateLabel ?? (o.change ?? 'in_progress').replace('_', ' '), body: '', branch: 'apptown/change-9', createdAt: '2026-10-01T09:00:00Z', editRevision: 0 },
   projectSlug: 'coin-flip', state: o.state ?? '', stateDetail: o.stateDetail ?? '',
   evidence: { targets: [], merged: !!o.merged, releases: o.releases ?? [] },
@@ -233,7 +234,7 @@ describe('the change head', () => {
   it('shows an answer whose refresh failed as not current, never as plain success', () => {
     const html = render(cases.find((c) => c.name === 'shipped')!.v, true)
     expect(html).toContain('tone-unknown')
-    expect(html).toContain('not current')
+    expect(html).toContain('unknown')
     expect(html).toContain('network down')
     expect(html).not.toContain('tone-ok')
   })
@@ -274,8 +275,8 @@ describe('the change head', () => {
     expect(html).toContain('Waiting on: <strong>you</strong>')
     expect(html.match(/I answer for this landing\./g)?.length).toBe(1)
     expect(html).not.toContain('Approving lands it')
-    expect(changeChip({ ...waiting, approval: { stepId: approval.id, viewer: 'yes' } } as ChangeView)).toEqual({ text: 'waiting for your approval', cls: 'pending' })
-    expect(changeChip(view({ change: 'landing', state: 'working' })).text).toBe('landing')
+    expect(changeChip({ ...waiting, approval: { stepId: approval.id, viewer: 'yes' } } as ChangeView)).toEqual({ text: 'waiting for you', cls: 'pending' })
+    expect(changeChip(view({ change: 'landing', state: 'working' })).text).toBe('working')
   })
 
   // A pending approval AppTown does not offer is not the page's to put
@@ -299,7 +300,7 @@ describe('the change head', () => {
     for (const v of [merged, interrupted]) {
       const html = render(v)
       for (const refused of ['Send it back', 'Take it to chat', 'Abandon']) expect(html).not.toContain(refused)
-      expect(html).toContain('Override or see the full record')
+      expect(html).toContain('Override or view record')
       expect(primaries(html)).toEqual(['Try again'])
     }
     const before = render(cases.find((c) => c.name === 'landing blocked by a gate')!.v)
@@ -322,8 +323,8 @@ describe('the change head', () => {
 
   it('names a nothing-to-change close in the chip, and an abandonment as one', () => {
     const closed = cases.find((c) => c.name === 'closed by AppTown: nothing to change')!.v
-    expect(changeChip(closed).text).toBe('closed: nothing to change')
+    expect(changeChip(closed).text).toBe('stopped')
     expect(render(closed)).toContain('the project declares no dependencies')
-    expect(changeChip(cases.find((c) => c.name === 'abandoned')!.v).text).toBe('abandoned')
+    expect(changeChip(cases.find((c) => c.name === 'abandoned')!.v).text).toBe('stopped')
   })
 })

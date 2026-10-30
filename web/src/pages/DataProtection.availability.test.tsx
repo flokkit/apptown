@@ -20,7 +20,7 @@ const coverage = { assessed: ['postgres · database app on forge-ledger-prod'], 
 const all = (a: unknown) => ({ copy: a, check: a, restore: a, rehearsal: a, startFromCopy: a, finalCopy: a })
 const protection = (operations: unknown) => ({
   deployment: 'prod', dataClass: 'production', offHost: false, target: 'do-syd', recent: [], running: null, restoredCopies: [], operations, coverage,
-  items: [{ need: 'postgres', where: 'database app on forge-ledger-prod', copy: 'none' }],
+  items: [{ need: 'postgres', where: 'database app on forge-ledger-prod', copy: 'none', copyLabel: 'missing' }],
 })
 
 // mount shows a deployment's card for `deployment` with AppTown answering
@@ -112,7 +112,7 @@ describe('a deployment on a Docker host', () => {
       deployment: 'main', dataClass: 'production', offHost: false, target: 'home', recent: [], running: null, restoredCopies: [], coverage,
       keptOn: 'host', note: "Backups are kept on AppTown's own disk.", rehearsalNote: 'never rehearsed',
       operations: { copy: { available: false, reason: 'backups-page', why: 'backed up daily' }, check: elsewhere('check: App Platform only'), restore: elsewhere('restore: App Platform only'), rehearsal: onDisk, startFromCopy: elsewhere('x'), finalCopy: yes },
-      items: [{ need: 'postgres', where: 'on home', copy: 'fresh', copyNote: "kept on AppTown's own disk", lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }],
+      items: [{ need: 'postgres', where: 'on home', copy: 'fresh', copyLabel: 'fresh', copyNote: "kept on AppTown's own disk", lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }],
     }
     const { el } = await mount(body, {}, docker)
     await vi.waitFor(() => expect(el.textContent).toContain('Rehearse a restore'))
@@ -138,7 +138,7 @@ describe('what a Docker deployment card says it holds', () => {
   }
   const base = { deployment: 'main', dataClass: 'production', offHost: false, target: 'home', recent: [], running: null, restoredCopies: [], coverage,
     operations: { copy: { available: false, reason: 'backups-page', why: 'x' }, check: { available: false, reason: 'not-on-this-platform', why: 'x' }, restore: { available: false, reason: 'not-on-this-platform', why: 'x' }, rehearsal: { available: false, reason: 'no-copy', why: 'none yet' }, startFromCopy: { available: false, reason: 'x', why: 'x' }, finalCopy: { available: true } },
-    items: [{ need: 'postgres', where: 'on home', copy: 'none' }] }
+    items: [{ need: 'postgres', where: 'on home', copy: 'none', copyLabel: 'missing' }] }
   it('says no backup yet when none is recorded, never that they are on this host', async () => {
     const text = await read(base)
     expect(text).toContain('No backup yet')
@@ -150,11 +150,11 @@ describe('what a Docker deployment card says it holds', () => {
   })
   it('says it could not read what the deployment holds, rather than nothing', async () => {
     const text = await read({ ...base, items: [], operations: undefined, unknown: 'no contract: bad yaml',
-      coverage: { assessed: [], notAssessed: ["the deployment's own data: what it holds is unknown", outside] } })
+      coverage: { statusLabel: 'unknown', assessed: [], notAssessed: ["the deployment's own data: what it holds is unknown", outside] } })
     expect(text).toContain('unknown')
     expect(text).toContain("couldn't read what this deployment holds")
-    expect(text).toContain(`not assessed the deployment's own data: what it holds is unknown`)
-    expect(text).toContain(`not assessed ${outside}`)
+    expect(text).toContain(`● unknown the deployment's own data: what it holds is unknown`)
+    expect(text).toContain(`● unknown ${outside}`)
   })
 })
 
@@ -171,20 +171,20 @@ describe('what a deployment card covers', () => {
   const rehearsal = { at: '2026-10-08T02:00:00Z', outcome: 'passed', passed: true, backup: SET, release: 7, host: 'rehearse-1', operation: SET, facts: { egress: 'outbound network not blocked', checks: [] } }
   it('shows outside data not assessed beside a fresh copy and a passed rehearsal', async () => {
     const el = await read({ deployment: 'main', dataClass: 'production', offHost: true, keptOn: 'store', target: 'home', recent: [], running: null, restoredCopies: [], rehearsal,
-      coverage: { assessed: ['postgres · volume forge-need-env-shelf-main-postgres'], notAssessed: [outside] },
+      coverage: { statusLabel: 'unknown', assessed: ['postgres · volume forge-need-env-shelf-main-postgres'], notAssessed: [outside] },
       operations: { copy: { available: false, reason: 'backups-page', why: 'x' }, check: { available: false, reason: 'not-on-this-platform', why: 'x' }, restore: { available: false, reason: 'not-on-this-platform', why: 'x' }, rehearsal: yes, startFromCopy: { available: false, reason: 'x', why: 'x' }, finalCopy: yes },
-      items: [{ need: 'postgres', volume: 'forge-need-env-shelf-main-postgres', where: 'on home', copy: 'fresh', lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }] })
+      items: [{ need: 'postgres', volume: 'forge-need-env-shelf-main-postgres', where: 'on home', copy: 'fresh', copyLabel: 'fresh', lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }] })
     const text = el.textContent ?? ''
     expect(text).toContain('covers: postgres · volume forge-need-env-shelf-main-postgres')
     expect(text).toContain('last restore rehearsal passed')
-    const limit = Array.from(el.querySelectorAll('div')).find((d) => d.textContent === `not assessed ${outside}`)
-    expect(limit?.querySelector('.chip')?.textContent).toBe('not assessed')
+    const limit = Array.from(el.querySelectorAll('div')).find((d) => d.textContent === `● unknown ${outside}`)
+    expect(limit?.querySelector('.chip')?.textContent).toBe('● unknown')
     expect(text).not.toMatch(/fully protected|complete/i)
   })
   it('says what is not assessed when it holds no data AppTown knows of', async () => {
     const el = await read({ deployment: 'main', dataClass: 'production', offHost: false, target: 'home', recent: [], running: null, restoredCopies: [], items: [],
-      coverage: { assessed: [], notAssessed: [outside] } })
+      coverage: { statusLabel: 'unknown', assessed: [], notAssessed: [outside] } })
     expect(el.textContent).toContain('covers: no data AppTown knows of')
-    expect(el.textContent).toContain(`not assessed ${outside}`)
+    expect(el.textContent).toContain(`● unknown ${outside}`)
   })
 })

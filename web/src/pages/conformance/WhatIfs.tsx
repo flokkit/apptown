@@ -1,9 +1,10 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { relTime } from '../../format'
 import type { RecentWhatIfs } from '../../wire.gen'
-import { OUTCOME_ORDER, OUTCOME_TONE, OUTCOME_WORDS } from '../WhatIfPage'
+import { OUTCOME_ORDER, OUTCOME_WORDS } from '../WhatIfPage'
 
 // WhatIfsList is the recent what-ifs, newest first: which pack version, who
 // asked and when, how far it got and what it answered per project, and how
@@ -16,9 +17,9 @@ export function WhatIfsList() {
   return (
     <div>
       <StaleNote q={q} />
-      <p className="muted small" style={{ maxWidth: 720 }}>
+      <details className="small"><summary>About what-ifs</summary><p className="muted small" style={{ maxWidth: 720 }}>
         A what-if asks what taking a pack version would change on each project, without changing anything. Start one from a <Link to="/packs">pack</Link>'s version.
-      </p>
+      </p></details>
       {list.length === 0 && <div className="muted">No what-ifs yet.</div>}
       {list.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
@@ -32,10 +33,10 @@ export function WhatIfsList() {
                   <tr key={w.id}>
                     <td><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <div className="muted">and other workflows to newest</div>}</td>
                     <td>{w.requestedBy}<div className="muted">{relTime(w.createdAt)}</div></td>
-                    <td>{w.state === 'running' ? `running · ${w.projectsDone} of ${w.projectsTotal}` : w.state}</td>
+                    <td><Status word={w.statusLabel} tone={STATUS_LIGHT[w.statusLabel]} help={w.detail || w.state} /></td>
                     <td>
                       <div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>
-                        {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o} className={`chip ${OUTCOME_TONE[o]}`}>{counts[o]} {OUTCOME_WORDS[o]}</span>)}
+                        {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} tone={STATUS_LIGHT[w.outcomeLabels[o]]} help={OUTCOME_WORDS[o]} /></span>)}
                         {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
                       </div>
                     </td>

@@ -2,6 +2,7 @@ package deployment
 
 import (
 	"context"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,9 +22,10 @@ import (
 type RuntimeState uint8
 
 const (
-	RuntimeUnknown RuntimeState = iota
+	RuntimeUnknown RuntimeState = iota + 1
 	RuntimeRunning
 	RuntimeStopped
+	RuntimeUnreachable
 )
 
 func (s RuntimeState) String() string {
@@ -32,9 +34,31 @@ func (s RuntimeState) String() string {
 		return "running"
 	case RuntimeStopped:
 		return "stopped"
+	case RuntimeUnreachable:
+		return "unreachable"
 	default:
 		return "unknown"
 	}
+}
+func (s RuntimeState) MarshalJSON() ([]byte, error) { return json.Marshal(s.String()) }
+func (s *RuntimeState) UnmarshalJSON(data []byte) error {
+	var word string
+	if err := json.Unmarshal(data, &word); err != nil {
+		return err
+	}
+	for state := RuntimeUnknown; state <= RuntimeUnreachable; state++ {
+		if state.String() == word {
+			*s = state
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid runtime state %q", word)
+}
+func (s RuntimeState) Value() (driver.Value, error) {
+	if s < RuntimeUnknown || s > RuntimeUnreachable {
+		return nil, errors.New("invalid runtime state")
+	}
+	return s.String(), nil
 }
 func (s RuntimeState) Running() *bool {
 	if s != RuntimeRunning && s != RuntimeStopped {
@@ -48,6 +72,8 @@ type RuntimeObservation struct {
 	// running is provider identity retained only for the internal health overlay.
 	running          string
 	State            RuntimeState
+	TargetName       string
+	UnreachableSince time.Time
 	Err              error
 	ObservedAt       time.Time
 	AttemptedAt      time.Time

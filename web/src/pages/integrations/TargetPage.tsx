@@ -1,3 +1,4 @@
+import { STATUS_LIGHT, Status } from '../../Status'
 import { changedTargetSettings, editTarget, NEEDS_MODES, type TargetSettings as SettingsCommand } from '../../targetCommands'
 import { DisplayLabelEdit } from '../../DisplayLabel'
 import { PRODUCT } from '../../brand'
@@ -11,7 +12,6 @@ import { TargetView, capsWords, placeOf } from '../../targets'
 import { ResourceTables, type Resource, type TargetInfra } from '../Infrastructure'
 import { Capacity } from './Capacity'
 
-const readinessChip = (s?: string) => ['ready', 'reconciled', 'active', 'healthy'].includes(s ?? '') ? 'pass' : ['reconciling', 'deploying', 'rolling'].includes(s ?? '') ? 'running' : ['failed', 'error', 'unhealthy'].includes(s ?? '') ? 'fail' : 'muted'
 // resourceWord: one word per resource for the "made of" column — a stack,
 // a container, a data volume, an app, a database, its need's name when it has one.
 const resourceWord = (r: Resource) => {
@@ -19,14 +19,14 @@ const resourceWord = (r: Resource) => {
   const noun = r.kind === 'volume' ? 'data volume' : r.kind
   return need ? `${noun} for ${need}` : noun
 }
-import { relTime } from '../../format'
-import type { InfrastructureTargets, RegistryReading, TargetChecked, TargetPage } from '../../wire.gen'
+import { fmtStamp } from '../../format'
+import type { InfrastructureTargets, RegistryReading, TargetPage } from '../../wire.gen'
 import { shownActor } from '../../systemActors'
 
 // One deploy target (design/subsystems/deployment.md §2.2): what it is, what
 // is bound to it, whether it answers right now, and the doors an
 // administrator has — check it, retire it. Everything the page shows is a
-// record; "check now" makes a new one.
+// record; "Check target" records a new one.
 
 
 // RegistryLine: an App Platform target's container registry as its newest
@@ -34,7 +34,7 @@ import { shownActor } from '../../systemActors'
 // whether AppTown's gate image takes one), or why it is unknown — with
 // when it was read.
 export function RegistryLine({ r }: { r: RegistryReading }) {
-  const when = r.readAt ? ` · read ${relTime(r.readAt)}` : ''
+  const when = r.readAt ? ` · read ${fmtStamp(r.readAt)}` : ''
   if (r.unknown) return <div className="small" style={{ marginTop: 6 }}>Container registry{r.registry ? ` ${r.registry}` : ''}: <span className="error">unknown</span> — {r.unknown}<span className="muted">{when}</span></div>
   if (r.none) return <div className="small muted" style={{ marginTop: 6 }}>No container registry yet; the first release creates it{when}</div>
   const used = r.included > 0 ? `${r.used} of ${r.included} repositories` : `${r.used} repositories, no limit`
@@ -57,10 +57,9 @@ export function TargetPage() {
   const { name } = useParams()
   const nav = useNavigate()
   const pageQ = useGet<TargetPage>(`/targets/${name}`)
-  const { data } = pageQ
-  const [check, setCheck] = useState<{ ok: boolean; detail: string } | null>(null)
-  const { run, busy, err: actErr } = useAction()
   const load = pageQ.reload
+  const { data } = pageQ
+  const { run, busy, err: actErr } = useAction()
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   const here = infra.data?.targets.find((x) => x.target === name)
 
@@ -70,7 +69,7 @@ export function TargetPage() {
   const facts: string[] = []
   if (caps.needs?.length) facts.push(`provides ${caps.needs.join(', ')}`)
   if (caps.rollout?.length) facts.push(caps.rollout.join(', '))
-  facts.push(caps.persistentVolumes ? 'has disks' : 'no disks — networked databases only')
+  facts.push(caps.persistentVolumes ? 'has disks' : 'no disks · networked databases only')
   if (caps.previews) facts.push('previews may bind here')
   if (caps.ownLiveness) facts.push('restarts its own containers')
   const domain = typeof t.ingress?.domain === 'string' ? t.ingress.domain : ''
@@ -85,10 +84,6 @@ export function TargetPage() {
   if (addr.environment) concrete.push(`Portainer environment ${addr.environment}`)
   if (addr.region) concrete.push(`region ${addr.region}`)
 
-  const doCheck = async () => {
-    const r = await run(() => post<TargetChecked>(`/targets/${t.name}/check`, {}))
-    if (r) { setCheck(r); load() }
-  }
   const retire = async () => {
     const r = await run(() => post(`/targets/${t.name}/retire`, { confirm: t.name }))
     if (r) nav('/integrations/targets')
@@ -105,7 +100,7 @@ export function TargetPage() {
  <DisplayLabelEdit value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
             <div className="muted">{(() => { const place = placeOf(t.kindInfo, t.address); return place.startsWith(t.kindInfo.title) ? place : `${t.kindInfo.title} · ${place}` })()}{domain ? ` · *.${domain}` : ''}</div>
           </div>
-          <span className={`chip ${t.status === 'ready' ? 'pass' : retired ? 'muted' : 'fail'}`}>{t.status}</span>
+          <Status word={t.statusLabel} tone={STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}.`} />
         </div>
         <div className="muted small" style={{ marginTop: 6 }}>{facts.join(' · ')} · needs are {t.needsMode}</div>
         {t.ingress?.rehearsals === true && <div className="small" style={{ marginTop: 6 }}><b>Kept for restore rehearsals.</b> {rehearsalHostMeaning}</div>}
@@ -118,16 +113,11 @@ export function TargetPage() {
         )}
 
 
-        {t.kindInfo.environment && !t.providerScope && !retired && <div className="small" style={{ marginTop: 12 }}>Provider endpoint: <b>not observed</b>. Releases to this target are refused until {PRODUCT} observes it.</div>}
+        {t.kindInfo.environment && !t.providerScope && !retired && <div className="small" style={{ marginTop: 12 }}>Provider endpoint: <b>unknown</b>. Releases are refused until {PRODUCT} reads the endpoint.</div>}
         {data.registry && <RegistryLine r={data.registry} />}
 
-        {!retired && (
-          <div className="row" style={{ marginTop: 12, gap: 10, alignItems: 'center' }}>
-            <button onClick={doCheck} disabled={busy}>{busy ? 'checking…' : 'Check now'}</button>
-            {check && <span className={`small ${check.ok ? '' : 'error'}`}>{check.ok ? '✓ ' : '✗ '}{check.detail}</span>}
-            {actErr && <span className="error small">{actErr}</span>}
-          </div>
-        )}
+        {!retired && <button disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
+        {actErr && <div className="error small">{actErr}</div>}
 
         {!retired && (
           <>
@@ -149,12 +139,12 @@ export function TargetPage() {
                     <tr key={e.project + '/' + e.name}>
                       <td><Link to={`/projects/${e.project}/settings/deployments`}>{e.project}/{e.name}</Link>{e.generation ? <span className="muted"> gen {e.generation}</span> : null}</td>
                       <td>{e.url ? <a href={e.url} target="_blank" rel="noreferrer">{e.url.replace(/^https?:\/\//, '')}</a> : <span className="muted">—</span>}</td>
-                      <td><span className={`chip ${readinessChip(e.readiness)}`}>{e.readiness || 'unknown'}</span></td>
+                      <td><Status word={e.statusLabel} tone={STATUS_LIGHT[e.statusLabel]} help={`Deployment: ${e.readiness}.`} /></td>
                       <td>{e.audience}</td>
                       <td>{e.data}</td>
                       <td>{mine.length === 0
                         ? <span className="muted">{here ? 'nothing found at the target' : '…'}</span>
-                        : mine.map((r) => <span key={r.kind + r.name} className={`chip ${r.record === 'missing' ? 'fail' : ''}`} title={r.name + (r.record === 'missing' ? ' — recorded, gone from the target' : '')}>{resourceWord(r)}</span>)}</td>
+                        : mine.map((r) => <span key={r.kind + r.name}>{resourceWord(r)} <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.name + (r.record === 'missing' ? ' · recorded, gone from the target' : '')} /></span>)}</td>
                     </tr>
                   )
                 })}
@@ -163,8 +153,8 @@ export function TargetPage() {
           )}
         {t.retained > 0 && <div className="muted small" style={{ marginTop: 6 }}>{t.retained} retained resource(s) still held at this target; each is marked retained, with its project, under All resources at the target below.</div>}
 
-        <h3 style={{ margin: '18px 0 6px' }}>Not accounted for{here?.asOf ? <span className="muted small"> · as of {relTime(here.asOf)}</span> : null}</h3>
-        <p className="muted small" style={{ margin: '0 0 6px' }}>What is at the target without a deployment behind it, and what a deployment records that the target no longer has.</p>
+        <h3 style={{ margin: '18px 0 6px' }}>Not accounted for{here?.asOf ? <span className="muted small"> · as of {fmtStamp(here.asOf)}</span> : null}</h3>
+        <p className="muted small" style={{ margin: '0 0 6px' }}>Unrecorded and missing resources.</p>
         {here
           ? <Unaccounted here={here} onChanged={() => { infra.reload(); load() }} />
           : retired ? <div className="muted small">retired: not checked</div>
@@ -351,9 +341,9 @@ export function Unaccounted({ here, onChanged }: { here: TargetInfra; onChanged:
   const failed = !here.live && !!here.error
   return (
     <>
-      {failed && <div className="error small" style={{ marginBottom: 6 }}>The target's inventory could not be read: {here.error}{here.asOf ? ` — showing the inventory read ${relTime(here.asOf)}.` : ' — nothing has been read from it, so what is unaccounted for is not known.'}</div>}
+      {failed && <div className="error small" style={{ marginBottom: 6 }}>The target's inventory could not be read: {here.error}{here.asOf ? ` · showing the inventory read ${fmtStamp(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
       {here.live || here.asOf
-        ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Everything at the target is accounted for by a deployment.' : `Nothing unaccounted for in the inventory read ${relTime(here.asOf!)}.`} />
+        ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Everything at the target is accounted for by a deployment.' : `Nothing unaccounted for in the inventory read ${fmtStamp(here.asOf!)}.`} />
         : !failed && <div className="muted small">checking…</div>}
       {here.shared && <div className="muted small" style={{ marginTop: 6 }}>{here.shared}</div>}
     </>

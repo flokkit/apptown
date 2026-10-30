@@ -142,7 +142,7 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
             <button className="subtle" onClick={() => { setCand(null); setPicks(null); setErr('') }}>cancel</button>
           </div>
           {cand.problems.length > 0 && cand.problems.map((p, i) => <div key={i} className="small">⚠ {p}</div>)}
-          {cand.weakens.length > 0 && <div className="small">⚠ drops {cand.weakens.join(', ')}, which a selected pack asks of this project — that takes the standards authority</div>}
+          {cand.weakens.length > 0 && <div className="small">⚠ drops {cand.weakens.join(', ')}, which a selected pack asks of this project · that takes the standards authority</div>}
           {cand.moves.some((m) => m.to === 0 || m.to < m.from) && <div className="small warn-line">Moves back: {cand.moves.filter((m) => m.from > 0 && (m.to === 0 || m.to < m.from)).map((m) => m.to === 0 ? `removes ${m.rule} (v${m.from})` : `${m.rule} v${m.from}→v${m.to}`).join(', ')}</div>}
           {cand.kept.length > 0 && <div className="small">Still on this project after adopting: {cand.kept.join(', ')}. The new version no longer carries them; remove them here if you want them gone.</div>}
           <p className="small">
@@ -234,7 +234,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
     }))
     if (!g) return
     setImports(g.imports); setEffective(g.effective); setGenerated(g.generated ?? []); setRevision(g.revision); setDirty(false)
-    setMsg(`saved — effective hash ${g.effective.hash.slice(0, 12)}…`)
+    setMsg(`saved · effective hash ${g.effective.hash.slice(0, 12)}…`)
   }
   // Keep my list: it replaces the list as it is now, at the current revision.
   const keepMine = () => { if (guidance) setRevision(guidance.revision); setConflict(false); setErr('') }
@@ -256,10 +256,10 @@ export function GuidanceTab({ slug }: { slug: string }) {
       </details>
       <details style={{ marginTop: 14 }}>
         <summary>View and edit guidance blocks{dirty ? ' · unsaved changes' : ''}</summary>
-      <p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
-        What agents on this project are told, in order — later blocks override earlier ones.
+      <details className="small"><summary>About adoption</summary><p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
+        What agents on this project are told, in order · later blocks override earlier ones.
         Pick from the instance's <Link to="/guidance">guidance</Link>; every run records exactly which version it was given.
-      </p>
+      </p></details>
       <table className="stack" style={{ maxWidth: 760 }}>
         <thead><tr><th></th><th>Block</th><th>Pinned</th><th title="what the block adds to an agent's context">Size</th><th>Enabled</th><th></th></tr></thead>
         <tbody>
@@ -290,7 +290,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
           ))}
         </tbody>
       </table>
-      {seeded && imports.length === 0 && <div className="muted" style={{ padding: 12 }}>No guidance imported yet — agents on this project work without the house rules.</div>}
+      {seeded && imports.length === 0 && <div className="muted" style={{ padding: 12 }}>No guidance imported yet · agents on this project work without the house rules.</div>}
       {imports.length > 0 && (
         <div className="muted small" style={{ marginTop: 6 }}>
           {enabled.length} of {imports.length} enabled, <span title={sizeTitle(enabledBytes)}>{fmtSize(enabledBytes)}</span> of blocks.
@@ -351,7 +351,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
         <div>
           <details style={{ marginTop: 10 }}>
             <summary className="muted small" style={{ cursor: 'pointer' }}>All the guidance agents receive <span className="muted">· {effective.hash.slice(0, 12)}</span></summary>
-            {dirty && <div className="muted small">showing the last saved version — save to refresh</div>}
+            {dirty && <div className="muted small">showing the last saved version · save to refresh</div>}
             <pre className="log" style={{ maxHeight: 400 }}>{effective.text || '(empty)'}</pre>
           </details>
         </div>
@@ -376,7 +376,7 @@ export function PoliciesCard({ slug }: { slug: string }) {
   if (!data) return <ReadStatus q={q} what="the rules" className="small" />
   // An empty answer that may be old says so too: someone may have adopted
   // rules since.
-  if (data.policies.length === 0) return <><StaleNote q={q} /><div className="muted small">No rules adopted — a pack usually brings some.</div></>
+  if (data.policies.length === 0) return <><StaleNote q={q} /><div className="muted small">No rules adopted · a pack usually brings some.</div></>
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <StaleNote q={q} />
@@ -428,7 +428,7 @@ export function WorkflowsTab({ slug }: { slug: string }) {
   const { lanes, system } = data
 
   const TIERS: [Lane['tier'], string, string][] = [
-    ['core', 'Core', 'the short list — what most projects use'],
+    ['core', 'Core', 'the short list · what most projects use'],
     ['extra', 'Extras', 'useful in particular situations'],
   ]
   const row = (l: Lane, selectable: boolean) => (
@@ -455,10 +455,10 @@ export function WorkflowsTab({ slug }: { slug: string }) {
   return (
     <div>
       <StaleNote q={q} />
-      <p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
+      <details className="small"><summary>About adoption</summary><p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
         Select the workflows this project uses. Every run takes the version recorded in the project's adoption record above and
         records which one ran. To change how a workflow works, clone it in <Link to="/workflow-library">Ways of working</Link> and tick the clone here.
-      </p>
+      </p></details>
       {TIERS.map(([k, label, gloss]) => (
         <div key={k}>
           <h3 style={{ margin: '10px 0 6px' }}>{label} <span className="muted small" style={{ fontWeight: 400 }}>— {gloss}</span></h3>

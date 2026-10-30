@@ -29,12 +29,12 @@ const MEANING = 'I start this eval; its throwaway copies may land and deploy to 
 
 const scorecard = {
   id: EVAL, startedBy: 'alice', startedAt: new Date().toISOString(), meaning: MEANING, subjectKind: 'model', subject: 'frontier',
-  budgetMicros: 5_000_000, state: 'held', reason: '1 model call spent an unknown amount', costMicros: 1_250_000, incomplete: 1,
+  budgetMicros: 5_000_000, state: 'held', statusLabel: 'waiting for you', reason: '1 model call spent an unknown amount', costMicros: 1_250_000, incomplete: 1,
   tallies: [], comparable: 0, notComparable: 0,
   arms: [
-    { id: ARM1, sourceProjectId: PROJECT, sourceChangeId: CHANGE, sourceChangeNumber: 12, arm: 'baseline', profile: 'standard', models: {}, state: 'scored', projectId: COPY1, changeId: COPY1_CHANGE, changeNumber: 1, declares: [],
-      score: { readyToLand: true, landed: true, deploy: 'deployed', checks: [{ step: 'tests', type: 'tests', status: 'pass' }], requestMet: 'yes', reworks: 1, workSeconds: 600 } },
-    { id: ARM2, sourceProjectId: PROJECT, sourceChangeId: CHANGE, sourceChangeNumber: 12, arm: 'variant', profile: 'frontier', models: {}, state: 'failed', reason: 'its run ended before the work was ready to land', projectId: COPY2, changeId: COPY2_CHANGE, changeNumber: 1, declares: [],
+    { id: ARM1, sourceProjectId: PROJECT, sourceChangeId: CHANGE, sourceChangeNumber: 12, arm: 'baseline', profile: 'standard', models: {}, state: 'scored', statusLabel: 'finished', projectId: COPY1, changeId: COPY1_CHANGE, changeNumber: 1, declares: [],
+      score: { readyToLand: true, landed: true, deploy: 'deployed', checks: [{ step: 'tests', type: 'tests', status: 'pass', statusLabel: 'passed' }], requestMet: 'yes', reworks: 1, workSeconds: 600 } },
+    { id: ARM2, sourceProjectId: PROJECT, sourceChangeId: CHANGE, sourceChangeNumber: 12, arm: 'variant', profile: 'frontier', models: {}, state: 'failed', statusLabel: 'failed', reason: 'its run ended before the work was ready to land', projectId: COPY2, changeId: COPY2_CHANGE, changeNumber: 1, declares: [],
       score: { readyToLand: false, landed: false, deploy: 'not reached', checks: [], reworks: 2 } },
   ],
   armCosts: { [ARM1]: { costMicros: 1_000_000, tokens: 10, incomplete: 0 }, [ARM2]: { costMicros: 250_000, tokens: 5, incomplete: 1 } },
@@ -96,17 +96,17 @@ describe('the eval scorecard', () => {
 
   // A just-started eval: every arm queued or working, none scored.
   it('shows an eval whose arms have no score yet', async () => {
-    const started = { ...scorecard, state: 'running', reason: '', costMicros: 0, incomplete: 0, armCosts: {}, complaints: [],
+    const started = { ...scorecard, state: 'running', statusLabel: 'working', reason: '', costMicros: 0, incomplete: 0, armCosts: {}, complaints: [],
       arms: [
-        { id: ARM1, sourceProjectId: PROJECT, sourceChangeId: CHANGE, arm: 'baseline', profile: 'standard', models: {}, state: 'working', projectId: COPY1, changeId: COPY1_CHANGE, declares: [], score: { readyToLand: false, landed: false, checks: [], reworks: 0 } },
-        { id: ARM2, sourceProjectId: PROJECT, sourceChangeId: CHANGE, arm: 'variant', profile: 'frontier', models: {}, state: 'queued', declares: [], score: { readyToLand: false, landed: false, checks: null, reworks: 0 } },
+        { id: ARM1, sourceProjectId: PROJECT, sourceChangeId: CHANGE, arm: 'baseline', profile: 'standard', models: {}, state: 'working', statusLabel: 'working', projectId: COPY1, changeId: COPY1_CHANGE, declares: [], score: { readyToLand: false, landed: false, checks: [], reworks: 0 } },
+        { id: ARM2, sourceProjectId: PROJECT, sourceChangeId: CHANGE, arm: 'variant', profile: 'frontier', models: {}, state: 'queued', statusLabel: 'waiting', declares: [], score: { readyToLand: false, landed: false, checks: null, reworks: 0 } },
       ] }
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(started))))
     const r = await render(`/evals/${EVAL}`, <EvalScorecardPage />, '/evals/:id')
     try {
-      await r.settle(() => !!r.el.textContent?.includes('waiting to start'))
+      await r.settle(() => !!r.el.textContent?.includes('waiting'))
       expect(r.el.textContent).toContain('working')
-      expect(r.el.textContent).toContain('waiting to start')
+      expect(r.el.textContent).toContain('waiting')
     } finally {
       r.done()
     }

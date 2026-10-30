@@ -311,7 +311,7 @@ func TestDisplayReadsNeverObserveAndRetainHonestFailureAge(t *testing.T) {
 		t.Fatal(err)
 	}
 	failed := read()
-	if failed.State != RuntimeRunning || !failed.Stale || failed.Err == nil || failed.ObservedAt != first.ObservedAt || failed.AttemptedAt.Before(first.AttemptedAt) {
+	if failed.State != RuntimeUnknown || !failed.Stale || failed.Err == nil || failed.ObservedAt != first.ObservedAt || failed.AttemptedAt.Before(first.AttemptedAt) {
 		t.Fatalf("failed refresh rewrote history: first=%+v failed=%+v", first, failed)
 	}
 	for range 3 {
@@ -468,8 +468,8 @@ func TestASweepAsksAFleetTargetOnceForAllItsDeployments(t *testing.T) {
 			t.Errorf("%s after a failed look: %+v", r.Name, r.Observation)
 		}
 	}
-	if o := got[0].Observation; o.State != RuntimeRunning || !o.ObservedAt.Equal(seen) {
-		t.Errorf("the last known state was not kept with when it was seen: %+v", o)
+	if o := got[0].Observation; o.State != RuntimeUnknown || !o.ObservedAt.Equal(seen) {
+		t.Errorf("the failed read lost the last successful check time: %+v", o)
 	}
 }
 

@@ -1,10 +1,10 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ChangeAttachment } from '../../wire.gen'
 import { renderMd } from '../../md'
 import DiffView from '../../DiffView'
 import { ChangeView, HttpError, Run, del, patch, post } from '../../api'
-import { changeChip } from './next'
 import { closedNothingToChange } from '../../states'
 import { fmtCost, fmtStamp, fmtTokens } from '../../format'
 import { useAction, useGet, useGetText } from '../../data'
@@ -39,7 +39,7 @@ export function ChangeHeader({ view, workflow, aboutTab }: { view: ChangeView; w
       </div>
       <div className="ch-title-row">
         <h1>{ch.title}</h1>
-        {(() => { const chip = changeChip(view); return <span className={`chip ${chip.cls}`}>{chip.text}</span> })()}
+        <Status word={view.statusLabel} tone={STATUS_LIGHT[view.statusLabel]} />
         {ch.provenance && <span className="chip pending" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
       <div className="ch-meta">
@@ -228,7 +228,7 @@ export function ChangesTab({ view, run }: { view: ChangeView; run?: Run }) {
       {noCode && !!view.committedDiff.shipped?.since && <ChangeDiffBlock changeId={ch.id!} empty={`No difference from release #${view.committedDiff.shipped.since}.`} />}
       {view.committedDiff?.status === 'empty' && <p className="muted">{view.committedDiff.message}</p>}
       {view.committedDiff?.status === 'unavailable' && ch.branch && <p className="muted">{view.committedDiff.message}</p>}
-      {!ch.branch && !noCode && <p className="muted">This change has no branch, so there is no diff to show.</p>}
+      {!ch.branch && !noCode && <p className="muted">No branch.</p>}
       {ch.branch && !noCode && view.committedDiff?.status !== 'empty' && <ChangeDiffBlock changeId={ch.id!} />}
       {commits.length > 0 && (
         <>

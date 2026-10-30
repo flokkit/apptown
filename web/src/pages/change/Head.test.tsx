@@ -11,14 +11,14 @@ const CHANGE = '00000000-0001-7000-8000-000000000000'
 
 const view = (state: 'landing' | 'abandoned'): ChangeView => ({
   change: { id: CHANGE, number: 1, title: 'Game', state, stateLabel: state, body: '', branch: 'change' },
-  evidence: { merged: true }, editing: 0, runs: [], commits: [],
+  statusLabel: state === 'landing' ? 'working' : 'stopped', evidence: { merged: true }, editing: 0, runs: [], commits: [],
 } as unknown as ChangeView)
 
 const empty = 'No committed changes since this change started.'
 describe('change state and committed evidence', () => {
-  it.each([['landing', 'landing'], ['abandoned', 'abandoned']] as const)('keeps %s visible even with a merge receipt', (state, label) => {
+  it.each([['landing', 'working'], ['abandoned', 'stopped']] as const)('keeps %s visible even with a merge receipt', (state, label) => {
     const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={view(state)} aboutTab="/changes/1?tab=about" /></QueryClientProvider></MemoryRouter>)
-    expect(html).toContain(`>${label}</span>`)
+    expect(html).toContain(`● </span>${label}</span>`)
     expect(html).not.toContain('>merged</span>')
   })
   // Who asked is said only when the record names them; an older change
@@ -48,8 +48,8 @@ describe('change state and committed evidence', () => {
     const noCode = (since?: number) => ({ ...view('landing'), committedDiff: { status: 'no-code', message: said, shipped: { release: 16, since } } } as unknown as ChangeView)
     const first = footer(noCode())
     expect(first).toContain(said)
-    expect(first).not.toContain('the committed diff')
+    expect(first).not.toContain('Loading…')
     expect(first).not.toContain(empty)
-    expect(footer(noCode(15))).toContain('the committed diff')
+    expect(footer(noCode(15))).toContain('Loading…')
   })
 })

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -11,19 +12,21 @@ import (
 
 // A compact read model made from receipts, separate from the generated narrative.
 type changeEvidence struct {
-	Targets  []workflow.AcceptanceCheck `json:"targets"`
-	Merged   bool                       `json:"merged"`
-	Releases []changeRelease            `json:"releases"`
+	MergeLabel status.DisplayStatus       `json:"mergeLabel"`
+	Targets    []workflow.AcceptanceCheck `json:"targets"`
+	Merged     bool                       `json:"merged"`
+	Releases   []changeRelease            `json:"releases"`
 	// InAdvance is the opener's yes given in advance on an adoption, when
 	// they gave one: who, when, and the sentences they said yes to.
 	InAdvance *workflow.AdvanceYes `json:"inAdvance,omitempty"`
 }
 
 type changeRelease struct {
-	Number     int64                   `json:"number"`
-	Deployment string                  `json:"deployment"`
-	State      deployment.ReleaseState `json:"state"`
-	Serving    bool                    `json:"serving"`
+	StatusLabel deployment.ReleaseLabel `json:"statusLabel"`
+	Number      int64                   `json:"number"`
+	Deployment  string                  `json:"deployment"`
+	State       deployment.ReleaseState `json:"state"`
+	Serving     bool                    `json:"serving"`
 	// Observed is what the deployment serving this release's record was
 	// observed to be (deployment.ContainerPresence): running, stopped,
 	// missing, or unavailable/unknown with Reason. Only running is serving;
@@ -53,12 +56,13 @@ func (h ChangeDetail) evidenceForChange(ctx context.Context, ch *workflow.Change
 	if err != nil {
 		return out, err
 	}
+	out.MergeLabel = status.MergeDisplay(out.Merged)
 	carried, err := h.deployment.Releases.ForChange(ctx, ch.ProjectID, ch.ID)
 	if err != nil {
 		return out, err
 	}
 	for _, r := range carried {
-		out.Releases = append(out.Releases, changeRelease{Number: r.Number, Deployment: r.Deployment, State: r.State, release: r})
+		out.Releases = append(out.Releases, changeRelease{Number: r.Number, Deployment: r.Deployment, State: r.State, StatusLabel: r.State.Display(), release: r})
 	}
 	if len(out.Releases) > 0 {
 		deployments, err := h.deployment.Deployments.ForProject(ctx, ch.ProjectID)

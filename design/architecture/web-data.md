@@ -37,22 +37,23 @@ What a reader gets back is the whole state, not one flag:
 | `denied` | AppTown refused the read to this caller (403): not available to them, which is neither empty nor broken |
 | `answeredAt` | when the answer shown arrived; for a reading the server takes as it answers, when it was taken |
 
-Display rules: initial loading, an empty answer and a failed first read look
-different; a shown answer stays readable while it refreshes, and when a
-refresh fails it stays shown under a compact "out of date · last read
-HH:MM" mark (the date too when it was read before today), with the reason in
-the mark's title and accessible name; a failed read is never shown as an
-empty answer. `web/src/ReadGate.tsx` holds these
-rules once: `ReadGate` shows its children only once its reads have answers,
-`ReadStatus` says "Reading {what}…", the error, or "not available to you"
-until then, and `StaleNote` marks an answer whose refresh failed. The app
-wraps each page in a `StaleScope`, which says once at the top of the page
-that some sections could not be refreshed while any mark is shown, so the
-sentence is not repeated per section. Pages use
-them rather than writing their own loading and error lines. A page about the whole AppTown that the caller
-cannot read is left out of the menu and says "not available to you" when
-reached by its address (`web/src/instancePages.tsx`). When the browser is offline the app says so
-once, at the top of the page.
+Display rules: loading, empty, failed and denied reads remain distinct. A failed
+refresh keeps the last answer under an `unknown` light; its help includes the
+failure and last successful read time. `StaleScope` says once that the refresh
+failed and the last answer is shown. `ReadGate`, `ReadStatus` and `StaleNote` own
+these displays; pages reuse them. First-read failures show `unknown`, with the resource and reason in a
+disclosure. Initial reads show `Loading…` without a status light. A
+browser-to-AppTown failure never establishes a deployment host's reachability. Offline is stated once at the top of the page.
+
+Runtime display words come from the deployment owner, including `unreachable`,
+the target display name and the first failure time. Expired runtime evidence is
+`unknown`. `web/src/Status.tsx` maps server display words to existing light tokens;
+the generated union types and completeness test cover each label. Change,
+integration-health, check, release, update, copy, job and inventory display labels
+come from their owners too. Backup sets, operations, data coverage, step evidence, remediation and what-if results expose owner labels as well. Runs, evals, deployment readiness, restore checks, managed needs, decisions and suppression expiry also use owner labels. Preview discovery alone reports `unknown`. `running` describes runtime; work uses `working` and
+a release in progress uses `deploying`. Waiting labels name the awaited party only when known; saved changes and queued work use `waiting`.
+The word stays visible. Reasons and check times use a disclosure that opens with
+a tap, click or keyboard. Help opens beside its chip, stays within the viewport and does not resize the table. Only one status help is open at a time; tapping outside or pressing Escape closes it. Static chips are not live regions.
 
 The authorization response exposes `actorId` only for a verified person with a
 stable principal UUID. The display user name is not a durable identity. An absent

@@ -1,0 +1,36 @@
+package integration
+
+import (
+	"database/sql/driver"
+	"errors"
+	"github.com/flokkit/apptown/internal/enum"
+)
+
+// HealthStatus labels the check result without classifying provider reachability.
+type HealthStatus uint8
+
+const (
+	HealthUnknown HealthStatus = iota + 1
+	HealthPassed
+	HealthFailed
+)
+
+var healthStatusCodec = enum.Set[HealthStatus]{Names: []string{"unknown", "passed", "failed"}, Invalid: "invalid-health-status", Err: errors.New("invalid health status"), ScanLabel: "value"}
+
+func (s HealthStatus) String() string                   { return healthStatusCodec.String(s) }
+func (s HealthStatus) Value() (driver.Value, error)     { return healthStatusCodec.Value(s) }
+func (s HealthStatus) MarshalJSON() ([]byte, error)     { return healthStatusCodec.JSON(s) }
+func (s *HealthStatus) UnmarshalJSON(data []byte) error { return healthStatusCodec.ReadJSON(s, data) }
+
+// ForDisplay supplies the owner's label even when no check exists.
+func (h Health) ForDisplay() Health {
+	h.StateLabel = HealthUnknown
+	if h.Checked {
+		if h.OK {
+			h.StateLabel = HealthPassed
+		} else {
+			h.StateLabel = HealthFailed
+		}
+	}
+	return h
+}

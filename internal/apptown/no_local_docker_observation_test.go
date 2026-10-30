@@ -56,7 +56,7 @@ func TestAListedWorkerPreviewIsLiveOnlyWhenItsStateSaysRunning(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, d := range out.Departures {
-				if d.Tier == "preview" && d.State == "live" {
+				if d.Tier == "preview" && d.State == deployment.DepartureRunning {
 					t.Errorf("stopped worker preview reported live: %+v", d)
 				}
 			}

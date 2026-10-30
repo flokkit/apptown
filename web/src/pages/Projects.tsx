@@ -1,4 +1,3 @@
-import { PRODUCT } from '../brand'
 import { RuntimeObservation, RuntimeStatus } from '../runtime'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -104,8 +103,7 @@ export default function Projects() {
         <div className="card" style={{ padding: 18, maxWidth: 560 }}>
           <strong>No projects yet.</strong>
           <div className="muted small" style={{ marginTop: 4 }}>
-            A project is an app with its own repository, workflows and checks. Make one and {PRODUCT}
-            sets everything up, then builds the first version with you.
+            Create a project to start an app.
           </div>
         </div>
       )}

@@ -45,7 +45,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
   // reason is shown and the person chooses from the ways of working.
   const interview = (withAnswers: boolean) => run(async () => {
     const revision = d.interviewRevision
-    const body: Record<string, unknown> = { description: (name ? name + ' — ' : '') + d.description }
+    const body: Record<string, unknown> = { description: (name ? name + ' · ' : '') + d.description }
     if (withAnswers) body.answers = questions.map((q) => ({ question: q, answer: answers[q] ?? 'not sure' }))
     let r: PackInterviewPick | PackInterviewQuestions
     try {
@@ -122,15 +122,13 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
 
           {selected.some((p) => p.staticStarter) ? (
             <div className="muted small" style={{ borderTop: '1px solid var(--border)', margin: '18px 0 0', paddingTop: 'var(--space-4)' }}>
-              This way of working starts from static files with no server, so there are no
-              databases or other services to choose.
+              Static files. No server services.
             </div>
           ) : (
           <div style={{ borderTop: '1px solid var(--border)', margin: '18px 0 0', paddingTop: 'var(--space-4)' }}>
             <div style={{ fontSize: 'var(--fs-base)', fontWeight: 650 }}>Services</div>
             <div className="muted small" style={{ marginTop: 2, marginBottom: 'var(--space-3)', maxWidth: 560 }}>
-              The databases and backing services this app runs against. Picking one makes this a
-              server; a client-only site or game needs none. You can change these any time later.
+              Choose databases and backing services for a server app. You can change these later.
             </div>
             <div className="pick-grid">
               {catalog.map((k) => {
@@ -153,7 +151,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
             {/* The pack's proposed services come from the pack list too. */}
             <ReadStatus q={packsQ} what="what this way of working proposes" className="small" />
             <StaleNote q={catQ} />
-            {d.services.length === 0 && <div className="muted small mt-3">None selected — fine for a client-only site or a stateless service.</div>}
+            {d.services.length === 0 && <div className="muted small mt-3">None selected · fine for a client-only site or a stateless service.</div>}
           </div>
           )}
         </div>
@@ -162,10 +160,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
         <div className="mt-2">
           {inspecting && <PackInspect pack={inspecting} onClose={() => setInspecting(null)} />}
           <div className="muted small mb-3">
-            A way of working is the set of rules, checks and steps a project follows: which
-            language and tools it uses, how changes are checked, and how it is deployed.
-            Tick the packs that together fit {name || 'the project'}: each one says what it is taken
-            with. It can be changed later.
+            Choose packs for {name || 'the project'}. Packs define its tools, checks and deployment steps. You can change these later.
           </div>
           {/* The packs never read are not "no packs": say why instead. */}
           <ReadStatus q={packsQ} what="the ways of working" />

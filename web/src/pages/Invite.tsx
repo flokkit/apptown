@@ -66,7 +66,7 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
       <div className="card" style={{ width: 'min(380px, 100%)', boxSizing: 'border-box', display: 'grid', gap: 12, padding: 24 }}>
         <div style={{ fontSize: 'var(--fs-lg)' }}>⚒ <b>{PRODUCT}</b></div>
         {!token && <>
-          <div>Open the link you were given again. For safety this page does not keep it after it is loaded.</div>
+          <div>Reopen your invite link.</div>
           <a href="/" className="small">Go to sign in</a>
         </>}
         {token && !offer && !loadErr && <div className="muted small">Reading the link…</div>}
@@ -85,8 +85,7 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
                 <b>{offer.invitedBy}</b> made a password reset link for <b>{offer.username}</b>.
               </div>
               <div className="muted small">
-                Choose a new password. Your old password stops working and you are signed out
-                everywhere else; you will sign in here as <b>{offer.username}</b>.
+                Set a new password to replace the old one and end other browser sessions. Sign in as <b>{offer.username}</b>.
                 The link works once, until {new Date(offer.expiresAt).toLocaleDateString()}.
               </div>
             </> : <>

@@ -195,7 +195,7 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
 
       <div className="card">
         <strong>Way of working</strong>
-        {m.packs.length === 0 && <div className="muted small mt-1">no pack — bare project</div>}
+        {m.packs.length === 0 && <div className="muted small mt-1">no pack · bare project</div>}
         {m.packs.map((p) => <div key={p.name} className="muted small mt-1">pack <code>{p.name}</code></div>)}
         <div className="row" style={{ marginTop: 'var(--space-2)', gap: 'var(--space-1)' }}>
           {m.workflows.map((w) => (
@@ -211,7 +211,7 @@ export function ManifestView({ m, onBuildV0, onConsole }: { m: Manifest; onBuild
 
       <div className="card">
         <strong>Policies</strong>
-        {m.policies.length === 0 && <div className="muted small mt-1">none — add a pack that includes them, or add them under Settings › Way of working</div>}
+        {m.policies.length === 0 && <div className="muted small mt-1">none · add a pack that includes them, or add them under Settings › Way of working</div>}
         {m.policies.map((p) => (
           <div key={p.id} className="muted small mt-1">
             <span className="chip pass">✓</span> <strong>{p.name}</strong> — {p.description || p.rule}{p.origin ? ` · ${p.origin}` : ''}

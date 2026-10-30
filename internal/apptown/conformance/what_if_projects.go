@@ -48,10 +48,11 @@ type WhatIfCheck struct {
 
 // WhatIfProject is one selected project's answer.
 type WhatIfProject struct {
-	ProjectID        ids.ID `json:"projectId"`
-	ProjectSlug      string `json:"projectSlug"`
-	SHA              string `json:"sha,omitempty"`
-	AdoptionRevision int64  `json:"adoptionRevision,omitempty"`
+	StatusLabel      CheckLabel `json:"statusLabel"`
+	ProjectID        ids.ID     `json:"projectId"`
+	ProjectSlug      string     `json:"projectSlug"`
+	SHA              string     `json:"sha,omitempty"`
+	AdoptionRevision int64      `json:"adoptionRevision,omitempty"`
 	// CandidateDigest is the candidate assessed, which adopting from the
 	// what-if must still match; empty when the project had none.
 	CandidateDigest string `json:"candidateDigest,omitempty"`

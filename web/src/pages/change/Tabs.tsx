@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -54,7 +55,7 @@ export function WorkTab({ view, reload, runId, focusStep, deciding, runHref }: {
           <span className="muted small">Runs:</span>
           {runs.map((r) => (
             <Link key={r.id} to={runHref(r.id!)} className={'ch-runchip' + (r.id === (detail?.run.id ?? view.detail?.run.id) ? ' on' : '')}>
-              run {r.number} · {r.workflowName}{r.role ? ` · ${r.role}` : ''} · {r.status}
+              run {r.number} · {r.workflowName}{r.role ? ` · ${r.role}` : ''} · {r.statusLabel}
             </Link>
           ))}
         </div>
@@ -78,11 +79,7 @@ function RunWork({ view, detail, reload, focusStep, deciding }: { view: ChangeVi
     <div>
       <div className="row">
         <h3 style={{ margin: 0 }}>{running ? 'Current run' : 'Run'}: {run.workflowName}</h3>
-        {running && isLatest && view.state === 'blocked'
-          ? <span className="chip fail">blocked</span>
-          : running && isLatest && view.state === 'waiting on you'
-            ? <span className="chip pending">waiting</span>
-            : <span className={`chip ${run.status === 'done' ? 'pass' : run.status}`}>{run.status === 'done' ? 'finished' : run.status}</span>}
+        <Status word={running && isLatest ? view.statusLabel : run.statusLabel} tone={STATUS_LIGHT[running && isLatest ? view.statusLabel : run.statusLabel]} />
         <span className="muted small">run {run.number} · v{run.workflowVersion} · started {fmtStamp(run.createdAt)}</span>
       </div>
       <div className="stagebar">
@@ -169,7 +166,7 @@ function AdrLinks({ view, onChange }: { view: ChangeView; onChange: () => void }
     <div>
       {view.adrs.map((a) => (
         <div className="card row" key={a.id}>
-          <span className={`chip ${a.status}`}>{a.status}</span>
+          <Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help={`Decision: ${a.status}.`} />
           <Link to={`/adrs/${a.id}`}>ADR-{String(a.number).padStart(3, '0')} {a.title}</Link>
           <span className="muted small">{a.tags}</span>
         </div>
@@ -254,7 +251,7 @@ export function ReleasesTab({ view }: { view: ChangeView }) {
         {releases.map((r) => (
           <div key={r.number} className="row" style={{ marginBottom: 4 }}>
             <Link to={`/projects/${view.projectSlug}/releases/${r.number}`}>Release #{r.number}</Link>
-            <span className="muted small">to {r.deployment} · {r.state}</span>
+            <span className="muted small">to {r.deployment} · {r.statusLabel}</span>
             {r.serving && <span className="chip pass">running now</span>}
             {!r.serving && r.observed && <span className="muted small" title={r.reason}>
               {r.observed === 'stopped' ? 'stopped' : r.observed === 'missing' ? 'its container is missing' : `running: ${r.observed}`}
@@ -290,7 +287,7 @@ export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runI
                   <td><Link className="tap-open" to={runHref(r.id!)} title={`started ${fmtStamp(r.createdAt)}`}>run {r.number}</Link></td>
                   <td className="stack-lead">{r.workflowName}</td>
                   <td className="muted">{r.role ?? ''}</td>
-                  <td><span className={`chip ${r.status === 'done' ? 'pass' : r.status}`}>{r.status === 'done' ? 'finished' : r.status}</span></td>
+                  <td><Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} /></td>
                   <td className="muted small">{fmtStamp(r.updatedAt)}</td>
                 </tr>
               ))}

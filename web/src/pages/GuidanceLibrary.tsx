@@ -34,7 +34,7 @@ function GeneratedGuidance() {
         <div key={g.name} className="card" style={{ borderStyle: 'dashed' }}>
           <div className="row">
             <strong>{g.name}</strong>
-            <span className="chip" title={g.always ? 'in every agent step' : 'only in some steps — the note says which'}>{g.always ? 'every step' : 'some steps'}</span>
+            <span className="chip" title={g.always ? 'in every agent step' : 'only in some steps · the note says which'}>{g.always ? 'every step' : 'some steps'}</span>
             <span className="muted small" title={sizeTitle(g.bytes)}>{fmtSize(g.bytes)}</span>
             <span className="muted small">from {g.source}</span>
             <span style={{ flex: 1 }} />

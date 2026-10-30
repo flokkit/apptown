@@ -22,8 +22,9 @@ const observationSweepTimeout = 10 * time.Second
 const observationStaleAfter = 45 * time.Second
 
 type observationEntry struct {
-	key   [32]byte
-	value RuntimeObservation
+	key          [32]byte
+	reachability [32]byte
+	value        RuntimeObservation
 }
 type observations struct {
 	readinessSweep sync.Mutex
@@ -43,16 +44,44 @@ func observationKey(r listingRecord) [32]byte {
 	}{r.deployment.Placement(), r.target, r.deployment.DesiredGeneration})
 	return sha256.Sum256(raw)
 }
+
+// reachabilityKey identifies the placed workload's provider connection. Unlike
+// the observation/permit key, it survives non-placement settings edits.
+func reachabilityKey(r listingRecord) [32]byte {
+
+	// Labels, capacity and check status do not move a workload. Only the
+	// provider connection and placed generation bind its runtime identity.
+	type targetIdentity struct {
+		ID, ConnectionID       ids.ID
+		Kind, Provider, Origin string
+		Address                map[string]any
+		Scope                  json.RawMessage
+	}
+	var target *targetIdentity
+	if t := r.target; t != nil {
+		target = &targetIdentity{t.ID, t.ConnectionID, t.Kind, t.Provider, t.Origin, t.Address, t.ProviderScope}
+	}
+	raw, _ := json.Marshal(struct {
+		Placement deploy.Placement
+		Target    *targetIdentity
+		Desired   int64
+	}{r.deployment.Placement(), target, r.deployment.DesiredGeneration})
+	return sha256.Sum256(raw)
+}
 func (o *observations) read(r listingRecord, now time.Time) RuntimeObservation {
 	o.mu.RLock()
 	entry, ok := o.entries[r.deployment.ID]
 	health := o.readiness[r.deployment.ID]
 	o.mu.RUnlock()
 	if !ok || entry.key != observationKey(r) {
-		return RuntimeObservation{Stale: true}
+		return RuntimeObservation{State: RuntimeUnknown, TargetName: runtimeTargetName(r), Stale: true}
 	}
 	v := entry.value
 	v.Stale = v.ObservedAt.IsZero() || now.Sub(v.ObservedAt) > observationStaleAfter || v.Err != nil
+	if v.Stale && v.State != RuntimeUnreachable {
+		v.State = RuntimeUnknown
+	}
+	v.TargetName = runtimeTargetName(r)
 	return overlayReadiness(v, r, health, now)
 }
 
@@ -137,13 +166,15 @@ func (s *Service) ObserveRuntime(ctx context.Context) error {
 		return err
 	}
 	keys := make(map[ids.ID][32]byte, len(current))
+	connections := make(map[ids.ID][32]byte, len(current))
 	for _, r := range current {
 		keys[r.deployment.ID] = observationKey(r)
+		connections[r.deployment.ID] = reachabilityKey(r)
 	}
 	s.observations.mu.Lock()
 	defer s.observations.mu.Unlock()
 	for id, entry := range s.observations.entries {
-		if key, ok := keys[id]; !ok || key != entry.key {
+		if connection, ok := connections[id]; !ok || connection != entry.reachability {
 			delete(s.observations.entries, id)
 		}
 	}
@@ -155,13 +186,17 @@ func (s *Service) ObserveRuntime(ctx context.Context) error {
 		v := values[i]
 		if v.Err != nil {
 			if old, ok := s.observations.entries[r.deployment.ID]; ok && old.key == key {
-				v.State, v.ObservedAt, v.URL, v.Rollout, v.Health = old.value.State, old.value.ObservedAt, old.value.URL, old.value.Rollout, old.value.Health
+				v.ObservedAt, v.URL, v.Rollout, v.Health = old.value.ObservedAt, old.value.URL, old.value.Rollout, old.value.Health
 				if v.AttemptedAt.IsZero() {
 					v.AttemptedAt = old.value.AttemptedAt
 				}
 			}
 		}
-		s.observations.entries[r.deployment.ID] = observationEntry{key: key, value: v}
+		connection := reachabilityKey(r)
+		if old, ok := s.observations.entries[r.deployment.ID]; ok && old.reachability == connection && v.Err != nil && !old.value.UnreachableSince.IsZero() {
+			v.UnreachableSince = old.value.UnreachableSince
+		}
+		s.observations.entries[r.deployment.ID] = observationEntry{key: key, reachability: connection, value: v}
 	}
 	return nil
 }
@@ -210,8 +245,15 @@ func (s *Service) observeRuntime(ctx context.Context, r listingRecord) RuntimeOb
 		return v
 	}
 	driver, err := s.providers.Driver(ctx, r.target, r.deployment)
+	if ctx.Err() != nil {
+		err = ctx.Err()
+	}
 	if err != nil {
 		v.Err = err
+		if deploy.IsUnreachable(err) {
+			v.State = RuntimeUnreachable
+			v.UnreachableSince = v.AttemptedAt
+		}
 		return v
 	}
 	observed, err := driver.Observe(ctx, r.deployment.Placement())
@@ -254,7 +296,7 @@ func (s *Service) observeFleet(ctx context.Context, g observationGroup, records 
 // whose replacement is in progress, is not asked, so a new workload never
 // inherits the old one's state.
 func (s *Service) observable(ctx context.Context, r listingRecord) (RuntimeObservation, bool) {
-	v := RuntimeObservation{}
+	v := RuntimeObservation{State: RuntimeUnknown}
 	if err := ctx.Err(); err != nil {
 		v.Err = err
 		return v, false
@@ -279,6 +321,10 @@ func (s *Service) observed(ctx context.Context, v RuntimeObservation, r listingR
 	}
 	if err != nil {
 		v.Err = err
+		if deploy.IsUnreachable(err) {
+			v.State = RuntimeUnreachable
+			v.UnreachableSince = v.AttemptedAt
+		}
 		return v
 	}
 	if observed.Generation != r.deployment.ObservedGeneration {
@@ -388,4 +434,11 @@ func (s *Service) runtimeProjects(ctx context.Context, cap access.Capability, re
 		out = append(out, RuntimeDeployment{ProjectID: e.ProjectID, Project: r.project, Name: e.Name, URL: reach.URL, HostOnly: reach.HostOnly, HostPort: e.HostPort, Observation: observed})
 	}
 	return out, ctx.Err()
+}
+
+func runtimeTargetName(r listingRecord) string {
+	if r.target == nil {
+		return ""
+	}
+	return r.target.DisplayLabel
 }

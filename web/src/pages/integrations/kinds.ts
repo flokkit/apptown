@@ -29,24 +29,9 @@ export function capabilityMeta(capability: string, catalogTitle?: string): { tit
 //   failing    AppTown checked it and it did not
 //   unchecked  AppTown has no check for this kind (checked is false), so
 //              the reading says nothing either way
-export type HealthState = 'working' | 'failing' | 'unchecked'
-
-export function healthState(h: IntegrationHealth): HealthState {
-  if (!h.checked) return 'unchecked'
-  return h.ok ? 'working' : 'failing'
-}
-
-export const HEALTH_WORDS: Record<HealthState, string> = {
-  working: 'Working',
-  failing: 'Not working',
-  unchecked: 'Not checked',
-}
-
-export const HEALTH_CHIP: Record<HealthState, string> = {
-  working: 'pass',
-  failing: 'fail',
-  unchecked: 'unknown',
-}
+export type HealthState = import('../../wire.gen').HealthStatus
+export function healthState(h: IntegrationHealth): HealthState { return h.stateLabel }
+export { STATUS_LIGHT as HEALTH_CHIP } from '../../Status'
 
 // What names an integration, counted for its row: "2 projects · 1
 // deployment", or '' when nothing names it directly.

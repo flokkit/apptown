@@ -1,6 +1,9 @@
 package conformance
 
-import "github.com/flokkit/apptown/internal/ids"
+import (
+	"encoding/json"
+	"github.com/flokkit/apptown/internal/ids"
+)
 
 // Verdict is one immutable evaluation record. It carries the full identity a
 // verdict is keyed by (§2): project, exact SHA, expectation version, check and
@@ -41,4 +44,17 @@ type CheckIdentity struct {
 
 func (v Verdict) Identity() CheckIdentity {
 	return CheckIdentity{v.ProjectID, v.Block, v.Version, v.Check}
+}
+
+// VerdictFields has the saved evidence fields without serialization methods.
+type VerdictFields Verdict
+
+// VerdictView adds presentation without changing immutable evidence identity.
+type VerdictView struct {
+	VerdictFields
+	StatusLabel CheckLabel `json:"statusLabel"`
+}
+
+func (v Verdict) MarshalJSON() ([]byte, error) {
+	return json.Marshal(VerdictView{VerdictFields(v), v.State.Label()})
 }

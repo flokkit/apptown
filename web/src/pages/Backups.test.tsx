@@ -49,7 +49,7 @@ describe('restoring a backup set', () => {
       // RB2-02: the known loss is on the set and in the question.
       expect(el.textContent).toContain('object metadata is not in the copy')
       await act(async () => { button('Restore over main').click() })
-      expect(el.textContent).toContain('Not in this set — s3: object metadata is not in the copy.')
+      expect(el.textContent).toContain('Not in this set · s3: object metadata is not in the copy.')
       await act(async () => { button('Restore').click() })
       await vi.waitFor(() => expect(el.textContent).toContain('shop/main: restore from the set taken 10-08 01:00 started.'))
       expect(asked).toEqual([JSON.stringify({ confirm: 'main' })])

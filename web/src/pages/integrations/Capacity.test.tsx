@@ -51,7 +51,7 @@ describe("a target's capacity", () => {
     const refused = render({ disk: { total: fig(100 * 2 ** 30), free: fig(2 ** 30), low: true, refuses: true, floor: 5 * 2 ** 30, path: '/var/lib/docker', readAt: '2026-10-13T01:58:00Z' } })
     expect(refused).toContain("disk (Docker&#x27;s data, /var/lib/docker)")
     expect(refused).toContain('new releases refused: under 5.00 GB free')
-    expect(refused).toMatch(/· read [^<]+ago/)
+    expect(refused).toMatch(/· read \d+ \w+, \d{2}:\d{2}/)
     const unread = render({ disk: { total: none('reading the disk: no space left on device'), free: none('reading the disk: no space left on device'), low: false, refuses: false, path: '/var/lib/docker' } })
     expect(unread).toContain('unknown <span class="muted">— reading the disk: no space left on device</span>')
     expect(unread).not.toContain('refused')

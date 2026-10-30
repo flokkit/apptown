@@ -13,7 +13,9 @@ package remediation
 // transient the queue backs off from on its own.
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/status"
 	"strings"
 
 	"github.com/flokkit/apptown/internal/ids"
@@ -52,12 +54,13 @@ const (
 
 // Remediation is one job.
 type Remediation struct {
-	ID       ids.ID `json:"id"`
-	Number   int64  `json:"number"`   // within AppTown, as people name it ("remediation 9")
-	Scope    string `json:"scope"`    // all | check | project | review
-	ScopeRef string `json:"scopeRef"` // the check key, project slug, or review id
-	Mode     string `json:"mode"`     // attended: every approval is a person's
-	Actor    string `json:"actor"`
+	StatusLabel status.DisplayStatus `json:"statusLabel"`
+	ID          ids.ID               `json:"id"`
+	Number      int64                `json:"number"`   // within AppTown, as people name it ("remediation 9")
+	Scope       string               `json:"scope"`    // all | check | project | review
+	ScopeRef    string               `json:"scopeRef"` // the check key, project slug, or review id
+	Mode        string               `json:"mode"`     // attended: every approval is a person's
+	Actor       string               `json:"actor"`
 	// ActorPrincipal is the starter's principal; zero when not resolved to a person.
 	ActorPrincipal ids.ID     `json:"actorPrincipal,omitzero"`
 	Status         string     `json:"status"`
@@ -75,17 +78,18 @@ type Remediation struct {
 
 // Item is one project's fix inside a job.
 type Item struct {
-	ID            ids.ID `json:"id"`
-	RemediationID ids.ID `json:"remediationId"`
-	ProjectID     ids.ID `json:"projectId"`
-	ProjectSlug   string `json:"projectSlug"`
-	CheckKey      string `json:"checkKey"`
-	Block         string `json:"block"`
-	Version       int    `json:"version"`
-	Check         string `json:"check"`
-	Rank          int    `json:"rank"`
-	State         string `json:"state"`
-	Reason        string `json:"reason,omitempty"`
+	StatusLabel   status.DisplayStatus `json:"statusLabel"`
+	ID            ids.ID               `json:"id"`
+	RemediationID ids.ID               `json:"remediationId"`
+	ProjectID     ids.ID               `json:"projectId"`
+	ProjectSlug   string               `json:"projectSlug"`
+	CheckKey      string               `json:"checkKey"`
+	Block         string               `json:"block"`
+	Version       int                  `json:"version"`
+	Check         string               `json:"check"`
+	Rank          int                  `json:"rank"`
+	State         string               `json:"state"`
+	Reason        string               `json:"reason,omitempty"`
 	// Frozen provenance (design §12.1): the exact finding this item fixes.
 	OriginVerdictID    ids.ID `json:"originVerdictId"`
 	OriginSHA          string `json:"originSha"`
@@ -203,4 +207,43 @@ type Occupancy struct {
 	Queued        int    `json:"queued"`
 	CooldownUntil string `json:"cooldownUntil,omitempty"`
 	CooldownWhy   string `json:"cooldownWhy,omitempty"`
+}
+
+func (m Remediation) MarshalJSON() ([]byte, error) {
+	type view Remediation
+	out := view(m)
+	out.StatusLabel = status.DisplayUnknown
+	switch m.Status {
+	case RemRunning:
+		out.StatusLabel = status.DisplayWorking
+	case RemPaused:
+		out.StatusLabel = status.DisplayWaiting
+	case RemCompleted:
+		out.StatusLabel = status.DisplayFinished
+	case RemCompletedWithStuck:
+		out.StatusLabel = status.DisplayFailed
+	case RemCancelled:
+		out.StatusLabel = status.DisplayStopped
+	}
+	return json.Marshal(out)
+}
+func (m Item) MarshalJSON() ([]byte, error) {
+	type view Item
+	out := view(m)
+	out.StatusLabel = status.DisplayUnknown
+	switch m.State {
+	case ItemQueued:
+		out.StatusLabel = status.DisplayWaiting
+	case ItemWorking, ItemLanding, ItemVerifying:
+		out.StatusLabel = status.DisplayWorking
+	case ItemAccepting:
+		out.StatusLabel = status.DisplayWaitingForYou
+	case ItemDone:
+		out.StatusLabel = status.DisplayFinished
+	case ItemStuck:
+		out.StatusLabel = status.DisplayFailed
+	case ItemSkipped:
+		out.StatusLabel = status.DisplayStopped
+	}
+	return json.Marshal(out)
 }

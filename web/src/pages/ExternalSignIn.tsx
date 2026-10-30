@@ -15,7 +15,7 @@ export function ExternalProviderSettings() {
   const stale = !!draft && draft.revision !== (q.data?.revision ?? 0)
   const edit = () => { setTested(false); setDraft({ revision: q.data?.revision ?? 0, issuer: q.data?.issuer ?? '', displayName: q.data?.displayName ?? '', clientId: q.data?.clientId ?? '', secretRef: q.data?.secretRef ?? '', allowSignup: q.data?.allowSignup ?? false, initialGroup: q.data?.initialGroup ?? '' }) }
   return <section className="card"><h2>External sign-in</h2>
-    <p>Keep a local-password administrator for recovery. External sessions last at most one hour. Disabling this provider ends its sessions; local passwords and CLI tokens remain independent.</p>
+    <details><summary>Sign-in limits</summary><p>Keep a local-password administrator for recovery. External sessions last at most one hour. Disabling this provider ends its sessions; local passwords and CLI tokens remain independent.</p></details>
     {err && <p className="error">{err}</p>}
     <ReadGate q={q} what="external sign-in settings">
       <p>{q.data ? `${q.data.displayName}: ${q.data.enabled ? 'enabled' : 'disabled'}` : 'No provider configured.'}</p>
@@ -46,7 +46,7 @@ export function MyExternalSignIn() {
   const [password, setPassword] = useState('')
   const { run, err } = useAction()
   return <section className="card"><h2>Link your external identity</h2>
-    <p>Linking requires a local-password session and your password, then recent authentication at the provider. It never matches by email.</p>
+    <details className="small"><summary>About linking accounts</summary><p>Linking requires a local-password session and your password, then recent authentication at the provider. It never matches by email.</p></details>
     <label>Local password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
     <button disabled={!password} onClick={() => { const input: ExternalStartRequest = { name: '', returnPath: '/account', password, link: true }; void run(async () => { const out = await post<ExternalRedirect>('/auth/external/start', input); setPassword(''); window.location.assign(out.url) }) }}>Link identity</button>
     {err && <p className="error">{err}</p>}

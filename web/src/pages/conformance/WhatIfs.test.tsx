@@ -12,7 +12,7 @@ import { WhatIfsList } from './WhatIfs'
 
 const ONE = '00000000-0007-7000-8000-000000000000'
 const TWO = '00000000-0006-7000-8000-000000000000'
-const project = (outcome: string, movesBack = 0) => ({ projectId: '', projectSlug: 'p', outcome, newFailures: [], notAssessed: [], notAssessedBy: [], moves: [], fixed: 0,
+const project = (outcome: string, movesBack = 0) => ({ projectId: '', projectSlug: 'p', statusLabel: 'unknown', outcome, newFailures: [], notAssessed: [], notAssessedBy: [], moves: [], fixed: 0,
   score: { checks: 0, judged: 0, passed: 0, failing: 0, couldNotAssess: 0, noLongerRequired: 0, newFailures: 0, fixed: 0, movesBack, ruleChanges: movesBack } })
 
 async function render(body: unknown) {
@@ -34,16 +34,16 @@ describe('the what-ifs list', () => {
 
   it('lists recent what-ifs with their answers and what moves back', async () => {
     const { el, done } = await render({ whatIfs: [
-      { id: ONE, pack: 'apptown', version: 35, requestedBy: 'bls', state: 'done', createdAt: '2026-10-21T00:00:00Z', projectsDone: 2, projectsTotal: 2, advanceWorkflows: true, movesBackProjects: 1,
+      { id: ONE, pack: 'apptown', version: 35, outcomeLabels: { 'new-failures': 'failed', 'could-not-assess': 'unknown', 'no-new-failures': 'passed', 'not-evaluated': 'unknown', 'not-yet-judged': 'unknown' }, requestedBy: 'bls', statusLabel: 'finished', state: 'done', createdAt: '2026-10-21T00:00:00Z', projectsDone: 2, projectsTotal: 2, advanceWorkflows: true, movesBackProjects: 1,
         projects: [project('new-failures', 2), project('could-not-assess')], rows: [], fleet: [] },
-      { id: TWO, pack: 'team', version: 2, requestedBy: 'jo', state: 'running', createdAt: '2026-10-20T00:00:00Z', projectsDone: 1, projectsTotal: 3, advanceWorkflows: false, movesBackProjects: 0,
+      { id: TWO, pack: 'team', version: 2, outcomeLabels: { 'new-failures': 'failed', 'could-not-assess': 'unknown', 'no-new-failures': 'passed', 'not-evaluated': 'unknown', 'not-yet-judged': 'unknown' }, requestedBy: 'jo', statusLabel: 'working', state: 'running', createdAt: '2026-10-20T00:00:00Z', projectsDone: 1, projectsTotal: 3, advanceWorkflows: false, movesBackProjects: 0,
         projects: [project('no-new-failures'), project('not-yet-judged'), project('not-yet-judged')], rows: [], fleet: [] },
     ] })
     const rows = [...el.querySelectorAll('tbody tr')].map((r) => r.textContent)
     expect(rows[0]).toContain('apptown v35and other workflows to newest')
-    expect(rows[0]).toContain('1 new failures1 could not assess1 move rules back')
-    expect(rows[1]).toContain('running · 1 of 3')
-    expect(rows[1]).toContain('1 no new failures2 not yet judged')
+    expect(rows[0]).toContain('1 ● failednew failures1 ● unknowncould not assess1 move rules back')
+    expect(rows[1]).toContain('working')
+    expect(rows[1]).toContain('1 ● passedno new failures2 ● unknownnot yet judged')
     expect(el.querySelector(`a[href="/conformance/what-ifs/${ONE}"]`)).not.toBeNull()
     done()
   })

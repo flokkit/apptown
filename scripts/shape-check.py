@@ -81,7 +81,7 @@ ALLOWED = {
     # Facades.
     "changeconsole":    {"console", "conversation", "integration", "preview", "project", "repositoryedit", "scm",
                          "usage", "workflow"},
-    "remediation":      {"adoption", "conformance", "project", "workflow"},
+    "remediation":      {"adoption", "conformance", "project", "status", "workflow"},
     "projectlifecycle": {"adoption", "agentenv", "adrs", "conformance", "console", "conversation", "dataprotection", "deployment", "integration",
                          "maintenance", "model", "project", "scm", "secret", "usage", "workflow", "wow"},
     "modelcall":        set(),
@@ -97,7 +97,7 @@ ALLOWED = {
                          "remediation", "repositoryedit", "scm", "verification", "workflow"},
     "inference":        {"console", "conversation", "integration", "modelcall", "secret", "usage", "workflow"},
     "changeadds":       {"adoption", "scm", "secret", "workflow"},
-    "evals":            {"adoption", "complaint", "conformance", "project", "projectlifecycle", "scm", "usage",
+    "evals":            {"adoption", "complaint", "conformance", "project", "projectlifecycle", "scm", "status", "usage",
                          "verification", "workflow", "wow"},
     "instancebackup":   {"dataprotection", "deployment", "secret", "version"},
 }

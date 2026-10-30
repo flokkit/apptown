@@ -49,7 +49,7 @@ export default function Login({ needsBootstrap, onSignedIn, external }: {
         <div style={{ fontSize: 'var(--fs-lg)' }}>⚒ <b>{PRODUCT}</b></div>
         {needsBootstrap ? (
           <div className="muted small">
-            No accounts exist yet. Create the first one — it will be the
+            No accounts exist yet. Create the first one · it will be the
             administrator. It needs the setup token in the file
             {' '}<code>setup-token</code> in {PRODUCT}'s data directory on its
             host ({PRODUCT}'s log says where; the desktop trial's ready link fills it in).

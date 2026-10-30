@@ -1,6 +1,11 @@
 package deploy
 
-import "errors"
+import (
+	"context"
+	"errors"
+	"net"
+	"net/url"
+)
 
 // terminalError marks confirmed rejection by a deployment provider.
 type terminalError struct{ error }
@@ -26,4 +31,36 @@ func Refused(err error) bool {
 	}
 	var r interface{ Refused() bool }
 	return errors.As(err, &r) && r.Refused()
+}
+
+// Unreachable marks a provider connection failure. Rejections and invalid
+// configuration are not connectivity failures. Wrapping preserves the cause.
+func Unreachable(err error) error {
+	if err == nil {
+		return nil
+	}
+	return unreachableError{err}
+}
+
+type unreachableError struct{ error }
+
+func (e unreachableError) Unwrap() error { return e.error }
+func IsUnreachable(err error) bool       { var e unreachableError; return errors.As(err, &e) }
+
+// ConnectionError classifies typed transport failures at a provider adapter.
+// A cancellation, HTTP rejection or invalid response does not prove unreachability.
+func ConnectionError(err error) error {
+	if err == nil || (errors.Is(err, context.Canceled)) {
+		return err
+	}
+	cause := err
+	var request *url.Error
+	if errors.As(err, &request) {
+		cause = request.Err
+	}
+	var network net.Error
+	if errors.As(cause, &network) && network != context.DeadlineExceeded {
+		return Unreachable(err)
+	}
+	return err
 }

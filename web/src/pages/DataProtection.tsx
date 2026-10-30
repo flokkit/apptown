@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -38,9 +39,6 @@ export function stateWords(op: Operation): string {
   if (op.verification === 'not-verified') return 'done; nothing has checked the copy comes back'
   return 'done'
 }
-
-export const operationTone = (op: Operation) =>
-  op.state === 'succeeded' ? (op.verification === 'not-verified' ? 'pending' : 'pass') : live(op) ? 'running' : 'fail'
 
 // writesStopped says a live take-down has deleted the app: nothing writes.
 export const writesStopped = (op: Operation) => live(op) && op.result.writesStopped === true
@@ -85,7 +83,7 @@ export function copyLine(it: ItemProtection): string {
     case 'stale': return `${PRODUCT} copies: ${[it.copyNote, last].filter(Boolean).join('; ')}`
     case 'unknown': return `${PRODUCT} copies: ${[it.copyNote, last].filter(Boolean).join('; ')}`
     case 'disposable': return 'disposable: starts empty'
-    default: return `no copy${it.copyNote ? ` — ${it.copyNote}` : ''}`
+    default: return `no copy${it.copyNote ? ` · ${it.copyNote}` : ''}`
   }
 }
 
@@ -95,7 +93,7 @@ export function nativeLine(it: ItemProtection): string {
   const n = it.native
   if (!n) return ''
   const who = n.mechanism === 'do-database-backups' ? 'DigitalOcean backups' : n.mechanism
-  if (n.unknown) return `${who}: unknown — ${n.unknown}`
+  if (n.unknown) return `${who}: unknown · ${n.unknown}`
   if (n.count === 0) return `${who}: none yet`
   return `${who}: oldest ${fmtWhen(n.oldest ?? '')}, newest ${fmtWhen(n.newest ?? '')}`
 }
@@ -164,7 +162,7 @@ export function CoverageLines({ c, unknown }: { c: Coverage; unknown?: boolean }
   return (
     <div style={{ overflowWrap: 'anywhere' }}>
       <div className="muted">covers: {c.assessed.length ? c.assessed.join(', ') : unknown ? 'nothing assessed' : `no data ${PRODUCT} knows of`}</div>
-      {c.notAssessed.map((n) => <div key={n}><span className="chip pending">not assessed</span> {n}</div>)}
+      {c.notAssessed.map((n) => <div key={n}><Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} /> {n}</div>)}
     </div>
   )
 }
@@ -202,7 +200,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
   const shown = (ops ? [ops.copy, ops.check, ...(p.rehearsalNote !== 'never rehearsed: no rehearsal place' ? [ops.rehearsal] : []), ...(p.dataClass === 'production' ? [ops.restore] : [])] : []).filter(applies)
   const whyNot = Array.from(new Set(shown.filter((o) => !o.available && o.why).map((o) => o.why!)))
   const runnerMissing = shown.some((o) => o.reason === 'no-copy-runner')
-  if (p.unknown) return <div className="small"><span className="chip pending" title={p.unknown}>unknown</span> couldn't read what this deployment holds<CoverageLines c={p.coverage} unknown /></div>
+  if (p.unknown) return <div className="small"><Status word={"unknown"} tone={STATUS_LIGHT["unknown"]} help={p.unknown} /> couldn't read what this deployment holds<CoverageLines c={p.coverage} unknown /></div>
   // A deployment that holds no data AppTown knows of says only what is
   // not assessed; one whose take-down would still act on data, or with an
   // operation or copy standing, shows the whole card.
@@ -221,7 +219,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
         <div key={`${it.need}:${it.volume ?? ''}`}>
           <span className="muted">{itemLabel(it, p.items)}</span> <b>{it.where}</b>
           <div style={{ marginLeft: 12 }}>
-            <div><span className={`chip ${old ? 'pending' : it.copy === 'fresh' ? 'pass' : it.copy === 'none' || it.copy === 'stale' ? 'fail' : 'pending'}`}>{it.copy}{asRead}</span> {copyLine(it)}</div>
+            <div><Status word={old ? 'unknown' : it.copyLabel} tone={STATUS_LIGHT[old ? 'unknown' : it.copyLabel]} help={old ? `Last answer shown${asRead}.` : undefined} /> {copyLine(it)}</div>
             {nativeLine(it) && <div className="muted">{nativeLine(it)}</div>}
             {(!ops || applies(ops.check)) && <div className={it.drill && !it.drill.passed ? 'error' : 'muted'}>{drillLine(it)}</div>}
           </div>
@@ -235,7 +233,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
       {p.restoredCopies.filter((c) => !c.endedAt).map((c) => <RestoredCopyLines key={c.id} slug={slug} source={name} copy={c} asRead={asRead} />)}
       {p.running && (
         <div style={{ marginTop: 4 }}>
-          <span className="chip running">{p.running.state}{asRead}</span> <Link to={`/operations/${p.running.id}`}>{currentStep(p.running)}</Link>
+          <Status word={old ? 'unknown' : p.running.statusLabel} tone={STATUS_LIGHT[old ? 'unknown' : p.running.statusLabel]} help={stateWords(p.running) + asRead} /> <Link to={`/operations/${p.running.id}`}>{currentStep(p.running)}</Link>
           {writesStopped(p.running) && <span className="chip fail" style={{ marginLeft: 6 }}>writes stopped{asRead}</span>}
         </div>
       )}
@@ -308,8 +306,8 @@ export function OperationPage() {
       <div className="muted small">operation {op.number}{op.subject ? ` · ${op.subject}` : ''}</div>
       <h1 style={{ marginBottom: 4 }}>{kindWords[op.kind] ?? op.kind} of {deploymentOf(op)}</h1>
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-        <span className={`chip ${old ? 'pending' : operationTone(op)}`}>{stateWords(op)}{asRead}</span>
-        <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` — running for ${elapsed(op.startedAt)}`}</span>
+        <Status word={old ? 'unknown' : op.statusLabel} tone={STATUS_LIGHT[old ? 'unknown' : op.statusLabel]} help={stateWords(op) + asRead} />
+        <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` · running for ${elapsed(op.startedAt)}`}</span>
         {writesStopped(op) && <span className="chip fail">writes stopped{asRead}</span>}
       </div>
       {op.detail && <p style={{ marginTop: 10 }}>{op.detail}</p>}
@@ -321,7 +319,7 @@ export function OperationPage() {
               <td>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</td>
               <td className="muted" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(st.started)}</td>
               <td className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</td>
-              <td>{!st.ended ? <span className="chip running">{old ? 'last read' : 'now'}</span> : st.unknown ? <span className="chip pending">not known</span> : st.failed ? <span className="chip fail">failed</span> : <span className="chip pass">done</span>}</td>
+              <td>{!st.ended ? <span className="chip running">{old ? 'last read' : 'now'}</span> : st.unknown ? <span className="chip pending">not known</span> : st.failed ? <Status word={"failed"} tone={STATUS_LIGHT["failed"]} /> : <span className="chip pass">done</span>}</td>
             </tr>
           ))}
           {op.steps.length === 0 && <tr><td colSpan={4} className="muted">no step has started yet</td></tr>}

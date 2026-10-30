@@ -23,7 +23,7 @@ func runRecord(row workflowsql.Run, err error) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Run{ID: row.ID, Number: row.Number, ProjectID: row.ProjectID, WorkflowName: row.WorkflowName,
+	return &Run{StatusLabel: state.Display(), ID: row.ID, Number: row.Number, ProjectID: row.ProjectID, WorkflowName: row.WorkflowName,
 		WorkflowVersion: int(row.WorkflowVersion), Kind: row.Kind, Status: state,
 		CurrentStage: row.CurrentStage, DefinitionJSON: string(row.DefinitionJson),
 		ChangeID: row.ChangeID, ParentRunID: row.ParentRunID, ParentStepID: row.ParentStepID,

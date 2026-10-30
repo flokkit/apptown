@@ -7,7 +7,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/operations"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -620,6 +622,28 @@ func apiDescription() (map[string]any, error) {
 		return nil, err
 	}
 	schemas.Map(workflow.OptionalRunState{}, map[string]any{"anyOf": []any{runState, map[string]any{"const": ""}}})
+
+	// Display schemas retain the fields encoded by each owner.
+	if ref, err := schemas.Named("Item", apiAttentionItem{}); err != nil {
+		return nil, err
+	} else {
+		schemas.Map(attention.Item{}, ref)
+	}
+	if ref, err := schemas.Named("Step", apiStep{}); err != nil {
+		return nil, err
+	} else {
+		schemas.Map(workflow.Step{}, ref)
+	}
+	if ref, err := schemas.Named("Operation", apiOperation{}); err != nil {
+		return nil, err
+	} else {
+		schemas.Map(operations.Operation{}, ref)
+	}
+	if ref, err := schemas.Named("Backup", apiBackup{}); err != nil {
+		return nil, err
+	} else {
+		schemas.Map(dataprotection.Backup{}, ref)
+	}
 	// These are request-only nested inputs, explicitly described apart from
 	// response records so optional request fields cannot weaken response schemas.
 	for _, n := range requestOnlyDescriptions {
@@ -1047,3 +1071,11 @@ func TestRequestDescriptionStillRefusesUndescribedResponseReferences(t *testing.
 		t.Fatalf("undescribed response reference accepted: %v", err)
 	}
 }
+
+type apiAttentionItem attention.Item
+
+type apiStep workflow.Step
+
+type apiOperation operations.Operation
+
+type apiBackup dataprotection.Backup

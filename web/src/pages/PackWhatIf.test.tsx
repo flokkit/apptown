@@ -131,11 +131,11 @@ describe('what-if panel', () => {
   // The newest what-if is its counts by answer and a link to its page; one
   // waiting for the queue holds the start.
   it('shows the newest what-if as counts and holds the start while it waits', async () => {
-    const whatIf = { id: WHAT_IF, pack: 'team', version: 2, requestedBy: 'bls', state: 'queued', projectsTotal: 0, projectsDone: 0, createdAt: '2026-10-05T00:00:00Z', finishedAt: '', rows: [],
-      projects: [{ projectId: LEDGER, projectSlug: 'ledger', outcome: 'not-evaluated', newFailures: [], notAssessed: [], fixed: 0 }] }
+    const whatIf = { id: WHAT_IF, pack: 'team', version: 2, outcomeLabels: { 'new-failures': 'failed', 'could-not-assess': 'unknown', 'no-new-failures': 'passed', 'not-evaluated': 'unknown', 'not-yet-judged': 'unknown' }, requestedBy: 'bls', statusLabel: 'waiting', state: 'queued', projectsTotal: 0, projectsDone: 0, createdAt: '2026-10-05T00:00:00Z', finishedAt: '', rows: [],
+      projects: [{ projectId: LEDGER, projectSlug: 'ledger', statusLabel: 'unknown', outcome: 'not-evaluated', newFailures: [], notAssessed: [], fixed: 0 }] }
     const { el, done } = await render(() => json({ whatIf, eligible: ['ledger'] }))
     expect(el.textContent).toContain('queued')
-    expect(el.textContent).toContain('1 not evaluated')
+    expect(el.textContent).toContain('1 ● unknownnot evaluated')
     expect(el.querySelector('a')?.getAttribute('href')).toBe(`/conformance/what-ifs/${WHAT_IF}`)
     expect(button(el, 'Run on').disabled).toBe(true)
     done()

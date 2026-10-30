@@ -47,7 +47,7 @@ describe('connector form', () => {
 
 // Readings AppTown took five minutes ago, by its own clock.
 const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString()
-const checked = (ok: boolean, detail: string): IntegrationHealth => ({ ok, detail, checked: true, checkedAt: fiveMinutesAgo })
+const checked = (ok: boolean, detail: string): IntegrationHealth => ({ stateLabel: ok ? 'passed' : 'failed', ok, detail, checked: true, checkedAt: fiveMinutesAgo })
 const binding = (name: string, capability: string, provider: string, health: IntegrationHealth, extra: Partial<IntegrationEntry> = {}): IntegrationEntry => ({
   id: `00000000-${String(name.length).padStart(4, '0')}-7000-8000-000000000000`, name, displayLabel: name, capability, provider, config: {}, version: 1, updatedAt: '2026-10-01T00:00:00Z', managed: false, configHash: 'abc123def456', usedBy: { projects: [], deployments: [] }, health, testable: false, ...extra,
 })
@@ -56,7 +56,7 @@ const scanner = binding('django-check', 'scanner', 'tool', checked(false, 'no im
   config: { description: 'Django deploy checks', image: '' },
   usedBy: { projects: [{ slug: 'shop', name: 'Shop', capability: 'scanner' }, { slug: 'blog', name: 'Blog', capability: 'scanner' }], deployments: [{ project: 'shop', name: 'prod', target: 'lan-host' }] },
 })
-const sso = binding('authentik', 'sso', 'service', { ok: false, detail: '', checked: false }, { config: { url: 'https://auth.example' } })
+const sso = binding('authentik', 'sso', 'service', { ok: false, detail: '', checked: false, stateLabel: 'unknown' }, { config: { url: 'https://auth.example' } })
 // Checked, with nothing to add: working, whatever the detail says.
 const quiet = binding('cache', 'registry', 'npm', checked(true, ''))
 const spec = (capability: string, provider: string, title: string, extra: Partial<ConnectorEntry> = {}): ConnectorEntry => ({
@@ -119,21 +119,21 @@ describe('the integrations list', () => {
     expect(groups[1]).toContain('Scanners')
     const row = (name: string) => [...page.el.querySelectorAll('tr.int-row')].find((r) => r.textContent!.includes(name))!
     expect(row('gitlab').querySelector('.chip')!.className).toContain('pass')
-    expect(row('gitlab').textContent).toContain('Working')
+    expect(row('gitlab').textContent).toContain('passed')
     expect(row('django-check').querySelector('.chip')!.className).toContain('fail')
     expect(row('django-check').textContent).toContain('Django deploy checks')
     expect(row('authentik').querySelector('.chip')!.className).toContain('unknown')
-    expect(row('authentik').textContent).toContain('Not checked')
-    expect(row('authentik').textContent).not.toContain('Working')
+    expect(row('authentik').textContent).toContain('unknown')
+    expect(row('authentik').textContent).not.toContain('passed')
     expect(row('authentik').textContent).toContain('no check')
-    expect(row('cache').textContent).toContain('Working')
+    expect(row('cache').textContent).toContain('passed')
     expect(row('gitlab').textContent).toContain('5m ago')
     // What names each one, counted; nothing named reads as a dash, not zero.
     expect(row('django-check').querySelector('.int-usedby')!.textContent).toBe('2 projects · 1 deployment')
     expect(row('gitlab').querySelector('.int-usedby')!.textContent).toBe('—')
     // A kind the catalogue offers with nothing connected can be connected from its place.
-    expect(row('Error reporting (GlitchTip)').textContent).toContain('Not connected')
-    expect(page.text()).toContain('4 connected · 1 not working · 1 with no live check')
+    expect(row('Error reporting (GlitchTip)').textContent).toContain('none')
+    expect(page.text()).toContain('4 connected · 1 failed · 1 unknown')
     page.done()
   })
 
@@ -170,13 +170,13 @@ describe('the integrations list', () => {
     })
     const client = newQueryClient()
     const page = await mount('/integrations', client)
-    await vi.waitFor(() => expect(page.text()).toContain('Working'))
+    await vi.waitFor(() => expect(page.text()).toContain('passed'))
     fail = true
     await act(async () => { await client.invalidateQueries({ queryKey: getKey('/integrations') }) })
-    await vi.waitFor(() => expect(page.text()).toContain('Working at last check'))
-    expect(page.el.querySelector('tr.int-row .chip')!.className).toContain('stale')
-    expect(page.text()).toContain('out of date')
-    expect(page.el.querySelector('.out-of-date')?.getAttribute('aria-label')).toContain('(AppTown unreachable)')
+    await vi.waitFor(() => expect(page.text()).toContain('unknown'))
+    expect(page.el.querySelector('tr.int-row .chip')!.className).toContain('unknown')
+    expect(page.text()).toContain('unknown')
+    expect(page.el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(AppTown unreachable)')
     page.done()
   })
 
@@ -224,7 +224,7 @@ describe('one integration', () => {
     page.done()
     const other = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(other.text()).toContain('Used by'))
-    expect(other.text()).toContain('No project attaches it')
+    expect(other.text()).toContain('0 projects · 0 deployments')
     other.done()
   })
 
@@ -232,7 +232,7 @@ describe('one integration', () => {
   // checked on every reading, but Test connection asks them; a kind with
   // neither says it cannot be checked.
   it('says an unchecked kind that Test connection asks can be asked', async () => {
-    const llm = binding('openrouter', 'llm', 'openrouter', { ok: false, detail: '', checked: false }, { testable: true })
+    const llm = binding('openrouter', 'llm', 'openrouter', { ok: false, detail: '', checked: false, stateLabel: 'unknown' }, { testable: true })
     stubAppTown({ 'GET /integrations': json({ integrations: [llm, sso] }), 'GET /integrations/catalog': json({ catalog }) })
     const page = await mount('/integrations/openrouter')
     await vi.waitFor(() => expect(page.text()).toContain('Test connection asks it now'))
@@ -251,7 +251,7 @@ describe('one integration', () => {
     const page = await mount('/integrations/django-check')
     await vi.waitFor(() => expect(page.button('Test connection')).toBeDefined())
     await act(async () => { page.button('Test connection')!.click() })
-    await vi.waitFor(() => expect(page.text()).toContain('Test passed'))
+    await vi.waitFor(() => expect(page.text()).toContain('passed'))
     expect(page.text()).toContain('image pulled')
     expect(calls.find((c) => c.method === 'POST')!.body).toEqual({ capability: 'scanner', provider: 'tool', config: scanner.config })
     page.done()

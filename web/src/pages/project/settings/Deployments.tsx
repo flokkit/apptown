@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../../Status'
 import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
 import { DisplayLabelEdit } from '../../../DisplayLabel'
@@ -10,7 +11,7 @@ import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet, useRefresh } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
 import { fmtBytes, fmtWhen } from '../../../format'
-import { AUDIENCES, DATA_CLASSES, OfferedTarget, Retained, capsWords, placeOf, placeWords, readinessChip } from '../../../targets'
+import { AUDIENCES, DATA_CLASSES, OfferedTarget, Retained, capsWords, placeOf, placeWords } from '../../../targets'
 import { ProtectionLines } from '../../DataProtection'
 import { DiagnosticsLines } from './Diagnostics'
 import type { AIModelsKey, DeploymentAIModels, DeploymentProtection, DeploymentResources, OverrideResult, ProjectSecrets, DeploymentView, DeploymentChecked, DeploymentRemoved, FinalCopies, OperationAdmitted, ProjectTargets, ReleaseRequested, RetainedList } from '../../../wire.gen'
@@ -41,11 +42,11 @@ export function DeploymentsTab({ slug }: { slug: string }) {
     <div>
       <StaleNote q={[envsQ, offeredQ, retainedQ]} />
       <h2 style={{ marginTop: 0 }}>Deployments</h2>
-      <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
+      <details className="small" style={{ marginBottom: 16 }}><summary>About deployments</summary><p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
         Where this app runs. <b>main</b> is fed by every landing. Any other standing deployment is fed by
         promotion: it ships the latest thing that landed when someone deploys it. Each runs on a
         deployment target offered to this project.
-      </p>
+      </p></details>
       <ReleaseDefaultPicker slug={slug} deployments={envs} />
       <div className="conn-grid">
         {envs.map((e) => <EnvCard key={e.name} slug={slug} env={e} onChanged={load} />)}
@@ -57,10 +58,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
         <div style={{ marginTop: 22 }}>
           <h3 style={{ marginBottom: 4 }}>Left behind</h3>
           <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-            What a taken-down deployment left at its target: data {PRODUCT} took no final copy of (Portainer
-            volumes; an App Platform database when no backup store is attached), and anything {PRODUCT} failed
-            to delete, with why. Delete it at the provider, then say so here. Until then, data left here keeps a new
-            deployment from taking the old one's name on that target.
+            Data without a final copy and resources that could not be deleted. Delete them at the provider, then confirm here to free the deployment name.
           </p>
           <table style={{ fontVariantNumeric: 'tabular-nums' }}>
             <thead><tr><th>What</th><th>From</th><th>Torn down</th><th>Status</th><th></th></tr></thead>
@@ -112,15 +110,15 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         <div>
           <div style={{ fontWeight: 700 }}>
             {e.displayLabel || e.name}
-            {e.protected && <span className="chip overridden" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data — deploys need the release grant">protected</span>}
+            {e.protected && <span className="chip overridden" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
           </div>
           <DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} />
  <div className="muted small">{place}{e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}</div>
         </div>
         <span className="row" style={{ gap: 6 }}>
           <RuntimeStatus observation={e} />
-          {e.readiness && e.readiness !== 'reconciled' && <span className={`chip ${readinessChip(e.readiness)}`}>{e.readiness}</span>}
-          {e.restoreCheck && <span className={`chip ${e.restoreCheck === 'gone' ? 'fail' : 'running'}`} title={restoreCheckWords(e.restoreCheck)}>{restoreCheckChip(e.restoreCheck)}</span>}
+          {e.readiness && e.readiness !== 'reconciled' && <Status word={e.readinessLabel} tone={STATUS_LIGHT[e.readinessLabel]} help={`Deployment: ${e.readiness}.`} />}
+          {e.restoreCheck && <Status word={e.restoreLabel} tone={STATUS_LIGHT[e.restoreLabel]} help={restoreCheckWords(e.restoreCheck)} />}
         </span>
       </div>
       <div className="small">
@@ -137,7 +135,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
             <span key={n.need} title={n.id ? `the provider's id: ${n.id}` : undefined} style={{ marginRight: 8 }}>
               {n.need} <b>{n.name}</b>
               <span className="muted"> {[n.region, n.version && (n.need === 'postgres' ? `pg ${n.version}` : n.version), n.size].filter(Boolean).join(' · ')}</span>
-              {n.status !== 'ready' && <span className={`chip ${n.status === 'failed' ? 'fail' : 'running'}`} style={{ marginLeft: 4 }}>{n.status}</span>}
+              {n.status !== 'ready' && <Status word={n.statusLabel} tone={STATUS_LIGHT[n.statusLabel]} help={`Service: ${n.status}.`} />}
             </span>
           ))}
           <Link className="small" to="/deployments/infrastructure">see the infrastructure</Link>
@@ -187,7 +185,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
       {checked && (
         <div className="small" style={{ marginTop: 4 }}>
           {checked.checked.map((c) => (
-            <div key={c.attempt}>attempt {c.attempt}: {c.outcome}{c.reason ? ` — ${c.reason}` : ''}</div>
+            <div key={c.attempt}>attempt {c.attempt}: {c.outcome}{c.reason ? ` · ${c.reason}` : ''}</div>
           ))}
         </div>
       )}
@@ -222,7 +220,7 @@ function AddDeployment({ slug, offered, existing, onAdded }: { slug: string; off
   const picked = choices.find((t) => t.name === target) ?? choices[0]
   useEffect(() => { if (!target && choices[0]) setTarget(choices[0].name) }, [choices, target])
   const add = async () => {
-    if (!name.trim()) { setErr('give it a name — lower-case letters, digits and dashes'); return }
+    if (!name.trim()) { setErr('give it a name · lower-case letters, digits and dashes'); return }
     if (existing.includes(name.trim())) { setErr(`there is already a deployment called ${name.trim()}`); return }
     const from = picked?.kind === 'do-app' ? startFrom : ''
     const r = await run(() => post(`/projects/${slug}/deployments`, { name: name.trim(), target: picked?.name, feed: 'promotion', audience, data, ...(from ? { startFrom: from } : {}) }))
@@ -251,7 +249,7 @@ function AddDeployment({ slug, offered, existing, onAdded }: { slug: string; off
           {picked?.offer && (
             <div className="muted small" style={{ marginTop: 4 }}>
               offered {picked.offer.implicit ? 'to everyone (built in)' : `to ${picked.offer.group === '*' ? 'everyone' : picked.offer.group}`}
-              {capsWords(picked.offer.caps) ? ` — ${capsWords(picked.offer.caps)}` : ''}
+              {capsWords(picked.offer.caps) ? ` · ${capsWords(picked.offer.caps)}` : ''}
               {picked.bound > 0 ? ` · ${picked.bound} of this project's deployments already here` : ''}
               {picked.capabilities.needs?.length ? ` · provides ${picked.capabilities.needs.join(', ')}` : ''}
             </div>
@@ -319,7 +317,7 @@ export function RetainedRow({ slug, r, onChanged }: { slug: string; r: Retained;
       <td>
         {r.disposition === 'retained'
           ? <span className="chip pending">still at the provider</span>
-          : <span className="chip">{r.disposition === 'released' ? 'deleted at the provider' : 'kept on purpose'}{r.settledBy ? ` — ${r.settledBy}` : ''}{r.note ? `: ${r.note}` : ''}</span>}
+          : <span className="chip">{r.disposition === 'released' ? 'deleted at the provider' : 'kept on purpose'}{r.settledBy ? ` · ${r.settledBy}` : ''}{r.note ? `: ${r.note}` : ''}</span>}
       </td>
       <td>
         {r.disposition === 'retained' && (
@@ -356,7 +354,7 @@ const periodWords: Record<string, string> = { daily: 'today', weekly: 'this week
 // $12 in all may still have $4 of its $5 this month.
 export function allowanceWords(k: AIModelsKey): string {
   const a = k.allowance
-  if (!a) return `allowance unknown${k.unknown ? ` — ${k.unknown}` : ''}`
+  if (!a) return `allowance unknown${k.unknown ? ` · ${k.unknown}` : ''}`
   const now = a.reset ? periodWords[a.reset] ?? `this ${a.reset} period` : ''
   const left = a.remaining == null ? 'no limit'
     : `${dollars(a.remaining)}${a.limit == null ? '' : ` of ${dollars(a.limit)}`} left${now ? ` ${now}` : ', never renewed'}`
@@ -372,7 +370,7 @@ function AIModelsLine({ slug, name }: { slug: string; name: string }) {
     <div className="small">
       <span className="muted">AI models</span>{' '}
       {q.loading ? <span className="muted">reading the allowance…</span>
-        : !q.data ? <span className="error">allowance unknown — {q.err || 'no answer'}</span>
+        : !q.data ? <span className="error">allowance unknown · {q.err || 'no answer'}</span>
         : q.data.keys.map((k) => (
           <span key={k.name} title={`OpenRouter key ${k.name}`} style={{ marginRight: 8 }}>
             {k.allowance ? allowanceWords(k) : <span className="muted">{allowanceWords(k)}</span>}
@@ -404,7 +402,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
   const [said, setSaid] = useState('')
   if (q.denied) return null
   if (q.loading) return <div className="muted small">reading its resources…</div>
-  if (!q.data) return <div className="error small">resources unknown — {q.err || 'no answer'}</div>
+  if (!q.data) return <div className="error small">resources unknown · {q.err || 'no answer'}</div>
   const r = q.data
   const parts = r.parts.filter((p) => p.part && !p.suppliedService)
   const picked = parts.find((p) => p.part === part)?.part || parts[0]?.part
@@ -449,7 +447,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
               <td>{p.observed.known ? fmtBytes(p.observed.usedBytes) : <span className="muted" title={p.observed.reason}>unknown</span>}</td>
               <td>
                 {p.override && (
-                  <span className={`chip ${p.overrideApplied ? 'overridden' : 'pending'}`} title={`${p.override.reason} — ${p.override.setBy}, ${p.override.setAt}`}>
+                  <span><Status word={p.overrideLabel} tone={STATUS_LIGHT[p.overrideLabel]} help={`${p.override.reason} · ${p.override.setBy}, ${p.override.setAt}`} />{' '}
                     override {p.override.memoryUnlimited ? "no memory limit " : ""}{p.override.resources.memoryBytes ? fmtBytes(p.override.resources.memoryBytes) : ''}{p.override.resources.cpus ? ` ${p.override.resources.cpus} cpu` : ''}
                     {p.overrideApplied ? '' : ' · not applied yet'}
                   </span>
@@ -538,10 +536,6 @@ export function ShareLine({ share }: { share?: DeploymentResources['share'] }) {
 
 // What holds a deployment after AppTown was restored, as a chip and as a
 // sentence.
-function restoreCheckChip(check: string): string {
-  return check === 'unconfirmed' ? 'not yet confirmed since restore' : check === 'gone' ? 'gone since restore' : check === 'not-filled' ? 'not started since restore' : 'waiting for its data'
-}
-
 function restoreCheckWords(check: string): string {
   switch (check) {
     case 'unconfirmed':

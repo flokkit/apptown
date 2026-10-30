@@ -12,5 +12,5 @@ export function OriginChip({ origin, modified }: { origin?: string; modified?: b
       </span>
     )
   }
-  return <span className="chip pass" title="Yours — written here, editable">yours</span>
+  return <span className="chip pass" title="Written here. Editable.">yours</span>
 }

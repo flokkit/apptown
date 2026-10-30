@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../../Status'
 import { PRODUCT } from '../../../brand'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
@@ -83,7 +84,7 @@ export function DiagnosticsLines({ slug, name }: { slug: string; name: string })
           : failing.length === 0
             ? <span className="chip pass">{d.parts.length === 1 ? 'running' : `all ${d.parts.length} parts running`}</span>
             : failing.map((p) => (
-              <span key={p.part} className={`chip ${p.presence === 'unknown' ? 'pending' : 'fail'}`} title={p.reason || undefined}>
+              <span key={p.part} className={`chip ${p.presence === 'unknown' ? 'unknown' : 'fail'}`} title={p.reason || undefined}>
                 {partName(p)}: {trouble(p)}
               </span>
             ))}
@@ -142,7 +143,7 @@ function DiagnosticsDetail({ d, busy, onLog }: { d: Diag; busy: boolean; onLog: 
                         : p.generation !== d.generation && <div><span className="chip">generation {p.generation}</span></div>}
                     </td>
                     <td>
-                      {p.presence === 'unknown' ? <span className="chip pending">unknown</span> : p.presence}
+                      {p.presence === 'unknown' ? <Status word={"unknown"} tone={STATUS_LIGHT["unknown"]} /> : p.presence}
                       {!old && f?.exitCode != null ? ` · exit ${f.exitCode}` : ''}
                       {!old && f?.oomKilled ? <span className="chip fail" style={{ marginLeft: 4 }}>out of memory</span> : null}
                       {!old && f && <span className="muted"> · {f.running ? `started ${at(f.startedAt)}` : `finished ${at(f.finishedAt)}`}</span>}

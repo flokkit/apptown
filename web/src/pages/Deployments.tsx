@@ -1,9 +1,10 @@
+import { Status, STATUS_LIGHT } from '../Status'
 import { useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { NotAvailable, useInstancePages } from '../instancePages'
-import { AppAddress } from '../runtime'
+import { AppAddress, RuntimeStatus } from '../runtime'
 import { fmtWhen } from '../format'
 import { InfrastructureView } from './Infrastructure'
 import { BackupsView } from './Backups'
@@ -25,8 +26,6 @@ import { PageHead } from '../PageHead'
 type Row = { slug: string; name: string; icon?: string; cells: Record<string, TierApp[]> }
 type Show = 'all' | 'running' | 'stopped' | 'nowhere'
 
-const stateChipCls = (s: string) =>
-  s === 'released' ? 'pass' : s === 'failed' ? 'fail' : s === 'live' || s === 'releasing' ? 'running' : ''
 const host = (u: string) => u.replace(/^https?:\/\//, '').replace(/\/$/, '')
 
 export default function Deployments() {
@@ -76,7 +75,7 @@ function DeparturesBoard() {
               {d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.label}</a> : d.label}
             </td>
             <td className="muted small" data-label="by">{d.who || '—'}</td>
-            <td className="stack-end"><span className={`chip ${stateChipCls(d.state)}`}>{d.state}</span></td>
+            <td className="stack-end"><Status word={d.state} tone={STATUS_LIGHT[d.state]} /></td>
           </tr>
         ))}
         {moves.length === 0 && <tr><td colSpan={6} className="muted small">{unlisted ? 'No releases yet.' : 'No movement yet.'}</td></tr>}
@@ -111,7 +110,7 @@ function FleetTable() {
     r.cells[t.name] = [...(r.cells[t.name] ?? []), a]
   }
   const runningIn = (r: Row) => Object.values(r.cells).flat().some((a) => a.running)
-  const stoppedIn = (r: Row) => Object.values(r.cells).flat().some((a) => !a.running && !a.observed)
+  const stoppedIn = (r: Row) => Object.values(r.cells).flat().some((a) => a.observation === 'stopped')
   const anywhere = (r: Row) => Object.values(r.cells).flat().length > 0
 
   const q = filter.trim().toLowerCase()
@@ -132,9 +131,10 @@ function FleetTable() {
     if (t.name === 'preview') {
       return (
         <span className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
-          {apps.map((a, i) => a.changeId
-            ? <Link key={i} to={`/changes/${a.changeId}`} title={a.detail}><span className="chip running">{a.changeNumber ? `preview · change ${a.changeNumber}` : 'preview'}</span></Link>
-            : <span key={i} className="chip running" title={a.detail}>preview</span>)}
+          {apps.map((a, i) => <span key={i} className="row" style={{ gap: 4 }}>
+            <RuntimeStatus observation={a} />
+            {a.changeId ? <Link to={`/changes/${a.changeId}`}>{a.changeNumber ? `preview · change ${a.changeNumber}` : 'preview'}</Link> : <span>preview</span>}
+          </span>)}
         </span>
       )
     }
@@ -143,13 +143,13 @@ function FleetTable() {
         {apps.map((a, i) => (
           <span key={a.deploymentId ?? i} className="row" style={{ gap: 6 }}>
             {a.deploymentLabel && <span className="small">{a.deploymentLabel}</span>}
-            <span className={`chip ${a.running ? 'pass' : a.observed ? 'unknown' : ''}`} title={a.running ? 'running' : a.observed ?? 'stopped'}>{a.running ? '●' : a.observed ? '?' : '○'}</span>
+            <RuntimeStatus observation={a} />
             {a.url
               ? <AppAddress url={a.url} hostOnly={a.hostOnly} className="small" title={a.url}>
                   {a.hostOnly ? null : a.static && a.running ? 'Open app' : host(a.url)}
                 </AppAddress>
-              : <span className="small muted">{a.running ? 'running' : a.observed ?? 'stopped'}</span>}
-            {a.detail && <span className="muted small">{a.detail}</span>}
+              : null}
+            {a.detail && <details className="small"><summary>Details</summary>{a.detail}</details>}
           </span>
         ))}
       </span>
@@ -202,7 +202,7 @@ function FleetTable() {
               </tr>
             ))}
             {shown.length === 0 && (
-              <tr><td colSpan={1 + tiers.length} className="muted small">{q ? 'Nothing matches.' : tiers.some((t) => t.observed) ? 'No apps observed.' : 'No apps yet.'}</td></tr>
+              <tr><td colSpan={1 + tiers.length} className="muted small">{q ? 'Nothing matches.' : tiers.some((t) => t.observed) ? 'No apps running.' : 'No apps yet.'}</td></tr>
             )}
           </tbody>
         </table>

@@ -16,7 +16,7 @@ import (
 // verdict it carries or synthesizes, and its state — an outcome word, or
 // "stale" / "not-scanned" when nothing current was assessed.
 type conformanceObservationWire struct {
-	conformance.Verdict
+	conformance.VerdictView
 	State string `json:"state"`
 }
 
@@ -25,8 +25,10 @@ func init() {
 	registerWireMapped(instanceupdate.Candidate{}, "InstanceUpdateCandidate")
 	registerWireMapped(instanceupdate.Evidence{}, "InstanceUpdateEvidence")
 	registerWireMapped(instanceupdate.Artifact{}, "InstanceUpdateArtifact")
+	registerWireMapped(conformance.Verdict{}, "Verdict")
 	registerWireMapped(conformance.Observation{}, "ConformanceObservation")
 	registerWire(
+		wiregen.Named{Name: "Verdict", Value: conformance.VerdictView{}},
 		wiregen.Named{Name: "InstanceUpdateStatus", Value: instanceupdate.Status{}},
 		wiregen.Named{Name: "InstanceUpdateCandidate", Value: instanceupdate.Candidate{}},
 		wiregen.Named{Name: "InstanceUpdateEvidence", Value: instanceupdate.Evidence{}},

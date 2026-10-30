@@ -85,7 +85,7 @@ func (h Connectors) TestIntegration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		WriteJSON(w, 200, h.health.Test(r.Context(), in.Capability, in.Provider, in.Config))
+		WriteJSON(w, 200, h.health.Test(r.Context(), in.Capability, in.Provider, in.Config).ForDisplay())
 	})
 }
 
@@ -172,7 +172,7 @@ func (h Connectors) SaveIntegration(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		h.deployment.SeedCloudTargets(r.Context(), Actor(r)) // a new cloud account offers its target; a changed one refreshes it
-		WriteJSON(w, 200, IntegrationSaved{OK: true, Health: h.health.Test(r.Context(), in.Capability, in.Provider, in.Config)})
+		WriteJSON(w, 200, IntegrationSaved{OK: true, Health: h.health.Test(r.Context(), in.Capability, in.Provider, in.Config).ForDisplay()})
 	})
 }
 

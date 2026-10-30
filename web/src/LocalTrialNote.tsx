@@ -15,9 +15,7 @@ export function LocalTrialNote({ hostname = window.location.hostname }: { hostna
   if (!onThisComputer(hostname)) return null
   return (
     <div className="small muted">
-      For trying {PRODUCT} on your own computer: it has full control of your Docker, and the
-      agents and apps it runs are containers on this machine. For a server or anything other
-      people use, follow <a href={RUNNING_GUIDE}>Running {PRODUCT}</a>.
+      {PRODUCT} controls this computer's Docker. Agents and apps run here. For shared use, follow <a href={RUNNING_GUIDE}>Running {PRODUCT}</a>.
     </div>
   )
 }

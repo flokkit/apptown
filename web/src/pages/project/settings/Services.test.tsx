@@ -66,7 +66,7 @@ it('a failed refresh of the services offers no form to save', async () => {
     : new Response(JSON.stringify({ error: 'not allowed' }), { status: 403 })))
   const f = mountServices(client)
   try {
-    await vi.waitFor(() => expect(f.el.textContent).toContain("The project's services could not be read: not allowed"))
+    await vi.waitFor(() => expect(f.el.textContent).toContain("not allowed"))
     expect(f.button('Save as a change')).toBeUndefined()
   } finally {
     f.unmount()

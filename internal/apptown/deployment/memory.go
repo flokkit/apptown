@@ -229,7 +229,8 @@ type DeploymentResources struct {
 
 // PartResource is one part's or need's applied limits, override and use.
 type PartResource struct {
-	Size string `json:"size,omitempty"`
+	OverrideLabel ProgressLabel `json:"overrideLabel"`
+	Size          string        `json:"size,omitempty"`
 	// SuppliedService is resized through the workflow declaration, not overrides.
 	SuppliedService bool                 `json:"suppliedService,omitempty"`
 	MemoryDefault   *MemoryDefaultSource `json:"memoryDefault,omitempty"`
@@ -295,7 +296,7 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 		if !ok {
 			p = applied.Services[n]
 		}
-		pr := PartResource{SuppliedService: supplied, MemoryDefault: p.MemoryDefault, MemoryUnlimited: p.MemoryUnlimited, Part: n, Public: p.Public, Need: p.Need, Memory: p.Resources.MemoryWords(), CPU: p.Resources.CPUWords(), RunsOn: p.RunsOn}
+		pr := PartResource{OverrideLabel: ProgressLabelUnknown, SuppliedService: supplied, MemoryDefault: p.MemoryDefault, MemoryUnlimited: p.MemoryUnlimited, Part: n, Public: p.Public, Need: p.Need, Memory: p.Resources.MemoryWords(), CPU: p.Resources.CPUWords(), RunsOn: p.RunsOn}
 		if p.Size != nil {
 			pr.Size = p.Size.Name
 		}
@@ -311,6 +312,7 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 		if o, ok := overrides[n]; ok {
 			pr.Override = &o
 			pr.OverrideApplied = applied.Recorded() && p.Override == o.Resources && p.MemoryUnlimited == o.MemoryUnlimited
+			pr.OverrideLabel = OverrideDisplay(pr.OverrideApplied)
 		}
 		if m, ok := use[n]; ok {
 			pr.Observed = m
@@ -320,7 +322,7 @@ func (s *Service) Resources(ctx context.Context, projectID ids.ID, name string) 
 		out.Parts = append(out.Parts, pr)
 	}
 	if len(out.Parts) == 0 && len(observed) == 1 {
-		out.Parts = append(out.Parts, PartResource{Memory: "not recorded", CPU: "not recorded", Public: true, Observed: observed[0]})
+		out.Parts = append(out.Parts, PartResource{OverrideLabel: ProgressLabelUnknown, Memory: "not recorded", CPU: "not recorded", Public: true, Observed: observed[0]})
 	}
 	out.Share = s.share(ctx, dep, out.Parts, applied)
 	out.LimitsKnown, out.LimitsSource = s.LimitEventsSource(ctx, dep)

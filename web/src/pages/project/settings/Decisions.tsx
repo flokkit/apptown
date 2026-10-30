@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../../Status'
 import { FormEvent, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Adr, post } from '../../../api'
@@ -26,14 +27,14 @@ export function AdrsTab({ slug }: { slug: string }) {
             <tr key={a.id}>
               <td>ADR-{String(a.number).padStart(3, '0')}</td>
               <td><Link to={`/adrs/${a.id}`}>{a.title}</Link></td>
-              <td><span className={`chip ${a.status}`}>{a.status}</span></td>
+              <td><Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help={`Decision: ${a.status}.`} /></td>
               <td className="muted">{a.tags}</td>
             </tr>
           ))}
         </tbody>
       </table>
       )}</ReadGate>
-      <p className="muted small" style={{ maxWidth: 640 }}>Decisions this project has made and why (architecture decision records). Agents read them before they build.</p>
+      <p className="muted small" style={{ maxWidth: 640 }}>Agents read these decisions before building.</p>
       <h2>New decision</h2>
       <form onSubmit={create} className="row">
         <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: 320 }} />

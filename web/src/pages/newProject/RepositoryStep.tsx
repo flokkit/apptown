@@ -45,7 +45,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
             : <>The code lives in a git repository in {PRODUCT}.{' '}
               {namespacesQ.err
                 ? <span className="error">Whether a GitLab copy can be made could not be checked ({namespacesQ.reason}); you can add one later in the project's settings.</span>
-                : <>No GitLab connection is set up here, so there is no copy to make; one can be added later.</>}</>}
+                : <>No GitLab connection. Add one later to copy the repository.</>}</>}
         </div>
       ) : <>
       <div className="muted small mb-3">
@@ -53,7 +53,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
       </div>
       <label className="row" style={{ gap: 'var(--space-2)', cursor: 'pointer', padding: '4px 0' }}>
         <input type="radio" name="remote" checked={remote} onChange={() => setRepo({ remoteChoice: true })} />
-        <span><strong>Yes, create a GitLab copy</strong> <span className="muted small">(recommended — backed up and shareable)</span></span>
+        <span><strong>Yes, create a GitLab copy</strong> <span className="muted small">(recommended · backed up and shareable)</span></span>
       </label>
       {remote && (
         <div className="row" style={{ margin: '4px 0 4px 24px' }}>
@@ -79,7 +79,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
       )}
       <label className="row" style={{ gap: 'var(--space-2)', cursor: 'pointer', padding: '4px 0' }}>
         <input type="radio" name="remote" checked={!remote} onChange={() => setRepo({ remoteChoice: false })} />
-        <span>No — keep it only in {PRODUCT} <span className="muted small">(you can add GitLab later)</span></span>
+        <span>No · keep it only in {PRODUCT} <span className="muted small">(you can add GitLab later)</span></span>
       </label>
       </>}
 

@@ -65,3 +65,11 @@ func TestTargetStateZeroValueIsInvalidEverywhere(t *testing.T) {
 		t.Fatalf("json round trip: %s %v", back.Status, err)
 	}
 }
+
+func TestTargetCheckLabelsAreSeparateFromAppRuntime(t *testing.T) {
+	for state, want := range map[TargetState]TargetLabel{TargetReady: TargetCheckPassed, TargetUnreachable: TargetCheckFailed, TargetRetired: TargetCheckStopped, 0: TargetCheckUnknown} {
+		if got := state.Display(); got != want {
+			t.Errorf("%s: %s, want %s", state, got, want)
+		}
+	}
+}

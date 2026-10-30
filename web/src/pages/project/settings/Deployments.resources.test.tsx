@@ -20,7 +20,7 @@ const render = (res: Partial<DeploymentResources>, choice?: Partial<ProjectSecre
 
 describe("a deployment's resources", () => {
   it('shows App Platform declarations with the size they run on, never as no limit', () => {
-    const html = render({ parts: [{ part: 'web', public: true, memory: '768M declared', cpu: 'not declared', runsOn: 'apps-s-1vcpu-1gb-fixed (1G, 1 CPU)', overrideApplied: false, observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'its target does not report memory use to AppTown' } }] })
+    const html = render({ parts: [{ part: 'web', public: true, memory: '768M declared', cpu: 'not declared', runsOn: 'apps-s-1vcpu-1gb-fixed (1G, 1 CPU)', overrideApplied: false, overrideLabel: 'unknown', observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'its target does not report memory use to AppTown' } }] })
     expect(html).toContain('768M declared')
     expect(html).toContain('apps-s-1vcpu-1gb-fixed (1G, 1 CPU)')
     expect(html).not.toContain('no limit')
@@ -28,7 +28,7 @@ describe("a deployment's resources", () => {
     expect(html).not.toMatch(/>0 ?B</)
   })
   it('says no limit where a Docker host part declares nothing, and what it uses', () => {
-    const html = render({ parts: [{ part: 'worker', public: false, memory: 'no limit', cpu: 'no limit', overrideApplied: false, observed: { part: 'worker', usedBytes: 200 * 1024 * 1024, limitBytes: 0, known: true } }] })
+    const html = render({ parts: [{ part: 'worker', public: false, memory: 'no limit', cpu: 'no limit', overrideApplied: false, overrideLabel: 'unknown', observed: { part: 'worker', usedBytes: 200 * 1024 * 1024, limitBytes: 0, known: true } }] })
     expect(html).toContain('no limit')
     expect(html).toContain('200')
   })
@@ -41,7 +41,7 @@ describe("a deployment's resources", () => {
     expect(render({ recorded: false, profile: '' })).toContain('not recorded')
   })
   it("shows a need's service as a row of its own", () => {
-    const html = render({ parts: [{ part: 'postgres', public: false, need: true, size: 'small', memory: '256M', cpu: 'no limit', overrideApplied: false, observed: { part: 'postgres', need: true, usedBytes: 31 * 1024 * 1024, limitBytes: 256 * 1024 * 1024, known: true } }] })
+    const html = render({ parts: [{ part: 'postgres', public: false, need: true, size: 'small', memory: '256M', cpu: 'no limit', overrideApplied: false, overrideLabel: 'unknown', observed: { part: 'postgres', need: true, usedBytes: 31 * 1024 * 1024, limitBytes: 256 * 1024 * 1024, known: true } }] })
     expect(html).toContain('postgres')
     expect(html).toContain('(service)')
     expect(html).toContain('size small')
@@ -76,8 +76,8 @@ describe("a deployment's resources", () => {
   })
   it('shows the recorded default source and explicit unlimited act separately', () => {
     const html = render({ parts: [
-      { part: 'web', public: true, memory: '512Mi', cpu: 'no limit', memoryDefault: { kind: 'apptown' }, overrideApplied: false, observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } },
-      { part: 'worker', public: false, memory: 'no limit', cpu: 'no limit', memoryUnlimited: true, overrideApplied: true, override: { part: 'worker', resources: {}, memoryUnlimited: true, reason: 'measured allowance', setBy: 'alice', setAt: '2026-10-14T00:00:00Z' }, observed: { part: 'worker', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } },
+      { part: 'web', public: true, memory: '512Mi', cpu: 'no limit', memoryDefault: { kind: 'apptown' }, overrideApplied: false, overrideLabel: 'unknown', observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } },
+      { part: 'worker', public: false, memory: 'no limit', cpu: 'no limit', memoryUnlimited: true, overrideApplied: true, overrideLabel: 'excepted', override: { part: 'worker', resources: {}, memoryUnlimited: true, reason: 'measured allowance', setBy: 'alice', setAt: '2026-10-14T00:00:00Z' }, observed: { part: 'worker', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } },
     ] })
     expect(html).toContain('AppTown default')
     expect(html).toContain('default')
@@ -91,6 +91,6 @@ describe("a deployment's resources", () => {
 
 // AP-C01: the stored kind stays forge; the UI names its source AppTown.
 it('names the product that supplied the memory default', () => {
-  const html = render({ parts: [{ part: 'web', public: true, memory: '160M', cpu: 'no limit', memoryDefault: { kind: 'forge' }, overrideApplied: false, observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } }] })
+  const html = render({ parts: [{ part: 'web', public: true, memory: '160M', cpu: 'no limit', memoryDefault: { kind: 'forge' }, overrideApplied: false, overrideLabel: 'unknown', observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } }] })
   expect(html).toContain('AppTown default')
 })

@@ -87,7 +87,7 @@ it('a draft in the settings form survives a failed refresh of the project', asyn
     })
     down = true
     await act(async () => { await client.refetchQueries({ queryKey: getKey('/projects/a') }).catch(() => {}) })
-    await vi.waitFor(() => expect(el.textContent).toContain('out of date'))
+    await vi.waitFor(() => expect(el.textContent).toContain('unknown'))
     expect(nameInput()?.value).toBe('Alpha renamed')
   } finally {
     act(() => root.unmount())

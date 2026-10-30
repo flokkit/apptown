@@ -1,3 +1,4 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { runtimeDescription } from '../../runtime'
 import { useEffect, useState } from 'react'
@@ -85,12 +86,12 @@ export function BigChangeBox({ slug }: { slug: string }) {
       <div className="row" style={{ gap: 14, alignItems: 'stretch', flexWrap: 'wrap' }}>
         {best && (
           <SplitButton icon="▶" label="Open" green
-            sub={(best.displayLabel || best.name) + ' — ' + best.url.replace(/^https?:\/\//, '')}
+            sub={(best.displayLabel || best.name) + ' · ' + best.url.replace(/^https?:\/\//, '')}
             onMain={() => window.open(best.url, '_blank')}
             items={[
               ...envs.map((e) => ({
-                label: (e.displayLabel || e.name) + (e.url ? ' — ' + e.url.replace(/^https?:\/\//, '') : ''),
-                hint: !e.url ? 'no address yet — nothing has been released here' : runtimeDescription(e),
+                label: (e.displayLabel || e.name) + (e.url ? ' · ' + e.url.replace(/^https?:\/\//, '') : ''),
+                hint: !e.url ? 'no address yet · nothing has been released here' : runtimeDescription(e),
                 onClick: () => { if (e.url) window.open(e.url, '_blank'); else nav('/deployments') },
               })),
               { label: 'All deployments', onClick: () => nav('/deployments') },
@@ -98,7 +99,7 @@ export function BigChangeBox({ slug }: { slug: string }) {
         )}
         {buildFirst && (
           <SplitButton icon="🔨" label="Build the first version" green
-            sub={blurb ? `"${blurb.slice(0, 60)}${blurb.length > 60 ? '…' : ''}"` : 'no app here yet — start it in a building chat'}
+            sub={blurb ? `"${blurb.slice(0, 60)}${blurb.length > 60 ? '…' : ''}"` : 'no app here yet · start it in a building chat'}
             busy={busy} onMain={buildV0} items={[]} />
         )}
         <SplitButton icon="💬" label="Change" sub="describe what you want changed"
@@ -183,7 +184,7 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
                   ask={`Pull the latest ${e.fromPack} pack?`}
                   prepare={() => pullPlan(e.fromPack!)}
                   onYes={() => pull(e.fromPack!)} />
-              </> : " — not part of this project's pack; an amender can install it from the workflow library."}
+              </> : " · not part of this project's pack; an amender can install it from the workflow library."}
             </div>
           </div>
         ) : (
@@ -270,11 +271,7 @@ export function OverviewTab({ slug }: { slug: string }) {
       {(data.active.length > 0 || (data.open ?? []).length > 0) && <h2>Happening now</h2>}
       {(data.open ?? []).map((c) => (
         <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row" style={{ display: 'flex' }}>
-          {c.state === 'landing'
-            ? <span className="chip pending">landing</span>
-            : c.editing > 0
-              ? <span className="chip running">being edited</span>
-              : <span className="chip">open — waiting on someone</span>}
+          <Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} />
           <strong><span className="muted" style={{ fontWeight: 400 }}>#{c.changeNumber} </span>{c.title}</strong>
           <span className="muted small">
             {c.editing > 0 ? `${c.editing} file${c.editing === 1 ? '' : 's'} in progress` : 'no run in progress'}

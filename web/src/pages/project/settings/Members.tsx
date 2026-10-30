@@ -45,7 +45,7 @@ export function MembersTab({ slug }: { slug: string }) {
           onChange={e => act(() => put(`/projects/${slug}/approval-policy`, { requireIndependentApproval: e.target.checked }))} />
         {' '}Require another person to approve the author's change
       </label>
-      <div className="muted small">Applies to this project. Instance administrators are exempt from author and approver-list restrictions. The required number of votes still applies.</div>
+      <div className="muted small">Administrators may approve their own changes and need not be on the approver list. Each counts as one vote.</div>
       <b>Members</b>
       <div className="muted small">
         A <b>contributor</b> opens changes and
@@ -58,7 +58,7 @@ export function MembersTab({ slug }: { slug: string }) {
       {open && (
         <div className="small">
           <span className="chip">open to everyone</span>{' '}
-          <span className="muted">Everyone signed in holds the group roles listed below. Remove a group role explicitly to change that access.</span>
+          <span className="muted">Group roles apply to everyone signed in. Remove a role to withdraw that access.</span>
         </div>
       )}
       <div style={{ display: 'grid', gap: 6 }}>

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/strs"
 	"github.com/flokkit/apptown/internal/trust"
@@ -86,6 +87,9 @@ func (c CLI) Run(ctx context.Context, host string, req Command) ([]byte, error) 
 			return nil, errors.New("bounded Docker observation cannot stream data")
 		}
 		out := (execution.Runner{}).Run(ctx, execution.Local, execution.Request{Argv: append([]string{binary}, args...), Timeout: req.Timeout, Env: append([]string{builderEnv + "=", "BUILDX_CONFIG="}, req.Env...)})
+		if out.Termination == execution.TimedOut && ctx.Err() == nil {
+			return out.Output, deploy.Unreachable(out.RunErr)
+		}
 		return out.Output, out.RunErr
 	}
 	cmd := exec.CommandContext(ctx, binary, args...)

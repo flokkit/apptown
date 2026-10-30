@@ -1,8 +1,9 @@
+import { Status, STATUS_LIGHT } from '../../Status'
 // The pieces every Conformance view shares: the generated types it reads,
 // the words and colours for standings, states and lanes, and the small
 // chips, bars and banners the views are built from.
 
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { post } from '../../api'
 import { useAction } from '../../data'
@@ -26,17 +27,17 @@ export const STANDING: Record<string, { tone: string; style?: CSSProperties }> =
   conforms: { tone: 'pass' },
   'nothing-adopted': { tone: 'draft' },
 }
-export const STATE: Record<string, { label: string; tone: string; style?: CSSProperties; rank: number }> = {
-  'does-not-conform': { label: 'does not conform', tone: 'fail', rank: 0 },
-  error: { label: 'error', tone: 'error', rank: 1 },
-  excepted: { label: 'excepted', tone: 'overridden', rank: 3 },
-  stale: { label: 'stale', tone: 'pending', rank: 2 },
-  'cannot-assess': { label: 'cannot assess', tone: '', rank: 2 },
-  'not-scanned': { label: 'not scanned', tone: '', rank: 2 },
-  'not-applicable': { label: 'not applicable', tone: 'draft', rank: 4 },
-  conforms: { label: 'conforms', tone: 'pass', rank: 5 },
+export const STATE: Record<string, { tone: string; style?: CSSProperties; rank: number }> = {
+  'does-not-conform': { tone: 'fail', rank: 0 },
+  error: { tone: 'error', rank: 1 },
+  excepted: { tone: 'overridden', rank: 3 },
+  stale: { tone: 'pending', rank: 2 },
+  'cannot-assess': { tone: '', rank: 2 },
+  'not-scanned': { tone: '', rank: 2 },
+  'not-applicable': { tone: 'draft', rank: 4 },
+  conforms: { tone: 'pass', rank: 5 },
 }
-export const stateOf = (s: string) => STATE[s] ?? { label: s, tone: '', rank: 9 }
+export const stateOf = (s: string) => STATE[s] ?? { tone: '', rank: 9 }
 export const EVAL: Record<string, string> = { sh: 'shell check', llm: 'AI rubric', tool: 'scanner', runtime: 'runtime probe' }
 export const SEV: Record<string, string> = { high: 'var(--bad)', medium: 'var(--warn)', low: 'var(--muted)', note: 'var(--note)' }
 export const LANE_COLOR: Record<string, string> = {
@@ -81,14 +82,13 @@ export const code: CSSProperties = { fontSize: 'var(--fs-xs)', whiteSpace: 'pre-
 
 // --- small parts ---------------------------------------------------------------------------
 
-export function StandingChip({ s, children }: { s: string; children?: ReactNode }) {
-  const st = STANDING[s] ?? { tone: '' }
-  return <span className={`chip ${st.tone}`} style={st.style}>{children}</span>
+export function StandingChip({ label, help }: { label: import('../../wire.gen').CheckLabel; help: string }) {
+  return <Status word={label} tone={STATUS_LIGHT[label]} help={help} />
 }
-export function StateChip({ s }: { s: string }) {
-  const st = stateOf(s)
-  return <span className={`chip ${st.tone}`} style={st.style}>{st.label}</span>
+export function StateChip({ label, help }: { label: import('../../wire.gen').CheckLabel; help?: string }) {
+  return <Status word={label} tone={STATUS_LIGHT[label]} help={help} />
 }
+
 export function SevDot({ sev }: { sev: string }) {
   return <span title={`severity ${sev}`} style={{ width: 8, height: 8, borderRadius: 999, background: SEV[sev] ?? 'var(--muted)', flex: '0 0 auto', display: 'inline-block' }} />
 }
@@ -133,7 +133,7 @@ export function LensBanner({ view }: { view: ConformanceView }) {
           )}
           {!d && r.status === 'done' && <div className="muted small" style={{ marginTop: 3 }}>No earlier review to compare with.</div>}
           {r.status === 'queued' && <div className="muted small" style={{ marginTop: 3 }}>Queued.</div>}
-          {r.status === 'running' && <div className="muted small" style={{ marginTop: 3 }}>Still running — {reviewProgressWords(r.status, r.projectsDone, r.projectsTotal || 0)}.</div>}
+          {r.status === 'running' && <div className="muted small" style={{ marginTop: 3 }}>Still running · {reviewProgressWords(r.status, r.projectsDone, r.projectsTotal || 0)}.</div>}
         </div>
         <Link to="/conformance" className="subtle small">Back to current →</Link>
       </div>
@@ -156,7 +156,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
           <span className="muted small">
             {reviewProgressWords(r.status, r.projectsDone, r.projectsTotal || r.projects || 0)} · {d.verdicts.length} checks
             {running && r.currentProject && <> · now <span className="mono">{r.currentProject}</span></>}
-            {open > 0 && <> · <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{open} to look at</span></>}
+            {open > 0 && <> · <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{open} findings</span></>}
           </span>
         </div>
         {!running && <Link to={`/conformance/reviews/${r.id}`} className="subtle small">open this review →</Link>}
@@ -169,7 +169,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
               <span style={{ fontWeight: 600 }}>{v.projectSlug}</span>
               <span className="mono muted" style={{ fontSize: 'var(--fs-xs)' }}> · {v.block}/{v.check}</span>
             </span>
-            <StateChip s={v.state} />
+            <StateChip label={v.statusLabel} help={v.detail} />
           </div>
         ))}
       </div>
@@ -204,7 +204,7 @@ export function ReviewProgress({ d }: { d: LiveReview }) {
           <span className="muted">{reviewProgressWords(r.status, r.projectsDone, total)}{r.currentProject ? <> · <span className="mono">{r.currentProject}</span></> : null}</span>
         </span>
         <span className="muted">
-          {open > 0 ? <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{open} to look at</span> : `${d.verdicts.length} checks`}
+          {open > 0 ? <span style={{ color: 'var(--bad)', fontWeight: 600 }}>{open} findings</span> : `${d.verdicts.length} checks`}
           {' · '}<Link to={`/conformance/reviews/${r.id}`} className="subtle">watch</Link>
         </span>
       </div>
@@ -226,7 +226,7 @@ export function HowJudged({ def }: { def?: CheckDefinition }) {
       </div>
       {how && <pre className="mono" style={{ ...code, maxHeight: 160 }}>{how}</pre>}
       {def.files && def.files.length > 0 && <div className="muted small">judged on: <span className="mono">{def.files.join(', ')}</span></div>}
-      {def.evaluator === 'llm' && def.scope === 'diff' && <div className="muted small">A transition check: it judges what one change did, so it only runs when a change lands.</div>}
+      {def.evaluator === 'llm' && def.scope === 'diff' && <div className="muted small">Runs when a change lands.</div>}
       <div className="muted small">adopted by {def.adopters.length} project{def.adopters.length === 1 ? '' : 's'}: {def.adopters.join(', ')}</div>
     </div>
   )
