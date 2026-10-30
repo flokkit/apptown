@@ -54,8 +54,11 @@ func TestAnHourOfDiskReadingsStartsOneContainerPerHost(t *testing.T) {
 //
 // Kills: a reader made again for every reading, or one left beside its
 // replacement.
+//
+// Not parallel: a replaced reader is kept while any read in the process
+// uses one of its name (containerresult.RunStanding), and the other tests
+// here read the same image's reader.
 func TestTheStandingReaderIsMadeAgainOnlyWhenGone(t *testing.T) {
-	t.Parallel()
 	d := readerDaemon()
 	if err := read(t, d, "busybox@sha256:1"); err != nil {
 		t.Fatal(err)

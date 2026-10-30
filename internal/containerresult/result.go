@@ -91,6 +91,10 @@ const removalBound = time.Minute
 // would have said is unknown.
 var ErrNoResult = errors.New("the command left no answer")
 
+// ErrNoContainer is a RunIn whose container the daemon does not have: it
+// was removed, or is not yet made, when the script was to run in it.
+var ErrNoContainer = errors.New("no such container")
+
 // ExitError is a command that exited non-zero. Said is what the container
 // printed, clipped, for an error's text only: it is never an answer.
 type ExitError struct {
@@ -216,7 +220,8 @@ func run(ctx context.Context, dk Docker, s Spec, owned bool) (answer []byte, err
 
 // RunIn runs s.Script in the running container and returns what it printed
 // on stdout, read from a file it wrote in the container's /tmp: an
-// ExitError when it exited non-zero, ErrNoResult when it exited 0 and left
+// ExitError when it exited non-zero, ErrNoContainer when the daemon has no
+// such container, ErrNoResult when it exited 0 and left
 // no file (a container whose /tmp is not writable, or not in its own
 // layer, leaves none), the bytes otherwise. s.Image and s.Options are not
 // used.
@@ -233,6 +238,11 @@ func RunIn(ctx context.Context, dk Docker, container string, s Spec) ([]byte, er
 	args := append([]string{"exec"}, envFlags(s.Env)...)
 	args = append(args, container, "sh", "-c", script(s.Script, path))
 	if out, err := dk(ctx, s.Env, args...); err != nil {
+		if strings.Contains(string(out), "No such container: "+container) {
+			// The CLI's words for the daemon's answer, with its status 1,
+			// which is not the script's.
+			return nil, fmt.Errorf("running in %s: %w", container, ErrNoContainer)
+		}
 		var exit interface{ ExitCode() int }
 		if errors.As(err, &exit) && exit.ExitCode() > 0 && exit.ExitCode() < 125 {
 			// The script's own status (docker exec answers 125 to 127 for

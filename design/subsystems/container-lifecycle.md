@@ -55,11 +55,14 @@ The reader is one long-lived container per daemon, `apptown.class=disk-reader`,
 named `apptown-reader-disk-reader-` and a hash of its image and options: the
 tool versions' `df` image with the data root bound read-only at `/d`, no
 network, `--restart unless-stopped`, running `sleep`. A reading lists the
-class's containers, starts the reader if it stopped, makes it only when it is
-gone (removing the class's other readers, an older image's), then runs
-`df -Pk /d` in it with `docker exec`, its output written to a file in the
-reader's `/tmp` and copied out with `docker cp`; the answer is accepted only
-when it parses. Anything else is an unknown reading, which refuses new work;
+class's containers, removes the class's other readers (an older image's)
+that no read in the process is using, starts the reader if it stopped, makes
+it only when it is gone, then runs `df -Pk /d` in it with `docker exec`, its
+output written to a file in the reader's `/tmp` and copied out with
+`docker cp`; the answer is accepted only when it parses. A process lists,
+makes, starts and removes a class's readers one call at a time, because
+`docker run` reserves a name before the container can be exec'd into; a
+reader found gone when the exec runs is made again once and read again. Anything else is an unknown reading, which refuses new work;
 nothing falls back to a throwaway container. No reaper or sweep selects the
 reader, and the capacity view counts it as AppTown's own.
 
