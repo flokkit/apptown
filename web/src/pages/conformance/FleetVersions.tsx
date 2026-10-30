@@ -19,7 +19,6 @@ export function FleetVersionsTab() {
     <div>
       <StaleNote q={q} />
       <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-        A project moves to a new version only when its owner adopts it under Settings.
         {behind > 0 ? ` ${behind} project${behind === 1 ? ' is' : 's are'} on a version other than the recommended one.` : ' Every project is on its recommended version.'}
       </p>
       <div style={{ overflowX: 'auto' }}>

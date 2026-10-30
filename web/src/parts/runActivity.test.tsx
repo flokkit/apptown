@@ -39,20 +39,12 @@ describe('the change history on a phone', () => {
   })
 })
 
-// "1 completed runs" was on every Home and project history row.
-describe('the change history counts runs in words', () => {
-  const how = (over: Partial<ChangeRow>) => {
-    const el = document.createElement('div')
-    el.innerHTML = renderToStaticMarkup(<MemoryRouter><ChangeHistoryTable changes={[row(over)]} /></MemoryRouter>)
-    return el.querySelectorAll('tbody td')[2].textContent
-  }
-  it('says one completed run, and two completed runs', () => {
-    expect(how({ completedRuns: 1, runs: 1 })).toBe('1 completed run')
-    expect(how({ completedRuns: 2, runs: 2 })).toBe('2 completed runs')
-  })
-  it('says one run when it cannot tell which completed', () => {
-    expect(how({ completedRuns: undefined, runs: 1 })).toBe('1 run')
-  })
+it('leaves run counts in the change record, keeping history to title, outcome and time', () => {
+  const html = renderToStaticMarkup(<MemoryRouter><ChangeHistoryTable changes={[row()]} /></MemoryRouter>)
+  expect(html).not.toContain('How it went')
+  expect(html).not.toContain('completed run')
+  expect(html).toContain('Change the page heading')
+  expect(html).toContain('landed')
 })
 
 // A blocked change that the server offers to close shows "Close it" beside

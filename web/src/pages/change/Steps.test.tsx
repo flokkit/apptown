@@ -133,3 +133,12 @@ it('uses the owner word for an excepted step in Work', () => {
   expect(el.querySelector('.chip')?.className).toContain('overridden')
   act(() => root.unmount())
 })
+
+it('labels the currently offered approval as waiting for you in Work', () => {
+ const el = document.createElement('div'), root = createRoot(el), client = newQueryClient()
+ const step = { id: STEP, runId: RUN, stage: 'check', name: 'accept', type: 'approval', status: 'pending', statusLabel: 'waiting for checks', overrideBy: '', evidence: {}, config: {} } as unknown as Step
+ act(() => root.render(<QueryClientProvider client={client}><MemoryRouter><StepCard step={step} awaitingDecision hideApproveForm onChange={() => {}} /></MemoryRouter></QueryClientProvider>))
+ expect(el.querySelector('.step-head .chip')?.textContent).toContain('waiting for you')
+ expect(el.querySelector('.step-head .chip')?.textContent).not.toContain('waiting for checks')
+ act(() => root.unmount()); client.clear()
+})

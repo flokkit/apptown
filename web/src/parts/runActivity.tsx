@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChangeState, Doing, Release, RunStatus, post } from '../api'
 import { useAction } from '../data'
-import { count, fmtDuration, fmtWhen } from '../format'
+import { fmtDuration, fmtWhen, relTime } from '../format'
 import type { NextAct, ProjectOverviewView } from '../wire.gen'
 import { CloseIt } from '../CloseIt'
 
@@ -41,9 +41,8 @@ export function ActiveRunList({ runs, showProject }: { runs: RunRow[]; showProje
         const body = (
           <>
             <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} />
-            {r.detail && <span className="small">{r.detail}</span>}
             <strong>{r.changeNumber ? <span className="muted" style={{ fontWeight: 400 }}>#{r.changeNumber} </span> : null}{r.title || `run ${r.runNumber}`}</strong>
-            <span className="muted small">{showProject ? `${r.project} · ` : ''}{r.workflow} · {r.stage} · {fmtDuration(r.durationS)}</span>
+            <span className="muted small">{showProject ? `${r.project} · ` : ''}{relTime(r.startedAt)}</span>
           </>
         )
         // A run with no change (a scheduled uplift, a system run) has no
@@ -104,14 +103,13 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
   if (events.length === 0) return <div className="muted small">No finished changes yet.</div>
   return (
     <table className="stack">
-      <thead><tr><th>When</th>{showProject && <th>Project</th>}<th>What happened</th><th>How it went</th><th>Outcome</th><th>Took</th></tr></thead>
+      <thead><tr><th>When</th>{showProject && <th>Project</th>}<th>What happened</th><th>Outcome</th><th>Took</th></tr></thead>
       <tbody>
         {events.map((e) => e.kind === 'change' ? (
           <tr key={`c${e.c.changeId}`}>
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(e.when)}</td>
             {showProject && <td className="muted small">{e.c.project}</td>}
             <td className="stack-lead"><Link className="tap-open" to={`/changes/${e.c.changeId}`}><span className="muted small">#{e.c.changeNumber}</span> {e.c.title}</Link></td>
-            <td className="muted small"><span title={e.c.workflows || undefined}>{e.c.completedRuns === undefined ? count(e.c.runs, 'run') : count(e.c.completedRuns, 'completed run')}{e.c.completedRuns !== undefined && e.c.runs > e.c.completedRuns && ` · ${e.c.runs - e.c.completedRuns} unfinished`}</span></td>
             <td><Status word={e.c.statusLabel} tone={STATUS_LIGHT[e.c.statusLabel]} /></td>
             <td className="muted small" data-label="took">{fmtDuration(e.c.tookS)}</td>
           </tr>
@@ -127,7 +125,6 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
                 <span className="muted small"> · {(e.r.changes ?? []).length} change{(e.r.changes ?? []).length === 1 ? '' : 's'}</span>
               )}
             </td>
-            <td className="muted small">{e.r.deployment === 'lan' ? 'released to the intranet' : `released to ${e.r.deployment}`}{e.r.approvedBy ? ` by ${e.r.approvedBy}` : ''}</td>
             <td><Status word={e.r.statusLabel} tone={STATUS_LIGHT[e.r.statusLabel]} /></td>
             <td className="muted small stack-hide">—</td>
           </tr>

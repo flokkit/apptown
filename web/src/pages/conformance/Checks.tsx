@@ -17,10 +17,10 @@ function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict
     <div className={`card${act > 0 ? ' tone-bad' : ''}`} style={{ padding: 0, marginBottom: 0, overflow: 'hidden' }}>
       <div style={{ padding: '10px 14px', cursor: 'pointer' }} onClick={() => setOpen(!open)}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <span className="row" style={{ gap: 'var(--space-2)', alignItems: 'center', minWidth: 0 }}>
+          <span className="row check-title" style={{ gap: 'var(--space-2)', alignItems: 'center', minWidth: 0 }}>
             <SevDot sev={def?.severity ?? vs[0]?.severity ?? 'note'} />
             <span style={{ fontSize: 'var(--fs-sm)' }}>{def?.title || def?.check || vs[0]?.check}</span>
-            <span className="muted small">{def?.judgedWhere}</span>
+
           </span>
           <span className="small" style={{ flex: '0 0 auto' }}>
             {labels.map(label => <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8 }}>{vs.filter(v => v.statusLabel === label).length} <Status word={label} tone={STATUS_LIGHT[label]} /></span>)}
@@ -57,7 +57,6 @@ export function ChecksList({ view, base }: { view: ConformanceView; base: string
   if (checks.length === 0) return <div className="muted" style={{ padding: '40px 0', textAlign: 'center' }}>No checks recorded.</div>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-      <div className="muted small">Adopted checks and project results.</div>
       {checks.map(([key, vs]) => <CheckCard key={key} def={view.checkDefs[key]} vs={vs} view={view} base={base} />)}
     </div>
   )

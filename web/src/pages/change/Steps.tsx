@@ -8,13 +8,15 @@ import { useAction, useGet } from '../../data'
 import { RunFindings } from './Findings'
 import type { StepProgress } from '../../wire.gen'
 import { testsNote } from './Evidence'
+import { decisionStatus } from './next'
 import { closingVia, voterWords } from './through'
 import { Screenshots, sameCommitWords } from '../../Screenshots'
 
 // ---- step cards ------------------------------------------------------------
 
-export function StepCard({ step, onChange, hideApproveForm, expanded, landingMeans, head }: { step: Step; onChange: () => void; hideApproveForm?: boolean; expanded?: boolean; landingMeans?: string[]; head?: string }) {
+export function StepCard({ step, onChange, hideApproveForm, expanded, landingMeans, head, awaitingDecision }: { awaitingDecision?: boolean; step: Step; onChange: () => void; hideApproveForm?: boolean; expanded?: boolean; landingMeans?: string[]; head?: string }) {
   const ev = step.evidence
+  const statusLabel = decisionStatus(step, awaitingDecision)
   // A step's own id and its run's are always sent; null in the wire type is
   // for an absent reference.
   const stepId = step.id!
@@ -38,7 +40,7 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
   return (
     <div id={`step-${step.id}`} className="card step-card" style={quiet && !more ? { padding: '8px 12px' } : undefined}>
       <div className="row step-head">
-        <Status word={step.statusLabel} tone={STATUS_LIGHT[step.statusLabel]} />
+        <Status word={statusLabel} tone={STATUS_LIGHT[statusLabel]} />
         <strong>{step.name}</strong>
         <span className="muted small">{step.type}{took && ` · ${took}`}{tests?.plain && ` · ${tests.note}`}</span>
         {tests && !tests.plain && <span className="chip stale small">{tests.note}</span>}

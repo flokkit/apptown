@@ -159,7 +159,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
         {data.events.length > 0 && (
           <div style={{ margin: '14px 0' }}>
             <div className="muted small" style={{ marginBottom: 4 }}>Log:</div>
-            <div style={{ background: 'var(--code-bg)', borderRadius: 8, padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }}>
+            <div style={{ background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }}>
               {data.events.map((e, i) => (
                 <div key={i} style={{ margin: '2px 0', color: e.text.startsWith('FAILED') ? 'var(--bad)' : undefined }}>
                   <span className="muted">{new Date(e.at).toLocaleTimeString([], { hour12: false })}</span>  {e.text}

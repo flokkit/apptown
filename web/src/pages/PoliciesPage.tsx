@@ -50,7 +50,7 @@ export default function PoliciesPage() {
       <StaleNote q={[libQ, projectsQ]} />
       {actErr && <div className="error">{actErr}</div>}
       <div className="row" style={{ marginBottom: 12 }}>
-        <span className="muted small">A rule a project adopts is checked every time one of its workflows is saved.</span>
+        <span className="muted small"></span>
         <span style={{ flex: 1 }} />
         <button className="primary" onClick={() => setEditing(blank())}>New policy</button>
       </div>
@@ -104,7 +104,7 @@ function PolicyCard({ p, totalProjects, onClone, onEdit, onRemove }: {
           )}
           <details style={{ margin: '8px 0' }}>
             <summary className="muted small" style={{ cursor: 'pointer' }}>definition</summary>
-            <pre style={{ margin: '6px 0 0', padding: 8, background: 'var(--code-bg)', borderRadius: 6, overflowX: 'auto' }}>
+            <pre style={{ margin: '6px 0 0', padding: 8, background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', overflowX: 'auto' }}>
 {['rule: ' + p.rule,
   ...(Object.keys(p.with ?? {}).length
     ? ['with:', ...Object.entries(p.with).map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`)]
@@ -157,7 +157,7 @@ function PolicyEditor({ policy, onDone }: { policy: PolicyLibraryEntry; onDone: 
 
   return (
     <div style={{ maxWidth: 640 }}>
-      <h1>{policy.name && policy.origin === '' && policy.name === p.name ? `Edit: ${policy.name}` : 'New policy'}</h1>
+      <h2>{policy.name && policy.origin === '' && policy.name === p.name ? `Edit: ${policy.name}` : 'New policy'}</h2>
       <div className="form-grid" style={{ marginBottom: 12 }}>
         <label>Name</label>
         <input value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-rule" autoFocus />

@@ -78,7 +78,7 @@ export function laneOf(v: Verdict, adj: Record<string, Adjudication>): keyof Lan
 }
 
 export const shortSha = (s?: string) => (s ? s.slice(0, 8) : '')
-export const code: CSSProperties = { fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap', background: 'var(--code-bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px', margin: 0, maxHeight: 220, overflow: 'auto' }
+export const code: CSSProperties = { fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap', background: 'var(--code-bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '8px 10px', margin: 0, maxHeight: 220, overflow: 'auto' }
 
 // --- small parts ---------------------------------------------------------------------------
 
@@ -99,7 +99,7 @@ export function LaneBar({ lanes, total, width = 160 }: { lanes: Lanes; total: nu
   const m = Math.max(total, 1)
   const title = order.filter((k) => lanes[k] > 0).map((k) => `${lanes[k]} ${LANE_LABEL[k]}`).join(' · ') || 'nothing to judge'
   return (
-    <span title={title} style={{ display: 'inline-flex', width, height: 8, borderRadius: 4, overflow: 'hidden', background: 'var(--panel2)', border: '1px solid var(--border)', flex: '0 0 auto' }}>
+    <span title={title} style={{ display: 'inline-flex', width, height: 8, borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--panel2)', border: '1px solid var(--border)', flex: '0 0 auto' }}>
       {order.map((k) => lanes[k] > 0 && (
         <span key={k} style={{
           width: `${(lanes[k] / m) * 100}%`, background: LANE_COLOR[k],

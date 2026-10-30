@@ -1,8 +1,7 @@
-import { Status, STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { runtimeDescription } from '../../runtime'
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Release, get, openAfter, post } from '../../api'
 import { Modal } from '../../Modal'
 import { QuietConfirm } from '../../QuietConfirm'
@@ -10,10 +9,7 @@ import { SplitButton } from '../../SplitButton'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { NewChangeButton } from './NewChange'
-import { ScheduleRows } from './Schedules'
-import { PastChats } from '../change/Conversation'
 import { fmtWhen } from '../../format'
-import { ActiveRunList, ChangeHistoryTable, type OverviewData } from '../../parts/runActivity'
 import type { DeploymentView, PullPlan, ReleasePlan, ReleasePreviewStarted, CatalogApplied, CreatedChange, CatalogChangeDetail, CatalogDef, CatalogEntry as GeneratedCatalogEntry, CatalogList, ProjectDetail as ProjectT } from '../../wire.gen'
 
 // The project overview's top: the two big doors and the catalog of prepared
@@ -24,7 +20,7 @@ import type { DeploymentView, PullPlan, ReleasePlan, ReleasePreviewStarted, Cata
 // release to the selected environment), the chevron holds the advanced paths
 // (catalog change, detailed form, branch import / other targets). Advanced
 // never crowds default; default never hides advanced.
-export function BigChangeBox({ slug }: { slug: string }) {
+export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: boolean }) {
   const nav = useNavigate()
   const [busy, setBusy] = useState(false)
   const [catalogOpen, setCatalogOpen] = useState(false)
@@ -82,9 +78,9 @@ export function BigChangeBox({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="card" style={{ padding: 18, margin: '14px 0 18px', maxWidth: 980 }}>
+    <div className="card overview-actions" style={inline ? undefined : { padding: 18, margin: '14px 0 18px', maxWidth: 980 }}>
       <div className="row" style={{ gap: 14, alignItems: 'stretch', flexWrap: 'wrap' }}>
-        {best && (
+        {best && !inline && (
           <SplitButton icon="▶" label="Open" green
             sub={(best.displayLabel || best.name) + ' · ' + best.url.replace(/^https?:\/\//, '')}
             onMain={() => window.open(best.url, '_blank')}
@@ -223,24 +219,11 @@ export function CatalogPicker({ slug, onClose }: { slug: string; onClose: () => 
   )
 }
 
-// The project's Overview tab: what is running, then the history of changes
-// and releases.
-export function OverviewTab({ slug }: { slug: string }) {
+// Release previews retain the same action as the overview's release history.
+export function ReleaseRows({ slug, releases }: { slug: string; releases: Release[] }) {
   const nav = useNavigate()
-  const q = useGet<OverviewData>(`/projects/${slug}/overview`, { poll: 5000 })
-  const releasesQ = useGet<Release[]>(`/projects/${slug}/releases`)
-  const data = q.data
-  const releases = releasesQ.data ?? []
-
-  if (!data) return <ReadStatus q={q} what="the project's activity" />
-
-  // live means a running deployment is serving it, not merely that it was released
-  const live = releases.find((r) => r.serving)
-  return (
-    <div>
-      <StaleNote q={[q, releasesQ]} />
-      {/* A releases read that failed must not read as "not live". */}
-      {!releasesQ.data && <ReadStatus q={releasesQ} what="the releases" />}
+  const live = releases.find(r => r.serving)
+  return <>
       {releases.length > 0 && (
         <div className="card">
           <div className="row">
@@ -267,24 +250,5 @@ export function OverviewTab({ slug }: { slug: string }) {
           )}
         </div>
       )}
-      <ScheduleRows slug={slug} />
-      {(data.active.length > 0 || (data.open ?? []).length > 0) && <h2>Happening now</h2>}
-      {(data.open ?? []).map((c) => (
-        <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card row" style={{ display: 'flex' }}>
-          <Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} />
-          <strong><span className="muted" style={{ fontWeight: 400 }}>#{c.changeNumber} </span>{c.title}</strong>
-          <span className="muted small">
-            {c.editing > 0 ? `${c.editing} file${c.editing === 1 ? '' : 's'} in progress` : 'no run in progress'}
-          </span>
-          <span style={{ flex: 1 }} />
-          <span className="muted small">open →</span>
-        </Link>
-      ))}
-      {data.active.length > 0 && <ActiveRunList runs={data.active} />}
-
-      <h2>History</h2>
-      <ChangeHistoryTable changes={data.history} releases={releases} slug={slug} />
-      <PastChats slug={slug} />
-    </div>
-  )
+  </>
 }

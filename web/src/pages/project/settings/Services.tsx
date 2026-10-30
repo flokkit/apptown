@@ -286,10 +286,7 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
       <StaleNote q={[itemsQ, attachablesQ]} />
       <ReadStatus q={attachablesQ} what="the integrations that can be attached" className="small" />
       <div className="muted small" style={{ marginBottom: 12 }}>
-        Integrations attached to this project directly (an integration that fulfils a need is
-        shown with the need above). Each passes its settings to the app's containers and its
-        guidance to agents; <em>linked</em> ones were provisioned through a connector,
-        <em> direct</em> ones were entered by hand.
+        Direct connections and their settings.
       </div>
       {/* Integrations are big-ticket: something to crow about, not a
           row of chips. One card each — the face, the state from the app's

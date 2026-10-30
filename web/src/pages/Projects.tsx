@@ -18,14 +18,6 @@ const TOOL_ICON: Record<string, string> = {
   go: 'go', rust: 'rust', node: 'node', python: 'pypi', java: 'maven', maven: 'maven',
 }
 
-// A stable, subtle per-project tint so cards are tellable-apart at a
-// glance: it helps people find their project.
-function tint(slug: string): string {
-  let h = 0
-  for (const c of slug) h = (h * 31 + c.charCodeAt(0)) % 360
-  return `hsl(${h} 55% 50% / 0.55)`
-}
-
 const rel = (ts: string): string => relTime(ts) || 'nothing shipped yet'
 
 // After a delete (?removed=<slug>): the records are gone at once, and a
@@ -102,9 +94,6 @@ export default function Projects() {
       {page?.total === 0 && !q && (
         <div className="card" style={{ padding: 18, maxWidth: 560 }}>
           <strong>No projects yet.</strong>
-          <div className="muted small" style={{ marginTop: 4 }}>
-            Create a project to start an app.
-          </div>
         </div>
       )}
       {q !== '' && shown.length === 0 && (
@@ -118,39 +107,16 @@ export default function Projects() {
               <span className="muted small">{(byNs.get(ns) ?? []).length} project{(byNs.get(ns) ?? []).length === 1 ? '' : 's'}</span>
             </div>
           )}
-          <div className="conn-grid even">
-            {(byNs.get(ns) ?? []).map((p) => (
-              <Link key={p.id} to={`/projects/${p.slug}`} className="proj-card"
-                style={{ borderTop: `3px solid ${tint(p.slug)}` }}>
-                <div className="row" style={{ padding: '12px 14px 4px', alignItems: 'flex-start' }}>
-                  {p.icon && (
-                    <span style={{ fontSize: 'var(--fs-xl)', lineHeight: '34px', marginRight: 4 }} aria-hidden>
-                      {p.icon}
-                    </span>
-                  )}
-                  <span>
-                    <strong style={{ fontSize: 'var(--fs-base)' }}>{p.name}</strong>
-                    {p.blurb && <div className="small" style={{ marginTop: 2, maxWidth: 260 }}>{p.blurb}</div>}
-                  </span>
-                  <span style={{ flex: 1 }} />
-                  {p.deployed !== false && <RuntimeStatus observation={p} />}
-                </div>
-                <div className="row" style={{ padding: '2px 14px 10px', gap: 6 }}>
-                  {(p.toolchain ?? []).map((t) => (
-                    <span key={t} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                      {TOOL_ICON[t] && <ConnIcon name={TOOL_ICON[t]} size={11} />}{t}
-                    </span>
-                  ))}
-                </div>
-                <div className="conn-foot">
-                  <span className={`small ${p.activeItems ? '' : 'muted'}`}>{p.activeItems ?? 0} in progress</span>
-                  <span className="muted small">· {p.doneRuns} shipped</span>
-                  <span style={{ flex: 1 }} />
-                  <span className="muted small">{rel(p.lastRunAt)}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <table className="stack project-list">
+            <thead><tr><th>Application</th><th>Stack</th><th>Activity</th><th>Updated</th><th>State</th></tr></thead>
+            <tbody>{(byNs.get(ns) ?? []).map((p) => <tr key={p.id}>
+              <td className="stack-lead"><Link className="tap-open" to={`/projects/${p.slug}`}><strong>{p.icon && <span aria-hidden>{p.icon} </span>}{p.name}</strong></Link>{p.blurb && <div className="small muted project-description">{p.blurb}</div>}</td>
+              <td data-label="stack">{(p.toolchain ?? []).map(t => <span key={t} className="chip">{TOOL_ICON[t] && <ConnIcon name={TOOL_ICON[t]} size={11} />} {t}</span>)}</td>
+              <td data-label="activity" className="small">{p.activeItems ?? 0} in progress · {p.doneRuns} shipped</td>
+              <td data-label="updated" className="muted small">{rel(p.lastRunAt)}</td>
+              <td className="stack-end">{p.deployed !== false ? <RuntimeStatus observation={p} /> : <span className="muted small">Not deployed</span>}</td>
+            </tr>)}</tbody>
+          </table>
         </section>
       ))}
 

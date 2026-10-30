@@ -267,12 +267,12 @@ describe('the change head', () => {
     const mine = nextStep({ ...waiting, approval: { stepId: approval.id, viewer: 'yes' } } as ChangeView)
     expect(mine.waitingOn).toBe('you')
     expect(mine.stamp).toBe('waiting for your approval')
-    expect(mine.headline).toBe('Waiting for your approval to land')
+    expect(mine.headline).toBe('Approve to land')
     for (const other of [{ stepId: approval.id, viewer: 'no' }, { stepId: approval.id, viewer: 'unknown' }, { stepId: uuid(999), viewer: 'yes' }]) {
       expect(nextStep({ ...waiting, approval: other } as ChangeView).waitingOn).not.toBe('you')
     }
     const html = render({ ...waiting, approval: { stepId: approval.id, viewer: 'yes' } } as ChangeView)
-    expect(html).toContain('Waiting on: <strong>you</strong>')
+    expect(html).not.toContain('Waiting on: <strong>you</strong>')
     expect(html.match(/I answer for this landing\./g)?.length).toBe(1)
     expect(html).not.toContain('Approving lands it')
     expect(changeChip({ ...waiting, approval: { stepId: approval.id, viewer: 'yes' } } as ChangeView)).toEqual({ text: 'waiting for you', cls: 'pending' })
@@ -328,3 +328,12 @@ describe('the change head', () => {
     expect(changeChip(cases.find((c) => c.name === 'abandoned')!.v).text).toBe('stopped')
   })
 })
+
+ it.each([true, false])('only asks an eligible viewer to approve (landing=%s)', landing => {
+  const v = view({ state: 'waiting on you', landingMeans: landing ? ['I answer for this landing.'] : [], steps: [accept], next: offer(accept) })
+  v.approval = { stepId: accept.id, viewer: 'no' } as ChangeView['approval']
+  expect(nextStep(v).headline).toBe(landing ? 'Waiting for approval to land' : 'Waiting for approval: accept')
+  expect(nextStep(v).waitingOn).toBe('bls')
+  v.approval = { stepId: accept.id, viewer: 'yes' } as ChangeView['approval']
+  expect(nextStep(v).headline).toBe(landing ? 'Approve to land' : 'Approve accept')
+ })

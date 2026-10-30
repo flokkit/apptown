@@ -107,9 +107,9 @@ describe('what the change adds', () => {
     done()
   })
 
-  it('says what it read when nothing is new', async () => {
+  it('omits the additions box when nothing is new', async () => {
     const { el, done } = await mount({ ...question, adds: { ...question.adds, lines: [], nothingNew: 'Nothing new in secrets, services or app parts' } })
-    expect(el.querySelector('.adds')!.textContent).toContain('Nothing new in secrets, services or app parts')
+    expect(el.querySelector('.adds')).toBeNull()
     done()
   })
 

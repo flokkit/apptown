@@ -46,7 +46,7 @@ export default function Login({ needsBootstrap, onSignedIn, external }: {
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
       <form onSubmit={submit} className="card" style={{ width: 340, display: 'grid', gap: 12, padding: 24 }}>
-        <div style={{ fontSize: 'var(--fs-lg)' }}>⚒ <b>{PRODUCT}</b></div>
+        <h1><b>{PRODUCT}</b></h1>
         {needsBootstrap ? (
           <div className="muted small">
             No accounts exist yet. Create the first one · it will be the
@@ -55,7 +55,7 @@ export default function Login({ needsBootstrap, onSignedIn, external }: {
             host ({PRODUCT}'s log says where; the desktop trial's ready link fills it in).
           </div>
         ) : (
-          <div className="muted small">Sign in to continue.</div>
+          <div className="muted small">Sign in</div>
         )}
         {needsBootstrap && <LocalTrialNote />}
         <label className="small muted">Username

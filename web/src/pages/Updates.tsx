@@ -51,8 +51,8 @@ function UpdateDetails() {
     {(query.err || error) && <div className="error" role="alert">{error || query.err}</div>}
     <button disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>
     {!data ? <p role="status">Release status is unavailable.</p> : <>
-      <p><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} help={states[data.state]} /></p>
-      <dl>
+      <p className="status-strip"><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} help={states[data.state]} /></p>
+      <dl className="facts">
         <dt>Installed build</dt><dd>{data.build} ({data.platform})</dd>
         <dt>Channel</dt><dd>{data.channel}</dd>
         <dt>Last attempted check</dt><dd>{data.lastAttempt ?? 'Never'}</dd>
@@ -79,7 +79,7 @@ function HowToUpdate({ version }: { version: string }) {
   return <section>
     <h3>How to update</h3>
     <p>First check nothing is executing and take a backup: steps 1 and 2 of the <Link to="/docs/guides/upgrading">upgrade guide</Link>.</p>
-    <dl>
+    <dl className="facts">
       <dt>Docker (one-server compose)</dt>
       <dd>Set <code>APPTOWN_VERSION={bare}</code> in <code>.env</code>, then <code>docker compose pull &amp;&amp; docker compose up -d</code></dd>
       <dt>Release archive</dt>

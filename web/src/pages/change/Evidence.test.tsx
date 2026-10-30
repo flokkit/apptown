@@ -214,3 +214,16 @@ it('retains the owner label when a raw passing step has unread evidence', () => 
  const s = { type: 'tests', status: 'pass', statusLabel: 'unknown', overrideBy: '', evidence: {}, checkReading: { unreadable: 'missing report' } } as unknown as Step
  expect(receiptOf(s).statusLabel).toBe('unknown')
 })
+
+it('shows an offered approval as waiting for you, independently of check labels', () => {
+ const s = { type: 'approval', status: 'pending', statusLabel: 'waiting for checks', config: {}, evidence: {} } as unknown as Step
+ expect(receiptOf(s, true, true).statusLabel).toBe('waiting for you')
+ expect(receiptOf(s, true, true).sentence).toBe('')
+ expect(receiptOf(s, true, false).statusLabel).toBe('waiting for checks')
+})
+
+ it.each(['in_progress', 'landing', 'shipped', 'abandoned'] as const)('records absent delivery for a closed change: %s', state => {
+  const view = { change: { state }, evidence: { targets: [], merged: false, releases: [] } } as unknown as ChangeView
+  const html = renderToStaticMarkup(<MemoryRouter><Evidence view={view} runs={[]} workTab={() => '#'} /></MemoryRouter>)
+  expect(html.includes('Not merged and not released.')).toBe(state === 'shipped' || state === 'abandoned')
+ })

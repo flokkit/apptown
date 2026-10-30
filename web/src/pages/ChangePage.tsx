@@ -3,7 +3,6 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { setProjectScope } from '../projectScope'
 import { setPageContext } from '../chrome'
 import { ChangeView } from '../api'
-import { closedNothingToChange } from '../states'
 import { useGet } from '../data'
 import { ChangeBrief, ChangeHeader, ChangesTab } from './change/Head'
 import { Evidence, RunEvidence } from './change/Evidence'
@@ -11,10 +10,10 @@ import { StatePanel } from './change/StatePanel'
 import { Disagreement } from './change/Disagreement'
 import { ConversationLog } from './change/Conversation'
 import { HistoryTab, ReleasesTab, WorkTab, useRunDetail } from './change/Tabs'
-import { changeChip, changeLanded, nextStep } from './change/next'
+import { changeChip, nextStep } from './change/next'
 import { ChangeWorkerChats } from './WorkerChat'
 
-// The change page, in the order a person asks (the Ledger direction):
+// The change page, in the order a person asks:
 //   1. what this change is — title, project, when and how it started, one line;
 //   2. where it is, with ONE next action for whoever is looking (or who it
 //      waits on), and anything that needs a person — a decision, a failure,
@@ -42,11 +41,9 @@ export default function ChangePage() {
   useEffect(() => {
     if (!view) return
     const ch = view.change
-    const doing = ch.state === 'landing' ? 'Landing' : ch.state === 'shipped' ? (changeLanded(view) ? 'Shipped' : 'Finished')
-      : ch.state === 'abandoned' ? (closedNothingToChange(ch.closedAs) ? 'Closed' : 'Abandoned') : 'Working on'
     const chip = changeChip(view)
     setPageContext({
-      crumbs: [{ label: `${doing} change ${ch.number} · ${ch.title}` }],
+      crumbs: [{ label: `Change ${ch.number} · ${ch.title}` }],
       chip,
     })
   }, [view?.change.number, view?.change.state, view?.change.title, view && changeChip(view).text]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -116,8 +113,7 @@ export default function ChangePage() {
           {tab === 'conversation' && (
             <div>
               <div className="row" style={{ marginBottom: 10 }}>
-                <Link to={`/projects/${view.projectSlug}/console?change=${view.change.id}`}>Open the chat on this change ▸</Link>
-                <span className="muted small">What you do there is saved to the change.</span>
+                <Link to={`/projects/${view.projectSlug}/console?change=${view.change.id}`}>Open chat →</Link>
               </div>
               <ConversationLog changeId={view.change.id!} />
             </div>

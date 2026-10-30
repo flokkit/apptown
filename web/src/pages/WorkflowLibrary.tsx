@@ -71,7 +71,6 @@ spec:
   return (
     <div>
       <div className="row" style={{ marginBottom: 12 }}>
-        <span className="muted small">Each run uses the version its project adopted, and records which one ran.</span>
         <span style={{ flex: 1 }} />
         {!editor && <button className="primary" onClick={() => { setSaveErr(''); setEditor({ yaml: NEW_TEMPLATE }) }}>New workflow</button>}
       </div>
@@ -79,7 +78,7 @@ spec:
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="row" style={{ marginBottom: 6 }}>
             <strong>Custom workflow</strong>
-            <span className="muted small">saved by its metadata.name; a name that ships with {PRODUCT} is read-only</span>
+            <span className="muted small">Stock names are read-only.</span>
           </div>
           <textarea rows={16} value={editor.yaml} onChange={(e) => setEditor({ yaml: e.target.value })}
             style={{ width: '100%', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }} />
@@ -99,11 +98,7 @@ spec:
           </button>
         ))}
       </div>
-      <div className="muted small" style={{ marginBottom: 10 }}>
-        {tier === 'core' && 'The short list: the ways of working every project is likely to need.'}
-        {tier === 'extra' && 'Workflows for particular situations.'}
-        {tier === 'system' && `${PRODUCT} runs these itself (landing, shipping, wiring integrations in and out). An admin can replace one with a custom workflow.`}
-      </div>
+
       {libs.filter((l) => (l.tier ?? 'extra') === tier).sort((a, b) => a.name.localeCompare(b.name)).map((l) => (
         <div className="card" key={l.name}>
           <div className="row">
@@ -117,7 +112,6 @@ spec:
               <button className="subtle" disabled={busy} onClick={() => void removeCustom(l.name)}>delete</button>
             </>}
           </div>
-          <div className="small" style={{ margin: '6px 0' }}>{l.description}</div>
           {tier === 'system' && bindings && bindings.bindings.some((b) => b.stock === l.name) && (() => {
             const b = bindings.bindings.find((x) => x.stock === l.name)!
             return (
@@ -128,7 +122,7 @@ spec:
                   {bindings.candidates.map((c) => <option key={c} value={c}>{c} (yours)</option>)}
                 </select>
                 {b.custom && <span className="chip pass">custom</span>}
-                <span className="muted">— a custom stand-in must say <code>system: true</code></span>
+                <details><summary>Custom workflow</summary>A custom workflow must declare <code>system: true</code>.</details>
               </div>
             )
           })()}
@@ -145,7 +139,7 @@ spec:
                 : <span>not used by any project</span>
             )}
           </div>
-          <details><summary className="muted small">view yaml</summary><pre className="log">{l.yaml}</pre></details>
+          <details><summary className="muted small">Details</summary><p>{l.description}</p><pre className="log">{l.yaml}</pre></details>
         </div>
       ))}
     </div>

@@ -51,7 +51,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
         <div className="small" style={{ marginBottom: 12 }}>{pack.description}</div>
         {loadErr && <div className="error small" style={{ marginBottom: 12 }}>The library could not be read, so sizes and details may be missing: {loadErr}</div>}
 
-        <div className="conn-section-head"><h2>Guidance blocks</h2><span className="muted small" title={sizeTitle(packBytes)}>{pack.guidance.length}, {fmtSize(packBytes)} in every agent's context · click to read</span></div>
+        <div className="conn-section-head"><h2>Guidance blocks</h2><span className="muted small" title={sizeTitle(packBytes)}>{pack.guidance.length} · {fmtSize(packBytes)} per step</span></div>
         {pack.guidance.map((name) => {
           const b = blocks.find((x) => x.name === name)
           return (
@@ -68,7 +68,7 @@ export function PackInspect({ pack, onClose }: { pack: InspectablePack; onClose:
           )
         })}
 
-        <div className="conn-section-head" style={{ marginTop: 16 }}><h2>Workflows</h2><span className="muted small">{pack.workflows.length}; click one for its YAML</span></div>
+        <div className="conn-section-head" style={{ marginTop: 16 }}><h2>Workflows</h2><span className="muted small">{pack.workflows.length}</span></div>
         {packWf.map((w) => (
           <div key={w.name} className="card" style={{ padding: '8px 12px' }}>
             <div className="row" style={{ cursor: 'pointer' }} onClick={() => setOpenWf(openWf === w.name ? null : w.name)}>
@@ -131,7 +131,6 @@ export default function Packs() {
   return (
     <div>
       <div className="row" style={{ marginBottom: 12 }}>
-        <span className="muted small">Existing projects keep the versions they adopted.</span>
         <span style={{ flex: 1 }} />
         <button className="primary" onClick={() => setEditing({ draft: blank(), existing: false })}>New pack</button>
       </div>
@@ -149,7 +148,7 @@ export default function Packs() {
               {p.version ? <span className="chip" title="New projects get this version">v{p.version}</span> : null}
               {p.enabled === false && <span className="chip" title="not offered when a project is made">not offered</span>}
             </div>
-            <div className="small pack-description" title={p.description}>{p.description.split('\n\n')[0]}</div>
+
             {p.requires.some(r => !r.bound) && (
               <div className="small" style={{ marginTop: 10 }}>
                 <span className="chip pending">Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</span>
@@ -196,7 +195,7 @@ function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boole
 
   return (
     <div style={{ maxWidth: 860 }}>
-      <h1>{existing ? `Edit pack: ${draft.name}` : 'New pack'}</h1>
+      <h2>{existing ? `Edit pack: ${draft.name}` : 'New pack'}</h2>
       <div className="form-grid" style={{ marginBottom: 12 }}>
         <label>Name</label>
         <input value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-way" autoFocus disabled={existing} />

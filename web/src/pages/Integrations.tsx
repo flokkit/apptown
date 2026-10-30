@@ -222,13 +222,12 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
       {caps.length === 0 ? (
         <div className="card">
           <div className="int-lead">No services are connected yet.</div>
-          <div className="muted">Connect source control, a model provider or a scanner to start.</div>
         </div>
       ) : (
         <section className="int-sheet">
           <table className="int-table stack">
             <thead>
-              <tr><th>Service</th><th>Used for</th><th>Used by</th><th>Status</th><th>Last checked</th><th><span className="sr-only">open</span></th></tr>
+              <tr><th>Service</th><th>Used by</th><th>Status</th><th>Last checked</th></tr>
             </thead>
             {caps.map((cap) => {
               const rows = byCap.get(cap) ?? []
@@ -237,10 +236,9 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
               return (
                 <tbody key={cap} id={`kind-${cap}`} className={focus === cap ? 'int-focus' : undefined}>
                   <tr className="int-group">
-                    <th colSpan={6}>{meta.title}</th>
+                    <th colSpan={4}>{meta.title}</th>
                   </tr>
                   {rows.map((b) => {
-                    const spec = specFor(catalog, b)
                     const state = healthState(b.health)
                     const to = `/integrations/${b.name}`
                     return (
@@ -250,15 +248,12 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                             <ConnIcon name={iconForBinding(b)} size={13} />
                             <div style={{ minWidth: 0 }}>
                               <Link to={to} className="int-name tap-open" onClick={(e) => e.stopPropagation()}>{b.displayLabel || b.name}</Link>
-                              <div className="int-kind">{kindOf(b, spec)}{b.managed ? ' · managed' : ''}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="int-used"><span title={usedFor(b, spec)}>{purposeSummary(usedFor(b, spec))}</span></td>
                         <td className="int-usedby" data-label="used by">{usedByCounts(b.usedBy) || '—'}</td>
                         <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} /></td>
                         <td className="int-when">{lastChecked(b.health, reading.now)}</td>
-                        <td className="int-open"><Link to={to} onClick={(e) => e.stopPropagation()}>Open</Link></td>
                       </tr>
                     )
                   })}
@@ -267,13 +262,11 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                       <td className="stack-lead">
                         <div className="int-who">
                           <ConnIcon name={spare.icon ?? spare.capability} size={13} />
-                          <div><span className="int-name">{spare.title}</span><div className="int-kind">nothing connected</div></div>
+                          <div><span className="int-name">{spare.title}</span></div>
                         </div>
                       </td>
-                      <td className="int-used"><span title={usedFor({ capability: cap, config: {} }, spare)}>{purposeSummary(usedFor({ capability: cap, config: {} }, spare))}</span></td>
                       <td className="int-usedby" data-label="used by">—</td>
                       <td><Status word="none" tone={STATUS_LIGHT.none} help="No service connected." /></td>
-                      <td className="int-when">—</td>
                       <td className="int-open"><button className="subtle" onClick={() => onConnect(spare)}>Connect</button></td>
                     </tr>
                   )}
@@ -400,7 +393,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
       {creds.length > 0 && (
         <section>
           <h2>Credentials</h2>
-          <p className="muted int-section-note">Read from the secret store by name. The values never leave {PRODUCT}.</p>
+          <p className="muted int-section-note">Secret names only. Values are hidden.</p>
           <table className="kv">
             <tbody>
               {creds.map((k) => (
@@ -488,15 +481,7 @@ function SectionPage({ which }: { which: string }) {
     <div>
       <div className="muted small int-crumb"><Link to="/integrations">Integrations</Link> › {s.title}</div>
       <h1>{s.title}</h1>
-      {which !== 'targets' && <div className="int-sub" style={{ marginBottom: 16 }}>{s.blurb}</div>}
       {which === 'slots' ? <ModelSlotsPanel /> : which === 'targets' ? <TargetsPanel /> : which === 'secrets' ? <InstanceSecretsPanel /> : <ServiceKindsPanel />}
     </div>
   )
-}
-
-// The full purpose remains in the tooltip; the row needs one short clause.
-function purposeSummary(text: string): string {
- const clause = text.split(/[.;] /)[0]
- const words = clause.split(/\s+/)
- return words.length > 12 ? words.slice(0, 12).join(' ') + '…' : clause
 }

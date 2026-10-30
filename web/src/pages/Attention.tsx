@@ -14,20 +14,19 @@ export default function AttentionPage() {
     <ReadStatus q={q} what="operational conditions" />
     <StaleNote q={q} />
     {q.data && <>
-      <p role="status">{state.count} {state.count === 1 ? 'condition' : 'conditions'}.
+      <p className="status-strip" role="status">{state.count} {state.count === 1 ? 'condition' : 'conditions'}.
         {!state.known && ' Coverage incomplete.'}
         {state.known && state.count === 0 && ''}
       </p>
       {q.data.items.map((item) => <article key={item.key} className="card" style={{ padding: 16, marginBottom: 10 }}>
         <div className="row">
           <Status word={item.statusLabel} tone={STATUS_LIGHT[item.statusLabel]} help={item.detail} />
-          {item.stale && <Status word={"unknown"} tone={STATUS_LIGHT["unknown"]} />}
+          {item.stale && item.statusLabel !== 'unknown' && <Status word={"unknown"} tone={STATUS_LIGHT["unknown"]} />}
         </div>
         <h2 style={{ margin: '8px 0' }}><Link to={item.href}>{item.title}</Link></h2>
-        <p>{item.detail}</p>
         <small className="muted">{observed(item.observedAt)}</small>
       </article>)}
-      <details open={!state.known}>
+      <details>
         <summary>Observation coverage</summary>
         <ul>{q.data.sources.map((source) => <li key={source.key}>
           <strong>{source.name}</strong>: {source.unknown ? 'unavailable' : source.stale ? 'unknown' : 'current'} · {observed(source.observedAt)}

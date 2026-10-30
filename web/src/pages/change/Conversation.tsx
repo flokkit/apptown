@@ -76,7 +76,7 @@ export function PastChats({ slug }: { slug: string }) {
     <details style={{ marginTop: 18 }} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
       {/* One child: the fold's summary is a flex row, which would split the
           words into columns on a phone. */}
-      <summary><span><strong>Past chats</strong> <span className="muted small">ended chats opened on the project; a change's chats are on its page</span></span></summary>
+      <summary><span><strong>Past chats</strong></span></summary>
       {open && <ReadStatus q={q} what="the past chats" className="small" />}
       {open && <StaleNote q={q} />}
       {data && <UnreadableNote view={data} />}
@@ -99,7 +99,7 @@ function YourWords({ text, pictures }: { text: string; pictures: string }) {
       {names.map((n) => (
         <a key={n} href={pictures + n} target="_blank" rel="noreferrer" title="open the picture full size">
           <img src={pictures + n} alt="pasted picture" loading="lazy"
-            style={{ display: 'block', maxWidth: '100%', width: 320, maxHeight: 240, objectFit: 'contain', borderRadius: 8, marginTop: display ? 6 : 0 }} />
+            style={{ display: 'block', maxWidth: '100%', width: 320, maxHeight: 240, objectFit: 'contain', borderRadius: 'var(--radius-sm)', marginTop: display ? 6 : 0 }} />
         </a>
       ))}
     </div>

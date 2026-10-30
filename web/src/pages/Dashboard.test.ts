@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { homeSections, homeStatus, type Activity } from './Dashboard'
 
+it.each([true, false])('summarizes counted host issues once when coverage is known: %s', known => {
+  expect(homeStatus({ operations: { count: 8, known }, needsYou: 3, running: 0, deployments: [] }))
+    .toBe('3 needs you · 8 host issues')
+})
+
 type Dep = Activity['deployments'][number]
 const dep = (project: string, over: Partial<Dep> = {}): Dep => ({
   project, name: 'main', url: 'http://x', running: true,

@@ -5,9 +5,8 @@ import { NavLink, useParams } from 'react-router-dom'
 import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
-import { OverviewTab } from './project/Overview'
+import { ApplicationOverview } from './project/ApplicationOverview'
 import { UsageView } from './Usage'
-import { BigChangeBox } from './project/Overview'
 import type { DeploymentView } from '../wire.gen'
 import { NewReleasePage, ReleasePermalinkPage } from './project/Release'
 import { FindingsTab, SuppressionsTab } from './project/Security'
@@ -74,12 +73,11 @@ export default function Project() {
   return (
     <div>
       <StaleNote q={q} />
-      <ProjectHeader project={project} />
+      {tab !== 'overview' && <ProjectHeader project={project} />}
       <LifecycleNote slug={project.slug} lifecycle={project.lifecycle} />
       <IntegrityBanner slug={project.slug} files={project.outOfBandEdits} onResolved={load} />
       <MainNote main={project.main} />
-      {tab === 'overview' && (project.lifecycle?.state ?? 'active') === 'active' && <BigChangeBox slug={project.slug} />}
-      {tab === 'overview' && <OverviewTab slug={slug!} />}
+      {tab === 'overview' && <ApplicationOverview project={project} />}
       {tab === 'security' && (
         <>
           <div className="tabs">
@@ -135,13 +133,13 @@ function ProjectHeader({ project }: { project: ProjectT }) {
       <>
       <h1>
         {project.icon && <span style={{ marginRight: 8 }} aria-hidden>{project.icon}</span>}
-        {project.name} <span className="muted">/{project.slug}</span>
+        {project.name}
         {project.namespace && <span className="chip" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
       </h1>
-      <div className="row small" style={{ marginBottom: 10 }}>
+      <div className="row small project-status-strip" style={{ marginBottom: 10 }}>
         {envs.map((e) => <span key={e.name} className="row" style={{ gap: 4 }}>
           <RuntimeStatus observation={e} />
-          <AppAddress url={e.url} hostOnly={e.hostOnly}>{e.name}</AppAddress>
+          <AppAddress url={e.url} hostOnly={e.hostOnly}>{e.displayLabel}</AppAddress>
         </span>)}
         {!q.data && q.err && <Status word="unknown" tone="unknown" help={q.err} />}
       </div>

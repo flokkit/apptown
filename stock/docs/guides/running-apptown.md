@@ -118,7 +118,7 @@ install](split-install.md).
 
 Open **Attention** in the top bar to see current disk pressure, unavailable
 workers or targets, missing resources, deployment trouble and data protection
-conditions you can read. Home's **Operations** section uses the same count.
+conditions you can read. Home links to the same conditions.
 
 Open a condition for its evidence and available actions. An advisory can identify
 untested recovery even when the latest data copy succeeded. Unknown or

@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import type { ChangeView, Run, Step, TestsEvidence } from '../../api'
 import { fmtStamp } from '../../format'
 import { checkedWords } from '../../runtime'
-import { approversOf } from './next'
+import { approversOf, decisionStatus } from './next'
 import { closingVia, voterWords } from './through'
 
 // The evidence as receipts: one ruled line per recorded fact — what was
@@ -165,7 +165,7 @@ function sentence(s: Step, live: boolean): string {
     case 'approval': {
       const ev = s.evidence
       if (ev.withdrawal) return `Acceptance withdrawn by ${ev.withdrawal.by}: “${ev.withdrawal.reason}”`
-      if (s.status === 'pending') return ev.means ? `Approving means: “${ev.means}”` : s.config.means ? `Approving means: “${s.config.means}”` : 'Waiting for a decision.'
+      if (s.status === 'pending') return ''
       if (ev.evalAuthorised) return `Eval-authorised, not a person's approval: ${ev.evalAuthorised}.`
       const decided = ev.decision === 'reject' ? 'Rejected' : 'Approved'
       const who = ev.approver ? voterWords(ev.approver, closingVia(ev)) : 'a person'
@@ -207,12 +207,12 @@ function by(s: Step): string {
   }
 }
 
-export function receiptOf(s: Step, live = true): Receipt {
+export function receiptOf(s: Step, live = true, awaitingDecision = false): Receipt {
   const r = result(s, live)
   const title = TITLE[s.type] ?? s.type
   const name = s.name && s.name.toLowerCase() !== title.toLowerCase() ? s.name : undefined
   return {
-    key: `step-${s.id}`, statusLabel: s.statusLabel, ...r, title, name, sentence: sentence(s, live), by: by(s),
+    key: `step-${s.id}`, statusLabel: decisionStatus(s, live && awaitingDecision), ...r, title, name, sentence: sentence(s, live), by: by(s),
     when: fmtStamp(s.finishedAt || s.startedAt), stepId: s.id ?? undefined,
   }
 }
@@ -255,7 +255,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
         {runs.map(({ run, role, steps }) => {
           const commit = judged(steps)
           const live = run.status === 'running'
-          const receipts = steps.map((s) => receiptOf(s, live))
+          const receipts = steps.map((s) => receiptOf(s, live, view.approval?.viewer === 'yes' && view.approval.stepId === s.id))
           // A finished run whose every receipt is a pass reads as one line
           // until asked; anything else shows every receipt.
           const clean = !live && receipts.length > 0 && receipts.every((r) => r.statusLabel === 'passed' && r.result !== 'passed with notes')
@@ -275,7 +275,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
           )
         })}
         {extraErr && <div className="ch-line"><Status word="unknown" tone={STATUS_LIGHT.unknown} /><span className="ch-line-what">The work this landing carries could not be read: {extraErr}</span></div>}
-        {proof && (
+        {proof && (proof.merged || proof.releases.length > 0 || view.change.state === 'shipped' || view.change.state === 'abandoned') && (
           <div className="ch-ledger-group">
             <div className="ch-ledger-head"><strong>Delivery</strong></div>
             {(proof.merged || proof.releases.length > 0) && <div className="ch-line">

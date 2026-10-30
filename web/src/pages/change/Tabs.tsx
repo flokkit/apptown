@@ -92,7 +92,7 @@ function RunWork({ view, detail, reload, focusStep, deciding }: { view: ChangeVi
       {running ? (
         <>
           <h3>Stage “{run.currentStage}”</h3>
-          {currentSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} hideApproveForm={s.id === deciding} landingMeans={landingMeansFor(detail, s)} />)}
+          {currentSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} awaitingDecision={isLatest && view.approval?.viewer === 'yes' && view.approval.stepId === s.id} hideApproveForm={s.id === deciding} landingMeans={landingMeansFor(detail, s)} />)}
           {earlierSteps.length > 0 && (
             <details open={earlierSteps.some((s) => s.id === focusStep)}>
               <summary>Earlier stages ({earlierSteps.length} steps)</summary>
@@ -298,13 +298,13 @@ export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runI
       <section>
         <h3>Event log{view.detail ? ` of run ${view.detail.run.number}` : ''} ({events.length})</h3>
         {events.length === 0 ? <div className="muted">No events recorded.</div> : (
-          <table>
+          <table className="stack event-log">
             <tbody>
               {events.map((e) => (
                 <tr key={e.id}>
-                  <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{e.at.replace('T', ' ').replace('Z', '')}</td>
-                  <td className="small">{e.kind}</td>
-                  <td className="muted small">{eventSentence(e) ?? <code style={{ overflowWrap: 'anywhere' }}>{JSON.stringify(e.payload)}</code>}</td>
+                  <td data-label="Time" className="muted small">{e.at.replace('T', ' ').replace('Z', '')}</td>
+                  <td data-label="Event" className="small">{e.kind}</td>
+                  <td data-label="Details" className="muted small">{eventSentence(e) ?? <details><summary>Event data</summary><pre className="event-payload">{JSON.stringify(e.payload, null, 2)}</pre></details>}</td>
                 </tr>
               ))}
             </tbody>

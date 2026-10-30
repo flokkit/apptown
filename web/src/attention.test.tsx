@@ -10,7 +10,7 @@ import { AttentionBadge } from './attention'
 import AttentionPage from './pages/Attention'
 import Dashboard from './pages/Dashboard'
 import TopBar from './TopBar'
-import App from './App'
+import App, { SidebarNav } from './App'
 import type { AttentionView } from './wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -55,6 +55,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(calls.filter(p => p === '/attention')).toHaveLength(1)
     expect(v.el.querySelector('.topbar')?.contains(badge(v.el))).toBe(true)
     expect(badge(v.el).getAttribute('aria-label')).toBe('Attention: 2 conditions')
+    expect(badge(v.el).textContent).toBe('2 need attention')
     expect(v.el.querySelectorAll('article')).toHaveLength(2)
     expect(v.el.querySelector('a[href="/infrastructure"]')?.textContent).toBe('Worker unavailable')
     expect(v.el.querySelector('a[href="/projects/game/settings/data"]')?.textContent).toBe('Recovery is untested')
@@ -83,6 +84,12 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(badge(v.el).getAttribute('aria-label')).toBe('Attention: 0 conditions')
     expect(v.el.textContent).toContain('0 conditions')
     expect(v.el.textContent).not.toContain('Coverage incomplete')
+  })
+  it('shows only the condition count in the topbar when host coverage is incomplete', async () => {
+    responses(() => json({ ...warning, sources: [{ ...known.sources[0], unknown: true }] }))
+    const v = mount(<AttentionBadge />); await settled(v.client)
+    expect(badge(v.el).textContent).toBe('2 need attention')
+    expect(badge(v.el).getAttribute('href')).toBe('/attention')
   })
   it('polls the shared visible answer at thirty seconds and makes no signed-out request', async () => {
     vi.useFakeTimers(); focusManager.setFocused(true)
@@ -132,6 +139,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     responses(() => mode === 'failed' ? json({ error: 'no observation' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: mode === 'stale' }] }), {
       '/activity': emptyActivity, '/dashboard': emptyDashboard,
       '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game' }],
+      '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
     const lead = v.el.querySelector('.dash-lead')?.textContent
@@ -139,18 +147,61 @@ describe('Attention surfaces share authorized current evidence', () => {
     if (mode === 'known') expect(lead).toContain('All quiet')
     else expect(lead).not.toContain('All quiet')
   })
-  it('adds Operations without replacing Home approvals and blocked work, and refuses all-quiet on missing operations', async () => {
+  it('keeps Home approvals and blocked work, and refuses all-quiet on missing host observations', async () => {
     const active = [{ runId: 'run-blocked', runNumber: 1, changeId: 'change-blocked', changeNumber: 1, workflow: 'implement', title: 'Blocked change', status: 'blocked', stage: 'gate', state: 'blocked', detail: 'Needs repair', project: 'game', startedAt: at, durationS: 10 }]
     responses(() => json({ error: 'cannot read operations' }, 503), {
       '/activity': { ...emptyActivity, active },
       '/dashboard': { ...emptyDashboard, pendingApprovals: [{ id: 'approval', changeId: 'change-review', changeNumber: 2, runId: 'run-review', itemTitle: 'Review change', projectSlug: 'game', stepName: 'accept' }] },
       '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game' }],
+      '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
-    expect(v.el.textContent).toContain('Operations')
+    expect(v.el.textContent).toContain('host status unknown')
+    expect(v.el.textContent).not.toContain('Operations')
     expect(v.el.textContent).toContain('Needs you (2)')
     expect(v.el.textContent).toContain('Blocked change')
     expect(v.el.textContent).toContain('Review change')
     expect(v.el.textContent).not.toContain('All quiet')
   })
+})
+
+it('Home shows the deployment display name and keeps unreachable visibly failed', async () => {
+ responses(() => json(known), {
+  '/activity': emptyActivity, '/dashboard': emptyDashboard,
+  '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game' }],
+  '/projects/game/deployments': [{ id: 'preview-id', name: 'preview-machine-id', displayLabel: 'Preview', url: 'https://preview.example.test', kind: 'preview', running: null, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
+ })
+ const v = mount(<Dashboard />, '/'); await settled(v.client)
+ expect(v.el.querySelector('.dash-app')?.textContent).toBe('Preview')
+ expect(v.el.textContent).not.toContain('preview-machine-id')
+ expect(v.el.querySelector('.chip.fail')?.textContent).toContain('unreachable')
+})
+
+it('keeps pending attention distinct from a failed read', async () => {
+ let release!: (r: Response) => void
+ responses(() => new Promise<Response>(resolve => { release = resolve }))
+ const v = mount(<AttentionBadge />)
+ await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) })
+ expect(badge(v.el).textContent).toBe('Attention …')
+ await act(async () => { release(json({ error: 'unavailable' }, 403)) }); await settled(v.client)
+ expect(badge(v.el).textContent).toBe('Attention unknown')
+})
+it.each([false, true])('search has its own visible control (narrow=%s)', async narrow => {
+ responses(() => json(known))
+ const v = mount(<TopBar me={{ mode: 'internal', user: 'alice' }} narrow={narrow} />)
+ await settled(v.client)
+ const search = v.el.querySelector('summary[aria-label="Search"]')!
+ expect(search).not.toBeNull()
+ expect(search.closest('details')).not.toBe(v.el.querySelector('summary[aria-label="Account menu"]')?.closest('details'))
+ act(() => search.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+ expect(v.el.querySelector<HTMLInputElement>('input[aria-label="find"]')?.closest('details')?.open).toBe(true)
+})
+it('identifies sidebar links while the project name loads and after a failed read', async () => {
+ let release!: (r: Response) => void
+ vi.stubGlobal('fetch', vi.fn(async (url: unknown) => pathOf(url) === '/projects/club-newsletter'
+  ? new Promise<Response>(resolve => { release = resolve }) : json({ instance: {} })))
+ const v = mount(<SidebarNav />, '/projects/club-newsletter')
+ expect(v.el.querySelector('.sidebar-project')?.textContent).toBe('club-newsletter')
+ await act(async () => { release(json({ error: 'forbidden' }, 403)) }); await settled(v.client)
+ expect(v.el.querySelector('.sidebar-project')?.textContent).toBe('club-newsletter')
 })

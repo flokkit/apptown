@@ -103,7 +103,6 @@ export function InfrastructureHome() {
         })}
         <Link to="/infrastructure/new" className="conn-card infra-add">
           <div style={{ fontWeight: 600 }}>Add a deployment target</div>
-          <div className="muted small">a Docker host, a Portainer environment, a DigitalOcean account</div>
         </Link>
       </div>}
     </div>
@@ -162,15 +161,15 @@ function JobQueue() {
         ? <div className="muted small">No jobs yet.</div>
         : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="small" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            <table className="small stack job-table" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <thead><tr><th>Job</th><th>State</th><th>When</th><th>Outcome</th></tr></thead>
               <tbody>
                 {jobs.data.jobs.map((j) => (
                   <tr key={j.id}>
-                    <td>{JOB_WORDS[j.kind] ?? j.kind} <b>{j.key}</b></td>
-                    <td><Status word={j.statusLabel} tone={STATUS_LIGHT[j.statusLabel]} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
-                    <td className="muted">{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
-                    <td className={j.error ? 'error' : ''}>{jobReceipt(j)}</td>
+                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? j.kind} <details className="inline-detail"><summary>Key</summary><code className="job-key">{j.key}</code></details></td>
+                    <td className="stack-end"><Status word={j.statusLabel} tone={STATUS_LIGHT[j.statusLabel]} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
+                    <td className="muted" data-label="when">{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
+                    <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}</td>
                   </tr>
                 ))}
               </tbody>

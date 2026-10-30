@@ -23,12 +23,11 @@ function GeneratedGuidance() {
       <StaleNote q={q} />
       <div className="conn-section-head">
         <h2>Generated</h2>
-        <span className="muted small">written by {PRODUCT} from instance state; the exact text each step used is saved on the run</span>
+        <span className="muted small">From instance settings</span>
       </div>
       <div className="muted small" style={{ marginBottom: 8 }}>
-        <span title={sizeTitle(always)}>{fmtSize(always)}</span> of this goes into every agent step on top of the project's blocks
-        {conditional > 0 && <>, and steps of a particular shape get up to <span title={sizeTitle(conditional)}>{fmtSize(conditional)}</span> more</>}.
-        A project's own integrations add a section of their own; its Guidance tab counts them.
+        <span title={sizeTitle(always)}>{fmtSize(always)}</span> per step
+        {conditional > 0 && <> · up to <span title={sizeTitle(conditional)}>{fmtSize(conditional)}</span> conditional</>}
       </div>
       {gens.map((g) => (
         <div key={g.name} className="card" style={{ borderStyle: 'dashed' }}>
@@ -86,9 +85,6 @@ export default function GuidanceLibrary() {
 
   return (
     <div>
-      <p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
-        A block affects runs only in projects that adopt it.
-      </p>
       <div className="row" style={{ marginBottom: 16 }}>
         <input placeholder="search name & body…" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 260 }} />
         <input placeholder="tag" value={tag} onChange={(e) => setTag(e.target.value)} style={{ width: 120 }} />

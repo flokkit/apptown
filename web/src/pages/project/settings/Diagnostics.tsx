@@ -197,7 +197,7 @@ function LogView({ log, onClose }: { log: PartLog; onClose: () => void }) {
         <span className="muted">{log.generation == null ? `log of container ${log.container.slice(0, 12)} (generation not known)` : `log of generation ${log.generation}`}, read {new Date(log.readAt).toLocaleTimeString()} · newest {log.maxLines} lines, at most {fmtBytes(log.maxBytes)}{log.truncated ? '; older output not shown' : ''}</span>
         <button className="link small" onClick={onClose}>close</button>
       </div>
-      <pre style={{ maxHeight: 320, overflow: 'auto', background: 'var(--code-bg)', padding: '8px 10px', borderRadius: 6, fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{log.text || '(empty)'}</pre>
+      <pre style={{ maxHeight: 320, overflow: 'auto', background: 'var(--code-bg)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{log.text || '(empty)'}</pre>
     </div>
   )
 }

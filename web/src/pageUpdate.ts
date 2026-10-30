@@ -15,7 +15,7 @@ const KEY = 'apptown.reloaded-for'
 // pageEntry is the entry script this tab was loaded from. A development
 // server serves source (/src/...), which no build names: it never compares.
 export function pageEntry(doc: Pick<Document, 'querySelector'> = document): string {
-  const src = doc.querySelector<HTMLScriptElement>('script[type="module"][src]')?.getAttribute('src') ?? ''
+  const src = doc.querySelector<HTMLScriptElement>('script[type="module"][src]:not([src="/@vite/client"])')?.getAttribute('src') ?? ''
   return src.startsWith('/src/') ? '' : src
 }
 

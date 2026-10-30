@@ -14,7 +14,7 @@ export function JobBar({ counts = {} }: { counts?: Record<string, number> }) {
   const order = ['done', 'verifying', 'landing', 'accepting', 'working', 'stuck', 'queued', 'skipped']
   const total = Math.max(counts.total ?? 0, 1)
   return (
-    <span style={{ display: 'inline-flex', width: 180, height: 8, borderRadius: 4, overflow: 'hidden', background: 'var(--panel2)', border: '1px solid var(--border)', flex: '0 0 auto' }}
+    <span style={{ display: 'inline-flex', width: 180, height: 8, borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--panel2)', border: '1px solid var(--border)', flex: '0 0 auto' }}
       title={order.filter((k) => counts[k]).map((k) => `${counts[k]} ${ITEM[k]?.label ?? k}`).join(' · ')}>
       {order.map((k) => (counts[k] ?? 0) > 0 && <span key={k} style={{ width: `${(counts[k] / total) * 100}%`, background: ITEM_COLOR[k] }} />)}
     </span>

@@ -20,10 +20,10 @@ import { SecretNameStatus } from './integrations/InstanceSecrets'
 type Kind = 'docker-host' | 'portainer' | 'do-app' | 's3-bucket'
 const DO_REGIONS = ['syd', 'sgp', 'blr', 'nyc', 'sfo', 'tor', 'lon', 'fra', 'ams']
 const KINDS: { kind: Kind; title: string; vendor: string; blurb: string }[] = [
-  { kind: 'docker-host', title: 'Docker host', vendor: 'over SSH', blurb: `A machine with Docker, reached over SSH (for example a droplet). ${PRODUCT} builds on the host, gives the data volume to the image's user, and routes apps through the host's Traefik when it has an apps domain.` },
-  { kind: 'portainer', title: 'Portainer environment', vendor: 'Portainer', blurb: 'Experimental: no qualification has released a real app to it yet. An environment Portainer administers. Portainer owns restarts; apps are reached under the apps domain through its Traefik.' },
-  { kind: 'do-app', title: 'DigitalOcean App Platform', vendor: 'DigitalOcean', blurb: 'Experimental: no qualification has released a real app to it yet. A DigitalOcean team: App Platform runs the app, Managed Databases hold its data, the container registry holds its images. One target per account and region.' },
-  { kind: 's3-bucket', title: 'Bucket website', vendor: 'S3-compatible storage', blurb: `Experimental: no qualification has released a real app to it yet. Static-only apps published as files to a bucket (DigitalOcean Spaces first) and served from its website address. Each deployment gets a bucket of its own; taking the deployment down deletes it, so keep nothing else there. The key must be able to create buckets: a full-access key reaches every bucket in its team, so use one made for ${PRODUCT} alone.` },
+  { kind: 'docker-host', title: 'Docker host', vendor: 'over SSH', blurb: "Docker over SSH. Builds run on the host. Data uses the image's user. Traefik serves the apps domain." },
+  { kind: 'portainer', title: 'Portainer environment', vendor: 'Portainer', blurb: 'Experimental: no real app qualified yet. Portainer runs and restarts apps. Traefik serves the apps domain.' },
+  { kind: 'do-app', title: 'DigitalOcean App Platform', vendor: 'DigitalOcean', blurb: 'Experimental: no real app qualified yet. App Platform runs apps, Managed Databases hold data, and the registry holds images. One target per account and region.' },
+  { kind: 's3-bucket', title: 'Bucket website', vendor: 'S3-compatible storage', blurb: `Experimental: no real app qualified yet. Static files only, served from a bucket website. DigitalOcean Spaces first. Each deployment gets one bucket; taking it down deletes the bucket, so keep nothing else there. Use a key made for ${PRODUCT} that can create buckets. Full-access keys reach every bucket in the team.` },
 ]
 
 export function InfrastructureNew() {
@@ -36,7 +36,7 @@ export function InfrastructureNew() {
     <div style={{ maxWidth: 860 }}>
       <div className="row" style={{ gap: 8, alignItems: 'baseline' }}>
         <Link to="/infrastructure" className="small">Infrastructure</Link><span className="muted small">/</span>
-        <h2 style={{ margin: 0 }}>Add a deployment target</h2>
+        <h1 style={{ margin: 0 }}>Add a deployment target</h1>
       </div>
       <ol className="wiz-steps">
         <li className={step === 1 ? 'current' : 'done'}>Kind{chosen && step > 1 ? <small>{chosen.title}</small> : null}</li>

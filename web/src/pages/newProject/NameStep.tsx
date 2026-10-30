@@ -13,17 +13,16 @@ export function NameStep({ d, act }: { d: Draft; act: Dispatch<DraftAct> }) {
         value={d.description} onChange={(e) => act({ type: 'describe', description: e.target.value })}
         placeholder="A lunch ordering app for our office"
         style={{ width: '100%', boxSizing: 'border-box' }} />
-      <div className="muted small mt-2">Describe the software, or what you want to do with existing code.</div>
       <label className="row mt-3" style={{ gap: 'var(--space-2)' }}>
-        <span>Working name</span>
+        <span>Name</span>
         <input value={d.name} onChange={(e) => act({ type: 'name', name: e.target.value })}
           placeholder="Suggested from your description" onKeyDown={(e) => e.key === 'Enter' && next()}
           style={{ flex: 1, minWidth: 0 }} />
       </label>
       {(slug || d.address !== null || editingSlug) && (
         <div className="muted small mt-2">
-          Proposed address: <code>/{slug}</code>
-          {!editingSlug && <> · <button className="subtle" onClick={() => setEditingSlug(true)}>change that</button></>}
+          Address: <code>/{slug}</code>
+          {!editingSlug && <> · <button className="subtle" onClick={() => setEditingSlug(true)}>Edit</button></>}
           {editingSlug && (
             <input aria-label="Project address" value={slug} autoFocus style={{ marginLeft: 'var(--space-2)', width: 180 }}
               onChange={(e) => act({ type: 'address', address: e.target.value })}

@@ -70,7 +70,11 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault(); (document.getElementById(FIND_BOX_ID) as HTMLInputElement | null)?.focus()
+        e.preventDefault()
+        const input = document.getElementById(FIND_BOX_ID) as HTMLInputElement | null
+        const account = input?.closest('details')
+        if (account) account.open = true
+        input?.focus()
       }
     }
     window.addEventListener('keydown', onKey)
@@ -83,21 +87,24 @@ export default function TopBar({ me, narrow = false, menuOpen = false, onMenu }:
         <button className="subtle topbar-menu" aria-label={menuOpen ? 'close the menu' : 'open the menu'}
           aria-expanded={menuOpen} aria-controls="sidebar" onClick={onMenu}>{menuOpen ? '✕' : '☰'}</button>
       )}
-      <Link to="/" className="topbar-logo">⚒ <span>{PRODUCT}</span></Link>
+      <Link to="/" className="topbar-logo">{PRODUCT}</Link>
       {crumbs.map((c, i) => (
         <span key={i} className={'topbar-crumb' + (i === crumbs.length - 1 ? ' last' : '')}>
           <span className="topbar-sep">›</span>
           {c.to ? <Link to={c.to}>{c.label}</Link> : <span className="topbar-here">{c.label}</span>}
         </span>
       ))}
-      {page.chip && <span className={`chip topbar-chip ${page.chip.cls ?? ''}`}>{page.chip.text}</span>}
       <span style={{ flex: 1 }} />
       {me && <AttentionBadge />}
-      {!narrow && <>
-        <Find />
-        <ThemeSwitch />
-        <UserLine me={me} />
-      </>}
+      <details className="account-menu topbar-search">
+        <summary aria-label="Search">Find</summary>
+        <div><Find /></div>
+      </details>
+      <Link to="/projects">Projects</Link>
+        <details className="account-menu">
+          <summary aria-label="Account menu">{me?.user || 'Account'}</summary>
+          <div><ThemeSwitch /><UserLine me={me} /></div>
+        </details>
     </header>
   )
 }
