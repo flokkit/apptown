@@ -51,7 +51,9 @@ or instance credentials.
 3. **Replace the binaries and start.** On a one-server compose install,
    set `APPTOWN_VERSION` in `.env` to the new version (or download the new
    `compose.yaml`), then `docker compose pull && docker compose up -d`: the
-   image brings its own agent image's name. Otherwise, unpack the new release over
+   image brings its own agent image's name. A split install with Docker
+   upgrades each machine the same way, worker first ("With Docker" in
+   [Split install](split-install.md)). Otherwise, unpack the new release over
    `/opt/apptown` ([downloading a release](server-setup.md)), its `share/`
    folder with its `bin/` (AppTown reads its ways of working and tool
    versions from `share/apptown/updates` at start, and does not start

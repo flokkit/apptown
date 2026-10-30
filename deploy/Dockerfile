@@ -30,34 +30,16 @@
 #   and out; deploy/one-server/compose.yaml starts it that way, with Caddy in
 #   front (Running AppTown, One server).
 #
-# - server, as a server: APPTOWN_NO_LOCAL_DOCKER=true in its environment. A
-#   AppTown with no local Docker: it runs everything on a worker and needs an
-#   external database: APPTOWN_DB_URL, APPTOWN_WORKER_URL and the worker's
-#   certificates (APPTOWN_WORKER_CERT, _KEY, _CA), APPTOWN_AUTH and
-#   APPTOWN_PUBLIC_HOST; apptownd refuses to start without them (Running an
-#   AppTown, Workers and running without local Docker). Data is under
-#   /var/lib/apptown. It cannot run work on a Docker it shares through the
-#   socket: it bind-mounts its own folders and bin/apptown-linux into the
-#   containers it starts, and from inside a container those are the
-#   container's paths, not the host's.
-#
-#     docker run -d -p 7777:7777 -v apptown-data:/var/lib/apptown \
-#       -v /etc/apptown/worker:/etc/apptown/worker:ro --env-file apptownd.env ghcr.io/flokkit/apptown:<version>
-#
-#   with APPTOWN_NO_LOCAL_DOCKER=true in apptownd.env.
-#
-# - worker: runs work on the host's Docker through its socket. It mounts its
-#   state folder into the task containers it starts, so the state folder has
-#   the same path inside and out; and it publishes previews on the host's
-#   loopback and dials 127.0.0.1 to reach them, so it uses the host's
-#   network (Linux):
-#
-#     docker run -d --network host -v /var/run/docker.sock:/var/run/docker.sock \
-#       -v /var/lib/apptown-worker:/var/lib/apptown-worker -v /etc/apptown-worker:/etc/apptown-worker:ro \
-#       ghcr.io/flokkit/apptown-worker:<version> -installation forge.example.com \
-#       -state /var/lib/apptown-worker -listen 10.0.0.5:7790 \
-#       -cert /etc/apptown-worker/worker.pem -key /etc/apptown-worker/worker-key.pem \
-#       -client-ca /etc/apptown-worker/ca.pem
+# - server, as a split install's AppTown (APPTOWN_NO_LOCAL_DOCKER=true), and
+#   worker, as its worker: deploy/split-install/apptown/compose.yaml and
+#   deploy/split-install/worker/compose.yaml start each on its own machine,
+#   on the host's network (Split install, With Docker). AppTown is given no
+#   Docker socket: it runs everything on the worker and needs an external
+#   database, the worker's address and certificates, APPTOWN_AUTH and
+#   APPTOWN_PUBLIC_HOST, and refuses to start without them. The worker runs
+#   work on its host's Docker through the socket and mounts its state folder
+#   into the containers it starts, so that folder has the same path inside
+#   and out.
 #
 # Both run as root, as the systemd units do (Running AppTown, Prepare the host).
 # Base images are pinned by digest; the Go and Node stages run on the build

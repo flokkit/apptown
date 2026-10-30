@@ -1,0 +1,48 @@
+# AppTown of a split install, run from its image (Split install, With
+# Docker). On AppTown's machine, as root:
+#
+#   mkdir -p /opt/apptown && cd /opt/apptown
+#   curl -fsSLO https://apptown.dev/split-install/apptown/compose.yaml
+#   (write .env: the settings below)
+#   docker compose up -d
+#
+# AppTown runs every project's work on the worker and every app on an
+# attached host: it is not given this machine's Docker socket, and Docker
+# here runs only this container. Its settings go in .env as APPTOWN_
+# variables (apptownd -h): at least APPTOWN_DB_URL, APPTOWN_PUBLIC_HOST,
+# APPTOWN_TIER_DOMAIN, APPTOWN_WORKER_URL with APPTOWN_WORKER_CERT, _KEY and
+# _CA (files in /etc/apptown/worker), and the console and inference
+# addresses on this machine's private address. Put your own proxy in front
+# of 127.0.0.1:7777 (Setting up a server, Your own proxy).
+#
+# The image: the release apptown.dev publishes this file with (a copy from
+# the repository needs APPTOWN_VERSION in .env); APPTOWN_VERSION names
+# another release, and APPTOWN_IMAGE, when set, replaces the whole reference, for a digest
+# (ghcr.io/flokkit/apptown@sha256:…) or a mirror.
+name: apptown
+
+services:
+  apptown:
+    image: ${APPTOWN_IMAGE:-ghcr.io/flokkit/apptown:${APPTOWN_VERSION:-@VERSION@}}
+    # The host's network: the console and inference listeners bind this
+    # machine's private address, which the worker's containers reach, and a
+    # proxy on this machine reaches AppTown on loopback, so AppTown trusts
+    # its forwarded headers.
+    network_mode: host
+    restart: unless-stopped
+    # An init as process 1 reaps what the processes AppTown starts leave
+    # behind: each docker command over ssh orphans an ssh process, and
+    # without a reaper their zombies fill the container's process limit.
+    init: true
+    env_file: .env
+    environment:
+      APPTOWN_NO_LOCAL_DOCKER: "true"
+      APPTOWN_DATA: ${APPTOWN_DATA:-/var/lib/apptown}
+      APPTOWN_ADDR: ${APPTOWN_ADDR:-127.0.0.1:7777}
+    volumes:
+      # The same path inside and out, so a backup, a restore and the host's
+      # own tools name one folder.
+      - ${APPTOWN_DATA:-/var/lib/apptown}:${APPTOWN_DATA:-/var/lib/apptown}
+      - /etc/apptown/worker:/etc/apptown/worker:ro
+    # apptownd stops its own work within its shutdown budget.
+    stop_grace_period: 60s

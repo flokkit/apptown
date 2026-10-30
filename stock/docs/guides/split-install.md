@@ -55,12 +55,12 @@ deployments on the built-in Docker host. Nor is a worker a strong sandbox: code 
 the network, and the private Docker a step or chat may get is not a
 boundary against hostile code. Only `-no-local-docker` keeps every project
 process off AppTown's host. The `ghcr.io/flokkit/apptown` image runs this way
-when `APPTOWN_NO_LOCAL_DOCKER=true` is in its environment; without it, the
-image starts as the desktop trial (the comment in `deploy/Dockerfile`
-shows both).
+when `APPTOWN_NO_LOCAL_DOCKER=true` is in its environment, as the split
+install's compose file sets it ("With Docker" below).
 
-With `-no-local-docker` AppTown's host runs no Docker and no project
-process. It needs a worker and an external database (`-db-url`), and
+With `-no-local-docker` AppTown starts no container and no project process
+on its host. Installed from its image, AppTown's host runs Docker for
+AppTown's own container only, and AppTown is not given its socket. It needs a worker and an external database (`-db-url`), and
 deploys a landing to an attached Docker host instead of its own. This is
 the split install.
 
@@ -68,8 +68,9 @@ the split install.
 
 1. **The database.** A PostgreSQL database AppTown alone uses, named with
    `-db-url`.
-2. **The worker.** A machine with Docker, running `apptown-worker` as root.
-   Unpack the same release archive to `/opt/apptown-worker` ([downloading a
+2. **The worker.** A machine with Docker, running `apptown-worker` as root,
+   from its image ("With Docker" below) or from the release archive: unpack
+   the same release archive to `/opt/apptown-worker` ([downloading a
    release](server-setup.md)); its example unit is
    `deploy/systemd/apptown-worker.service`. The unit sets
    `DOCKER_CONFIG=/root/.docker`; override it in
@@ -78,7 +79,8 @@ the split install.
    You issue its server certificate and AppTown's client certificate; the
    client certificate's Common Name is the worker's `-installation`. On a
    cloud machine, block the metadata service (below).
-3. **AppTown.** Start `apptownd` with `-no-local-docker`, `-db-url`,
+3. **AppTown.** From its image ("With Docker" below), or from the release
+   archive under systemd. Start `apptownd` with `-no-local-docker`, `-db-url`,
    `-worker-url`, `-worker-cert`, `-worker-key` and `-worker-ca`, the
    addresses from "Configure model access" in [Setting up a
    server](server-setup.md), a preview domain
@@ -98,6 +100,65 @@ the split install.
 The full procedure, with the API calls, is in the repository at
 `design/operations/workers.md`, "Running an AppTown without a local Docker
 daemon".
+
+## With Docker
+
+Each machine runs one compose file, published with each release at
+`https://apptown.dev/split-install/`, with its settings in a `.env` beside
+it. The file starts the release it was published with. Both containers run
+with an init as process 1 (`init: true`), which reaps the processes AppTown
+and the worker leave behind; run without it, the ssh processes left by
+commands for attached Docker hosts fill the container's process limit
+until AppTown can start no more. Both
+containers use the host's network and run as root. You need Docker with
+Compose 2.23 or later on AppTown's machine and on the worker.
+
+**The worker**, as root:
+
+```sh
+mkdir -p /opt/apptown-worker && cd /opt/apptown-worker
+curl -fsSLO https://apptown.dev/split-install/worker/compose.yaml
+cat > .env <<'ENV'
+APPTOWN_INSTALLATION=apptown.example.com
+APPTOWN_LISTEN=10.0.0.5:7790
+ENV
+docker compose up -d
+```
+
+Put the worker's certificate, key and AppTown's CA in `/etc/apptown-worker`
+as `worker.pem`, `worker-key.pem` and `ca.pem` first. Its state is in
+`/var/lib/apptown-worker`. Any other worker flag goes in `.env` as its
+`APPTOWN_` variable, such as `APPTOWN_EXCLUSIVE=true` on a machine that is
+the installation's alone. On its first start the worker builds the agent
+image, which takes several minutes.
+
+**AppTown**, as root:
+
+```sh
+mkdir -p /opt/apptown && cd /opt/apptown
+curl -fsSLO https://apptown.dev/split-install/apptown/compose.yaml
+chmod 600 .env   # after writing it: it holds the database's password
+docker compose up -d
+```
+
+`.env` holds every setting step 3 lists, as
+`APPTOWN_` variables (`APPTOWN_DB_URL`, `APPTOWN_PUBLIC_HOST`,
+`APPTOWN_TIER_DOMAIN`, `APPTOWN_WORKER_URL`, `APPTOWN_CONSOLE_ADDR` and so
+on). The worker's client certificate, key and CA go in `/etc/apptown/worker`,
+named by `APPTOWN_WORKER_CERT`, `_KEY` and `_CA`. The data directory is
+`/var/lib/apptown`, or `APPTOWN_DATA`, at the same path inside and out.
+AppTown listens on `127.0.0.1:7777`: put your own proxy in front of it
+([Your own proxy](server-setup.md)), serving your domain and every name
+under the preview domain.
+
+**Upgrading** either machine: download its new `compose.yaml` (or set
+`APPTOWN_VERSION` in `.env` to the new version) and run
+`docker compose pull && docker compose up -d`, worker first. To pin the exact
+image, set `APPTOWN_IMAGE` to a digest (`ghcr.io/flokkit/apptown@sha256:…`,
+or `apptown-worker@…` on the worker); it replaces the version's reference,
+and also names a mirror. Run `apptownd` commands such as a backup in the
+container: `docker compose exec apptown apptownd backup -store <archive>`
+([AppTown's own backups](apptown-backups.md)).
 
 ## Switching to no local Docker
 

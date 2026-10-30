@@ -40,14 +40,20 @@
 # BLOCK_NAMES (space-separated host names sent to 127.0.0.1 on the target,
 # e.g. the source AppTown's own name; none by default), RESET_TARGET=1
 # (first clean up what an earlier run left, by that run's own record),
-# SOURCE_BIN (the source's apptownd, /opt/apptown/bin/apptownd), CANDIDATE,
-# STORE, PASSPHRASE_FILE.
+# SOURCE_BIN (the source's apptownd, /opt/apptown/bin/apptownd), SOURCE_IN (a
+# command prefix every command on the source runs in, for a source in a
+# container: `cd /opt/apptown && docker compose exec -T apptown`; none by
+# default), CANDIDATE, STORE, PASSPHRASE_FILE.
 set -euo pipefail
-usage() { sed -n 2,44p "$0" >&2; exit 2; }
+usage() { sed -n 2,46p "$0" >&2; exit 2; }
 [ $# -eq 3 ] || usage
 src=$1 srcdata=$2 tgt=$3
 here=$(cd "$(dirname "$0")" && pwd)
 srcbin=${SOURCE_BIN:-/opt/apptown/bin/apptownd}
+srcin=${SOURCE_IN:-}
+# on_src <command>: a shell command on the source, inside SOURCE_IN; standard
+# input and output pass through.
+on_src() { ssh "$src" "$srcin bash -c $(printf %q "$1")"; }
 tdata=${TARGET_DATA:-/srv/apptown-restore/data}
 port=${TARGET_PORT:-47777}
 block=${BLOCK_NAMES:-}
@@ -74,9 +80,9 @@ step() { # names the next step and says how long the previous one took
 }
 
 keys="runtime-token-key secrets.env db.env instance-id"
-sum() { # sum <ssh> <data dir>: "<file> <sha256>" per key file, or "<file> missing"
+sum() { # sum <ssh> <data dir> [<prefix>]: "<file> <sha256>" per key file, or "<file> missing"
 	# ssh joins its arguments into one command line: the names go as words.
-	ssh "$1" bash -s -- "$2" $keys <<'EOF'
+	ssh "$1" ${3:-} bash -s -- "$2" $keys <<'EOF'
 cd "$1" && shift
 for f in "$@" $(find ssh -type f 2>/dev/null | sort); do
 	if [ -r "$f" ]; then echo "$f $(sha256sum < "$f" | cut -c1-64)"; else echo "$f missing"; fi
@@ -170,10 +176,10 @@ EOF
 		ssh "$tgt" "cp /opt/forge-restore/candidate/bin/apptownd /opt/forge-restore/apptownd && rm -rf /opt/forge-restore/updates && cp -R /opt/forge-restore/candidate/share/apptown/updates /opt/forge-restore/updates"
 	else
 		step "the source's apptownd restores and starts"
-		ssh "$src" cat "$srcbin" | ssh "$tgt" "cat > /opt/forge-restore/apptownd && chmod 755 /opt/forge-restore/apptownd"
+		on_src "cat '$srcbin'" | ssh "$tgt" "cat > /opt/forge-restore/apptownd && chmod 755 /opt/forge-restore/apptownd"
 		# The stock and tool versions that apptownd reads at start, shipped
 		# beside its bin/ folder.
-		ssh "$src" tar -C "$(dirname "$(dirname "$srcbin")")/share/apptown" -cf - updates | ssh "$tgt" "rm -rf /opt/forge-restore/updates && tar -C /opt/forge-restore -xf -"
+		on_src "tar -C '$(dirname "$(dirname "$srcbin")")/share/apptown' -cf - updates" | ssh "$tgt" "rm -rf /opt/forge-restore/updates && tar -C /opt/forge-restore -xf -"
 	fi
 	expected=$(ssh "$tgt" /opt/forge-restore/apptownd -version | awk '{print $2}')
 	[ -n "$expected" ] || { echo "the restoring apptownd names no version" >&2; exit 1; }
@@ -181,7 +187,7 @@ EOF
 
 	step "capture what the source holds (reads)"
 	python3 "$here/apptown-restore-check.py" capture "$APPTOWN_URL" "$work/expected.json"
-	sum "$src" "$srcdata" | sort > "$work/keys.src"
+	sum "$src" "$srcdata" "$srcin" | sort > "$work/keys.src"
 
 	step "back up the source with apptownd backup (nothing stops)"
 	if [ -n "$passfile" ]; then
@@ -193,13 +199,13 @@ EOF
 	# The running AppTown writes the archive (apptownd backup asks it over
 	# its control socket), as the user it runs as: the demo's is not root,
 	# so the archive goes in a folder of the data folder's owner.
-	srcdir=$(ssh "$src" "d=\$(mktemp -d /var/tmp/apptown-rehearsal-XXXXXX) && chown \$(stat -c %u:%g '$srcdata') \"\$d\" && echo \"\$d\"")
+	srcdir=$(on_src "d=\$(mktemp -d /var/tmp/apptown-rehearsal-XXXXXX) && chown \$(stat -c %u:%g '$srcdata') \"\$d\" && echo \"\$d\"")
 	srcarchive=$srcdir/apptown.backup
-	ssh "$src" "umask 077; cat > /root/.apptown-rehearsal-pass-$$" < "$work/passphrase"
-	ssh "$src" "APPTOWN_BACKUP_PASSPHRASE_FILE=/root/.apptown-rehearsal-pass-$$ $srcbin -data '$srcdata' backup $store $srcarchive; s=\$?; rm -f /root/.apptown-rehearsal-pass-$$; exit \$s"
+	on_src "umask 077; cat > /root/.apptown-rehearsal-pass-$$" < "$work/passphrase"
+	on_src "APPTOWN_BACKUP_PASSPHRASE_FILE=/root/.apptown-rehearsal-pass-$$ $srcbin -data '$srcdata' backup $store $srcarchive; s=\$?; rm -f /root/.apptown-rehearsal-pass-$$; exit \$s"
 
 	step "carry the archive from the source to the target (through this machine's pipe, not its disk)"
-	ssh "$src" cat "$srcarchive" | ssh "$tgt" "umask 077; cat > /opt/forge-restore/apptown.backup"
+	on_src "cat '$srcarchive'" | ssh "$tgt" "umask 077; cat > /opt/forge-restore/apptown.backup"
 	ssh "$tgt" "umask 077; cat > /opt/forge-restore/passphrase" < "$work/passphrase"
 	ssh "$tgt" ls -l /opt/forge-restore/apptown.backup
 
@@ -324,7 +330,7 @@ finish() {
 	fi
 	# The archive opens every secret of the source: it goes, however the run ends.
 	if [ -n "$srcdir" ]; then
-		ssh "$src" rm -rf "$srcdir" || { echo "the archive's folder $srcdir is still on $src: remove it by hand" >&2; status=1; }
+		on_src "rm -rf '$srcdir'" || { echo "the archive's folder $srcdir is still on $src: remove it by hand" >&2; status=1; }
 	fi
 	rm -rf "$work"
 	exit $status

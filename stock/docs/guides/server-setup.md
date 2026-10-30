@@ -175,11 +175,14 @@ Cleanup does not tell two AppTowns' containers apart either: give the second
 its own Docker daemon, or start both with `-disable-reap` and accept that
 each one's start removes the other's previews.
 
-On a split install, AppTown's machine runs no Docker daemon. It needs Git,
-an `ssh` client and the `docker` command (only to reach attached Docker
-hosts), and a PostgreSQL database named with `-db-url`. Skip the agent
-image and running as root there: the worker builds its own agent image,
-and runs as root itself.
+On a split install, AppTown starts no container on its own machine and
+needs a PostgreSQL database named with `-db-url`; the worker builds its own
+agent image, so skip the agent image there. From its image ("With Docker"
+in [Split install](split-install.md)), Docker on that machine runs only
+AppTown's container, which has Git, an `ssh` client and the `docker`
+command for attached Docker hosts, runs as root, and is not given Docker's
+socket. Under systemd, the machine runs no Docker daemon; it needs Git, an
+`ssh` client and the `docker` command, and AppTown need not run as root.
 
 ## Configure model access
 
