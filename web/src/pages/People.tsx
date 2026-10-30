@@ -58,7 +58,7 @@ export default function People() {
       <ReadGate q={rolesQ} also={[grantsQ, usersQ, groupsQ]} what="the roles and grants">
         <RolesCard roles={roles} grants={grants} users={users} groups={groups} act={act} canEdit={canGrants} />
       </ReadGate>
-      {meQ.data?.mode === 'internal' && <MyExternalSignIn />}
+      {meQ.data?.mode === 'internal' && <MyExternalSignIn embedded />}
       {canUsers && meQ.data?.mode === 'internal' && <ExternalProviderSettings />}
       <AgentsCard canEdit={canEdit} />
       <AdminNetworksCard canEdit={canEdit} />
@@ -87,7 +87,7 @@ function AgentsCard({ canEdit }: { canEdit: boolean }) {
       {err && <div className="error small">{err}</div>}
       <ReadStatus q={q} what="the connected agents" className="small" />
       <StaleNote q={q} />
-      {q.data && list.length === 0 && <span className="muted small">None yet · see Docs → Connect a coding agent</span>}
+      {q.data && list.length === 0 && <span className="muted small">None yet.</span>}
       {list.map(d => (
         <div key={d.id} className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{d.clientName}</span>
@@ -518,7 +518,7 @@ function GroupsCard({ groups, users, act, canEdit }: {
   return (
     <div className="card" style={{ display: 'grid', gap: 10 }}>
       <b>Groups</b>
-      {groups.length === 0 && <div className="muted small">No groups yet. Name a group (say, <code>reviewers</code>) in an approval step's approver list · any member's OK satisfies it.</div>}
+      {groups.length === 0 && <div className="muted small">No groups yet.</div>}
       {groups.filter(g => g.kind === 'built-in' || g.kind === 'personal').map(g => (
         <div key={g.name} className="row small" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{g.name}</span>

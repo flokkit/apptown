@@ -34,7 +34,6 @@ export function AdrsTab({ slug }: { slug: string }) {
         </tbody>
       </table>
       )}</ReadGate>
-      <p className="muted small" style={{ maxWidth: 640 }}>Agents read these decisions before building.</p>
       <h2>New decision</h2>
       <form onSubmit={create} className="row">
         <input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} required style={{ width: 320 }} />

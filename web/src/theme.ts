@@ -1,6 +1,6 @@
 // Theme: follows the system by default; a person can pin light or dark.
 // Stored per browser, applied before first paint (main.tsx) so nothing
-// flashes. The tokens live in styles.css — this only flips the switch.
+// flashes. Precision instrument tokens live in styles.css — this only flips the switch.
 import { useEffect, useState } from 'react'
 
 export type Theme = 'system' | 'light' | 'dark'

@@ -8,6 +8,7 @@ import type { ApprovalQuestion, ChangeAdds } from './wire.gen'
 // so "nothing new" never claims more than AppTown looked at; a
 // declaration it could not read is its own line, never folded into nothing.
 export function AddsSection({ adds }: { adds: ChangeAdds }) {
+  if (adds.lines.length === 0) return null
   return (
     <div className="adds">
       <div className="adds-head">This change adds</div>

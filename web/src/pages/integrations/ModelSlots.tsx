@@ -71,9 +71,7 @@ export function ModelSlotsPanel() {
 
   return (
     <div className="conn-card" style={{ maxWidth: 980 }}>
-      <div className="small conn-status">
-        Choose models by slot and project profile. Empty cells use <code>standard</code>, then the slot's fallback chain.
-      </div>
+      <details className="small"><summary>Model fallback</summary>Empty cells use <code>standard</code>, then the slot's fallback chain.</details>
       <StaleNote q={slotsQ} />
       {!modelsQ.data && <ReadStatus q={modelsQ} what="the model catalogue" className="small" />}
       <StaleNote q={modelsQ} />
@@ -82,23 +80,23 @@ export function ModelSlotsPanel() {
         <div key={u.binding} className="error small">Not every model of {u.binding} is listed: {u.error}</div>
       ))}
       {actErr && <div className="error">{actErr}</div>}
-      <table className="kv" style={{ width: '100%' }}>
+      <table className="kv stack slots-table" style={{ width: '100%' }}>
         <thead>
           <tr>
             <th style={{ textAlign: 'left' }} className="small muted">slot</th>
             {profiles.map((p) => <th key={p} style={{ textAlign: 'left' }} className="small muted">{p}</th>)}
-            <th style={{ textAlign: 'left' }} className="small muted">used by · spent (7 days)</th>
+            <th style={{ textAlign: 'left' }} className="small muted">Spent (7 days)</th>
           </tr>
         </thead>
         <tbody>
           {data.slots.map((row) => (
             <tr key={row.slot}>
-              <td className="kv-key" style={{ width: 110, verticalAlign: 'top' }}>
+              <td className="kv-key stack-lead" style={{ width: 110, verticalAlign: 'top' }}>
                 {row.slot}
-                {row.gloss && <div className="muted" style={{ fontSize: 'var(--fs-xs)', fontWeight: 400, maxWidth: 150 }}>{row.gloss}</div>}
+                {(row.gloss || row.consumers?.length) && <details className="inline-detail small"><summary>Use</summary><p>{row.gloss}</p><p>{(row.consumers ?? []).join(' · ')}</p></details>}
               </td>
               {profiles.map((p) => (
-                <td key={p} style={{ verticalAlign: 'top', paddingRight: 8 }}>
+                <td key={p} data-label={p} style={{ verticalAlign: 'top', paddingRight: 8 }}>
                   {cell(row.slot, p, row.patterns[p] ?? '',
                     row.slot === 'default' ? '(unset)'
                       : p !== 'standard' && row.patterns['standard'] ? '(same as standard)'
@@ -106,7 +104,6 @@ export function ModelSlotsPanel() {
                 </td>
               ))}
               <td className="small muted" style={{ verticalAlign: 'top', maxWidth: 260 }}>
-                {(row.consumers ?? []).join(' · ')}
                 {row.spend7d && <div>{fmtTokens(row.spend7d.input)} in / {fmtTokens(row.spend7d.output)} out</div>}
               </td>
             </tr>
@@ -129,8 +126,7 @@ export function ModelSlotsPanel() {
       </div>
 
       <div className="small conn-status" style={{ marginTop: 14 }}>
-        <b>Projects.</b> Each project declares its profile; changing it changes which
-        column serves every slot on that project.
+<b>Project profiles</b>
       </div>
       <table className="kv">
         <tbody>

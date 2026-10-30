@@ -2,7 +2,7 @@ import { PRODUCT } from '../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ChangeView, post } from '../api'
-import RobotBuddy from '../RobotBuddy'
+import AgentActivity from '../AgentActivity'
 import { setPageContext, useNarrow } from '../chrome'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
@@ -89,6 +89,7 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           <span className="chip pending">{status === 'connecting' ? 'connecting…' : 'reconnecting…'}</span>
         )}
         <span style={{ flex: 1 }} />
+        {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
         <button className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
         </button>
@@ -179,8 +180,6 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
             'Set up a database for it',
           ]} />
       )}
-      {/* The buddy says whose turn it is: for someone who may only look, it is never theirs. */}
-      {session?.mayAct && zoom === 'chat' && <RobotBuddy busy={robotBusy} connected={status === 'attached'} />}
       <div className="console-term" ref={termRef}
         style={zoom === 'terminal' ? undefined : { position: 'absolute', left: -9999, width: 600, height: 400 }} />
     </div>

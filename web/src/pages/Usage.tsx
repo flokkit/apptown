@@ -272,8 +272,7 @@ export function UsageView({ project }: { project?: string }) {
         <div style={{ marginTop: 16 }}>
           <h2 style={{ marginBottom: 4 }}>Where the time goes</h2>
           <div className="muted small" style={{ marginBottom: 10 }}>
-            Each workflow's steps across the runs of the last {window} days: how long a step waited to start,
-            how long it ran, and how long an approval waited for a person.
+            Last {window} days · wait and run time
           </div>
           <TimingView days={window} />
         </div>

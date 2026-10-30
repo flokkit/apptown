@@ -21,7 +21,7 @@ function ProjectRow({ p, base }: { p: ProjectStanding; base: string }) {
         <LaneBar lanes={p.lanes} total={p.total} />
       </div>
       <div className="muted small mt-1">
-        {p.adopted.length ? p.adopted.join(', ') : 'no ways of working adopted'}
+        <span title={p.adopted.join(', ')}>{p.adopted.length ? `${p.adopted.length} adopted blocks` : 'Nothing adopted'}</span>
         {p.sha && <> · judged <span className="mono">{shortSha(p.sha)}</span> {fmtWhen(p.judgedAt)}</>}
       </div>
     </Link>
@@ -54,7 +54,7 @@ export function ProjectsList({ view, base }: { view: ConformanceView; base: stri
         </div>
       )}
       {showQuiet && quiet.map((p) => <ProjectRow key={p.slug} p={p} base={base} />)}
-      {none.length > 0 && <div className="muted small" style={{ padding: '4px 14px' }}>Nothing adopted: {none.map((p) => p.name || p.slug).join(', ')} — adopt a way of working under Ways of working to be measured.</div>}
+      {none.length > 0 && <div className="muted small" style={{ padding: '4px 14px' }}>Nothing adopted: {none.map((p) => p.name || p.slug).join(', ')}.</div>}
     </div>
   )
 }

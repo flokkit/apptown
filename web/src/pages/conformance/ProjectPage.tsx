@@ -146,8 +146,9 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
           </div>
           <div className="muted small mt-1">
             {p.sha ? <>judged <span className="mono">{shortSha(p.sha)}</span> · {fmtWhen(p.judgedAt)} · </> : null}
-            adopted: {p.adopted.join(', ') || 'nothing'} · <Link to={`/projects/${slug}`} className="subtle">open the project</Link>
+            <Link to={`/projects/${slug}`} className="subtle">Open project →</Link>
           </div>
+          <details className="small mt-1"><summary>{p.adopted.length} adopted blocks</summary><div className="muted">{p.adopted.join(', ') || 'None'}</div></details>
         </div>
         {!readOnly && (
           <span className="row" style={{ gap: 'var(--space-2)' }}>

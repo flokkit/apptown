@@ -47,13 +47,13 @@ export function MembersTab({ slug }: { slug: string }) {
       </label>
       <div className="muted small">Administrators may approve their own changes and need not be on the approver list. Each counts as one vote.</div>
       <b>Members</b>
-      <div className="muted small">
+      <details className="muted small"><summary>Role permissions</summary>
         A <b>contributor</b> opens changes and
         hands them off; a <b>maintainer</b> also lands them and changes the
         project's setup; an <b>approver</b> says yes at approval steps; an{' '}
         <b>owner</b> manages the project and its members. Everyone
         signed in can read.
-      </div>
+      </details>
       {err && <div className="small" style={{ color: 'var(--bad)' }}>{err}</div>}
       {open && (
         <div className="small">

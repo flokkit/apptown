@@ -15,6 +15,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -37,8 +39,11 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
+	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/testinputs"
@@ -2159,4 +2164,293 @@ var newsletterNeon = map[string]string{
  h2 { font-size:36px; line-height:1; margin:12px 0 } small { font-weight:900; letter-spacing:.08em } .cards p { margin-bottom:0 } footer { text-align:center; font-weight:900; padding:24px; margin-top:20px; border-top:12px solid transparent; border-image:repeating-linear-gradient(90deg,#fff 0 16px,#171039 16px 32px) 12 }
  a:focus-visible { outline:4px solid #00dfff; outline-offset:6px } body>h1,body>h2,body>p,body>ul { max-width:50rem; margin:24px auto; padding:0 20px }
  @media(max-width:700px) { .badge{position:static; width:auto;height:auto;border-radius:0;transform:none;padding:12px}.cards{grid-template-columns:1fr}header{padding:14px} }`,
+}
+
+// TestWebUICapture photographs every web page against
+// real disposable tour records. No API responses are replaced by the camera.
+// Run with APPTOWN_DESIGN_VITE=http://127.0.0.1:5180 and APPTOWN_DESIGN_OUT set.
+func TestWebUICapture(t *testing.T) {
+	vite, out := os.Getenv("APPTOWN_DESIGN_VITE"), os.Getenv("APPTOWN_DESIGN_OUT")
+	if vite == "" || out == "" {
+		t.Skip("set APPTOWN_DESIGN_VITE and APPTOWN_DESIGN_OUT for the local UI capture")
+	}
+	frontend, err := url.Parse(vite)
+	if err != nil || frontend.Hostname() != "127.0.0.1" {
+		t.Fatal("design frontend must be a local Vite server")
+	}
+	server := httptest.NewUnstartedServer(nil)
+	t.Cleanup(server.Close)
+	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := consoletest.NewAgent()
+	daemon := newFakeDocker()
+	a, h := internalApp(t, Config{DataDir: t.TempDir(), PublicHost: "apptown.localhost:" + port,
+		SSHConfigPath: filepath.Join(t.TempDir(), "ssh-config"),
+		TierDomains:   []string{"preview=preview.localhost", "main=apps.example.test"}, DockerClient: daemon,
+		ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), InferenceURL: "http://worker.test:7779",
+		InferenceNetworks: []string{"127.0.0.1/32"}})
+	y, m, d := a.cfg.clock.Now().UTC().Date()
+	start := time.Date(y, m, d-14, 0, 0, 0, 0, time.UTC)
+	moveClock(a, start.Sub(a.cfg.clock.Now()))
+	ctx := context.Background()
+	a.SyncStock(ctx)
+	a.SyncSeedIntegrations(ctx)
+	a.SeedTargets(ctx)
+	verification.SyncStockScanners(ctx, a.Integrations, stock.FS)
+	a.SyncStockDependencies(ctx)
+	configureConsoleModel(t, a)
+	tourChecks(t, a)
+	useScriptTasks(t, a, tourScript)
+	defineWorkflows(t, a, tourWorkflow)
+	const password = "design-local-password"
+	boot := postJSON(h, "/api/v1/auth/bootstrap", firstAccount(t, a, "sam", password))
+	if boot.Code != http.StatusOK {
+		t.Fatalf("bootstrap: %d %s", boot.Code, boot.Body.String())
+	}
+	scene := &tourScene{t: t, a: a, runtime: runtime, password: password, cookies: map[string]*http.Cookie{}}
+	for _, user := range []string{"priya", "tom"} {
+		scene.call("sam", "POST", "/api/v1/users", map[string]string{"username": user, "role": "member", "password": password})
+	}
+	scene.play(start)
+	var pending struct {
+		Active []struct {
+			RunID ids.ID `json:"runId"`
+		} `json:"active"`
+	}
+	if err := json.Unmarshal(scene.call("sam", "GET", "/api/v1/projects/club-newsletter/overview", nil), &pending); err != nil {
+		t.Fatal(err)
+	}
+	for _, run := range pending.Active {
+		scene.approve(run.RunID, "sam")
+	}
+	reviewWorkflow := tourWorkflow
+	reviewWorkflow.Workflow.Name = "design-review"
+	reviewWorkflow.Spec.Role = "working"
+	defineWorkflows(t, a, tourWorkflow, reviewWorkflow)
+	scene.call("sam", "POST", "/api/v1/workflows/library", map[string]string{"yaml": `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: design-review
+spec:
+  kind: lifecycle
+  role: working
+  stages:
+    - name: check
+      steps:
+        - name: tests
+          uses: script
+          with:
+            run: sh checks/tests.sh
+        - name: style
+          uses: script
+          with:
+            run: sh checks/style.sh
+        - name: accept
+          uses: approval
+          with:
+            means: I have read what changed and the checks, and it does what the change says.
+`})
+	scene.call("sam", "PUT", "/api/v1/projects/club-newsletter/lanes", map[string]any{"name": "design-review", "enabled": true})
+	// Extend one disposable project through public change operations. The camera uses these same records; script checks execute locally.
+	for i, title := range []string{"Add club contact details", "Publish membership fees", "Update the committee list", "Add the Saturday meeting point", "Publish the annual meeting date"} {
+		scene.later(20 * time.Minute)
+		c := scene.open("tom", "club-newsletter", title, title+" on the club website.")
+		scene.write(c, map[string]string{fmt.Sprintf("public/update-%d.html", i): "<!doctype html><title>" + title + "</title><h1>" + title + "</h1>"})
+		if i == 0 {
+			scene.write(c, map[string]string{".apptown/app.yaml": `version: 2
+app:
+  site:
+    static: public
+  archive:
+    image: example/newsletter-archive:1
+    public: true
+    ports: ["8080"]
+    dataDir: /data
+`})
+		}
+		scene.commit(c, "tom", title)
+		if i == 0 {
+			var started struct {
+				Run struct {
+					ID ids.ID `json:"id"`
+				} `json:"run"`
+			}
+			if err := json.Unmarshal(scene.call("tom", "POST", "/api/v1/changes/"+c.ID.String()+"/runs", map[string]string{"workflow": "design-review"}), &started); err != nil {
+				t.Fatal(err)
+			}
+			a.Work.Wait()
+			scene.approve(started.Run.ID, "priya")
+		}
+		scene.ship(c, "tom", "priya", 5*time.Minute)
+	}
+	scene.later(10 * time.Minute)
+	broken := scene.open("tom", "club-newsletter", "Add photos from the spring ride", "Add ride photos with descriptions for people who cannot see them.")
+	scene.write(broken, map[string]string{"public/photos.html": "<!doctype html><title>Spring ride</title><h1>Spring ride</h1><img src='ride.jpg'>", "public/ride.jpg": "local image fixture"})
+	scene.commit(broken, "tom", "Spring ride photos")
+	scene.call("tom", "POST", "/api/v1/changes/"+broken.ID.String()+"/runs", map[string]string{"workflow": "design-review"})
+	a.Work.Wait()
+	scene.later(10 * time.Minute)
+	december := scene.open("tom", "club-newsletter", "Publish the December ride calendar", "Add the December ride calendar and meeting point.")
+	scene.write(december, map[string]string{"public/december.html": `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>December rides</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav><a href="index.html">Club newsletter</a></nav>
+  <h1>December rides</h1>
+  <p>Saturday rides leave the station at 9 am.</p>
+  <p>Bring lights for the return trip.</p>
+  <h2>Meeting point</h2>
+  <p>Meet outside the main station entrance.</p>
+</body>
+</html>
+`})
+	scene.commit(december, "tom", "December ride calendar")
+	scene.land(december, "tom", map[string]string{"tests": "pass", "style": "pass"})
+	// Running production on a test daemon; the preview transport refuses SSH. ObserveRuntime records unreachable, never a stopped app.
+	project, err := a.Projects.BySlug(ctx, "club-newsletter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	productionHost, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "design-production", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	scene.call("sam", "PUT", "/api/v1/secrets/DESIGN_PREVIEW_KEY", map[string]string{"value": `-----BEGIN PRIVATE KEY-----\ndisposable test transport marker\n-----END PRIVATE KEY-----`})
+	previewHost, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "design-preview", Kind: deployment.KindDockerHost, Origin: deployment.OriginAttached, Status: deployment.TargetUnreachable, Address: map[string]any{"host": "ssh://deploy@preview.example.test", "keyFrom": "DESIGN_PREVIEW_KEY"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	prod, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, "main", productionHost.ID, deployment.Attributes{Feed: "manual", Audience: "public", DataClass: "production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.EditDeploymentLabel(asPerson("sam"), project.ID, prod.ID, prod.DisplayLabel, "Production"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deployment.Deployments.RecordPreview(ctx, project.ID, december.ID, previewHost.ID, "design-preview-container", 43211, "https://preview.club.example.test"); err != nil {
+		t.Fatal(err)
+	}
+	previews, err := a.Deployment.Deployments.Previews(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dep := range previews {
+		if dep.ChangeID == december.ID {
+			if _, err := a.Deployment.EditDeploymentLabel(asPerson("sam"), project.ID, dep.ID, dep.DisplayLabel, "Preview"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	head, err := gitexec.Run(ctx, a.projectRepoPath(project.Slug), "rev-parse", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, dep := range []*deployment.Deployment{prod} {
+		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: dep.ID, TargetID: dep.TargetID, Key: "design-" + dep.Name, Inputs: deployment.Inputs{Revision: strings.TrimSpace(string(head))}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy", URL: "https://" + dep.Name + ".club.example.test"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Deployments.ReserveHostPort(ctx, project.ID, dep.Name, docker.ByKey(dep.ID).App(), 43210); err != nil {
+			t.Fatal(err)
+		}
+	}
+	daemon.markStarted(docker.ByKey(prod.ID).App())
+	// Export the archive volume through the test daemon's stream, then let
+	// TakeBackup hash, store and record those bytes through the owner operation.
+	if _, err := daemon.run("volume", "create", docker.ByKey(prod.ID).DataVolume()); err != nil {
+		t.Fatal(err)
+	}
+	daemon.command = func(_ context.Context, host string, req docker.Command) ([]byte, error) {
+		if host != "" {
+			return nil, deploy.Unreachable(errors.New("SSH connection refused by the local test transport"))
+		}
+		if req.Stdout != nil {
+			_, err := containerresulttest.WriteString(req.Stdout, "disposable local backup data")
+			return nil, err
+		}
+		return daemon.run(req.Args...)
+	}
+	if _, err := a.DataProtection.TakeBackup(ctx, project.ID, "main", "manual", "sam"); err != nil {
+		t.Fatal(err)
+	}
+
+	var overview struct {
+		Active []struct {
+			ChangeID string `json:"changeId"`
+			Title    string `json:"title"`
+		} `json:"active"`
+	}
+	if err := json.Unmarshal(scene.call("sam", "GET", "/api/v1/projects/club-newsletter/overview", nil), &overview); err != nil {
+		t.Fatal(err)
+	}
+	var approvalChange string
+	for _, run := range overview.Active {
+		if run.Title == "Publish the December ride calendar" {
+			approvalChange = run.ChangeID
+		}
+	}
+	if approvalChange == "" {
+		t.Fatal("the local scene has no November newsletter approval")
+	}
+	moveClock(a, -a.cfg.clock.ahead)
+	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
+		t.Fatal(err)
+	}
+	// Keep the test daemon's observations fresh during the whole-site walk.
+	observeCtx, cancelObserve := context.WithCancel(ctx)
+	observeDone := make(chan struct{})
+	go func() {
+		defer close(observeDone)
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-observeCtx.Done():
+				return
+			case <-ticker.C:
+				if err := a.Deployment.ObserveRuntime(observeCtx); err != nil && observeCtx.Err() == nil {
+					t.Errorf("refresh local runtime: %v", err)
+					return
+				}
+			}
+		}
+	}()
+	t.Cleanup(func() { cancelObserve(); <-observeDone })
+	api := a.Handler()
+	proxy := httputil.NewSingleHostReverseProxy(frontend)
+	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			api.ServeHTTP(w, r)
+			return
+		}
+		proxy.ServeHTTP(w, r)
+	})
+	server.StartTLS()
+	module := os.Getenv("APPTOWN_PLAYWRIGHT_MODULE")
+	if module == "" {
+		home, _ := os.UserHomeDir()
+		module = filepath.Join(home, ".local/share/forge-nightly/playwright/node_modules/playwright/index.mjs")
+	}
+	testinputs.Files(t, "testdata/web-ui.mjs")
+	run := (execution.Runner{}).Run(ctx, execution.Local, execution.Request{
+		Argv: []string{"node", "testdata/web-ui.mjs"},
+		Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost,
+			"DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
+			"TMPDIR=" + t.TempDir(), "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")},
+		Timeout: 10 * time.Minute,
+	})
+	t.Log(string(run.Output))
+	if run.RunErr != nil {
+		t.Fatal(fmt.Errorf("web UI camera: %w", run.RunErr))
+	}
 }

@@ -51,7 +51,7 @@ export function ServiceKindsPanel() {
   return (
     <div style={{ maxWidth: 720 }}>
       <div className="muted small" style={{ marginBottom: 12 }}>
-        Define service settings and agent guidance in YAML. Projects attach services under Settings › Services.
+        YAML definitions · attach under Project settings › Services.
       </div>
       <ReadStatus q={kindsQ} what="the service kinds" />
       <StaleNote q={kindsQ} />

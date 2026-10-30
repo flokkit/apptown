@@ -64,7 +64,7 @@ export default function InvitePage({ token: fromLink }: { token: string }) {
   return (
     <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box' }}>
       <div className="card" style={{ width: 'min(380px, 100%)', boxSizing: 'border-box', display: 'grid', gap: 12, padding: 24 }}>
-        <div style={{ fontSize: 'var(--fs-lg)' }}>⚒ <b>{PRODUCT}</b></div>
+        <h1>{reset ? 'Reset password' : 'Join ' + PRODUCT}</h1>
         {!token && <>
           <div>Reopen your invite link.</div>
           <a href="/" className="small">Go to sign in</a>

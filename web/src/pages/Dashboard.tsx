@@ -1,5 +1,5 @@
 import { Status, STATUS_LIGHT } from '../Status'
-import { useAttention, attentionState, OperationsSummary } from '../attention'
+import { useAttention, attentionState } from '../attention'
 import { PRODUCT } from '../brand'
 import { AppAddress, RuntimeObservation, RuntimeStatus } from '../runtime'
 import { useState } from 'react'
@@ -9,7 +9,7 @@ import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
 import { ActiveRunList, ChangeHistoryTable, ChangeRow, RunRow } from '../parts/runActivity'
-import type { Operation, ProjectRow, SetupState } from '../wire.gen'
+import type { DeploymentView, Operation, ProjectRow, SetupState } from '../wire.gen'
 import { endedWords } from './DataProtection'
 import { LocalTrialNote } from '../LocalTrialNote'
 
@@ -103,8 +103,8 @@ export function homeStatus({ needsYou, running, deployments, operations }: {
   if (needsYou === null) parts.push('could not read what needs you')
   else if (needsYou > 0) parts.push(`${needsYou} needs you`)
   if (running > 0) parts.push(`${running} running`)
-  if (!operations.known) parts.push('operational coverage incomplete')
-  if (operations.count) parts.push(`${operations.count} operational conditions`)
+  if (operations.count) parts.push(`${operations.count} host issues`)
+  else if (!operations.known) parts.push('host status unknown')
   if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift('All quiet')
   // An app is live when one of its deployments was seen running on the
   // latest check. One whose status is not current (stale or unknown) and
@@ -150,7 +150,7 @@ export default function Dashboard() {
   const act = actQ.data, dash = dashQ.data, dashErr = dashQ.err, projects = projectsQ.data
   const recent = projects ?? []
 
-  if (!act) return <><OperationsSummary q={operationsQ} /><ReadStatus q={actQ} what="what is happening" /></>
+  if (!act) return <><h1>Home</h1><ReadStatus q={actQ} what="activity" /></>
 
   // One work item, one card. "Running" is one card PER RUN (its current
   // step is shown inside the card), never one per running step — a run churning
@@ -184,12 +184,12 @@ export default function Dashboard() {
       <div className="dash-head">
         <div>
           <h1>Home</h1>
-          {!noProjects && projects !== null && (dash || dashErr) && <p className="dash-lead">{status}</p>}
         </div>
         {!noProjects && <Link to="/projects/_new"><button className="primary">+ New project</button></Link>}
       </div>
 
-      <OperationsSummary q={operationsQ} />
+      {!noProjects && projects !== null && (dash || dashErr) && <div className="dash-lead"><Link to="/attention">{status} →</Link></div>}
+      <ReadStatus q={operationsQ} what="hosts" /><StaleNote q={operationsQ} />
 
       {noProjects && (
         <div className="dash-start">
@@ -206,7 +206,7 @@ export default function Dashboard() {
           <Link key={a.stepId} to={`/changes/${a.changeId}`} className="card row tone-warn" style={{ display: 'flex' }}>
             <Status word={a.statusLabel} tone={STATUS_LIGHT[a.statusLabel]} help="Waiting for approval" />
             <strong>{a.itemTitle || `change ${a.changeNumber}`}</strong>
-            <span className="muted small">{a.projectSlug} · {a.stepName.replace(/[-_]/g, ' ')}</span>
+            <span className="muted small">{a.projectName}{act.active.find(r => r.changeId === a.changeId)?.startedAt && ` · ${relTime(act.active.find(r => r.changeId === a.changeId)!.startedAt)}`}</span>
             <span style={{ flex: 1 }} />
             <span className="small">Review →</span>
           </Link>
@@ -223,7 +223,6 @@ export default function Dashboard() {
       {!projects && <ReadStatus q={projectsQ} what="the recent projects" />}
       <div className="dash-projects">
         {recent.map((p) => {
-          const envs = act.deployments.filter((e) => e.project === p.slug)
           return (
             <div key={p.id} className="card">
               <Link to={`/projects/${p.slug}`} className="row tap-open" style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -231,21 +230,13 @@ export default function Dashboard() {
                 <strong>{p.name}</strong>
               </Link>
               <div className="muted small">{p.lastRunAt ? rel(p.lastRunAt) : 'nothing shipped yet'}</div>
-              {envs.length > 0 && (
-                <div className="row" style={{ marginTop: 8, gap: 6 }}>
-                  {envs.map((e) => (
-                    <span key={e.name} className="row" style={{ gap: 4 }}><AppAddress className="dash-app" url={e.url} hostOnly={e.hostOnly} title={e.url}>
-                      {e.name}
-                    </AppAddress><RuntimeStatus observation={e} /></span>
-                  ))}
-                </div>
-              )}
+              <HomeDeployments slug={p.slug} />
             </div>
           )
         })}
       </div>
       <div className="muted small" style={{ marginTop: 6 }}>
-        <Link to="/projects">All projects →</Link> · every running app is on <Link to="/deployments">Deployments</Link>.
+        <Link to="/projects">All projects →</Link> · <Link to="/deployments">Deployments →</Link>
       </div>
 
       {act.history.length > 0 && <>
@@ -270,4 +261,15 @@ function EndedOperation({ op }: { op: Operation }) {
       <button className="subtle" disabled={busy} onClick={() => run(() => post(`/operations/${op.id}/dismiss`, {}))}>Put away</button>
     </div>
   )
+}
+
+function HomeDeployments({ slug }: { slug: string }) {
+  const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
+  return <div className="row" style={{ marginTop: 8, gap: 6 }}>
+    <ReadStatus q={q} what="deployments" /><StaleNote q={q} />
+    {q.data?.map(d => <span key={d.id} className="row" style={{ gap: 4 }}>
+      <AppAddress className="dash-app" url={d.url} hostOnly={d.hostOnly}>{d.displayLabel}</AppAddress>
+      <RuntimeStatus observation={q.refreshFailed ? { ...d, observation: 'unknown', observationStale: true, observationIssue: q.reason } : d} />
+    </span>)}
+  </div>
 }

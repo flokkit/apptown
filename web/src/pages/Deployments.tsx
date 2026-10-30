@@ -173,7 +173,7 @@ function FleetTable() {
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table>
+        <table className="stack fleet-table">
           <thead>
             <tr>
               <th>App</th>
@@ -193,12 +193,12 @@ function FleetTable() {
           </thead>
           <tbody>
             {shown.map((r) => (
-              <tr key={r.slug} style={!anywhere(r) ? { opacity: 0.55 } : undefined}>
-                <td style={{ whiteSpace: 'nowrap' }}>
+              <tr key={r.slug}>
+                <td className="stack-lead" style={{ whiteSpace: 'nowrap' }}>
                   <span aria-hidden style={{ marginRight: 6 }}>{r.icon || '▫️'}</span>
                   <Link to={`/projects/${r.slug}`}>{r.name}</Link>
                 </td>
-                {tiers.map((t) => <td key={t.name}>{cell(t, r.cells[t.name])}</td>)}
+                {tiers.map((t) => <td key={t.name} data-label={t.title}>{cell(t, r.cells[t.name])}</td>)}
               </tr>
             ))}
             {shown.length === 0 && (

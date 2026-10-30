@@ -34,10 +34,10 @@ flowchart LR
   assert.equal(await page.getByRole('link', { name: 'Remote (external image)', exact: true }).getAttribute('href'), other + '/blocked/markdown.png');
   assert.equal(await page.locator('.md-doc img[srcset], .md-doc source').count(), 0);
   const fonts = await page.evaluate(async () => {
-    const loaded = await Promise.all(['IBM Plex Sans', 'IBM Plex Mono', 'Source Serif 4'].map(f => document.fonts.load(`16px "${f}"`)));
+    const loaded = await Promise.all(['IBM Plex Sans', 'IBM Plex Mono'].map(f => document.fonts.load(`16px "${f}"`)));
     return loaded.map(faces => faces.length > 0 && faces.every(f => f.status === 'loaded'));
   });
-  assert.deepEqual(fonts, [true, true, true], 'bundled fonts must load');
+  assert.deepEqual(fonts, [true, true], 'bundled fonts must load');
   // Capture a real SDK envelope; the Go fixture verifies its body arrived.
   const envelope = page.waitForResponse(r => r.url().startsWith(reporting + '/api/7/envelope/') && r.request().method() === 'POST');
   await page.evaluate(() => { setTimeout(() => { throw new Error('resource-policy-browser-proof'); }, 0); });

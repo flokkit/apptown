@@ -305,7 +305,7 @@ export function OperationPage() {
       <StaleNote q={q} />
       <div className="muted small">operation {op.number}{op.subject ? ` · ${op.subject}` : ''}</div>
       <h1 style={{ marginBottom: 4 }}>{kindWords[op.kind] ?? op.kind} of {deploymentOf(op)}</h1>
-      <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+      <div className="row status-strip" style={{ gap: 8, alignItems: 'center' }}>
         <Status word={old ? 'unknown' : op.statusLabel} tone={STATUS_LIGHT[old ? 'unknown' : op.statusLabel]} help={stateWords(op) + asRead} />
         <span className="muted small">asked by {op.askedBy} {fmtWhen(op.createdAt)}{op.finishedAt ? `, ended ${fmtWhen(op.finishedAt)}` : old || !op.startedAt ? '' : ` · running for ${elapsed(op.startedAt)}`}</span>
         {writesStopped(op) && <span className="chip fail">writes stopped{asRead}</span>}

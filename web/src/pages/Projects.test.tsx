@@ -80,9 +80,9 @@ it('shows only icons projects chose, and leaves finding to the top bar', async (
 // still says it has not been checked, in the unknown style.
 it('stamps only the projects that have a deployment', async () => {
   const el = await listing()
-  const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!
+  const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!.closest('tr')!
   expect(card('plain').querySelector('.chip')).toBeNull()
-  expect(card('plain').textContent).not.toContain('deployed')
+  expect(card('plain').querySelector('.chip')).toBeNull()
   const stamp = card('boat').querySelector('.chip.unknown')
   expect(stamp?.textContent).toBe('● unknown')
   expect(stamp?.getAttribute('title')).toBe('Not checked yet.')

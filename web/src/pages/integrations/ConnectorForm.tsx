@@ -1,3 +1,4 @@
+import { HelpButton } from '../../PageHead'
 import { useState } from 'react'
 import { post } from '../../api'
 import { ConnIcon } from '../../icons'
@@ -64,7 +65,7 @@ function SecretRefPicker({ value, onChange, help }: {
           </>
         )}
       </div>
-      {help && <div className="muted small" style={{ marginTop: 4 }}>{help}</div>}
+      {help && <HelpButton about="Field" guide="server-setup">{help}</HelpButton>}
     </span>
   )
 }
@@ -129,7 +130,7 @@ function ModelListPicker({ value, onChange, providerName, config, help }: {
           </div>
         </>
       )}
-      {help && <div className="muted small" style={{ marginTop: 4 }}>{help}</div>}
+      {help && <HelpButton about="Field" guide="server-setup">{help}</HelpButton>}
     </span>
   )
 }
@@ -203,21 +204,21 @@ export function ConnectorForm({ spec, icon, initialName, initialConfig, onDone }
                 <span>
                   <input type="number" min={1} step={1} value={typeof cfg[f.key] === 'number' ? String(cfg[f.key]) : ''} placeholder={f.placeholder}
                     onChange={(e) => setCfg({ ...cfg, [f.key]: asNumber(e.target.value) })} style={{ width: 120 }} />
-                  {f.help && <div className="muted small">{f.help}</div>}
+                  {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
               ) : f.type === 'select' ? (
                 <span>
                   <select value={String(cfg[f.key] ?? '')} onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.value })}>
                     {(f.options ?? '').split(',').map((o) => <option key={o} value={o}>{o || '(none)'}</option>)}
                   </select>
-                  {f.help && <div className="muted small">{f.help}</div>}
+                  {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
               ) : (
                 <span>
                   <input value={String(cfg[f.key] ?? '')} placeholder={f.placeholder}
                     onChange={(e) => setCfg({ ...cfg, [f.key]: e.target.value })}
                     style={{ width: '100%', fontFamily: f.type === 'command' ? 'var(--font-mono)' : undefined }} />
-                  {f.help && <div className="muted small">{f.help}</div>}
+                  {f.help && <HelpButton about={f.label || f.key} guide="server-setup">{f.help}</HelpButton>}
                 </span>
               )}
             </span>

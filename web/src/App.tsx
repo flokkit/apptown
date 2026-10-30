@@ -41,7 +41,7 @@ import { useProjectScope } from './projectScope'
 import { EvalScorecardPage, EvalStartPage, EvalsPage } from './pages/Evals'
 import { OperationPage } from './pages/DataProtection'
 import { InstanceGate, useInstancePages, useHolds } from './instancePages'
-import TopBar, { Find, ThemeSwitch, UserLine } from './TopBar'
+import TopBar from './TopBar'
 import { useNarrow } from './chrome'
 import { withChunkReload } from './chunkReload'
 import { identityChanged, useGet, useOnline } from './data'
@@ -59,6 +59,7 @@ export function SidebarNav() {
   // Inside a project by URL, or inside one of its changes/decisions by scope.
   const slug = m ? (m[1] !== '_new' ? m[1] : null)
     : /^\/(changes|items|adrs)\//.test(pathname) ? scope : null
+  const project = useGet<import('./wire.gen').ProjectDetail>(slug ? `/projects/${slug}` : null).data
   const cls = ({ isActive }: { isActive: boolean }) => 'nav' + (isActive ? ' active' : '')
   // Pages about the whole AppTown are left out for someone who cannot read
   // them; the menu is otherwise the same for everyone.
@@ -70,7 +71,7 @@ export function SidebarNav() {
     return (
       <>
         <NavLink to="/projects" className="nav muted small" style={{ paddingBottom: 2 }}>‹ all projects</NavLink>
-        <div className="muted small" style={{ padding: '4px 10px 8px', textTransform: 'uppercase', letterSpacing: 1 }}>{slug}</div>
+        <div className="sidebar-project muted small" title={project?.name ?? slug}>{project?.name ?? slug}</div>
         <NavLink to={`/projects/${slug}`} end className={cls}>Overview</NavLink>
         <NavLink to={`/projects/${slug}/console`} className={cls}>Chat ▸</NavLink>
         <NavLink to={`/projects/${slug}/security`} className={cls}>Security</NavLink>
@@ -155,15 +156,8 @@ export default function App() {
       {narrow && menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
       <nav id="sidebar" className={'sidebar' + (narrow ? ' narrow' : '') + (menuOpen ? ' open' : '')}>
         <div className="sidebar-inner">
-          {narrow && <Find />}
           <SidebarNav />
           <div className="spacer" />
-          {narrow && (
-            <div className="sidebar-foot">
-              <ThemeSwitch />
-              <UserLine me={me} />
-            </div>
-          )}
           {me && me.mode === 'open' && (
             <div className="user">
               acting as

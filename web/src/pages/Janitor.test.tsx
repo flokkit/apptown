@@ -39,7 +39,7 @@ it('requires exact environment selection and a separate displayed consent before
     await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/shop/janitor']}><Routes><Route path="/projects/:slug/janitor" element={<Janitor />} /></Routes></MemoryRouter></QueryClientProvider>))
     await settled(client)
     expect(requests).toEqual([])
-    expect(host.textContent).toContain('Automatic processing is not available yet')
+    expect(host.textContent).toContain('Automatic updates are not available yet')
     const selects = Array.from(host.querySelectorAll('select'))
     const delivery = selects.find(s => Array.from(s.options).some(o => o.value === 'full'))!
     expect(delivery.value).toBe('full')

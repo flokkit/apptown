@@ -26,6 +26,12 @@ export function MdDoc({ content, file, links }: { content: string; file: string;
     const el = ref.current
     if (!el) return
     el.innerHTML = renderMd(content)
+    el.querySelectorAll('h1').forEach(title => {
+      const section = document.createElement('h2')
+      for (const attr of title.attributes) section.setAttribute(attr.name, attr.value)
+      section.append(...title.childNodes)
+      title.replaceWith(section)
+    })
     routeDocLinks(el, file)
     if (links) fillLiveLinks(el, links)
     el.querySelectorAll('code.language-mermaid').forEach((code) => {

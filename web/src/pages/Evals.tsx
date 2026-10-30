@@ -83,7 +83,7 @@ export function EvalStartPage() {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <h2>Start an eval</h2>
+      <h1>Start an eval</h1>
       <ReadStatus q={formQ} what="the start form" denied={EVALS_DENIED} />
       <StaleNote q={[formQ, projectsQ, changesQ]} />
       {form && (
@@ -117,7 +117,7 @@ export function EvalStartPage() {
                     </select>
                   </label>
                 )}
-                <div className="muted" style={{ marginTop: 6 }}>The variant adopts exactly what this version would be for each project (the same candidate a what-if describes; a project not on the pack joins it), with the model held. Its checks and today's are both judged on each arm's work, finding by finding.</div>
+                <div className="muted" style={{ marginTop: 6 }}>The variant adopts this pack version, with the same model. Both arms run the current and proposed checks.</div>
               </div>
             )}
           </section>
@@ -143,7 +143,7 @@ export function EvalStartPage() {
           <section className="card" style={{ marginBottom: 12 }}>
             <h3 style={{ marginTop: 0 }}>3. Budget</h3>
             <label className="small">Budget $ <input type="number" min="0.01" step="0.5" value={budget} onChange={(e) => { setBudget(e.target.value); setConfirming(false) }} style={{ width: 90 }} /></label>
-            <div className="muted small" style={{ marginTop: 6 }}>All model spend of the eval's copies counts, checks and summaries included. It is checked before each arm and each step starts; a step already running when it runs out may finish past it. Spend that cannot be counted holds the next arm until you continue it.</div>
+            <div className="muted small" style={{ marginTop: 6 }}>Includes checks and summaries. Checked before each arm and step; running steps can exceed it. Unknown spend pauses the next arm.</div>
           </section>
           {!confirming && <button disabled={!ready} onClick={() => setConfirming(true)}>Review and start…</button>}
           {confirming && (
@@ -179,7 +179,7 @@ export function EvalScorecardPage() {
       {e && (
         <>
           <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <h2 style={{ margin: 0 }}>Eval {e.number}: {e.subject} against what projects run now</h2>
+            <h1 style={{ margin: 0 }}>Eval {e.number}: {e.subject}</h1>
             <Status word={e.statusLabel} tone={STATUS_LIGHT[e.statusLabel]} help={e.reason || e.state} />
           </div>
           <div className="muted small" style={{ marginTop: 4 }}>
@@ -198,7 +198,7 @@ export function EvalScorecardPage() {
             </div>
           )}
           <Tallies e={e} variant={variantWords} />
-          <p className="muted small">Approvals inside the copies were the eval's, not a person's acceptance: acceptance is not measured. Read the diffs to judge the work.</p>
+          <p className="muted small">Eval approvals are automatic. Human acceptance is not measured.</p>
           {groupByChange(e.arms).map(([change, arms]) => (
             <ChangeSection key={change} e={e} change={change} arms={arms} variant={variantWords} />
           ))}

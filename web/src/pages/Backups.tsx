@@ -55,7 +55,7 @@ export function BackupsView() {
       <StaleNote q={q} />
       <StoreSection canAttach />
       <div className="muted small">
-        Keeps newest {data.keep} · 14 for production · final sets until their date · <Link to={backupsGuide}>How backups work</Link>
+        Keeps newest {data.keep} · 14 for production · final sets until their date
       </div>
       <div className="row" style={{ gap: 10, alignItems: 'center', minHeight: 24 }}>
         {note && <span className="small">{note.done ? '✓ ' : '! '}{note.text}{note.operation && <> <Link to={`/operations/${note.operation}`}>Follow it</Link></>}</span>}
@@ -63,19 +63,19 @@ export function BackupsView() {
       </div>
       {latest.size === 0 && <div className="muted">No backups yet. The first is taken within a day.</div>}
       <h3 style={{ margin: '12px 0 6px' }}>Latest per deployment</h3>
-      <table className="small">
+      <table className="small stack">
         <thead><tr><th>Project</th><th>Deployment</th><th>Kept on</th><th>Latest</th><th>Status</th><th>Contents</th><th>Size</th><th>Trigger</th><th></th></tr></thead>
         <tbody>
           {[...latest.values()].map((b) => (
             <tr key={b.id}>
-              <td><Link to={`/projects/${b.project}`}>{b.project}</Link></td>
-              <td>{b.deployment}</td>
-              <td><KeptOn b={b} /></td>
-              <td title={b.takenAt}>{fmtWhen(b.takenAt)}</td>
-              <td><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || b.status} /></td>
-              <td><Contents items={b.items} /></td>
-              <td>{fmtBytes(b.bytes)}</td>
-              <td>{b.trigger}</td>
+              <td className="stack-lead"><Link to={`/projects/${b.project}`}>{b.project}</Link></td>
+              <td data-label="deployment">{b.deployment}</td>
+              <td data-label="store"><KeptOn b={b} /></td>
+              <td data-label="taken" title={b.takenAt}>{fmtWhen(b.takenAt)}</td>
+              <td className="stack-end"><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || b.status} /></td>
+              <td data-label="contents"><Contents items={b.items} /></td>
+              <td data-label="size">{fmtBytes(b.bytes)}</td>
+              <td data-label="trigger">{b.trigger}</td>
               <td className="row" style={{ gap: 6 }}>
                 {managed(b)
                   ? b.trigger === 'take-down' && <Link className="small" to={`/projects/${b.project}/settings/deployments`}>Start a new deployment from this</Link>
@@ -91,19 +91,19 @@ export function BackupsView() {
         </tbody>
       </table>
       <h3 style={{ margin: '18px 0 6px' }}>All sets</h3>
-      <table className="small">
+      <table className="small stack">
         <thead><tr><th>project</th><th>deployment</th><th>kept on</th><th>taken</th><th>status</th><th>size</th><th>trigger</th><th>by</th><th></th></tr></thead>
         <tbody>
           {data.backups.map((b) => (
             <tr key={b.id} className={b.status === 'pruned' ? 'muted' : ''}>
-              <td>{b.project}</td>
-              <td>{b.deployment}</td>
-              <td>{b.status === 'pruned' ? '' : <><KeptOn b={b} /><div className="muted" title={b.path} style={{ whiteSpace: 'nowrap' }}><code>{setPlace(b, data.where)}</code></div></>}</td>
-              <td title={b.takenAt}>{fmtWhen(b.takenAt)}</td>
-              <td>{b.status}{b.error ? <span className="error"> — {b.error}</span> : null}</td>
+              <td className="stack-lead">{b.project}</td>
+              <td data-label="deployment">{b.deployment}</td>
+              <td>{b.status === 'pruned' ? '' : <><KeptOn b={b} /><details className="small"><summary>Location</summary><code>{setPlace(b, data.where)}</code></details></>}</td>
+              <td data-label="taken" title={b.takenAt}>{fmtWhen(b.takenAt)}</td>
+              <td className="stack-end"><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || b.status} /></td>
               <td>{b.status === 'pruned' ? '' : fmtBytes(b.bytes)}</td>
-              <td>{b.trigger}</td>
-              <td>{b.actor}</td>
+              <td data-label="trigger">{b.trigger}</td>
+              <td data-label="by">{b.actor}</td>
               <td>{b.status !== 'pruned' && b.status !== 'failed' && !managed(b) && (b.trigger === 'take-down'
                 ? <RestoreInto b={b} busy={busy} onRestore={(into) => restore(b, into)} />
                 : <RestoreOver b={b} onYes={() => restore(b)} />
@@ -115,9 +115,6 @@ export function BackupsView() {
     </div>
   )
 }
-
-// backupsGuide is where the rules this page shows the facts of are said.
-const backupsGuide = '/docs/guides/deployment-backups'
 
 // itemBadge is how an item was copied, as a fact: a database's own dump, a
 // service's own copy, or files, which a running service may change mid-copy.

@@ -1,5 +1,4 @@
 import { RepositoryAttachment } from './RepositoryAttachment'
-import { PRODUCT } from '../../../brand'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
@@ -269,7 +268,6 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
       <div className="card">
         <div className="row">
           <strong>Adopt a branch</strong>
-          <span className="muted small">turn work that already exists into a change; its history is marked as reconstructed</span>
         </div>
         <div className="row" style={{ marginTop: 8 }}>
           <input value={branch} onChange={(e) => setBranch(e.target.value)} placeholder="branch name" style={{ width: 260 }}
@@ -307,12 +305,12 @@ export function RepoCard({ slug }: { slug: string }) {
       </div>
       <div className="row small" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
         <a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>
-        <span className="muted">the {data.repo.defaultBranch} branch and tags as a Git bundle; another {PRODUCT} can start a project from it</span>
+        <details><summary>Bundle contents</summary><p>The {data.repo.defaultBranch} branch and tags. Import this bundle to start another project.</p></details>
       </div>
       <RepositoryAttachment slug={slug} />
       {data.repo.cloneCmd && (
         <div className="row" style={{ marginTop: 8 }}>
-          <code style={{ background: 'var(--code-bg)', padding: '6px 10px', borderRadius: 6, flex: 1 }}>
+          <code style={{ background: 'var(--code-bg)', padding: '6px 10px', borderRadius: 'var(--radius-sm)', flex: 1 }}>
             {data.repo.cloneCmd}
           </code>
           <button className="subtle" onClick={() => {

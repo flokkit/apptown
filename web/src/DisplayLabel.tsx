@@ -15,7 +15,7 @@ function DisplayLabelForm({ value, machineKey, path, onChanged }: DisplayLabelPr
   const [draft, setDraft] = useState<{ expected: string; label: string } | null>(null)
   const { run, busy, err } = useAction(onChanged)
   return <div className="small" style={{ marginTop: 6 }}>
-    <span className="muted">Key: <code>{machineKey}</code></span>{' '}
+    <details className="inline-detail muted"><summary>Key</summary><code>{machineKey}</code></details>{' '}
     {!draft ? <button className="link" onClick={() => setDraft({ expected: value, label: value })}>Edit display name</button> :
       <form className="row" onSubmit={async (event) => {
         event.preventDefault()

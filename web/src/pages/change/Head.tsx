@@ -30,8 +30,6 @@ export function firstLine(text: string, max = 180): string {
 // About tab, one click away.
 export function ChangeHeader({ view, workflow, aboutTab }: { view: ChangeView; workflow?: string; aboutTab: string }) {
   const ch = view.change
-  const asked = ch.body && ch.body.trim() !== ch.title.trim() ? firstLine(ch.body) : ''
-  const summary = view.committedDiff?.status === 'empty' ? '' : firstLine(ch.summary || '')
   return (
     <header className="ch-head">
       <div className="ch-crumb">
@@ -53,8 +51,6 @@ export function ChangeHeader({ view, workflow, aboutTab }: { view: ChangeView; w
         {ch.externalRef && <> · {ch.externalRef}</>}
         {' · '}<Link to={aboutTab}>request and details</Link>
       </div>
-      {asked && <div className="ch-oneline"><span className="ch-label-inline">Asked</span>{asked}</div>}
-      {summary && <div className="ch-oneline"><span className="ch-label-inline">Summary</span>{summary}</div>}
     </header>
   )
 }

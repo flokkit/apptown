@@ -96,7 +96,7 @@ export function TargetPage() {
       <div className="card" style={{ padding: 20 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
-            <h2 style={{ margin: 0 }}>{t.displayLabel || t.name}</h2>
+            <h1 style={{ margin: 0 }}>{t.displayLabel || t.name}</h1>
  <DisplayLabelEdit value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
             <div className="muted">{(() => { const place = placeOf(t.kindInfo, t.address); return place.startsWith(t.kindInfo.title) ? place : `${t.kindInfo.title} · ${place}` })()}{domain ? ` · *.${domain}` : ''}</div>
           </div>
@@ -182,7 +182,7 @@ export function TargetPage() {
         {data.history.length === 0
           ? <div className="muted small">No history yet.</div>
           : (
-            <div className="small" style={{ background: 'var(--code-bg)', borderRadius: 8, padding: '8px 12px' }}>
+            <div className="small" style={{ background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}>
               {data.history.map((e, i) => (
                 <div key={i}>
                   <span className="muted">{new Date(e.at).toLocaleString()}</span> · {EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}

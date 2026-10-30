@@ -43,7 +43,7 @@ export default function PackPage() {
 
       <h2 style={{ marginTop: 20 }}>Versions</h2>
       <div className="muted small" style={{ marginBottom: 8 }}>
-        New projects use the recommended version. Existing projects adopt it separately.
+        Recommended for new projects. Existing projects adopt separately.
       </div>
       {h.versions.map((v) => (
         <div key={v.version} className={`card ${v.version === h.recommended ? 'tone-ok' : ''}`} style={{ padding: '8px 12px' }}>

@@ -91,7 +91,7 @@ export function InstanceSecretsPanel() {
   return (
     <div style={{ maxWidth: 760 }}>
       <div className="muted small" style={{ marginBottom: 12 }}>
-        Targets and connectors use these secret names. Values stay hidden. Edit Infisical secrets in Infisical.
+        Values hidden · edit Infisical secrets in Infisical.
       </div>
       {/* Here a failed refresh hides the list too, rather than marking it stale. */}
       {namesQ.err && <div className="error small">Unknown: {PRODUCT}'s secrets could not be read. {namesQ.reason}</div>}

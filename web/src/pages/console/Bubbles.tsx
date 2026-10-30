@@ -222,7 +222,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
                         {display && <div style={{ whiteSpace: 'pre-wrap' }}>{display}</div>}
                         {names.map((n) => (
                           <img key={n} src={`/api/v1/console/${sessionId}/uploads/${n}`} alt="pasted picture"
-                            style={{ maxWidth: 260, maxHeight: 200, borderRadius: 8, marginTop: display ? 6 : 0, display: 'block' }} />
+                            style={{ maxWidth: 260, maxHeight: 200, borderRadius: 'var(--radius-sm)', marginTop: display ? 6 : 0, display: 'block' }} />
                         ))}
                       </div>
                     )
@@ -254,7 +254,7 @@ export function Bubbles({ sessionId, onBusy, footer, starters, readOnly }: { ses
         <div className="row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
           {images.map((im, i) => (
             <span key={im.path} style={{ position: 'relative', display: 'inline-block' }}>
-              <img src={im.thumb} alt="picture to send" style={{ height: 64, borderRadius: 8, display: 'block' }} />
+              <img src={im.thumb} alt="picture to send" style={{ height: 64, borderRadius: 'var(--radius-sm)', display: 'block' }} />
               <button onClick={() => setImages(images.filter((_, j) => j !== i))}
                 title="don't send this picture" aria-label="don't send this picture"
                 style={{

@@ -112,7 +112,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           {chosen.map((name) => (
             <div key={name} className="row mb-1">
               <span className="chip pass">{name}</span>
-              <span className="muted small">{packs.find((p) => p.name === name)?.description}</span>
+
             </div>
           ))}
           {packWhy && <div className="small mt-2">{packWhy}</div>}
@@ -127,9 +127,6 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           ) : (
           <div style={{ borderTop: '1px solid var(--border)', margin: '18px 0 0', paddingTop: 'var(--space-4)' }}>
             <div style={{ fontSize: 'var(--fs-base)', fontWeight: 650 }}>Services</div>
-            <div className="muted small" style={{ marginTop: 2, marginBottom: 'var(--space-3)', maxWidth: 560 }}>
-              Choose databases and backing services for a server app. You can change these later.
-            </div>
             <div className="pick-grid">
               {catalog.map((k) => {
                 const on = d.services.some((n) => n.capability === k.capability)
@@ -160,7 +157,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
         <div className="mt-2">
           {inspecting && <PackInspect pack={inspecting} onClose={() => setInspecting(null)} />}
           <div className="muted small mb-3">
-            Choose packs for {name || 'the project'}. Packs define its tools, checks and deployment steps. You can change these later.
+            Choose packs for {name || 'the project'}.
           </div>
           {/* The packs never read are not "no packs": say why instead. */}
           <ReadStatus q={packsQ} what="the ways of working" />
@@ -182,7 +179,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                     <span className="grow" />
                     <button className="subtle" onClick={(e) => { e.stopPropagation(); setInspecting(p) }}>inspect</button>
                   </div>
-                  <div className="small" style={{ margin: '6px 0' }}>{p.description}</div>
+
                   {missing.length > 0 && (
                     <div className="row" style={{ gap: 'var(--space-1)' }}>
                       {missing.map((r) => (
@@ -199,7 +196,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
               onClick={() => pick([])}
               onKeyDown={(e) => { if (e.key === 'Enter') pick([]) }}>
               <strong>none (bare)</strong>
-              <div className="muted small mt-2">No rules, checks or workflows: an empty project to set up yourself later.</div>
+              <div className="muted small mt-2">Start without rules, checks or workflows.</div>
             </div>
           </div>
           <div className="row mt-3">

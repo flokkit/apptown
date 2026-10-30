@@ -96,7 +96,7 @@ describe("the change a chat works on", () => {
       // so wait for the whole picture, not the stale note alone (a push gate
       // saw the note before the list answered, 11 October).
       await vi.waitFor(() => {
-        expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(database unavailable)')
+        expect([...el.querySelectorAll('.chip.unknown')].some(chip => chip.getAttribute('aria-label')?.includes('(database unavailable)'))).toBe(true)
         expect(el.textContent).toContain(shows)
         expect(el.textContent).toContain('Blue cat')
       })
@@ -134,7 +134,7 @@ describe('the changes a chat started', () => {
   })
   it('says an old answer of none may be old when its refresh fails', async () => {
     const { el, done } = await mount(down, { changes: [] })
-    await vi.waitFor(() => expect(el.querySelector('.chip.unknown')?.getAttribute('aria-label')).toContain('(database unavailable)'))
+    await vi.waitFor(() => expect([...el.querySelectorAll('.chip.unknown')].some(chip => chip.getAttribute('aria-label')?.includes('(database unavailable)'))).toBe(true))
     done()
   })
 })

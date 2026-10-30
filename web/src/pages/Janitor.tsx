@@ -27,7 +27,7 @@ function ProjectSelection({ choice, value, full, update }: { choice: ProjectChoi
   const deployments = useGet<DeploymentView[]>(`/projects/${choice.slug}/deployments`)
   return <fieldset className="card">
     <legend>{choice.name} ({choice.slug})</legend>
-    <p className="muted small">Project {choice.id}</p>
+    <div className="small" style={{ margin: '8px 0' }}><details className="inline-detail"><summary>Project ID</summary><code>{choice.id}</code></details></div>
     {!lanes.data ? <ReadStatus q={lanes} what="the workflows" /> : <>
       <StaleNote q={lanes} />
       <label>Working workflow <select value={value.workflow} onChange={e => update({ ...value, workflow: e.target.value })}>
@@ -47,7 +47,7 @@ function ProjectSelection({ choice, value, full, update }: { choice: ProjectChoi
           : (value.environments ?? []).filter(e => e.deploymentId !== d.id) })
         return <div key={d.id}>
           <label><input type="checkbox" checked={!!selected} onChange={e => set(e.target.checked)} /> {d.displayLabel || d.name}</label>
-          <p className="muted small">Environment {d.id} · target {d.targetId}</p>
+          <details className="inline-detail small"><summary>Deployment IDs</summary><p>Deployment {d.id} · target {d.targetId}</p></details>
           {selected && <label><input type="checkbox" checked={selected.promotion} onChange={e => update({ ...value, environments: (value.environments ?? []).map(v => v.deploymentId === d.id ? { ...v, promotion: e.target.checked } : v) })} /> Also authorize promotion to this environment{d.protected ? ' (currently required)' : ''}</label>}
         </div>
       })}
@@ -82,7 +82,7 @@ function JanitorEditor({ choices, projectId }: { choices: ProjectChoice[]; proje
   }
   return <div>
     <h1>Janitor</h1>
-    <p>Give explicit standing consent for bounded routine updates. Automatic processing is not available yet; saving consent does not update, land or deploy software.</p>
+    <p>Automatic updates are not available yet. Saving consent does not update, land or deploy software.</p>
     {projectId && <p><Link to="/janitor">Manage an explicit set of projects</Link> (administrator permission required).</p>}
     <h2>Current rules</h2>
     {!q.data ? <ReadStatus q={q} what="the standing approvals" /> : <><StaleNote q={q} />

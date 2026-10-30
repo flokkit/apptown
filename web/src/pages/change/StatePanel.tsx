@@ -1,4 +1,4 @@
-import { Status, STATUS_LIGHT } from '../../Status'
+import { STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -52,7 +52,6 @@ export function StatePanel({ view, onChange, reading, workTab }: {
       <div className="ch-state-main">
         <div className="ch-state-words">
           <div className="ch-state-head">
-            <Status word={stale ? 'unknown' : view.statusLabel} tone={light} />
             <span className="ch-headline">{next.headline}</span>
           </div>
           {next.sentBack && (
@@ -62,7 +61,7 @@ export function StatePanel({ view, onChange, reading, workTab }: {
             </div>
           )}
           {next.sentence && <div className="ch-sentence">{next.sentence}</div>}
-          {next.waitingOn && <div className="ch-waiting">Waiting on: <strong>{next.waitingOn}</strong></div>}
+          {next.waitingOn && !(next.primary === 'approve' && next.waitingOn === 'you') && <div className="ch-waiting">Waiting on: <strong>{next.waitingOn}</strong></div>}
           {view.mainConflict && <MainConflictLine conflict={view.mainConflict} />}
           {reading && <StaleNote q={reading} />}
         </div>
@@ -339,19 +338,14 @@ export function ApproveEvidence({ changeId, soFar, diffstat, shortfall, unchecke
   notApplicable?: { name: string; why: string }[]
 }) {
   const asked = useRef(false)
-  const [askErr, setAskErr] = useState('')
-  useEffect(() => {
+    useEffect(() => {
     if (soFar || asked.current) return
     asked.current = true
-    post(`/changes/${changeId}/distill`, {}).catch((e) => setAskErr((e as Error).message))
+    post(`/changes/${changeId}/distill`, {}).catch(() => { /* A missing summary makes no claim about the change. */ })
   }, [soFar, changeId])
   return (
     <div className="ch-approve-evidence">
-      {soFar
-        ? <div><div className="ch-label">What you'd be shipping</div><SoFarNote text={soFar} /></div>
-        : askErr
-          ? <div className="error small">The summary of what got built could not be written: {askErr}</div>
-          : <div className="muted small">Writing the summary of what got built…</div>}
+      {soFar && <div><div className="ch-label">What you'd be shipping</div><SoFarNote text={soFar} /></div>}
       <div className="row" style={{ marginTop: 8 }}>
         <TryIt changeId={changeId} label="▶ Try it first" className="" />
         {diffstat && <span className="muted small">{diffstat}</span>}
@@ -390,7 +384,6 @@ export function KeepWorking({ runId, view }: { runId: string; view: ChangeView }
       {!confirming ? (
         <>{' '}
           <button className="subtle" onClick={() => setConfirming(true)}>Keep working</button>
-          <span> stops the landing and reopens the chat; nothing is lost.</span>
         </>
       ) : (
         <>Stop the landing and go back to the chat?{' '}

@@ -206,7 +206,9 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
       const mine = viewerMayApprove(view, approval)
       return {
         tone: 'warn', stamp: mine ? 'waiting for your approval' : 'waiting for approval', step: approval,
-        headline: toLand ? (mine ? 'Waiting for your approval to land' : 'Waiting for approval to land') : `Waiting for approval: ${approval.name}`,
+        headline: mine
+          ? toLand ? 'Approve to land' : `Approve ${approval.name}`
+          : toLand ? 'Waiting for approval to land' : `Waiting for approval: ${approval.name}`,
         sentence: [what, quorum, before].filter(Boolean).join(' ') || undefined,
         waitingOn: mine ? 'you' : approversOf(approval), primary: 'approve',
       }
@@ -300,4 +302,10 @@ export function nextStep(view: ChangeView, around: Around = {}): NextStep {
     sentence: sentBack ? undefined : view.stateDetail && view.stateDetail !== running.name ? view.stateDetail : undefined,
     waitingOn: agent ? 'the agent' : PRODUCT, primary: 'none', sentBack,
   }
+}
+
+// An offered decision waits for the person, even when the stored pending
+// step label still describes checks. Other pending approvals keep that label.
+export function decisionStatus(step: Step, awaitingDecision = false): Step['statusLabel'] {
+  return step.type === 'approval' && step.status === 'pending' && awaitingDecision ? 'waiting for you' : step.statusLabel
 }
