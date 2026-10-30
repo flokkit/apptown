@@ -8,6 +8,7 @@ import { sameCommitWords } from '../../Screenshots'
 import { landingMeansFor } from '../../DecisionForm'
 import { useAction, useGet } from '../../data'
 import { fmtStamp } from '../../format'
+import { checkedWords } from '../../runtime'
 import type { RunTrace } from '../../wire.gen'
 import { StepCard } from './Steps'
 import { eventSentence } from './events'
@@ -258,6 +259,7 @@ export function ReleasesTab({ view }: { view: ChangeView }) {
             {!r.serving && r.observed && <span className="muted small" title={r.reason}>
               {r.observed === 'stopped' ? 'stopped' : r.observed === 'missing' ? 'its container is missing' : `running: ${r.observed}`}
             </span>}
+            {r.observed && <span className="muted small">{checkedWords(r)}</span>}
           </div>
         ))}
         {releaseLinks.map((a) => (

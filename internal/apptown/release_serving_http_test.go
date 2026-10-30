@@ -140,12 +140,42 @@ func TestChangeReadDoesNotAskTheHost(t *testing.T) {
 	if w.Code != 200 || asked.Load() != 0 || ctx.Err() != nil {
 		t.Fatalf("change read asked the host %d times (deadline: %v): %d %s", asked.Load(), ctx.Err(), w.Code, w.Body.String())
 	}
-	var read struct {
-		Evidence struct {
-			Releases []struct{ Observed, Reason string }
-		}
+	type release struct {
+		Serving                      bool
+		Observed, Reason, ObservedAt string
+		ObservationStale             bool
 	}
-	if err := json.Unmarshal(w.Body.Bytes(), &read); err != nil || len(read.Evidence.Releases) != 1 || read.Evidence.Releases[0].Observed != "unknown" {
-		t.Fatalf("an unobserved release is unknown, not stopped: %v %s", err, w.Body.String())
+	read := func() release {
+		t.Helper()
+		w := httptest.NewRecorder()
+		a.Handler().ServeHTTP(w, httptest.NewRequest("GET", fmt.Sprintf("/api/v1/changes/%s", changeID), nil))
+		var out struct{ Evidence struct{ Releases []release } }
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || w.Code != 200 || len(out.Evidence.Releases) != 1 {
+			t.Fatalf("change read: %d %s %v", w.Code, w.Body.String(), err)
+		}
+		return out.Evidence.Releases[0]
+	}
+	var unobserved struct{ Evidence struct{ Releases []release } }
+	if err := json.Unmarshal(w.Body.Bytes(), &unobserved); err != nil || len(unobserved.Evidence.Releases) != 1 || unobserved.Evidence.Releases[0].Observed != "unknown" || unobserved.Evidence.Releases[0].ObservedAt != "" {
+		t.Fatalf("an unobserved release is unknown and not checked, not stopped: %v %s", err, w.Body.String())
+	}
+
+	// The host answers again and the observer sees it running: serving, with
+	// when it was seen.
+	f.command = nil
+	f.markStarted(mainNames(t, a).App())
+	if err := a.Deployment.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	seen := read()
+	if !seen.Serving || seen.Observed != "running" || seen.ObservedAt == "" || seen.ObservationStale {
+		t.Fatalf("a current running reading: %+v", seen)
+	}
+	// Nothing looks again for a minute: that "running" is out of date, so
+	// the release is not said to serve, and the page says when it was seen.
+	moveClock(a, time.Minute)
+	old := read()
+	if old.Serving || old.Observed != "unknown" || !old.ObservationStale || old.ObservedAt != seen.ObservedAt {
+		t.Fatalf("an out-of-date running reading: %+v", old)
 	}
 }

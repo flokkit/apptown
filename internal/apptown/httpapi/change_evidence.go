@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
@@ -29,7 +30,13 @@ type changeRelease struct {
 	// "" when no deployment records serving it.
 	Observed string `json:"observed,omitempty"`
 	Reason   string `json:"reason,omitempty"`
-	release  *deployment.Release
+	// ObservedAt is when the observer last saw that deployment (absent when
+	// it never has); ObservationStale marks that sample out of date or its
+	// latest look failed (RuntimeObservationView's meaning), when Observed
+	// is unknown rather than the last state seen.
+	ObservedAt       string `json:"observedAt,omitempty"`
+	ObservationStale bool   `json:"observationStale"`
+	release          *deployment.Release
 }
 
 func (h ChangeDetail) evidenceForChange(ctx context.Context, ch *workflow.Change) (changeEvidence, error) {
@@ -86,6 +93,10 @@ func (h ChangeDetail) evidenceForChange(ctx context.Context, ch *workflow.Change
 			for _, i := range matches {
 				out.Releases[i].Serving = o.State == deployment.ContainerRunning
 				out.Releases[i].Observed, out.Releases[i].Reason = o.State.String(), o.Reason
+				out.Releases[i].ObservationStale = o.Stale
+				if !o.ObservedAt.IsZero() {
+					out.Releases[i].ObservedAt = o.ObservedAt.UTC().Format(time.RFC3339Nano)
+				}
 			}
 		}
 	}

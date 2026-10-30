@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ChangeView, Run, Step, TestsEvidence } from '../../api'
 import { fmtStamp } from '../../format'
+import { checkedWords } from '../../runtime'
 import { approversOf } from './next'
 import { closingVia, voterWords } from './through'
 
@@ -288,7 +289,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
                 <span className="ch-line-what"><span className="ch-line-title">Release #{r.number}</span>
                   <span className="ch-line-sentence">to {r.deployment}{r.serving ? '' : r.observed ? ` · ${observedWords(r.observed)}` : ''}{!r.serving && r.reason ? ` (${r.reason})` : ''}</span></span>
                 <span className="ch-line-by">{r.serving && <span className="chip pass">running now</span>}</span>
-                <span className="ch-line-when" />
+                <span className="ch-line-when">{r.observed && checkedWords(r)}</span>
                 <Link className="ch-line-link" to={`/projects/${view.projectSlug}/releases/${r.number}`}>record</Link>
               </div>
             ))}

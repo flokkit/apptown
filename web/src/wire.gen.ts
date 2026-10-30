@@ -246,6 +246,8 @@ export type ChangeRelease = {
   serving: boolean
   observed?: string
   reason?: string
+  observedAt?: string
+  observationStale: boolean
 }
 
 export type ChangeRun = {

@@ -7,6 +7,7 @@ import (
 	"github.com/flokkit/apptown/internal/dockerlabel"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -19,6 +20,12 @@ import (
 type ContainerObservation struct {
 	State  ContainerPresence
 	Reason string
+	// ObservedAt is when the background observer last saw the deployment
+	// (zero when it never has, or when asked now); Stale says that sample
+	// is out of date or its last look failed, as RuntimeObservation's
+	// Stale does, so an old "running" never reads as current.
+	ObservedAt time.Time
+	Stale      bool
 }
 
 // ObserveContainer is whether the deployment's container runs, as the
@@ -42,23 +49,27 @@ func (s *Service) ObserveContainer(ctx context.Context, d *Deployment) Container
 			break
 		}
 		o := s.observations.read(r, s.now())
+		seen := func(c ContainerObservation) ContainerObservation {
+			c.ObservedAt, c.Stale = o.ObservedAt, o.Stale
+			return c
+		}
 		switch {
 		case errors.Is(o.Err, ErrNoLocalDocker):
-			return ContainerObservation{State: ContainerUnavailable, Reason: o.Err.Error()}
+			return seen(ContainerObservation{State: ContainerUnavailable, Reason: o.Err.Error()})
 		case !o.Stale && o.State == RuntimeRunning:
-			return ContainerObservation{State: ContainerRunning}
+			return seen(ContainerObservation{State: ContainerRunning})
 		case !o.Stale && o.State == RuntimeStopped:
-			return ContainerObservation{State: ContainerStopped}
+			return seen(ContainerObservation{State: ContainerStopped})
 		case o.Err != nil:
-			return ContainerObservation{State: ContainerUnknown, Reason: "its host's or platform's status could not be read"}
+			return seen(ContainerObservation{State: ContainerUnknown, Reason: "its host's or platform's status could not be read"})
 		case o.ObservedAt.IsZero():
-			return ContainerObservation{State: ContainerUnknown, Reason: "it has not been observed yet"}
+			return seen(ContainerObservation{State: ContainerUnknown, Reason: "it has not been observed yet"})
 		case o.Stale:
-			return ContainerObservation{State: ContainerUnknown, Reason: "its last observation is out of date"}
+			return seen(ContainerObservation{State: ContainerUnknown, Reason: "its last observation is out of date"})
 		}
 		// Fresh, but the provider did not say running or stopped (a
 		// rollout in progress).
-		return ContainerObservation{State: ContainerUnknown, Reason: "its host or platform does not say whether it runs"}
+		return seen(ContainerObservation{State: ContainerUnknown, Reason: "its host or platform does not say whether it runs"})
 	}
 	return ContainerObservation{State: ContainerUnknown, Reason: "the deployment records no container"}
 }
