@@ -82,7 +82,7 @@ func Principal(r *http.Request) access.Principal {
 func RequireProjectMember(authority *identity.Service, w http.ResponseWriter, r *http.Request, projectID ids.ID, slug string) bool {
 	caller, ok := access.CallerFrom(r.Context())
 	if !ok || !caller.Verified {
-		WriteError(w, http.StatusForbidden, "an authenticated caller is required")
+		WriteError(w, http.StatusForbidden, "an authenticated caller is required; sign in on the web, or send a command-line or agent token")
 		return false
 	}
 	user, role := caller.Principal.Name, caller.Principal.Role
@@ -123,6 +123,6 @@ func RequireAdmin(authority *identity.Service, w http.ResponseWriter, r *http.Re
 			return false
 		}
 	}
-	WriteError(w, 403, "admin role required")
+	WriteError(w, 403, "admin role required; ask an administrator to do this")
 	return false
 }

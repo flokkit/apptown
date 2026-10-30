@@ -315,7 +315,7 @@ func (s *Service) planRehearsal(ctx context.Context, projectID ids.ID, name stri
 	// The host the release was deployed to holds its images by ID; any
 	// other host pulls them by digest from a registry.
 	if p.host.ID != dep.TargetID && !p.bundle.ByDigest() {
-		return nil, fmt.Errorf("%w: release %d was not published to a registry, so %s cannot run its images", ErrRehearsalSource, number, p.host.Name)
+		return nil, fmt.Errorf("%w: release %d was not published to a registry, so %s cannot run its images; attach a registry to the project, land a new change so it is published, then use a release of that published bundle", ErrRehearsalSource, number, p.host.Name)
 	}
 	if _, err := rehearsalOrigin(dep); err != nil {
 		return nil, err

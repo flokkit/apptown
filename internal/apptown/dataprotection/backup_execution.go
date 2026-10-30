@@ -503,7 +503,7 @@ func (s *Service) restoreBackup(ctx context.Context, rec *restoreLog, projectID 
 				missing = append(missing, it.Kind+" "+it.Name+": "+it.Error)
 			}
 		}
-		return nil, fmt.Errorf("the safety set %d is %s (%s); nothing was restored", safety.ID, safety.Status, strings.Join(missing, "; "))
+		return nil, fmt.Errorf("the safety set %d is %s (%s); nothing was restored; fix what is listed, or take a new safety set, then restore again", safety.ID, safety.Status, strings.Join(missing, "; "))
 	}
 	rec.end(ctx, fmt.Sprintf("set %d", safety.ID))
 	names, err := dep.HostNames()

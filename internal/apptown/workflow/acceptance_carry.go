@@ -31,7 +31,7 @@ func (w commandAuthority) mayApprove(ctx context.Context, run *Run, step *Step, 
 		person = base
 	}
 	if person == "" || person == "apptown-system" {
-		return &DecisionDenied{Code: access.DenyNotEligible, Reason: "no person accepted this change"}
+		return &DecisionDenied{Code: access.DenyNotEligible, Reason: "no person accepted this change; a person must approve this step"}
 	}
 	// An acceptance AppTown cannot tie to a principal (by an account it
 	// could not place) is not carried: its name could be someone else's.
@@ -41,7 +41,7 @@ func (w commandAuthority) mayApprove(ctx context.Context, run *Run, step *Step, 
 	// The yes is the person's own only if they gave it directly; through a
 	// chat, a ticket or an agent it is not their assent to carry.
 	if who.Via != "" && !who.Assents() {
-		return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance was given through %s, not by %s directly", who.Way(), person)}
+		return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance was given through %s, not by %s directly; they can approve this step themselves", who.Way(), person)}
 	}
 	cfg, err := ReadApprovalConfig(step.Config)
 	if err != nil {
@@ -142,7 +142,7 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps, all []*Step, 
 		}
 		if means == "" || !slices.Contains(accepted.Shown, means) {
 			// A yes counts only for a sentence the person read when they gave it.
-			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance did not show what this approval means (“%s”)", means)}
+			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("the acceptance did not show what this approval means (“%s”); a person must approve this step so they see it", means)}
 			continue
 		}
 		if sourceRefusal != "" {
@@ -161,13 +161,13 @@ func (s landings) judgeCarry(ctx context.Context, run *Run, steps, all []*Step, 
 			// Given before any of it existed, the yes holds only where every
 			// gate passed outright; news alone is not the bar.
 			if why := passedOutright(all, cfg.InAdvanceAdmitsNotApplicable); why != "" {
-				out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the yes was given in advance, on condition every gate passes outright: " + why}
+				out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the yes was given in advance, on condition every gate passes outright: " + why + "; a person must look and approve this step"}
 				continue
 			}
 		}
 		if len(news) > 0 {
 			// The yes was given before these existed; the person looks again.
-			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the landing's checks raised something to look at since the acceptance: " + strings.Join(news, "; ")}
+			out[step.ID] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the landing's checks raised something to look at since the acceptance: " + strings.Join(news, "; ") + "; a person must look and approve this step"}
 			continue
 		}
 		if s.eligible == nil {
@@ -357,7 +357,7 @@ func (s landings) carry(ctx context.Context, run *Run) (bool, error) {
 		if news := checkNews(all); len(news) > 0 {
 			for id, refused := range decisions {
 				if refused == nil {
-					decisions[id] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the landing's checks raised something to look at since the acceptance: " + strings.Join(news, "; ")}
+					decisions[id] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the landing's checks raised something to look at since the acceptance: " + strings.Join(news, "; ") + "; a person must look and approve this step"}
 				}
 			}
 		}
@@ -365,7 +365,7 @@ func (s landings) carry(ctx context.Context, run *Run) (bool, error) {
 			for id, refused := range decisions {
 				why := passedOutright(all, admitsNotApplicable(all, id))
 				if refused == nil && why != "" {
-					decisions[id] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the yes was given in advance, on condition every gate passes outright: " + why}
+					decisions[id] = &DecisionDenied{Code: access.DenyNotEligible, Reason: "the yes was given in advance, on condition every gate passes outright: " + why + "; a person must look and approve this step"}
 				}
 			}
 		}

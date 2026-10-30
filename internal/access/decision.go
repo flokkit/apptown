@@ -201,7 +201,7 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 	// 1. A disabled account, or a name with no account, fails before
 	// anything else.
 	if pr.Kind == "user" && facts.Disabled(pr) {
-		return Decision{Code: DenyAccountDisabled, Reason: fmt.Sprintf("%s's account is disabled or does not exist", pr.Name)}
+		return Decision{Code: DenyAccountDisabled, Reason: fmt.Sprintf("%s's account is disabled or does not exist; ask an administrator about the account", pr.Name)}
 	}
 	// 2. The delegation's bound: an OAuth client may exercise only the
 	// scopes the person consented to (§9, §10), an agent token only the
@@ -218,7 +218,7 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 				Reason: fmt.Sprintf("a %s session may not %s; that needs a person", pr.Instrument, def.Description)}
 		}
 		if !res.ProjectID.IsZero() && !pr.ProjectID.IsZero() && res.ProjectID != pr.ProjectID {
-			return Decision{Code: DenyDelegationNarrow, Reason: "this session works on another project"}
+			return Decision{Code: DenyDelegationNarrow, Reason: "this session works on another project; use a session started for that project"}
 		}
 		// A step agent has no person whose current grants could bound its
 		// reads, so they are implied only inside its project: on a record
@@ -259,7 +259,7 @@ func Decide(pr Principal, d Channel, c Capability, res Resource, ctx Context, fa
 		}
 	}
 	if rootOnly(c) {
-		reason := "instance administrator authority is required"
+		reason := "instance administrator authority is required; ask an administrator to do this"
 		if ceilingCut {
 			reason += " — " + tokenCeilingFix(pr)
 		}

@@ -56,7 +56,7 @@ type Project struct {
 var (
 	slugRe        = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 	ErrSlug       = fault.New(fault.Invalid, "slug must be lowercase letters, digits and dashes, starting with a letter or digit")
-	ErrSlugTaken  = fault.New(fault.Conflict, "that project address has already been assigned")
+	ErrSlugTaken  = fault.New(fault.Conflict, "that project address has already been assigned; choose another")
 	ErrNotDeleted = errors.New("the project row was not deleted")
 )
 

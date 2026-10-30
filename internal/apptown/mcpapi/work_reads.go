@@ -155,7 +155,7 @@ func (h workReads) getChangeEvidence(c *Call, args map[string]any) (any, error) 
 		}
 	}
 	if runID.IsZero() {
-		return nil, refuse("Change %d has no run yet, so there is no evidence to show", ch.ID)
+		return nil, refuse("Change %d has no run yet, so there is no evidence to show; start one with start_change_lane or request_change_landing", ch.ID)
 	}
 	d, err := h.work.Snapshot(c.Context, runID, workflow.DetailView)
 	if err != nil {

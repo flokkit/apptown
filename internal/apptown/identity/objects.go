@@ -23,8 +23,8 @@ func (a *Account) SetPassword(hash string) Followup {
 
 // access.Event is the receipt of a value's transition; persistence belongs to Service.
 var (
-	ErrLeaked          = errors.New("this refresh token was already rotated; the connection has been ended for safety")
-	ErrUnknownRefresh  = errors.New("unknown refresh token")
+	ErrLeaked          = errors.New("this refresh token was already rotated; the connection has been ended for safety, so connect the agent again")
+	ErrUnknownRefresh  = errors.New("unknown refresh token; connect the agent again")
 	ErrConnectionEnded = errors.New("the connection has ended; connect the agent again")
 	ErrClientMismatch  = errors.New("client mismatch")
 	ErrTicketConsumed  = errors.New("ticket already consumed")
