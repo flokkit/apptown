@@ -46,9 +46,9 @@ func requireApprover(ctx context.Context, db database.Queryer, scope operationPe
 	if independent && !scope.ChangeID.IsZero() {
 		switch {
 		case !policy.AuthorPrincipal.IsZero() && policy.AuthorPrincipal == voter:
-			return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("%s opened this change and may not approve it (this project requires independent approval)", user)}
+			return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("%s opened this change and may not approve it (this project requires independent approval); ask another person who may approve to decide it", user)}
 		case policy.AuthorPrincipal.IsZero() && author == user:
-			return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("%s opened this change and may not approve it (this project requires independent approval)", user)}
+			return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("%s opened this change and may not approve it (this project requires independent approval); ask another person who may approve to decide it", user)}
 		case policy.AuthorPrincipal.IsZero() && author != "" && !identity.SystemActor(author):
 			return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("this change's opener (%s) is not recorded as a person, so this project's independent approval cannot be judged; an administrator may approve it", author)}
 		}
@@ -62,7 +62,7 @@ func requireApprover(ctx context.Context, db database.Queryer, scope operationPe
 		}
 	}
 	if len(expr) == 0 {
-		return &DecisionDenied{Code: access.DenyNotEligible, Reason: "nobody is named as an approver for this step, and the project has no default approvers"}
+		return &DecisionDenied{Code: access.DenyNotEligible, Reason: "nobody is named as an approver for this step, and the project has no default approvers; name approvers on the step in the workflow (that applies to runs started afterwards)"}
 	}
 	// Immediate named/built-in matches need no optional membership/role reads.
 	for _, item := range expr {
@@ -101,7 +101,7 @@ func requireApprover(ctx context.Context, db database.Queryer, scope operationPe
 			return nil
 		}
 	}
-	return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("%s is not an approver for this step (%s)", user, strings.Join(expr, ", "))}
+	return &DecisionDenied{Code: access.DenyNotEligible, Reason: fmt.Sprintf("%s is not an approver for this step (%s); one of the approvers must decide it", user, strings.Join(expr, ", "))}
 }
 func hasRole(grants []access.Grant, role string, scope access.ScopeKind, scopeID string) bool {
 	for _, g := range grants {

@@ -142,7 +142,7 @@ func (i changeImporter) Import(ctx context.Context, in ImportBranch, who string)
 		}
 		source.tip, err = i.git.BranchTip(ctx, repo, in.Branch)
 		if err != nil {
-			return CreatedChange{}, fmt.Errorf("branch %q not found in the project repo: %w", in.Branch, err)
+			return CreatedChange{}, fmt.Errorf("branch %q not found in the project repo; import one of the project's existing branches, or open a Change and use its checkout to push the work: %w", in.Branch, err)
 		}
 		source.base, err = i.git.MergeBase(ctx, repo, source.defaultBranch, source.tip)
 		if err != nil {

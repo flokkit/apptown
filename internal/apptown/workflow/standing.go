@@ -107,7 +107,7 @@ func (s StandingRules) question(ctx context.Context, q database.Queryer, in Stan
 			return StandingQuestion{}, err
 		}
 		if independent {
-			return StandingQuestion{}, fault.New(fault.Conflict, "this project's independent-approval policy requires a person to judge each change")
+			return StandingQuestion{}, fault.New(fault.Conflict, "this project's independent-approval policy requires a person to judge each change; a person approves each change instead")
 		}
 		proc, err := s.deps.Procedures.StandingProcedure(ctx, q, p.ProjectID, p.Workflow)
 		if err != nil {
@@ -115,7 +115,7 @@ func (s StandingRules) question(ctx context.Context, q database.Queryer, in Stan
 		}
 		for _, purpose := range []StandingPurpose{proc.Acceptance, proc.Landing} {
 			if purpose.Workflow == "" || purpose.Version <= 0 || purpose.Step == "" || strings.TrimSpace(purpose.Means) == "" {
-				return StandingQuestion{}, fault.New(fault.Conflict, "the selected workflow does not declare a supported standing approval purpose")
+				return StandingQuestion{}, fault.New(fault.Conflict, "the selected workflow does not declare a supported standing approval purpose; choose a workflow that does, or approve each change")
 			}
 			if err = requireApprover(ctx, q, operationPermission{ProjectID: p.ProjectID}, purpose.Approvers, actor.Name, actor.Principal, s.now()); err != nil {
 				return StandingQuestion{}, err
@@ -135,7 +135,7 @@ func (s StandingRules) question(ctx context.Context, q database.Queryer, in Stan
 				return StandingQuestion{}, err
 			}
 			if dest.PromotionRequired && !e.Promotion {
-				return StandingQuestion{}, fault.New(fault.Conflict, "the selected environment requires explicit promotion consent")
+				return StandingQuestion{}, fault.New(fault.Conflict, "the selected environment requires explicit promotion consent; include promotion when giving the standing consent (it needs the permission to promote), or approve each change")
 			}
 			if err = permission(access.CapDeploymentDeploy, dest.Resource); err != nil {
 				return StandingQuestion{}, err

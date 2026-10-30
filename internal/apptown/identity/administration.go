@@ -25,7 +25,7 @@ func (s *Service) requireAdministration(ctx context.Context, q database.Queryer,
 		return access.ErrPrincipalRequired
 	}
 	open := s.cfg.OpenInstance
-	denied := &access.Denied{Code: access.DenyMissingCapability, Reason: "admin role required"}
+	denied := &access.Denied{Code: access.DenyMissingCapability, Reason: "admin role required; ask an administrator to do this"}
 	if pr.Kind != "user" {
 		return denied
 	}

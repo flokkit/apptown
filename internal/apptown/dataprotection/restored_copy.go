@@ -293,7 +293,7 @@ func (s *Service) planRestoredCopy(ctx context.Context, projectID ids.ID, name s
 		}
 	}
 	if p.bundle == nil || !p.bundle.ByDigest() || p.bundle.ProjectID != projectID {
-		return nil, fmt.Errorf("%w: release %d was not published to a registry, so it cannot be run again by its images", ErrRestoredCopy, number)
+		return nil, fmt.Errorf("%w: release %d was not published to a registry, so it cannot be run again by its images; attach a registry to the project, land a new change so it is published, then use a release of that published bundle", ErrRestoredCopy, number)
 	}
 	// The release's bundle under the target's rules (its platform, and App
 	// Platform's one image per repository), when the copy is asked for and

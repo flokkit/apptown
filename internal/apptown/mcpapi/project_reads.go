@@ -192,7 +192,7 @@ func (h projectReads) getApplicationContract(c *Call, args map[string]any) (any,
 	}
 	raw, err := docker.ContractFileAt(c.Context, repo, p.DefaultBranch)
 	if errors.Is(err, docker.ErrNoContract) {
-		return nil, refuse("project %q has no %s committed on %s", p.Slug, docker.ContractPath, p.DefaultBranch)
+		return nil, refuse("project %q has no %s committed on %s; a Change that commits it to the project creates it", p.Slug, docker.ContractPath, p.DefaultBranch)
 	}
 	if err != nil {
 		return nil, refuse("project %q's %s on %s cannot be read: %v", p.Slug, docker.ContractPath, p.DefaultBranch, err)

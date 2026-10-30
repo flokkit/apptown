@@ -345,7 +345,7 @@ func (a *Guidance) judgeDeclared(ctx context.Context, scope conformance.RunScope
 		}
 	}
 	if len(unexamined) > 0 {
-		return j, fmt.Errorf("no evaluator at this gate judges %s; the check cannot be passed over", strings.Join(unexamined, ", "))
+		return j, fmt.Errorf("no evaluator at this gate judges %s; the check cannot be passed over; this is a gap in AppTown, so report it with apptown complain", strings.Join(unexamined, ", "))
 	}
 	return j, nil
 }

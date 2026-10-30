@@ -54,7 +54,7 @@ func (s Scope) projectForRead(c *Call, slug string) (*project.Project, error) {
 	if slug == "" {
 		return nil, refuse("say which project: pass its slug (list_projects shows them)")
 	}
-	nope := refuse("there is no project %q you can see", slug)
+	nope := refuse("there is no project %q you can see (list_projects shows the ones you can)", slug)
 	p, err := s.bySlug(c.Context, slug)
 	if absent(err) {
 		return nil, nope
@@ -74,7 +74,7 @@ func (s Scope) changeForRead(work *workflow.Service, c *Call, args map[string]an
 	if err != nil {
 		return nil, nil, err
 	}
-	nope := refuse("there is no Change %s you can see", id)
+	nope := refuse("there is no Change %s you can see (list_changes shows the ones you can)", id)
 	ch, err := work.Change(c.Context, id)
 	if absent(err) {
 		return nil, nil, nope
@@ -93,7 +93,7 @@ func (s Scope) runForRead(work *workflow.Service, c *Call, args map[string]any) 
 	if err != nil {
 		return nil, nil, err
 	}
-	nope := refuse("there is no run %d you can see", id)
+	nope := refuse("there is no run %d you can see (get_change names a Change's runs)", id)
 	run, err := work.Run(c.Context, id)
 	if absent(err) {
 		return nil, nil, nope

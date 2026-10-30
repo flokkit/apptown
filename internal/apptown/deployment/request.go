@@ -66,7 +66,7 @@ type AcceptedRelease struct {
 var (
 	ErrDeploymentMissing = fault.New(fault.NotFound, "no such deployment")
 	ErrBundleMissing     = fault.New(fault.NotFound, "no bundle on this project")
-	ErrNoBundle          = fault.New(fault.Unprocessable, "nothing has landed with a runtime contract yet — there is no bundle to ship")
+	ErrNoBundle          = fault.New(fault.Unprocessable, "nothing has landed with a runtime contract yet — there is no bundle to ship; land a change that commits the app's .apptown/app.yaml, then release")
 	ErrPlacementChanged  = fault.New(fault.Conflict, "deployment placement changed; request a new release")
 )
 

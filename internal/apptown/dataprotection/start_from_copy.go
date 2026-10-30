@@ -181,7 +181,7 @@ func managedFillable(b *Backup, refused error) error {
 		}
 	}
 	if len(not) > 0 {
-		return fmt.Errorf("%w: set %d also holds %s, which a new managed database cannot be filled from; starting from it would leave them behind", refused, b.ID, strings.Join(not, " and "))
+		return fmt.Errorf("%w: set %d also holds %s, which a new managed database cannot be filled from; starting from it would leave them behind; choose a set that holds only portable copies", refused, b.ID, strings.Join(not, " and "))
 	}
 	if portable == 0 {
 		return fmt.Errorf("%w: set %d holds no portable copy", refused, b.ID)
