@@ -372,7 +372,7 @@ func TestNewJSONWithEveryOption(t *testing.T) {
 		case "/projects/shop/toolchain":
 			return 200, `{"ok":true,"toolchain":"go"}`
 		case "/projects/shop/pack":
-			return 200, `{"pack":"go-small","workflowsInstalled":["quick-change"],"policiesInstalled":[],"guidanceImports":2}`
+			return 200, `{"packs":["go","server-base"],"workflowsInstalled":["quick-change"],"policiesInstalled":[],"guidanceImports":2}`
 		case "/projects/shop/secrets":
 			return 200, `{"declared":false}`
 		}
@@ -382,10 +382,10 @@ func TestNewJSONWithEveryOption(t *testing.T) {
 	var out string
 	var err error
 	said := captureStderr(t, func() {
-		out, err = run(t, "new", "shop", "--name", "Shop", "--from", "https://git.example/shop.git", "--toolchain", "go", "--pack", "go-small", "--remote", "--json")
+		out, err = run(t, "new", "shop", "--name", "Shop", "--from", "https://git.example/shop.git", "--toolchain", "go", "--pack", "server-base,go", "--remote", "--json")
 	})
 	var made ProjectCreated
-	if oneDocument(t, out, &made); err != nil || made.ID != mustID(t, projectUUID) || !strings.Contains(said, "pack go-small applied") {
+	if oneDocument(t, out, &made); err != nil || made.ID != mustID(t, projectUUID) || !strings.Contains(said, "packs go, server-base applied") {
 		t.Fatalf("new with options: %v %+v\n%s", err, made, said)
 	}
 	var paths []string

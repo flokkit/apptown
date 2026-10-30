@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"slices"
 	"sort"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -13,7 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
 	"github.com/flokkit/apptown/internal/apptown/wow"
-	"github.com/flokkit/apptown/internal/database"
 )
 
 type CatalogChanges struct {
@@ -45,23 +43,26 @@ func (h CatalogChanges) CatalogList(w http.ResponseWriter, r *http.Request) {
 		out = append(out, CatalogEntry{CatalogChange: c})
 	}
 	if proj != nil {
-		own := ""
-		state, err := h.adoption.Current(r.Context(), proj.ID)
-		if found, err := database.Lookup(err); err != nil {
-			WriteError(w, 500, "reading the project's adoption: %v", err)
+		// The workflows each of the project's own packs offers now.
+		memberships, err := h.adoption.ProjectPacks(r.Context(), proj.ID)
+		if err != nil {
+			WriteError(w, 500, "reading the project's packs: %v", err)
 			return
-		} else if found {
-			own = state.Pack
 		}
-		var ownWorkflows []string
-		if own != "" {
-			pk, err := packNamed(r.Context(), h.ways, own)
+		ownWorkflows := map[string]string{} // workflow → the project's pack that carries it
+		for _, m := range memberships {
+			pk, err := packNamed(r.Context(), h.ways, m.Pack)
 			if err != nil {
 				WriteFault(w, err)
 				return
 			}
-			if pk != nil {
-				ownWorkflows = pk.Workflows
+			if pk == nil {
+				continue
+			}
+			for _, wf := range pk.Workflows {
+				if _, seen := ownWorkflows[wf]; !seen {
+					ownWorkflows[wf] = m.Pack
+				}
 			}
 		}
 		// What the project can run: its selected lanes plus the system
@@ -82,12 +83,12 @@ func (h CatalogChanges) CatalogList(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			out[i].MissingWorkflow = wf
-			// Only the project's OWN pack is offered for a one-click pull —
-			// suggesting whichever pack happens to carry the workflow nearly
-			// re-packed a Java project as django-htmx. A foreign pack
+			// Only one of the project's OWN packs is offered for a one-click
+			// pull — suggesting whichever pack happens to carry the workflow
+			// nearly re-packed a Java project as django-htmx. A foreign pack
 			// carrying it is information, not an invitation.
-			if slices.Contains(ownWorkflows, wf) {
-				out[i].FromPack = own
+			if from, ok := ownWorkflows[wf]; ok {
+				out[i].FromPack = from
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-"""Deployment settings, seeded by the django-htmx way of working.
+"""Deployment settings, seeded by the django pack.
 
 `manage.py check --deploy --fail-level WARNING` gates every landing, so a
 warning fails it as surely as an error. These are the settings a fresh

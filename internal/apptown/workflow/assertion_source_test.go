@@ -34,7 +34,7 @@ func assertionOwnerFixture(t *testing.T, typ, cfg string) (*Assertions, *Run, id
 	// Three admission receipts remain visible to every all-event assertion.
 	q, run, id := admitSingleStep(t, schema.Step{Name: "assert", Uses: typ, With: config})
 	if err := q.db.InTx(context.Background(), func(tx *database.Tx) error {
-		return adoption.InitializeIn(t.Context(), tx, run.ProjectID, 0, "", "")
+		return adoption.InitializeIn(t.Context(), tx, run.ProjectID, 0, "")
 	}); err != nil {
 		t.Fatal(err)
 	}

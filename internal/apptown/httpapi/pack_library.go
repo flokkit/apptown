@@ -50,8 +50,8 @@ func (h PackLibrary) SetPackEnabled(w http.ResponseWriter, r *http.Request) {
 }
 
 // SavePack: POST /api/v1/packs — create or update a CUSTOM pack's
-// declaration (stock packs are read-only; include one in a pack of your
-// own). A declaration that cannot be resolved, or that names a block,
+// declaration (stock packs are read-only; copy one into a pack of your
+// own). A declaration that names a block,
 // workflow or policy the library does not have, is refused; an unknown
 // toolchain is only a warning (a starter file, not pinned).
 func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +75,7 @@ func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if existing, err := h.ways.Pack(r.Context(), in.Name); err == nil && existing.Origin == "stock" {
-			WriteError(w, 409, "%q is a stock pack — make a pack of your own that includes it", in.Name)
+			WriteError(w, 409, "%q is a stock pack — make a pack of your own beside it, and a project takes both", in.Name)
 			return
 		}
 		for _, pol := range in.Policies {
@@ -102,7 +102,7 @@ func (h PackLibrary) SavePack(w http.ResponseWriter, r *http.Request) {
 		// Everything the author declares is kept, including what the
 		// editor does not edit, so an unchanged save publishes what was
 		// written. The platform tier is not the editor's.
-		spec := encodedJSON(wow.PackSpec{Includes: in.Includes, Replaces: in.Replaces, Drops: in.Drops, Clears: in.Clears,
+		spec := encodedJSON(wow.PackSpec{
 			Guidance: in.Guidance, Workflows: in.Workflows, Policies: in.Policies, Toolchain: in.Toolchain, Tools: in.Tools,
 			Services: in.Services, Extensions: in.Extensions, Requires: in.Requires})
 		version, err := h.ways.PublishPackVersion(r.Context(), in.Name, in.Description, spec, "", strings.TrimSpace(in.VersionName))
@@ -156,8 +156,7 @@ type PackSaved struct {
 // of this pack and version and done; its receipt names it. Otherwise
 // the version new projects get and projects are offered as the update. A
 // person's act: standards:manage-packs is in no agent scope or instrument
-// table, so an agent credential is refused before any effect. Packs that
-// include this one without a pin get a follow version, not recommended.
+// table, so an agent credential is refused before any effect.
 func (h PackLibrary) RecommendPackVersion(w http.ResponseWriter, r *http.Request) {
 	if _, ok := AuthorizeRequest(h.access, w, r, access.CapStandardsPacks, access.Resource{Type: "instance"}, access.Context{}); !ok {
 		return

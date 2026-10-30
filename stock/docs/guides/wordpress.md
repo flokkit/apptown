@@ -1,6 +1,6 @@
 # WordPress with reviewed code and its own media storage
 
-Choose the `wordpress-bedrock` pack when creating a project. Its starter is an
+Choose the `server-base` and `wordpress` packs when creating a project. Its starter is an
 ordinary Bedrock application: Composer locks WordPress and its plugins, the custom
 theme lives in Git, and Docker builds the runnable application. PHP and Composer
 run in containers; this pack does not promise a host PHP toolchain. The starter's

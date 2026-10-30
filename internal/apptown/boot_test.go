@@ -987,6 +987,14 @@ func TestAnUpgradeKeepsWhatThePreviousReleaseRecorded(t *testing.T) {
 			if err := json.Unmarshal(raw, &want); err != nil {
 				t.Fatal(err)
 			}
+			// A receipt's single "pack" name is not read since projects take
+			// several packs (migration 192): the stored receipt keeps it, the
+			// read no longer shows it.
+			if adoption, ok := want.Reads["adoption"].(map[string]any); ok {
+				if receipt, ok := adoption["receipt"].(map[string]any); ok {
+					delete(receipt, "pack")
+				}
+			}
 			wantReads, _ := json.Marshal(want.Reads)
 			db := testDB(t)
 			dataDir := restoreRelease(t, dir, db)

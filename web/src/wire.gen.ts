@@ -988,12 +988,11 @@ export type PackHistory = {
   recommended: number
   latest: number
   versions: Publication[]
-  followRefused?: string
 }
 
 export type PackInterviewPick = {
   decided: boolean
-  pack: string
+  packs: string[]
   why: string
   icon: string
 }
@@ -1037,11 +1036,6 @@ export type PackView = {
   tools?: Record<string, string>
   services?: ServiceSpec[]
   extensions?: string[]
-  includes?: string
-  replaces?: Record<string, string>
-  drops?: PackDrop[]
-  clears?: string[]
-  starter?: string
   version?: number
   origin: string
   enabled: boolean
@@ -1172,7 +1166,7 @@ export type ProjectDraft = {
   blurb: string
   icon: string
   group: string
-  pack: string
+  packs?: string[]
 }
 
 export type ProjectFindingsView = {
@@ -2933,7 +2927,6 @@ export type FleetPack = {
   enabled: boolean
   recommended: number
   versions: FleetPackVersion[]
-  notOn: string[]
 }
 
 export type steeringSection = {
@@ -3220,11 +3213,6 @@ export type RedeployNumber = {
 
 export type PackSpec = {
   platform?: boolean
-  includes?: string
-  replaces?: Record<string, string>
-  drops?: PackDrop[]
-  clears?: string[]
-  starter?: string
   guidance: string[]
   workflows: string[]
   policies: PackPolicy[]
@@ -3242,8 +3230,6 @@ export type Publication = {
   declaration: PackSpec
   spec: PackSpec
   pins: PinSet
-  includedPack?: string
-  includedVersion?: number
   note: string
   source: string
   signer: string
@@ -3271,11 +3257,6 @@ export type ServiceSpec = {
   resources?: Resources
   data?: string
   credentials?: string[]
-}
-
-export type PackDrop = {
-  item: string
-  reason: string
 }
 
 export type packRequirement = {
@@ -4077,7 +4058,7 @@ export type PackPick = {
 
 export type Receipt = {
   resolver: number
-  pack?: string
+  packs?: string[]
   guidance: ReceiptBlock[]
   workflows: ReceiptWorkflow[]
   policies: ReceiptPolicy[]

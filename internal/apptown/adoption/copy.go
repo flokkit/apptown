@@ -77,7 +77,7 @@ func (s *Service) prepareCopy(ctx context.Context, dst, src ids.ID, target Recei
 		c.Packs = []PackPick{}
 	}
 	c.CopyOf = copyOf
-	c.Receipt.Resolver, c.Receipt.Pack = target.Resolver, target.Pack
+	c.Receipt.Resolver, c.Receipt.Packs = target.Resolver, slices.Clone(target.Packs)
 	c.Receipt.Guidance = slices.Clone(target.Guidance)
 	c.Receipt.Workflows = slices.Clone(target.Workflows)
 	c.Receipt.Extensions = []string{}

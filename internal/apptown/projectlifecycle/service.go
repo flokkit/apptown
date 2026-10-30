@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,10 +47,11 @@ type Draft struct {
 	// ID is the id the caller chose (project.Spec.ID); Nil mints one.
 	ID                                               ids.ID
 	Slug, Name, Namespace, Blurb, Icon, Group, Actor string
-	// Pack is the pack the caller will apply next, when it names one. It
-	// is not applied here; Create refuses one the instance does not offer
-	// before making anything, so a failed `apptown new --pack` leaves nothing.
-	Pack string
+	// Packs are the packs the caller will apply next, when it names any.
+	// They are not applied here; Create refuses one the instance does not
+	// offer, or packs that cannot be taken together, before making
+	// anything, so a failed `apptown new --pack` leaves nothing.
+	Packs []string
 }
 
 // Publisher publishes a committed branch with the established best-effort receipt policy.
@@ -119,8 +121,8 @@ func (s *Service) Create(ctx context.Context, in Draft) (*project.Project, error
 	if !project.ValidSlug(in.Slug) {
 		return nil, ErrInvalidSlug
 	}
-	if in.Pack != "" {
-		if _, err := s.OfferedPack(ctx, in.Pack); err != nil {
+	if len(in.Packs) > 0 {
+		if _, err := s.OfferedPacks(ctx, in.Packs); err != nil {
 			return nil, err
 		}
 	}
@@ -167,7 +169,7 @@ func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group
 	if err != nil {
 		return out, err
 	}
-	if err := adoption.InitializeIn(ctx, tx, id, 0, "", ""); err != nil {
+	if err := adoption.InitializeIn(ctx, tx, id, 0, ""); err != nil {
 		return out, err
 	}
 	if err := adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "project created", receipt, in.Actor, now); err != nil {
@@ -196,20 +198,46 @@ func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group
 	return project.ByIDIn(ctx, tx, id)
 }
 
-// OfferedPack is the pack a new project may be given by this name: one the
-// instance offers (enabled, not the platform tier), as the creation wizard
-// lists them. Any other name is adoption.ErrPackNotOffered.
-func (s *Service) OfferedPack(ctx context.Context, name string) (*wow.Pack, error) {
+// OfferedPacks is the packs a new project may be given together by these
+// names: each one the instance offers, and none disagreeing with another or
+// with the platform pack it will also take (adoption.PacksProblems: a pin,
+// a tool's line, the toolchain, a service, a policy, starter files, or
+// contradicting blocks).
+func (s *Service) OfferedPacks(ctx context.Context, names []string) ([]*wow.Pack, error) {
 	offered, err := s.ways.OfferedPacks(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for i := range offered {
-		if offered[i].Name == name {
-			return s.ways.Pack(ctx, name)
+	var out []*wow.Pack
+	var picks []adoption.PackPick
+	for _, name := range names {
+		if !slices.ContainsFunc(offered, func(p wow.Pack) bool { return p.Name == name }) {
+			return nil, fmt.Errorf("%w: %s is not offered to new projects", adoption.ErrPackNotOffered, name)
 		}
+		if slices.ContainsFunc(out, func(p *wow.Pack) bool { return p.Name == name }) {
+			return nil, fmt.Errorf("%w: %s is named twice", adoption.ErrNotAdoptable, name)
+		}
+		pack, err := s.ways.Pack(ctx, name)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, pack)
+		picks = append(picks, adoption.PackPick{Pack: pack.Name, Version: pack.Version})
 	}
-	return nil, fmt.Errorf("%w: %s is not offered to new projects", adoption.ErrPackNotOffered, name)
+	platform, err := s.ways.Pack(ctx, adoption.PlatformPack)
+	if found, err := database.Lookup(err); err != nil {
+		return nil, err
+	} else if found {
+		picks = append(picks, adoption.PackPick{Pack: platform.Name, Version: platform.Version})
+	}
+	problems, err := s.adoption.PacksProblems(ctx, picks, func(name string) bool { return s.ways.Seed(name) != nil })
+	if err != nil {
+		return nil, err
+	}
+	if len(problems) != 0 {
+		return nil, fmt.Errorf("%w: %s", adoption.ErrNotAdoptable, strings.Join(problems, "; "))
+	}
+	return out, nil
 }
 
 // Namespace reservations prevent a replacement project from acquiring paths

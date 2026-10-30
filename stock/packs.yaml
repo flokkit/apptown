@@ -28,41 +28,140 @@ packs:
       - build/container-image
       - build/registries
       - build/toolchain-mise
-      - deploy/health-declared
-      - repo/no-build-artifacts
-      - repo/contract-matches-code
       - prose/no-claude-speak
     workflows: [land, implement, quick-change, fix-bug, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
-  - name: go-small
+  # A server project takes server-base, one backend pack, the postgres
+  # pack when it keeps records, and a UI pack when it has a browser UI.
+  # It gets the union; packs that disagree on a tool's line, the
+  # toolchain, a service or a policy cannot be taken together.
+  - name: server-base
     description: >-
-      Go services, Postgres, a React UI built with Vite, REST and
-      server-sent events, and few dependencies.
-    tools: {go: "1.27", node: "24"}
-    toolchain: go
-    extensions: [lsp]
+      What every server project shares: the container image, package
+      registries, the mise toolchain, plain prose, boring technology, a
+      modular monolith, few dependencies and plain REST. Take it with one
+      backend pack.
     guidance:
-      - arch/boring-technology
-      - dev/process-and-container-mode
-      - arch/modular-monolith
-      - data/networked-database
-      - data/postgres-maximalism
-      - lang/selection/go-for-services
-      - lang/go/formatting
-      - lang/selection/typescript-for-web
-      - lang/go/errors-are-values
-      - lang/shell/fifty-line-budget
-      - api/rest-pragmatist
-      - api/sse-over-websockets
-      - deps/minimal-deps
-      - build/registries
       - build/container-image
+      - build/registries
       - build/toolchain-mise
       - prose/terse-style
       - prose/no-claude-speak
       - prose/readme-plain
+      - arch/boring-technology
+      - dev/process-and-container-mode
+      - arch/modular-monolith
+      - deps/minimal-deps
+      - api/rest-pragmatist
+      - api/sse-over-websockets
     workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
     policies: [deploy-requires-scan, scanner-bound]
+  - name: go
+    description: >-
+      Go services: one static binary, the standard library's HTTP, gofmt.
+      Take it with server-base.
+    tools: {go: "1.27"}
+    toolchain: go
+    extensions: [lsp]
+    guidance:
+      - lang/selection/go-for-services
+      - lang/go/formatting
+      - lang/go/errors-are-values
+      - lang/shell/fifty-line-budget
+  - name: node
+    description: >-
+      Experimental: its landing fixes have not shipped a new app yet. TypeScript on Node: a Fastify
+      server, one npm package graph, one image that runs `node --run start`.
+      Take it with server-base. The first change writes the app.
+    tools: {node: "24"}
+    toolchain: node
+    extensions: [lsp]
+    guidance:
+      - lang/selection/node-fullstack
+  - name: django
+    description: >-
+      Django with its ORM, forms, auth and admin. Take it with server-base
+      and postgres.
+    tools: {python: "3.12"}
+    toolchain: python
+    extensions: [lsp]
+    guidance:
+      - lang/selection/django-fullstack
+  - name: rails
+    description: >-
+      Rails 8 on Ruby 3.4 with Puma and propshaft. Starts from `rails new` on
+      the first change. Take it with server-base and postgres.
+    tools: {ruby: "3.4"}
+    toolchain: ruby
+    guidance:
+      - lang/selection/rails
+  - name: java
+    description: >-
+      Experimental: its landing fixes have not shipped a new app yet. Spring Boot on Temurin 21, Maven
+      and Flyway, deployed as an executable jar. Starts from Spring
+      Initializr on the first change. Take it with server-base and postgres.
+    tools: {java: "21", maven: "3.9"}
+    toolchain: java
+    guidance:
+      - lang/selection/java-spring-boot
+      - lang/java/spring-conventions
+  - name: dotnet
+    description: >-
+      Experimental: not yet run in production by the maintainers for two weeks, and its SDK download is not mirrored. ASP.NET Core on .NET 10: minimal APIs and EF Core,
+      one published app. Starts from the SDK's own templates on the first
+      change. Take it with server-base and postgres.
+    tools: {dotnet: "10"}
+    toolchain: dotnet
+    guidance:
+      - lang/selection/dotnet-aspnet
+  - name: rust
+    description: >-
+      Experimental: not yet run in production by the maintainers for two weeks with a clean image scan. Stable Rust, std-first services, minimal crates, deployed as a
+      release binary. Take it with server-base.
+    tools: {rust: "1.84"}
+    toolchain: rust
+    guidance:
+      - lang/selection/rust
+  - name: wordpress
+    description: >-
+      Experimental: no app shipped from the current starter yet. WordPress with Composer-locked core and plugins, an
+      immutable PHP/Apache image, deployment-owned MariaDB, and uploads in
+      the deployment's own object storage. Starts with a small neutral
+      theme. Take it with server-base.
+    tools: {mariadb: "11.4", php: "8.3"}
+    services:
+      - name: mariadb
+        image: mariadb:11.4.13
+        env: {MARIADB_DATABASE: app, MARIADB_USER: app, MARIADB_PASSWORD: app, MARIADB_RANDOM_ROOT_PASSWORD: "1"}
+      # No image: the s3 kind has no version for the wizard to read from a tag.
+      - name: s3
+    guidance:
+      - lang/selection/wordpress-bedrock
+  - name: postgres
+    description: >-
+      Records in Postgres, reached through the deployment's need: the
+      database is a service, never a file.
+    tools: {postgres: "16"}
+    services:
+      - name: postgres
+        image: postgres:16
+        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
+    guidance:
+      - data/postgres-maximalism
+      - data/networked-database
+  - name: vite-react
+    description: >-
+      A browser UI in TypeScript and React, built with Vite and served by
+      the app's server.
+    tools: {node: "24"}
+    guidance:
+      - frontend/vite-react
+  - name: server-rendered
+    description: >-
+      Pages rendered on the server with the framework's templates, and
+      HTMX or Hotwire where a page must feel live. No JavaScript build.
+    guidance:
+      - frontend/server-rendered
   - name: html-game
     description: >-
       Browser games in plain HTML, CSS and JavaScript: no server, no build
@@ -121,7 +220,7 @@ packs:
     extensions: [lsp]
     guidance:
       - frontend/browser-only
-      - frontend/vite-typescript
+      - frontend/vite-react
       - data/large-data-files
       - deps/minimal-deps
       - build/registries
@@ -131,188 +230,4 @@ packs:
       - prose/readme-plain
       - prose/no-claude-speak
     workflows: [land, ship, implement, quick-change, fix-bug, dependency-uplift, research]
-    policies: [deploy-requires-scan, scanner-bound]
-  - name: node-fullstack
-    description: >-
-      Experimental: its landing fixes have not shipped a new app yet. TypeScript on Node: a Fastify server, Postgres, one npm package graph,
-      one image that runs `node --run start`. A browser UI, when the app
-      needs one, is React built with Vite. The repository starts with the
-      packaging recipe and runtime contract only; the first change writes
-      the app.
-    tools: {node: "24", postgres: "16"}
-    toolchain: node
-    extensions: [lsp]
-    services:
-      - name: postgres
-        image: postgres:16
-        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
-    guidance:
-      - arch/boring-technology
-      - dev/process-and-container-mode
-      - arch/modular-monolith
-      - data/postgres-maximalism
-      - lang/selection/node-fullstack
-      - api/rest-pragmatist
-      - build/registries
-      - build/container-image
-      - build/toolchain-mise
-      - prose/terse-style
-      - prose/no-claude-speak
-      - prose/readme-plain
-    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
-    policies: [deploy-requires-scan, scanner-bound]
-  - name: django-htmx
-    description: >-
-      Django with server-rendered templates and HTMX, Postgres, and the
-      Django admin.
-    tools: {python: "3.12", postgres: "16"}
-    toolchain: python
-    extensions: [lsp]
-    services:
-      - name: postgres
-        image: postgres:16
-        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
-    guidance:
-      - arch/boring-technology
-      - dev/process-and-container-mode
-      - data/postgres-maximalism
-      - lang/selection/django-fullstack
-      - frontend/hypermedia-htmx
-      - build/registries
-      - build/container-image
-      - build/toolchain-mise
-      - prose/terse-style
-      - prose/no-claude-speak
-      - prose/readme-plain
-    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
-    policies: [deploy-requires-scan, scanner-bound]
-  - name: java-spring
-    description: >-
-      Experimental: its landing fixes have not shipped a new app yet. Spring Boot on Temurin 21, Maven, Postgres + Flyway, deployed as
-      an executable jar. Starts from Spring Initializr on the first change.
-      Toolchain pinned in mise.toml; dependencies are fetched through the
-      package registries AppTown is set up with.
-    tools: {java: "21", maven: "3.9", postgres: "16"}
-    toolchain: java
-    services:
-      - name: postgres
-        image: postgres:16
-        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
-    guidance:
-      - arch/boring-technology
-      - dev/process-and-container-mode
-      - arch/modular-monolith
-      - data/postgres-maximalism
-      - lang/selection/java-spring-boot
-      - lang/java/spring-conventions
-      - observability/error-reporting
-      - api/rest-pragmatist
-      - deps/minimal-deps
-      - build/registries
-      - build/container-image
-      - build/toolchain-mise
-      - prose/terse-style
-      - prose/no-claude-speak
-      - prose/readme-plain
-    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
-    policies: [deploy-requires-scan, scanner-bound]
-  - name: dotnet
-    description: >-
-      Experimental: not yet run in production by the maintainers for two weeks, and its SDK download is not mirrored. ASP.NET Core on .NET 10: minimal APIs, EF Core on Postgres, one
-      published app. Starts from the SDK's own templates on the first change.
-      Toolchain pinned in mise.toml; packages are fetched through the
-      package registries AppTown is set up with.
-    tools: {dotnet: "10", postgres: "16"}
-    toolchain: dotnet
-    services:
-      - name: postgres
-        image: postgres:16
-        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
-    guidance:
-      - arch/boring-technology
-      - dev/process-and-container-mode
-      - arch/modular-monolith
-      - data/postgres-maximalism
-      - lang/selection/dotnet-aspnet
-      - observability/error-reporting
-      - api/rest-pragmatist
-      - deps/minimal-deps
-      - build/registries
-      - build/container-image
-      - build/toolchain-mise
-      - prose/terse-style
-      - prose/no-claude-speak
-      - prose/readme-plain
-    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
-    policies: [deploy-requires-scan, scanner-bound]
-  - name: rails
-    description: >-
-      Rails 8 on Ruby 3.4: server-rendered pages with Hotwire, Postgres,
-      Puma, propshaft — no Node toolchain. Starts from `rails new` on the
-      first change. Toolchain pinned in mise.toml; gems are fetched through
-      the package registries AppTown is set up with.
-    tools: {ruby: "3.4", postgres: "16"}
-    toolchain: ruby
-    services:
-      - name: postgres
-        image: postgres:16
-        env: { POSTGRES_DB: app, POSTGRES_USER: app, POSTGRES_PASSWORD: app }
-    guidance:
-      - arch/boring-technology
-      - dev/process-and-container-mode
-      - arch/modular-monolith
-      - data/postgres-maximalism
-      - lang/selection/rails
-      - observability/error-reporting
-      - api/rest-pragmatist
-      - deps/minimal-deps
-      - build/registries
-      - build/container-image
-      - build/toolchain-mise
-      - prose/terse-style
-      - prose/no-claude-speak
-      - prose/readme-plain
-    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
-    policies: [deploy-requires-scan, scanner-bound]
-  - name: rust-service
-    description: >-
-      Experimental: not yet run in production by the maintainers for two weeks with a clean image scan. Stable Rust via mise, std-first services, minimal crates, deployed
-      as a release binary. Toolchain and crates are fetched through the
-      package registries AppTown is set up with.
-    tools: {rust: "1.84"}
-    toolchain: rust
-    guidance:
-      - arch/boring-technology
-      - dev/process-and-container-mode
-      - arch/modular-monolith
-      - lang/selection/rust
-      - deps/minimal-deps
-      - build/registries
-      - build/container-image
-      - build/toolchain-mise
-      - prose/terse-style
-      - prose/no-claude-speak
-      - prose/readme-plain
-    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, adopt-integration, retire-integration, product-spec, research, excavate]
-    policies: [deploy-requires-scan, scanner-bound]
-
-  - name: wordpress-bedrock
-    description: >-
-      Experimental: no app shipped from the current starter yet. WordPress with Composer-locked core and plugins, an immutable PHP/Apache
-      image, deployment-owned MariaDB, and uploads in the deployment's own object storage, served by the site.
-      Starts with a small neutral theme; code updates go through reviewed builds.
-    tools: {mariadb: "11.4", php: "8.3"}
-    services:
-      - name: mariadb
-        image: mariadb:11.4.13
-        env: {MARIADB_DATABASE: app, MARIADB_USER: app, MARIADB_PASSWORD: app, MARIADB_RANDOM_ROOT_PASSWORD: "1"}
-      # No image: the s3 kind has no version for the wizard to read from a tag.
-      - name: s3
-    guidance:
-      - lang/selection/wordpress-bedrock
-      - build/registries
-      - build/container-image
-      - prose/readme-plain
-      - prose/no-claude-speak
-    workflows: [land, implement, fix-bug, quick-change, plan-execute, dependency-uplift, product-spec, research]
     policies: [deploy-requires-scan, scanner-bound]

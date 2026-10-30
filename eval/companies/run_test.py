@@ -375,7 +375,8 @@ class Stacks(unittest.TestCase):
             self.assertIn(co, cos, f"stacks.yaml names a company with no directory: {co}")
             for app, e in apps.items():
                 self.assertIn(app, cos[co], f"stacks.yaml names an app with no directory: {co}/{app}")
-                self.assertIn(e["pack"], packs, f"{co}/{app}: {e['pack']} is not a stock pack")
+                for pack in e["pack"].split(","):
+                    self.assertIn(pack, packs, f"{co}/{app}: {pack} is not a stock pack")
         self.assertEqual(sorted(stacks["waves"]), sorted(cos), "every company in exactly one wave")
 
     def test_create_uses_the_chosen_pack_and_records_the_pickers_suggestion_beside_it(self):

@@ -1,4 +1,4 @@
-"""The readiness answer, seeded by the django-htmx way of working.
+"""The readiness answer, seeded by the django pack.
 
 Some health probes (a cloud platform's, AppTown's readiness check)
 reach the app by its address, not through AppTown's front door: their

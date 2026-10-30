@@ -141,7 +141,7 @@ export function RepositoryStep({ d, act, busy, onCreate, children }: {
       <div className="muted small" style={{ margin: '14px 0 4px' }}>
         Creating: <strong>{d.name || slug}</strong> at <code>/{slug}</code>
         {origin !== 'empty' ? ' · from existing code' : ''}
-        {d.pack ? <> · {d.pack}</> : ' · bare'}
+        {d.packs?.length ? <> · {d.packs.join(' + ')}</> : ' · bare'}
         {remote ? ' · with a GitLab copy' : ''}
       </div>
 

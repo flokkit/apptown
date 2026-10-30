@@ -37,11 +37,6 @@ export default function PackPage() {
       <p className="small" style={{ margin: '6px 0 12px' }}>{h.description}</p>
       <StaleNote q={q} />
       {actErr && <div className="error">{actErr}</div>}
-      {h.followRefused && (
-        <div className="card tone-warn small" style={{ marginBottom: 12 }}>
-          The included pack moved, but this pack could not follow it: {h.followRefused}. Edit the pack to settle it.
-        </div>
-      )}
 
       <h2>What it says</h2>
       <Declaration d={h.declaration} />
@@ -79,24 +74,15 @@ export default function PackPage() {
 function lineage(v: Publication): string {
   const parts: string[] = []
   if (v.basedOn) parts.push(`from v${v.basedOn}`)
-  if (v.includedPack) parts.push(`includes ${v.includedPack} v${v.includedVersion}`)
   return parts.join(' · ')
 }
 
-// Declaration is the author's words: the pack it includes and what it
-// changes about it, then its own items.
+// Declaration is the author's words: its items.
 function Declaration({ d }: { d: PackSpec }) {
-  const replaces = Object.entries(d.replaces ?? {})
   const own = [...d.guidance.map((g) => `guidance ${g}`), ...d.workflows.map((w) => `workflow ${w}`), ...d.policies.map((p) => `policy ${p.name}`)]
   return (
     <div className="card small" style={{ padding: '8px 12px' }}>
-      {d.includes
-        ? <div>Includes <Link to={`/packs/${d.includes.split('@')[0]}`}><code>{d.includes.split('@')[0]}</code></Link>{d.includes.includes('@') ? `, pinned at v${d.includes.split('@')[1]}` : ', following its recommended version'}.</div>
-        : <div>Includes no other pack.</div>}
-      {replaces.map(([from, to]) => <div key={from}>Replaces <code>{from}</code> with <code>{to}</code></div>)}
-      {(d.drops ?? []).map((x) => <div key={x.item}>Drops <code>{x.item}</code>{x.reason ? ` — ${x.reason}` : ''}</div>)}
-      {(d.clears ?? []).map((c) => <div key={c}>Sets no {c}</div>)}
-      <div style={{ marginTop: 4 }}>{own.length > 0 ? <>Adds: {own.map((o, i) => <span key={o}>{i > 0 ? ', ' : ''}<code>{o}</code></span>)}</> : 'Adds nothing of its own.'}</div>
+      <div>{own.length > 0 ? <>Holds: {own.map((o, i) => <span key={o}>{i > 0 ? ', ' : ''}<code>{o}</code></span>)}</> : 'Holds no guidance, workflows or policies.'}</div>
       {d.toolchain && <div>Toolchain: <code>{d.toolchain}</code></div>}
     </div>
   )

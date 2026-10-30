@@ -67,7 +67,7 @@ only, recorded, never automatic.
 ## Ways of working (extends B The project's way of working)
 
 **N7. Adopt an update across many projects at once.** A standards
-administrator wants every project on `go-small` v2, or a correction to a
+administrator wants every project on `go` v2, or a correction to a
 stock workflow's prompt or a check's rubric to reach every project.
 *Now:* each owner prepares and adopts; the fleet view shows who is where. A
 release never moves a project, so a project pinned at an older version keeps

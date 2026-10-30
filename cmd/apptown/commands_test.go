@@ -768,7 +768,7 @@ func TestNewAndInvokeEndWithTheLoopsNextCommand(t *testing.T) {
 		case "/projects/shop/repo":
 			return 200, `{"defaultBranch":"main"}`
 		case "/projects/shop/pack":
-			return 200, `{"pack":"go-small","guidanceImports":22,"workflowsInstalled":["quick-change"]}`
+			return 200, `{"packs":["go","postgres","server-base"],"guidanceImports":22,"workflowsInstalled":["quick-change"]}`
 		case "/projects/shop/changes":
 			return 200, `{"change":{"id":"00000000-0005-7000-8000-000000000000","number":5},"run":{"id":"00000000-0009-7000-8000-000000000000","currentStage":"build"}}`
 		case "/changes/shop#5":
@@ -778,13 +778,13 @@ func TestNewAndInvokeEndWithTheLoopsNextCommand(t *testing.T) {
 		}
 		return 404, `{"error":"no"}`
 	})
-	out, err := run(t, "new", "shop", "--pack", "go-small")
+	out, err := run(t, "new", "shop", "--pack", "server-base,go,postgres")
 	if err != nil || !strings.Contains(out, `apptown quick -p shop "<what to change>"`) || strings.Contains(out, "apptown invoke") || strings.Contains(out, "guidance imports") {
 		t.Fatalf("new: %v\n%s", err, out)
 	}
-	// The creation names the pack, so AppTown refuses one it does not
-	// offer before making the project.
-	if create := (*seen)[0]; create.Path != "/projects" || create.Body["pack"] != "go-small" {
+	// The creation names the packs, so AppTown refuses one it does not
+	// offer, or packs that disagree, before making the project.
+	if create := (*seen)[0]; create.Path != "/projects" || fmt.Sprint(create.Body["packs"]) != "[server-base go postgres]" {
 		t.Fatalf("the creation did not carry the pack: %+v", create)
 	}
 	for _, args := range [][]string{{"invoke", "-p", "shop", "-w", "quick-change", "-t", "x"}, {"invoke", "-c", "shop#5", "-w", "quick-change"}} {
@@ -1299,12 +1299,12 @@ func TestShowSaysWhatTheWaitingApprovalAdds(t *testing.T) {
 }
 
 // `apptown pack recommend` sends the version a person chose and says that no
-// project moved; `apptown pack versions` shows each version's name, base and
-// inclusion, marking the recommended one. A bare pack name still applies.
+// project moved; `apptown pack versions` shows each version's name and base,
+// marking the recommended one. A bare pack name still applies.
 func TestPackRecommendAndVersions(t *testing.T) {
 	history := `{"name":"team","recommended":2,"latest":3,"versions":[
-	 {"version":3,"name":"follows go-small v4","basedOn":2,"includedPack":"go-small","includedVersion":4,"note":"follows go-small v4; go-small v4 changed deps/minimal-deps, which you replace"},
-	 {"version":2,"basedOn":1,"includedPack":"go-small","includedVersion":3,"note":"published contents"}]}`
+	 {"version":3,"name":"tidied","basedOn":2,"note":"its items moved in the library"},
+	 {"version":2,"basedOn":1,"note":"published contents"}]}`
 	alreadyRecommended := false
 	seen := fakeAppTown(t, func(_, path string) (int, string) {
 		if path == "/packs/team/recommended" && alreadyRecommended {
@@ -1324,8 +1324,8 @@ func TestPackRecommendAndVersions(t *testing.T) {
 		t.Fatalf("recommend sent %+v", last)
 	}
 	out, err = run(t, "pack", "versions", "team")
-	if err != nil || !strings.Contains(out, `  v3 "follows go-small v4" from v2, includes go-small v4`) || !strings.Contains(out, "* v2 from v1") ||
-		!strings.Contains(out, "which you replace") {
+	if err != nil || !strings.Contains(out, `  v3 "tidied" from v2`) || !strings.Contains(out, "* v2 from v1") ||
+		!strings.Contains(out, "its items moved in the library") {
 		t.Fatalf("versions: %v\n%s", err, out)
 	}
 	if _, err := run(t, "pack", "recommend", "team", "latest"); err == nil {

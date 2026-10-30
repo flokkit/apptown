@@ -205,7 +205,7 @@ func (r copyTargetRecorder) RecordTargetIn(ctx context.Context, tx *database.Tx,
 	return workflow.RecordedTarget{ID: out.ID, Candidate: out.Candidate}, err
 }
 
-// copySource is project "shop" on the go-small pack, its repository seeded
+// copySource is project "shop" on the go pack, its repository seeded
 // with two commits: the base it returns, and one after it.
 func copySource(t *testing.T, f ownerFixture) (*project.Project, string) {
 	t.Helper()
@@ -233,11 +233,11 @@ func copySource(t *testing.T, f ownerFixture) (*project.Project, string) {
 	gittest.RunAsTester(t, work, "bundle", "create", "-q", bundle, "HEAD", "refs/heads/main")
 	// The pack first: the fixture publishes nothing, and a pack applied to
 	// a repository commits its starter files.
-	pk, err := f.ways.Pack(ctx, "go-small")
+	pk, err := f.ways.Pack(ctx, "go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.lifecycle.ApplyPack(adoption.WithSystemAuthority(ctx, src.ID), src, pk, "bls"); err != nil {
+	if _, err := f.lifecycle.ApplyPack(adoption.WithSystemAuthority(ctx, src.ID), src, []*wow.Pack{pk}, "bls"); err != nil {
 		t.Fatal(err)
 	}
 	body, err := os.Open(bundle)
@@ -283,11 +283,11 @@ func TestRepositorySetupAndStarterFilesRecordMain(t *testing.T) {
 	}
 	wantMainRecorded(t, f.db, f.lifecycle.dataDir, p.ID, scm.ViaInit)
 	before := scm.Ref(t.Context(), hubDir(f.lifecycle.dataDir, p.ID), "refs/heads/main")
-	pk, err := f.ways.Pack(t.Context(), "go-small")
+	pk, err := f.ways.Pack(t.Context(), "go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.lifecycle.ApplyPack(adoption.WithSystemAuthority(context.Background(), p.ID), p, pk, "bls"); err != nil {
+	if _, err := f.lifecycle.ApplyPack(adoption.WithSystemAuthority(context.Background(), p.ID), p, []*wow.Pack{pk}, "bls"); err != nil {
 		t.Fatal(err)
 	}
 	if scm.Ref(t.Context(), hubDir(f.lifecycle.dataDir, p.ID), "refs/heads/main") == before {

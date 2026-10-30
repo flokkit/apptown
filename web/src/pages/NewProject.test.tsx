@@ -149,12 +149,65 @@ describe('a pack picked before the service catalog arrives', () => {
       await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
       await settle()
       await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('web-server')) as HTMLElement).click() })
+      await act(async () => { button(el, 'Take web-server')!.click() })
       expect(button(el, 'Next →')!.disabled).toBe(true)
       await act(async () => { deliver(new Response(JSON.stringify({ dependencies: [postgres] }))) })
       await settle()
       const tile = [...el.querySelectorAll('[aria-pressed]')].find((t) => t.textContent?.includes('PostgreSQL'))!
       expect(tile.getAttribute('aria-pressed')).toBe('true')
       expect(button(el, 'Next →')!.disabled).toBe(false)
+    } finally {
+      act(() => root.unmount())
+    }
+  })
+})
+
+// A person can take several packs: they tick each on the card wall, the
+// project is created naming them all, and they are applied together.
+describe('choosing several packs', () => {
+  afterEach(() => { vi.unstubAllGlobals(); sessionStorage.clear() })
+  it('creates the project with every ticked pack', async () => {
+    const pack = (name: string, services: unknown[] = []) => ({ name, description: name + ' things', guidance: [], workflows: [], policies: [], services, origin: 'stock', enabled: true, requires: [], guidanceBytes: 0, generatedBytes: 0, declaration: {} })
+    const calls: Call[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      const path = url.replace(/^\/api\/v1/, '')
+      const method = init?.method ?? 'GET'
+      calls.push({ method, path, body: init?.body })
+      const json = (v: unknown) => new Response(JSON.stringify(v))
+      if (path === '/projects/moved' || path === '/projects/shop') return json({ id: '00000000-0002-7000-8000-000000000000', slug: path.split('/').at(-1), lifecycle: { state: 'active' } })
+      if (path === '/authz/me') return json({ user: 'u', actorId: '00000000-0001-7000-8000-000000000000', instance: {} })
+      if (path === '/packs') return json([pack('server-base'), pack('go'), pack('postgres', [{ name: 'postgres', image: 'postgres:16' }])])
+      if (path === '/dependencies') return json({ dependencies: [{ capability: 'postgres', title: 'PostgreSQL', local: { image: 'postgres:16' } }] })
+      if (path === '/scm/namespaces') return json({ configured: false, namespaces: [] })
+      if (method === 'POST' && path === '/projects') return json({ id: '00000000-0002-7000-8000-000000000000', slug: 'shop' })
+      if (method === 'POST' && path === '/projects/shop/repo') return json({ slug: 'shop', defaultBranch: 'main' })
+      if (method === 'POST' && path === '/projects/shop/pack') return json({ packs: ['go', 'postgres', 'server-base'], guidanceImports: 0, workflowsInstalled: [], missing: [] })
+      if (method === 'GET' && path === '/projects/shop/services') return json({ needs: [] })
+      if (method === 'POST' && path === '/projects/shop/services') return json({})
+      if (path === '/projects/shop/manifest') return json({ project: { slug: 'shop' } })
+      return new Response(JSON.stringify({ error: 'no route ' + path }), { status: 404 })
+    }))
+    const { el, root } = await mount()
+    try {
+      await type(el.querySelector('textarea') as HTMLTextAreaElement, 'a shop')
+      await type(el.querySelector('input') as HTMLInputElement, 'shop')
+      await act(async () => { button(el, 'Next →')!.click() })
+      await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
+      await settle()
+      for (const name of ['server-base', 'go', 'postgres']) {
+        await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.querySelector('strong')?.textContent === name) as HTMLElement).click() })
+      }
+      await act(async () => { button(el, 'Take server-base + go + postgres')!.click() })
+      await settle()
+      await act(async () => { button(el, 'Next →')!.click() })
+      await act(async () => { button(el, 'Create project')!.click() })
+      await settle()
+      const created = calls.find((c) => c.method === 'POST' && c.path === '/projects')
+      expect(JSON.parse(String(created?.body)).packs).toEqual(['server-base', 'go', 'postgres'])
+      const applied = calls.find((c) => c.method === 'POST' && c.path === '/projects/shop/pack')
+      expect(JSON.parse(String(applied?.body))).toEqual({ names: ['server-base', 'go', 'postgres'] })
+      const services = calls.find((c) => c.method === 'POST' && c.path === '/projects/shop/services')
+      expect(services && JSON.parse(String(services.body)).needs).toEqual([{ capability: 'postgres', params: { version: '16' } }])
     } finally {
       act(() => root.unmount())
     }
@@ -182,7 +235,7 @@ describe('an interview that answers before the pack list', () => {
     if (path === '/authz/me') return json({ user: 'u', actorId: '00000000-0001-7000-8000-000000000000', instance: {} })
       if (path === '/packs') return packList
       if (path === '/dependencies') return json({ dependencies: [postgres] })
-      if (path === '/packs/interview') return json({ pack: 'web-server', why: 'it has a server' })
+      if (path === '/packs/interview') return json({ decided: true, packs: ['web-server'], why: 'it has a server' })
       if (path === '/scm/namespaces') return json({ configured: false, namespaces: [] })
       if (method === 'POST' && path === '/projects') return json({ id: '00000000-0002-7000-8000-000000000000', slug: 'shop' })
       if (method === 'POST' && path === '/projects/shop/repo') return json({ slug: 'shop', defaultBranch: 'main' })
@@ -331,7 +384,7 @@ describe('a late way-of-working suggestion', () => {
         await act(async () => { button(el, 'Choose a way of working myself →')!.click() })
         await act(async () => { ([...el.querySelectorAll('.pack-card')].find((c) => c.textContent?.includes('none (bare)')) as HTMLElement).click() })
       }
-      await act(async () => { deliver(new Response(JSON.stringify({ pack: 'late-choice', why: 'stale recommendation' }))) })
+      await act(async () => { deliver(new Response(JSON.stringify({ decided: true, packs: ['late-choice'], why: 'stale recommendation' }))) })
       await settle()
       expect(el.textContent).not.toContain('late-choice')
       expect(el.textContent).not.toContain('stale recommendation')

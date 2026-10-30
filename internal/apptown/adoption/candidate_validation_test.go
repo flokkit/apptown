@@ -15,7 +15,7 @@ func validationCandidate(t *testing.T) (*database.DB, *Service, Candidate) {
 	db := testDB(t)
 	testAccounts(t, db, "alice")
 	pid := adoptionTestProject(t, db, "validate", "Validate")
-	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "", "") }); err != nil {
+	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "") }); err != nil {
 		t.Fatal(err)
 	}
 	ways := wow.New(db, wow.Dependencies{})
@@ -43,7 +43,7 @@ func validationCandidate(t *testing.T) (*database.DB, *Service, Candidate) {
 		}
 	}
 	c := Candidate{ProjectID: pid, Receipt: EmptyReceipt(), Packs: []PackPick{{Pack: "held-pack", Version: 1}}, Installation: Installation{Policies: []Policy{{Name: "required", Rule: "requireCapabilityBound", With: map[string]any{"capability": "registry"}}}, Extensions: []string{"addon"}}}
-	c.Receipt.Pack = "held-pack"
+	c.Receipt.Packs = []string{"held-pack"}
 	c.Receipt.Guidance = []ReceiptBlock{{BlockID: block, Name: "held-guide", Version: 1}}
 	c.Receipt.Workflows = []ReceiptWorkflow{{Name: "held-flow", Version: 1, YAMLHash: HashText(yaml)}}
 	policy, err := policyReceipt(c.Installation.Policies[0])
@@ -77,7 +77,8 @@ func TestCandidateValidationUsesFrozenPublicationsAndRejectsTampering(t *testing
 		"workflow hash":             func(c *Candidate) { c.Receipt.Workflows[0].YAMLHash = "invented" },
 		"workflow system":           func(c *Candidate) { c.Receipt.Workflows[0].System = true },
 		"missing required workflow": func(c *Candidate) { c.Receipt.Workflows = nil },
-		"pack name":                 func(c *Candidate) { c.Receipt.Pack = "other" },
+		"pack name":                 func(c *Candidate) { c.Receipt.Packs = []string{"other"} },
+		"pack left out":             func(c *Candidate) { c.Receipt.Packs = nil },
 		"duplicate pack":            func(c *Candidate) { c.Packs = append(c.Packs, c.Packs[0]) },
 		"policy hash":               func(c *Candidate) { c.Receipt.Policies[0].ConfigHash = "invented" },
 		"policy rule":               func(c *Candidate) { c.Receipt.Policies[0].Rule = "scanFailOnCeiling" },

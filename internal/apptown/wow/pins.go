@@ -41,13 +41,9 @@ func policyPin(p PackPolicy) string {
 // out; prepare says so. System workflows (land, ship, …) are the platform
 // pack's to pin: a language pack lists them but does not pin them, or
 // every pack would cut a version each time the landing moved and disagree
-// with the platform about it. Included items are not its business: their
-// pins come from the included publication (resolveDeclaration).
+// with the platform about it.
 func (s *Packs) PinsFor(ctx context.Context, spec string) (string, error) {
-	d, _ := decodeSpec(spec)
-	d.Includes = ""
-	res, _ := resolveDeclaration(ctx, d, nil, libraryPins{lib: NewLibrary(s.db), wf: NewWorkflows(s.db), pol: NewPolicies(s.db)})
-	pins, err := strs.JSON(res.Pins)
+	pins, err := strs.JSON(s.resolve(ctx, spec).Pins)
 	return canonJSON(pins), err
 }
 
@@ -57,12 +53,9 @@ type Recut struct {
 	Version int
 }
 
-// CutOnPinChange publishes a new version of every pack whose own items
-// moved in the library. The declaration is resolved against the same
-// included publication its latest version recorded, so an inherited item
-// never takes a library version its included publication does not name. A
-// pack whose publication cannot be read or republished is logged and
-// skipped, never fatal at boot.
+// CutOnPinChange publishes a new version of every pack whose items moved
+// in the library. A pack whose publication cannot be read or republished
+// is logged and skipped, never fatal at boot.
 func (s *Packs) CutOnPinChange(ctx context.Context) ([]Recut, error) {
 	packs, err := s.Published(ctx)
 	if err != nil {
@@ -72,9 +65,7 @@ func (s *Packs) CutOnPinChange(ctx context.Context) ([]Recut, error) {
 	for _, r := range packs {
 		var next int64
 		err := s.db.InTx(ctx, func(tx *database.Tx) error {
-			// The pack as it is now, under its lock: an earlier cut in this
-			// sweep may have published a follow version of it, which this
-			// cut starts from and must never undo.
+			// The pack as it is now, under its lock.
 			q := wowsql.New(tx.SQL())
 			p, err := q.PackByNameForUpdate(ctx, r.Name)
 			if err != nil {
@@ -84,18 +75,14 @@ func (s *Packs) CutOnPinChange(ctx context.Context) ([]Recut, error) {
 			if err != nil || latest.ID.IsZero() {
 				return fmt.Errorf("reading its publication: %w", err)
 			}
-			res, err := s.resolveIn(ctx, q, p.Name, string(p.SpecJson), latest.IncludedVersion)
-			if err != nil {
-				return err
-			}
-			pins, err := strs.JSON(res.Pins)
+			pins, err := strs.JSON(s.resolve(ctx, string(p.SpecJson)).Pins)
 			if err != nil {
 				return err
 			}
 			if canonJSON(string(latest.PinsJson)) == canonJSON(pins) {
 				return nil
 			}
-			next, err = s.publishIn(ctx, tx, s.now(), p.Name, p.Description, string(p.SpecJson), p.Origin, cut{includedVersion: latest.IncludedVersion, note: "its own items moved in the library"})
+			next, err = s.publishIn(ctx, tx, s.now(), p.Name, p.Description, string(p.SpecJson), p.Origin, cut{note: "its items moved in the library"})
 			return err
 		})
 		if err != nil {

@@ -80,8 +80,8 @@ DELETE FROM system_workflows WHERE stock_name=$1;
 INSERT INTO packs(id, name,description,spec_json,origin,updated_at,latest_version,recommended_version)
 VALUES(sqlc.arg(id), sqlc.arg(name),sqlc.arg(description),sqlc.arg(spec),sqlc.arg(origin),sqlc.arg(at),1,1) RETURNING *;
 -- name: InsertPackVersion :one
-INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,included_pack,included_version,name,based_on,source,signer)
-VALUES(sqlc.arg(id), sqlc.arg(pack_id),sqlc.arg(version),sqlc.arg(spec),sqlc.arg(note),sqlc.arg(at),sqlc.arg(pins),sqlc.arg(declaration),sqlc.arg(included_pack),sqlc.arg(included_version),sqlc.arg(name),sqlc.arg(based_on),sqlc.arg(source),sqlc.arg(signer)) RETURNING *;
+INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,name,based_on,source,signer)
+VALUES(sqlc.arg(id), sqlc.arg(pack_id),sqlc.arg(version),sqlc.arg(spec),sqlc.arg(note),sqlc.arg(at),sqlc.arg(pins),sqlc.arg(declaration),sqlc.arg(name),sqlc.arg(based_on),sqlc.arg(source),sqlc.arg(signer)) RETURNING *;
 -- name: RecommendPackVersion :execrows
 UPDATE packs SET recommended_version=sqlc.arg(version),updated_at=sqlc.arg(at) WHERE id=sqlc.arg(id);
 -- name: OfferedPacks :many
@@ -91,10 +91,6 @@ FROM packs p LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=p.recomme
 -- name: OfferedPack :one
 SELECT sqlc.embed(p),COALESCE(v.spec_json,p.spec_json) AS offered_spec,COALESCE(v.version,0)::bigint AS offered_version
 FROM packs p LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=p.recommended_version WHERE p.name=$1;
--- name: PacksIncluding :many
--- Packs whose latest publication resolved against the named pack.
-SELECT p.* FROM packs p JOIN pack_versions v ON v.pack_id=p.id AND v.version=p.latest_version
-WHERE v.included_pack=sqlc.arg(included)::text ORDER BY p.name FOR UPDATE OF p;
 -- name: RefreshPackContents :execrows
 UPDATE packs SET description=sqlc.arg(description),spec_json=sqlc.arg(spec) WHERE id=sqlc.arg(id);
 -- name: AdvancePackVersion :execrows
@@ -136,8 +132,7 @@ SELECT COUNT(*) FROM packs WHERE enabled AND name<>$1 AND NOT COALESCE((spec_jso
 -- coalesce at the nullable join boundary; v.id distinguishes absence.
 SELECT p.id AS owner_id,v.id,v.pack_id,v.version,
  COALESCE(v.spec_json,'{}'::jsonb) AS spec_json,v.note,v.created_at,
- COALESCE(v.pins_json,'{}'::jsonb) AS pins_json,
- COALESCE(v.included_pack,'')::text AS included_pack,COALESCE(v.included_version,0)::bigint AS included_version FROM packs p
+ COALESCE(v.pins_json,'{}'::jsonb) AS pins_json FROM packs p
 LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=$2 WHERE p.name=$1;
 
 -- name: CheckDefinitionsAtVersions :many

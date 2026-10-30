@@ -11,14 +11,14 @@ import (
 
 func objectCandidate(a Adoption) Candidate {
 	r := EmptyReceipt()
-	r.Pack = "selected"
+	r.Packs = []string{"selected"}
 	r.Guidance = []ReceiptBlock{{Name: "guide", BlockID: idstest.N(12), Version: 3}}
 	return Candidate{ProjectID: a.ProjectID, ExpectedRevision: a.Revision, Receipt: r}
 }
 
 func TestAdoptionPrepareRefusesMissingCapabilitiesWithoutMutation(t *testing.T) {
 	t.Parallel()
-	a := Adoption{ProjectID: idstest.N(7), Revision: 3, Pack: "before", Drift: "review"}
+	a := Adoption{ProjectID: idstest.N(7), Revision: 3, Drift: "review"}
 	before := a
 	c := objectCandidate(a)
 	c.RequiredCapabilities = []string{"registry", "git", "registry"}
@@ -52,7 +52,7 @@ func TestAdoptionPrepareRefusesMissingCapabilitiesWithoutMutation(t *testing.T) 
 
 func TestAdoptionPlanOwnsItsContentAndAdvanceChecksScopeAndRevision(t *testing.T) {
 	t.Parallel()
-	a := Adoption{ProjectID: idstest.N(7), Revision: 3, Pack: "before", Drift: "review"}
+	a := Adoption{ProjectID: idstest.N(7), Revision: 3, Drift: "review"}
 	c := objectCandidate(a)
 	c.Packs = []PackPick{{Pack: "selected", Version: 2}}
 	c.Installation = Installation{Policies: []Policy{{Name: "needed", Rule: "requireCapabilityBound", With: map[string]any{"capability": "registry"}}}, Extensions: []string{"enabled"}}
@@ -65,7 +65,7 @@ func TestAdoptionPlanOwnsItsContentAndAdvanceChecksScopeAndRevision(t *testing.T
 	c.Installation.Policies[0].With["capability"] = "changed"
 	c.Installation.Extensions[0] = "changed"
 	next, event, err := a.Advance(plan, 3)
-	if err != nil || next.Revision != 4 || next.Pack != "selected" || next.Drift != "" || !event.Recorded || plan.receipt.Guidance[0].Version != 3 || plan.memberships[0].Version != 2 || string(plan.policies[0].config) != `{"capability":"registry"}` || plan.extensions[0] != "enabled" {
+	if err != nil || next.Revision != 4 || next.Drift != "" || !event.Recorded || plan.receipt.Guidance[0].Version != 3 || plan.memberships[0].Version != 2 || string(plan.policies[0].config) != `{"capability":"registry"}` || plan.extensions[0] != "enabled" {
 		t.Fatalf("advance: %+v %+v %v", next, event, err)
 	}
 	if a.Revision != 3 || a.Drift != "review" {
@@ -91,7 +91,7 @@ func TestAdoptionPlanOwnsItsContentAndAdvanceChecksScopeAndRevision(t *testing.T
 
 func TestAdoptionReviewSettlesDriftWithoutNewHistory(t *testing.T) {
 	t.Parallel()
-	a := Adoption{ProjectID: idstest.N(7), Revision: 3, Pack: "current", Drift: "review"}
+	a := Adoption{ProjectID: idstest.N(7), Revision: 3, Drift: "review"}
 	r := EmptyReceipt()
 	prior := &RecordedRevision{ProjectID: idstest.N(7), Revision: 3, Digest: Digest(r), Receipt: r}
 	plan, err := a.prepareRecord(r, AdoptionEdit, "reviewed", prior)
@@ -99,7 +99,7 @@ func TestAdoptionReviewSettlesDriftWithoutNewHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	next, event, err := a.Advance(plan, 3)
-	if err != nil || event.Recorded || next.Revision != 3 || next.Drift != "" || next.Pack != "current" {
+	if err != nil || event.Recorded || next.Revision != 3 || next.Drift != "" {
 		t.Fatalf("review: %+v %+v %v", next, event, err)
 	}
 	// Explicit adoption retains its separate intent, even for equal content.
@@ -138,10 +138,10 @@ func TestAdoptionCannotAdvanceToTargetOrOverflow(t *testing.T) {
 
 func TestAdoptionNoteDriftPreservesSelection(t *testing.T) {
 	t.Parallel()
-	a := Adoption{ProjectID: idstest.N(7), Revision: 3, Pack: "selected"}
+	a := Adoption{ProjectID: idstest.N(7), Revision: 3}
 	for _, note := range []string{"exact review text", ""} {
 		event := a.NoteDrift(note)
-		if a.ProjectID != idstest.N(7) || a.Revision != 3 || a.Pack != "selected" || a.Drift != note || event.Drift != note || event.Recorded {
+		if a.ProjectID != idstest.N(7) || a.Revision != 3 || a.Drift != note || event.Drift != note || event.Recorded {
 			t.Fatalf("drift changed selection: %+v %+v", a, event)
 		}
 	}

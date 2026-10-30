@@ -18,70 +18,104 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/wow"
 )
 
-// ApplyPack adopts a pack on a project: pinned guidance, the platform tier,
-// lane selection, policies, seed files, toolchain, extensions. The domain
-// command behind the HTTP door and the MCP's create_project.
-func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, pack *wow.Pack, who string) (*PackApplied, error) {
-	// Applying a published pack uses the same explicit adoption transaction as
+// ApplyPack adopts packs on a project: their pinned guidance, the platform
+// tier, lane selection, policies, the starter files and toolchain, and
+// extensions, as one union. Packs that disagree on something a project has
+// one of (a tool's line, the toolchain, a service, a policy, the starter)
+// are refused before anything is written. The domain command behind the
+// HTTP door and the MCP's create_project.
+func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, packs []*wow.Pack, who string) (*PackApplied, error) {
+	// Applying published packs uses the same explicit adoption transaction as
 	// the Ways of working page. No boot-time placement or latest-block guesses.
-	// The pack's contents were read from the publication it offers
+	// Each pack's contents were read from the publication it offers
 	// (pack.Version); the same publication is the one adopted, so what is
 	// installed, seeded and reported is one version.
-	if pack.Version <= 0 {
-		return nil, fmt.Errorf("pack %s has no published version to apply", pack.Name)
+	if len(packs) == 0 {
+		return nil, fmt.Errorf("name at least one pack to apply")
 	}
-	picks := []adoption.PackPick{{Pack: pack.Name, Version: pack.Version}}
-	if p.DefaultBranch != "" && pack.Name != adoption.PlatformPack {
-		platform, err := s.ways.Pack(ctx, adoption.PlatformPack)
+	picks := []adoption.PackPick{}
+	names := []string{}
+	combining := []wow.Pack{}
+	platform := false
+	for _, pack := range packs {
+		if pack.Version <= 0 {
+			return nil, fmt.Errorf("pack %s has no published version to apply", pack.Name)
+		}
+		picks = append(picks, adoption.PackPick{Pack: pack.Name, Version: pack.Version})
+		names = append(names, pack.Name)
+		combining = append(combining, *pack)
+		platform = platform || pack.Name == adoption.PlatformPack
+	}
+	combined := wow.Combine(combining, func(name string) bool { return s.ways.Seed(name) != nil })
+	if len(combined.Problems) != 0 {
+		return nil, fmt.Errorf("%w: %s", adoption.ErrNotAdoptable, strings.Join(combined.Problems, "; "))
+	}
+	if p.DefaultBranch != "" && !platform {
+		pack, err := s.ways.Pack(ctx, adoption.PlatformPack)
 		if err != nil {
 			return nil, fmt.Errorf("selecting published pack %s: %w", adoption.PlatformPack, err)
 		}
-		picks = append(picks, adoption.PackPick{Pack: adoption.PlatformPack, Version: platform.Version})
+		picks = append(picks, adoption.PackPick{Pack: adoption.PlatformPack, Version: pack.Version})
 	}
 	c, err := s.adoption.PreparePack(ctx, p.ID, picks)
 	if err != nil {
 		return nil, err
 	}
 	// Availability comes from the instance declaration; the sealed selection is unchanged.
-	for _, ext := range pack.Extensions {
+	for _, ext := range combined.Extensions {
 		if !slices.Contains(s.extensions, ext) {
 			return nil, fmt.Errorf("unknown extension %q", ext)
 		}
 	}
 	policiesInstalled := []string{}
-	for _, policy := range pack.Policies {
-		policiesInstalled = append(policiesInstalled, policy.Name)
+	installed := []string{}
+	for _, pack := range packs {
+		for _, policy := range pack.Policies {
+			if !slices.Contains(policiesInstalled, policy.Name) {
+				policiesInstalled = append(policiesInstalled, policy.Name)
+			}
+		}
+		for _, w := range pack.Workflows {
+			if !slices.Contains(installed, w) {
+				installed = append(installed, w)
+			}
+		}
 	}
-	if _, err := s.Adopt(ctx, p, c, who, "pack "+pack.Name+" applied", adoption.OperationApplyPack); err != nil {
+	label := strings.Join(names, ", ")
+	if _, err := s.Adopt(ctx, p, c, who, "packs "+label+" applied", adoption.OperationApplyPack); err != nil {
 		return nil, err
 	}
 	pos := len(c.Receipt.Guidance)
-	installed := append([]string{}, pack.Workflows...)
 	var missing []string
 	// Seed files: stock/seeds/<pack>/ copied into the repo when absent —
 	// a starter to change, not a blank page (design/subsystems/html-games.md).
-	// Files reach an established project only through a change, so there
-	// the adoption stands and the files are named as not written.
+	// At most one of the packs has a starter (Combine). Files reach an
+	// established project only through a change, so there the adoption
+	// stands and the files are named as not written.
 	var skipped []string
-	seeded, refused, err := s.seedPackFiles(ctx, p, pack.StarterPack(), who)
-	for _, r := range refused {
-		missing = append(missing, "starter file "+r)
+	var seeded []string
+	if combined.Starter != "" {
+		var refused []string
+		seeded, refused, err = s.seedPackFiles(ctx, p, combined.Starter, who)
+		for _, r := range refused {
+			missing = append(missing, "starter file "+r)
+		}
+		if errors.Is(err, ErrProjectEstablished) {
+			skipped = append(skipped, "starter files")
+		} else if err != nil {
+			missing = append(missing, "starter files: "+err.Error())
+		}
 	}
-	if errors.Is(err, ErrProjectEstablished) {
-		skipped = append(skipped, "starter files")
-	} else if err != nil {
-		missing = append(missing, "starter files: "+err.Error())
-	}
-	// The pack's toolchain declaration (mise.toml) ships with it: guidance
+	// The toolchain declaration (mise.toml) ships with the packs: guidance
 	// that says "declared in mise.toml" is a lie until the file exists.
 	toolchainSeeded := ""
-	if pack.Toolchain != "" && p.DefaultBranch != "" {
-		if wrote, err := s.SeedToolchain(ctx, p, pack.Toolchain, who); errors.Is(err, ErrProjectEstablished) {
+	if combined.Toolchain != "" && p.DefaultBranch != "" {
+		if wrote, err := s.SeedToolchain(ctx, p, combined.Toolchain, who); errors.Is(err, ErrProjectEstablished) {
 			skipped = append(skipped, "mise.toml")
 		} else if err != nil {
-			missing = append(missing, "toolchain:"+pack.Toolchain)
+			missing = append(missing, "toolchain:"+combined.Toolchain)
 		} else if wrote {
-			toolchainSeeded = pack.Toolchain
+			toolchainSeeded = combined.Toolchain
 		}
 	}
 	violations, err := s.adoption.ProjectConformance(ctx, s.db, p.ID)
@@ -93,20 +127,20 @@ func (s *Service) ApplyPack(ctx execcontext.Context, p *project.Project, pack *w
 	}
 	var hash string
 	_, hash, _, _ = s.adoption.Compile(ctx, p.ID)
-	audit.At(s.now()).BestEffort(ctx, s.db, who, p.ID, "pack.applied", pack.Name,
-		map[string]any{"guidance": pos, "workflows": installed, "policies": policiesInstalled,
+	audit.At(s.now()).BestEffort(ctx, s.db, who, p.ID, "pack.applied", label,
+		map[string]any{"packs": names, "guidance": pos, "workflows": installed, "policies": policiesInstalled,
 			"missing": missing, "guidanceHash": hash, "policyWarnings": len(violations), "seeded": seeded,
 			"toolchain": toolchainSeeded, "skipped": skipped})
-	return &PackApplied{Pack: pack.Name, GuidanceImports: pos,
+	return &PackApplied{Packs: names, GuidanceImports: pos,
 		WorkflowsInstalled: installed, PoliciesInstalled: policiesInstalled,
 		Missing: missing, GuidanceHash: hash, PolicyWarnings: violations, Seeded: seeded,
 		Toolchain: toolchainSeeded, Skipped: skipped}, nil
 }
 
-// PackApplied is what applying a pack did: the ways of working it adopted,
+// PackApplied is what applying packs did: the ways of working it adopted,
 // the starter files and toolchain it wrote, and what it could not.
 type PackApplied struct {
-	Pack               string               `json:"pack"`
+	Packs              []string             `json:"packs"`
 	GuidanceImports    int                  `json:"guidanceImports"`
 	WorkflowsInstalled []string             `json:"workflowsInstalled"`
 	PoliciesInstalled  []string             `json:"policiesInstalled"`

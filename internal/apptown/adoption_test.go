@@ -35,9 +35,6 @@ func TestAdoptionFreezesWhatAProjectIsOn(t *testing.T) {
 	if err := a.Projects.SetDefaultBranch(context.Background(), projectID, "main"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Adoption.SetPack(t.Context(), projectID, "go-small"); err != nil {
-		t.Fatal(err)
-	}
 	p, _ := a.Projects.BySlug(context.Background(), "p")
 	terse, _ := a.blockByName(t, "prose/terse-style")
 	if err := a.Adoption.PutImports(t.Context(), p.ID, []wow.ResolvedPin{{BlockID: terse.ID, Name: terse.Name, Version: terse.LatestVersion}}); err != nil {
@@ -198,9 +195,6 @@ func TestARunReadsTheRevisionItStartedWith(t *testing.T) {
 	if err := a.Projects.SetDefaultBranch(context.Background(), projectID, "main"); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.Adoption.SetPack(t.Context(), projectID, "go-small"); err != nil {
-		t.Fatal(err)
-	}
 	p, _ := a.Projects.BySlug(context.Background(), "p")
 	terse, _ := a.blockByName(t, "prose/terse-style")
 	if err := a.Adoption.PutImports(t.Context(), p.ID, []wow.ResolvedPin{{BlockID: terse.ID, Name: terse.Name, Version: terse.LatestVersion}}); err != nil {
@@ -328,11 +322,15 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 	}
 	p, _ := a.Projects.BySlug(context.Background(), "p")
 	recordFixtureAdoptions(t, a)
-	pack, err := a.Ways.Pack(t.Context(), "go-small")
-	if err != nil {
-		t.Fatal(err)
+	var taken []*wow.Pack
+	for _, name := range []string{"server-base", "go", "postgres"} {
+		pack, err := a.Ways.Pack(t.Context(), name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		taken = append(taken, pack)
 	}
-	if _, err := a.lifecycle.ApplyPack(adoption.WithSystemAuthority(context.Background(), p.ID), &p, pack, "bls"); err != nil {
+	if _, err := a.lifecycle.ApplyPack(adoption.WithSystemAuthority(context.Background(), p.ID), &p, taken, "bls"); err != nil {
 		t.Fatal(err)
 	}
 	packs := testProjectPacks(t, a, p.ID)
@@ -340,8 +338,8 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 	for _, pp := range packs {
 		names[pp.Pack] = pp.Version
 	}
-	if names["apptown"] == 0 || names["go-small"] == 0 {
-		t.Fatalf("on apptown and go-small: %+v", packs)
+	if names["apptown"] == 0 || names["server-base"] == 0 || names["go"] == 0 || names["postgres"] == 0 {
+		t.Fatalf("on apptown, server-base, go and postgres: %+v", packs)
 	}
 	view := testPlacement(t, a, p.Slug)
 	if len(view.Additions) != 0 || len(view.Exclusions) != 0 || len(view.Conditions) != 0 {
@@ -386,7 +384,7 @@ func TestExplicitPackAdoptionAndReceiptView(t *testing.T) {
 		t.Fatalf("the contradiction is a condition: %+v", view.Conditions)
 	}
 	w = tgReq(httpapi.NewProjectAdoption(a.Projects, a.Adoption, a.Ways, a.DB).ProjectAdoption, "GET", "/api/v1/projects/p/adoption", "", map[string]string{"slug": "p"})
-	if w.Code != 200 || !strings.Contains(w.Body.String(), `"pack":"go-small"`) || !strings.Contains(w.Body.String(), `"kind":"conflict"`) {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"pack":"postgres"`) || !strings.Contains(w.Body.String(), `"kind":"conflict"`) {
 		t.Fatalf("the API says what the project is on: %d %s", w.Code, w.Body.String())
 	}
 
@@ -622,7 +620,7 @@ func TestABlockResolvesAsOfItsRevisionByAppTownsClock(t *testing.T) {
 			moveClock(a, skew)
 			pid := plainTestProject(t, a.DB, "as-of", "As Of")
 			if err := a.DB.InTx(context.Background(), func(tx *database.Tx) error {
-				if err := adoption.InitializeIn(t.Context(), tx, pid, 0, "", ""); err != nil {
+				if err := adoption.InitializeIn(t.Context(), tx, pid, 0, ""); err != nil {
 					return err
 				}
 				return adoption.RecordIn(t.Context(), tx, pid, 1, adoption.AdoptionCreate, "fixture", adoption.EmptyReceipt(), "boss", a.cfg.clock.Now())

@@ -32,7 +32,7 @@ func TestCurrentMetadataNeverInfersOrRepairsAReceipt(t *testing.T) {
 		t.Fatalf("unknown project became known: %v", err)
 	}
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-		return InitializeIn(t.Context(), tx, missing, 17, "selected-pack", "review this")
+		return InitializeIn(t.Context(), tx, missing, 17, "review this")
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestCurrentMetadataNeverInfersOrRepairsAReceipt(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := CurrentIn(context.Background(), db, missing); err != nil || got.Revision != 17 || got.Pack != "selected-pack" || got.Drift != "review this" {
+	if got, err := CurrentIn(context.Background(), db, missing); err != nil || got.Revision != 17 || got.Drift != "review this" {
 		t.Fatalf("metadata changed to history: %+v %v", got, err)
 	}
 	if got, err := CurrentReceiptIn(t.Context(), db, missing); got != nil || !errors.Is(err, sql.ErrNoRows) {
@@ -57,7 +57,7 @@ func TestCurrentMetadataNeverInfersOrRepairsAReceipt(t *testing.T) {
 	if got, err := CurrentReceiptIn(t.Context(), db, missing); got != nil || err == nil || errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("broken receipt became absence: %+v %v", got, err)
 	}
-	if got, err := CurrentIn(context.Background(), db, missing); err != nil || got.Revision != 17 || got.Pack != "selected-pack" || got.Drift != "review this" {
+	if got, err := CurrentIn(context.Background(), db, missing); err != nil || got.Revision != 17 || got.Drift != "review this" {
 		t.Fatalf("metadata decoded history: %+v %v", got, err)
 	}
 	if id, err := CurrentReceiptIDIn(context.Background(), db, missing); err != nil || id != broken {
@@ -95,11 +95,11 @@ func TestCurrentMutationInitializationAndReceiptShareTransaction(t *testing.T) {
 		t.Fatalf("first initialized mutation: %+v %v", got, err)
 	}
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-		return InitializeIn(t.Context(), tx, pid, 999, "replacement", "replacement")
+		return InitializeIn(t.Context(), tx, pid, 999, "replacement")
 	}); err == nil {
 		t.Fatal("duplicate initialization rewrote current state")
 	}
-	if got, err := s.Current(t.Context(), pid); err != nil || got.Revision != 1 || got.Pack != "" || got.Drift != "" {
+	if got, err := s.Current(t.Context(), pid); err != nil || got.Revision != 1 || got.Drift != "" {
 		t.Fatalf("duplicate changed aggregate: %+v %v", got, err)
 	}
 }

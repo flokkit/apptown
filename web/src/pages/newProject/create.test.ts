@@ -41,11 +41,11 @@ afterEach(() => vi.unstubAllGlobals())
 describe('the retained local creation request', () => {
   it('uses the returned canonical identity, distinct operation IDs and full submitted setup', async () => {
     const h = harness()
-    h.draft.pack = 'server'
+    h.draft.packs = ['server']
     h.draft.services = [{ capability: 'postgres', params: { version: '16' } }]
     await createProject(h.draft, { remote: true, namespaceId: '42' }, (line) => h.lines.push(line), h.ctx)
     const first = h.calls.find((c) => c.path === '/projects')!.body as Record<string, unknown>
-    expect(first).toMatchObject({ requestId: h.draft.creationRequestId, automaticAddress: true, slug: 'lunch-orders', blurb: h.draft.description, pack: 'server', setup: {
+    expect(first).toMatchObject({ requestId: h.draft.creationRequestId, automaticAddress: true, slug: 'lunch-orders', blurb: h.draft.description, packs: ['server'], setup: {
       origin: 'empty', services: h.draft.services, upstream: { enabled: true, namespaceId: 42, repositoryName: 'lunch-orders', attachmentRequestId: h.draft.attachmentRequestId },
     } })
     expect(h.calls.filter((c) => c.method === 'POST' && c.path !== '/projects').every((c) => c.path.startsWith('/projects/canonical/'))).toBe(true)
@@ -99,7 +99,7 @@ describe('unknown external setup outcomes', () => {
   it.each(['repository', 'pack', 'upstream'] as const)('does not repeat an uncertain %s effect', async (step) => {
     const path = { repository: '/repo/from-url', pack: '/pack', upstream: '/repo/remote' }[step]
     const h = harness((c) => c.path.endsWith(path) ? json({ error: 'outcome unavailable' }, 503) : undefined)
-    h.draft.origin = 'url'; h.draft.sourceURL = 'https://git.example/source.git'; h.draft.pack = 'server'
+    h.draft.origin = 'url'; h.draft.sourceURL = 'https://git.example/source.git'; h.draft.packs = ['server']
     const where = { remote: step === 'upstream', namespaceId: '42' }
     await expect(createProject(h.draft, where, () => {}, h.ctx)).rejects.toThrow('outcome unavailable')
     expect(readCreation(h.ctx.storage, actor)?.pending).toBe(step)

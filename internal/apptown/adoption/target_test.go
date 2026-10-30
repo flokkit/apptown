@@ -63,7 +63,10 @@ func TestTargetCandidateMustMatchItsImmutableReceipt(t *testing.T) {
 		func(r *RecordedRevision, c *Candidate) { r.Kind = AdoptionEdit },
 		func(r *RecordedRevision, c *Candidate) { r.Digest = "invented" },
 		func(r *RecordedRevision, c *Candidate) { c.ExpectedRevision++ },
-		func(r *RecordedRevision, c *Candidate) { c.Receipt.Pack = "other"; c.Digest = Digest(c.Receipt) },
+		func(r *RecordedRevision, c *Candidate) {
+			c.Receipt.Packs = []string{"other"}
+			c.Digest = Digest(c.Receipt)
+		},
 		func(r *RecordedRevision, c *Candidate) { c.Digest = "invented" },
 	} {
 		r, c := target, candidate

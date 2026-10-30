@@ -369,7 +369,7 @@ build, it also adds them to the system store. `APPTOWN_TRUST_CERTS` names a
 file of the extra certificates alone.
 
 An app image with no shell (distroless, `scratch`) cannot run the script.
-The go-small starter's build writes the certificates into its distroless
+The go pack's starter build writes the certificates into its distroless
 image instead, in `/etc/ssl/certs` beside the image's own roots, where Go
 reads them (`stock/guidance/build/container-image.md` shows how). Such an
 image holds the certificates it was built with: a changed set reaches the
@@ -382,7 +382,7 @@ cached.
 What it cannot reach:
 
 - An app image with no shell whose build does not write the certificates in,
-  as go-small's does, trusts only its own roots.
+  as the go starter's does, trusts only its own roots.
 - A host's own Docker daemon pulls images with what that host trusts. Give
   it the authority once: copy the certificate to
   `/etc/docker/certs.d/<registry host>/ca.crt` for each registry (or into the

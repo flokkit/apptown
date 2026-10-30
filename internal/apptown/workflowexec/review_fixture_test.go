@@ -139,7 +139,7 @@ func reviewFixtureFor(t *testing.T, purpose project.Purpose, steps []schema.Step
 		if err != nil {
 			return ids.Nil, err
 		}
-		if err := adoption.InitializeIn(ctx, tx, id, 0, "", ""); err != nil {
+		if err := adoption.InitializeIn(ctx, tx, id, 0, ""); err != nil {
 			return ids.Nil, err
 		}
 		return id, adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "review fixture", adoption.EmptyReceipt(), "reviewer", time.Now())

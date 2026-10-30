@@ -211,7 +211,7 @@ func cmdNew(args []string) error {
 	fs := newFlags("new")
 	name := fs.String("name", "", "display name (default: slug)")
 	ns := fs.String("ns", "", "namespace (display grouping on the Projects page)")
-	pack := fs.String("pack", "", "pack to apply (e.g. java-spring, go-small); without one the project has no way of working until apptown pack applies one")
+	pack := fs.String("pack", "", "packs to apply together, comma-separated (e.g. server-base,go,postgres,vite-react or html-game); without them the project has no way of working until apptown pack applies some")
 	toolchain := fs.String("toolchain", "", "stock toolchain to declare in mise.toml (java, go, node, python, rust)")
 	remote := fs.Bool("remote", false, "create + push a GitLab remote in the first available namespace")
 	branch := fs.String("branch", "", "default branch (a new repository: main; --from: the source's own default)")
@@ -220,7 +220,7 @@ func cmdNew(args []string) error {
 	asJSON := fs.Bool("json", false, "print the project as JSON; what is said along the way goes to stderr")
 	args = parseArgs(fs, args)
 	if len(args) < 1 || args[0] == "" {
-		return usagef("usage: apptown new <slug> [--from <https-url|bundle-file> [--secret-for-git NAME] [--branch B]] [--name N] [--pack P] [--toolchain T] [--remote]")
+		return usagef("usage: apptown new <slug> [--from <https-url|bundle-file> [--secret-for-git NAME] [--branch B]] [--name N] [--pack P,Q,...] [--toolchain T] [--remote]")
 	}
 	slug := args[0]
 	if *gitSecret != "" && !strings.HasPrefix(*from, "https://") {
@@ -247,7 +247,7 @@ func cmdNew(args []string) error {
 	}
 	// The pack goes with the creation so a pack AppTown does not offer
 	// refuses it before any project is made.
-	if err := api.post("/projects", map[string]any{"slug": slug, "name": *name, "namespace": *ns, "pack": *pack}, &proj); err != nil {
+	if err := api.post("/projects", map[string]any{"slug": slug, "name": *name, "namespace": *ns, "packs": splitPacks(*pack)}, &proj); err != nil {
 		return fmt.Errorf("create project: %w", err)
 	}
 	fmt.Printf("project %s created\n", proj.Slug)
@@ -306,7 +306,7 @@ func cmdNew(args []string) error {
 	}
 
 	if *pack != "" {
-		if err := applyPack(slug, *pack); err != nil {
+		if err := applyPack(slug, splitPacks(*pack)); err != nil {
 			return err
 		}
 	}
@@ -544,15 +544,26 @@ func cmdPack(args []string) error {
 	fs := newFlags("pack")
 	slug := fs.String("p", "", "project slug")
 	pos := parseArgs(fs, args)
-	if *slug == "" || len(pos) != 1 {
-		return usagef("usage: apptown pack -p <slug> <pack-name>")
+	if *slug == "" || len(pos) == 0 {
+		return usagef("usage: apptown pack -p <slug> <pack-name>...")
 	}
-	return applyPack(*slug, pos[0])
+	return applyPack(*slug, pos)
 }
 
-func applyPack(slug, pack string) error {
+// splitPacks reads a comma-separated list of pack names.
+func splitPacks(s string) []string {
+	out := []string{}
+	for _, n := range strings.Split(s, ",") {
+		if n = strings.TrimSpace(n); n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+func applyPack(slug string, packs []string) error {
 	var res struct {
-		Pack               string
+		Packs              []string
 		WorkflowsInstalled []string
 		PoliciesInstalled  []string
 		GuidanceImports    int
@@ -560,11 +571,11 @@ func applyPack(slug, pack string) error {
 		Skipped            []string
 		PolicyWarnings     []string
 	}
-	if err := api.post("/projects/"+slug+"/pack", map[string]any{"name": pack}, &res); err != nil {
-		return fmt.Errorf("apply pack: %w", err)
+	if err := api.post("/projects/"+slug+"/pack", map[string]any{"names": packs}, &res); err != nil {
+		return fmt.Errorf("apply packs: %w", err)
 	}
-	fmt.Printf("pack %s applied: its ways of working are %d workflows, %d policies and %d guidance documents\n",
-		res.Pack, len(res.WorkflowsInstalled), len(res.PoliciesInstalled), res.GuidanceImports)
+	fmt.Printf("packs %s applied: together they are %d workflows, %d policies and %d guidance documents\n",
+		strings.Join(res.Packs, ", "), len(res.WorkflowsInstalled), len(res.PoliciesInstalled), res.GuidanceImports)
 	for _, m := range res.Missing {
 		fmt.Println("  warning: missing", m)
 	}
@@ -674,18 +685,15 @@ func cmdToken(args []string) error {
 
 // packHistory is the pack page's read: GET /packs/{name}.
 type packHistory struct {
-	Name          string
-	Recommended   int64
-	Latest        int64
-	FollowRefused string
-	Versions      []struct {
-		Version         int64
-		Name            string
-		BasedOn         int64
-		IncludedPack    string
-		IncludedVersion int64
-		Note            string
-		Source, Signer  string
+	Name        string
+	Recommended int64
+	Latest      int64
+	Versions    []struct {
+		Version        int64
+		Name           string
+		BasedOn        int64
+		Note           string
+		Source, Signer string
 	}
 }
 
@@ -715,9 +723,6 @@ func printPackHistory(h packHistory) {
 		if v.BasedOn > 0 {
 			line += fmt.Sprintf(" from v%d", v.BasedOn)
 		}
-		if v.IncludedPack != "" {
-			line += fmt.Sprintf(", includes %s v%d", v.IncludedPack, v.IncludedVersion)
-		}
 		switch {
 		case v.Source == "here":
 			line += " (authored here)"
@@ -732,9 +737,6 @@ func printPackHistory(h packHistory) {
 		if v.Note != "" && v.Note != "published contents" {
 			fmt.Println("      " + v.Note)
 		}
-	}
-	if h.FollowRefused != "" {
-		fmt.Println("the last follow was not made: " + h.FollowRefused)
 	}
 }
 

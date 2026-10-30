@@ -31,7 +31,8 @@ function validDraft(value: unknown): value is RetainedCreation['draft'] {
     && [1, 2, 3].includes(Number(value.step)) && typeof value.step === 'number'
     && typeof value.interviewRevision === 'number' && Number.isSafeInteger(value.interviewRevision) && value.interviewRevision >= 0
     && validID(value.creationRequestId) && validID(value.attachmentRequestId) && value.creationRequestId !== value.attachmentRequestId
-    && ['address', 'pack', 'repositoryName'].every((field) => value[field] === null || typeof value[field] === 'string')
+    && ['address', 'repositoryName'].every((field) => value[field] === null || typeof value[field] === 'string')
+    && (value.packs === null || (Array.isArray(value.packs) && value.packs.every((p: unknown) => typeof p === 'string')))
     && (value.remoteChoice === null || typeof value.remoteChoice === 'boolean')
     && ['empty', 'url', 'bundle'].includes(String(value.origin))
     && Array.isArray(value.questions) && value.questions.every((v) => typeof v === 'string') && stringMap(value.answers)

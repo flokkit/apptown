@@ -33,7 +33,7 @@ func TestAChangesChecksAreItsRunsRevisionOrAnError(t *testing.T) {
 			if err != nil {
 				return id, err
 			}
-			return id, adoption.InitializeIn(t.Context(), tx, id, revision, "", "")
+			return id, adoption.InitializeIn(t.Context(), tx, id, revision, "")
 		})
 		if err != nil {
 			t.Fatal(err)

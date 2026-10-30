@@ -5,8 +5,10 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/wow"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/stock"
 )
 
@@ -197,9 +199,14 @@ func TestAnUpgradeTurnsOffAStockPackItNoLongerShips(t *testing.T) {
 	})
 	before := wow.New(db, wow.Dependencies{Stock: old})
 	before.SyncStock(t.Context())
-	s := New(db, Dependencies{Ways: before})
 	pid := adoptionTestProject(t, db, "p", "P")
-	if err := s.SetPack(t.Context(), pid, "retired-pack"); err != nil {
+	retired, err := before.Pack(t.Context(), "retired-pack")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.InTx(t.Context(), func(tx *database.Tx) error {
+		return SetMembershipIn(t.Context(), tx, pid, []Membership{{Pack: "retired-pack", Version: retired.Version}}, "test", "bls", time.Now())
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -220,8 +227,8 @@ func TestAnUpgradeTurnsOffAStockPackItNoLongerShips(t *testing.T) {
 	if _, err := after.Pack(t.Context(), "retired-pack"); err != nil {
 		t.Fatalf("the withdrawn pack is no longer readable: %v", err)
 	}
-	current, err := New(db, Dependencies{Ways: after}).Current(t.Context(), pid)
-	if err != nil || current.Pack != "retired-pack" {
+	current, err := New(db, Dependencies{Ways: after}).ProjectPacks(t.Context(), pid)
+	if err != nil || len(current) != 1 || current[0].Pack != "retired-pack" {
 		t.Fatalf("the project left the withdrawn pack: %+v %v", current, err)
 	}
 }

@@ -54,22 +54,24 @@ func TestStockGuidanceFitsItsBudget(t *testing.T) {
 	if n := size(platform); n > platformBodyLimit {
 		t.Errorf("the platform pack's guidance is %d bytes; the limit is %d", n, platformBodyLimit)
 	}
+	// A project takes several packs and reads their union, so each
+	// combination a project is given is counted, with the platform pack.
+	byName := map[string]Pack{}
 	for _, p := range packs {
-		if p.Platform {
-			continue
-		}
-		if p.Includes != "" {
-			t.Fatalf("pack %s includes %s: count the included pack's guidance here too", p.Name, p.Includes)
-		}
+		byName[p.Name] = p
+	}
+	for _, combination := range stockCombinations(packs) {
 		names := map[string]bool{}
 		for g := range platform {
 			names[g] = true
 		}
-		for _, g := range p.Guidance {
-			names[g] = true
+		for _, name := range combination {
+			for _, g := range byName[name].Guidance {
+				names[g] = true
+			}
 		}
 		if n := size(names); n > packBodyLimit {
-			t.Errorf("pack %s with the platform pack is %d bytes of guidance; the limit is %d", p.Name, n, packBodyLimit)
+			t.Errorf("packs %v with the platform pack are %d bytes of guidance; the limit is %d", combination, n, packBodyLimit)
 		}
 	}
 	if n := body["skill/implementation"]; n == 0 || n > implementationBodyLimit {

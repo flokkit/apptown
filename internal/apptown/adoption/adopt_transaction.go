@@ -103,7 +103,7 @@ func saveAdvanceIn(ctx context.Context, tx *database.Tx, expected int64, next *A
 	}
 	// Even a reviewed no-op must take its checked write; a suppressed UPDATE
 	// cannot report successful drift settlement.
-	if _, err := q.SaveCurrentAdoption(ctx, adoptionsql.SaveCurrentAdoptionParams{ProjectID: next.ProjectID, ExpectedRevision: expected, Revision: next.Revision, Pack: next.Pack, Drift: next.Drift}); err != nil {
+	if _, err := q.SaveCurrentAdoption(ctx, adoptionsql.SaveCurrentAdoptionParams{ProjectID: next.ProjectID, ExpectedRevision: expected, Revision: next.Revision, Drift: next.Drift}); err != nil {
 		return err
 	}
 	if !event.Recorded {

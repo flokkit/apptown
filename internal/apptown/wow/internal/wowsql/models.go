@@ -74,8 +74,6 @@ type PackVersion struct {
 	CreatedAt       time.Time
 	PinsJson        json.RawMessage
 	DeclarationJson json.RawMessage
-	IncludedPack    string
-	IncludedVersion int64
 	Name            string
 	BasedOn         int64
 	Source          string

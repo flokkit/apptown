@@ -35,7 +35,7 @@ func (s *Service) applyCandidateForChange(ctx context.Context, p *project.Projec
 		// expected-revision check for every actual transition.
 		_, err := adoption.CurrentForUpdateIn(ctx, tx, p.ID)
 		if errors.Is(err, sql.ErrNoRows) {
-			if err := adoption.InitializeIn(ctx, tx, p.ID, 0, "", ""); err != nil {
+			if err := adoption.InitializeIn(ctx, tx, p.ID, 0, ""); err != nil {
 				return err
 			}
 		} else if err != nil {

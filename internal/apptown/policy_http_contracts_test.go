@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"time"
 
 	"strings"
@@ -71,7 +72,7 @@ func checkFilteredHTTPPolicies(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, pid := range []ids.ID{idstest.N(1), idstest.N(2)} {
-		if _, err := a.lifecycle.ApplyPack(asPerson("boss"), a.projectByID(context.Background(), pid), pack, "boss"); err != nil {
+		if _, err := a.lifecycle.ApplyPack(asPerson("boss"), a.projectByID(context.Background(), pid), []*wow.Pack{pack}, "boss"); err != nil {
 			t.Fatal(err)
 		}
 	}

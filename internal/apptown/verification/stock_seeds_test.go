@@ -139,7 +139,7 @@ func TestSeedContractsParse(t *testing.T) {
 }
 
 // A seed's secret declaration is what makes AppTown generate the keys
-// its settings refuse to boot without (django-htmx's DJANGO_SECRET_KEY).
+// its settings refuse to boot without (the django starter's DJANGO_SECRET_KEY).
 // Each must parse as AppTown reads it at deploy, and declare nothing the
 // AppTown ignores.
 func TestSeedSecretDeclarationsParse(t *testing.T) {

@@ -9,14 +9,16 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/apptown/wow"
 )
 
 var ErrPackApplication = errors.New("pack application must be prepared by Adoption and remain unchanged")
 
-// PreparePack creates a complete installation from exact published pins. The
-// first pick is the primary pack; subsequent picks contribute guidance/lanes.
+// PreparePack creates a complete installation from exact published pins:
+// every pick's guidance, lanes, policies and extensions, none above another.
+// Packs that disagree are the candidate's problems, and it is not adopted.
 func (s *Service) PreparePack(ctx context.Context, projectID ids.ID, picks []PackPick) (*Candidate, error) {
 	if len(picks) == 0 {
 		return nil, ErrPackApplication
@@ -25,9 +27,22 @@ func (s *Service) PreparePack(ctx context.Context, projectID ids.ID, picks []Pac
 	if err != nil {
 		return nil, err
 	}
-	setup, err := wow.PackSetupIn(ctx, s.db, picks[0].Pack, picks[0].Version)
-	if err != nil {
-		return nil, err
+	setup := wow.PackSetup{}
+	sorted := slices.Clone(picks)
+	slices.SortFunc(sorted, func(a, b PackPick) int { return strings.Compare(a.Pack, b.Pack) })
+	for _, pick := range sorted {
+		one, err := wow.PackSetupIn(ctx, s.db, pick.Pack, pick.Version)
+		if err != nil {
+			return nil, err
+		}
+		// A policy two packs both name is the same policy (Prepare refuses
+		// two meanings under one name); it is installed once.
+		for _, policy := range one.Policies {
+			if !slices.ContainsFunc(setup.Policies, func(p wow.LibraryPolicy) bool { return p.Name == policy.Name }) {
+				setup.Policies = append(setup.Policies, policy)
+			}
+		}
+		setup.Extensions = append(setup.Extensions, one.Extensions...)
 	}
 	policies, err := ReadProjectPolicies(ctx, s.db, projectID)
 	if err != nil {

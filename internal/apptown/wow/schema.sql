@@ -43,11 +43,8 @@ CREATE TABLE IF NOT EXISTS pack_versions (
   note       TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL,
   pins_json  JSONB NOT NULL DEFAULT '{}'::jsonb,   -- block name → exact version, pinned at publish (§1.2)
-  -- What the author wrote; spec_json and pins_json are its resolved result.
+  -- What the author wrote; spec_json and pins_json are its pinned result.
   declaration_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-  -- The publication an including pack resolved against; '' and 0 for none.
-  included_pack    TEXT NOT NULL DEFAULT '',
-  included_version BIGINT NOT NULL DEFAULT 0,
   -- An optional name, and the version of this pack it was made from (0: none).
   name       TEXT NOT NULL DEFAULT '',
   based_on   BIGINT NOT NULL DEFAULT 0,

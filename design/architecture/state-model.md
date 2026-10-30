@@ -221,9 +221,11 @@ A pack bundles guidance blocks at pinned versions, workflows at
 pinned library versions, policies, a toolchain, extensions and starter
 files. Packs have versions; a version is cut when the pins change. The
 platform pack `apptown` carries what running behind AppTown asks of any
-app and the system workflows; it is never offered in the wizard. Rival packs
-coexist (`go-small`, `conventions-only`, the game packs). Packs are not
-published across instances.
+app and the system workflows; it is never offered in the wizard. A project
+takes one or more packs and gets their union (a server app: `server-base`, a
+backend such as `go`, `postgres`, a UI pack such as `vite-react`); packs that
+disagree on something a project has one of cannot be taken together. Packs
+do not include one another. Packs are not published across instances.
 
 ### 6.5 Guidance is state, so guidance is governable
 

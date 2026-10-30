@@ -218,23 +218,21 @@ when.
 
 ## Platform
 
-**Pack (way of working)** — a bundle applied at project creation: the
-default lanes a project starts with, guidance, policies, starter files.
-An admin can turn a pack off under Ways of working › Packs: it stays in
-the store but is not offered when a project is made. Stock packs cannot
-be deleted; they can be turned off. A pack may *include* another pack and
-replace, drop or add items; to change a stock pack, make one of your own
-that includes it.
+**Pack (way of working)** — a bundle of guidance, workflows, policies, tools,
+services and starter files. A project takes one or more packs and gets all of
+them; packs that disagree on something a project has one of (a tool's
+version line, the toolchain, a service, a policy, starter files) cannot be
+taken together. A server app takes `server-base`, one backend pack, `postgres`
+if it keeps records, and a UI pack if it has a browser UI. An admin can turn a
+pack off under Ways of working › Packs: it stays in the store but is not
+offered when a project is made. Stock packs cannot be deleted; they can be
+turned off. To change a stock pack, copy it into a pack of your own.
 
 **Recommended version** — the version of a pack that new projects get and
 that projects on another version are offered. Saving a pack makes a new
 version without recommending it; a person recommends it on the pack's page.
 An AppTown release's new stock versions wait the same way. No project moves
 until its owner adopts the version.
-
-**Follow version** — a version of a pack cut by AppTown when a pack it
-includes gets a new recommended version. It is not recommended; its note
-names any item you replace or drop that the included pack changed.
 
 **What-if** — a pack version's checks run on projects' main beside the
 checks they adopted, to see what would newly fail or pass; by default on

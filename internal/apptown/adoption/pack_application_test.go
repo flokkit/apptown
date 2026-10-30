@@ -45,7 +45,7 @@ func TestPackApplicationSealRejectsMutation(t *testing.T) {
 		"project":                func(c *Candidate) { c.ProjectID = idstest.N(999999) },
 		"expected":               func(c *Candidate) { c.ExpectedRevision++ },
 		"pack":                   func(c *Candidate) { c.Packs[0].Version++ },
-		"receipt":                func(c *Candidate) { c.Receipt.Pack = "different" },
+		"receipt":                func(c *Candidate) { c.Receipt.Packs = []string{"different"} },
 		"requirements":           func(c *Candidate) { c.RequiredCapabilities = nil },
 		"installation policy":    func(c *Candidate) { c.Installation.Policies[0].With["max"] = "critical" },
 		"installation extension": func(c *Candidate) { c.Installation.Extensions = append(c.Installation.Extensions, "arbitrary") },

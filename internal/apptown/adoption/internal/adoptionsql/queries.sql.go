@@ -206,34 +206,24 @@ func (q *Queries) CurrentAdoption(ctx context.Context, projectID ids.ID) (Projec
 }
 
 const currentAggregate = `-- name: CurrentAggregate :one
-SELECT project_id, revision, pack, drift_note FROM adoptions WHERE project_id=$1
+SELECT project_id, revision, drift_note FROM adoptions WHERE project_id=$1
 `
 
 func (q *Queries) CurrentAggregate(ctx context.Context, projectID ids.ID) (Adoption, error) {
 	row := q.db.QueryRowContext(ctx, currentAggregate, projectID)
 	var i Adoption
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Revision,
-		&i.Pack,
-		&i.DriftNote,
-	)
+	err := row.Scan(&i.ProjectID, &i.Revision, &i.DriftNote)
 	return i, err
 }
 
 const currentAggregateForUpdate = `-- name: CurrentAggregateForUpdate :one
-SELECT project_id, revision, pack, drift_note FROM adoptions WHERE project_id=$1 FOR UPDATE
+SELECT project_id, revision, drift_note FROM adoptions WHERE project_id=$1 FOR UPDATE
 `
 
 func (q *Queries) CurrentAggregateForUpdate(ctx context.Context, projectID ids.ID) (Adoption, error) {
 	row := q.db.QueryRowContext(ctx, currentAggregateForUpdate, projectID)
 	var i Adoption
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Revision,
-		&i.Pack,
-		&i.DriftNote,
-	)
+	err := row.Scan(&i.ProjectID, &i.Revision, &i.DriftNote)
 	return i, err
 }
 
@@ -274,6 +264,21 @@ func (q *Queries) DeleteGuidanceImportsForProject(ctx context.Context, projectID
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const deletePackMembership = `-- name: DeletePackMembership :exec
+DELETE FROM project_packs WHERE project_id=$1
+AND pack_id = (SELECT id FROM packs WHERE name=$2::text)
+`
+
+type DeletePackMembershipParams struct {
+	ProjectID ids.ID
+	Pack      string
+}
+
+func (q *Queries) DeletePackMembership(ctx context.Context, arg DeletePackMembershipParams) error {
+	_, err := q.db.ExecContext(ctx, deletePackMembership, arg.ProjectID, arg.Pack)
+	return err
 }
 
 const deletePoliciesForProject = `-- name: DeletePoliciesForProject :execrows
@@ -348,22 +353,6 @@ func (q *Queries) DeleteProjectPolicy(ctx context.Context, id ids.ID) (int64, er
 	return result.RowsAffected()
 }
 
-const deletePulledPrimaryMembership = `-- name: DeletePulledPrimaryMembership :exec
-DELETE FROM project_packs WHERE project_id=$1
-AND pack_id IN (SELECT id FROM packs WHERE name=$2::text OR name=$3::text)
-`
-
-type DeletePulledPrimaryMembershipParams struct {
-	ProjectID    ids.ID
-	PreviousPack string
-	SelectedPack string
-}
-
-func (q *Queries) DeletePulledPrimaryMembership(ctx context.Context, arg DeletePulledPrimaryMembershipParams) error {
-	_, err := q.db.ExecContext(ctx, deletePulledPrimaryMembership, arg.ProjectID, arg.PreviousPack, arg.SelectedPack)
-	return err
-}
-
 const deselectProjectLanes = `-- name: DeselectProjectLanes :execrows
 UPDATE project_lanes SET enabled=false,updated_at=$1 WHERE project_id=$2
 `
@@ -416,43 +405,6 @@ func (q *Queries) EnabledExtensions(ctx context.Context, projectID ids.ID) ([]st
 			return nil, err
 		}
 		items = append(items, name)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const fleetMissingSelections = `-- name: FleetMissingSelections :many
-SELECT pk.id AS pack_id, p.slug FROM projects p
-JOIN adoptions a ON a.project_id=p.id JOIN packs pk ON pk.name=a.pack
-WHERE p.id=ANY($1::uuid[])
-AND NOT EXISTS(SELECT 1 FROM project_packs pp WHERE pp.project_id=p.id AND pp.pack_id=pk.id)
-AND p.purpose = 'ordinary'
-ORDER BY pk.id,p.slug
-`
-
-type FleetMissingSelectionsRow struct {
-	PackID ids.ID
-	Slug   string
-}
-
-func (q *Queries) FleetMissingSelections(ctx context.Context, projectIds []ids.ID) ([]FleetMissingSelectionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, fleetMissingSelections, pq.Array(projectIds))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []FleetMissingSelectionsRow
-	for rows.Next() {
-		var i FleetMissingSelectionsRow
-		if err := rows.Scan(&i.PackID, &i.Slug); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -623,30 +575,19 @@ func (q *Queries) InsertAdoption(ctx context.Context, arg InsertAdoptionParams) 
 }
 
 const insertCurrentAdoption = `-- name: InsertCurrentAdoption :one
-INSERT INTO adoptions(project_id,revision,pack,drift_note) VALUES($1,$2,$3,$4) RETURNING project_id, revision, pack, drift_note
+INSERT INTO adoptions(project_id,revision,drift_note) VALUES($1,$2,$3) RETURNING project_id, revision, drift_note
 `
 
 type InsertCurrentAdoptionParams struct {
 	ProjectID ids.ID
 	Revision  int64
-	Pack      string
 	DriftNote string
 }
 
 func (q *Queries) InsertCurrentAdoption(ctx context.Context, arg InsertCurrentAdoptionParams) (Adoption, error) {
-	row := q.db.QueryRowContext(ctx, insertCurrentAdoption,
-		arg.ProjectID,
-		arg.Revision,
-		arg.Pack,
-		arg.DriftNote,
-	)
+	row := q.db.QueryRowContext(ctx, insertCurrentAdoption, arg.ProjectID, arg.Revision, arg.DriftNote)
 	var i Adoption
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Revision,
-		&i.Pack,
-		&i.DriftNote,
-	)
+	err := row.Scan(&i.ProjectID, &i.Revision, &i.DriftNote)
 	return i, err
 }
 
@@ -1198,13 +1139,12 @@ func (q *Queries) RefreshAdoptedPolicyWords(ctx context.Context) (int64, error) 
 }
 
 const saveCurrentAdoption = `-- name: SaveCurrentAdoption :one
-UPDATE adoptions SET revision=$1,pack=$2,drift_note=$3
-WHERE project_id=$4 AND revision=$5 RETURNING project_id, revision, pack, drift_note
+UPDATE adoptions SET revision=$1,drift_note=$2
+WHERE project_id=$3 AND revision=$4 RETURNING project_id, revision, drift_note
 `
 
 type SaveCurrentAdoptionParams struct {
 	Revision         int64
-	Pack             string
 	Drift            string
 	ProjectID        ids.ID
 	ExpectedRevision int64
@@ -1213,23 +1153,17 @@ type SaveCurrentAdoptionParams struct {
 func (q *Queries) SaveCurrentAdoption(ctx context.Context, arg SaveCurrentAdoptionParams) (Adoption, error) {
 	row := q.db.QueryRowContext(ctx, saveCurrentAdoption,
 		arg.Revision,
-		arg.Pack,
 		arg.Drift,
 		arg.ProjectID,
 		arg.ExpectedRevision,
 	)
 	var i Adoption
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Revision,
-		&i.Pack,
-		&i.DriftNote,
-	)
+	err := row.Scan(&i.ProjectID, &i.Revision, &i.DriftNote)
 	return i, err
 }
 
 const setCurrentDrift = `-- name: SetCurrentDrift :one
-UPDATE adoptions SET drift_note=$2 WHERE project_id=$1 RETURNING project_id, revision, pack, drift_note
+UPDATE adoptions SET drift_note=$2 WHERE project_id=$1 RETURNING project_id, revision, drift_note
 `
 
 type SetCurrentDriftParams struct {
@@ -1240,33 +1174,7 @@ type SetCurrentDriftParams struct {
 func (q *Queries) SetCurrentDrift(ctx context.Context, arg SetCurrentDriftParams) (Adoption, error) {
 	row := q.db.QueryRowContext(ctx, setCurrentDrift, arg.ProjectID, arg.DriftNote)
 	var i Adoption
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Revision,
-		&i.Pack,
-		&i.DriftNote,
-	)
-	return i, err
-}
-
-const setCurrentPack = `-- name: SetCurrentPack :one
-UPDATE adoptions SET pack=$2 WHERE project_id=$1 RETURNING project_id, revision, pack, drift_note
-`
-
-type SetCurrentPackParams struct {
-	ProjectID ids.ID
-	Pack      string
-}
-
-func (q *Queries) SetCurrentPack(ctx context.Context, arg SetCurrentPackParams) (Adoption, error) {
-	row := q.db.QueryRowContext(ctx, setCurrentPack, arg.ProjectID, arg.Pack)
-	var i Adoption
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Revision,
-		&i.Pack,
-		&i.DriftNote,
-	)
+	err := row.Scan(&i.ProjectID, &i.Revision, &i.DriftNote)
 	return i, err
 }
 

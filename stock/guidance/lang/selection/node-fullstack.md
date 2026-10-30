@@ -5,9 +5,9 @@ checks: [{"name": "gitignore-names-build-output", "expects": "git would ignore w
 ---
 The whole application is TypeScript on Node — one language, one runtime,
 one package graph. The server is Fastify (plain node:http for a tiny one).
-A browser UI beyond server-rendered pages is React built with Vite, in an
-npm workspace beside the server, with types shared end to end; an app
-with no such UI does not grow one to fit this note.
+A browser UI comes from the project's UI pack and lives in an npm
+workspace beside the server, with types shared end to end; an app with
+no UI pack does not grow one.
 
 Rationale: zero context-switching; types flow from database to DOM; the enormous
 ecosystem is a feature when you accept lockfile discipline.
@@ -21,7 +21,7 @@ hand-kept skeleton.
     npm init -y
     npm pkg set workspaces='["server","web"]'
     mkdir server && (cd server && npm init -y && npm i fastify pg && npm i -D typescript tsx @types/node @types/pg)
-    npm create vite@latest web -- --template react-ts   # only when the app has a browser UI
+    npm create vite@latest web -- --template react-ts   # only with the vite-react UI pack
 
 The seeded Dockerfile runs `npm ci` and `npm run build` at the root, then
 `npm prune --omit=dev`, and starts the app with `node --run start` in an

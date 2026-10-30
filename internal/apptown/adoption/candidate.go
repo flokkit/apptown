@@ -35,6 +35,17 @@ type PackPick struct {
 	Version int64  `json:"version"`
 }
 
+// pickNames is the picks' pack names, sorted: the packs a receipt says
+// govern the project. Every pick counts the same; none is the primary.
+func pickNames(picks []PackPick) []string {
+	out := make([]string, 0, len(picks))
+	for _, p := range picks {
+		out = append(out, p.Pack)
+	}
+	slices.Sort(out)
+	return out
+}
+
 // Candidate is a prepared manifest and how it differs from now.
 type Installation struct {
 	Policies   []Policy
@@ -165,51 +176,10 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 		c.Packs = []PackPick{}
 	}
 	// Blocks from the packs, exact versions, one entry per block.
-	type want struct {
-		version int
-		from    string
-	}
-	wanted := map[string]want{}
-	var order []string
-	lanes := map[string]bool{}
-	laneVersion := map[string]int{} // the packs' workflow pins
-	carriedPolicies := map[string]bool{}
-	for _, pk := range c.Packs {
-		version, err := a.packPublication(ctx, pk.Pack, pk.Version)
-		if err != nil {
-			c.Problems = append(c.Problems, err.Error())
-			continue
-		}
-		ps, pins := version.Spec, version.Pins
-		c.RequiredCapabilities = append(c.RequiredCapabilities, ps.Requires...)
-		for _, g := range ps.Guidance {
-			v, pinned := pins.Blocks[g]
-			if !pinned {
-				c.Problems = append(c.Problems, fmt.Sprintf("%s v%d does not pin a version of %s", pk.Pack, pk.Version, g))
-				continue
-			}
-			if w, seen := wanted[g]; seen {
-				if w.version != v {
-					c.Problems = append(c.Problems, fmt.Sprintf("%s wants %s v%d but %s wants v%d — the packs disagree; their authors align them, or the project keeps its current selection", w.from, g, w.version, pk.Pack, v))
-				}
-				continue
-			}
-			wanted[g] = want{v, pk.Pack}
-			order = append(order, g)
-		}
-		for _, p := range ps.Policies {
-			carriedPolicies[p.Name] = true
-		}
-		for _, w := range ps.Workflows {
-			lanes[w] = true
-			if v, ok := pins.Workflows[w]; ok {
-				if had, seen := laneVersion[w]; seen && had != v {
-					c.Problems = append(c.Problems, fmt.Sprintf("two packs pin %s at different versions (v%d and v%d) — their authors align them", w, had, v))
-				}
-				laneVersion[w] = v
-			}
-		}
-	}
+	set := a.readPacks(ctx, c.Packs, nil)
+	c.Problems = append(c.Problems, set.problems...)
+	c.RequiredCapabilities = append(c.RequiredCapabilities, set.requires...)
+	wanted, order, lanes, laneVersion, carriedPolicies := set.wanted, set.order, set.lanes, set.laneVersion, set.carriedPolicies
 	// The project's own blocks: kept at the version it has, else latest.
 	have := map[string]ReceiptBlock{}
 	for _, b := range cur.Receipt.Guidance {
@@ -287,16 +257,7 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 	// candidate's carries (a person's own selection stays).
 	receipt := cur.Receipt
 	receipt.Guidance = blocks
-	receipt.Pack = ""
-	if len(c.Packs) > 0 {
-		receipt.Pack = c.Packs[0].Pack
-		for _, pk := range c.Packs {
-			if pk.Pack != PlatformPack {
-				receipt.Pack = pk.Pack
-				break
-			}
-		}
-	}
+	receipt.Packs = pickNames(c.Packs)
 	var wfs []ReceiptWorkflow
 	keep := map[string]bool{}
 	for _, wf := range cur.Receipt.Workflows {
@@ -345,6 +306,105 @@ func (a candidateBuilder) prepare(ctx context.Context, projectID ids.ID, cur *Re
 		return nil, err
 	}
 	return c, nil
+}
+
+// want is a block version the candidate asks for, and who asks.
+type want struct {
+	version int
+	from    string
+}
+
+// packSet is what a set of pack publications asks of a project together,
+// and where they disagree: the one rule every door that takes packs reads.
+type packSet struct {
+	wanted          map[string]want
+	order           []string
+	lanes           map[string]bool
+	laneVersion     map[string]int // the packs' workflow pins
+	carriedPolicies map[string]bool
+	requires        []string
+	problems        []string
+}
+
+// readPacks reads each pick's exact publication and unions them: a block or
+// workflow two packs pin at different versions, or setup they disagree on
+// (wow.Combine), is a problem naming both packs.
+// hasStarter says which packs carry starter files, where they will be
+// written (a new project); nil judges no starters.
+func (a candidateBuilder) readPacks(ctx context.Context, picks []PackPick, hasStarter func(string) bool) packSet {
+	s := packSet{wanted: map[string]want{}, lanes: map[string]bool{}, laneVersion: map[string]int{}, carriedPolicies: map[string]bool{}}
+	var combining []wow.Pack
+	for _, pk := range picks {
+		version, err := a.packPublication(ctx, pk.Pack, pk.Version)
+		if err != nil {
+			s.problems = append(s.problems, err.Error())
+			continue
+		}
+		combining = append(combining, version.Setup.Of(pk.Pack))
+		ps, pins := version.Spec, version.Pins
+		s.requires = append(s.requires, ps.Requires...)
+		for _, g := range ps.Guidance {
+			v, pinned := pins.Blocks[g]
+			if !pinned {
+				s.problems = append(s.problems, fmt.Sprintf("%s v%d does not pin a version of %s", pk.Pack, pk.Version, g))
+				continue
+			}
+			if w, seen := s.wanted[g]; seen {
+				if w.version != v {
+					s.problems = append(s.problems, fmt.Sprintf("%s wants %s v%d but %s wants v%d — the packs disagree; their authors align them, or the project keeps its current selection", w.from, g, w.version, pk.Pack, v))
+				}
+				continue
+			}
+			s.wanted[g] = want{v, pk.Pack}
+			s.order = append(s.order, g)
+		}
+		for _, p := range ps.Policies {
+			s.carriedPolicies[p.Name] = true
+		}
+		for _, w := range ps.Workflows {
+			s.lanes[w] = true
+			if v, ok := pins.Workflows[w]; ok {
+				if had, seen := s.laneVersion[w]; seen && had != v {
+					s.problems = append(s.problems, fmt.Sprintf("two packs pin %s at different versions (v%d and v%d) — their authors align them", w, had, v))
+				}
+				s.laneVersion[w] = v
+			}
+		}
+	}
+	// The packs' setup is a union: packs that disagree on a tool's line,
+	// the toolchain, a service or a policy are not taken together.
+	s.problems = append(s.problems, wow.Combine(combining, hasStarter).Problems...)
+	return s
+}
+
+// PacksProblems is why these exact pack publications cannot be taken
+// together by a new project, before there is one: the rule Prepare applies,
+// the contradictions between their blocks, and more than one starter
+// (hasStarter). None is an empty list.
+func (s *Service) PacksProblems(ctx context.Context, picks []PackPick, hasStarter func(string) bool) ([]string, error) {
+	if s.deps.Ways == nil {
+		return nil, ErrCatalogUnavailable
+	}
+	a := candidateBuilder{ways: s.deps.Ways}
+	set := a.readPacks(ctx, picks, hasStarter)
+	problems := slices.Clone(set.problems)
+	var blocks []ReceiptBlock
+	for _, name := range set.order {
+		b, err := a.blockByName(ctx, name)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("no block named %q", name))
+			continue
+		}
+		blocks = append(blocks, ReceiptBlock{Name: name, BlockID: b.ID})
+	}
+	conflicts, err := a.declaredConflicts(ctx, blocks)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range conflicts {
+		problems = append(problems, c+" — both would be in force")
+	}
+	return problems, nil
 }
 
 // describe says in words what c moves cur to: the blocks and lanes it adds,
@@ -500,13 +560,17 @@ func keptFromPacks(current []ProjectPackRecord, lanes, policies map[string]bool,
 }
 
 type candidatePublication struct {
-	Spec candidatePackSpec
-	Pins wow.PinSet
+	Spec  candidatePackSpec
+	Setup wow.PackSpec
+	Pins  wow.PinSet
 }
 
 func parseCandidatePublication(name string, version int64, p wow.PackVersion) (candidatePublication, error) {
 	var out candidatePublication
 	if err := json.Unmarshal([]byte(p.SpecJSON), &out.Spec); err != nil {
+		return out, fmt.Errorf("%s v%d: invalid spec: %w", name, version, err)
+	}
+	if err := json.Unmarshal([]byte(p.SpecJSON), &out.Setup); err != nil {
 		return out, fmt.Errorf("%s v%d: invalid spec: %w", name, version, err)
 	}
 	err := json.Unmarshal([]byte(p.PinsJSON), &out.Pins)

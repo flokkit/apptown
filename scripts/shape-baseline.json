@@ -19,13 +19,13 @@
   "routepolicies": 0,
   "rootfiles": 83,
   "roottests": 272,
-  "transportaudit": 4,
+  "transportaudit": 3,
   "transportdb": 48,
   "hubpaths": 0,
   "kindbranches": 46,
   "historycomments": 0,
   "testexecwrites": 0,
   "testexecfixtures": 66,
-  "droppederrors": 35,
+  "droppederrors": 32,
   "workflowexports": 433
 }

@@ -116,7 +116,7 @@ func newScannerOwnerFixture(t *testing.T) scannerOwnerFixture {
 		if err != nil {
 			return id, err
 		}
-		return id, adoption.InitializeIn(t.Context(), tx, id, 0, "", "")
+		return id, adoption.InitializeIn(t.Context(), tx, id, 0, "")
 	})
 	if err != nil {
 		t.Fatal(err)

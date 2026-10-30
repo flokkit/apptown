@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"reflect"
 	"strings"
 	"testing"
@@ -70,7 +71,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 		t.Fatal(err)
 	}
 	for _, pid := range []ids.ID{idstest.N(1), idstest.N(2)} {
-		if _, err := a.lifecycle.ApplyPack(asPerson("boss"), a.projectByID(context.Background(), pid), pack, "boss"); err != nil {
+		if _, err := a.lifecycle.ApplyPack(asPerson("boss"), a.projectByID(context.Background(), pid), []*wow.Pack{pack}, "boss"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -230,7 +231,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 			t.Fatalf("%s hid lookup failure: %d %s", path, w.Code, w.Body.String())
 		}
 	}
-	for _, query := range []string{"-- name: FleetMissingSelections", "-- name: PackVersions"} {
+	for _, query := range []string{"-- name: FleetPackMemberships", "-- name: PackVersions"} {
 		clear := a.DB.FailNextStatement(query)
 		w := authzCall(h, "owner", "GET", "/api/v1/wow", "")
 		clear()

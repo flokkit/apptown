@@ -20,29 +20,33 @@ func NewPackSetup(projects *project.Projects, lifecycle *projectlifecycle.Servic
 	return PackSetup{projects: projects, lifecycle: lifecycle, ways: ways}
 }
 
-// ApplyPack: POST /projects/{slug}/pack {name} — pinned guidance
-// manifest + workflow installs in one shot (the wizard's engine).
+// ApplyPack: POST /projects/{slug}/pack {names} — the packs' pinned
+// guidance, workflows, policies and setup as one union, in one shot (the
+// wizard's engine).
 func (h PackSetup) ApplyPack(w http.ResponseWriter, r *http.Request) {
 	p, ok := ProjectFromPath(h.projects, w, r)
 	if !ok {
 		return
 	}
-	jsonCommand(w, r, jsonBody{errorText: "name required"}, func(in PackChoice) {
-		if in.Name == "" {
-			WriteError(w, 400, "name required")
+	jsonCommand(w, r, jsonBody{errorText: "names required", strict: true}, func(in PackChoice) {
+		if len(in.Names) == 0 {
+			WriteError(w, 400, "names required")
 			return
 		}
-
-		pack, err := packNamed(r.Context(), h.ways, in.Name)
-		if err != nil {
-			WriteFault(w, err)
-			return
+		var packs []*wow.Pack
+		for _, name := range in.Names {
+			pack, err := packNamed(r.Context(), h.ways, name)
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+			if pack == nil {
+				WriteError(w, 404, "no such pack %q", name)
+				return
+			}
+			packs = append(packs, pack)
 		}
-		if pack == nil {
-			WriteError(w, 404, "no such pack %q", in.Name)
-			return
-		}
-		out, err := h.lifecycle.ApplyPack(r.Context(), p, pack, Actor(r))
+		out, err := h.lifecycle.ApplyPack(r.Context(), p, packs, Actor(r))
 		if err != nil {
 			WriteFaultOr(w, err, 500)
 			return
@@ -94,9 +98,9 @@ type ToolchainWritten struct {
 	Toolchain string `json:"toolchain"`
 }
 
-// PackChoice is POST /projects/{slug}/pack: the pack to apply.
+// PackChoice is POST /projects/{slug}/pack: the packs to apply together.
 type PackChoice struct {
-	Name string `json:"name"`
+	Names []string `json:"names"`
 }
 
 // ToolchainChoice is POST /projects/{slug}/toolchain: the stock toolchain

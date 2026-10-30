@@ -19,7 +19,7 @@ func TestProjectDriftAndRevisionSelection(t *testing.T) {
 		if err != nil {
 			return ids.Nil, err
 		}
-		return id, InitializeIn(t.Context(), tx, id, 1, "", "")
+		return id, InitializeIn(t.Context(), tx, id, 1, "")
 	})
 	if err != nil {
 		t.Fatal(err)

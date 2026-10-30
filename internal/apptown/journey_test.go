@@ -544,7 +544,7 @@ func TestJourneyPackEvolution(t *testing.T) {
 		"name": "jp", "workflows": []string{"quick-change", "land"}}, nil)
 	h.mustCall("POST", "/projects", map[string]string{"slug": slug}, nil)
 	h.mustCall("POST", "/projects/"+slug+"/repo", map[string]string{}, nil)
-	h.mustCall("POST", "/projects/"+slug+"/pack", map[string]string{"name": "jp"}, nil)
+	h.mustCall("POST", "/projects/"+slug+"/pack", map[string][]string{"names": {"jp"}}, nil)
 
 	// The shipped catalog's uplift/deps needs the missing workflow.
 
@@ -594,11 +594,11 @@ func TestJourneyPackEvolution(t *testing.T) {
 		Additions []string `json:"additions"`
 		Removals  []string `json:"removals"`
 	}
-	h.mustCall("GET", "/projects/"+slug+"/pack/pull-plan", nil, &plan)
+	h.mustCall("GET", "/projects/"+slug+"/pack/pull-plan?pack=jp", nil, &plan)
 	if len(plan.Additions) != 1 || plan.Additions[0] != "dependency-uplift" || len(plan.Removals) != 0 {
 		t.Fatalf("plan: %+v", plan)
 	}
-	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{}, nil)
+	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{"pack": "jp"}, nil)
 	if e = find(); e.MissingWorkflow != "" {
 		t.Fatalf("after the pull the change must be runnable: %+v", e)
 	}
@@ -991,12 +991,11 @@ func TestJourneyStackMigration(t *testing.T) {
 	// The working lane is customized (the journey shape) as the library's
 	// newest version before either pack pins it.
 	publishLanes(t, h.app, journeyQuickChange)
-	// Stack A carries a lane stack B will drop.
+	// The stack's first version carries a lane its next version drops.
 	h.mustCall("POST", "/packs", map[string]any{"name": "stack-a", "workflows": []string{"quick-change", "land", "research"}}, nil)
-	h.mustCall("POST", "/packs", map[string]any{"name": "stack-b", "workflows": []string{"quick-change", "land"}}, nil)
 	h.mustCall("POST", "/projects", map[string]string{"slug": slug}, nil)
 	h.mustCall("POST", "/projects/"+slug+"/repo", map[string]string{}, nil)
-	h.mustCall("POST", "/projects/"+slug+"/pack", map[string]string{"name": "stack-a"}, nil)
+	h.mustCall("POST", "/projects/"+slug+"/pack", map[string][]string{"names": {"stack-a"}}, nil)
 
 	ship := func(marker string) {
 		page := `<!doctype html><html><body><h1>` + marker + `</h1><script>1</script></body></html>`
@@ -1084,16 +1083,22 @@ func TestJourneyStackMigration(t *testing.T) {
 		}
 	}()
 
-	// The migration: re-pack to stack B (research removed, modified lanes
-	// kept), then the porting change lands the new stack's page.
+	// The migration: the stack's next version (research removed, modified
+	// lanes kept) is recommended and pulled, then the porting change lands
+	// the new stack's page.
+	var next struct {
+		Version int64 `json:"version"`
+	}
+	h.mustCall("POST", "/packs", map[string]any{"name": "stack-a", "workflows": []string{"quick-change", "land"}}, &next)
+	h.mustCall("POST", "/packs/stack-a/recommended", map[string]int64{"version": next.Version}, nil)
 	var plan struct {
 		Removals []string `json:"removals"`
 	}
-	h.mustCall("GET", "/projects/"+slug+"/pack/pull-plan?pack=stack-b", nil, &plan)
+	h.mustCall("GET", "/projects/"+slug+"/pack/pull-plan?pack=stack-a", nil, &plan)
 	if len(plan.Removals) != 1 || plan.Removals[0] != "research" {
 		t.Fatalf("re-pack plan removals: %+v", plan)
 	}
-	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{"pack": "stack-b"}, nil)
+	h.mustCall("POST", "/projects/"+slug+"/pack/pull", map[string]string{"pack": "stack-a"}, nil)
 	// The customized lanes are in the new pack too — the pull re-selects
 	// lanes; it never rewinds the library's newest version or drops the
 	// selection.
@@ -1143,9 +1148,9 @@ func TestJourneyPackDeliversItsPromises(t *testing.T) {
 		Toolchain string   `json:"toolchain"`
 		Seeded    []string `json:"seeded"`
 	}
-	h.mustCall("POST", "/projects/"+slug+"/pack", map[string]string{"name": "java-spring"}, &res)
+	h.mustCall("POST", "/projects/"+slug+"/pack", map[string][]string{"names": {"server-base", "java", "postgres"}}, &res)
 	if res.Toolchain != "java" {
-		t.Fatalf("java-spring pack must seed its toolchain declaration, got %q", res.Toolchain)
+		t.Fatalf("the java pack must seed its toolchain declaration, got %q", res.Toolchain)
 	}
 	repo := h.app.projectRepoPath(slug)
 	for _, f := range []string{"mise.toml", "Dockerfile"} {
@@ -1156,11 +1161,11 @@ func TestJourneyPackDeliversItsPromises(t *testing.T) {
 	// The app itself comes from the ecosystem's generator on the first
 	// change — a hand-kept skeleton is never seeded.
 	if _, err := os.Stat(filepath.Join(repo, "pom.xml")); err == nil {
-		t.Fatalf("java-spring must not seed a skeleton; Initializr generates the app")
+		t.Fatalf("the java pack must not seed a skeleton; Initializr generates the app")
 	}
 	// The committed state, not just the working tree: seeds and toolchain
 	// both land as commits.
-	if out, _ := gitexec.Run(t.Context(), repo, "log", "--oneline", "-3"); !strings.Contains(out, "toolchain") || !strings.Contains(out, "seed java-spring") {
+	if out, _ := gitexec.Run(t.Context(), repo, "log", "--oneline", "-3"); !strings.Contains(out, "toolchain") || !strings.Contains(out, "seed java") {
 		t.Fatalf("seed and toolchain must be committed: %s", out)
 	}
 	// The recipe references no wrapper scripts — the guidance forbids
@@ -1178,7 +1183,7 @@ func TestJourneyPackDeliversItsPromises(t *testing.T) {
 	var again struct {
 		Toolchain string `json:"toolchain"`
 	}
-	h.mustCall("POST", "/projects/"+slug+"/pack", map[string]string{"name": "java-spring"}, &again)
+	h.mustCall("POST", "/projects/"+slug+"/pack", map[string][]string{"names": {"server-base", "java", "postgres"}}, &again)
 	if again.Toolchain != "" {
 		t.Fatalf("second apply must not re-seed the toolchain, got %q", again.Toolchain)
 	}
@@ -1199,7 +1204,7 @@ func TestJourneyServerPacksDeliver(t *testing.T) {
 	}{
 		{"dotnet", "dotnet", []string{"mise.toml", "Dockerfile"}, "App/App.csproj"},
 		{"rails", "ruby", []string{"mise.toml", "Dockerfile"}, "Gemfile"},
-		{"node-fullstack", "node", []string{"mise.toml", "Dockerfile"}, "package.json"},
+		{"node", "node", []string{"mise.toml", "Dockerfile"}, "package.json"},
 	}
 	for _, c := range cases {
 		slug := fmt.Sprintf("%s-%d", c.pack, os.Getpid())
@@ -1210,7 +1215,7 @@ func TestJourneyServerPacksDeliver(t *testing.T) {
 			Seeded    []string `json:"seeded"`
 			Missing   []string `json:"missing"`
 		}
-		h.mustCall("POST", "/projects/"+slug+"/pack", map[string]string{"name": c.pack}, &res)
+		h.mustCall("POST", "/projects/"+slug+"/pack", map[string][]string{"names": {"server-base", c.pack, "postgres"}}, &res)
 		if res.Toolchain != c.toolchain {
 			t.Fatalf("%s: toolchain %q, want %q", c.pack, res.Toolchain, c.toolchain)
 		}

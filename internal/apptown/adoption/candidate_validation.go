@@ -113,15 +113,11 @@ func (s *Service) validateCandidateIn(ctx context.Context, q database.Queryer, p
 		return s.validateInstallationIn(ctx, q, projectID, c)
 	}
 	seenPacks := map[string]bool{}
-	selectedPack := ""
 	for _, pick := range c.Packs {
 		if pick.Pack == "" || pick.Version <= 0 || seenPacks[pick.Pack] {
 			return fmt.Errorf("invalid or duplicate candidate pack %q", pick.Pack)
 		}
 		seenPacks[pick.Pack] = true
-		if selectedPack == "" || selectedPack == PlatformPack {
-			selectedPack = pick.Pack
-		}
 		publication, err := wow.PackVersionIn(ctx, q, pick.Pack, pick.Version)
 		if err != nil {
 			return err
@@ -150,8 +146,8 @@ func (s *Service) validateCandidateIn(ctx context.Context, q database.Queryer, p
 			}
 		}
 	}
-	if c.Receipt.Pack != selectedPack {
-		return fmt.Errorf("candidate selected pack does not match its memberships")
+	if !slices.Equal(c.Receipt.Packs, pickNames(c.Packs)) {
+		return fmt.Errorf("candidate's packs do not match its memberships")
 	}
 	if err := s.validateInstallationIn(ctx, q, projectID, c); err != nil {
 		return err

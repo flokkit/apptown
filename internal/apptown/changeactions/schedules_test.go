@@ -186,7 +186,7 @@ func TestAnEvalCopyFiresNoSchedule(t *testing.T) {
 		if err != nil {
 			return ids.Nil, err
 		}
-		if err := adoption.InitializeIn(t.Context(), tx, id, 0, "", ""); err != nil {
+		if err := adoption.InitializeIn(t.Context(), tx, id, 0, ""); err != nil {
 			return ids.Nil, err
 		}
 		return id, adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "eval copy created", adoption.EmptyReceipt(), "eval/1", time.Now())

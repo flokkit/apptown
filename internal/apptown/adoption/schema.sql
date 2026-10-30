@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS project_packs (
 CREATE TABLE IF NOT EXISTS adoptions (
   project_id UUID PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
   revision BIGINT NOT NULL DEFAULT 0,
-  pack TEXT NOT NULL DEFAULT '',
   drift_note TEXT NOT NULL DEFAULT ''
 );
 -- An adoption revision (§1.1, §4.1): the exact way of working a project is

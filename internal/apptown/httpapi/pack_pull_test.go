@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -139,8 +140,8 @@ func TestPackPull(t *testing.T) {
 	if !names["new-lane"] || names["old-lane"] || names["custom-lane"] || names["dead-lane"] {
 		t.Fatalf("post-pull selection wrong: %v", names)
 	}
-	recorded, err := f.adoption.Current(req.Context(), f.projectID)
-	if err != nil || recorded.Pack != "test-pack" {
+	recorded, err := f.adoption.CurrentReceipt(req.Context(), f.projectID)
+	if err != nil || !slices.Equal(recorded.Receipt.Packs, []string{"test-pack"}) {
 		t.Fatalf("project must record its pack: %+v %v (pull said: %s)", recorded, err, w.Body.String())
 	}
 	if audits := receiptsOfKind(t, f.db, "pack.pulled"); len(audits) != 1 {

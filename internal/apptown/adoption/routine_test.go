@@ -42,7 +42,7 @@ func TestRoutineAdoptionInventoryCannotHideUnclassifiedSemantics(t *testing.T) {
 		{"policy", func(r *Receipt) { r.Policies = nil }},
 		{"extensions", func(r *Receipt) { r.Extensions = nil }},
 		{"resolver", func(r *Receipt) { r.Resolver++ }},
-		{"selected pack", func(r *Receipt) { r.Pack = "other" }},
+		{"selected pack", func(r *Receipt) { r.Packs = []string{"other"} }},
 		{"membership", func(r *Receipt) { r.Guidance = nil }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

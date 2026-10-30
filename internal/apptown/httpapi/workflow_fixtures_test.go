@@ -83,7 +83,7 @@ func newWorkflowHTTPFixtureWithDefinitions(t *testing.T, withRun bool, definitio
 	fixture := workflowHTTPFixture{DB: db, Access: directory, Projects: projects, Work: work, ProjectID: projectID, ChangeID: change.ID, Context: ctx}
 	if withRun {
 		if err := db.InTx(ctx, func(tx *database.Tx) error {
-			if err := adoption.InitializeIn(ctx, tx, projectID, 0, "", ""); err != nil {
+			if err := adoption.InitializeIn(ctx, tx, projectID, 0, ""); err != nil {
 				return err
 			}
 			return adoption.RecordIn(ctx, tx, projectID, 1, adoption.AdoptionCreate, "HTTP fixture", adoption.EmptyReceipt(), "fixture", time.Now())

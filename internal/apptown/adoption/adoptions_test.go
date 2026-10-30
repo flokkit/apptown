@@ -20,7 +20,7 @@ func TestAdvanceRecordsRevisionsWithReceiptsAndSettlesDrift(t *testing.T) {
 	ads := newAdoptions(db)
 	pid := adoptionTestProject(t, db, "ad", "Ad")
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-		return InitializeIn(t.Context(), tx, pid, 0, "", "moved outside the door")
+		return InitializeIn(t.Context(), tx, pid, 0, "moved outside the door")
 	}); err != nil {
 		t.Fatal(err)
 	}

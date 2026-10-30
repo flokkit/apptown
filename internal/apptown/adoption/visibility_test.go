@@ -41,7 +41,7 @@ func TestFleetProjectReadsEnforceVisibilityAndEmptySQLScopes(t *testing.T) {
 			if err != nil {
 				return ids.Nil, err
 			}
-			return id, InitializeIn(t.Context(), tx, id, 0, "fleet", "")
+			return id, InitializeIn(t.Context(), tx, id, 0, "")
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -59,7 +59,7 @@ func TestFleetProjectReadsEnforceVisibilityAndEmptySQLScopes(t *testing.T) {
 		if err != nil {
 			return ids.Nil, err
 		}
-		return id, InitializeIn(t.Context(), tx, id, 0, "fleet", "")
+		return id, InitializeIn(t.Context(), tx, id, 0, "")
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -72,8 +72,8 @@ func TestFleetProjectReadsEnforceVisibilityAndEmptySQLScopes(t *testing.T) {
 	ctx := access.WithCaller(context.Background(), access.Caller{Principal: access.Principal{Kind: "user", Name: "reader"}, Verified: true})
 
 	before, err := s.Fleet(ctx)
-	if err != nil || len(before.NotOn) != 1 || len(before.NotOn[pack.ID]) != 1 || before.NotOn[pack.ID][0] != "visible" {
-		t.Fatalf("missing selections: %+v %v", before, err)
+	if err != nil || len(before.On) != 0 {
+		t.Fatalf("no memberships yet: %+v %v", before, err)
 	}
 	for _, id := range projectIDs {
 		if err := db.InTx(ctx, func(tx *database.Tx) error {
@@ -84,12 +84,12 @@ func TestFleetProjectReadsEnforceVisibilityAndEmptySQLScopes(t *testing.T) {
 	}
 	got, err := s.Fleet(ctx)
 	key := PackVersion{PackID: pack.ID, Version: 1}
-	if err != nil || len(got.On) != 1 || len(got.On[key]) != 1 || got.On[key][0] != "visible" || len(got.NotOn) != 0 {
+	if err != nil || len(got.On) != 1 || len(got.On[key]) != 1 || got.On[key][0] != "visible" {
 		t.Fatalf("memberships: %+v %v", got, err)
 	}
 	for _, scope := range [][]ids.ID{nil, {}} {
 		got, err := readFleet(ctx, db, scope)
-		if err != nil || got.On == nil || got.NotOn == nil || len(got.On) != 0 || len(got.NotOn) != 0 {
+		if err != nil || got.On == nil || len(got.On) != 0 {
 			t.Fatalf("empty SQL scope: %+v %v", got, err)
 		}
 	}
@@ -97,7 +97,7 @@ func TestFleetProjectReadsEnforceVisibilityAndEmptySQLScopes(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err = s.Fleet(ctx)
-	if err != nil || len(got.On) != 0 || len(got.NotOn) != 0 {
+	if err != nil || len(got.On) != 0 {
 		t.Fatalf("revoked: %+v %v", got, err)
 	}
 	if _, err := s.Fleet(context.Background()); err == nil {
@@ -107,10 +107,9 @@ func TestFleetProjectReadsEnforceVisibilityAndEmptySQLScopes(t *testing.T) {
 	if got, err := s.Fleet(ctx); err == nil || got.On != nil {
 		t.Fatalf("failed visibility: %+v %v", got, err)
 	}
-	// A second-query failure must not return the first query's memberships.
-	dbtest.FailNextStatement(t, db, "-- name: FleetMissingSelections")
+	dbtest.FailNextStatement(t, db, "-- name: FleetPackMemberships")
 	if got, err := readFleet(ctx, db, projectIDs); err == nil || got.On != nil {
-		t.Fatalf("partial fleet: %+v %v", got, err)
+		t.Fatalf("failed memberships read: %+v %v", got, err)
 	}
 }
 

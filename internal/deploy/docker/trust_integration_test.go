@@ -116,7 +116,7 @@ func TestIntegrationAnAppsContainerTrustsTheExtraCertificates(t *testing.T) {
 	}
 }
 
-// The go-small starter's shipped Dockerfile, built through the real build
+// The go starter's shipped Dockerfile, built through the real build
 // (Scope.Build), gives its Go app the extra certificates although the
 // distroless runtime has no shell to run the installer: its build writes
 // them into /etc/ssl/certs, beside the image's own roots, which stay the
@@ -130,7 +130,7 @@ func TestIntegrationTheGoStartersImageTrustsTheExtraCertificates(t *testing.T) {
 		a: fmt.Sprintf("https://host.docker.internal:%d/", a.Serve(t, trusttest.OK)),
 		b: fmt.Sprintf("https://host.docker.internal:%d/", b.Serve(t, trusttest.OK)),
 	}
-	dockerfile, err := fs.ReadFile(stock.FS, "seeds/go-small/Dockerfile")
+	dockerfile, err := fs.ReadFile(stock.FS, "seeds/go/Dockerfile")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestIntegrationTheGoStartersImageTrustsTheExtraCertificates(t *testing.T) {
 		tag := "apptown-trust-go:" + strings.ToLower(ids.New(time.Now()).String())
 		t.Cleanup(func() { _, _ = dk.Run(context.Background(), "rmi", "-f", tag) })
 		if out, err := dk.Build(ctx, "-q", "-t", tag, dir); err != nil {
-			t.Fatalf("build %d: the go-small Dockerfile: %v\n%s", i, err, out)
+			t.Fatalf("build %d: the go starter's Dockerfile: %v\n%s", i, err, out)
 		}
 		for authority, server := range servers {
 			out, err := dk.Run(ctx, "run", "--rm", "--add-host", "host.docker.internal:host-gateway", tag, "/app", server)

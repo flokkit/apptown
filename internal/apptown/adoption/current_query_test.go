@@ -19,7 +19,7 @@ func TestCurrentAdoptionUsesOneSnapshotAndCallerTransaction(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	id := policyProject(t, db, "receipt-snapshot")
-	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, id, 1, "", "") }); err != nil {
+	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, id, 1, "") }); err != nil {
 		t.Fatal(err)
 	}
 	for revision := 1; revision <= 2; revision++ {

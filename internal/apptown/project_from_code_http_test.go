@@ -259,7 +259,7 @@ func TestSetupNeverWritesThroughALinkInImportedCode(t *testing.T) {
 		t.Fatalf("seed: %d %s", w.Code, w.Body.String())
 	}
 	callAs(t, mux, owner, "POST", "/api/v1/projects/linked/toolchain", []byte(`{"name":"go"}`))
-	w := callAs(t, mux, owner, "POST", "/api/v1/projects/linked/pack", []byte(`{"name":"go-small"}`))
+	w := callAs(t, mux, owner, "POST", "/api/v1/projects/linked/pack", []byte(`{"names":["go"]}`))
 	var applied struct {
 		Seeded, Missing []string
 	}

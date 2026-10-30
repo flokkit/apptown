@@ -41,7 +41,7 @@ describe('what-if panel', () => {
     return m
   }
   const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status })
-  const fleet = { packs: [{ pack: 'team', enabled: false, recommended: 1, versions: [{ version: 1, projects: ['ledger'], at: '' }], notOn: [] }] }
+  const fleet = { packs: [{ pack: 'team', enabled: false, recommended: 1, versions: [{ version: 1, projects: ['ledger'], at: '' }] }] }
   const button = (el: HTMLElement, text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent?.startsWith(text)) as HTMLButtonElement
 
   it('runs on the eligible projects without naming them', async () => {

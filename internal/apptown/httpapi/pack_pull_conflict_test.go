@@ -20,9 +20,6 @@ func TestPackPullRefusesAConflictingBlock(t *testing.T) {
 	if networked.Conflicts != "data/sqlite-everywhere" {
 		t.Fatalf("the stock block's conflicts are synced: %q", networked.Conflicts)
 	}
-	if err := f.adoption.SetPack(t.Context(), f.projectID, "go-small"); err != nil {
-		t.Fatal(err)
-	}
 	// The stock SQLite block is no longer shipped; a project may still hold
 	// a block of that name, which the conflict is by.
 	sqlite, err := f.ways.CreateBlock(t.Context(), "data/sqlite-everywhere", "Use SQLite.", "data", "bls")
@@ -32,7 +29,7 @@ func TestPackPullRefusesAConflictingBlock(t *testing.T) {
 	if err := f.adoption.PutImports(t.Context(), f.projectID, []wow.ResolvedPin{{BlockID: sqlite.ID, Name: sqlite.Name, Version: sqlite.LatestVersion}}); err != nil {
 		t.Fatal(err)
 	}
-	pack, err := f.ways.Pack(t.Context(), "go-small")
+	pack, err := f.ways.Pack(t.Context(), "postgres")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +46,7 @@ func TestPackPullRefusesAConflictingBlock(t *testing.T) {
 		t.Fatalf("it is listed for a person to choose: %v", plan.Conflicting)
 	}
 	handler := NewPackPull(f.adoption, f.projects, f.identity, f.ways, f.db, nil)
-	r := httptest.NewRequest("POST", "/api/v1/projects/p/pack/pull", strings.NewReader("{}")).WithContext(f.ctx)
+	r := httptest.NewRequest("POST", "/api/v1/projects/p/pack/pull", strings.NewReader(`{"pack":"postgres"}`)).WithContext(f.ctx)
 	r.SetPathValue("slug", "p")
 	w := httptest.NewRecorder()
 	handler.PackPull(w, r)

@@ -16,7 +16,7 @@ func TestStarterIsStaticReadsTheSeedContract(t *testing.T) {
 		"html-game":        true,  // static: .
 		"frontend-only":    true,  // static: { build: ., output: dist }
 		"video-game":       true,  // static: { build: ., output: dist }
-		"go-small":         false, // builds and runs a server
+		"go":               false, // builds and runs a server
 		"rails":            false, // needs postgres
 		"conventions-only": false, // no seed
 		"no-such-pack":     false,
@@ -32,9 +32,9 @@ func TestStarterIsStaticReadsTheSeedContract(t *testing.T) {
 func TestStarterContentComesFromTheGivenStock(t *testing.T) {
 	t.Parallel()
 	s := New(nil, Dependencies{Stock: stock.FS, ToolLines: stock.Versions()})
-	seed := s.Seed("go-small")
+	seed := s.Seed("go")
 	if seed == nil {
-		t.Fatal("go-small has no seed in stock")
+		t.Fatal("go has no seed in stock")
 	}
 	if _, err := fs.Stat(seed, ".apptown/app.yaml"); err != nil {
 		t.Fatalf("the seed's dotfiles are missing: %v", err)
@@ -43,7 +43,7 @@ func TestStarterContentComesFromTheGivenStock(t *testing.T) {
 		t.Fatal(err)
 	}
 	empty := New(nil, Dependencies{Stock: fstestEmpty{}})
-	if empty.Seed("go-small") != nil {
+	if empty.Seed("go") != nil {
 		t.Error("a seed read from a stock that lacks it")
 	}
 	if _, err := empty.Toolchain("go"); err == nil {

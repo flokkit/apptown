@@ -28,7 +28,7 @@ func TestWordPressStarterScopesItsInitialAdministratorCredential(t *testing.T) {
 	}
 	found := false
 	for _, pack := range packs {
-		if pack.Name == "wordpress-bedrock" {
+		if pack.Name == "wordpress" {
 			found = true
 			var proposed []string
 			for _, svc := range pack.Services {
@@ -42,7 +42,7 @@ func TestWordPressStarterScopesItsInitialAdministratorCredential(t *testing.T) {
 	if !found {
 		t.Fatal("WordPress pack is absent from the stock library")
 	}
-	raw, err := fs.ReadFile(stock.FS, "seeds/wordpress-bedrock/.apptown/app.yaml")
+	raw, err := fs.ReadFile(stock.FS, "seeds/wordpress/.apptown/app.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestWordPressStarterScopesItsInitialAdministratorCredential(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err = fs.ReadFile(stock.FS, "seeds/wordpress-bedrock/secretspec.toml")
+	raw, err = fs.ReadFile(stock.FS, "seeds/wordpress/secretspec.toml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestWordPressStarterScopesItsInitialAdministratorCredential(t *testing.T) {
 // declares none of what the need gives the app (read from the catalogue's
 // contract) nor a public media address, which the need does not have.
 func TestWordPressStarterTakesItsUploadsStoreFromTheS3Need(t *testing.T) {
-	raw, err := fs.ReadFile(stock.FS, "seeds/wordpress-bedrock/.apptown/app.yaml")
+	raw, err := fs.ReadFile(stock.FS, "seeds/wordpress/.apptown/app.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestWordPressStarterTakesItsUploadsStoreFromTheS3Need(t *testing.T) {
 	if !slices.Contains(contract.Needs, "s3") {
 		t.Fatalf("the starter does not declare the s3 need: %v", contract.Needs)
 	}
-	raw, err = fs.ReadFile(stock.FS, "seeds/wordpress-bedrock/secretspec.toml")
+	raw, err = fs.ReadFile(stock.FS, "seeds/wordpress/secretspec.toml")
 	if err != nil {
 		t.Fatal(err)
 	}

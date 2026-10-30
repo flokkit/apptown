@@ -438,6 +438,16 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
   AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.change_id=c.id AND r.project_id=c.project_id AND r.parent_run_id IS NULL AND r.definition_json->>'role'='landing')
   AND NOT EXISTS(SELECT 1 FROM run_events e JOIN runs r ON r.id=e.run_id WHERE r.change_id=c.id AND r.project_id=c.project_id AND e.kind='merge.completed')`,
 	}},
+	// A project is on several packs together, none above another: its
+	// memberships (project_packs) and its receipt's packs say which. The
+	// single "primary" pack name goes. Receipts keep the JSON they were
+	// recorded with; each project is recorded again through the product
+	// after the release's stock has synced (design/subsystems/ways-of-working-versions.md).
+	{n: 192, note: "drop the single primary pack name: a project's packs are its memberships", stmts: []string{
+		`ALTER TABLE adoptions DROP COLUMN pack`,
+		// Packs no longer include one another; no pack on any instance did.
+		`ALTER TABLE pack_versions DROP COLUMN included_pack, DROP COLUMN included_version`,
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.

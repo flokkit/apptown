@@ -68,7 +68,7 @@ UPDATE policies SET description=(SELECT pl.description FROM policy_library pl WH
 WHERE EXISTS(SELECT 1 FROM policy_library pl WHERE pl.name=policies.name AND pl.rule=policies.rule AND pl.config_json=policies.config_json AND pl.description<>policies.description);
 
 -- name: SaveCurrentAdoption :one
-UPDATE adoptions SET revision=sqlc.arg(revision),pack=sqlc.arg(pack),drift_note=sqlc.arg(drift)
+UPDATE adoptions SET revision=sqlc.arg(revision),drift_note=sqlc.arg(drift)
 WHERE project_id=sqlc.arg(project_id) AND revision=sqlc.arg(expected_revision) RETURNING *;
 
 -- Reports. Meta projections deliberately avoid returning potentially large version bodies.
@@ -107,13 +107,6 @@ JOIN packs pk ON pk.id=pp.pack_id JOIN projects pr ON pr.id=pp.project_id
 WHERE pk.name=sqlc.arg(pack) AND pp.version < sqlc.arg(version)::bigint
 AND pr.purpose = 'ordinary' AND pr.default_branch <> ''
 ORDER BY pr.slug;
--- name: FleetMissingSelections :many
-SELECT pk.id AS pack_id, p.slug FROM projects p
-JOIN adoptions a ON a.project_id=p.id JOIN packs pk ON pk.name=a.pack
-WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[])
-AND NOT EXISTS(SELECT 1 FROM project_packs pp WHERE pp.project_id=p.id AND pp.pack_id=pk.id)
-AND p.purpose = 'ordinary'
-ORDER BY pk.id,p.slug;
 -- name: PolicyAdoptions :many
 SELECT DISTINCT pol.name,pol.project_id,pr.slug,pr.name AS project_name FROM policies pol JOIN projects pr ON pr.id=pol.project_id ORDER BY pr.name;
 
@@ -125,9 +118,7 @@ SELECT * FROM adoptions WHERE project_id=$1;
 -- name: CurrentAggregateForUpdate :one
 SELECT * FROM adoptions WHERE project_id=$1 FOR UPDATE;
 -- name: InsertCurrentAdoption :one
-INSERT INTO adoptions(project_id,revision,pack,drift_note) VALUES($1,$2,$3,$4) RETURNING *;
--- name: SetCurrentPack :one
-UPDATE adoptions SET pack=$2 WHERE project_id=$1 RETURNING *;
+INSERT INTO adoptions(project_id,revision,drift_note) VALUES($1,$2,$3) RETURNING *;
 -- name: SetCurrentDrift :one
 UPDATE adoptions SET drift_note=$2 WHERE project_id=$1 RETURNING *;
 -- name: DeleteCurrentAdoption :execrows
@@ -154,6 +145,6 @@ LEFT JOIN guidance_block_versions v ON v.block_id=gi.block_id AND v.version=gi.v
 WHERE gi.project_id=ANY(sqlc.arg(project_ids)::uuid[]) AND NOT gi.disabled
 ORDER BY gi.project_id,gi.position;
 
--- name: DeletePulledPrimaryMembership :exec
+-- name: DeletePackMembership :exec
 DELETE FROM project_packs WHERE project_id=sqlc.arg(project_id)
-AND pack_id IN (SELECT id FROM packs WHERE name=sqlc.arg(previous_pack)::text OR name=sqlc.arg(selected_pack)::text);
+AND pack_id = (SELECT id FROM packs WHERE name=sqlc.arg(pack)::text);

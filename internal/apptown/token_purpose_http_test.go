@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -209,9 +210,9 @@ func TestAnAgentCreatesAProjectWithTheOfferedPackItAskedFor(t *testing.T) {
 	t.Parallel()
 	a, agent := mcpWriteFixture(t)
 	a.SyncStock(t.Context())
-	res := mcp_call(t, a, agent, "create_project", map[string]any{"slug": "with-pack", "name": "With pack", "pack": "html-game"})
+	res := mcp_call(t, a, agent, "create_project", map[string]any{"slug": "with-pack", "name": "With pack", "packs": []any{"html-game"}})
 	sc, _ := res["structuredContent"].(map[string]any)
-	pk, _ := sc["pack"].(map[string]any)
+	pk, _ := sc["packs"].(map[string]any)
 	if res["isError"] == true || pk == nil || pk["error"] != nil {
 		t.Fatalf("the requested pack was not applied: %v", res)
 	}
@@ -219,12 +220,12 @@ func TestAnAgentCreatesAProjectWithTheOfferedPackItAskedFor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := a.Adoption.Current(t.Context(), p.ID)
-	if err != nil || current.Pack != "html-game" {
+	current, err := a.Adoption.CurrentReceipt(t.Context(), p.ID)
+	if err != nil || !slices.Contains(current.Receipt.Packs, "html-game") {
 		t.Fatalf("adoption after creation: %+v %v", current, err)
 	}
-	refusedAsAgent(t, "applying a pack to an existing project", bearerCall(a, agent, "POST", "/api/v1/projects/with-pack/pack", `{"name":"conventions-only"}`))
-	res = mcp_call(t, a, agent, "create_project", map[string]any{"slug": "platform", "name": "Platform", "pack": "forge"})
+	refusedAsAgent(t, "applying a pack to an existing project", bearerCall(a, agent, "POST", "/api/v1/projects/with-pack/pack", `{"names":["conventions-only"]}`))
+	res = mcp_call(t, a, agent, "create_project", map[string]any{"slug": "platform", "name": "Platform", "packs": []any{"apptown"}})
 	if res["isError"] != true {
 		t.Fatalf("the platform tier is not offered: %v", res)
 	}

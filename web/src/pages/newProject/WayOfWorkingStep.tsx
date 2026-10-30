@@ -10,7 +10,8 @@ import { servicesFor, type Draft, type DraftAct } from './draft'
 
 // Step 2 — Way of working: "pick for me" leads (a description, then perhaps
 // a question or two); the card wall only appears if someone asks to choose
-// themselves. Then the services the chosen way proposes, to tune.
+// themselves, and there they tick one or more packs, which the project
+// takes together. Then the services the chosen packs propose, to tune.
 export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct> }) {
   const [inspecting, setInspecting] = useState<PackView | null>(null)
   const { run, busy: pickBusy, err } = useAction()
@@ -26,17 +27,20 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
   const catQ = useGet<DependencyList>('/dependencies', { kind: 'config' })
   const catalog = useMemo(() => (catQ.data?.dependencies ?? []).filter((k) => k.local?.image), [catQ.data])
 
-  const { name, pack, packWhy, choosing, questions, answers } = d
-  // The chosen pack's proposal follows the packs and catalog as they arrive,
+  const { name, packs: chosen, packWhy, choosing, questions, answers } = d
+  // The packs ticked on the card wall, before they are taken.
+  const [ticked, setTicked] = useState<string[]>(chosen ?? [])
+  // The chosen packs' proposal follows the packs and catalog as they arrive,
   // until someone edits the services (the reducer ignores it after that).
-  const proposed = useMemo(() => (pack ? servicesFor(pack, packs, catalog) : []), [pack, packs, catalog])
+  const proposed = useMemo(() => (chosen ? servicesFor(chosen, packs, catalog) : []), [chosen, packs, catalog])
   useEffect(() => { act({ type: 'proposed', services: proposed }) }, [proposed, act])
   // A pack's proposal needs both the pack list and the service catalog, so
   // leaving the step waits until each has answered or failed (its error is
   // shown here); a read still on its way never counts as an empty proposal
   // (the interview can pick a pack before the pack list has answered).
   const readsKnown = (!!packsQ.data || !!packsQ.err) && (!!catQ.data || !!catQ.err)
-  const pick = (p: string, why = '', icon?: string, revision?: number) => act({ type: 'pack', pack: p, why, icon, revision, services: servicesFor(p, packs, catalog) })
+  const pick = (names: string[], why = '', icon?: string, revision?: number) => act({ type: 'packs', packs: names, why, icon, revision, services: servicesFor(names, packs, catalog) })
+  const tick = (name: string) => setTicked((now) => now.includes(name) ? now.filter((n) => n !== name) : [...now, name])
   // An interview that cannot decide answers why and decides nothing: the
   // reason is shown and the person chooses from the ways of working.
   const interview = (withAnswers: boolean) => run(async () => {
@@ -51,16 +55,16 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
       act({ type: 'choosing', on: true, revision })
       throw e
     }
-    if ('pack' in r) pick(r.pack ?? '', r.why ?? '', r.icon ?? '', revision)
-    else act({ type: 'asked', questions: r.questions ?? [], revision })
+    if (r.decided) { const p = r as PackInterviewPick; pick(p.packs ?? [], p.why ?? '', p.icon ?? '', revision) }
+    else act({ type: 'asked', questions: (r as PackInterviewQuestions).questions ?? [], revision })
   })
-  const selected = packs.find((p) => p.name === pack)
-  const unbound = selected?.requires.filter((r) => !r.bound) ?? []
+  const selected = packs.filter((p) => chosen?.includes(p.name))
+  const unbound = selected.flatMap((p) => p.requires.filter((r) => !r.bound)).filter((r, i, all) => all.findIndex((o) => o.capability === r.capability) === i)
 
   return (
     <div className="card" style={{ padding: 'var(--space-5)' }}>
       <div className="mb-2"><strong>{choosing ? 'Choose a way of working' : 'Way of working'}</strong></div>
-      {pack === null && !choosing && questions.length === 0 && (
+      {chosen === null && !choosing && questions.length === 0 && (
         <>
           <div className="muted small mb-3">
             {PRODUCT} can use your description to suggest a way of working, or you can choose one yourself.
@@ -76,7 +80,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           </div>
         </>
       )}
-      {pack === null && !choosing && questions.length > 0 && (
+      {chosen === null && !choosing && questions.length > 0 && (
         <>
           <div className="muted small mb-3">
             Your answers decide which way of working fits {name || 'it'}.
@@ -102,18 +106,21 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           </div>
         </>
       )}
-      {pack !== null && !choosing && (
+      {chosen !== null && !choosing && (
         <div className="mt-1">
-          <div className="row">
-            <span className="chip pass">{pack === '' ? 'bare project' : pack}</span>
-            {selected && <span className="muted small">{selected.description}</span>}
-          </div>
+          {chosen.length === 0 && <div className="row"><span className="chip pass">bare project</span></div>}
+          {chosen.map((name) => (
+            <div key={name} className="row mb-1">
+              <span className="chip pass">{name}</span>
+              <span className="muted small">{packs.find((p) => p.name === name)?.description}</span>
+            </div>
+          ))}
           {packWhy && <div className="small mt-2">{packWhy}</div>}
           <div className="muted small mt-2">
             <button className="subtle" onClick={() => act({ type: 'repick' })}>pick differently</button>
           </div>
 
-          {selected?.staticStarter ? (
+          {selected.some((p) => p.staticStarter) ? (
             <div className="muted small" style={{ borderTop: '1px solid var(--border)', margin: '18px 0 0', paddingTop: 'var(--space-4)' }}>
               This way of working starts from static files with no server, so there are no
               databases or other services to choose.
@@ -157,7 +164,8 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
           <div className="muted small mb-3">
             A way of working is the set of rules, checks and steps a project follows: which
             language and tools it uses, how changes are checked, and how it is deployed.
-            Choose the one closest to what {name || 'the project'} is; it can be changed later.
+            Tick the packs that together fit {name || 'the project'}: each one says what it is taken
+            with. It can be changed later.
           </div>
           {/* The packs never read are not "no packs": say why instead. */}
           <ReadStatus q={packsQ} what="the ways of working" />
@@ -169,10 +177,12 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
               // that is set up is the normal case and says nothing.
               const missing = p.requires.filter((r) => !r.bound)
               return (
-                <div key={p.name} className={'card pack-card' + (pack === p.name ? ' on' : '')} role="button" tabIndex={0}
-                  onClick={() => pick(p.name)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') pick(p.name) }}>
+                <div key={p.name} className={'card pack-card' + (ticked.includes(p.name) ? ' on' : '')} role="button" tabIndex={0}
+                  aria-pressed={ticked.includes(p.name)}
+                  onClick={() => tick(p.name)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tick(p.name) } }}>
                   <div className="row">
+                    <span className="pick-mark" aria-hidden>{ticked.includes(p.name) ? '✓' : '+'}</span>
                     <strong>{p.name}</strong>
                     <span className="grow" />
                     <button className="subtle" onClick={(e) => { e.stopPropagation(); setInspecting(p) }}>inspect</button>
@@ -190,19 +200,24 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
                 </div>
               )
             })}
-            <div className={'card pack-card' + (pack === '' ? ' on' : '')} role="button" tabIndex={0}
-              onClick={() => pick('')}
-              onKeyDown={(e) => { if (e.key === 'Enter') pick('') }}>
+            <div className="card pack-card" role="button" tabIndex={0}
+              onClick={() => pick([])}
+              onKeyDown={(e) => { if (e.key === 'Enter') pick([]) }}>
               <strong>none (bare)</strong>
               <div className="muted small mt-2">No rules, checks or workflows: an empty project to set up yourself later.</div>
             </div>
           </div>
-          <button className="subtle mt-2" onClick={() => act({ type: 'choosing', on: false })}>← describe it instead</button>
+          <div className="row mt-3">
+            <button className="primary" disabled={ticked.length === 0} onClick={() => pick(ticked)}>
+              {ticked.length === 0 ? 'Tick at least one pack' : `Take ${ticked.join(' + ')}`}
+            </button>
+            <button className="subtle" onClick={() => act({ type: 'choosing', on: false })}>← describe it instead</button>
+          </div>
         </div>
       )}
       {unbound.length > 0 && (
         <div className="error">
-          This way of working needs {unbound.map((r) => r.capability).join(', ')} but nothing provides it yet —
+          These packs need {unbound.map((r) => r.capability).join(', ')} but nothing provides it yet —
           attach it on the <Link to="/integrations">Integrations</Link> page (its workflows will fail until then).
         </div>
       )}
@@ -213,7 +228,7 @@ export function WayOfWorkingStep({ d, act }: { d: Draft; act: Dispatch<DraftAct>
         {/* Only one "Next →" may exist at a time: the describe/questions
             phases have their own submit button, so the step-level Next
             appears only once a way of working is actually chosen. */}
-        {pack !== null && (
+        {chosen !== null && (
           <button className="primary" disabled={!readsKnown} title={readsKnown ? undefined : 'Reading the ways of working and the service list first'} onClick={() => act({ type: 'step', step: 3 })}
             style={{ fontSize: 'var(--fs-base)', padding: '10px 26px' }}>Next →</button>
         )}

@@ -8,24 +8,33 @@ Workflows live in the library and projects select them
 ([decision](../decisions/workflows-as-lanes.md)). Publishing a new version does
 not update a project's recorded adoption.
 
-An explicit pack pull records its captured selected publication as the primary
-membership in the same transaction as lane selections, primary pack identity and
-adoption revision. Replacing a primary removes its previous membership; platform
-and supplemental memberships retain their original versions and actor/time/reason.
-The pull continues to report guidance for a person to adopt separately. Execution
-reads the recorded primary pin, never a later publication as a repair or fallback.
+A project is on one or more packs, its memberships (`project_packs`), and
+gets their union: every pack's guidance, workflows, policies, tools,
+services, extensions and requirements. No pack outranks another, and packs
+do not include one another; what several packs share is a pack of its own
+(stock `server-base`). Where two packs disagree on something a project has
+one of (a block's or workflow's pin, a tool's version line, the toolchain,
+a service of the same name, a policy of the same name, starter files), the
+combination is refused and the words name both packs (`wow.Combine`, and
+`adoption.Prepare` for the pins). Every door that adopts packs prepares
+through that one rule. An adoption receipt names its packs (`packs`, sorted,
+the platform pack included), and its memberships are written in the same
+transaction. A receipt recorded before projects took several packs keeps the
+JSON it was recorded with; its single `pack` key is not read.
 
-A pack may include another pack (`includes`, with `replaces`, `drops` and
-`clears`) and add its own items. Every version stores the resolved contents
-and pins beside the declaration and the exact publication it included;
-inherited items keep that publication's pins whatever the library publishes
-since, and a library move cuts only the pack's own items. Each pack has one
-recommended version: what new projects get, what applying the pack installs
+An explicit pack pull moves only that pack's membership to its latest
+publication, in the same transaction as lane selections and the adoption
+revision; the project's other memberships keep their versions and
+actor/time/reason. The pull is judged with the packs it leaves the project
+on, as any adoption is, and never deselects a lane another of the project's
+packs names. It reports guidance for a person to adopt separately.
+
+Every pack version stores its pinned contents beside the declaration. Each
+pack has one recommended version: what new projects get, what applying the pack installs
 and sets up, and what projects on other versions are offered. Saving never
 moves it, a release's stock versions included, so a what-if can judge a
 version before projects are offered it; a person does
-(`standards:manage-packs`, no agent credential). Moving it cuts an unrecommended follow version
-of each pack that includes it without a pin. Adopting a version that drops a
+(`standards:manage-packs`, no agent credential). Adopting a version that drops a
 workflow or replaces a policy keeps the project's existing ones and says so;
 removing them is a project edit. A selected workflow no pack of the
 candidate pins keeps the version the project's receipt pins, unless the
@@ -67,6 +76,10 @@ and `apptown-worker` its runtime images from the tool versions update;
 neither starts without them, and neither has a compiled-in copy (`make
 check-stock-embed`). AppTown's own documentation (`stock/docs`) is part of
 the binary. Tests may read `stock/` directly.
+
+Error-reporting guidance is not in any pack: it reaches a project when it
+attaches the errors integration, as the generated section of its agents'
+steering (`agentenv`).
 
 A pack names the version line of each tool it prescribes (`tools: {node:
 "24", postgres: "16"}`); the tool versions list says what each line means
@@ -124,7 +137,8 @@ required evidence and adoption history remain separate records.
 ## Implementation references
 
 - [internal/apptown/wow/service.go](../../internal/apptown/wow/service.go)
-- [internal/apptown/wow/pack_inclusion.go](../../internal/apptown/wow/pack_inclusion.go)
+- [internal/apptown/wow/combine.go](../../internal/apptown/wow/combine.go)
+- [internal/apptown/wow/pack_resolution.go](../../internal/apptown/wow/pack_resolution.go)
 - [internal/apptown/wow/pack_recommendation.go](../../internal/apptown/wow/pack_recommendation.go)
 - [internal/apptown/conformance/what_if.go](../../internal/apptown/conformance/what_if.go)
 - [internal/apptown/verification/what_if.go](../../internal/apptown/verification/what_if.go)

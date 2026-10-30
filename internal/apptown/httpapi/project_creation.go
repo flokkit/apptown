@@ -20,7 +20,7 @@ func NewProjectCreation(lifecycle *projectlifecycle.Service, authority *identity
 func (h ProjectCreation) Create(w http.ResponseWriter, r *http.Request) {
 	jsonCommand(w, r, jsonBody{}, func(in ProjectDraft) {
 		if !in.RequestID.IsZero() || in.AutomaticAddress || in.Setup != nil {
-			p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{RequestID: in.RequestID, AutomaticAddress: in.AutomaticAddress, Setup: in.Setup, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: in.Group, Pack: in.Pack})
+			p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{RequestID: in.RequestID, AutomaticAddress: in.AutomaticAddress, Setup: in.Setup, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: in.Group, Packs: in.Packs})
 			if err != nil {
 				WriteFault(w, err)
 				return
@@ -40,7 +40,7 @@ func (h ProjectCreation) Create(w http.ResponseWriter, r *http.Request) {
 		if _, ok := AuthorizeRequest(h.access, w, r, access.CapProjectCreate, access.Resource{Type: "group", ID: group}, access.Context{}); !ok {
 			return
 		}
-		p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: group, Actor: Actor(r), Pack: in.Pack})
+		p, err := h.lifecycle.Create(r.Context(), projectlifecycle.Draft{Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, Group: group, Actor: Actor(r), Packs: in.Packs})
 		if err != nil {
 			WriteFault(w, err)
 			return
@@ -60,7 +60,8 @@ type ProjectDraft struct {
 	Blurb            string                          `json:"blurb"`
 	Icon             string                          `json:"icon"`
 	Group            string                          `json:"group"`
-	// Pack is the pack the caller applies next; one not offered refuses
-	// the creation before anything is made.
-	Pack string `json:"pack"`
+	// Packs are the packs the caller applies next; one not offered, or
+	// packs that cannot be taken together, refuse the creation before
+	// anything is made.
+	Packs []string `json:"packs,omitempty"`
 }
