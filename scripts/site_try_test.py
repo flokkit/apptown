@@ -276,7 +276,8 @@ fi
         them)."""
         repo = self.base / 'repo'
         for rel in ('site/publish.sh', 'site/index.html', 'site/try.sh', 'site/tour/index.html',
-                    'site/tour/tour.yaml', 'scripts/tour-check.py', 'scripts/publish-tour.py', 'deploy/one-server/compose.yaml'):
+                    'site/tour/tour.yaml', 'scripts/tour-check.py', 'scripts/publish-tour.py', 'deploy/one-server/compose.yaml',
+                    'deploy/split-install/apptown/compose.yaml', 'deploy/split-install/worker/compose.yaml'):
             (repo / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ROOT / rel, repo / rel)
         ids = re.findall(r'<section id="([^"]+)">', (ROOT / 'site/tour/index.html').read_text())
@@ -333,11 +334,16 @@ elif args[:2] == ['s3api', 'put-object']:
                 calls = (self.base / 'calls').read_text()
                 self.assertIn('--content-type text/html; charset=utf-8', calls)
                 self.assertIn('--content-type text/plain; charset=utf-8', calls)
-                self.assertIn('--paths / /index.html /try /try.sh /compose.yaml /tour/*', calls)
+                self.assertIn('--paths / /index.html /try /try.sh /compose.yaml /split-install/* /tour/*', calls)
                 # The one-server compose file starts the same release.
                 compose = (self.base / 'compose.yaml').read_text()
                 self.assertNotIn('@VERSION@', compose)
                 self.assertIn('ghcr.io/flokkit/apptown:${APPTOWN_VERSION:-1.2.3-rc.1}', compose)
+                # So do the split install's, at their repository paths.
+                for machine, image in (('apptown', 'apptown'), ('worker', 'apptown-worker')):
+                    split = (self.base / 'split-install' / machine / 'compose.yaml').read_text()
+                    self.assertNotIn('@VERSION@', split)
+                    self.assertIn(f'ghcr.io/flokkit/{image}:${{APPTOWN_VERSION:-1.2.3-rc.1}}', split)
                 self.assertIn('--content-type text/yaml; charset=utf-8', calls)
                 # The complete snapshot is immutable and history points to it.
                 snapshot = self.base / 'tour/v1.2.3-rc.1'

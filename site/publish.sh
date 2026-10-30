@@ -1,6 +1,7 @@
 #!/bin/sh
-# Publishes apptown.dev: this folder's page, the try script and the
-# one-server compose file, with the AppTown version they start, then
+# Publishes apptown.dev: this folder's page, the try script, the one-server
+# compose file and the split install's two, with the AppTown version they
+# start, then
 # refreshes CloudFront's cache.
 #
 #   sh site/publish.sh <version>
@@ -32,8 +33,14 @@ sed "s/@VERSION@/$version/" "$here/try.sh" >"$out/try.sh"
 # The one-server compose file (Running AppTown, One server), with the same
 # version as its image's default.
 sed "s/@VERSION@/$version/" "$here/../deploy/one-server/compose.yaml" >"$out/compose.yaml"
-if grep -q '@VERSION@' "$out/try.sh" "$out/compose.yaml"; then
-	echo "publish: the version was not set in try.sh or compose.yaml" >&2
+# The split install's compose files (Split install, With Docker), at the
+# same paths as in the repository's deploy/ folder.
+for m in apptown worker; do
+	mkdir -p "$out/split-install/$m"
+	sed "s/@VERSION@/$version/" "$here/../deploy/split-install/$m/compose.yaml" >"$out/split-install/$m/compose.yaml"
+done
+if grep -q '@VERSION@' "$out/try.sh" "$out/compose.yaml" "$out/split-install/apptown/compose.yaml" "$out/split-install/worker/compose.yaml"; then
+	echo "publish: the version was not set in try.sh or a compose file" >&2
 	exit 1
 fi
 
@@ -45,8 +52,10 @@ aws s3 cp "$out/index.html" "s3://$SITE_BUCKET/index.html" \
 	--content-type 'text/html; charset=utf-8' --cache-control 'max-age=300'
 aws s3 cp "$out/try.sh" "s3://$SITE_BUCKET/try.sh" \
 	--content-type 'text/plain; charset=utf-8' --cache-control 'max-age=300'
-aws s3 cp "$out/compose.yaml" "s3://$SITE_BUCKET/compose.yaml" \
-	--content-type 'text/yaml; charset=utf-8' --cache-control 'max-age=300'
+for f in compose.yaml split-install/apptown/compose.yaml split-install/worker/compose.yaml; do
+	aws s3 cp "$out/$f" "s3://$SITE_BUCKET/$f" \
+		--content-type 'text/yaml; charset=utf-8' --cache-control 'max-age=300'
+done
 aws cloudfront create-invalidation --distribution-id "$SITE_DISTRIBUTION" \
-	--paths '/' '/index.html' '/try' '/try.sh' '/compose.yaml' '/tour/*' >/dev/null
-echo "published apptown.dev with try.sh and compose.yaml starting $version"
+	--paths '/' '/index.html' '/try' '/try.sh' '/compose.yaml' '/split-install/*' '/tour/*' >/dev/null
+echo "published apptown.dev with try.sh and the compose files starting $version"

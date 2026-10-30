@@ -25,6 +25,10 @@ services:
     # its folders into them by path (deploy/apptown-start.sh checks both).
     network_mode: host
     restart: unless-stopped
+    # An init as process 1 reaps what the processes AppTown starts leave
+    # behind, such as the ssh process each docker command for an attached
+    # host orphans; without a reaper their zombies fill the process limit.
+    init: true
     env_file: .env
     environment:
       APPTOWN_ONE_SERVER: "true"

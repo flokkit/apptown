@@ -3,13 +3,16 @@
 
     APPTOWN_TOKEN=<CLI token> python3 scripts/chat-check.py <url> <project> [<seconds>]
 
-Through the public HTTP API: open a chat on <project> placed on the worker
-(POST /api/v1/projects/{slug}/console, placement "worker"), send it one
+Through the public HTTP API: open a change on <project> with no run
+(POST /api/v1/projects/{slug}/changes), since only a change's chat runs on a
+worker, open its chat there (POST /api/v1/projects/{slug}/console, changeId
+and placement "worker"), send it one
 message (POST /api/v1/console/{sid}/say), and wait up to <seconds> (300) for
 the helper's answer (GET /api/v1/console/{sid}/messages): a helper message
 with text after ours. A helper message marked as an error, the chat's
-runtime gone, or no answer in time fails it. The chat is ended either way
-(DELETE /api/v1/console/{sid}). It needs the worker, a model and the agent
+runtime gone, or no answer in time fails it. The chat is ended and the
+change abandoned either way (DELETE /api/v1/console/{sid}, POST
+/api/v1/changes/{id}/abandon). It needs the worker, a model and the agent
 image to work together, which is what the release check is for.
 """
 import json
@@ -42,9 +45,17 @@ def main(argv):
         return 2
     base, slug = argv[1], argv[2]
     limit = float(argv[3]) if len(argv) == 4 else 300
-    opened = call(base, "POST", f"/api/v1/projects/{slug}/console", {"placement": "worker"})
+    change = call(base, "POST", f"/api/v1/projects/{slug}/changes", {"title": "Release check: a chat answers", "type": "chore"})["change"]["id"]
+    try:
+        return converse(base, slug, change, limit)
+    finally:
+        call(base, "POST", f"/api/v1/changes/{change}/abandon", {"reason": "the release check's chat is done"})
+
+
+def converse(base, slug, change, limit):
+    opened = call(base, "POST", f"/api/v1/projects/{slug}/console", {"changeId": change, "placement": "worker"})
     sid = opened["session"]["id"]
-    print(f"chat check: chat {sid} opened on the worker")
+    print(f"chat check: chat {sid} opened on the worker, on change {change}")
     try:
         call(base, "POST", f"/api/v1/console/{sid}/say", {"text": MESSAGE})
         start = time.monotonic()

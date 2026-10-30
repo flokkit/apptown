@@ -85,9 +85,11 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
         srcarchive=root/'remote/var/tmp/apptown-rehearsal-x/apptown.backup'
         if archive:srcarchive.parent.mkdir(parents=True);srcarchive.write_text('every secret\n')
         source=SCRIPT.read_text()
+        # The script's own on_src, with the live default: no prefix.
+        on_src=source[source.index('on_src() {'):source.index('\n',source.index('on_src() {'))]
         cleanup=source[source.index('end_rehearsal() {'):source.index('\n# owned')]
         finish=source[source.index('owned="" locked=""'):source.index('\ntrap finish EXIT')]+'\ntrap finish EXIT'
-        program=('set -euo pipefail\n'+f'tgt=fixture\nsrc=fixture-source\nsrcdir={shlex.quote(str(srcarchive.parent)) if archive else ""}\ntdata={shlex.quote(str(data))}\nlock={shlex.quote(expected)}\nwork={shlex.quote(str(work))}\n'
+        program=('set -euo pipefail\n'+f'tgt=fixture\nsrc=fixture-source\nsrcin=\n'+on_src+f'\nsrcdir={shlex.quote(str(srcarchive.parent)) if archive else ""}\ntdata={shlex.quote(str(data))}\nlock={shlex.quote(expected)}\nwork={shlex.quote(str(work))}\n'
                  +cleanup+'\n'+finish+f'\nowned=1\nexit {original_status}\n')
         env={**os.environ,'PATH':str(bindir)+os.pathsep+os.environ['PATH'],'FIXTURE_ROOT':str(root),**faults}
         # Allow the child hang guard to report failure and the EXIT trap to finish.

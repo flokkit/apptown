@@ -1,6 +1,6 @@
 """Tests for scripts/chat-check.py against a fake AppTown: an answer passes,
-a helper error, a dead chat or no answer fails, and the chat is ended
-either way."""
+a helper error, a dead chat or no answer fails, the chat runs on a change
+of its own, and the chat is ended and the change abandoned either way."""
 import json
 import os
 import subprocess
@@ -32,7 +32,12 @@ class Fake(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         body = json.loads(self.rfile.read(n)) if n else None
         Fake.calls.append(("POST", self.path, body))
-        self.reply({"session": {"id": "s1"}} if self.path.endswith("/console") else {})
+        if self.path.endswith("/console"):
+            self.reply({"session": {"id": "s1"}})
+        elif self.path.endswith("/changes"):
+            self.reply({"change": {"id": "c1"}, "run": None})
+        else:
+            self.reply({})
 
     def do_GET(self):
         Fake.calls.append(("GET", self.path, None))
@@ -57,13 +62,16 @@ class ChatCheck(unittest.TestCase):
         r = subprocess.run(["python3", SCRIPT, url, "release-check", "1"], capture_output=True, text=True,
                            env={**os.environ, "APPTOWN_TOKEN": "t"}, timeout=60)
         self.assertIn(("DELETE", "/api/v1/console/s1", None), Fake.calls, "the chat was not ended")
+        self.assertEqual(("POST", "/api/v1/changes/c1/abandon"), Fake.calls[-1][:2], "the change was not abandoned last")
         return r
 
-    def test_an_answer_passes_and_the_chat_was_placed_on_the_worker(self):
+    def test_an_answer_passes_and_the_chat_was_placed_on_the_worker_on_a_change(self):
         Fake.answer = {"role": "helper", "text": "ready"}
         r = self.check()
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn(("POST", "/api/v1/projects/release-check/console", {"placement": "worker"}), Fake.calls)
+        # A worker runs only a change's chat: one with no run, made first.
+        self.assertEqual("/api/v1/projects/release-check/changes", Fake.calls[0][1])
+        self.assertIn(("POST", "/api/v1/projects/release-check/console", {"changeId": "c1", "placement": "worker"}), Fake.calls)
 
     def test_an_error_a_dead_chat_or_silence_fails(self):
         for answer, state, said in (({"role": "helper", "text": "model unavailable", "error": True}, "detached", "error"),

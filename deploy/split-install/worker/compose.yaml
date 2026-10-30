@@ -1,0 +1,47 @@
+# The worker of a split install, run from its image (Split install, With
+# Docker). On the worker machine, as root, with Docker:
+#
+#   mkdir -p /opt/apptown-worker && cd /opt/apptown-worker
+#   curl -fsSLO https://apptown.dev/split-install/worker/compose.yaml
+#   (write .env: APPTOWN_INSTALLATION, APPTOWN_LISTEN)
+#   docker compose up -d
+#
+# The worker runs AppTown's work on this machine's Docker through its
+# socket. Its certificate, key and AppTown's CA are worker.pem,
+# worker-key.pem and ca.pem in /etc/apptown-worker. Any other worker flag
+# (apptown-worker -h) goes in .env as its APPTOWN_ variable, for example
+# APPTOWN_EXCLUSIVE=true on a machine that is the installation's alone.
+#
+# The image: the release apptown.dev publishes this file with (a copy from
+# the repository needs APPTOWN_VERSION in .env); APPTOWN_VERSION names
+# another release, and APPTOWN_IMAGE, when set, replaces the whole reference, for a digest
+# (ghcr.io/flokkit/apptown-worker@sha256:…) or a mirror. On its first start
+# the worker builds the agent image from the recipe in its image, which
+# takes several minutes.
+name: apptown-worker
+
+services:
+  worker:
+    image: ${APPTOWN_IMAGE:-ghcr.io/flokkit/apptown-worker:${APPTOWN_VERSION:-@VERSION@}}
+    # The host's network: previews are published on the host's loopback
+    # and dialled at 127.0.0.1, and AppTown reaches APPTOWN_LISTEN.
+    network_mode: host
+    restart: unless-stopped
+    # An init as process 1 reaps what the processes AppTown starts leave
+    # behind: each docker command over ssh orphans an ssh process, and
+    # without a reaper their zombies fill the container's process limit.
+    init: true
+    env_file: .env
+    environment:
+      APPTOWN_STATE: /var/lib/apptown-worker
+      APPTOWN_CERT: /etc/apptown-worker/worker.pem
+      APPTOWN_KEY: /etc/apptown-worker/worker-key.pem
+      APPTOWN_CLIENT_CA: /etc/apptown-worker/ca.pem
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The same path inside and out: the worker mounts its state folder
+      # into the containers it starts by that path.
+      - /var/lib/apptown-worker:/var/lib/apptown-worker
+      - /etc/apptown-worker:/etc/apptown-worker:ro
+    # The worker stops its own work on SIGTERM.
+    stop_grace_period: 60s
