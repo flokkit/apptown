@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { runtimeChip, runtimeDescription, runtimeLabel } from './runtime'
+import { checkedWords, runtimeChip, runtimeDescription, runtimeLabel } from './runtime'
 
 describe('runtime status', () => {
   const unobserved = { observation: 'unknown' as const, observationStale: true }
@@ -25,5 +25,12 @@ describe('runtime status', () => {
     expect(runtimeLabel(o)).toBe('last known: running · 10m ago')
     expect(runtimeDescription(o)).toBe('Last known: running · checked 10m ago · refresh unavailable')
     expect(runtimeChip(o)).toBe('unknown')
+  })
+
+  it('says when a reading was taken, and marks an old one out of date', () => {
+    const at = new Date(Date.now() - 10 * 60_000).toISOString()
+    expect(checkedWords({ observationStale: true })).toBe('not checked yet')
+    expect(checkedWords({ observedAt: at, observationStale: false })).toMatch(/^checked /)
+    expect(checkedWords({ observedAt: at, observationStale: true })).toMatch(/^out of date · last checked /)
   })
 })

@@ -5353,7 +5353,13 @@
           "number": {
             "type": "integer"
           },
+          "observationStale": {
+            "type": "boolean"
+          },
           "observed": {
+            "type": "string"
+          },
+          "observedAt": {
             "type": "string"
           },
           "reason": {
@@ -5370,7 +5376,8 @@
           "number",
           "deployment",
           "state",
-          "serving"
+          "serving",
+          "observationStale"
         ],
         "type": "object"
       },

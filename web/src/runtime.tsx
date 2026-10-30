@@ -37,6 +37,14 @@ export function runtimeLabel(o: RuntimeObservation): string {
   return `last known: ${state} · ${relTime(o.observedAt)}`
 }
 
+// checkedWords is when a reading was taken, for a line that already says
+// the state: an out-of-date reading says so, so an old "running" never reads
+// as current.
+export function checkedWords(o: { observedAt?: string, observationStale: boolean }): string {
+  if (!o.observedAt) return 'not checked yet'
+  return `${o.observationStale ? 'out of date · last ' : ''}checked ${relTime(o.observedAt)}`
+}
+
 export function RuntimeStatus({ observation }: { observation: RuntimeObservation }) {
   return <span className={`chip ${runtimeChip(observation)}`} title={runtimeDescription(observation)}>
     {runtimeLabel(observation)}
