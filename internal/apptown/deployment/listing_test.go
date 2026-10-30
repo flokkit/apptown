@@ -381,9 +381,9 @@ func TestAPlatformDeploymentIsObservedByItsLatestSample(t *testing.T) {
 	}{
 		{"active", ContainerRunning, ""},
 		{"absent", ContainerStopped, ""},
-		{"rolling", ContainerUnknown, "its platform does not say whether it runs"},
-		{"unknown", ContainerUnknown, "its platform does not say whether it runs"},
-		{"error", ContainerUnknown, "its platform's status could not be read"},
+		{"rolling", ContainerUnknown, "its host or platform does not say whether it runs"},
+		{"unknown", ContainerUnknown, "its host or platform does not say whether it runs"},
+		{"error", ContainerUnknown, "its host's or platform's status could not be read"},
 	} {
 		r := tc.rollout
 		rollout.Store(&r)

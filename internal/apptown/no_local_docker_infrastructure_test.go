@@ -409,6 +409,10 @@ func TestAMainOnAnAttachedHostIsObservedAndProbedThere(t *testing.T) {
 			releaseOn(t, a, attachTarget(t, a, "lab", "localhost"), port)
 			remote.markStarted("apptown-env-game-main")
 
+			// Reads show the background observer's last look.
+			if err := a.Deployment.ObserveRuntime(t.Context()); err != nil {
+				t.Fatal(err)
+			}
 			w := authzCall(a.Handler(), "boss", "GET", "/api/v1/tiers", "")
 			var tiers struct {
 				Tiers []struct {
@@ -492,6 +496,10 @@ func TestInTheNoLocalDockerModeReadViewsSayUnavailableOrUnknown(t *testing.T) {
 	}
 	h := a.Handler()
 
+	// Reads show the background observer's last look.
+	if err := a.Deployment.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	w := authzCall(h, "boss", "GET", "/api/v1/tiers", "")
 	var tiers struct {
 		Tiers []struct {
@@ -570,6 +578,10 @@ func TestInTheNoLocalDockerModeAChangesReleaseOnTheBuiltInHostIsUnavailable(t *t
 	}
 	releasedPreviewFixture(t, a, idstest.N(1), "game-first") // game's main, on the built-in host
 	if _, err := a.Deployment.Deployments.ReserveHostPort(t.Context(), idstest.N(1), "main", "apptown-env-game-main", 40001); err != nil {
+		t.Fatal(err)
+	}
+	// Reads show the background observer's last look.
+	if err := a.Deployment.ObserveRuntime(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	w := authzCall(a.Handler(), "boss", "GET", fmt.Sprintf("/api/v1/changes/%d", change.ID), "")

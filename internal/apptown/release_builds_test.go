@@ -1422,6 +1422,10 @@ func TestARecreatedDeploymentDoesNotReviveATakenDownRelease(t *testing.T) {
 	if err != nil || second.State != deployment.Released || second.DeploymentID == first.DeploymentID {
 		t.Fatalf("second promotion: %+v %v", second, err)
 	}
+	// Reads show the background observer's last look.
+	if err := w.a.Deployment.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	out := authzCall(w.a.Handler(), "boss", "GET", "/api/v1/projects/p/releases", "")
 	var listed []struct {
 		ID      ids.ID

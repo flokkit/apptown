@@ -641,7 +641,7 @@ func TestObservingAContainerKeepsUnknownApartFromStoppedAndMissing(t *testing.T)
 		{unreadable.ID, "app-running", ContainerUnknown},
 		{builtIn.ID, "app-running", ContainerUnavailable},
 	} {
-		got := s.ObserveContainer(context.Background(), &Deployment{TargetID: c.target, Container: c.container})
+		got := s.ObserveContainerNow(context.Background(), &Deployment{TargetID: c.target, Container: c.container})
 		if got.State != c.want || (c.want == ContainerUnknown || c.want == ContainerUnavailable) != (got.Reason != "") {
 			t.Errorf("target %d, container %q: %v (%s), want %v", c.target, c.container, got.State, got.Reason, c.want)
 		}
