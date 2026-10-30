@@ -2,7 +2,9 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
-import { ChangeHistoryTable, ChangeRow } from './runActivity'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { newQueryClient } from '../data'
+import { ActiveRunList, ChangeHistoryTable, ChangeRow, RunRow } from './runActivity'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0021-7000-8000-000000000000'
@@ -50,5 +52,25 @@ describe('the change history counts runs in words', () => {
   })
   it('says one run when it cannot tell which completed', () => {
     expect(how({ completedRuns: undefined, runs: 1 })).toBe('1 run')
+  })
+})
+
+// A blocked change that the server offers to close shows "Close it" beside
+// its link; one it does not offer shows none.
+describe('a blocked change on the needs-you list', () => {
+  const blocked = (next: RunRow['next']): RunRow => ({
+    runId: '00000000-0022-7000-8000-000000000000', runNumber: 3, changeId: CHANGE, changeNumber: 13, workflow: 'adopt', title: 'Adopt the way of working: html-game',
+    status: 'running', stage: 'checks', state: 'blocked', project: 'demo-smoke', startedAt: '2026-10-01T08:50:00Z', durationS: 60, next,
+  })
+  const buttons = (r: RunRow) => {
+    const el = document.createElement('div')
+    el.innerHTML = renderToStaticMarkup(<QueryClientProvider client={newQueryClient()}><MemoryRouter><ActiveRunList runs={[r]} showProject /></MemoryRouter></QueryClientProvider>)
+    return { text: [...el.querySelectorAll('button')].map((b) => b.textContent), link: el.querySelector('a')!.getAttribute('href') }
+  }
+  it('offers Close it when the server does, and keeps the row a link', () => {
+    expect(buttons(blocked([{ act: 'abandon', stepId: null, step: '' }]))).toEqual({ text: ['Close it'], link: `/changes/${CHANGE}` })
+  })
+  it('offers nothing the server did not send', () => {
+    expect(buttons(blocked([])).text).toEqual([])
   })
 })

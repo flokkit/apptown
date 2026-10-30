@@ -10,7 +10,9 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
+	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
 )
 
@@ -22,11 +24,16 @@ func (s *Service) Adopt(ctx context.Context, p *project.Project, c *adoption.Can
 	return s.applyCandidateForChange(ctx, p, c, who, reason, ids.Nil, operation)
 }
 func (s *Service) applyCandidateForChange(ctx context.Context, p *project.Project, c *adoption.Candidate, who, reason string, changeID ids.ID, operation adoption.Operation) (int64, error) {
-	release, err := s.repositories.Acquire(ctx, p.ID)
+	if s.superseded == nil {
+		return 0, errors.New("closing superseded adoption changes is unavailable")
+	}
+	// The closure is the project's repository lock, held across the adoption
+	// and the abandonments it implies.
+	closure, err := scm.PrepareClosure(ctx, s.repositories, p.ID)
 	if err != nil {
 		return 0, err
 	}
-	defer release()
+	defer closure.Close()
 	var newRev int64
 	var applied bool
 	err = s.db.InTx(ctx, func(tx *database.Tx) error {
@@ -60,6 +67,9 @@ func (s *Service) applyCandidateForChange(ctx context.Context, p *project.Projec
 			return err
 		}
 		newRev, applied = next.Revision, true
+		if err := s.closeSupersededIn(ctx, tx, closure, p.ID, who); err != nil {
+			return err
+		}
 		if !changeID.IsZero() {
 			if err := workflow.StampUpliftAdoptionIn(ctx, tx, workflow.UpliftAdoption{Change: workflow.ChangeRef{ID: changeID, ProjectID: p.ID}, Revision: newRev}); err != nil {
 				return err
@@ -81,4 +91,33 @@ func (s *Service) applyCandidateForChange(ctx context.Context, p *project.Projec
 // candidate. Callers validate the Change's sealed target before settlement.
 func (s *Service) SettleUplift(ctx context.Context, p *project.Project, c *adoption.Candidate, who, reason string, changeID ids.ID) (int64, error) {
 	return s.applyCandidateForChange(ctx, p, c, who, reason, changeID, adoption.OperationSelect)
+}
+
+// closeSupersededIn: a changed pack set retires the uplifts aimed at the old
+// one; they could never pass, so they close in the act that changed it.
+func (s *Service) closeSupersededIn(ctx context.Context, tx *database.Tx, closure *scm.Closure, projectID ids.ID, who string) error {
+	set, err := adoption.ProjectPacksIn(ctx, tx, projectID)
+	if err != nil {
+		return err
+	}
+	gone, reason := adoption.SupersededBy(set)
+	_, err = s.superseded.CloseSupersededUpliftsIn(ctx, tx, closure, projectID, who, gone, reason)
+	return err
+}
+
+// PullPack moves the project's membership of a pack to its latest version
+// (adoption.PullPack), closing in the same transaction the uplifts that
+// version leaves behind.
+func (s *Service) PullPack(ctx context.Context, p *project.Project, pack wow.Pack, who string) (adoption.Pulled, error) {
+	if s.superseded == nil {
+		return adoption.Pulled{}, errors.New("closing superseded adoption changes is unavailable")
+	}
+	closure, err := scm.PrepareClosure(ctx, s.repositories, p.ID)
+	if err != nil {
+		return adoption.Pulled{}, err
+	}
+	defer closure.Close()
+	return s.adoption.PullPack(ctx, p.ID, pack, who, func(tx *database.Tx) error {
+		return s.closeSupersededIn(ctx, tx, closure, p.ID, who)
+	})
 }

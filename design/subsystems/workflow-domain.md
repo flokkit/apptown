@@ -71,8 +71,8 @@ blocking its stage, `retry` for stopped steps a step run accepts again, and
 run acts `advance` and
 `restart-landing` (a landing whose rules changed). The change page's projection
 carries the change acts from `ChangeActs`: `land` (in progress, nothing
-running, no landing queued) and `send-back` (open, blocked, not merged). A
-landing queued for accepted work is the stated fact `LandingQueued`. They say what is available, not who may do it: every command
+running, no landing queued) and `send-back` (open, blocked, not merged) and, with it, `abandon` for a reader who may abandon the change. A
+landing queued for accepted work is the stated fact `LandingQueued`. Apart from `abandon`, they say what is available, not who may do it: every command
 still checks authority and freshness when it arrives. Clients submit these acts
 rather than pick targets from step types or statuses, and branch on a
 refusal's code, never its sentence (another change landing is

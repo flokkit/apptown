@@ -2,8 +2,10 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -43,6 +45,23 @@ func (s *Service) Abandon(ctx context.Context, in StopWork) (*Abandoned, error) 
 	}
 	command.Who = actor.Receipt
 	return s.abandonments.abandon(ctx, command, project)
+}
+
+// MayAbandon says whether the caller may abandon the change, asking records
+// nothing; a refusal is the error, so a reader can be offered the act only
+// when it would be accepted.
+func (s *Service) MayAbandon(ctx context.Context, changeID ids.ID) error {
+	_, _, err := s.changeScope(ctx, changeID, actionCloseChange)
+	return err
+}
+
+// AbandonOffer is the next acts, none or abandon, for a list row of a
+// blocked change: abandon when the caller may.
+func (s *Service) AbandonOffer(ctx context.Context, changeID ids.ID) []NextAct {
+	if s.MayAbandon(ctx, changeID) != nil {
+		return []NextAct{}
+	}
+	return []NextAct{{Act: nextAbandon}}
 }
 
 // StopScope is a pre-admitted transaction participant. It holds repository
@@ -303,6 +322,12 @@ func NewAbandonments(db *database.DB, recorder AbandonRecorder, locks *scm.Repos
 	return Abandonments{db: db, effects: recorder, locks: locks}
 }
 
+// WithClock is the Abandonments reading time from now (AppTown's clock).
+func (s Abandonments) WithClock(now func() time.Time) Abandonments {
+	s.clocked = clocked{now}
+	return s
+}
+
 // Abandon is an explicitly pre-admitted execution path.
 // Caller-facing operations enter Service, which supplies stored scope and authority.
 func (s Abandonments) Abandon(ctx context.Context, in Abandonment) (*Abandoned, error) {
@@ -361,4 +386,32 @@ func (s Abandonments) SupersedeFailedLanding(ctx context.Context, ref RunRef, ne
 		return nil, fmt.Errorf("supersession requires Run scope")
 	}
 	return s.abandon(ctx, Abandonment{RunID: ref.ID, Who: "apptown-system", Reason: fmt.Sprintf("landing wedged on failed gates; superseded by a new %s run", nextWorkflow), failedLandingOnly: true}, ref.ProjectID)
+}
+
+// CloseSupersededUpliftsIn abandons the project's open adoption changes whose
+// stored target the caller says no longer applies, in the caller's transaction
+// and under its live repository scope, with reason recorded on each. Work never
+// reads the target: it is adoption's document, so the adoption owner's verdict
+// arrives as superseded. The caller has authorised the act that superseded them.
+// Returns the closed change ids.
+func (s Abandonments) CloseSupersededUpliftsIn(ctx context.Context, tx *database.Tx, closure *scm.Closure, project ids.ID, who string, superseded func(target json.RawMessage) (bool, error), reason string) ([]ids.ID, error) {
+	rows, err := workflowsql.New(tx.SQL()).OpenUpliftTargets(ctx, workflowsql.OpenUpliftTargetsParams{ProjectID: project, State: ChangeInProgress.String()})
+	if err != nil {
+		return nil, err
+	}
+	var closed []ids.ID
+	for _, row := range rows {
+		gone, err := superseded(row.TargetCandidateJson)
+		if err != nil {
+			return nil, err
+		}
+		if !gone {
+			continue
+		}
+		if _, err := s.abandonIn(ctx, tx, Abandonment{ChangeID: row.ID, Who: who, Reason: reason}, project, closure); err != nil {
+			return nil, err
+		}
+		closed = append(closed, row.ID)
+	}
+	return closed, nil
 }

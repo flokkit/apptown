@@ -205,8 +205,10 @@ type Pulled struct {
 // latest version, and writes the
 // edit revision that results. Guidance is not adopted here
 // (ways-of-working-versions.md §1.2, §9 step 1): what the pack carries
-// that the project lacks is in the plan for a person to add.
-func (s *Service) PullPack(ctx context.Context, projectID ids.ID, pack wow.Pack, who string) (Pulled, error) {
+// that the project lacks is in the plan for a person to add. within runs in
+// the same transaction once the membership has moved, for what the new pack
+// set implies in other owners' records.
+func (s *Service) PullPack(ctx context.Context, projectID ids.ID, pack wow.Pack, who string, within func(*database.Tx) error) (Pulled, error) {
 	plan, err := s.PackPullPlan(ctx, projectID, pack)
 	if err != nil {
 		return Pulled{}, err
@@ -267,6 +269,9 @@ func (s *Service) PullPack(ctx context.Context, projectID ids.ID, pack wow.Pack,
 			return Receipt{}, fmt.Errorf("reading the pulled publication: %w", err)
 		}
 		if err := replacePulledIn(ctx, tx, projectID, pack, who, now); err != nil {
+			return Receipt{}, err
+		}
+		if err := within(tx); err != nil {
 			return Receipt{}, err
 		}
 		return s.UnionIn(ctx, tx, projectID, prior)

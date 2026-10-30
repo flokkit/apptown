@@ -27,6 +27,10 @@ SELECT c.state FROM changes c JOIN project p ON p.id=c.project_id WHERE c.id=sql
 UPDATE changes SET target_adoption_id=sqlc.arg(target_adoption_id),target_candidate_json=sqlc.arg(target_candidate_json)
 WHERE id=sqlc.arg(id) AND project_id=sqlc.arg(project_id) AND target_adoption_id IS NULL;
 
+-- name: OpenUpliftTargets :many
+SELECT id,target_candidate_json FROM changes
+WHERE project_id=$1 AND type='uplift' AND state=$2 ORDER BY id;
+
 -- name: DeleteProjectChanges :exec
 DELETE FROM changes WHERE project_id=$1;
 

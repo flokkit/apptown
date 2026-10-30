@@ -122,6 +122,12 @@ The person opening it may accept it in advance, on the condition AppTown
 witnesses that it needs no code and every step and check passes outright
 ([landing acceptance](../architecture/work-landing-acceptance.md)).
 
+When a project's pack set changes (an adoption or a pack pull), its open uplift Changes whose target takes a
+pack the set no longer has, or a version below the set's, are abandoned in the
+same transaction, with the reason "superseded: the project now takes ..."; they
+could never pass. An uplift to a newer version of a pack the project still takes
+stays open.
+
 Pack application can include repository and project setup. The Projectlifecycle
 facade coordinates that work; a catalog publication alone does not perform it.
 Current-edit commands own complete metadata/version updates and required

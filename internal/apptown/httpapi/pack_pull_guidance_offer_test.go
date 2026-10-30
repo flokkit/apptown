@@ -27,7 +27,7 @@ func TestPackPullListsNewGuidanceWithoutAdoptingIt(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/projects/p/pack/pull", strings.NewReader(`{"pack":"go"}`)).WithContext(f.ctx)
 	req.SetPathValue("slug", "p")
 	w := httptest.NewRecorder()
-	NewPackPull(f.adoption, f.projects, f.identity, f.ways, f.db, nil).PackPull(w, req)
+	NewPackPull(f.adoption, plainPull{f.adoption}, f.projects, f.identity, f.ways, f.db, nil).PackPull(w, req)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"guidanceToAdd":[`) || !strings.Contains(w.Body.String(), `"lang/go/formatting"`) {
 		t.Fatalf("the pull reports it for a person: %d %s", w.Code, w.Body.String())
 	}

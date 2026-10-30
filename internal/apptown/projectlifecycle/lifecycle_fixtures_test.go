@@ -44,7 +44,7 @@ func newOwnerFixtureOn(t *testing.T, syncStock bool, now func() time.Time) owner
 	projects := project.New(db, nil)
 	adopt := adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(ids, "adoption"), Projects: projects}, Ways: ways, Copies: project.Copies{}})
 	locks := new(scm.RepositoryLocks)
-	lifecycle := New(db, Dependencies{Identity: ids, Adoption: adopt, Projects: projects, Ways: ways, Repositories: locks, Publisher: noUpstream{}, Changes: workflow.NewChanges(db, access.Checked{Authority: identity.Scoped(ids, "work"), Projects: projects}, nil)}, Config{DataDir: t.TempDir(), Extensions: []string{"lsp"}, Now: now})
+	lifecycle := New(db, Dependencies{Identity: ids, Adoption: adopt, Projects: projects, Ways: ways, Repositories: locks, Publisher: noUpstream{}, Changes: workflow.NewChanges(db, access.Checked{Authority: identity.Scoped(ids, "work"), Projects: projects}, nil), Superseded: workflow.NewAbandonments(db, noAbandonEffects{}, locks)}, Config{DataDir: t.TempDir(), Extensions: []string{"lsp"}, Now: now})
 	return ownerFixture{db: db, identity: ids, ways: ways, adoption: adopt, lifecycle: lifecycle}
 }
 
@@ -91,3 +91,11 @@ func lifecycleReceipts(t *testing.T, db *database.DB, kind string) []audit.Entry
 type noUpstream struct{}
 
 func (noUpstream) PushBranch(context.Context, ids.ID, string, string) {}
+
+// noAbandonEffects: these tests read what an abandonment records, not the
+// workspace and run cleanup Work does afterwards.
+type noAbandonEffects struct{}
+
+func (noAbandonEffects) RecordAbandonIn(context.Context, *database.Tx, workflow.AbandonEffects) error {
+	return nil
+}

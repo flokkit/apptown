@@ -45,7 +45,7 @@ func newScheduleWorld(t *testing.T) scheduleWorld {
 	adopt := adoption.New(db, adoption.Dependencies{Authority: access.Checked{Authority: identity.Scoped(ids, "adoption"), Projects: projects}, Ways: ways})
 	locks := new(scm.RepositoryLocks)
 	authority := access.Checked{Authority: identity.Scoped(ids, "work"), Projects: projects}
-	lifecycle := projectlifecycle.New(db, projectlifecycle.Dependencies{Adoption: adopt, Projects: projects, Ways: ways, Repositories: locks, Changes: workflow.NewChanges(db, authority, nil)}, projectlifecycle.Config{DataDir: dataDir})
+	lifecycle := projectlifecycle.New(db, projectlifecycle.Dependencies{Adoption: adopt, Projects: projects, Ways: ways, Repositories: locks, Changes: workflow.NewChanges(db, authority, nil), Superseded: workflow.NewAbandonments(db, nil, locks)}, projectlifecycle.Config{DataDir: dataDir})
 	p, err := lifecycle.Create(context.Background(), projectlifecycle.Draft{Slug: "clock", Name: "Clock", Actor: "bls"})
 	if err != nil {
 		t.Fatal(err)
