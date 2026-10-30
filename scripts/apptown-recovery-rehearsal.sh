@@ -6,7 +6,7 @@
 # start use a release archive's apptownd: the rehearsal is then that
 # release's upgrade of the source's data (design/operations/releasing.md).
 #
-#   APPTOWN_URL=<source url> APPTOWN_TOKEN=<source CLI token> [CANDIDATE=<linux release archive>] \
+#   APPTOWN_URL=<source url> APPTOWN_TOKEN=<source CLI token> [CANDIDATE=<linux release archive on the target>] \
 #   apptown-recovery-rehearsal.sh <source ssh> <source data dir> <target ssh>
 #
 # On the source, `apptownd backup` writes the archive on the source's disk;
@@ -51,8 +51,10 @@ srcbin=${SOURCE_BIN:-/opt/apptown/bin/apptownd}
 tdata=${TARGET_DATA:-/srv/apptown-restore/data}
 port=${TARGET_PORT:-47777}
 block=${BLOCK_NAMES:-}
+# The archive is already on the target (the cut-off target cannot fetch it
+# later, and this machine need not hold a copy).
 candidate=${CANDIDATE:-}
-[ -z "$candidate" ] || [ -f "$candidate" ] || { echo "CANDIDATE $candidate is not a file" >&2; exit 2; }
+[ -z "$candidate" ] || ssh "$tgt" "[ -f '$candidate' ]" || { echo "CANDIDATE $candidate is not a file on $tgt" >&2; exit 2; }
 passfile=${PASSPHRASE_FILE:-}
 [ -z "$passfile" ] || [ -s "$passfile" ] || { echo "PASSPHRASE_FILE $passfile is not a file with a passphrase" >&2; exit 2; }
 store=
@@ -164,7 +166,7 @@ EOF
 
 	if [ -n "$candidate" ]; then
 		step "the candidate restores and starts: $(basename "$candidate")"
-		ssh "$tgt" "mkdir -p /opt/forge-restore/candidate && tar --no-same-owner -xzf - -C /opt/forge-restore/candidate --strip-components=1" < "$candidate"
+		ssh "$tgt" "mkdir -p /opt/forge-restore/candidate && tar --no-same-owner -xzf '$candidate' -C /opt/forge-restore/candidate --strip-components=1"
 		ssh "$tgt" "cp /opt/forge-restore/candidate/bin/apptownd /opt/forge-restore/apptownd && rm -rf /opt/forge-restore/updates && cp -R /opt/forge-restore/candidate/share/apptown/updates /opt/forge-restore/updates"
 	else
 		step "the source's apptownd restores and starts"
