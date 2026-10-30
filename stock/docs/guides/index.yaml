@@ -26,6 +26,7 @@ groups:
       - conformance
   - title: Running AppTown
     guides:
+      - setups
       - running-apptown
       - platforms
       - trial

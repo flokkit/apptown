@@ -290,10 +290,13 @@ the origin, or browsers cannot sign in.
 ## Your own proxy
 
 Behind a proxy you already run instead of the compose file's Caddy, the
-proxy must:
+proxy must meet the requirements below for the built-in apps and previews
+it serves. The [recommended setup](setups.md) keeps these routes private;
+production apps on attached targets use those targets' own ingress.
 
-- serve your domain and every name under `preview.` and `main.` of it, over
-  HTTPS, and send them all to AppTown (`127.0.0.1:7777`): AppTown tells
+- serve AppTown's domain and every name under each configured preview or
+  built-in main domain over HTTPS, and send them to AppTown
+  (`127.0.0.1:7777`): AppTown tells
   apps apart by name;
 - pass the `Host` header unchanged;
 - set `X-Forwarded-For` and `X-Forwarded-Proto: https`;
