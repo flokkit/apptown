@@ -32,7 +32,7 @@ func TestRemoveProjectInKeepsOtherProjects(t *testing.T) {
 	}
 	for _, pid := range []ids.ID{a, b} {
 		q := adoptionsql.New(db.SQL())
-		if _, err := q.InsertCurrentAdoption(context.Background(), adoptionsql.InsertCurrentAdoptionParams{ProjectID: pid, Revision: 1, Pack: "go", DriftNote: "drift"}); err != nil {
+		if _, err := q.InsertCurrentAdoption(context.Background(), adoptionsql.InsertCurrentAdoptionParams{ProjectID: pid, Revision: 1, DriftNote: "drift"}); err != nil {
 			t.Fatal(err)
 		}
 		if rows, err := q.PutProjectPolicy(context.Background(), adoptionsql.PutProjectPolicyParams{ID: ids.New(time.Now().UTC()), ProjectID: pid, Name: "p", Rule: "r", Config: []byte(`{}`), At: time.Now().UTC()}); err != nil || rows != 1 {

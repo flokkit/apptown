@@ -17,7 +17,7 @@ func TestLaneSelectionAndItsRevisionCommitTogether(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	pid := adoptionTestProject(t, db, "lane-select", "Lane selection")
-	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "", "") }); err != nil {
+	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "") }); err != nil {
 		t.Fatal(err)
 	}
 	ways := wow.New(db, wow.Dependencies{})

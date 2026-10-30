@@ -112,7 +112,7 @@ func authzActors(t *testing.T, configs ...Config) *App {
 	}
 	for _, projectID := range []ids.ID{gameID, openID} {
 		if err := a.DB.InTx(context.Background(), func(tx *database.Tx) error {
-			if err := adoption.InitializeIn(t.Context(), tx, projectID, 0, "", ""); err != nil {
+			if err := adoption.InitializeIn(t.Context(), tx, projectID, 0, ""); err != nil {
 				return err
 			}
 			return adoption.RecordIn(t.Context(), tx, projectID, 1, adoption.AdoptionCreate, "authz fixture", adoption.EmptyReceipt(), "fixture", time.Now())

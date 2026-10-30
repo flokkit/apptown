@@ -177,7 +177,7 @@ func (c fakeCopier) CreateCopy(ctx context.Context, in projectlifecycle.CopyDraf
 // pack's block one version back.
 func beforeReceipt(revision int64) adoption.Receipt {
 	r := adoption.EmptyReceipt()
-	r.Pack = "house"
+	r.Packs = []string{"house"}
 	r.Guidance = []adoption.ReceiptBlock{{Name: "house-rules", Version: int(-revision)}}
 	r.Workflows = []adoption.ReceiptWorkflow{{Name: "quick-change", Version: 1}}
 	return r
@@ -198,7 +198,7 @@ func (a *fakeAdoption) CopyTarget(ctx context.Context, src ids.ID, picks []adopt
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	r := adoption.EmptyReceipt()
-	r.Pack = "house"
+	r.Packs = []string{"house"}
 	r.Guidance = []adoption.ReceiptBlock{{Name: "house-rules", Version: 1}}
 	r.Workflows = []adoption.ReceiptWorkflow{{Name: "quick-change", Version: 1}}
 	if picks == nil {

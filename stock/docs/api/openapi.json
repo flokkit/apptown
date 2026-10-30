@@ -2677,8 +2677,11 @@
             },
             "type": "array"
           },
-          "pack": {
-            "type": "string"
+          "packs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "policiesInstalled": {
             "items": {
@@ -2715,7 +2718,7 @@
           }
         },
         "required": [
-          "pack",
+          "packs",
           "guidanceImports",
           "workflowsInstalled",
           "policiesInstalled",
@@ -2730,25 +2733,13 @@
       },
       "PackChoice": {
         "properties": {
-          "name": {
-            "type": "string"
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
-        "type": "object"
-      },
-      "PackDrop": {
-        "properties": {
-          "item": {
-            "type": "string"
-          },
-          "reason": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "item",
-          "reason"
-        ],
         "type": "object"
       },
       "PackPolicy": {
@@ -2777,18 +2768,6 @@
       },
       "PackSpec": {
         "properties": {
-          "clears": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "drops": {
-            "items": {
-              "$ref": "#/components/schemas/PackDrop"
-            },
-            "type": "array"
-          },
           "extensions": {
             "items": {
               "type": "string"
@@ -2801,9 +2780,6 @@
             },
             "type": "array"
           },
-          "includes": {
-            "type": "string"
-          },
           "platform": {
             "type": "boolean"
           },
@@ -2812,12 +2788,6 @@
               "$ref": "#/components/schemas/PackPolicy"
             },
             "type": "array"
-          },
-          "replaces": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
           },
           "requires": {
             "items": {
@@ -2830,9 +2800,6 @@
               "$ref": "#/components/schemas/ServiceSpec"
             },
             "type": "array"
-          },
-          "starter": {
-            "type": "string"
           },
           "toolchain": {
             "type": "string"
@@ -2862,23 +2829,11 @@
           "apiVersion": {
             "type": "string"
           },
-          "clears": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
           "declaration": {
             "$ref": "#/components/schemas/PackSpec"
           },
           "description": {
             "type": "string"
-          },
-          "drops": {
-            "items": {
-              "$ref": "#/components/schemas/PackDrop"
-            },
-            "type": "array"
           },
           "enabled": {
             "type": "boolean"
@@ -2901,9 +2856,6 @@
           "guidanceBytes": {
             "type": "integer"
           },
-          "includes": {
-            "type": "string"
-          },
           "name": {
             "type": "string"
           },
@@ -2919,12 +2871,6 @@
             },
             "type": "array"
           },
-          "replaces": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object"
-          },
           "requires": {
             "items": {
               "$ref": "#/components/schemas/packRequirement"
@@ -2936,9 +2882,6 @@
               "$ref": "#/components/schemas/ServiceSpec"
             },
             "type": "array"
-          },
-          "starter": {
-            "type": "string"
           },
           "staticStarter": {
             "type": "boolean"
@@ -3123,8 +3066,11 @@
           "namespace": {
             "type": "string"
           },
-          "pack": {
-            "type": "string"
+          "packs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "requestId": {
             "format": "uuid",

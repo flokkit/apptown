@@ -42,7 +42,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 	name := fmt.Sprintf("apptown-wp-it-%d-%d", os.Getpid(), time.Now().UnixNano())
 	image, network, db, s3, web := name+":test", name+"-net", name+"-db", name+"-s3", name+"-web"
 	dir := t.TempDir()
-	if err := fs.WalkDir(stock.FS, "seeds/wordpress-bedrock", func(path string, d fs.DirEntry, err error) error {
+	if err := fs.WalkDir(stock.FS, "seeds/wordpress", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
@@ -50,7 +50,7 @@ func wordpressSeedKeepsDataAndMedia(t *testing.T, size string) {
 		if err != nil {
 			return err
 		}
-		rel := strings.TrimPrefix(path, "seeds/wordpress-bedrock/")
+		rel := strings.TrimPrefix(path, "seeds/wordpress/")
 		p := filepath.Join(dir, rel)
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
 			return err

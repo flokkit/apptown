@@ -185,7 +185,7 @@ scanners:
     network: true   # npm resolves against the registry when the lock is stale
     target: source
     manual: true
-  # The project's own npm scripts (frontend/vite-typescript): install exactly
+  # The project's own npm scripts (frontend/vite-react): install exactly
   # the lockfile, then run the script package.json declares. The script is
   # the project's declaration; npm, tsc, Vite and Vitest are the tools. A
   # package.json without the script fails with words, since the Dockerfile

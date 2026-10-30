@@ -136,7 +136,7 @@ func TestLaneGitignoreChecksNameTheirOwnBuildOutput(t *testing.T) {
 		{"lang/selection/java-spring-boot", "java", "pom.xml", "target/\n", "pom.xml"},
 		{"lang/selection/rust", "rust", "Cargo.toml", "/target\n", "Cargo.toml"},
 		{"lang/selection/node-fullstack", "node", "package.json", "node_modules/\ndist/\n", "package.json"},
-		{"lang/selection/typescript-for-web", "node", "package.json", "**/node_modules/\ndist/**\n", "package.json"},
+		{"frontend/vite-react", "node", "package.json", "**/node_modules/\ndist/**\n", "package.json"},
 		{"lang/selection/django-fullstack", "python", "pyproject.toml", "*.py[cod]\n", "pyproject.toml"},
 		{"lang/selection/dotnet-aspnet", "dotnet", "app.csproj", "[Bb]in/\n[Oo]bj/\n", ".csproj"},
 		{"lang/selection/rails", "ruby", "Gemfile", "/tmp/*\n/log/*\n", "Gemfile"},
@@ -164,8 +164,8 @@ func TestLaneGitignoreChecksNameTheirOwnBuildOutput(t *testing.T) {
 	}
 }
 
-// typescript-for-web sits in the Go house style, where a service may have
-// no frontend at all (go-small failed it, 2026-10). Applicability, not the
+// frontend/vite-react is taken beside a backend, which may have no
+// frontend at all (a Go service failed it, 2026-10). Applicability, not the
 // script, now decides that: a part that names only go is not judged; a part
 // that names node is judged at every package.json at or below its folder,
 // against the repository's own ignore list; and a part that names node with
@@ -178,7 +178,7 @@ func TestLaneGitignoreChecksNameTheirOwnBuildOutput(t *testing.T) {
 func TestFrontendIgnoreCheckWaitsForAFrontend(t *testing.T) {
 	t.Parallel()
 	evaluator := NewEvaluator(localChecks{}, nil, stock.Versions())
-	check := sourcedNamed(t, "lang/selection/typescript-for-web", "gitignore-names-build-output")
+	check := sourcedNamed(t, "frontend/vite-react", "gitignore-names-build-output")
 	run := func(files map[string]string, name string) Results {
 		dir := t.TempDir()
 		writeTree(t, dir, files)

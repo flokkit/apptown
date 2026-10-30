@@ -38,14 +38,14 @@ func TestPackLibraryHTTPWarningsProtectionAndManifest(t *testing.T) {
 		t.Fatal("invalid pack saved")
 	}
 	// The editor's shape: a picked policy is its name with an empty rule
-	// and options, and the draft carries versionName and the inclusion fields.
+	// and options, and the draft carries versionName.
 	// A version pins what it names, so items the library lacks are refused
 	// by name; an unknown toolchain, a starter file, is only a warning.
-	w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"custom-pack","description":"Demo setup","versionName":"","includes":"","replaces":{},"drops":[],"guidance":["missing-guide"],"workflows":["missing-flow"],"policies":[{"name":"missing-policy","description":"","rule":"","with":{}}],"toolchain":"missing-tool"}`)
+	w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"custom-pack","description":"Demo setup","versionName":"","guidance":["missing-guide"],"workflows":["missing-flow"],"policies":[{"name":"missing-policy","description":"","rule":"","with":{}}],"toolchain":"missing-tool"}`)
 	if w.Code != 400 || !strings.Contains(w.Body.String(), "missing-guide") || !strings.Contains(w.Body.String(), "missing-flow") || !strings.Contains(w.Body.String(), "missing-policy") {
 		t.Fatalf("missing items: %d %s", w.Code, w.Body.String())
 	}
-	w = authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"custom-pack","description":"Demo setup","versionName":"","includes":"","replaces":{},"drops":[],"guidance":[],"workflows":[],"policies":[],"toolchain":"missing-tool"}`)
+	w = authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"custom-pack","description":"Demo setup","versionName":"","guidance":[],"workflows":[],"policies":[],"toolchain":"missing-tool"}`)
 	var saved struct {
 		OK       bool
 		Warnings []string
@@ -94,7 +94,7 @@ func TestPackLibraryHTTPWarningsProtectionAndManifest(t *testing.T) {
 	for _, tc := range []struct {
 		who, body string
 		code      int
-	}{{"outsider", `{"name":"custom-pack"}`, 403}, {"owner", `{`, 400}, {"owner", `{"name":"missing"}`, 404}, {"owner", `{"name":"custom-pack"}`, 200}} {
+	}{{"outsider", `{"names":["custom-pack"]}`, 403}, {"owner", `{`, 400}, {"owner", `{"name":"custom-pack"}`, 400}, {"owner", `{"names":["missing"]}`, 404}, {"owner", `{"names":["custom-pack"]}`, 200}} {
 		w := authzCall(h, tc.who, "POST", base, tc.body)
 		if w.Code != tc.code {
 			t.Fatalf("apply pack: %d %s", w.Code, w.Body.String())
@@ -189,7 +189,7 @@ spec:
 func TestPackListSaysWhichStartersAreStatic(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
-	for _, name := range []string{"html-game", "go-small"} {
+	for _, name := range []string{"html-game", "go"} {
 		if _, err := a.Ways.PublishPack(t.Context(), name, "stock pack", `{}`, "stock"); err != nil {
 			t.Fatal(err)
 		}
@@ -206,50 +206,43 @@ func TestPackListSaysWhichStartersAreStatic(t *testing.T) {
 	for _, p := range packs {
 		got[p.Name] = p.StaticStarter
 	}
-	if !got["html-game"] || got["go-small"] {
+	if !got["html-game"] || got["go"] {
 		t.Fatalf("static starters: %v", got)
 	}
 }
 
-// A pack that includes a stock pack is saved through the editor's route as
-// a declaration and applied as one choice: the project gets the resolved
-// contents at the included publication's pins, and starts from the
-// included pack's starter files. A replacement of an item the included pack
-// lacks is refused and saves nothing.
-func TestAnIncludingPackAppliesItsResolvedContents(t *testing.T) {
+// A pack of the instance's own is saved through the editor's route as a
+// declaration, keeping what the editor does not edit, and a project takes
+// it beside a stock pack: the receipt names both and carries both packs'
+// guidance. A declaration that names an item the library lacks, or that
+// tries to include another pack, is refused and saves nothing.
+func TestAPackOfYourOwnIsTakenBesideAStockPack(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	h := a.Handler()
-	for _, b := range []string{"base/a", "base/b", "team/a"} {
+	for _, b := range []string{"base/a", "team/a"} {
 		if _, err := a.Ways.CreateBlock(t.Context(), b, b+" rules", "", "fixture"); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := a.Ways.PublishPack(t.Context(), "html-game", "stock pack", `{"guidance":["base/a","base/b"]}`, "stock"); err != nil {
+	if _, err := a.Ways.PublishPack(t.Context(), "html-game", "stock pack", `{"guidance":["base/a"]}`, "stock"); err != nil {
 		t.Fatal(err)
 	}
-	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","includes":"html-game","replaces":{"base/a":"nope"}}`); w.Code != 400 {
-		t.Fatalf("an unresolvable declaration: %d %s", w.Code, w.Body.String())
+	for _, refused := range []string{`{"name":"team","guidance":["nope"]}`, `{"name":"team","includes":"html-game"}`} {
+		if w := authzCall(h, "boss", "POST", "/api/v1/packs", refused); w.Code != 400 {
+			t.Fatalf("%s: %d %s", refused, w.Code, w.Body.String())
+		}
 	}
 	if _, err := a.Ways.Pack(t.Context(), "team"); err == nil {
-		t.Fatal("an unresolvable declaration was saved")
+		t.Fatal("a refused declaration was saved")
 	}
-	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","includes":"html-game","replaces":{"base/a":"team/a"},"drops":[{"item":"base/b","reason":"not ours"}]}`); w.Code != 200 {
-		t.Fatalf("save an including pack: %d %s", w.Code, w.Body.String())
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","guidance":["team/a"],"extensions":["lsp"],"services":[{"name":"db","image":"postgres:16"}]}`); w.Code != 200 {
+		t.Fatalf("save a pack: %d %s", w.Code, w.Body.String())
 	}
-	team, err := a.Ways.Pack(t.Context(), "team")
-	if err != nil || strings.Join(team.Guidance, ",") != "team/a" || team.StarterPack() != "html-game" {
-		t.Fatalf("offered contents: %+v %v", team, err)
-	}
-	// A save sends the whole declaration back; what the editor does not
-	// edit is kept, not dropped.
-	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"keeps","includes":"html-game","clears":["toolchain"],"extensions":["lsp"],"services":[{"name":"db","image":"postgres:16"}]}`); w.Code != 200 {
-		t.Fatalf("save with setup: %d %s", w.Code, w.Body.String())
-	}
-	if kept, err := a.Ways.PackDeclaration(t.Context(), "keeps"); err != nil || strings.Join(kept.Clears, ",") != "toolchain" || strings.Join(kept.Extensions, ",") != "lsp" || len(kept.Services) != 1 {
+	if kept, err := a.Ways.PackDeclaration(t.Context(), "team"); err != nil || strings.Join(kept.Extensions, ",") != "lsp" || len(kept.Services) != 1 {
 		t.Fatalf("the declaration's setup was dropped: %+v %v", kept, err)
 	}
-	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/pack", `{"name":"team"}`); w.Code != 200 {
+	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/pack", `{"names":["html-game","team"]}`); w.Code != 200 {
 		t.Fatalf("apply: %d %s", w.Code, w.Body.String())
 	}
 	got, err := a.Adoption.CurrentReceipt(t.Context(), idstest.N(1))
@@ -260,16 +253,16 @@ func TestAnIncludingPackAppliesItsResolvedContents(t *testing.T) {
 	for _, b := range got.Receipt.Guidance {
 		names = append(names, b.Name)
 	}
-	if strings.Join(names, ",") != "team/a" || got.Receipt.Pack != "team" {
-		t.Fatalf("the project took the resolved contents: %+v", got.Receipt)
+	slices.Sort(names)
+	if strings.Join(names, ",") != "base/a,team/a" || !slices.Contains(got.Receipt.Packs, "team") || !slices.Contains(got.Receipt.Packs, "html-game") {
+		t.Fatalf("the project took both packs: %+v", got.Receipt)
 	}
 }
 
 // Recommending a version is a person's act: an administrator's agent token
-// is refused by authorization, their command-line token is not. Moving a
-// recommendation cuts a follow version of the including pack, which moves
-// no project and is not what new projects get: they get the recommended
-// version's contents, toolchain and services included.
+// is refused by authorization, their command-line token is not. It moves
+// no project; new projects get the recommended version's contents,
+// toolchain and services included.
 func TestRecommendingIsAPersonsActAndMovesNoProject(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
@@ -277,48 +270,30 @@ func TestRecommendingIsAPersonsActAndMovesNoProject(t *testing.T) {
 	if _, err := a.Ways.CreateBlock(t.Context(), "base/a", "rules", "", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Ways.PublishPack(t.Context(), "base", "Base", `{"guidance":["base/a"]}`, ""); err != nil {
-		t.Fatal(err)
-	}
-	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","includes":"base"}`); w.Code != 200 {
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","guidance":["base/a"]}`); w.Code != 200 {
 		t.Fatalf("save team: %d %s", w.Code, w.Body.String())
 	}
-	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/pack", `{"name":"team"}`); w.Code != 200 {
+	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/pack", `{"names":["team"]}`); w.Code != 200 {
 		t.Fatalf("apply: %d %s", w.Code, w.Body.String())
 	}
 	before, err := a.Adoption.CurrentReceipt(t.Context(), idstest.N(1))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Ways.PublishPack(t.Context(), "base", "Base", `{"guidance":["base/a"],"toolchain":"go","services":[{"capability":"postgres"}]}`, ""); err != nil {
-		t.Fatal(err)
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","guidance":["base/a"],"toolchain":"go","services":[{"name":"postgres","image":"postgres:16"}]}`); w.Code != 200 {
+		t.Fatalf("save team v2: %d %s", w.Code, w.Body.String())
 	}
 	agent := tokenFor(t, a, "boss-agent", "boss", "admin", access.TokenAgent)
-	refusedAsAgent(t, "recommend", bearerCall(a, agent, "POST", "/api/v1/packs/base/recommended", `{"version":2}`))
-	if h, _ := a.Ways.PackHistory(t.Context(), "base"); h.Recommended != 1 {
+	refusedAsAgent(t, "recommend", bearerCall(a, agent, "POST", "/api/v1/packs/team/recommended", `{"version":2}`))
+	if h, _ := a.Ways.PackHistory(t.Context(), "team"); h.Recommended != 1 {
 		t.Fatalf("a refused recommendation moved it: %+v", h)
-	}
-	cli := tokenFor(t, a, "boss-cli", "boss", "admin", access.TokenCLI)
-	if w := bearerCall(a, cli, "POST", "/api/v1/packs/base/recommended", `{"version":2}`); w.Code != 200 {
-		t.Fatalf("recommend with a command-line token: %d %s", w.Code, w.Body.String())
-	}
-	team, err := a.Ways.PackHistory(t.Context(), "team")
-	if err != nil || team.Latest != 2 || team.Recommended != 1 || team.Versions[0].Spec.Toolchain != "go" {
-		t.Fatalf("team follows base v2, unrecommended: %+v %v", team, err)
-	}
-	after, err := a.Adoption.CurrentReceipt(t.Context(), idstest.N(1))
-	if err != nil || after.Revision != before.Revision {
-		t.Fatalf("a follow version moved a project: %d → %d %v", before.Revision, after.Revision, err)
-	}
-	if packs, err := adoption.ProjectPacksIn(t.Context(), a.DB, idstest.N(1)); err != nil || len(packs) != 1 || packs[0].Version != 1 || packs[0].Recommended != 1 {
-		t.Fatalf("the project stays on team v1: %+v %v", packs, err)
 	}
 	w := authzCall(h, "owner", "GET", "/api/v1/packs", "")
 	var listed []struct {
 		Name      string
 		Version   int64
 		Toolchain string
-		Services  []struct{ Capability string }
+		Services  []struct{ Name string }
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &listed); err != nil || w.Code != 200 {
 		t.Fatalf("pack list: %d %v", w.Code, err)
@@ -328,10 +303,21 @@ func TestRecommendingIsAPersonsActAndMovesNoProject(t *testing.T) {
 			t.Fatalf("the list offers team's recommended contents, not its newest: %+v", p)
 		}
 	}
-	if w := authzCall(h, "owner", "POST", "/api/v1/projects/open/pack", `{"name":"team"}`); w.Code != 200 {
+	cli := tokenFor(t, a, "boss-cli", "boss", "admin", access.TokenCLI)
+	if w := bearerCall(a, cli, "POST", "/api/v1/packs/team/recommended", `{"version":2}`); w.Code != 200 {
+		t.Fatalf("recommend with a command-line token: %d %s", w.Code, w.Body.String())
+	}
+	after, err := a.Adoption.CurrentReceipt(t.Context(), idstest.N(1))
+	if err != nil || after.Revision != before.Revision {
+		t.Fatalf("a recommendation moved a project: %d → %d %v", before.Revision, after.Revision, err)
+	}
+	if packs, err := adoption.ProjectPacksIn(t.Context(), a.DB, idstest.N(1)); err != nil || len(packs) != 1 || packs[0].Version != 1 || packs[0].Recommended != 2 {
+		t.Fatalf("the project stays on team v1, offered v2: %+v %v", packs, err)
+	}
+	if w := authzCall(h, "owner", "POST", "/api/v1/projects/open/pack", `{"names":["team"]}`); w.Code != 200 {
 		t.Fatalf("apply to a second project: %d %s", w.Code, w.Body.String())
 	}
-	if packs, err := adoption.ProjectPacksIn(t.Context(), a.DB, idstest.N(2)); err != nil || len(packs) != 1 || packs[0].Version != 1 {
+	if packs, err := adoption.ProjectPacksIn(t.Context(), a.DB, idstest.N(2)); err != nil || len(packs) != 1 || packs[0].Version != 2 {
 		t.Fatalf("a new project gets the recommended version: %+v %v", packs, err)
 	}
 }
@@ -350,8 +336,8 @@ spec:
           with: {means: "Approve the landing"}
 `
 
-// Dropping or replacing an included workflow or policy changes the pack,
-// not the projects already on it: the update offer names what adopting
+// A new version that drops a workflow or replaces a policy changes the
+// pack, not the projects already on it: the update offer names what adopting
 // leaves in place, and adopting keeps it, beside the project's own policy.
 func TestAdoptingADropKeepsWhatTheProjectHasAndSaysSo(t *testing.T) {
 	t.Parallel()
@@ -365,13 +351,10 @@ func TestAdoptingADropKeepsWhatTheProjectHasAndSaysSo(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := a.Ways.PublishPack(t.Context(), "base", "Base", `{"workflows":["old-lane"],"policies":[{"name":"strict"}]}`, ""); err != nil {
-		t.Fatal(err)
-	}
-	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","includes":"base"}`); w.Code != 200 {
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","workflows":["old-lane"],"policies":[{"name":"strict"}]}`); w.Code != 200 {
 		t.Fatalf("save team: %d %s", w.Code, w.Body.String())
 	}
-	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/pack", `{"name":"team"}`); w.Code != 200 {
+	if w := authzCall(h, "owner", "POST", "/api/v1/projects/game/pack", `{"names":["team"]}`); w.Code != 200 {
 		t.Fatalf("apply: %d %s", w.Code, w.Body.String())
 	}
 	if err := a.Adoption.InstallPolicy(t.Context(), idstest.N(1), "own-rule", "ours", "requireStepBefore", map[string]any{"uses": "deploy", "requires": "lint"}, "", "fixture"); err != nil {
@@ -380,7 +363,7 @@ func TestAdoptingADropKeepsWhatTheProjectHasAndSaysSo(t *testing.T) {
 	if _, err := a.recordAdoption(a.projectByID(context.Background(), idstest.N(1)), "edit", "fixture installs the project's own policy", "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","includes":"base","drops":[{"item":"old-lane","reason":"we land another way"}],"replaces":{"strict":"team-strict"}}`); w.Code != 200 {
+	if w := authzCall(h, "boss", "POST", "/api/v1/packs", `{"name":"team","policies":[{"name":"team-strict"}]}`); w.Code != 200 {
 		t.Fatalf("save team v2: %d %s", w.Code, w.Body.String())
 	}
 	w := authzCall(h, "owner", "POST", "/api/v1/projects/game/adoption/prepare", `{"packs":[{"pack":"team","version":2}]}`)
@@ -432,7 +415,7 @@ func TestAPackNoLongerOfferedTakesNoNewProject(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if w := authzCall(h, "boss", "POST", "/api/v1/projects/open/pack", `{"name":"kept-pack"}`); w.Code != 200 {
+	if w := authzCall(h, "boss", "POST", "/api/v1/projects/open/pack", `{"names":["kept-pack"]}`); w.Code != 200 {
 		t.Fatalf("an adopter while it was offered: %d %s", w.Code, w.Body.String())
 	}
 	if _, err := a.Ways.PublishPack(t.Context(), "kept-pack", "kept-pack", `{"description":"v2"}`, ""); err != nil {
@@ -456,7 +439,7 @@ func TestAPackNoLongerOfferedTakesNoNewProject(t *testing.T) {
 			t.Fatalf("%s took a pack no longer offered: %d %s", door, code, body)
 		}
 	}
-	w := authzCall(h, "boss", "POST", "/api/v1/projects/game/pack", `{"name":"kept-pack"}`)
+	w := authzCall(h, "boss", "POST", "/api/v1/projects/game/pack", `{"names":["kept-pack"]}`)
 	refused("applying it", w, w.Code, w.Body.String())
 	for _, viaChange := range []bool{false, true} {
 		body := fmt.Sprintf(`{"expectedRevision":%d,"packs":[{"pack":"kept-pack","version":1}],"viaChange":%v}`, before, viaChange)
@@ -467,7 +450,7 @@ func TestAPackNoLongerOfferedTakesNoNewProject(t *testing.T) {
 		t.Fatalf("a refused adoption recorded revision %d", after)
 	}
 	agent := mcp_token(t, a, "boss-agent", "boss", "admin")
-	if res := mcp_call(t, a, agent, "create_project", map[string]any{"slug": "late", "name": "Late", "pack": "kept-pack"}); res["isError"] != true {
+	if res := mcp_call(t, a, agent, "create_project", map[string]any{"slug": "late", "name": "Late", "packs": []any{"kept-pack"}}); res["isError"] != true {
 		t.Fatalf("an agent created a project with a pack no longer offered: %v", res)
 	}
 	// The project already on it moves to its other version.

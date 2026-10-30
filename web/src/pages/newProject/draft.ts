@@ -22,7 +22,8 @@ export type Draft = {
   description: string
   questions: string[]
   answers: Record<string, string>
-  pack: string | null // null = undecided, '' = bare
+  // The packs the project takes together; null = undecided, [] = bare.
+  packs: string[] | null
   packWhy: string
   icon: string // the project's face, picked by the interview
   choosing: boolean // the card wall, on demand
@@ -30,7 +31,7 @@ export type Draft = {
   // project's Services tab edits later.
   services: NeedPick[]
   // servicesEdited: someone has ticked or unticked a service. Until then the
-  // list is the chosen pack's proposal, worked out again whenever the packs
+  // list is the chosen packs' proposal, worked out again whenever the packs
   // or the service catalog arrive (a pack picked before the catalog has
   // answered would otherwise keep no services).
   servicesEdited: boolean
@@ -50,7 +51,7 @@ export type Draft = {
 
 export const newDraft = (): Draft => ({
   step: 1, name: '', nameEdited: false, address: null, creationRequestId: crypto.randomUUID(), interviewRevision: 0,
-  description: '', questions: [], answers: {}, pack: null, packWhy: '', icon: '', choosing: false, services: [], servicesEdited: false,
+  description: '', questions: [], answers: {}, packs: null, packWhy: '', icon: '', choosing: false, services: [], servicesEdited: false,
   remoteChoice: null, namespaceId: '', repositoryName: null, attachmentRequestId: crypto.randomUUID(), origin: 'empty', bundleFile: null, sourceURL: '', sourceBranch: '', gitSecret: '',
 })
 
@@ -62,16 +63,20 @@ export const slugOf = (d: Draft) => d.address ?? (slugify(d.name) || (!d.nameEdi
 
 // The guards: what each step needs before the next.
 export const nameReady = (d: Draft) => d.description.trim() !== '' && slugOf(d) !== ''
-export const wayReady = (d: Draft) => d.pack !== null
+export const wayReady = (d: Draft) => d.packs !== null
 export const originReady = (d: Draft) =>
   d.origin === 'empty' || (d.origin === 'bundle' ? !!d.bundleFile : d.sourceURL.trim().startsWith('https://'))
 
-// servicesFor is what a pack proposes, as needs from the catalog: a pack
-// names a service by its catalog capability, and its image tag is the
-// version it suggests. A server pack that says "Postgres" starts with
-// Postgres ticked; the person tunes from there.
-export function servicesFor(pack: string, packs: PackView[], catalog: DependencyKind[]): NeedPick[] {
-  return (packs.find((p) => p.name === pack)?.services ?? [])
+// servicesFor is what the chosen packs propose together, as needs from the
+// catalog: a pack names a service by its catalog capability, and its image
+// tag is the version it suggests. A project with the postgres pack starts
+// with Postgres ticked; the person tunes from there. Two packs proposing
+// the same service propose it once (packs that disagree on it cannot be
+// taken together, and creating the project says so).
+export function servicesFor(chosen: string[], packs: PackView[], catalog: DependencyKind[]): NeedPick[] {
+  const proposed = packs.filter((p) => chosen.includes(p.name)).flatMap((p) => p.services ?? [])
+  return proposed
+    .filter((sv, i) => proposed.findIndex((o) => o.name === sv.name) === i)
     .filter((sv) => catalog.some((k) => k.capability === sv.name))
     .map((sv): NeedPick => {
       const tag = sv.image.split(':')[1]?.replace(/-alpine$/, '')
@@ -90,8 +95,8 @@ export type DraftAct =
   | { type: 'asked'; questions: string[]; revision: number }
   | { type: 'answer'; question: string; answer: string }
   | { type: 'unask' }
-  | { type: 'pack'; pack: string; why: string; icon?: string; services: NeedPick[]; revision?: number }
-  // The chosen pack's proposal, worked out again from newer reads; ignored
+  | { type: 'packs'; packs: string[]; why: string; icon?: string; services: NeedPick[]; revision?: number }
+  // The chosen packs' proposal, worked out again from newer reads; ignored
   // once someone has edited the services.
   | { type: 'proposed'; services: NeedPick[] }
   | { type: 'repick' }
@@ -119,12 +124,12 @@ export function draftReducer(d: Draft, a: DraftAct): Draft {
       return { ...d, answers: { ...d.answers, [a.question]: a.answer }, interviewRevision: d.interviewRevision + 1 }
     case 'unask':
       return { ...d, questions: [], answers: {}, interviewRevision: d.interviewRevision + 1 }
-    case 'pack':
-      return { ...d, interviewRevision: d.interviewRevision + 1, pack: a.pack, packWhy: a.why, icon: a.icon ?? d.icon, questions: [], answers: {}, choosing: false, services: a.services, servicesEdited: false }
+    case 'packs':
+      return { ...d, interviewRevision: d.interviewRevision + 1, packs: a.packs, packWhy: a.why, icon: a.icon ?? d.icon, questions: [], answers: {}, choosing: false, services: a.services, servicesEdited: false }
     case 'proposed':
       return d.servicesEdited ? d : { ...d, services: a.services }
     case 'repick':
-      return { ...d, pack: null, packWhy: '', choosing: false, interviewRevision: d.interviewRevision + 1 }
+      return { ...d, packs: null, packWhy: '', choosing: false, interviewRevision: d.interviewRevision + 1 }
     case 'choosing':
       return { ...d, choosing: a.on, interviewRevision: d.interviewRevision + 1 }
     case 'service': {

@@ -694,25 +694,23 @@ func (q *Queries) InsertPack(ctx context.Context, arg InsertPackParams) (Pack, e
 }
 
 const insertPackVersion = `-- name: InsertPackVersion :one
-INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,included_pack,included_version,name,based_on,source,signer)
-VALUES($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on, source, signer
+INSERT INTO pack_versions(id, pack_id,version,spec_json,note,created_at,pins_json,declaration_json,name,based_on,source,signer)
+VALUES($1, $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, name, based_on, source, signer
 `
 
 type InsertPackVersionParams struct {
-	ID              ids.ID
-	PackID          ids.ID
-	Version         int64
-	Spec            json.RawMessage
-	Note            string
-	At              time.Time
-	Pins            json.RawMessage
-	Declaration     json.RawMessage
-	IncludedPack    string
-	IncludedVersion int64
-	Name            string
-	BasedOn         int64
-	Source          string
-	Signer          string
+	ID          ids.ID
+	PackID      ids.ID
+	Version     int64
+	Spec        json.RawMessage
+	Note        string
+	At          time.Time
+	Pins        json.RawMessage
+	Declaration json.RawMessage
+	Name        string
+	BasedOn     int64
+	Source      string
+	Signer      string
 }
 
 func (q *Queries) InsertPackVersion(ctx context.Context, arg InsertPackVersionParams) (PackVersion, error) {
@@ -725,8 +723,6 @@ func (q *Queries) InsertPackVersion(ctx context.Context, arg InsertPackVersionPa
 		arg.At,
 		arg.Pins,
 		arg.Declaration,
-		arg.IncludedPack,
-		arg.IncludedVersion,
 		arg.Name,
 		arg.BasedOn,
 		arg.Source,
@@ -742,8 +738,6 @@ func (q *Queries) InsertPackVersion(ctx context.Context, arg InsertPackVersionPa
 		&i.CreatedAt,
 		&i.PinsJson,
 		&i.DeclarationJson,
-		&i.IncludedPack,
-		&i.IncludedVersion,
 		&i.Name,
 		&i.BasedOn,
 		&i.Source,
@@ -1090,8 +1084,7 @@ func (q *Queries) PackByNameForUpdate(ctx context.Context, name string) (Pack, e
 const packPublication = `-- name: PackPublication :one
 SELECT p.id AS owner_id,v.id,v.pack_id,v.version,
  COALESCE(v.spec_json,'{}'::jsonb) AS spec_json,v.note,v.created_at,
- COALESCE(v.pins_json,'{}'::jsonb) AS pins_json,
- COALESCE(v.included_pack,'')::text AS included_pack,COALESCE(v.included_version,0)::bigint AS included_version FROM packs p
+ COALESCE(v.pins_json,'{}'::jsonb) AS pins_json FROM packs p
 LEFT JOIN pack_versions v ON v.pack_id=p.id AND v.version=$2 WHERE p.name=$1
 `
 
@@ -1101,16 +1094,14 @@ type PackPublicationParams struct {
 }
 
 type PackPublicationRow struct {
-	OwnerID         ids.ID
-	ID              ids.ID
-	PackID          ids.ID
-	Version         sql.NullInt64
-	SpecJson        json.RawMessage
-	Note            sql.NullString
-	CreatedAt       sql.NullTime
-	PinsJson        json.RawMessage
-	IncludedPack    string
-	IncludedVersion int64
+	OwnerID   ids.ID
+	ID        ids.ID
+	PackID    ids.ID
+	Version   sql.NullInt64
+	SpecJson  json.RawMessage
+	Note      sql.NullString
+	CreatedAt sql.NullTime
+	PinsJson  json.RawMessage
 }
 
 // A single snapshot distinguishes a missing pack from a missing immutable
@@ -1128,14 +1119,12 @@ func (q *Queries) PackPublication(ctx context.Context, arg PackPublicationParams
 		&i.Note,
 		&i.CreatedAt,
 		&i.PinsJson,
-		&i.IncludedPack,
-		&i.IncludedVersion,
 	)
 	return i, err
 }
 
 const packVersion = `-- name: PackVersion :one
-SELECT id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on, source, signer FROM pack_versions WHERE pack_id=$1 AND version=$2
+SELECT id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, name, based_on, source, signer FROM pack_versions WHERE pack_id=$1 AND version=$2
 `
 
 type PackVersionParams struct {
@@ -1155,8 +1144,6 @@ func (q *Queries) PackVersion(ctx context.Context, arg PackVersionParams) (PackV
 		&i.CreatedAt,
 		&i.PinsJson,
 		&i.DeclarationJson,
-		&i.IncludedPack,
-		&i.IncludedVersion,
 		&i.Name,
 		&i.BasedOn,
 		&i.Source,
@@ -1166,7 +1153,7 @@ func (q *Queries) PackVersion(ctx context.Context, arg PackVersionParams) (PackV
 }
 
 const packVersions = `-- name: PackVersions :many
-SELECT id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, included_pack, included_version, name, based_on, source, signer FROM pack_versions WHERE pack_id=$1 ORDER BY version DESC
+SELECT id, pack_id, version, spec_json, note, created_at, pins_json, declaration_json, name, based_on, source, signer FROM pack_versions WHERE pack_id=$1 ORDER BY version DESC
 `
 
 func (q *Queries) PackVersions(ctx context.Context, packID ids.ID) ([]PackVersion, error) {
@@ -1187,8 +1174,6 @@ func (q *Queries) PackVersions(ctx context.Context, packID ids.ID) ([]PackVersio
 			&i.CreatedAt,
 			&i.PinsJson,
 			&i.DeclarationJson,
-			&i.IncludedPack,
-			&i.IncludedVersion,
 			&i.Name,
 			&i.BasedOn,
 			&i.Source,
@@ -1213,45 +1198,6 @@ SELECT id, name, description, spec_json, latest_version, recommended_version, or
 
 func (q *Queries) Packs(ctx context.Context) ([]Pack, error) {
 	rows, err := q.db.QueryContext(ctx, packs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Pack
-	for rows.Next() {
-		var i Pack
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Description,
-			&i.SpecJson,
-			&i.LatestVersion,
-			&i.RecommendedVersion,
-			&i.Origin,
-			&i.Enabled,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const packsIncluding = `-- name: PacksIncluding :many
-SELECT p.id, p.name, p.description, p.spec_json, p.latest_version, p.recommended_version, p.origin, p.enabled, p.updated_at FROM packs p JOIN pack_versions v ON v.pack_id=p.id AND v.version=p.latest_version
-WHERE v.included_pack=$1::text ORDER BY p.name FOR UPDATE OF p
-`
-
-// Packs whose latest publication resolved against the named pack.
-func (q *Queries) PacksIncluding(ctx context.Context, included string) ([]Pack, error) {
-	rows, err := q.db.QueryContext(ctx, packsIncluding, included)
 	if err != nil {
 		return nil, err
 	}

@@ -48,8 +48,10 @@ type ReceiptPolicy struct {
 
 // Receipt is the resolved union, per component type.
 type Receipt struct {
-	Resolver   int               `json:"resolver"`
-	Pack       string            `json:"pack,omitempty"`
+	Resolver int `json:"resolver"`
+	// Packs names every pack the project is on, sorted, the platform pack
+	// included: together they govern it, none above another.
+	Packs      []string          `json:"packs,omitempty"`
 	Guidance   []ReceiptBlock    `json:"guidance"`
 	Workflows  []ReceiptWorkflow `json:"workflows"`
 	Policies   []ReceiptPolicy   `json:"policies"`
@@ -130,8 +132,8 @@ func Diff(from, to Receipt) string {
 	if !slices.Equal(from.Extensions, to.Extensions) {
 		out = append(out, "extensions changed")
 	}
-	if from.Pack != to.Pack {
-		out = append(out, fmt.Sprintf("pack %q→%q", from.Pack, to.Pack))
+	if !slices.Equal(from.Packs, to.Packs) {
+		out = append(out, fmt.Sprintf("packs %v→%v", from.Packs, to.Packs))
 	}
 	if len(out) == 0 {
 		return "no visible difference (order or metadata)"

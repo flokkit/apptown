@@ -96,7 +96,9 @@ func (s *Instructions) errorsDocSection(ctx context.Context, projectID ids.ID) (
 	return "\n## Error reporting (attached, generated)\n\n" +
 		"This project has Sentry-compatible error reporting. The DSN is injected\n" +
 		"into app containers as SENTRY_DSN — initialize the SDK\n" +
-		"from that env var (never hardcode it). See the observability guidance.\n" +
+		"from that env var (never hardcode it); absent, reporting is off. Set\n" +
+		"release to the commit SHA and environment to the deployment. Let the SDK\n" +
+		"capture unhandled errors; capture explicitly only to add context.\n" +
 		"A static site cannot read env vars: its page loads /_apptown/env.js and\n" +
 		"reads window.__APPTOWN_ENV__.SENTRY_DSN (guidance deploy/browser-values);\n" +
 		"AppTown checks the page loads it.\n" +

@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -159,7 +160,7 @@ func TestMCPCreateProject(t *testing.T) {
 	t.Parallel()
 	a, boss := mcpWriteFixture(t)
 	a.SyncStock(t.Context()) // the packs and their guidance, as apptownd has them at boot
-	res := mcp_call(t, a, boss, "create_project", map[string]any{"slug": "snake", "name": "Snake", "blurb": "a snake game", "pack": "html-game"})
+	res := mcp_call(t, a, boss, "create_project", map[string]any{"slug": "snake", "name": "Snake", "blurb": "a snake game", "packs": []any{"html-game"}})
 	sc, _ := res["structuredContent"].(map[string]any)
 	if sc == nil || res["isError"] == true {
 		t.Fatalf("create_project: %v", res)
@@ -171,8 +172,8 @@ func TestMCPCreateProject(t *testing.T) {
 	if sc["ownerGroup"] != "boss" || p.OwnerGroup != "boss" {
 		t.Errorf("the creator's personal group owns it: %v", sc["ownerGroup"])
 	}
-	if pk, _ := sc["pack"].(map[string]any); pk == nil || pk["name"] != "html-game" || pk["error"] != nil {
-		t.Errorf("the pack should be applied: %v", sc["pack"])
+	if pk, _ := sc["packs"].(map[string]any); pk == nil || fmt.Sprint(pk["names"]) != "[html-game]" || pk["error"] != nil {
+		t.Errorf("the pack should be applied: %v", sc["packs"])
 	}
 	if !slices.ContainsFunc(mustRecords(a.Access.ActiveGrants(context.Background(), access.Principal{Kind: "user", Name: "boss"})), func(g access.Grant) bool {
 		return g.RoleName == access.RoleProjectOwner && g.ScopeType == access.ScopeProject && g.ScopeID == p.ID.String()

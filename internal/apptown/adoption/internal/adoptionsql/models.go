@@ -14,7 +14,6 @@ import (
 type Adoption struct {
 	ProjectID ids.ID
 	Revision  int64
-	Pack      string
 	DriftNote string
 }
 

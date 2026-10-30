@@ -303,7 +303,7 @@ func newTaskAppTown(t *testing.T, name string, spec schema.Spec) (*taskAppTown, 
 		if err != nil {
 			return ids.Nil, err
 		}
-		if err := adoption.InitializeIn(t.Context(), tx, id, 0, "", ""); err != nil {
+		if err := adoption.InitializeIn(t.Context(), tx, id, 0, ""); err != nil {
 			return ids.Nil, err
 		}
 		return id, adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "task fixture", adoption.EmptyReceipt(), taskAppTownAdministrator, time.Now())

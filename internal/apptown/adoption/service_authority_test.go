@@ -32,7 +32,7 @@ func (f serviceCapabilitiesFunc) HasCapabilitiesIn(ctx context.Context, q databa
 func serviceAdoptionProject(t *testing.T, db *database.DB) ids.ID {
 	t.Helper()
 	pid := adoptionTestProject(t, db, "checked-adoption", "Checked adoption")
-	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "", "pending review") }); err != nil {
+	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "pending review") }); err != nil {
 		t.Fatal(err)
 	}
 	return pid
@@ -47,7 +47,7 @@ func settleServiceCandidate(db *database.DB, s *Service, pid ids.ID, c Candidate
 
 func assertUnadoptedServiceProject(t *testing.T, db *database.DB, pid ids.ID) {
 	t.Helper()
-	if cur := currentOf(t, db, pid); cur.Revision != 0 || cur.Pack != "" || cur.Drift != "pending review" {
+	if cur := currentOf(t, db, pid); cur.Revision != 0 || cur.Drift != "pending review" {
 		t.Fatalf("refused settlement moved the aggregate: %+v", cur)
 	}
 	for _, table := range []string{"guidance_imports", "project_lanes", "project_packs", "project_adoptions", "policies", "project_pi_extensions", "audit_log"} {
@@ -103,7 +103,7 @@ func TestServiceAdoptInRecomputesErasedWeakening(t *testing.T) {
 		t.Fatal(err)
 	}
 	prior := EmptyReceipt()
-	prior.Pack = "service-house"
+	prior.Packs = []string{"service-house"}
 	prior.Guidance = []ReceiptBlock{{BlockID: block, Name: "service-gate", Version: 1}}
 	if err := db.InTx(context.Background(), func(tx *database.Tx) error {
 		if err := PutImportsIn(t.Context(), tx, pid, []wow.ResolvedPin{{BlockID: block, Name: "service-gate", Version: 1}}, time.Now()); err != nil {
@@ -199,7 +199,7 @@ func TestServiceAdoptInRecomputesErasedPublishedCapabilities(t *testing.T) {
 		}),
 	})
 	c := Candidate{ProjectID: pid, Packs: []PackPick{{Pack: "requires-scanner", Version: 1}}, Receipt: EmptyReceipt(), RequiredCapabilities: nil}
-	c.Receipt.Pack = "requires-scanner"
+	c.Receipt.Packs = []string{"requires-scanner"}
 	c.Digest = Digest(c.Receipt)
 	if err := settleServiceCandidate(db, s, pid, c, OperationSelect); !errors.Is(err, missing) {
 		t.Fatalf("erased requirements bypassed attached capabilities: %v", err)
@@ -235,7 +235,7 @@ func TestServiceAdoptInCannotClaimPackAuthorityForAnUnsealedCandidate(t *testing
 		return errors.New("arbitrary selection is not permitted")
 	})})
 	c := Candidate{ProjectID: pid, Packs: []PackPick{{Pack: "published-pack", Version: 1}}, Receipt: EmptyReceipt()}
-	c.Receipt.Pack = "published-pack"
+	c.Receipt.Packs = []string{"published-pack"}
 	c.Digest = Digest(c.Receipt)
 	if err := settleServiceCandidate(db, s, pid, c, OperationApplyPack); err == nil {
 		t.Fatal("caller-selected operation conferred pack authority without a package-prepared application")
@@ -304,7 +304,7 @@ func TestPicksWithMovesOnlyTheNamedPack(t *testing.T) {
 			return err
 		}
 		receipt := EmptyReceipt()
-		receipt.Pack = "house"
+		receipt.Packs = []string{"extra", "house"}
 		return RecordIn(t.Context(), tx, pid, 1, AdoptionCreate, "initial", receipt, "alice", time.Now())
 	}); err != nil {
 		t.Fatal(err)
@@ -314,14 +314,15 @@ func TestPicksWithMovesOnlyTheNamedPack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []PackPick{{Pack: "house", Version: 1}, {Pack: "extra", Version: 4}}; !slices.Equal(moved, want) {
+	// Picks are in name order: no pack is the primary.
+	if want := []PackPick{{Pack: "extra", Version: 4}, {Pack: "house", Version: 1}}; !slices.Equal(moved, want) {
 		t.Fatalf("moving a pack the project is on: %+v, want %+v", moved, want)
 	}
 	added, err := s.PicksWith(t.Context(), pid, "candidate", 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []PackPick{{Pack: "house", Version: 1}, {Pack: "extra", Version: 1}, {Pack: "candidate", Version: 2}}; !slices.Equal(added, want) {
+	if want := []PackPick{{Pack: "extra", Version: 1}, {Pack: "house", Version: 1}, {Pack: "candidate", Version: 2}}; !slices.Equal(added, want) {
 		t.Fatalf("a pack the project is not on joins: %+v, want %+v", added, want)
 	}
 	// Other packs moved with it move only where the project holds them:
@@ -330,7 +331,7 @@ func TestPicksWithMovesOnlyTheNamedPack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []PackPick{{Pack: "house", Version: 3}, {Pack: "extra", Version: 4}}; !slices.Equal(paired, want) {
+	if want := []PackPick{{Pack: "extra", Version: 4}, {Pack: "house", Version: 3}}; !slices.Equal(paired, want) {
 		t.Fatalf("moving the project's own pack with the named one: %+v, want %+v", paired, want)
 	}
 }

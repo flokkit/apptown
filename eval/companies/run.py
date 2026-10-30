@@ -105,7 +105,7 @@ def load_companies(root=HERE, only="all"):
 
 def load_stacks(path=HERE / "stacks.yaml"):
     """stacks.yaml: `waves:` (company per line) and `apps:` company → app →
-    { pack: P, why: W }. A small strict reader for this file's one shape (the
+    { pack: P[,Q...], why: W }, the packs taken together. A small strict reader for this file's one shape (the
     standard library has no YAML); anything else in it is an error."""
     waves, apps, section, co = [], {}, None, None
     for n, line in enumerate(Path(path).read_text().splitlines(), 1):
@@ -123,7 +123,7 @@ def load_stacks(path=HERE / "stacks.yaml"):
             co = m.group(1)
             apps[co] = {}
             continue
-        m = re.fullmatch(r"    ([a-z0-9-]+): \{ pack: ([a-z0-9-]+), why: (.+) \}", line)
+        m = re.fullmatch(r"    ([a-z0-9-]+): \{ pack: ([a-z0-9,-]+), why: (.+) \}", line)
         if section == "apps" and co and m:
             apps[co][m.group(1)] = {"pack": m.group(2), "why": m.group(3)}
             continue

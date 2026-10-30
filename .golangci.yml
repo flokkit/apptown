@@ -358,7 +358,7 @@ linters:
       - path: '^internal/apptown/projectlifecycle/packs\.go$'
         linters: [forbidigo]
         text: 'forbidden because "receipt rule:'
-        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, who, p\.ID, "pack\.applied", pack\.Name,$'
+        source: '^[[:space:]]*audit\.At\(s\.now\(\)\)\.BestEffort\(ctx, s\.db, who, p\.ID, "pack\.applied", label,$'
 
       # The adoption revision or seeded commit retains the content; this is an activity summary.
       - path: '^internal/apptown/projectlifecycle/packs\.go$'

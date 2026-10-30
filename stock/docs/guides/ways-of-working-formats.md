@@ -64,8 +64,14 @@ step names, gates naming steps that exist).
 
 ## Packs
 
-A pack names guidance blocks, workflows and policies from the library, and can
-include another pack with items replaced or dropped. It may state
+A pack names guidance blocks, workflows and policies from the library. A
+project takes one or more packs and gets all of them: every pack's guidance,
+workflows, policies, tools, services and extensions. Where two packs disagree
+on something a project has one of (a tool's version line, the toolchain, a
+service of the same name, a policy of the same name, or starter files), they
+cannot be taken together, and AppTown names both. No pack outranks another,
+and a pack does not include another: put what several packs share in a pack
+of its own, as `server-base` is. A pack may state
 `apiVersion: apptown.dev/v1`; leaving it out means the same, and any other value
 is refused by name. Stating it does not make a new version. A pack names policies; it
 does not define them: add a policy to the library first, then pick it. Every

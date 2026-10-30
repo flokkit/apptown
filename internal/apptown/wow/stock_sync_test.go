@@ -3,7 +3,6 @@ package wow
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"reflect"
 	"strings"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/wow/internal/wowsql"
-	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/stock"
 )
@@ -186,12 +184,12 @@ func TestStockSyncOverwritesUnversioned(t *testing.T) {
 func TestStockPackReleasesCutVersions(t *testing.T) {
 	t.Parallel()
 	s := stockLibrary(t)
-	const older = `{"name":"go-small","guidance":[]}`
-	if version, err := s.PublishPack(t.Context(), "go-small", "old release", older, "stock"); err != nil || version != 1 {
+	const older = `{"name":"go","guidance":[]}`
+	if version, err := s.PublishPack(t.Context(), "go", "old release", older, "stock"); err != nil || version != 1 {
 		t.Fatalf("old stock: version=%d %v", version, err)
 	}
 	ctx := context.Background()
-	published, err := libraryRows(s.db).PackByName(ctx, "go-small")
+	published, err := libraryRows(s.db).PackByName(ctx, "go")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +201,7 @@ func TestStockPackReleasesCutVersions(t *testing.T) {
 	if counts.Errors != 0 || counts.Updated != 1 {
 		t.Fatalf("new release: %+v", counts)
 	}
-	pack, err := libraryRows(s.db).PackByName(ctx, "go-small")
+	pack, err := libraryRows(s.db).PackByName(ctx, "go")
 	if err != nil || pack.LatestVersion != 2 {
 		t.Fatalf("latest version: %+v %v", pack, err)
 	}
@@ -279,7 +277,7 @@ func TestAPolicyOnlyReleasePublishesThePacksThatNameIt(t *testing.T) {
 	t.Parallel()
 	s := stockService(t)
 	s.SyncStock(t.Context())
-	pack := "go-small"
+	pack := "server-base"
 	before, err := s.Pack(t.Context(), pack)
 	if err != nil {
 		t.Fatal(err)
@@ -325,116 +323,6 @@ func TestAPolicyOnlyReleasePublishesThePacksThatNameIt(t *testing.T) {
 	release.SyncStock(t.Context())
 	if again, _ := libraryRows(s.db).PackByName(t.Context(), pack); again.LatestVersion != latest.LatestVersion {
 		t.Fatalf("a second sync published again: v%d -> v%d", latest.LatestVersion, again.LatestVersion)
-	}
-}
-
-// A new publication that includes one from before policies were pinned (a
-// policy named, no pin) pins that policy at the library's definition when it
-// is published: applying it later installs what it was published with, even
-// after the library changes, and the change is a new publication of it.
-//
-// Kills: copying an included publication's unpinned policy names as they
-// were, which left a newly published pack following the library.
-func TestANewPackPinsAPolicyItsLegacyParentOnlyNamed(t *testing.T) {
-	t.Parallel()
-	s := New(testDB(t), Dependencies{})
-	ctx := t.Context()
-	policy := func(requires string) LibraryPolicy {
-		return LibraryPolicy{Name: "gate", Description: "a gate", Rule: "requireStepBefore", With: map[string]any{"uses": "deploy", "requires": requires}}
-	}
-	// A save names only what the library has, so the parent is published
-	// with its policy, which then leaves the library: the recut keeps the
-	// name unpinned, as a publication from before pinning held it.
-	if err := s.SaveLibraryPolicy(ctx, policy("old"), "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.PublishPack(ctx, "parent", "", `{"policies":[{"name":"gate"}]}`, ""); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.DeleteLibraryPolicy(ctx, "gate", "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if recuts, err := s.CutPacksOnPinChange(ctx); err != nil || len(recuts) != 1 || recuts[0].Version != 2 {
-		t.Fatalf("the parent without its policy: %+v %v", recuts, err)
-	}
-	if err := s.SaveLibraryPolicy(ctx, policy("scan"), "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.PublishPack(ctx, "ours", "", `{"includes":"parent@2"}`, ""); err != nil {
-		t.Fatal(err)
-	}
-	installs := func(pack string, version int64) any {
-		t.Helper()
-		setup, err := PackSetupIn(ctx, s.db, pack, version)
-		if err != nil || len(setup.Policies) != 1 {
-			t.Fatalf("%s v%d: %+v %v", pack, version, setup, err)
-		}
-		return setup.Policies[0].With["requires"]
-	}
-	if got := installs("ours", 1); got != "scan" {
-		t.Fatalf("ours v1 installs %v", got)
-	}
-	if err := s.SaveLibraryPolicy(ctx, policy("tests"), "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.CutPacksOnPinChange(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if got := installs("ours", 1); got != "scan" {
-		t.Fatalf("ours v1 followed the library: installs %v", got)
-	}
-	latest, err := libraryRows(s.db).PackByName(ctx, "ours")
-	if err != nil || latest.LatestVersion < 2 || installs("ours", latest.LatestVersion) != "tests" {
-		t.Fatalf("the library change is a new publication of ours: v%d %v", latest.LatestVersion, err)
-	}
-}
-
-// A parent publication from before policies were pinned may hold a policy's
-// full definition with no pin. A pack including it inherits that definition
-// exactly, whatever the library says when the pack is published.
-//
-// Kills: treating every unpinned inherited policy as named only, which
-// replaced the parent's definition with the library's.
-func TestANewPackKeepsTheDefinitionItsLegacyParentHeld(t *testing.T) {
-	t.Parallel()
-	s := New(testDB(t), Dependencies{})
-	ctx := t.Context()
-	policy := func(requires string) LibraryPolicy {
-		return LibraryPolicy{Name: "gate", Description: "a gate", Rule: "requireStepBefore", With: map[string]any{"uses": "deploy", "requires": requires}}
-	}
-	if err := s.SaveLibraryPolicy(ctx, policy("scan"), "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.PublishPack(ctx, "parent", "", `{"policies":[{"name":"gate"}]}`, ""); err != nil {
-		t.Fatal(err)
-	}
-	// v2 repeats v1's contents (the definition requiring scan) with pins
-	// that hold no policies: a publication from before policies were
-	// pinned. No operation makes one any more, so it is written directly.
-	q := libraryRows(s.db)
-	parent, err := q.PackByName(ctx, "parent")
-	if err != nil {
-		t.Fatal(err)
-	}
-	rows, err := q.PackVersions(ctx, parent.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	const legacy = 2
-	v1 := rows[len(rows)-1]
-	if _, err := q.InsertPackVersion(ctx, wowsql.InsertPackVersionParams{ID: ids.New(time.Now()), PackID: parent.ID, Version: legacy, Spec: v1.SpecJson, Pins: []byte(`{"blocks":{},"workflows":{}}`),
-		Declaration: v1.DeclarationJson, IncludedPack: v1.IncludedPack, IncludedVersion: v1.IncludedVersion, BasedOn: v1.Version, At: time.Now().UTC(), Source: AuthoredHere.Source, Signer: AuthoredHere.Signer}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SaveLibraryPolicy(ctx, policy("tests"), "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.PublishPack(ctx, "child", "", fmt.Sprintf(`{"includes":"parent@%d"}`, legacy), ""); err != nil {
-		t.Fatal(err)
-	}
-	setup, err := PackSetupIn(ctx, s.db, "child", 1)
-	if err != nil || len(setup.Policies) != 1 || setup.Policies[0].With["requires"] != "scan" {
-		t.Fatalf("child v1 must install the parent's definition (scan): %+v %v", setup, err)
 	}
 }
 

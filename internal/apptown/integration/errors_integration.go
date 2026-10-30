@@ -22,8 +22,8 @@ import (
 // reporting via GlitchTip, platform pattern — the instance binds an admin
 // token; AppTown provisions a provider-side project per ATTACHED AppTown project
 // and stores the DSN as the attachment's resource. Contributions: DSN env
-// into attached projects' app containers, a generated steering line, the
-// observability/error-reporting guidance block, docs, receipts.
+// into attached projects' app containers, the generated steering section
+// that is the project's error-reporting guidance, docs, receipts.
 
 const CapErrors = "errors"
 

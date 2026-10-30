@@ -15,7 +15,7 @@ func TestAdoptionFleetHTTPFiltersProjectsWithoutHidingPackVersions(t *testing.T)
 	if _, err := a.Ways.PublishPack(t.Context(), "shared-pack", "First", `{}`, ""); err != nil {
 		t.Fatal(err)
 	}
-	if w := authzCall(h, "boss", "POST", "/api/v1/projects/game/pack", `{"name":"shared-pack"}`); w.Code != 200 {
+	if w := authzCall(h, "boss", "POST", "/api/v1/projects/game/pack", `{"names":["shared-pack"]}`); w.Code != 200 {
 		t.Fatalf("first adoption: %d %s", w.Code, w.Body.String())
 	}
 	if _, err := a.Ways.PublishPack(t.Context(), "shared-pack", "Second", `{"description":"changed"}`, ""); err != nil {
@@ -24,7 +24,7 @@ func TestAdoptionFleetHTTPFiltersProjectsWithoutHidingPackVersions(t *testing.T)
 	if err := a.Ways.RecommendPack(t.Context(), "shared-pack", 2, "boss", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
-	if w := authzCall(h, "boss", "POST", "/api/v1/projects/open/pack", `{"name":"shared-pack"}`); w.Code != 200 {
+	if w := authzCall(h, "boss", "POST", "/api/v1/projects/open/pack", `{"names":["shared-pack"]}`); w.Code != 200 {
 		t.Fatalf("second adoption: %d %s", w.Code, w.Body.String())
 	}
 	for _, tc := range []struct {

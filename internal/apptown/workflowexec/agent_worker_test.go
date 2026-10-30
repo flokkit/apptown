@@ -202,7 +202,7 @@ func agentOnWorkerFixtureFor(t *testing.T, purpose project.Purpose, config map[s
 		if err != nil {
 			return ids.Nil, err
 		}
-		if err := adoption.InitializeIn(t.Context(), tx, id, 0, "", ""); err != nil {
+		if err := adoption.InitializeIn(t.Context(), tx, id, 0, ""); err != nil {
 			return ids.Nil, err
 		}
 		return id, adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "agent fixture", receipt, "tester", time.Now())

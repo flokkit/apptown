@@ -12,7 +12,8 @@ import type { GuidanceBlockDetail, LibraryWorkflow, PackPolicy, PackSaved, Polic
 import { type Draft, draftFrom, keptAsWritten } from './packDraft'
 
 // Ways of working: the pack store. Stock packs are read-only; a pack of
-// your own may include one and replace, drop or add items. Custom packs are built here
+// your own may start as a copy of one. A project takes several packs and gets
+// their union, so a pack of your own can also sit beside a stock one. Custom packs are built here
 // from the guidance store, the workflow library and the policy library, and
 // appear in the new-project wizard automatically.
 
@@ -108,7 +109,8 @@ export default function Packs() {
   const { run, busy, err: actErr } = useAction()
   const [msg, setMsg] = useState('')
 
-  const blank = (includes = ''): Draft => draftFrom(includes ? `${includes}-ours` : '', '', { includes, guidance: [], workflows: [], policies: [] })
+  const blank = (): Draft => draftFrom('', '', { guidance: [], workflows: [], policies: [] })
+  const copyOf = (p: PackView): Draft => draftFrom(`${p.name}-ours`, '', p.declaration)
   const declared = (p: PackView): Draft => draftFrom(p.name, p.description, p.declaration)
 
   // The instance's switch: an off pack stays here but is not offered when
@@ -120,7 +122,7 @@ export default function Packs() {
   if (!packsQ.data) return <ReadStatus q={packsQ} what="the packs" />
 
   if (editing) {
-    return <PackEditor draft={editing.draft} existing={editing.existing} packs={packs} onDone={(saved) => {
+    return <PackEditor draft={editing.draft} existing={editing.existing} onDone={(saved) => {
       setEditing(null)
       if (saved) setMsg(`saved ${saved}`)
     }} />
@@ -155,7 +157,7 @@ export default function Packs() {
             )}
             <div className="row pack-actions" style={{ marginTop: 10 }}>
               <button className="subtle" onClick={() => setInspecting(p)}>View contents</button>
-              <button className="subtle" onClick={() => setEditing({ draft: blank(p.name), existing: false })} title="a pack of your own that is this one, with your changes">Include in a new pack…</button>
+              <button className="subtle" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy into a new pack…</button>
               {p.enabled === false
                 ? <button className="subtle" disabled={busy} onClick={() => void setOn(p, true)}>Offer to new projects</button>
                 : <button className="subtle" disabled={busy} onClick={() => void setOn(p, false)}>Stop offering</button>}
@@ -173,7 +175,7 @@ export default function Packs() {
   )
 }
 
-function PackEditor({ draft, existing, packs, onDone }: { draft: Draft; existing: boolean; packs: PackView[]; onDone: (savedName?: string) => void }) {
+function PackEditor({ draft, existing, onDone }: { draft: Draft; existing: boolean; onDone: (savedName?: string) => void }) {
   const [p, setP] = useState<Draft>(draft)
   const guidanceQ = useGet<GuidanceBlock[]>('/guidance/blocks', { kind: 'config' })
   const workflowsQ = useGet<LibraryWorkflow[]>('/workflows/library', { kind: 'config' })
@@ -185,25 +187,6 @@ function PackEditor({ draft, existing, packs, onDone }: { draft: Draft; existing
 
   const toggle = (list: string[], v: string): string[] =>
     list.includes(v) ? list.filter((x) => x !== v) : [...list, v]
-
-  // What the included pack brings, at the version it recommends: each item
-  // is kept, replaced by one of yours, or dropped with a reason.
-  const included = packs.find((x) => x.name === p.includes.split('@')[0])
-  const inherited: { kind: 'guidance' | 'workflow' | 'policy'; name: string }[] = included ? [
-    ...included.guidance.map((name) => ({ kind: 'guidance' as const, name })),
-    ...included.workflows.map((name) => ({ kind: 'workflow' as const, name })),
-    ...(included.policies ?? []).map((x) => ({ kind: 'policy' as const, name: x.name })),
-  ] : []
-  const inheritedNames = new Set(inherited.map((x) => x.name))
-  const choices = (kind: string) => kind === 'guidance' ? allGuidance.map((g) => g.name) : kind === 'workflow' ? allWorkflows.map((w) => w.name) : allPolicies.map((x) => x.name)
-  const fate = (item: string) => p.replaces[item] !== undefined ? 'replace' : p.drops.some((d) => d.item === item) ? 'drop' : 'keep'
-  const setFate = (item: string, to: string, replacement = '') => {
-    const replaces = { ...p.replaces }; delete replaces[item]
-    const drops = p.drops.filter((d) => d.item !== item)
-    if (to === 'replace') replaces[item] = replacement
-    if (to === 'drop') drops.push({ item, reason: '' })
-    setP({ ...p, replaces, drops })
-  }
 
   const save = () => run(async () => {
     const r = await post<PackSaved>('/packs', p)
@@ -219,46 +202,15 @@ function PackEditor({ draft, existing, packs, onDone }: { draft: Draft; existing
         <input value={p.name} onChange={(e) => setP({ ...p, name: e.target.value })} placeholder="my-way" autoFocus disabled={existing} />
         <label>Description</label>
         <input value={p.description} onChange={(e) => setP({ ...p, description: e.target.value })} />
-        <label>Includes</label>
-        <select value={p.includes} onChange={(e) => setP({ ...p, includes: e.target.value, replaces: {}, drops: [] })}>
-          <option value="">no other pack</option>
-          {packs.filter((x) => x.name !== p.name && !x.platform).map((x) => <option key={x.name} value={x.name}>{x.name} (follows its recommended version)</option>)}
-          {p.includes.includes('@') && <option value={p.includes}>{p.includes} (pinned)</option>}
-        </select>
         <label>Version name</label>
         <input value={p.versionName} onChange={(e) => setP({ ...p, versionName: e.target.value })} placeholder="optional, e.g. stricter deps" />
       </div>
       {existing && <div className="muted small" style={{ marginBottom: 8 }}>Saving makes a new version. It is not recommended until you recommend it on the pack's page.</div>}
       {keptAsWritten(p).length > 0 && <div className="muted small" style={{ marginBottom: 8 }}>Kept as written, not edited here: {keptAsWritten(p).join('; ')}.</div>}
 
-      {included && (
-        <>
-          <h2>From {included.name} v{included.version}</h2>
-          <div className="muted small" style={{ marginBottom: 6 }}>Keep each item, replace it with one of yours, or drop it and say why.</div>
-          {inherited.map((x) => (
-            <div key={x.name} className="row small" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
-              <span className="chip">{x.kind}</span><code>{x.name}</code>
-              <select value={fate(x.name)} onChange={(e) => setFate(x.name, e.target.value)}>
-                <option value="keep">keep</option><option value="replace">replace with…</option><option value="drop">drop</option>
-              </select>
-              {fate(x.name) === 'replace' && (
-                <select value={p.replaces[x.name]} onChange={(e) => setFate(x.name, 'replace', e.target.value)}>
-                  <option value="">choose…</option>
-                  {choices(x.kind).filter((n) => !inheritedNames.has(n)).map((n) => <option key={n} value={n}>{n}</option>)}
-                </select>
-              )}
-              {fate(x.name) === 'drop' && (
-                <input placeholder="why" value={p.drops.find((d) => d.item === x.name)?.reason ?? ''}
-                  onChange={(e) => setP({ ...p, drops: p.drops.map((d) => d.item === x.name ? { ...d, reason: e.target.value } : d) })} />
-              )}
-            </div>
-          ))}
-        </>
-      )}
-
-      <h2>{included ? 'Workflows it adds' : 'Workflows'} ({p.workflows.length})</h2>
+      <h2>Workflows ({p.workflows.length})</h2>
       <div className="row" style={{ gap: 6 }}>
-        {allWorkflows.filter((w) => !inheritedNames.has(w.name)).map((w) => (
+        {allWorkflows.map((w) => (
           <span key={w.name} className={`chip ${p.workflows.includes(w.name) ? 'pass' : ''}`}
             style={{ cursor: 'pointer' }} title={w.description}
             onClick={() => setP({ ...p, workflows: toggle(p.workflows, w.name) })}>
@@ -267,12 +219,12 @@ function PackEditor({ draft, existing, packs, onDone }: { draft: Draft; existing
         ))}
       </div>
 
-      <h2>{included ? 'Guidance it adds' : 'Guidance blocks'} ({p.guidance.length}, {fmtSize(allGuidance.filter((g) => p.guidance.includes(g.name)).reduce((n, g) => n + (g.bytes ?? 0), 0))})</h2>
+      <h2>Guidance blocks ({p.guidance.length}, {fmtSize(allGuidance.filter((g) => p.guidance.includes(g.name)).reduce((n, g) => n + (g.bytes ?? 0), 0))})</h2>
       <div className="muted small" style={{ marginBottom: 6 }}>
         Every ticked block goes into the context of every agent on a project that takes this pack; the size beside each one is what it costs.
       </div>
       <div className="row" style={{ gap: 6 }}>
-        {allGuidance.filter((g) => !inheritedNames.has(g.name)).map((g) => (
+        {allGuidance.map((g) => (
           <span key={g.name} className={`chip ${p.guidance.includes(g.name) ? 'pass' : ''}`}
             style={{ cursor: 'pointer' }} title={`${g.tags ? g.tags + ' · ' : ''}${sizeTitle(g.bytes ?? 0)}`}
             onClick={() => setP({ ...p, guidance: toggle(p.guidance, g.name) })}>
@@ -281,12 +233,12 @@ function PackEditor({ draft, existing, packs, onDone }: { draft: Draft; existing
         ))}
       </div>
 
-      <h2>{included ? 'Policies it adds' : 'Policies'} ({p.policies.length})</h2>
+      <h2>Policies ({p.policies.length})</h2>
       <div className="muted small" style={{ marginBottom: 6 }}>
         From the policy library (add or clone policies on the Policies tab).
       </div>
       <div className="row" style={{ gap: 6 }}>
-        {allPolicies.filter((pol) => !inheritedNames.has(pol.name)).map((pol) => {
+        {allPolicies.map((pol) => {
           const on = p.policies.some((x) => x.name === pol.name)
           return (
             <span key={pol.name} className={`chip ${on ? 'pass' : ''}`}

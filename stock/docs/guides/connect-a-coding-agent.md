@@ -138,7 +138,7 @@ And nine that act, each recorded as *you, via the named agent*:
 
 | Tool | What it does |
 |---|---|
-| `create_project` | creates a project in your name (slug, name, blurb, pack); the repository and the pack's starter files come with it |
+| `create_project` | creates a project in your name (slug, name, blurb, packs); the repository and the packs' starter files come with it |
 | `create_change` | opens a Change with a title and a brief; with a lane named, AppTown's agent starts on it at once |
 | `start_change_lane` | starts a lane (say, `implement`) on an open Change |
 | `run_change_checks` | runs the Change's checks now — the same gates its landing will apply |

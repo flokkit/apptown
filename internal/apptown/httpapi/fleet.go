@@ -34,7 +34,7 @@ func (h Fleet) Fleet(w http.ResponseWriter, r *http.Request) {
 	// Every pack, offered or not: turning a pack off stops new projects
 	// taking it, and the projects already on it are still on it.
 	for _, p := range all {
-		row := FleetPack{Pack: p.Name, Platform: p.Platform, Enabled: p.Enabled, Recommended: p.Version, Versions: []FleetPackVersion{}, NotOn: []string{}}
+		row := FleetPack{Pack: p.Name, Platform: p.Platform, Enabled: p.Enabled, Recommended: p.Version, Versions: []FleetPackVersion{}}
 		publications, err := h.ways.PackPublications(r.Context(), p.ID)
 		if err != nil {
 			WriteFault(w, err)
@@ -47,9 +47,6 @@ func (h Fleet) Fleet(w http.ResponseWriter, r *http.Request) {
 			}
 			row.Versions = append(row.Versions, FleetPackVersion{Version: pub.Version, Note: pub.Note, At: pub.At, Projects: slugs})
 		}
-		if missing := projects.NotOn[p.ID]; missing != nil {
-			row.NotOn = missing
-		}
 		out = append(out, row)
 	}
 	WriteJSON(w, 200, FleetView{Packs: out})
@@ -61,7 +58,7 @@ type FleetView struct {
 	Packs []FleetPack `json:"packs"`
 }
 
-// FleetPack is one pack's versions and the projects not on it.
+// FleetPack is one pack's versions and the projects on each.
 type FleetPack struct {
 	Pack     string `json:"pack"`
 	Platform bool   `json:"platform,omitempty"`
@@ -70,7 +67,6 @@ type FleetPack struct {
 	// Recommended is the version new projects get and others are offered.
 	Recommended int64              `json:"recommended"`
 	Versions    []FleetPackVersion `json:"versions"`
-	NotOn       []string           `json:"notOn"`
 }
 
 // FleetPackVersion is one published version and the projects on it.

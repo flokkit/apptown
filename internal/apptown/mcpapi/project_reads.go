@@ -82,13 +82,13 @@ func (h projectReads) listProjects(c *Call, args map[string]any) (any, error) {
 	projects := []map[string]any{}
 	for i := range all {
 		p := &all[i]
-		pack, err := latestPack(c.Context, h.db, p.ID)
+		packs, err := projectPacks(c.Context, h.adoption, p.ID)
 		if err != nil {
 			return nil, err
 		}
 		row := map[string]any{
 			"slug": p.Slug, "name": p.Name, "blurb": p.Blurb, "namespace": p.Namespace,
-			"pack": pack, "defaultBranch": p.DefaultBranch,
+			"packs": packs, "defaultBranch": p.DefaultBranch,
 			"openChanges": activity[p.ID].OpenChanges, "webUrl": c.projectURL(p.Slug),
 		}
 		if u := h.mainURL(c.Context, p); u != "" {
@@ -111,7 +111,7 @@ func (h projectReads) getProject(c *Call, args map[string]any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	pack, err := latestPack(c.Context, h.db, p.ID)
+	packs, err := projectPacks(c.Context, h.adoption, p.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (h projectReads) getProject(c *Call, args map[string]any) (any, error) {
 	}
 	out := map[string]any{
 		"slug": p.Slug, "name": p.Name, "blurb": p.Blurb, "namespace": p.Namespace, "icon": p.Icon,
-		"pack": pack, "defaultBranch": p.DefaultBranch, "createdAt": p.CreatedAt,
+		"packs": packs, "defaultBranch": p.DefaultBranch, "createdAt": p.CreatedAt,
 		"hasRepository": p.DefaultBranch != "", "openChanges": activity[p.ID].OpenChanges,
 		"lanes": lanes, "systemWorkflows": system,
 		"deployments": deployments, "webUrl": c.projectURL(p.Slug),

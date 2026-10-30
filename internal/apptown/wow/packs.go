@@ -49,7 +49,7 @@ func specIsPlatform(spec string) bool {
 type PackVersion struct{ SpecJSON, PinsJSON string }
 
 var (
-	ErrStockPack  = fault.New(fault.Conflict, "a stock pack re-syncs with the release; make a pack of your own that includes it")
+	ErrStockPack  = fault.New(fault.Conflict, "a stock pack re-syncs with the release; make a pack of your own beside it, and take both")
 	ErrPackOwner  = errors.New("pack belongs to another origin")
 	ErrLastPack   = fault.New(fault.Conflict, "the last pack that is on cannot be turned off; turn another on first, or projects could not be made")
 	ErrPackAbsent = errors.New("no pack named")
@@ -196,10 +196,9 @@ func (s *Packs) LatestPins(ctx context.Context, p PackRecord) (string, error) {
 }
 
 // Publish records a pack's declaration as a version: version 1 for a new
-// name; the next version when the resolved contents, the pins or the
-// declaration moved; only the words when none did. A name another origin
-// owns is refused, and so is a declaration that replaces or drops an item
-// the included publication does not carry.
+// name; the next version when the pinned contents or the declaration
+// moved; only the words when none did. A name another origin owns is
+// refused, and so is a declaration naming an item the library lacks.
 func (s *Packs) Publish(ctx context.Context, name, description, declaration, origin string) (int, error) {
 	return s.PublishNamed(ctx, name, description, declaration, origin, "")
 }
@@ -212,22 +211,19 @@ func (s *Packs) PublishNamed(ctx context.Context, name, description, declaration
 	var version int
 	now := s.now()
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {
-		v, err := s.publishIn(ctx, tx, now, name, description, declaration, origin, cut{refuseGone: true, name: versionName})
+		v, err := s.publishIn(ctx, tx, now, name, description, declaration, origin, cut{refuseMissing: true, name: versionName})
 		version = int(v)
 		return err
 	})
 	return version, err
 }
 
-// cut is how one publication is made: which included version it resolves
-// against (0: a pin in the declaration, else the included pack's offered
-// version), whether items gone from the included publication refuse it,
-// and the note it carries.
+// cut is how one publication is made: whether items the library lacks
+// refuse it, the note it carries, and its name.
 type cut struct {
-	includedVersion int64
-	refuseGone      bool
-	note            string
-	name            string
+	refuseMissing bool
+	note          string
+	name          string
 }
 
 // publishIn is the one publication rule, inside the caller's transaction,
@@ -242,27 +238,21 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 	if !fresh && p.Origin != origin {
 		return 0, fmt.Errorf("pack %s: %w %q", name, ErrPackOwner, p.Origin)
 	}
-	res, err := s.resolveIn(ctx, q, name, declaration, how.includedVersion)
-	if err != nil {
-		return 0, err
-	}
-	if how.refuseGone && len(res.Gone) > 0 {
-		return 0, fmt.Errorf("%w: %s does not carry %s, which this pack replaces or drops", ErrInclusion, res.Included.Pack, strings.Join(res.Gone, ", "))
-	}
+	res := s.resolve(ctx, declaration)
 	// A version keeps what it pinned; an item it cannot pin would be
 	// whatever later takes the name, so a save names only what exists.
-	if how.refuseGone && len(res.Missing) > 0 {
+	if how.refuseMissing && len(res.Missing) > 0 {
 		return 0, fmt.Errorf("%w: the library has no %s; add it first, or leave it out of the pack", ErrUnpinned, strings.Join(res.Missing, ", "))
 	}
 	if err := s.checkTools(res.Spec); err != nil {
 		return 0, fmt.Errorf("pack %s: %w", name, err)
 	}
-	// A version stores the resolved contents: inherited items from the
-	// included publication, and every policy with the definition it pins.
-	// A declaration that does not decode (a historical representation) is
-	// stored as written, never replaced by a partial reading of it.
+	// A version stores the pinned contents, every policy with the
+	// definition it pins. A declaration that does not decode (a historical
+	// representation) is stored as written, never replaced by a partial
+	// reading of it.
 	spec := declaration
-	if _, derr := decodeSpec(declaration); derr == nil || res.Included != nil {
+	if _, derr := decodeSpec(declaration); derr == nil {
 		if spec, err = strs.JSON(res.Spec); err != nil {
 			return 0, err
 		}
@@ -272,10 +262,6 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 		return 0, err
 	}
 	pins = canonJSON(pins)
-	includedPack, includedVersion := "", int64(0)
-	if res.Included != nil {
-		includedPack, includedVersion = res.Included.Pack, res.Included.Version
-	}
 	note := how.note
 	if note == "" {
 		note = "published contents"
@@ -291,12 +277,9 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 		if err != nil {
 			return 0, fmt.Errorf("pack %s v%d is missing its publication: %w", name, p.LatestVersion, err)
 		}
-		// A version names exact contents and the exact publication it
-		// included: a follow of a new recommendation is a new version even
-		// when the items it inherits read the same.
+		// A version names exact contents.
 		if canonJSON(string(current.SpecJson)) == canonJSON(spec) && canonJSON(string(current.PinsJson)) == pins &&
-			canonJSON(string(current.DeclarationJson)) == canonJSON(declaration) &&
-			current.IncludedPack == includedPack && current.IncludedVersion == includedVersion {
+			canonJSON(string(current.DeclarationJson)) == canonJSON(declaration) {
 			_, err := q.RefreshPackContents(ctx, wowsql.RefreshPackContentsParams{ID: p.ID, Description: description, Spec: []byte(declaration)})
 			return p.LatestVersion, err
 		}
@@ -308,7 +291,7 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 		basedOn = p.LatestVersion
 	}
 	if _, err := q.InsertPackVersion(ctx, wowsql.InsertPackVersionParams{ID: ids.New(now), PackID: p.ID, Version: version, Spec: []byte(spec), Pins: []byte(pins),
-		Declaration: []byte(declaration), IncludedPack: includedPack, IncludedVersion: includedVersion, Note: note, Name: how.name, BasedOn: basedOn, At: now, Source: s.origin(origin).Source, Signer: s.origin(origin).Signer}); err != nil {
+		Declaration: []byte(declaration), Note: note, Name: how.name, BasedOn: basedOn, At: now, Source: s.origin(origin).Source, Signer: s.origin(origin).Signer}); err != nil {
 		return 0, err
 	}
 	if _, err := q.AdvancePackVersion(ctx, wowsql.AdvancePackVersionParams{ID: p.ID, Version: version, Description: description, Spec: []byte(declaration), At: now}); err != nil {
@@ -317,73 +300,12 @@ func (s *Packs) publishIn(ctx context.Context, tx *database.Tx, now time.Time, n
 	return version, nil
 }
 
-// resolveIn resolves a declaration against the exact publication it
-// includes: a pin in the declaration, else includedVersion when the caller
-// names one, else the included pack's offered version. An include chain
-// that reaches back to the pack itself is refused.
-func (s *Packs) resolveIn(ctx context.Context, q *wowsql.Queries, self, declaration string, includedVersion int64) (resolution, error) {
-	d, err := decodeSpec(declaration)
-	lib := libraryPins{lib: NewLibrary(s.db), wf: NewWorkflows(s.db), pol: NewPolicies(s.db)}
-	var include struct {
-		Includes string `json:"includes"`
-	}
-	_ = json.Unmarshal([]byte(declaration), &include)
-	if include.Includes == "" {
-		// Its pins read what the spec says that decodes.
-		return resolveDeclaration(ctx, d, nil, lib)
-	}
-	if err != nil {
-		return resolution{}, fmt.Errorf("%w: %w", ErrInclusion, err)
-	}
-	name, pinned, err := IncludeRef(d.Includes)
-	if err != nil {
-		return resolution{}, err
-	}
-	if name == self {
-		return resolution{}, fmt.Errorf("%w: a pack cannot include itself", ErrInclusion)
-	}
-	version := pinned
-	if version == 0 {
-		version = includedVersion
-	}
-	if version == 0 {
-		inc, err := packByNameIn(ctx, q, name)
-		if err != nil {
-			return resolution{}, fmt.Errorf("%w: %w", ErrInclusion, err)
-		}
-		version = offeredVersion(inc)
-	}
-	inc, err := q.PackPublication(ctx, wowsql.PackPublicationParams{Name: name, Version: version})
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && inc.ID.IsZero()) {
-		return resolution{}, fmt.Errorf("%w: %s has no version %d", ErrInclusion, name, version)
-	}
-	if err != nil {
-		return resolution{}, err
-	}
-	for at, atVersion, hops := inc.IncludedPack, inc.IncludedVersion, 0; at != ""; hops++ {
-		if at == self || hops > 32 {
-			return resolution{}, fmt.Errorf("%w: %s includes %s, so %s cannot include it", ErrInclusion, name, self, self)
-		}
-		next, err := q.PackPublication(ctx, wowsql.PackPublicationParams{Name: at, Version: atVersion})
-		if err != nil {
-			return resolution{}, err
-		}
-		at, atVersion = next.IncludedPack, next.IncludedVersion
-	}
-	spec, err := decodeSpec(string(inc.SpecJson))
-	if err != nil {
-		return resolution{}, err
-	}
-	var pins PinSet
-	if err := json.Unmarshal(inc.PinsJson, &pins); err != nil {
-		return resolution{}, err
-	}
-	return resolveDeclaration(ctx, d, &includedPublication{Pack: name, Version: version, Spec: spec, Pins: pins}, lib)
+// resolve pins a declaration's items at the library's current versions.
+// A declaration that does not decode is resolved as what of it does.
+func (s *Packs) resolve(ctx context.Context, declaration string) resolution {
+	d, _ := decodeSpec(declaration)
+	return resolveDeclaration(ctx, d, libraryPins{lib: NewLibrary(s.db), wf: NewWorkflows(s.db), pol: NewPolicies(s.db)})
 }
-
-// offeredVersion is the publication a pack offers to new projects and as
-// the update.
-func offeredVersion(p wowsql.Pack) int64 { return p.RecommendedVersion }
 
 // libraryPins reads own items' current pins from the library.
 type libraryPins struct {

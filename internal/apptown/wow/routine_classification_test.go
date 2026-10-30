@@ -284,9 +284,6 @@ func TestRoutinePackConsentRoundTripsCompletePublishedMaterial(t *testing.T) {
 	if _, err := packs.Publish(ctx, "base", "Base", `{"guidance":["team/clarity"],"workflows":["team-flow"],"policies":[{"name":"team-policy"}]}`, ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := packs.Publish(ctx, "team", "Team", `{"includes":"base"}`, ""); err != nil {
-		t.Fatal(err)
-	}
 	if err := NewLibrary(db).Bump(ctx, in.Transition.ID, "Use descriptive names, document boundaries, and explain intent.", "[]", "standards-manager", "clarity"); err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +293,7 @@ func TestRoutinePackConsentRoundTripsCompletePublishedMaterial(t *testing.T) {
 	if err := packs.Recommend(ctx, "base", 2, "standards-manager", ids.Nil); err != nil {
 		t.Fatal(err)
 	}
-	pack, err := packs.ByName(ctx, "team")
+	pack, err := packs.ByName(ctx, "base")
 	if err != nil {
 		t.Fatal(err)
 	}

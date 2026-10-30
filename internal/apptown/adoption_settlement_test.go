@@ -30,7 +30,7 @@ func TestAdoptionRequiresProjectUpdateEvenWhenUnchanged(t *testing.T) {
 				before = 1
 			} else {
 				id := plainTestProject(t, a.DB, "adopting", "Adopting")
-				if err := a.DB.InTx(context.Background(), func(tx *database.Tx) error { return adoption.InitializeIn(t.Context(), tx, id, 0, "", "") }); err != nil {
+				if err := a.DB.InTx(context.Background(), func(tx *database.Tx) error { return adoption.InitializeIn(t.Context(), tx, id, 0, "") }); err != nil {
 					t.Fatal(err)
 				}
 				var record project.Project

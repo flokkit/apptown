@@ -23,16 +23,21 @@ describe('the new-project draft', () => {
     expect(d.step).toBe(1)
     d = play(d, { type: 'step', step: 2 }, { type: 'step', step: 3 })
     expect(d.step).toBe(2)
-    d = play(d, { type: 'pack', pack: '', why: '', services: [] }, { type: 'step', step: 3 })
+    d = play(d, { type: 'packs', packs: [], why: '', services: [] }, { type: 'step', step: 3 })
     expect(d.step).toBe(3)
   })
 
-  // Picking a way of working starts from the services it proposes that the
-  // catalog offers, at the version its image names; the person tunes them.
-  it('starts from the services a pack proposes', () => {
-    const packs = [{ name: 'server', services: [{ name: 'postgres', image: 'postgres:16-alpine' }, { name: 'kafka', image: 'kafka:3' }] }] as unknown as PackView[]
+  // Picking packs starts from the services they propose together that the
+  // catalog offers, at the version its image names, each once; the person
+  // tunes them.
+  it('starts from the services the chosen packs propose', () => {
+    const packs = [
+      { name: 'server', services: [{ name: 'postgres', image: 'postgres:16-alpine' }, { name: 'kafka', image: 'kafka:3' }] },
+      { name: 'data', services: [{ name: 'postgres', image: 'postgres:16-alpine' }] },
+      { name: 'other', services: [{ name: 'redis', image: 'redis:7' }] },
+    ] as unknown as PackView[]
     const catalog = [{ capability: 'postgres', title: 'Postgres', local: { image: 'postgres' } }, { capability: 'redis', title: 'Redis', defaults: { version: '7' }, local: { image: 'redis' } }] as DependencyKind[]
-    let d = play(newDraft(), { type: 'pack', pack: 'server', why: '', services: servicesFor('server', packs, catalog) })
+    let d = play(newDraft(), { type: 'packs', packs: ['server', 'data'], why: '', services: servicesFor(['server', 'data'], packs, catalog) })
     expect(d.services).toEqual([{ capability: 'postgres', params: { version: '16' } }])
     d = play(d, { type: 'service', kind: catalog[1] }, { type: 'service', kind: catalog[0] })
     expect(d.services).toEqual([{ capability: 'redis', params: { version: '7' } }])
@@ -51,7 +56,7 @@ describe('the new-project draft', () => {
   it('follows the pack proposal until someone edits the services', () => {
     const pg = { capability: 'postgres', params: { version: '16' } }
     const redis = { capability: 'redis', title: 'Redis', local: { image: 'redis:7' } } as unknown as DependencyKind
-    let d = play(newDraft(), { type: 'pack', pack: 'web', why: '', services: [] }, { type: 'proposed', services: [pg] })
+    let d = play(newDraft(), { type: 'packs', packs: ['web'], why: '', services: [] }, { type: 'proposed', services: [pg] })
     expect(d.services).toEqual([pg])
     d = play(d, { type: 'service', kind: redis }, { type: 'proposed', services: [pg] })
     expect(d.services.map((n) => n.capability)).toEqual(['postgres', 'redis'])
@@ -99,12 +104,12 @@ describe('working name and interview boundaries', () => {
   })
   it('refuses a late interview choice after newer input or a manual choice', () => {
     const original = play(newDraft(), { type: 'describe', description: 'Lunch orders' })
-    const reply: DraftAct = { type: 'pack', pack: 'late', why: '', services: [], revision: original.interviewRevision }
+    const reply: DraftAct = { type: 'packs', packs: ['late'], why: '', services: [], revision: original.interviewRevision }
     const changed = play(original, { type: 'describe', description: 'Dinner orders' }, reply)
-    expect(changed.pack).toBeNull()
-    const chosen = play(original, { type: 'pack', pack: '', why: '', services: [] }, reply)
-    expect(chosen.pack).toBe('')
+    expect(changed.packs).toBeNull()
+    const chosen = play(original, { type: 'packs', packs: [], why: '', services: [] }, reply)
+    expect(chosen.packs).toEqual([])
     const backed = play(original, { type: 'step', step: 1 }, reply)
-    expect(backed.pack).toBeNull()
+    expect(backed.packs).toBeNull()
   })
 })

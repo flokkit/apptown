@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,17 +14,25 @@ import (
 
 type PackAssistance struct {
 	ways       *wow.Service
+	offer      PackOffer
 	selection  ModelSelection
 	completion modelcall.Completer
 }
 
-func NewPackAssistance(ways *wow.Service, selection ModelSelection, completion modelcall.Completer) PackAssistance {
-	return PackAssistance{ways: ways, selection: selection, completion: completion}
+// PackOffer is the owner's answer to "may a new project take these packs
+// together" (projectlifecycle.Service.OfferedPacks): the rule creation
+// applies, so the interview never suggests what creation would refuse.
+type PackOffer interface {
+	OfferedPacks(ctx context.Context, names []string) ([]*wow.Pack, error)
+}
+
+func NewPackAssistance(ways *wow.Service, offer PackOffer, selection ModelSelection, completion modelcall.Completer) PackAssistance {
+	return PackAssistance{ways: ways, offer: offer, selection: selection, completion: completion}
 }
 
 // PackInterview: POST /packs/interview {description, answers?} — the
 // new-project wizard's short interview. Round one: the
-// fast model either decides the pack outright or asks AT MOST three
+// fast model either decides the packs outright or asks AT MOST three
 // yes/no questions that genuinely discriminate between the available
 // setups (multiplayer? shared saves? uploads?) — phrased for someone who
 // is not a developer, never naming technology. Round two (answers present): it MUST decide.
@@ -70,7 +79,10 @@ func (h PackAssistance) PackInterview(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(&qa, "Q: %s\nA: %s\n", ans.Question, ans.Answer)
 		}
 		mustDecide := len(in.Answers) > 0
-		system := `You help set up a new software project by picking ONE way-of-working setup:
+		system := `You help set up a new software project by picking its way of working: one
+or more of these packs, taken together. Each pack's description says what
+it is taken with; pick a set the descriptions say belong together, and a
+pack that stands alone by itself:
 ` + opts.String() + `
 From the person's description` + map[bool]string{true: " and their answers", false: ""}[mustDecide] + `, either DECIDE, or ask the FEWEST
 yes/no questions (1-3) that truly distinguish between these setups —
@@ -86,7 +98,7 @@ Also pick the project's FACE: one single emoji that captures what the
 project IS (a recipe app might be 🍳, a space game 🚀) — specific beats
 generic, never a tool or tech emoji.
 Respond with ONLY one JSON object, either:
-{"decided": true, "pack": "<name from the list>", "why": "<one plain sentence anyone understands, no technology names>", "icon": "<one emoji>"}
+{"decided": true, "packs": ["<name from the list>", ...], "why": "<one plain sentence anyone understands, no technology names>", "icon": "<one emoji>"}
 or
 {"decided": false, "questions": ["<question 1>", "<question 2>"]}`
 
@@ -102,7 +114,7 @@ or
 		clean := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(out), "```json"), "```"), "```"))
 		var v struct {
 			Decided   bool     `json:"decided"`
-			Pack      string   `json:"pack"`
+			Packs     []string `json:"packs"`
 			Why       string   `json:"why"`
 			Icon      string   `json:"icon"`
 			Questions []string `json:"questions"`
@@ -112,15 +124,18 @@ or
 			return
 		}
 		if v.Decided || mustDecide {
-			// Only a pack the interviewer named and this AppTown offers is a
-			// decision; its reason is the interviewer's own, or none.
-			for _, p := range packs {
-				if p.Name == v.Pack {
-					WriteJSON(w, 200, PackInterviewPick{Decided: true, Pack: v.Pack, Why: strings.TrimSpace(v.Why), Icon: strings.TrimSpace(v.Icon)})
-					return
-				}
+			// Only packs the interviewer named, that this AppTown offers and
+			// that can be taken together, are a decision; its reason is the
+			// interviewer's own, or none.
+			if len(v.Packs) == 0 {
+				WriteError(w, 502, "the interviewer named no pack; choose a way of working yourself")
+				return
 			}
-			WriteError(w, 502, "the interviewer named %q, which is not a way of working this AppTown offers; choose one yourself", v.Pack)
+			if _, err := h.offer.OfferedPacks(r.Context(), v.Packs); err != nil {
+				WriteError(w, 502, "the interviewer chose %s, which a new project cannot take (%v); choose a way of working yourself", strings.Join(v.Packs, " + "), err)
+				return
+			}
+			WriteJSON(w, 200, PackInterviewPick{Decided: true, Packs: v.Packs, Why: strings.TrimSpace(v.Why), Icon: strings.TrimSpace(v.Icon)})
 			return
 		}
 		if len(v.Questions) == 0 {
@@ -137,10 +152,10 @@ or
 // PackInterviewPick is the setup the interview chose, and why in plain words. Icon is
 // the project's suggested face, empty when the interviewer offered none.
 type PackInterviewPick struct {
-	Decided bool   `json:"decided"`
-	Pack    string `json:"pack"`
-	Why     string `json:"why"`
-	Icon    string `json:"icon"`
+	Decided bool     `json:"decided"`
+	Packs   []string `json:"packs"`
+	Why     string   `json:"why"`
+	Icon    string   `json:"icon"`
 }
 
 // PackInterviewQuestions are the questions the interview still needs answered.

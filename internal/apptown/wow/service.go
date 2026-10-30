@@ -182,8 +182,7 @@ func (s *Service) DeletePack(ctx context.Context, name, who string) error {
 	return s.packs.Delete(ctx, name, who)
 }
 
-// RecommendPack moves a pack's recommended version, with its receipt, and
-// cuts follow versions of the packs that include it.
+// RecommendPack moves a pack's recommended version, with its receipt.
 func (s *Service) RecommendPack(ctx context.Context, name string, version int64, who string, whatIf ids.ID) error {
 	return s.packs.Recommend(ctx, name, version, who, whatIf)
 }

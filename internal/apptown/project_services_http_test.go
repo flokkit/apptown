@@ -163,7 +163,7 @@ func TestMainIsWrittenOutsideALandingOnlyBeforeTheFirstChange(t *testing.T) {
 	if _, err := a.Work.Create(asPerson("boss"), workflow.ChangeDraft{ProjectID: p.ID, Title: "first change"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"starter", "apptown"} {
+	for _, name := range []string{"html-game", "apptown"} { // html-game: a pack with starter files
 		if _, err := a.Ways.PublishPack(t.Context(), name, "A pack", `{}`, ""); err != nil {
 			t.Fatal(err)
 		}
@@ -181,7 +181,7 @@ func TestMainIsWrittenOutsideALandingOnlyBeforeTheFirstChange(t *testing.T) {
 		}
 	}
 	// A pack can still be adopted; its files are named as not written.
-	w := authzCall(h, "boss", "POST", base+"/pack", `{"name":"starter"}`)
+	w := authzCall(h, "boss", "POST", base+"/pack", `{"names":["html-game"]}`)
 	var applied struct{ Skipped []string }
 	if err := json.Unmarshal(w.Body.Bytes(), &applied); err != nil || w.Code != 200 || len(applied.Skipped) != 1 {
 		t.Fatalf("pack on an established project: %d %s %v", w.Code, w.Body.String(), err)

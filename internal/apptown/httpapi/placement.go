@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -133,16 +134,10 @@ func (h ProjectAdoption) placementOf(ctx context.Context, p *project.Project, ad
 		view.Conditions = append(view.Conditions, placementCondition{Kind: "drift",
 			Sentence: "the guidance or lanes moved outside AppTown's own door (" + drift + "); gates and steering still read revision " + fmt.Sprint(ad.Revision) + " — save under Guidance to record what the project should be on"})
 	}
-	if ad.Receipt.Pack != "" && ad.Receipt.Pack != adoption.PlatformPack {
-		placed := false
-		for _, pp := range view.Packs {
-			if pp.Pack == ad.Receipt.Pack {
-				placed = true
-			}
-		}
-		if !placed {
+	for _, named := range ad.Receipt.Packs {
+		if !slices.ContainsFunc(view.Packs, func(pp projectPack) bool { return pp.Pack == named }) {
 			view.Conditions = append(view.Conditions, placementCondition{Kind: "unplaced",
-				Sentence: fmt.Sprintf("the project's record names the %s pack, but no published version of it matches what the project is on; its blocks are carried as additions with unknown provenance", ad.Receipt.Pack)})
+				Sentence: fmt.Sprintf("the project's record names the %s pack, but no published version of it matches what the project is on; its blocks are carried as additions with unknown provenance", named)})
 		}
 	}
 	return view, nil

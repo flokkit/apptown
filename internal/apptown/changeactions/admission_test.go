@@ -42,7 +42,7 @@ func TestImmediateAdmissionCallersUseAtomicWorkAndPreserveInputs(t *testing.T) {
 				t.Fatal(err)
 			}
 			if err := db.InTx(context.Background(), func(tx *database.Tx) error {
-				if err := adoption.InitializeIn(t.Context(), tx, id, 0, "", ""); err != nil {
+				if err := adoption.InitializeIn(t.Context(), tx, id, 0, ""); err != nil {
 					return err
 				}
 				return adoption.RecordIn(t.Context(), tx, id, 1, adoption.AdoptionCreate, "fixture", adoption.EmptyReceipt(), "operator", time.Now())

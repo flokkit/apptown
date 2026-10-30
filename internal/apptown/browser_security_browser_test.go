@@ -865,15 +865,18 @@ func (s *tourScene) play(start time.Time) tourIDs {
 
 	// Day 0: Sam sets up the three apps; Priya and Tom work on them.
 	at(0, "9:00")
-	type proj struct{ slug, name, blurb, pack string }
+	type proj struct {
+		slug, name, blurb string
+		packs             []string
+	}
 	for _, p := range []proj{
-		{"lunch-orders", "Lunch Orders", "Each morning people pick a lunch from a short menu; at 11am whoever is ordering sees the list with names and totals.", "django-htmx"},
-		{"club-newsletter", "Club Newsletter", "The cycling club's monthly newsletter, as a small static site.", "conventions-only"},
-		{"rocket-garden", "Rocket Garden", "A little browser game: grow rockets, launch them, beat your best height.", "html-game"},
+		{"lunch-orders", "Lunch Orders", "Each morning people pick a lunch from a short menu; at 11am whoever is ordering sees the list with names and totals.", []string{"server-base", "django", "postgres", "server-rendered"}},
+		{"club-newsletter", "Club Newsletter", "The cycling club's monthly newsletter, as a small static site.", []string{"conventions-only"}},
+		{"rocket-garden", "Rocket Garden", "A little browser game: grow rockets, launch them, beat your best height.", []string{"html-game"}},
 	} {
 		s.call("sam", "POST", "/api/v1/projects", map[string]string{"slug": p.slug, "name": p.name, "blurb": p.blurb})
 		s.call("sam", "POST", "/api/v1/projects/"+p.slug+"/repo", map[string]string{"defaultBranch": "main"})
-		s.call("sam", "POST", "/api/v1/projects/"+p.slug+"/pack", map[string]string{"name": p.pack})
+		s.call("sam", "POST", "/api/v1/projects/"+p.slug+"/pack", map[string][]string{"names": p.packs})
 		for _, who := range []string{"priya", "tom"} {
 			s.call("sam", "POST", "/api/v1/projects/"+p.slug+"/members", map[string]string{"grantee": "user:" + who, "role": "project-contributor"})
 		}

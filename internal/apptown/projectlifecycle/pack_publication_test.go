@@ -3,6 +3,7 @@ package projectlifecycle
 import (
 	"context"
 	"errors"
+	"github.com/flokkit/apptown/internal/apptown/wow"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/apptown/adoption"
@@ -39,13 +40,13 @@ func TestPackApplyRecordsPinsAndRollsBackSetup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	pk, err := f.ways.Pack(t.Context(), "go-small")
+	pk, err := f.ways.Pack(t.Context(), "go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(f.db.FailNextStatement("INSERT INTO project_packs"))
 	ctx := adoption.WithSystemAuthority(context.Background(), p.ID)
-	if _, err := f.lifecycle.ApplyPack(ctx, p, pk, "bls"); err == nil {
+	if _, err := f.lifecycle.ApplyPack(ctx, p, []*wow.Pack{pk}, "bls"); err == nil {
 		t.Fatal("membership failure hidden")
 	}
 	failed, err := f.adoption.CurrentReceipt(ctx, p.ID)
@@ -56,7 +57,7 @@ func TestPackApplyRecordsPinsAndRollsBackSetup(t *testing.T) {
 		// sql-guarantee: A failed pack apply must leave no setup row in any of the five tables, including ones no single owner read lists together.
 		ownerCount(t, f.db, 0, `SELECT COUNT(*) FROM `+table+` WHERE project_id=$1`, p.ID)
 	}
-	if _, err := f.lifecycle.ApplyPack(ctx, p, pk, "bls"); err != nil {
+	if _, err := f.lifecycle.ApplyPack(ctx, p, []*wow.Pack{pk}, "bls"); err != nil {
 		t.Fatal(err)
 	}
 	after, err := f.adoption.CurrentReceipt(ctx, p.ID)
@@ -84,11 +85,11 @@ func TestPackApplyRecordsPinsAndRollsBackSetup(t *testing.T) {
 func TestCreatingWithAPackNotOfferedCreatesNothing(t *testing.T) {
 	t.Parallel()
 	f := newOwnerFixture(t, true)
-	if err := f.ways.OfferPack(t.Context(), "go-small", false, "bls"); err != nil {
+	if err := f.ways.OfferPack(t.Context(), "go", false, "bls"); err != nil {
 		t.Fatal(err)
 	}
-	for _, pack := range []string{"go-small", "no-such-pack"} {
-		_, err := f.lifecycle.Create(context.Background(), Draft{Slug: "packless", Name: "Packless", Actor: "bls", Pack: pack})
+	for _, pack := range []string{"go", "no-such-pack"} {
+		_, err := f.lifecycle.Create(context.Background(), Draft{Slug: "packless", Name: "Packless", Actor: "bls", Packs: []string{pack}})
 		if !errors.Is(err, adoption.ErrPackNotOffered) {
 			t.Fatalf("%s: got %v, want the pack refused", pack, err)
 		}
@@ -96,7 +97,7 @@ func TestCreatingWithAPackNotOfferedCreatesNothing(t *testing.T) {
 			t.Fatalf("%s: the refused creation left its project", pack)
 		}
 	}
-	if _, err := f.lifecycle.Create(context.Background(), Draft{Slug: "packed", Name: "Packed", Actor: "bls", Pack: "django-htmx"}); err != nil {
+	if _, err := f.lifecycle.Create(context.Background(), Draft{Slug: "packed", Name: "Packed", Actor: "bls", Packs: []string{"server-base", "django", "postgres", "server-rendered"}}); err != nil {
 		t.Fatalf("an offered pack's creation: %v", err)
 	}
 }

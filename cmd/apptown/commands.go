@@ -35,7 +35,7 @@ var sections = []section{
 			"  (--json on new, fix, quick, plan, build, land, show, changes, wait, approve, release, complain and\n" +
 			"   version prints one JSON document and never follows or asks; stock/docs/guides/cli-json.md)",
 		commands: []command{
-			{[]string{"new"}, `  new <slug> [--name N] [--pack P] [--toolchain T] [--remote]
+			{[]string{"new"}, `  new <slug> [--name N] [--pack P,Q,...] [--toolchain T] [--remote]
                                         create project: repo + toolchain + remote + pack
   new <slug> --from <https-url|bundle> [--secret-for-git NAME] [--branch B]
                                         start it from existing code: its default branch and tags`, cmdNew},
@@ -95,7 +95,7 @@ var sections = []section{
                                         deleted and kept; --cancel before its first take-down`, cmdDelete},
 			{[]string{"restore"}, `  restore <slug>                        bring a deleted project back, with no deployments, until its purge starts`, cmdRestore},
 			{[]string{"purge"}, `  purge <slug>                          admin: purge a deleted project now (its backups, repository and records)`, cmdPurge},
-			{[]string{"pack"}, `  pack -p <slug> <pack-name>            apply a pack to an existing project
+			{[]string{"pack"}, `  pack -p <slug> <pack-name>...         apply packs, together, to an existing project
   pack versions <pack>                  a pack's versions: names, what each was made from, which is recommended
   pack recommend <pack> <version> [--what-if <id>]
                                         make a version the one new projects get and others are offered (a person's act),

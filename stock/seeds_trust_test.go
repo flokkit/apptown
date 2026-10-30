@@ -13,7 +13,7 @@ import (
 // downloads mounts the build secret and runs it first, and each starter's
 // runtime command that runs the app in an image with a shell runs
 // APPTOWN_TRUST first. A starter whose app runs with no shell (distroless
-// go-small) takes the extras its build wrote into /etc/ssl/certs instead, in
+// go) takes the extras its build wrote into /etc/ssl/certs instead, in
 // a line the certificates' checksum (APPTOWN_TRUST_SUM) keeps out of the cache.
 // The caddy file servers call nothing out (container-image guidance).
 func TestShippedDockerfilesTakeTheExtraCertificates(t *testing.T) {

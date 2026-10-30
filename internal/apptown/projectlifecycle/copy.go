@@ -89,7 +89,7 @@ func (s *Service) CreateCopy(ctx context.Context, in CopyDraft) (*project.Projec
 		if err := in.Record(tx, id); err != nil {
 			return err
 		}
-		if err := adoption.InitializeIn(ctx, tx, id, 0, "", ""); err != nil {
+		if err := adoption.InitializeIn(ctx, tx, id, 0, ""); err != nil {
 			return err
 		}
 		if err := adoption.RecordIn(ctx, tx, id, 1, adoption.AdoptionCreate, "eval copy created", receipt, in.Who, at); err != nil {

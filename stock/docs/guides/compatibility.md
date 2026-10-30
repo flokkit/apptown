@@ -166,8 +166,9 @@ says so at the start of its description, wherever you choose it.
 
 **Supported**: shown to work on an AppTown like yours.
 
-- Packs: `go-small`, `django-htmx`, `frontend-only`, `rails`, `html-game`,
-  `conventions-only`, and the `apptown` platform pack.
+- Packs: `server-base`, `go`, `django`, `rails`, `postgres`, `vite-react`,
+  `server-rendered`, `frontend-only`, `html-game`, `conventions-only`, and the
+  `apptown` platform pack.
 - Needs: `postgres`, `mariadb` and `s3`, fulfilled on a Docker host.
 - Targets: the Docker host, built in or attached over SSH.
 - Workflows: `land`, `ship`, `quick-change`, `implement`, `fix-bug`,
@@ -184,10 +185,10 @@ use in production by the maintainers.
 
 | Item | What it lacks |
 | --- | --- |
-| Packs `java-spring`, `node-fullstack` | a new app shipped since their landing fixes |
-| Pack `wordpress-bedrock` | an app shipped from the current starter |
+| Packs `java`, `node` | a new app shipped since their landing fixes |
+| Pack `wordpress` | an app shipped from the current starter |
 | Pack `dotnet` | a soak, and a mirrored SDK download |
-| Pack `rust-service` | a soak with a clean image scan |
+| Pack `rust` | a soak with a clean image scan |
 | Packs `godot-3d`, `video-game` | an app shipped from the current starter |
 | Need `redis` | an app shipped with it |
 | Need `llm` | a deployed app that used its own key |

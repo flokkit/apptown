@@ -80,19 +80,6 @@ type Pack struct {
 	// Requires names instance capabilities a project on this pack needs
 	// (a scanner): adoption refuses the pack until each is attached.
 	Requires []string `yaml:"requires" json:"requires,omitempty"`
-	// Includes, Replaces, Drops and Clears are the inclusion declaration
-	// (design/subsystems/ways-of-working-versions.md): this pack is another pack
-	// ("name" follows its offered version, "name@4" pins one), with these
-	// items swapped or removed and this pack's own items added. A version
-	// stores the resolved result; a pack read for application is resolved.
-	Includes string            `yaml:"includes" json:"includes,omitempty"`
-	Replaces map[string]string `yaml:"replaces" json:"replaces,omitempty"`
-	Drops    []PackDrop        `yaml:"drops" json:"drops,omitempty"`
-	Clears   []string          `yaml:"clears" json:"clears,omitempty"`
-	// Starter is the pack whose starter files (stock/seeds/<pack>) a
-	// project made from this one is seeded with, when it is not this pack:
-	// an including pack starts like the pack it includes. Resolution sets it.
-	Starter string `yaml:"-" json:"starter,omitempty"`
 	// Version is the publication these contents were read from: the one
 	// offered to new projects. 0 when the pack has none.
 	Version int64  `yaml:"-" json:"version,omitempty"`
@@ -104,23 +91,12 @@ type Pack struct {
 	Enabled bool `yaml:"-" json:"enabled"`
 }
 
-// PackDrop removes an included item, saying why.
-type PackDrop struct {
-	Item   string `yaml:"item" json:"item"`
-	Reason string `yaml:"reason" json:"reason"`
-}
-
 // PackSpec is the stored shape (name and origin live in columns): the
-// declaration on the pack row, the resolved contents on a version.
+// declaration on the pack row, the pinned contents on a version. A pack is
+// its own items only; packs are combined by a project taking several
+// (Combine), never by one pack including another.
 type PackSpec struct {
-	Platform bool              `json:"platform,omitempty"`
-	Includes string            `json:"includes,omitempty"`
-	Replaces map[string]string `json:"replaces,omitempty"`
-	Drops    []PackDrop        `json:"drops,omitempty"`
-	// Clears names inherited setup fields (toolchain, tools, services) this pack
-	// sets to nothing; an omitted field is inherited.
-	Clears     []string             `json:"clears,omitempty"`
-	Starter    string               `json:"starter,omitempty"`
+	Platform   bool                 `json:"platform,omitempty"`
 	Guidance   []string             `json:"guidance"`
 	Workflows  []string             `json:"workflows"`
 	Policies   []PackPolicy         `json:"policies"`
@@ -133,14 +109,12 @@ type PackSpec struct {
 
 // Spec is what the store keeps of the pack.
 func (p Pack) Spec() PackSpec {
-	return PackSpec{Platform: p.Platform, Includes: p.Includes, Replaces: p.Replaces, Drops: p.Drops, Clears: p.Clears,
+	return PackSpec{Platform: p.Platform,
 		Guidance: p.Guidance, Workflows: p.Workflows, Policies: p.Policies,
 		Toolchain: p.Toolchain, Tools: p.Tools, Services: p.Services, Extensions: p.Extensions, Requires: p.Requires}
 }
 
-// Pack decodes the row's declaration into the shape readers use. A pack
-// that includes another is only its own items here; Service.Pack reads the
-// resolved contents.
+// Pack decodes the row's declaration into the shape readers use.
 func (p PackRecord) Pack() (Pack, error) {
 	return packFrom(p, p.SpecJSON)
 }
@@ -155,16 +129,8 @@ func packFrom(p PackRecord, spec string) (Pack, error) {
 	}
 	pk.Guidance, pk.Workflows, pk.Policies, pk.Toolchain, pk.Services, pk.Extensions, pk.Platform = ps.Guidance, ps.Workflows, ps.Policies, ps.Toolchain, ps.Services, ps.Extensions, ps.Platform
 	pk.Tools = ps.Tools
-	pk.Includes, pk.Replaces, pk.Drops, pk.Clears, pk.Starter, pk.Requires = ps.Includes, ps.Replaces, ps.Drops, ps.Clears, ps.Starter, ps.Requires
+	pk.Requires = ps.Requires
 	return pk, nil
-}
-
-// StarterPack names the pack whose starter files seed a new project.
-func (p Pack) StarterPack() string {
-	if p.Starter != "" {
-		return p.Starter
-	}
-	return p.Name
 }
 
 // ReadStockPacks reads the packs the release ships (packs.yaml).

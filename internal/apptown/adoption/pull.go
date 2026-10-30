@@ -2,11 +2,13 @@ package adoption
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"github.com/flokkit/apptown/internal/ids"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/flokkit/apptown/internal/ids"
 
 	"github.com/flokkit/apptown/internal/apptown/wow"
 	"github.com/flokkit/apptown/internal/database"
@@ -100,6 +102,25 @@ func (s *Service) PackPullPlan(ctx context.Context, projectID ids.ID, pack wow.P
 	for _, w := range pack.Workflows {
 		inPack[w] = true
 	}
+	// The project's other packs name lanes too: a pull of one pack never
+	// deselects a lane another of its packs carries.
+	memberships, err := ProjectPacksIn(ctx, s.db, projectID)
+	if err != nil {
+		return plan, err
+	}
+	otherPacks := map[string]bool{}
+	for _, m := range memberships {
+		if m.Pack == pack.Name {
+			continue
+		}
+		var spec candidatePackSpec
+		if err := json.Unmarshal([]byte(m.SpecJSON), &spec); err != nil {
+			return plan, fmt.Errorf("pack %s v%d: its stored spec cannot be read: %w", m.Pack, m.Version, err)
+		}
+		for _, w := range spec.Workflows {
+			otherPacks[w] = true
+		}
+	}
 	for _, w := range pack.Workflows {
 		if _, ok := have[w]; ok {
 			continue // already selected: the library keeps it current
@@ -115,7 +136,7 @@ func (s *Service) PackPullPlan(ctx context.Context, projectID ids.ID, pack wow.P
 	}
 	referenced := func(name string) bool {
 		for other, yamlSrc := range have {
-			if other == name || (!inPack[other] && !system[other]) {
+			if other == name || (!inPack[other] && !system[other] && !otherPacks[other]) {
 				continue // itself, or a fellow removal candidate
 			}
 			if strings.Contains(yamlSrc, "workflow: "+name) {
@@ -141,8 +162,8 @@ func (s *Service) PackPullPlan(ctx context.Context, projectID ids.ID, pack wow.P
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		if inPack[name] || system[name] {
-			continue // pack still carries it, or the apptown runs it regardless
+		if inPack[name] || system[name] || otherPacks[name] {
+			continue // a pack of the project's carries it, or AppTown runs it regardless
 		}
 		if referenced(name) {
 			plan.KeptReferenced = append(plan.KeptReferenced, name)
@@ -180,7 +201,8 @@ type Pulled struct {
 }
 
 // PullPack is a person's explicit act: selects the pack's added lanes,
-// deselects the removed, records the pack as the project's, and writes the
+// deselects the removed, moves the project's membership of the pack to its
+// latest version, and writes the
 // edit revision that results. Guidance is not adopted here
 // (ways-of-working-versions.md §1.2, §9 step 1): what the pack carries
 // that the project lacks is in the plan for a person to add.
@@ -188,6 +210,29 @@ func (s *Service) PullPack(ctx context.Context, projectID ids.ID, pack wow.Pack,
 	plan, err := s.PackPullPlan(ctx, projectID, pack)
 	if err != nil {
 		return Pulled{}, err
+	}
+	// The packs the pull leaves the project on are judged as a whole, as any
+	// adoption is: held packs at their versions, this one at its latest.
+	picks, err := s.PicksWith(ctx, projectID, pack.Name, pack.LatestVersion)
+	if err != nil {
+		return Pulled{}, err
+	}
+	current, err := s.CurrentReceipt(ctx, projectID)
+	if found, err := database.Lookup(err); err != nil {
+		return Pulled{}, err
+	} else if !found || current == nil {
+		current = &RecordedRevision{Receipt: EmptyReceipt()}
+	}
+	memberships, err := ProjectPacksIn(ctx, s.db, projectID)
+	if err != nil {
+		return Pulled{}, err
+	}
+	whole, err := (candidateBuilder{ways: s.deps.Ways}).prepare(ctx, projectID, current, memberships, Request{Packs: picks})
+	if err != nil {
+		return Pulled{}, err
+	}
+	if len(whole.Problems) != 0 {
+		return Pulled{}, fmt.Errorf("%w: %s", ErrNotAdoptable, strings.Join(whole.Problems, "; "))
 	}
 	out := Pulled{Plan: plan, Installed: []string{}, Removed: []string{}}
 	for _, name := range plan.Additions {
@@ -213,19 +258,16 @@ func (s *Service) PullPack(ctx context.Context, projectID ids.ID, pack wow.Pack,
 				return Receipt{}, err
 			}
 		}
-		// A pull selects this publication explicitly. Keep the primary pin in
-		// the same transaction as the pack name; supplemental picks stay put.
+		// A pull selects this publication explicitly, in the same transaction
+		// as the lanes; the project's other packs stay as they are.
 		if pack.LatestVersion <= 0 {
 			return Receipt{}, fmt.Errorf("pulled pack %s has no selected publication", pack.Name)
 		}
 		if _, err := wow.PackVersionIn(ctx, tx, pack.Name, pack.LatestVersion); err != nil {
 			return Receipt{}, fmt.Errorf("reading the pulled publication: %w", err)
 		}
-		if err := replacePulledPrimaryIn(ctx, tx, projectID, pack, who, now); err != nil {
+		if err := replacePulledIn(ctx, tx, projectID, pack, who, now); err != nil {
 			return Receipt{}, err
-		}
-		if err := SetPackIn(ctx, tx, projectID, pack.Name); err != nil {
-			return Receipt{}, fmt.Errorf("recording the project's pack: %w", err)
 		}
 		return s.UnionIn(ctx, tx, projectID, prior)
 	}); err != nil {

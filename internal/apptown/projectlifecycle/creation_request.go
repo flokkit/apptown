@@ -85,8 +85,8 @@ func (s *Service) createRequested(ctx context.Context, in Draft) (*project.Proje
 		if _, err := s.identity.Require(ctx, caller.Principal, access.Permission{Capability: access.CapProjectCreate, Resource: access.Resource{Type: "group", ID: group}}); err != nil {
 			return err
 		}
-		if normalized.Pack != "" {
-			if _, err := s.OfferedPack(ctx, normalized.Pack); err != nil {
+		if len(normalized.Packs) > 0 {
+			if _, err := s.OfferedPacks(ctx, normalized.Packs); err != nil {
 				return err
 			}
 		}
@@ -215,10 +215,11 @@ func normalizeCreation(in Draft) (Draft, error) {
 func creationHash(in Draft, group string) (string, error) {
 	// Request identity and attribution select the record; they are not editable input.
 	raw, err := json.Marshal(struct {
-		Slug, Name, Namespace, Blurb, Icon, AskedGroup, ResolvedGroup, Pack string
-		AutomaticAddress                                                    bool
-		Setup                                                               *CreationSetup
-	}{in.Slug, in.Name, in.Namespace, in.Blurb, in.Icon, in.Group, group, in.Pack, in.AutomaticAddress, in.Setup})
+		Slug, Name, Namespace, Blurb, Icon, AskedGroup, ResolvedGroup string
+		Packs                                                         []string
+		AutomaticAddress                                              bool
+		Setup                                                         *CreationSetup
+	}{in.Slug, in.Name, in.Namespace, in.Blurb, in.Icon, in.Group, group, in.Packs, in.AutomaticAddress, in.Setup})
 	if err != nil {
 		return "", fmt.Errorf("encode project creation intent: %w", err)
 	}

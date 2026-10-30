@@ -85,5 +85,5 @@ and token the command line uses.
 ## Changing the advice
 
 This advice ships as the guidance block `dev/process-and-container-mode`.
-A project that wants different advice adopts a pack that leaves the stock
-block out and adds its own.
+A project that wants different advice takes a copy of `server-base` without
+the stock block, beside a pack of its own that adds its own block.

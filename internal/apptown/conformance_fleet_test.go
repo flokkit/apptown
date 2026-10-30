@@ -126,7 +126,7 @@ func adopt(t *testing.T, a *App, projectID ids.ID, block string, ver int, checks
 		candidate := adoption.Candidate{ProjectID: projectID, ExpectedRevision: 0, Additions: []string{block}, Receipt: receipt}
 		candidate.Digest = adoption.Digest(candidate.Receipt)
 		err = a.DB.InTx(ctx, func(tx *database.Tx) error {
-			if err := adoption.InitializeIn(ctx, tx, projectID, 0, "", ""); err != nil {
+			if err := adoption.InitializeIn(ctx, tx, projectID, 0, ""); err != nil {
 				return err
 			}
 			_, err := a.Adoption.AdoptIn(ctx, tx, projectID, candidate, 0, "apptown-system", "fixture explicitly adopts check", adoption.OperationSelect)

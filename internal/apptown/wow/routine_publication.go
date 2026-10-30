@@ -39,21 +39,19 @@ type RoutinePublicationQuestion struct {
 }
 
 type routinePublication struct {
-	Kind            string               `json:"kind"`
-	ID              ids.ID               `json:"id"`
-	PublicationID   ids.ID               `json:"publicationId"`
-	Version         int64                `json:"version"`
-	Name            string               `json:"name"`
-	Source          string               `json:"source"`
-	Signer          string               `json:"signer"`
-	Body            string               `json:"body,omitempty"`
-	Checks          json.RawMessage      `json:"checks,omitempty"`
-	Spec            json.RawMessage      `json:"spec,omitempty"`
-	Declaration     json.RawMessage      `json:"declaration,omitempty"`
-	Pins            PinSet               `json:"pins"`
-	IncludedPack    string               `json:"includedPack,omitempty"`
-	IncludedVersion int64                `json:"includedVersion,omitempty"`
-	References      []routinePublication `json:"references,omitempty"`
+	Kind          string               `json:"kind"`
+	ID            ids.ID               `json:"id"`
+	PublicationID ids.ID               `json:"publicationId"`
+	Version       int64                `json:"version"`
+	Name          string               `json:"name"`
+	Source        string               `json:"source"`
+	Signer        string               `json:"signer"`
+	Body          string               `json:"body,omitempty"`
+	Checks        json.RawMessage      `json:"checks,omitempty"`
+	Spec          json.RawMessage      `json:"spec,omitempty"`
+	Declaration   json.RawMessage      `json:"declaration,omitempty"`
+	Pins          PinSet               `json:"pins"`
+	References    []routinePublication `json:"references,omitempty"`
 }
 
 func routineJSON(raw []byte, out any) error {
@@ -113,7 +111,6 @@ func routinePublicationIn(ctx context.Context, q database.Queryer, kind string, 
 			return p, database.Missing(err)
 		}
 		p.Name, p.PublicationID, p.Source, p.Signer = owner.Name, row.ID, row.Source, row.Signer
-		p.IncludedPack, p.IncludedVersion = row.IncludedPack, row.IncludedVersion
 		var spec PackSpec
 		if err = routineJSON(row.SpecJson, &spec); err != nil {
 			return p, err
@@ -176,19 +173,6 @@ func routinePublicationIn(ctx context.Context, q database.Queryer, kind string, 
 			}
 			p.References = append(p.References, routinePublication{Kind: "workflow", ID: owner.ID, PublicationID: row.ID, Version: row.Version, Name: name, Source: row.Source, Signer: row.Signer, Body: row.Yaml})
 		}
-		if p.IncludedPack != "" {
-			included, e := queries.PackByName(ctx, p.IncludedPack)
-			if e != nil {
-				return p, database.Missing(e)
-			}
-			child, e := routinePublicationIn(ctx, q, "pack", included.ID, p.IncludedVersion, depth+1)
-			if e != nil {
-				return p, e
-			}
-			p.References = append(p.References, child)
-		} else if p.IncludedVersion != 0 {
-			return p, fault.New(fault.Conflict, "included publication identity is incomplete")
-		}
 		sort.Slice(p.References, func(i, j int) bool {
 			a, b := p.References[i], p.References[j]
 			if a.Kind != b.Kind {
@@ -225,7 +209,7 @@ func routinePublicationDelta(before, after routinePublication) (bool, string) {
 		}
 		return before.Body != after.Body, ""
 	case "pack":
-		if !bytes.Equal(before.Spec, after.Spec) || !bytes.Equal(before.Declaration, after.Declaration) || before.IncludedPack != after.IncludedPack {
+		if !bytes.Equal(before.Spec, after.Spec) || !bytes.Equal(before.Declaration, after.Declaration) {
 			return false, "pack declaration, membership, runtime defaults or authority changed"
 		}
 		if !reflect.DeepEqual(before.Pins.Workflows, after.Pins.Workflows) || !reflect.DeepEqual(before.Pins.Policies, after.Pins.Policies) {

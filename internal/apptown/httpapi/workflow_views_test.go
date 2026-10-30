@@ -127,7 +127,7 @@ func TestHandleDashboardSplit(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := f.DB.InTx(context.Background(), func(tx *database.Tx) error {
-		if err := adoption.InitializeIn(f.Context, tx, projectB, 0, "", ""); err != nil {
+		if err := adoption.InitializeIn(f.Context, tx, projectB, 0, ""); err != nil {
 			return err
 		}
 		return adoption.RecordIn(f.Context, tx, projectB, 1, adoption.AdoptionCreate, "dashboard fixture", adoption.EmptyReceipt(), "fixture", time.Now())

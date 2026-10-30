@@ -59,7 +59,8 @@ These values are delivered on a Docker host and on a bucket website. A
 deploy of a static site that has them to Portainer or App Platform is
 refused before it starts.
 
-The agents know this: the observability guidance steers them to wire
+The agents know this: attaching the integration adds a section to their
+steering that tells them to wire
 the SDK exactly this way, and the `adopt-integration` workflow that
 **Wire it in →** starts holds them to it — build, run with the env
 absent, run with it set, fire the hook, confirm the event, then a

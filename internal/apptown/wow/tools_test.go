@@ -5,34 +5,12 @@ import (
 	"maps"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/strs"
 	"github.com/flokkit/apptown/stock"
 )
-
-// A pack that includes another inherits each tool's line unless it names
-// its own, and clears them all only by saying so.
-//
-// Kills: tools not inherited, a child's line losing to its parent's, the
-// child's map replacing the parent's whole, or clears ignoring tools.
-func TestAPackInheritsToolLinesItDoesNotName(t *testing.T) {
-	t.Parallel()
-	inc := &includedPublication{Pack: "base", Version: 1, Spec: PackSpec{Tools: map[string]string{"node": "24", "postgres": "16"}}}
-	got, err := resolveDeclaration(t.Context(), PackSpec{Includes: "base", Tools: map[string]string{"node": "26"}}, inc, fakePins{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := map[string]string{"node": "26", "postgres": "16"}; !maps.Equal(got.Spec.Tools, want) {
-		t.Fatalf("tools %v, want %v", got.Spec.Tools, want)
-	}
-	if inc.Spec.Tools["node"] != "24" {
-		t.Fatal("resolving changed the included publication's tools")
-	}
-	cleared, err := resolveDeclaration(t.Context(), PackSpec{Includes: "base", Clears: []string{"tools"}}, inc, fakePins{})
-	if err != nil || len(cleared.Spec.Tools) != 0 {
-		t.Fatalf("cleared tools: %v %v", cleared.Spec.Tools, err)
-	}
-}
 
 // A pack names only lines the tool versions list has, and a service it
 // proposes names an image of that line: a version is published only when
@@ -79,11 +57,41 @@ func TestTheStockPacksStateTheirLines(t *testing.T) {
 	if c := s.SyncStockPacks(t.Context()); c.Errors != 0 {
 		t.Fatalf("stock packs: %+v", c)
 	}
-	pubs, err := s.packs.PublicationsOf(t.Context(), "node-fullstack")
+	pubs, err := s.packs.PublicationsOf(t.Context(), "node")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := map[string]string{"node": "24", "postgres": "16"}; !maps.Equal(pubs[0].Spec.Tools, want) {
-		t.Fatalf("node-fullstack's tools %v, want %v", pubs[0].Spec.Tools, want)
+	if want := map[string]string{"node": "24"}; !maps.Equal(pubs[0].Spec.Tools, want) {
+		t.Fatalf("node's tools %v, want %v", pubs[0].Spec.Tools, want)
+	}
+}
+
+func mustJSON(v any) string {
+	text, err := strs.JSON(v)
+	if err != nil {
+		panic(err)
+	}
+	return text
+}
+
+// A pack cannot declare a memory default: a part's memory is its
+// deployment's override, else its app's declaration, else AppTown's
+// default. A pack file naming resources is refused as an unknown key.
+func TestAPackDeclaresNoMemoryDefault(t *testing.T) {
+	t.Parallel()
+	fsys := fstest.MapFS{"packs.yaml": {Data: []byte("packs:\n  - name: small\n    description: a pack\n    resources: {memory: 48M}\n")}}
+	if _, err := ReadStockPacks(fsys); err == nil || !strings.Contains(err.Error(), "resources") {
+		t.Fatalf("a pack's memory default was read: %v", err)
+	}
+}
+
+// Packs do not include one another: a stock pack that declares includes is
+// refused as an unknown key, so nothing it meant to inherit is silently
+// lost. Projects combine packs by taking several.
+func TestAPackDeclaresNoInclusion(t *testing.T) {
+	t.Parallel()
+	fsys := fstest.MapFS{"packs.yaml": {Data: []byte("packs:\n  - name: small\n    description: a pack\n    includes: base\n")}}
+	if _, err := ReadStockPacks(fsys); err == nil || !strings.Contains(err.Error(), "includes") {
+		t.Fatalf("a pack's inclusion was read: %v", err)
 	}
 }

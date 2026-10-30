@@ -6,12 +6,12 @@ checks: [{"name": "lockfile-in-step", "expects": "go.mod and go.sum match what t
 Anything that serves, daemonizes, or ships as a binary is Go. Single static
 binary, cross-compilation, stdlib HTTP, one formatter.
 
-Deviate by: data/ML → python-for-data; web UI → typescript-for-web; no-GC memory
+Deviate by: data/ML → python-for-data; web UI → the project's UI pack; no-GC memory
 safety as hard requirement → Rust via the innovation token, with ADR.
 
 Build in a stage `FROM golang` with `CGO_ENABLED=0` and ship only the
-binary on `gcr.io/distroless/static-debian12:nonroot` (the go-small
-seed: about 15 MB, no shell, no package manager; its build writes the
+binary on `gcr.io/distroless/static-debian12:nonroot` (the go
+starter: about 15 MB, no shell, no package manager; its build writes the
 extra certificate authorities into `/etc/ssl/certs`, as build/container-image
 says). Use `alpine` or
 `debian:bookworm-slim` when the app needs a shell or cgo. Never run from

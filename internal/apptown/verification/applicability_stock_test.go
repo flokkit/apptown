@@ -248,7 +248,7 @@ func TestEveryShippedPartCheckFindsNothingToJudgeAFailure(t *testing.T) {
 
 // The contract matches the code: every package manifest is in the folder
 // of a part whose tools name its tool, or under notAppCode. A manifest
-// below a part's folder counts as that part's (go-small's embedded UI),
+// below a part's folder counts as that part's (a Go server's embedded UI),
 // node_modules, vendor and testdata are not looked in, and one the
 // contract does not describe is a line naming it and the fix.
 //

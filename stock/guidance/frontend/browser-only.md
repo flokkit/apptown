@@ -39,3 +39,30 @@ old copy on the next visit. Test offline in the preview: load the app, turn
 the network off in the browser's developer tools, reload, and use it.
 An app that is always used online does not need a service worker; do not
 add one by habit, since a stale cached copy is harder to fix than no copy.
+
+**Building and serving.** `.apptown/app.yaml` declares the app a static
+site with a build (`static: { build: ., output: dist }`). The
+repository's Dockerfile builds it in a Node stage (`npm ci`,
+`npm run build`) and ends with a stage that holds only the files:
+
+    FROM scratch AS site
+    COPY --from=build /app/dist /dist
+
+AppTown builds that stage for previews and releases and serves its
+`dist/` with its own file server; Node never ships. Keep the
+Dockerfile's Node major version the same as `mise.toml`'s. The built
+folder holds only folders and files: a symbolic link in it is refused.
+
+What the file server does, and does not do:
+
+- It serves `/_apptown/env.js` (guidance `deploy/browser-values`), so the
+  page loads it first in `<head>`, and readiness is the site's root.
+- It serves only files that exist. A path with no file is a 404, so an
+  app with several screens uses hash routes (`#/items/42`), which a
+  reload keeps. An app that needs path routes (`/items/42`) keeps its own
+  server instead: `build: .` with a Caddy stage that answers unknown
+  paths with `index.html`, and a `/healthz` readiness path.
+- It sends validators (ETag, Last-Modified) and no `Cache-Control`
+  header, so a browser may reuse a file briefly before asking again.
+  Vite names files under `/assets/` by their content, so a new release
+  never reuses an old script.

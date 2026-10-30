@@ -13,10 +13,7 @@ func TestPackPullListsNewGuidanceWithoutAdoptingIt(t *testing.T) {
 	t.Parallel()
 	f := newPackPullFixture(t)
 	f.ways.SyncStock(t.Context())
-	if err := f.adoption.SetPack(t.Context(), f.projectID, "go-small"); err != nil {
-		t.Fatal(err)
-	}
-	pack, err := f.ways.Pack(t.Context(), "go-small")
+	pack, err := f.ways.Pack(t.Context(), "go")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +24,7 @@ func TestPackPullListsNewGuidanceWithoutAdoptingIt(t *testing.T) {
 	if !slices.Contains(plan.Guidance, "lang/go/formatting") {
 		t.Fatalf("the pack's blocks the project lacks are in the plan: %v", plan.Guidance)
 	}
-	req := httptest.NewRequest("POST", "/api/v1/projects/p/pack/pull", strings.NewReader("{}")).WithContext(f.ctx)
+	req := httptest.NewRequest("POST", "/api/v1/projects/p/pack/pull", strings.NewReader(`{"pack":"go"}`)).WithContext(f.ctx)
 	req.SetPathValue("slug", "p")
 	w := httptest.NewRecorder()
 	NewPackPull(f.adoption, f.projects, f.identity, f.ways, f.db, nil).PackPull(w, req)

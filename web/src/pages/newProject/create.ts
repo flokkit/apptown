@@ -3,8 +3,8 @@ import type { AuthzHoldings, CreatedChange, Project as WireProject, ProjectDetai
 import { slugOf, type Draft } from './draft'
 import { captureCreation, matchingBundle, readCreation, retainCreation, leaveCreation, type RetainedCreation, type SetupStep } from './retained'
 
-// What applying a pack answers (not yet generated from its Go type).
-type PackApplied = { guidanceImports: number; workflowsInstalled: string[]; missing: string[]; seeded?: string[] }
+// What applying packs answers (not yet generated from its Go type).
+type PackApplied = { packs: string[]; guidanceImports: number; workflowsInstalled: string[]; missing: string[]; seeded?: string[] }
 export type ProgressLine = { text: string; warn?: boolean }
 export type CreationContext = { actorId: string; storage: Storage; file?: File | null; assertActive: () => void }
 
@@ -15,7 +15,7 @@ export function creationRequest(saved: RetainedCreation): ProjectDraft {
   if (remote && (!Number.isSafeInteger(namespace) || namespace <= 0)) throw new Error('Choose a GitLab group before creating the project.')
   return {
     requestId: d.creationRequestId, automaticAddress: d.address === null,
-    slug: slugOf(d), name: d.name || slugOf(d), namespace: '', group: '', blurb: d.description.trim(), icon: d.icon, pack: d.pack ?? '',
+    slug: slugOf(d), name: d.name || slugOf(d), namespace: '', group: '', blurb: d.description.trim(), icon: d.icon, packs: d.packs ?? [],
     setup: {
       origin: d.origin, sourceURL: d.sourceURL.trim(), sourceBranch: d.sourceBranch.trim(), credentialSecret: d.gitSecret,
       bundleSHA256: saved.bundleDigest ?? '', services: d.services.map((s) => ({ capability: s.capability, params: { ...s.params } })),
@@ -127,12 +127,12 @@ export async function continueCreation(ctx: CreationContext, say: (line: Progres
     ctx.assertActive()
     log(`GitLab copy: ${r.remote}`)
   }
-  if (request.pack) {
+  if (request.packs?.length) {
     await currentActor(ctx)
     checkpoint('pack')
-    const r = await post<PackApplied>(`/projects/${slug}/pack`, { name: request.pack })
+    const r = await post<PackApplied>(`/projects/${slug}/pack`, { names: request.packs })
     ctx.assertActive()
-    log(`Way of working "${request.pack}": ${r.guidanceImports} guidance blocks, workflows: ${r.workflowsInstalled.join(', ')}`)
+    log(`Way of working ${request.packs.join(' + ')}: ${r.guidanceImports} guidance blocks, workflows: ${r.workflowsInstalled.join(', ')}`)
     if (r.seeded?.length) log(`Starter files: ${r.seeded.join(', ')}`)
     if (r.missing?.length) warn(`Missing from store: ${r.missing.join(', ')}`)
   }

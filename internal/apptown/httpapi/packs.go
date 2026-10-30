@@ -72,7 +72,7 @@ func (h Packs) Packs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		out = append(out, PackView{Pack: p, Declaration: declared.Spec(), Requires: h.packRequirements(r.Context(), p), GuidanceBytes: total, GeneratedBytes: generated,
-			StaticStarter: h.ways.StarterIsStatic(p.StarterPack())})
+			StaticStarter: h.ways.StarterIsStatic(p.Name)})
 	}
 	WriteJSON(w, 200, out)
 }

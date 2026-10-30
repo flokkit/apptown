@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"slices"
 	"time"
 
@@ -78,34 +77,20 @@ func (s *Service) PicksWith(ctx context.Context, projectID ids.ID, pack string, 
 	return append(picks, PackPick{Pack: pack, Version: version}), nil
 }
 
-// currentPicks is the project's pack memberships at their versions, the
-// pack its receipt names first: the first pick is the one a candidate's
-// receipt names, so the order is part of what is adopted. A project with
-// no adoption recorded yet has no first pack.
+// currentPicks is the project's pack memberships at their versions,
+// sorted by name: every pack counts the same, so the order carries nothing.
 func (s *Service) currentPicks(ctx context.Context, projectID ids.ID) ([]PackPick, error) {
 	return currentPicksIn(ctx, s.db, projectID)
 }
 
 func currentPicksIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]PackPick, error) {
-	primary := ""
-	current, err := CurrentReceiptIn(ctx, q, projectID)
-	if found, err := database.Lookup(err); err != nil {
-		return nil, fmt.Errorf("reading the project's adoption: %w", err)
-	} else if found {
-		primary = current.Receipt.Pack
-	}
 	memberships, err := ProjectPacksIn(ctx, q, projectID)
 	if err != nil {
 		return nil, err
 	}
 	picks := []PackPick{}
 	for _, m := range memberships {
-		pick := PackPick{Pack: m.Pack, Version: m.Version}
-		if m.Pack == primary {
-			picks = append([]PackPick{pick}, picks...)
-		} else {
-			picks = append(picks, pick)
-		}
+		picks = append(picks, PackPick{Pack: m.Pack, Version: m.Version})
 	}
 	return picks, nil
 }
@@ -158,8 +143,7 @@ type ProjectRef struct {
 // ProjectsBelowIn is every ordinary project with a repository that directly
 // holds pack at a version below version, by slug: who a new version is tried
 // on by default. A project on that version has nothing to try; the default
-// is upgrade-only, so one on a later version is left out; a project on a
-// pack that includes this one takes it through that pack's own version.
+// is upgrade-only, so one on a later version is left out.
 // Whether a project is active is its owner's answer, asked by the caller.
 // It checks no authority: the caller holds its own (a what-if's admission).
 func ProjectsBelowIn(ctx context.Context, q database.Queryer, pack string, version int64) ([]ProjectRef, error) {
@@ -197,32 +181,22 @@ func (s *Service) ProjectsBelow(ctx context.Context, pack string, version int64)
 	return out, nil
 }
 
-// replacePulledPrimaryIn changes only the explicitly pulled primary membership.
-// Supplemental membership rows and their original attribution remain intact.
-func replacePulledPrimaryIn(ctx context.Context, tx *database.Tx, projectID ids.ID, selected wow.Pack, who string, at time.Time) error {
-	current, err := CurrentIn(ctx, tx, projectID)
-	if err != nil {
-		return err
-	}
-	previous := current.Pack
-	if previous != "" {
-		old, err := wow.PackByNameIn(ctx, tx, previous)
-		if err != nil {
-			return err
-		}
-		// Every repository keeps its platform membership.
-		if old.Platform() {
-			previous = ""
-		}
-	}
+// replacePulledIn moves only the pulled pack's membership to the selected
+// publication. The project's other memberships and their attribution stay.
+func replacePulledIn(ctx context.Context, tx *database.Tx, projectID ids.ID, selected wow.Pack, who string, at time.Time) error {
 	adopter, err := identity.ActorIn(ctx, tx, who)
 	if err != nil {
 		return err
 	}
 	q := adoptionsql.New(tx.SQL())
-	if err := q.DeletePulledPrimaryMembership(ctx, adoptionsql.DeletePulledPrimaryMembershipParams{ProjectID: projectID, PreviousPack: previous, SelectedPack: selected.Name}); err != nil {
+	if err := q.DeletePackMembership(ctx, adoptionsql.DeletePackMembershipParams{ProjectID: projectID, Pack: selected.Name}); err != nil {
 		return err
 	}
 	_, err = q.InsertProjectPack(ctx, adoptionsql.InsertProjectPackParams{ID: ids.New(at.UTC()), ProjectID: projectID, PackID: selected.ID, Version: selected.LatestVersion, Reason: "pack " + selected.Name + " pulled (lanes)", Actor: who, ActorPrincipal: adopter.Principal, ActorVia: adopter.Via, At: at.UTC()})
 	return err
+}
+
+// ProjectPacks is ProjectPacksIn on the service's database.
+func (s *Service) ProjectPacks(ctx context.Context, projectID ids.ID) ([]ProjectPackRecord, error) {
+	return ProjectPacksIn(ctx, s.db, projectID)
 }

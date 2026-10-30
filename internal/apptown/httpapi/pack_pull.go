@@ -89,21 +89,12 @@ func (h PackPull) PackPull(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// resolveProjectPack: the recorded pack, or the one named in the request
-// (which also becomes the recorded pack on pull — declaring allegiance is
-// part of the act).
+// resolveProjectPack: the pack named in the request. A project has several
+// packs, so a pull always names the one it moves.
 func (h PackPull) resolveProjectPack(ctx context.Context, p *project.Project, requested string) (*wow.Pack, error) {
 	name := requested
 	if name == "" {
-		rec, err := h.adoption.Current(ctx, p.ID)
-		if found, err := database.Lookup(err); err != nil {
-			return nil, err
-		} else if found {
-			name = rec.Pack
-		}
-	}
-	if name == "" {
-		return nil, fmt.Errorf("this project has no recorded pack — pass one to adopt it")
+		return nil, fmt.Errorf("name the pack to pull: a project can be on several")
 	}
 	pack, err := packNamed(ctx, h.ways, name)
 	if err != nil {

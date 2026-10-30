@@ -32,7 +32,6 @@ type Plan struct {
 	memberships []Membership
 	policies    []preparedPolicy
 	extensions  []string
-	pack        string
 	kind        AdoptionKind
 	reason      string
 	reuse       bool
@@ -77,7 +76,7 @@ func (a Adoption) Prepare(c Candidate, attached func([]string) error) (Plan, err
 			return Plan{}, err
 		}
 	}
-	p := Plan{projectID: a.ProjectID, revision: c.ExpectedRevision, receipt: cloneReceipt(c.Receipt), pack: c.Receipt.Pack, kind: AdoptionAdopt}
+	p := Plan{projectID: a.ProjectID, revision: c.ExpectedRevision, receipt: cloneReceipt(c.Receipt), kind: AdoptionAdopt}
 	for _, pick := range c.Packs {
 		p.memberships = append(p.memberships, Membership(pick))
 	}
@@ -113,7 +112,6 @@ func (a Adoption) Advance(p Plan, expected int64) (*Adoption, Event, error) {
 	}
 	next := a
 	next.Drift = ""
-	next.Pack = p.pack
 	if !p.reuse {
 		if a.Revision < 0 || a.Revision == math.MaxInt64 {
 			return nil, Event{}, fmt.Errorf("adoption revision cannot advance from %d", a.Revision)
@@ -137,6 +135,7 @@ func cloneReceipt(r Receipt) Receipt {
 	r.Workflows = slices.Clone(r.Workflows)
 	r.Policies = slices.Clone(r.Policies)
 	r.Extensions = slices.Clone(r.Extensions)
+	r.Packs = slices.Clone(r.Packs)
 	return r
 }
 
@@ -147,7 +146,7 @@ func (a Adoption) prepareRecord(receipt Receipt, kind AdoptionKind, reason strin
 	if err := a.requireReceipt(prior); err != nil {
 		return Plan{}, err
 	}
-	return Plan{projectID: a.ProjectID, revision: a.Revision, receipt: cloneReceipt(receipt), pack: a.Pack, kind: kind, reason: reason,
+	return Plan{projectID: a.ProjectID, revision: a.Revision, receipt: cloneReceipt(receipt), kind: kind, reason: reason,
 		reuse: prior != nil && prior.Digest == Digest(receipt)}, nil
 }
 

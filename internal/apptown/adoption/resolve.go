@@ -15,7 +15,7 @@ import (
 // receipt: every enabled import at its pinned version and position, every
 // selected or system workflow at the version the prior revision pinned
 // (a newly selected one at the library's latest), the policies, the
-// extensions, and the pack.
+// extensions, and the packs.
 type resolver struct {
 	workflows Catalog
 	db        *database.DB
@@ -32,11 +32,13 @@ func (rs *resolver) Union(ctx context.Context, projectID ids.ID, prior *Recorded
 }
 func (rs *resolver) unionIn(ctx context.Context, q database.Queryer, projectID ids.ID, prior *RecordedRevision) (Receipt, error) {
 	r := EmptyReceipt()
-	pack, err := projectPackIn(ctx, q, projectID)
+	picks, err := currentPicksIn(ctx, q, projectID)
 	if err != nil {
 		return r, err
 	}
-	r.Pack = pack
+	if len(picks) > 0 {
+		r.Packs = pickNames(picks)
+	}
 	imports, err := importsIn(ctx, q, projectID)
 	if err != nil {
 		return r, err
@@ -88,15 +90,6 @@ func (rs *resolver) unionIn(ctx context.Context, q database.Queryer, projectID i
 	return r, nil
 }
 
-func projectPackIn(ctx context.Context, q database.Queryer, projectID ids.ID) (string, error) {
-	r, err := CurrentIn(ctx, q, projectID)
-	// Candidate preparation can precede creation; absence has no selected pack.
-	found, err := database.Lookup(err)
-	if err != nil || !found {
-		return "", err
-	}
-	return r.Pack, nil
-}
 func enabledExtensionsIn(ctx context.Context, q database.Queryer, projectID ids.ID) ([]string, error) {
 	return adoptionsql.New(q.SQL()).EnabledExtensions(ctx, projectID)
 }

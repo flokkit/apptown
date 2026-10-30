@@ -16,7 +16,7 @@ import (
 	"github.com/flokkit/apptown/stock"
 )
 
-// The stock node-fullstack Dockerfile ships production dependencies only: a
+// The stock node starter's Dockerfile ships production dependencies only: a
 // dev tool (TypeScript 7's compiler is a Go binary) must not reach the image
 // the landing scans, and the app still starts on what remains. The fixture is
 // the pack's recommended layout, a root package with server and web
@@ -28,7 +28,7 @@ func TestIntegrationNodeSeedImageShipsNoDevDependencies(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"Dockerfile", ".dockerignore"} {
-		raw, err := fs.ReadFile(stock.FS, "seeds/node-fullstack/"+name)
+		raw, err := fs.ReadFile(stock.FS, "seeds/node/"+name)
 		if err != nil {
 			t.Fatal(err)
 		}

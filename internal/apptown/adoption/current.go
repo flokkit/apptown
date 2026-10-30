@@ -17,12 +17,11 @@ type Adoption struct {
 	recorded  *RecordedRevision
 	ProjectID ids.ID `json:"projectId"`
 	Revision  int64  `json:"revision"`
-	Pack      string `json:"pack"`
 	Drift     string `json:"drift"`
 }
 
 func currentRecord(r adoptionsql.Adoption) *Adoption {
-	return &Adoption{ProjectID: r.ProjectID, Revision: r.Revision, Pack: r.Pack, Drift: r.DriftNote}
+	return &Adoption{ProjectID: r.ProjectID, Revision: r.Revision, Drift: r.DriftNote}
 }
 
 // CurrentIn reads only the aggregate. Absence is sql.ErrNoRows and is never repaired.
@@ -53,12 +52,12 @@ func CurrentForUpdateIn(ctx context.Context, tx *database.Tx, projectID ids.ID) 
 
 // InitializeIn is an explicit creation participant. Duplicate initialization is
 // an error, and a missing project is never turned into orphaned adoption state.
-func InitializeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision int64, pack, drift string) error {
+func InitializeIn(ctx context.Context, tx *database.Tx, projectID ids.ID, revision int64, drift string) error {
 	q := adoptionsql.New(tx.SQL())
 	if _, err := q.AdoptionProjectForUpdate(ctx, projectID); err != nil {
 		return err
 	}
-	_, err := q.InsertCurrentAdoption(ctx, adoptionsql.InsertCurrentAdoptionParams{ProjectID: projectID, Revision: revision, Pack: pack, DriftNote: drift})
+	_, err := q.InsertCurrentAdoption(ctx, adoptionsql.InsertCurrentAdoptionParams{ProjectID: projectID, Revision: revision, DriftNote: drift})
 	return err
 }
 
@@ -79,16 +78,6 @@ func ensureCurrentForUpdateIn(ctx context.Context, tx *database.Tx, projectID id
 	return currentRecord(r), nil
 }
 
-func SetPackIn(ctx context.Context, tx *database.Tx, projectID ids.ID, pack string) error {
-	if _, err := ensureCurrentForUpdateIn(ctx, tx, projectID); err != nil {
-		return err
-	}
-	_, err := adoptionsql.New(tx.SQL()).SetCurrentPack(ctx, adoptionsql.SetCurrentPackParams{ProjectID: projectID, Pack: pack})
-	return err
-}
-func (s *Service) SetPack(ctx context.Context, projectID ids.ID, pack string) error {
-	return s.db.InTx(ctx, func(tx *database.Tx) error { return SetPackIn(ctx, tx, projectID, pack) })
-}
 func (s *Service) NoteDrift(ctx context.Context, projectID ids.ID, note string) error {
 	return s.db.InTx(ctx, func(tx *database.Tx) error {
 		current, err := ensureCurrentForUpdateIn(ctx, tx, projectID)

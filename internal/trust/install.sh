@@ -87,7 +87,7 @@ _apptown_trust() {
 	done
 	# The extras alone, for a build whose final image has no shell to run
 	# this script: it copies the file into that image where its TLS library
-	# reads extra roots (the go-small starter's Dockerfile).
+	# reads extra roots (the go starter's Dockerfile).
 	export APPTOWN_TRUST_CERTS="$_at_dir/extras.pem"
 	# Node adds this file to its own roots.
 	case $NODE_EXTRA_CA_CERTS in

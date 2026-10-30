@@ -17,7 +17,7 @@ func TestAdoptInSettlesSelectionsAndReceiptTogether(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	pid := adoptionTestProject(t, db, "atomic-adopt", "Atomic adoption")
-	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "", "review") }); err != nil {
+	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "review") }); err != nil {
 		t.Fatal(err)
 	}
 	ways := wow.New(db, wow.Dependencies{})
@@ -44,7 +44,7 @@ func TestAdoptInSettlesSelectionsAndReceiptTogether(t *testing.T) {
 	packName := pack.Name
 	candidate := Candidate{ProjectID: pid, ExpectedRevision: 0, Packs: []PackPick{{Pack: "atomic-pack", Version: 1}}, Receipt: EmptyReceipt()}
 	candidate.Installation = Installation{Policies: []Policy{{Name: "needs-registry", Rule: "requireCapabilityBound", With: map[string]any{"capability": "registry"}}}, Extensions: []string{"agent-addon"}}
-	candidate.Receipt.Pack = "atomic-pack"
+	candidate.Receipt.Packs = []string{"atomic-pack"}
 	candidate.Receipt.Guidance = []ReceiptBlock{{BlockID: blockID, Name: "atomic-guide", Version: 1}}
 	candidate.Receipt.Workflows = []ReceiptWorkflow{{Name: "selected-lane", Version: 1, YAMLHash: HashText(selectedYAML)}, {Name: "system-lane", Version: 1, System: true, YAMLHash: HashText(systemYAML)}}
 	policy, err := policyReceipt(candidate.Installation.Policies[0])
@@ -72,7 +72,7 @@ func TestAdoptInSettlesSelectionsAndReceiptTogether(t *testing.T) {
 		// sql-guarantee: rollback proof over every table adoption writes, including lane rows whatever their name; no owner read lists a project's rows of every table.
 		dbtest.Count(t, db, 0, `SELECT count(*) FROM `+table+` WHERE project_id=$1`, pid)
 	}
-	if cur := currentOf(t, db, pid); cur.Revision != 0 || cur.Pack != "" || cur.Drift != "review" {
+	if cur := currentOf(t, db, pid); cur.Revision != 0 || cur.Drift != "review" {
 		t.Fatalf("failed adoption moved the current aggregate: %+v", cur)
 	}
 	if err := adopt(); err != nil {
@@ -99,7 +99,7 @@ func TestAdoptInSettlesSelectionsAndReceiptTogether(t *testing.T) {
 	if n := revisionsAt(t, db, pid, 1); n != 1 {
 		t.Fatalf("revision 1 recorded %d times", n)
 	}
-	if cur := currentOf(t, db, pid); cur.Revision != 1 || cur.Pack != "atomic-pack" || cur.Drift != "" {
+	if cur := currentOf(t, db, pid); cur.Revision != 1 || cur.Drift != "" {
 		t.Fatalf("current aggregate: %+v", cur)
 	}
 	if n := receiptsWhere(t, db, pid, "adoption.recorded", func(e audit.Entry) bool { return e.Actor == "alice" }); n != 1 {
@@ -117,7 +117,7 @@ func TestAdoptInChecksExtensionMembershipAfterSuppressedInsert(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	pid := adoptionTestProject(t, db, "extension-adopt", "Extension adoption")
-	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "", "") }); err != nil {
+	if err := db.InTx(context.Background(), func(tx *database.Tx) error { return InitializeIn(t.Context(), tx, pid, 0, "") }); err != nil {
 		t.Fatal(err)
 	}
 	candidate := Candidate{ProjectID: pid, Receipt: EmptyReceipt(), Installation: Installation{Extensions: []string{"addon"}}}
