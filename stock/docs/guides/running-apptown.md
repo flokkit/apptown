@@ -92,12 +92,12 @@ apps don't run where AppTown keeps its records. It takes more setup:
 
 ### Which one
 
-Both server installs keep the same records and run the same workflows;
-they differ in which machines run your projects' code. Start with one server if you are one person or a small team that trusts
-everyone who writes projects. Use a split install if a misbehaving agent or
-app must not reach AppTown's records, or once other people depend on the
-apps. Choose before the first project if you can: moving later is in [Split
-install](split-install.md).
+The [setups directory](setups.md) compares the installs and recommends
+private access to AppTown with separate public ingress for production
+apps. Both server installs keep the same records and run the same
+workflows; they differ in which machines run your projects' code. Use a
+split install to keep that code off AppTown's machine. Choose before the
+first project if you can: moving later is in [Split install](split-install.md).
 
 ## Looking after it
 
