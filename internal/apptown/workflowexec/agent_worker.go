@@ -96,7 +96,7 @@ const (
 	workerCarriedIn    = execution.InputsRoot + "/carried"
 )
 
-var workerSteering = steeringPaths{Resources: execution.InputsRoot + "/resources", Attachments: execution.InputsRoot + "/attachments", Sessions: workerSessions}
+var workerSteering = steeringPaths{Resources: execution.InputsRoot + "/resources", Attachments: execution.InputsRoot + "/attachments", Sessions: workerSessions, Home: workerHomeIn}
 
 // Declared result files' bounds.
 const (

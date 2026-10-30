@@ -74,11 +74,9 @@ func (a *Executor) agentEnv(ctx context.Context, run *workflow.Run, step *workfl
 			}
 		}
 	}
-	// Stage pi's provider config into the workspace and point HOME at it,
-	// so the containerized pi finds providers without mounting ~/.pi.
-	if _, err := a.home.Stage(ctx, ws, run.ProjectID); err != nil {
-		return nil, "", err
-	}
+	// HOME is pi's home, staged into the workspace before the steering
+	// (agent.go), so the containerized pi finds providers without mounting
+	// ~/.pi, and finds the guidance's skills there.
 	env = append(env, "HOME=/work/.apptown/pi-home")
 	return env, scmGranted, nil
 }

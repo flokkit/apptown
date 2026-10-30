@@ -93,10 +93,14 @@ type OpenRequest struct {
 	Workspace Workspace         // the checkout to mount; the caller made it
 	Docker    bool              // a private Docker daemon for the agent's own builds
 	Steering  string            // the authored prompt
-	Actor     string
-	Model     string // the model the chat opens on
-	Pinned    bool   // the person named it; otherwise the environment's answer wins
-	Resume    *Resumption
+	// Files are placed in the session dir once, at open, and kept for the
+	// session's life beside the authored prompt, which may name them (the
+	// guidance's skills): a restart keeps them as it keeps the prompt.
+	Files  map[string]Staged
+	Actor  string
+	Model  string // the model the chat opens on
+	Pinned bool   // the person named it; otherwise the environment's answer wins
+	Resume *Resumption
 }
 
 // Resumption continues another agent's session: its record file is copied
@@ -162,6 +166,9 @@ func (s *Service) Open(ctx context.Context, in OpenRequest) (*Session, error) {
 		}
 	}
 	if err := os.WriteFile(filepath.Join(dir, AuthoredFile), []byte(in.Steering), 0o644); err != nil {
+		return nil, err
+	}
+	if err := place(dir, in.Files); err != nil {
 		return nil, err
 	}
 	sess := newSession(meta, dir, s.now)

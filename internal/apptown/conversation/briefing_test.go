@@ -27,7 +27,7 @@ func TestConsoleSteeringFrames(t *testing.T) {
 	steering := NewBriefing(ways, adoption.New(db, adoption.Dependencies{Ways: ways}), BriefingConfig{FrontDeskVerbs: []string{"`apptown invoke`", "`apptown apply`"}, WorkshopVerbs: []string{"`apptown preview`", "`apptown land`"}})
 	p := &project.Project{ID: idstest.N(1), Slug: "p", Name: "P"}
 
-	desk := steering.Console(t.Context(), p, "")
+	desk := steering.Console(t.Context(), p, "", adoption.Resolved{})
 	for _, want := range []string{"front desk", "apptown apply", "apptown invoke", "## Starting work", "strictly read-only",
 		"The only mutations your credentials permit"} {
 		if !strings.Contains(desk, want) {
@@ -40,7 +40,7 @@ func TestConsoleSteeringFrames(t *testing.T) {
 		}
 	}
 
-	shop := steering.Workshop(t.Context(), p, "")
+	shop := steering.Workshop(t.Context(), p, "", adoption.Resolved{})
 	for _, banned := range []string{"front desk", "FRONT DESK", "## Starting work", "strictly read-only",
 		"You cannot edit code", "apptown invoke -w"} {
 		if strings.Contains(shop, banned) {
@@ -93,5 +93,32 @@ func TestChangeBriefingRefusesUnavailableAttachments(t *testing.T) {
 	steering := NewBriefing(nil, nil, BriefingConfig{DataDir: root})
 	if text, err := steering.Change(&workflow.Change{ID: id}); err == nil || text != "" {
 		t.Fatalf("unavailable attachments became a briefing: %q %v", text, err)
+	}
+}
+
+// A chat's guidance is selected once: its rules go into the prompt and its
+// skills into the chat's home (pi-home is the chat's HOME) from the same
+// compiled value, so a chat never reads one version's rules beside
+// another's how-to.
+func TestAChatsRulesAndSkillsComeFromOneSelection(t *testing.T) {
+	t.Parallel()
+	db := databaseSuite.New(t)
+	ways := wow.New(db, wow.Dependencies{})
+	steering := NewBriefing(ways, adoption.New(db, adoption.Dependencies{Ways: ways}), BriefingConfig{})
+	guidance := adoption.Resolved{Text: "# build/container-image v1\n\nRun as non-root.\n\nSkill `build-container-image` has the how-to: Dockerfiles.",
+		Skills: []wow.Skill{{Name: "build-container-image", Description: "Dockerfiles.", Body: "useradd v1"}}}
+	p := &project.Project{ID: idstest.N(1), Slug: "p", Name: "P"}
+	desk := steering.Console(t.Context(), p, "", guidance)
+	if !strings.Contains(desk, "Skill `build-container-image` has the how-to") || strings.Contains(desk, "useradd") {
+		t.Fatalf("the prompt carries the rules only:\n%s", desk)
+	}
+	files := SkillFiles(guidance)
+	for _, at := range []string{"pi-home/.agents/skills/build-container-image/SKILL.md", "pi-home/.claude/skills/build-container-image/SKILL.md"} {
+		if f, ok := files[at]; !ok || !strings.Contains(string(f.Data), "useradd v1") {
+			t.Errorf("no skill at %s: %v", at, files)
+		}
+	}
+	if len(files) != 2 {
+		t.Errorf("files: %v", files)
 	}
 }

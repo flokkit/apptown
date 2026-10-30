@@ -538,3 +538,38 @@ func TestRecoveryReapsNothingWhenTheChatsCannotBeListed(t *testing.T) {
 		t.Fatal("an agent was reaped while the chats could not be listed")
 	}
 }
+
+// Files placed at open (a chat's guidance skills, named by its authored
+// prompt) stay for the session's life: a stop and restart re-provisions the
+// staged files but keeps these, as it keeps the prompt they go with.
+func TestFilesPlacedAtOpenOutliveRestarts(t *testing.T) {
+	ctx := context.Background()
+	env := &countingEnvironment{p: console.Provision{Files: map[string]console.Staged{"pi-home/.pi/agent/settings.json": {Data: []byte(`{}`)}}}}
+	chats := console.New(console.Dependencies{Agent: consoletest.NewAgent(), Environment: env, Config: console.Config{DataDir: t.TempDir()}})
+	skill := "pi-home/.agents/skills/build-container-image/SKILL.md"
+	s, err := chats.Open(ctx, console.OpenRequest{Scope: "project:p", Workspace: console.Workspace{Path: "/tmp/p"}, Steering: "Skill `build-container-image` has the how-to.", Actor: "bls",
+		Files: map[string]console.Staged{skill: {Data: []byte("v1 how-to")}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := readFile(t, s.Dir+"/"+skill); got != "v1 how-to" {
+		t.Fatalf("placed at open: %q", got)
+	}
+	env.p.Files = map[string]console.Staged{"pi-home/.pi/agent/settings.json": {Data: []byte(`{"moved":true}`)}}
+	if err := chats.Stop(ctx, s.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := chats.Send(ctx, s.ID, "back"); err != nil {
+		t.Fatal(err)
+	}
+	if env.calls < 2 {
+		t.Fatalf("the chat was not provisioned again: %d", env.calls)
+	}
+	if got := readFile(t, s.Dir+"/"+skill); got != "v1 how-to" || !strings.HasPrefix(s.Steering(), "Skill `build-container-image`") {
+		t.Fatalf("after a restart: %q", got)
+	}
+	if _, err := chats.Open(ctx, console.OpenRequest{Scope: "project:q", Workspace: console.Workspace{Path: "/tmp/q"}, Actor: "bls",
+		Files: map[string]console.Staged{"../outside": {Data: []byte("x")}}}); err == nil {
+		t.Fatal("a placed file outside the session was accepted")
+	}
+}

@@ -122,7 +122,7 @@ Twelve tools that read:
 |---|---|
 | `list_projects` | the projects you can see, with how many Changes are open and where the main deployment runs |
 | `get_project` | one project: its lanes (the workflows it can run), the guidance it adopted (names, versions and sizes), its conformance standing, its deployments |
-| `get_project_guidance` | the adopted ways of working as one text, at the pinned versions AppTown's own agents are steered by. Offered and strongly recommended before writing code; never pushed into the agent's context, so the agent decides when to read it (the size is shown first) |
+| `get_project_guidance` | the adopted ways of working as one text, at the pinned versions AppTown's own agents are steered by, and the skills (how-tos) the text names, each with its description, to read when the work calls for one. Offered and strongly recommended before writing code; never pushed into the agent's context, so the agent decides when to read it (the size is shown first) |
 | `get_application_contract` | the project's committed `.apptown/app.yaml` — how the app runs |
 | `list_changes` | a project's Changes, newest first, optionally only one state |
 | `get_change` | one Change with its current run, every step's status, and what it is waiting on and on whom; while a person's approval of a commit waits, what that commit adds (see [How changes reach main](changes-and-main.md)) |

@@ -86,9 +86,11 @@ func (s *Service) GuidanceSnapshot(ctx context.Context, projectID ids.ID) (Guida
 	if err := tx.Commit(); err != nil {
 		return GuidanceView{}, err
 	}
-	if view.Text, view.Hash, err = s.library.compileImports(ctx, view.Imports); err != nil {
+	compiled, err := compileGuidance(ctx, s.library.ways, view.Imports, "import ")
+	if err != nil {
 		return GuidanceView{}, err
 	}
+	view.Text, view.Hash = compiled.Text, compiled.Hash
 	return view, nil
 }
 

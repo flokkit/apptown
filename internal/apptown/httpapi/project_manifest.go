@@ -89,7 +89,8 @@ func (h ProjectManifest) ProjectManifest(w http.ResponseWriter, r *http.Request)
 			guidance = append(guidance, ManifestPin{Name: im.Name, Version: im.Version})
 		}
 	}
-	_, guidanceHash, _, err := h.adoption.Compile(r.Context(), p.ID)
+	compiled, err := h.adoption.Compile(r.Context(), p.ID)
+	guidanceHash := compiled.Hash
 	if err != nil {
 		WriteFault(w, err)
 		return

@@ -38,7 +38,8 @@ func (s *Service) ReplaceGuidance(ctx context.Context, p *project.Project, expec
 	if _, err := s.adoption.ReplaceGuidance(ctx, p.ID, expected, resolved, "guidance edited under Settings › Guidance", by); err != nil {
 		return err
 	}
-	if _, hash, imports, err := s.adoption.Compile(ctx, p.ID); err == nil {
+	if compiled, err := s.adoption.Compile(ctx, p.ID); err == nil {
+		hash, imports := compiled.Hash, compiled.Imports
 		pins := make([]map[string]any, 0, len(imports))
 		for _, im := range imports {
 			pins = append(pins, map[string]any{"name": im.Name, "version": im.Version, "disabled": im.Disabled})

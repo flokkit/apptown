@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/project"
 )
 
@@ -14,8 +15,8 @@ func TestConsoleSteeringMutationsMatchGETOnly(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	p := &project.Project{Slug: "p", Name: "P"}
-	desk := a.briefing.Console(t.Context(), p, "")
-	shop := a.briefing.Workshop(t.Context(), p, "")
+	desk := a.briefing.Console(t.Context(), p, "", adoption.Resolved{})
+	shop := a.briefing.Workshop(t.Context(), p, "", adoption.Resolved{})
 	for _, c := range consoleCarveOuts {
 		switch c.scope {
 		case "project":

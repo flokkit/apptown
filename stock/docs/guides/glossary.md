@@ -171,7 +171,8 @@ platform, survive reboots, and are reachable by everyone inside.
 ## Quality and record
 
 **Guidance** — the house rules agents work under, imported per project as
-versioned blocks. Some blocks carry checks.
+versioned blocks. Some blocks carry checks; some carry a skill, a how-to an
+agent loads only when it needs it.
 
 **Conformance** — whether an app meets the ways of working it has adopted.
 Checked two ways: as a step when a change lands, and by a read-only

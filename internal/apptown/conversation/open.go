@@ -255,13 +255,18 @@ func (c *Admission) Open(ctx context.Context, p *project.Project, in ProjectOpen
 		req.Workspace = console.Workspace{Path: snapshot, Owned: true}
 	}
 
-	req.Steering = c.steering.Console(ctx, p, c.harness.Delegation(ctx))
+	guidance, err := c.steering.Guidance(ctx, p)
+	if err != nil {
+		return nil, fmt.Errorf("reading the project's guidance: %w", err)
+	}
+	req.Files = SkillFiles(guidance)
+	req.Steering = c.steering.Console(ctx, p, c.harness.Delegation(ctx), guidance)
 	if change != nil {
 		changeSteering, err := c.steering.Change(change)
 		if err != nil {
 			return nil, fmt.Errorf("reading change attachments: %w", err)
 		}
-		req.Steering = c.steering.Workshop(ctx, p, c.harness.Delegation(ctx)) + changeSteering
+		req.Steering = c.steering.Workshop(ctx, p, c.harness.Delegation(ctx), guidance) + changeSteering
 	}
 	if diverged {
 		req.Steering += "\n\nThis change's folder and its branch as published have both moved (someone published to the branch while this folder had its own commits). Merge the published branch before anything else: `git merge " + workflow.PublishedRef + "`, resolve any conflict, and commit.\n"

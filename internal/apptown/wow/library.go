@@ -159,6 +159,9 @@ func (s *Library) Create(ctx context.Context, name, body, tags, who string) (*Bl
 	if !blockNameRe.MatchString(name) {
 		return nil, fmt.Errorf("%w (%s)", ErrBlockName, errBlockNameShape)
 	}
+	if _, _, err := SplitSkill(name, body); err != nil {
+		return nil, err
+	}
 	var block Block
 	now := s.now().UTC()
 	err := s.db.InTx(ctx, func(tx *database.Tx) error {

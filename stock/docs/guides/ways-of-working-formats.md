@@ -125,6 +125,28 @@ evaluator: `sh` (a script), `llm` (a rubric), `runtime` (a probe of the running
 app) or `tool` (a scanner binding). The [conformance guide](conformance.md) says
 what each evaluator proves.
 
+A block may carry a **skill**: a how-to an agent loads only when it does
+that one thing. One line in the body splits the two parts:
+
+```markdown
+The rules every agent reads.
+
+<!-- skill: How to write the Dockerfile. Load it before editing a Dockerfile. -->
+
+The how-to.
+```
+
+Above the line is what every agent reads up front, followed by a line
+naming the skill. Below it is the skill. AppTown hands the skill to its
+agents as an [Agent Skills](https://agentskills.io/specification) `SKILL.md`
+in the agent's home, at `~/.agents/skills/` and `~/.claude/skills/`, named
+after the block (`build/container-image` gives `build-container-image`). The
+description is what the agent decides by, so it says what the how-to covers
+and when to load it. A block has at most one such line; its name must make
+a skill name (lowercase letters, digits, single hyphens, at most 64
+characters), and two adopted blocks cannot give the same skill name. The
+block's checks run the same whether or not an agent loaded its skill.
+
 An `sh` check is a script run with `sh -c` in a container, with the
 project's files read-only, no network, and at most 60 seconds. Exit 0 means
 the project conforms; exit 1 is a finding, and what the script printed is the

@@ -31,9 +31,12 @@ func (source Source) receipt(subject string) (*RecordedRevision, error) {
 	return source.Revision, nil
 }
 
-// Resolved is the exact guidance that steered a runtime, with its content hash.
+// Resolved is the exact guidance that steered a runtime: the text every
+// agent reads up front, the skills it loads on demand, and the hash of the
+// whole bodies the imports pinned (rules and skills alike).
 type Resolved struct {
 	Text, Hash string
+	Skills     []wow.Skill
 	Imports    []Import
 }
 
@@ -55,26 +58,55 @@ func (a Adoption) Resolve(ctx context.Context, cat Catalog) (Resolved, error) {
 	if err != nil {
 		return Resolved{}, err
 	}
-	result := Resolved{Imports: revision.Receipt.ImportsOf()}
-	var parts []string
-	for _, im := range result.Imports {
+	result, err := compileGuidance(ctx, cat, revision.Receipt.ImportsOf(), fmt.Sprintf("revision %d: ", revision.Revision))
+	return result, err
+}
+
+// compileGuidance joins the enabled imports' pinned bodies: each block's
+// rules, with one line naming its skill when it has one, and the skills
+// beside. The hash is over the whole bodies, as a block pins them, so a
+// project with no skill keeps its text and hash, and the hash still
+// witnesses each skill. Pinned versions are immutable, so the bodies need
+// not come from a snapshot. where prefixes an error with the imports' source.
+func compileGuidance(ctx context.Context, cat Catalog, imports []Import, where string) (Resolved, error) {
+	result := Resolved{Imports: imports}
+	var parts, whole []string
+	owner := map[string]string{} // skill name → the item carrying it
+	for _, im := range imports {
 		if im.Disabled {
 			continue
 		}
 		if im.Version <= 0 {
-			return result, fmt.Errorf("revision %d: %s has no pinned version", revision.Revision, im.Name)
+			return result, fmt.Errorf("%s%s has no pinned version", where, im.Name)
 		}
 		if cat == nil {
 			return result, ErrCatalogUnavailable
 		}
 		block, err := cat.Block(ctx, wow.BlockRef{ID: im.BlockID, Version: im.Version})
 		if err != nil {
-			return result, fmt.Errorf("revision %d: %s v%d: %w", revision.Revision, im.Name, im.Version, err)
+			return result, fmt.Errorf("%s%s v%d: %w", where, im.Name, im.Version, err)
 		}
-		parts = append(parts, fmt.Sprintf("# %s v%d\n\n%s", im.Name, im.Version, strings.TrimSpace(block.Body)))
+		heading := fmt.Sprintf("# %s v%d\n\n", im.Name, im.Version)
+		body := strings.TrimSpace(block.Body)
+		whole = append(whole, heading+body)
+		rules, skill, err := wow.SplitSkill(im.Name, body)
+		if err != nil {
+			return result, fmt.Errorf("%s%s v%d: %w", where, im.Name, im.Version, err)
+		}
+		if skill != nil {
+			// Two items whose names give the same skill name would write one
+			// file: one how-to would silently stand in for the other.
+			if other, taken := owner[skill.Name]; taken {
+				return result, fmt.Errorf("%s%s and %s both carry a skill named %s; rename one of them", where, other, im.Name, skill.Name)
+			}
+			owner[skill.Name] = im.Name
+			rules += "\n\n" + wow.SkillPointer(*skill)
+			result.Skills = append(result.Skills, *skill)
+		}
+		parts = append(parts, heading+rules)
 	}
 	result.Text = strings.Join(parts, "\n\n---\n\n")
-	sum := sha256.Sum256([]byte(result.Text))
+	sum := sha256.Sum256([]byte(strings.Join(whole, "\n\n---\n\n")))
 	result.Hash = hex.EncodeToString(sum[:])
 	return result, nil
 }
