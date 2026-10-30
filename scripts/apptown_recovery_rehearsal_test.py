@@ -82,12 +82,12 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
             (root/(kind+'.current')).write_text('existing-'+kind+'\ncreated-'+kind+'\n')
         work=root/'work';work.mkdir()
         data=root/'remote/srv/data';data.mkdir(parents=True);(data/'db.env').write_text('restored\n')
-        srcarchive=root/'remote/source/apptown-rehearsal.backup'
+        srcarchive=root/'remote/var/tmp/apptown-rehearsal-x/apptown.backup'
         if archive:srcarchive.parent.mkdir(parents=True);srcarchive.write_text('every secret\n')
         source=SCRIPT.read_text()
         cleanup=source[source.index('end_rehearsal() {'):source.index('\n# owned')]
         finish=source[source.index('owned="" locked=""'):source.index('\ntrap finish EXIT')]+'\ntrap finish EXIT'
-        program=('set -euo pipefail\n'+f'tgt=fixture\nsrc=fixture-source\nsrcarchive={shlex.quote(str(srcarchive)) if archive else ""}\ntdata={shlex.quote(str(data))}\nlock={shlex.quote(expected)}\nwork={shlex.quote(str(work))}\n'
+        program=('set -euo pipefail\n'+f'tgt=fixture\nsrc=fixture-source\nsrcdir={shlex.quote(str(srcarchive.parent)) if archive else ""}\ntdata={shlex.quote(str(data))}\nlock={shlex.quote(expected)}\nwork={shlex.quote(str(work))}\n'
                  +cleanup+'\n'+finish+f'\nowned=1\nexit {original_status}\n')
         env={**os.environ,'PATH':str(bindir)+os.pathsep+os.environ['PATH'],'FIXTURE_ROOT':str(root),**faults}
         # Allow the child hang guard to report failure and the EXIT trap to finish.
@@ -136,7 +136,7 @@ class RecoveryReleasesOnlyItsOwnLock(unittest.TestCase):
             with self.subTest(status=status):
                 result,root,_=self.run_cleanup(original_status=status,archive=True)
                 self.assertEqual(result.returncode,status,result.stderr)
-                self.assertFalse((root/'remote/source/apptown-rehearsal.backup').exists())
+                self.assertFalse((root/'remote/var/tmp/apptown-rehearsal-x').exists())
 
     def test_failure_cleanup_releases_lock_but_preserves_original_failure(self):
         result,root,_=self.run_cleanup(original_status=3)
