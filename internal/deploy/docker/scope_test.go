@@ -21,6 +21,13 @@ type fakeClient struct {
 func (f *fakeClient) Run(_ context.Context, host string, req Command) ([]byte, error) {
 	f.hosts = append(f.hosts, host)
 	f.args = append(f.args, req.Args)
+	// The standing disk reader is the disk fake's, whatever else the fake
+	// is scripted to answer.
+	if f.disk.Owns(req.Args) {
+		if out, err, ok := f.disk.Run(req.Args); ok {
+			return out, err
+		}
+	}
 	out, err := []byte(f.out), f.err
 	if f.reply != nil {
 		out, err = f.reply(req)

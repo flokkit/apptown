@@ -256,8 +256,18 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 	if len(args) == 0 {
 		return nil, nil
 	}
-	if d.results != nil && !d.diskResults.Owns(args) && !diskspacetest.IsCreate(args) {
+	if d.results != nil && !d.diskResults.Owns(args) {
 		if out, err, ok := d.results.RunEnv(args, req.Env); ok {
+			return out, err
+		}
+	}
+	if d.diskResults.Answer == nil {
+		d.diskResults.Answer = func() containerresulttest.Answer { return containerresulttest.Answer{Answer: []byte(d.disk)} }
+	}
+	// The standing disk reader is the disk fake's, ahead of the containers
+	// this daemon keeps for everything else.
+	if d.diskResults.Owns(args) {
+		if out, err, ok := d.diskResults.Run(args); ok {
 			return out, err
 		}
 	}
@@ -457,9 +467,6 @@ func (d *Daemon) Run(_ context.Context, _ string, req docker.Command) ([]byte, e
 			return []byte(fmt.Sprintf("%q null\n", ImageID(args[len(args)-1]))), nil
 		}
 		return []byte("sha256:built\n"), nil
-	}
-	if d.diskResults.Answer == nil {
-		d.diskResults.Answer = func() containerresulttest.Answer { return containerresulttest.Answer{Answer: []byte(d.disk)} }
 	}
 	if out, err, ok := d.diskResults.Run(args); ok {
 		return out, err

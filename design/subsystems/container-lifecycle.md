@@ -40,22 +40,28 @@ case still leaves a volume: before a service or init container starts, a
 container of the same name left from an earlier attempt is replaced without
 `-v`.
 
-The disk read's `df` container (`diskspace.ReadThroughDocker`, before a
-task or a boot is admitted, on every daemon AppTown reads) never answers
-through its output: in CI a container this short-lived has come back with
-exit 0 and nothing on its attached stream or in its log. It runs `df -Pk /d`
-(the data root bound read-only) with df's stdout, stderr and status
-written to `/probe` in its own writable layer; after it exits, `docker cp`
-copies that folder out, and the answer is accepted only when the container
-and df both exited 0 and df's output parses. Anything else refuses, with
-what Docker shows of the container (its image, command, mounts, log driver
-and state, never its environment), its image and Docker's versions; a
-result whose log lacks it is logged the same way. The container is named
-before it is made and removed by name (`rm -f -v`) however the read ends,
-even when the caller has stopped. One a removal missed carries
-`apptown.class=disk-probe` and an `apptown.deadline` ten minutes on; each
-read first removes those past their deadline, and the reaper leaves them
-alone.
+Disk readings (`diskspace.ReadThroughDocker`: a target's capacity, a
+worker's disks, and before a task or a boot is admitted, on every daemon
+AppTown reads) run in the daemon's standing disk reader
+(`containerresult.RunStanding`), not a container of their own. They recur
+for as long as a page is open, and each container start costs the host's
+init a scope, a network interface and overlay mounts; a CT whose systemd
+kept a little of each was killed for memory after weeks of them. An exec
+into a running container makes none of these (on a Proxmox LXC, 1,000
+reads through one reader made no mount units and no scopes; 1,000
+`docker run --rm` reads made 1,000 scopes).
+
+The reader is one long-lived container per daemon, `apptown.class=disk-reader`,
+named `apptown-reader-disk-reader-` and a hash of its image and options: the
+tool versions' `df` image with the data root bound read-only at `/d`, no
+network, `--restart unless-stopped`, running `sleep`. A reading lists the
+class's containers, starts the reader if it stopped, makes it only when it is
+gone (removing the class's other readers, an older image's), then runs
+`df -Pk /d` in it with `docker exec`, its output written to a file in the
+reader's `/tmp` and copied out with `docker cp`; the answer is accepted only
+when it parses. Anything else is an unknown reading, which refuses new work;
+nothing falls back to a throwaway container. No reaper or sweep selects the
+reader, and the capacity view counts it as AppTown's own.
 
 A standing deployment's containers are removed without `-v`: one made before
 its data moved to named volumes may still hold its data in an anonymous one.

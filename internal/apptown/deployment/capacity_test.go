@@ -11,7 +11,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/deploy/appcontract"
 	"github.com/flokkit/apptown/internal/deploy/docker"
-	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
@@ -361,7 +360,16 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	d := w.hosts.daemon("lab")
 	d.SetHostInfo(8<<30, 8, "/var/lib/docker")
 	statsFail := false
-	dfRuns := 0
+	// The disk reads: df run in the daemon's standing reader.
+	dfRuns := func() int {
+		n := 0
+		for _, c := range d.Matching("exec ") {
+			if strings.Contains(c[len(c)-1], "df -Pk /d") {
+				n++
+			}
+		}
+		return n
+	}
 	d.SetDisk(1000000*1024, 50000*1024)
 	d.SetReply(func(args []string) ([]byte, error, bool) {
 		switch {
@@ -377,9 +385,6 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 				return []byte("cannot connect"), fmt.Errorf("exit 1"), true
 			}
 			return []byte("apptown-env-p-prod\t100MiB / 512MiB\napptown-svc-env-p-prod-postgres\t30MiB / 8GiB\ntraefik\t20MiB / 256MiB\nodd\t1MiB / 8GiB\n"), nil, true
-		case diskspacetest.IsCreate(args):
-			dfRuns++
-			return nil, nil, false
 		}
 		return nil, nil, false
 	})
@@ -423,7 +428,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		t.Errorf("an attached host's own use: %+v", m.HostUsed)
 	}
 
-	// The disk read runs a container: at most once in five minutes.
+	// The disk is read at most once in five minutes.
 	labScope, err := w.s.hosts.DockerScope(t.Context(), w.lab)
 	if err != nil {
 		t.Fatal(err)
@@ -433,14 +438,14 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 			t.Fatalf("disk: %+v", got)
 		}
 	}
-	if dfRuns != 1 {
-		t.Errorf("the disk was read %d times", dfRuns)
+	if dfRuns() != 1 {
+		t.Errorf("the disk was read %d times", dfRuns())
 	}
 	// Changing target settings must not reuse even the longer-lived disk sample.
 	changed := *w.lab
 	changed.SettingsRevision++
-	if got := w.s.disk(t.Context(), &changed, labScope, "/new-data"); !got.Free.Known || got.Path != "/new-data" || dfRuns != 2 {
-		t.Fatalf("changed target reused old disk evidence: %+v reads=%d", got, dfRuns)
+	if got := w.s.disk(t.Context(), &changed, labScope, "/new-data"); !got.Free.Known || got.Path != "/new-data" || dfRuns() != 2 {
+		t.Fatalf("changed target reused old disk evidence: %+v reads=%d", got, dfRuns())
 	}
 
 	// A host whose limits add up to more than it has is overcommitted;

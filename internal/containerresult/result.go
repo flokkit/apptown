@@ -7,7 +7,9 @@
 //
 // A small result (a value, a version, a list) is written to a file in the
 // container's own layer and copied out with docker cp once the command
-// has exited (Run, RunIn). A stream of data out of a container (a backup
+// has exited (Run, RunIn). A read that recurs runs in the daemon's
+// standing reader of its kind, read with docker exec (RunStanding), so
+// it starts no container of its own. A stream of data out of a container (a backup
 // export) carries a trailer, its byte count and sha256, which the receiver
 // holds it to (Framed, Receiver).
 package containerresult

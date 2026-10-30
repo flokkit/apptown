@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/hostmem"
 	"github.com/flokkit/apptown/internal/ids"
 )
@@ -72,7 +73,7 @@ func tenantOf(l docker.ContainerLimit, owners containerOwners, deps map[ids.ID]P
 		return TenantPreviews, "previews", nil
 	case workClasses[l.Class]:
 		return TenantWork, "agent work", nil
-	case l.Class == "infra":
+	case l.Class == "infra" || l.Class == diskspace.ReaderClass:
 		return TenantAppTown, "AppTown", nil
 	}
 	return TenantUnrecorded, "AppTown containers not on record", nil

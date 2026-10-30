@@ -12,18 +12,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flokkit/apptown/internal/containerresult"
 	"github.com/flokkit/apptown/internal/diskspace"
 	"github.com/flokkit/apptown/internal/diskspace/diskspacetest"
 	"github.com/flokkit/apptown/stock"
 )
 
-// A disk read through Docker answers every time under parallel load and
-// leaves none of its containers behind. The reads it replaced (the answer
-// taken from docker run's attached stream, then from docker logs) came
-// back empty with exit 0 a few times in CI; that loss was not reproduced
-// in 13,400 runs on three daemons here, so this loop shows the file read
-// holds under load rather than that the old one fails.
+// A disk read through Docker answers every time under parallel load, and
+// all of them together make at most one container: the daemon's standing
+// disk reader, which a first wave of parallel reads makes once between
+// them. The reads it replaced (the answer taken from docker run's attached
+// stream, then from docker logs) came back empty with exit 0 a few times
+// in CI; that loss was not reproduced in 13,400 runs on three daemons here,
+// so this loop shows the file read holds under load rather than that the
+// old one fails.
 func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 	const reads, readers, loaders = 300, 16, 8
 	ctx := t.Context()
@@ -32,7 +33,7 @@ func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 	dk := func(ctx context.Context, args ...string) (string, string, error) {
 		if diskspacetest.IsCreate(args) {
 			mu.Lock()
-			names = append(names, args[2]) // create --name <name>
+			names = append(names, args[3]) // run -d --name <name>
 			mu.Unlock()
 		}
 		var stdout, stderr strings.Builder
@@ -83,21 +84,15 @@ func TestIntegrationADiskReadAnswersUnderLoadAndLeavesNothing(t *testing.T) {
 		t.Errorf("a read did not answer: %s", k)
 		return true
 	})
-	if len(names) != reads {
-		t.Fatalf("%d reads made %d containers", reads, len(names))
+	if len(names) > readers {
+		t.Fatalf("%d reads tried to make %d readers", reads, len(names))
 	}
-	out, _, err := dk(ctx, "ps", "-a", "--filter", "label=apptown.class="+containerresult.Class, "--format", "{{.Names}}")
+	out, _, err := dk(ctx, "ps", "-a", "--filter", "label=apptown.class="+diskspace.ReaderClass, "--format", "{{.Names}}")
 	if err != nil {
 		t.Fatal(err)
 	}
-	standing := map[string]bool{}
-	for _, n := range strings.Fields(out) {
-		standing[n] = true
-	}
-	for _, n := range names {
-		if standing[n] {
-			t.Errorf("read's container %s was left behind", n)
-		}
+	if got := strings.Fields(out); len(got) != 1 {
+		t.Fatalf("readers standing after %d reads: %v, want one", reads, got)
 	}
 }
 
