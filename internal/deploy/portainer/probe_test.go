@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -12,7 +14,7 @@ import (
 )
 
 func TestDiagnosticUsesExactContainerNamespaceAndBoundedVerdict(t *testing.T) {
-	for _, mode := range []string{"exact", "wrong-status", "static-identity", "wrong-static-identity", "invalid-verdict", "external-url", "revoked", "cleanup-failed"} {
+	for _, mode := range []string{"exact", "wrong-status", "static-identity", "wrong-static-identity", "invalid-verdict", "external-url", "revoked"} {
 		t.Run(mode, func(t *testing.T) {
 			_, r := readinessFixture(t)
 			p := r.Public
@@ -64,11 +66,8 @@ func TestDiagnosticUsesExactContainerNamespaceAndBoundedVerdict(t *testing.T) {
 				return nil
 			}, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
 				calls++
-				if args[0] == "ps" {
-					t.Fatal("diagnostic swept sibling resources")
-				}
-				if mode == "cleanup-failed" && args[0] == "rm" {
-					return nil, errors.New("remove unavailable")
+				if args[0] == "rm" && !slices.Contains(args, "-f") {
+					t.Fatalf("diagnostic removed a resource it does not own: %v", args)
 				}
 				out, err, ok := daemon.RunEnv(args, env)
 				if !ok {
@@ -76,7 +75,7 @@ func TestDiagnosticUsesExactContainerNamespaceAndBoundedVerdict(t *testing.T) {
 				}
 				return out, err
 			}}
-			err := d.sample(t.Context(), id, p)
+			err := d.sample(t.Context(), id, "run-1", "dep-1", p)
 			if mode == "exact" || mode == "static-identity" {
 				if err != nil {
 					t.Fatal(err)
@@ -87,9 +86,66 @@ func TestDiagnosticUsesExactContainerNamespaceAndBoundedVerdict(t *testing.T) {
 			if (mode == "external-url" || mode == "revoked") && calls != 0 {
 				t.Fatalf("refusal made %d Docker calls", calls)
 			}
-			if mode == "cleanup-failed" && !strings.Contains(err.Error(), "removing owned result apptown-result-") {
-				t.Fatalf("cleanup resource evidence lost: %v", err)
-			}
 		})
+	}
+}
+
+// An idle hour of readiness sampling starts at most one container per Docker
+// host: the samples run in the deployment's standing reader. A restart of the
+// public container is a new run, so it gets one new reader.
+func TestIdleReadinessSamplingStartsOneContainerPerHost(t *testing.T) {
+	p := Probe{ToolImage: "registry.example/tool@sha256:" + strings.Repeat("a", 64), Port: 8080, Path: "/", Expect: 200}
+	id := strings.Repeat("a", 64)
+	daemon := containerresulttest.Daemon{Answers: func(containerresulttest.Command) (containerresulttest.Answer, bool) {
+		return containerresulttest.Answer{Answer: []byte("200\n")}, true
+	}}
+	d := Diagnostic{Allowed: func(context.Context) error { return nil }, Command: func(ctx context.Context, env []string, args ...string) ([]byte, error) {
+		out, err, ok := daemon.RunEnv(args, env)
+		if !ok {
+			return nil, fmt.Errorf("unexpected command %v", args)
+		}
+		return out, err
+	}}
+	for range 3600 / 5 { // a sample every five seconds for an hour
+		if err := d.sample(t.Context(), id, "run-1", "dep-1", p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if daemon.Started != 1 {
+		t.Fatalf("an idle hour started %d containers, want 1", daemon.Started)
+	}
+	if err := d.sample(t.Context(), id, "run-2", "dep-1", p); err != nil {
+		t.Fatal(err)
+	}
+	if daemon.Started != 2 || len(daemon.Readers()) != 1 {
+		t.Fatalf("a restart left %d started and readers %v, want 2 and one", daemon.Started, daemon.Readers())
+	}
+}
+
+// Taking a deployment down removes its standing readiness readers, and only
+// that deployment's.
+func TestRemoveReadersRemovesTheDeploymentsReaders(t *testing.T) {
+	var removed []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/api/endpoints/3/docker/containers/json":
+			if want := `{"label":["apptown.class=readiness-dep-1"]}`; r.URL.Query().Get("filters") != want {
+				t.Errorf("listed %q, want %q", r.URL.Query().Get("filters"), want)
+			}
+			fmt.Fprint(w, `[{"Id":"r1"}]`)
+		case r.Method == "DELETE" && r.URL.Path == "/api/endpoints/3/docker/containers/r1":
+			removed = append(removed, r.URL.Path)
+			w.WriteHeader(204)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL)
+			http.Error(w, "unexpected", 500)
+		}
+	}))
+	defer server.Close()
+	if err := removeReaders(t.Context(), &Target{PortainerURL: server.URL}, 3, "dep-1"); err != nil {
+		t.Fatal(err)
+	}
+	if len(removed) != 1 {
+		t.Fatalf("removed %v, want the one reader", removed)
 	}
 }

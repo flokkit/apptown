@@ -49,6 +49,8 @@ func (e *environment) handler(t *testing.T) http.Handler {
 			_ = json.NewEncoder(w).Encode(map[string]string{"StackFileContent": scopeFixtureCompose("services: {}\nvolumes:\n  forge-data-shop: {}\n  forge-need-shop-postgres: {}\n")})
 		case r.Method == "DELETE" && r.URL.Path == "/api/stacks/12":
 			w.WriteHeader(204)
+		case r.Method == "GET" && r.URL.Path == "/api/endpoints/3/docker/containers/json": // no readiness readers
+			fmt.Fprint(w, `[]`)
 		case isVolume && r.Method == "GET":
 			if !e.volumes[volume] {
 				http.Error(w, `{"message":"no such volume"}`, 404)

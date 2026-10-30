@@ -138,7 +138,7 @@ func (d *Driver) sample(ctx context.Context, cfg *Target, p deploy.Placement, ex
 	if err != nil {
 		return before, err
 	}
-	if err := diagnostic.sample(ctx, id, expected.Readiness.Public); err != nil {
+	if err := diagnostic.sample(ctx, id, before.RuntimeToken, p.ID.String(), expected.Readiness.Public); err != nil {
 		return before, err
 	}
 	after, again, err := inspectRelease(ctx, cfg, p, stack, expected)

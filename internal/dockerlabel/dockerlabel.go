@@ -28,6 +28,7 @@ const (
 	Worker      = "apptown.worker"      // which worker owns a check's container
 	Inference   = "apptown.inference"   // a container that may reach the inference gateway
 	Console     = "apptown.console"     // the chat a network, volume or daemon belongs to
+	ReadyFor    = "apptown.ready-for"   // the container run (id and start time) a readiness reader joined
 
 	// Built marks an image AppTown built on a host's Docker, written at
 	// build time; the maintenance sweep prunes only dangling images that
@@ -84,7 +85,7 @@ const (
 // Keys is every key AppTown writes or reads, for the test that refuses a key
 // spelled outside this list.
 var Keys = []string{
-	Class, Owner, Created, Expires, Deadline, Instance, Stack, Source, Incarnation, Writes, Step, Task,
+	Class, ReadyFor, Owner, Created, Expires, Deadline, Instance, Stack, Source, Incarnation, Writes, Step, Task,
 	Profile, Request, Worker, Inference, Console, Built, ConsoleDind, ConsoleModel, ConsoleMounts,
 	Deployment, Generation, Artifact, Project, DeploymentName,
 	PiVersion, PiSubagentsVersion, PiLSPVersion, GlabVersion,

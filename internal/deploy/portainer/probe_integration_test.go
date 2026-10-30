@@ -113,22 +113,22 @@ exec httpd -f -p 8080 -h /srv`
 		return cli.Run(ctx, proxy.Host(), docker.Command{Args: args, Env: env, Timeout: 30 * time.Second})
 	}}
 	p := Probe{ToolImage: image, Port: 8080, Path: "/cgi-bin/ready", Expect: 200, Headers: map[string]string{"Host": "app.example", "X-Forwarded-Host": "app.example", "X-Forwarded-Proto": "https"}, StaticRelease: "release-id"}
-	if err := diagnostic.sample(ctx, id, p); err != nil {
+	if err := diagnostic.sample(ctx, id, "run-1", "dep-1", p); err != nil {
 		t.Fatalf("exact shaped readiness and static identity: %v", err)
 	}
 	p.Expect = 204
-	if err := diagnostic.sample(ctx, id, p); err == nil {
+	if err := diagnostic.sample(ctx, id, "run-1", "dep-1", p); err == nil {
 		t.Fatal("wrong status accepted")
 	}
 	p.Expect = 200
 	p.StaticRelease = "wrong-release"
-	if err := diagnostic.sample(ctx, id, p); err == nil {
+	if err := diagnostic.sample(ctx, id, "run-1", "dep-1", p); err == nil {
 		t.Fatal("wrong static identity accepted")
 	}
 	p.StaticRelease = ""
 	p.Path = "/ready"
 	p.Headers = nil
-	if err := diagnostic.sample(ctx, id, p); err != nil {
+	if err := diagnostic.sample(ctx, id, "run-1", "dep-1", p); err != nil {
 		t.Fatalf("direct readiness: %v", err)
 	}
 	out, err = command(ctx, "inspect", "--format", "{{.State.Running}}", names[1])
