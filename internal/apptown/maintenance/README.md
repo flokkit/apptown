@@ -21,7 +21,12 @@ It cannot reach App or unrelated application operations.
   look). A conformance image's age runs from the later of its creation and
   the last time Docker tagged it: a rebuild from cache keeps the old creation
   time, and the tag says when it was built or reused. Removal never forces,
-  so an image a container uses stays, quietly.
+  so an image a container uses stays, quietly. `Cache` reads each cache
+  volume through a throwaway container, and each start costs the host's init
+  a scope, a network interface and mounts; after a complete sweep it reads
+  the volumes again only once a change has closed or a run has stopped
+  running since that sweep began (`workflow.SettledSince`), so an idle
+  AppTown starts no container on this schedule.
 - `Workspaces` checks recorded closure and saved conversation ownership, preserves
   transcripts, then removes the workspace after its grace period. Preservation
   failure leaves the source for a later sweep.

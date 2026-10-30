@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/flokkit/apptown/internal/ids"
 
@@ -72,4 +73,12 @@ func ProjectBusyIn(ctx context.Context, tx *database.Tx, in OccupancyScope) (boo
 	}
 	return workflowsql.New(tx.SQL()).ProjectWorkBusy(ctx, workflowsql.ProjectWorkBusyParams{ProjectID: in.ProjectID, ReplacingChangeID: in.ReplacingChangeID,
 		LandingState: ChangeLanding.String(), RunningRunState: RunRunning.String(), RunningStepState: StatusRunning.String()})
+}
+
+// SettledSince says whether any change closed, or any run stopped running, at
+// or after at (AppTown's clock stamps both). Nothing else makes a change's or
+// a run's workspace newly finished, so a sweep that removes finished
+// workspaces' files has nothing new to find when this is false.
+func SettledSince(ctx context.Context, db database.Queryer, at time.Time) (bool, error) {
+	return workflowsql.New(db.SQL()).SettledSince(ctx, workflowsql.SettledSinceParams{Since: at, Running: RunRunning.String()})
 }

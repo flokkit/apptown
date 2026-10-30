@@ -171,7 +171,7 @@ func TestTheCacheSweepVisitsEveryProjectsCache(t *testing.T) {
 	daemon := dockerfake.New()
 	var listed []string
 	daemon.SetResults(func(c containerresulttest.Command) (containerresulttest.Answer, bool) {
-		if c.Script != "ls /apptown-cache/mise/ws" {
+		if c.Script != cacheListing {
 			return containerresulttest.Answer{}, false
 		}
 		for _, a := range c.Args {
