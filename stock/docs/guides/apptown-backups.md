@@ -262,7 +262,7 @@ writing it on the machine that runs the script, restores it there with
 came across unchanged, reads through the API match (a sample of activity
 history and recent changes per project, with a CLI token made before the
 backup), and after a normal start AppTown answers and names the expected
-version. Given a release archive (`CANDIDATE`), the restore and the start
+version. Given a release archive on the target (`CANDIDATE`), the restore and the start
 use that release's `apptownd`: the rehearsal is then that release's upgrade
 of the source's data. Apps are not checked: their data comes back from
 their own deployment backups. The archive is deleted from the source and

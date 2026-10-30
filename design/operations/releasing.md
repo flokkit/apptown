@@ -52,7 +52,7 @@ release promises is [What 1.0 promises](../../stock/docs/guides/compatibility.md
    UI tour. A failure stops the release: fix `main` and push a new candidate
    tag for the same version, since no version tag was pushed.
 3. **Qualification on the candidate's bytes.** From the candidate's
-   `archives` artifact, in parallel: rehearse the upgrade on copies of
+   archive artifacts, in parallel: rehearse the upgrade on copies of
    maintained installations' data (below), install the darwin archive
    natively on a Mac, and deploy the candidate to a running installation
    that exercises chat on a worker and check a chat receives a reply. A
