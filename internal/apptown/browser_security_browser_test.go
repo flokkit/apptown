@@ -2285,6 +2285,20 @@ app:
 		}
 		scene.ship(c, "tom", "priya", 5*time.Minute)
 	}
+	// A release check stopped immediately and an idle change stopped after
+	// several days expose noise and misleading wall times on Home.
+	stoppedCheck := scene.open("sam", "club-newsletter", "Release check: a chat answers", "Automated release check stopped before work began.")
+	if _, err := a.Work.Abandon(asPerson("sam"), workflow.StopWork{ChangeID: stoppedCheck.ID, Reason: "Release check stopped"}); err != nil {
+		t.Fatal(err)
+	}
+	scene.later(-127*time.Hour - 24*time.Minute)
+	idle := scene.open("tom", "club-newsletter", "Replace the old ride archive", "An idea left idle before it was stopped.")
+	scene.call("tom", "POST", "/api/v1/changes/"+idle.ID.String()+"/runs", map[string]string{"workflow": "design-review"})
+	a.Work.Wait()
+	scene.later(127*time.Hour + 24*time.Minute)
+	if _, err := a.Work.Abandon(asPerson("sam"), workflow.StopWork{ChangeID: idle.ID, Reason: "No longer needed"}); err != nil {
+		t.Fatal(err)
+	}
 	scene.later(10 * time.Minute)
 	broken := scene.open("tom", "club-newsletter", "Add photos from the spring ride", "Add ride photos with descriptions for people who cannot see them.")
 	scene.write(broken, map[string]string{"public/photos.html": "<!doctype html><title>Spring ride</title><h1>Spring ride</h1><img src='ride.jpg'>", "public/ride.jpg": "local image fixture"})
@@ -2311,7 +2325,6 @@ app:
 </html>
 `})
 	scene.commit(december, "tom", "December ride calendar")
-	scene.land(december, "tom", map[string]string{"tests": "pass", "style": "pass"})
 	// Running production on a test daemon; the preview transport refuses SSH. ObserveRuntime records unreachable, never a stopped app.
 	project, err := a.Projects.BySlug(ctx, "club-newsletter")
 	if err != nil {
@@ -2380,9 +2393,61 @@ app:
 		}
 		return daemon.run(req.Args...)
 	}
+	// Real local release receipts and exported backups reproduce the volume
+	// of automated copies seen with five releases. The provider is the test daemon.
+	var delivered *tourChange
+	for i := 0; i < 5; i++ {
+		if i == 4 {
+			delivered = scene.open("tom", "club-newsletter", "Publish the winter ride times", "Publish the winter ride times on the club website.")
+			scene.write(delivered, map[string]string{"public/winter.html": "<!doctype html><title>Winter rides</title><h1>Winter rides at 9 am</h1>"})
+			scene.commit(delivered, "tom", "Winter ride times")
+			scene.ship(delivered, "tom", "priya", 5*time.Minute)
+			head, err = gitexec.Run(ctx, a.projectRepoPath(project.Slug), "rev-parse", "HEAD")
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		scene.later(time.Minute)
+		rel, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{
+			Source: deployment.ReleaseFromBranch, ProjectID: project.ID, DeploymentID: prod.ID,
+			Deployment: "main", Revision: strings.TrimSpace(string(head)), Actor: "sam",
+		}, "local design capture")
+		if err != nil {
+			t.Fatal(err)
+		}
+		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID,
+			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, Revision: strings.TrimSpace(string(head))}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{
+			Generation: at.Generation, Rollout: "active", Health: "healthy",
+			Handle: map[string]any{"container": docker.ByKey(prod.ID).App(), "hostPort": 43210},
+		}}); err != nil {
+			t.Fatal(err)
+		}
+		for _, trigger := range []string{"pre-release", "release", "scheduled"} {
+			if _, err := a.DataProtection.TakeBackup(ctx, project.ID, "main", trigger, "apptown-system"); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	// Publish the same sort of narrative that can fill empty release notes;
+	// it belongs in the release record, not the overview card.
+	source, err := a.Work.NarrativeSource(asPerson("sam"), delivered.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Work.PublishNarrative(asPerson("sam"), workflow.NarrativePublication{Source: source,
+		Draft: workflow.NarrativeDraft{Title: "Publish the winter ride times", Note: "To satisfy it: provide the independent review report for this change."},
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := a.DataProtection.TakeBackup(ctx, project.ID, "main", "manual", "sam"); err != nil {
 		t.Fatal(err)
 	}
+
+	scene.land(december, "tom", map[string]string{"tests": "pass", "style": "pass"})
 
 	var overview struct {
 		Active []struct {

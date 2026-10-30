@@ -142,6 +142,11 @@ export function homeSections<A extends { changeId: string | null }>(active: RunR
   return { happening, blocked, waiting, needsYouCount }
 }
 
+// History has no stop-actor field, so stopped work cannot be attributed here.
+export function homeFinished(history: ChangeRow[]): ChangeRow[] {
+  return history.filter(c => c.statusLabel === 'landed' || c.statusLabel === 'failed')
+}
+
 export default function Dashboard() {
   const operationsQ = useAttention()
   const actQ = useGet<Activity>('/activity', { poll: 5000 })
@@ -149,6 +154,7 @@ export default function Dashboard() {
   const projectsQ = useGet<ProjRow[]>('/projects?recent=6', { poll: 5000 })
   const act = actQ.data, dash = dashQ.data, dashErr = dashQ.err, projects = projectsQ.data
   const recent = projects ?? []
+  const finished = homeFinished(act?.history ?? [])
 
   if (!act) return <><h1>Home</h1><ReadStatus q={actQ} what="activity" /></>
 
@@ -239,9 +245,9 @@ export default function Dashboard() {
         <Link to="/projects">All projects →</Link> · <Link to="/deployments">Deployments →</Link>
       </div>
 
-      {act.history.length > 0 && <>
+      {finished.length > 0 && <>
         <h2>Recently finished</h2>
-        <ChangeHistoryTable changes={act.history} showProject />
+        <ChangeHistoryTable changes={finished} showProject />
       </>}
       </>}
     </div>

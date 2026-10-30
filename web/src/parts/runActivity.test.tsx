@@ -66,3 +66,10 @@ describe('a blocked change on the needs-you list', () => {
     expect(buttons(blocked([])).text).toEqual([])
   })
 })
+
+it.each(['failed', 'stopped', 'finished'] as const)('does not claim elapsed idle time as Took for %s changes', statusLabel => {
+  const el = document.createElement('div')
+  el.innerHTML = renderToStaticMarkup(<MemoryRouter><ChangeHistoryTable changes={[row({ state: 'abandoned', statusLabel, tookS: 458640 })]} /></MemoryRouter>)
+  expect(el.querySelector('[data-label="took"]')).toBeNull()
+  expect(el.textContent).not.toContain('127.4h')
+})

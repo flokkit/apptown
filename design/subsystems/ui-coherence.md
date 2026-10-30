@@ -15,6 +15,18 @@ The interface should show the ordinary action and current result first, with
 configuration and execution detail available when needed. This is a presentation
 rule, not authority to remove required approval, error or uncertainty information.
 
+## Activity and release summaries
+
+Home's Recently finished shows landed and failed changes. The history response
+has no stop-actor field, so stopped changes stay in their project history.
+Elapsed time appears only for landed changes.
+
+Project Activity shows changes, releases and deployment observations. It includes
+a backup only when it failed, stopped or was triggered manually. The Backups page
+lists every backup, and Application details retains the latest backup state.
+The overview Releases card shows the release list and live marker; release notes
+remain in the release record.
+
 ## Visual language
 
 The look is "Ledger": warm paper, ink text, ruled lines and serif headings.

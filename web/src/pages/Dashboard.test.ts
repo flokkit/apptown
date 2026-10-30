@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { homeSections, homeStatus, type Activity } from './Dashboard'
+import { homeFinished, homeSections, homeStatus, type Activity } from './Dashboard'
 
 it.each([true, false])('summarizes counted host issues once when coverage is known: %s', known => {
   expect(homeStatus({ operations: { count: 8, known }, needsYou: 3, running: 0, deployments: [] }))
@@ -72,4 +72,11 @@ describe('the home sections', () => {
     expect(s.waiting).toEqual([])
     expect(s.needsYouCount).toBe(0)
   })
+})
+
+it('keeps recently finished to landed and failed when the stop actor is unavailable', () => {
+  const history = ['landed', 'failed', 'stopped', 'finished', 'unknown'].map(statusLabel => ({
+    statusLabel, title: statusLabel === 'stopped' ? 'Release check: a chat answers' : statusLabel,
+  })) as Activity['history']
+  expect(homeFinished(history).map(c => c.statusLabel)).toEqual(['landed', 'failed'])
 })

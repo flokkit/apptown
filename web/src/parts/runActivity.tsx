@@ -111,7 +111,9 @@ export function ChangeHistoryTable({ changes, showProject, releases, slug }: {
             {showProject && <td className="muted small">{e.c.project}</td>}
             <td className="stack-lead"><Link className="tap-open" to={`/changes/${e.c.changeId}`}><span className="muted small">#{e.c.changeNumber}</span> {e.c.title}</Link></td>
             <td><Status word={e.c.statusLabel} tone={STATUS_LIGHT[e.c.statusLabel]} /></td>
-            <td className="muted small" data-label="took">{fmtDuration(e.c.tookS)}</td>
+            {e.c.statusLabel === 'landed'
+              ? <td className="muted small" data-label="took">{fmtDuration(e.c.tookS)}</td>
+              : <td className="muted small stack-hide" />}
           </tr>
         ) : (
           <tr key={`r${e.r.number}`} style={{ background: 'var(--ok-bg)' }}>
