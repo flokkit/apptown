@@ -188,9 +188,9 @@ type Target struct {
 
 // standingTarget resolves a project's running main deployment, or says why
 // there is none to probe. Whether it runs is the deployment owner's
-// observation on the deployment's own target (ObserveContainer): an attached
-// host is asked over its own connection, and what cannot be observed is
-// unknown or unavailable, never "not running".
+// observation on the deployment's own target, asked now
+// (ObserveContainerNow): an attached host is asked over its own connection,
+// and what cannot be observed is unknown or unavailable, never "not running".
 func (o Runtime) standingTarget(ctx context.Context, projectID ids.ID) (Target, *deployment.Deployment, string, bool) {
 	var t Target
 	t.ProjectID = projectID
@@ -202,7 +202,7 @@ func (o Runtime) standingTarget(ctx context.Context, projectID ids.ID) (Target, 
 	if err != nil || t.Container == "" {
 		return t, nil, "no standing main deployment — deploy the app to be judged at runtime", false
 	}
-	switch observed := o.deployment.ObserveContainer(ctx, e); observed.State {
+	switch observed := o.deployment.ObserveContainerNow(ctx, e); observed.State {
 	case deployment.ContainerRunning:
 	case deployment.ContainerStopped, deployment.ContainerGone:
 		return t, e, fmt.Sprintf("the main deployment is not running (%s) — nothing to probe", observed.State), false

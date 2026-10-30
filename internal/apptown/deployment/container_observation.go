@@ -21,16 +21,57 @@ type ContainerObservation struct {
 	Reason string
 }
 
-// ObserveContainer asks the deployment's own target's daemon whether its
-// container runs now. Only ContainerRunning is evidence that it serves; a
-// failure to resolve the target or to get the daemon's answer is unknown,
-// never stopped or gone. A deployment on a provider's platform (App
-// Platform) has no container: it is what the background observer last saw,
-// the observation its deployment listing shows, while that is fresh, so an
-// App Platform release observed running is never called "not serving".
+// ObserveContainer is whether the deployment's container runs, as the
+// background observer last saw it: a read never asks a host, so a host that
+// does not answer cannot hold up a page. Running or stopped only while the
+// observation is fresh; otherwise unknown with why, never stopped or gone. An
+// AppTown with no Docker of its own reads its built-in host as unavailable.
+// An act that must know now asks with ObserveContainerNow.
 func (s *Service) ObserveContainer(ctx context.Context, d *Deployment) ContainerObservation {
+	records, err := s.listRecords(ctx, []ids.ID{d.ProjectID})
+	if err != nil {
+		return ContainerObservation{State: ContainerUnknown, Reason: err.Error()}
+	}
+	for _, r := range records {
+		if r.deployment.ID != d.ID || r.target == nil {
+			continue
+		}
+		if r.target.Kind == KindDockerHost && d.Container == "" {
+			// A deployment on a Docker host without a container has not
+			// booted one.
+			break
+		}
+		o := s.observations.read(r, s.now())
+		switch {
+		case errors.Is(o.Err, ErrNoLocalDocker):
+			return ContainerObservation{State: ContainerUnavailable, Reason: o.Err.Error()}
+		case !o.Stale && o.State == RuntimeRunning:
+			return ContainerObservation{State: ContainerRunning}
+		case !o.Stale && o.State == RuntimeStopped:
+			return ContainerObservation{State: ContainerStopped}
+		case o.Err != nil:
+			return ContainerObservation{State: ContainerUnknown, Reason: "its host's or platform's status could not be read"}
+		case o.ObservedAt.IsZero():
+			return ContainerObservation{State: ContainerUnknown, Reason: "it has not been observed yet"}
+		case o.Stale:
+			return ContainerObservation{State: ContainerUnknown, Reason: "its last observation is out of date"}
+		}
+		// Fresh, but the provider did not say running or stopped (a
+		// rollout in progress).
+		return ContainerObservation{State: ContainerUnknown, Reason: "its host or platform does not say whether it runs"}
+	}
+	return ContainerObservation{State: ContainerUnknown, Reason: "the deployment records no container"}
+}
+
+// ObserveContainerNow asks the deployment's own target's daemon whether its
+// container runs now, for an act (a runtime check) that needs the answer at
+// that moment; reads use ObserveContainer. Only ContainerRunning is evidence
+// that it serves; a failure to resolve the target or to get the daemon's
+// answer is unknown, never stopped or gone. A deployment without a container
+// (App Platform) is its latest observation.
+func (s *Service) ObserveContainerNow(ctx context.Context, d *Deployment) ContainerObservation {
 	if d.Container == "" {
-		return s.observedOnPlatform(ctx, d)
+		return s.ObserveContainer(ctx, d)
 	}
 	dk, err := s.hosts.DockerScopeFor(ctx, d.TargetID)
 	if errors.Is(err, ErrNoLocalDocker) {
@@ -91,40 +132,6 @@ func (s *Service) ServedRevision(ctx context.Context, d *Deployment) ServedRevis
 		return ServedRevision{ContainerID: rt.ID, Reason: fmt.Sprintf("the running container is not the generation %s the deployment recorded", want)}
 	}
 	return ServedRevision{Commit: d.ReleaseSHA, ContainerID: rt.ID}
-}
-
-// observedOnPlatform is a container-less deployment's latest background
-// observation, read as a container's: running or stopped only while fresh,
-// and otherwise unknown with why. A deployment on a Docker host without a
-// container has not booted one.
-func (s *Service) observedOnPlatform(ctx context.Context, d *Deployment) ContainerObservation {
-	unknown := ContainerObservation{State: ContainerUnknown, Reason: "the deployment records no container"}
-	records, err := s.listRecords(ctx, []ids.ID{d.ProjectID})
-	if err != nil {
-		return ContainerObservation{State: ContainerUnknown, Reason: err.Error()}
-	}
-	for _, r := range records {
-		if r.deployment.ID != d.ID || r.target == nil || r.target.Kind == KindDockerHost {
-			continue
-		}
-		o := s.observations.read(r, s.now())
-		switch {
-		case !o.Stale && o.State == RuntimeRunning:
-			return ContainerObservation{State: ContainerRunning}
-		case !o.Stale && o.State == RuntimeStopped:
-			return ContainerObservation{State: ContainerStopped}
-		case o.Err != nil:
-			return ContainerObservation{State: ContainerUnknown, Reason: "its platform's status could not be read"}
-		case o.ObservedAt.IsZero():
-			return ContainerObservation{State: ContainerUnknown, Reason: "it has not been observed yet"}
-		case o.Stale:
-			return ContainerObservation{State: ContainerUnknown, Reason: "its last observation is out of date"}
-		}
-		// Fresh, but the platform did not say running or stopped (a
-		// rollout in progress).
-		return ContainerObservation{State: ContainerUnknown, Reason: "its platform does not say whether it runs"}
-	}
-	return unknown
 }
 
 // AttachedDockerHostsHealth is Docker deploys' health on an AppTown with no

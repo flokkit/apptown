@@ -190,6 +190,10 @@ func TestReleaseTierObservesCurrentDeploymentInsteadOfReleaseHistory(t *testing.
 				t.Fatal("missing released environments tier")
 				return nil
 			}
+			// Reads show the background observer's last look and ask no host.
+			if err := a.Deployment.ObserveRuntime(t.Context()); err != nil {
+				t.Fatal(err)
+			}
 			apps := read("owner", "/api/v1/tiers?project=game")
 			if len(apps) != 1 || apps[0].Running != tc.running || apps[0].Observed != tc.observed || apps[0].URL != "https://current.example" || apps[0].Detail != "" {
 				t.Fatalf("runtime tier inherited history instead of current observation: %+v", apps)
@@ -202,7 +206,7 @@ func TestReleaseTierObservesCurrentDeploymentInsteadOfReleaseHistory(t *testing.
 				t.Fatalf("foreign project filter: %d %s", w.Code, w.Body.String())
 			}
 			if inspections != before {
-				t.Fatal("unreadable project's target was observed")
+				t.Fatal("a read asked a host")
 			}
 			// The historical receipt survives owner removal. Reusing the name
 			// must show the replacement, never the old address or release label.
@@ -294,6 +298,10 @@ func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
 		t.Fatal("released environments column missing")
 		return nil
 	}
+	// Reads show the background observer's last look and ask no host.
+	if err := a.Deployment.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	apps := read("owner")
 	if len(apps) != 2 {
 		t.Fatalf("customer placements missing: %+v", apps)
@@ -317,6 +325,6 @@ func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
 		t.Fatalf("foreign placement exposed: %+v", got)
 	}
 	if inspected["customer-a"] != beforeA || inspected["customer-b"] != beforeB {
-		t.Fatal("foreign placement observed before visibility check")
+		t.Fatal("a read asked a host")
 	}
 }
