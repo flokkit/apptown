@@ -1016,6 +1016,7 @@ a.infra-card:hover, a.infra-add:hover { text-decoration: none; border-color: var
 .shot-empty { display: grid; place-items: center; cursor: default; padding: 6px; text-align: center; }
 @media (max-width: 520px) { .shot-img { width: calc(50vw - 30px); height: calc((50vw - 30px) * 0.625); } }
 .ch-shortfall { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--bad); border-left-width: 4px; border-radius: 6px; background: var(--bad-bg); color: var(--text); font-size: 14px; line-height: 1.45; }
+.ch-unchecked { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--warn-mark); border-left-width: 4px; border-radius: 6px; background: var(--warn-bg); color: var(--text); font-size: 14px; line-height: 1.45; }
 .ch-shortfall strong { color: var(--bad); }
 .decision-bar > input { flex: 1; }
 /* What the approval's commit adds (DecisionForm AddsSection): above the

@@ -1,3 +1,4 @@
+import { PRODUCT } from '../../brand'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { renderMd } from '../../md'
@@ -115,7 +116,7 @@ function RunWork({ view, detail, reload, focusStep, deciding }: { view: ChangeVi
         {detail.artifacts.map((a) => (
           <div className="card" key={a.id}>
             <div className="row">
-              <span className="chip">{a.kind}</span>
+              <span className="chip">{a.kind === 'agent-reported' ? `reported by the agent (not checked by ${PRODUCT})` : a.kind}</span>
               <strong>{a.name || '(unnamed)'}</strong>
               {a.ref && <a href={a.ref} target="_blank" rel="noreferrer">{a.ref}</a>}
               {a.body && <span className="muted small">{a.body.length.toLocaleString()} chars</span>}

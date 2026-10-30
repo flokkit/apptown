@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/flokkit/apptown/internal/ids"
+	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
@@ -71,4 +72,26 @@ func (s *Service) RefreshChangeEvidence(ctx context.Context, projectID, changeID
 		return err
 	}
 	return s.refreshAssertions(ctx, RunRef{ID: change.RunID, ProjectID: projectID})
+}
+
+// AttachAgentReport stores what an agent says about its own work when it hands
+// a change off, as an artifact of kind agentReportKind on the landing run. It
+// needs the authority to request landing, not to attach evidence: it is a claim
+// shown as reported, and no gate or requirement reads it. Past narrativeBudget
+// bytes it is cut, and the stored text says so.
+func (s *Service) AttachAgentReport(ctx context.Context, runID ids.ID, report string) error {
+	project, _, err := s.runScope(ctx, runID, actionRequestLanding)
+	if err != nil {
+		return err
+	}
+	if len(report) > narrativeBudget {
+		report = fmt.Sprintf("[first %d of %d bytes shown; the rest was cut]\n", narrativeBudget, len(report)) + strs.Truncate(report, narrativeBudget)
+	}
+	_, err = database.Transact(ctx, s.db, func(tx *database.Tx) (ids.ID, error) {
+		if _, err := workflowsql.New(tx.SQL()).ProjectForUpdate(ctx, project); err != nil {
+			return ids.Nil, err
+		}
+		return AddArtifactIn(ctx, tx, runID, agentReportKind, "agent report", "", report, s.now())
+	})
+	return err
 }

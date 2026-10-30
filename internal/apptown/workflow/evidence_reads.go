@@ -35,6 +35,11 @@ type Artifact struct {
 	CreatedAt string `json:"createdAt"`
 	Binary    bool   `json:"binary,omitempty"`
 }
+
+// ReportedByAgent says the artifact is the agent's own report on its work: a
+// claim, shown apart from what AppTown checked.
+func (a Artifact) ReportedByAgent() bool { return a.Kind == agentReportKind }
+
 type ArtifactBody struct {
 	Artifact
 	Raw []byte

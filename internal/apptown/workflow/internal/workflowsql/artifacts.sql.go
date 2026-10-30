@@ -85,7 +85,7 @@ func (q *Queries) ArtifactRunScopeMeta(ctx context.Context, id ids.ID) (Artifact
 const assertionArtifact = `-- name: AssertionArtifact :one
 
 SELECT id,kind,name,ref FROM artifacts
-WHERE run_id=$1 AND ($2::text='' OR kind=$2) AND ($3::text='' OR name=$3)
+WHERE run_id=$1 AND kind<>'agent-reported' AND ($2::text='' OR kind=$2) AND ($3::text='' OR name=$3)
 ORDER BY id DESC LIMIT 1 FOR SHARE
 `
 
@@ -195,7 +195,7 @@ func (q *Queries) DeleteProjectArtifacts(ctx context.Context, projectID ids.ID) 
 
 const existingArtifactKinds = `-- name: ExistingArtifactKinds :many
 SELECT DISTINCT a.kind FROM artifacts a JOIN runs r ON r.id=a.run_id
-WHERE r.project_id=$1 AND a.kind=ANY($2::text[])
+WHERE r.project_id=$1 AND a.kind<>'agent-reported' AND a.kind=ANY($2::text[])
 `
 
 type ExistingArtifactKindsParams struct {
@@ -342,7 +342,7 @@ const missingArtifactKinds = `-- name: MissingArtifactKinds :many
 SELECT ($1::text[])[i]::text AS kind
 FROM generate_subscripts($1::text[],1) AS requested(i)
 WHERE NOT EXISTS(SELECT 1 FROM artifacts a JOIN runs r ON r.id=a.run_id
- WHERE r.project_id=$2 AND a.kind=($1::text[])[i]) ORDER BY i
+ WHERE r.project_id=$2 AND a.kind<>'agent-reported' AND a.kind=($1::text[])[i]) ORDER BY i
 `
 
 type MissingArtifactKindsParams struct {
@@ -373,6 +373,23 @@ func (q *Queries) MissingArtifactKinds(ctx context.Context, arg MissingArtifactK
 		return nil, err
 	}
 	return items, nil
+}
+
+const narrativeAgentReport = `-- name: NarrativeAgentReport :one
+SELECT a.body FROM artifacts a JOIN runs r ON a.run_id=r.id WHERE r.change_id IS NOT DISTINCT FROM $1 AND r.project_id=$2 AND a.kind='agent-reported' ORDER BY a.id DESC LIMIT 1
+`
+
+type NarrativeAgentReportParams struct {
+	ChangeID  ids.ID
+	ProjectID ids.ID
+}
+
+// The agent's own report: a claim the summary may read, never evidence.
+func (q *Queries) NarrativeAgentReport(ctx context.Context, arg NarrativeAgentReportParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, narrativeAgentReport, arg.ChangeID, arg.ProjectID)
+	var body string
+	err := row.Scan(&body)
+	return body, err
 }
 
 const narrativeArtifacts = `-- name: NarrativeArtifacts :many

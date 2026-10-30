@@ -127,7 +127,7 @@ Twelve tools that read:
 | `list_changes` | a project's Changes, newest first, optionally only one state |
 | `get_change` | one Change with its current run, every step's status, and what it is waiting on and on whom; while a person's approval of a commit waits, what that commit adds (see [How changes reach main](changes-and-main.md)) |
 | `get_change_diff` | the Change's whole diff as text |
-| `get_change_evidence` | what the run recorded step by step, and the artifacts it produced |
+| `get_change_evidence` | what the run recorded step by step, and the artifacts it produced; also the agent's own report (`reportedByAgent`) and what the change summary says would satisfy an unmet or unchecked request (`summaryReadsRequestAs`) |
 | `get_run` | one run with its steps |
 | `get_waiting_on_you` | the approvals waiting on you, each with what saying OK would mean |
 | `get_what_if` | experimental: what a pack version's checks would say about projects' `main`, beside the checks they adopted; hypothetical, never a project's standing |
@@ -143,7 +143,7 @@ And nine that act, each recorded as *you, via the named agent*:
 | `start_change_lane` | starts a lane (say, `implement`) on an open Change |
 | `run_change_checks` | runs the Change's checks now — the same gates its landing will apply |
 | `preview_change` | boots the Change and returns the URL to try it at |
-| `request_change_landing` | hands the Change off: gates run, then the approvers see it |
+| `request_change_landing` | hands the Change off: gates run, then the approvers see it. The optional `report` is your own account of the work (for example review findings). The change page and `get_change_evidence` show it as reported by the agent, apart from what AppTown checked; no gate counts it, and the summary reads it as a claim ("the agent reports…"). It is cut at about 120 kB, with a note saying so |
 | `send_change_back` | returns the Change to its agent with a note saying what to change |
 | `abandon_change` | closes a Change that will not continue; nothing is deleted |
 | `file_complaint` | tells AppTown about friction with AppTown itself (a tool that failed, a promise that did not hold); a person reads it |

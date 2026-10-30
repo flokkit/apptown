@@ -37,7 +37,7 @@ func NewWorkReads(deps WorkReadsDependencies) []Tool {
 		{
 			Name:        "get_change_evidence",
 			order:       7,
-			Description: "Returns what the Change's current run recorded: each step with a bounded summary of its evidence, and the run's artifacts (kind, name, reference) without their bodies.",
+			Description: "Returns what the Change's current run recorded: each step with a bounded summary of its evidence, and the run's artifacts (kind, name, reference) without their bodies. reportedByAgent is the agent's own report from request_change_landing, not checked by AppTown. summaryReadsRequestAs is the summary's reading of whether the request is met, with what falls short and what would satisfy it.",
 			InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"),
 			command:     ownerCommand("work_reads.getChangeEvidence", h.getChangeEvidence),
 		},
@@ -174,14 +174,33 @@ func (h workReads) getChangeEvidence(c *Call, args map[string]any) (any, error) 
 		steps = append(steps, st)
 	}
 	artifacts := make([]map[string]any, 0, len(d.Artifacts))
+	var reported map[string]any
 	for _, ar := range d.Artifacts {
+		if ar.ReportedByAgent() {
+			// Last one wins; shown apart from what AppTown checked.
+			reported = map[string]any{"text": ar.Body, "createdAt": ar.CreatedAt,
+				"note": "reported by the agent; not checked by AppTown and never counted by a gate"}
+			if int64(len(ar.Body)) < ar.BodyBytes {
+				reported["note"] = fmt.Sprintf("%v; shown here are the first %d of %d bytes", reported["note"], len(ar.Body), ar.BodyBytes)
+			}
+			continue
+		}
 		artifacts = append(artifacts, map[string]any{"id": ar.ID, "kind": ar.Kind, "name": ar.Name, "ref": ar.Ref,
 			"bytes": ar.BodyBytes, "createdAt": ar.CreatedAt,
 			"apiUrl": fmt.Sprintf("%s/api/v1/artifacts/%d", c.BaseURL, ar.ID)})
 	}
-	return map[string]any{"id": ch.ID, "project": p.Slug, "runId": d.Run.ID, "workflow": d.Run.WorkflowName,
+	out := map[string]any{"id": ch.ID, "project": p.Slug, "runId": d.Run.ID, "workflow": d.Run.WorkflowName,
 		"status": d.Run.Status, "currentStage": d.Run.CurrentStage, "steps": steps, "artifacts": artifacts,
-		"webUrl": c.changeURL(ch.ID)}, nil
+		"webUrl": c.changeURL(ch.ID)}
+	if reported != nil {
+		out["reportedByAgent"] = reported
+	}
+	if ch.RequestMet != "" {
+		// The summary's reading of the request; the gap says what fell short
+		// and what would satisfy it, so an agent can act on it.
+		out["summaryReadsRequestAs"] = map[string]any{"met": ch.RequestMet, "gap": ch.RequestGap}
+	}
+	return out, nil
 }
 func (h workReads) getRun(c *Call, args map[string]any) (any, error) {
 	run, p, err := h.scope.runForRead(h.work, c, args)

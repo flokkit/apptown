@@ -5,7 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { newQueryClient } from '../../data'
 import type { ChangeView, Step } from '../../api'
-import { ApproveEvidence, MainConflictLine, StatePanel, notApplicableHere, requestShortfall } from './StatePanel'
+import { ApproveEvidence, MainConflictLine, StatePanel, notApplicableHere, requestShortfall, requestUnchecked } from './StatePanel'
 
 // Record ids are UUIDv7 strings.
 const CHANGE = '00000000-0004-7000-8000-000000000000'
@@ -29,6 +29,22 @@ describe('the approval says when the summary reads the work as short of the requ
   it.each(['yes', 'unknown', undefined])('says nothing when the reading is %s', (met) => {
     expect(requestShortfall({ requestMet: met, requestGap: 'ignored' })).toBeUndefined()
     expect(evidence(undefined)).not.toContain('ch-shortfall')
+  })
+})
+
+describe('the approval says when the summary could not check all of the request', () => {
+  it('shows unknown with what would settle it, as could-not-check and not as a shortfall', () => {
+    const gap = 'the rest of the diff was not read. To satisfy it: the rest of the diff, files X and Y.'
+    expect(requestShortfall({ requestMet: 'unknown', requestGap: gap })).toBeUndefined()
+    expect(requestUnchecked({ requestMet: 'unknown', requestGap: gap })).toBe(gap)
+    expect(requestUnchecked({ requestMet: 'no', requestGap: gap })).toBeUndefined()
+    const html = renderToStaticMarkup(
+      <MemoryRouter><QueryClientProvider client={newQueryClient()}>
+        <ApproveEvidence changeId={CHANGE} soFar="x" unchecked={gap} />
+      </QueryClientProvider></MemoryRouter>)
+    expect(html).toContain('could not check all of the request')
+    expect(html).toContain('To satisfy it')
+    expect(html).not.toContain('falls short')
   })
 })
 

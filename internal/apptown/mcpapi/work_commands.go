@@ -2,6 +2,7 @@ package mcpapi
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/changeactions"
@@ -25,7 +26,7 @@ type workCommands struct {
 func NewWorkCommands(deps WorkCommandsDependencies) []Tool {
 	h := workCommands{scope: deps.Scope, work: deps.Work, actions: deps.Actions, db: deps.DB}
 	return []Tool{{Name: "request_change_landing",
-		order: 14, Description: "Hands an in-progress Change off for approval: freezes its current revision and starts the landing attempt (gates, then the project's approvers). " + "You cannot approve or land it yourself; the person does that in AppTown.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id.")}, "id"), command: ownerCommand("work_commands.requestChangeLanding", h.requestChangeLanding)}, {Name: "send_change_back",
+		order: 14, Description: "Hands an in-progress Change off for approval: freezes its current revision and starts the landing attempt (gates, then the project's approvers). " + "You cannot approve or land it yourself; the person does that in AppTown. " + "Optionally pass report: your own account of the work, such as your review findings. AppTown shows it as reported by the agent, separate from what it checked; it never passes a gate, and the summary treats it as a claim.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id."), "report": schemaString("Optional. Your own report on the work (for example review findings). Shown as reported by the agent, not as checked; cut at about 120 kB.")}, "id"), command: ownerCommand("work_commands.requestChangeLanding", h.requestChangeLanding)}, {Name: "send_change_back",
 		order: 15, Description: "Sends a Change back to the agent that worked on it with a note saying what to change. The agent continues from where it was.", InputSchema: schemaObject(map[string]any{"id": schemaID("The Change's id."), "note": schemaString("What to change, in plain words — this is what the agent works from.")}, "id", "note"),
 		command: ownerCommand("work_commands.sendChangeBack", h.sendChangeBack),
 	},
@@ -59,6 +60,11 @@ func (h workCommands) requestChangeLanding(c *Call, args map[string]any) (any, e
 	run, err := h.actions.RequestLanding(c.Context, p, ch, c.actor())
 	if err != nil {
 		return nil, refuse("the landing could not start: %v", err)
+	}
+	if report := strings.TrimSpace(argString(args, "report")); report != "" {
+		if err := h.work.AttachAgentReport(c.Context, run.ID, report); err != nil {
+			return nil, fmt.Errorf("the landing started (run %d), but the agent's report could not be stored: %w", run.ID, err)
+		}
 	}
 	landing, err := workflow.ReadChangeIn(c.Context, h.db, ch.ID)
 	if err != nil {
