@@ -100,9 +100,10 @@ and `deploy/systemd/apptownd.env.example` to `/etc/apptown/apptownd.env`, set
 apptownd`, and put a proxy in front of `127.0.0.1:7777` (Your own
 proxy, below).
 
-The root service sets `DOCKER_CONFIG=/root/.docker`, so Docker configuration
-has a defined location even when systemd supplies no `HOME`. To use another
-location, set `DOCKER_CONFIG` in `/etc/apptown/apptownd.env`.
+The root service sets `HOME=/root` and `DOCKER_CONFIG=/root/.docker`.
+AppTown writes attached hosts' SSH configuration to `/root/.ssh/config`,
+and Docker configuration has a defined location. To use other locations,
+set `HOME` and `DOCKER_CONFIG` in `/etc/apptown/apptownd.env`.
 
 The release archive for your platform unpacks to `/opt/apptown`. Each
 release on [GitHub](https://github.com/flokkit/apptown/releases) has
