@@ -34,7 +34,7 @@ export function OccupancyCard({ occ }: { occ: Occupancy }) {
   const cooling = !!occ.cooldownUntil && new Date(occ.cooldownUntil).getTime() > Date.now()
   return (
     <div className={`card${cooling ? ' tone-warn' : ''}`} style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
-      {narrow && <p>{cooling ? 'Work is paused.' : `${occ.busy} workers busy`}</p>}
+      {narrow && <p>{cooling ? 'Work is paused.' : occ.busy ? `${occ.busy} updates in progress` : 'No updates in progress.'}</p>}
       <PhoneDetails>
       <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
         <div className="small">
@@ -75,7 +75,7 @@ export function RemediationsList() {
       {data.remediations.length === 0 && <div className="muted" style={{ padding: '30px 0', textAlign: 'center' }}>No remediations. Choose a check, project or Fix all findings.</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         {data.remediations.map((m) => narrow ? <Link key={m.id} to={`/conformance/remediations/${m.id}`} className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-          <div className="host-row"><strong>Fix #{m.number}</strong><Status word={m.statusLabel} tone={STATUS_LIGHT[m.statusLabel]} help={m.sentence} /><span className="muted small">{m.counts?.total ?? 0} tasks</span></div>
+          <div className="host-row"><strong>Fix #{m.number}</strong><Status word={m.statusLabel} tone={STATUS_LIGHT[m.statusLabel]} text={m.statusLabel === 'finished' ? 'Done' : undefined} help={m.sentence} /><span className="muted small">{m.counts?.total ?? 0} {(m.counts?.total ?? 0) === 1 ? 'task' : 'tasks'}</span></div>
         </Link> : (
           <Link key={m.id} to={`/conformance/remediations/${m.id}`} className={`card${m.status === 'running' ? ' tone-busy' : m.status === 'completed_with_stuck' ? ' tone-bad' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>

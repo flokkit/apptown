@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { post } from '../api'
@@ -89,7 +90,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
         <div className="card" style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
           <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
             <div className="small">
-              {tab === 'projects' && (s ? <>{s.findings} problem{s.findings === 1 ? '' : 's'} to fix. {s.flagged > 0 && `${s.flagged} need a person's review. `}{s.incompleteProjects} app{s.incompleteProjects === 1 ? '' : 's'} not fully checked.</> : 'No checks yet.')}
+              {tab === 'projects' && (s ? <>{s.findings} confirmed problem{s.findings === 1 ? '' : 's'} to fix now. {s.flagged > 0 && `${s.flagged} possible problem${s.flagged === 1 ? '' : 's'} to review. `}{s.incompleteProjects} app{s.incompleteProjects === 1 ? '' : 's'} not fully checked.</> : 'No checks yet.')}
             </div>
             {live && isUnfinished(live.review.status)
               ? <ReviewProgress d={live} />
@@ -105,14 +106,14 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
       <StaleNote q={[viewQ, liveQ]} />
       {following !== '' && <ReadStatus q={liveQ} what="the running review" className="small" />}
 
-      <div className="tabs">
+      <Tabs className="tabs">
         <Link to={base} className={tabClass(active === 'projects')}>Projects</Link>
         <Link to="/conformance/reviews" className={tabClass(active === 'reviews')}>Fleet reviews{view?.reviews?.filter(isFleetReview).length ? ` (${view.reviews.filter(isFleetReview).length})` : ''}</Link>
         <Link to={`${base}/checks`} className={tabClass(active === 'checks')}>Checks</Link>
         {!readOnly && <Link to="/conformance/remediations" className={tabClass(active === 'remediations')}>Remediations</Link>}
         {!readOnly && <Link to="/conformance/ways" className={tabClass(active === 'ways')}>Ways of working</Link>}
         {!readOnly && <Link to="/conformance/what-ifs" className={tabClass(active === 'what-ifs')}>What-ifs</Link>}
-      </div>
+      </Tabs>
 
       {!view && <ReadStatus q={viewQ} what="the conformance record" className="small" />}
       {/* Keyed by what they show: a refresh keeps the person's open folds,

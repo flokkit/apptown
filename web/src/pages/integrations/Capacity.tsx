@@ -29,9 +29,9 @@ function countWords(r: Resource): string {
   const p = r.promised
   const words = [`${p.limited.apptown + p.limited.other} limited`]
   const unlimited = p.unlimited.apptown + p.unlimited.other
-  if (unlimited > 0) words.push(`${unlimited} with no limit`)
+  if (unlimited > 0) words.push(`${unlimited} without a set limit`)
   const unread = p.unread.apptown + p.unread.other
-  if (unread > 0) words.push(`${unread} with a limit not read (the sum is partial)`)
+  if (unread > 0) words.push(`${unread} limit${unread === 1 ? '' : 's'} could not be read (the total is partial)`)
   return words.join(', ')
 }
 
@@ -68,7 +68,7 @@ export function Capacity({ name }: { name: string }) {
   return (
     <div className="small">
       {!c.elastic && <dl className="capacity-summary">
-        {c.memory && <><dt>Memory</dt><dd>{c.memory.hostUsed?.known && c.memory.total.known
+        {c.memory && <><dt>Memory use</dt><dd>{c.memory.hostUsed?.known && c.memory.total.known
           ? `${briefBytes(c.memory.hostUsed.value)} used of ${briefBytes(c.memory.total.value)}` : 'not known'}</dd></>}
         {c.disk && <><dt>Disk</dt><dd>{c.disk.free.known && c.disk.total.known
           ? `${briefBytes(c.disk.free.value)} free of ${briefBytes(c.disk.total.value)}` : 'not known'}</dd></>}
@@ -81,7 +81,7 @@ export function Capacity({ name }: { name: string }) {
       <div>{c.words} <span className="muted">· read {fmtStamp(c.readAt)}</span></div>
       {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
         <table className="small" style={{ marginTop: 4 }}>
-          <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'promised to containers'}</th><th>in use by containers</th></tr></thead>
+          <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'app resource limits'}</th><th>in use by containers</th></tr></thead>
           <tbody>
             <ResourceRow label="memory" r={c.memory} format={fmtBytes} />
             <ResourceRow label="CPUs" r={c.cpu} format={cpuWords} />
@@ -144,21 +144,21 @@ function DiskLine({ d }: { d: DiskCapacity }) {
 
 const f = (v: Figure | null | undefined, format: (v: number) => string) => (v && v.known ? format(v.value) : 'unknown')
 
-// limitWords: a holder's promised sum, or "no limit" when none of its
+// limitWords: a holder's promised sum, or "without a set limit" when none of its
 // containers has one: never "0", which would read as a promise of nothing.
 const limitWords = (v: Figure, unlimited: number, containers: number, format: (v: number) => string) =>
-  v.known && v.value === 0 && unlimited > 0 && unlimited === containers ? 'no limit' : f(v, format)
+  v.known && v.value === 0 && unlimited > 0 && unlimited === containers ? 'without a set limit' : f(v, format)
 
 // cpuCell: a holder's CPU promise, partial when a limit was not read as a
 // number of CPUs (CV-C02): "not read" or "at least …", never a plain sum.
 function cpuCell(t: Tenant): string {
   if (t.cpuUnread === 0) return limitWords({ known: true, value: t.cpus }, t.cpuUnlimited, t.containers, cpuWords)
-  const unread = `${t.cpuUnread} not read`
+  const unread = `${t.cpuUnread} limit${t.cpuUnread === 1 ? '' : 's'} could not be read`
   return t.cpus > 0 ? `at least ${cpuWords(t.cpus)} (${unread})` : unread
 }
 
 // Bars: a Docker host's memory (used, promised), CPUs (promised) and disk,
-// drawn by holder, with the numbers in a table beneath.
+// drawn by holder, with App resource details in a table beneath.
 function Bars({ c }: { c: TargetCapacity }) {
   const m = c.memory!
   const used = usedMemory(c)
@@ -174,11 +174,11 @@ function Bars({ c }: { c: TargetCapacity }) {
         <CapacityBar label="memory used" bar={used} format={fmtBytes}
           sum={free !== null && free >= 0 ? `${fmtBytes(free)} free of ${fmtBytes(m.total.value)}` : `${f(m.total, fmtBytes)} · free not known`} />
       ) : <div className="muted">memory: <FigureWords f={m.total} format={fmtBytes} /></div>}
-      {pm && <CapacityBar label="memory promised" bar={pm} format={fmtBytes}
-        sum={`${fmtBytes(pm.sum)} of ${fmtBytes(m.total.value)}${m.overcommitted ? ` · over by ${fmtBytes(pm.sum - m.total.value)}` : ''}`} />}
-      {pc && c.cpu && <CapacityBar label="CPUs promised" bar={pc} format={cpuWords}
+      {pm && <CapacityBar label="memory limits" bar={pm} format={fmtBytes}
+        sum={`Apps are set up to use ${fmtBytes(pm.sum)}; this server has ${fmtBytes(m.total.value)}${m.overcommitted ? ` · over by ${fmtBytes(pm.sum - m.total.value)}` : ''}`} />}
+      {pc && c.cpu && <CapacityBar label="CPU limits" bar={pc} format={cpuWords}
         sum={pc.partial > 0
-          ? `at least ${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)} · ${pc.partial} limit${pc.partial === 1 ? '' : 's'} not read`
+          ? `at least ${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)} · could not read ${pc.partial} limit${pc.partial === 1 ? '' : 's'}`
           : `${cpuWords(pc.sum)} of ${cpuWords(c.cpu.total.value)}${c.cpu.overcommitted ? ` · over by ${cpuWords(pc.sum - c.cpu.total.value)}` : ''}`} />}
       {dk && c.disk ? (
         <>
@@ -187,8 +187,8 @@ function Bars({ c }: { c: TargetCapacity }) {
         </>
       ) : c.disk && <DiskLine d={c.disk} />}
       <details className="cap-details">
-        <summary className="muted">the numbers</summary>
-        <CapacityTable heads={['containers', 'memory used', 'memory promised', 'no limit', 'CPUs promised']}
+        <summary className="muted">App resource details</summary>
+        <CapacityTable heads={['containers', 'memory used', 'memory limits', 'without a set limit', 'CPU limits']}
           rows={[
             ...tenants.map((t) => ({
               name: t.name, kind: t.kind,

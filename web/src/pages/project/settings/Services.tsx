@@ -185,6 +185,7 @@ export function ServicesTab({ slug }: { slug: string }) {
                 </div>
               )}
               </details>
+              {k.register?.connector && <details><summary>Connection</summary><ProjectIntegrationsTab slug={slug} onlyCapability={k.capability} /></details>}
             </div>
           )
         })}
@@ -210,6 +211,7 @@ export function ServicesTab({ slug }: { slug: string }) {
         <button className="primary" disabled={busy || contract === 'none' || !changed || conflict} onClick={save}>
           {busy ? 'opening a change…' : 'Save (needs approval)'}
         </button>
+        {!changed && <span className="muted small">Turn a service on or off, or change its version, then save for approval.</span>}
         {createdChange && (
           <span className="small">✓ Change {createdChange.number} opened · <Link to={`/changes/${createdChange.id}`}>preview &amp; land it</Link></span>
         )}
@@ -235,11 +237,13 @@ export const INTEG_ICON: Record<string, string> = {
 
 export type AttachableT = Attachable
 
-export function ProjectIntegrationsTab({ slug }: { slug: string }) {
+export function ProjectIntegrationsTab({ slug, onlyCapability }: { slug: string; onlyCapability?: string }) {
+  const catalogQ = useGet<DependencyList>('/dependencies', { kind: 'config' })
+  const catalog = (catalogQ.data?.dependencies ?? []).filter(k => declarable(k) && !!k.register?.connector)
   const itemsQ = useGet<AttachmentList>(`/projects/${slug}/integrations`)
   const attachablesQ = useGet<AttachableList>('/attachables', { kind: 'config' })
   // The server sends each wiring change's state as its word (ProjIntegration).
-  const items = (itemsQ.data?.attachments ?? []) as ProjIntegration[]
+  const items = ((itemsQ.data?.attachments ?? []) as ProjIntegration[]).filter(i => onlyCapability ? i.capability === onlyCapability : !catalog.some(k => k.capability === i.capability))
   const attachables = attachablesQ.data?.attachables ?? []
   const [adding, setAdding] = useState<AttachableT | null>(null)
   const [connector, setConnector] = useState('')
@@ -274,7 +278,7 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
   }
   const detach = (capability: string) => run(() => del(`/projects/${slug}/integrations/${capability}`))
 
-  const unattached = attachables.filter((a) => !items.some((i) => i.capability === a.capability))
+  const unattached = attachables.filter((a) => !items.some((i) => i.capability === a.capability) && (onlyCapability ? a.capability === onlyCapability : !catalog.some(k => k.capability === a.capability)))
 
   // Never read is not "nothing attached".
   if (!itemsQ.data) return <ReadStatus q={itemsQ} what="the project's integrations" />
@@ -373,9 +377,10 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
       </div>
       {items.length === 0 && <div className="muted small" style={{ marginBottom: 8 }}>Nothing attached yet.</div>}
 
+      <ReadStatus q={catalogQ} what="the service catalogue" /><StaleNote q={catalogQ} />
       {adding === null ? (
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {unattached.map((a) => (
+          {catalogQ.data && !catalogQ.refreshFailed && unattached.map((a) => (
             <button key={a.capability} onClick={() => openAdd(a)} title={a.description}>+ {a.title}</button>
           ))}
         </div>

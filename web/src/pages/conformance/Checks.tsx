@@ -1,4 +1,3 @@
-import { Status, STATUS_LIGHT } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, CheckDefinition } from '../../wire.gen'
@@ -15,19 +14,9 @@ function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict
   const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
   return (
     <div className={`card${act > 0 ? ' tone-bad' : ''}`} style={{ padding: 0, marginBottom: 0, overflow: 'hidden' }}>
-      <div style={{ padding: '10px 14px', cursor: 'pointer' }} role="button" tabIndex={0} aria-expanded={open} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(v => !v) } }} onClick={() => setOpen(!open)}>
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
-          <span className="row check-title" style={{ gap: 'var(--space-2)', alignItems: 'center', minWidth: 0 }}>
-            <SevDot sev={def?.severity ?? vs[0]?.severity ?? 'note'} />
-            <span style={{ fontSize: 'var(--fs-sm)' }}>{def?.title || def?.check || vs[0]?.check}</span>
-
-          </span>
-          <span className="small check-counts" style={{ flex: '0 0 auto' }}>
-            {labels.map(label => <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8 }}>{vs.filter(v => v.statusLabel === label).length} apps <Status word={label} tone={STATUS_LIGHT[label]} /></span>)}
-          </span>
-          <span className="check-phone small"><Status word={labels.includes('failed') ? 'failed' : labels.includes('unknown') ? 'unknown' : labels[0]} tone={STATUS_LIGHT[labels.includes('failed') ? 'failed' : labels.includes('unknown') ? 'unknown' : labels[0]]} /> · {vs.length} apps</span>
-        </div>
-
+      <div className="check-heading"><button className="subtle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="row check-title"><SevDot sev={def?.severity ?? vs[0]?.severity ?? 'note'} /><span>{def?.title || def?.check || vs[0]?.check}</span></span>
+        </button><span className="check-states small">{labels.map(label => <span key={label}><StateChip label={label} /> · {vs.filter(v => v.statusLabel === label).length} {vs.filter(v => v.statusLabel === label).length === 1 ? 'app' : 'apps'}</span>)}</span>
       </div>
           {view.lens.kind === 'current' && findings > 0 && def && (
             <div className="row" style={{ padding: '8px 14px', gap: 'var(--space-3)', borderTop: '1px solid var(--border)' }}>
@@ -56,9 +45,16 @@ function CheckVersions({ versions, view, base }: { versions: [string, Verdict[]]
   const verdicts = versions.flatMap(v => v[1])
   const labels = new Set(verdicts.map(v => v.statusLabel))
   const label = (['failed', 'unknown', 'excepted', 'passed', 'not applicable'] as const).find(s => labels.has(s)) ?? 'unknown'
-  return <details className="card"><summary>
-    {view.checkDefs[versions[0][0]]?.title || 'Check'} · <Status word={label} tone={STATUS_LIGHT[label]} /> · {new Set(verdicts.map(v => v.projectSlug)).size} apps
-  </summary>{versions.map(([key, vs]) => <div key={key}><p>Version {view.checkDefs[key]?.version}</p><CheckCard def={view.checkDefs[key]} vs={vs} view={view} base={base} /></div>)}</details>
+  const [open, setOpen] = useState(false)
+  const findings = verdicts.filter(v => laneOf(v, view.adjudications) === 'findings').length
+  return <div className="card" style={{ padding: 0 }}>
+    <div className="check-heading"><button className="subtle" aria-expanded={open} onClick={() => setOpen(!open)}>
+      <span className="check-title"><SevDot sev={view.checkDefs[versions[0][0]]?.severity ?? 'note'} /><span>{view.checkDefs[versions[0][0]]?.title || 'Check'}</span></span>
+      </button><span className="check-states small"><StateChip label={label} /> · {new Set(verdicts.map(v => v.projectSlug)).size} {new Set(verdicts.map(v => v.projectSlug)).size === 1 ? 'app' : 'apps'}</span>
+    </div>
+<p className="muted small" style={{ padding: '0 14px' }}>{findings > 0 ? `${findings} problems. Open to choose a version to fix.` : 'Open for results by version.'}</p>
+    {open && versions.map(([key, vs]) => <div key={key}><p>Version {view.checkDefs[key]?.version}</p><CheckCard def={view.checkDefs[key]} vs={vs} view={view} base={base} /></div>)}
+  </div>
 }
 
 export function ChecksList({ view, base }: { view: ConformanceView; base: string }) {

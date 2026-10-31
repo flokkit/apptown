@@ -104,7 +104,7 @@ export function homeStatus({ needsYou, running, deployments, operations }: {
   if (needsYou === null) parts.push('could not read what needs you')
   else if (needsYou > 0) parts.push(`${needsYou} needs you`)
   if (running > 0) parts.push(`${running} running`)
-  if (operations.count) parts.push(`${operations.count} host issues`)
+  if (operations.count) parts.push(`${operations.count} host issue${operations.count === 1 ? '' : 's'}`)
   else if (!operations.known) parts.push('server status not available')
   if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift('All quiet')
   // An app is live when one of its deployments was seen running on the
@@ -241,7 +241,7 @@ export default function Dashboard() {
                 : <RuntimeStatus observation={projectsQ.refreshFailed ? { ...p, observation: 'unknown', observationStale: true, observationIssue: projectsQ.reason } : p} />)}
               </Link>
               {p.blurb && <div className="muted small project-description">{p.blurb}</div>}
-              <div className="muted small home-project-age">{rel(p.lastRunAt)}</div>
+              <div className="muted small home-project-age">{p.lastRunAt ? 'Work updated ' : ''}{rel(p.lastRunAt)}</div>
               {!narrow && <div className="row" style={{ marginTop: 8 }}>{p.hasDeployments === false
                 ? <Status word="none" text="Not deployed" tone="" />
                 : <RuntimeStatus observation={projectsQ.refreshFailed ? { ...p, observation: 'unknown', observationStale: true, observationIssue: projectsQ.reason } : p} />}{p.productionUrl && <a className="dash-app" href={p.productionUrl} target="_blank" rel="noreferrer">Open app ↗</a>}</div>}

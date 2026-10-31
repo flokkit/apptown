@@ -54,7 +54,7 @@ export function ReviewsList() {
             <div className="host-row">
               <Link to={`/conformance/reviews/${r.id}`}><strong>{fmtWhen(r.finishedAt || r.startedAt)}</strong></Link>
               <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.status === 'error' ? 'This review could not finish. Open the review for details.' : undefined} />
-              <span className="small">{r.status === 'running' ? `${r.projectsDone} of ${r.projectsTotal} apps checked` : [r.status === 'done' ? `${r.findings} problems at this check` : '', r.errors > 0 ? 'Checks could not run' : r.judged < r.total ? 'Not fully checked' : '', r.flagged > 0 ? 'Needs your review' : ''].filter(Boolean).join(' · ')}</span>
+              <span className="small">{r.status === 'running' ? `${r.projectsDone} of ${r.projectsTotal} apps checked` : [r.status === 'done' ? `${r.findings} confirmed problem${r.findings === 1 ? '' : 's'} at this review` : '', r.errors > 0 ? 'Checks could not run' : r.judged < r.total ? 'Not fully checked' : '', r.flagged > 0 ? `${r.flagged} possible problem${r.flagged === 1 ? '' : 's'} to review` : ''].filter(Boolean).join(' · ')}</span>
             </div>
             <details className="small"><summary>Details</summary>Started by {r.actor}.
               {r.delta && r.delta.comparedProjects > 0 && (

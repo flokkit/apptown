@@ -34,6 +34,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conversation"
 	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
 	"github.com/flokkit/apptown/internal/apptown/project"
@@ -49,6 +50,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/deploy/s3bucket/s3fake"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
 	"github.com/flokkit/apptown/internal/gitexec/gittest"
@@ -2622,7 +2624,8 @@ app:
 	// driver records only these disposable completed rows; no AppTown work
 	// is claimed to have run by a domain owner.
 	for i := 0; i < 40; i++ {
-		id, err := a.jobs.Enqueue(ctx, "protection-observation", "design-production", nil, time.Time{})
+		kind := []string{"protection-observation", deployment.RecoveryJob, deployment.MarkInstallationJob}[i%3]
+		id, err := a.jobs.Enqueue(ctx, kind, fmt.Sprintf("design-history-%d", i%7), nil, time.Time{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2630,6 +2633,29 @@ app:
 		if _, err := riverdatabasesql.New(a.DB.Pool()).GetExecutor().JobUpdateFull(ctx, &riverdriver.JobUpdateFullParams{ID: id, StateDoUpdate: true, State: rivertype.JobStateCompleted, AttemptDoUpdate: true, Attempt: 1, FinalizedAtDoUpdate: true, FinalizedAt: &at}); err != nil {
 			t.Fatal(err)
 		}
+	}
+
+	// Several browser connections by one person must remain distinguishable,
+	// with every individual disconnect action available after grouping.
+	for i := 0; i < 5; i++ {
+		client, err := a.Access.RegisterOAuthClient(ctx, identity.Registration{Name: "ChatGPT", RedirectURIs: []string{"http://127.0.0.1:9999/callback"}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		verifier, challenge := pkce()
+		browser := identity.BrowserAuthorization{User: "sam", Binding: "camera", Request: identity.AuthorizationRequest{ClientID: client.ID, RedirectURI: client.RedirectURIs[0], Scope: "apptown:user:read apptown:change:create apptown:change:write", Challenge: challenge, Method: "S256", Resource: identity.AudienceUser}}
+		prepared, err := a.Access.PrepareConsent(ctx, browser)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := a.Access.DecideConsent(ctx, identity.ConsentDecision{Browser: browser, Token: prepared.Token, Choice: identity.ConsentAllow})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Access.ExchangeCode(ctx, identity.CodeExchange{Code: result.Code, Verifier: verifier, ClientID: client.ID, RedirectURI: browser.Request.RedirectURI, AuthMethod: "internal"}); err != nil {
+			t.Fatal(err)
+		}
+		moveClock(a, time.Minute)
 	}
 
 	moveClock(a, -a.cfg.clock.ahead)
@@ -2778,6 +2804,14 @@ spec:
 		scene.call("tom", "POST", "/api/v1/changes/"+advisory.ID.String()+"/runs", map[string]string{"workflow": "advisory-review"})
 		a.Work.Wait()
 	}
+	// Attach a real local S3-compatible bucket after creating the historical
+	// local copies, so both the store summary and its existing-copy caveat render.
+	bucket := s3fake.New(t, "CAMERAKEY")
+	bucket.AddBucket("household-copies")
+	scene.call("sam", "PUT", "/api/v1/secrets/CAMERA_STORE_KEY", map[string]string{"value": "CAMERAKEY"})
+	scene.call("sam", "PUT", "/api/v1/secrets/CAMERA_STORE_SECRET", map[string]string{"value": "local-camera-secret"})
+	scene.call("sam", "PUT", "/api/v1/backup-store", map[string]string{"endpoint": bucket.API.URL, "region": "syd1", "bucket": "household-copies", "accessKeyFrom": "CAMERA_STORE_KEY", "secretKeyFrom": "CAMERA_STORE_SECRET"})
+
 	scene.call("sam", "GET", "/api/v1/packs", nil)
 	api := a.Handler()
 	proxy := httputil.NewSingleHostReverseProxy(frontend)

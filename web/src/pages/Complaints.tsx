@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -92,11 +93,11 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
           )}
         </div>
       )}
-      <div className="tabs">
+      <Tabs className="tabs">
         <Link to="/complaints" className={`tab${tab === 'new' ? ' active' : ''}`}>New{fresh.length > 0 ? ` (${fresh.length})` : ''}</Link>
         <Link to="/complaints/answered" className={`tab${tab === 'answered' ? ' active' : ''}`}>Answered{answered.length > 0 ? ` (${answered.length})` : ''}</Link>
         <Link to="/complaints/archive" className={`tab${tab === 'archived' ? ' active' : ''}`}>Archived{archived.length > 0 ? ` (${archived.length})` : ''}</Link>
-      </div>
+      </Tabs>
       {shown.length === 0 && (
         tab === 'archived' ? <div className="muted">Nothing archived. Archived complaints are deleted after ninety days.</div>
         : tab === 'answered' ? <div className="muted">Nothing answered and waiting to be read. Answers stay here until someone archives them.</div>

@@ -24,8 +24,8 @@ export function AttentionBadge() {
   if (state.count === 0 && state.known) return null
   const missing = q.err || q.refreshFailed || state.count === 0 ? 'unknown' : '…'
   return <span className="row small">
-    <Link to="/attention" aria-label={`Attention: ${state.count ?? missing} conditions${state.known ? '' : ', coverage incomplete'}`}>
-      {state.count === null || state.count === 0 ? `Attention ${missing}` : <>{state.count}<span className="attention-label"> need attention</span></>}
+    <Link className="attention-badge" to="/attention" aria-label={state.count ? `${state.count} need attention${state.known ? '' : '; coverage incomplete'}` : `Attention ${missing}`}>
+      <span className="attention-compact" aria-hidden="true">⚠ {state.count || missing}</span><span className="attention-words">{state.count === null || state.count === 0 ? `Attention ${missing}` : `${state.count} need attention`}</span>
     </Link>
     <StaleNote q={q} inline />
   </span>

@@ -10,8 +10,8 @@ export function CapacityBar({ label, bar, format, sum }: { label: string; bar: B
   const pct = (v: number) => `${(v / bar.scale) * 100}%`
   const over = bar.mark < 1
   const summary = `${label}: ${sum}. ` + bar.segments.map((s) => `${s.name} ${format(s.value)}`).join(', ') +
-    (bar.unlimited ? `, ${bar.unlimited} with no limit` : '') +
-    (bar.unknown.length ? `, not read: ${bar.unknown.map((u) => u.name).join(', ')}` : '')
+    (bar.unlimited ? `, ${bar.unlimited} without a set limit` : '') +
+    (bar.unknown.length ? `, Could not read: ${bar.unknown.map((u) => u.name).join(', ')}` : '')
   return (
     <div className="cap-row">
       <div className="cap-head">
@@ -24,10 +24,10 @@ export function CapacityBar({ label, bar, format, sum }: { label: string; bar: B
           {over && <div className="cap-overflow" style={{ left: `${bar.mark * 100}%` }} />}
           {over && <div className="cap-mark" style={{ left: `${bar.mark * 100}%` }} title="what the host has" />}
         </div>
-        {bar.unlimited > 0 && <span className="cap-nolimit" title="containers with no limit: each may take what the host has">{bar.unlimited} no limit</span>}
+        {bar.unlimited > 0 && <span className="cap-nolimit" title="containers without a set limit: each may take what the host has">{bar.unlimited} without a set limit</span>}
       </div>
       {bar.unknown.length > 0 && (
-        <div className="cap-unknown">not read: {bar.unknown.map((u) => <span key={u.name} title={u.reason}>{u.name}</span>).reduce<React.ReactNode[]>((a, n, i) => (i ? [...a, ', ', n] : [n]), [])}</div>
+        <div className="cap-unknown">Could not read: {bar.unknown.map((u) => <span key={u.name} title={u.reason}>{u.name}</span>).reduce<React.ReactNode[]>((a, n, i) => (i ? [...a, ', ', n] : [n]), [])}</div>
       )}
     </div>
   )
@@ -55,7 +55,7 @@ function Seg({ s, width, share, format }: { s: Segment; width: string; share: nu
 export function CapacityTable({ rows, heads }: { rows: { name: string; kind: string; cells: string[]; to?: string }[]; heads: string[] }) {
   return (
     <table className="small cap-table">
-      <thead><tr><th>holder</th>{heads.map((h) => <th key={h}>{h}</th>)}</tr></thead>
+      <thead><tr><th>App or system</th>{heads.map((h) => <th key={h}>{h}</th>)}</tr></thead>
       <tbody>
         {rows.map((r) => (
           <GlanceRow name={0} fact={2} labels={["App", ...heads]} key={r.kind + r.name}>

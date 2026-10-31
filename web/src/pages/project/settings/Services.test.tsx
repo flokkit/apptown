@@ -195,7 +195,7 @@ it('a tile shows the Experimental badge from data and the kind in one line', asy
 })
 
 
-it('offers the AI models connection separately from declaring the app need', async () => {
+it('keeps the AI models connection action in the service connection disclosure', async () => {
   const client = newQueryClient()
   vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/attachables')
     ? { attachables: [{ capability: 'llm', title: 'AI models', connectors: ['openrouter'], resourceFields: [], provisionable: false }] }
@@ -204,10 +204,31 @@ it('offers the AI models connection separately from declaring the app need', asy
   const root = createRoot(el)
   try {
     await act(async () => {
-      root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectIntegrationsTab slug="demo" /></MemoryRouter></QueryClientProvider>)
+      root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectIntegrationsTab slug="demo" onlyCapability="llm" /></MemoryRouter></QueryClientProvider>)
     })
     await vi.waitFor(() => expect([...el.querySelectorAll('button')].map(b => b.textContent)).toContain('+ AI models'))
     await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === '+ AI models')!.click() })
     expect(el.textContent).toContain('Attach AI models')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})
+
+it('lists AI models once and keeps connecting it available inside that service', async () => {
+  const client = newQueryClient()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/dependencies') ? { dependencies: [{ capability: 'llm', title: 'AI models', register: { connector: 'openrouter' } }] }
+      : url.endsWith('/attachables') ? { attachables: [{ capability: 'llm', title: 'AI models', connectors: ['openrouter'], resourceFields: [], provisionable: false }] }
+      : url.endsWith('/services') ? { needs: [], declaration: 'current', contract: 'app.yaml' } : { attachments: [] },
+  ))))
+  const el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><ServicesTab slug="demo" /><section className="other-connections"><ProjectIntegrationsTab slug="demo" /></section></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('.service-pick [role=switch]')).not.toBeNull())
+    await vi.waitFor(() => expect(el.querySelector('.service-pick')?.textContent).toContain('+ AI models'))
+    expect(el.querySelectorAll('.service-pick')).toHaveLength(1)
+    expect(el.querySelector('.other-connections')?.textContent).not.toContain('+ AI models')
+    expect(el.textContent).toContain('Turn a service on or off')
+    const connect = [...el.querySelectorAll<HTMLButtonElement>('.service-pick button')].find(b => b.textContent === '+ AI models')!
+    await act(async () => connect.click())
+    expect(el.querySelector('.service-pick')?.textContent).toContain('Attach AI models')
   } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

@@ -82,7 +82,7 @@ describe('the capacity bars', () => {
   })
 
   // A CPU limit not read as a number makes the promise partial: the rest is
-  // "not read", never "not promised", and the sum says "at least" (CV-C02).
+  // "not read", never "without a set limit", and the sum says "at least" (CV-C02).
   // Kills: an unread limit drawn as unpromised capacity.
   it('never calls the rest unpromised when a CPU limit was not read', () => {
     const allUnread = promised(cap([tenant('a/main', 'deployment', fig(0), 0, { cpuUnread: 1 })], fig(GiB)), 'cpu')!

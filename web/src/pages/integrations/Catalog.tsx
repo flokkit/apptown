@@ -1,3 +1,4 @@
+import { Tabs } from '../../Tabs'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { renderMd } from '../../md'
@@ -16,10 +17,10 @@ export function DocsModal({ spec, onClose }: { spec: ConnectorEntry; onClose: ()
     <Modal onClose={onClose}
       title={<><ConnIcon name={spec.icon ?? spec.capability} size={20} /><h2 style={{ margin: 0 }}>{spec.title} docs</h2></>}
       head={
-        <div className="tabs" style={{ margin: 0 }}>
+        <Tabs className="tabs" style={{ margin: 0 }}>
           <button className={'tab' + (tab === 'developer' ? ' active' : '')} onClick={() => setTab('developer')}>Developer</button>
           <button className={'tab' + (tab === 'admin' ? ' active' : '')} onClick={() => setTab('admin')}>Admin</button>
-        </div>
+        </Tabs>
       }>
       {err && <div className="error">{err}</div>}
       {docs && <div className="md-doc" dangerouslySetInnerHTML={{ __html: renderMd(tab === 'admin' ? docs.admin : docs.developer) }} />}

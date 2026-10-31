@@ -54,7 +54,7 @@ function shippedDocs(): Doc[] {
 // into /docs must name a doc that exists.
 const appRoutes = [...appSource.matchAll(/<Route\s+path="([^"]+)"/g)]
   .map((m) => m[1])
-  .filter((p) => !p.startsWith('/docs/'))
+  .filter((p) => p !== '*' && !p.startsWith('/docs/'))
 
 const origin = 'http://forge.test'
 

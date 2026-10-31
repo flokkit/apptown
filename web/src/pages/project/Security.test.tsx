@@ -38,3 +38,16 @@ describe('the security page lists every scan report', () => {
     expect(html).not.toContain('nothing found')
   })
 })
+
+it('states a clean old scan and changed main together without claiming main passed', () => {
+  const client = newQueryClient()
+  client.setQueryData(getKey('/projects/game/findings'), {
+    sources: [source], findings: [], summary: { actionable: 0 }, repo: { stale: true }, statusLabel: 'unknown',
+  })
+  const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><FindingsTab slug="game" /></QueryClientProvider></MemoryRouter>)
+  expect(html).toContain('Scan out of date')
+  expect(html).toContain('No problems found in the last scan; main has changed since.')
+  expect(html).not.toContain('Not scanned since main changed.')
+  expect(html).not.toContain('chip pass')
+  client.clear()
+})

@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { GlanceRow } from '../GlanceRow'
 import { Status, STATUS_LIGHT } from '../Status'
 import { Fragment, useState } from 'react'
@@ -38,12 +39,12 @@ export default function Deployments() {
   return (
     <div>
       <PageHead page="deployments" />
-      <div className="tabs">
+      <Tabs className="tabs">
         <NavLink to="/deployments/departures" className={() => 'tab' + (tab === 'departures' ? ' active' : '')}>Departures</NavLink>
         <NavLink to="/deployments/table" className={() => 'tab' + (tab === 'table' ? ' active' : '')}>Deployments</NavLink>
         {infra && <NavLink to="/deployments/infrastructure" className={() => 'tab' + (tab === 'infrastructure' ? ' active' : '')}>Infrastructure</NavLink>}
         {infra && <NavLink to="/deployments/backups" className={() => 'tab' + (tab === 'backups' ? ' active' : '')}>Backups</NavLink>}
-      </div>
+      </Tabs>
       {instanceTab && infra === false ? <NotAvailable page="infrastructure" heading={false} />
         : instanceTab && infra === undefined ? null
         : tab === 'departures' ? <DeparturesBoard /> : tab === 'infrastructure' ? <InfrastructureView /> : tab === 'backups' ? <BackupsView /> : <FleetTable />}
@@ -70,12 +71,12 @@ function DeparturesBoard() {
         {moves.slice(0, count).map((d, i) => (
           <Fragment key={i}>
           {(i === 0 || fmtDay(d.at) !== fmtDay(moves[i - 1].at)) && <tr><th colSpan={6}>{fmtDay(d.at)}</th></tr>}
-          <GlanceRow name={1} state={5} fact={0} labels={["When", "App", "To", "Release", "Who", "State"]} key={i}>
+          <GlanceRow name={1} state={5} fact={3} labels={["When", "App", "To", "Release", "Who", "State"]} key={i}>
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtStamp(d.at)}</td>
             <td className="stack-lead"><span aria-hidden style={{ marginRight: 6 }}>{d.icon}</span><Link className="tap-open" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></td>
             <td data-label="to">{d.tier}</td>
             <td className="muted small">
-              {d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.label}</a> : d.label}
+              {d.releaseNumber ? <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>Release {d.releaseNumber}</Link> : null}{' '}{d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.label}</a> : d.label}
             </td>
             <td className="muted small" data-label="by">{d.who || '—'}</td>
             <td className="stack-end"><Status word={d.state} tone={STATUS_LIGHT[d.state]} help={d.reason} />{d.state === 'failed' && <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>Review failure</Link>}</td>

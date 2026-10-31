@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { useState } from 'react'
 import { fmtCost, fmtDuration, fmtTokens } from '../format'
 import { useGet } from '../data'
@@ -245,9 +246,10 @@ export function UsageView({ project }: { project?: string }) {
         </div>
       </div>
 
-      <div className="tabs" aria-label="Usage views">
+      <Tabs className="tabs" aria-label="Usage views">
         {(['summary', 'details', 'timing'] as const).filter(t => !project || t !== 'timing').map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t === 'summary' ? 'Summary' : t === 'details' ? 'Details' : 'Time spent'}</button>)}
-      </div>
+      </Tabs>
+      {tab === 'summary' && <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />}
       {tab === 'details' && <>
       <p className="muted small">{fmtTokens(data.totals.total)} tokens · {fmtTokens(data.totals.cacheRead)} from saved responses</p>
       <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />

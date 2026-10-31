@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { useEffect } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { setProjectScope } from '../projectScope'
@@ -109,15 +110,16 @@ export default function ChangePage() {
 
 
       <section className="ch-tabs-sheet">
-        <nav className="tabs ch-tabs" aria-label="more about this change">
+        <Tabs className="tabs ch-tabs" role="navigation" aria-label="more about this change">
           {TABS.map((t) => (
             <Link key={t.key} to={href(t.key)} className={'tab' + (t.key === tab ? ' active' : '')} aria-current={t.key === tab ? 'page' : undefined}>{t.label}</Link>
           ))}
-        </nav>
+        </Tabs>
         <div className="ch-tab-body">
-          {tab === 'work' && <Evidence view={view} runs={evidenceRuns} workTab={workTab} extraErr={workRunId && !work.detail ? work.err : undefined} />}
+
           {tab === 'changes' && <ChangesTab view={view} run={view.detail?.run} />}
           {tab === 'work' && <WorkTab view={view} reload={reload} runId={runParam} focusStep={stepParam} deciding={deciding} runHref={runHref} />}
+          {tab === 'work' && <details><summary>Evidence</summary><Evidence view={view} runs={evidenceRuns} workTab={workTab} extraErr={workRunId && !work.detail ? work.err : undefined} /></details>}
           {tab === 'conversation' && (
             <div>
               <div className="row" style={{ marginBottom: 10 }}>

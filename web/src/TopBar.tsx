@@ -20,7 +20,7 @@ const INSTANCE: [RegExp, string][] = [
   [/^\/attention$/, 'Attention'],
   [/^\/projects$/, 'Projects'],
   [/^\/deployments/, 'Deployments'],
-  [/^\/(packs|workflow-library|guidance|policies)/, 'Ways of working'],
+  [/^\/(packs|workflows|guidance|policies)/, 'Ways of working'],
   [/^\/integrations/, 'Integrations'],
   [/^\/people/, 'People'],
   [/^\/usage/, 'Usage'],

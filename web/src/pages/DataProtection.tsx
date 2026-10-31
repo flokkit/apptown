@@ -363,9 +363,9 @@ export function StoreSection({ canAttach }: { canAttach: boolean }) {
       <StaleNote q={q} />
       <div className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
         {st
-          ? <span title={`keys in ${st.accessKeyFrom} and ${st.secretKeyFrom}; checked by a write, read back and delete`}>Backup store: <b>{st.bucket}</b> at {st.endpoint} · attached by {st.attachedBy} {fmtWhen(st.attachedAt)}</span>
+          ? <div>Backups go to <b>{st.bucket}</b><details><summary>Store details</summary><p>{st.endpoint} · attached by {st.attachedBy} {fmtWhen(st.attachedAt)}</p><p>Keys in {st.accessKeyFrom} and {st.secretKeyFrom}. Checked by writing, reading back and deleting a test file.</p>{canAttach && !open && <button onClick={() => setOpen(true)}>Attach another</button>}</details></div>
           : <span>No backup store attached</span>}
-        {canAttach && !open && <button className="subtle" onClick={() => setOpen(true)}>{st ? 'Attach another' : 'Attach a bucket'}</button>}
+        {canAttach && !st && !open && <button className="subtle" onClick={() => setOpen(true)}>Attach a bucket</button>}
       </div>
       {open && (
         <div style={{ marginTop: 8 }}>

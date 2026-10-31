@@ -45,7 +45,7 @@ export function MembersTab({ slug }: { slug: string }) {
           onChange={e => act(() => put(`/projects/${slug}/approval-policy`, { requireIndependentApproval: e.target.checked }))} />
         {' '}Require another person to approve the author's change
       </label>
-      <div className="muted small">Administrators can approve their own changes. Each approval counts as one vote.</div>
+      <div className="muted small">Admins may approve their own work, with one vote each.</div>
       <b>Members</b>
       <details className="muted small"><summary>Role permissions</summary>
         A <b>contributor</b> opens changes and
@@ -76,18 +76,23 @@ export function MembersTab({ slug }: { slug: string }) {
       </div>
       {canEdit && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <label className="small" style={{ display: 'grid', gap: 4 }}>Person or group
           {directoryHidden ? (
             <input value={subject} placeholder="username, or group:name" aria-label="who to add"
               onChange={e => setSubject(e.target.value.trim())} />
           ) : (
-            <select value={subject} onChange={e => setSubject(e.target.value)}>
+            <select aria-label="Person or group to add" value={subject} onChange={e => setSubject(e.target.value)}>
               <option value="">add…</option>
               {options.map(o => <option key={o} value={o}>{o.startsWith('group:') ? groupLabel(o.slice(6)) : o}</option>)}
             </select>
           )}
-          <select value={role} onChange={e => setRole(e.target.value)}>
-            {roles.map(r => <option key={r.name} value={r.name} title={r.description}>{r.title.replace(/^Project /, '')} — {r.description}</option>)}
+          </label>
+          <label className="small" style={{ display: 'grid', gap: 4 }}>Role
+          <select aria-label="Project role" value={role} onChange={e => setRole(e.target.value)}>
+            {roles.map(r => <option key={r.name} value={r.name} title={r.description}>{r.title.replace(/^Project /, '')}</option>)}
           </select>
+          </label>
+          <p className="muted small" style={{ flexBasis: '100%', margin: 0 }}>{roles.find(r => r.name === role)?.description}</p>
           <button disabled={!subject}
             onClick={() => act(() => post(`/projects/${slug}/members`, { grantee: subject, role }).then(() => setSubject('')))}>
             Add

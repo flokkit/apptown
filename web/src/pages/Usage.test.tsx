@@ -36,7 +36,8 @@ describe('the daily usage chart', () => {
         root.render(<QueryClientProvider client={client}><UsageView project="demo" /></QueryClientProvider>)
       })
       await settled(client)
-      expect(el.querySelector('[role=slider]')).toBeNull()
+      expect(el.querySelector('[role=slider]')).not.toBeNull()
+      expect(el.querySelector('.usage-chart')?.getAttribute('aria-valuetext')).toContain('500 tokens')
       await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
       const shown = () => el.querySelector('.usage-day')?.textContent ?? ''
       const chart = el.querySelector<HTMLElement>('[role="slider"]')!

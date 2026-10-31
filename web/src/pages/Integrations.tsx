@@ -153,7 +153,7 @@ const checkedAt = (h: IntegrationHealth): number => (h.checked && h.checkedAt ? 
 
 function lastChecked(h: IntegrationHealth, now: number): string {
   const at = checkedAt(h)
-  return at ? ago(at, now) : 'no check'
+  return at ? `Checked ${ago(at, now)}` : 'Not tested yet'
 }
 
 
@@ -191,7 +191,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
   ]
 
   const states = bindings.map((b) => healthState(b.health))
-  const newest = Math.max(0, ...bindings.map((b) => checkedAt(b.health)))
+
   const failing = states.filter((s) => s === 'failed').length
   const unchecked = states.filter((s) => s === 'unknown').length
   const summary = [
@@ -216,7 +216,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
       {bindings.length > 0 && (
         <div className={`int-summary ${failing > 0 ? 'bad' : ''}`}>
           {summary}{refreshing && !reading.q.refreshFailed ? <span className="muted"> · checking again…</span> : null}
-          {!reading.q.refreshFailed && newest > 0 && <span className="muted"> · checked {ago(newest, reading.now)}</span>}
+
         </div>
       )}
 
@@ -254,7 +254,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                         </td>
 
                         <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} /></td>
-                        <td className="int-when">{state === 'failed' ? <Link to={to}>Fix</Link> : lastChecked(b.health, reading.now)}{state === 'failed' && <details onClick={e => e.stopPropagation()}><summary>Why?</summary>{b.health.detail}</details>}</td>
+                        <td className="int-when">{state === 'failed' ? <Link className="btn" to={to}>Fix</Link> : lastChecked(b.health, reading.now)}{state === 'failed' && <details onClick={e => e.stopPropagation()}><summary>Why?</summary>{b.health.detail}</details>}</td>
                       </GlanceRow>
                     )
                   })}

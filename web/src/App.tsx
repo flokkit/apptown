@@ -1,6 +1,6 @@
 import Janitor from './pages/Janitor'
 import { PRODUCT } from './brand'
-import { NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './ErrorBoundary'
 import { UpdateNote } from './UpdateNote'
 import { UpdatesPage, ReleaseAvailabilityNote } from './pages/Updates'
@@ -65,7 +65,7 @@ export function SidebarNav() {
   // them; the menu is otherwise the same for everyone.
   const mayOpen = useInstancePages()
  const mayUpdate = useHolds("instance:updates")
-  const wow = /^\/(packs|workflow-library|guidance|policies)(\/|$)/.test(pathname)
+  const wow = /^\/(packs|workflows|guidance|policies)(\/|$)/.test(pathname)
 
   if (slug) {
     return (
@@ -213,7 +213,7 @@ export default function App() {
           <Route path="/adrs/:id" element={<AdrPage />} />
           <Route path="/guidance" element={<WaysOfWorking tab="guidance" />} />
           <Route path="/guidance/:id" element={<GuidanceBlockPage />} />
-          <Route path="/workflow-library" element={<WaysOfWorking tab="workflows" />} />
+          <Route path="/workflows" element={<WaysOfWorking tab="workflows" />} />
           <Route path="/projects/:slug/workflows/*" element={<ToProjectWorking />} />
           <Route path="/projects/:slug/console" element={<Console />} />
           <Route path="/integrations" element={<InstanceGate page="integrations"><Integrations /></InstanceGate>} />
@@ -234,6 +234,7 @@ export default function App() {
           <Route path="/evals/:id" element={<InstanceGate page="evals"><EvalScorecardPage /></InstanceGate>} />
           <Route path="/docs" element={<DocsPage />} />
           <Route path="/docs/:section/:slug" element={<DocsPage />} />
+          <Route path="*" element={<div><h1>Page not found</h1><p>This address does not identify a page. Release links include the project name.</p><Link to="/projects">Find your project</Link></div>} />
         </Routes>
         </Suspense>
         </StaleScope>

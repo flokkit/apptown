@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { PhoneDetails } from '../GlanceRow'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
@@ -5,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { LibraryWorkflow, del, post, put } from '../api'
 import { OriginChip } from '../OriginChip'
 import { firstErr, useAction, useGet } from '../data'
+import { ReadStatus, StaleNote } from '../ReadGate'
 import type { SystemWorkflowBindings, WorkflowPublished } from '../wire.gen'
 
 export default function WorkflowLibrary() {
@@ -92,13 +94,16 @@ spec:
       )}
       {err && <div className="error">{err}</div>}
       {msg && <div className="muted small">{msg}</div>}
-      <div className="tabs" style={{ marginTop: 4 }}>
+      <ReadStatus q={libsQ} what="the workflows" />
+      <StaleNote q={libsQ} />
+      {libsQ.data && !libs.some(l => (l.tier ?? 'extra') === tier) && <p>No workflows in this group.</p>}
+      <Tabs className="tabs" style={{ marginTop: 4 }}>
         {([['core', 'Everyday work'], ['extra', 'More workflows'], ['system', `${PRODUCT} administration`]] as const).map(([k, label]) => (
           <button key={k} className={tier === k ? 'active' : ''} onClick={() => setTier(k)}>
             {label} <span className="muted small">{libs.filter((l) => (l.tier ?? 'extra') === k).length}</span>
           </button>
         ))}
-      </div>
+      </Tabs>
 
       {libs.filter((l) => (l.tier ?? 'extra') === tier).sort((a, b) => a.name.localeCompare(b.name)).map((l) => (
         <div className="card" key={l.name}>

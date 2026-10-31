@@ -2,7 +2,7 @@ import type { Figure, TargetCapacity, Tenant } from '../../wire.gen'
 
 // The capacity bars' arithmetic, apart from their drawing: which segments a
 // bar holds, how wide, and what the rest of it is. A reading AppTown
-// could not make is never drawn as free, and a container with no limit is
+// could not make is never drawn as free, and a container without a set limit is
 // never drawn as a size.
 
 export type Kind = 'deployment' | 'previews' | 'work' | 'apptown' | 'unrecorded' | 'other' | 'host' | 'free' | 'unread' | 'over'
@@ -25,7 +25,7 @@ export type Bar = {
   // larger; mark is where the total falls on that scale (0..1).
   scale: number
   mark: number
-  // unlimited counts the containers with no limit, shown beside the bar.
+  // unlimited counts the containers without a set limit, shown beside the bar.
   unlimited: number
   // unknown lists the holders whose figure is unknown: they are named, not drawn.
   unknown: { name: string; reason: string }[]
@@ -70,7 +70,7 @@ function holders(tenants: Tenant[], fig: (t: Tenant) => Figure | number) {
     const f = fig(t)
     const v = typeof f === 'number' ? { known: true, value: f, reason: '' } : f
     if (!v.known) {
-      unknown.push({ name: t.name, reason: v.reason || 'not read' })
+      unknown.push({ name: t.name, reason: v.reason || 'Reading unavailable' })
       continue
     }
     if (v.value <= 0) continue
@@ -98,20 +98,20 @@ export function usedMemory(c: TargetCapacity): Bar | null {
     ]
   } else {
     const why = !host?.known
-      ? host?.reason || "the host's own use is not read"
+      ? host?.reason || "the server's own use is unknown"
       : unknown.length > 0
-        ? `${unknown.length} holder(s) not read`
+        ? `${unknown.length} resource readings are unavailable`
         : 'the readings disagree (taken moments apart)'
-    rest = [{ key: 'unread', kind: 'unread', name: 'not read', value: Math.max(0, total - held), detail: why }]
+    rest = [{ key: 'unread', kind: 'unread', name: 'not known', value: Math.max(0, total - held), detail: why }]
   }
   return { segments: collapse([...segs, ...rest], total), scale: Math.max(total, held), mark: 1, unlimited: 0, unknown }
 }
 
 // promised is what the running containers are promised of a resource: each
 // holder's limits, against the total; a promise beyond the total runs past
-// the mark. Containers with no limit are counted beside the bar. A CPU
+// the mark. Containers without a set limit are counted beside the bar. A CPU
 // limit AppTown could not read as a number makes the sum partial: the
-// rest of the bar is then "not read", never "not promised" (CV-C02).
+// rest of the bar is then "not read", never "without a set limit" (CV-C02).
 export function promised(c: TargetCapacity, resource: 'memory' | 'cpu'): (Bar & { sum: number; partial: number }) | null {
   const r = resource === 'memory' ? c.memory : c.cpu
   if (!r || !r.total.known) return null
@@ -122,12 +122,12 @@ export function promised(c: TargetCapacity, resource: 'memory' | 'cpu'): (Bar & 
   const unlimited = tenants.reduce((a, t) => a + (resource === 'memory' ? t.unlimited : t.cpuUnlimited), 0)
   const partial = resource === 'cpu' ? tenants.reduce((a, t) => a + t.cpuUnread, 0) : 0
   if (partial > 0) {
-    for (const t of tenants) if (t.cpuUnread > 0) unknown.push({ name: t.name, reason: `${t.cpuUnread} limit(s) not read as a number of CPUs` })
+    for (const t of tenants) if (t.cpuUnread > 0) unknown.push({ name: t.name, reason: `${t.cpuUnread} CPU limit${t.cpuUnread === 1 ? '' : 's'} could not be read` })
   }
   const scale = Math.max(total, sum)
   const rest: Segment[] = sum >= total ? [] : partial > 0
-    ? [{ key: 'unread', kind: 'unread', name: 'not read', value: total - sum, detail: `${partial} limit(s) not read: the promise is at least what is drawn` }]
-    : [{ key: 'free', kind: 'free', name: 'not promised', value: total - sum }]
+    ? [{ key: 'unread', kind: 'unread', name: 'not known', value: total - sum, detail: `${partial} limit${partial === 1 ? '' : 's'} could not be read; the displayed total is a minimum` }]
+    : [{ key: 'free', kind: 'free', name: 'not allocated', value: total - sum }]
   return { segments: collapse([...segs, ...rest], scale), scale, mark: total / scale, unlimited, unknown, sum, partial }
 }
 
