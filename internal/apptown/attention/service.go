@@ -39,6 +39,8 @@ type Item struct {
 // Snapshot can retain stale items while its source is unavailable. ObservedAt
 // describes the actual source evidence; nested item timestamps remain unchanged.
 type Snapshot struct {
+	// Reason is an owner-supplied safe summary, never a raw provider error.
+	Reason     string
 	Items      []Item
 	ObservedAt time.Time
 	Known      bool
@@ -71,6 +73,7 @@ type Sources struct {
 // Coverage reports source availability separately from the visible item count.
 // No underlying error strings or provider details cross this boundary.
 type Coverage struct {
+	Reason     string    `json:"reason,omitempty"`
 	Key        string    `json:"key"`
 	Name       string    `json:"name"`
 	ObservedAt time.Time `json:"observedAt"`
@@ -183,8 +186,11 @@ func (s *Service) Read(ctx context.Context) (View, error) {
 }
 
 func (v *View) add(key, name string, snapshot Snapshot, err error) {
-	coverage := Coverage{Key: key, Name: name, ObservedAt: snapshot.ObservedAt,
+	coverage := Coverage{Reason: snapshot.Reason, Key: key, Name: name, ObservedAt: snapshot.ObservedAt,
 		Unknown: !snapshot.Known || err != nil, Stale: snapshot.Stale}
+	if err != nil {
+		coverage.Reason = "The source check failed."
+	}
 	firstItem := len(v.Items)
 	seen := make(map[string]bool)
 	for _, item := range snapshot.Items {

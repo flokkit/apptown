@@ -1403,6 +1403,9 @@
             "format": "date-time",
             "type": "string"
           },
+          "reason": {
+            "type": "string"
+          },
           "stale": {
             "type": "boolean"
           },

@@ -12,9 +12,8 @@
 # and matches.
 # emptyExit is the tool's own exit for "nothing here to judge"; where the
 # scanner applies, that is a failure, since the contract says there is
-# something to judge. A manual scanner declares no appliesTo: the check
-# that names it does, and it runs once in each folder of the parts that
-# check applies to, with ${PART_FOLDER} (/work or /work/<folder>) in its
+# something to judge. A manual scanner may declare an appliesTo limit. It
+# runs once in each folder of the parts both it and its check apply to, with ${PART_FOLDER} (/work or /work/<folder>) in its
 # command and the folder's parts in APPTOWN_FOLDER, APPTOWN_PARTS_HERE and
 # APPTOWN_PARTS. Finding nothing to judge there exits 1 with words.
 scanners:
@@ -162,6 +161,7 @@ scanners:
     network: false
     target: source
     manual: true
+    appliesTo: [build]
   # Lockfile agreement (the lane selection blocks' lockfile-in-step check):
   # the manifest and the lockfile say the same thing, judged by each
   # ecosystem's own tool in its pinned image, in the folder of each part the

@@ -40,6 +40,12 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		if reading.Unknown || readErr != nil {
 			out.Known = false
 		}
+		if reading.Reason != "" {
+			if out.Reason != "" {
+				out.Reason += " "
+			}
+			out.Reason += target.Name + ": " + reading.Reason
+		}
 		out.Stale = out.Stale || reading.Stale
 		if reading.ObservedAt.IsZero() || reading.ObservedAt.Before(out.ObservedAt) {
 			out.ObservedAt = reading.ObservedAt

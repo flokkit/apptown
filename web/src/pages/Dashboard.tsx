@@ -105,7 +105,6 @@ export function homeStatus({ needsYou, running, deployments, operations }: {
   else if (needsYou > 0) parts.push(`${needsYou} needs you`)
   if (running > 0) parts.push(`${running} running`)
   if (operations.count) parts.push(`${operations.count} host issue${operations.count === 1 ? '' : 's'}`)
-  else if (!operations.known) parts.push('server status not available')
   if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift('All quiet')
   // An app is live when one of its deployments was seen running on the
   // latest check. One whose status is not current (stale or unknown) and

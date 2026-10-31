@@ -427,7 +427,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		u.Containers != 2 || u.Promised.Value != 512<<20 || u.Used.Value != 130<<20 {
 		t.Errorf("tenants: %+v", c.Tenants)
 	}
-	if m.HostUsed == nil || m.HostUsed.Known || m.HostUsed.Reason == "" {
+	if m.HostUsed != nil {
 		t.Errorf("an attached host's own use: %+v", m.HostUsed)
 	}
 
@@ -757,7 +757,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), &target)
-	if err != nil || !got.Stale || got.Unknown || !got.Disk.Low || got.Disk.ReadAt != first || got.ObservedAt != now {
+	if err != nil || !got.Stale || !got.Unknown || !got.Disk.Low || got.Disk.ReadAt != first || got.ObservedAt != now {
 		t.Fatalf("wrapper renewed disk evidence or mutation escaped: %+v %v", got, err)
 	}
 	fail = true
@@ -874,7 +874,7 @@ func TestCapacityCoverageIncludesMemoryFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := o.Snapshot(t.Context(), &target)
-	if err != nil || !got.Unknown || got.Stale || got.Disk == nil || !got.Disk.Free.Known {
+	if err != nil || !got.Unknown || got.Stale || got.Reason != "Container memory use could not all be read." || got.Disk == nil || !got.Disk.Free.Known {
 		t.Fatalf("memory failure lost or disk invalidated: %+v %v", got, err)
 	}
 	memory.InUse = &Split{AppTown: known(1), Other: known(2)}
@@ -882,7 +882,7 @@ func TestCapacityCoverageIncludesMemoryFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), &target)
-	if err != nil || got.Unknown || got.Stale {
+	if err != nil || got.Unknown || got.Stale || got.Reason != "" {
 		t.Fatalf("memory recovery not assessed: %+v %v", got, err)
 	}
 }
@@ -894,7 +894,7 @@ func TestCapacityWrapperHasItsOwnFreshnessLimit(t *testing.T) {
 	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 	disk := &DiskCapacity{ReadAt: at, Free: known(90), Total: known(100)}
 	got := capacitySnapshotAt(CapacitySnapshot{ObservedAt: at, Disk: disk}, at.Add(13*time.Minute))
-	if !got.Stale || !got.Disk.StaleAt(at.Add(13*time.Minute)) {
+	if !got.Stale || !got.Unknown || got.Reason != "The capacity check is overdue." || !got.Disk.StaleAt(at.Add(13*time.Minute)) {
 		t.Fatalf("wrapper and disk freshness coupled: %+v", got)
 	}
 }

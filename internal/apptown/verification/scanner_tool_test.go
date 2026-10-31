@@ -193,3 +193,25 @@ func TestRunToolChecksExecImageCrashIsError(t *testing.T) {
 func exitStatusOne() error {
 	return (execution.Runner{}).Run(context.Background(), execution.Local, execution.Request{Argv: []string{"sh", "-c", "exit 1"}, Timeout: 10 * time.Second}).RunErr
 }
+
+func TestHTMLOnlyAssessmentDropsTheOnlyDockerfileFinding(t *testing.T) {
+	t.Parallel()
+	f := newScannerOwnerFixture(t)
+	f.bind(t, "hadolint", map[string]any{"image": "hadolint:test", "command": []string{"lint"}, "manual": true, "appliesTo": []string{"build"}})
+	dir := t.TempDir()
+	writeTree(t, dir, map[string]string{".apptown/app.yaml": "version: 2\napp:\n  site: {static: ., public: true}\n", "index.html": "<p>Hello</p>"})
+	sc := conformance.DeclaredCheck{Block: "build/container-image", Version: 9, Check: conformance.CheckDeclaration{Name: "dockerfile-lint", Evaluator: "tool", Tool: "hadolint", AppliesTo: []string{"repository"}}}
+	fleet := Fleet{scanners: f.Scanners, evaluator: f.Scanners.evaluator}
+	got := fleet.assessTree(t.Context(), "", nil, []conformance.DeclaredCheck{sc}, ToolContext{Context: f.Context, ProjectID: f.ProjectID, BuildDir: dir}, "static-only")
+	if len(got) != 1 || got[0].State != conformance.NotApplicable || len(got[0].Findings) != 0 || len(f.Effects.requests) != 0 {
+		t.Fatalf("static assessment: %+v; executions %d", got, len(f.Effects.requests))
+	}
+	verdicts := []conformance.Verdict{
+		{State: conformance.Conforms, Evaluator: "sh", Block: "other", Version: 1},
+		{State: got[0].State, Evaluator: "tool", Block: sc.Block, Version: sc.Version},
+	}
+	standing := conformance.SummarizeProject(f.ProjectID, "html", conformance.RecordedObservations(verdicts), nil)
+	if standing.Standing != conformance.StandingConforms || standing.Lanes.Findings != 0 {
+		t.Fatalf("only finding removed: %+v", standing)
+	}
+}

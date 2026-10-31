@@ -300,14 +300,14 @@ func TestCapacityAssessesDiskIndependentlyOfSnapshotCoverage(t *testing.T) {
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	id := idstest.N(10)
 	for _, snapshot := range []deployment.CapacitySnapshot{
-		{Unknown: true, ObservedAt: at}, // memory failed
+		{Unknown: true, ObservedAt: at, Reason: "Container memory use could not all be read."}, // memory failed
 		{Stale: true, ObservedAt: at.Add(-3 * time.Minute)},
 	} {
 		snapshot.Disk = &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, ReadAt: at}
 		evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{id: snapshot}}
 		source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: id, Name: "office", Kind: deployment.KindDockerHost}}}, Observer: evidence, Now: func() time.Time { return at }}
 		got, err := source.Snapshot(t.Context())
-		if err != nil || got.Known == snapshot.Unknown || got.Stale != snapshot.Stale || len(got.Items) != 0 {
+		if err != nil || got.Known == snapshot.Unknown || got.Stale != snapshot.Stale || len(got.Items) != 0 || (snapshot.Reason != "" && got.Reason != "office: "+snapshot.Reason) {
 			t.Fatalf("snapshot status became disk failure: %+v %v", got, err)
 		}
 		snapshot.Disk.Low = true
@@ -501,5 +501,19 @@ func TestCapacityPendingCheckIsNotAnAttentionItem(t *testing.T) {
 	got, err = source.Snapshot(t.Context())
 	if err != nil || len(got.Items) != 1 {
 		t.Fatalf("stale healthy check hidden: %+v %v", got, err)
+	}
+}
+
+// Coverage carries only the owner's safe failure summary for presentation.
+func TestCoverageReportsSafeFailureReason(t *testing.T) {
+	var view View
+	view.add("capacity", "Capacity", Snapshot{Reason: "Container memory use could not all be read."}, nil)
+	if view.Sources[0].Reason != "Container memory use could not all be read." {
+		t.Fatalf("reason lost: %+v", view)
+	}
+	view = View{}
+	view.add("capacity", "Capacity", Snapshot{Reason: "old reason"}, errors.New("provider secret"))
+	if view.Sources[0].Reason != "The source check failed." {
+		t.Fatalf("raw error leaked or failure hidden: %+v", view)
 	}
 }

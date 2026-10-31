@@ -145,9 +145,23 @@ describe('Attention surfaces share authorized current evidence', () => {
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
     const lead = v.el.querySelector('.dash-lead')?.textContent
-    expect(lead).toBeTruthy()
     if (mode === 'known') expect(lead).toContain('All quiet')
     else expect(lead).not.toContain('All quiet')
+  })
+  it('keeps live apps visible without calling incomplete Attention a missing server reading', async () => {
+    responses(() => json({ ...known, sources: [
+      { key: 'disks', name: 'AppTown and worker disks', unknown: false, stale: false },
+      { key: 'capacity', name: 'Deployment host capacity', unknown: true, stale: false },
+    ] }), {
+      '/activity': { ...emptyActivity, deployments: [{ project: 'game', name: 'main', url: 'https://game.example.test', running: true, observationStale: false }] },
+      '/dashboard': emptyDashboard, '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: true }],
+      '/projects/game/deployments': [],
+    })
+    const v = mount(<><AttentionBadge /><Dashboard /></>, '/'); await settled(v.client)
+    const lead = v.el.querySelector('.dash-lead')?.textContent
+    expect(lead).toBe('1 app live →')
+    expect(v.el.textContent).not.toContain('All quiet')
+    expect(badge(v.el)).not.toBeNull()
   })
   it('keeps Home approvals and blocked work, and refuses all-quiet on missing host observations', async () => {
     const active = [{ runId: 'run-blocked', runNumber: 1, changeId: 'change-blocked', changeNumber: 1, workflow: 'implement', title: 'Blocked change', status: 'blocked', stage: 'gate', state: 'blocked', detail: 'Needs repair', project: 'game', startedAt: at, durationS: 10 }]
@@ -158,7 +172,7 @@ describe('Attention surfaces share authorized current evidence', () => {
       '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
-    expect(v.el.textContent).toContain('server status not available')
+    expect(v.el.textContent).not.toContain('server status not available')
     expect(v.el.textContent).not.toContain('Operations')
     expect(v.el.textContent).toContain('Needs you (2)')
     expect(v.el.textContent).toContain('Blocked change')

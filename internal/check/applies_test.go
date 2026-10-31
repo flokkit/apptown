@@ -39,8 +39,8 @@ func TestAppliesToIsRequiredAndClosed(t *testing.T) {
 	if err := check.Validate([]check.Declaration{{Name: "a", Sh: "true"}}); err == nil || !strings.Contains(err.Error(), "appliesTo is required") {
 		t.Errorf("a check without appliesTo is refused: %v", err)
 	}
-	if err := (check.Scanner{Name: "m", Manual: true, AppliesTo: []string{"repository"}}).ValidateApplicability(); err == nil {
-		t.Error("a manual scanner declaring appliesTo is refused")
+	if err := (check.Scanner{Name: "m", Manual: true, AppliesTo: []string{"build"}}).ValidateApplicability(); err != nil {
+		t.Errorf("a manual scanner may limit applicability: %v", err)
 	}
 	if err := (check.Scanner{Name: "s"}).ValidateApplicability(); err == nil {
 		t.Error("a scan-point scanner without appliesTo is refused")

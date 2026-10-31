@@ -406,3 +406,40 @@ func NotApplicableHere(d Declared, src Source, mode Mode) *Evaluation {
 	}
 	return nil
 }
+
+// ToolPlaces intersects a check's applicability with its scanner's limit.
+// A repository declaration imposes no part limit; either declaration may
+// narrow it to parts. Two part declarations must match the same part.
+func ToolPlaces(words, limit []string, src Source) ([]Place, string, error) {
+	places, why, err := Applies(words, src)
+	if err != nil || len(places) == 0 || len(limit) == 0 {
+		return places, why, err
+	}
+	limited, why, err := Applies(limit, src)
+	if err != nil || len(limited) == 0 {
+		return nil, why, err
+	}
+	if len(words) == 1 && words[0] == AppliesRepository {
+		return limited, "", nil
+	}
+	if len(limit) == 1 && limit[0] == AppliesRepository {
+		return places, "", nil
+	}
+	both := src
+	both.Parts = nil
+	for _, p := range src.Parts {
+		if matches(p, words) && matches(p, limit) {
+			both.Parts = append(both.Parts, p)
+		}
+	}
+	return Applies(words, both)
+}
+
+// ToolPublic limits an image check to a public part matching both declarations.
+func ToolPublic(words, limit []string, src Source) (string, error) {
+	why, err := AppliesToPublic(words, src)
+	if why != "" || err != nil || len(limit) == 0 {
+		return why, err
+	}
+	return AppliesToPublic(limit, src)
+}

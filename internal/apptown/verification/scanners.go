@@ -201,9 +201,9 @@ func (s *Scanners) evalToolCheck(ctx context.Context, sc conformance.DeclaredChe
 	// nothing here builds no image and runs no tool.
 	why, err := "", error(nil)
 	if m.Looks() == "exec-image" {
-		why, err = check.AppliesToPublic(sc.Check.AppliesTo, src)
+		why, err = check.ToolPublic(sc.Check.AppliesTo, m.AppliesTo, src)
 	} else {
-		why, err = check.AppliesHere(sc.Check.AppliesTo, src)
+		_, why, err = check.ToolPlaces(sc.Check.AppliesTo, m.AppliesTo, src)
 	}
 	switch {
 	case err != nil:

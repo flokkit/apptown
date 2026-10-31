@@ -21,8 +21,11 @@ means all clear.
   new tasks. Docker-host refusal blocks new releases and previews. Portainer readings are
   advisory and do not protect release admission. A deployment-host disk condition
   uses only the disk’s known free and total figures and its own reading time.
-  Unread memory or CPU figures leave capacity coverage incomplete without adding
-  a disk condition. Background disk checks run every five minutes. A failed check makes the
+  Failed memory or CPU checks leave capacity coverage unknown without adding
+  a disk condition. Optional figures that the host cannot supply are absent,
+  including whole-host memory use on attached Docker hosts. Coverage includes
+  a safe reason naming the failed check; provider errors remain on the owning
+  resource's authorized detail view. Background disk checks run every five minutes. A failed check makes the
   reading unknown. Successful evidence is stale after twelve minutes: two missed
   checks plus two minutes for queueing and collection.
 - Worker availability uses the authenticated worker profile protocol. A missing
@@ -65,7 +68,12 @@ A failed check or evidence older than twelve minutes raises an unknown condition
 unknown differs from a successful empty reading. Pending first disk, inventory,
 app status and backup checks contribute unknown coverage without an Attention
 item. Owners expose attempt and observation times so coverage does not depend on
-time since startup. Native backup evidence retains its own reading time.
+time since startup. Native backup evidence retains its own reading time. Protection coverage names
+the failed data, copy or provider-backup check without exposing provider errors.
+A failed reassessment can retain earlier evidence as stale before twelve minutes;
+that marks the failed reassessment, not an age-based expiry. A failed held-data
+assessment also fails its collection job, retaining the diagnostic in the
+authorized Jobs view.
 
 Worker availability still requests bounded background observation from reads;
 age alone creates no worker-unavailable item. Deployment runtime uses its existing

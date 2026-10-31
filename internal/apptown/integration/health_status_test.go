@@ -10,11 +10,14 @@ func TestHealthLabelsKeepUncheckedDifferentFromSuccessAndFailure(t *testing.T) {
 		h    Health
 		want HealthStatus
 	}{
-		{Health{NotSetUp: true}, HealthNotSetUp}, {Health{}, HealthUnknown}, {Health{OK: true}, HealthUnknown}, {Health{Checked: true, OK: true}, HealthPassed}, {Health{Checked: true}, HealthFailed},
+		{Health{Checked: true, StateLabel: HealthUnknown}, HealthUnknown}, {Health{NotSetUp: true}, HealthNotSetUp}, {Health{}, HealthUnknown}, {Health{OK: true}, HealthUnknown}, {Health{Checked: true, OK: true}, HealthPassed}, {Health{Checked: true}, HealthFailed},
 	} {
 		if got := tc.h.ForDisplay(); got.StateLabel != tc.want {
 			t.Fatalf("%+v became %s", tc.h, got.StateLabel)
 		}
+	}
+	if got := (Health{StateLabel: HealthUnknown}).At(time.Now()); got.StateLabel != HealthUnknown || !got.Checked {
+		t.Fatalf("unassessed checked reading: %+v", got)
 	}
 	if got := (Health{OK: true}).At(time.Now()); got.StateLabel != HealthPassed {
 		t.Fatalf("checked reading: %+v", got)

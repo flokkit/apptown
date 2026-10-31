@@ -74,6 +74,20 @@ command, `changeactions.OpenWiring`. It is the only caller of the link.
 link and the receipt, and after commit at preparation and dispatch, and checks
 the persisted records through the owners' reads.
 
+## Container registry checks
+
+Container registry listings and Test connection send an authenticated HTTPS
+`GET /v2/` to the configured host, using its username and the stored token
+named by `tokenFrom`. A 200 response passes. A 401 with a Bearer realm checks
+that token service using Basic authentication and the `service` and `account`
+query parameters. Only HTTPS realms on the registry's registrable domain may
+receive credentials. Other domains and unsafe realm addresses remain unknown,
+with a reason saying they were not checked. The token service's 200 passes;
+401 or 403 refuses the credentials. Other responses and unreachable services
+fail with a reason. A registry 401 without a Bearer realm refuses credentials.
+Missing or unreadable credentials fail before a request. The whole check times
+out after ten seconds and does not follow redirects or retry anonymously.
+
 ## AI models keys
 
 The `llm` connector (provider `openrouter`) holds a reference

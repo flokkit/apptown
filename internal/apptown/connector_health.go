@@ -150,6 +150,8 @@ func (h connectorHealth) test(ctx context.Context, capability, provider string, 
 	case digitalocean.CapCloudAccount:
 		h := h.providers.CheckCloudAccount(ctx, config)
 		return integration.Health{OK: h.OK, Detail: h.Detail}, true
+	case integration.CapContainerRegistry:
+		return h.integrations.TestContainerRegistryBinding(ctx, config), true
 	case integration.CapErrors:
 		return h.integrations.TestErrorsBinding(ctx, config), true
 	case integration.CapLLM:
@@ -175,7 +177,7 @@ func (h connectorHealth) test(ctx context.Context, capability, provider string, 
 // every reading), and its page says Test connection asks it.
 var draftTested = map[string]bool{
 	digitalocean.CapCloudAccount: true, integration.CapErrors: true, integration.CapLLM: true,
-	integration.CapFeedback: true, integration.CapRegistry: true, verification.ScannerCapability: true, integration.CapModel: true,
+	integration.CapContainerRegistry: true, integration.CapFeedback: true, integration.CapRegistry: true, verification.ScannerCapability: true, integration.CapModel: true,
 }
 
 // Testable says whether Test connection asks a kind's service with its

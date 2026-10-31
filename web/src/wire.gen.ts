@@ -119,6 +119,7 @@ export type AttachmentList = {
 }
 
 export type AttentionCoverage = {
+  reason?: string
   key: string
   name: string
   observedAt: string
