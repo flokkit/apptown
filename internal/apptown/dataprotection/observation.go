@@ -50,7 +50,9 @@ type ProtectionSnapshot struct {
 	RestoreAt                          time.Time
 	Unassessed                         bool
 	ObservedAt                         time.Time
-	Unknown, Stale                     bool
+	// AttemptedAt is when the latest protection attempt finished, successful or not.
+	AttemptedAt    time.Time
+	Unknown, Stale bool
 }
 
 type protectionObservation struct {
@@ -178,6 +180,7 @@ func (o *ProtectionObserver) Run(ctx context.Context, id ids.ID, identity string
 		return err
 	}
 	e.requested = now
+	e.snapshot.AttemptedAt = now
 	if err != nil || protection == nil {
 		e.snapshot.Unknown = true
 		if err == nil {
@@ -196,7 +199,7 @@ func (o *ProtectionObserver) Run(ctx context.Context, id ids.ID, identity string
 }
 
 func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
-	out := ProtectionSnapshot{DataClass: p.DataClass, OffHost: p.OffHost, ObservedAt: at, Unknown: p.Unknown != ""}
+	out := ProtectionSnapshot{DataClass: p.DataClass, OffHost: p.OffHost, ObservedAt: at, AttemptedAt: at, Unknown: p.Unknown != ""}
 	for _, limit := range p.Coverage.NotAssessed {
 		if limit != OutsideNotAssessed {
 			out.Unassessed = true

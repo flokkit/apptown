@@ -55,9 +55,11 @@ The read path uses local records and cached owner observations. It queues bounde
 background work on cold or expired reads and returns promptly. Disk, worker,
 capacity and protection jobs coalesce unfinished requests, limit refresh requests
 to once a minute and retain last successful evidence separately from later
-failed attempts. A deployment host awaiting its first disk or inventory check contributes
-unknown coverage without an Attention item. Failed checks and stale readings
-raise conditions that name the host; an unstarted check does not. Inventory reuses its existing refresh job and invalidation
+failed attempts. Pending first disk, inventory, app status and backup checks
+contribute unknown coverage without an Attention item. Failed checks and stale
+readings raise conditions; an unstarted check does not. Owners expose attempt
+and observation times so coverage does not depend on time since startup.
+Inventory reuses its existing refresh job and invalidation
 boundary. Deployment runtime uses its existing background observation owner.
 
 Owner evidence older than two minutes is stale, except deployment-host disk

@@ -65,8 +65,10 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 		add := func(key, title, detail, severity string, at time.Time) {
 			out.Items = append(out.Items, Item{Key: base + "/" + key, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, Stale: reading.Stale || unknown})
 		}
-		if unknown && dep.DataClass == "production" {
-			add("unassessed", "Backups not known", "Current protection coverage is unavailable.", SeverityWarning, reading.ObservedAt)
+		// A queued first check is incomplete coverage, not an actionable failure.
+		pending := reading.AttemptedAt.IsZero() && reading.ObservedAt.IsZero() && readErr == nil
+		if (unknown || reading.Stale) && !pending && dep.DataClass == "production" {
+			add("unassessed", "Backups not known", "Current protection coverage is unavailable or out of date.", SeverityWarning, reading.ObservedAt)
 		}
 		// Copy cadence and disposable classification come from data protection.
 		// Previews and non-production data acquire no universal backup requirement.

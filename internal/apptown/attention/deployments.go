@@ -80,9 +80,11 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 			at, _ := time.Parse(time.RFC3339Nano, d.Hold.At)
 			add("crash-hold", title, detail, SeverityWarning, at, unknown || r.Stale)
 		}
+		// A queued first check is incomplete coverage, not an actionable failure.
+		pending := r.AttemptedAt.IsZero() && r.ObservedAt.IsZero() && r.Err == nil
 		switch {
-		case unknown:
-			add("runtime", "App status not known", "The latest runtime observation is unavailable.", SeverityWarning, r.ObservedAt, true)
+		case (unknown || r.Stale) && !pending:
+			add("runtime", "App status not known", "The latest runtime observation is unavailable or out of date.", SeverityWarning, r.ObservedAt, true)
 		case r.State == deployment.RuntimeStopped && !held:
 			out.Known = false
 			add("runtime", "Stopped; check whether it should be running", "The runtime is absent. This observation does not establish whether it was stopped intentionally.", SeverityAdvisory, r.ObservedAt, r.Stale)
