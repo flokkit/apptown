@@ -466,7 +466,7 @@ func TestARemovalAsksAgainBeforeEachEffect(t *testing.T) {
 				return nil, err
 			})
 			if during == "teardown" {
-				s.applied = func() { withdrawn.Store(true) }
+				s.applied = func(_ ids.ID) { withdrawn.Store(true) }
 			}
 			withdrawn.Store(during == "before")
 			allowed := func(context.Context) error {

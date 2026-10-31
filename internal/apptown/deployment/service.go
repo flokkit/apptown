@@ -40,7 +40,7 @@ type Service struct {
 	// records is the context a release's log lines are written on: each
 	// says what already happened, so none is lost to its caller stopping.
 	records            context.Context
-	applied            func()
+	applied            func(ids.ID)
 	release            ReleaseDependencies
 	configuration      ConfigurationDependencies
 	observationTimeout time.Duration
@@ -88,7 +88,7 @@ type Dependencies struct {
 	Configuration ConfigurationDependencies
 	Followups     jobs.Enqueuer // settlement's after-commit work
 	Declared      Declarations  // the app's declaration, for what a target holds
-	Applied       func()        // called after a deployment is applied; nil is fine
+	Applied       func(ids.ID)  // called after a deployment is applied; nil is fine
 	// Operations is the ledger data protection's operations run through,
 	// which a release reads for a take-down holding its deployment; nil:
 	// none runs.
@@ -177,4 +177,11 @@ func (s *Service) setClock(now func() time.Time) {
 	s.Releases.clock, s.Bundles.clock, s.Outcomes.clock, s.Targets.clock = now, now, now, now
 	s.Deployments.clock, s.Needs.clock = now, now
 	s.Inventory.deployments.clock, s.Inventory.needs.clock = now, now
+}
+
+// InfrastructureChanged queues a check after an infrastructure removal.
+func (s *Service) InfrastructureChanged(targetID ids.ID) {
+	if s.applied != nil {
+		s.applied(targetID)
+	}
 }

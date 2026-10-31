@@ -9,7 +9,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { fmtBytes, relTime } from '../format'
-import { DeletedProjects, useRefreshInfrastructure } from './Infrastructure'
+import { DeletedProjects } from './Infrastructure'
 import type { DiskReadings, InfrastructureTargets, Job, JobList, Reading, TargetList } from '../wire.gen'
 import { familyRank } from '../targets'
 import { PageHead } from '../PageHead'
@@ -46,7 +46,6 @@ export function InfrastructureHome() {
   const tab = useLocation().pathname.endsWith('/jobs') ? 'jobs' : 'targets'
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   const targets = useGet<TargetList>('/targets', { poll: 30000 })
-  const { refresh, refreshing, err: refreshErr } = useRefreshInfrastructure()
   if (!infra.data || !targets.data) return <ReadStatus q={[infra, targets]} what="each deployment target's inventory" />
   const byName = new Map(targets.data.targets.map((t) => [t.name, t]))
   const live = [...infra.data.targets].sort((a, b) => familyRank(a.family) - familyRank(b.family) || a.target.localeCompare(b.target))
@@ -54,8 +53,6 @@ export function InfrastructureHome() {
     <div>
       <StaleNote q={[infra, targets, attention]} />
       <PageHead page="infrastructure" />
-      {tab === 'targets' && <details className="small"><summary>Options</summary><button className="subtle" onClick={refresh} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh all'}</button></details>}
-      {refreshErr && <div className="error">The inventory could not be refreshed: {refreshErr}</div>}
       <Tabs className="tabs" style={{ marginTop: 10 }}>
         <NavLink to="/infrastructure" end className={() => 'tab' + (tab === 'targets' ? ' active' : '')}>Deployment targets</NavLink>
         <NavLink to="/infrastructure/jobs" className={() => 'tab' + (tab === 'jobs' ? ' active' : '')}>Job queue</NavLink>
@@ -97,6 +94,7 @@ export function OwnDisks() {
   return (
     <div style={{ marginTop: 16 }}>
       <StaleNote q={q} />
+      {q.data.disks.length === 0 && <p className="muted small">Waiting for the first disk check.</p>}
       <div className="host-disks">
         {q.data.disks.map(d => <details key={d.what + (d.path ?? '')} className="host-disk">
           <summary className="host-row">

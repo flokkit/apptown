@@ -43,6 +43,8 @@ func jobReceipt(receipt map[string]any, err error) (map[string]any, error) {
 // providers (deployment.Service.CheckAfterRestore).
 const restoreCheckJob = "restore-check"
 
+const infrastructureCheckJob = "infrastructure-check"
+
 const diskObservationJob = "disk-observation"
 const workerObservationJob = "worker-observation"
 
@@ -50,7 +52,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 	followups := workflowFollowUps(a)
 	deployments := deployment.JobWorker{Service: a.Deployment, Projects: a.Projects, DataDir: a.cfg.dataDir, Reporter: selfErrorsFor(a)}
 	data := dataprotection.JobWorker{Service: a.DataProtection, Projects: a.Projects, Backups: backupRequests{db: a.DB, life: a.life}}
-	inventory := inventoryRefresh{targets: a.targets, providers: a.targetProviders, cache: a.inventory}
+	inventory := inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}
 	providers := a.targetProviders
 	backup := databaseBackup{db: a.DB, dump: databaseDump{DB: a.DB, Place: &a.dumps, Tools: a.cfg.stock.Tools, DataDir: a.cfg.dataDir}, dataDir: a.cfg.dataDir, enabled: a.cfg.usingBuiltinDB, now: a.cfg.clock.Now}
 	fleet := fleetReviewsFor(a)
@@ -65,7 +67,8 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 		deployment.RecoveryJob: {Run: jobErrors(deployments.Recover), Timeout: 20 * time.Minute},
 		workflowAbandonmentJob: {Run: jobErrors(followups.Abandon)},
 		"backup":               {Run: jobErrors(data.Backup)},
-		"inventory":            {Run: jobErrors(inventory.Run)},
+		infrastructureCheckJob: {Run: infrastructureChecksFor(a).Run},
+		"inventory":            {Run: jobErrors(inventory.Run), Timeout: 2 * time.Minute},
 		// Once a boot: mark what records name and was made before the mark.
 		deployment.MarkInstallationJob: {Run: func(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
 			marked, err := providers.MarkRecorded(ctx)
@@ -131,6 +134,7 @@ var jobBudgets = map[string]int{
 	workflowAbandonmentJob:                  3,
 	"backup":                                1,
 	"inventory":                             2,
+	infrastructureCheckJob:                  1,
 	deployment.MarkInstallationJob:          1,
 	diskObservationJob:                      1,
 	workerObservationJob:                    1,
@@ -238,7 +242,7 @@ func apptownJobSchedules() []jobs.Schedule {
 	for _, spec := range []struct{ operation, cron, key string }{{"db-backup", "0 2 * * *", ""}, {"backup-sweep", "0 3 * * *", ""}, {dataprotection.RestoredCopySweepJob, "*/5 * * * *", ""},
 		{projectlifecycle.DeletionPassJob, "*/5 * * * *", ""}, {projectlifecycle.PurgePassJob, "0 4 * * *", ""},
 		{remediation.PassJob, "* * * * *", passScheduledKey}, {evals.PassJob, "* * * * *", passScheduledKey},
-		{restoreCheckJob, "* * * * *", passScheduledKey}} {
+		{restoreCheckJob, "* * * * *", passScheduledKey}, {infrastructureCheckJob, "*/5 * * * *", passScheduledKey}} {
 		when, err := schema.ParseCron(spec.cron)
 		if err != nil {
 			panic(err)

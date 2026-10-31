@@ -8,7 +8,7 @@ import { InfrastructureView, ResourceTables } from './Infrastructure'
 
 const target = (name: string, fields: Partial<TargetInfra> = {}): TargetInfra => ({
   target: name, kind: 'portainer', family: 'containers', origin: 'attached', status: 'ready', statusLabel: 'working',
-  facts: '', place: name, vendor: '', live: false, refreshing: false, resources: [], ...fields,
+  facts: '', place: name, vendor: '', live: false, invalidated: false, resources: [], ...fields,
 })
 
 const show = (targets: TargetInfra[]) => {
@@ -18,6 +18,15 @@ const show = (targets: TargetInfra[]) => {
 }
 
 describe('infrastructure inventory availability', () => {
+  it('shows unknown evidence and its age before the resource details are opened', () => {
+    const html = show([target('host', { asOf: '2026-10-29T00:00:00Z', invalidated: true })])
+    const summary = html.slice(0, html.indexOf('<summary>Resources and details'))
+    expect(summary).toContain('unknown')
+    expect(summary).toContain('read ')
+    expect(summary).toContain('before the latest change')
+    expect(html).not.toContain('Refresh all')
+  })
+
   it('preserves healthy targets alongside a records-only unknown target without offering unknown resources for removal', () => {
     const html = show([
       target('healthy', { live: true, asOf: '2026-10-29T00:00:00Z', resources: [{ kind: 'stack', name: 'healthy-app', record: 'recorded', statusLabel: 'unknown' }] }),

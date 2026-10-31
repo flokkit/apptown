@@ -223,6 +223,34 @@ A target kind without an inventory reader reports what it holds as unknown:
 the page says "This kind of target doesn't report what it holds" beside the
 records, not an error, and the inventory job and attention skip it.
 
+## Background infrastructure readings
+
+Durable jobs check every active target's inventory and capacity and the
+controller/worker filesystems every five minutes, even with no readers. Startup
+queues the first pass. Infrastructure pages and Attention show the latest recorded
+reading and its age. Reading a page never contacts a provider or host or requests
+a check; there is no inventory Refresh action or refresh query parameter.
+
+After a release is recorded, a need is fulfilled or a deployment is taken down,
+AppTown queues that target's inventory check immediately through the same job.
+The reading's age remains visible and marked as predating the act until a
+post-act check succeeds. Until then, pages show records alone, without missing
+or unrecorded comparisons. Post-act requests coalesce into one job per target,
+including while it runs. An act during that check keeps the reading invalidated
+until the next five-minute pass; an overlapping check cannot clear that mark.
+Inventory jobs have a two-minute timeout. The scheduling pass attempts all
+targets and instance disks even when an admission fails, and reports errors
+together.
+Shared Docker and Portainer placement verification is part of the background
+inventory check. Pages use that recorded verification; destructive removal still
+verifies fresh provider identity and placement before acting.
+
+A failed check retains the last successful reading and its original time under
+an unknown status. Attention treats successful readings as stale after twelve
+minutes, allowing two missed checks plus collection time. A target pending its
+first check has no Attention item. Protection observations use the same schedule
+and freshness rule so an idle period alone does not create backup warnings.
+
 ## Docker target inventory
 
 A target's inventory compares recorded resource claims with a complete scoped

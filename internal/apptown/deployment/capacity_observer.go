@@ -12,12 +12,6 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 )
 
-// CapacityObservationQueue only admits a deduplicated durable observation for
-// this target revision. It must never contact a provider on the snapshot path.
-type CapacityObservationQueue interface {
-	RequestCapacityObservation(context.Context, ids.ID, int64) error
-}
-
 // CapacitySnapshot contains disk evidence and whole-capacity coverage for one
 // exact target configuration. Unknown includes unread resource figures. The
 // wrapper time never replaces Disk.ReadAt, which may be older than the wrapper.
@@ -26,29 +20,28 @@ type CapacitySnapshot struct {
 	ObservedAt time.Time
 	// AttemptedAt distinguishes a pending first check from a failed check.
 	AttemptedAt time.Time
+	DiskUnknown bool
 	Unknown     bool
 	Stale       bool
 }
 
 type capacityObservation struct {
-	revision  int64
-	requested time.Time
-	snapshot  CapacitySnapshot
+	revision int64
+	snapshot CapacitySnapshot
 }
 
-// CapacityObserver supplies background disk observations for fixed deployment
-// hosts. Detailed capacity pages retain the existing synchronous owner operation.
+// CapacityObserver collects capacity in background jobs. Pages and Attention
+// read the latest recorded evidence without requesting work.
 type CapacityObserver struct {
 	mu      sync.Mutex
 	entries map[ids.ID]*capacityObservation
-	queue   CapacityObservationQueue
 	now     func() time.Time
 	target  func(context.Context, ids.ID) (*Target, error)
 	read    func(context.Context, *Target) (TargetCapacity, error)
 }
 
-func NewCapacityObserver(service *Service, queue CapacityObservationQueue) *CapacityObserver {
-	return &CapacityObserver{queue: queue, now: service.now, target: service.Targets.ByID, read: service.targetCapacity}
+func NewCapacityObserver(service *Service) *CapacityObserver {
+	return &CapacityObserver{now: service.now, target: service.Targets.ByID, read: service.targetCapacity}
 }
 
 // Snapshot takes the current authorized target record. A changed configuration
@@ -67,33 +60,13 @@ func (o *CapacityObserver) Snapshot(ctx context.Context, target *Target) (Capaci
 		e = &capacityObservation{revision: target.SettingsRevision, snapshot: CapacitySnapshot{Unknown: true}}
 		o.entries[target.ID] = e
 	}
-	request := e.requested.IsZero() || now.Sub(e.requested) >= time.Minute
-	if request {
-		e.requested = now
-	}
 	out := capacitySnapshotAt(e.snapshot, now)
 	o.mu.Unlock()
-	if !request {
-		return out, nil
-	}
-	var err error
-	if o.queue == nil {
-		err = errors.New("capacity observation queue unavailable")
-	} else {
-		err = o.queue.RequestCapacityObservation(ctx, target.ID, target.SettingsRevision)
-	}
-	if err != nil {
-		o.mu.Lock()
-		e.snapshot.Unknown = true
-		out = capacitySnapshotAt(e.snapshot, now)
-		o.mu.Unlock()
-	}
-	return out, err
+	return out, nil
 }
 
-// capacityObservationFresh limits wrapper age; disk evidence has its own longer
-// limit because its cache survives wrapper refreshes.
-const capacityObservationFresh = 2 * time.Minute
+// Allow two missed five-minute checks and two minutes for collection.
+const capacityObservationFresh = 12 * time.Minute
 
 func capacitySnapshotAt(s CapacitySnapshot, now time.Time) CapacitySnapshot {
 	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > capacityObservationFresh
@@ -133,18 +106,23 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	e := o.entries[id]
-	if e == nil || e.revision != revision {
-		return err
+	if o.entries == nil {
+		o.entries = make(map[ids.ID]*capacityObservation)
 	}
-	e.requested = now
+	if e == nil || e.revision != revision {
+		e = &capacityObservation{revision: revision}
+		o.entries[id] = e
+	}
 	e.snapshot.AttemptedAt = now
 	if err != nil {
 		e.snapshot.Unknown = true
+		e.snapshot.DiskUnknown = true
 		return err
 	}
 	if reading.Disk == nil || !reading.Disk.Free.Known || !reading.Disk.Total.Known {
 		// Preserve a prior pressure condition under unreadable new evidence.
 		e.snapshot.Unknown = true
+		e.snapshot.DiskUnknown = true
 		e.snapshot.Stale = true
 		return nil
 	}

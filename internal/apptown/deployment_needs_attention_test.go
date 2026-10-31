@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -256,13 +257,6 @@ func TestCheckAgainFailsAnAttemptWithNoRecordOfItsBoot(t *testing.T) {
 	}
 }
 
-type capacityCadenceQueue struct{ calls int }
-
-func (q *capacityCadenceQueue) RequestCapacityObservation(context.Context, ids.ID, int64) error {
-	q.calls++
-	return nil
-}
-
 // Polling Attention once a minute must not raise disk-unassessed while the
 // observer refreshes on schedule, including the poll before a queued job runs.
 // Missing refreshes beyond the disk limit must still raise the item.
@@ -274,8 +268,7 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	queue := &capacityCadenceQueue{}
-	observer := deployment.NewCapacityObserver(a.Deployment, queue)
+	observer := deployment.NewCapacityObserver(a.Deployment)
 	source := attention.Capacity{Targets: a.targets, Observer: observer, Now: a.cfg.clock.Now}
 	if _, err := source.Snapshot(t.Context()); err != nil {
 		t.Fatal(err)
@@ -287,13 +280,14 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 		a.cfg.clock.mu.Lock()
 		a.cfg.clock.ahead += time.Minute
 		a.cfg.clock.mu.Unlock()
-		before := queue.calls
 		got, err := source.Snapshot(t.Context())
-		if err != nil || len(got.Items) != 0 || got.Stale || queue.calls != before+1 {
-			t.Fatalf("minute %d before job: %+v requests=%d err=%v", minute, got, queue.calls, err)
+		if err != nil || len(got.Items) != 0 || got.Stale {
+			t.Fatalf("minute %d before job: %+v err=%v", minute, got, err)
 		}
-		if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
-			t.Fatal(err)
+		if minute%5 == 0 {
+			if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+				t.Fatal(err)
+			}
 		}
 		got, err = source.Snapshot(t.Context())
 		if err != nil || len(got.Items) != 0 || got.Stale {
@@ -311,8 +305,24 @@ func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
 	if reads != 4 {
 		t.Fatalf("disk read budget changed: %d, want 4", reads)
 	}
+	daemon.SetReply(func(args []string) ([]byte, error, bool) {
+		if len(args) > 0 && args[0] == "info" {
+			return nil, fmt.Errorf("host check failed"), true
+		}
+		return nil, nil, false
+	})
+	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+		t.Fatal(err)
+	}
+	if failed, err := source.Snapshot(t.Context()); err != nil || len(failed.Items) != 1 || !strings.HasSuffix(failed.Items[0].Key, "/disk-unassessed") {
+		t.Fatalf("failed check did not raise item: %+v %v", failed, err)
+	}
+	daemon.SetReply(nil)
+	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+		t.Fatal(err)
+	}
 	a.cfg.clock.mu.Lock()
-	a.cfg.clock.ahead += 7*time.Minute + time.Second
+	a.cfg.clock.ahead += 12*time.Minute + time.Second
 	a.cfg.clock.mu.Unlock()
 	got, err := source.Snapshot(t.Context())
 	if err != nil || len(got.Items) != 1 || !strings.HasSuffix(got.Items[0].Key, "/disk-unassessed") {

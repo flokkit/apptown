@@ -77,8 +77,9 @@ export function Capacity({ name }: { name: string }) {
       {c.memory?.overcommitted && <p className="capacity-warning">Apps may need more memory than this host has.</p>}
       {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
+      <div>{c.words} {c.readAt && <span className="muted">· read {fmtStamp(c.readAt)}</span>}</div>
+      {(c.error || (c.stale && c.readAt)) && <div className="error small">{c.error || "The capacity reading is out of date."}</div>}
       <details className="capacity-details"><summary>Details</summary>
-      <div>{c.words} <span className="muted">· read {fmtStamp(c.readAt)}</span></div>
       {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
         <table className="small" style={{ marginTop: 4 }}>
           <thead><tr><th></th><th>has</th><th>{c.kind === 'portainer' ? `declared by ${PRODUCT}'s deployments` : 'app resource limits'}</th><th>in use by containers</th></tr></thead>

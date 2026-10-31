@@ -162,7 +162,10 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	// listed; AppTown's own shows its host.
 	f.SeedDatabase(map[string]any{"id": "db-stray", "name": "someones-cluster", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online", "tags": []any{mine}})
 	f.SeedDatabase(map[string]any{"id": "db-script", "name": "forge-demo-pg", "engine": "pg", "version": "16", "region": "syd1", "size": "db-s-1vcpu-1gb", "status": "online"})
-	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}).Run(t.Context(), "do-syd", nil); err != nil {
+		t.Fatal(err)
+	}
+	w := tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	var infra struct {
 		Targets []infrastructureResponse `json:"targets"`
 	}
@@ -267,8 +270,12 @@ func TestDigitalOceanReleaseEndToEnd(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"apptown-db-`+deploy.HostKey(env.ID)+`"`) {
 		t.Fatalf("project retained list: %d %s", w.Code, w.Body.String())
 	}
+	// The post-act background check records the retained cluster and removed app.
+	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}).Run(t.Context(), "do-syd", nil); err != nil {
+		t.Fatal(err)
+	}
 	// After the teardown the cluster is still at the provider, marked retained.
-	w = tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.jobs, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	w = tgReq(httpapi.NewInfrastructure(a.Deployment, a.hosts, a.targetProviders, a.Projects, a.DB, a.inventory, a.cfg.usingBuiltinDB, currentBuiltinDB.Container, currentBuiltinDB.Volume, nil).Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	infra.Targets = nil
 	_ = json.Unmarshal(w.Body.Bytes(), &infra)
 	byName = map[string]deploy.Resource{}

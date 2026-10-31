@@ -1046,7 +1046,7 @@ func TestAttentionHTTPFiltersSourcesAndCountsBeforeCurrentGrantReads(t *testing.
 		t.Fatal("revoked project still read or counted", lostProject, projects.calls)
 	}
 }
-func TestAttentionHTTPColdSourcesAdmitRefreshWithoutCollectingInline(t *testing.T) {
+func TestAttentionHTTPColdInfrastructureSourcesNeitherCollectNorRequestChecks(t *testing.T) {
 	t.Parallel()
 	a := authzActors(t)
 	for range 2 {
@@ -1069,8 +1069,8 @@ func TestAttentionHTTPColdSourcesAdmitRefreshWithoutCollectingInline(t *testing.
 		}
 	}
 	queued := operationJobs(t, a, diskObservationJob)
-	if len(queued) != 1 || queued[0].Key != "instance" {
-		t.Fatal("HTTP reads did not coalesce durable disk refresh", queued)
+	if len(queued) != 0 {
+		t.Fatal("HTTP read requested a disk check", queued)
 	}
 	if got := operationJobs(t, a, workerObservationJob); len(got) != 0 {
 		t.Fatal("unconfigured worker admitted a probe", got)

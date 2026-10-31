@@ -2,7 +2,7 @@ import { GlanceRow } from '../GlanceRow'
 import { STATUS_LIGHT, Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { Link } from 'react-router-dom'
-import { get, post } from '../api'
+import { post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { QuietConfirm } from '../QuietConfirm'
@@ -27,20 +27,9 @@ import { familyRank } from '../targets'
 export const KIND_TITLE: Record<string, string> = { app: 'Apps', database: 'Databases', registry: 'Registry', container: 'Containers', volume: 'Data volumes', stack: 'Stacks' }
 export const KIND_ORDER = ['app', 'container', 'stack', 'database', 'volume', 'registry']
 
-// useRefreshInfrastructure asks every deployment target for its inventory
-// now, then reads the inventory again. The ask is a GET the server acts on,
-// which the API client does not report as a write, so the act names what it
-// refreshes.
-export function useRefreshInfrastructure() {
-  const { run, busy, err } = useAction(undefined, { affects: ['/infrastructure'] })
-  const refresh = () => void run(() => get('/infrastructure?refresh=1'))
-  return { refresh, refreshing: busy, err }
-}
-
 export function InfrastructureView() {
   const q = useGet<InfrastructureTargets>('/infrastructure', { poll: 20000 })
   const { data, reload } = q
-  const { refreshing, err: refreshErr } = useRefreshInfrastructure()
   if (!data) return <ReadStatus q={q} what="each deployment target's inventory" />
   const targets = [...data.targets].sort((a, b) => familyRank(a.family) - familyRank(b.family) || a.target.localeCompare(b.target))
   return (
@@ -57,8 +46,7 @@ export function InfrastructureView() {
           <Link className="small" to="/integrations/targets">offers</Link>
         </div>
       </div>
-      {refreshErr && <div className="error">The inventory could not be refreshed: {refreshErr}</div>}
-      {targets.map((t) => <TargetSection key={t.target} t={t} refreshing={refreshing} onChanged={reload} />)}
+      {targets.map((t) => <TargetSection key={t.target} t={t} onChanged={reload} />)}
     </div>
   )
 }
@@ -99,24 +87,22 @@ export function DeletedProjects() {
   )
 }
 
-function TargetSection({ t: tIn, refreshing, onChanged }: { t: TargetInfra; refreshing: boolean; onChanged: () => void }) {
+function TargetSection({ t: tIn, onChanged }: { t: TargetInfra; onChanged: () => void }) {
   const t = { ...tIn, resources: tIn.resources ?? [] }
   const unrecorded = t.resources.filter((r) => r.record === 'unrecorded').length
   const missing = t.resources.filter((r) => r.record === 'missing').length
   return (
     <section style={{ marginBottom: 26 }}>
-      <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} /><span className="muted small">{t.resources.length} resources</span></div>
+      <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} /><span className="muted small">{t.resources.length} resources</span>
+        {!t.live && <Status word="unknown" tone="unknown" help={t.unreported ? UNREPORTED : t.error || 'Pending first check.'} />}
+        {t.asOf && <span className="muted small">read {fmtStamp(t.asOf)}</span>}
+        {t.invalidated && <span className="chip pending">before the latest change</span>}
+      </div>
       <details><summary>Resources and details</summary>
       <div className="row" style={{ marginBottom: 2 }}>
         <h2 style={{ margin: 0 }}><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></h2>
         <span className="muted">{t.place}{t.domain ? ` · *.${t.domain}` : ''}</span>
         <Status word={t.statusLabel} tone={STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}.`} />
-        {t.unreported
-          ? <Status word="unknown" tone="unknown" help={UNREPORTED} />
-          : t.live
-          ? <span className="muted small">{t.asOf ? `read ${fmtStamp(t.asOf)}` : ''}</span>
-          : <Status word="unknown" tone="unknown" help={`${t.error || 'Inventory unavailable.'}${t.asOf ? ` Last read ${fmtStamp(t.asOf)}.` : ''}`} />}
-        {(t.refreshing || refreshing) && <span className="chip running">refreshing…</span>}
         {unrecorded > 0 && <span className="chip pending">{unrecorded} unrecorded</span>}
         {missing > 0 && <span className="chip fail">{missing} missing</span>}
         <span style={{ flex: 1 }} />

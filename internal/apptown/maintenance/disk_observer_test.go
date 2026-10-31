@@ -10,16 +10,6 @@ import (
 	"github.com/flokkit/apptown/internal/diskspace"
 )
 
-type diskObservationQueue struct {
-	requests int
-	err      error
-}
-
-func (q *diskObservationQueue) RequestDiskObservation(context.Context) error {
-	q.requests++
-	return q.err
-}
-
 type observedWorker struct {
 	readings []diskspace.Reading
 	err      error
@@ -38,12 +28,11 @@ func TestDiskSnapshotsRefreshBehindTheReadAndRetainFailedWorkerEvidence(t *testi
 	t.Parallel()
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	first := now
-	queue := &diskObservationQueue{}
 	worker := &observedWorker{readings: []diskspace.Reading{{What: "worker state", Path: "/state", TotalBytes: 100 << 30, FreeBytes: 2 << 30, Low: true, Refuses: true, ReadAt: first}}}
-	observer := NewDiskObserver(Disks{DataDir: t.TempDir(), Worker: worker, Now: func() time.Time { return now }}, queue, func() time.Time { return now })
+	observer := NewDiskObserver(Disks{DataDir: t.TempDir(), Worker: worker, Now: func() time.Time { return now }}, func() time.Time { return now })
 	for range 3 {
 		got, err := observer.Snapshot(t.Context())
-		if err != nil || !got.Unknown || !got.Stale || len(got.Disks) != 0 || worker.calls != 0 || queue.requests != 1 {
+		if err != nil || !got.Unknown || !got.Stale || len(got.Disks) != 0 || worker.calls != 0 {
 			t.Fatalf("cold read did work or claimed coverage: %+v %v", got, err)
 		}
 	}
@@ -56,9 +45,9 @@ func TestDiskSnapshotsRefreshBehindTheReadAndRetainFailedWorkerEvidence(t *testi
 	}
 	// Returned slices cannot mutate the owner's retained observation.
 	got.Disks[1].Reading.Low = false
-	now = now.Add(3 * time.Minute)
+	now = now.Add(13 * time.Minute)
 	got, err = observer.Snapshot(t.Context())
-	if err != nil || !got.Stale || !got.Disks[1].Stale || !got.Disks[1].Reading.Low || worker.calls != 1 || queue.requests != 2 {
+	if err != nil || !got.Stale || !got.Disks[1].Stale || !got.Disks[1].Reading.Low || worker.calls != 1 {
 		t.Fatalf("expired read: %+v %v", got, err)
 	}
 	worker.err = errors.New("worker unavailable")
@@ -83,23 +72,13 @@ func TestDiskSnapshotsRefreshBehindTheReadAndRetainFailedWorkerEvidence(t *testi
 	}
 }
 
-func TestFailedEnqueueAndCanceledRefreshCannotReportKnownCoverage(t *testing.T) {
+func TestCanceledBackgroundCheckCannotReportKnownCoverage(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
-	queue := &diskObservationQueue{err: errors.New("queue unavailable")}
-	observer := NewDiskObserver(Disks{DataDir: t.TempDir()}, queue, func() time.Time { return now })
+	observer := NewDiskObserver(Disks{DataDir: t.TempDir()}, func() time.Time { return now })
 	got, err := observer.Snapshot(t.Context())
-	if err == nil || !got.Unknown || queue.requests != 1 {
-		t.Fatalf("failed queue: %+v %v", got, err)
-	}
-	got, err = observer.Snapshot(t.Context())
-	if err != nil || !got.Unknown || queue.requests != 1 {
-		t.Fatalf("queue failure was hidden or retried without bound: %+v %v", got, err)
-	}
-	now = now.Add(time.Minute)
-	queue.err = nil
-	if _, err := observer.Snapshot(t.Context()); err != nil || queue.requests != 2 {
-		t.Fatal("queue did not retry after its interval")
+	if err != nil || !got.Unknown {
+		t.Fatalf("passive snapshot: %+v %v", got, err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -107,8 +86,8 @@ func TestFailedEnqueueAndCanceledRefreshCannotReportKnownCoverage(t *testing.T) 
 		t.Fatalf("canceled refresh: %v", err)
 	}
 	got, err = observer.Snapshot(t.Context())
-	if err != nil || !got.Unknown || len(got.Disks) != 0 {
-		t.Fatalf("cancellation published observations: %+v %v", got, err)
+	if err != nil || !got.Unknown || len(got.Disks) != 1 || !got.Disks[0].Unknown {
+		t.Fatalf("cancellation did not record unknown coverage: %+v %v", got, err)
 	}
 }
 
@@ -135,7 +114,7 @@ func TestDiskUnreadStatePreservesEachFilesystemAndRecovers(t *testing.T) {
 			now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 			paths := []string{t.TempDir(), t.TempDir(), t.TempDir()}
 			worker := localDiskWorker{paths: paths[1:], now: func() time.Time { return now }}
-			observer := NewDiskObserver(Disks{DataDir: paths[0], Worker: worker, Now: worker.now}, &diskObservationQueue{}, worker.now)
+			observer := NewDiskObserver(Disks{DataDir: paths[0], Worker: worker, Now: worker.now}, worker.now)
 			if err := observer.Run(t.Context()); err != nil {
 				t.Fatal(err)
 			}
@@ -179,7 +158,7 @@ func TestDiskUnreadStatePreservesEachFilesystemAndRecovers(t *testing.T) {
 			if got.Unknown || got.Disks[failed].Unknown || got.Disks[failed].Stale || got.Disks[failed].Reading.ReadAt != now {
 				t.Fatalf("recovery did not replace unread evidence: %+v", got)
 			}
-			now = now.Add(3 * time.Minute)
+			now = now.Add(13 * time.Minute)
 			got, err = observer.Snapshot(t.Context())
 			if err != nil {
 				t.Fatal(err)

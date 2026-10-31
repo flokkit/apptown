@@ -22,6 +22,7 @@ type InventoryReading struct {
 	// AttemptedAt is when the latest inventory attempt finished, successful or not.
 	AttemptedAt    time.Time
 	Unknown, Stale bool
+	Invalidated    bool
 	// Unreported: the target's kind has no inventory reader. Its presence is
 	// unknown by design, not a failed assessment, so it raises no warning.
 	Unreported bool
@@ -85,7 +86,7 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 		s.mu.Lock()
 		prior, found := s.compared[t.ID]
 		s.mu.Unlock()
-		if !unknown && !sample.Stale {
+		if !unknown && !sample.Stale && !sample.Invalidated {
 			for _, r := range deployment.MergeInventory(records, sample.Items) {
 				if r.Record != deploy.RecordMissing {
 					continue

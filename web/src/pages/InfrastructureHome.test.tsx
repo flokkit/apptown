@@ -71,3 +71,7 @@ it('shows a three percent disk warning using the owner reading', () => {
   expect(front).toContain('Low on disk')
   expect(front).not.toContain('working')
 })
+
+it('shows pending until the first disk check answers', () => {
+  expect(render({ disks: [] })).toContain('Waiting for the first disk check.')
+})

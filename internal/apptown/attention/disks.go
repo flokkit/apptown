@@ -24,7 +24,7 @@ func (d Disks) Snapshot(ctx context.Context) (Snapshot, error) {
 	out := Snapshot{ObservedAt: reading.ObservedAt, Known: !reading.Unknown && !reading.ObservedAt.IsZero(), Stale: reading.Stale}
 	for _, disk := range reading.Disks {
 		r := disk.Reading
-		unknown := disk.Unknown || r.Unknown != ""
+		unknown := disk.Unknown || disk.Stale || r.Unknown != ""
 		if !unknown && !r.Low && !r.Refuses {
 			continue
 		}

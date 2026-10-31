@@ -2,15 +2,16 @@ package apptown
 
 import (
 	"context"
-	"github.com/flokkit/apptown/internal/apptown/dataprotection"
-	"github.com/flokkit/apptown/internal/apptown/deployment"
+	"errors"
+	"fmt"
 	"log"
 	"strconv"
 
-	"github.com/flokkit/apptown/internal/ids"
-
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
+	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Jobs: AppTown's own work (design/subsystems/jobs.md). River owns queue
@@ -86,5 +87,83 @@ type workerObservationRequests struct{ db *database.DB }
 func (r workerObservationRequests) RequestWorkerObservation(ctx context.Context, identity string) error {
 	return r.db.InTx(ctx, func(tx *database.Tx) error {
 		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: workerObservationJob, Key: identity})
+	})
+}
+
+// infrastructureChecks binds periodic and post-act admission to the owners it
+// needs. Domain callbacks retain these collaborators, not the whole App.
+type infrastructureChecks struct {
+	targets     *deployment.Targets
+	deployments *deployment.Deployments
+	protection  *dataprotection.ProtectionObserver
+	inventory   *inventoryCache
+	db          *database.DB
+	life        context.Context
+}
+
+func infrastructureChecksFor(a *App) infrastructureChecks {
+	return infrastructureChecks{targets: a.targets, deployments: a.deployments, protection: a.protectionObserver, inventory: a.inventory, db: a.DB, life: a.life}
+}
+
+// Run admits the same per-target jobs on every five-minute tick.
+// The pass enumerates current targets, including the built-in local target.
+func (c infrastructureChecks) Run(ctx context.Context, _ string, _ map[string]any) (map[string]any, error) {
+	var errs []error
+	targets, err := c.targets.All(ctx)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("list targets: %w", err))
+	}
+	for _, target := range targets {
+		if target.Status == deployment.TargetRetired {
+			continue
+		}
+		if err := (inventoryRequests{db: c.db}).RequestInventory(ctx, target.Name); err != nil {
+			errs = append(errs, fmt.Errorf("%s inventory: %w", target.Name, err))
+		}
+		if err := (capacityObservationRequests{db: c.db}).RequestCapacityObservation(ctx, target.ID, target.SettingsRevision); err != nil {
+			errs = append(errs, fmt.Errorf("%s capacity: %w", target.Name, err))
+		}
+	}
+	deployments, err := c.deployments.All(ctx)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("list deployments: %w", err))
+	}
+	for _, dep := range deployments {
+		if dep.Kind != deployment.Standing {
+			continue
+		}
+		if err := c.protection.Request(ctx, dep.ID); err != nil {
+			errs = append(errs, fmt.Errorf("%s protection: %w", dep.ID, err))
+		}
+	}
+	if err := (diskObservationRequests{db: c.db}).RequestDiskObservation(ctx); err != nil {
+		errs = append(errs, fmt.Errorf("instance disks: %w", err))
+	}
+	return nil, errors.Join(errs...)
+}
+
+// Applied preserves old evidence and queues a post-act check even
+// when a scheduled check is already running. Post-act checks coalesce per target;
+// an act during one waits for the next periodic check to clear invalidation.
+func (c infrastructureChecks) Applied(targetID ids.ID) {
+	ctx := context.WithoutCancel(c.life)
+	target, err := c.targets.ByID(ctx, targetID)
+	if err != nil {
+		log.Printf("infrastructure: finding changed target: %v", err)
+		return
+	}
+	c.inventory.Invalidate(target.Name)
+	err = c.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: "inventory", Key: target.Name + "/act", Values: map[string]any{"target": target.Name}})
+	})
+	if err != nil {
+		log.Printf("infrastructure: scheduling %s after an act: %v", target.Name, err)
+	}
+}
+
+// Request starts collection without waiting for the first periodic tick.
+func (c infrastructureChecks) Request(ctx context.Context) error {
+	return c.db.InTx(ctx, func(tx *database.Tx) error {
+		return jobQueue{}.EnqueueIn(ctx, tx, jobs.Request{Operation: infrastructureCheckJob, Key: passScheduledKey})
 	})
 }

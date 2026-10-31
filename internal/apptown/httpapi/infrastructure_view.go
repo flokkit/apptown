@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/stamp"
 )
@@ -34,16 +33,23 @@ func (h Infrastructure) recordedResources(ctx context.Context, t *deployment.Tar
 
 // attributeLeftovers keeps ordinary teardown evidence and attributes shared
 // resources only through the deployment owner's verified current placement.
-func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Target, res []deploy.Resource) ([]deploy.Resource, string, error) {
-	shared, err := h.deployment.Inventory.Shared(ctx, res)
-	if err != nil {
-		return nil, "", err
-	}
+func (h Infrastructure) attributeLeftovers(ctx context.Context, t *deployment.Target, res []deploy.Resource, shared []deployment.SharedResource) ([]deploy.Resource, string, error) {
 	byIndex := make(map[int]deployment.SharedResource)
 	var notes []string
 	counts := make(map[string]int)
 	var order []string
 	for _, claim := range shared {
+		index := -1
+		for i, r := range res {
+			if r.Kind == claim.Kind && r.ID == claim.ID && r.Name == claim.Name {
+				index = i
+				break
+			}
+		}
+		if index < 0 {
+			continue
+		}
+		claim.Index = index
 		if res[claim.Index].Record != deploy.RecordUnrecorded {
 			continue
 		}
@@ -188,10 +194,10 @@ type InfrastructureView struct {
 	Error       string                 `json:"error,omitempty"`
 	// Unreported: the target's kind has no inventory reader, so what it
 	// holds beyond the records is unknown (deploy.ErrNoInventory).
-	Unreported bool              `json:"unreported,omitempty"`
-	AsOf       stamp.Time        `json:"asOf,omitzero"` // when the provider last answered
-	Refreshing bool              `json:"refreshing"`    // a fresh answer is on its way
-	Resources  []deploy.Resource `json:"resources"`
+	Unreported  bool              `json:"unreported,omitempty"`
+	AsOf        stamp.Time        `json:"asOf,omitzero"` // when the provider last answered
+	Invalidated bool              `json:"invalidated"`   // the reading predates an AppTown act
+	Resources   []deploy.Resource `json:"resources"`
 	// Shared: resources at this daemon that belong to another target's
 	// stacks on the same verified Docker daemon,
 	// left out of this list, in words.
@@ -199,6 +205,5 @@ type InfrastructureView struct {
 }
 
 type InventoryCache interface {
-	Live(context.Context, *jobs.Queue, string, deploy.Inventorier, bool) ([]deploy.Resource, string, time.Time, bool)
-	Invalidate()
+	Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool)
 }

@@ -12,10 +12,11 @@ import (
 // SharedResource attributes one observed Docker resource or Portainer stack to its current
 // deployment on a verified Portainer connection to the same daemon.
 type SharedResource struct {
-	Index      int
-	Target     string
-	Project    string
-	Deployment string
+	Index          int
+	Kind, ID, Name string
+	Target         string
+	Project        string
+	Deployment     string
 }
 
 // Shared reads current placement claims without changing the observations.
@@ -80,7 +81,7 @@ func (inv *Inventory) Shared(ctx context.Context, resources []deploy.Resource) (
 		if label == "" {
 			label = target.Name
 		}
-		out = append(out, SharedResource{Index: i, Target: label, Project: d.Project, Deployment: d.Name})
+		out = append(out, SharedResource{Index: i, Kind: r.Kind, ID: r.ID, Name: r.Name, Target: label, Project: d.Project, Deployment: d.Name})
 	}
 	return out, nil
 }

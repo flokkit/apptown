@@ -94,3 +94,12 @@ it('names the product that supplied the memory default', () => {
   const html = render({ parts: [{ part: 'web', public: true, memory: '160M', cpu: 'no limit', memoryDefault: { kind: 'forge' }, overrideApplied: false, overrideLabel: 'unknown', observed: { part: 'web', usedBytes: 0, limitBytes: 0, known: false, reason: 'not observed' } }] })
   expect(html).toContain('AppTown default')
 })
+
+it('keeps a host pending until its first reading and reports later staleness', () => {
+  const share = { target: 'lab', elastic: false, hostMemory: { known: false, value: 0 }, declared: { known: false, value: 0 }, used: { known: false, value: 0 }, overcommitted: false, lowDisk: false, diskRefuses: false, stale: true }
+  const pending = render({ share })
+  expect(pending).not.toContain('The host reading is out of date.')
+  expect(pending).toContain('Waiting for the first host check.')
+  expect(render({ share: { ...share, readAt: '2026-10-10T01:00:00Z' } })).toContain('The host reading is out of date.')
+  expect(render({ share: { ...share, error: 'Host unavailable' } })).toContain('Host unavailable')
+})

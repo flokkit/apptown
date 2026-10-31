@@ -12,7 +12,6 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
@@ -32,15 +31,14 @@ type Infrastructure struct {
 	projects    *project.Projects
 	db          *database.DB
 	cache       InventoryCache
-	queue       *jobs.Queue
 	builtinDB   bool
 	dbContainer string
 	dbVolume    string
 	now         func() time.Time // AppTown's clock, which stamps its receipts; nil is the real one
 }
 
-func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, cache InventoryCache, queue *jobs.Queue, builtinDB bool, dbContainer string, dbVolume string, now func() time.Time) Infrastructure {
-	return Infrastructure{deployment: deployment, hosts: hosts, providers: providers, projects: projects, db: db, cache: cache, queue: queue, builtinDB: builtinDB, dbContainer: dbContainer, dbVolume: dbVolume, now: now}
+func NewInfrastructure(deployment *deployment.Service, hosts *deployment.Hosts, providers *deployment.Providers, projects *project.Projects, db *database.DB, cache InventoryCache, builtinDB bool, dbContainer string, dbVolume string, now func() time.Time) Infrastructure {
+	return Infrastructure{deployment: deployment, hosts: hosts, providers: providers, projects: projects, db: db, cache: cache, builtinDB: builtinDB, dbContainer: dbContainer, dbVolume: dbVolume, now: now}
 }
 
 // Disks serves the filesystems this AppTown and its worker write to
@@ -57,13 +55,13 @@ func NewDisks(disks interface {
 	return Disks{disks: disks}
 }
 
-// DiskReadings is each filesystem, read on the request.
+// DiskReadings is the latest background reading of each filesystem.
 type DiskReadings struct {
 	Disks []diskspace.Reading `json:"disks"`
 }
 
 // Disks: GET /infrastructure/disks — each filesystem this AppTown and its
-// worker write to, read now, each its own reading.
+// worker write to, each with its own recorded reading and time.
 func (h Disks) Disks(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, DiskReadings{Disks: h.disks.Read(r.Context())})
 }
@@ -73,11 +71,10 @@ type InfrastructureTargets struct {
 	Targets []InfrastructureView `json:"targets"`
 }
 
-// Infrastructure: GET /infrastructure[?refresh=1] — every cloud
+// Infrastructure: GET /infrastructure — every cloud
 // target with what is there and what it is hosting. The provider's list
 // comes from the cache (infrastructure_cache.go); the records are fresh.
 func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
-	force := r.URL.Query().Get("refresh") != ""
 	ts, err := h.deployment.Targets.All(r.Context())
 	if err != nil {
 		WriteFault(w, err)
@@ -98,27 +95,27 @@ func (h Infrastructure) Infrastructure(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		recorded := v.Resources
-		if inv, err := h.providers.TargetInventory(t); errors.Is(err, deploy.ErrNoInventory) {
+		if _, err := h.providers.TargetInventory(t); errors.Is(err, deploy.ErrNoInventory) {
 			v.Unreported = true // unknown, not an error: the records stand alone
 		} else if err != nil {
 			v.Error = err.Error()
 		} else {
 			{
-				live, errText, at, refreshing := h.cache.Live(r.Context(), h.queue, t.Name, inv, force)
-				v.Error, v.Refreshing = errText, refreshing
+				live, shared, errText, at, invalidated := h.cache.Live(r.Context(), t)
+				v.Error, v.Invalidated = errText, invalidated
 				if !at.IsZero() {
 					v.AsOf = stamp.Of(at)
 				}
 				var answered bool
-				v.Resources, v.Live, answered = deployment.InventoryAnswer(v.Resources, live, errText, at)
+				v.Resources, v.Live, answered = deployment.InventoryAnswer(v.Resources, live, errText, at, invalidated)
 				if answered {
 					if t.Kind == deployment.KindDockerHost || t.Kind == deployment.KindPortainer {
-						if v.Resources, v.Shared, err = h.attributeLeftovers(r.Context(), t, v.Resources); err != nil {
+						if v.Resources, v.Shared, err = h.attributeLeftovers(r.Context(), t, v.Resources, shared); err != nil {
 							// Failed placement is unknown, never an orphan. Keep
 							// this target's records while the rest of the fleet
 							// remains readable; effects still verify placement.
 							v.Error = "Inventory placement could not be verified: " + err.Error()
-							v.Resources, v.Live, _ = deployment.InventoryAnswer(recorded, nil, v.Error, time.Time{})
+							v.Resources, v.Live, _ = deployment.InventoryAnswer(recorded, nil, v.Error, time.Time{}, false)
 							v.AsOf, v.Shared = stamp.Time{}, ""
 						}
 					}
@@ -250,7 +247,7 @@ func (h Infrastructure) RemoveInfrastructure(w http.ResponseWriter, r *http.Requ
 			WriteError(w, 502, "not removed: %s", why)
 			return
 		}
-		h.cache.Invalidate()
+		h.deployment.InfrastructureChanged(t.ID)
 		if err := audit.At(clock.Or(h.now)()).Record(settle, h.db, Actor(r), ids.Nil, "infrastructure.removed", t.Name, what); err != nil {
 			WriteError(w, 500, "%s %s was removed, but its outcome was not recorded: %v", in.Kind, in.Name, err)
 			return
@@ -273,7 +270,7 @@ func (h Infrastructure) requireUnclaimedResource(ctx context.Context, inventory 
 		}
 	}
 	if len(selected) != 1 {
-		return fault.New(fault.Conflict, "not removed: refresh the inventory; the exact resource was not observed uniquely")
+		return fault.New(fault.Conflict, "not removed: the exact resource was not observed uniquely; reload the page")
 	}
 	if slices.Contains(selected[0].Tags, deploy.TagConfirmsOnly) {
 		// AppTown owns what carries this installation's tag, nothing else.

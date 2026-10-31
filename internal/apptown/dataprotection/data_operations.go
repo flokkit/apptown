@@ -484,7 +484,7 @@ func (s *Service) runTakeDown(ctx context.Context, t *tracker, withProject bool)
 	t.begin(ctx, "deleting the app, so nothing writes")
 	taken, err := driver.Teardown(ctx, selected.Placement(), selected.ObservedGeneration, deploy.TakeDown{Owned: owned, LastUser: others == 0})
 	if s.applied != nil {
-		s.applied()
+		s.applied(selected.TargetID)
 	}
 	if err != nil {
 		if t.providerFailed(ctx, err) {

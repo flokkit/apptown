@@ -9,6 +9,7 @@ import (
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/ids/idstest"
 )
 
@@ -46,7 +47,7 @@ func executionFixture() (deployment.Runner, *executionStore, deployment.Start, *
 	base := int64(1)
 	in := deployment.Start{DeploymentID: idstest.N(3), TargetID: idstest.N(5), Key: "release-11", BaseGeneration: &base,
 		Inputs: deployment.Inputs{ReleaseID: idstest.N(11), Revision: "selected-revision", ImageDigest: "selected-image", ArtifactHash: "selected-artifact"}}
-	return deployment.Runner{Store: s, Applied: func() { *count++ }}, s, in, count
+	return deployment.Runner{Store: s, Applied: func(_ ids.ID) { *count++ }}, s, in, count
 }
 func activeExecution(_ context.Context, at deployment.Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 	if err := checkpoint(map[string]any{"providerID": "original"}); err != nil {

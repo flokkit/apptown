@@ -56,7 +56,7 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		}
 		diskStale := disk != nil && disk.StaleAt(now)
 		out.Stale = out.Stale || diskStale
-		if disk == nil || !disk.Free.Known || !disk.Total.Known || diskStale {
+		if reading.DiskUnknown || disk == nil || !disk.Free.Known || !disk.Total.Known || diskStale {
 			out.Known = false
 			at := reading.AttemptedAt
 			if disk != nil {

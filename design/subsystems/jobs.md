@@ -102,11 +102,12 @@ River's elected leader runs these schedules (`apptownJobSchedules` in
 | --- | --- | --- |
 | `db-backup` | 02:00 (`0 2 * * *`) | Dumps the built-in database to `<data>/backups/apptown-<date>.sql.gz` and keeps the newest 14, auditing `db.backup` or `db.backup-failed`. A day's existing dump is not replaced. With an external database (`-db-url`) it does nothing and says so; that database's backups are its operator's. |
 | `backup-sweep` | 03:00 (`0 3 * * *`) | Requests a `backup` job for each standing deployment with a container, starts the daily copies, moves sets to the backup store when one is attached and clears what interrupted rehearsals left. A take-down's final set is kept with its project; nothing here prunes it. |
+| `infrastructure-check` | every 5 minutes and at startup | Queues inventory and capacity checks for every active target, controller/worker disk readings, and protection observations for standing deployments. Readers only show recorded readings. Provider acts queue the affected target’s inventory immediately. |
 | `restored-copy-sweep` | every 5 minutes | Takes down restored copies a restore test left standing. |
 | `project-deletion-pass` | every 5 minutes (and queued for a project when its deletion is asked) | Moves each project being deleted one step: one take-down, main last, or deleted and kept ([project-deletion.md](project-deletion.md)). |
 | `project-purge-pass` | 04:00 (`0 4 * * *`) | Admits a `project.purge` operation for each deleted project whose kept period has ended, and removes the backup sets of projects deleted before projects were kept, 30 days after each deletion. |
 
-Neither runs merely because the daemon restarted. Downtime may miss a tick; the
+The daily duties do not run merely because the daemon restarted. Downtime may miss a tick; the
 next scheduled run is the next opportunity. Ordinary workflow schedules retain
 their own durable identity.
 

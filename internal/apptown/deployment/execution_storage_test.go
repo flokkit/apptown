@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestDeploymentExecutionCancellationQueuesRecoveryInsteadOfPublishing(t *testing.T) {
@@ -15,7 +16,7 @@ func TestDeploymentExecutionCancellationQueuesRecoveryInsteadOfPublishing(t *tes
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	notified := 0
-	result, err := (Runner{Store: f.outcomes, Applied: func() { notified++ }}).Run(ctx, deploymentStartFor(dep, "cancelled", "selected"),
+	result, err := (Runner{Store: f.outcomes, Applied: func(_ ids.ID) { notified++ }}).Run(ctx, deploymentStartFor(dep, "cancelled", "selected"),
 		func(_ context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 			if err := checkpoint(map[string]any{"providerID": "original"}); err != nil {
 				t.Fatal(err)

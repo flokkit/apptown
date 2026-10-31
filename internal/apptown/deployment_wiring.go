@@ -31,7 +31,7 @@ func (a *App) deploymentDependencies(changes workflow.Changes) deployment.Depend
 		Releases:      deployment.ReleaseDependencies{Authority: authority, Still: a.Access, Sources: sources, Secrets: releaseSecrets{secrets: a.Secrets}, Queue: releaseJobs{}},
 		Followups:     jobQueue{},
 		Declared:      sources,
-		Applied:       a.inventory.Invalidate,
+		Applied:       infrastructureChecksFor(a).Applied,
 	}
 }
 
@@ -50,7 +50,7 @@ func starterDependenciesFor(a *App) dataprotection.StarterDependencies {
 func dataProtectionDependencies(a *App) dataprotection.Dependencies {
 	return dataprotection.Dependencies{Deployments: a.Deployment.Deployments, Releases: a.Deployment.Releases, Bundles: a.Deployment.Bundles,
 		Retained: a.Deployment.Retained, Outcomes: a.Deployment.Outcomes, Projects: a.Projects, Integrations: a.Integrations,
-		Operations: a.operations, Applied: a.inventory.Invalidate,
+		Operations: a.operations, Applied: infrastructureChecksFor(a).Applied,
 		RestoredCopies: dataprotection.RestoredCopyDependencies{GateImage: a.cfg.restoreGateImage, AppTown: a.cfg.publicOrigin(),
 			Secrets: releaseSecrets{secrets: a.Secrets}}}
 }
@@ -86,5 +86,5 @@ func environmentDependenciesFor(a *App) deployment.EnvironmentDependencies {
 // providerDependencies are the providers' owners and settings.
 func providerDependenciesFor(a *App, digitalOcean digitalocean.Options) deployment.ProviderDependencies {
 	return deployment.ProviderDependencies{Projects: a.Projects, Secrets: a.Secrets, Integrations: a.Integrations, DigitalOcean: digitalOcean,
-		AfterRelease: (backupRequests{db: a.DB, life: a.life}).AfterRelease, DatabaseContainer: builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, Applied: a.inventory.Invalidate, Now: a.cfg.clock.Now, Installation: a.docker.Instance}
+		AfterRelease: (backupRequests{db: a.DB, life: a.life}).AfterRelease, DatabaseContainer: builtinDBFor(a.cfg.usingBuiltinDB, a.cfg.dataDir).Container, Applied: infrastructureChecksFor(a).Applied, Now: a.cfg.clock.Now, Installation: a.docker.Instance}
 }
