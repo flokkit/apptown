@@ -28,7 +28,7 @@ export default function ChangePage() {
   const { id } = useParams()
   const [params] = useSearchParams()
   const rawTab = params.get('tab') ?? ''
-  const tab: ChangeTab = (CHANGE_TABS as readonly string[]).includes(rawTab) ? rawTab as ChangeTab : 'changes'
+  const tab: ChangeTab = (CHANGE_TABS as readonly string[]).includes(rawTab) ? rawTab as ChangeTab : 'work'
   const runParam = params.get('run') || undefined
   const stepParam = params.get('step') || undefined
 
@@ -49,6 +49,15 @@ export default function ChangePage() {
   }, [view?.change.number, view?.change.state, view?.change.title, view && changeChip(view).text]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => setPageContext({}), [])
 
+  useEffect(() => {
+    const tab = document.querySelector<HTMLElement>('.ch-tabs [aria-current="page"]')
+    const nav = tab?.parentElement
+    if (!tab || !nav) return
+    const item = tab.getBoundingClientRect(), frame = nav.getBoundingClientRect()
+    if (item.left < frame.left) nav.scrollLeft += item.left - frame.left
+    else if (item.right > frame.right) nav.scrollLeft += item.right - frame.right
+  }, [tab, view?.change.id])
+
   // The work a landing carries: when the latest run is a landing, its
   // receipts are only half the story — the implementation and review are
   // in the working run before it.
@@ -64,7 +73,7 @@ export default function ChangePage() {
 
   const href = (t: ChangeTab, extra: Record<string, string | null | undefined> = {}) => {
     const q = new URLSearchParams()
-    if (t !== 'changes') q.set('tab', t)
+    if (t !== 'work') q.set('tab', t)
     for (const [k, v] of Object.entries(extra)) if (v != null) q.set(k, String(v))
     const s = q.toString()
     return `/changes/${view.change.id}${s ? `?${s}` : ''}`
@@ -78,13 +87,12 @@ export default function ChangePage() {
   if (view.detail) evidenceRuns.push({ run: view.detail.run, role: latestRole, steps: view.detail.steps })
   if (workRunId && work.detail) evidenceRuns.push({ run: work.detail.run, role: 'working', steps: work.detail.steps })
   const firstRun = view.runs?.length ? view.runs[view.runs.length - 1] : undefined
-  const stepCount = (view.detail?.steps.length ?? 0)
 
   const TABS: { key: ChangeTab; label: string }[] = [
+    { key: 'work', label: 'Work' },
     { key: 'changes', label: 'Code' },
-    { key: 'work', label: view.detail ? `Work · ${stepCount} step${stepCount === 1 ? '' : 's'}` : 'Work' },
     { key: 'conversation', label: 'Conversation' },
-    { key: 'releases', label: 'Previews and releases' },
+    { key: 'releases', label: 'Releases' },
     { key: 'history', label: 'History' },
     { key: 'about', label: 'About' },
   ]
@@ -99,7 +107,6 @@ export default function ChangePage() {
       {view.detail && <Disagreement detail={view.detail} codeTab={href('changes')} />}
       <ChangeWorkerChats changeId={view.change.id!} />
 
-      <Evidence view={view} runs={evidenceRuns} workTab={workTab} extraErr={workRunId && !work.detail ? work.err : undefined} />
 
       <section className="ch-tabs-sheet">
         <nav className="tabs ch-tabs" aria-label="more about this change">
@@ -108,6 +115,7 @@ export default function ChangePage() {
           ))}
         </nav>
         <div className="ch-tab-body">
+          {tab === 'work' && <Evidence view={view} runs={evidenceRuns} workTab={workTab} extraErr={workRunId && !work.detail ? work.err : undefined} />}
           {tab === 'changes' && <ChangesTab view={view} run={view.detail?.run} />}
           {tab === 'work' && <WorkTab view={view} reload={reload} runId={runParam} focusStep={stepParam} deciding={deciding} runHref={runHref} />}
           {tab === 'conversation' && (

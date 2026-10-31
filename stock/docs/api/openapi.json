@@ -3397,6 +3397,9 @@
           "externalRef": {
             "type": "string"
           },
+          "failure": {
+            "type": "string"
+          },
           "generation": {
             "type": "integer"
           },

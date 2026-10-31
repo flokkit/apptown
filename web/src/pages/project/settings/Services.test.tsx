@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../../../data'
-import { ServicesTab } from './Services'
+import { ProjectIntegrationsTab, ServicesTab } from './Services'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -17,7 +17,7 @@ function mountServices(client: ReturnType<typeof newQueryClient>) {
   const el = document.createElement('div')
   const root = createRoot(el)
   act(() => { root.render(<QueryClientProvider client={client}><MemoryRouter><ServicesTab slug="demo" /></MemoryRouter></QueryClientProvider>) })
-  const tile = (title: string) => [...el.querySelectorAll('[role=button]')].find((t) => t.textContent?.includes(title)) as HTMLElement
+  const tile = (title: string) => [...el.querySelectorAll('[role=switch]')].find((t) => t.getAttribute('aria-label') === title) as HTMLElement
   const button = (text: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === text)
   return { el, tile, button, unmount: () => act(() => root.unmount()) }
 }
@@ -43,11 +43,11 @@ it('revisiting services edits the refreshed contract and names its declaration',
   const sent = serve(() => current)
   const f = mountServices(client)
   try {
-    await vi.waitFor(() => expect(f.tile('Postgres')?.getAttribute('aria-pressed')).toBe('true'))
+    await vi.waitFor(() => expect(f.tile('Postgres')?.getAttribute('aria-checked')).toBe('true'))
     // Nothing edited, nothing to save.
-    expect(f.button('Save as a change')!.disabled).toBe(true)
+    expect(f.button('Save (needs approval)')!.disabled).toBe(true)
     await act(async () => { f.tile('Redis').click() })
-    await act(async () => { f.button('Save as a change')!.click() })
+    await act(async () => { f.button('Save (needs approval)')!.click() })
     expect(sent).toEqual([{ needs: [{ capability: 'postgres' }, { capability: 'redis', params: {} }], title: 'Update services', expectedDeclaration: 'now' }])
   } finally {
     f.unmount()
@@ -67,7 +67,7 @@ it('a failed refresh of the services offers no form to save', async () => {
   const f = mountServices(client)
   try {
     await vi.waitFor(() => expect(f.el.textContent).toContain("not allowed"))
-    expect(f.button('Save as a change')).toBeUndefined()
+    expect(f.button('Save (needs approval)')).toBeUndefined()
   } finally {
     f.unmount()
     client.clear()
@@ -86,9 +86,9 @@ it('keeps an edited services form through a background refresh', async () => {
     server = { needs: [], contract: 'app.yaml', declaration: 'c' }
     await act(async () => { await client.invalidateQueries({ queryKey: ['get'] }) })
     await vi.waitFor(() => expect(client.getQueryData(getKey(path))).toEqual(server))
-    expect(f.tile('Postgres').getAttribute('aria-pressed')).toBe('true')
-    expect(f.tile('Redis').getAttribute('aria-pressed')).toBe('true')
-    await act(async () => { f.button('Save as a change')!.click() })
+    expect(f.tile('Postgres').getAttribute('aria-checked')).toBe('true')
+    expect(f.tile('Redis').getAttribute('aria-checked')).toBe('true')
+    await act(async () => { f.button('Save (needs approval)')!.click() })
     expect(sent[0]).toMatchObject({ needs: [{ capability: 'postgres' }, { capability: 'redis' }], expectedDeclaration: 'b' })
   } finally {
     f.unmount()
@@ -113,13 +113,13 @@ it('on a moved declaration keeps the picks and puts only the person\'s edits on 
     await act(async () => { f.tile('Redis').click() })
     // Someone lands a Postgres upgrade meanwhile.
     server = { needs: [{ capability: 'postgres', params: { version: '17' } }], contract: 'app.yaml', declaration: 'c' }
-    await act(async () => { f.button('Save as a change')!.click() })
+    await act(async () => { f.button('Save (needs approval)')!.click() })
     await vi.waitFor(() => expect(f.el.textContent).toContain('Declared now: postgres 17 (it was postgres 16 when you started). Keeping your edits gives postgres 17, redis.'))
     expect(f.el.textContent).toContain("The app's services changed on main after you started")
-    expect(f.tile('Redis').getAttribute('aria-pressed')).toBe('true')
+    expect(f.tile('Redis').getAttribute('aria-checked')).toBe('true')
     await act(async () => { f.button('Keep my edits on top of theirs')!.click() })
     conflict = false
-    await act(async () => { f.button('Save as a change')!.click() })
+    await act(async () => { f.button('Save (needs approval)')!.click() })
     expect(sent[1]).toEqual({ needs: [{ capability: 'postgres', params: { version: '17' } }, { capability: 'redis', params: {} }], title: 'Update services', expectedDeclaration: 'c' })
   } finally {
     f.unmount()
@@ -143,13 +143,13 @@ it('keeping my edits puts only the parameters I changed on top of theirs', async
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '17')
       input.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    expect(f.button('Save as a change')!.disabled).toBe(false)
+    expect(f.button('Save (needs approval)')!.disabled).toBe(false)
     server = { needs: [{ capability: 'postgres', params: { version: '16', database: 'new_db' } }], contract: 'app.yaml', declaration: 'c' }
-    await act(async () => { f.button('Save as a change')!.click() })
+    await act(async () => { f.button('Save (needs approval)')!.click() })
     await vi.waitFor(() => expect(f.button('Keep my edits on top of theirs')?.disabled).toBe(false))
     await act(async () => { f.button('Keep my edits on top of theirs')!.click() })
     conflict = false
-    await act(async () => { f.button('Save as a change')!.click() })
+    await act(async () => { f.button('Save (needs approval)')!.click() })
     expect(sent[1]).toMatchObject({ needs: [{ capability: 'postgres', params: { version: '17', database: 'new_db' } }], expectedDeclaration: 'c' })
   } finally { f.unmount(); client.clear(); vi.unstubAllGlobals() }
 })
@@ -162,7 +162,7 @@ it('says what fulfils each need and lists only declarable kinds', async () => {
   const llm = { capability: 'llm', title: 'AI models', local: { image: '' }, register: { connector: 'openrouter' } }
   const errors = { capability: 'errors', title: 'Error reporting', local: { image: '' }, integration: true, register: { connector: 'glitchtip' } }
   expect(fulfilledBy(pg)).toEqual(['Docker host or Portainer: runs beside the app', 'DigitalOcean: managed database'])
-  expect(fulfilledBy(llm)).toEqual(['through the OpenRouter integration (attach it under Connected to)'])
+  expect(fulfilledBy(llm)).toEqual(['through the OpenRouter integration (attach it under Connections)'])
   expect([pg, llm, errors].filter(declarable).map((k) => k.capability)).toEqual(['postgres', 'llm'])
 })
 
@@ -181,15 +181,33 @@ it('a tile shows the Experimental badge from data and the kind in one line', asy
   const f = mountServices(client)
   try {
     await vi.waitFor(() => expect(f.tile('Redis')).toBeTruthy())
-    expect(f.tile('Redis').textContent).toContain('Experimental')
+    expect(f.tile('Redis').closest('.service-pick')?.textContent).toContain('Experimental')
     expect(f.tile('Postgres').textContent).not.toContain('Experimental')
-    expect(f.tile('Redis').textContent).toContain('A cache.')
-    expect(f.tile('Redis').textContent).not.toContain('no app has shipped')
-    expect(f.tile('Postgres').querySelector('[title^="A relational database"]')).toBeTruthy()
-    expect(f.tile('Custom').textContent).toContain('A kind with no summary.')
+    expect(f.tile('Redis').closest('.service-pick')?.textContent).toContain('A cache.')
+    expect(f.tile('Redis').closest('.service-pick')?.textContent).not.toContain('no app has shipped')
+    expect(f.tile('Postgres').closest('.service-pick')?.querySelector('details')?.textContent).toContain('A database of its own.')
+    expect(f.tile('Custom').closest('.service-pick')?.textContent).toContain('A kind with no summary.')
   } finally {
     f.unmount()
     client.clear()
     vi.unstubAllGlobals()
   }
+})
+
+
+it('offers the AI models connection separately from declaring the app need', async () => {
+  const client = newQueryClient()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/attachables')
+    ? { attachables: [{ capability: 'llm', title: 'AI models', connectors: ['openrouter'], resourceFields: [], provisionable: false }] }
+    : { attachments: [] }))))
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => {
+      root.render(<QueryClientProvider client={client}><MemoryRouter><ProjectIntegrationsTab slug="demo" /></MemoryRouter></QueryClientProvider>)
+    })
+    await vi.waitFor(() => expect([...el.querySelectorAll('button')].map(b => b.textContent)).toContain('+ AI models'))
+    await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === '+ AI models')!.click() })
+    expect(el.textContent).toContain('Attach AI models')
+  } finally { act(() => root.unmount()); client.clear(); vi.unstubAllGlobals() }
 })

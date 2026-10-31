@@ -106,6 +106,8 @@ export function TargetPage() {
           </div>
           <Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} help={state.help} />
         </div>
+        {t.kind === 'do-app' && <p>Cloud hosting: apps update without downtime.</p>}
+        {t.retained > 0 && <p className="error">{t.retained} old {t.retained === 1 ? 'resource may still cost' : 'resources may still cost'} money. <a href="#target-resources" onClick={() => { const details = document.getElementById('target-resources') as HTMLDetailsElement | null; if (details) details.open = true }}>Review {t.retained === 1 ? 'it' : 'them'}.</a></p>}
         {state.summary && <p>{state.summary}</p>}
         {here?.resources?.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
 
@@ -142,11 +144,7 @@ export function TargetPage() {
             </table>
           )}
         </details>
-        <details className="target-resources"><summary>Resources</summary>
-        {t.retained > 0 && <div className="muted small" style={{ marginTop: 6 }}>{t.retained} retained resource(s) still held at this target; each is marked retained, with its project, under All resources at the target below.</div>}
-
-        <h3 style={{ margin: '18px 0 6px' }}>Not accounted for{here?.asOf ? <span className="muted small"> · as of {fmtStamp(here.asOf)}</span> : null}</h3>
-        <p className="muted small" style={{ margin: '0 0 6px' }}>Unrecorded and missing resources.</p>
+        <details id="target-resources" className="target-resources"><summary>Resources</summary>
         {here
           ? <Unaccounted here={here} onChanged={() => { infra.reload(); load() }} />
           : retired ? <div className="muted small">retired: not checked</div>
@@ -202,7 +200,7 @@ export function TargetPage() {
             <div className="small" style={{ background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}>
               {data.history.map((e, i) => (
                 <div key={i}>
-                  <span className="muted">{new Date(e.at).toLocaleString()}</span> · {EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}
+                  <span className="muted">{fmtStamp(e.at)}</span> · {EVENT_WORDS[e.kind] ?? e.kind} by {shownActor(e.actor)}
                   {e.kind === 'target.checked' && <> — {(e.payload as Record<string, unknown>).ok ? '✓' : '✗'} {String((e.payload as Record<string, unknown>).detail ?? '')}</>}
                   {e.kind === 'target.offered' && <> — to {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
                   {e.kind === 'target.offer-withdrawn' && <> — from {String((e.payload as Record<string, unknown>).group) === '*' ? 'everyone' : String((e.payload as Record<string, unknown>).group)}</>}
@@ -354,7 +352,7 @@ export function Unaccounted({ here, onChanged }: { here: TargetInfra; onChanged:
     <>
       {failed && <div className="error small" style={{ marginBottom: 6 }}>The target's inventory could not be read: {here.error}{here.asOf ? ` · showing the inventory read ${fmtStamp(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
       {here.live || here.asOf
-        ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Everything at the target is accounted for by a deployment.' : `Nothing unaccounted for in the inventory read ${fmtStamp(here.asOf!)}.`} />
+        ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory read ${fmtStamp(here.asOf!)}.`} />
         : !failed && <div className="muted small">checking…</div>}
       {here.shared && <div className="muted small" style={{ marginTop: 6 }}>{here.shared}</div>}
     </>

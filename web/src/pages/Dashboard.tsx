@@ -1,3 +1,4 @@
+import { useNarrow } from '../chrome'
 import { Status, STATUS_LIGHT } from '../Status'
 import { useAttention, attentionState } from '../attention'
 import { PRODUCT } from '../brand'
@@ -148,6 +149,7 @@ export function homeFinished(history: ChangeRow[]): ChangeRow[] {
 }
 
 export default function Dashboard() {
+  const narrow = useNarrow()
   const operationsQ = useAttention()
   const actQ = useGet<Activity>('/activity', { poll: 5000 })
   const dashQ = useGet<DashboardData>('/dashboard', { poll: 5000 })
@@ -230,16 +232,19 @@ export default function Dashboard() {
       <div className="dash-projects">
         {recent.map((p) => {
           return (
-            <div key={p.id} className="card">
-              <Link to={`/projects/${p.slug}`} className="row tap-open" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div key={p.id} className="card home-project">
+              <Link to={`/projects/${p.slug}`} className="row home-project-link" style={{ textDecoration: 'none', color: 'inherit' }}>
                 {p.icon && <span aria-hidden>{p.icon}</span>}
                 <strong>{p.name}</strong>
+                {narrow && (p.hasDeployments === false
+                ? <Status word="none" text="Not deployed" tone="" />
+                : <RuntimeStatus observation={projectsQ.refreshFailed ? { ...p, observation: 'unknown', observationStale: true, observationIssue: projectsQ.reason } : p} />)}
               </Link>
               {p.blurb && <div className="muted small project-description">{p.blurb}</div>}
-              <div className="muted small project-meta">{rel(p.lastRunAt)}</div>
-              <div className="row" style={{ marginTop: 8 }}>{p.hasDeployments === false
+              <div className="muted small home-project-age">{rel(p.lastRunAt)}</div>
+              {!narrow && <div className="row" style={{ marginTop: 8 }}>{p.hasDeployments === false
                 ? <Status word="none" text="Not deployed" tone="" />
-                : <RuntimeStatus observation={projectsQ.refreshFailed ? { ...p, observation: 'unknown', observationStale: true, observationIssue: projectsQ.reason } : p} />}{p.productionUrl && <a className="dash-app" href={p.productionUrl} target="_blank" rel="noreferrer">Open app ↗</a>}</div>
+                : <RuntimeStatus observation={projectsQ.refreshFailed ? { ...p, observation: 'unknown', observationStale: true, observationIssue: projectsQ.reason } : p} />}{p.productionUrl && <a className="dash-app" href={p.productionUrl} target="_blank" rel="noreferrer">Open app ↗</a>}</div>}
             </div>
           )
         })}
@@ -250,7 +255,10 @@ export default function Dashboard() {
 
       {finished.length > 0 && <>
         <h2>Recently finished</h2>
-        {finished.slice(0, 10).map(c => <p key={c.changeId}><Link to={`/changes/${c.changeId}`}>{c.project}: {c.statusLabel} {relTime(c.when)}</Link></p>)}
+        {finished.slice(0, 10).map(c => <Link key={c.changeId} to={`/changes/${c.changeId}`} className="card home-finished">
+          <strong>{c.title}</strong>
+          <span className="muted small">{c.project} · {c.statusLabel} · {relTime(c.when)}</span>
+        </Link>)}
       </>}
       </>}
     </div>

@@ -30,6 +30,7 @@ export function caveatNote(items: { kind: string; name: string; caveat?: string 
 export function BackupsView() {
   const q = useGet<AllBackups>('/backups', { poll: 30000 })
   const { data, reload } = q
+  const [historyCount, setHistoryCount] = useState(10)
   const [note, setNote] = useState<{ text: string; done: boolean; operation?: string } | null>(null)
   const { run, busy, err: actErr } = useAction()
   if (!data) return <ReadStatus q={q} what="the backups" />
@@ -55,64 +56,45 @@ export function BackupsView() {
     <div>
       <StaleNote q={q} />
       <StoreSection canAttach />
-      <div className="muted small">
-        Keeps newest {data.keep} · 14 for production · final sets until their date
-      </div>
-      <div className="row" style={{ gap: 10, alignItems: 'center', minHeight: 24 }}>
-        {note && <span className="small">{note.done ? '✓ ' : '! '}{note.text}{note.operation && <> <Link to={`/operations/${note.operation}`}>Follow it</Link></>}</span>}
-        {actErr && <span className="error small">{actErr}</span>}
-      </div>
-      {latest.size === 0 && <div className="muted">No backups yet. The first is taken within a day.</div>}
-      <h3 style={{ margin: '12px 0 6px' }}>Latest per deployment</h3>
-      <table className="small stack">
-        <thead><tr><th>Project</th><th>Deployment</th><th>Kept on</th><th>Latest</th><th>Status</th><th>Contents</th><th>Size</th><th>Trigger</th><th></th></tr></thead>
-        <tbody>
-          {[...latest.values()].map((b) => (
-            <GlanceRow name={0} state={4} fact={3} labels={["Project", "Deployment", "Store", "Taken", "State", "Contents", "Size", "Trigger", "Actions"]} key={b.id}>
-              <td className="stack-lead"><Link to={`/projects/${b.project}`}>{b.project}</Link></td>
-              <td data-label="deployment">{b.deployment}</td>
-              <td data-label="store"><KeptOn b={b} /></td>
-              <td data-label="taken" title={b.takenAt}>{fmtWhen(b.takenAt)}</td>
-              <td className="stack-end"><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || b.status} /></td>
-              <td data-label="contents"><Contents items={b.items} /></td>
-              <td data-label="size">{fmtBytes(b.bytes)}</td>
-              <td data-label="trigger">{b.trigger}</td>
-              <td className="row" style={{ gap: 6 }}>
-                {managed(b)
-                  ? b.trigger === 'take-down' && <Link className="small" to={`/projects/${b.project}/settings/deployments`}>Start a new deployment from this</Link>
-                  : b.trigger === 'take-down'
-                  ? <RestoreInto b={b} busy={busy} onRestore={(into) => restore(b, into)} />
-                  : <>
-                    <button className="subtle" disabled={busy} onClick={() => takeNow(b.project, b.deployment)}>Back up now</button>
-                    <RestoreOver b={b} onYes={() => restore(b)} />
-                  </>}
-              </td>
-            </GlanceRow>
-          ))}
-        </tbody>
+      <p className="muted small">Keeps the last {data.keep} copies (14 for live apps)</p>
+      {note && <p>{note.text}{note.operation && <> <Link to={`/operations/${note.operation}`}>Follow it</Link></>}</p>}
+      {actErr && <p className="error">{actErr}</p>}
+      {latest.size === 0 ? <p className="muted">No backups yet.</p> : <>
+      <table className="stack small">
+        <thead><tr><th>App</th><th>State</th><th>Taken</th><th></th></tr></thead>
+        <tbody>{[...latest.values()].map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Actions']}>
+          <td><Link to={`/projects/${b.project}`}>{b.project} · {b.deployment}</Link></td>
+          <td><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || b.status} /></td>
+          <td>{fmtWhen(b.takenAt)}</td>
+          <td><details><summary>Actions and details</summary>
+            <p>{b.deployment} · <KeptOn b={b} /> · {fmtBytes(b.bytes)}</p>
+            <Contents items={b.items} />
+            {managed(b) ? b.trigger === 'take-down' && <Link to={`/projects/${b.project}/settings/deployments`}>Start a new deployment from this</Link>
+              : b.trigger === 'take-down' ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} /> : <>
+                <button className="subtle" disabled={busy} onClick={() => takeNow(b.project, b.deployment)}>Back up now</button>
+                <RestoreOver b={b} onYes={() => restore(b)} />
+              </>}
+          </details></td>
+        </GlanceRow>)}</tbody>
       </table>
-      <h3 style={{ margin: '18px 0 6px' }}>All sets</h3>
-      <table className="small stack">
-        <thead><tr><th>project</th><th>deployment</th><th>kept on</th><th>taken</th><th>status</th><th>size</th><th>trigger</th><th>by</th><th></th></tr></thead>
-        <tbody>
-          {data.backups.map((b) => (
-            <GlanceRow name={0} state={4} fact={3} labels={["Project", "Deployment", "Store", "Taken", "State", "Size", "Trigger", "By", "Actions"]} key={b.id} className={b.status === 'pruned' ? 'muted' : ''}>
-              <td className="stack-lead">{b.project}</td>
-              <td data-label="deployment">{b.deployment}</td>
-              <td>{b.status === 'pruned' ? '' : <><KeptOn b={b} /><details className="small"><summary>Location</summary><code>{setPlace(b, data.where)}</code></details></>}</td>
-              <td data-label="taken" title={b.takenAt}>{fmtWhen(b.takenAt)}</td>
-              <td className="stack-end"><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || b.status} /></td>
-              <td>{b.status === 'pruned' ? '' : fmtBytes(b.bytes)}</td>
-              <td data-label="trigger">{b.trigger}</td>
-              <td data-label="by">{b.actor}</td>
-              <td>{b.status !== 'pruned' && b.status !== 'failed' && !managed(b) && (b.trigger === 'take-down'
-                ? <RestoreInto b={b} busy={busy} onRestore={(into) => restore(b, into)} />
-                : <RestoreOver b={b} onYes={() => restore(b)} />
-              )}</td>
-            </GlanceRow>
-          ))}
-        </tbody>
-      </table>
+      </>}
+      {data.backups.length > 0 && <details style={{ marginTop: 16 }}><summary>All backups ({data.backups.length})</summary>
+        <table className="stack small"><thead><tr><th>App</th><th>State</th><th>Taken</th><th>Details</th></tr></thead>
+          <tbody>{data.backups.slice(0, historyCount).map(b => <GlanceRow key={b.id} name={0} state={1} fact={2} labels={['App', 'State', 'Taken', 'Details']}>
+            <td>{b.project} · {b.deployment}</td>
+            <td><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error || (b.status === 'pruned' ? 'This old copy has been removed.' : b.status)} /></td>
+            <td>{fmtWhen(b.takenAt)}</td>
+            <td>{b.deployment} · {b.trigger} · {b.actor}{b.status === 'pruned' ? <p>Copy removed</p> : <>
+              <KeptOn b={b} /><details><summary>Location</summary><code>{setPlace(b, data.where)}</code></details>
+              {(b.status === 'ok' || b.status === 'partial') && !managed(b) && (b.trigger === 'take-down'
+                ? <RestoreInto b={b} busy={busy} onRestore={into => restore(b, into)} />
+                : <RestoreOver b={b} onYes={() => restore(b)} />)}
+            </>}</td>
+          </GlanceRow>)}</tbody>
+        </table>
+        {data.backups.length > historyCount && <button onClick={() => setHistoryCount(n => n + 10)}>Show 10 more</button>}
+      </details>}
+
     </div>
   )
 }
@@ -121,7 +103,7 @@ export function BackupsView() {
 // service's own copy, or files, which a running service may change mid-copy.
 function itemBadge(i: BackupItem): { text: string; tone: string } | null {
   if (i.error) return { text: 'not copied', tone: 'fail' }
-  if (i.copy === 'declared') return { text: i.format ? 'database dump' : "service's own copy", tone: 'pass' }
+  if (i.copy === 'declared') return { text: i.format ? 'database copy' : "service's own copy", tone: 'pass' }
   if (i.copy === 'files') return { text: 'file copy, app stopped', tone: 'pass' }
   if (i.copy === 'live-files') return { text: 'file copy · may be inconsistent', tone: 'pending' }
   return null
@@ -134,7 +116,7 @@ function Contents({ items }: { items: BackupItem[] }) {
     return (
       <div key={i.kind + i.name} title={i.error || i.how}>
         {itemName(i)} {badge && <span className={`chip ${badge.tone}`}>{badge.text}</span>}
-        {i.caveat && <div className="muted small">not in it: {i.caveat}</div>}
+        {i.caveat && <details className="muted small"><summary>Limits</summary>{i.caveat}</details>}
       </div>
     )
   })}</>
@@ -151,7 +133,7 @@ function KeptOn({ b }: { b: ProjectBackup }) {
 
 // RestoreOver puts a set back over its own deployment, after a safety set.
 function RestoreOver({ b, onYes }: { b: ProjectBackup; onYes: () => void }) {
-  return <QuietConfirm label={`Restore over ${b.deployment}`} ask={`Restore ${b.project}/${b.deployment} from the set taken ${fmtWhen(b.takenAt)}? A safety set is taken first; the app is stopped while it is replaced.${caveatNote(b.items)}`}
+  return <QuietConfirm label={`Restore ${b.deployment} from this copy`} ask={`Restore ${b.project}/${b.deployment} from the set taken ${fmtWhen(b.takenAt)}? A safety set is taken first; the app is stopped while it is replaced.${caveatNote(b.items)}`}
     onYes={onYes} yes="Restore" className="subtle" />
 }
 
@@ -174,7 +156,7 @@ function RestoreInto({ b, busy, onRestore }: { b: ProjectBackup; busy: boolean; 
     <span className="row" style={{ gap: 6 }}>
       <input value={into} onChange={(e) => setInto(e.target.value.trim())} placeholder="a deployment" style={{ width: 120 }}
         title={`a deployment of ${b.project}; what is there is copied to a safety set first, then replaced`} />
-      <button className="subtle" disabled={busy || into === ''} onClick={() => onRestore(into)}>Restore over {into || '…'}</button>
+      <button className="subtle" disabled={busy || into === ''} onClick={() => onRestore(into)}>Restore {into || '…'}</button>
       {caveatNote(b.items) && <span className="muted small">{caveatNote(b.items).trim()}</span>}
     </span>
   )

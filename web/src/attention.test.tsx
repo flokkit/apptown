@@ -81,8 +81,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     answer = () => json(known)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
     expect(v.el.querySelectorAll('article')).toHaveLength(0)
-    expect(badge(v.el).getAttribute('aria-label')).toBe('Attention: 0 conditions')
-    expect(v.el.textContent).toContain('0 need attention')
+    expect(badge(v.el)).toBeNull()
     expect(v.el.textContent).not.toContain('Coverage incomplete')
   })
   it('shows only the condition count in the topbar when host coverage is incomplete', async () => {
@@ -129,7 +128,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     await settled(v.client)
     await act(async () => { release(json(warning)); await pending }); await settled(v.client)
     expect(v.el.textContent).not.toContain('Worker unavailable')
-    expect(badge(v.el).getAttribute('aria-label')).toBe('Attention: 0 conditions')
+    expect(badge(v.el)).toBeNull()
     who = ''
     await act(async () => { v.client.setQueryData(getKey('/auth/me'), { mode: 'internal' }); await new Promise(resolve => setTimeout(resolve, 0)) }); await settled(v.client)
     expect(v.el.querySelector('a[aria-label^="Attention:"]')).toBeNull()
@@ -173,13 +172,33 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('Home keep
   '/projects/game/deployments': [{ id: 'preview-id', name: 'preview-machine-id', displayLabel: 'Preview', url: 'https://preview.example.test', kind: 'preview', running: null, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
  })
  const v = mount(<Dashboard />, '/'); await settled(v.client)
- if (production) expect(v.el.querySelector('.dash-app')?.getAttribute('href')).toBe('https://game.example.test')
+ if (production && !narrow) expect(v.el.querySelector('.dash-app')?.getAttribute('href')).toBe('https://game.example.test')
  else expect(v.el.querySelector('.dash-app')).toBeNull()
+ if (narrow) expect(v.el.querySelector('.dash-projects')?.textContent).not.toContain('Details')
  expect(v.el.querySelector('.dash-projects')?.textContent).not.toContain('Not deployed')
  expect(v.el.querySelector('.dash-projects')?.textContent).toContain('No changes yet')
  expect(v.el.textContent).not.toContain('preview-machine-id')
  expect(v.el.querySelector('.chip.fail')?.textContent).toContain('unreachable')
  expect(v.el.querySelectorAll('.dash-projects .chip')).toHaveLength(1)
+})
+
+it.each([false, true])('Home names each finished change before its project, state and age (phone=%s)', async narrow => {
+ vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
+ responses(() => json(known), {
+  '/activity': { ...emptyActivity, history: [
+   { changeId: 'calendar', title: 'Add a shared calendar', project: 'Household', statusLabel: 'landed', when: at },
+   { changeId: 'photos', title: 'Fix photo uploads', project: 'Household', statusLabel: 'failed', when: at },
+  ] },
+  '/dashboard': emptyDashboard,
+  '/projects?recent=6': [{ id: 'project', slug: 'household', name: 'Household', hasDeployments: false }],
+ })
+ const v = mount(<Dashboard />, '/'); await settled(v.client)
+ for (const [id, title, state] of [['calendar', 'Add a shared calendar', 'landed'], ['photos', 'Fix photo uploads', 'failed']]) {
+  const row = v.el.querySelector(`a[href="/changes/${id}"]`)!
+  expect(row?.querySelector('strong')?.textContent).toBe(title)
+  expect(row?.querySelector('.small')?.textContent).toMatch(new RegExp(`^Household · ${state} · .+ago$`))
+  expect(row?.firstElementChild?.tagName).toBe('STRONG')
+ }
 })
 
 it('keeps pending attention distinct from a failed read', async () => {
@@ -209,4 +228,10 @@ it('identifies sidebar links while the project name loads and after a failed rea
  expect(v.el.querySelector('.sidebar-project')?.textContent).toBe('club-newsletter')
  await act(async () => { release(json({ error: 'forbidden' }, 403)) }); await settled(v.client)
  expect(v.el.querySelector('.sidebar-project')?.textContent).toBe('club-newsletter')
+})
+
+it('hides the topbar badge when no known condition needs attention', async () => {
+ responses(() => json(known))
+ const v = mount(<AttentionBadge />); await settled(v.client)
+ expect(v.el.querySelector('a')).toBeNull()
 })

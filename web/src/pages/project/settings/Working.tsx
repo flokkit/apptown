@@ -29,11 +29,11 @@ export function AdoptionLine({ slug }: { slug: string }) {
     <StaleNote q={q} />
     <div className={`card ${worry ? 'tone-warn' : ''}`} style={{ padding: '8px 12px', marginBottom: 10, maxWidth: 760 }}>
       <div style={{ marginBottom: 6 }}>
-        <strong>This project follows </strong>
-        {packs.length === 0 ? 'its own guidance and workflows' : packs.map(pk => `${pk.pack} v${pk.version}`).join(' + ')}
+        <strong>{packs.length === 0 ? 'Follows its own guidance' : `Follows ${packs.length} ways of working`}</strong>
+        {packs.length > 0 && <details><summary>Names</summary>{packs.map(pk => <div key={pk.pack}>{pk.pack} · version {pk.version}</div>)}</details>}
       </div>
       <div className="small muted">
-        {v.additions.length} additional guidance block{v.additions.length === 1 ? '' : 's'} · {v.exclusions.length} excluded
+        {(v.additions.length > 0 || v.exclusions.length > 0) && <>{v.additions.length} additions · {v.exclusions.length} excluded</>}
         {packs.some(pk => pk.recommended > 0 && pk.recommended !== pk.version) && <span> · A recommended version is available</span>}
       </div>
       {(v.additions.length > 0 || v.exclusions.length > 0) && <details style={{ marginTop: 6 }}>
@@ -45,7 +45,7 @@ export function AdoptionLine({ slug }: { slug: string }) {
         <div key={i} className="small" style={{ marginBottom: 4 }}>⚠ {c.sentence}</div>
       ))}
       <details style={{ marginTop: 8 }}>
-        <summary>Adoption record · revision {cur.revision}</summary>
+        <summary>History</summary>
         <div className="muted small">{cur.reason} · {cur.createdBy || 'author not recorded'} · {when}</div>
         <code className="muted small">{cur.digest}</code>
       </details>
@@ -123,14 +123,14 @@ export function AdoptPanel({ slug, packs, onChanged }: { slug: string; packs: Pr
         </div>
       )}
       {notOn.length > 0 && !cand && (
-        <div className="row small" style={{ marginBottom: 6 }}>
-          <span className="muted">Could adopt:</span>
+        <details><summary>Add a way of working</summary><div className="row small" style={{ marginBottom: 6 }}>
+          <span className="muted">Choose:</span>
           <select value="" onChange={(e) => { const l = library.find((x) => x.pack === e.target.value); if (l) setVersion(l.pack, l.recommended) }}>
             <option value="">a pack…</option>
             {notOn.map((l) => <option key={l.pack} value={l.pack}>{l.pack} v{l.recommended}</option>)}
           </select>
           {err && <span className="error small">{err}</span>}
-        </div>
+        </div></details>
       )}
       {cand && (
         <div className="card" style={{ padding: '8px 12px' }}>
@@ -255,7 +255,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
         <WorkflowsTab slug={slug} />
       </details>
       <details style={{ marginTop: 14 }}>
-        <summary>View and edit guidance blocks{dirty ? ' · unsaved changes' : ''}</summary>
+        <summary>Edit guidance{dirty ? ' · unsaved changes' : ''}</summary>
       <details className="small"><summary>About adoption</summary><p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
         What agents on this project are told, in order · later blocks override earlier ones.
         Pick from the instance's <Link to="/guidance">guidance</Link>; every run records exactly which version it was given.
@@ -350,7 +350,7 @@ export function GuidanceTab({ slug }: { slug: string }) {
       {effective && (
         <div>
           <details style={{ marginTop: 10 }}>
-            <summary className="muted small" style={{ cursor: 'pointer' }}>All the guidance agents receive <span className="muted">· {effective.hash.slice(0, 12)}</span></summary>
+            <summary className="muted small" style={{ cursor: 'pointer' }}>Full guidance</summary>
             {dirty && <div className="muted small">showing the last saved version · save to refresh</div>}
             <pre className="log" style={{ maxHeight: 400 }}>{effective.text || '(empty)'}</pre>
           </details>

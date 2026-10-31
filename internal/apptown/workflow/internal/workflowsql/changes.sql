@@ -139,7 +139,7 @@ SELECT id,branch FROM changes WHERE project_id=$1 AND state=$2 AND branch<>'' OR
 
 -- Label metadata excludes potentially large Change bodies.
 -- name: ShippedChangeLabelsMeta :many
-SELECT id,title,type FROM changes WHERE project_id=sqlc.arg(project_id) AND state=sqlc.arg(shipped_state) AND closed_at>sqlc.arg(after)::timestamptz
+SELECT id,number,title,type FROM changes WHERE project_id=sqlc.arg(project_id) AND state=sqlc.arg(shipped_state) AND closed_at>sqlc.arg(after)::timestamptz
 ORDER BY closed_at DESC NULLS LAST,id DESC LIMIT NULLIF(sqlc.arg(row_limit)::integer,0);
 
 -- name: ChangeStatesForScopes :many
@@ -171,7 +171,7 @@ WHERE p.id=ANY(sqlc.arg(project_ids)::uuid[]);
 -- are Delivery-owned. Preserve the one-statement project/release scope and
 -- receipt ordering until a Delivery batch door replaces this report.
 -- name: ReleaseChangeLabels :many
-SELECT rel.id AS release_id,c.id AS change_id,c.title,c.type
+SELECT rel.id AS release_id,c.id AS change_id,c.number,c.title,c.type
 FROM releases rel JOIN release_changes rc ON rc.release_id=rel.id
 JOIN changes c ON c.id=rc.change_id AND c.project_id=rel.project_id
 WHERE rel.project_id=sqlc.arg(project_id) AND rel.id=ANY(sqlc.arg(release_ids)::uuid[]) ORDER BY rel.id,c.id;

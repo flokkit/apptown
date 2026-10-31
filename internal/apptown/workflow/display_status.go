@@ -75,6 +75,14 @@ func (s Step) displayLabel() status.DisplayStatus {
 	}
 	switch s.Status {
 	case StatusPass:
+		// A gate may allow existing failures, but its rules are still unmet.
+		if s.Type == "guidance/conformance" && s.CheckReading != nil {
+			for _, check := range s.CheckReading.Checks {
+				if check.Verdict == VerdictFail && (check.Gates == nil || *check.Gates) {
+					return status.DisplayFailed
+				}
+			}
+		}
 		return status.DisplayPassed
 	case StatusFail:
 		return status.DisplayFailed

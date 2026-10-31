@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { newQueryClient } from '../data'
-import { AdminNetworksCard, InvitePerson, TokensCard, UsersCard } from './People'
+import People, { AdminNetworksCard, InvitePerson, TokensCard, UsersCard } from './People'
 import type { Account } from '../wire.gen'
 
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -117,13 +118,13 @@ describe('disabling an account', () => {
       </QueryClientProvider>)
     })
     expect(buttons(el).filter((b) => b.textContent === 'disable')).toHaveLength(1)
-    expect(el.textContent).toContain('Disabled (1)')
+    expect(el.textContent).toContain('Disabled')
     await press(el, 'disable')
     expect(sent).toHaveLength(0)
     expect(el.textContent).toContain('Disable kim? They are signed out at once')
     await press(el, 'Yes')
     await vi.waitFor(() => expect(sent).toEqual([{ username: 'kim', disabled: true }]))
-    await press(el, 'Enable')
+    await press(el, 'enable')
     expect(el.textContent).toContain('Enable probe?')
     await press(el, 'Yes')
     await vi.waitFor(() => expect(sent[1]).toEqual({ username: 'probe', disabled: false }))
@@ -145,7 +146,7 @@ describe('disabling an account', () => {
     })
     const ssoRow = [...el.querySelectorAll('tr')].find((r) => r.textContent?.includes('sso'))
     expect([...(ssoRow?.querySelectorAll('button') ?? [])].map((b) => b.textContent)).toContain('disable')
-    expect(el.textContent).toContain('names without an account (1)')
+    expect(el.textContent).toContain('Names without an account (1)')
     expect(buttons(el).filter((b) => b.textContent === 'remove')).toHaveLength(1)
     act(() => root.unmount())
   })
@@ -181,7 +182,7 @@ describe('disabling an account', () => {
         <UsersCard users={[account('kim', false, 'admin'), seen]} act={(fn) => { void fn() }} canEdit invites={invites} me="bls" />
       </QueryClientProvider>)
     })
-    expect([...el.querySelectorAll('details')].find(d => d.querySelector('summary')?.getAttribute('aria-label') === 'Manage kim')?.textContent).toContain('set password')
+    expect(el.querySelector('summary[aria-label="Actions for kim"]')?.parentElement?.textContent).toContain('set password')
     const typePassword = async () => act(async () => {
       const input = el.querySelector('input[type=password][placeholder="min 8 characters"]') as HTMLInputElement
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'new-password-1')
@@ -279,18 +280,19 @@ describe('a password reset link', () => {
 
   // Under single sign-on AppTown holds no passwords: no reset button, and
   // the page says where passwords are reset instead.
-  it('says where to reset a password under single sign-on', async () => {
+  it.each([false, true])('says where to reset a password under single sign-on (invites: %s)', async (invites) => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ invites: [] }))))
     const el = document.createElement('div')
     const root = createRoot(el)
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[account('kim', false)]} act={() => {}} canEdit invites={false} sso me="bls" />
+        <UsersCard users={[account('kim', false)]} act={() => {}} canEdit invites={invites} sso me="bls" />
       </QueryClientProvider>)
     })
     expect(buttons(el).map((b) => b.textContent)).not.toContain('reset password')
     expect(buttons(el).map((b) => b.textContent)).not.toContain('set password')
-    expect(el.textContent).toContain("Password reset links need AppTown's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.")
+    expect(el.querySelector('summary[aria-label="Actions for kim"]')).toBeTruthy()
+    expect(el.textContent).toContain("Reset passwords through your sign-in provider.")
     act(() => root.unmount())
   })
 })
@@ -328,4 +330,30 @@ describe('minting a token', () => {
     await vi.waitFor(() => expect(el.textContent).toContain('apptown_t'))
     act(() => root.unmount())
   })
+})
+
+// Accounts are the first view, while every administration area remains reachable.
+it('splits People into tabs and keeps account actions and inactive names folded', async () => {
+ vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+  url.endsWith('/users') ? { users: [
+   { username: 'kim', role: 'member', hasPassword: true, acted: true, lastSeen: '', groups: [] },
+   { username: 'old', role: 'member', hasPassword: true, acted: true, disabled: true, groups: [] },
+  ] } : url.includes('/authz/roles') ? { roles: [{ name: 'reader', title: 'Reader', capabilities: ['project:read'] }] } : url.includes('/authz/grants') ? { grants: [{ id: 'read-grant', role: 'reader', roleTitle: 'Reader', subject: 'kim', subjectType: 'user', scopeType: 'instance' }] } : url.endsWith('/authz/me') ? { instance: { 'identity:manage-users': true } } : { mode: 'internal', user: 'boss' }
+ ))))
+ const el = document.createElement('div'), root = createRoot(el)
+ await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><People /></MemoryRouter></QueryClientProvider>))
+ await vi.waitFor(() => expect(el.querySelector('.people-accounts')).not.toBeNull())
+ expect(el.querySelector('.tabs [aria-current="page"]')?.textContent).toBe('People')
+ expect(el.textContent).not.toContain('Where administrators may sign in')
+ expect(el.querySelector('.people-accounts')?.textContent).not.toContain('old')
+ expect(el.querySelector('.account-actions')?.hasAttribute('open')).toBe(false)
+ expect(el.querySelector('.account-actions')?.textContent).toContain('set password')
+ const groups = el.querySelector('a[href="/people?tab=groups"]') as HTMLAnchorElement
+ await act(async () => groups.click())
+ await vi.waitFor(() => expect(el.textContent).toContain('Roles in'))
+ expect(el.querySelector('.people-accounts')).toBeNull()
+ const permissions = [...el.querySelectorAll('details')].find(d => d.querySelector('summary')?.textContent === 'About permissions')!
+ expect(permissions.open).toBe(false)
+ expect(permissions.textContent).toContain('project:read')
+ act(() => root.unmount()); vi.unstubAllGlobals()
 })

@@ -113,7 +113,10 @@ credential doors share a per-client rate limit (`credentialLimiter.door` in `int
 password or the last usable account does not reopen bootstrap. Administrator
 changes protect the last enabled administrator.
 
-Personal-token issuance, listing and revocation are checked Identity operations.
+Personal-token issuance, the administrator catalogue and revocation are checked
+Identity operations. Your account shows only the current person’s live token
+metadata, supplied by Identity in the optional `ownTokens` field of `/auth/me`.
+Agent credentials and instruments cannot read that personal list.
 Plaintext is returned only after issuance commits, metadata excludes it, and
 revocation is one-way. Personal tokens currently have no expiry. Credential
 verification at the transport does not promise cancellation of an already-admitted

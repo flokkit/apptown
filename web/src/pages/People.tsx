@@ -1,5 +1,4 @@
-import { GlanceRow } from '../GlanceRow'
-import { relTime } from '../format'
+import { Link, useSearchParams } from 'react-router-dom'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
 import { HttpError, del, post, put } from '../api'
@@ -10,8 +9,9 @@ import { QuietConfirm, QuietPrompt } from '../QuietConfirm'
 import type { AuthMe, Account, AdministratorNetworksView, DelegationList, GrantList, GrantView, Group, GroupList, InviteLink, InviteList, IssuedToken, RoleCatalog, RoleView, TokenList, UserList } from '../wire.gen'
 import { useHolds } from '../instancePages'
 import { grantTitle, subjectLabel, groupLabel } from '../parts/grants'
+import { fmtDay } from '../format'
 import { PageHead } from '../PageHead'
-import { ExternalProviderSettings } from './ExternalSignIn'
+import { ExternalProviderSettings, MyExternalSignIn } from './ExternalSignIn'
 
 // The server's shapes, generated from its Go types (wire.gen.ts).
 export type Role = RoleView
@@ -20,6 +20,10 @@ export type Role = RoleView
 // approval steps. An approval step naming "group:reviewers" is satisfied by
 // any member — the step cites the group, the ledger records the person.
 export default function People() {
+  const [params] = useSearchParams()
+  const tabs = [['people', 'People'], ['groups', 'Groups and roles'], ['signin', 'Sign-in'], ['agents', 'Coding agents and tokens']] as const
+  const selected = params.get('tab') || 'people'
+  const tab = tabs.some(([key]) => key === selected) ? selected : 'people'
   const usersQ = useGet<UserList>('/users')
   const groupsQ = useGet<GroupList>('/groups')
   const rolesQ = useGet<RoleCatalog>('/authz/roles')
@@ -51,19 +55,30 @@ export default function People() {
           Only an admin can change these settings.
         </div>
       )}
-      <ReadGate q={usersQ} what="the accounts">
+      <div className="tabs" aria-label="People settings">
+        {tabs.map(([key, label]) => <Link key={key} to={key === 'people' ? '/people' : `/people?tab=${key}`}
+          className={'tab' + (tab === key ? ' active' : '')} aria-current={tab === key ? 'page' : undefined}>{label}</Link>)}
+      </div>
+      {tab === 'people' && <ReadGate q={usersQ} what="the accounts">
         <UsersCard users={users} act={act} canEdit={canUsers} invites={meQ.data?.mode === 'internal'} sso={!!meQ.data && meQ.data.mode !== 'internal'} me={meQ.data?.user ?? ''} />
-      </ReadGate>
+      </ReadGate>}
+      {tab === 'groups' && <>
       <ReadGate q={groupsQ} also={[usersQ]} what="the groups">
         <GroupsCard groups={groups} users={users} act={act} canEdit={canGroups} />
       </ReadGate>
       <ReadGate q={rolesQ} also={[grantsQ, usersQ, groupsQ]} what="the roles and grants">
         <RolesCard roles={roles} grants={grants} users={users} groups={groups} act={act} canEdit={canGrants} />
       </ReadGate>
-      {canUsers && meQ.data?.mode === 'internal' && <details><summary>Sign-in settings</summary><ExternalProviderSettings /></details>}
-      <AgentsCard canEdit={canEdit} />
-      <details><summary>Administrator sign-in networks</summary><AdminNetworksCard canEdit={canEdit} /></details>
-      {canEdit && <details><summary>Access tokens</summary><TokensCard /></details>}
+      </>}
+      {tab === 'signin' && <>
+      {meQ.data?.mode === 'internal' && <MyExternalSignIn embedded />}
+      {canUsers && meQ.data?.mode === 'internal' && <ExternalProviderSettings />}
+      <AdminNetworksCard canEdit={canEdit} />
+      </>}
+      {tab === 'agents' && <>
+        <AgentsCard canEdit={canEdit} />
+        {canEdit && <TokensCard />}
+      </>}
     </div>
   )
 }
@@ -165,6 +180,7 @@ export function TokensCard() {
   const tokensQ = useGet<TokenList>('/tokens')
   const usersQ = useGet<UserList>('/users')
   const tokens = tokensQ.data?.tokens ?? []
+  const activeTokens = tokens.filter(t => !t.RevokedAt)
   const names = (usersQ.data?.users ?? []).map(u => u.username)
   const [name, setName] = useState('')
   const [actsAs, setActsAs] = useState('')
@@ -174,7 +190,7 @@ export function TokensCard() {
   const { run, err } = useAction()
   return (
     <div className="card" style={{ display: 'grid', gap: 10 }}>
-      <b>API tokens</b>
+      <b>Access tokens</b>
       <div className="muted small">
         <details><summary>About tokens</summary>
         A command-line token is for your own <code>apptown</code> CLI (set <code>APPTOWN_TOKEN</code>).
@@ -190,7 +206,8 @@ export function TokensCard() {
           <code style={{ userSelect: 'all', wordBreak: 'break-all' }}>{minted}</code>
         </div>
       )}
-      {tokens.filter(t => !t.RevokedAt).map(t => (
+      {tokensQ.data && activeTokens.length === 0 && <p className="muted small">No access tokens yet.</p>}
+      {activeTokens.map(t => (
         <div key={t.Name} className="row small">
           <span className="chip">{t.Name}</span>
           <span className="muted">{t.User} · {t.Role} · {tokenPurposes[t.Purpose] ?? 'no purpose'} · last used {t.LastUsed ? t.LastUsed.slice(0, 10) : 'never'}</span>
@@ -238,7 +255,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
   const offered = roles.filter(r => r.surfaced && r.scope === 'instance')
   const byRole = new Map<string, GrantView[]>()
   for (const g of instance) {
-    const k = grantTitle(g)
+    const k = g.role ? grantTitle(g) : 'Additional access'
     byRole.set(k, [...(byRole.get(k) || []), g])
   }
   return (
@@ -247,7 +264,14 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
       <div className="muted small">
         Roles grant permissions. Project roles are under Settings › Members.
       </div>
-      <details className="small"><summary>About permissions</summary><p className="muted small">Instance administrators act in every project and may approve their own changes. Each project can require other people to get an independent approval.</p></details>
+      <details className="small"><summary>About permissions</summary>
+        <p className="muted small">Instance administrators act in every project and may approve their own changes. Each project can require other people to get an independent approval.</p>
+        {roles.filter(r => instance.some(g => g.role === r.name)).map(r => <div key={r.name}>
+          <strong>{r.title}</strong><p>{r.description}</p><ul>{r.capabilities.map(c => <li key={c}><code>{c}</code></li>)}</ul>
+        </div>)}
+        {instance.filter(g => !g.role && g.capability).map(g => <p key={g.id}>{subjectLabel(g)}: <code>{g.capability}</code></p>)}
+      </details>
+      {byRole.size === 0 && <p className="muted small">No roles assigned.</p>}
       {[...byRole.entries()].map(([title, gs]) => (
         <div key={title} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip" title={roles.find(r => r.title === title)?.description}>{title}</span>
@@ -297,44 +321,33 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
   // Everything else is a name the record has seen — open-mode actors, a
   // typo in a member list — not a person who has used AppTown.
   // Conflating the two made the table read as a breach.
-  const accounts = users.filter(u => !u.disabled && (u.hasPassword || u.acted))
-  const disabled = users.filter(u => u.disabled)
+  const accounts = users.filter(u => u.hasPassword || u.acted)
   const seen = users.filter(u => !u.hasPassword && !u.acted)
   // A password reset link is shown once, here; making one also lists it
   // with the invites waiting to be used.
   const [resetLink, setResetLink] = useState<InviteLink | null>(null)
   const reset = useAction(undefined, { affects: ['/invites'] })
-  return (
-    <div className="card" style={{ display: 'grid', gap: 10 }}>
-      <b>Accounts</b>
-      {canEdit && sso && (
-        <div className="muted small">
-          Password reset links need {PRODUCT}'s own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.
-        </div>
-      )}
-      {reset.err && <div className="error small">{reset.err}</div>}
-      {resetLink && (
-        <OneTimeLink made={resetLink} onDone={() => setResetLink(null)}>
-          Password reset link for <b>{resetLink.invite.username}</b>. Copy it now · it is not shown again.
-          Their current password and sessions keep working until they use it. Using it signs them out of browsers;
-          their personal access tokens and agent connections keep working · revoke those on the People page if the account may be compromised:
-        </OneTimeLink>
-      )}
-      <table className="stack">
-        <thead><tr><th>User</th><th>Role</th><th>Last seen</th><th /></tr></thead>
-        <tbody>
-          {accounts.map(u => (
-            <GlanceRow name={0} summary={u.role} labels={["Person", "Role", "Last seen", "Actions"]} key={u.username}>
-              <td className="stack-lead"><strong>{u.username}</strong>{u.disabled && <> <span className="chip fail">disabled</span></>}</td>
-              <td>{u.role === 'admin' ? 'Admin' : 'Member'}</td>
-              <td className="small muted" data-label="last seen">{u.lastSeen ? relTime(u.lastSeen) : 'Not yet'}</td>
-              <td><details><summary aria-label={`Manage ${u.username}`}>⋯</summary>
-                <p>Groups: {u.groups.join(', ') || 'None'}</p>
-                {canEdit && <label>Role <select value={u.role} onChange={e => act(() => post('/users', { username: u.username, role: e.target.value }))}><option value="member">Member</option><option value="admin">Admin</option></select></label>}
+  const accountTable = (list: Account[]) => <table className="people-accounts">
+    <thead><tr><th>Name</th><th>Role</th><th>Last seen</th><th /></tr></thead>
+    <tbody>{list.map(u => <tr key={u.username}>
+      <td><strong>{u.username}</strong>{u.disabled && <> <span className="chip">Disabled</span></>}</td>
+      <td>{u.role === 'admin' ? 'Admin' : 'Member'}</td>
+      <td className="muted small">{u.lastSeen ? fmtDay(u.lastSeen) : 'Never'}</td>
+      <td>{canEdit && <details className="account-actions"><summary aria-label={`Actions for ${u.username}`}>…</summary>
+        <div className="account-action-list">
+        <label>Role                 {canEdit ? (
+                  <select value={u.role}
+                    onChange={e => act(() => post('/users', { username: u.username, role: e.target.value }))}>
+                    <option value="member">member</option>
+                    <option value="admin">admin</option>
+                  </select>
+                ) : <span className="chip">{u.role}</span>}
+</label>
+        <p className="muted small">Groups: {u.groups.join(', ') || 'None'}</p>
                 {/* A reset link lets the person choose the new password
                     themselves; on use every session of theirs ends. Not for a
                     disabled account: enable it first. */}
-                {canEdit && invites && !u.disabled && (
+                {canEdit && !sso && invites && !u.disabled && (
                   <QuietConfirm label="reset password" className="subtle" yes="Make link"
                     ask={`Make a password reset link for ${u.username}? You give it to them; when they use it, their old password stops working. This signs them out of browsers. Their personal access tokens and agent connections keep working · revoke those on the People page if the account may be compromised.`}
                     onYes={async () => {
@@ -359,12 +372,29 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                   <QuietConfirm label="disable" ask={`Disable ${u.username}? They are signed out at once and cannot sign in until enabled again. The account and its record stay.`}
                     onYes={() => act(() => post('/users', { username: u.username, disabled: true }))} />
                 ))}
-              </details></td>
-            </GlanceRow>
-          ))}
-        </tbody>
-      </table>
-      {disabled.length > 0 && <details><summary>Disabled ({disabled.length})</summary>{disabled.map(u => <p key={u.username}>{u.username} {canEdit && <QuietConfirm label="Enable" ask={`Enable ${u.username}? They can sign in again.`} onYes={() => act(() => post('/users', { username: u.username, disabled: false }))} />}</p>)}</details>}
+
+        </div>
+      </details>}</td>
+    </tr>)}</tbody>
+  </table>
+  return (
+    <div className="card" style={{ display: 'grid', gap: 10 }}>
+      <b>Accounts</b>
+      {canEdit && sso && (
+        <div className="muted small">
+          Reset passwords through your sign-in provider.
+        </div>
+      )}
+      {reset.err && <div className="error small">{reset.err}</div>}
+      {resetLink && (
+        <OneTimeLink made={resetLink} onDone={() => setResetLink(null)}>
+          Password reset link for <b>{resetLink.invite.username}</b>. Copy it now · it is not shown again.
+          Their current password and sessions keep working until they use it. Using it signs them out of browsers;
+          their personal access tokens and agent connections keep working · revoke those on the People page if the account may be compromised:
+        </OneTimeLink>
+      )}
+      {accounts.filter(u => !u.disabled).length === 0 && <span className="muted small">No active accounts.</span>}
+      {accountTable(accounts.filter(u => !u.disabled))}
       {canEdit && invites && <InvitePerson />}
       {canEdit && (() => {
         const withPassword = (
@@ -389,11 +419,13 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
           </details>
         ) : withPassword
       })()}
-      {seen.length > 0 && (
+      {(seen.length > 0 || accounts.some(u => u.disabled)) && (
         <details>
           <summary className="muted small">
-            names without an account ({seen.length})
+            Other accounts and names ({seen.length + accounts.filter(u => u.disabled).length})
           </summary>
+          {accounts.some(u => u.disabled) && <><h3>Disabled accounts</h3>{accountTable(accounts.filter(u => u.disabled))}</>}
+          {seen.length > 0 && <h3>Names without an account ({seen.length})</h3>}
           <div className="muted small" style={{ margin: '6px 0' }}>
             Names that never signed in or acted. Set a password to claim one
             as a real account; remove the rest.
@@ -518,7 +550,7 @@ function GroupsCard({ groups, users, act, canEdit }: {
         <div key={g.name} className="row small" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{groupLabel(g.name)}</span>
           <span className="muted">
-            {g.kind === 'built-in' ? 'Everyone signed in'
+            {g.kind === 'built-in' ? 'everyone who is signed in; grant this group a role to give everyone that access'
               : 'Personal group'}
           </span>
         </div>

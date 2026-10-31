@@ -415,8 +415,10 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 	if cold := read(); cold.Known || len(missing(cold)) != 0 {
 		t.Fatalf("cold coverage %+v", cold)
 	}
-	if _, err := job.Run(ctx, target.Name, nil); err != nil {
+	if receipt, err := job.Run(ctx, target.Name, nil); err != nil {
 		t.Fatal(err)
+	} else if receipt["target"] != target.DisplayLabel {
+		t.Fatalf("inventory result lost target name: %+v", receipt)
 	}
 	if warm := read(); !warm.Known || len(missing(warm)) != 0 {
 		t.Fatalf("released provider resource missing %+v", warm)

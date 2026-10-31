@@ -113,7 +113,7 @@ export function drillLine(it: ItemProtection): string {
 // rehearsalLine is the last restore rehearsal: whether the app answered on
 // a copy, from which set and release, where; or why there was none.
 export function rehearsalLine(r: RehearsalRef | null | undefined, note?: string): string {
-  if (!r) return `last restore rehearsal: ${note || 'never rehearsed'}`
+  if (!r) return `Backup never tested${note && !note.startsWith('never rehearsed') ? `: ${note}` : ''}`
   const from = [r.backup ? 'from a backup set' : '', r.release ? `release ${r.release}` : '', r.host ? `on ${r.host}${r.facts?.sharedHost ? ' (shared, not set aside for rehearsals)' : ''}` : ''].filter(Boolean).join(', ')
   if (r.outcome.startsWith('unknown')) return `last restore rehearsal ${fmtWhen(r.at)}: ${r.outcome}${from ? ` (${from})` : ''}`
   if (!r.passed) return `last restore rehearsal failed ${fmtWhen(r.at)} ${from}${r.failedStep ? `, while ${r.failedStep}` : ''}`
@@ -162,8 +162,8 @@ export function copyHead(c: RestoredCopy, source: string): string {
 export function CoverageLines({ c, unknown }: { c: Coverage; unknown?: boolean }) {
   return (
     <div style={{ overflowWrap: 'anywhere' }}>
-      <div className="muted">covers: {c.assessed.length ? c.assessed.join(', ') : unknown ? 'nothing assessed' : `no data ${PRODUCT} knows of`}</div>
-      {c.notAssessed.map((n) => <div key={n}><Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} /> {n}</div>)}
+      <div className="muted">covers: {c.assessed.length ? [...new Set(c.assessed.map(n => /postgres|maria|database|volume/.test(n) ? 'database' : n))].join(', ') : unknown ? 'nothing assessed' : `no data ${PRODUCT} knows of`}</div>
+      {c.notAssessed.length > 0 && <><div className="muted">Not covered: anything the app stores elsewhere</div><details><summary>Coverage details</summary>{c.notAssessed.map(n => <div key={n}><Status word={c.statusLabel} tone={STATUS_LIGHT[c.statusLabel]} /> {n}</div>)}</details></>}
     </div>
   )
 }
@@ -248,7 +248,7 @@ export function ProtectionLines({ slug, name }: { slug: string; name: string }) 
           {applies(ops.copy) && <button className="subtle" disabled={busy || !ops.copy.available} onClick={() => start('copies')} title={ops.copy.why || 'copy its data to the backup store now'}>Copy now</button>}
           {applies(ops.check) && <button className="subtle" disabled={busy || !ops.check.available} onClick={() => start('drills')} title={ops.check.why || 'fill the newest copy into a new database, check it, and remove it'}>Check it comes back</button>}
           {p.rehearsalNote !== 'never rehearsed: no rehearsal place' && (
-            <button className="subtle" disabled={busy || !ops.rehearsal.available} onClick={() => start('rehearsals')} title={ops.rehearsal.why || rehearseTitle}>Rehearse a restore</button>
+            <button className="subtle" disabled={busy || !ops.rehearsal.available} onClick={() => start('rehearsals')} title={ops.rehearsal.why || rehearseTitle}>Test a restore</button>
           )}
           {p.dataClass === 'production' && applies(ops.restore) && (
             <button className="subtle" disabled={busy || !ops.restore.available} onClick={() => run(() => post<OperationAdmitted>(`/projects/${slug}/deployments/${name}/restored-copies`, {}))} title={ops.restore.why || restoreTestTitle}>Test a restore here</button>

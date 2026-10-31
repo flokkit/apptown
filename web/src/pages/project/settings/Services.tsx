@@ -43,7 +43,7 @@ export function fulfilledBy(k: DepKind): string[] {
   for (const [vendor, c] of Object.entries(k.cloud ?? {})) {
     out.push(`${VENDOR[vendor] ?? vendor}: ${c.kind ? c.kind.replace(/-/g, ' ') : 'provided by the platform'}`)
   }
-  if (k.register?.connector) out.push(`through the ${CONNECTOR[k.register.connector] ?? k.register.connector} integration (attach it under Connected to)`)
+  if (k.register?.connector) out.push(`through the ${CONNECTOR[k.register.connector] ?? k.register.connector} integration (attach it under Connections)`)
   return out
 }
 
@@ -165,29 +165,26 @@ export function ServicesTab({ slug }: { slug: string }) {
           const on = idx >= 0
           const version = on ? needs[idx].params?.version : k.defaults?.version
           return (
-            <div key={k.capability} role="button" tabIndex={0} aria-pressed={on}
-              className={'pick-tile' + (on ? ' on' : '')}
-              onClick={() => toggleNeed(k)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNeed(k) } }}>
-              <span className="pick-mark" aria-hidden>{on ? '✓' : '+'}</span>
-              <div className="pick-icon">{k.icon}</div>
-              <div className="pick-title">{k.title}</div>
-              {k.status === 'experimental' && <span className="chip" title="Useful, not yet proven: see its description">Experimental</span>}
-              <div className="muted small" title={k.description}>{tileLine(k)}</div>
-              <ul className="muted small" aria-label="fulfilled by" style={{ margin: '6px 0 0', padding: 0, listStyle: 'none', fontSize: 'var(--fs-xs)' }}>
-                {fulfilledBy(k).map((line) => <li key={line}>{line}</li>)}
-              </ul>
+            <div key={k.capability} className={'pick-tile service-pick' + (on ? ' on' : '')}>
+              <div className="host-row"><strong>{k.title}</strong>
+                <button role="switch" aria-label={k.title} aria-checked={on} onClick={() => toggleNeed(k)}>{on ? 'On' : 'Off'}</button>
+              </div>
+              <details><summary>Where it runs</summary>
+                <p>{tileLine(k)}</p>
+                {k.status === 'experimental' && <p>Experimental</p>}
+                <ul>{fulfilledBy(k).map(line => <li key={line}>{line}</li>)}</ul>
               {on && version !== undefined ? (
                 <div style={{ marginTop: 6 }} onClick={(e) => e.stopPropagation()}>
-                  <span className="muted small">v </span>
+                  <span className="muted small">Version </span>
                   <input value={version} style={{ width: 56, fontSize: 'var(--fs-xs)', textAlign: 'center' }}
                     onChange={(e) => setVersion(k.capability, e.target.value)} />
                 </div>
               ) : (
                 <div className="muted small" style={{ marginTop: 4, opacity: 0.7, fontSize: 'var(--fs-xs)' }}>
-                  {k.defaults?.version ? `v${k.defaults.version}` : ' '}
+                  {k.defaults?.version ? `Version ${k.defaults.version}` : ' '}
                 </div>
               )}
+              </details>
             </div>
           )
         })}
@@ -211,7 +208,7 @@ export function ServicesTab({ slug }: { slug: string }) {
 
       <div className="row" style={{ marginTop: 16, gap: 10, alignItems: 'center' }}>
         <button className="primary" disabled={busy || contract === 'none' || !changed || conflict} onClick={save}>
-          {busy ? 'opening a change…' : 'Save as a change'}
+          {busy ? 'opening a change…' : 'Save (needs approval)'}
         </button>
         {createdChange && (
           <span className="small">✓ Change {createdChange.number} opened · <Link to={`/changes/${createdChange.id}`}>preview &amp; land it</Link></span>
@@ -286,7 +283,7 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
       <StaleNote q={[itemsQ, attachablesQ]} />
       <ReadStatus q={attachablesQ} what="the integrations that can be attached" className="small" />
       <div className="muted small" style={{ marginBottom: 12 }}>
-        Direct connections and their settings.
+        Connections for this app.
       </div>
       {/* Integrations are big-ticket: something to crow about, not a
           row of chips. One card each — the face, the state from the app's
@@ -308,7 +305,7 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
                   {i.provenance === 'provisioned' ? `linked · ${i.connector}` : i.connector ? `via ${i.connector}` : 'direct'}
                 </span>
               </div>
-              {desc && <div className="muted small" style={{ marginTop: 2 }}>{desc}</div>}
+              {i.capability === 'container-registry' ? <p className="muted small">Stores your app’s built images</p> : desc && <details><summary>About this connection</summary>{desc}</details>}
             </div>
           </div>
 
@@ -360,11 +357,11 @@ export function ProjectIntegrationsTab({ slug }: { slug: string }) {
               ))}
             </div>
           )}
-          <div className="muted small" style={{ marginTop: 8 }}>
+          <details className="muted small" style={{ marginTop: 8 }}><summary>Connection details</summary>
             {Object.entries(i.resource)
               .filter(([k]) => !['unresolved', 'issuesError'].includes(k))
               .map(([k, v]) => `${k}: ${String(v)}`).join(' · ')}
-          </div>
+          </details>
           <div className="row integ-foot">
             {i.docs && <Link to={i.docs} className="small">Guide: how it is wired in and how to test it</Link>}
             <span style={{ flex: 1 }} />

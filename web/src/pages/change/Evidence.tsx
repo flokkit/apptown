@@ -38,6 +38,8 @@ export type Receipt = {
   statusLabel: Step['statusLabel']
   result: string   // the stamp's words
   title: string
+  kind?: string
+  brief?: string
   name?: string    // the step's own name, when it says more than the title
   sentence: string
   by: string
@@ -50,6 +52,18 @@ const TITLE: Record<string, string> = {
   'guidance/conformance': 'Ways of working', approval: 'Approval', preview: 'Preview', deploy: 'Deploy',
   reconcile: 'Up to date with main', 'artifact/require': 'Required record', 'adr/require': 'Decision record',
   'scm/merged': 'Merged', 'policy/current': 'Rules still current', 'workflow/call': 'Called workflow', script: 'Script',
+}
+
+export function stepTitle(s: Step): string {
+  if (s.type === 'script' && s.name) return s.name.replace(/[-_]+/g, ' ').replace(/^./, c => c.toUpperCase())
+  if (s.type === 'scan') {
+    if (s.name?.includes('license')) return 'Licence scan'
+    if (s.name?.includes('osv')) return 'Dependency scan'
+    if (s.name?.includes('gitleaks')) return 'Secret scan'
+    return 'Security scan'
+  }
+  if (s.type === 'artifact/require') return s.name === 'release-exists' || s.evidence.kind === 'release' ? 'Release created' : 'Required item'
+  return TITLE[s.type] || 'Check'
 }
 
 // testsNote is what a tests step's report says, in words. Only counts with
@@ -207,20 +221,29 @@ function by(s: Step): string {
   }
 }
 
-export function receiptOf(s: Step, live = true, awaitingDecision = false): Receipt {
-  const r = result(s, live)
-  const title = TITLE[s.type] ?? s.type
-  const name = s.name && s.name.toLowerCase() !== title.toLowerCase() ? s.name : undefined
-  return {
-    key: `step-${s.id}`, statusLabel: decisionStatus(s, live && awaitingDecision), ...r, title, name, sentence: sentence(s, live), by: by(s),
-    when: fmtStamp(s.finishedAt || s.startedAt), stepId: s.id ?? undefined,
+function brief(s: Step): string | undefined {
+  if (s.overrideBy) return `Exception approved by ${s.overrideBy}`
+  if (s.type === 'approval') {
+    if (s.evidence.withdrawal) return `Approval withdrawn by ${s.evidence.withdrawal.by}`
+    if (s.evidence.evalAuthorised) return 'Comparison run; no personal approval'
+    if (s.status !== 'pass' && s.status !== 'fail') return undefined
+    if (s.evidence.approver) return `${s.status === 'fail' || s.evidence.decision === 'reject' ? 'Rejected' : 'Approved'} by ${s.evidence.approver}`
   }
+  if (s.type === 'tests' && (s.status === 'pass' || s.status === 'fail')) {
+    return s.status === 'pass' && !s.evidence.command ? clip(s.evidence.reason || '') : testsNote(s.evidence).note
+  }
+  if (s.type === 'guidance/conformance' && unmetRules(s).length) return `${unmetRules(s).length} rules not met. Open Details to review them.`
+  return undefined
 }
 
-// The commit the checks judged, when they all name the same one.
-function judged(steps: Step[]): string {
-  const c = new Set(steps.map((s) => s.evidence?.candidate).filter(Boolean))
-  return c.size === 1 ? [...c][0]!.slice(0, 7) : ''
+export function receiptOf(s: Step, live = true, awaitingDecision = false): Receipt {
+  const r = result(s, live)
+  const title = stepTitle(s)
+  const name = s.name && s.name.toLowerCase() !== title.toLowerCase() ? s.name : undefined
+  return {
+    key: `step-${s.id}`, statusLabel: decisionStatus(s, live && awaitingDecision), ...r, title, name, kind: TITLE[s.type] || s.type, brief: brief(s), sentence: sentence(s, live), by: by(s),
+    when: fmtStamp(s.finishedAt || s.startedAt), stepId: s.id ?? undefined,
+  }
 }
 
 export type RunEvidence = { run: Run; role?: string; steps: Step[] }
@@ -253,9 +276,9 @@ export function Evidence({ view, runs, workTab, extraErr }: {
       </details>}
       <div className="ch-ledger">
         {runs.map(({ run, role, steps }) => {
-          const commit = judged(steps)
           const live = run.status === 'running'
           const receipts = steps.map((s) => receiptOf(s, live, view.approval?.viewer === 'yes' && view.approval.stepId === s.id))
+          const quietScans = new Set(steps.filter(s => s.type === 'scan' && s.status === 'pass' && !s.overrideBy && !s.checkReading?.unreadable).map(s => s.id))
           // A finished run whose every receipt is a pass reads as one line
           // until asked; anything else shows every receipt.
           const clean = !live && receipts.length > 0 && receipts.every((r) => r.statusLabel === 'passed' && r.result !== 'passed with notes')
@@ -263,14 +286,15 @@ export function Evidence({ view, runs, workTab, extraErr }: {
             <div key={run.id} className="ch-ledger-group">
               <div className="ch-ledger-head">
                 <strong>{role === 'landing' ? 'Landing' : role === 'working' || role === 'record' ? 'Work' : 'Run'}</strong>
-                <span>{run.workflowName} v{run.workflowVersion} · run {run.number}</span>
                 {run.status !== 'running' && <Status word={run.statusLabel} tone={STATUS_LIGHT[run.statusLabel]} />}
-                {commit && <span>· checked commit <code>{commit}</code></span>}
               </div>
               {steps.length === 0 && <div className="ch-line"><span className="muted">No steps recorded.</span></div>}
               {clean
                 ? <CleanRun receipts={receipts} to={(id) => workTab(id, run.id)} />
-                : receipts.map((r) => <Line key={r.key} r={r} to={workTab(r.stepId, run.id)} />)}
+                : <>
+                  {receipts.filter(r => !quietScans.has(r.stepId ?? '')).map(r => <Line key={r.key} r={r} to={workTab(r.stepId, run.id)} />)}
+                  {quietScans.size > 0 && <CleanRun noun="checks" receipts={receipts.filter(r => quietScans.has(r.stepId ?? ''))} to={id => workTab(id, run.id)} />}
+                </>}
             </div>
           )
         })}
@@ -291,7 +315,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
                   <span className="ch-line-sentence">to {r.deployment}{r.serving ? '' : r.observed ? ` · ${observedWords(r.observed)}` : ''}{!r.serving && r.reason ? ` (${r.reason})` : ''}</span></span>
                 <span className="ch-line-by">{r.serving && <span className="chip pass">running now</span>}</span>
                 <span className="ch-line-when">{r.observed && checkedWords(r)}</span>
-                <Link className="ch-line-link" to={`/projects/${view.projectSlug}/releases/${r.number}`}>record</Link>
+                <Link className="ch-line-link" to={`/projects/${view.projectSlug}/releases/${r.number}`}>Details</Link>
               </div>
             ))}
             {proof.releases.length === 0 && (
@@ -310,20 +334,20 @@ export function Evidence({ view, runs, workTab, extraErr }: {
 
 // CleanRun: every receipt of a finished run passed, so it reads as one line
 // naming what passed, with the receipts one click away.
-function CleanRun({ receipts, to }: { receipts: Receipt[]; to: (stepId?: string) => string }) {
+function CleanRun({ receipts, to, noun = 'steps' }: { noun?: string; receipts: Receipt[]; to: (stepId?: string) => string }) {
   const [open, setOpen] = useState(false)
   const kinds = [...new Set(receipts.map((r) => r.title))]
   return (
     <>
       <div className="ch-line">
-        <span className="chip pass">all passed</span>
+        <Status word="passed" tone="pass" />
         <span className="ch-line-what">
-          <span className="ch-line-title">{receipts.length} receipt{receipts.length === 1 ? '' : 's'}</span>
+          <span className="ch-line-title">{receipts.length} {noun}, all passed</span>
           <span className="ch-line-sentence">{kinds.join(', ')}.</span>
         </span>
         <span className="ch-line-by" />
         <span className="ch-line-when">{receipts[receipts.length - 1]?.when}</span>
-        <button className="subtle ch-line-link" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'hide' : 'show'}</button>
+        <button className="subtle ch-line-link" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'Hide' : 'Details'}</button>
       </div>
       {open && receipts.map((r) => <Line key={r.key} r={r} to={to(r.stepId)} />)}
     </>
@@ -334,15 +358,22 @@ const observedWords = (o: string) => o === 'stopped' ? 'stopped' : o === 'missin
 
 function Line({ r, to }: { r: Receipt; to: string }) {
   return (
-    <div className="ch-line" id={r.key}>
-      <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.result} />
-      <span className="ch-line-what">
-        <span className="ch-line-title">{r.title}{r.name && <span className="ch-line-name"> · {r.name}</span>}</span>
-        {r.sentence && <span className="ch-line-sentence">{r.sentence}</span>}
-      </span>
-      <span className="ch-line-by">{r.by}</span>
-      <span className="ch-line-when">{r.when}</span>
-      <Link className="ch-line-link" to={to}>record</Link>
-    </div>
+    <details className="ch-receipt" id={r.key}>
+      <summary className="ch-line">
+        <span className="receipt-state"><Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} /></span>
+        <span className="ch-line-what">
+          <span className="ch-line-title">{r.title}</span>
+          {r.brief && <span className="ch-line-sentence">{r.brief}</span>}
+        </span>
+        <span className="ch-line-by" />
+        <span className="ch-line-when">{r.when}</span>
+        <span aria-hidden="true">⌄</span>
+      </summary>
+      <div className="ch-receipt-body small">
+        {r.kind && <p>Kind: {r.kind}</p>}
+        {r.name && <p>{r.name}</p>}<p>{r.result}</p><p>{r.sentence}</p><p>{r.by}</p>
+        <Link to={to}>Full record</Link>
+      </div>
+    </details>
   )
 }

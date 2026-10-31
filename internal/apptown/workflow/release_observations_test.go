@@ -29,7 +29,7 @@ func TestReleaseChangeBatchChecksBothProjectsAndKeepsEmptyLists(t *testing.T) {
 	completionExec(t, q.db, `INSERT INTO release_changes(release_id,change_id) VALUES ($1,$2),($3,$4),($5,$6)`, release, run.ChangeID, release, foreign, foreignRelease, foreign)
 	counted := &countedQueries{Handle: q.db.SQL()}
 	contents, err := readReleaseChanges(ctx, counted, run.ProjectID, []ids.ID{release, empty, foreignRelease, idstest.N(99999)})
-	if err != nil || counted.reads != 1 || len(contents[release]) != 1 || contents[release][0].ID != run.ChangeID {
+	if err != nil || counted.reads != 1 || len(contents[release]) != 1 || contents[release][0].ID != run.ChangeID || contents[release][0].Number != storedChange(t, q.db, run.ChangeID).Number {
 		t.Fatalf("contents %+v reads %d: %v", contents, counted.reads, err)
 	}
 	for _, id := range []ids.ID{empty, foreignRelease, idstest.N(99999)} {
@@ -66,7 +66,7 @@ func TestShippedSinceAndSBOMCutoffs(t *testing.T) {
 	completionInsert(t, q.db, `INSERT INTO changes(id,number,project_id,type,title,state,closed_at,created_at) VALUES ($1,$2,$3,'feature','abandoned','abandoned',$4,'2026-10-09T00:00:00Z')`, fixtureNumber(), run.ProjectID, cutoff.Add(time.Hour))
 	s := newService(q.db, allowProject(run.ProjectID), Runtime{})
 	changes, err := s.ShippedChangesSince(ctx, run.ProjectID, cutoff, 30)
-	if err != nil || len(changes) != 1 || changes[0].ID != newer {
+	if err != nil || len(changes) != 1 || changes[0].ID != newer || changes[0].Number != storedChange(t, q.db, newer).Number {
 		t.Fatalf("shipped %+v: %v", changes, err)
 	}
 	changes, err = s.ShippedChangesSince(ctx, run.ProjectID, time.Time{}, 0)

@@ -188,7 +188,7 @@ describe('the copy runner line', () => {
   })
 })
 
-// "Everything at the target is accounted for" is the provider's answer, never
+// "Nothing unaccounted for." is the provider's answer, never
 // the absence of one: a failed first read shows the error and claims nothing;
 // a failed refresh shows the error and how old the list is.
 describe('what is unaccounted for at a target', () => {
@@ -202,7 +202,7 @@ describe('what is unaccounted for at a target', () => {
     return text
   }
   const claim = { kind: 'container', name: 'forge-env-shop-main', record: 'recorded' } as InfrastructureView['resources'][number]
-  const allClear = 'Everything at the target is accounted for'
+  const allClear = 'Nothing unaccounted for.'
   it('claims nothing when the first read failed', () => {
     for (const resources of [[claim], []]) {
       const text = show({ live: false, error: 'ssh: connection refused', resources })

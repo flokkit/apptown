@@ -209,6 +209,14 @@ func TestDeploymentReleasePreparationFailureHasOneReceipt(t *testing.T) {
 	}
 	wantN(t, "release events", everyReleaseEvent(t, f.db), 2)
 	wantN(t, "receipts", receipts(t, f.db, ""), 1)
+	recent, err := NewReleases(f.db).Recent(t.Context(), []ids.ID{dep.ProjectID}, 10)
+	if err != nil || len(recent) != 1 {
+		t.Fatalf("recent releases: %+v %v", recent, err)
+	}
+	if recent[0].Failure != "FAILED before deployment admission: preparation" || recent[0].Notes != "" {
+		t.Fatalf("failure must use its recorded event, not release notes: %+v", recent[0])
+	}
+
 }
 
 func TestDeploymentReleaseCompletionSettlesAllRecords(t *testing.T) {

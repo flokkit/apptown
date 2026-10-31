@@ -24,12 +24,10 @@ func (s *BackupLabel) UnmarshalJSON(b []byte) error { return labelCodec.ReadJSON
 
 func (b Backup) label() BackupLabel {
 	switch b.Status {
-	case BackupOK:
+	case BackupOK, BackupPruned:
 		return LabelFinished
 	case BackupPartial, BackupFailed:
 		return LabelFailed
-	case BackupPruned:
-		return LabelStopped
 	default:
 		return LabelUnknown
 	}

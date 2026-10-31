@@ -36,7 +36,7 @@ export function ChangeHeader({ view, workflow, aboutTab }: { view: ChangeView; w
         <Link to={`/projects/${view.projectSlug}`}>{view.projectSlug}</Link><span className="ch-sep">/</span>Change {ch.number}
       </div>
       <div className="ch-title-row">
-        <h1>{ch.title}</h1>
+        <h1>{ch.type === 'uplift' ? 'Update this app’s way of working' : ch.title}</h1>
         <Status word={view.statusLabel} tone={STATUS_LIGHT[view.statusLabel]} />
         {ch.provenance && <span className="chip pending" title="Adopted from an outside branch: history reconstructed from commits, not witnessed as it happened.">{ch.provenance}</span>}
       </div>
@@ -44,7 +44,7 @@ export function ChangeHeader({ view, workflow, aboutTab }: { view: ChangeView; w
         {[
           ch.openedBy && `Asked by ${ch.openedBy}`,
           `Opened ${fmtStamp(ch.createdAt)}`,
-          workflow && `${workflow} workflow`,
+          workflow && false,
           ch.closedAt && `${ch.state === 'abandoned' && !closedNothingToChange(ch.closedAs) ? 'abandoned' : 'closed'} ${fmtStamp(ch.closedAt)}`,
           view.diffstat,
         ].filter(Boolean).join(' · ')}
@@ -114,7 +114,7 @@ export function ChangeBrief({ view, current = true, reload }: { view: ChangeView
           </button>
         </div>
         {!editing && (ch.body
-          ? <div style={{ whiteSpace: 'pre-wrap' }}>{ch.body}</div>
+          ? <details><summary>Full request</summary><p>{ch.title}</p><div style={{ whiteSpace: 'pre-wrap' }}>{ch.body}</div></details>
           : <div className="muted">No request text was written; the title is the request.</div>)}
         {!editing && ch.externalRef && <div className="muted small" style={{ marginTop: 6 }}>External reference: {ch.externalRef}</div>}
         {editing && (
@@ -155,7 +155,7 @@ export function ChangeBrief({ view, current = true, reload }: { view: ChangeView
 
       <div className="ch-sheet">
         <Attachments changeId={ch.id!} readOnly={ch.state === 'shipped' || ch.state === 'abandoned'} />
-        <table className="kv" style={{ marginTop: 10 }}>
+        <details><summary>Technical details</summary><table className="kv" style={{ marginTop: 10 }}>
           <tbody>
             {ch.branch && <tr><td className="kv-key">Branch</td><td className="kv-val"><code>{ch.branch}</code></td></tr>}
             {ch.baseSha && <tr><td className="kv-key">Started from</td><td className="kv-val"><code>{ch.baseSha.slice(0, 12)}</code></td></tr>}
@@ -163,7 +163,7 @@ export function ChangeBrief({ view, current = true, reload }: { view: ChangeView
             <tr><td className="kv-key">Kind</td><td className="kv-val">{ch.type}</td></tr>
             <tr><td className="kv-key">Cost so far</td><td className="kv-val">{u != null && u.total > 0 ? <>{fmtTokens(u.total)} tokens{u.costMicros > 0 && <> · {fmtCost(u.costMicros)}</>}</> : 'No model usage recorded.'}</td></tr>
           </tbody>
-        </table>
+        </table></details>
       </div>
     </div>
   )

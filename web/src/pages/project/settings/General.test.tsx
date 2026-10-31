@@ -47,7 +47,7 @@ describe('project settings form', () => {
     const f = mount(() => new Response(JSON.stringify({ ...project(''), blurbSource: 'generated' })))
     try {
       await f.render({ ...project('Truck roster'), blurbSource: 'person' })
-      expect(f.el.textContent).toContain('yours')
+      expect(f.el.textContent).toContain('Description (edited by you)')
       await act(async () => { type(f.inputs()[2], '') })
       await act(async () => { f.button('Save')!.click() })
       expect(f.sent).toEqual([{ expectedRevision: 1, blurb: '' }])

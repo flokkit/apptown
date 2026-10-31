@@ -59,8 +59,17 @@ func TestFindingsLabelsRequireReadableScanReports(t *testing.T) {
 		unread              bool
 		want                CheckLabel
 	}{{0, 0, false, CheckUnknown}, {0, 1, false, CheckPassed}, {0, 1, true, CheckUnknown}, {1, 1, false, CheckFailed}, {1, 2, true, CheckFailed}} {
-		if got := FindingsLabel(c.actionable, c.reports, c.unread); got != c.want {
+		if got := FindingsLabel(c.actionable, c.reports, c.unread, false); got != c.want {
 			t.Errorf("%+v: %s", c, got)
 		}
+	}
+}
+
+func TestOldSecurityScanDoesNotClaimCurrentMainPassed(t *testing.T) {
+	if got := FindingsLabel(0, 3, false, true); got != CheckUnknown {
+		t.Fatalf("stale clean reports: %s", got)
+	}
+	if got := FindingsLabel(2, 3, false, true); got != CheckFailed {
+		t.Fatalf("stale known problems: %s", got)
 	}
 }

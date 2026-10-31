@@ -93,7 +93,7 @@ describe('each data operation follows its own answer', () => {
     expect(button(el, 'Copy now')?.disabled).toBe(false)
     expect(button(el, 'Check it comes back')?.disabled).toBe(true)
     expect(button(el, 'Test a restore here')?.disabled).toBe(true)
-    expect(button(el, 'Rehearse a restore')?.disabled).toBe(false)
+    expect(button(el, 'Test a restore')?.disabled).toBe(false)
     expect(el.textContent).toContain(noCopy.why)
     expect(el.textContent).not.toContain(why)
   })
@@ -115,7 +115,7 @@ describe('a deployment on a Docker host', () => {
       items: [{ need: 'postgres', where: 'on home', copy: 'fresh', copyLabel: 'fresh', copyNote: "kept on AppTown's own disk", lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }],
     }
     const { el } = await mount(body, {}, docker)
-    await vi.waitFor(() => expect(el.textContent).toContain('Rehearse a restore'))
+    await vi.waitFor(() => expect(el.textContent).toContain('Test a restore'))
     for (const label of doors) expect(button(el, label), label).toBeUndefined()
     expect(el.textContent).not.toContain('never checked to come back')
     expect(el.textContent).not.toContain('App Platform only')
@@ -175,7 +175,7 @@ describe('what a deployment card covers', () => {
       operations: { copy: { available: false, reason: 'backups-page', why: 'x' }, check: { available: false, reason: 'not-on-this-platform', why: 'x' }, restore: { available: false, reason: 'not-on-this-platform', why: 'x' }, rehearsal: yes, startFromCopy: { available: false, reason: 'x', why: 'x' }, finalCopy: yes },
       items: [{ need: 'postgres', volume: 'forge-need-env-shelf-main-postgres', where: 'on home', copy: 'fresh', copyLabel: 'fresh', lastCopy: { backup: SET, takenAt: '2026-10-08T01:00:00Z', bytes: 40, sha256: 'a' } }] })
     const text = el.textContent ?? ''
-    expect(text).toContain('covers: postgres · volume forge-need-env-shelf-main-postgres')
+    expect(text).toContain('covers: database')
     expect(text).toContain('last restore rehearsal passed')
     const limit = Array.from(el.querySelectorAll('div')).find((d) => d.textContent === `● unknown ${outside}`)
     expect(limit?.querySelector('.chip')?.textContent).toBe('● unknown')

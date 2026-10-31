@@ -15,6 +15,7 @@ import (
 // ChangeLabel is display metadata, without a second lifecycle representation.
 type ChangeLabel struct {
 	ID          ids.ID
+	Number      int64
 	Title, Type string
 }
 
@@ -50,7 +51,7 @@ func readReleaseChanges(ctx context.Context, q database.Queryer, project ids.ID,
 		return nil, err
 	}
 	for _, row := range rows {
-		out[row.ReleaseID] = append(out[row.ReleaseID], ChangeLabel{ID: row.ChangeID, Title: row.Title, Type: row.Type})
+		out[row.ReleaseID] = append(out[row.ReleaseID], ChangeLabel{ID: row.ChangeID, Number: row.Number, Title: row.Title, Type: row.Type})
 	}
 	return out, nil
 }
@@ -73,7 +74,7 @@ func (s *Service) ShippedChangesSince(ctx context.Context, project ids.ID, after
 	}
 	out := make([]ChangeLabel, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, ChangeLabel{ID: row.ID, Title: row.Title, Type: row.Type})
+		out = append(out, ChangeLabel{ID: row.ID, Number: row.Number, Title: row.Title, Type: row.Type})
 	}
 	return out, nil
 }

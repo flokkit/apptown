@@ -19,11 +19,10 @@ function ReleaseDefaultForm({ slug, deployments, onConfigured }: ReleaseDefaultP
   const settings = current.data
   const selected = draft?.selected ?? settings.deploymentId ?? ''
   const eligible = deployments.filter((entry) => entry.kind === 'standing' && entry.name !== 'main' && entry.feed !== 'landing')
+  if (!eligible.length && !settings.deploymentId) return <StaleNote q={current} />
   return <section className="card" style={{ padding: 16, marginBottom: 16 }}>
     <h3 style={{ marginTop: 0 }}>Release preference</h3>
-    <p className="muted small"></p>
     <StaleNote q={current} />
-    {!settings.deploymentId && <p className="muted small">{settings.revision > 0 ? 'Release preference cleared.' : 'No release preference.'}</p>}
 
     {settings.eligibilityIssue && <p className="error">{settings.eligibilityIssue}</p>}
     <form className="row" onSubmit={async (event) => {

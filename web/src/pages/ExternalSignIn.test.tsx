@@ -35,3 +35,12 @@ it('leads Your account with the signed-in name rather than only linking controls
   expect(el.textContent).toContain('sam · Admin')
  } finally { await act(async () => root.unmount()); client.clear() }
 })
+
+it('shows personal access tokens on Your account', async () => {
+ vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/auth/me') ? { mode: 'internal', user: 'kim', ownTokens: [{ Name: 'my-laptop', Purpose: 'cli', LastUsed: '' }] } : { bindings: [] }))))
+ const el = document.createElement('div'), root = createRoot(el)
+ await act(async () => root.render(<QueryClientProvider client={newQueryClient()}><MyExternalSignIn /></QueryClientProvider>))
+ await vi.waitFor(() => expect(el.textContent).toContain('my-laptop'))
+ expect(el.textContent).toContain('Your access tokens')
+ act(() => root.unmount())
+})

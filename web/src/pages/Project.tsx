@@ -109,9 +109,9 @@ export default function Project() {
           {setTab === 'working' && <GuidanceTab slug={slug!} />}
           {setTab === 'services' && (
             <>
-              <h2 style={{ marginTop: 0 }}>Runs against</h2>
+              <h2 style={{ marginTop: 0 }}>Services</h2>
               <ServicesTab slug={slug!} />
-              <h2>Connected to</h2>
+              <h2>Connections</h2>
               <ProjectIntegrationsTab slug={slug!} />
             </>
           )}

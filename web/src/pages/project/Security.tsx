@@ -29,33 +29,15 @@ export function FindingsTab({ slug }: { slug: string }) {
       <StaleNote q={q} />
       <div className="row" style={{ marginBottom: 12 }}>
         <Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} />
-        <span className="chip">{data.summary.actionable} actionable</span>
-        <span className="chip">{data.summary.dispositioned} suppressed</span>
-        <span className="chip">{data.summary.total} total</span>
-        {Object.entries(data.summary.bySeverity).map(([sev, n]) => (
-          <span key={sev} className="muted small">{sev}: {n}</span>
-        ))}
+        <span>{data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length && !unread.length ? 'No problems found in the last scan.' : 'Scan results not available.'}</span>
       </div>
-      <div className="muted small" style={{ marginBottom: 12 }}>
-        Latest findings on main. Change findings appear on the change page.
-        {data.repo?.sha && <> Default branch @ <code>{data.repo.sha}</code>.</>}
-        {data.repo?.stale && (
-          <span className="chip pending" style={{ marginLeft: 8 }}
-            title="The default branch has commits newer than the latest scan · the next completed run's scans will refresh this view.">
-            main changed since last scan
-          </span>
-        )}
-      </div>
-      <div className="muted small" style={{ marginBottom: 12 }}>
-        {data.sources.map((s) => (
-          <span key={s.binding} style={{ marginRight: 12 }}>
-            {s.binding}: {s.unreadable
-              ? <Status word="unknown" tone="unknown" help={s.unreadable} />
-              : <>{s.findings} finding{s.findings === 1 ? '' : 's'}</>}{' '}
-            ({s.changeId ? <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link> : <>{s.runNumber ? `run ${s.runNumber}, ` : ''}a run with no change</>}, {s.at.slice(0, 10)})
-          </span>
-        ))}
-      </div>
+      {data.repo?.stale && <p>Not scanned since main changed. <Link to={`/projects/${slug}`}>Open a change to scan the latest code</Link>.</p>}
+      <details style={{ marginBottom: 12 }}><summary>Scan details</summary>
+        {data.sources.length === 0 && <p>No scans yet.</p>}
+        {data.sources.map(s => <p key={s.binding}>
+          {s.binding}: {s.unreadable || `${s.findings} problems`} · {s.at.slice(0, 10)} · {s.changeId && <Link to={`/changes/${s.changeId}`}>{s.changeNumber ? `change ${s.changeNumber}` : 'its change'}</Link>}
+        </p>)}
+      </details>
 
       {unread.length > 0 && (
         <div className="small" style={{ marginBottom: 12 }}>
@@ -65,11 +47,11 @@ export function FindingsTab({ slug }: { slug: string }) {
         </div>
       )}
       {data.sources.length === 0
-        ? <div className="muted"><Status word="unknown" tone="unknown" help="No scan of main recorded." /></div>
+        ? null
         : unread.length > 0
         ? <div className="muted">No findings in the scans that could be read; the unread ones above may have some.</div>
         : data.statusLabel === 'passed'
-        ? <div><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} help="The scans found nothing." /></div>
+        ? null
         : Object.entries(
             data.findings.reduce<Record<string, PostureFinding[]>>((acc, f) => {
               const key = f.kind === 'vuln' && f.package ? `${f.package.name}@${f.package.version ?? '?'}` : `${f.kind}: ${f.source}`
@@ -119,7 +101,7 @@ export function SuppressionsTab({ slug }: { slug: string }) {
     <div>
       <StaleNote q={q} />
       {err && <div className="error">{err}</div>}
-      <div className="row" style={{ marginBottom: 12 }}>
+      <details><summary>About hidden problems</summary><div className="row" style={{ marginBottom: 12 }}>
         <span className="muted small">
           Suppressions are created from the Findings page; they match findings by fingerprint or
           identifier+package, and expire on schedule · expired ones fail the gate again.
@@ -127,7 +109,8 @@ export function SuppressionsTab({ slug }: { slug: string }) {
         <span style={{ flex: 1 }} />
         <a href={`/api/v1/projects/${slug}/dispositions/openvex`} target="_blank" rel="noreferrer" className="small">OpenVEX export ↗</a>
       </div>
-      {list.length === 0 && <div className="muted">No suppressions recorded.</div>}
+      </details>
+      {list.length === 0 && <div className="muted">Hidden problems (none)</div>}
       {list.map((d) => (
         <div className="row" key={d.id} style={{ marginTop: 4 }}>
           <Status word={d.statusLabel} tone={STATUS_LIGHT[d.statusLabel]} help={`${d.status}${d.expiresAt ? ` · until ${d.expiresAt.slice(0, 10)}` : ''}`} />

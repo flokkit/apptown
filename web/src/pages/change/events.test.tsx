@@ -33,7 +33,7 @@ describe('the change history', () => {
     const el = document.createElement('div')
     el.innerHTML = renderToStaticMarkup(<MemoryRouter><HistoryTab view={view} runHref={(id) => `/runs/${id}`} /></MemoryRouter>)
     const cells = [...el.querySelectorAll('tbody td')].map((td) => td.textContent)
-    expect(cells).toContain('AppTown merged main (abcdef01) into this change before step rework, as commit 01234567.')
+    expect(cells.join(' ')).toContain('AppTown merged main (abcdef01) into this change before step rework, as commit 01234567.')
     expect(el.querySelector('tbody code')).toBeNull()
   })
 })

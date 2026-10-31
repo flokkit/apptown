@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useHostStates } from '../hostState'
 import { useAttention } from '../attention'
 import { GlanceRow } from '../GlanceRow'
@@ -17,8 +18,8 @@ import { PageHead } from '../PageHead'
 
 const JOB_WORDS: Record<string, string> = {
   backup: 'Back up apps', inventory: 'Check resources', rebuild: 'Rebuild an app', 'backup-sweep': 'Check backups', 'db-backup': `Back up ${PRODUCT}`,
-  narrative: 'Write a change summary', 'protection-observation': 'Check backups', 'capacity-observation': 'Check host disk',
-  'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
+  narrative: 'Write a change summary', 'protection-observation': 'Check backups', 'capacity-observation': 'Check server memory',
+  'worker-observation': 'Check worker', 'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
   'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow',
   'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
 }
@@ -120,15 +121,30 @@ function DiskChip({ d }: { d: Reading }) {
 
 // JobQueue: AppTown's own work (design/subsystems/jobs.md) — open jobs
 // first, then the recent ones, each with its receipt or its failure.
+export function groupJobs(jobs: Job[]): { job: Job; count: number }[] {
+  const groups = new Map<string, { job: Job; count: number }>()
+  for (const job of jobs) {
+    // Only successful repeats collapse; failures and open work stay separate.
+    const key = job.state === 'completed' ? `${job.kind}/${job.key}` : String(job.id)
+    const group = groups.get(key)
+    if (group) group.count++
+    else groups.set(key, { job, count: 1 })
+  }
+  return [...groups.values()]
+}
+
 function JobQueue() {
-  const jobs = useGet<JobList>('/jobs?limit=100', { poll: 10000 })
+  const [count, setCount] = useState(10)
+  const jobs = useGet<JobList>('/jobs?limit=500', { poll: 10000 })
 
   if (!jobs.data) return <div style={{ marginTop: 14 }}><ReadStatus q={jobs} what="the job queue" /></div>
+  const groups = groupJobs(jobs.data.jobs)
+  const latest = jobs.data.jobs.find(j => j.finishedAt)?.finishedAt
   const open = jobs.data.jobs.filter((j) => ['available', 'pending', 'running', 'retryable', 'scheduled'].includes(j.state)).length
   return (
     <div style={{ marginTop: 14 }}>
       <StaleNote q={jobs} />
-      <p className="muted small" style={{ margin: '0 0 8px', maxWidth: 760 }}>{open > 0 ? `${open} open now.` : 'Nothing open now.'}</p>
+      <p className="muted small" style={{ margin: '0 0 8px', maxWidth: 760 }}>{open > 0 ? `${open} open now.` : `Nothing open now.${latest ? ` Last ran ${relTime(latest)}.` : ''}`}</p>
       {jobs.data.jobs.length === 0
         ? <div className="muted small">No jobs yet.</div>
         : (
@@ -136,16 +152,17 @@ function JobQueue() {
             <table className="small stack job-table" style={{ fontVariantNumeric: 'tabular-nums' }}>
               <thead><tr><th>Job</th><th>State</th><th>When</th><th>Outcome</th></tr></thead>
               <tbody>
-                {jobs.data.jobs.map((j) => (
+                {groups.slice(0, count).map(({ job: j, count: repeats }) => (
                   <GlanceRow name={0} state={1} fact={2} labels={["Job", "State", "When", "Outcome"]} key={j.id}>
-                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? 'Background task'}</td>
+                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? 'Background task'}{typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</td>
                     <td className="stack-end"><Status word={j.statusLabel} tone={STATUS_LIGHT[j.statusLabel]} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
-                    <td className="muted" data-label="when">{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
-                    <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}<details className="inline-detail"><summary>Job key</summary><div>{j.kind}</div><code className="job-key">{j.key}</code></details></td>
+                    <td className="muted">{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
+                    <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}<details className="inline-detail"><summary>Technical details</summary><div>{j.kind}</div><code className="job-key">{j.key}</code></details></td>
                   </GlanceRow>
                 ))}
               </tbody>
             </table>
+            {groups.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
           </div>
         )}
     </div>

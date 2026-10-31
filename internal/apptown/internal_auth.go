@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/httpapi"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/ids"
@@ -107,6 +108,16 @@ func (a *App) handleAuthMe(w http.ResponseWriter, r *http.Request) {
 	if id := identityFrom(r); id != nil {
 		out.User, out.Role, out.Via = id.User, id.Role, id.Via
 		out.From = a.cfg.proxies.ClientIP(r).String()
+		pr := principalOf(id)
+		channel := access.DelegationOf(pr)
+		if pr.Kind == "user" && !pr.ID.IsZero() && (channel.Kind == "full-breadth" || channel.Kind == "cli-token") {
+			tokens, err := a.Access.OwnTokens(r.Context(), pr)
+			if err != nil {
+				writeErr(w, 503, "your access tokens could not be read")
+				return
+			}
+			out.OwnTokens = tokens
+		}
 	}
 	writeJSON(w, 200, out)
 }

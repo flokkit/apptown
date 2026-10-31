@@ -32,6 +32,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
+	"github.com/flokkit/apptown/internal/apptown/dataprotection"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/integration"
 	"github.com/flokkit/apptown/internal/apptown/modelcall"
@@ -44,6 +45,9 @@ import (
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/deploy/appcontract"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean"
+	"github.com/flokkit/apptown/internal/deploy/digitalocean/dofake"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
 	"github.com/flokkit/apptown/internal/gitexec"
@@ -51,6 +55,9 @@ import (
 	"github.com/flokkit/apptown/internal/ids"
 	"github.com/flokkit/apptown/internal/testinputs"
 	"github.com/flokkit/apptown/stock"
+	"github.com/riverqueue/river/riverdriver"
+	"github.com/riverqueue/river/riverdriver/riverdatabasesql"
+	"github.com/riverqueue/river/rivertype"
 )
 
 // A real Chromium browser against disposable AppTown state and three TLS
@@ -2204,9 +2211,14 @@ func TestWebUICapture(t *testing.T) {
 	}
 	runtime := consoletest.NewAgent()
 	daemon := newFakeDocker()
+	cloud := &dofake.API{}
+	cloudAPI := httptest.NewServer(cloud.Handler())
+	t.Cleanup(cloudAPI.Close)
+
 	a, h := internalApp(t, Config{DataDir: t.TempDir(), PublicHost: "apptown.localhost:" + port,
 		SSHConfigPath: filepath.Join(t.TempDir(), "ssh-config"),
 		TierDomains:   []string{"preview=preview.localhost", "main=apps.example.test"}, DockerClient: daemon,
+		DigitalOcean: digitalocean.Options{APIBase: cloudAPI.URL},
 		ConsoleAgent: runtime, ConsoleCLI: fixtureCLI(t), InferenceURL: "http://worker.test:7779",
 		InferenceNetworks: []string{"127.0.0.1/32"}})
 	y, m, d := a.cfg.clock.Now().UTC().Date()
@@ -2461,8 +2473,8 @@ app:
 	// Real local release receipts and exported backups reproduce the volume
 	// of automated copies seen with five releases. The provider is the test daemon.
 	var delivered *tourChange
-	for i := 0; i < 5; i++ {
-		if i == 4 {
+	for i := 0; i < 15; i++ {
+		if i == 14 {
 			delivered = scene.open("tom", "club-newsletter", "Publish the winter ride times", "Publish the winter ride times on the club website.")
 			scene.write(delivered, map[string]string{"public/winter.html": "<!doctype html><title>Winter rides</title><h1>Winter rides at 9 am</h1>"})
 			scene.commit(delivered, "tom", "Winter ride times")
@@ -2492,7 +2504,7 @@ app:
 			t.Fatal(err)
 		}
 		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID,
-			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: draft.BundleID, ImageDigest: image, Revision: strings.TrimSpace(string(head))}})
+			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: draft.BundleID, ImageDigest: image, Revision: strings.TrimSpace(string(head)), Applied: deployment.AppliedProfile{Profile: "default", How: "default", Parts: map[string]deployment.AppliedPart{"web": {Public: true, Resources: appcontract.Resources{MemoryBytes: 512 << 20}}}, Services: map[string]deployment.AppliedPart{"postgres": {Need: true, Resources: appcontract.Resources{MemoryBytes: 256 << 20}}}}}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2508,6 +2520,14 @@ app:
 			}
 		}
 	}
+	failedRelease, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: project.ID, DeploymentID: prod.ID, Deployment: "main", Revision: strings.TrimSpace(string(head)), Actor: "sam"}, "local failed release")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Outcomes.FailUnstartedRelease(ctx, failedRelease.ID, errors.New("The app image could not be downloaded. Check the image store connection.")); err != nil {
+		t.Fatal(err)
+	}
+
 	// Publish the same sort of narrative that can fill empty release notes;
 	// it belongs in the release record, not the overview card.
 	source, err := a.Work.NarrativeSource(asPerson("sam"), delivered.ID)
@@ -2543,6 +2563,75 @@ app:
 	if approvalChange == "" {
 		t.Fatal("the local scene has no November newsletter approval")
 	}
+	// A real retained-resource record reproduces the cloud target's warning.
+	scene.call("sam", "PUT", "/api/v1/secrets/DESIGN_CLOUD_KEY", map[string]string{"value": "disposable-cloud-key"})
+	if _, err := a.Integrations.Bindings.Save(ctx, "design-cloud", digitalocean.CapCloudAccount, "digitalocean", mustJSON(map[string]any{"tokenFrom": "DESIGN_CLOUD_KEY", "region": "syd", "registry": "design"}), "sam"); err != nil {
+		t.Fatal(err)
+	}
+	a.SeedTargets(ctx)
+	target, err := a.targets.ByName(ctx, "design-cloud")
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldCloud, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, "old-cloud", target.ID, deployment.Attributes{Feed: "manual", Audience: "team", DataClass: "non-production"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cloud.SeedDatabase(map[string]any{"id": "old-club-db", "name": "Club database", "engine": "pg", "status": "online", "region": "syd", "version": "16"})
+	if err := a.DB.InTx(ctx, func(tx *database.Tx) error {
+		_, err := deployment.RemoveRecordedIn(ctx, tx, oldCloud, false, deployment.RemovalSettlement{Target: target.Name, By: access.Principal{Name: "sam"}, At: a.cfg.clock.Now(), Taken: deploy.TakenDown{Left: []deploy.Left{{What: "postgres", Data: true, Handle: map[string]any{"id": "old-club-db", "name": "Club database"}, Why: "Kept for review"}}}})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, cache: a.inventory}).Run(ctx, target.Name, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	scene.call("sam", "PUT", "/api/v1/secrets/DESIGN_REGISTRY_KEY", map[string]string{"value": "disposable-registry-key"})
+	if _, err := a.Integrations.Bindings.Save(ctx, "design-registry", integration.CapContainerRegistry, "service", mustJSON(map[string]any{"url": "https://registry.example.test", "group": "club", "username": "capture", "tokenFrom": "DESIGN_REGISTRY_KEY"}), "sam"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Integrations.ServiceKinds.Save(ctx, integration.CapContainerRegistry, "capability: container-registry\ntitle: Container registry\ndescription: OCI images per project; a pushed image is the unit of release.\n", "Container registry", "sam"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Integrations.Attachments.Attach(ctx, project.ID, integration.CapContainerRegistry, "design-registry", `{"repo":"registry.example.test/club/newsletter"}`, integration.Entered, "sam", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var deliveredView struct {
+		Runs []struct {
+			ID ids.ID `json:"id"`
+		} `json:"runs"`
+	}
+	if err := json.Unmarshal(scene.call("sam", "GET", "/api/v1/changes/"+delivered.ID.String(), nil), &deliveredView); err != nil {
+		t.Fatal(err)
+	}
+	if len(deliveredView.Runs) == 0 {
+		t.Fatal("capture has no completed run for old scan reports")
+	}
+	// Attach genuine report artifacts through the owner; their older date
+	// reproduces clean reports whose code has changed since they ran.
+	moveClock(a, -time.Hour)
+	if _, err := a.Work.AttachArtifact(asPerson("sam"), deliveredView.Runs[0].ID, workflow.ArtifactDraft{Kind: "scan-report", Name: "gitleaks", Body: `{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"gitleaks"}},"results":[]}]}`}); err != nil {
+		t.Fatal(err)
+	}
+	moveClock(a, time.Hour)
+	// The queue has no command to import completed history. River's test
+	// driver records only these disposable completed rows; no AppTown work
+	// is claimed to have run by a domain owner.
+	for i := 0; i < 40; i++ {
+		id, err := a.jobs.Enqueue(ctx, "protection-observation", "design-production", nil, time.Time{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		at := a.cfg.clock.Now().Add(-time.Duration(40-i) * time.Minute)
+		if _, err := riverdatabasesql.New(a.DB.Pool()).GetExecutor().JobUpdateFull(ctx, &riverdriver.JobUpdateFullParams{ID: id, StateDoUpdate: true, State: rivertype.JobStateCompleted, AttemptDoUpdate: true, Attempt: 1, FinalizedAtDoUpdate: true, FinalizedAt: &at}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	moveClock(a, -a.cfg.clock.ahead)
 	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
 		t.Fatal(err)
@@ -2622,6 +2711,72 @@ app:
 			NoLocal: true, Now: a.cfg.clock.Now,
 		}, a.cfg.dataDir)
 		rebuildRoutes(a)
+	}
+
+	if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" {
+		// Imported backup metadata exercises retained final and partial sets.
+		// The camera never executes a restore of these records.
+		store := dataprotection.NewBackups(a.DB)
+		copies, err := store.ForDeployment(ctx, project.ID, "main", 1)
+		if err != nil || len(copies) == 0 {
+			t.Fatalf("capture backup: %v", err)
+		}
+		latestCopyAt, err := time.Parse(time.RFC3339Nano, copies[0].TakenAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, b := range []dataprotection.Backup{
+			{Deployment: "main", Trigger: "take-down", Status: dataprotection.BackupOK},
+			{Deployment: "main", Trigger: "manual", Status: dataprotection.BackupPartial},
+			{Deployment: "intranet", Trigger: "manual", Status: dataprotection.BackupFailed},
+		} {
+			b.ProjectID, b.Actor = project.ID, "sam"
+			b.TakenAt = latestCopyAt.Add(time.Duration(i-2) * time.Second).Format(time.RFC3339Nano)
+			if _, err := store.Record(ctx, &b, "sam"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		// A fake evaluator records an advisory flag through the real attempt
+		// owner. It makes no model call and changes no gate outcome.
+		rebuildWork(t, a, func(deps *workflow.Dependencies) {
+			deps.Runners["guidance/conformance"] = func(e *workflow.Execution) {
+				if _, err := e.Claim(); err != nil {
+					t.Error(err)
+					return
+				}
+				if err := e.Finish(workflow.StepOutcome{Status: workflow.StatusPass, Evidence: json.RawMessage(`{"checks":[{"check":"Clear page names","evaluator":"llm","verdict":"fail","gates":false,"note":"Consider a shorter page name."}]}`)}, nil); err != nil {
+					t.Error(err)
+				}
+			}
+		})
+		scene.call("sam", "POST", "/api/v1/workflows/library", map[string]string{"yaml": `apiVersion: apptown.dev/v1
+kind: Workflow
+metadata:
+  name: advisory-review
+spec:
+  kind: lifecycle
+  role: working
+  stages:
+    - name: review
+      steps:
+        - name: rules
+          uses: guidance/conformance
+        - name: accept
+          uses: approval
+          with:
+            means: I have read the checks.
+`})
+		scene.call("sam", "PUT", "/api/v1/projects/club-newsletter/lanes", map[string]any{"name": "advisory-review", "enabled": true})
+		defineWorkflows(t, a, tourWorkflow, reviewWorkflow, workflow.PreparedRun{
+			Workflow: workflow.DefinitionRef{Name: "advisory-review", Version: 1},
+			Spec: schema.Spec{Kind: "lifecycle", Role: "working", Stages: []schema.Stage{{Name: "review", Steps: []schema.Step{
+				{Name: "rules", Uses: "guidance/conformance"},
+				{Name: "accept", Uses: "approval", With: map[string]any{"means": "I have read the checks."}},
+			}}}},
+		})
+		advisory := scene.open("tom", "club-newsletter", "Shorten the page names", "Review page names for the household.")
+		scene.call("tom", "POST", "/api/v1/changes/"+advisory.ID.String()+"/runs", map[string]string{"workflow": "advisory-review"})
+		a.Work.Wait()
 	}
 	scene.call("sam", "GET", "/api/v1/packs", nil)
 	api := a.Handler()

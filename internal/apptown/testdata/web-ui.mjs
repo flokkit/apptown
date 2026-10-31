@@ -16,10 +16,11 @@ try {
     const deployments = await read('/projects/club-newsletter/deployments');
     const backups = await read('/projects/club-newsletter/deployments/main/backups');
     const releases = await read('/projects/club-newsletter/releases');
+    const attachments = await read('/projects/club-newsletter/integrations');
     const reviews = await Promise.all(activity.active.map(r => read('/changes/' + r.changeId)));
-    return { releases, idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.length, backups: backups.backups, stoppedCheck: activity.history.some(c => c.title === "Release check: a chat answers" && c.statusLabel === "stopped"), deployments, backupBytes: backups.backups[0]?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
+    return { releases, registryAttached: attachments.attachments.some(i => i.capability === 'container-registry' && i.title === 'Container registry'), idleSeconds: activity.history.find(c => c.title === "Replace the old ride archive")?.tookS, history: activity.history.length, backups: backups.backups, stoppedCheck: activity.history.some(c => c.title === "Release check: a chat answers" && c.statusLabel === "stopped"), deployments, backupBytes: backups.backups.find(b => b.bytes > 0)?.bytes, failingCheck: reviews.some(v => v.detail?.steps.some(s => s.status === 'fail')) };
   });
-  if (facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length !== 5 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("To satisfy it:"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
+  if (!facts.registryAttached || facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length !== 16 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("To satisfy it:"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
   if (!facts.deployments.some(d => d.displayLabel === 'Production' && d.running === true) || !facts.deployments.some(d => d.kind === 'preview' && d.running === null && d.observation === 'unreachable')) throw new Error('deployment seed is not running production + unavailable preview: ' + JSON.stringify(facts.deployments));
   const infraCases = await page.evaluate(async () => {
     const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
@@ -53,9 +54,14 @@ try {
     await request('/projects', { slug: 'shared-notes', name: 'Shared Notes', blurb: 'Notes for the household.' });
     if (!audit) await request('/projects/shared-notes/repo', { defaultBranch: 'main' });
     const adr = await request('/projects/club-newsletter/adrs', { title: 'Keep newsletter pages static', tags: 'delivery' });
+    await request('/users', { username: 'retired', password: 'disposable-password' });
+    await request('/users', { username: 'retired', disabled: true });
+    await request('/tokens', { name: 'sam-laptop', user: 'sam', purpose: 'cli' });
+    await request('/tokens', { name: 'tom-laptop', user: 'tom', purpose: 'cli' });
     const invite = await request('/invites', { username: 'mei', label: 'Mei', role: 'member' });
     const changes = await request('/projects/club-newsletter/changes');
     const views = await Promise.all(changes.map(c => request('/changes/' + c.id)));
+    const advisory = views.find(v => v.change.title === 'Shorten the page names');
     const failed = views.find(v => v.detail?.steps.some(s => s.status === 'fail'));
     const form = await request('/evals/start');
     const delivered = views.find(v => v.evidence?.releases?.some(r => r.serving && r.observedAt));
@@ -67,8 +73,8 @@ try {
     const whatif = await request('/conformance/what-if', { pack: 'conventions-only', version: 1, projects: ['club-newsletter'] });
     const remediation = await request('/conformance/remediations', { scope: 'all', concurrency: 1 });
     const backups = await request('/projects/club-newsletter/deployments/main/backups');
-    const operation = await request('/projects/club-newsletter/deployments/main/backups/' + backups.backups[0].id + '/restore', { confirm: 'main' });
-    return { delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
+    const operation = await request('/projects/club-newsletter/deployments/main/backups/' + backups.backups.find(b => b.bytes > 0).id + '/restore', { confirm: 'main' });
+    return { advisory: advisory?.change.id, delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
   }, !!process.env.DESIGN_AUDIT);
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
@@ -76,11 +82,12 @@ try {
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', deployments: '/deployments', backups: '/deployments/backups',
     fleet: '/deployments/table', 'deployment-infrastructure': '/deployments/infrastructure', attention: '/attention', updates: '/updates',
     'target-offers': '/integrations/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
-    infrastructure: '/infrastructure', jobs: '/infrastructure/jobs', 'infrastructure-new': '/infrastructure/new',
+    'settings-decisions-empty': '/projects/shared-notes/settings/decisions', 'target-cloud': '/infrastructure/design-cloud', infrastructure: '/infrastructure', jobs: '/infrastructure/jobs', 'infrastructure-new': '/infrastructure/new',
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations', 'fleet-ways': '/conformance/ways',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets',
     packs: '/packs', workflows: '/workflow-library', guidance: '/guidance', policies: '/policies',
+    'people-groups': '/people?tab=groups', 'people-signin': '/people?tab=signin', 'people-agents': '/people?tab=agents',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
     'new-project': '/projects/_new', docs: '/docs', invite: '/invite',
@@ -124,8 +131,10 @@ try {
     if (screen === 'target') routes['target-unknown'] = '/infrastructure/design-preview';
     if (!detail) throw new Error(`No detail link for ${screen}`);
   }
+  routes['change-code'] = `/changes/${process.env.DESIGN_CHANGE}?tab=changes`;
   for (const tab of ['work', 'conversation', 'releases', 'history', 'about']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
   Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflow-library', 'infrastructure-connection': '/infrastructure/new' });
+  if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
   const selected = new Set((process.env.DESIGN_PAGES || '').split(',').filter(Boolean));
   for (const name of selected) if (name !== 'login' && !(name in routes)) throw new Error('unknown camera page: ' + name);
@@ -156,9 +165,8 @@ try {
           if (await history.count()) { await history.click(); await page.getByText(/Revision 1:/).waitFor(); }
         }
         if (screen === 'people-actions') {
-          const row = page.locator('tr').filter({ has: page.locator('summary[aria-label="Manage sam"]') });
-          if (size === 'phone') await row.locator('.glance-more > details > summary').click();
-          await row.locator('summary[aria-label="Manage sam"]').click();
+          const row = page.locator('tr').filter({ has: page.locator('summary[aria-label="Actions for sam"]') });
+          await row.locator('summary[aria-label="Actions for sam"]').click();
         }
         if (screen.startsWith('new-project-')) {
           await page.locator('#project-description').fill('A calendar for the household');
@@ -198,6 +206,7 @@ try {
         }
         await page.addStyleTag({ content: '*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });
         const words = await page.locator('body').innerText();
+        await writeFile(`${out}/${screen}/${size}-${theme}.txt`, words);
         if (screen === 'target' && !process.env.DESIGN_BASELINE && !words.includes('Apps may need more memory than this host has.')) throw new Error('host memory warning missing before Details');
         if ((screen === 'change' || screen === 'change-non-approver') && !process.env.DESIGN_BASELINE) {
           const eligible = screen === 'change';
@@ -250,10 +259,35 @@ try {
           for (const word of ['key from secret', 'needs are', 'promised', 'no limit', '/var/lib/docker']) if (words.includes(word)) throw new Error(screen + ': technical detail on the first view: ' + word);
           if (!(await page.locator('.capacity-summary').innerText()).includes('Memory')) throw new Error(screen + ': capacity summary missing');
         }
+        if (!process.env.DESIGN_BASELINE && screen === 'people') {
+          if (await page.locator('.people-accounts').first().getByText('retired', { exact: true }).count()) throw new Error('disabled account in first list');
+          if (words.includes('Where administrators may sign in') || words.includes('Connected coding agents')) throw new Error('People still includes other settings');
+        }
+        if (!process.env.DESIGN_BASELINE && screen === 'account' && (!words.includes('sam-laptop') || words.includes('tom-laptop'))) throw new Error('personal token list crossed account boundary');
+        if (!process.env.DESIGN_BASELINE && screen === 'home' && size === 'phone' && await page.locator('.dash-projects').getByText('Details', { exact: true }).count()) throw new Error('phone project row has Details');
+        if (!process.env.DESIGN_BASELINE && screen === 'home') {
+          const finished = await page.locator('.home-finished').evaluateAll(rows => rows.map(row => {
+            const title = row.querySelector('strong'), detail = row.querySelector('.small');
+            return { title: title?.textContent, detail: detail?.textContent, separateLines: title && detail && detail.getBoundingClientRect().top >= title.getBoundingClientRect().bottom };
+          }));
+          if (finished.length < 2 || finished.some(row => !row.title || !row.detail?.match(/ · (landed|failed) · /) || !row.separateLines) || new Set(finished.map(row => row.title)).size < 2) throw new Error('finished Home rows need distinct titles above project, state and age: ' + JSON.stringify(finished));
+        }
         if (!process.env.DESIGN_BASELINE && screen === 'infrastructure' && size === 'phone' && /\/var\/|\/mnt\//.test(words)) throw new Error('raw path on the infrastructure phone list');
+        if (!process.env.DESIGN_BASELINE && (screen === 'change' || screen === 'change-delivery')) {
+          const currentTab = await page.locator('.ch-tabs [aria-current="page"]').innerText();
+          if (currentTab !== 'Work' || await page.locator('.diff').count()) throw new Error('change first view must show Work; Code stays one tap away');
+        }
+        if (!process.env.DESIGN_BASELINE && size === 'phone' && screen.startsWith('change') && await page.locator('.ch-line-by:visible, .ch-line-when:visible').count()) throw new Error('phone receipts must keep extra state and timestamps in the full record');
+        if (!process.env.DESIGN_BASELINE && screen.startsWith('change')) {
+          const hidden = await page.locator('.ch-tabs [aria-current="page"]').evaluateAll(els => els.some(el => {
+            const r = el.getBoundingClientRect(), nav = el.parentElement.getBoundingClientRect();
+            return r.left < nav.left - 1 || r.right > nav.right + 1;
+          }));
+          if (hidden) throw new Error(screen + ': active tab is outside its scrollable navigation');
+        }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
         const clipped = await page.locator('main *').evaluateAll(els => els.filter(el => {
-          if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
+          if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || el.matches('.ch-tabs') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
           const style = getComputedStyle(el);
           return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
         }).map(el => ({ tag: el.tagName, class: el.className, text: el.textContent.slice(0, 100) })));
@@ -263,6 +297,40 @@ try {
         captures.push({ screen, path, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, clipped });
         await writeFile(`${out}/pages-progress.json`, JSON.stringify(captures, null, 2));
         console.log('captured', screen, size, theme, overflow ? 'OVERFLOW' : '');
+        if (!process.env.DESIGN_BASELINE && screen === 'people') {
+          await page.getByLabel('Actions for sam', { exact: true }).click();
+          await page.getByRole('button', { name: 'set password', exact: true }).waitFor();
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-actions.png`, fullPage: true });
+          await page.getByLabel('Actions for sam', { exact: true }).click();
+          await page.getByText(/^Other accounts and names \(/).click();
+          await page.getByLabel('Actions for retired', { exact: true }).click();
+          await page.getByRole('button', { name: 'enable', exact: true }).waitFor();
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-other.png`, fullPage: true });
+        }
+        if (!process.env.DESIGN_BASELINE && screen === 'people-groups') {
+          await page.getByText('About permissions', { exact: true }).click();
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-permissions.png`, fullPage: true });
+        }
+        if (!process.env.DESIGN_BASELINE && screen === 'change') {
+          const checks = page.locator('.ch-receipt');
+          if (!(await checks.locator('summary').allTextContents()).some(text => text.includes('Tests'))) throw new Error('missing own check name');
+          await checks.first().locator('summary').click();
+          await checks.first().getByRole('link', { name: 'Full record', exact: true }).waitFor();
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-receipt.png`, fullPage: true });
+        }
+        if (!process.env.DESIGN_BASELINE && screen === 'target-cloud') {
+          await page.locator('a[href="#target-resources"]').click();
+          if (!(await page.locator('#target-resources').evaluate(el => el.open))) throw new Error('retained resource review did not open');
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-resources.png`, fullPage: true });
+          if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error('retained resources overflow');
+        }
+        if (!process.env.DESIGN_BASELINE && screen === 'backups') {
+          await page.locator('main details:not(.status-help)').evaluateAll(els => els.forEach(el => { el.open = true; }));
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-history.png`, fullPage: true });
+          await page.getByRole('button', { name: 'Restore main from this copy', exact: true }).first().click();
+          await page.getByRole('button', { name: 'Restore', exact: true }).waitFor();
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-restore-question.png`, fullPage: true });
+        }
         if (!process.env.DESIGN_BASELINE && (screen === 'target' || screen === 'target-unknown')) {
           await page.locator('.capacity-details, .cap-details, .target-deployments, .target-settings').evaluateAll(els => els.forEach(el => { el.open = true; }));
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-details.png`, fullPage: true });

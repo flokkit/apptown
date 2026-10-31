@@ -143,6 +143,7 @@ export type AttentionView = {
 }
 
 export type AuthMe = {
+  ownTokens?: Token[]
   mode: string
   external?: ExternalProviderSummary | null
   needsBootstrap?: boolean | null
@@ -1448,6 +1449,7 @@ export type ReleaseListed = {
   createdAt: string
   releasedAt?: string
   notes?: string
+  failure?: string
   commitSha?: string
   bundleId?: string | null
   deploymentId?: string | null
@@ -2297,6 +2299,16 @@ export type AttachmentView = {
 
 export type AttentionLabel = "unknown" | "waiting"
 
+export type Token = {
+  Name: string
+  User: string
+  Role: string
+  CreatedAt: string
+  Purpose: string
+  LastUsed: string
+  RevokedAt: string
+}
+
 export type Decision = {
   allow: boolean
   code?: string
@@ -2801,6 +2813,8 @@ export type Delegation = {
 }
 
 export type Departure = {
+  releaseNumber?: number
+  reason?: string
   at: string
   slug: string
   name: string
@@ -3798,6 +3812,7 @@ export type Release = {
   createdAt: string
   releasedAt?: string
   notes?: string
+  failure?: string
   commitSha?: string
   bundleId?: string | null
   deploymentId?: string | null
@@ -3827,6 +3842,7 @@ export type ReleaseBundleView = {
 }
 
 export type ReleaseChangeTitle = {
+  number: number
   id: string | null
   title: string
 }
@@ -4158,16 +4174,6 @@ export type TierView = {
   apps: TierApp[]
   observed?: string
   reason?: string
-}
-
-export type Token = {
-  Name: string
-  User: string
-  Role: string
-  CreatedAt: string
-  Purpose: string
-  LastUsed: string
-  RevokedAt: string
 }
 
 export type Totals = {

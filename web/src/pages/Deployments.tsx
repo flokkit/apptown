@@ -1,12 +1,12 @@
 import { GlanceRow } from '../GlanceRow'
 import { Status, STATUS_LIGHT } from '../Status'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { NotAvailable, useInstancePages } from '../instancePages'
 import { AppAddress, RuntimeStatus } from '../runtime'
-import { fmtWhen } from '../format'
+import { fmtDay, fmtStamp } from '../format'
 import { InfrastructureView } from './Infrastructure'
 import { BackupsView } from './Backups'
 import type { ProjectRow } from '../wire.gen'
@@ -27,7 +27,6 @@ import { PageHead } from '../PageHead'
 type Row = { slug: string; name: string; icon?: string; cells: Record<string, TierApp[]> }
 type Show = 'all' | 'running' | 'stopped' | 'nowhere'
 
-const host = (u: string) => u.replace(/^https?:\/\//, '').replace(/\/$/, '')
 
 export default function Deployments() {
   const { gtab } = useParams()
@@ -42,7 +41,7 @@ export default function Deployments() {
       <div className="tabs">
         <NavLink to="/deployments/departures" className={() => 'tab' + (tab === 'departures' ? ' active' : '')}>Departures</NavLink>
         <NavLink to="/deployments/table" className={() => 'tab' + (tab === 'table' ? ' active' : '')}>Deployments</NavLink>
-        {infra && <Link to="/infrastructure" className="tab">Infrastructure ↗</Link>}
+        {infra && <NavLink to="/deployments/infrastructure" className={() => 'tab' + (tab === 'infrastructure' ? ' active' : '')}>Infrastructure</NavLink>}
         {infra && <NavLink to="/deployments/backups" className={() => 'tab' + (tab === 'backups' ? ' active' : '')}>Backups</NavLink>}
       </div>
       {instanceTab && infra === false ? <NotAvailable page="infrastructure" heading={false} />
@@ -53,6 +52,7 @@ export default function Deployments() {
 }
 
 function DeparturesBoard() {
+  const [count, setCount] = useState(10)
   const q = useGet<Departures>('/tiers/departures', { poll: 8000 })
   const data = q.data
   if (!data) return <ReadStatus q={q} what="the departures board" />
@@ -67,21 +67,24 @@ function DeparturesBoard() {
     <table className="stack" style={{ fontVariantNumeric: 'tabular-nums' }}>
       <thead><tr><th>When</th><th>App</th><th>To</th><th>What</th><th>Who</th><th>Status</th></tr></thead>
       <tbody>
-        {moves.map((d, i) => (
+        {moves.slice(0, count).map((d, i) => (
+          <Fragment key={i}>
+          {(i === 0 || fmtDay(d.at) !== fmtDay(moves[i - 1].at)) && <tr><th colSpan={6}>{fmtDay(d.at)}</th></tr>}
           <GlanceRow name={1} state={5} fact={0} labels={["When", "App", "To", "Release", "Who", "State"]} key={i}>
-            <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(d.at)}</td>
+            <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtStamp(d.at)}</td>
             <td className="stack-lead"><span aria-hidden style={{ marginRight: 6 }}>{d.icon}</span><Link className="tap-open" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></td>
             <td data-label="to">{d.tier}</td>
             <td className="muted small">
               {d.url ? <a href={d.url} target="_blank" rel="noreferrer">{d.label}</a> : d.label}
             </td>
             <td className="muted small" data-label="by">{d.who || '—'}</td>
-            <td className="stack-end"><Status word={d.state} tone={STATUS_LIGHT[d.state]} /></td>
-          </GlanceRow>
+            <td className="stack-end"><Status word={d.state} tone={STATUS_LIGHT[d.state]} help={d.reason} />{d.state === 'failed' && <Link to={`/projects/${d.slug}/releases/${d.releaseNumber}`}>Review failure</Link>}</td>
+          </GlanceRow></Fragment>
         ))}
         {moves.length === 0 && <tr><td colSpan={6} className="muted small">{unlisted ? 'No releases yet.' : 'No movement yet.'}</td></tr>}
       </tbody>
     </table>
+    {moves.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
     </>
   )
 }
@@ -123,7 +126,7 @@ function FleetTable() {
     all: all.length, running: all.filter(runningIn).length,
     stopped: all.filter(stoppedIn).length, nowhere: all.filter((r) => !anywhere(r)).length,
   }
-  const SHOW_LABEL: Record<Show, string> = { all: 'all', running: 'running', stopped: 'stopped', nowhere: 'not running anywhere' }
+  const SHOW_LABEL: Record<Show, string> = { all: 'all', running: 'running', stopped: 'stopped', nowhere: 'Not deployed' }
 
   const phoneState = (r: Row) => {
     const project = projects.find(p => p.slug === r.slug)
@@ -153,7 +156,7 @@ function FleetTable() {
             <RuntimeStatus observation={a} />
             {a.url
               ? <AppAddress url={a.url} hostOnly={a.hostOnly} className="small" title={a.url}>
-                  {a.hostOnly ? null : a.static && a.running ? 'Open app' : host(a.url)}
+                  {a.hostOnly ? null : 'Open app'}
                 </AppAddress>
               : null}
             {a.detail && <details className="small"><summary>Details</summary>{a.detail}</details>}
@@ -184,28 +187,15 @@ function FleetTable() {
           <thead>
             <tr>
               <th>App</th>
-              {tiers.map((t, i) => (
-                <th key={t.name} title={t.gloss} style={{ opacity: t.future ? 0.5 : 1, whiteSpace: 'nowrap' }}>
-                  {i > 0 && <span className="muted" style={{ marginRight: 8 }}>→</span>}
-                  {t.name === 'lan' ? '🏢 ' : t.name === 'net' ? '🌍 ' : ''}{t.name === 'preview' ? t.title : `${t.title} deployment`}
-                  {!t.future && (
-                    <span className="muted small" style={{ marginLeft: 6, fontWeight: 400, textTransform: 'none' }} title={t.reason}>
-                      {t.observed ? `running: ${t.observed}` : `${t.apps.filter((a) => a.running).length} running`}
-                    </span>
-                  )}
-                  {t.future && <span className="muted small" style={{ marginLeft: 6, fontWeight: 400, textTransform: 'none' }}>someday</span>}
-                </th>
-              ))}
+              <th>State</th><th>Details</th>
             </tr>
           </thead>
           <tbody>
             {shown.map((r) => (
-              <GlanceRow name={0} status={phoneState(r)} summary={<>{Object.values(r.cells).flat().length} {Object.values(r.cells).flat().length === 1 ? 'deployment' : 'deployments'}</>} labels={["App", ...tiers.map(t => t.title)]} key={r.slug}>
-                <td className="stack-lead" style={{ whiteSpace: 'nowrap' }}>
-                  <span aria-hidden style={{ marginRight: 6 }}>{r.icon || '▫️'}</span>
-                  <Link to={`/projects/${r.slug}`}>{r.name}</Link>
-                </td>
-                {tiers.map((t) => <td key={t.name} data-label={t.title}>{cell(t, r.cells[t.name])}</td>)}
+              <GlanceRow name={0} state={1} summary={<>{Object.values(r.cells).flat().length} {Object.values(r.cells).flat().length === 1 ? 'deployment' : 'deployments'}</>} labels={['App', 'State', 'Deployments']} key={r.slug}>
+                <td><span aria-hidden>{r.icon || '▫️'} </span><Link to={`/projects/${r.slug}`}>{r.name}</Link></td>
+                <td>{phoneState(r)}</td>
+                <td><details><summary>Deployments</summary>{tiers.filter(t => !t.future && r.cells[t.name]?.length).map(t => <div key={t.name}><strong>{t.title}</strong>{cell(t, r.cells[t.name])}</div>)}{!anywhere(r) && 'Not deployed'}</details></td>
               </GlanceRow>
             ))}
             {shown.length === 0 && (

@@ -1,5 +1,4 @@
-import { useNarrow } from '../chrome'
-import { GlanceRow, PhoneDetails } from '../GlanceRow'
+import { GlanceRow } from '../GlanceRow'
 import { STATUS_LIGHT, Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { Link } from 'react-router-dom'
@@ -101,14 +100,13 @@ export function DeletedProjects() {
 }
 
 function TargetSection({ t: tIn, refreshing, onChanged }: { t: TargetInfra; refreshing: boolean; onChanged: () => void }) {
-  const narrow = useNarrow()
   const t = { ...tIn, resources: tIn.resources ?? [] }
   const unrecorded = t.resources.filter((r) => r.record === 'unrecorded').length
   const missing = t.resources.filter((r) => r.record === 'missing').length
   return (
     <section style={{ marginBottom: 26 }}>
-      {narrow && <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} /><span className="muted small">{t.resources.length} resources</span></div>}
-      <PhoneDetails>
+      <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} /><span className="muted small">{t.resources.length} resources</span></div>
+      <details><summary>Resources and details</summary>
       <div className="row" style={{ marginBottom: 2 }}>
         <h2 style={{ margin: 0 }}><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></h2>
         <span className="muted">{t.place}{t.domain ? ` · *.${t.domain}` : ''}</span>
@@ -130,7 +128,7 @@ function TargetSection({ t: tIn, refreshing, onChanged }: { t: TargetInfra; refr
       {t.error && !t.live && <div className="error small" style={{ marginBottom: 8 }}>{t.error}{t.asOf ? ' · showing the last inventory read.' : ` · showing ${PRODUCT}'s records only.`}</div>}
       <ResourceTables t={t} onChanged={onChanged} />
       {t.shared && <div className="muted small" style={{ marginTop: 6 }}>{t.shared}</div>}
-      </PhoneDetails>
+      </details>
     </section>
   )
 }
@@ -178,8 +176,8 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
   return (
     <GlanceRow name={0} state={1} fact={3} labels={["Resource", "State", "Where", "Size", "Apps", "Record"]} style={r.record === 'missing' ? { opacity: 0.6 } : undefined}>
       <td>
-        <div style={{ fontWeight: 600 }}>{r.name}</div>
-        <details className="resource-details"><summary>Details</summary>
+        <div style={{ fontWeight: 600 }}>{r.hosts?.[0] && !r.hosts[0].project.startsWith('(') ? `${r.hosts[0].project} · ${r.kind === 'volume' ? 'data' : r.kind}` : r.retained ? `${r.retained.project} · old ${r.kind}` : `Unlinked ${r.kind}`}</div>
+        <details className="resource-details"><summary>Details</summary><p>{r.name}</p>
         {r.url && <a className="small" href={r.url} target="_blank" rel="noreferrer">{host}</a>}
         {r.id && <div className="muted small" title="the provider's id">{r.id}</div>}
         {r.detail && <div className="muted small">{r.detail}</div>}

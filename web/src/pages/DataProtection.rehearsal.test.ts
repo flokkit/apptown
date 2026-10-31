@@ -24,7 +24,7 @@ describe('the rehearsal line', () => {
     expect(rehearsalLine({ ...base, passed: false, outcome: 'unknown: AppTown stopped while it ran', release: 0 })).toContain('unknown: AppTown stopped while it ran')
     expect(rehearsalLine({ ...base, host: 'server-1', facts: { ...base.facts, sharedHost: true } })).toContain('on server-1 (shared, not set aside for rehearsals)')
     expect(rehearsalLine(base)).not.toContain('not kept')
-    expect(rehearsalLine(null, 'never rehearsed: no rehearsal place')).toBe('last restore rehearsal: never rehearsed: no rehearsal place')
+    expect(rehearsalLine(null, 'never rehearsed: no rehearsal place')).toBe('Backup never tested')
   })
   it('says what it held back', () => {
     expect(heldBack(base)).toBe('outbound network not blocked; withheld: SMTP_PASSWORD; not started: worker')

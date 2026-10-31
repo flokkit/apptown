@@ -35,8 +35,10 @@ type Release struct {
 	CreatedAt   string       `json:"createdAt"`
 	ReleasedAt  stamp.Time   `json:"releasedAt,omitzero"`
 	Notes       string       `json:"notes,omitempty"`
-	CommitSHA   string       `json:"commitSha,omitempty"`
-	SourceSHA   string       `json:"-"` // the tree a released image was built from
+	// Failure is the recorded failure event, separate from release notes.
+	Failure   string `json:"failure,omitempty"`
+	CommitSHA string `json:"commitSha,omitempty"`
+	SourceSHA string `json:"-"` // the tree a released image was built from
 	// §2.8: what shipped, where, as which generation.
 	BundleID     ids.ID `json:"bundleId,omitzero"`
 	DeploymentID ids.ID `json:"deploymentId,omitzero"`
@@ -134,7 +136,23 @@ func (s *Releases) Recent(ctx context.Context, projectIDs []ids.ID, limit int) (
 	if len(projectIDs) == 0 {
 		return []*Release{}, nil
 	}
-	return releaseRecords(deploymentsql.New(s.db.SQL()).RecentReleases(ctx, deploymentsql.RecentReleasesParams{ProjectIds: projectIDs, RowLimit: int64(limit)}))
+	rows, err := releaseRecords(deploymentsql.New(s.db.SQL()).RecentReleases(ctx, deploymentsql.RecentReleasesParams{ProjectIds: projectIDs, RowLimit: int64(limit)}))
+	if err != nil {
+		return nil, err
+	}
+	for _, release := range rows {
+		if release.State != ReleaseFailed {
+			continue
+		}
+		events, err := s.Events(ctx, release.ID)
+		if err != nil {
+			return nil, err
+		}
+		if len(events) > 0 {
+			release.Failure = events[len(events)-1].Text
+		}
+	}
+	return rows, nil
 }
 
 // Last is a project's newest release on a deployment, whatever its state.
