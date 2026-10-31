@@ -50,7 +50,7 @@ it('uses the app observation on phones even when the first tier has no deploymen
     await vi.waitFor(() => expect(el.querySelector('.glance-state .chip.pass')?.textContent).toContain('running'))
     expect(el.querySelector('.glance-name')?.textContent).toContain('Ledger')
     expect(el.querySelector('.glance-fact')?.textContent).toContain('1 deployment')
-    expect(el.querySelector('.glance-more details')?.textContent).toContain('Production')
+    expect(el.querySelector('.glance-more')?.textContent).toContain('Production')
   } finally {
     act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
   }

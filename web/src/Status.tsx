@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { DisplayStatus, RuntimeState, HealthStatus, CheckLabel, ReleaseLabel, UpdateLabel, CopyLabel, JobLabel, TargetLabel, DepartureLabel, ResourceLabel, ProgressLabel, ADRLabel } from './wire.gen'
 
 export const STATUS_LIGHT = {
-  low: 'pending', blocked: 'fail', running: 'pass', working: 'running', deploying: 'running', 'waiting for you': 'pending', 'waiting for checks': 'pending', stopped: '', unknown: 'unknown', unreachable: 'fail',
+  'not set up': '', low: 'pending', blocked: 'fail', running: 'pass', working: 'running', deploying: 'running', 'waiting for you': 'pending', 'waiting for checks': 'pending', stopped: '', unknown: 'unknown', unreachable: 'fail',
   waiting: 'pending', failed: 'fail', landed: 'pass', finished: 'pass', deployed: 'pass', passed: 'pass', excepted: 'overridden', 'not applicable': '', none: '', current: 'pass', available: 'pending', fresh: 'pass', overdue: 'fail', missing: 'fail', disposable: '',
 } as const satisfies Record<'low' | 'blocked' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel, string>
 
@@ -26,7 +26,7 @@ export function Status({ word, tone, help, text }: { text?: string; word: keyof 
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [])
-  const chip = <span className={`chip ${tone}`} title={help} aria-label={help ? `${text ?? word}: ${help}` : undefined}><span aria-hidden="true">● </span>{text ?? word}</span>
+  const chip = <span className={`chip ${tone}`} title={help} aria-label={help ? `${text ?? word}: ${help}` : undefined}>{tone && <span aria-hidden="true">● </span>}{text ?? word}</span>
   if (!help) return chip
   return <details ref={ref} className="status-help" onClick={(e) => e.stopPropagation()}>
     <summary onClick={(e) => {

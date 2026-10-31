@@ -93,28 +93,22 @@ function TargetSection({ t: tIn, onChanged }: { t: TargetInfra; onChanged: () =>
   const missing = t.resources.filter((r) => r.record === 'missing').length
   return (
     <section style={{ marginBottom: 26 }}>
-      <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} /><span className="muted small">{t.resources.length} resources</span>
+      <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}`} /><span className="muted small">{t.resources.length} resources</span>
         {!t.live && <Status word="unknown" tone="unknown" help={t.unreported ? UNREPORTED : t.error || 'Pending first check.'} />}
         {t.asOf && <span className="muted small">read {fmtStamp(t.asOf)}</span>}
         {t.invalidated && <span className="chip pending">before the latest change</span>}
       </div>
-      <details><summary>Resources and details</summary>
-      <div className="row" style={{ marginBottom: 2 }}>
-        <h2 style={{ margin: 0 }}><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></h2>
-        <span className="muted">{t.place}{t.domain ? ` · *.${t.domain}` : ''}</span>
-        <Status word={t.statusLabel} tone={STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}.`} />
+      <div className="target-inventory">
+      <div className="row small" style={{ marginBlock: 8 }}>
+        <span className="muted">{t.place}{t.domain ? ` · *.${t.domain}` : ''}{t.facts ? ` · ${t.facts}` : ''}</span>
         {unrecorded > 0 && <span className="chip pending">{unrecorded} unrecorded</span>}
         {missing > 0 && <span className="chip fail">{missing} missing</span>}
-        <span style={{ flex: 1 }} />
-        <Link className="small" to={`/infrastructure/${t.target}`}>manage</Link>
-      </div>
-      <div className="small" style={{ marginBottom: 8 }}>
-        {t.facts && <span>{t.facts}</span>}
+        <Link to={`/infrastructure/${t.target}`}>manage</Link>
       </div>
       {t.error && !t.live && <div className="error small" style={{ marginBottom: 8 }}>{t.error}{t.asOf ? ' · showing the last inventory read.' : ` · showing ${PRODUCT}'s records only.`}</div>}
       <ResourceTables t={t} onChanged={onChanged} />
       {t.shared && <div className="muted small" style={{ marginTop: 6 }}>{t.shared}</div>}
-      </details>
+      </div>
     </section>
   )
 }
@@ -160,10 +154,8 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
     if (ok) onChanged()
   }
   return (
-    <GlanceRow name={0} state={1} fact={3} labels={["Resource", "State", "Where", "Size", "Apps", "Record"]} style={r.record === 'missing' ? { opacity: 0.6 } : undefined}>
-      <td>
-        <div style={{ fontWeight: 600 }}>{r.hosts?.[0] && !r.hosts[0].project.startsWith('(') ? `${r.hosts[0].project} · ${r.kind === 'volume' ? 'data' : r.kind}` : r.retained ? `${r.retained.project} · old ${r.kind}` : `Unlinked ${r.kind}`}</div>
-        <details className="resource-details"><summary>Details</summary><p>{r.name}</p>
+    <GlanceRow name={0} state={1} fact={3} detail={<div className="resource-evidence">
+        <p>{r.name}</p>
         {r.url && <a className="small" href={r.url} target="_blank" rel="noreferrer">{host}</a>}
         {r.id && <div className="muted small" title="the provider's id">{r.id}</div>}
         {r.detail && <div className="muted small">{r.detail}</div>}
@@ -174,7 +166,10 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
               onYes={remove} yes="Remove" className="subtle danger" title={`Remove it; ${PRODUCT} has no record of it`} disabled={busy} />
             {err && <div className="error small">{err}</div>}
           </div>
-        )}</details></td>
+        )}</div>} labels={["Resource", "State", "Where", "Size", "Apps", "Record"]} style={r.record === 'missing' ? { opacity: 0.6 } : undefined}>
+      <td>
+        <div style={{ fontWeight: 600 }}>{r.hosts?.[0] && !r.hosts[0].project.startsWith('(') ? `${r.hosts[0].project} · ${r.kind === 'volume' ? 'data' : r.kind}` : r.retained ? `${r.retained.project} · old ${r.kind}` : r.name || `Unlinked ${r.kind}`}</div>
+      </td>
       <td>{r.status ? <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.status} /> : <span className="muted">—</span>}</td>
       <td className="small">{r.region || <span className="muted">—</span>}</td>
       <td className="small">{[r.version, r.size].filter(Boolean).join(' · ') || <span className="muted">—</span>}</td>

@@ -4,18 +4,18 @@ import { useAction } from './data'
 import type { Done } from './wire.gen'
 
 type DisplayLabelProps = {
-  value: string; machineKey: string; path: string; onChanged?: () => void
+  keyLabel?: string; value: string; machineKey: string; path: string; onChanged?: () => void
 }
 
 export function DisplayLabelEdit(props: DisplayLabelProps) {
   return <DisplayLabelForm key={props.path} {...props} />
 }
 
-function DisplayLabelForm({ value, machineKey, path, onChanged }: DisplayLabelProps) {
+function DisplayLabelForm({ keyLabel, value, machineKey, path, onChanged }: DisplayLabelProps) {
   const [draft, setDraft] = useState<{ expected: string; label: string } | null>(null)
   const { run, busy, err } = useAction(onChanged)
   return <div className="small" style={{ marginTop: 6 }}>
-    <details className="inline-detail muted"><summary>Key</summary><code>{machineKey}</code></details>{' '}
+    <span className="muted">{keyLabel || 'ID'}: <code>{machineKey}</code></span>{' '}
     {!draft ? <button className="link" onClick={() => setDraft({ expected: value, label: value })}>Edit display name</button> :
       <form className="row" onSubmit={async (event) => {
         event.preventDefault()

@@ -85,8 +85,10 @@ describe('the what-if page', () => {
       expect(rows[0].querySelector('.glance-state')?.textContent).toContain('failed')
       expect(rows[0].querySelector('.glance-fact')?.textContent).toBe('2 new failures')
       expect(rows[3].querySelector('.glance-fact')?.textContent).toBe('Not assessed yet')
-      expect(rows[0].querySelector('.glance-more')?.textContent).toContain('0123456789')
-      const labels = [...rows[0].querySelectorAll('.glance-more dt')].map(el => el.textContent)
+      expect(rows[0].textContent).not.toContain('0123456789')
+      await act(async () => { (rows[0] as HTMLElement).click() })
+      expect(rows[0].nextElementSibling?.textContent).toContain('0123456789')
+      const labels = [...rows[0].nextElementSibling!.querySelectorAll('dt')].map(el => el.textContent)
       expect(labels).toEqual(['Select', 'Score', 'Details', 'Adoption', 'Actions'])
       const firstView = rows[0].cloneNode(true) as HTMLElement
       firstView.querySelectorAll('details').forEach(d => d.remove())

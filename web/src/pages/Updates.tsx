@@ -47,13 +47,14 @@ function UpdateDetails() {
     finally { await query.reload(); setChecking(false) }
   }
   const data = query.data
+  const development = data?.build.startsWith('dev-')
   return <div>
     <h1>Updates</h1>
     {(query.err || error) && <div className="error" role="alert">{error || query.err}</div>}
     <button disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>
     {!data ? <p role="status">Release status is unavailable.</p> : <>
-      <p className="status-strip"><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} text={states[data.state]?.replace(/\.$/, '')} help={data.reason || states[data.state]} /></p>
-      <p className="muted">{data.lastSuccess ? `Checked ${relTime(data.lastSuccess)}` : 'No successful check yet'}</p>
+      {development ? <p className="status-strip">This {PRODUCT} runs a development build. Updates come by deployment.</p> : <><p className="status-strip"><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} text={states[data.state]?.replace(/\.$/, '')} help={data.reason || states[data.state]} /></p>
+      <p className="muted">{data.lastSuccess ? `Checked ${relTime(data.lastSuccess)}` : 'No successful check yet'}</p></>}
       <details><summary>Technical details</summary><dl className="facts">
         <dt>Installed build</dt><dd>{data.build} ({data.platform})</dd>
         <dt>Channel</dt><dd>{data.channel}</dd>

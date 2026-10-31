@@ -18,12 +18,12 @@ const status = {
 
 describe('authenticated update notifications', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
-  async function mount(allowed: boolean, state = 'available', holdingsFailure = false) {
+  async function mount(allowed: boolean, state = 'available', holdingsFailure = false, build = status.build) {
     const calls: { path: string; method: string }[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
       calls.push({ path: String(url), method: init?.method ?? 'GET' })
       if (String(url).includes('/authz/me')) return new Response(JSON.stringify(holdingsFailure ? { error: 'unavailable' } : { instance: { 'instance:updates': allowed } }), { status: holdingsFailure ? 503 : 200 })
-      return new Response(JSON.stringify({ ...status, state, statusLabel: state === 'stale' ? 'unknown' : state }))
+      return new Response(JSON.stringify({ ...status, build, state, statusLabel: state === 'stale' ? 'unknown' : state }))
     }))
     const client = newQueryClient()
     const el = document.createElement('div'); const root = createRoot(el)
@@ -31,6 +31,15 @@ describe('authenticated update notifications', () => {
     await settled(client)
     return { el, client, calls, close: async () => { await act(async () => root.unmount()); client.clear() } }
   }
+  it('explains how a development build is updated and keeps the manual check reachable', async () => {
+    const view = await mount(true, 'no-release', false, 'dev-abcdef')
+    try {
+      expect(view.el.textContent).toContain('This AppTown runs a development build. Updates come by deployment.')
+      expect(view.el.textContent).not.toContain('No releases in this channel')
+      expect(view.el.querySelector('button')?.textContent).toBe('Check for updates')
+      expect(view.el.textContent).toContain('v1.2.0')
+    } finally { await view.close() }
+  })
   it('does not read status or show notification without affirmative holdings', async () => {
     for (const failure of [false, true]) {
       const view = await mount(false, 'available', failure)

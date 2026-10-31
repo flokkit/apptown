@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, ProjectStanding } from '../../wire.gen'
 import { relTime } from '../../format'
-import { StandingChip, LaneBar, laneOf } from './parts'
+import { StandingChip, BrokenNote, LaneBar, laneOf } from './parts'
 
 // --- Projects (the front page) ---------------------------------------------------------------
 
@@ -32,8 +32,8 @@ export function projectFact(p: ProjectStanding, view: ConformanceView): string {
 function ProjectRow({ p, fact, base, onCheck }: { p: ProjectStanding; fact: string; base: string; onCheck?: (slug: string) => void }) {
   const narrow = useNarrow()
   if (narrow) return <div className="card"><Link to={`${base}/projects/${p.slug}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-    <div className="host-row"><strong>{p.name || p.slug}</strong><StandingChip label={p.statusLabel} help={p.sentence} /><span className="muted small">{fact}</span></div>
-  </Link>{onCheck && p.standing === 'conforms-so-far' && <details><summary>Actions</summary><button onClick={() => onCheck(p.slug)}>Check now</button></details>}</div>
+    <div className="host-row"><strong>{p.name || p.slug}</strong><StandingChip broken={p.lanes.broken} findings={p.standing === 'does-not-conform' ? p.lanes.findings : undefined} label={p.statusLabel} help={p.sentence} /><span className="muted small">{fact}</span></div>
+  </Link>{onCheck && p.standing === 'conforms-so-far' && <button onClick={() => onCheck(p.slug)}>Check now</button>}</div>
   return (
     <div className="card" style={{ marginBottom: 0, padding: '10px 14px', textDecoration: 'none', color: 'inherit', display: 'block' }}>
       <Link to={`${base}/projects/${p.slug}`} style={{ color: 'inherit', textDecoration: 'none' }}><div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
@@ -42,12 +42,12 @@ function ProjectRow({ p, fact, base, onCheck }: { p: ProjectStanding; fact: stri
             <strong style={{ fontSize: 'var(--fs-base)' }}>{p.name || p.slug}</strong>
             {p.name && p.name !== p.slug && <span className="mono muted small" style={{ marginLeft: 'var(--space-2)' }}>{p.slug}</span>}
           </span>
-          <StandingChip label={p.statusLabel} help={p.sentence} />
+          <StandingChip broken={p.lanes.broken} findings={p.standing === 'does-not-conform' ? p.lanes.findings : undefined} label={p.statusLabel} help={p.sentence} />
         </div>
         <span className="conformance-extra"><LaneBar lanes={p.lanes} total={p.total} /></span>
       </div>
       <div className="muted small mt-1">
-        {fact} · {p.judgedAt ? `Checked ${relTime(p.judgedAt)}` : 'Not checked yet — open to check now'}
+        {fact} {p.lanes.findings > 0 && <BrokenNote broken={p.lanes.broken} />} · {p.judgedAt ? `Checked ${relTime(p.judgedAt)}` : 'Not checked yet — open to check now'}
       </div>
       </Link>
       {onCheck && p.standing === 'conforms-so-far' && <button onClick={() => onCheck(p.slug)}>Check now</button>}

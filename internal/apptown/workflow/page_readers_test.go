@@ -33,10 +33,10 @@ func TestProjectActivityUsesScopedBulkCounts(t *testing.T) {
 		t.Fatalf("bulk %+v, reads %d: %v", got, counted.reads, err)
 	}
 	v := got[run.ProjectID]
-	if v.Changes != 1 || v.ActiveItems != 1 || v.RunningRuns != 1 || v.DoneRuns != 0 || v.OpenChanges != 1 || v.OpenUplifts != 0 || !v.LastRunAt.Valid {
+	if v.Changes != 1 || v.ActiveItems != 1 || v.RunningRuns != 1 || v.DoneRuns != 0 || v.OpenChanges != 1 || v.OpenUplifts != 0 || !v.LastRunAt.Valid || v.LastChangeTitle != change.Title {
 		t.Fatalf("counts %+v", v)
 	}
-	if got[other].LastRunAt.Valid || got[other].Changes != 0 {
+	if got[other].LastRunAt.Valid || got[other].Changes != 0 || got[other].LastChangeTitle != "" {
 		t.Fatalf("empty project %+v", got[other])
 	}
 	// A root completion counts once; a completed child above does not. Zero
@@ -115,5 +115,15 @@ func TestDashboardPartitionsVisibleCurrentStages(t *testing.T) {
 	counted := &countedQueries{Handle: q.db.SQL()}
 	if _, err := readDashboard(ctx, counted, []ids.ID{run.ProjectID, other}, nil); err != nil || counted.reads != 3 {
 		t.Fatalf("dashboard reads %d: %v", counted.reads, err)
+	}
+}
+
+func TestProjectActivityShowsTheLatestChangeWithoutRequiringARun(t *testing.T) {
+	t.Parallel()
+	q, run, _ := activityFixture(t)
+	admissionTestChange(t, q.db, run.ProjectID, "Newest change without a run")
+	got, err := readProjectActivity(t.Context(), q.db, []ids.ID{run.ProjectID})
+	if err != nil || got[run.ProjectID].LastChangeTitle != "Newest change without a run" {
+		t.Fatalf("last change: %+v %v", got, err)
 	}
 }

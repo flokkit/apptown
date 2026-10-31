@@ -22,10 +22,11 @@ export function AttentionBadge() {
   const q = useAttention()
   const state = attentionState(q)
   if (state.count === 0 && state.known) return null
+  const unknown = q.data ? (q.refreshFailed || q.paused ? Math.max(1, q.data.sources.length) : q.data.sources.filter(s => s.unknown || s.stale).length) : 0
   const missing = q.err || q.refreshFailed || state.count === 0 ? 'unknown' : '…'
   return <span className="row small">
-    <Link className="attention-badge" to="/attention" aria-label={state.count ? `${state.count} need attention${state.known ? '' : '; coverage incomplete'}` : `Attention ${missing}`}>
-      <span className="attention-compact" aria-hidden="true">⚠ {state.count || missing}</span><span className="attention-words">{state.count === null || state.count === 0 ? `Attention ${missing}` : `${state.count} need attention`}</span>
+    <Link className="attention-badge" to="/attention" aria-label={state.count !== null && (state.count > 0 || unknown > 0) ? `${state.count} need attention${unknown ? `; ${unknown} not known` : state.known ? '' : '; coverage incomplete'}` : `Attention ${missing}`}>
+      <span className="attention-compact" aria-hidden="true">⚠ {state.count ?? missing}{unknown > 0 ? ` · ${unknown} not known` : ''}</span><span className="attention-words">{state.count === null ? `Attention ${missing}` : unknown > 0 ? `${state.count} · ${unknown} not known` : state.count > 0 ? `${state.count} need attention` : `Attention ${missing}`}</span>
     </Link>
     <StaleNote q={q} inline />
   </span>

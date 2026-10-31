@@ -153,7 +153,7 @@ function FleetTable() {
       <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
         {apps.map((a, i) => (
           <span key={a.deploymentId ?? i} className="row" style={{ gap: 6 }}>
-            {a.deploymentLabel && <span className="small">{a.deploymentLabel}</span>}
+            <span className="small">{a.deploymentLabel || t.title}</span>
             <RuntimeStatus observation={a} />
             {a.url
               ? <AppAddress url={a.url} hostOnly={a.hostOnly} className="small" title={a.url}>
@@ -166,6 +166,9 @@ function FleetTable() {
       </span>
     )
   }
+
+  const placements = (r: Row) => tiers.filter(t => !t.future).flatMap(t => (r.cells[t.name] ?? []).map(app => ({ tier: t, app })))
+  const placementRows = (rows: ReturnType<typeof placements>) => rows.map(({ tier, app }) => <div className="deployment-rows" key={`${tier.name}/${app.deploymentId || app.changeId}`}>{cell(tier, [app])}</div>)
 
   return (
     <div>
@@ -188,15 +191,15 @@ function FleetTable() {
           <thead>
             <tr>
               <th>App</th>
-              <th>State</th><th>Details</th>
+              <th>State</th><th>Deployments</th>
             </tr>
           </thead>
           <tbody>
             {shown.map((r) => (
-              <GlanceRow name={0} state={1} summary={<>{Object.values(r.cells).flat().length} {Object.values(r.cells).flat().length === 1 ? 'deployment' : 'deployments'}</>} labels={['App', 'State', 'Deployments']} key={r.slug}>
+              <GlanceRow inline name={0} state={1} summary={<>{Object.values(r.cells).flat().length} {Object.values(r.cells).flat().length === 1 ? 'deployment' : 'deployments'}</>} labels={['App', 'State', 'Deployments']} key={r.slug}>
                 <td><span aria-hidden>{r.icon || '▫️'} </span><Link to={`/projects/${r.slug}`}>{r.name}</Link></td>
                 <td>{phoneState(r)}</td>
-                <td><details><summary>Deployments</summary>{tiers.filter(t => !t.future && r.cells[t.name]?.length).map(t => <div key={t.name}><strong>{t.title}</strong>{cell(t, r.cells[t.name])}</div>)}{!anywhere(r) && 'Not deployed'}</details></td>
+                <td>{placementRows(placements(r).slice(0, 3))}{placements(r).length > 3 && <details><summary>{placements(r).length - 3} more deployments</summary>{placementRows(placements(r).slice(3))}</details>}{!anywhere(r) && 'Not deployed'}</td>
               </GlanceRow>
             ))}
             {shown.length === 0 && (

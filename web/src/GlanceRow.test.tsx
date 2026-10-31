@@ -16,8 +16,9 @@ describe('a glance row', () => {
     expect(firstView).toContain('46% free')
     expect(firstView).not.toContain('/var/lib/docker')
     expect(firstView).not.toContain('Refresh')
-    expect(html).toContain('<summary>Details</summary>')
-    expect(html.match(/<button/g)).toHaveLength(1)
+    expect(html).toContain('aria-expanded="false"')
+    expect(html).not.toContain('<summary>Details</summary>')
+    expect(html).not.toContain('<button')
   })
   it('keeps the full columns on desktop', () => {
     vi.stubGlobal('window', { matchMedia: () => ({ matches: false }) })

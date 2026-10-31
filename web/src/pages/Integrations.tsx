@@ -195,7 +195,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
   const failing = states.filter((s) => s === 'failed').length
   const unchecked = states.filter((s) => s === 'unknown').length
   const summary = [
-    `${bindings.length} connected`,
+    `${states.filter(s => s !== 'not set up').length} connected`,
     failing > 0 ? `${failing} need attention` : '',
     unchecked > 0 ? `${unchecked} not tested` : '',
   ].filter(Boolean).join(' · ')
@@ -254,7 +254,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                         </td>
 
                         <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} /></td>
-                        <td className="int-when">{state === 'failed' ? <Link className="btn" to={to}>Fix</Link> : lastChecked(b.health, reading.now)}{state === 'failed' && <details onClick={e => e.stopPropagation()}><summary>Why?</summary>{b.health.detail}</details>}</td>
+                        <td className="int-when">{state === 'failed' ? <Link className="btn" to={to}>Fix</Link> : state === 'not set up' ? '' : lastChecked(b.health, reading.now)}{state === 'failed' && <details onClick={e => e.stopPropagation()}><summary>Why?</summary>{b.health.detail}</details>}</td>
                       </GlanceRow>
                     )
                   })}

@@ -2,6 +2,7 @@ package apptown
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/flokkit/apptown/internal/deploy/digitalocean"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
+	"github.com/flokkit/apptown/internal/gitlab"
 	"github.com/flokkit/apptown/internal/strs"
 
 	"github.com/flokkit/apptown/internal/apptown/secret"
@@ -64,7 +66,7 @@ func (h connectorHealth) check(ctx context.Context, capability, provider string,
 	case integration.CapSCM:
 		gl, err := configuredGitLab(ctx, h.secrets)
 		if err != nil {
-			return integration.Health{OK: false, Detail: err.Error()}, true
+			return integration.Health{NotSetUp: errors.Is(err, gitlab.ErrNotConfigured), OK: false, Detail: err.Error()}, true
 		}
 		var user struct {
 			Username string `json:"username"`

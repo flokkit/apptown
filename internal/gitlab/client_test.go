@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -126,5 +127,22 @@ func TestGitLabCredentialsStayAtTheConfiguredEndpoint(t *testing.T) {
 				t.Errorf("configured endpoint received %d requests; want one", got)
 			}
 		})
+	}
+}
+
+func TestPartialConfigurationIsBrokenRatherThanAbsent(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct{ base, token, missing string }{
+		{"https://gitlab.example", "", "GITLAB_TOKEN"},
+		{"", "token", "GITLAB_URL"},
+	} {
+		_, err := New(tc.base, tc.token)
+		if err == nil || errors.Is(err, ErrNotConfigured) || !strings.Contains(err.Error(), tc.missing) {
+			t.Errorf("partial configuration must identify missing %s as an error: %v", tc.missing, err)
+		}
+	}
+	_, err := New("", "")
+	if !errors.Is(err, ErrNotConfigured) {
+		t.Fatalf("empty configuration: %v", err)
 	}
 }

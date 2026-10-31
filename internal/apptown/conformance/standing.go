@@ -120,6 +120,9 @@ func standingFor(l Lanes, high, total int) (Standing, string) {
 		if high > 0 {
 			s += fmt.Sprintf(" (%d high)", high)
 		}
+		if l.Broken > 0 {
+			s += fmt.Sprintf(" · %d couldn't run", l.Broken)
+		}
 		return StandingDoesNot, s
 	case l.Broken > 0:
 		return StandingBroken, "Review incomplete · " + plural(l.Broken, "check couldn't run", "checks couldn't run")

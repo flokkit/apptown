@@ -81,7 +81,6 @@ export function TargetPage() {
   const addr = t.address as Record<string, string | number | undefined>
   const concrete: string[] = []
   if (addr.user && addr.hostname) concrete.push(`ssh ${addr.user}@${addr.hostname}${addr.port && addr.port !== 22 ? ':' + addr.port : ''}`)
-  if (addr.keyFrom) concrete.push(`key from secret ${addr.keyFrom}`)
   if (addr.url) concrete.push(String(addr.url))
   if (addr.urlFrom) concrete.push(`URL from secret ${addr.urlFrom}`)
   if (addr.apiKeyFrom) concrete.push(`API key from secret ${addr.apiKeyFrom}`)
@@ -160,7 +159,8 @@ export function TargetPage() {
 
         </details>
         <details className="target-settings"><summary>Settings</summary>
-        <DisplayLabelEdit value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
+        <DisplayLabelEdit keyLabel="Target ID" value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
+        {addr.keyFrom && <p className="small">SSH key: secret <code>{addr.keyFrom}</code> · <Link to="/integrations/secrets">Edit secret</Link></p>}
         <div className="muted small">{placeOf(t.kindInfo, t.address)}</div>
         <div className="muted small" style={{ marginTop: 6 }}>{facts.join(' · ')} · needs are {t.needsMode}</div>
         {t.ingress?.rehearsals === true && <div className="small" style={{ marginTop: 6 }}><b>Kept for restore rehearsals.</b> {rehearsalHostMeaning}</div>}

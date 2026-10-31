@@ -2708,6 +2708,20 @@ app:
 			t.Fatal(err)
 		}
 	}
+	if err := a.diskObserver.Run(ctx); err != nil {
+		t.Logf("worker disks remain unknown: %v", err)
+	}
+	// Page reads use recorded background evidence. Collect the disposable
+	// hosts before the camera checks their capacity and inventory.
+	if err := a.capacityObserver.Run(ctx, productionHost.ID, productionHost.SettingsRevision); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.capacityObserver.Run(ctx, previewHost.ID, previewHost.SettingsRevision); err != nil {
+		t.Logf("preview capacity remains unknown: %v", err)
+	}
+	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}).Run(ctx, productionHost.Name, nil); err != nil {
+		t.Fatal(err)
+	}
 	// Keep the test daemon's observations fresh during the whole-site walk.
 	observeCtx, cancelObserve := context.WithCancel(ctx)
 	observeDone := make(chan struct{})

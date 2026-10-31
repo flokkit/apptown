@@ -64,3 +64,9 @@ describe('infrastructure inventory availability', () => {
     expect(html).not.toContain('chip fail')
   })
 })
+
+it('keeps target facts and check help in the inventory summary', () => {
+  const html = show([target('host', { facts: '4 CPUs · 8 GB RAM', status: 'SSH answered' })])
+  expect(html).toContain('4 CPUs · 8 GB RAM')
+  expect(html).toContain('Target check: SSH answered')
+})

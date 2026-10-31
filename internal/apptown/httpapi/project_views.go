@@ -93,7 +93,7 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 	out := []ProjectRow{}
 	for _, p := range projects {
 		work := activity[p.ID]
-		out = append(out, ProjectRow{Project: p, ActiveItems: work.ActiveItems, DoneRuns: work.DoneRuns, LastRunAt: work.LastRunAt})
+		out = append(out, ProjectRow{Project: p, ActiveItems: work.ActiveItems, DoneRuns: work.DoneRuns, LastRunAt: work.LastRunAt, LastChangeTitle: work.LastChangeTitle})
 	}
 	counts, err := h.adrs.Counts(r.Context(), idList)
 	if err != nil {
@@ -243,12 +243,13 @@ func hasGitDirectory(dir string) bool {
 // is running.
 type ProjectRow struct {
 	project.Project
-	ActiveItems int        `json:"activeItems"`
-	AdrCount    int        `json:"adrCount"`
-	DoneRuns    int        `json:"doneRuns"`
-	LastRunAt   stamp.Time `json:"lastRunAt"`
-	Toolchain   []string   `json:"toolchain"`
-	ProdRunning *bool      `json:"prodRunning"`
+	ActiveItems     int        `json:"activeItems"`
+	AdrCount        int        `json:"adrCount"`
+	DoneRuns        int        `json:"doneRuns"`
+	LastRunAt       stamp.Time `json:"lastRunAt"`
+	LastChangeTitle string     `json:"lastChangeTitle"`
+	Toolchain       []string   `json:"toolchain"`
+	ProdRunning     *bool      `json:"prodRunning"`
 	// ProductionURL is the main/prod address, separate from the worst observation.
 	ProductionURL string `json:"productionUrl"`
 	// Deployed says the project has a main or prod deployment.

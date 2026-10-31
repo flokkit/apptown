@@ -150,8 +150,13 @@ needs a guard instead, as the ADR editor has.
 ## Reading at a glance
 
 Operational rows lead with a name, a status light and word, and at most one
-fact on a phone. Commands, identifiers and detailed evidence belong in closed
-disclosures. Backup history, activity, job groups, change events and departures
+fact on a phone. A row opens its secondary facts inline when clicked or activated with Enter
+or Space; links and actions keep their own meaning. Commands, identifiers and
+detailed evidence belong in that expansion or on the detail page. Disclosures
+are plain and reserved for long content needed rarely. Pack actions stay visible
+on their rows. Neutral states have no status dot. Conformance findings use amber
+counts; red failed labels describe checks that could not run. The attention
+header keeps the condition count beside the number of sources not known. Backup history, activity, job groups, change events and departures
 start with a bounded selection and offer the next ten records. Successful jobs
 with the same operation and subject collapse; failures and open jobs stay apart.
 The change page keeps its evidence on Work, after the tab navigation.

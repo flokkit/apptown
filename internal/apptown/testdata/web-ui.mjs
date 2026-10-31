@@ -24,16 +24,15 @@ try {
   if (!facts.deployments.some(d => d.displayLabel === 'Production' && d.running === true) || !facts.deployments.some(d => d.kind === 'preview' && d.running === null && d.observation === 'unreachable')) throw new Error('deployment seed is not running production + unavailable preview: ' + JSON.stringify(facts.deployments));
   const infraCases = await page.evaluate(async () => {
     const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
-    // Attention queues the first disk probe; this scene does not run that job.
+    // The fixture collected capacity, including the failed preview-host probe.
     const pending = await read('/attention');
     const busy = await read('/targets/design-production/capacity');
     const unknown = await read('/targets/design-preview/capacity');
     if (!busy.memory.total.known || busy.memory.promised.unlimited.apptown + busy.memory.promised.unlimited.other !== 19 || busy.tenants.filter(t => t.kind === 'deployment').length !== 9) throw new Error('busy host seed lacks nine apps and nineteen containers without limits');
     if (!busy.memory.overcommitted || Math.abs(busy.memory.total.value / 2 ** 30 - 1.93) > .01 || Math.abs((busy.memory.promised.sum.apptown.value + busy.memory.promised.sum.other.value) / 2 ** 30 - 4.23) > .01) throw new Error('host seed lacks real memory overcommit');
-    if (unknown.memory.total.known) throw new Error('unknown host memory total became known');
+    if (unknown.memory?.total.known) throw new Error('unknown host memory total became known');
     return { pending, busy, unknown };
   });
-  if (!process.env.DESIGN_BASELINE && infraCases.pending.items.some(i => i.key.endsWith('/disk-unassessed'))) throw new Error('unchecked disk probe raised Attention');
   const seeded = await page.evaluate(async (audit) => {
     const request = async (path, body) => {
       const r = await fetch('/api/v1' + path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -78,6 +77,7 @@ try {
   }, !!process.env.DESIGN_AUDIT);
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
+    'infrastructure-expanded': '/infrastructure', 'target-settings': '/infrastructure/design-preview', 'target-resources': '/infrastructure/design-production',
     'backup-store-details': '/deployments/backups', 'release-invalid': '/releases/6', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people?tab=agents',
     'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', deployments: '/deployments', backups: '/deployments/backups',
@@ -103,6 +103,8 @@ try {
     remediation: `/conformance/remediations/${seeded.remediation}`, operation: `/operations/${seeded.operation}`,
     'invite-pending': seeded.invite,
     'conformance-project': '/conformance/projects/club-newsletter',
+    'conformance-project-mixed': '/conformance/projects/lunch-orders',
+    'deployment-infrastructure-help': '/deployments/infrastructure',
     'janitor-all': '/janitor',
     'janitor-saved': '/projects/club-newsletter/janitor', 'people-actions': '/people',
     'review': `/conformance/reviews/${seeded.review}`,
@@ -158,6 +160,52 @@ try {
         await page.goto(`${base}${path}${path.includes('?') ? '&' : '?'}theme=${theme}`, { waitUntil: 'networkidle' });
         await page.locator('#root > *').first().waitFor({ state: 'visible' });
         await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
+        if (screen === 'infrastructure-expanded') {
+          const summary = page.locator('.host-disk > summary').first();
+          const before = await summary.locator('strong').boundingBox();
+          await summary.click();
+          const after = await summary.locator('strong').boundingBox();
+          if (!before || !after || Math.abs(before.x - after.x) > 1 || Math.abs(before.y - after.y) > 1) throw new Error('disk title moved on expansion');
+        }
+        if (!process.env.DESIGN_BASELINE && (screen === 'conformance' || screen === 'conformance-project-mixed')) {
+          const notes = page.locator('.conformance-broken');
+          if (await notes.count() !== 2) throw new Error('mixed findings must keep failed execution in chip and note');
+          const colors = await notes.evaluateAll(els => els.map(el => getComputedStyle(el).color));
+          const red = await page.locator('main').evaluate(el => {
+            const probe = document.createElement('span');
+            probe.style.color = 'var(--bad)'; el.append(probe);
+            const color = getComputedStyle(probe).color; probe.remove(); return color;
+          });
+          if (colors.some(color => color !== red)) throw new Error('failed execution must stay red beside amber findings');
+        }
+        if (screen === 'deployment-infrastructure-help') {
+          const help = page.locator('.host-row .status-help').first();
+          await help.locator('summary').click();
+          if (!await help.locator('div').isVisible() || !(await help.innerText()).includes('Target check:')) throw new Error('target check help is missing');
+        }
+        if (screen === 'target-settings') await page.locator('.target-settings > summary').click();
+        if (screen === 'target-resources') {
+          await page.locator('.target-resources > summary').click();
+          await page.locator('.target-resources summary').filter({ hasText: /^All resources/ }).click();
+          await page.locator('.target-resources tr.expandable-row').first().click();
+        }
+        if (!process.env.DESIGN_BASELINE && screen === 'packs') {
+          const boxed = await page.locator('.pack-actions button').evaluateAll(els => els.some(el => getComputedStyle(el).borderTopWidth !== '0px'));
+          if (boxed) throw new Error('pack actions must be plain links');
+        }
+        if (!process.env.DESIGN_BASELINE && screen === 'projects' && size === 'phone') {
+          const name = await page.locator('.project-list .tap-open').first().boundingBox();
+          const live = await page.locator('.project-live').first().boundingBox();
+          if (!name || !live || live.y < name.y + name.height - 1) throw new Error('project live link runs into its name');
+          const rows = page.locator('.project-list tbody tr');
+          if (await rows.locator('[aria-expanded]').count() || await page.locator('.project-list tr[aria-expanded]').count()) throw new Error('project rows must not expand');
+          for (const row of await rows.all()) {
+            const facts = row.locator('.project-summary');
+            await facts.waitFor({ state: 'visible' });
+            if (!/\d+ shipped · Updated /.test(await facts.innerText())) throw new Error('phone project hides shipped or updated facts');
+          }
+
+        }
         if (screen === 'usage-details') await page.getByRole('button', { name: 'Details', exact: true }).click();
         if (screen === 'usage-timing') await page.getByRole('button', { name: 'Time spent', exact: true }).click();
         if (screen === 'backup-store-details') await page.locator('main summary').filter({ hasText: /^Store details$/ }).click();

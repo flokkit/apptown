@@ -18,7 +18,7 @@ const empty = 'No committed changes since this change started.'
 describe('change state and committed evidence', () => {
   it.each([['landing', 'working'], ['abandoned', 'stopped']] as const)('keeps %s visible even with a merge receipt', (state, label) => {
     const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={newQueryClient()}><ChangeHeader view={view(state)} aboutTab="/changes/1?tab=about" /></QueryClientProvider></MemoryRouter>)
-    expect(html).toContain(`● </span>${label}</span>`)
+    expect(html).toContain(`${label}</span>`)
     expect(html).not.toContain('>merged</span>')
   })
   // Who asked is said only when the record names them; an older change

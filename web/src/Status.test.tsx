@@ -46,3 +46,9 @@ it('keeps help out of table layout and resets the global disclosure box', () => 
  const project = readFileSync('src/pages/Project.tsx', 'utf8') as string
  expect(project.slice(project.indexOf('function ProjectHeader')).match(/<h1>[\s\S]*?<\/h1>/)?.[0]).not.toContain('RuntimeStatus')
 })
+
+it.each(['none', 'not set up'] as const)('keeps %s neutral without a light', word => {
+ const html = renderToStaticMarkup(<Status word={word} tone="" />)
+ expect(html).toContain(word)
+ expect(html).not.toContain('aria-hidden')
+})

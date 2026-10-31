@@ -379,14 +379,13 @@ button.chat-starter { border: 1px solid var(--border); border-radius: 16px; padd
 /* For screen readers only: the word beside a status dot. */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* Disclosure folds: a real affordance, not a teeny triangle. Applies to
-   every <details> in the app — folds are a first-class control here. */
+/* Long, rarely needed evidence can use a plain disclosure. */
 details { margin-top: 10px; }
 details > summary {
   cursor: pointer; user-select: none; list-style: none;
   display: flex; align-items: center; gap: 8px;
   padding: 9px 14px; font-size: 14px; color: var(--text);
-  background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+  background: transparent; border: 0;
 }
 details > summary::-webkit-details-marker { display: none; }
 details > summary::before { content: '▸'; color: var(--muted); font-size: var(--fs-xs); }
@@ -1485,7 +1484,7 @@ button.page-help-q:hover, button.page-help-q[aria-expanded="true"] { color: var(
 .infra-add { padding: 16px 0; border: 0; }
 .wiz-kind { width: 100%; text-align: left; display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; padding: 16px 0; }
 .wiz-kind .infra-head { margin: 0; }
-.project-list td:first-child { width: 32%; min-width: 0; }
+.project-list td:first-child { min-width: 0; }
 .project-list td { vertical-align: middle; }
 .project-description { margin-top: 4px; max-width: 48ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 @media (max-width: 1000px) {
@@ -1600,8 +1599,8 @@ button.chat-starter { border-radius: var(--radius-sm); }
 .host-row > * { min-width: 0; overflow-wrap: anywhere; }
 .infra-grid > a.infra-card { display: block; padding: 16px 0; }
 .host-disk { border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; margin: 0; }
-.host-disk > summary { padding: 14px 0; list-style: none; }
-.host-disk > summary::before { content: none; }
+.host-disk > summary { display: grid; padding: 14px 0; list-style: none; }
+.host-disk > summary::before, .host-disk[open] > summary::before { content: none; }
 .host-disk > div { padding: 0 0 16px; }
 .capacity-summary { display: grid; grid-template-columns: 75px minmax(0, 1fr); gap: 8px 16px; margin: 12px 0; }
 .capacity-summary dt { color: var(--muted); }
@@ -1754,3 +1753,44 @@ button.chat-starter { border-radius: var(--radius-sm); }
 .check-states { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .check-states > span { display: inline-flex; align-items: center; gap: 4px; }
 .activity-ledger td { font-family: var(--font-sans); }
+
+.expandable-row { cursor: pointer; }
+.expandable-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.expandable-row:hover { background: var(--panel); }
+.row-expansion > td { padding: 12px 16px; }
+.resource-evidence { overflow-wrap: anywhere; }
+.project-avatar { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-right: 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--border); flex-shrink: 0; }
+.project-live { display: inline-block; margin-left: 12px; }
+.project-last-change { margin-top: 4px; }
+.deployment-rows > .row { display: flex; flex-direction: column; align-items: flex-start; }
+.pack-actions button { font-size: var(--fs-sm); }
+@media (max-width: 800px) {
+  table tr.row-expansion { display: block; }
+  table tr.row-expansion > td { display: block; padding: 0 0 12px; }
+  .row-expansion dl { margin: 0; }
+  .row-expansion dt { color: var(--muted); font-size: var(--fs-sm); }
+  .row-expansion dd { margin: 2px 0 12px; }
+  .project-live { margin: 4px 0 0; display: block; }
+  .project-avatar { width: 28px; height: 28px; margin-right: 6px; }
+  .pack-actions button { min-height: 44px; padding-inline: 8px; }
+}
+
+.expandable-row > td:first-child { position: relative; padding-right: 22px; }
+.expandable-row > td:first-child::after { content: '›'; position: absolute; right: 6px; top: 12px; color: var(--muted); }
+.expandable-row[aria-expanded="true"] > td:first-child::after { content: '⌄'; }
+@media (max-width: 800px) { .expandable-row > td:first-child::after { top: 0; } }
+
+button.link { border: 0; background: transparent; border-radius: 0; color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+button.link:hover { background: transparent; color: var(--accent); }
+button.link.danger { color: var(--bad); }
+@media (max-width: 800px) {
+  table.stack td.stack-lead > a.project-live { display: block; margin: 6px 0 0; }
+}
+
+/* Project rows open the project; their facts stay visible at every width. */
+.project-list tr:has(a.tap-open) { position: relative; }
+.project-list a.tap-open::after { content: ""; position: absolute; inset: 0; }
+.project-list tr:has(a.tap-open) :is(a:not(.tap-open), .status-help) { position: relative; z-index: 1; }
+.project-summary { margin-top: 4px; white-space: normal; }
+
+.conformance-broken { color: var(--bad); }

@@ -17,6 +17,7 @@ type ProjectActivity struct {
 	Changes, ActiveItems, DoneRuns, RunningRuns int
 	OpenChanges, OpenUplifts                    int
 	LastRunAt                                   stamp.Time
+	LastChangeTitle                             string
 }
 
 func (s *Service) ProjectActivity(ctx context.Context, project ids.ID) (map[ids.ID]ProjectActivity, error) {
@@ -43,7 +44,7 @@ func readProjectActivity(ctx context.Context, q database.Queryer, projects []ids
 		return nil, err
 	}
 	for _, row := range rows {
-		activity := ProjectActivity{Changes: int(row.Changes), ActiveItems: int(row.ActiveItems), DoneRuns: int(row.DoneRuns), RunningRuns: int(row.RunningRuns), OpenChanges: int(row.OpenChanges), OpenUplifts: int(row.OpenUplifts)}
+		activity := ProjectActivity{LastChangeTitle: row.LastChangeTitle, Changes: int(row.Changes), ActiveItems: int(row.ActiveItems), DoneRuns: int(row.DoneRuns), RunningRuns: int(row.RunningRuns), OpenChanges: int(row.OpenChanges), OpenUplifts: int(row.OpenUplifts)}
 		if row.HasLastRunAt {
 			activity.LastRunAt = stamp.Time{NullTime: sql.NullTime{Time: row.LastRunAt, Valid: true}}
 		}

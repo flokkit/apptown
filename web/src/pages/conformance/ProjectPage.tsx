@@ -5,7 +5,7 @@ import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import type { ConformanceFixList, ConformanceHistory, ConformanceView, CheckDefinition, Adjudication, Disposition, Lanes, PriorConfirmation, RemediationOpened } from '../../wire.gen'
 import { fmtWhen } from '../../format'
-import { type Verdict, laneOf, shortSha, StandingChip, StateChip, SevDot, LaneBar, HowJudged, Evidence, useStartRemediation } from './parts'
+import { type Verdict, laneOf, shortSha, StandingChip, BrokenNote, StateChip, SevDot, LaneBar, HowJudged, Evidence, useStartRemediation } from './parts'
 
 // --- one project ---------------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }
         </span>
         <span className="row" style={{ gap: 'var(--space-2)', flex: '0 0 auto' }}>
           {lane === 'flagged' && prior && <span className="muted small" title={`confirmed before at ${shortSha(prior.sha)} by ${prior.by}`}>confirmed before at {shortSha(prior.sha)}</span>}
-          <StateChip label={v.statusLabel} help={v.detail} />
+          <StateChip finding={v.state === 'does-not-conform'} label={v.statusLabel} help={v.detail} />
         </span>
       </div>
       {open && (
@@ -142,11 +142,11 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
           <div className="row" style={{ gap: 'var(--space-3)', alignItems: 'center' }}>
             <h2 style={{ margin: 0, textTransform: 'none', letterSpacing: 0 }}>{p.name || slug}</h2>
             {p.name && p.name !== slug && <span className="mono muted small">{slug}</span>}
-            <StandingChip label={p.statusLabel} help={p.sentence} />
+            <StandingChip broken={p.lanes.broken} findings={p.standing === 'does-not-conform' ? p.lanes.findings : undefined} label={p.statusLabel} help={p.sentence} />
             <LaneBar lanes={p.lanes} total={p.total} width={200} />
           </div>
           <div className="muted small mt-1">
-            {p.judgedAt ? <>Checked {fmtWhen(p.judgedAt)} · </> : <>Not checked yet · </>}
+            {p.lanes.findings > 0 && p.lanes.broken > 0 && <><BrokenNote broken={p.lanes.broken} />{' · '}</>}{p.judgedAt ? <>Checked {fmtWhen(p.judgedAt)} · </> : <>Not checked yet · </>}
             <Link to={`/projects/${slug}`} className="subtle">Open project →</Link>
           </div>
           <details className="small mt-1"><summary>{p.adopted.length} rules</summary><div className="muted">{p.adopted.join(', ') || 'None'}</div></details>
