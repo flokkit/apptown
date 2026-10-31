@@ -40,7 +40,7 @@ it('shows only the latest backup until history is opened, and caps that history 
   client.clear()
 })
 
-it('collapses completed repeats without merging another target, failures or waiting work', () => {
+it('groups successful work by kind across targets while preserving failures and waiting work', () => {
   const jobs = [
     { id: 5, kind: 'inventory', key: 'Kitchen', state: 'completed' },
     { id: 4, kind: 'inventory', key: 'Kitchen', state: 'completed' },
@@ -48,7 +48,7 @@ it('collapses completed repeats without merging another target, failures or wait
     { id: 2, kind: 'inventory', key: 'Kitchen', state: 'discarded' },
     { id: 1, kind: 'inventory', key: 'Kitchen', state: 'available' },
   ] as Job[]
-  expect(groupJobs(jobs).map(g => [g.job.id, g.count])).toEqual([[5, 2], [3, 1], [2, 1], [1, 1]])
+  expect(groupJobs(jobs).map(g => [g.job.id, g.count])).toEqual([[5, 3], [2, 1], [1, 1]])
 })
 
 it('keeps commands, approval credentials, comments and step identifiers behind Details', () => {

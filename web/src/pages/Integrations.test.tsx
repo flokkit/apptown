@@ -131,7 +131,7 @@ describe('the integrations list', () => {
     expect(row('authentik').querySelector('.chip')!.className).toContain('unknown')
     expect(row('authentik').textContent).toContain('unknown')
     expect(row('authentik').textContent).not.toContain('passed')
-    expect(row('authentik').textContent).toContain('no check')
+    expect(row('authentik').textContent).toContain('Not tested yet')
     expect(row('cache').textContent).toContain('passed')
     expect(row('gitlab').textContent).toContain('5m ago')
     // What names each one, counted; nothing named reads as a dash, not zero.

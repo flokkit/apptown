@@ -35,3 +35,12 @@ it('labels a release with its linked change number even outside the recent activ
   const entries = overviewActivity({ history: [] } as unknown as OverviewData, [], [], releases, 'club')
   expect(entries[0].title).toBe('Change 4 → Release 6')
 })
+
+it('shows one activity row for a change included in a release', () => {
+  const history = [{ changeId: 'change', changeNumber: 4, title: 'Fix photos', when: '2026-10-30', statusLabel: 'landed' }]
+  const releases = [{ number: 6, changes: [{ id: 'change', number: 4, title: 'Fix photos' }], statusLabel: 'deployed', deployment: 'main', releasedAt: '2026-10-31' }] as unknown as import('../../api').Release[]
+  const entries = overviewActivity({ history } as OverviewData, [], [], releases, 'club')
+  expect(entries).toHaveLength(1)
+  expect(entries[0].title).toBe('Change 4 → Release 6')
+  expect(entries[0].to).toBe('/projects/club/releases/6')
+})

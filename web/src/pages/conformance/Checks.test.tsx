@@ -20,6 +20,6 @@ it('shows a failure on a closed group of versions of the same check', () => {
  const failed = { projectSlug: 'two', state: 'does-not-conform', statusLabel: 'failed' }
  const view = { lens: { kind: 'current' }, adjudications: {}, checkDefs: { v1: { key: 'v1', title: 'Lint', adopters: [], block: 'style', check: 'lint', version: 1 }, v2: { key: 'v2', title: 'Lint', adopters: [], block: 'style', check: 'lint', version: 2 } }, byCheck: { v1: [passed], v2: [failed] } } as unknown as ConformanceView
  const html = renderToStaticMarkup(<MemoryRouter><ChecksList view={view} base="/conformance" /></MemoryRouter>)
- expect(html.slice(0, html.indexOf('</summary>'))).toContain('failed')
- expect(html.slice(0, html.indexOf('</summary>'))).toContain('2')
+ expect(html.slice(0, html.indexOf('</div>'))).toContain('failed')
+ expect(html.slice(0, html.indexOf('</div>'))).toContain('2')
 })

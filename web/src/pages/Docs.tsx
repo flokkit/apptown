@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { PRODUCT } from '../brand'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -146,10 +147,10 @@ function IntegrationDoc({ capability, provider }: { capability: string; provider
   return (
     <div>
       <StaleNote q={q} />
-      <div className="tabs" style={{ marginBottom: 12 }}>
+      <Tabs className="tabs" style={{ marginBottom: 12 }}>
         <button className={'tab' + (tab === 'developer' ? ' active' : '')} onClick={() => setTab('developer')}>Developer</button>
         <button className={'tab' + (tab === 'admin' ? ' active' : '')} onClick={() => setTab('admin')}>Admin</button>
-      </div>
+      </Tabs>
       <MdDoc content={tab === 'admin' ? docs.admin : docs.developer} file={`integrations/${capability}-${provider}.${tab}.md`} />
     </div>
   )

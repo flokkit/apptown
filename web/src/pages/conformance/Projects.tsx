@@ -4,14 +4,35 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, ProjectStanding } from '../../wire.gen'
 import { relTime } from '../../format'
-import { StandingChip, LaneBar } from './parts'
+import { StandingChip, LaneBar, laneOf } from './parts'
 
 // --- Projects (the front page) ---------------------------------------------------------------
 
-function ProjectRow({ p, base, onCheck }: { p: ProjectStanding; base: string; onCheck?: (slug: string) => void }) {
+export function projectFact(p: ProjectStanding, view: ConformanceView): string {
+  const observations = view.byProject[p.slug] ?? []
+  const lane = (v: typeof observations[number]) => laneOf(v, view.adjudications ?? {})
+  const problem = observations.find(v => lane(v) === 'findings')
+    ?? observations.find(v => lane(v) === 'broken')
+    ?? observations.find(v => lane(v) === 'flagged')
+  if (problem) {
+    const kind = lane(problem)
+    const definition = Object.values(view.checkDefs ?? {}).find(d => d.block === problem.block && d.version === problem.version && d.check === problem.check)
+    if (definition?.title) return `${kind === 'findings' ? 'Fix' : kind === 'flagged' ? 'Review' : 'Check could not run'}: ${definition.title}`
+    if (kind === 'flagged') return 'Review the possible problems.'
+    if (kind === 'broken') return 'A check could not run. Open for details.'
+    if (problem.detail && problem.detail.length <= 100) return problem.detail
+    return 'Open the failed check to see what needs fixing.'
+  }
+  if (p.lanes.unassessed || p.lanes.broken) return 'Some checks have no current result.'
+  if (p.lanes.flagged) return 'Review the possible problems.'
+  if (!p.total) return 'No checks recorded.'
+  return p.standing === 'conforms-with-exceptions' ? 'Exceptions are approved.' : 'Checks are up to date.'
+}
+
+function ProjectRow({ p, fact, base, onCheck }: { p: ProjectStanding; fact: string; base: string; onCheck?: (slug: string) => void }) {
   const narrow = useNarrow()
   if (narrow) return <div className="card"><Link to={`${base}/projects/${p.slug}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-    <div className="host-row"><strong>{p.name || p.slug}</strong><StandingChip label={p.statusLabel} help={p.sentence} /><span className="muted small">{p.total} checks</span></div>
+    <div className="host-row"><strong>{p.name || p.slug}</strong><StandingChip label={p.statusLabel} help={p.sentence} /><span className="muted small">{fact}</span></div>
   </Link>{onCheck && p.standing === 'conforms-so-far' && <details><summary>Actions</summary><button onClick={() => onCheck(p.slug)}>Check now</button></details>}</div>
   return (
     <div className="card" style={{ marginBottom: 0, padding: '10px 14px', textDecoration: 'none', color: 'inherit', display: 'block' }}>
@@ -26,7 +47,7 @@ function ProjectRow({ p, base, onCheck }: { p: ProjectStanding; base: string; on
         <span className="conformance-extra"><LaneBar lanes={p.lanes} total={p.total} /></span>
       </div>
       <div className="muted small mt-1">
-        {p.judgedAt ? `Checked ${relTime(p.judgedAt)}` : 'Not checked yet — open to check now'}
+        {fact} · {p.judgedAt ? `Checked ${relTime(p.judgedAt)}` : 'Not checked yet — open to check now'}
       </div>
       </Link>
       {onCheck && p.standing === 'conforms-so-far' && <button onClick={() => onCheck(p.slug)}>Check now</button>}
@@ -51,7 +72,7 @@ export function ProjectsList({ view, base, onCheck }: { view: ConformanceView; b
           style={{ maxWidth: 420, marginBottom: 'var(--space-1)' }} />
       )}
       {needle && all.length === 0 && <div className="muted small" style={{ padding: '8px 14px' }}>Nothing matches "{q}".</div>}
-      {loud.map((p) => <ProjectRow key={p.slug} p={p} base={base} onCheck={onCheck} />)}
+      {loud.map((p) => <ProjectRow key={p.slug} p={p} fact={projectFact(p, view)} base={base} onCheck={onCheck} />)}
       {quiet.length > 0 && (
         <div className="card" style={{ marginBottom: 0, padding: '10px 14px', cursor: 'pointer' }} onClick={() => setShowQuiet(!showQuiet)}>
           <span className="muted small">{showQuiet ? '▾' : '▸'} </span>
@@ -59,7 +80,7 @@ export function ProjectsList({ view, base, onCheck }: { view: ConformanceView; b
           <span className="small">{quiet.length} project{quiet.length === 1 ? '' : 's'} meet everything they adopted{showQuiet ? ':' : ` · ${quiet.map((p) => p.name || p.slug).join(', ')}`}</span>
         </div>
       )}
-      {showQuiet && quiet.map((p) => <ProjectRow key={p.slug} p={p} base={base} onCheck={onCheck} />)}
+      {showQuiet && quiet.map((p) => <ProjectRow key={p.slug} p={p} fact={projectFact(p, view)} base={base} onCheck={onCheck} />)}
       {none.length > 0 && <div className="muted small" style={{ padding: '4px 14px' }}>Nothing adopted: {none.map((p) => p.name || p.slug).join(', ')}.</div>}
     </div>
   )

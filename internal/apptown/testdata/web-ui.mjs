@@ -78,6 +78,7 @@ try {
   }, !!process.env.DESIGN_AUDIT);
   if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
+    'backup-store-details': '/deployments/backups', 'release-invalid': '/releases/6', 'usage-details': '/usage', 'usage-timing': '/usage', 'people-agents-expanded': '/people?tab=agents',
     'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', deployments: '/deployments', backups: '/deployments/backups',
     fleet: '/deployments/table', 'deployment-infrastructure': '/deployments/infrastructure', attention: '/attention', updates: '/updates',
@@ -86,7 +87,7 @@ try {
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations', 'fleet-ways': '/conformance/ways',
     integrations: '/integrations', slots: '/integrations/slots', 'service-kinds': '/integrations/services', secrets: '/integrations/secrets',
-    packs: '/packs', workflows: '/workflow-library', guidance: '/guidance', policies: '/policies',
+    packs: '/packs', workflows: '/workflows', guidance: '/guidance', policies: '/policies',
     'people-groups': '/people?tab=groups', 'people-signin': '/people?tab=signin', 'people-agents': '/people?tab=agents',
     evals: '/evals', 'eval-new': '/evals/new', people: '/people', account: '/account', usage: '/usage',
     complaints: '/complaints', 'complaints-answered': '/complaints/answered', 'complaints-archive': '/complaints/archive',
@@ -133,7 +134,7 @@ try {
   }
   routes['change-code'] = `/changes/${process.env.DESIGN_CHANGE}?tab=changes`;
   for (const tab of ['work', 'conversation', 'releases', 'history', 'about']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
-  Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflow-library', 'infrastructure-connection': '/infrastructure/new' });
+  Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflows', 'infrastructure-connection': '/infrastructure/new' });
   if (process.env.DESIGN_AUDIT) routes['change-advisory'] = `/changes/${seeded.advisory}`;
   if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
   const selected = new Set((process.env.DESIGN_PAGES || '').split(',').filter(Boolean));
@@ -157,6 +158,10 @@ try {
         await page.goto(`${base}${path}${path.includes('?') ? '&' : '?'}theme=${theme}`, { waitUntil: 'networkidle' });
         await page.locator('#root > *').first().waitFor({ state: 'visible' });
         await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
+        if (screen === 'usage-details') await page.getByRole('button', { name: 'Details', exact: true }).click();
+        if (screen === 'usage-timing') await page.getByRole('button', { name: 'Time spent', exact: true }).click();
+        if (screen === 'backup-store-details') await page.locator('main summary').filter({ hasText: /^Store details$/ }).click();
+        if (screen === 'people-agents-expanded') await page.locator('main details').evaluateAll(els => els.forEach(el => { el.open = true; }));
         if (screen === 'janitor-saved') {
           const saved = page.locator('main summary').filter({ hasText: /^Saved consent/ });
           await saved.click();
@@ -196,6 +201,7 @@ try {
         if (screen === 'workflow-new') await page.getByRole('button', { name: 'New workflow', exact: true }).click();
         if (screen === 'infrastructure-connection') await page.getByRole('button', { name: /Docker host/ }).click();
         await page.waitForLoadState('networkidle');
+        await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
         if (!process.env.DESIGN_BASELINE) await page.getByRole('heading', { level: 1 }).first().waitFor();
         await page.evaluate(() => document.fonts.ready);
         if (await page.locator('.update-note').count()) throw new Error(screen + ': false development update notice');
@@ -255,7 +261,7 @@ try {
             await page.setViewportSize(viewport);
           }
         }
-        if (!process.env.DESIGN_BASELINE && (screen === 'target' || screen === 'target-unknown')) {
+        if (screen === 'target' || screen === 'target-unknown') {
           for (const word of ['key from secret', 'needs are', 'promised', 'no limit', '/var/lib/docker']) if (words.includes(word)) throw new Error(screen + ': technical detail on the first view: ' + word);
           if (!(await page.locator('.capacity-summary').innerText()).includes('Memory')) throw new Error(screen + ': capacity summary missing');
         }
@@ -285,9 +291,24 @@ try {
           }));
           if (hidden) throw new Error(screen + ': active tab is outside its scrollable navigation');
         }
+        if (!process.env.DESIGN_BASELINE) {
+          const strips = await page.locator('.tabs').evaluateAll(els => els.map(el => {
+            const active = el.querySelector('.active, [aria-current="page"], [aria-selected="true"]');
+            const r = el.getBoundingClientRect(), a = active?.getBoundingClientRect();
+            return { rows: new Set([...el.children].map(c => Math.round(c.getBoundingClientRect().top))).size, hidden: a && (a.left < r.left - 1 || a.right > r.right + 1) };
+          }));
+          if (strips.some(s => s.rows > 1 || s.hidden)) throw new Error(screen + ': tabs wrap or active tab is hidden');
+          if (screen === 'usage' && !await page.locator('.usage-chart').count()) throw new Error('Usage Summary is empty');
+          if (screen === 'workflows' && !await page.getByRole('button', { name: 'New workflow', exact: true }).count()) throw new Error('Workflows is empty');
+          if (screen === 'people-agents' && !(await page.locator('.agent-group').first().innerText()).includes('×5')) throw new Error('duplicate agents not grouped');
+          if (screen === 'docs') {
+            const exposed = await page.locator('.docs-group:not([open]) .conn-subnav-item').evaluateAll(els => els.some(el => el.getClientRects().length && el.checkVisibility()));
+            if (exposed) throw new Error('closed docs group exposes its contents');
+          }
+        }
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
         const clipped = await page.locator('main *').evaluateAll(els => els.filter(el => {
-          if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || el.matches('.ch-tabs') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
+          if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || el.matches('.tabs') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
           const style = getComputedStyle(el);
           return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
         }).map(el => ({ tag: el.tagName, class: el.className, text: el.textContent.slice(0, 100) })));
@@ -297,6 +318,24 @@ try {
         captures.push({ screen, path, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, clipped });
         await writeFile(`${out}/pages-progress.json`, JSON.stringify(captures, null, 2));
         console.log('captured', screen, size, theme, overflow ? 'OVERFLOW' : '');
+        if (!process.env.DESIGN_BASELINE && screen === 'change-history') {
+          const rows = page.locator('.event-log details');
+          if (!(await rows.count())) throw new Error('activity row disclosures missing');
+          if ((await rows.locator('summary').allTextContents()).some(text => text.includes('Details'))) throw new Error('separate activity Details button');
+          const repeated = rows.filter({ hasText: 'Connection checked ×5' });
+          await repeated.locator('summary').click();
+          if (!(await repeated.evaluate(el => el.open))) throw new Error('activity row did not open');
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-expanded.png`, fullPage: true });
+        }
+        if (screen === 'jobs') {
+          // Repeated completed jobs follow unfinished work; expose their actual
+          // history without filtering or replacing any of the rows.
+          for (let more = 0; more < 50 && await page.getByRole('button', { name: 'Show 10 more', exact: true }).count(); more++) {
+            await page.getByRole('button', { name: 'Show 10 more', exact: true }).click();
+          }
+          await page.evaluate(() => window.scrollTo(0, 0));
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-history.png`, fullPage: true });
+        }
         if (!process.env.DESIGN_BASELINE && screen === 'people') {
           await page.getByLabel('Actions for sam', { exact: true }).click();
           await page.getByRole('button', { name: 'set password', exact: true }).waitFor();
@@ -312,6 +351,7 @@ try {
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-permissions.png`, fullPage: true });
         }
         if (!process.env.DESIGN_BASELINE && screen === 'change') {
+          await page.locator('summary').filter({ hasText: /^Evidence$/ }).click();
           const checks = page.locator('.ch-receipt');
           if (!(await checks.locator('summary').allTextContents()).some(text => text.includes('Tests'))) throw new Error('missing own check name');
           await checks.first().locator('summary').click();
@@ -331,7 +371,7 @@ try {
           await page.getByRole('button', { name: 'Restore', exact: true }).waitFor();
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-restore-question.png`, fullPage: true });
         }
-        if (!process.env.DESIGN_BASELINE && (screen === 'target' || screen === 'target-unknown')) {
+        if (screen === 'target' || screen === 'target-unknown') {
           await page.locator('.capacity-details, .cap-details, .target-deployments, .target-settings').evaluateAll(els => els.forEach(el => { el.open = true; }));
           await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-details.png`, fullPage: true });
           if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error(screen + ': open details overflow');
@@ -348,7 +388,6 @@ try {
       await page.locator('form').waitFor();
       await mkdir(`${out}/login`, { recursive: true });
       const words = await page.locator('body').innerText();
-        if (screen === 'target' && !process.env.DESIGN_BASELINE && !words.includes('Apps may need more memory than this host has.')) throw new Error('host memory warning missing before Details');
       await page.screenshot({ path: `${out}/login/${size}-${theme}.png`, fullPage: true });
       captures.push({ screen: 'login', path: '/', size, theme, words: words.trim().split(/\s+/).length, headings: await page.getByRole('heading', { level: 1 }).allTextContents(), overflow: false });
     }

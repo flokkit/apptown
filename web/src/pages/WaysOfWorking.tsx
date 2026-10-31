@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { PageHead } from '../PageHead'
 import { NavLink } from 'react-router-dom'
 import Packs from './Packs'
@@ -15,7 +16,7 @@ export type WowTab = 'packs' | 'workflows' | 'guidance' | 'policies'
 
 const TABS: { key: WowTab; to: string; label: string }[] = [
   { key: 'packs', to: '/packs', label: 'Packs' },
-  { key: 'workflows', to: '/workflow-library', label: 'Workflows' },
+  { key: 'workflows', to: '/workflows', label: 'Workflows' },
   { key: 'guidance', to: '/guidance', label: 'Guidance' },
   { key: 'policies', to: '/policies', label: 'Policies' },
 ]
@@ -24,11 +25,11 @@ export default function WaysOfWorking({ tab }: { tab: WowTab }) {
   return (
     <div>
       <PageHead page="waysOfWorking" />
-      <div className="tabs">
+      <Tabs className="tabs">
         {TABS.map((t) => (
           <NavLink key={t.key} to={t.to} className={() => 'tab' + (tab === t.key ? ' active' : '')}>{t.label}</NavLink>
         ))}
-      </div>
+      </Tabs>
       {tab === 'packs' && <Packs />}
       {tab === 'workflows' && <WorkflowLibrary />}
       {tab === 'guidance' && <GuidanceLibrary />}

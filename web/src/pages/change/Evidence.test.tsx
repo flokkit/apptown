@@ -176,9 +176,9 @@ describe('a finished run with a tests receipt', () => {
  })
  for (const [name, evidence, note] of [
   ['skips', { testCounts: { passed: 41, failed: 0, skipped: 3 }, skippedTests: ['ex/store TestImport'] }, '41 passed, 3 skipped'],
-  ['no report', { testReport: 'the test command wrote no report to $APPTOWN_TEST_REPORT, so how many tests ran or were skipped is not known' }, 'test counts not reported'],
+  ['no report', { testReport: 'the test command wrote no report to $APPTOWN_TEST_REPORT, so how many tests ran or were skipped is not known' }, 'Number of tests unknown'],
   ['an unreadable report', { testReport: 'the test report could not be read (…)', testReportUnreadable: 'line 3 of the report is not a go test -json event' }, 'test report unreadable: line 3 of the report is not a go test -json event'],
-  ['a receipt from before reports', {}, 'test counts not reported'],
+  ['a receipt from before reports', {}, 'Number of tests unknown'],
  ] as const) {
   it(`shows ${name} without folding`, () => {
    const html = rendered(tests(evidence))

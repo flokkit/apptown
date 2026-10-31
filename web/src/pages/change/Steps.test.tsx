@@ -106,7 +106,7 @@ describe('step cards say what the record holds', () => {
   it('shows skips and unknown counts on the folded card', () => {
     for (const [evidence, note] of [
       [{ testCounts: { passed: 41, failed: 0, skipped: 3 } }, '41 passed, 3 skipped'],
-      [{ testReport: 'no report' }, 'test counts not reported'],
+      [{ testReport: 'no report' }, 'Number of tests unknown'],
       [{ testCounts: { passed: 44, failed: 0, skipped: 0 } }, '44 passed'],
     ] as const) {
       const { el, done } = render(tests(evidence))

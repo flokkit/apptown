@@ -13,8 +13,8 @@ it('distinguishes a clean assessment from incomplete checks, evaluator errors an
   const html = renderToStaticMarkup(<MemoryRouter><ReviewsList /></MemoryRouter>)
   expect(html).toContain('Not fully checked')
   expect(html).toContain('Checks could not run')
-  expect(html).toContain('Needs your review')
-  expect(html).toContain('0 problems at this check')
+  expect(html).toContain('1 possible problem to review')
+  expect(html).toContain('0 confirmed problems at this review')
 })
 
  it('keeps a failed review distinct from quiet completion and shows live progress', () => {

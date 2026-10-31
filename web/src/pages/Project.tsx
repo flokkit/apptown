@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { PhoneDetails } from '../GlanceRow'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
@@ -81,14 +82,14 @@ export default function Project() {
       {tab === 'overview' && <ApplicationOverview project={project} />}
       {tab === 'security' && (
         <>
-          <div className="tabs">
+          <Tabs className="tabs">
             {SECURITY_TABS.map((t) => (
               <NavLink key={t} to={`/projects/${slug}/security/${t}`}
                 className={({ isActive }) => 'tab' + (isActive || (t === 'findings' && !rawStab) ? ' active' : '')}>
                 {t[0].toUpperCase() + t.slice(1)}
               </NavLink>
             ))}
-          </div>
+          </Tabs>
           {secTab === 'findings' && <FindingsTab slug={slug!} />}
           {secTab === 'suppressions' && <SuppressionsTab slug={slug!} />}
         </>
@@ -97,14 +98,14 @@ export default function Project() {
       {tab === 'releases' && <ReleasePermalinkPage slug={slug!} number={rawStab} />}
       {tab === 'settings' && (
         <>
-          <div className="tabs">
+          <Tabs className="tabs">
             {SETTINGS_TABS.map((t) => (
               <NavLink key={t} to={`/projects/${slug}/settings/${t}`}
                 className={() => 'tab' + (setTab === t ? ' active' : '')}>
                 {SETTINGS_LABEL[t]}
               </NavLink>
             ))}
-          </div>
+          </Tabs>
           {setTab === 'general' && <GeneralTab project={project} current={projectCurrent} onChanged={load} />}
           {setTab === 'working' && <GuidanceTab slug={slug!} />}
           {setTab === 'services' && (

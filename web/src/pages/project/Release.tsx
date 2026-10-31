@@ -35,9 +35,7 @@ function ReleasePage({ slug }: { slug: string }) {
 
   // Without a plan there is nothing to offer: never a release button.
   if (!plan) return <ReadStatus q={planQ} what="the release plan" />
-  const blocker =
-    !plan.configured ? plan.configError || 'Choose a release environment in project settings.' :
-    !plan.head ? 'nothing has landed yet' : ''
+  const blocker = !plan.head ? 'Nothing has landed yet.' : ''
 
   return (
     <div style={{ maxWidth: 760 }}>
@@ -45,7 +43,7 @@ function ReleasePage({ slug }: { slug: string }) {
       {choiceSaved && <p role="status">Release preference saved. No release has started; review the plan before releasing.</p>}
       {choiceOpen && <ReleaseChoice slug={slug} onConfigured={() => { setChoiceSaved(true); setChoiceOpen(false) }} />}
       <div className="card" style={{ padding: 20, marginTop: 14 }}>
-        <h2 style={{ marginTop: 0 }}>Release to {plan.deploymentLabel || plan.deployment || 'an environment'}</h2>
+        <h2 style={{ marginTop: 0 }}>{plan.configured ? `Release to ${plan.deploymentLabel || plan.deployment}` : 'Choose where to release'}</h2>
         <p className="muted" style={{ marginTop: 4 }}>
           Release checks run before deployment.
         </p>
@@ -82,8 +80,8 @@ function ReleasePage({ slug }: { slug: string }) {
           </div>
         )}
         {!plan.configured && !choiceOpen && <button onClick={() => setChoiceOpen(true)}>Choose release preference</button>}
-        {blocker
-          ? <div className="error" style={{ marginTop: 12 }}>{blocker} {!plan.configured && <Link to={`/projects/${slug}/settings/deployments`}>Open deployment settings</Link>}</div>
+        {!plan.configured ? <details><summary>Release setup</summary>{plan.configError && <p>{plan.configError}</p>}<Link to={`/projects/${slug}/settings/deployments`}>Deployment settings</Link></details> : blocker
+          ? <div className="error" style={{ marginTop: 12 }}>{blocker}</div>
           : (
             <button className="primary btn-door" disabled={busy} onClick={fire} style={{ marginTop: 12 }}>
               {busy ? 'Releasing…' : '🏢 Release it'}
@@ -101,6 +99,7 @@ function ReleasePage({ slug }: { slug: string }) {
 function ReleaseChoice({ slug, onConfigured }: { slug: string; onConfigured: () => void }) {
   const deployments = useGet<DeploymentView[]>(`/projects/${slug}/deployments`)
   if (!deployments.data) return <ReadStatus q={deployments} what="the project's deployments" />
+  if (!deployments.data.some(d => d.kind === 'standing' && d.name !== 'main' && d.feed !== 'landing')) return <><StaleNote q={deployments} /><p>No environment is available for a manual release. <Link to={`/projects/${slug}/settings/deployments`}>Add a release environment in deployment settings</Link>.</p></>
   return <><StaleNote q={deployments} /><ReleaseDefaultPicker slug={slug} deployments={deployments.data} onConfigured={onConfigured} /></>
 }
 

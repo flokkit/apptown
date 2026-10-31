@@ -1,6 +1,6 @@
 import {
   siGitlab, siDocker, siAnthropic, siOpenrouter, siTrivy, siClaude,
-  siOllama, siVllm, siGithub, siKubernetes,
+  siOllama, siVllm, siGithub, siKubernetes, siDigitalocean,
   siNpm, siPypi, siRust, siGo, siNodedotjs, siApachemaven,
 } from 'simple-icons'
 
@@ -15,7 +15,7 @@ const BRANDS: Record<string, Brand> = {
   openrouter: siOpenrouter, trivy: siTrivy, claude: siClaude,
   ollama: siOllama, vllm: siVllm, github: siGithub, kubernetes: siKubernetes,
   npm: siNpm, pypi: siPypi, rust: siRust, go: siGo, node: siNodedotjs,
-  maven: siApachemaven,
+  maven: siApachemaven, digitalocean: siDigitalocean,
 }
 
 // Stroke glyphs for providers simple-icons lacks (or generic capabilities).
@@ -81,6 +81,7 @@ export function iconForBinding(b: { name: string; capability: string; provider: 
     }
     return m[f] ?? 'registry'
   }
+  if (b.provider === 'digitalocean' || b.capability === 'cloud-account') return 'digitalocean'
   if (b.provider === 'gitlab') return 'gitlab'
   if (b.provider === 'infisical' || b.capability === 'secrets') return 'infisical'
   if (b.capability === 'deploy') return 'deploy'

@@ -28,10 +28,10 @@ export function FindingsTab({ slug }: { slug: string }) {
     <div>
       <StaleNote q={q} />
       <div className="row" style={{ marginBottom: 12 }}>
-        <Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} />
-        <span>{data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length && !unread.length ? 'No problems found in the last scan.' : 'Scan results not available.'}</span>
+        <Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} text={data.repo?.stale ? 'Scan out of date' : undefined} />
+        <span>{data.summary.actionable > 0 ? `${data.summary.actionable} problems to fix` : data.sources.length && !unread.length ? data.repo?.stale ? 'No problems found in the last scan; main has changed since. Open a change to scan the latest code.' : 'No problems found in the last scan.' : 'Scan results not available.'}</span>
       </div>
-      {data.repo?.stale && <p>Not scanned since main changed. <Link to={`/projects/${slug}`}>Open a change to scan the latest code</Link>.</p>}
+      {data.repo?.stale && (data.summary.actionable > 0 || unread.length > 0) && <p>Not scanned since main changed. <Link to={`/projects/${slug}`}>Open a change to scan the latest code</Link>.</p>}
       <details style={{ marginBottom: 12 }}><summary>Scan details</summary>
         {data.sources.length === 0 && <p>No scans yet.</p>}
         {data.sources.map(s => <p key={s.binding}>

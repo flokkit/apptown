@@ -18,8 +18,9 @@ type ActivityEntry = { id: string; when: string; title: string; source: string; 
 // Keep each recorded fact attached to its source. A runtime observation is
 // neither release evidence nor an approval.
 export function overviewActivity(data: OverviewData, deployments: DeploymentView[], backups: Backup[], releases: Release[], slug: string): ActivityEntry[] {
+  const released = new Set(releases.flatMap(r => (r.changes ?? []).map(c => c.id)))
   return [
-    ...data.history.map(c => ({ id: `change-${c.changeId}`, when: c.when, title: c.title, source: `Change #${c.changeNumber}`, word: c.statusLabel, to: `/changes/${c.changeId}` })),
+    ...data.history.filter(c => !released.has(c.changeId)).map(c => ({ id: `change-${c.changeId}`, when: c.when, title: c.title, source: `Change #${c.changeNumber}`, word: c.statusLabel, to: `/changes/${c.changeId}` })),
     ...releases.map(r => ({ id: `release-${r.number}`, when: r.releasedAt || r.createdAt, title: r.changes?.length === 1 ? `Change ${r.changes[0].number} → Release ${r.number}` : `Release ${r.number}`, source: r.deployment, word: r.statusLabel, to: `/projects/${slug}/releases/${r.number}` })),
   ].sort((a, b) => b.when.localeCompare(a.when))
 }
@@ -62,7 +63,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     <section className="application-stream">
       <div className="application-section-head"><h2>Activity</h2></div>
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
-      <table className="activity-ledger"><thead><tr><th>When</th><th>What happened</th><th>Source</th><th>State</th></tr></thead><tbody>{events.slice(0, activityCount).map(e => <GlanceRow name={1} state={3} fact={0} labels={["When", "Event", "Source", "State"]} key={e.id}><td>{fmtWhen(e.when)}</td><td><Link to={e.to}>{e.title}</Link></td><td>{e.source}</td><td><Status word={e.word} tone={STATUS_LIGHT[e.word]} help={e.help} /></td></GlanceRow>)}</tbody></table>
+      <table className="activity-ledger"><thead><tr><th>When</th><th>What happened</th><th>Source</th><th>State</th></tr></thead><tbody>{events.slice(0, activityCount).map(e => <GlanceRow name={1} state={3} fact={0} labels={["When", "Event", "Source", "State"]} key={e.id}><td>{fmtWhen(e.when)}</td><td><Link to={e.to}>{e.title}</Link></td><td>{e.source}</td><td><Status word={e.word} tone={STATUS_LIGHT[e.word]} text={e.word === 'stopped' ? 'Cancelled' : undefined} help={e.help} /></td></GlanceRow>)}</tbody></table>
       {events.length > activityCount && <button onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button>}
       {data && !events.length && <p className="muted">No activity yet.</p>}
     </section>

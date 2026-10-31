@@ -27,8 +27,8 @@ describe("a target's capacity", () => {
       disk: { total: fig(719e9), free: fig(512e9), low: false, refuses: false },
     })
     expect(html).toContain('A fixed host: it does not grow.')
-    expect(html).toContain('29 with no limit')
-    expect(html).toContain('1 with a limit not read (the sum is partial)')
+    expect(html).toContain('29 without a set limit')
+    expect(html).toContain('1 limit could not be read (the total is partial)')
     expect(html).toContain('4.5 CPUs')
     expect(html).toContain('free of')
     expect(html).not.toContain('overcommitted</span>')
@@ -86,19 +86,19 @@ describe("a target's capacity", () => {
     expect(html).toContain('aria-label="memory used:')
     // The deployment's own segment links to it, not only its table row.
     expect(html).toMatch(/<a class="cap-seg cap-deployment"[^>]*href="\/projects\/shop\/settings\/deployments"/)
-    expect(html).toContain('1 no limit')
+    expect(html).toContain('1 without a set limit')
     expect(html).toContain('free not known')
     expect(html).toContain('not one machine')
     const usedLabel = html.match(/aria-label="(memory used:[^"]*)"/)![1]
-    expect(usedLabel).toContain('not read')
+    expect(usedLabel).toContain('not known')
     expect(usedLabel).not.toMatch(/\bfree \d/)
-    expect(html).toContain('the numbers')
+    expect(html).toContain('App resource details')
     // A holder none of whose containers has a limit says so, never "0 B".
     const noLimit = render({
       memory, cpu: { ...memory, total: fig(8), hostUsed: undefined },
       tenants: [{ kind: 'other', name: 'other containers', containers: 3, used: fig(2 ** 20), promised: fig(0), unlimited: 3, cpus: 0, cpuUnlimited: 3, cpuUnread: 0 }],
     })
-    expect(noLimit).toMatch(/other containers<\/td><td>3<\/td><td>[^<]+<\/td><td>no limit<\/td>/)
+    expect(noLimit).toMatch(/other containers<\/td><td>3<\/td><td>[^<]+<\/td><td>without a set limit<\/td>/)
   })
 
   it('says a CPU promise is partial when a limit was not read, never 0 or unpromised', () => {
@@ -110,28 +110,30 @@ describe("a target's capacity", () => {
         { kind: 'deployment', name: 'b/main', project: 'b', deployment: 'main', containers: 1, used: fig(2 ** 20), promised: fig(2 ** 28), unlimited: 0, cpus: 2, cpuUnlimited: 0, cpuUnread: 1 },
       ],
     })
-    expect(html).toContain('at least 2 CPUs of 8 CPUs · 2 limits not read')
-    const cpuLabel = html.match(/aria-label="(CPUs promised:[^"]*)"/)![1]
-    expect(cpuLabel).not.toContain('not promised')
+    expect(html).toContain('at least 2 CPUs of 8 CPUs · could not read 2 limits')
+    const cpuLabel = html.match(/aria-label="(CPU limits:[^"]*)"/)![1]
+    expect(cpuLabel).not.toContain('without a set limit')
     expect(cpuLabel).toContain('not read')
-    expect(html).toMatch(/a\/main<\/a><\/td>(<td>[^<]*<\/td>){4}<td>1 not read<\/td>/)
-    expect(html).toMatch(/b\/main<\/a><\/td>(<td>[^<]*<\/td>){4}<td>at least 2 CPUs \(1 not read\)<\/td>/)
+    expect(html).toMatch(/a\/main<\/a><\/td>(<td>[^<]*<\/td>){4}<td>1 limit could not be read<\/td>/)
+    expect(html).toMatch(/b\/main<\/a><\/td>(<td>[^<]*<\/td>){4}<td>at least 2 CPUs \(1 limit could not be read\)<\/td>/)
   })
 })
 
 
 it('leads with host facts and keeps limits, paths and bars behind Details', () => {
   const memory = { total: fig(8 * 2 ** 30), hostUsed: fig(2 * 2 ** 30), promised: { sum: { apptown: fig(10 * 2 ** 30), other: fig(0) }, limited: count(1, 0), unlimited: count(19, 0), unread: count(0, 0) }, overcommitted: true }
-  const c = { memory, disk: { total: fig(49 * 2 ** 30), free: fig(23 * 2 ** 30), path: '/var/lib/docker', low: false, refuses: false }, tenants: Array.from({ length: 9 }, (_, i) => ({ name: `app-${i}`, kind: 'deployment', containers: 1, used: fig(0), promised: fig(0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 })) }
+  const c = { memory, disk: { total: fig(49 * 2 ** 30), free: fig(23 * 2 ** 30), path: '/var/lib/docker', low: false, refuses: false }, tenants: Array.from({ length: 9 }, (_, i) => ({ name: `app-${i}`, kind: 'deployment', containers: 1, used: fig(0), promised: fig(i === 0 ? 10 * 2 ** 30 : 0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 })) }
   const html = render(c)
   const front = html.split('<details')[0]
   expect(front).toContain('2 GB used of 8 GB')
   expect(front).toContain('23 GB free of 49 GB')
   expect(front).toContain('9 running')
   expect(front).toContain('Apps may need more memory than this host has.')
-  expect(front).not.toMatch(/promised|no limit|not read|app-0|var\/lib|role="img"/)
+  expect(front).toContain('<dt>Memory use</dt>')
+  expect(front).not.toMatch(/promised|without a set limit|not read|app-0|var\/lib|role="img"/)
   expect(html).toContain('<summary>Details</summary>')
+  expect(html).toContain('over by 2.00 GB')
   const unknown = render({ ...c, memory: { ...memory, total: none('host unavailable') } }).split('<details')[0]
-  expect(unknown).toContain('<dt>Memory</dt><dd>not known</dd>')
+  expect(unknown).toContain('<dt>Memory use</dt><dd>not known</dd>')
   expect(unknown).not.toContain('used of')
 })

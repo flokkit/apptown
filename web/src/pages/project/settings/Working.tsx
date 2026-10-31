@@ -457,7 +457,7 @@ export function WorkflowsTab({ slug }: { slug: string }) {
       <StaleNote q={q} />
       <details className="small"><summary>About adoption</summary><p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
         Select the workflows this project uses. Every run takes the version recorded in the project's adoption record above and
-        records which one ran. To change how a workflow works, clone it in <Link to="/workflow-library">Ways of working</Link> and tick the clone here.
+        records which one ran. To change how a workflow works, clone it in <Link to="/workflows">Ways of working</Link> and tick the clone here.
       </p></details>
       {TIERS.map(([k, label, gloss]) => (
         <div key={k}>

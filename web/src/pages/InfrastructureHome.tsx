@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { useState } from 'react'
 import { useHostStates } from '../hostState'
 import { useAttention } from '../attention'
@@ -22,6 +23,9 @@ const JOB_WORDS: Record<string, string> = {
   'worker-observation': 'Check worker', 'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
   'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow',
   'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
+  'deployment-release': 'Release an app', 'deployment-recovery': 'Restore an app', 'restore-check': 'Check restored apps', 'restored-copy-sweep': 'Remove expired test copies',
+  'installation-marks': 'Record installed resources', 'project-cleanup': 'Clean up project files',
+  'project-deletion-pass': 'Remove deleted apps', 'project-purge-pass': 'Remove expired projects',
 }
 const jobReceipt = (j: Job) => {
   if (j.error) return j.error
@@ -52,10 +56,10 @@ export function InfrastructureHome() {
       <PageHead page="infrastructure" />
       {tab === 'targets' && <details className="small"><summary>Options</summary><button className="subtle" onClick={refresh} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh all'}</button></details>}
       {refreshErr && <div className="error">The inventory could not be refreshed: {refreshErr}</div>}
-      <div className="tabs" style={{ marginTop: 10 }}>
+      <Tabs className="tabs" style={{ marginTop: 10 }}>
         <NavLink to="/infrastructure" end className={() => 'tab' + (tab === 'targets' ? ' active' : '')}>Deployment targets</NavLink>
         <NavLink to="/infrastructure/jobs" className={() => 'tab' + (tab === 'jobs' ? ' active' : '')}>Job queue</NavLink>
-      </div>
+      </Tabs>
       {tab === 'targets' && <OwnDisks />}
       {tab === 'targets' && <div style={{ marginTop: 16 }}><DeletedProjects /></div>}
       {tab === 'jobs' ? <JobQueue /> : <div className="infra-grid" style={{ marginTop: 16 }}>
@@ -125,7 +129,7 @@ export function groupJobs(jobs: Job[]): { job: Job; count: number }[] {
   const groups = new Map<string, { job: Job; count: number }>()
   for (const job of jobs) {
     // Only successful repeats collapse; failures and open work stay separate.
-    const key = job.state === 'completed' ? `${job.kind}/${job.key}` : String(job.id)
+    const key = job.state === 'completed' ? job.kind : String(job.id)
     const group = groups.get(key)
     if (group) group.count++
     else groups.set(key, { job, count: 1 })
@@ -154,9 +158,9 @@ function JobQueue() {
               <tbody>
                 {groups.slice(0, count).map(({ job: j, count: repeats }) => (
                   <GlanceRow name={0} state={1} fact={2} labels={["Job", "State", "When", "Outcome"]} key={j.id}>
-                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? 'Background task'}{typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</td>
+                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? j.kind.replaceAll('-', ' ')}{repeats === 1 && typeof j.receipt?.target === 'string' && <> on {j.receipt.target}</>}{repeats > 1 && <span className="muted"> · {repeats} done</span>}</td>
                     <td className="stack-end"><Status word={j.statusLabel} tone={STATUS_LIGHT[j.statusLabel]} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
-                    <td className="muted">{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
+                    <td className="muted">{j.finishedAt ? 'Finished ' : j.startedAt ? 'Started ' : 'Queued '}{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
                     <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}<details className="inline-detail"><summary>Technical details</summary><div>{j.kind}</div><code className="job-key">{j.key}</code></details></td>
                   </GlanceRow>
                 ))}

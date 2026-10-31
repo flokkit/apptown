@@ -1,3 +1,4 @@
+import { GlanceRow } from '../../GlanceRow'
 import { Status, STATUS_LIGHT } from '../../Status'
 import { PRODUCT } from '../../brand'
 import { FormEvent, useEffect, useState } from 'react'
@@ -277,22 +278,28 @@ export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runI
   const [count, setCount] = useState(10)
   const runs = view.runs ?? []
   const events = view.detail?.events ?? []
+  const groups: typeof events[] = []
+  for (const event of [...events].reverse()) {
+    const prior = groups.at(-1)
+    if (prior && eventTitle(prior[0].kind) === eventTitle(event.kind)) prior.push(event)
+    else groups.push([event])
+  }
   return (
     <div className="ch-tab-stack">
       <section>
-        <h3>Runs ({runs.length})</h3>
+        <h3>Work history ({runs.length})</h3>
         {runs.length === 0 ? <div className="muted">No run has started on this change.</div> : (
           <table className="stack">
             <thead><tr><th>Run</th><th>Workflow</th><th>Role</th><th>Result</th><th>Updated</th></tr></thead>
             <tbody>
               {runs.slice(0, count).map((r) => (
-                <tr key={r.id}>
-                  <td><Link className="tap-open" to={runHref(r.id!)} title={`started ${fmtStamp(r.createdAt)}`}>run {r.number}</Link></td>
-<td className="stack-lead"><details><summary>Workflow details</summary>{r.workflowName}</details></td>
+                <GlanceRow name={0} state={3} fact={4} labels={["Work", "Workflow", "Role", "Result", "Updated"]} key={r.id}>
+                  <td><Link className="tap-open" to={runHref(r.id!)} title={`started ${fmtStamp(r.createdAt)}`}>{r.role === 'landing' ? 'Landing' : 'Work'} · {fmtStamp(r.createdAt)}</Link></td>
+<td><details><summary>Workflow details</summary>{r.workflowName}</details></td>
                   <td className="muted">{r.role ?? ''}</td>
                   <td><Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} /></td>
                   <td className="muted small">{fmtStamp(r.updatedAt)}</td>
-                </tr>
+                </GlanceRow>
               ))}
             </tbody>
           </table>
@@ -300,21 +307,22 @@ export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runI
         {runs.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more runs</button>}
       </section>
       <section>
-        <h3>Event log{view.detail ? ` of run ${view.detail.run.number}` : ''} ({events.length})</h3>
+        <h3>Activity ({events.length})</h3>
         {events.length === 0 ? <div className="muted">No events recorded.</div> : (
-          <table className="stack event-log">
-            <tbody>
-              {[...events].reverse().slice(0, count).map((e) => (
-                <tr key={e.id}>
-                  <td className="muted small">{fmtStamp(e.at)}</td>
-                  <td className="small">{eventTitle(e.kind)}</td>
-                  <td className="muted small"><details><summary>Details</summary>{eventSentence(e) ?? <pre className="event-payload">{e.kind}{'\n'}{JSON.stringify(e.payload, null, 2)}</pre>}</details></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="event-log">
+            {groups.slice(0, count).map((group) => { const e = group[0]; return (
+              <details className="ch-receipt" key={e.id}>
+                <summary className="ch-line">
+                  <span className="ch-line-what">{eventTitle(e.kind)}{group.length > 1 && ` ×${group.length}`}</span>
+                  <span className="muted small">{fmtStamp(e.at)}</span>
+                  <span aria-hidden="true">›</span>
+                </summary>
+                <div className="ch-receipt-body small">{group.map(event => <div key={event.id}>{fmtStamp(event.at)}: {eventSentence(event) ?? <pre className="event-payload">{event.kind}{'\n'}{JSON.stringify(event.payload, null, 2)}</pre>}</div>)}</div>
+              </details>
+            )})}
+          </div>
         )}
-        {events.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
+        {groups.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
       </section>
     </div>
   )

@@ -86,7 +86,7 @@ export function StandingChip({ label, help }: { label: import('../../wire.gen').
   return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not fully checked' : undefined} help={help} />
 }
 export function StateChip({ label, help }: { label: import('../../wire.gen').CheckLabel; help?: string }) {
-  return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not fully checked' : undefined} help={help} />
+  return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not checked' : undefined} help={help || (label === 'unknown' ? 'This check has no current result. Open the project for details.' : undefined)} />
 }
 
 export function SevDot({ sev }: { sev: string }) {

@@ -62,7 +62,7 @@ export function stepTitle(s: Step): string {
     if (s.name?.includes('gitleaks')) return 'Secret scan'
     return 'Security scan'
   }
-  if (s.type === 'artifact/require') return s.name === 'release-exists' || s.evidence.kind === 'release' ? 'Release created' : 'Required item'
+  if (s.type === 'artifact/require') return s.name === 'release-exists' || s.evidence.kind === 'release' ? 'Release created' : 'Required file recorded'
   return TITLE[s.type] || 'Check'
 }
 
@@ -79,7 +79,7 @@ export function testsNote(ev: TestsEvidence): { note: string; plain: boolean } {
     return { note: parts.join(', '), plain: c.skipped === 0 }
   }
   if (ev.testReportUnreadable) return { note: `test report unreadable: ${ev.testReportUnreadable}`, plain: false }
-  return { note: 'test counts not reported', plain: false }
+  return { note: 'Number of tests unknown', plain: false }
 }
 
 // unmetRules: the ways-of-working rules a conformance check found not met.
@@ -334,7 +334,7 @@ export function Evidence({ view, runs, workTab, extraErr }: {
 
 // CleanRun: every receipt of a finished run passed, so it reads as one line
 // naming what passed, with the receipts one click away.
-function CleanRun({ receipts, to, noun = 'steps' }: { noun?: string; receipts: Receipt[]; to: (stepId?: string) => string }) {
+function CleanRun({ receipts, to, noun = 'checks' }: { noun?: string; receipts: Receipt[]; to: (stepId?: string) => string }) {
   const [open, setOpen] = useState(false)
   const kinds = [...new Set(receipts.map((r) => r.title))]
   return (

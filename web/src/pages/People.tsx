@@ -1,3 +1,4 @@
+import { Tabs } from '../Tabs'
 import { Link, useSearchParams } from 'react-router-dom'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
@@ -9,7 +10,7 @@ import { QuietConfirm, QuietPrompt } from '../QuietConfirm'
 import type { AuthMe, Account, AdministratorNetworksView, DelegationList, GrantList, GrantView, Group, GroupList, InviteLink, InviteList, IssuedToken, RoleCatalog, RoleView, TokenList, UserList } from '../wire.gen'
 import { useHolds } from '../instancePages'
 import { grantTitle, subjectLabel, groupLabel } from '../parts/grants'
-import { fmtDay } from '../format'
+import { fmtStamp } from '../format'
 import { PageHead } from '../PageHead'
 import { ExternalProviderSettings, MyExternalSignIn } from './ExternalSignIn'
 
@@ -55,10 +56,10 @@ export default function People() {
           Only an admin can change these settings.
         </div>
       )}
-      <div className="tabs" aria-label="People settings">
+      <Tabs className="tabs" aria-label="People settings">
         {tabs.map(([key, label]) => <Link key={key} to={key === 'people' ? '/people' : `/people?tab=${key}`}
           className={'tab' + (tab === key ? ' active' : '')} aria-current={tab === key ? 'page' : undefined}>{label}</Link>)}
-      </div>
+      </Tabs>
       {tab === 'people' && <ReadGate q={usersQ} what="the accounts">
         <UsersCard users={users} act={act} canEdit={canUsers} invites={meQ.data?.mode === 'internal'} sso={!!meQ.data && meQ.data.mode !== 'internal'} me={meQ.data?.user ?? ''} />
       </ReadGate>}
@@ -87,7 +88,7 @@ export default function People() {
 // Coding agents people have connected through the browser sign-in
 // (Docs → Connect a coding agent). Yours, or everyone's for an admin.
 // Disconnecting ends the agent's credential at once.
-function AgentsCard({ canEdit }: { canEdit: boolean }) {
+export function AgentsCard({ canEdit }: { canEdit: boolean }) {
   const q = useGet<DelegationList>(canEdit ? '/auth/delegations?all=1' : '/auth/delegations')
   const list = q.data?.delegations ?? []
   const { run, err } = useAction()
@@ -104,17 +105,24 @@ function AgentsCard({ canEdit }: { canEdit: boolean }) {
       <ReadStatus q={q} what="the connected agents" className="small" />
       <StaleNote q={q} />
       {q.data && list.length === 0 && <span className="muted small">None yet.</span>}
-      {list.map(d => (
+      {[...new Set(list.map(d => `${d.clientName}\0${d.user}`))].map(key => {
+        const connections = list.filter(d => `${d.clientName}\0${d.user}` === key).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        const newest = connections[0]
+        return <div key={key} className="agent-group">
+          <div className="host-row"><strong>{newest.clientName}{connections.length > 1 ? ` ×${connections.length}` : ''} as {newest.user}</strong><span>Connected</span><span className="muted small">Latest connection {fmtStamp(newest.createdAt)}</span></div>
+          <details><summary>Connections and permissions</summary>
+      {connections.map(d => (
         <div key={d.id} className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{d.clientName}</span>
           <span>as <b>{d.user}</b></span>
           <span className="muted">· {d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span>
-          <details><summary>Permissions and connection</summary><p>{d.scopes.join(', ')}</p><span className="muted">· connected {d.createdAt.slice(0, 10)}{d.lastUsed ? `, last used ${d.lastUsed.slice(0, 10)}` : ''}</span></details>
+          <span className="muted">Connected {fmtStamp(d.createdAt)}{d.lastUsed ? `, last used ${fmtStamp(d.lastUsed)}` : ''}</span><details><summary>Permissions</summary><p>{d.scopes.join(', ')}</p></details>
           <span style={{ flex: 1 }} />
           <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`}
             onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} />
         </div>
-      ))}
+      ))}</details></div>
+      })}
     </div>
   )
 }
@@ -332,7 +340,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
     <tbody>{list.map(u => <tr key={u.username}>
       <td><strong>{u.username}</strong>{u.disabled && <> <span className="chip">Disabled</span></>}</td>
       <td>{u.role === 'admin' ? 'Admin' : 'Member'}</td>
-      <td className="muted small">{u.lastSeen ? fmtDay(u.lastSeen) : 'Never'}</td>
+      <td className="muted small">{u.lastSeen ? `seen ${new Date(u.lastSeen).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', ...(new Date(u.lastSeen).getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } as const : {}) })}` : 'never signed in'}</td>
       <td>{canEdit && <details className="account-actions"><summary aria-label={`Actions for ${u.username}`}>…</summary>
         <div className="account-action-list">
         <label>Role                 {canEdit ? (

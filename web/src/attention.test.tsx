@@ -45,7 +45,7 @@ function responses(read: (init?: RequestInit) => Response | Promise<Response>, e
   }))
   return calls
 }
-const badge = (el: HTMLElement) => el.querySelector('a[aria-label^="Attention:"]')!
+const badge = (el: HTMLElement) => el.querySelector('a.attention-badge')!
 
 describe('Attention surfaces share authorized current evidence', () => {
   it('shares one answer and request between narrow topbar and actual page, with actionable severity and links', async () => {
@@ -54,8 +54,9 @@ describe('Attention surfaces share authorized current evidence', () => {
     await settled(v.client)
     expect(calls.filter(p => p === '/attention')).toHaveLength(1)
     expect(v.el.querySelector('.topbar')?.contains(badge(v.el))).toBe(true)
-    expect(badge(v.el).getAttribute('aria-label')).toBe('Attention: 2 conditions')
-    expect(badge(v.el).textContent).toBe('2 need attention')
+    expect(badge(v.el).getAttribute('aria-label')).toBe('2 need attention')
+    expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('2 need attention')
+    expect(badge(v.el).querySelector('.attention-compact')?.textContent).toBe('⚠ 2')
     expect(v.el.querySelectorAll('article')).toHaveLength(2)
     expect(v.el.querySelector('a[href="/infrastructure"]')?.textContent).toBe('Worker unavailable')
     expect(v.el.querySelector('a[href="/projects/game/settings/data"]')?.textContent).toBe('Recovery is untested')
@@ -65,7 +66,7 @@ describe('Attention surfaces share authorized current evidence', () => {
   it.each(['unknown', 'stale', 'failed'] as const)('does not report all-clear for %s empty observations', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'observation read failed' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: mode === 'stale' }] }))
     const v = mount(<><AttentionBadge /><AttentionPage /></>); await settled(v.client)
-    expect(badge(v.el).getAttribute('aria-label')).toContain('coverage incomplete')
+    expect(badge(v.el).getAttribute('aria-label')).toBe('Attention unknown')
     expect(v.el.textContent).not.toContain('No current conditions need attention')
     expect(v.el.textContent).toContain(mode === 'failed' ? 'failed' : 'Some checks are still unknown.')
   })
@@ -76,7 +77,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     answer = () => json({ error: 'offline' }, 503)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
     expect(v.el.querySelectorAll('article')).toHaveLength(2)
-    expect(badge(v.el).getAttribute('aria-label')).toContain('2 conditions, coverage incomplete')
+    expect(badge(v.el).getAttribute('aria-label')).toBe('2 need attention; coverage incomplete')
     expect(v.el.textContent).toContain('unknown')
     answer = () => json(known)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
@@ -87,8 +88,10 @@ describe('Attention surfaces share authorized current evidence', () => {
   it('shows only the condition count in the topbar when host coverage is incomplete', async () => {
     responses(() => json({ ...warning, sources: [{ ...known.sources[0], unknown: true }] }))
     const v = mount(<AttentionBadge />); await settled(v.client)
-    expect(badge(v.el).textContent).toBe('2 need attention')
+    expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('2 need attention')
+    expect(badge(v.el).querySelector('.attention-compact')?.textContent).toBe('⚠ 2')
     expect(badge(v.el).getAttribute('href')).toBe('/attention')
+    expect(badge(v.el).getAttribute('aria-label')).toBe('2 need attention; coverage incomplete')
   })
   it('polls the shared visible answer at thirty seconds and makes no signed-out request', async () => {
     vi.useFakeTimers(); focusManager.setFocused(true)
@@ -118,7 +121,7 @@ describe('Attention surfaces share authorized current evidence', () => {
       return json({})
     }))
     const v = mount(<App />); await settled(v.client)
-    expect(badge(v.el).getAttribute('aria-label')).toBe('Attention: 2 conditions')
+    expect(badge(v.el).getAttribute('aria-label')).toBe('2 need attention')
     hold = true
     let pending: Promise<void> = Promise.resolve()
     act(() => { pending = v.client.refetchQueries({ queryKey: getKey('/attention') }) })
@@ -131,7 +134,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(badge(v.el)).toBeNull()
     who = ''
     await act(async () => { v.client.setQueryData(getKey('/auth/me'), { mode: 'internal' }); await new Promise(resolve => setTimeout(resolve, 0)) }); await settled(v.client)
-    expect(v.el.querySelector('a[aria-label^="Attention:"]')).toBeNull()
+    expect(v.el.querySelector('a.attention-badge')).toBeNull()
     expect(v.client.getQueryData(getKey('/attention'))).toBeUndefined()
   })
   it.each(['failed', 'unknown', 'stale', 'known'] as const)('Home quietness includes %s operational coverage even when all other groups are empty', async mode => {
@@ -206,9 +209,9 @@ it('keeps pending attention distinct from a failed read', async () => {
  responses(() => new Promise<Response>(resolve => { release = resolve }))
  const v = mount(<AttentionBadge />)
  await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)) })
- expect(badge(v.el).textContent).toBe('Attention …')
+ expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('Attention …')
  await act(async () => { release(json({ error: 'unavailable' }, 403)) }); await settled(v.client)
- expect(badge(v.el).textContent).toBe('Attention unknown')
+ expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('Attention unknown')
 })
 it.each([false, true])('search has its own visible control (narrow=%s)', async narrow => {
  responses(() => json(known))

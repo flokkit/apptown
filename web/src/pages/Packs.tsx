@@ -156,7 +156,7 @@ export default function Packs() {
                 <Status word="waiting" tone={STATUS_LIGHT.waiting} text="Setup needed" /><details><summary>What needs setting up?</summary>Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</details>
               </div>
             )}
-            <details style={{ marginTop: 10 }}><summary>Actions</summary><div className="row pack-actions">
+            <details style={{ marginTop: 10 }}><summary aria-label={`Actions for ${p.name}`}>⋯</summary><div className="row pack-actions">
               <button className="subtle" onClick={() => setInspecting(p)}>Contents</button>
               <button className="subtle" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy</button>
               {p.enabled === false
