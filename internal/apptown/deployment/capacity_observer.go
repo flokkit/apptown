@@ -3,12 +3,12 @@ package deployment
 import (
 	"context"
 	"errors"
-	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/ids"
 )
 
@@ -18,7 +18,8 @@ type CapacityObservationQueue interface {
 	RequestCapacityObservation(context.Context, ids.ID, int64) error
 }
 
-// CapacitySnapshot is disk evidence for one exact target configuration. The
+// CapacitySnapshot contains disk evidence and whole-capacity coverage for one
+// exact target configuration. Unknown includes unread resource figures. The
 // wrapper time never replaces Disk.ReadAt, which may be older than the wrapper.
 type CapacitySnapshot struct {
 	Disk       *DiskCapacity
@@ -90,12 +91,16 @@ func (o *CapacityObserver) Snapshot(ctx context.Context, target *Target) (Capaci
 	return out, err
 }
 
+// capacityObservationFresh limits wrapper age; disk evidence has its own longer
+// limit because its cache survives wrapper refreshes.
+const capacityObservationFresh = 2 * time.Minute
+
 func capacitySnapshotAt(s CapacitySnapshot, now time.Time) CapacitySnapshot {
-	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 2*time.Minute
+	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > capacityObservationFresh
 	if s.Disk != nil {
 		disk := *s.Disk
 		s.Disk = &disk
-		s.Stale = s.Stale || disk.ReadAt.IsZero() || now.Sub(disk.ReadAt) > 2*time.Minute
+		s.Stale = s.Stale || disk.StaleAt(now)
 	}
 	return s
 }
@@ -144,8 +149,33 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 		return nil
 	}
 	disk := *reading.Disk
-	e.snapshot = CapacitySnapshot{Disk: &disk, ObservedAt: reading.ReadAt, AttemptedAt: now}
+	e.snapshot = CapacitySnapshot{Disk: &disk, ObservedAt: reading.ReadAt, AttemptedAt: now, Unknown: capacityUnknown(reading)}
 	return nil
+}
+
+// Optional figures remain absent when the provider does not offer them. A
+// present but unread figure is incomplete coverage, even with a healthy disk.
+func capacityUnknown(reading TargetCapacity) bool {
+	for _, r := range []*ResourceCapacity{reading.Memory, reading.CPU} {
+		if r == nil {
+			continue
+		}
+		if !r.Total.Known || !r.Promised.Sum.AppTown.Known || !r.Promised.Sum.Other.Known || r.Promised.Unread.AppTown > 0 || r.Promised.Unread.Other > 0 {
+			return true
+		}
+		if r.InUse != nil && (!r.InUse.AppTown.Known || !r.InUse.Other.Known) {
+			return true
+		}
+		if r.HostUsed != nil && !r.HostUsed.Known {
+			return true
+		}
+	}
+	for _, t := range reading.Tenants {
+		if !t.Used.Known || !t.Promised.Known || t.CPUUnread > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 const CapacityObservationJob = "capacity-observation"

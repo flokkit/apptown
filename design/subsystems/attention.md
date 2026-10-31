@@ -19,7 +19,12 @@ means all clear.
   observation time. Disk policy belongs to `diskspace`; controller storage is
   advisory and does not protect controller admission. Worker disk refusal blocks
   new tasks. Docker-host refusal blocks new releases and previews. Portainer readings are
-  advisory and do not protect release admission.
+  advisory and do not protect release admission. A deployment-host disk condition
+  uses only the disk’s known free and total figures and its own reading time.
+  Unread memory or CPU figures leave capacity coverage incomplete without adding
+  a disk condition. The disk cache lasts five minutes. Disk evidence is stale after seven
+  minutes: the cache lifetime plus the one-minute observer interval and a
+  one-minute scheduling margin.
 - Worker availability uses the authenticated worker profile protocol. A missing
   agent image does not establish that the worker is unreachable. An unassessable
   response retains earlier unavailable evidence as stale.
@@ -55,7 +60,8 @@ unknown coverage without an Attention item. Failed checks and stale readings
 raise conditions that name the host; an unstarted check does not. Inventory reuses its existing refresh job and invalidation
 boundary. Deployment runtime uses its existing background observation owner.
 
-Owner evidence older than two minutes is stale; stricter owner limits still
+Owner evidence older than two minutes is stale, except deployment-host disk
+evidence, which has the seven-minute limit above. Stricter owner limits still
 apply. Inner disk and native-backup cache times survive wrapper refreshes.
 Target configuration and deployment identity changes reject late answers for
 older subjects. A fresh successful observation clears only the conditions it

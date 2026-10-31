@@ -100,6 +100,11 @@ type DiskCapacity struct {
 	ReadAt time.Time `json:"readAt,omitzero"`
 }
 
+// StaleAt judges the disk's own evidence independently of the wrapper time.
+func (d DiskCapacity) StaleAt(now time.Time) bool {
+	return d.ReadAt.IsZero() || now.Sub(d.ReadAt) > diskObservationFresh
+}
+
 // ElasticPart is one part or need of a deployment on an elastic target:
 // the size it runs on, and that size's listed monthly price.
 type ElasticPart struct {
@@ -132,7 +137,7 @@ type TargetCapacity struct {
 
 // capacityCache keeps each target's reading briefly (a deployment card
 // asks its host's for every view) and its disk reading longer (the disk
-// read runs a container).
+// read executes df in the standing reader).
 type capacityCache struct {
 	mu   sync.Mutex
 	read map[ids.ID]capacityReading
@@ -155,6 +160,9 @@ type diskReading struct {
 const (
 	capacityFresh = 30 * time.Second
 	diskFresh     = 5 * time.Minute
+	// Allow the cache lifetime, one observer interval, and a one-minute
+	// scheduling margin for the queued read to finish.
+	diskObservationFresh = diskFresh + time.Minute + time.Minute
 )
 
 // Capacity reads how full target name is; the caller holds the deployment
@@ -331,8 +339,8 @@ func overcommit(r *ResourceCapacity) {
 	}
 }
 
-// disk is the host's disk reading, at most diskFresh old: the read runs a
-// container.
+// disk caches the host's disk reading for diskFresh. Each refresh executes df
+// in the daemon's standing reader.
 func (s *Service) disk(ctx context.Context, target *Target, dk docker.Scope, root string) DiskCapacity {
 	now := s.now()
 	s.capacity.mu.Lock()
