@@ -33,5 +33,5 @@ func (s attentionInventory) Snapshot(ctx context.Context, t *deployment.Target) 
 		return attention.InventoryReading{Unknown: true, Unreported: true}, nil
 	}
 	got, err := s.cache.SnapshotForTarget(ctx, s.requests, t)
-	return attention.InventoryReading{Items: got.Items, ObservedAt: got.ObservedAt, Unknown: got.Unknown, Stale: got.Stale}, err
+	return attention.InventoryReading{Items: got.Items, ObservedAt: got.ObservedAt, AttemptedAt: got.AttemptedAt, Unknown: got.Unknown, Stale: got.Stale}, err
 }

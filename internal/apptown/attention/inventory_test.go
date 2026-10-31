@@ -129,3 +129,34 @@ func TestInventoryRecordFailureRetainsExistingMissingEvidence(t *testing.T) {
 		t.Fatalf("record error erased warning %+v %v", failed, err)
 	}
 }
+
+// Unknown coverage becomes actionable only with a completed attempt or a read failure.
+func TestInventoryPendingFirstCheckIsCoverageOnly(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name      string
+		reading   InventoryReading
+		wantKnown bool
+		wantItems int
+	}{
+		{name: "queued", reading: InventoryReading{Unknown: true, Stale: true}},
+		{name: "failed first attempt", reading: InventoryReading{Unknown: true, Stale: true, AttemptedAt: at}, wantItems: 1},
+		{name: "stale completed reading", reading: InventoryReading{ObservedAt: at, AttemptedAt: at, Stale: true}, wantKnown: true, wantItems: 1},
+		{name: "fresh completed reading", reading: InventoryReading{ObservedAt: at, AttemptedAt: at}, wantKnown: true},
+		{name: "no inventory reader", reading: InventoryReading{Unknown: true, Unreported: true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			target := &deployment.Target{ID: idstest.N(1), Name: "office", Status: deployment.TargetReady}
+			source := &Inventory{Targets: capacityTargets{[]*deployment.Target{target}}, Records: &recordedInventory{}, Observer: &inventoryEvidence{tc.reading}, Now: func() time.Time { return at.Add(24 * time.Hour) }}
+			got, err := source.Snapshot(t.Context())
+			if err != nil || got.Known != tc.wantKnown || len(got.Items) != tc.wantItems || got.Stale != tc.reading.Stale {
+				t.Fatalf("inventory coverage and conditions: %+v %v", got, err)
+			}
+			if tc.wantItems > 0 && (got.Items[0].Title != "office: resources not known" || !got.Items[0].Stale) {
+				t.Fatalf("missing unassessed condition: %+v", got.Items)
+			}
+		})
+	}
+}

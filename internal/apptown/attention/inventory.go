@@ -17,8 +17,10 @@ import (
 )
 
 type InventoryReading struct {
-	Items          []deploy.Resource
-	ObservedAt     time.Time
+	Items      []deploy.Resource
+	ObservedAt time.Time
+	// AttemptedAt is when the latest inventory attempt finished, successful or not.
+	AttemptedAt    time.Time
 	Unknown, Stale bool
 	// Unreported: the target's kind has no inventory reader. Its presence is
 	// unknown by design, not a failed assessment, so it raises no warning.
@@ -109,7 +111,9 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 			}
 		}
 		out.Items = append(out.Items, items...)
-		if unknown && !sample.Unreported {
+		// A queued first check is incomplete coverage, not an actionable failure.
+		pending := sample.AttemptedAt.IsZero() && sample.ObservedAt.IsZero() && recordErr == nil && readErr == nil
+		if (unknown || sample.Stale) && !sample.Unreported && !pending {
 			out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Title: label + ": resources not known", Detail: label + ": current resource presence and target availability could not be confirmed.", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
 		}
 	}
