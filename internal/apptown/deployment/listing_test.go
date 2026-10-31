@@ -498,3 +498,38 @@ func TestOperationalReadKeepsCurrentAuthorityAndUsesOnlyCachedRuntime(t *testing
 		t.Fatalf("revoked scope read %+v %v", denied, err)
 	}
 }
+
+func TestRunningProjectsUsesProductionEvidenceAndVisibility(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	s, world, _, projectID := listingFixture(t, 1, func(_ context.Context, p deploy.Placement) (deploy.Observation, error) {
+		calls.Add(1)
+		return deploy.Observation{Generation: p.Generation, Rollout: "active", URL: "https://app.example"}, nil
+	})
+	// The fixture's running preview cannot make this a production app.
+	if err := s.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.RunningProjects(t.Context())
+	if err != nil || len(got) != 0 {
+		t.Fatalf("preview counted as production: %v %v", got, err)
+	}
+	configureForTest(t, s, ConfigureDeployment{ProjectID: projectID, Name: "main", Target: "cloud"})
+	if err := s.ObserveRuntime(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	before := calls.Load()
+	got, err = s.RunningProjects(t.Context())
+	if err != nil || len(got) != 1 || got[0] != projectID || calls.Load() != before {
+		t.Fatalf("cached production selection: %v %v (provider calls %d -> %d)", got, err, before, calls.Load())
+	}
+	world.projects = nil
+	got, err = s.RunningProjects(t.Context())
+	if err != nil || len(got) != 0 {
+		t.Fatalf("hidden production leaked: %v %v", got, err)
+	}
+	world.err = errors.New("authority unavailable")
+	if _, err := s.RunningProjects(t.Context()); err == nil {
+		t.Fatal("authority failure became an empty selection")
+	}
+}

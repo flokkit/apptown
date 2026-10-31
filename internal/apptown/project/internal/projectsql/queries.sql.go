@@ -667,7 +667,7 @@ const projectPage = `-- name: ProjectPage :many
 SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
 AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
 AND ($2::text='' OR strpos(lower(name||' '||slug||' '||blurb||' '||namespace||' '||icon),$2)>0)
-ORDER BY CASE WHEN $3::boolean THEN array_position($1::uuid[],id) END,
+ORDER BY (id=ANY($3::uuid[])) DESC,
  CASE WHEN $2::text='' THEN 0
  WHEN strpos(lower(name),$2)=1 OR strpos(lower(slug),$2)=1 THEN 0
  WHEN strpos(lower(name),$2)>0 OR strpos(lower(slug),$2)>0 THEN 1
@@ -677,18 +677,18 @@ LIMIT $5::bigint OFFSET $4::bigint
 `
 
 type ProjectPageParams struct {
-	ProjectIds []ids.ID
-	Query      string
-	Ordered    bool
-	RowOffset  int64
-	RowLimit   int64
+	ProjectIds  []ids.ID
+	Query       string
+	PriorityIds []ids.ID
+	RowOffset   int64
+	RowLimit    int64
 }
 
 func (q *Queries) ProjectPage(ctx context.Context, arg ProjectPageParams) ([]Project, error) {
 	rows, err := q.db.QueryContext(ctx, projectPage,
 		pq.Array(arg.ProjectIds),
 		arg.Query,
-		arg.Ordered,
+		pq.Array(arg.PriorityIds),
 		arg.RowOffset,
 		arg.RowLimit,
 	)

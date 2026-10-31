@@ -140,7 +140,7 @@ it('does not describe an evaluator error as a confirmed problem in the app', () 
 it('labels the project activity age on Home with what the timestamp measures', () => {
   const el = page(<Dashboard />, {
     '/activity': { agents: [], active: [], history: [], deployments: [] }, '/dashboard': {},
-    '/projects?recent=6': [{ id: 'shop', slug: 'shop', name: 'Shop', hasDeployments: false, lastRunAt: '2026-10-31T01:00:00Z' }],
+    '/projects?limit=50&order=running': { projects: [{ id: 'shop', slug: 'shop', name: 'Shop', hasDeployments: false, lastRunAt: '2026-10-31T01:00:00Z' }], total: 1 },
   })
-  expect(el.querySelector('.home-project-age')?.textContent).toMatch(/^Work updated /)
+  expect(el.querySelector('.project-state > .muted')?.textContent).toMatch(/^Work updated /)
 })

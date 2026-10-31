@@ -149,7 +149,12 @@ needs a guard instead, as the ADR editor has.
 
 ## Reading at a glance
 
-Operational rows lead with a name, a status light and word, and at most one
+Home and Projects share app rows: identity and optional one-line purpose, state
+and age, then Open app for running production. Phones keep the name and state
+beside a compact Open app action, with purpose
+and age beneath. Home reads at most 50 projects, selecting running production
+apps before the limit, and links to All projects for the rest. Creation stays secondary unless no projects
+exist. Other operational rows lead with a name, a status light and word, and at most one
 fact on a phone. A row opens its secondary facts inline when clicked or activated with Enter
 or Space; links and actions keep their own meaning. Commands, identifiers and
 detailed evidence belong in that expansion or on the detail page. Disclosures

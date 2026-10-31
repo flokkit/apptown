@@ -140,7 +140,7 @@ describe('Attention surfaces share authorized current evidence', () => {
   it.each(['failed', 'unknown', 'stale', 'known'] as const)('Home quietness includes %s operational coverage even when all other groups are empty', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'no observation' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: mode === 'stale' }] }), {
       '/activity': emptyActivity, '/dashboard': emptyDashboard,
-      '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
+      '/projects?limit=50&order=running': { projects: [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }], total: 1 },
       '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
@@ -154,7 +154,7 @@ describe('Attention surfaces share authorized current evidence', () => {
       { key: 'capacity', name: 'Deployment host capacity', unknown: true, stale: false },
     ] }), {
       '/activity': { ...emptyActivity, deployments: [{ project: 'game', name: 'main', url: 'https://game.example.test', running: true, observationStale: false }] },
-      '/dashboard': emptyDashboard, '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: true }],
+      '/dashboard': emptyDashboard, '/projects?limit=50&order=running': { projects: [{ id: 'project', slug: 'game', name: 'Game', hasDeployments: true }], total: 1 },
       '/projects/game/deployments': [],
     })
     const v = mount(<><AttentionBadge /><Dashboard /></>, '/'); await settled(v.client)
@@ -168,7 +168,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     responses(() => json({ error: 'cannot read operations' }, 503), {
       '/activity': { ...emptyActivity, active },
       '/dashboard': { ...emptyDashboard, pendingApprovals: [{ id: 'approval', changeId: 'change-review', changeNumber: 2, runId: 'run-review', itemTitle: 'Review change', projectSlug: 'game', stepName: 'accept' }] },
-      '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
+      '/projects?limit=50&order=running': { projects: [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }], total: 1 },
       '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
@@ -185,18 +185,17 @@ it.each([[true, true], [true, false], [false, true], [false, false]])('Home keep
  vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
  responses(() => json(known), {
   '/activity': emptyActivity, '/dashboard': emptyDashboard,
-  '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game', productionUrl: production ? 'https://game.example.test' : '', deployed: production, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
+  '/projects?limit=50&order=running': { projects: [{ id: 'project', slug: 'game', name: 'Game', productionUrl: production ? 'https://game.example.test' : '', deployed: production, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }], total: 1 },
   '/projects/game/deployments': [{ id: 'preview-id', name: 'preview-machine-id', displayLabel: 'Preview', url: 'https://preview.example.test', kind: 'preview', running: null, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
  })
  const v = mount(<Dashboard />, '/'); await settled(v.client)
- if (production && !narrow) expect(v.el.querySelector('.dash-app')?.getAttribute('href')).toBe('https://game.example.test')
- else expect(v.el.querySelector('.dash-app')).toBeNull()
- if (narrow) expect(v.el.querySelector('.dash-projects')?.textContent).not.toContain('Details')
- expect(v.el.querySelector('.dash-projects')?.textContent).not.toContain('Not deployed')
- expect(v.el.querySelector('.dash-projects')?.textContent).toContain('No changes yet')
+ expect(v.el.querySelector('.project-action a')).toBeNull()
+ if (narrow) expect(v.el.querySelector('.project-rows')?.textContent).not.toContain('Details')
+ expect(v.el.querySelector('.project-rows')?.textContent).not.toContain('Not deployed')
+ expect(v.el.querySelector('.project-rows')?.textContent).toContain('Not checked yet')
  expect(v.el.textContent).not.toContain('preview-machine-id')
  expect(v.el.querySelector('.chip.fail')?.textContent).toContain('unreachable')
- expect(v.el.querySelectorAll('.dash-projects .chip')).toHaveLength(1)
+ expect(v.el.querySelectorAll('.project-rows .chip')).toHaveLength(1)
 })
 
 it.each([false, true])('Home names each finished change before its project, state and age (phone=%s)', async narrow => {
@@ -207,7 +206,7 @@ it.each([false, true])('Home names each finished change before its project, stat
    { changeId: 'photos', title: 'Fix photo uploads', project: 'Household', statusLabel: 'failed', when: at },
   ] },
   '/dashboard': emptyDashboard,
-  '/projects?recent=6': [{ id: 'project', slug: 'household', name: 'Household', hasDeployments: false }],
+  '/projects?limit=50&order=running': { projects: [{ id: 'project', slug: 'household', name: 'Household', hasDeployments: false }], total: 1 },
  })
  const v = mount(<Dashboard />, '/'); await settled(v.client)
  for (const [id, title, state] of [['calendar', 'Add a shared calendar', 'landed'], ['photos', 'Fix photo uploads', 'failed']]) {

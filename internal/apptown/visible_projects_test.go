@@ -128,7 +128,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 				t.Fatalf("run activity leaked: %+v", p)
 			}
 		}
-		w = authzCall(h, who, "GET", "/api/v1/projects?limit=1", "")
+		w = authzCall(h, who, "GET", "/api/v1/projects?limit=1&order=running", "")
 		var page struct {
 			Projects []struct {
 				ID   ids.ID
@@ -138,17 +138,6 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil || w.Code != 200 || page.Total != want || len(page.Projects) != min(1, want) {
 			t.Fatalf("%s project page: %d %s %v", who, w.Code, w.Body.String(), err)
-		}
-		w = authzCall(h, who, "GET", "/api/v1/projects?recent=1", "")
-		var recent []struct {
-			ID   ids.ID
-			Slug string
-		}
-		if err := json.Unmarshal(w.Body.Bytes(), &recent); err != nil || w.Code != 200 || len(recent) != min(1, want) {
-			t.Fatalf("%s recent page: %d %s %v", who, w.Code, w.Body.String(), err)
-		}
-		if len(recent) > 0 && !all && recent[0].Slug != "game" {
-			t.Fatalf("foreign recency leaked: %+v", recent)
 		}
 		w = authzCall(h, who, "GET", "/api/v1/projects?limit=1&offset=100", "")
 		if err := json.Unmarshal(w.Body.Bytes(), &page); err != nil || w.Code != 200 || page.Total != want || len(page.Projects) != 0 {
@@ -255,7 +244,7 @@ func TestVisibleProjectAggregatesKeepSectionsScopedWithoutReadReceipts(t *testin
 func TestProjectPageRejectsInvalidBounds(t *testing.T) {
 	t.Parallel()
 	a := workAuthorityFixture(t)
-	for _, q := range []string{"limit=0", "limit=101", "limit=oops", "limit=1&offset=-1", "limit=1&offset=oops", "recent=0", "recent=101", "recent=1&limit=1"} {
+	for _, q := range []string{"limit=0", "limit=101", "limit=oops", "limit=1&offset=-1", "limit=1&offset=oops", "limit=1&order=oops"} {
 		if w := authzCall(a.Handler(), "boss", "GET", "/api/v1/projects?"+q, ""); w.Code != 400 {
 			t.Fatalf("%s: %d %s", q, w.Code, w.Body.String())
 		}

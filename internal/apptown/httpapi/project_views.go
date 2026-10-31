@@ -40,27 +40,11 @@ func NewProjectViews(projects *project.Projects, work *workflow.Service, adrs *a
 }
 func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	paged := query.Has("limit") || query.Has("offset") || query.Has("q")
+	paged := query.Has("limit") || query.Has("offset") || query.Has("q") || query.Has("order")
 	var projects []project.Project
 	var total int64
 	var err error
-	if query.Has("recent") {
-		limit, parseErr := strconv.Atoi(query.Get("recent"))
-		if parseErr != nil || limit < 1 || limit > 100 || paged {
-			WriteError(w, 400, "recent must be 1–100 without page parameters")
-			return
-		}
-		idList, recentErr := h.work.RecentProjects(r.Context(), limit)
-		if recentErr != nil {
-			WriteFault(w, recentErr)
-			return
-		}
-		if idList == nil {
-			idList = []ids.ID{}
-		}
-		page, pageErr := h.projects.Browse(r.Context(), project.Browse{Limit: limit, IDs: idList})
-		projects, err = page.Projects, pageErr
-	} else if paged {
+	if paged {
 		limit, offset := 50, 0
 		if query.Has("limit") {
 			limit, err = strconv.Atoi(query.Get("limit"))
@@ -72,7 +56,19 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 			WriteError(w, 400, "limit must be 1–100 and offset nonnegative")
 			return
 		}
-		page, pageErr := h.projects.Browse(r.Context(), project.Browse{Limit: limit, Offset: offset, Query: query.Get("q")})
+		var running []ids.ID
+		if order := query.Get("order"); order != "" {
+			if order != "running" {
+				WriteError(w, 400, "order must be running")
+				return
+			}
+			running, err = h.deployment.RunningProjects(r.Context())
+			if err != nil {
+				WriteFault(w, err)
+				return
+			}
+		}
+		page, pageErr := h.projects.Browse(r.Context(), project.Browse{Limit: limit, Offset: offset, Query: query.Get("q"), PriorityIDs: running})
 		projects, total, err = page.Projects, page.Total, pageErr
 	} else {
 		projects, err = h.projects.Visible(r.Context())
