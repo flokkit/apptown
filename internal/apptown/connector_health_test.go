@@ -3,6 +3,12 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -92,6 +98,143 @@ func TestEveryKindSaysTrulyWhetherTestConnectionAsksIt(t *testing.T) {
 		if e.Name == "openrouter" && (!e.Testable || e.Health.Checked) {
 			t.Fatalf("AI models: testable %v, checked %v", e.Testable, e.Health.Checked)
 		}
+	}
+}
+
+// Listing and Test connection use the same authenticated registry request;
+// an unchecked reading, anonymous success or refused credentials cannot pass.
+func TestContainerRegistryHealthUsesStoredCredentials(t *testing.T) {
+	a := testApp(t)
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("REGISTRY_TOKEN=stored-password\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	code, requests := 200, 0
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		user, password, ok := r.BasicAuth()
+		if r.Method != "GET" || r.URL.Path != "/v2/" || !ok || user != "robot" || password != "stored-password" {
+			t.Errorf("incorrect registry request: %s %s, authenticated %v", r.Method, r.URL.Path, ok)
+		}
+		if code == 302 {
+			w.Header().Set("Location", "/somewhere-else")
+		}
+		w.WriteHeader(code)
+	}))
+	defer server.Close()
+	original := http.DefaultTransport
+	http.DefaultTransport = server.Client().Transport
+	defer func() { http.DefaultTransport = original }()
+	cfg := map[string]any{"url": strings.TrimPrefix(server.URL, "https://"), "username": "robot", "tokenFrom": []string{"REGISTRY_TOKEN"}}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Integrations.Bindings.Save(t.Context(), "images", integration.CapContainerRegistry, "direct", string(raw), "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []int{200, 401, 500, 302} {
+		code = status
+		before := requests
+		w := authzCall(a.Handler(), "boss", "GET", "/api/v1/integrations", "")
+		var list httpapi.IntegrationList
+		if err := json.Unmarshal(w.Body.Bytes(), &list); err != nil || w.Code != 200 {
+			t.Fatalf("listing: %d %v", w.Code, err)
+		}
+		var got integration.Health
+		for _, row := range list.Integrations {
+			if row.Name == "images" {
+				got = row.Health
+			}
+		}
+		if !got.Checked || got.CheckedAt == "" || got.OK != (status == 200) || requests != before+1 {
+			t.Fatalf("registry %d: %+v; requests %d", status, got, requests-before)
+		}
+		draft := connectorHealthFor(a).Test(t.Context(), integration.CapContainerRegistry, "direct", cfg)
+		if !draft.Checked || draft.OK != (status == 200) {
+			t.Fatalf("draft %d: %+v", status, draft)
+		}
+	}
+	server.Close()
+	got := connectorHealthFor(a).Test(t.Context(), integration.CapContainerRegistry, "direct", cfg)
+	if !got.Checked || got.OK || !strings.Contains(got.Detail, "could not be reached") {
+		t.Fatalf("unreachable: %+v", got)
+	}
+}
+
+// Hosted registries challenge at /v2/ even with valid credentials. Only a
+// same-domain HTTPS token service may receive the stored secret, without redirects.
+func TestContainerRegistryHealthChecksBearerTokenService(t *testing.T) {
+	a := testApp(t)
+	if err := os.WriteFile(filepath.Join(a.cfg.dataDir, "secrets.env"), []byte("REGISTRY_TOKEN=stored-password\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, registry, realm string
+		status                int
+		want                  integration.HealthStatus
+		detail                string
+		tokenRequests         int
+	}{
+		{"digitalocean", "registry.digitalocean.com", "https://api.digitalocean.com/token", 200, integration.HealthPassed, "accepted", 1},
+		{"github", "ghcr.io", "https://ghcr.io/token", 200, integration.HealthPassed, "accepted", 1},
+		{"dockerhub", "registry-1.docker.io", "https://auth.docker.io/token", 200, integration.HealthPassed, "accepted", 1},
+		{"gitlab", "registry.gitlab.com", "https://gitlab.com/token", 200, integration.HealthPassed, "accepted", 1},
+		{"unauthorized", "registry.example.com", "https://auth.example.com/token", 401, integration.HealthFailed, "refused by the token service", 1},
+		{"forbidden", "registry.example.com", "https://auth.example.com/token", 403, integration.HealthFailed, "refused by the token service", 1},
+		{"failed", "registry.example.com", "https://auth.example.com/token", 503, integration.HealthFailed, "token service returned 503", 1},
+		{"redirect", "registry.example.com", "https://auth.example.com/token", 302, integration.HealthFailed, "token service returned 302", 1},
+		{"other domain", "registry.example.com", "https://auth.other.com/token", 200, integration.HealthUnknown, "Token service on another domain; not checked", 0},
+		{"http", "registry.example.com", "http://auth.example.com/token", 200, integration.HealthUnknown, "HTTPS", 0},
+		{"shared public suffix", "registry.example.co.uk", "https://auth.other.co.uk/token", 200, integration.HealthUnknown, "another domain", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			registryRequests, tokenRequests := 0, 0
+			tokenServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				tokenRequests++
+				user, password, ok := r.BasicAuth()
+				if r.Method != http.MethodGet || r.URL.Path != "/token" || !ok || user != "robot" || password != "stored-password" || r.URL.Query().Get("service") != tc.registry || r.URL.Query().Get("account") != "robot" {
+					t.Errorf("incorrect token request: %s %s, authenticated %v", r.Method, r.URL, ok)
+				}
+				w.Header().Set("Location", tc.realm+"/redirected")
+				w.WriteHeader(tc.status)
+			}))
+			t.Cleanup(tokenServer.Close)
+			registryServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				registryRequests++
+				user, password, ok := r.BasicAuth()
+				if r.URL.Path != "/v2/" || !ok || user != "robot" || password != "stored-password" {
+					t.Errorf("incorrect registry request: %s, authenticated %v", r.URL, ok)
+				}
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm=%q,service=%q`, tc.realm, tc.registry))
+				w.WriteHeader(http.StatusUnauthorized)
+			}))
+			t.Cleanup(registryServer.Close)
+			transport := tokenServer.Client().Transport.(*http.Transport).Clone()
+			// Both local fixtures use httptest's certificate for example.com.
+			transport.TLSClientConfig.ServerName = "example.com"
+			transport.Proxy = nil
+			transport.DisableKeepAlives = true
+			transport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+				// Keep the request's real host for domain validation, while all
+				// network effects go to these two local TLS fixtures.
+				target := tokenServer.Listener.Addr().String()
+				if addr == tc.registry+":443" && registryRequests == 0 {
+					target = registryServer.Listener.Addr().String()
+				}
+				return (&net.Dialer{}).DialContext(ctx, network, target)
+			}
+			original := http.DefaultTransport
+			http.DefaultTransport = transport
+			t.Cleanup(func() { http.DefaultTransport = original; transport.CloseIdleConnections() })
+			cfg := map[string]any{"url": tc.registry, "username": "robot", "tokenFrom": []string{"REGISTRY_TOKEN"}}
+			got := connectorHealthFor(a).Test(t.Context(), integration.CapContainerRegistry, "direct", cfg)
+			if !got.Checked || got.CheckedAt == "" || got.StateLabel != tc.want || got.OK != (tc.want == integration.HealthPassed) || !strings.Contains(got.Detail, tc.detail) {
+				t.Errorf("unexpected health: %+v", got)
+			}
+			if registryRequests != 1 || tokenRequests != tc.tokenRequests {
+				t.Errorf("requests: registry=%d token=%d; want 1, %d", registryRequests, tokenRequests, tc.tokenRequests)
+			}
+		})
 	}
 }
 

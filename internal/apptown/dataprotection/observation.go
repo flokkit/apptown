@@ -50,6 +50,8 @@ type ProtectionSnapshot struct {
 	RestoreAt                          time.Time
 	Unassessed                         bool
 	ObservedAt                         time.Time
+	// Reason is a safe summary of the failed or overdue check.
+	Reason string
 	// AttemptedAt is when the latest protection attempt finished, successful or not.
 	AttemptedAt    time.Time
 	Unknown, Stale bool
@@ -130,6 +132,14 @@ func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapsho
 			s.Stale = true
 		}
 	}
+	if s.Stale {
+		s.Unknown = true
+		if s.ObservedAt.IsZero() && s.AttemptedAt.IsZero() {
+			s.Reason = "Waiting for the first protection check."
+		} else if s.Reason == "" {
+			s.Reason = "The protection check is overdue."
+		}
+	}
 	return s
 }
 
@@ -167,27 +177,45 @@ func (o *ProtectionObserver) Run(ctx context.Context, id ids.ID, identity string
 	e.snapshot.AttemptedAt = now
 	if err != nil || protection == nil {
 		e.snapshot.Unknown = true
+		e.snapshot.Reason = "The protection check failed."
+		if errors.Is(err, context.DeadlineExceeded) {
+			e.snapshot.Reason = "The protection check timed out."
+		}
 		if err == nil {
 			err = errors.New("protection observation missing")
 		}
 		return err
 	}
 	next := observedProtection(protection, now)
+	// The detail view returns held-data failures as an unassessed answer.
+	// Background collection must also report that failure to its job, so the
+	// completed attempt does not erase the diagnostic needed to repair it.
+	var checkErr error
+	if protection.Unknown != "" {
+		checkErr = errors.New(protection.Unknown)
+	}
 	if next.Unknown && !e.snapshot.ObservedAt.IsZero() {
 		// Unread held data or provider evidence cannot clear old conditions.
 		e.snapshot.Unknown, e.snapshot.Stale = true, true
-		return nil
+		e.snapshot.Reason = next.Reason
+		return checkErr
 	}
 	e.snapshot = next
-	return nil
+	return checkErr
 }
 
 func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
 	out := ProtectionSnapshot{DataClass: p.DataClass, OffHost: p.OffHost, ObservedAt: at, AttemptedAt: at, Unknown: p.Unknown != ""}
+	if p.Unknown != "" {
+		out.Reason = "The deployment's data could not be read."
+	}
 	for _, limit := range p.Coverage.NotAssessed {
 		if limit != OutsideNotAssessed {
 			out.Unassessed = true
 			out.Unknown = true
+			if out.Reason == "" {
+				out.Reason = "Protection could not be assessed for some declared data."
+			}
 		}
 	}
 	if p.Operations != nil {
@@ -212,6 +240,7 @@ func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
 		}
 		if item.Copy == CopyUnknown {
 			out.Unknown = true
+			out.Reason = "The latest data copy was interrupted."
 		}
 		if item.Native != nil {
 			row.Native = true
@@ -219,6 +248,9 @@ func observedProtection(p *Protection, at time.Time) ProtectionSnapshot {
 			row.NativeAt = item.Native.observedAt
 			row.NativeUnknown = item.Native.Unknown != ""
 			out.Unknown = out.Unknown || row.NativeUnknown
+			if row.NativeUnknown {
+				out.Reason = "The provider backup check failed."
+			}
 		}
 		if item.Drill != nil {
 			row.DrillKnown = true

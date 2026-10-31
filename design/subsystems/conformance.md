@@ -41,6 +41,12 @@ that applies to nothing finishes `not_applicable`, which lets a gate
 through and is not a pass. A contract that cannot be read is an error for
 a part check. A check that applies runs in each matching folder; nothing to
 judge there is its finding, since the declaration and the code disagree.
+A manual scanner may declare its own `appliesTo` limit. A tool check runs
+only for parts matching both declarations; a repository declaration imposes
+no part restriction. The scanner's limit also applies to older adopted checks.
+Hadolint is limited to parts built from a Dockerfile, so a static-only app
+has no Dockerfile finding even if its adopted check names the repository.
+
 `appliesTo` is required: there is no default reading of a check without
 it.
 

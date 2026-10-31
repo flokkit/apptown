@@ -40,3 +40,17 @@ func TestRunningContainerWithoutStatsLeavesHostMemoryKnown(t *testing.T) {
 		t.Fatalf("no-stats container discarded host memory: %+v", use)
 	}
 }
+
+// Attached hosts have no whole-host memory probe. Its absence must not turn
+// successful container and disk checks into an unknown capacity reading.
+func TestAttachedCapacityOmitsUnsupportedHostMemory(t *testing.T) {
+	t.Parallel()
+	w := newDigestWorldWith(t, "", sizedNeedYAML, nil)
+	c, err := backgroundCapacity(t, w.s, "lab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Memory.HostUsed != nil || capacityFailure(c) != "" {
+		t.Fatalf("unsupported probe made capacity unknown: %+v", c.Memory)
+	}
+}

@@ -29,6 +29,11 @@ func (h Health) ForDisplay() Health {
 		h.StateLabel = HealthNotSetUp
 		return h
 	}
+	// A check can run yet leave credentials unassessed, for example when a
+	// registry names a token service that cannot safely receive its secret.
+	if h.StateLabel == HealthUnknown {
+		return h
+	}
 	h.StateLabel = HealthUnknown
 	if h.Checked {
 		if h.OK {

@@ -70,6 +70,10 @@ func (h IntegrationListing) ListIntegrations(w http.ResponseWriter, r *http.Requ
 	// iterating).
 	for i := range list {
 		list[i].Testable = h.health.Testable(list[i].Capability)
+		if list[i].Capability == integration.CapContainerRegistry {
+			list[i].Health = h.health.Test(r.Context(), list[i].Capability, list[i].Provider, list[i].Config)
+			continue
+		}
 		if list[i].Capability == "registry" {
 			// cheap shape check; the connector Test button does a real probe
 			format, _ := list[i].Config["format"].(string)

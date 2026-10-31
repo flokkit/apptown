@@ -53,6 +53,12 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 		reading, readErr := p.Observer.Snapshot(ctx, dep.ID)
 		unknown := reading.Unknown || readErr != nil
 		out.Known = out.Known && !unknown
+		if reading.Reason != "" {
+			if out.Reason != "" {
+				out.Reason += " "
+			}
+			out.Reason += dep.Name + ": " + reading.Reason
+		}
 		out.Stale = out.Stale || reading.Stale
 		if reading.ObservedAt.IsZero() || reading.ObservedAt.Before(out.ObservedAt) {
 			out.ObservedAt = reading.ObservedAt

@@ -55,7 +55,9 @@ down, is in [Previews and deployments](container-lifecycle.md).
   remote daemon on a machine with exactly the same memory as `apptownd`'s
   would be read wrongly. Otherwise the rest of the bar is hatched "not read",
   never free. Attached hosts do not
-  report the host's own use in 1.0; per-deployment disk use is not shown.
+  report the host's own use in 1.0; that optional figure is absent from the
+  capacity response and does not make a successful check unknown. Per-deployment
+  disk use is not shown.
 
   **A Portainer endpoint** shows what it can give containers, and the limits
   AppTown's own deployments there declare.

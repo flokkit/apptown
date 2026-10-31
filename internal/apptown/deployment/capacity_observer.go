@@ -20,6 +20,8 @@ type CapacitySnapshot struct {
 	ObservedAt time.Time
 	// AttemptedAt distinguishes a pending first check from a failed check.
 	AttemptedAt time.Time
+	// Reason is a safe summary of the failed or overdue check.
+	Reason      string
 	DiskUnknown bool
 	Unknown     bool
 	Stale       bool
@@ -75,6 +77,14 @@ func capacitySnapshotAt(s CapacitySnapshot, now time.Time) CapacitySnapshot {
 		s.Disk = &disk
 		s.Stale = s.Stale || disk.StaleAt(now)
 	}
+	if s.Stale {
+		s.Unknown = true
+		if s.ObservedAt.IsZero() && s.AttemptedAt.IsZero() {
+			s.Reason = "Waiting for the first capacity check."
+		} else if s.Reason == "" {
+			s.Reason = "The capacity check is overdue."
+		}
+	}
 	return s
 }
 
@@ -117,6 +127,7 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 	if err != nil {
 		e.snapshot.Unknown = true
 		e.snapshot.DiskUnknown = true
+		e.snapshot.Reason = "The host capacity check failed."
 		return err
 	}
 	if reading.Disk == nil || !reading.Disk.Free.Known || !reading.Disk.Total.Known {
@@ -124,36 +135,51 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 		e.snapshot.Unknown = true
 		e.snapshot.DiskUnknown = true
 		e.snapshot.Stale = true
+		e.snapshot.Reason = "The host disk check failed."
 		return nil
 	}
 	disk := *reading.Disk
-	e.snapshot = CapacitySnapshot{Disk: &disk, ObservedAt: reading.ReadAt, AttemptedAt: now, Unknown: capacityUnknown(reading)}
+	reason := capacityFailure(reading)
+	e.snapshot = CapacitySnapshot{Disk: &disk, ObservedAt: reading.ReadAt, AttemptedAt: now, Unknown: reason != "", Reason: reason}
 	return nil
 }
 
 // Optional figures remain absent when the provider does not offer them. A
 // present but unread figure is incomplete coverage, even with a healthy disk.
-func capacityUnknown(reading TargetCapacity) bool {
-	for _, r := range []*ResourceCapacity{reading.Memory, reading.CPU} {
+func capacityFailure(reading TargetCapacity) string {
+	for _, resource := range []struct {
+		name    string
+		reading *ResourceCapacity
+	}{{"memory", reading.Memory}, {"CPU", reading.CPU}} {
+		r := resource.reading
 		if r == nil {
 			continue
 		}
-		if !r.Total.Known || !r.Promised.Sum.AppTown.Known || !r.Promised.Sum.Other.Known || r.Promised.Unread.AppTown > 0 || r.Promised.Unread.Other > 0 {
-			return true
+		if !r.Total.Known {
+			return "The host " + resource.name + " total could not be read."
+		}
+		if !r.Promised.Sum.AppTown.Known || !r.Promised.Sum.Other.Known || r.Promised.Unread.AppTown > 0 || r.Promised.Unread.Other > 0 {
+			return "Container " + resource.name + " limits could not all be read."
 		}
 		if r.InUse != nil && (!r.InUse.AppTown.Known || !r.InUse.Other.Known) {
-			return true
+			return "Container " + resource.name + " use could not all be read."
 		}
 		if r.HostUsed != nil && !r.HostUsed.Known {
-			return true
+			return "The host's own " + resource.name + " use could not be read."
 		}
 	}
 	for _, t := range reading.Tenants {
-		if !t.Used.Known || !t.Promised.Known || t.CPUUnread > 0 {
-			return true
+		if !t.Used.Known {
+			return "Container memory use could not all be read."
+		}
+		if !t.Promised.Known {
+			return "Container memory limits could not all be read."
+		}
+		if t.CPUUnread > 0 {
+			return "Container CPU limits could not all be read."
 		}
 	}
-	return false
+	return ""
 }
 
 const CapacityObservationJob = "capacity-observation"

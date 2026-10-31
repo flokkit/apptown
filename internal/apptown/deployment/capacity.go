@@ -243,13 +243,18 @@ func (s *Service) dockerCapacity(ctx context.Context, t *Target) (TargetCapacity
 	}
 	used, usedErr := docker.RunningMemoryUsage(ctx, dk)
 	out.Memory.InUse = inUseOf(limits, limitsErr, used, usedErr)
-	if out.Memory.Total.Known {
-		host := s.hostUse(t, info.MemoryBytes)
-		out.Memory.HostUsed = &host
-	} else {
-		why := unknown("the daemon's total is not known, so this host's own use is not comparable")
-		out.Memory.HostUsed = &why
+	// Whole-host memory has no probe on attached hosts. Leave that optional
+	// figure absent instead of reporting a check that can never succeed.
+	if t.Origin == OriginBuiltIn {
+		if out.Memory.Total.Known {
+			host := s.hostUse(t, info.MemoryBytes)
+			out.Memory.HostUsed = &host
+		} else {
+			why := unknown("the daemon's total is not known, so this host's own use is not comparable")
+			out.Memory.HostUsed = &why
+		}
 	}
+
 	if limitsErr == nil {
 		tenants, err := s.dockerTenants(ctx, t, limits, used, usedErr)
 		if err != nil {

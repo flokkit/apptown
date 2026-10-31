@@ -446,3 +446,31 @@ func TestAShippedToolsGuardIsTheChecksFailure(t *testing.T) {
 		t.Fatalf("%s %q %+v", ev.Outcome, ev.Detail, ev.Findings)
 	}
 }
+
+// A scanner's own subjects limit an adopted check even when that check
+// says repository. Plain static files have no Dockerfile to judge.
+func TestHTMLOnlyAppHasNoDockerfileFindings(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeTree(t, dir, map[string]string{".apptown/app.yaml": "version: 2\napp:\n  site: {static: ., public: true}\n", "index.html": "<p>Hello</p>"})
+	var checks []check.Declared
+	for _, sc := range shippedChecks(t) {
+		if sc.Block == "build/container-image" {
+			checks = append(checks, sc.Declared())
+		}
+	}
+	// A repository-scoped adoption is still limited by hadolint's subject.
+	checks = append(checks, check.Declared{Declaration: check.Declaration{Name: "adopted-lint", Evaluator: "tool", Tool: "hadolint", AppliesTo: []string{"repository"}}})
+	evs, err := panickingJudge(t, loadScannerManifests(stock.FS)).Evaluate(t.Context(), checks, CheckSource(dir), check.Posture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(evs) != 5 {
+		t.Fatalf("Dockerfile checks: %d", len(evs))
+	}
+	for _, ev := range evs {
+		if ev.Outcome != check.NotApplicable || len(ev.Findings) != 0 {
+			t.Errorf("%s: %+v", ev.Name, ev)
+		}
+	}
+}

@@ -66,7 +66,7 @@ func (j *Judge) EvaluateTool(d Declared, src Source, mode Mode, namePrefix strin
 	if s.Looks() == "exec-image" {
 		// It runs inside the public part's image: the check applies when
 		// that part runs as a container and matches the words.
-		why, err := AppliesToPublic(d.AppliesTo, src)
+		why, err := ToolPublic(d.AppliesTo, s.AppliesTo, src)
 		switch {
 		case err != nil:
 			return Evaluation{Declared: d, Mode: mode, Outcome: Error, Detail: err.Error()}
@@ -75,7 +75,7 @@ func (j *Judge) EvaluateTool(d Declared, src Source, mode Mode, namePrefix strin
 		}
 		return j.toolInImage(d, s, src, mode)
 	}
-	places, why, err := Applies(d.AppliesTo, src)
+	places, why, err := ToolPlaces(d.AppliesTo, s.AppliesTo, src)
 	switch {
 	case err != nil:
 		return Evaluation{Declared: d, Mode: mode, Outcome: Error, Detail: err.Error()}

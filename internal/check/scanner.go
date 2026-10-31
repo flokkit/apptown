@@ -53,8 +53,8 @@ type Scanner struct {
 	// ["sh", "-c", "eval \"${APPTOWN_TRUST:-}\"; exec \"$@\"", "sh", <program>, ...].
 	NoEntrypoint bool `yaml:"noEntrypoint" json:"noEntrypoint"`
 	// AppliesTo is what a scan-point scanner applies to (applies.go),
-	// required for one that is not manual; a manual scanner takes the
-	// applicability of the check that names it and declares none.
+	// required for one that is not manual. On a manual scanner it optionally
+	// limits the applicability of the check that names it.
 	AppliesTo []string `yaml:"appliesTo" json:"appliesTo,omitempty"`
 	// EmptyExit is the exit the tool gives when it found nothing to judge
 	// (osv-scanner's 128, "no package sources found"). Where the scanner
@@ -64,13 +64,10 @@ type Scanner struct {
 }
 
 // ValidateApplicability holds a manifest to its applicability rule: a
-// scanner that is not manual states what it applies to; a manual one does
-// not, since the check that names it does.
+// scanner that is not manual states what it applies to; a manual one may
+// further limit what the check that names it applies to.
 func (s Scanner) ValidateApplicability() error {
-	if s.Manual {
-		if len(s.AppliesTo) > 0 {
-			return fmt.Errorf("scanner %s: a manual scanner declares no appliesTo; the check that names it does", s.Name)
-		}
+	if s.Manual && len(s.AppliesTo) == 0 {
 		return nil
 	}
 	if err := ValidateAppliesTo(s.AppliesTo); err != nil {
