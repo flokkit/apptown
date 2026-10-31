@@ -188,7 +188,7 @@ func TestInventorySnapshotsQueueAndRetainTheirEvidence(t *testing.T) {
 	q := &inventoryObservationQueue{}
 	for range 3 {
 		got, err := c.Snapshot(t.Context(), q, "host")
-		if err != nil || !got.Unknown || !got.Stale || len(got.Items) != 0 || q.calls != 1 {
+		if err != nil || !got.Unknown || !got.Stale || len(got.Items) != 0 || !got.AttemptedAt.IsZero() || q.calls != 1 {
 			t.Fatalf("cold coverage: %+v %v calls%d", got, err, q.calls)
 		}
 	}
@@ -197,7 +197,7 @@ func TestInventorySnapshotsQueueAndRetainTheirEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := c.Snapshot(t.Context(), q, "host")
-	if err != nil || got.Unknown || got.Stale || got.ObservedAt != first {
+	if err != nil || got.Unknown || got.Stale || got.ObservedAt != first || got.AttemptedAt != first {
 		t.Fatalf("fresh: %+v %v", got, err)
 	}
 	got.Items[0].Tags[0] = "changed"
@@ -212,7 +212,7 @@ func TestInventorySnapshotsQueueAndRetainTheirEvidence(t *testing.T) {
 		t.Fatal("failure lost")
 	}
 	got, err = c.Snapshot(t.Context(), q, "host")
-	if err != nil || !got.Unknown || got.ObservedAt != first || len(got.Items) != 1 {
+	if err != nil || !got.Unknown || got.ObservedAt != first || got.AttemptedAt != now || len(got.Items) != 1 {
 		t.Fatalf("failure erased evidence: %+v %v", got, err)
 	}
 	now = now.Add(time.Minute)
@@ -412,9 +412,17 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 		return out
 	}
 	job := inventoryRefresh{targets: a.targets, providers: a.targetProviders, cache: a.inventory}
-	if cold := read(); cold.Known || len(missing(cold)) != 0 {
+	if cold := read(); cold.Known || len(cold.Items) != 0 {
 		t.Fatalf("cold coverage %+v", cold)
 	}
+	f.Fail("GET", "/v2/apps", 503)
+	if _, err := job.Run(ctx, target.Name, nil); err == nil {
+		t.Fatal("first inventory attempt did not fail")
+	}
+	if failed := read(); failed.Known || len(failed.Items) != 1 || failed.Items[0].Title != "do-syd: resources not known" {
+		t.Fatalf("failed first attempt missing condition %+v", failed)
+	}
+	f.Fail("GET", "/v2/apps", 0)
 	if receipt, err := job.Run(ctx, target.Name, nil); err != nil {
 		t.Fatal(err)
 	} else if receipt["target"] != target.DisplayLabel {

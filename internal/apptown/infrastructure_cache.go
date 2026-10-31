@@ -244,10 +244,11 @@ func (w inventoryRefresh) storeObserved(key, identity string, items []deploy.Res
 // inventoryObservation is evidence from the last completed provider read.
 // Unknown and stale coverage must never establish that a resource is missing.
 type inventoryObservation struct {
-	Items      []deploy.Resource
-	ObservedAt time.Time
-	Unknown    bool
-	Stale      bool
+	Items       []deploy.Resource
+	ObservedAt  time.Time
+	AttemptedAt time.Time // Last completed attempt, including failures; zero while the first read is pending.
+	Unknown     bool
+	Stale       bool
 }
 
 type inventoryObservationRequests interface {
@@ -273,7 +274,7 @@ func (c *inventoryCache) Snapshot(ctx context.Context, queue inventoryObservatio
 	}
 	due := e.asked.IsZero() || e.dropped || now.Sub(e.asked) >= inventoryTTL
 	request := !e.direct && due && (e.requested.IsZero() || now.Sub(e.requested) >= inventoryTTL)
-	out := inventoryObservation{Items: cloneInventory(e.items), ObservedAt: e.at, Unknown: e.at.IsZero() || e.err != "", Stale: e.dropped || e.invalidated || e.at.IsZero() || now.Sub(e.at) > 2*time.Minute}
+	out := inventoryObservation{Items: cloneInventory(e.items), ObservedAt: e.at, AttemptedAt: e.asked, Unknown: e.at.IsZero() || e.err != "", Stale: e.dropped || e.invalidated || e.at.IsZero() || now.Sub(e.at) > 2*time.Minute}
 	if request {
 		e.requested = now
 		if !e.refreshing {
