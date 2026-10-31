@@ -24,7 +24,7 @@ transport boundaries; its registrations and counts are not the full domain model
 | Question | Principal owners |
 | --- | --- |
 | Who may act? | `internal/access` evaluates policy; `identity` owns accounts, credentials and grants; operation owners apply domain eligibility |
-| What is this project? | `project` (including where it stands: active, being imported or deleted, deleted and kept); `projectlifecycle` composes creation, initialization, settings, the deletion pass, restore and the purge, and runs a purged project's cleanup |
+| What is this project? | `project` (including where it stands: active, being imported or deleted, deleted and kept); `projectlifecycle` composes creation, initialization, settings, generated descriptions through `modelcall`, the deletion pass, restore and the purge, and runs a purged project's cleanup |
 | Which guidance and workflow apply? | `wow` owns library versions; `adoption` records selected versions and quarantines drift found at boot (`VerifyRevision`); `workcommands` prepares admitted inputs |
 | What work exists and how does it change state? | `workflow` owns Changes, Runs, Steps, claims, decisions, evidence and settlement, answers what a step attempt's token may push (`StepPush`), and owns the narrative writer's prompt, evidence layout and parser; `changeadds` reads what an approval's commit declares it adds; `changeactions` opens Changes from catalog entries, chats and due schedules (`Schedules.FireDueSchedules`) |
 | What words describe work status? | `status` owns the shared display vocabulary for Work, evals and remediation; each domain owner classifies its own state before transport and web rendering |

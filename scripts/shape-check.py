@@ -83,7 +83,7 @@ ALLOWED = {
                          "usage", "workflow"},
     "remediation":      {"adoption", "conformance", "project", "status", "workflow"},
     "projectlifecycle": {"adoption", "agentenv", "adrs", "conformance", "console", "conversation", "dataprotection", "deployment", "integration",
-                         "maintenance", "model", "project", "scm", "secret", "usage", "workflow", "wow"},
+                         "maintenance", "model", "modelcall", "project", "scm", "secret", "usage", "workflow", "wow"},
     "modelcall":        set(),
     "conversation":     {"adoption", "agentenv", "agentharness", "changeactions", "complaint", "console", "integration",
                          "model", "project", "scm", "usage", "workflow", "wow"},

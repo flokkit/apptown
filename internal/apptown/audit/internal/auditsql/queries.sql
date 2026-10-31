@@ -18,3 +18,7 @@ ORDER BY a.id DESC LIMIT sqlc.arg(row_limit);
 SELECT DISTINCT split_part(actor, ' via ', 1)::text AS name FROM audit_log
 WHERE split_part(actor, ' via ', 1) = ANY(sqlc.arg(names)::text[]);
 
+
+-- name: ProjectCreationRequest :one
+SELECT COALESCE(payload_json->>'request','')::text FROM audit_log
+WHERE project_id=$1 AND kind='project.created' ORDER BY at,id LIMIT 1;

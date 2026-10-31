@@ -63,7 +63,7 @@ func landingAtMergeFixture(t *testing.T) landingAtMerge {
 
 // owner is Work's merge owner over SCM's service, with the test's driver.
 func (l landingAtMerge) owner(driver scm.Driver) *Merges {
-	service := scm.New(l.db, NewSCMWork(l.db, l.dir, policyLawRules{}), l.locks, nil)
+	service := scm.New(l.db, NewSCMWork(l.db, l.dir, policyLawRules{}, nil), l.locks, nil)
 	return NewMerges(l.db, l.dir, policyLawRules{}, service, mergeEffectsTest{driver: driver, observed: func(scm.Result) {}})
 }
 
@@ -100,7 +100,7 @@ func (l landingAtMerge) call(t *testing.T) MergeCall {
 // reads it.
 func (l landingAtMerge) record(t *testing.T) scm.Record {
 	t.Helper()
-	service := scm.New(l.db, NewSCMWork(l.db, l.dir, policyLawRules{}), &scm.RepositoryLocks{}, nil)
+	service := scm.New(l.db, NewSCMWork(l.db, l.dir, policyLawRules{}, nil), &scm.RepositoryLocks{}, nil)
 	record, err := service.Read(SCMInspectionContext(context.Background(), l.db), l.run.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -309,7 +309,7 @@ func TestSettlingAPendingMergeRequiresItsAdmittedScope(t *testing.T) {
 				}
 				return scm.Inspection{Kind: scm.Found, Result: "old-effect"}, nil
 			}}
-			service := scm.New(l.db, NewSCMWork(l.db, l.dir, policyLawRules{}), &scm.RepositoryLocks{}, nil)
+			service := scm.New(l.db, NewSCMWork(l.db, l.dir, policyLawRules{}, nil), &scm.RepositoryLocks{}, nil)
 			_, err := service.Inspect(SCMInspectionContext(context.Background(), l.db), l.run.ID, inspecting)
 			if mutation == "" {
 				if err != nil {

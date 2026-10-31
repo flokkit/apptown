@@ -19,8 +19,8 @@ SELECT slug FROM projects ORDER BY slug;
 
 -- Project writes.
 -- name: InsertProject :one
-INSERT INTO projects (id, slug, name, namespace, blurb, icon, owner_group, default_approvers, created_at, purpose, serving_label)
-VALUES (sqlc.arg(id), sqlc.arg(slug), sqlc.arg(name), sqlc.arg(namespace), sqlc.arg(blurb), sqlc.arg(icon), sqlc.arg(owner_group), sqlc.arg(default_approvers), sqlc.arg(created_at), sqlc.arg(purpose), sqlc.arg(serving_label)) RETURNING *;
+INSERT INTO projects (id, slug, name, namespace, blurb, blurb_source, icon, owner_group, default_approvers, created_at, purpose, serving_label)
+VALUES (sqlc.arg(id), sqlc.arg(slug), sqlc.arg(name), sqlc.arg(namespace), sqlc.arg(blurb), sqlc.arg(blurb_source), sqlc.arg(icon), sqlc.arg(owner_group), sqlc.arg(default_approvers), sqlc.arg(created_at), sqlc.arg(purpose), sqlc.arg(serving_label)) RETURNING *;
 
 -- name: ProjectPurpose :one
 SELECT purpose FROM projects WHERE id = $1;
@@ -48,7 +48,7 @@ ON CONFLICT(project_id, sha) DO UPDATE SET status=excluded.status, app_yaml=excl
  source_format=excluded.source_format, error=excluded.error;
 
 -- name: UpdateProjectSettings :one
-UPDATE projects SET slug=$2, name=$3, icon=$4, blurb=$5, namespace=$6, settings_revision=settings_revision+1 WHERE id=$1 RETURNING *;
+UPDATE projects SET slug=$2, name=$3, icon=$4, blurb=$5, namespace=$6, blurb_source=$7, settings_revision=settings_revision+1 WHERE id=$1 RETURNING *;
 
 -- name: ProjectAuthorityCatalogue :many
 SELECT id, name, owner_group FROM projects
@@ -171,3 +171,7 @@ SELECT * FROM project_creation_requests WHERE actor_id=$1 AND request_id=$2;
 -- name: CompleteProjectCreation :execrows
 UPDATE project_creation_requests SET input_hash=$2,resolved_group=$3,result_json=$4 WHERE id=$1 AND result_json IS NULL;
 
+
+-- name: PublishGeneratedDescription :exec
+UPDATE projects SET blurb=$2, settings_revision=settings_revision+1
+WHERE id=$1 AND blurb_source='generated' AND blurb<>$2;

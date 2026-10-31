@@ -50,7 +50,7 @@ func TestMergeOwnerSettlesOnlyTheGateObservedBeforeExternalWork(t *testing.T) {
 					completionExec(t, q.db, `UPDATE runs SET retry_revision=1 WHERE id=$1`, run.ID)
 				}
 			}}
-			service := scm.New(q.db, NewSCMWork(q.db, t.TempDir(), nil), &scm.RepositoryLocks{}, nil)
+			service := scm.New(q.db, NewSCMWork(q.db, t.TempDir(), nil, nil), &scm.RepositoryLocks{}, nil)
 			owner := NewMerges(q.db, t.TempDir(), policyLawRules{}, service, effects)
 			out, err := owner.Merge(ctx, run)
 			if changed {

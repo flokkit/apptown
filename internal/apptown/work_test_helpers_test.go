@@ -39,7 +39,7 @@ func (m *mergeSeam) owner() *workflow.Merges {
 // scmFor: the SCM service as Work builds it, over the App's database and
 // repository locks, for tests that inspect merge records directly.
 func scmFor(a *App) *scm.Service {
-	return scm.New(a.DB, workflow.NewSCMWork(a.DB, a.cfg.dataDir, workflowLawRules{}), &a.repositories, nil)
+	return scm.New(a.DB, workflow.NewSCMWork(a.DB, a.cfg.dataDir, workflowLawRules{}, jobQueue{}), &a.repositories, nil)
 }
 
 // rebuildWork builds the App's Work again from its own dependencies with

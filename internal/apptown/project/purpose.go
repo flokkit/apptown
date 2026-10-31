@@ -38,10 +38,13 @@ func purposeOf(s string) (Purpose, error) {
 // The allowances: one row per purpose. A further purpose starts as a row
 // here, and each effect's meaning is checked for it (publication through
 // AppTown's own registry stays an eval-copy act: integration.EvalPublication).
-var allowances = map[Purpose]struct{ integrations, evalDomainOnly, schedules, moves, keepsData bool }{
-	Ordinary: {integrations: true, schedules: true, moves: true, keepsData: true},
+var allowances = map[Purpose]struct{ integrations, evalDomainOnly, schedules, moves, keepsData, descriptions bool }{
+	Ordinary: {integrations: true, schedules: true, moves: true, keepsData: true, descriptions: true},
 	EvalCopy: {evalDomainOnly: true},
 }
+
+// Descriptions says whether model jobs may generate the project description.
+func (p Purpose) Descriptions() bool { return allowances[p].descriptions }
 
 // Integrations says whether the project may be given integrations and what
 // the instance holds for ordinary work: attachments and provisioned

@@ -5,11 +5,12 @@ import (
 	"reflect"
 	"slices"
 
-	"github.com/flokkit/apptown/internal/ids"
-
+	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/apptown/workflow/internal/workflowsql"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 type scmClaimKey struct{}
@@ -17,6 +18,7 @@ type scmInspectionKey struct{}
 type scmInspection struct{ db *database.DB }
 
 type SCMWork struct {
+	jobs    jobs.Enqueuer
 	rules   LawRules
 	db      *database.DB
 	dataDir string
@@ -25,6 +27,7 @@ type SCMWork struct {
 	clocked
 }
 type scmClaim struct {
+	jobs     jobs.Enqueuer
 	rules    LawRules
 	db       *database.DB
 	run      Run
@@ -50,7 +53,9 @@ func (w SCMWork) Prepare(ctx context.Context, purpose scm.Purpose, id ids.ID) (s
 		if claim.db != w.db || claim.run.ID != id || claim.call == nil {
 			return nil, scm.ErrCaller
 		}
-		return claim, nil
+		bound := *claim
+		bound.jobs = w.jobs
+		return &bound, nil
 	}
 	if purpose != scm.Observe {
 		return nil, scm.ErrCaller
@@ -92,7 +97,7 @@ func (w SCMWork) claim(run Run, source MergeSource, call *MergeCall, attribution
 		}
 		selected.DefaultBranch = source.DefaultBranch
 	}
-	return &scmClaim{w.rules, w.db, run, source, selected, call, w.evals, w.clocked}, nil
+	return &scmClaim{w.jobs, w.rules, w.db, run, source, selected, call, w.evals, w.clocked}, nil
 }
 func (c *scmClaim) Source() scm.Source { return c.selected }
 func (c *scmClaim) CheckIn(ctx context.Context, tx *database.Tx, purpose scm.Purpose) (scm.Refusal, error) {
@@ -153,6 +158,11 @@ func (c *scmClaim) RecordIn(ctx context.Context, tx *database.Tx, receipt scm.Re
 		if err != nil {
 			return err
 		}
+		if c.jobs != nil {
+			if err := c.jobs.EnqueueIn(ctx, tx, jobs.Request{Operation: project.DescriptionJob, Key: c.source.ProjectID.String() + "/landed/" + c.source.ChangeID.String()}); err != nil {
+				return err
+			}
+		}
 		if count != 1 {
 			return scm.ErrChanged
 		}
@@ -160,6 +170,6 @@ func (c *scmClaim) RecordIn(ctx context.Context, tx *database.Tx, receipt scm.Re
 	return recordReceiptIn(ctx, tx, c.run.ID, event, receipt, c.now())
 }
 
-func NewSCMWork(db *database.DB, dataDir string, rules LawRules) SCMWork {
-	return SCMWork{db: db, dataDir: dataDir, rules: rules}
+func NewSCMWork(db *database.DB, dataDir string, rules LawRules, queue jobs.Enqueuer) SCMWork {
+	return SCMWork{jobs: queue, db: db, dataDir: dataDir, rules: rules}
 }

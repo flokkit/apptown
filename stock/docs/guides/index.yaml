@@ -12,6 +12,8 @@ groups:
       - what-apptown-is-for
   - title: Building on AppTown
     guides:
+      - new-project
+      - project-settings
       - changes-and-main
       - connect-a-coding-agent
       - how-apps-run

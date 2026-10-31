@@ -6,12 +6,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/flokkit/apptown/internal/ids"
-
 	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/database"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // Service is the supported caller-facing Work API. Its stores and query plans
@@ -76,6 +76,7 @@ type Service struct {
 // context, the sources it reads over time, and the recorders other
 // subsystems supply for the effects Work's transactions carry.
 type Dependencies struct {
+	Jobs         jobs.Enqueuer
 	Authority    access.ReadAuthorizer
 	Scanners     ScannerSource                                                         // Conformance's attachment snapshot, pinned at stage entry
 	Laws         LawRules                                                              // policy violations for a run
@@ -190,7 +191,7 @@ func New(life context.Context, db *database.DB, deps Dependencies) *Service {
 	s.importer = newImporter(db, deps.Git, deps.Repositories, s.prepareCreated)
 	s.importer.creator.records.clocked = s.clocked
 	if deps.Merge != nil {
-		work := NewSCMWork(db, deps.DataDir, deps.Laws)
+		work := NewSCMWork(db, deps.DataDir, deps.Laws, deps.Jobs)
 		work.evals, work.clocked = deps.EvalGate, s.clocked
 		s.scmService = scm.New(db, work, deps.Repositories, s.clocked.clock)
 		s.merges = NewMerges(db, deps.DataDir, deps.Laws, s.scmService, deps.Merge)

@@ -15,6 +15,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/evals"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/operations"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/apptown/remediation"
 	"github.com/flokkit/apptown/internal/apptown/verification"
@@ -56,7 +57,9 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 	disks := a.diskObserver
 	workers := a.workerObserver
 
+	descriptions := projectlifecycle.Descriptions{Service: a.lifecycle, Models: a.modelSelection, Completion: a.inference, Changes: a.Work}
 	kinds := map[string]jobs.Kind{
+		project.DescriptionJob: {Run: descriptions.Run},
 		deployment.ReleaseJob:  {Run: jobErrors(deployments.Release), Timeout: 20 * time.Minute},
 		workflowCompletionJob:  {Run: jobErrors(followups.Complete)},
 		deployment.RecoveryJob: {Run: jobErrors(deployments.Recover), Timeout: 20 * time.Minute},
@@ -121,6 +124,7 @@ func apptownJobKinds(a *App) map[string]jobs.Kind {
 // and the budget every enqueue of it records. It is the one source for both,
 // so they cannot drift.
 var jobBudgets = map[string]int{
+	project.DescriptionJob:                  1,
 	deployment.ReleaseJob:                   1,
 	workflowCompletionJob:                   3,
 	deployment.RecoveryJob:                  3,

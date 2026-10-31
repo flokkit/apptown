@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/projectlifecycle"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/ids"
@@ -34,6 +35,7 @@ func TestWorkflowCompletionRollsBackEveryRequiredRecord(t *testing.T) {
 	t.Parallel()
 	a, ctx, run, _ := completionReleaseScenario(t)
 	store := a.DB
+	priorJobs := len(operationJobs(t, a, project.DescriptionJob))
 	before, err := a.Work.Change(ctx, run.ChangeID)
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +58,11 @@ func TestWorkflowCompletionRollsBackEveryRequiredRecord(t *testing.T) {
 			requireEvents(t, a, 0, eventKind("run.done"))
 			for _, table := range []string{"releases", "release_changes", "river_job"} {
 				// sql-guarantee: rollback must leave no hidden row in any of these tables, including rows no owner read would list.
-				completionCount(t, store, 0, `SELECT COUNT(*) FROM `+table)
+				want := 0
+				if table == "river_job" {
+					want = priorJobs
+				}
+				completionCount(t, store, want, `SELECT COUNT(*) FROM `+table)
 			}
 		})
 	}
@@ -136,7 +142,9 @@ func TestWorkflowCompletionExplicitRetryOnlyRequeues(t *testing.T) {
 	if err != nil || result.Advanced || result.RunStatus != workflow.RunDone || !result.FollowUpsPending {
 		t.Fatalf("retry: %+v %v", result, err)
 	}
-	requireJobs(t, a, 3, func(j *rivertype.JobRow, _ jobs.Request) bool { return j.State == rivertype.JobStateAvailable })
+	requireJobs(t, a, 3, func(j *rivertype.JobRow, r jobs.Request) bool {
+		return r.Operation != project.DescriptionJob && j.State == rivertype.JobStateAvailable
+	})
 	requireEvents(t, a, 1, eventKind("run.done"))
 }
 
@@ -152,8 +160,8 @@ func TestWorkflowCompletionReturnsBeforeFollowUps(t *testing.T) {
 		if err != nil || res.Advanced != first || res.RunStatus != workflow.RunDone || !res.FollowUpsPending {
 			t.Fatalf("advance: %+v %v", res, err)
 		}
-		requireJobs(t, a, 3, func(j *rivertype.JobRow, _ jobs.Request) bool {
-			return j.State == rivertype.JobStateAvailable && j.Attempt == 0
+		requireJobs(t, a, 3, func(j *rivertype.JobRow, r jobs.Request) bool {
+			return r.Operation != project.DescriptionJob && j.State == rivertype.JobStateAvailable && j.Attempt == 0
 		})
 	}
 	requireEvents(t, a, 1, eventKind("run.done"))

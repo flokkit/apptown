@@ -16,6 +16,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/jobs"
+	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/schema"
 	"github.com/flokkit/apptown/internal/apptown/usage"
 	"github.com/flokkit/apptown/internal/apptown/verification"
@@ -35,6 +36,10 @@ func startupFixture(t *testing.T, withChild ...bool) (*database.DB, ids.ID, ids.
 	t.Helper()
 	a := testApp(t)
 	projectID := createReadTestProject(t, a, "restart")
+	// Creation's model job has finished before this restart fixture begins.
+	for _, job := range operationJobs(t, a, project.DescriptionJob) {
+		runQueuedJobForTest(t, a, project.DescriptionJob, job.Key)
+	}
 	ctx := a.asEngine(context.Background())
 	steps := []schema.Step{{Name: "work", Uses: "script", With: map[string]any{"script": "true"}}, {Name: "finished", Uses: "script", With: map[string]any{"script": "true"}}}
 	if len(withChild) > 0 && withChild[0] {

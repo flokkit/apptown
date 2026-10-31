@@ -1486,9 +1486,9 @@ button.page-help-q:hover, button.page-help-q[aria-expanded="true"] { color: var(
 .infra-add { padding: 16px 0; border: 0; }
 .wiz-kind { width: 100%; text-align: left; display: grid; grid-template-columns: 240px minmax(0,1fr); gap: 24px; padding: 16px 0; }
 .wiz-kind .infra-head { margin: 0; }
-.project-list td:first-child { width: 32%; }
+.project-list td:first-child { width: 32%; min-width: 0; }
 .project-list td { vertical-align: middle; }
-.project-list .project-description { margin-top: 4px; max-width: 48ch; }
+.project-description { margin-top: 4px; max-width: 48ch; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 @media (max-width: 1000px) {
   .infra-grid > a.infra-card { grid-template-columns: minmax(200px,1fr) minmax(0,1fr); }
   .infra-grid > a.infra-card .infra-attention, .infra-grid > a.infra-card .infra-foot { grid-column: 1 / -1; grid-row: auto; }

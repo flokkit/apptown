@@ -23,6 +23,7 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/adoption"
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/identity"
+	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
@@ -66,6 +67,7 @@ type Publisher interface {
 	PushBranch(ctx context.Context, projectID ids.ID, repoDir, branch string)
 }
 type Dependencies struct {
+	Jobs         jobs.Enqueuer
 	Identity     *identity.Service
 	Adoption     *adoption.Service
 	Projects     *project.Projects
@@ -91,6 +93,7 @@ type Config struct {
 	Now func() time.Time
 }
 type Service struct {
+	jobs         jobs.Enqueuer
 	identity     *identity.Service
 	now          func() time.Time
 	ways         *wow.Service
@@ -112,14 +115,16 @@ type Service struct {
 }
 
 func New(db *database.DB, deps Dependencies, cfg Config) *Service {
-	return &Service{db: db, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.Resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
+	return &Service{db: db, jobs: deps.Jobs, identity: deps.Identity, adoption: deps.Adoption, projects: deps.Projects, ways: deps.Ways, repositories: deps.Repositories, publisher: deps.Publisher, changes: deps.Changes, superseded: deps.Superseded, secrets: deps.Secrets, seeding: cfg.Seeding, resolve: cfg.Resolve, dataDir: cfg.DataDir, extensions: slices.Clone(cfg.Extensions), projectNamesBusy: make(map[string]bool), now: clock.Or(cfg.Now)}
 }
 
 // Create is the application command behind the wizard, `apptown new` and the
 // MCP's create_project: the record, its owning group (the first
 // administrator's personal group when the draft names none), the creator's
 // owner role. The repo and the pack are separate
-// acts the caller may add; a pack the draft names must be offered.
+// acts the caller may add; a pack the draft names must be offered. Blurb
+// is the full creation request, kept in the project.created record. The
+// display description starts empty and a queued job generates it.
 func (s *Service) Create(ctx context.Context, in Draft) (*project.Project, error) {
 	if !in.RequestID.IsZero() {
 		return s.createRequested(ctx, in)
@@ -141,8 +146,7 @@ func (s *Service) Create(ctx context.Context, in Draft) (*project.Project, error
 		return nil, err
 	}
 	defer release()
-	// Blurb doubles as the project's remembered intent: the wizard's "what is
-	// this" sentence, reused by every Build-the-first-version door.
+	// Keep the submitted request in the creation record.
 	receipt, err := s.adoption.Union(ctx, ids.Nil, nil)
 	if err != nil {
 		return nil, err
@@ -175,7 +179,7 @@ func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group
 			return out, err
 		}
 	}
-	id, err := project.CreateAt(ctx, tx, now, project.Spec{ID: in.ID, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Blurb: in.Blurb, Icon: in.Icon, OwnerGroup: group, DefaultApprovers: "role:" + access.RoleProjectApprover + ",role:" + access.RoleProjectOwner})
+	id, err := project.CreateAt(ctx, tx, now, project.Spec{ID: in.ID, Slug: in.Slug, Name: in.Name, Namespace: in.Namespace, Icon: in.Icon, OwnerGroup: group, DefaultApprovers: "role:" + access.RoleProjectApprover + ",role:" + access.RoleProjectOwner})
 	if err != nil {
 		return out, err
 	}
@@ -202,7 +206,10 @@ func (s *Service) createIn(ctx context.Context, tx *database.Tx, in Draft, group
 	if err := identity.ProjectOwnershipIn(ctx, tx, id, creator, now); err != nil {
 		return out, err
 	}
-	if err := audit.At(now).RecordIn(ctx, tx, in.Actor, id, "project.created", in.Slug, map[string]any{"ownerGroup": group}); err != nil {
+	if err := audit.At(now).RecordIn(ctx, tx, in.Actor, id, "project.created", in.Slug, map[string]any{"ownerGroup": group, "request": in.Blurb}); err != nil {
+		return out, err
+	}
+	if err := s.queueDescriptionIn(ctx, tx, id, "created"); err != nil {
 		return out, err
 	}
 	return project.ByIDIn(ctx, tx, id)

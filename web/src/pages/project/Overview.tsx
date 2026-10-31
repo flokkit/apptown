@@ -29,7 +29,7 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
   const projectQ = useGet<ProjectT>(`/projects/${slug}`)
   const envs = envsQ.data ?? []
   const p = projectQ.data
-  const blurb = p?.blurb ?? ''
+  const request = p?.originalRequest ?? ''
   // The current plan identifies the configured release destination.
   const planQ = useGet<ReleasePlan>(`/projects/${slug}/release/plan`)
   const plan = planQ.current ? planQ.data : undefined
@@ -46,7 +46,7 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
   // The Build-the-first-version door:
   // while a project has no running app, building v1 is overwhelmingly the
   // likely intent — a standing primary action, not a hint. Not a workflow:
-  // a Change + workshop with the project's remembered intent (blurb) seeded.
+  // a Change + workshop with the project's original request seeded.
   // Only while the project has no app at all: a project whose repository
   // already declares one (a pack's seed may carry a working starter, read as
   // the runtime form) is changed, not built, even before its first deploy.
@@ -55,9 +55,9 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
     if (busy) return
     setBusy(true); setErr('')
     try {
-      // No blurb, no brief: say so in the body rather than sending nothing
+      // No request, no brief: say so in the body rather than sending nothing
       // (complaint #38) — the helper then asks before it builds.
-      const body = blurb.trim() || 'No description was written for this project yet. Ask what the first version should do before building anything.'
+      const body = request.trim() || 'No description was written for this project yet. Ask what the first version should do before building anything.'
       const r = await post<CreatedChange>(`/projects/${slug}/changes`, {
         title: 'First version', type: 'feature', body, workflow: '',
       })
@@ -95,7 +95,7 @@ export function BigChangeBox({ slug, inline = false }: { slug: string; inline?: 
         )}
         {buildFirst && (
           <SplitButton icon="🔨" label="Build the first version" green
-            sub={blurb ? `"${blurb.slice(0, 60)}${blurb.length > 60 ? '…' : ''}"` : 'no app here yet · start it in a building chat'}
+            sub={request ? `"${request.slice(0, 60)}${request.length > 60 ? '…' : ''}"` : 'no app here yet · start it in a building chat'}
             busy={busy} onMain={buildV0} items={[]} />
         )}
         <SplitButton icon="💬" label="Change" sub="describe what you want changed"

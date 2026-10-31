@@ -11,3 +11,5 @@ CREATE TABLE IF NOT EXISTS audit_log (
   subject      TEXT NOT NULL DEFAULT '',
   payload_json JSONB NOT NULL DEFAULT '{}'::jsonb
 );
+
+CREATE INDEX audit_log_project_created ON audit_log(project_id) WHERE kind='project.created';

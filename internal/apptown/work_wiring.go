@@ -57,7 +57,7 @@ func (a *App) workDependencies() workflow.Dependencies {
 	runners[verification.ScanKind] = a.scanSteps.RunScan
 	runners[workflowexec.AgentKind] = a.agents.Run
 	runners[workflowexec.ReviewKind] = a.agents.Review
-	return workflow.Dependencies{
+	return workflow.Dependencies{Jobs: jobQueue{},
 		StepContext:  projectCacheScope(a.DB),
 		Masker:       a.Secrets.Masker,
 		Authority:    access.Checked{Authority: identity.Scoped(a.Access, "work"), Projects: a.Projects},

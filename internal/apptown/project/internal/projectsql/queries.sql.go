@@ -147,8 +147,8 @@ func (q *Queries) DeletingProjects(ctx context.Context) ([]ProjectLifecycle, err
 }
 
 const insertProject = `-- name: InsertProject :one
-INSERT INTO projects (id, slug, name, namespace, blurb, icon, owner_group, default_approvers, created_at, purpose, serving_label)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label
+INSERT INTO projects (id, slug, name, namespace, blurb, blurb_source, icon, owner_group, default_approvers, created_at, purpose, serving_label)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source
 `
 
 type InsertProjectParams struct {
@@ -157,6 +157,7 @@ type InsertProjectParams struct {
 	Name             string
 	Namespace        string
 	Blurb            string
+	BlurbSource      string
 	Icon             string
 	OwnerGroup       string
 	DefaultApprovers string
@@ -173,6 +174,7 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (P
 		arg.Name,
 		arg.Namespace,
 		arg.Blurb,
+		arg.BlurbSource,
 		arg.Icon,
 		arg.OwnerGroup,
 		arg.DefaultApprovers,
@@ -198,6 +200,7 @@ func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (P
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }
@@ -396,7 +399,7 @@ func (q *Queries) ProjectAuthorityCatalogue(ctx context.Context, projectID ids.I
 }
 
 const projectByID = `-- name: ProjectByID :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id = $1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id = $1
 `
 
 // Project record reads and locks.
@@ -420,12 +423,13 @@ func (q *Queries) ProjectByID(ctx context.Context, id ids.ID) (Project, error) {
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }
 
 const projectByIDForUpdate = `-- name: ProjectByIDForUpdate :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id = $1 FOR UPDATE
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) ProjectByIDForUpdate(ctx context.Context, id ids.ID) (Project, error) {
@@ -448,12 +452,13 @@ func (q *Queries) ProjectByIDForUpdate(ctx context.Context, id ids.ID) (Project,
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }
 
 const projectByServingLabel = `-- name: ProjectByServingLabel :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE serving_label = $1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE serving_label = $1
 `
 
 func (q *Queries) ProjectByServingLabel(ctx context.Context, servingLabel string) (Project, error) {
@@ -476,12 +481,13 @@ func (q *Queries) ProjectByServingLabel(ctx context.Context, servingLabel string
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }
 
 const projectBySlug = `-- name: ProjectBySlug :one
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE slug = $1
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE slug = $1
 `
 
 func (q *Queries) ProjectBySlug(ctx context.Context, slug string) (Project, error) {
@@ -504,6 +510,7 @@ func (q *Queries) ProjectBySlug(ctx context.Context, slug string) (Project, erro
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }
@@ -657,7 +664,7 @@ func (q *Queries) ProjectLifecycle(ctx context.Context, projectID ids.ID) (Proje
 }
 
 const projectPage = `-- name: ProjectPage :many
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
 AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
 AND ($2::text='' OR strpos(lower(name||' '||slug||' '||blurb||' '||namespace||' '||icon),$2)>0)
 ORDER BY CASE WHEN $3::boolean THEN array_position($1::uuid[],id) END,
@@ -709,6 +716,7 @@ func (q *Queries) ProjectPage(ctx context.Context, arg ProjectPageParams) ([]Pro
 			&i.SettingsRevision,
 			&i.Purpose,
 			&i.ServingLabel,
+			&i.BlurbSource,
 		); err != nil {
 			return nil, err
 		}
@@ -773,7 +781,7 @@ func (q *Queries) ProjectSlugs(ctx context.Context) ([]string, error) {
 }
 
 const projectsByNamespaceAndName = `-- name: ProjectsByNamespaceAndName :many
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects ORDER BY namespace, name
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects ORDER BY namespace, name
 `
 
 func (q *Queries) ProjectsByNamespaceAndName(ctx context.Context) ([]Project, error) {
@@ -802,6 +810,7 @@ func (q *Queries) ProjectsByNamespaceAndName(ctx context.Context) ([]Project, er
 			&i.SettingsRevision,
 			&i.Purpose,
 			&i.ServingLabel,
+			&i.BlurbSource,
 		); err != nil {
 			return nil, err
 		}
@@ -814,6 +823,21 @@ func (q *Queries) ProjectsByNamespaceAndName(ctx context.Context) ([]Project, er
 		return nil, err
 	}
 	return items, nil
+}
+
+const publishGeneratedDescription = `-- name: PublishGeneratedDescription :exec
+UPDATE projects SET blurb=$2, settings_revision=settings_revision+1
+WHERE id=$1 AND blurb_source='generated' AND blurb<>$2
+`
+
+type PublishGeneratedDescriptionParams struct {
+	ID    ids.ID
+	Blurb string
+}
+
+func (q *Queries) PublishGeneratedDescription(ctx context.Context, arg PublishGeneratedDescriptionParams) error {
+	_, err := q.db.ExecContext(ctx, publishGeneratedDescription, arg.ID, arg.Blurb)
+	return err
 }
 
 const purgesDue = `-- name: PurgesDue :many
@@ -973,7 +997,7 @@ func (q *Queries) SaveContractSnapshot(ctx context.Context, arg SaveContractSnap
 }
 
 const setIndependentApproval = `-- name: SetIndependentApproval :one
-UPDATE projects SET require_independent_approval = $2 WHERE id=$1 RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label
+UPDATE projects SET require_independent_approval = $2 WHERE id=$1 RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source
 `
 
 type SetIndependentApprovalParams struct {
@@ -1001,6 +1025,7 @@ func (q *Queries) SetIndependentApproval(ctx context.Context, arg SetIndependent
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }
@@ -1097,16 +1122,17 @@ func (q *Queries) StartPurge(ctx context.Context, arg StartPurgeParams) (int64, 
 }
 
 const updateProjectSettings = `-- name: UpdateProjectSettings :one
-UPDATE projects SET slug=$2, name=$3, icon=$4, blurb=$5, namespace=$6, settings_revision=settings_revision+1 WHERE id=$1 RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label
+UPDATE projects SET slug=$2, name=$3, icon=$4, blurb=$5, namespace=$6, blurb_source=$7, settings_revision=settings_revision+1 WHERE id=$1 RETURNING id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source
 `
 
 type UpdateProjectSettingsParams struct {
-	ID        ids.ID
-	Slug      string
-	Name      string
-	Icon      string
-	Blurb     string
-	Namespace string
+	ID          ids.ID
+	Slug        string
+	Name        string
+	Icon        string
+	Blurb       string
+	Namespace   string
+	BlurbSource string
 }
 
 func (q *Queries) UpdateProjectSettings(ctx context.Context, arg UpdateProjectSettingsParams) (Project, error) {
@@ -1117,6 +1143,7 @@ func (q *Queries) UpdateProjectSettings(ctx context.Context, arg UpdateProjectSe
 		arg.Icon,
 		arg.Blurb,
 		arg.Namespace,
+		arg.BlurbSource,
 	)
 	var i Project
 	err := row.Scan(
@@ -1136,6 +1163,7 @@ func (q *Queries) UpdateProjectSettings(ctx context.Context, arg UpdateProjectSe
 		&i.SettingsRevision,
 		&i.Purpose,
 		&i.ServingLabel,
+		&i.BlurbSource,
 	)
 	return i, err
 }
@@ -1159,7 +1187,7 @@ func (q *Queries) VisibleProjectCount(ctx context.Context, arg VisibleProjectCou
 }
 
 const visibleProjects = `-- name: VisibleProjects :many
-SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
+SELECT id, slug, name, default_branch, namespace, icon, blurb, release_domain, model_profile, owner_group, default_approvers, created_at, require_independent_approval, settings_revision, purpose, serving_label, blurb_source FROM projects WHERE id=ANY($1::uuid[]) AND purpose = 'ordinary'
 AND NOT EXISTS (SELECT 1 FROM project_lifecycle l WHERE l.project_id = projects.id AND l.state = 'deleted')
 ORDER BY namespace, name, id
 `
@@ -1192,6 +1220,7 @@ func (q *Queries) VisibleProjects(ctx context.Context, dollar_1 []ids.ID) ([]Pro
 			&i.SettingsRevision,
 			&i.Purpose,
 			&i.ServingLabel,
+			&i.BlurbSource,
 		); err != nil {
 			return nil, err
 		}

@@ -67,6 +67,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     </section>
     <aside className="application-details" aria-label="Application details">
       <h2>Application details</h2>
+      {project.originalRequest && <section><h3>Original request</h3><p style={{ whiteSpace: 'pre-wrap' }}>{project.originalRequest}</p></section>}
       <section><h3>Deployments</h3><ReadStatus q={deploymentsQ} what="deployments" /><StaleNote q={deploymentsQ} />
         {deploymentsQ.data && !deployments.length && <p className="muted">No deployments</p>}
         {deployments.map(d => <div className="application-deployment" key={d.id}><strong>{d.displayLabel || d.name}</strong><RuntimeStatus observation={d} />{d.url && <AppAddress url={d.url} hostOnly={d.hostOnly}>{d.url.replace(/^https?:\/\//, '')}</AppAddress>}</div>)}

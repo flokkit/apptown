@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/flokkit/apptown/internal/access"
+	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/scm"
 	"github.com/flokkit/apptown/internal/execution"
@@ -18,7 +20,12 @@ func TestSourcePackagedSignals(t *testing.T) {
 	t.Parallel()
 	db := databaseSuite.New(t)
 	dataDir := t.TempDir()
-	h := NewProjectViews(project.New(db, nil), nil, nil, nil, execution.Runner{}, scm.NewBranches(db, &scm.RepositoryLocks{}), dataDir)
+	authority := identity.New(db, identity.Config{Projects: project.NewCatalogue(db)})
+	if err := authority.SeedAdministrator(t.Context(), "reader"); err != nil {
+		t.Fatal(err)
+	}
+	ctx := access.WithCaller(t.Context(), access.Caller{Verified: true, Principal: testAdmittedPrincipal(t, authority, "reader"), Receipt: "reader"})
+	h := NewProjectViews(project.New(db, authority), nil, nil, nil, execution.Runner{}, scm.NewBranches(db, &scm.RepositoryLocks{}), dataDir)
 
 	sourceID := httpTestProject(t, db, "src", "S")
 	repo := filepath.Join(dataDir, "workspaces", "project-"+sourceID.String())
@@ -30,7 +37,7 @@ func TestSourcePackagedSignals(t *testing.T) {
 			RuntimeForm   string `json:"runtimeForm"`
 			IntranetReady bool   `json:"intranetReady"`
 		}
-		req := httptest.NewRequest("GET", "/api/v1/projects/src", nil)
+		req := httptest.NewRequest("GET", "/api/v1/projects/src", nil).WithContext(ctx)
 		w := httptest.NewRecorder()
 		req.SetPathValue("slug", "src")
 		h.GetProject(w, req)
@@ -54,7 +61,7 @@ func TestSourcePackagedSignals(t *testing.T) {
 		IntranetReady bool   `json:"intranetReady"`
 	}
 	w2 := httptest.NewRecorder()
-	req2 := httptest.NewRequest("GET", "/api/v1/projects/st", nil)
+	req2 := httptest.NewRequest("GET", "/api/v1/projects/st", nil).WithContext(ctx)
 	req2.SetPathValue("slug", "st")
 	h.GetProject(w2, req2)
 	_ = json.Unmarshal(w2.Body.Bytes(), &out2)

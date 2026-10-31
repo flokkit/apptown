@@ -126,3 +126,28 @@ it('does not treat a held cached plan as a current release destination', async (
     expect(h.opened).toHaveBeenCalledWith('https://customer.example', '_blank')
   } finally { await h.resolve(); h.close() }
 })
+
+it.each([
+  { blurb: 'Truck assignments', hasRequest: true },
+  { blurb: '', hasRequest: true },
+  { blurb: 'A manually written description', hasRequest: false },
+])('keeps the first-build brief for %j', async ({ blurb, hasRequest }) => {
+  const originalRequest = hasRequest ? 'Track each truck, driver assignments, servicing dates and overdue inspections. Notify the dispatcher each morning.' : ''
+  let body = ''
+  vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith('/projects/p')) return new Response(JSON.stringify({ slug: 'p', blurb, originalRequest, runtimeForm: 'no app yet' }))
+    if (url.endsWith('/changes') && init?.method === 'POST') {
+      body = JSON.parse(init.body as string).body
+      return new Response(JSON.stringify({ change: { id: 'first' } }))
+    }
+    if (url.endsWith('/release/plan')) return new Response(JSON.stringify({ configured: false }))
+    return new Response('[]')
+  }))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><BigChangeBox slug="p" /></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    await act(async () => { (Array.from(el.querySelectorAll('button')).find(b => b.textContent?.includes('Build the first version')) as HTMLButtonElement).click() })
+    expect(body).toBe(originalRequest || 'No description was written for this project yet. Ask what the first version should do before building anything.')
+  } finally { act(() => root.unmount()); client.clear() }
+})

@@ -448,6 +448,11 @@ WHERE c.state='shipped' AND c.closed_as='' AND c.landed_sha=''
 		// Packs no longer include one another; no pack on any instance did.
 		`ALTER TABLE pack_versions DROP COLUMN included_pack, DROP COLUMN included_version`,
 	}},
+	{n: 193, note: "track whether a project description belongs to a person", stmts: []string{
+		"ALTER TABLE projects ADD COLUMN blurb_source TEXT NOT NULL DEFAULT 'person' CONSTRAINT projects_blurb_source CHECK (blurb_source IN ('generated','person'))",
+		"ALTER TABLE projects ALTER COLUMN blurb_source SET DEFAULT 'generated'",
+		"CREATE INDEX audit_log_project_created ON audit_log(project_id) WHERE kind='project.created'",
+	}},
 }
 
 // latestSchemaVersion is the number a fresh database is stamped with.
