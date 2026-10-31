@@ -6,7 +6,7 @@
 #
 # A push of release tags alone checks evidence instead, because their
 # commit was qualified already (design/operations/releasing.md): each
-# candidate/... tag needs heavy.yml's first-attempt execution on its commit
+# candidate/... tag needs heavy-main.yml's first-attempt execution on its commit
 # (scripts/heavy-evidence.py), each v* tag a successful candidate run for
 # its commit and version (scripts/candidate-evidence.py). Any other push, a
 # deletion or a mix of tags and branches, runs the full gate.

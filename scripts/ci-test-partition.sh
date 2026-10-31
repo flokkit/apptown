@@ -1,5 +1,5 @@
 #!/bin/sh
-# CI's Go test jobs, each a partition of one tier (ci.yml's test, heavy.yml's
+# CI's Go test jobs, each a partition of one tier (ci.yml's test, heavy-main.yml's
 # integration and race jobs):
 #   ci-test-partition.sh unit|race|integration <group> [test|list]
 # Every package of a tier is in exactly one group; one unknown to the case

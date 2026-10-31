@@ -37,8 +37,9 @@ release promises is [What 1.0 promises](../../stock/docs/guides/compatibility.md
    rehearsal (step 3) is.
 2. **The candidate.** Choose the commit C: a commit of `main` with the notes,
    whose `heavy-main.yml` run passed on its first attempt
-   ([GitHub](github.md)); a queue run, which may reuse cached results,
-   admission and a passing rerun do not count. For an infrastructure failure,
+   ([GitHub](github.md)); `ci-ok` and a passing heavy rerun do not count.
+   A heavy failure on main is fixed forward promptly and blocks the next
+   candidate while landing continues. For an infrastructure failure,
    start a new `heavy-main.yml` run by hand on the same commit. Choosing C freezes the release's scope; a
    change to it is a new candidate. Push the tag
    `candidate/v<version>/<first 12 characters of C>` at C. `candidate.yml`

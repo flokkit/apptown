@@ -1,8 +1,8 @@
-"""The workflows' contract for Go's test cache: main executes fresh and alone
-saves; the queue and pull requests reuse; heavy.yml and heavy-main.yml run
-the same jobs; the checks jobs run every checker stage once; a PR's heavy
-check is admission, never execution."""
-import os
+"""CI reuses main's unit results before merge; heavy runs fresh after merge.
+
+The heavy matrix covers every release execution job, and the checks jobs run
+every checker stage once.
+"""
 from pathlib import Path
 import re
 import subprocess
@@ -33,51 +33,51 @@ def save_guards(section):
     return guards
 
 
-class EventBoundary(unittest.TestCase):
-    def result(self, event, results, report='success', decision='execute'):
-        return subprocess.run(['sh', str(HERE / 'heavy-result.sh')], env=dict(os.environ, GITHUB_EVENT_NAME=event, RESULTS=results, REPORT_RESULT=report, DECISION=decision), capture_output=True, text=True)
-
-    def test_pr_only_admits_and_queue_manual_require_actual_success(self):
-        r = self.result('pull_request', 'skipped skipped skipped')
-        self.assertEqual(r.returncode, 0); self.assertIn('admission only', r.stdout)
-        self.assertNotEqual(self.result('pull_request', 'success success success').returncode, 0)
-        for event in ['merge_group', 'workflow_dispatch']:
-            self.assertEqual(self.result(event, 'success success success').returncode, 0)
-            for bad in ['skipped', 'failure', 'cancelled', '']:
-                self.assertNotEqual(self.result(event, 'success success ' + bad).returncode, 0)
-        self.assertNotEqual(self.result('push', 'success success success').returncode, 0)
-        self.assertNotEqual(self.result('merge_group', 'success success success', 'failure').returncode, 0)
-
-    def test_queue_reuse_requires_exact_decision_and_all_execution_skipped(self):
-        self.assertEqual(self.result('merge_group', 'skipped skipped skipped', decision='reuse').returncode, 0)
-        for event in ['workflow_dispatch', 'push']:
-            self.assertNotEqual(self.result(event, 'skipped skipped skipped', decision='reuse').returncode, 0)
-        for decision in ['', 'would-reuse', 'unknown']:
-            self.assertNotEqual(self.result('merge_group', 'skipped skipped skipped', decision=decision).returncode, 0)
-        for results in ['success skipped skipped', 'skipped failure skipped', 'skipped skipped cancelled', 'skipped skipped']:
-            self.assertNotEqual(self.result('merge_group', results, decision='reuse').returncode, 0)
-        self.assertNotEqual(self.result('merge_group', 'skipped skipped skipped', report='failure', decision='reuse').returncode, 0)
-        self.assertNotEqual(self.result('workflow_dispatch', 'success success success', decision='reuse').returncode, 0)
-
-
 class TestCache(unittest.TestCase):
-    def test_heavy_and_heavy_main_run_the_same_jobs_with_the_same_caches(self):
-        heavy, main = text('heavy.yml'), text('heavy-main.yml')
-        keys = lambda t: sorted(line.strip() for line in t.splitlines() if 'key: go-build-' in line or 'restore-keys: go-build-' in line)
-        self.assertEqual(keys(heavy), keys(main))
-        matrix = lambda t: re.findall(r'^          - name: (\S+)\n            args: (.*)$', t, re.M)
-        self.assertEqual(matrix(heavy), matrix(main))
-        names = [n for n, _ in matrix(heavy)]
+    def test_heavy_runs_only_after_merge_or_by_hand(self):
+        self.assertFalse((WORKFLOWS / 'heavy.yml').exists())
+        main = text('heavy-main.yml')
+        self.assertIn('  push:\n    branches: [main]\n  workflow_dispatch:\n', main)
+        self.assertNotIn('merge_group', main)
+        self.assertNotIn('pull_request', main)
+        self.assertIn('cancel-in-progress: false', main)
+        self.assertNotIn('qualification', main)
+        self.assertIn('  merge_group:\n    types: [checks_requested]\n', text('ci.yml'))
+
+    def test_heavy_matrix_covers_every_release_execution_job(self):
+        main = text('heavy-main.yml')
+        matrix = re.findall(r'^          - name: (\S+)\n            args: (.*)$', main, re.M)
+        names = [n for n, _ in matrix]
         for group in ['root-a', 'root-b', 'root-c', 'dependency', 'worker', 'rest']:
-            self.assertIn(('integration-' + group, 'test-partition integration ' + group), matrix(heavy))
+            self.assertIn(('integration-' + group, 'test-partition integration ' + group), matrix)
         self.assertEqual(len(names), len(set(names)))
-        for t in [heavy, main]:
-            self.assertIn('group: [root, backup, workflow, rest]', t)
+        commands = dict(matrix)
+        self.assertIn('-tags=journey', commands['journeys'])
+        self.assertIn('-run TestJourney', commands['journeys'])
+        self.assertIn('-tags=browser,pi,inference_docker', commands['opt-in-tiers'])
+        for name in ['TestBrowserSecurityChromium', 'TestInferencePinnedPi', 'TestInferenceConsoleMountBoundary']:
+            self.assertIn(name, commands['opt-in-tiers'])
+        self.assertIn('require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary', main)
+        self.assertIn('group: [root, backup, workflow, rest]', main)
         from heavy_execution import EXECUTION_JOBS
         self.assertEqual(EXECUTION_JOBS, set(names) | {'web', 'heavy-ok'} | {'race-' + g for g in ['root', 'backup', 'workflow', 'rest']})
+        self.assertEqual(set(re.findall(r'^  ([\w-]+):\n', main.split('jobs:\n', 1)[1], re.M)),
+                         {'web', 'tier', 'race', 'heavy-ok'})
+        for name in ['web', 'tier', 'race']:
+            self.assertNotRegex(job(main, name), r'(?m)^    if:', name)
+        aggregate = job(main, 'heavy-ok')
+        self.assertIn('if: always()', aggregate)
+        self.assertIn('needs: [web, tier, race]', aggregate)
+        # Execute the workflow's own aggregate: cancelled or skipped execution
+        # must fail release evidence just as a failed execution does.
+        script = aggregate.split('run: |\n', 1)[1]
+        for results in ['success success success', 'success skipped success',
+                        'success failure success', 'success cancelled success']:
+            r = subprocess.run(['sh', '-c', script], env={'RESULTS': results}, capture_output=True)
+            self.assertEqual(r.returncode == 0, results == 'success success success', results)
 
     def test_main_executes_fresh_and_alone_saves(self):
-        heavy, main, ci = text('heavy.yml'), text('heavy-main.yml'), text('ci.yml')
+        main, ci = text('heavy-main.yml'), text('ci.yml')
         # heavy-main: on main and by hand only; every test job fresh.
         self.assertIn('  push:\n    branches: [main]\n  workflow_dispatch:\n', main)
         self.assertNotIn('merge_group', main)
@@ -88,12 +88,6 @@ class TestCache(unittest.TestCase):
         for name in ['tier', 'race']:
             guards = save_guards(job(main, name))
             self.assertEqual(guards, ["github.ref == 'refs/heads/main'"] * 2, name)
-        # heavy.yml: never on a push, always reuse, never saves.
-        self.assertNotIn('  push:', heavy)
-        self.assertIn('CI_TEST_RESULTS: reuse', job(heavy, 'tier'))
-        self.assertIn('ci-test-environment.sh reuse', job(heavy, 'race'))
-        self.assertNotRegex(heavy, r'CI_TEST_RESULTS: (?!reuse)|ci-test-environment.sh (?!reuse)')
-        self.assertNotIn('cache/save@', heavy)
         # ci.yml: a push (to main: its only push) runs fresh; everything else
         # reuses; only a push saves, so a dispatch on main never does.
         test = job(ci, 'test')
@@ -106,7 +100,7 @@ class TestCache(unittest.TestCase):
                 self.assertTrue(guard.startswith("github.event_name == 'push' && github.ref == 'refs/heads/main'"), guard)
 
     def test_test_jobs_normalise_times_and_name_their_environment_before_testing(self):
-        for workflow, jobs in [('ci.yml', ['test']), ('heavy.yml', ['tier', 'race']), ('heavy-main.yml', ['tier', 'race'])]:
+        for workflow, jobs in [('ci.yml', ['test']), ('heavy-main.yml', ['tier', 'race'])]:
             for name in jobs:
                 section = job(text(workflow), name)
                 mtimes = section.index('python3 scripts/ci-content-mtimes.py .')
@@ -143,7 +137,7 @@ class TestCache(unittest.TestCase):
         self.assertIn('--max-mib 1024', job(text('heavy-main.yml'), 'race'))
 
     def test_no_workflow_disables_the_cache_by_hand(self):
-        for workflow in ['ci.yml', 'heavy.yml', 'heavy-main.yml']:
+        for workflow in ['ci.yml', 'heavy-main.yml']:
             self.assertNotIn('-count=1', text(workflow), workflow)
 
     def test_the_checks_jobs_run_every_checker_stage_once(self):

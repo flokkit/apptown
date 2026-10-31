@@ -1,6 +1,6 @@
 """Named jobs that constitute full heavy execution, shared by evidence readers.
 
-heavy.yml and heavy-main.yml run the same jobs (scripts/ci_workflows_test.py).
+heavy-main.yml runs these jobs (scripts/ci_workflows_test.py).
 """
 from collections import Counter
 

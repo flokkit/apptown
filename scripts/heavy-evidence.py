@@ -5,10 +5,8 @@
 
 Images and archives are built only for a commit whose heavy-main.yml run
 passed on its first attempt (design/operations/github.md). That workflow runs
-every heavy test fresh, reusing no stored result; heavy.yml's queue runs may
-reuse Go's cached results, so they qualify a merge but are not release
-evidence. A run counts when it is on <commit>, ran on a push to main or by
-hand, its latest conclusion is success, and its first attempt's conclusion is
+every heavy test fresh, reusing no stored result. A run counts when it is on
+<commit>, ran on a push to main or by hand, its latest conclusion is success, and its first attempt's conclusion is
 success too. A run that failed and then passed on a
 re-run does not count: a re-run of failed jobs keeps the green jobs' results
 and replaces the failure inside one run. A new run started by hand on the

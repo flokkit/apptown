@@ -1,4 +1,4 @@
-# The images the heavy tiers' tests start (.github/workflows/heavy.yml),
+# The images the heavy tiers' tests start (.github/workflows/heavy-main.yml),
 # pulled before the tests by `scripts/ci-heavy.sh pull`, so a registry
 # error fails that step and not whichever test asked first. One reference
 # per line, written exactly as the code names it: the tag or digest stays

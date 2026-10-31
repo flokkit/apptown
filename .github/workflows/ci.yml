@@ -2,18 +2,16 @@
 #
 # What runs: make check's web stages, its docs checks, its Go checker
 # stages (three jobs), the public gate, the SQL-write rule and the Go unit
-# tests, split four ways by package. The Docker integration, journey and opt-in tiers and
-# the race detector execute in heavy.yml on the merge queue and by hand. The tests' PostgreSQL is the harness's own disposable
-# container (internal/dbtest), as for a local `make check`.
+# tests, split four ways by package. Docker integration, journeys, opt-in tiers
+# and race run in heavy-main.yml after merge and by hand. The tests' PostgreSQL
+# is the harness's own disposable container (internal/dbtest), as in local checks.
 name: ci
 
-# Every pull request runs every job, a documentation-only one too, so ci-ok
-# always reports. Main changes only through merged pull requests that are
-# up to date with it (the ruleset's strict rule), so the pull request's run
-# has tested what main becomes; main runs again anyway, because only main's
-# caches can be restored by every pull request (a cache saved on a pull
-# request is that pull request's alone), and each landed commit then has its
-# own result.
+# Every pull request and queue commit runs every job, documentation-only
+# changes too, so ci-ok always reports. The queue tests what main becomes.
+# Main runs again because only main's caches can be restored by every pull
+# request (a cache saved on a pull request is that pull request's alone).
+# Each landed commit also gets its own result.
 on:
   merge_group:
     types: [checks_requested]
@@ -249,7 +247,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: make check-sql
 
-  # A required check (the main ruleset, beside heavy.yml's heavy-ok): it
+  # The merge queue's required check (the main ruleset): it
   # passes only when every job above succeeded, so a job added or renamed
   # here cannot drop out of what a merge needs. It runs even when a job
   # failed or was skipped, and then fails: skipped is not passed.
