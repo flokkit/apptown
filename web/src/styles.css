@@ -1599,3 +1599,69 @@ button.chat-starter { border-radius: var(--radius-sm); }
   .slots-table td[data-label] { display: flex; align-items: center; gap: 8px; }
   .slots-table td select { max-width: 100%; }
 }
+
+/* Operational lists lead with a name, a light and one useful fact. */
+.host-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(100px, .6fr); gap: 8px 20px; align-items: center; }
+.host-row > * { min-width: 0; overflow-wrap: anywhere; }
+.infra-grid > a.infra-card { display: block; padding: 16px 0; }
+.host-disk { border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; margin: 0; }
+.host-disk > summary { padding: 14px 0; list-style: none; }
+.host-disk > summary::before { content: none; }
+.host-disk > div { padding: 0 0 16px; }
+.capacity-summary { display: grid; grid-template-columns: 75px minmax(0, 1fr); gap: 8px 16px; margin: 12px 0; }
+.capacity-summary dt { color: var(--muted); }
+.capacity-summary dd { margin: 0; font-variant-numeric: tabular-nums; }
+.capacity-warning { color: var(--text); border-left: 3px solid var(--warn); padding-left: 10px; }
+.capacity-details { margin-top: 12px; }
+.target-settings, .target-deployments, .target-resources { margin-top: 16px; }
+.target-settings > div { overflow-wrap: anywhere; }
+@media (max-width: 800px) {
+  .host-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
+  .host-row > :last-child { grid-column: 1 / -1; }
+  .host-row > strong { font-size: var(--fs-base); }
+  button.page-help-q { width: 44px; height: 44px; border: 0; border-radius: 0; }
+  .page-head-row { gap: 8px; }
+  table:has(> tbody > tr.glance-row), table:has(> tbody > tr.glance-row) > tbody { display: block; width: 100%; }
+  table:has(> tbody > tr.glance-row) > thead { display: none; }
+  table tr.glance-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  table tr.glance-row > td { display: block; padding: 0; border: 0; min-width: 0; width: auto !important; max-width: 100%; white-space: normal !important; overflow-wrap: anywhere; }
+  table tr.glance-row > .glance-name { flex: 1 1 55%; }
+  table tr.glance-row > .glance-state { margin-left: auto; }
+  table tr.glance-row > .glance-fact { flex: 1 1 100%; color: var(--muted); }
+  table tr.glance-row > .glance-more { flex: 1 1 100%; }
+  .glance-more > details { position: relative; z-index: 1; border: 0; margin: 0; padding: 0; }
+  .glance-more > details > summary { padding: 8px 0; min-height: 44px; font-size: var(--fs-sm); color: var(--muted); }
+  .glance-more dl { margin: 0; }
+  .glance-more dl > div { margin: 8px 0; }
+  .glance-more dt { color: var(--muted); font-size: var(--fs-sm); }
+  .glance-more dd { margin: 2px 0 12px; }
+  .project-description { display: none; }
+  .glance-name a { white-space: normal; overflow-wrap: anywhere; }
+  .resource-details { margin-top: 6px; }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .facts dd { margin-left: 0; overflow-wrap: anywhere; }
+}
+
+@media (max-width: 800px) {
+  .phone-secondary { display: none; }
+  .tabs { flex-wrap: wrap; }
+  .main :is(td, dd, .card) { overflow-wrap: anywhere; }
+  .main .mono { white-space: normal; overflow-wrap: anywhere; }
+}
+
+.phone-details { display: contents; }
+.phone-details > summary { display: none; }
+@media (max-width: 800px) {
+  .phone-details { display: block; width: 100%; }
+  .phone-details > summary { display: list-item; }
+}
+
+@media (max-width: 800px) {
+  .glance-more > details > summary, .phone-details > summary { border: 0; background: none; padding: 8px 0; }
+}
+
+.host-disk > summary strong::after { content: " ›"; color: var(--muted); font-weight: 400; }
+
+@media (max-width: 800px) {
+  .ch-sheet .kv-val, .ch-sheet .kv-val code { white-space: normal; overflow: visible; overflow-wrap: anywhere; max-width: none; }
+}

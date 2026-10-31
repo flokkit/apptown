@@ -1,3 +1,5 @@
+import { PhoneDetails } from '../GlanceRow'
+import { useNarrow } from '../chrome'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { post } from '../api'
@@ -29,6 +31,7 @@ import { PageHead } from '../PageHead'
 // --- the page ---------------------------------------------------------------------------------------
 
 export default function Conformance({ tab }: { tab: 'projects' | 'project' | 'reviews' | 'checks' | 'remediations' | 'remediation' | 'ways' | 'what-ifs' }) {
+  const narrow = useNarrow()
   const { reviewId, slug, remId } = useParams()
   const rid = reviewId ?? ''
   const base = rid ? `/conformance/reviews/${rid}` : '/conformance'
@@ -93,6 +96,8 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
 
       {view && <LensBanner view={view} />}
 
+      {narrow && !readOnly && s && <p>{s.findings} {s.findings === 1 ? 'finding' : 'findings'}.{((s.byStanding['conforms-so-far'] ?? 0) + (s.byStanding['review-broken'] ?? 0)) > 0 && ' Some checks are unknown.'}</p>}
+      <PhoneDetails>
       {!readOnly && (
         <div className="card" style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
           <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
@@ -118,6 +123,7 @@ export default function Conformance({ tab }: { tab: 'projects' | 'project' | 're
           </div>
         </div>
       )}
+      </PhoneDetails>
       {readOnly && live && live.review.id === rid && <ReviewFeed d={live} />}
       {shownErr && <div className="error small mb-3">{shownErr}</div>}
       <StaleNote q={[viewQ, liveQ]} />

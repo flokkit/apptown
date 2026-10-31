@@ -36,6 +36,10 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 	if err != nil {
 		return Snapshot{}, err
 	}
+	projectName := p.Name
+	if projectName == "" {
+		projectName = p.Slug
+	}
 	out := Snapshot{Known: true, ObservedAt: clock.Or(s.Now)()}
 	for _, d := range rows {
 		r := d.Runtime
@@ -52,7 +56,7 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 		base := fmt.Sprintf("%s/%d/%d", d.ID, d.ObservedGeneration, d.DesiredGeneration)
 		href := "/projects/" + url.PathEscape(p.Slug) + "/settings/deployments#diagnostics-" + url.PathEscape(d.Name)
 		add := func(kind, title, detail, severity string, at time.Time, stale bool) {
-			out.Items = append(out.Items, Item{Key: base + "/" + kind, Title: title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, Stale: stale})
+			out.Items = append(out.Items, Item{Key: base + "/" + kind, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, Stale: stale})
 		}
 		changedAt, _ := time.Parse(time.RFC3339Nano, d.UpdatedAt)
 		switch d.Readiness {
@@ -61,27 +65,27 @@ func (s Deployments) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, 
 			if !unknown && !r.Stale && r.State == deployment.RuntimeRunning && d.ObservedGeneration > 0 && d.DesiredGeneration > d.ObservedGeneration {
 				detail += " The previously deployed generation is still running."
 			}
-			add("attempt", "A deployment attempt failed", detail, SeverityWarning, changedAt, false)
+			add("attempt", "Release failed", detail, SeverityWarning, changedAt, false)
 		case deployment.ReadinessUncertain:
-			add("attempt", "A deployment outcome is uncertain", "The latest attempt ended without a confirmed outcome.", SeverityWarning, changedAt, false)
+			add("attempt", "Release not confirmed", "The latest attempt ended without a confirmed outcome.", SeverityWarning, changedAt, false)
 		}
 		// A fresh running observation supersedes an old stop receipt. An unread
 		// runtime retains the exact-generation hold as stale evidence.
 		held := d.Hold != nil && (unknown || r.Stale || r.State != deployment.RuntimeRunning)
 		if held {
-			title, detail := "A crash-loop stop could not be confirmed", "AppTown attempted to stop this generation after repeated crashes."
+			title, detail := "Check whether the app stopped", "AppTown attempted to stop this generation after repeated crashes."
 			if d.Hold.Confirmed {
-				title, detail = "A deployment is held after repeated crashes", "AppTown stopped this generation after repeated crashes."
+				title, detail = "Stopped after repeated crashes", "AppTown stopped this generation after repeated crashes."
 			}
 			at, _ := time.Parse(time.RFC3339Nano, d.Hold.At)
 			add("crash-hold", title, detail, SeverityWarning, at, unknown || r.Stale)
 		}
 		switch {
 		case unknown:
-			add("runtime", "Deployment runtime could not be assessed", "The latest runtime observation is unavailable.", SeverityWarning, r.ObservedAt, true)
+			add("runtime", "App status not known", "The latest runtime observation is unavailable.", SeverityWarning, r.ObservedAt, true)
 		case r.State == deployment.RuntimeStopped && !held:
 			out.Known = false
-			add("runtime", "A deployment is stopped; intent is unknown", "The runtime is absent. This observation does not establish whether it was stopped intentionally.", SeverityAdvisory, r.ObservedAt, r.Stale)
+			add("runtime", "Stopped; check whether it should be running", "The runtime is absent. This observation does not establish whether it was stopped intentionally.", SeverityAdvisory, r.ObservedAt, r.Stale)
 		case r.Health == "unhealthy" || r.Rollout == "failed":
 			add("runtime", "Deployment runtime needs attention", "The observed serving generation is unhealthy or its provider rollout failed.", SeverityWarning, r.ObservedAt, r.Stale)
 		}

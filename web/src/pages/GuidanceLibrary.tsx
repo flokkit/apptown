@@ -1,3 +1,4 @@
+import { GlanceRow } from '../GlanceRow'
 import { PRODUCT } from '../brand'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -104,7 +105,7 @@ export default function GuidanceLibrary() {
         <thead><tr><th>Block</th><th>Source</th><th>Latest</th><th title="what the block adds to an agent's context">Size</th><th>Tags</th><th>Updated</th></tr></thead>
         <tbody>
           {shown.map((b) => (
-            <tr key={b.id}>
+            <GlanceRow name={0} fact={2} labels={["Block", "Source", "Version", "Size", "Tags", "Updated"]} key={b.id}>
               <td className="stack-lead"><Link className="tap-open" to={`/guidance/${b.id}`}><code>{b.name}</code></Link></td>
               <td>
                 <OriginChip origin={b.origin} />
@@ -113,7 +114,7 @@ export default function GuidanceLibrary() {
               <td className="muted small" title={sizeTitle(b.bytes)}>{fmtSize(b.bytes)}</td>
               <td className="muted small" data-label="tags">{b.tags}</td>
               <td className="muted small" data-label="updated">{b.updatedAt.slice(0, 10)}</td>
-            </tr>
+            </GlanceRow>
           ))}
         </tbody>
       </table>

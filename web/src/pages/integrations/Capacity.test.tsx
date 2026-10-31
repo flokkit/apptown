@@ -119,3 +119,19 @@ describe("a target's capacity", () => {
   })
 })
 
+
+it('leads with host facts and keeps limits, paths and bars behind Details', () => {
+  const memory = { total: fig(8 * 2 ** 30), hostUsed: fig(2 * 2 ** 30), promised: { sum: { apptown: fig(10 * 2 ** 30), other: fig(0) }, limited: count(1, 0), unlimited: count(19, 0), unread: count(0, 0) }, overcommitted: true }
+  const c = { memory, disk: { total: fig(49 * 2 ** 30), free: fig(23 * 2 ** 30), path: '/var/lib/docker', low: false, refuses: false }, tenants: Array.from({ length: 9 }, (_, i) => ({ name: `app-${i}`, kind: 'deployment', containers: 1, used: fig(0), promised: fig(0), unlimited: 1, cpus: 0, cpuUnlimited: 1, cpuUnread: 0 })) }
+  const html = render(c)
+  const front = html.split('<details')[0]
+  expect(front).toContain('2 GB used of 8 GB')
+  expect(front).toContain('23 GB free of 49 GB')
+  expect(front).toContain('9 running')
+  expect(front).toContain('Apps may need more memory than this host has.')
+  expect(front).not.toMatch(/promised|no limit|not read|app-0|var\/lib|role="img"/)
+  expect(html).toContain('<summary>Details</summary>')
+  const unknown = render({ ...c, memory: { ...memory, total: none('host unavailable') } }).split('<details')[0]
+  expect(unknown).toContain('<dt>Memory</dt><dd>not known</dd>')
+  expect(unknown).not.toContain('used of')
+})

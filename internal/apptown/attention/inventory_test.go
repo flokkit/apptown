@@ -45,7 +45,7 @@ func TestInventoryConditionsNeedCompleteCurrentEvidenceAndRetainOnlyTheirOwnIden
 	missing := func(s Snapshot) int {
 		n := 0
 		for _, i := range s.Items {
-			if i.Title == "A recorded resource is missing" {
+			if i.Title == "office: resource missing" {
 				n++
 			}
 		}

@@ -1,3 +1,6 @@
+import { useHostStates } from '../../hostState'
+import { PhoneDetails } from '../../GlanceRow'
+import { useNarrow } from '../../chrome'
 import { STATUS_LIGHT, Status } from '../../Status'
 import { offerTarget, targetOffer } from '../../targetCommands'
 import { PRODUCT } from '../../brand'
@@ -62,6 +65,8 @@ export function TargetsPanel() {
 }
 
 function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[]; onChanged: () => void }) {
+  const narrow = useNarrow()
+  const state = useHostStates()(t.name, t.statusLabel)
   const [offering, setOffering] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const caps = t.capabilities
@@ -75,12 +80,14 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
 
   return (
     <div className="conn-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+      {narrow && <div className="host-row"><strong><Link to={`/infrastructure/${t.name}`}>{t.displayLabel || t.name}</Link></strong><Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} /><span className="muted small">{state.summary || `${t.deployments.length} ${t.deployments.length === 1 ? 'app' : 'apps'}`}</span></div>}
+      <PhoneDetails>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontWeight: 700 }}><Link to={`/infrastructure/${t.name}`}>{t.displayLabel || t.name}</Link></div>
           <div className="muted small">{placeOf(t.kindInfo, t.address)}{domain ? ` · *.${domain}` : ''}</div>
         </div>
-        <Status word={t.statusLabel} tone={STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}.`} />
+        <Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} help={state.help} />
       </div>
       <div className="muted small">{facts.join(' · ')}</div>
 
@@ -123,6 +130,7 @@ function TargetCard({ t, groups, onChanged }: { t: TargetView; groups: string[];
           {t.retained} resource{t.retained === 1 ? '' : 's'} retained from deployments that were torn down · see the projects' Settings → Deployments.
         </div>
       )}
+      </PhoneDetails>
     </div>
   )
 }

@@ -32,6 +32,7 @@ type Review struct {
 // ReviewSummary is one row of the Reviews page: the record plus what it found.
 type ReviewSummary struct {
 	Review
+	StatusLabel          WhatIfLabel  `json:"statusLabel"`
 	Findings             int          `json:"findings"`
 	Flagged              int          `json:"flagged"`
 	ProjectsWithFindings int          `json:"projectsWithFindings"`

@@ -179,7 +179,7 @@ func TestDiskSourcePreservesEvidenceAndHidesReadErrors(t *testing.T) {
 	if err != nil || got.Known || len(got.Items) != 3 {
 		t.Fatalf("coverage: %+v %v", got, err)
 	}
-	if got.Items[0].Title != "Disk space is low" || !got.Items[0].Stale || got.Items[0].ObservedAt != at || got.Items[1].Title != "Disk space blocks new work" || got.Items[2].Title != "Disk space could not be assessed" {
+	if got.Items[0].Title != "worker state: Disk space is low" || !got.Items[0].Stale || got.Items[0].ObservedAt != at || got.Items[1].Title != "worker cache: Disk space blocks new work" || got.Items[2].Title != "controller: Disk space could not be assessed" {
 		t.Fatalf("condition meaning lost: %+v", got)
 	}
 	for _, item := range got.Items {
@@ -236,16 +236,16 @@ func TestCapacitySourceKeepsEachDiskTimeAndDoesNotReadElasticTargets(t *testing.
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	old := now.Add(-5 * time.Minute)
 	one, two, elastic := idstest.N(1), idstest.N(2), idstest.N(3)
-	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{one: {ObservedAt: now, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 1 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, Low: true, ReadAt: old}}, two: {Unknown: true, Stale: true}}}
+	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{one: {ObservedAt: now, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 1 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, Low: true, ReadAt: old}}, two: {Unknown: true, Stale: true, AttemptedAt: now}}}
 	source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: one, Name: "team host", DisplayLabel: "Office", Kind: deployment.KindDockerHost}, {ID: two, Name: "second", Kind: deployment.KindPortainer}, {ID: elastic, Name: "cloud", Kind: deployment.KindDOApp}}}, Observer: evidence, Now: func() time.Time { return now }}
 	got, err := source.Snapshot(t.Context())
-	if err != nil || got.Known || !got.Stale || len(got.Items) != 2 || len(evidence.calls) != 2 {
+	if err != nil || got.Known || !got.Stale || len(got.Items) != 3 || len(evidence.calls) != 2 {
 		t.Fatalf("coverage: %+v %v calls%v", got, err, evidence.calls)
 	}
-	if got.Items[0].ObservedAt != old || !got.Items[0].Stale || got.Items[0].Href != "/infrastructure/team%20host" || !strings.Contains(got.Items[0].Detail, "Office: 1.0 GiB free of 100.0 GiB") {
-		t.Fatalf("disk evidence changed: %+v", got.Items[0])
+	if got.Items[1].ObservedAt != old || !got.Items[1].Stale || got.Items[1].Href != "/infrastructure/team%20host" || !strings.Contains(got.Items[1].Detail, "Office: 1.0 GiB free of 100.0 GiB") {
+		t.Fatalf("disk evidence changed: %+v", got.Items[1])
 	}
-	if got.Items[1].Title != "Host disk space could not be assessed" {
+	if got.Items[2].Title != "second: disk space is unknown" {
 		t.Fatalf("unread target claimed empty: %+v", got.Items[1])
 	}
 }
@@ -289,7 +289,7 @@ func TestCapacityConditionsRespectRetirementAndProviderAdmission(t *testing.T) {
 	if strings.Contains(got.Items[0].Title, "blocks") || !strings.Contains(got.Items[0].Detail, "advisory: Portainer") || strings.Contains(got.Items[0].Detail, "are refused") {
 		t.Fatalf("invented Portainer admission %+v", got.Items[0])
 	}
-	if got.Items[1].Title != "Host disk space could not be assessed" || !strings.Contains(got.Items[1].Detail, "disk cannot be read") {
+	if got.Items[1].Title != "unread: disk space is unknown" || !strings.Contains(got.Items[1].Detail, "disk cannot be read") {
 		t.Fatalf("unknown disk lost actual admission boundary %+v", got.Items[1])
 	}
 }
@@ -301,7 +301,7 @@ func TestCapacityFailureShowsUnknownEvenWhenPriorDiskWasHealthy(t *testing.T) {
 	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{id: {Unknown: true, ObservedAt: at, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, ReadAt: at}}}}
 	source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: id, Name: "office", Kind: deployment.KindDockerHost}}}, Observer: evidence, Now: func() time.Time { return at }}
 	got, err := source.Snapshot(t.Context())
-	if err != nil || got.Known || len(got.Items) != 1 || got.Items[0].Title != "Host disk space could not be assessed" || !got.Items[0].Stale {
+	if err != nil || got.Known || len(got.Items) != 1 || got.Items[0].Title != "office: disk space is unknown" || !got.Items[0].Stale {
 		t.Fatalf("unread healthy cache hid failure %+v %v", got, err)
 	}
 	evidence.reads[id].Disk.Low = true
@@ -465,5 +465,28 @@ func TestDiskUnreadRetainsPressureAndExplainsEveryFilesystem(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// Pending coverage must not inflate Attention; failures and stale healthy disks must.
+func TestCapacityPendingCheckIsNotAnAttentionItem(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	id := idstest.N(42)
+	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{id: {Unknown: true, Stale: true}}}
+	source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: id, Name: "demo-docker", Kind: deployment.KindDockerHost}}}, Observer: evidence, Now: func() time.Time { return at }}
+	got, err := source.Snapshot(t.Context())
+	if err != nil || got.Known || len(got.Items) != 0 {
+		t.Fatalf("pending check raised attention: %+v %v", got, err)
+	}
+	evidence.reads[id] = deployment.CapacitySnapshot{Unknown: true, AttemptedAt: at}
+	got, err = source.Snapshot(t.Context())
+	if err != nil || len(got.Items) != 1 || got.Items[0].Title != "demo-docker: disk space is unknown" || got.Items[0].ObservedAt != at {
+		t.Fatalf("failed first check hidden: %+v %v", got, err)
+	}
+	evidence.reads[id] = deployment.CapacitySnapshot{ObservedAt: at, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50}, Total: deployment.Figure{Known: true, Value: 100}, ReadAt: at}}
+	got, err = source.Snapshot(t.Context())
+	if err != nil || len(got.Items) != 1 {
+		t.Fatalf("stale healthy check hidden: %+v %v", got, err)
 	}
 }

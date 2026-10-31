@@ -7,7 +7,7 @@ import type { InfrastructureView as TargetInfra } from '../wire.gen'
 import { InfrastructureView, ResourceTables } from './Infrastructure'
 
 const target = (name: string, fields: Partial<TargetInfra> = {}): TargetInfra => ({
-  target: name, kind: 'portainer', family: 'containers', origin: 'attached', status: 'ready', statusLabel: 'passed',
+  target: name, kind: 'portainer', family: 'containers', origin: 'attached', status: 'ready', statusLabel: 'working',
   facts: '', place: name, vendor: '', live: false, refreshing: false, resources: [], ...fields,
 })
 

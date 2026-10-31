@@ -1,3 +1,5 @@
+import { PhoneDetails } from '../../../GlanceRow'
+import { useNarrow } from '../../../chrome'
 import { Status, STATUS_LIGHT } from '../../../Status'
 import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
@@ -73,6 +75,7 @@ export function DeploymentsTab({ slug }: { slug: string }) {
 }
 
 export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
+  const narrow = useNarrow()
   const nav = useNavigate()
   const { run, busy, err } = useAction()
   // A take-down is done now (DeploymentRemoved), or admitted as an
@@ -106,6 +109,10 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   const host = e.url.replace(/^https?:\/\//, '').replace(/\/$/, '')
   return (
     <div className="conn-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+      {narrow && <div className="host-row"><strong>{e.displayLabel || e.name}</strong><RuntimeStatus observation={e} />
+        <span className="small muted">{e.url ? <AppAddress url={e.url} hostOnly={e.hostOnly}>{host}</AppAddress> : 'No address yet'}</span>
+      </div>}
+      <PhoneDetails>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontWeight: 700 }}>
@@ -203,6 +210,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
           {torn.orphans.length > 0 ? <> Left at the target: {torn.orphans.join('; ')}.</> : ' Nothing was left behind.'}
         </div>
       )}
+      </PhoneDetails>
     </div>
   )
 }

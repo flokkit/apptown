@@ -23,8 +23,10 @@ type CapacityObservationQueue interface {
 type CapacitySnapshot struct {
 	Disk       *DiskCapacity
 	ObservedAt time.Time
-	Unknown    bool
-	Stale      bool
+	// AttemptedAt distinguishes a pending first check from a failed check.
+	AttemptedAt time.Time
+	Unknown     bool
+	Stale       bool
 }
 
 type capacityObservation struct {
@@ -130,6 +132,7 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 		return err
 	}
 	e.requested = now
+	e.snapshot.AttemptedAt = now
 	if err != nil {
 		e.snapshot.Unknown = true
 		return err
@@ -141,7 +144,7 @@ func (o *CapacityObserver) Run(ctx context.Context, id ids.ID, revision int64) e
 		return nil
 	}
 	disk := *reading.Disk
-	e.snapshot = CapacitySnapshot{Disk: &disk, ObservedAt: reading.ReadAt}
+	e.snapshot = CapacitySnapshot{Disk: &disk, ObservedAt: reading.ReadAt, AttemptedAt: now}
 	return nil
 }
 

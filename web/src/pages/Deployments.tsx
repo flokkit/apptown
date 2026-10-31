@@ -1,3 +1,4 @@
+import { GlanceRow } from '../GlanceRow'
 import { Status, STATUS_LIGHT } from '../Status'
 import { useState } from 'react'
 import { Link, NavLink, useParams } from 'react-router-dom'
@@ -67,7 +68,7 @@ function DeparturesBoard() {
       <thead><tr><th>When</th><th>App</th><th>To</th><th>What</th><th>Who</th><th>Status</th></tr></thead>
       <tbody>
         {moves.map((d, i) => (
-          <tr key={i}>
+          <GlanceRow name={1} state={5} fact={0} labels={["When", "App", "To", "Release", "Who", "State"]} key={i}>
             <td className="muted small" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(d.at)}</td>
             <td className="stack-lead"><span aria-hidden style={{ marginRight: 6 }}>{d.icon}</span><Link className="tap-open" to={`/projects/${d.slug}`}>{d.name || d.slug}</Link></td>
             <td data-label="to">{d.tier}</td>
@@ -76,7 +77,7 @@ function DeparturesBoard() {
             </td>
             <td className="muted small" data-label="by">{d.who || '—'}</td>
             <td className="stack-end"><Status word={d.state} tone={STATUS_LIGHT[d.state]} /></td>
-          </tr>
+          </GlanceRow>
         ))}
         {moves.length === 0 && <tr><td colSpan={6} className="muted small">{unlisted ? 'No releases yet.' : 'No movement yet.'}</td></tr>}
       </tbody>
@@ -123,6 +124,12 @@ function FleetTable() {
     stopped: all.filter(stoppedIn).length, nowhere: all.filter((r) => !anywhere(r)).length,
   }
   const SHOW_LABEL: Record<Show, string> = { all: 'all', running: 'running', stopped: 'stopped', nowhere: 'not running anywhere' }
+
+  const phoneState = (r: Row) => {
+    const project = projects.find(p => p.slug === r.slug)
+    if (!project) return <Status word="unknown" tone="unknown" />
+    return project.deployed ? <RuntimeStatus observation={project} /> : <span className="muted small">Not deployed</span>
+  }
 
   const cell = (t: Tier, apps: TierApp[] | undefined) => {
     if (t.future) return <span className="muted">—</span>
@@ -193,13 +200,13 @@ function FleetTable() {
           </thead>
           <tbody>
             {shown.map((r) => (
-              <tr key={r.slug}>
+              <GlanceRow name={0} status={phoneState(r)} summary={<>{Object.values(r.cells).flat().length} {Object.values(r.cells).flat().length === 1 ? 'deployment' : 'deployments'}</>} labels={["App", ...tiers.map(t => t.title)]} key={r.slug}>
                 <td className="stack-lead" style={{ whiteSpace: 'nowrap' }}>
                   <span aria-hidden style={{ marginRight: 6 }}>{r.icon || '▫️'}</span>
                   <Link to={`/projects/${r.slug}`}>{r.name}</Link>
                 </td>
                 {tiers.map((t) => <td key={t.name} data-label={t.title}>{cell(t, r.cells[t.name])}</td>)}
-              </tr>
+              </GlanceRow>
             ))}
             {shown.length === 0 && (
               <tr><td colSpan={1 + tiers.length} className="muted small">{q ? 'Nothing matches.' : tiers.some((t) => t.observed) ? 'No apps running.' : 'No apps yet.'}</td></tr>

@@ -1,3 +1,4 @@
+import { GlanceRow } from '../GlanceRow'
 import { RuntimeObservation, RuntimeStatus } from '../runtime'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -109,13 +110,13 @@ export default function Projects() {
           )}
           <table className="stack project-list">
             <thead><tr><th>Application</th><th>Stack</th><th>Activity</th><th>Updated</th><th>State</th></tr></thead>
-            <tbody>{(byNs.get(ns) ?? []).map((p) => <tr key={p.id}>
+            <tbody>{(byNs.get(ns) ?? []).map((p) => <GlanceRow name={0} state={4} summary={<>{p.activeItems ?? 0} in progress</>} labels={["Application", "Stack", "Activity", "Updated", "State"]} key={p.id}>
               <td className="stack-lead"><Link className="tap-open" to={`/projects/${p.slug}`}><strong>{p.icon && <span aria-hidden>{p.icon} </span>}{p.name}</strong></Link>{p.blurb && <div className="small muted project-description">{p.blurb}</div>}</td>
               <td data-label="stack">{(p.toolchain ?? []).map(t => <span key={t} className="chip">{TOOL_ICON[t] && <ConnIcon name={TOOL_ICON[t]} size={11} />} {t}</span>)}</td>
               <td data-label="activity" className="small">{p.activeItems ?? 0} in progress · {p.doneRuns} shipped</td>
               <td data-label="updated" className="muted small">{rel(p.lastRunAt)}</td>
               <td className="stack-end">{p.deployed !== false ? <RuntimeStatus observation={p} /> : <span className="muted small">Not deployed</span>}</td>
-            </tr>)}</tbody>
+            </GlanceRow>)}</tbody>
           </table>
         </section>
       ))}

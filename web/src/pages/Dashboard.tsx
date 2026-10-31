@@ -1,3 +1,5 @@
+import { PhoneDetails } from '../GlanceRow'
+import { useNarrow } from '../chrome'
 import { Status, STATUS_LIGHT } from '../Status'
 import { useAttention, attentionState } from '../attention'
 import { PRODUCT } from '../brand'
@@ -148,6 +150,7 @@ export function homeFinished(history: ChangeRow[]): ChangeRow[] {
 }
 
 export default function Dashboard() {
+  const narrow = useNarrow()
   const operationsQ = useAttention()
   const actQ = useGet<Activity>('/activity', { poll: 5000 })
   const dashQ = useGet<DashboardData>('/dashboard', { poll: 5000 })
@@ -234,6 +237,7 @@ export default function Dashboard() {
               <Link to={`/projects/${p.slug}`} className="row tap-open" style={{ textDecoration: 'none', color: 'inherit' }}>
                 {p.icon && <span aria-hidden>{p.icon}</span>}
                 <strong>{p.name}</strong>
+                {narrow && (p.deployed ? <RuntimeStatus observation={p} /> : <span className="muted small">Not deployed</span>)}
               </Link>
               {p.blurb && <div className="muted small project-description">{p.blurb}</div>}
               <div className="muted small">{p.lastRunAt ? rel(p.lastRunAt) : 'nothing shipped yet'}</div>
@@ -272,11 +276,12 @@ function EndedOperation({ op }: { op: Operation }) {
 
 function HomeDeployments({ slug }: { slug: string }) {
   const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
-  return <div className="row" style={{ marginTop: 8, gap: 6 }}>
-    <ReadStatus q={q} what="deployments" /><StaleNote q={q} />
+  if (q.data?.length === 0) return <StaleNote q={q} />
+  return <><StaleNote q={q} /><PhoneDetails><div className="row" style={{ marginTop: 8, gap: 6 }}>
+    <ReadStatus q={q} what="deployments" />
     {q.data?.map(d => <span key={d.id} className="row" style={{ gap: 4 }}>
       <AppAddress className="dash-app" url={d.url} hostOnly={d.hostOnly}>{d.displayLabel}</AppAddress>
       <RuntimeStatus observation={q.refreshFailed ? { ...d, observation: 'unknown', observationStale: true, observationIssue: q.reason } : d} />
     </span>)}
-  </div>
+  </div></PhoneDetails></>
 }

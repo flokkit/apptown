@@ -1,3 +1,4 @@
+import { useNarrow } from '../../chrome'
 import { Status, STATUS_LIGHT } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -8,6 +9,10 @@ import { shortSha, StandingChip, LaneBar } from './parts'
 // --- Projects (the front page) ---------------------------------------------------------------
 
 function ProjectRow({ p, base }: { p: ProjectStanding; base: string }) {
+  const narrow = useNarrow()
+  if (narrow) return <Link to={`${base}/projects/${p.slug}`} className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+    <div className="host-row"><strong>{p.name || p.slug}</strong><StandingChip label={p.statusLabel} help={p.sentence} /><span className="muted small">{p.total} checks</span></div>
+  </Link>
   return (
     <Link to={`${base}/projects/${p.slug}`} className="card" style={{ marginBottom: 0, padding: '10px 14px', textDecoration: 'none', color: 'inherit', display: 'block' }}>
       <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>

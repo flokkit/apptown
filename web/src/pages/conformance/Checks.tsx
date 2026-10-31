@@ -1,3 +1,4 @@
+import { useNarrow } from '../../chrome'
 import { Status, STATUS_LIGHT } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -7,11 +8,12 @@ import { type Verdict, stateOf, laneOf, StateChip, SevDot, HowJudged, useStartRe
 // --- Checks (the catalog) -------------------------------------------------------------------------
 
 function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict[]; view: ConformanceView; base: string }) {
+  const narrow = useNarrow()
   const remediation = useStartRemediation()
   const findings = vs.filter((v) => laneOf(v, view.adjudications) === 'findings').length
   const act = vs.filter((v) => ['findings', 'flagged', 'broken'].includes(laneOf(v, view.adjudications))).length
   const labels = [...new Set(vs.map(v => v.statusLabel))]
-  const [open, setOpen] = useState(act > 0)
+  const [open, setOpen] = useState(!narrow && act > 0)
   const sorted = [...vs].sort((a, b) => stateOf(a.state).rank - stateOf(b.state).rank || a.projectSlug.localeCompare(b.projectSlug))
   return (
     <div className={`card${act > 0 ? ' tone-bad' : ''}`} style={{ padding: 0, marginBottom: 0, overflow: 'hidden' }}>
@@ -23,7 +25,7 @@ function CheckCard({ def, vs, view, base }: { def?: CheckDefinition; vs: Verdict
 
           </span>
           <span className="small" style={{ flex: '0 0 auto' }}>
-            {labels.map(label => <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8 }}>{vs.filter(v => v.statusLabel === label).length} <Status word={label} tone={STATUS_LIGHT[label]} /></span>)}
+            {(narrow ? [sorted[0].statusLabel] : labels).map(label => <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 8 }}>{vs.filter(v => v.statusLabel === label).length} <Status word={label} tone={STATUS_LIGHT[label]} /></span>)}
           </span>
         </div>
 

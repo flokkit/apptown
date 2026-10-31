@@ -1145,8 +1145,7 @@ keeps serving its generation. The read is made for each boot; the capacity
 view's five-minute reading is not trusted for admission. It is a headroom
 guard, not a reservation: two boots at once, or images larger than the free
 space, can still fill the disk, and a pull or start that then fails fails as
-before. Stop, take-down and removal never read the disk. A host below its warning threshold (a tenth free, capped at
-40 GiB and never below the refusal floor) is shown low; below the floor its capacity and each deployment's
+before. Stop, take-down and removal never read the disk. A host below its warning threshold (a tenth free, never below the refusal floor) is shown low; below the floor its capacity and each deployment's
 card on it say new releases are refused. AppTown's own data folder and
 its worker's disks are shown on Infrastructure (`GET
 /infrastructure/disks`, `maintenance.Disks`), each its own reading.

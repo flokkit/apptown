@@ -52,12 +52,14 @@ function UpdateDetails() {
     <button disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>
     {!data ? <p role="status">Release status is unavailable.</p> : <>
       <p className="status-strip"><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} help={states[data.state]} /></p>
+      <details><summary>Details</summary>
       <dl className="facts">
         <dt>Installed build</dt><dd>{data.build} ({data.platform})</dd>
         <dt>Channel</dt><dd>{data.channel}</dd>
         <dt>Last attempted check</dt><dd>{data.lastAttempt ?? 'Never'}</dd>
         <dt>Last successful check</dt><dd>{data.lastSuccess ?? 'Never'}</dd>
       </dl>
+      </details>
       {data.reason && <p>{data.reason}</p>}
       <p><Link to="/docs/guides/upgrading">Read the upgrade guide</Link></p>
       {data.candidate && <section>

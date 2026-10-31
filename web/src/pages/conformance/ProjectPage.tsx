@@ -22,7 +22,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }
           <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}>{open ? '▾' : '▸'}</span>
           <SevDot sev={v.severity || def?.severity || 'note'} />
           <span style={{ fontSize: 'var(--fs-sm)' }}>{def?.title || v.check}</span>
-          <span className="muted small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{def?.title ? `${v.block}@${v.version} · ${v.check}` : def?.expects}</span>
+          <span className="muted small phone-secondary" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{def?.title ? `${v.block}@${v.version} · ${v.check}` : def?.expects}</span>
         </span>
         <span className="row" style={{ gap: 'var(--space-2)', flex: '0 0 auto' }}>
           {lane === 'flagged' && prior && <span className="muted small" title={`confirmed before at ${shortSha(prior.sha)} by ${prior.by}`}>confirmed before at {shortSha(prior.sha)}</span>}
@@ -32,6 +32,7 @@ function CheckRow({ v, def, exceptions, adj, prior, readOnly, onConfirm, onFix }
       {open && (
         <div style={{ paddingBottom: 'var(--space-3)' }}>
           <div style={{ padding: '0 14px 10px 30px' }}>
+            <div className="small muted">{v.block}@{v.version} · {v.check}</div>
             <Evidence v={v} exceptions={exceptions} adj={adj} />
             {!readOnly && (lane === 'findings' || lane === 'flagged') && (
               <div className="row" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>

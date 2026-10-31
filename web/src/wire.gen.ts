@@ -2621,6 +2621,7 @@ export type ReviewSummary = {
   projectsTotal: number
   projectsDone: number
   currentProject: string
+  statusLabel: WhatIfLabel
   findings: number
   flagged: number
   projectsWithFindings: number
@@ -4621,7 +4622,7 @@ export type FleetPackVersion = {
   at: string
 }
 
-export type TargetLabel = "unknown" | "passed" | "failed" | "stopped"
+export type TargetLabel = "unknown" | "working" | "failed" | "stopped"
 
 export type IntegrationUse = {
   projects: AttachedProject[]

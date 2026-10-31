@@ -1,3 +1,4 @@
+import { GlanceRow } from '../../GlanceRow'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -26,7 +27,7 @@ export function FleetVersionsTab() {
           <thead><tr><th>Pack</th><th>Versions and who is on them</th></tr></thead>
           <tbody>
             {packs.map((p) => (
-              <tr key={p.pack}>
+              <GlanceRow name={0} labels={["Pack", "Versions and projects"]} key={p.pack}>
                 <td><b>{p.pack}</b>{p.platform ? <span className="muted small"> · platform</span> : null}<div className="muted small">recommended v{p.recommended}</div></td>
                 <td>
                   {p.versions.map((v) => (
@@ -38,7 +39,7 @@ export function FleetVersionsTab() {
                     </div>
                   ))}
                 </td>
-              </tr>
+              </GlanceRow>
             ))}
           </tbody>
         </table>

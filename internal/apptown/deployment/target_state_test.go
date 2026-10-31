@@ -67,7 +67,10 @@ func TestTargetStateZeroValueIsInvalidEverywhere(t *testing.T) {
 }
 
 func TestTargetCheckLabelsAreSeparateFromAppRuntime(t *testing.T) {
-	for state, want := range map[TargetState]TargetLabel{TargetReady: TargetCheckPassed, TargetUnreachable: TargetCheckFailed, TargetRetired: TargetCheckStopped, 0: TargetCheckUnknown} {
+	if got := TargetReady.Display().String(); got != "working" {
+		t.Fatalf("host state is not plain: %s", got)
+	}
+	for state, want := range map[TargetState]TargetLabel{TargetReady: TargetWorking, TargetUnreachable: TargetCheckFailed, TargetRetired: TargetCheckStopped, 0: TargetCheckUnknown} {
 		if got := state.Display(); got != want {
 			t.Errorf("%s: %s, want %s", state, got, want)
 		}

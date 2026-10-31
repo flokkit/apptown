@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import type { DisplayStatus, RuntimeState, HealthStatus, CheckLabel, ReleaseLabel, UpdateLabel, CopyLabel, JobLabel, TargetLabel, DepartureLabel, ResourceLabel, ProgressLabel, ADRLabel } from './wire.gen'
 
 export const STATUS_LIGHT = {
-  running: 'pass', working: 'running', deploying: 'running', 'waiting for you': 'pending', 'waiting for checks': 'pending', stopped: '', unknown: 'unknown', unreachable: 'fail',
+  low: 'pending', blocked: 'fail', running: 'pass', working: 'running', deploying: 'running', 'waiting for you': 'pending', 'waiting for checks': 'pending', stopped: '', unknown: 'unknown', unreachable: 'fail',
   waiting: 'pending', failed: 'fail', landed: 'pass', finished: 'pass', deployed: 'pass', passed: 'pass', excepted: 'overridden', 'not applicable': '', none: '', current: 'pass', available: 'pending', fresh: 'pass', overdue: 'fail', missing: 'fail', disposable: '',
-} as const satisfies Record<DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel, string>
+} as const satisfies Record<'low' | 'blocked' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel, string>
 
 // The server supplies the word; help stays beside the chip on touch and keyboard.
 export function Status({ word, tone, help }: { word: keyof typeof STATUS_LIGHT; tone: string; help?: string }) {

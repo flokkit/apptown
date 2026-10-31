@@ -1,3 +1,4 @@
+import { PhoneDetails } from '../GlanceRow'
 import { Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { AppAddress, RuntimeStatus } from '../runtime'
@@ -136,6 +137,7 @@ function ProjectHeader({ project }: { project: ProjectT }) {
         {project.name}
         {project.namespace && <span className="chip" style={{ marginLeft: 10 }} title="namespace (display grouping)">{project.namespace}</span>}
       </h1>
+      <PhoneDetails>
       <div className="row small project-status-strip" style={{ marginBottom: 10 }}>
         {envs.map((e) => <span key={e.name} className="row" style={{ gap: 4 }}>
           <RuntimeStatus observation={e} />
@@ -143,6 +145,7 @@ function ProjectHeader({ project }: { project: ProjectT }) {
         </span>)}
         {!q.data && q.err && <Status word="unknown" tone="unknown" help={q.err} />}
       </div>
+      </PhoneDetails>
       </>
   )
 }

@@ -21,6 +21,18 @@ try {
   });
   if (facts.history < 8 || facts.history > 12 || !facts.failingCheck || !facts.backupBytes || !facts.stoppedCheck || facts.backups.length < 16 || facts.releases.length !== 5 || !(facts.idleSeconds >= 458640) || !facts.releases.some(r => r.serving && r.notes?.startsWith("To satisfy it:"))) throw new Error('incomplete design seed: ' + JSON.stringify(facts));
   if (!facts.deployments.some(d => d.displayLabel === 'Production' && d.running === true) || !facts.deployments.some(d => d.kind === 'preview' && d.running === null && d.observation === 'unreachable')) throw new Error('deployment seed is not running production + unavailable preview: ' + JSON.stringify(facts.deployments));
+  const infraCases = await page.evaluate(async () => {
+    const read = async path => { const r = await fetch('/api/v1' + path); if (!r.ok) throw new Error(path + ': ' + r.status); return r.json(); };
+    // Attention queues the first disk probe; this scene does not run that job.
+    const pending = await read('/attention');
+    const busy = await read('/targets/design-production/capacity');
+    const unknown = await read('/targets/design-preview/capacity');
+    if (!busy.memory.total.known || busy.memory.promised.unlimited.apptown + busy.memory.promised.unlimited.other !== 19 || busy.tenants.filter(t => t.kind === 'deployment').length !== 9) throw new Error('busy host seed lacks nine apps and nineteen containers without limits');
+    if (!busy.memory.overcommitted || Math.abs(busy.memory.total.value / 2 ** 30 - 1.93) > .01 || Math.abs((busy.memory.promised.sum.apptown.value + busy.memory.promised.sum.other.value) / 2 ** 30 - 4.23) > .01) throw new Error('host seed lacks real memory overcommit');
+    if (unknown.memory.total.known) throw new Error('unknown host memory total became known');
+    return { pending, busy, unknown };
+  });
+  if (!process.env.DESIGN_BASELINE && infraCases.pending.items.some(i => i.key.endsWith('/disk-unassessed'))) throw new Error('unchecked disk probe raised Attention');
   const seeded = await page.evaluate(async () => {
     const request = async (path, body) => {
       const r = await fetch('/api/v1' + path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -51,6 +63,7 @@ try {
   const routes = {
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', deployments: '/deployments', backups: '/deployments/backups',
     fleet: '/deployments/table', 'deployment-infrastructure': '/deployments/infrastructure', attention: '/attention', updates: '/updates',
+    'target-offers': '/integrations/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
     infrastructure: '/infrastructure', jobs: '/infrastructure/jobs', 'infrastructure-new': '/infrastructure/new',
     conformance: '/conformance', checks: '/conformance/checks', reviews: '/conformance/reviews',
     'what-ifs': '/conformance/what-ifs', remediations: '/conformance/remediations', 'fleet-ways': '/conformance/ways',
@@ -88,19 +101,23 @@ try {
     await page.goto(base + path, { waitUntil: 'networkidle' });
     const links = await page.locator('main a[href]').evaluateAll(els => els.map(el => el.getAttribute('href')));
     const detail = links.find(href => pattern.test(href));
-    if (detail) routes[screen] = detail;
+    if (detail) routes[screen] = screen === 'target' ? '/infrastructure/design-production' : detail;
+    if (screen === 'target') routes['target-unknown'] = '/infrastructure/design-preview';
   }
   for (const tab of ['work', 'conversation', 'releases', 'history', 'about']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
   Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflow-library', 'infrastructure-connection': '/infrastructure/new' });
   const selected = new Set((process.env.DESIGN_PAGES || '').split(',').filter(Boolean));
   for (const name of selected) if (name !== 'login' && !(name in routes)) throw new Error('unknown camera page: ' + name);
   const captures = [];
+  let signedIn = 'sam';
   for (const [screen, path] of Object.entries(routes)) {
     if (selected.size && !selected.has(screen)) continue;
-    await page.evaluate(async ({ username, password }) => {
+    const username = screen === 'change-non-approver' ? 'tom' : 'sam';
+    if (username !== signedIn) await page.evaluate(async ({ username, password }) => {
       const r = await fetch('/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
       if (!r.ok) throw new Error('camera login: ' + r.status);
-    }, { username: screen === 'change-non-approver' ? 'tom' : 'sam', password: process.env.DESIGN_PASSWORD });
+    }, { username, password: process.env.DESIGN_PASSWORD });
+    signedIn = username;
     await mkdir(`${out}/${screen}`, { recursive: true });
     for (const [size, viewport] of Object.entries({ desktop: { width: 1440, height: 1000 }, phone: { width: 390, height: 844 } })) {
       await page.setViewportSize(viewport);
@@ -145,6 +162,7 @@ try {
         }
         await page.addStyleTag({ content: '*,*::before,*::after { animation: none !important; transition: none !important; caret-color: transparent !important; }' });
         const words = await page.locator('body').innerText();
+        if (screen === 'target' && !process.env.DESIGN_BASELINE && !words.includes('Apps may need more memory than this host has.')) throw new Error('host memory warning missing before Details');
         if ((screen === 'change' || screen === 'change-non-approver') && !process.env.DESIGN_BASELINE) {
           const eligible = screen === 'change';
           const panel = page.locator('.ch-state');
@@ -165,11 +183,7 @@ try {
           }));
           if (clipped) throw new Error(screen + ': account control clipped by the topbar');
         }
-        if (process.env.DESIGN_BASELINE) {
-          if (screen === 'home' && (!words.includes('Release check: a chat answers') || !words.includes('127.4h'))) throw new Error('Home seed does not reproduce stopped work and idle duration');
-          if (screen === 'overview' && !words.includes('To satisfy it:')) throw new Error('overview seed does not reproduce leaked release notes');
-          if (screen === 'change-delivery' && !/Checked \d{1,2} \w+, \d{2}:\d{2}/.test(words)) throw new Error('delivery seed lacks a full Checked date');
-        } else {
+        if (!process.env.DESIGN_BASELINE) {
           if (screen === 'home' && (words.includes('Release check: a chat answers') || words.includes('Replace the old ride archive') || words.includes('127.4h'))) throw new Error('Home still shows stopped work');
           if (screen === 'overview') {
             const rows = await page.locator('.activity-ledger tbody tr').allTextContents();
@@ -196,12 +210,27 @@ try {
             await page.setViewportSize(viewport);
           }
         }
+        if (!process.env.DESIGN_BASELINE && (screen === 'target' || screen === 'target-unknown')) {
+          for (const word of ['key from secret', 'needs are', 'promised', 'no limit', '/var/lib/docker']) if (words.includes(word)) throw new Error(screen + ': technical detail on the first view: ' + word);
+          if (!(await page.locator('.capacity-summary').innerText()).includes('Memory')) throw new Error(screen + ': capacity summary missing');
+        }
+        if (!process.env.DESIGN_BASELINE && screen === 'infrastructure' && size === 'phone' && /\/var\/|\/mnt\//.test(words)) throw new Error('raw path on the infrastructure phone list');
         const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+        const clipped = await page.locator('main *').evaluateAll(els => els.filter(el => {
+          if (!el.getClientRects().length || el.closest('pre, .xterm, .diff, .log') || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)) return false;
+          const style = getComputedStyle(el);
+          return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
+        }).map(el => ({ tag: el.tagName, class: el.className, text: el.textContent.slice(0, 100) })));
         const headings = await page.getByRole('heading', { level: 1 }).allTextContents();
         await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: true });
-        captures.push({ screen, path, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow });
+        captures.push({ screen, path, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, clipped });
         await writeFile(`${out}/pages-progress.json`, JSON.stringify(captures, null, 2));
         console.log('captured', screen, size, theme, overflow ? 'OVERFLOW' : '');
+        if (!process.env.DESIGN_BASELINE && (screen === 'target' || screen === 'target-unknown')) {
+          await page.locator('.capacity-details, .cap-details, .target-deployments, .target-settings').evaluateAll(els => els.forEach(el => { el.open = true; }));
+          await page.screenshot({ path: `${out}/${screen}/${size}-${theme}-details.png`, fullPage: true });
+          if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)) throw new Error(screen + ': open details overflow');
+        }
       }
     }
   }
@@ -214,6 +243,7 @@ try {
       await page.locator('form').waitFor();
       await mkdir(`${out}/login`, { recursive: true });
       const words = await page.locator('body').innerText();
+        if (screen === 'target' && !process.env.DESIGN_BASELINE && !words.includes('Apps may need more memory than this host has.')) throw new Error('host memory warning missing before Details');
       await page.screenshot({ path: `${out}/login/${size}-${theme}.png`, fullPage: true });
       captures.push({ screen: 'login', path: '/', size, theme, words: words.trim().split(/\s+/).length, headings: await page.getByRole('heading', { level: 1 }).allTextContents(), overflow: false });
     }
@@ -221,8 +251,8 @@ try {
   await writeFile(`${out}/pages.json`, JSON.stringify(captures, null, 2));
   if (errors.length) throw new Error(errors.join('\n'));
   if (!process.env.DESIGN_BASELINE) {
-    const issues = captures.filter(c => c.overflow || c.headings.length !== 1);
+    const issues = captures.filter(c => c.overflow || c.headings.length !== 1 || (c.size === 'phone' && c.clipped?.length));
     if (issues.length) throw new Error('layout issues: ' + JSON.stringify(issues));
   }
-  await writeFile(`${out}/capture.json`, JSON.stringify({ project: 'club-newsletter', change: process.env.DESIGN_CHANGE, actor: 'sam', viewports: { desktop: '1440×1000', phone: '390×844' }, facts, records: 'disposable local tour scene; actual API responses; local scripts; recorded agent transcripts; running production test daemon; unreachable preview transport; backup owner operation; passing approval and failing photo review; summary provider unavailable', errors }, null, 2));
+  await writeFile(`${out}/capture.json`, JSON.stringify({ project: 'club-newsletter', change: process.env.DESIGN_CHANGE, actor: 'sam', infraCases, viewports: { desktop: '1440×1000', phone: '390×844' }, facts, records: 'disposable local tour scene; actual API responses; local scripts; recorded agent transcripts; running production test daemon; unreachable preview transport; backup owner operation; passing approval and failing photo review; summary provider unavailable', errors }, null, 2));
 } finally { await browser.close(); }
