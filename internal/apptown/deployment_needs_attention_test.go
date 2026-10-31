@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/flokkit/apptown/internal/apptown/attention"
+	"github.com/flokkit/apptown/internal/deploy/docker/dockerfake"
 
 	"github.com/flokkit/apptown/internal/apptown/audit"
 	"github.com/flokkit/apptown/internal/apptown/deployment"
@@ -249,5 +253,69 @@ func TestCheckAgainFailsAnAttemptWithNoRecordOfItsBoot(t *testing.T) {
 	}
 	if _, _, err := a.Deployment.Outcomes.Admit(context.Background(), deploymentStartFor(env, "after", "after")); err != nil {
 		t.Fatalf("the next release is refused: %v", err)
+	}
+}
+
+type capacityCadenceQueue struct{ calls int }
+
+func (q *capacityCadenceQueue) RequestCapacityObservation(context.Context, ids.ID, int64) error {
+	q.calls++
+	return nil
+}
+
+// Polling Attention once a minute must not raise disk-unassessed while the
+// observer refreshes on schedule, including the poll before a queued job runs.
+// Missing refreshes beyond the disk limit must still raise the item.
+func TestAttentionDiskStaysFreshThroughObserverCadence(t *testing.T) {
+	t.Parallel()
+	daemon := dockerfake.New()
+	a := testApp(t, Config{DockerClient: daemon})
+	target, err := a.Deployment.Targets.Put(t.Context(), &deployment.Target{Name: "local", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	if err != nil {
+		t.Fatal(err)
+	}
+	queue := &capacityCadenceQueue{}
+	observer := deployment.NewCapacityObserver(a.Deployment, queue)
+	source := attention.Capacity{Targets: a.targets, Observer: observer, Now: a.cfg.clock.Now}
+	if _, err := source.Snapshot(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+		t.Fatal(err)
+	}
+	for minute := 1; minute <= 16; minute++ {
+		a.cfg.clock.mu.Lock()
+		a.cfg.clock.ahead += time.Minute
+		a.cfg.clock.mu.Unlock()
+		before := queue.calls
+		got, err := source.Snapshot(t.Context())
+		if err != nil || len(got.Items) != 0 || got.Stale || queue.calls != before+1 {
+			t.Fatalf("minute %d before job: %+v requests=%d err=%v", minute, got, queue.calls, err)
+		}
+		if err := observer.Run(t.Context(), target.ID, target.SettingsRevision); err != nil {
+			t.Fatal(err)
+		}
+		got, err = source.Snapshot(t.Context())
+		if err != nil || len(got.Items) != 0 || got.Stale {
+			t.Fatalf("minute %d after job: %+v %v", minute, got, err)
+		}
+	}
+	// Over sixteen minutes there are four reads (at 0, 5, 10 and 15),
+	// unchanged from the five-minute capacity cache on ordinary pages.
+	reads := 0
+	for _, args := range daemon.Matching("exec ") {
+		if strings.Contains(args[len(args)-1], "df -Pk /d") {
+			reads++
+		}
+	}
+	if reads != 4 {
+		t.Fatalf("disk read budget changed: %d, want 4", reads)
+	}
+	a.cfg.clock.mu.Lock()
+	a.cfg.clock.ahead += 7*time.Minute + time.Second
+	a.cfg.clock.mu.Unlock()
+	got, err := source.Snapshot(t.Context())
+	if err != nil || len(got.Items) != 1 || !strings.HasSuffix(got.Items[0].Key, "/disk-unassessed") {
+		t.Fatalf("missed reading did not raise item: %+v %v", got, err)
 	}
 }

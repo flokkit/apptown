@@ -30,7 +30,8 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	out := Snapshot{Known: true, ObservedAt: clock.Or(c.Now)()}
+	now := clock.Or(c.Now)()
+	out := Snapshot{Known: true, ObservedAt: now}
 	for _, target := range targets {
 		if target.Status == deployment.TargetRetired || (target.Kind != deployment.KindDockerHost && target.Kind != deployment.KindPortainer) {
 			continue
@@ -53,11 +54,15 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		if reading.AttemptedAt.IsZero() && reading.ObservedAt.IsZero() && disk == nil && readErr == nil {
 			continue
 		}
-		if reading.Unknown || reading.Stale || readErr != nil || disk == nil || !disk.Free.Known || !disk.Total.Known {
+		diskStale := disk != nil && disk.StaleAt(now)
+		out.Stale = out.Stale || diskStale
+		if disk == nil || !disk.Free.Known || !disk.Total.Known || diskStale {
 			out.Known = false
-			at := reading.ObservedAt
-			if reading.Unknown && !reading.AttemptedAt.IsZero() {
-				at = reading.AttemptedAt
+			at := reading.AttemptedAt
+			if disk != nil {
+				at = disk.ReadAt
+			} else if at.IsZero() {
+				at = reading.ObservedAt
 			}
 			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Title: label + ": disk space is unknown", Detail: label + ": check the host’s disk. The latest reading is unavailable or out of date. " + capacityAdmission(target.Kind), Href: href, ObservedAt: at, Stale: true})
 			if disk == nil || !disk.Free.Known || !disk.Total.Known {
@@ -78,7 +83,7 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 				detail += " " + capacityAdmission(target.Kind)
 			}
 		}
-		out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk", Title: title, Detail: detail, Href: href, ObservedAt: disk.ReadAt, Stale: reading.Stale || reading.Unknown || readErr != nil})
+		out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk", Title: title, Detail: detail, Href: href, ObservedAt: disk.ReadAt, Stale: diskStale})
 	}
 	return out, nil
 }

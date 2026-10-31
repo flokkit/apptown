@@ -234,7 +234,7 @@ func (c *capacityEvidence) Snapshot(_ context.Context, t *deployment.Target) (de
 func TestCapacitySourceKeepsEachDiskTimeAndDoesNotReadElasticTargets(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
-	old := now.Add(-5 * time.Minute)
+	old := now.Add(-8 * time.Minute)
 	one, two, elastic := idstest.N(1), idstest.N(2), idstest.N(3)
 	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{one: {ObservedAt: now, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 1 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, Low: true, ReadAt: old}}, two: {Unknown: true, Stale: true, AttemptedAt: now}}}
 	source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: one, Name: "team host", DisplayLabel: "Office", Kind: deployment.KindDockerHost}, {ID: two, Name: "second", Kind: deployment.KindPortainer}, {ID: elastic, Name: "cloud", Kind: deployment.KindDOApp}}}, Observer: evidence, Now: func() time.Time { return now }}
@@ -294,20 +294,33 @@ func TestCapacityConditionsRespectRetirementAndProviderAdmission(t *testing.T) {
 	}
 }
 
-func TestCapacityFailureShowsUnknownEvenWhenPriorDiskWasHealthy(t *testing.T) {
+// Snapshot coverage must not change the assessment of a fresh disk.
+func TestCapacityAssessesDiskIndependentlyOfSnapshotCoverage(t *testing.T) {
 	t.Parallel()
 	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
 	id := idstest.N(10)
-	evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{id: {Unknown: true, ObservedAt: at, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, ReadAt: at}}}}
-	source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: id, Name: "office", Kind: deployment.KindDockerHost}}}, Observer: evidence, Now: func() time.Time { return at }}
-	got, err := source.Snapshot(t.Context())
-	if err != nil || got.Known || len(got.Items) != 1 || got.Items[0].Title != "office: disk space is unknown" || !got.Items[0].Stale {
-		t.Fatalf("unread healthy cache hid failure %+v %v", got, err)
-	}
-	evidence.reads[id].Disk.Low = true
-	got, err = source.Snapshot(t.Context())
-	if err != nil || len(got.Items) != 2 || !got.Items[1].Stale {
-		t.Fatalf("unknown erased retained pressure %+v %v", got, err)
+	for _, snapshot := range []deployment.CapacitySnapshot{
+		{Unknown: true, ObservedAt: at}, // memory failed
+		{Stale: true, ObservedAt: at.Add(-3 * time.Minute)},
+	} {
+		snapshot.Disk = &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50 << 30}, Total: deployment.Figure{Known: true, Value: 100 << 30}, ReadAt: at}
+		evidence := &capacityEvidence{reads: map[ids.ID]deployment.CapacitySnapshot{id: snapshot}}
+		source := Capacity{Targets: capacityTargets{[]*deployment.Target{{ID: id, Name: "office", Kind: deployment.KindDockerHost}}}, Observer: evidence, Now: func() time.Time { return at }}
+		got, err := source.Snapshot(t.Context())
+		if err != nil || got.Known == snapshot.Unknown || got.Stale != snapshot.Stale || len(got.Items) != 0 {
+			t.Fatalf("snapshot status became disk failure: %+v %v", got, err)
+		}
+		snapshot.Disk.Low = true
+		got, err = source.Snapshot(t.Context())
+		if err != nil || len(got.Items) != 1 || got.Items[0].Stale || got.Items[0].ObservedAt != at {
+			t.Fatalf("fresh pressure inherited snapshot status: %+v %v", got, err)
+		}
+		snapshot.Disk.Low = false
+		snapshot.Disk.ReadAt = at.Add(-8 * time.Minute)
+		got, err = source.Snapshot(t.Context())
+		if err != nil || len(got.Items) != 1 || !got.Items[0].Stale || !strings.HasSuffix(got.Items[0].Key, "/disk-unassessed") {
+			t.Fatalf("stale disk hidden: %+v %v", got, err)
+		}
 	}
 }
 
@@ -484,7 +497,7 @@ func TestCapacityPendingCheckIsNotAnAttentionItem(t *testing.T) {
 	if err != nil || len(got.Items) != 1 || got.Items[0].Title != "demo-docker: disk space is unknown" || got.Items[0].ObservedAt != at {
 		t.Fatalf("failed first check hidden: %+v %v", got, err)
 	}
-	evidence.reads[id] = deployment.CapacitySnapshot{ObservedAt: at, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50}, Total: deployment.Figure{Known: true, Value: 100}, ReadAt: at}}
+	evidence.reads[id] = deployment.CapacitySnapshot{ObservedAt: at, Stale: true, Disk: &deployment.DiskCapacity{Free: deployment.Figure{Known: true, Value: 50}, Total: deployment.Figure{Known: true, Value: 100}, ReadAt: at.Add(-8 * time.Minute)}}
 	got, err = source.Snapshot(t.Context())
 	if err != nil || len(got.Items) != 1 {
 		t.Fatalf("stale healthy check hidden: %+v %v", got, err)

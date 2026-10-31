@@ -402,7 +402,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 	if cpu.Promised.Sum.AppTown.Value != 1 || cpu.Promised.Sum.Other.Value != 0.5 || cpu.Promised.Unread != (Count{Other: 1}) || cpu.Promised.Unlimited != (Count{AppTown: 1}) {
 		t.Errorf("CPUs promised: %+v", cpu.Promised)
 	}
-	if m.InUse == nil || m.InUse.AppTown.Value != 130<<20 || m.InUse.Other.Value != 21<<20 {
+	if m.InUse == nil || !m.InUse.AppTown.Known || !m.InUse.Other.Known || m.InUse.AppTown.Value != 130<<20 || m.InUse.Other.Value != 21<<20 {
 		t.Errorf("in use: %+v", m.InUse)
 	}
 	if m.Overcommitted || cpu.Overcommitted {
@@ -428,7 +428,7 @@ func TestAHostsCapacityIsWhatItsDaemonReports(t *testing.T) {
 		t.Errorf("an attached host's own use: %+v", m.HostUsed)
 	}
 
-	// The disk is read at most once in five minutes.
+	// The disk cache keeps repeated reads within the freshness limit.
 	labScope, err := w.s.hosts.DockerScope(t.Context(), w.lab)
 	if err != nil {
 		t.Fatal(err)
@@ -764,7 +764,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 		t.Fatalf("fresh: %+v %v", got, err)
 	}
 	got.Disk.Low = false
-	now = now.Add(3 * time.Minute)
+	now = now.Add(8 * time.Minute)
 	if err := o.Run(t.Context(), target.ID, 1); err != nil {
 		t.Fatal(err)
 	}
@@ -868,5 +868,66 @@ func TestFirstCapacityFailureRecordsAttemptWithoutInventingDiskEvidence(t *testi
 		if err != nil || after.AttemptedAt != now || !after.Unknown || !after.ObservedAt.IsZero() || after.Disk != nil {
 			t.Fatalf("failed first attempt: %+v %v", after, err)
 		}
+	}
+}
+
+// Refreshing the wrapper must not mask failed memory or a disk cache that
+// outlives the observation freshness limit.
+func TestCapacityCoverageIncludesMemoryFailure(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	target := Target{ID: idstest.N(56), SettingsRevision: 1}
+	memory := ResourceCapacity{Total: known(100), Promised: Promised{Sum: Split{AppTown: known(1), Other: known(2)}}, InUse: &Split{AppTown: unknown("stats failed"), Other: unknown("stats failed")}}
+	cpu := ResourceCapacity{Total: known(4), Promised: Promised{Sum: Split{AppTown: known(1), Other: known(1)}}}
+	o := &CapacityObserver{queue: &capacityObservationRequests{}, now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: func(context.Context, *Target) (TargetCapacity, error) {
+		return TargetCapacity{ReadAt: now, Memory: &memory, CPU: &cpu, Disk: &DiskCapacity{Total: known(100), Free: known(90), ReadAt: now}}, nil
+	}}
+	_, _ = o.Snapshot(t.Context(), &target)
+	if err := o.Run(t.Context(), target.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	got, err := o.Snapshot(t.Context(), &target)
+	if err != nil || !got.Unknown || got.Stale || got.Disk == nil || !got.Disk.Free.Known {
+		t.Fatalf("memory failure lost or disk invalidated: %+v %v", got, err)
+	}
+	memory.InUse = &Split{AppTown: known(1), Other: known(2)}
+	if err := o.Run(t.Context(), target.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	got, err = o.Snapshot(t.Context(), &target)
+	if err != nil || got.Unknown || got.Stale {
+		t.Fatalf("memory recovery not assessed: %+v %v", got, err)
+	}
+}
+
+// The host cache must keep the same read budget as ordinary capacity pages.
+func TestDiskCacheKeepsFiveMinuteLifetime(t *testing.T) {
+	t.Parallel()
+	w := newDigestWorldWith(t, "", digestAppYAML, nil)
+	now := w.s.now()
+	w.s.setClock(func() time.Time { return now })
+	scope, err := w.s.hosts.DockerScope(t.Context(), w.lab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := w.s.disk(t.Context(), w.lab, scope, "/var/lib/docker")
+	now = now.Add(5*time.Minute - time.Second)
+	if got := w.s.disk(t.Context(), w.lab, scope, "/var/lib/docker"); got.ReadAt != first.ReadAt {
+		t.Fatalf("disk refreshed before five minutes: %+v", got)
+	}
+	now = now.Add(time.Second)
+	if got := w.s.disk(t.Context(), w.lab, scope, "/var/lib/docker"); !got.Free.Known || got.ReadAt != now {
+		t.Fatalf("disk did not refresh at five minutes: %+v", got)
+	}
+}
+
+// Wrapper observations expire independently of the longer-lived disk cache.
+func TestCapacityWrapperHasItsOwnFreshnessLimit(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	disk := &DiskCapacity{ReadAt: at, Free: known(90), Total: known(100)}
+	got := capacitySnapshotAt(CapacitySnapshot{ObservedAt: at, Disk: disk}, at.Add(3*time.Minute))
+	if !got.Stale || got.Disk.StaleAt(at.Add(3*time.Minute)) {
+		t.Fatalf("wrapper and disk freshness coupled: %+v", got)
 	}
 }
