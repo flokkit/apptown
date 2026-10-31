@@ -160,6 +160,14 @@ jobs:
           path: ~/.cache/go-build
           key: go-build-heavy-${{ matrix.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-${{ github.sha }}
           restore-keys: go-build-heavy-${{ matrix.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-
+      # The runner image's preinstalled SDKs (.NET, Android, Haskell,
+      # CodeQL, Swift) take about 30 GB that no job here uses; without
+      # them the test images, the two built images and their layers ran
+      # out of disk (31 Oct, twice). Removing them takes seconds.
+      - name: free runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          df -h /
       # The tests' images (deploy/ci-heavy/test-images.txt), before the
       # tests: a registry error fails this step, not a test.
       - name: pull test images
