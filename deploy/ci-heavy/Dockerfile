@@ -1,4 +1,4 @@
-# ci-heavy: the image the heavy tiers' Go tests run in (.github/workflows/heavy.yml,
+# ci-heavy: the image the heavy tiers' Go tests run in (.github/workflows/heavy-main.yml,
 # design/architecture/testing.md). The tests run in it as root, beside the
 # host's daemon, because the containers AppTown starts run as root and write
 # into the folders it bind-mounts, and only root can then remove them (as on

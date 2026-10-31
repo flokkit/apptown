@@ -150,8 +150,9 @@ requirements (and the maintainers' position documents) establish intent. When th
 silently changing the promise.
 
 Changes land through the `main` merge queue as one pull request per change,
-squash-merged after `ci-ok` and `heavy-ok` pass on the queued commit. A PR
-heavy check is admission to that queue; it is not heavy execution evidence. The pull request's title and
+squash-merged after `ci-ok` passes on the queued commit. Heavy tests run fresh
+after every merge to `main`; a failure is fixed forward promptly and blocks
+the next release candidate. The pull request's title and
 description are the public record: they say what changed and why, not how the
 work went.
 The maintainers plan and independently review changes in a separate private
@@ -160,7 +161,7 @@ its working rules apply as well: @private/CLAUDE.md
 [CONTRIBUTING.md](CONTRIBUTING.md) says how to propose a change.
 
 [Makefile](Makefile), [CI configuration](.github/workflows/ci.yml),
-[the heavy tiers' CI](.github/workflows/heavy.yml) and
+[the heavy tiers' CI](.github/workflows/heavy-main.yml) and
 [web package scripts](web/package.json) own executable commands and tool versions.
 `make build` builds the application; `make check` runs the local validation gate.
 Check the affected owner's requirements and the

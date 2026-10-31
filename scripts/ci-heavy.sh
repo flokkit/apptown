@@ -1,5 +1,5 @@
 #!/bin/sh
-# The heavy tiers' jobs in .github/workflows/heavy.yml (integration, journeys,
+# The heavy tiers' jobs in .github/workflows/heavy-main.yml (integration, journeys,
 # opt-in-tiers, race; design/architecture/testing.md), and the release's UI
 # tour (candidate.yml's tour job):
 #   ci-heavy.sh test <go test arguments...>

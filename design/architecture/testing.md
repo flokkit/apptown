@@ -131,7 +131,8 @@ service, never a mock.
   remedy is to leave the game or take it out of full screen. CI's Linux jobs
   have no such band and skip the check.
 - CI is GitHub Actions. `.github/workflows/ci.yml` runs on every pull
-  request, documentation-only ones too, and on every push to `main`; its `ci-ok` job is the check
+  request, documentation-only ones too, on queue commits and every push to
+  `main`, and by hand; its `ci-ok` job is the check
   `main` requires: it passes only when every other job succeeded. `web` runs
   make check's web stages (`npm ci`, `tsc --noEmit`, the Vite build, lint
   and vitest) and keeps the build; `checks` runs make check's checker stages
@@ -142,17 +143,14 @@ service, never a mock.
   everything else) with the harness's own test PostgreSQL container;
   `public` runs the public gate (`make check-public`) and `sql-writes`
   `make check-sql`.
-- `.github/workflows/heavy.yml` runs the integration, journey and opt-in
-  tiers and the race tier on merge-group commits and by hand. Pull requests
-  report admission only. `heavy-main.yml` runs the same jobs fresh on every
-  push to main.
-  Its `heavy-ok` job, which the main ruleset requires, fails on queue/manual
-  execution unless every heavy job passed. Queue-only reuse for narrow
-  documentation changes requires complete base execution; it never supplies
-  release evidence (see [GitHub operations](../operations/github.md)). A release
+- `.github/workflows/heavy-main.yml` runs the integration, journey, opt-in
+  and race tiers fresh on every push to main and by hand. Landing requires
+  only `ci.yml`'s `ci-ok` on the queued commit. A heavy failure on main is
+  fixed forward promptly and blocks the next release candidate.
+  Its `heavy-ok` aggregate fails unless every heavy job passed. A release
   candidate's images and archives are built only for a commit with a run
-  that passed on its first attempt in `heavy-main.yml` (`candidate.yml`,
-  `identity`). The
+  that passed on its first attempt (`candidate.yml`, `identity`; see
+  [GitHub operations](../operations/github.md)). The
   heavy jobs first pull the images their tests start
   (`deploy/ci-heavy/test-images.txt`), so a registry error while fetching
   them fails that step and not a test; AppTown's deliberate pulls, BuildKit
@@ -268,10 +266,10 @@ gap and AppTown's exclusive-startup settlement. It kills a worker and waits for
 confirmed exit, without waiting for rescue or shortening timeouts, and adds no
 subprocess to the default suite.
 
-Go's test cache is on everywhere except the local gates. CI's pull request
-and queue runs reuse a package's result from main's run when its inputs are
-identical, Docker and database tiers included; every push to main runs every
-test fresh, and only those results are stored ([GitHub
+Go's compilation cache stays on; local gates run tests with `-count=1`.
+CI's unit tests on pull requests and queue commits reuse a package's result
+from main's run when its inputs are identical. Heavy tests run fresh after merge and by hand; every push to
+main also runs the unit tests fresh, and only main's results are stored ([GitHub
 operations](../operations/github.md), "Test results"). For that to hold, a
 test must make its inputs visible to Go: a repository file it hands to a
 child process (a script, a `docker build` context, a binary it builds) is

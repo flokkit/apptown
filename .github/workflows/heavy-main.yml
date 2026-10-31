@@ -1,18 +1,11 @@
-# Main's heavy execution: every heavy tier's tests, run fresh on each commit
-# pushed to main (and by hand), with nothing reused from Go's test cache
-# (ci-test-environment.sh fresh). Its passing jobs save the compilation and
-# test caches heavy.yml's queue runs restore, so each stored result comes from
-# a full execution of a landed commit; a failed job saves nothing. Every
-# landed commit is thereby a full chance for a flaky test to fail, visibly
-# here. A release tag's images need a run of this workflow on the tag's commit
-# that passed on its first attempt (images.yml, heavy-evidence). The matrix
-# and cache keys are heavy.yml's (scripts/ci_workflows_test.py). Each job's
-# archive holds up to 1 GiB, enough for one large partition's compiled
-# packages and test results together: at 256 MiB, results were trimmed and
-# the queue re-ran them. Twelve such archives (about 250 MB each once
-# compressed) and ci.yml's seven at 256 MiB make one main commit's caches
-# about 3.5 GB, inside the repository's 10 GB, which GitHub keeps by evicting
-# the least recently used: older commits' archives first.
+# Heavy tests run fresh after every merge to main and on manual dispatch.
+# Landing requires ci.yml's ci-ok. A failure here is fixed forward promptly
+# and blocks the next release candidate. Releases require full execution on
+# the exact commit that passed on its first attempt (heavy-evidence.py).
+# Compilation and image layer caches speed builds; test results are never
+# reused (ci-test-environment.sh fresh). Only successful main jobs save Go
+# caches. Each archive holds up to 1 GiB; ci_workflows_test.py checks the
+# matrix against the release evidence jobs and the repository cache budget.
 name: heavy-main
 
 on:
@@ -97,9 +90,7 @@ jobs:
             args: test -tags=browser,pi,inference_docker -p 1 ./internal/apptown/ ./internal/console/pi/ -run '^(TestBrowserSecurityChromium|TestInferencePinnedPi|TestInferenceConsoleMountBoundary)$' -timeout 20m -v
             require: TestBrowserSecurityChromium TestInferencePinnedPi TestInferenceConsoleMountBoundary
     name: ${{ matrix.name }}
-    # The job's name is its ID: the runner is this job's alone, and the
-    # tests' temporary folder (TMPDIR, which they read) is then the same in
-    # every run, so it does not stop Go's test cache from matching.
+    # Each matrix entry owns its runner and its temporary folder.
     env:
       CI_HEAVY_ID: ${{ matrix.name }}
       CI_HEAVY_REQUIRE: ${{ matrix.require }}
@@ -110,8 +101,7 @@ jobs:
         with:
           name: web-dist
           path: web/dist/
-      # Every file's time from its content, so equal content is equal to
-      # Go's test cache in every run (scripts/ci-content-mtimes.py).
+      # Stable content times let Go reuse compiled packages across runs.
       - run: python3 scripts/ci-content-mtimes.py .
       - name: configure host compilation caches
         run: |
@@ -128,6 +118,11 @@ jobs:
           path: ~/.cache/go-build
           key: go-build-heavy-${{ matrix.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-${{ github.sha }}
           restore-keys: go-build-heavy-${{ matrix.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', 'deploy/ci-heavy/Dockerfile') }}-
+      # Unused SDKs leave room for the test images and Buildx layers.
+      - name: free runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift
+          df -h /
       # The tests' images (deploy/ci-heavy/test-images.txt), before the
       # tests: a registry error fails this step, not a test.
       - name: pull test images
@@ -188,8 +183,7 @@ jobs:
           name: web-dist
           path: web/dist/
       - run: python3 scripts/ci-content-mtimes.py .
-      # Go's module and build caches: restored by prefix from main's; this
-      # workflow saves them, with the fresh test results, on main.
+      # Restore modules and compiled packages; expire test results below.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: gomod
         with:

@@ -123,7 +123,6 @@ check-ci-heavy:         ## the heavy tiers' runner: a required test that skipped
 	python3 scripts/ci-test-environment_test.py
 	python3 scripts/testinputs-cache_test.py
 	python3 scripts/heavy-evidence_test.py
-	python3 scripts/heavy-qualification_test.py
 
 check-pins:             ## the tools the apptown runs for projects have one version each (deploy/tool-pins.txt), and AppTown's own Dockerfiles name every base image by digest
 	python3 scripts/pins-check_test.py

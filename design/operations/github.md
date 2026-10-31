@@ -9,9 +9,10 @@ are in `.github/workflows/`.
 
 `main` changes through its merge queue, one pull request per change, squash-merged. Its
 ruleset requires the pull request, allows only squash merges, forbids force
-pushes and deletion, and requires the `ci-ok` check (`ci.yml`) and the
-`heavy-ok` check (`heavy.yml`) on the queued commit, so the runs that passed tested exactly what `main` becomes.
-A pull request's `heavy-ok` is admission to the queue, not heavy execution evidence.
+pushes and deletion, and requires only the `ci-ok` check (`ci.yml`) on the
+queued commit, so the fast gate tests exactly what `main` becomes. Heavy
+tests run fresh after every merge. A heavy failure on main is fixed forward
+promptly and blocks the next release candidate; landing continues.
 The squash commit takes the pull request's title and description, which are
 the change's public record. Opening a pull request is limited to the
 repository's collaborators ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
@@ -135,11 +136,11 @@ read it.
 The repository is public, so standard runners cost nothing.
 
 **`ci.yml`** runs on every pull request, a documentation-only one too, on
-every push to `main`, and by hand. A pull request's newer run cancels its
-older one; main's runs, and runs by hand, are each kept. The pull request's
-run already tested what `main` becomes; main runs it again so that each
-landed commit has its own result and so that main writes the caches every
-pull request restores. Jobs:
+merge-group commits (`checks_requested`), every push to `main`, and by hand.
+A pull request's newer run cancels its older one; main's runs, and runs by
+hand, are each kept. The queue run tests what `main` becomes; main runs it
+again so that each landed commit has its own result and so that main writes
+the caches every pull request restores. Jobs:
 
 - `web`: npm ci, the guides' checks (`make check-docs`, which renders
   links with the Docs page's Markdown library from `web/`), typecheck, Vite
@@ -183,9 +184,10 @@ pull request restores. Jobs:
   there too.
 
 **Caches.** Main publishes Go module caches and Go caches (compiled packages
-and test results), the heavy tiers' from `heavy-main.yml`; pull requests and
-the queue restore them without publishing. Modules (`go-mod-*`) use
-dependency hashes. Go cache keys include platform, architecture, dependencies
+and test results). The unit jobs in `ci.yml` restore these on pull requests
+and queue commits without publishing. Heavy jobs in `heavy-main.yml` restore
+compilation caches and expire test results before every run. Modules
+(`go-mod-*`) use dependency hashes. Go cache keys include platform, architecture, dependencies
 and commit; each successful main job publishes its current cache, and later
 runs restore the newest compatible prefix. Container-tier keys also include
 the runner Dockerfile and tier. Each archive retains its newest entries
@@ -197,7 +199,7 @@ commit's archives are then about 3.5 GB compressed, inside the repository's
 accessed archives, usually older generations. Eviction causes recompilation and re-execution,
 never omission of tests.
 
-**Test results.** A pull request's and the queue's test jobs reuse a
+**Test results.** The unit test jobs on pull requests and queue commits reuse a
 package's passing result from main's when its inputs are identical, and run
 it otherwise. Go reuses a result only for the same test binary (sources,
 dependencies, embedded files, build flags, Go version), the same test flags,
@@ -246,24 +248,22 @@ the lockfile; a pull request that changes it can save its own copy. Release
 builds (`candidate.yml`) use no Go Actions cache, since a tag's cache could
 serve only that tag.
 
-**`heavy.yml`** executes the Docker integration tier, journeys, opt-in browser,
-pi and inference_docker tests, and the race detector on `merge_group` and
-manual dispatch, reusing main's stored results as above. A pull request runs the qualification report and reports
-admission-only `heavy-ok`; the queue qualifies the actual commit before
-merging. Manual runs always execute every heavy job. No label
-changes what executes. Each job first pulls the images its tests start, listed in
+**`heavy-main.yml`** executes the Docker integration tier, journeys, opt-in
+browser, pi and inference_docker tests, and the race detector on every push
+to `main` and manual dispatch. Every test runs fresh, with no reused test
+results. Each job first pulls the images its tests start, listed in
 `deploy/ci-heavy/test-images.txt` (`scripts/ci-heavy.sh pull`, four at once,
 three attempts each), so a registry error while fetching them fails that step,
 naming the image, and not a test. A test that starts a new image adds it to
 the list. Tests can still reach a registry: AppTown's own deliberate pulls
 (a selected image, an image preview, a Portainer stack), BuildKit resolving
 a Dockerfile's FROM tag, and private Docker daemons inside a test pulling
-their own images; a registry outage there still fails that test. Its last
-job, `heavy-ok`, requires the qualification job to succeed. Execution requires
-`web`, every `tier` entry and `race` to succeed; queue reuse requires all three
-groups to be skipped. Partial execution fails. The ruleset requires the
-aggregate, so a red heavy run blocks merging.
-As with `ci-ok`, a job added to `heavy.yml` is added to its `needs:` list.
+their own images; a registry outage there still fails that test.
+The last job, `heavy-ok`, requires `web`, every `tier` entry and every `race`
+entry to succeed. Failed, cancelled or skipped execution fails the aggregate.
+A job added to the workflow is added to its `needs:` list and the release
+execution contract (`scripts/heavy_execution.py`), whose completeness is
+checked by `scripts/ci_workflows_test.py`.
 Race uses four package partitions: the root package, backup/data protection,
 workflow execution, and the rest. Integration uses six: the root package's tests
 split by name three ways (two named sets of its longest serial tests, and
@@ -273,26 +273,10 @@ and assigns every package to exactly one partition; new packages default to
 the rest. Every matrix entry must succeed. Local
 `make check-race` still runs the entire race suite.
 
-The queue can reuse full heavy execution only when its exact base and candidate
-have identical inputs apart from regular non-executable Markdown under
-`design/` and `releases/`. Embedded docs, deployment files, workflow changes,
-executable files and every other path remain inputs. The newest applicable
-main, queue or manual run on the exact base must have complete successful
-first-attempt execution. Reuse-only runs cannot supply another reuse; a newer
-failure or unfinished run prevents an older green source from winning.
-Missing or uncertain evidence selects execution. The qualification artifact
-records the candidate, source commit/run, input digest, policy and decision.
-PR reports do not activate reuse, and manual dispatch always executes. A
-source run's jobs may themselves have reused cached test results. Reuse
-qualifies a queue landing but supplies no release execution evidence.
-
-Both CI workflows handle `merge_group: checks_requested`; a PR check alone
-is never release evidence. **`heavy-main.yml`** runs heavy.yml's jobs on every
-push to main, and by hand, with every test fresh: it re-validates each landed
-commit, saves the caches heavy.yml restores, refreshes image layers, and is
-the release evidence below. It is a separate workflow so that landing, which
-waits for heavy.yml's run on the landed commit, does not also wait for it.
-Its matrix and cache keys are heavy.yml's (`scripts/ci_workflows_test.py`).
+Heavy execution supplies release evidence on the exact main commit. It
+refreshes compilation and image layer caches on main. The merge queue waits
+only for `ci-ok`; a red heavy run blocks the next release candidate and is
+fixed forward promptly.
 
 **`candidate.yml`** builds a release before its version tag exists. Pushing
 a tag `candidate/v<version>/<first 12 characters of the commit>` at a commit
@@ -301,10 +285,9 @@ checks the tag names that commit, the commit is on `main`, the release notes
 (`scripts/release-notes-check.sh`), that the previous release's upgrade
 fixture is at the commit, and the heavy evidence: `scripts/heavy-evidence.py`
 asks the API for a `heavy-main.yml` run (a push to `main`, or by hand) on
-the exact commit that passed on its first attempt; a queue run, which may
-reuse cached results, is not evidence, and nothing is built without one: CI
-must pass, not pass eventually. Both its first and latest attempt must
-contain the complete successful execution jobs. The newest applicable run
+the exact commit that passed on its first attempt. Nothing is built without
+that evidence: CI must pass, not pass eventually. Both its first and latest
+attempt must contain the complete successful execution jobs. The newest applicable run
 decides; an older success never hides a newer failure or a run still
 executing. A run must name the exact SHA; matching trees do not count. A run that
 failed and then passed on a re-run is not evidence, nor is a red, missing or
