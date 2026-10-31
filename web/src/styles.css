@@ -1665,3 +1665,34 @@ button.chat-starter { border-radius: var(--radius-sm); }
 @media (max-width: 800px) {
   .ch-sheet .kv-val, .ch-sheet .kv-val code { white-space: normal; overflow: visible; overflow-wrap: anywhere; max-width: none; }
 }
+
+/* Library and project summaries keep long authored text out of the first view. */
+.project-description, .guidance-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 36rem;
+  white-space: nowrap;
+}
+@media (max-width: 700px) {
+  .dash-projects .project-description,
+  .project-list .project-description,
+  .conformance-extra { display: none; }
+  .project-list th:nth-child(2), .project-list th:nth-child(3) { display: none; }
+  .guidance-summary { white-space: normal; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+}
+
+@media (max-width: 700px) {
+  .dash-projects .project-meta { display: none; }
+}
+
+.check-phone { display: none; }
+@media (max-width: 700px) {
+  .check-counts { display: none; }
+  .check-phone { display: inline; }
+  .whatif-table td:nth-child(6):empty { display: none; }
+}
+
+.workflow-description { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60rem; }
+@media (max-width: 700px) {
+  .workflow-description { display: -webkit-box; white-space: normal; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+}

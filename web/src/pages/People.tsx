@@ -1,4 +1,5 @@
 import { GlanceRow } from '../GlanceRow'
+import { relTime } from '../format'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
 import { HttpError, del, post, put } from '../api'
@@ -8,9 +9,9 @@ import { QuietConfirm, QuietPrompt } from '../QuietConfirm'
 
 import type { AuthMe, Account, AdministratorNetworksView, DelegationList, GrantList, GrantView, Group, GroupList, InviteLink, InviteList, IssuedToken, RoleCatalog, RoleView, TokenList, UserList } from '../wire.gen'
 import { useHolds } from '../instancePages'
-import { grantTitle, subjectLabel } from '../parts/grants'
+import { grantTitle, subjectLabel, groupLabel } from '../parts/grants'
 import { PageHead } from '../PageHead'
-import { ExternalProviderSettings, MyExternalSignIn } from './ExternalSignIn'
+import { ExternalProviderSettings } from './ExternalSignIn'
 
 // The server's shapes, generated from its Go types (wire.gen.ts).
 export type Role = RoleView
@@ -59,11 +60,10 @@ export default function People() {
       <ReadGate q={rolesQ} also={[grantsQ, usersQ, groupsQ]} what="the roles and grants">
         <RolesCard roles={roles} grants={grants} users={users} groups={groups} act={act} canEdit={canGrants} />
       </ReadGate>
-      {meQ.data?.mode === 'internal' && <MyExternalSignIn embedded />}
-      {canUsers && meQ.data?.mode === 'internal' && <ExternalProviderSettings />}
+      {canUsers && meQ.data?.mode === 'internal' && <details><summary>Sign-in settings</summary><ExternalProviderSettings /></details>}
       <AgentsCard canEdit={canEdit} />
-      <AdminNetworksCard canEdit={canEdit} />
-      {canEdit && <TokensCard />}
+      <details><summary>Administrator sign-in networks</summary><AdminNetworksCard canEdit={canEdit} /></details>
+      {canEdit && <details><summary>Access tokens</summary><TokensCard /></details>}
     </div>
   )
 }
@@ -93,8 +93,8 @@ function AgentsCard({ canEdit }: { canEdit: boolean }) {
         <div key={d.id} className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span className="chip">{d.clientName}</span>
           <span>as <b>{d.user}</b></span>
-          <span className="muted">· {d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.join(', ')}</span>
-          <span className="muted">· connected {d.createdAt.slice(0, 10)}{d.lastUsed ? `, last used ${d.lastUsed.slice(0, 10)}` : ''}</span>
+          <span className="muted">· {d.scopes.includes('apptown:user:read') && d.scopes.length === 1 ? 'read only' : d.scopes.includes('apptown:change:create') && d.scopes.includes('apptown:change:write') ? 'Can create and edit changes' : 'Connected access'}</span>
+          <details><summary>Permissions and connection</summary><p>{d.scopes.join(', ')}</p><span className="muted">· connected {d.createdAt.slice(0, 10)}{d.lastUsed ? `, last used ${d.lastUsed.slice(0, 10)}` : ''}</span></details>
           <span style={{ flex: 1 }} />
           <QuietConfirm label="disconnect" ask={`Disconnect ${d.clientName} (as ${d.user})? It stops working at once; they can sign in again.`}
             onYes={() => { void run(() => del(`/auth/delegations/${d.id}`)) }} />
@@ -233,7 +233,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
 }) {
   const [subject, setSubject] = useState('')
   const [role, setRole] = useState('')
-  const grantees = [...users.map(u => u.username), ...groups.map(g => `group:${g.name}`)]
+  const grantees = [...users.filter(u => !u.disabled).map(u => u.username), ...groups.map(g => `group:${g.name}`)]
   const instance = grants.filter(g => g.scopeType === 'instance' || g.scopeType === 'release-target')
   const offered = roles.filter(r => r.surfaced && r.scope === 'instance')
   const byRole = new Map<string, GrantView[]>()
@@ -268,7 +268,7 @@ function RolesCard({ roles, grants, users, groups, act, canEdit }: {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <select value={subject} onChange={e => setSubject(e.target.value)}>
             <option value="">who…</option>
-            {grantees.map(g => <option key={g} value={g}>{g}</option>)}
+            {grantees.map(g => <option key={g} value={g}>{g.startsWith('group:') ? groupLabel(g.slice(6)) : g}</option>)}
           </select>
           <select value={role} onChange={e => setRole(e.target.value)}>
             <option value="">gets the role…</option>
@@ -297,7 +297,8 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
   // Everything else is a name the record has seen — open-mode actors, a
   // typo in a member list — not a person who has used AppTown.
   // Conflating the two made the table read as a breach.
-  const accounts = users.filter(u => u.hasPassword || u.acted)
+  const accounts = users.filter(u => !u.disabled && (u.hasPassword || u.acted))
+  const disabled = users.filter(u => u.disabled)
   const seen = users.filter(u => !u.hasPassword && !u.acted)
   // A password reset link is shown once, here; making one also lists it
   // with the invites waiting to be used.
@@ -320,24 +321,16 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
         </OneTimeLink>
       )}
       <table className="stack">
-        <thead><tr><th>User</th><th>Role</th><th>Password</th><th>Groups</th><th>Last seen</th><th /></tr></thead>
+        <thead><tr><th>User</th><th>Role</th><th>Last seen</th><th /></tr></thead>
         <tbody>
           {accounts.map(u => (
-            <GlanceRow name={0} summary={u.role} labels={["Person", "Role", "Password", "Groups", "Last seen", "Actions"]} key={u.username}>
+            <GlanceRow name={0} summary={u.role} labels={["Person", "Role", "Last seen", "Actions"]} key={u.username}>
               <td className="stack-lead"><strong>{u.username}</strong>{u.disabled && <> <span className="chip fail">disabled</span></>}</td>
-              <td>
-                {canEdit ? (
-                  <select value={u.role}
-                    onChange={e => act(() => post('/users', { username: u.username, role: e.target.value }))}>
-                    <option value="member">member</option>
-                    <option value="admin">admin</option>
-                  </select>
-                ) : <span className="chip">{u.role}</span>}
-              </td>
-              <td className="small muted" data-label="password">{u.hasPassword ? 'set' : '—'}</td>
-              <td className="small muted" data-label="groups">{u.groups.join(', ') || '—'}</td>
-              <td className="small muted" data-label="last seen">{u.lastSeen ? u.lastSeen.slice(0, 10) : '—'}</td>
-              <td>
+              <td>{u.role === 'admin' ? 'Admin' : 'Member'}</td>
+              <td className="small muted" data-label="last seen">{u.lastSeen ? relTime(u.lastSeen) : 'Not yet'}</td>
+              <td><details><summary aria-label={`Manage ${u.username}`}>⋯</summary>
+                <p>Groups: {u.groups.join(', ') || 'None'}</p>
+                {canEdit && <label>Role <select value={u.role} onChange={e => act(() => post('/users', { username: u.username, role: e.target.value }))}><option value="member">Member</option><option value="admin">Admin</option></select></label>}
                 {/* A reset link lets the person choose the new password
                     themselves; on use every session of theirs ends. Not for a
                     disabled account: enable it first. */}
@@ -349,7 +342,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                       if (r) setResetLink(r)
                     }} />
                 )}
-                {canEdit && (
+                {canEdit && !sso && (
                   <QuietPrompt label="set password" yes="Set"
                     ask={`New password for ${u.username} · their current sessions will be signed out.`}
                     fields={[{ key: 'password', type: 'password', placeholder: 'min 8 characters', required: true, minLength: 8, width: 180 }]}
@@ -366,11 +359,12 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                   <QuietConfirm label="disable" ask={`Disable ${u.username}? They are signed out at once and cannot sign in until enabled again. The account and its record stay.`}
                     onYes={() => act(() => post('/users', { username: u.username, disabled: true }))} />
                 ))}
-              </td>
+              </details></td>
             </GlanceRow>
           ))}
         </tbody>
       </table>
+      {disabled.length > 0 && <details><summary>Disabled ({disabled.length})</summary>{disabled.map(u => <p key={u.username}>{u.username} {canEdit && <QuietConfirm label="Enable" ask={`Enable ${u.username}? They can sign in again.`} onYes={() => act(() => post('/users', { username: u.username, disabled: false }))} />}</p>)}</details>}
       {canEdit && invites && <InvitePerson />}
       {canEdit && (() => {
         const withPassword = (
@@ -522,16 +516,16 @@ function GroupsCard({ groups, users, act, canEdit }: {
       {groups.length === 0 && <div className="muted small">No groups yet.</div>}
       {groups.filter(g => g.kind === 'built-in' || g.kind === 'personal').map(g => (
         <div key={g.name} className="row small" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="chip">{g.name}</span>
+          <span className="chip">{groupLabel(g.name)}</span>
           <span className="muted">
-            {g.kind === 'built-in' ? 'everyone who is signed in; grant this group a role to give everyone that access'
-              : `${g.members.join(', ') || g.name}'s own group; it owns the projects they create`}
+            {g.kind === 'built-in' ? 'Everyone signed in'
+              : 'Personal group'}
           </span>
         </div>
       ))}
       {groups.filter(g => g.kind !== 'built-in' && g.kind !== 'personal').map(g => (
         <div key={g.name} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span className="chip">{g.name}</span>
+          <span className="chip">{groupLabel(g.name)}</span>
           {canEdit ? users.map(u => {
             const inG = g.members.includes(u.username)
             return (

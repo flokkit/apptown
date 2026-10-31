@@ -14,7 +14,7 @@ const deployment = '00000000-0002-7000-8000-000000000000'
 const target = '00000000-0003-7000-8000-000000000000'
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
-it('requires exact environment selection and a separate displayed consent before saving', async () => {
+it('offers no consent form while automatic updates are unavailable', async () => {
   const requests: { path: string; body: Record<string, unknown> }[] = []
   vi.stubGlobal('fetch', vi.fn(async (input: string, init?: RequestInit) => {
     const path = String(input).replace('/api/v1', '')
@@ -40,25 +40,55 @@ it('requires exact environment selection and a separate displayed consent before
     await settled(client)
     expect(requests).toEqual([])
     expect(host.textContent).toContain('Automatic updates are not available yet')
-    const selects = Array.from(host.querySelectorAll('select'))
-    const delivery = selects.find(s => Array.from(s.options).some(o => o.value === 'full'))!
-    expect(delivery.value).toBe('full')
-    const environment = Array.from(host.querySelectorAll('input')).find(i => i.parentElement?.textContent?.includes('Customer office'))!
-    expect(environment.checked).toBe(false)
-    const lane = selects.find(s => Array.from(s.options).some(o => o.value === 'quick-change'))!
-    await act(async () => { lane.value = 'quick-change'; lane.dispatchEvent(new Event('change', { bubbles: true })) })
-    await act(async () => { environment.click() })
-    const button = (text: string) => Array.from(host.querySelectorAll('button')).find(b => b.textContent === text)!
-    await act(async () => { button('Read the exact consent').click(); await settled(client) })
-    expect(requests).toHaveLength(1)
-    expect(requests[0].body).toMatchObject({ delivery: 'full', projects: [{ projectId: project, workflow: 'quick-change', environments: [{ deploymentId: deployment, targetId: target, promotion: false }] }] })
-    expect(host.textContent).toContain('Exact bounded full-delivery consent')
-    await act(async () => { button('I agree to this standing consent').click(); await settled(client) })
-    expect(requests).toHaveLength(2)
-    expect(requests[1]).toMatchObject({ path: '/standing-approvals', body: { shownDigest: 'shown-digest', expectedRevision: 0 } })
-    expect(host.textContent).toContain('No update or release has started')
-    await act(async () => { delivery.value = 'land-only'; delivery.dispatchEvent(new Event('change', { bubbles: true })) })
-    await act(async () => { button('Read the exact consent').click(); await settled(client) })
-    expect(requests[2].body).toMatchObject({ delivery: 'land-only', projects: [{ projectId: project, environments: [] }] })
+    expect(host.textContent).toContain('Coming soon')
+    expect(host.querySelector('select')).toBeNull()
+    expect(host.querySelector('input')).toBeNull()
+    expect(requests).toEqual([])
+  } finally { await act(async () => root.unmount()); host.remove(); client.clear() }
+})
+
+// Saved consent remains manageable even while new automatic updates are unavailable.
+it('disables saved consent, refreshes the list, and keeps history and revision available', async () => {
+  const definition = { administrative: false, projects: [{ projectId: project, workflow: 'quick-change', environments: [] }], categories: { dependencies: 'patch', baseImages: false, securityFixes: true, waysOfWorking: false }, delivery: 'land-only' }
+  let rule = { ruleId: project, revision: 1, enabled: true, issuer: { name: 'Alice' }, changedBy: { name: 'Alice' }, question: { definition, shown: 'Small dependency fixes', digest: 'original' } }
+  const original = rule
+  let reads = 0
+  const requests: { path: string; body: unknown }[] = []
+  vi.stubGlobal('fetch', vi.fn(async (input: string, init?: RequestInit) => {
+    const path = String(input).replace('/api/v1', '')
+    if (init?.method === 'POST') {
+      const body = JSON.parse(String(init.body)); requests.push({ path, body })
+      if (path.endsWith('/disable')) { rule = { ...rule, revision: 2, enabled: false, changedBy: { name: 'Bob' } }; return new Response(JSON.stringify(rule)) }
+      if (path.endsWith('/preview')) return new Response(JSON.stringify({ definition: body, shown: 'Revised small fixes', digest: 'revised' }))
+      rule = { ...rule, revision: 3, enabled: true }; return new Response(JSON.stringify(rule))
+    }
+    if (path === `/standing-approvals?projectId=${project}`) { reads++; return new Response(JSON.stringify([{ rule, reason: 'Automatic updates are not available yet.' }])) }
+    if (path.endsWith('/history')) return new Response(JSON.stringify([rule, original]))
+    if (path === '/projects') return new Response(JSON.stringify([{ id: project, slug: 'shop', name: 'Shop' }]))
+    if (path.endsWith('/lanes')) return new Response(JSON.stringify({ lanes: [{ name: 'quick-change', version: 1, selected: true }], system: [] }))
+    if (path.endsWith('/deployments')) return new Response('[]')
+    if (path === '/projects/shop') return new Response(JSON.stringify({ id: project, slug: 'shop', name: 'Shop' }))
+    throw new Error(`unexpected read ${path}`)
+  }))
+  const host = document.createElement('div'); document.body.append(host)
+  const root = createRoot(host); const client = newQueryClient()
+  const press = async (label: string) => act(async () => { [...host.querySelectorAll('button')].find(b => b.textContent === label)!.click() })
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/projects/shop/janitor']}><Routes><Route path="/projects/:slug/janitor" element={<Janitor />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    await press('Disable'); await settled(client)
+    expect(requests).toEqual([{ path: `/standing-approvals/${project}/disable`, body: { expectedRevision: 1 } }])
+    expect(reads).toBeGreaterThan(1)
+    expect(host.textContent).toContain('Disabled by Bob')
+    expect([...host.querySelectorAll('button')].some(b => b.textContent === 'Disable')).toBe(false)
+    await press('History'); await settled(client)
+    expect(host.textContent).toContain('Revision 2: disabled')
+    expect(host.textContent).toContain('Revision 1: enabled')
+    await press('Revise consent'); await settled(client)
+    await press('Preview'); await settled(client)
+    expect(host.textContent).toContain('Revised small fixes')
+    await press('I agree to this standing consent'); await settled(client)
+    expect(requests.at(-1)).toEqual({ path: '/standing-approvals', body: { ruleId: project, expectedRevision: 2, definition, shownDigest: 'revised' } })
+    expect(host.textContent).toContain('Enabled by Alice')
   } finally { await act(async () => root.unmount()); host.remove(); client.clear() }
 })

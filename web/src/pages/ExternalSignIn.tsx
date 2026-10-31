@@ -3,7 +3,7 @@ import { PRODUCT } from '../brand'
 import { del, post, put } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadGate } from '../ReadGate'
-import type { ExternalProvider, ExternalProviderChange, ExternalBindingList, ExternalBindRequest, ExternalEnableRequest, ExternalRedirect, ExternalStartRequest } from '../wire.gen'
+import type { AuthMe, ExternalProvider, ExternalProviderChange, ExternalBindingList, ExternalBindRequest, ExternalEnableRequest, ExternalRedirect, ExternalStartRequest } from '../wire.gen'
 
 export function ExternalProviderSettings() {
   const q = useGet<ExternalProvider | null>('/auth/external/provider')
@@ -42,12 +42,13 @@ export function ExternalProviderSettings() {
 }
 
 export function MyExternalSignIn({ embedded = false }: { embedded?: boolean }) {
+  const me = useGet<AuthMe>(embedded ? null : '/auth/me')
   const q = useGet<ExternalBindingList>('/auth/external/bindings')
   const [password, setPassword] = useState('')
   const { run, err } = useAction()
-  return <section className="card">{embedded ? <h2>External sign-in</h2> : <><h1>Your account</h1><h2>External sign-in</h2></>}
+  return <section className="card">{embedded ? <h2>External sign-in</h2> : <><h1>Your account</h1><ReadGate q={me} what="your account"><p><strong>{me.data?.user}</strong>{me.data?.role === 'admin' && ' · Admin'}</p></ReadGate><h2>External sign-in</h2></>}
     <details className="small"><summary>About linking accounts</summary><p>Linking requires a local-password session and your password, then recent authentication at the provider. It never matches by email.</p></details>
-    <label>Local password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
+    <label style={{ display: 'block', margin: '12px 0' }}>Local password <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
     <button disabled={!password} onClick={() => { const input: ExternalStartRequest = { name: '', returnPath: '/account', password, link: true }; void run(async () => { const out = await post<ExternalRedirect>('/auth/external/start', input); setPassword(''); window.location.assign(out.url) }) }}>Link identity</button>
     {err && <p className="error">{err}</p>}
     <ReadGate q={q} what="your external identities">{q.data?.bindings.map(b => <p key={b.id}>{b.issuer} / {b.subject} — {b.revoked ? 'revoked' : <button disabled={!password} onClick={() => { void run(async () => { await post(`/auth/external/bindings/${b.id}/unlink`, { password }); setPassword('') }) }}>Unlink using local password</button>}</p>)}</ReadGate>

@@ -16,7 +16,7 @@ export default function GuidanceBlockPage() {
   const { run, busy, err: actErr } = useAction()
 
   const version = params.get('version') || ''
-  const viewQ = useGet<BlockView>(`/guidance/blocks/${id}${version ? `?version=${version}` : ''}`)
+  const viewQ = useGet<BlockView>(`/guidance/blocks/${encodeURIComponent(id ?? "")}${version ? `?version=${version}` : ''}`)
   const view = viewQ.data
   const load = viewQ.reload
   // The editor starts only from an answer this page read itself (a held one
@@ -29,7 +29,10 @@ export default function GuidanceBlockPage() {
     setBody(view.block.bodyMd || ''); setTags(view.block.tags)
   }, [view, editing, current])
 
-  if (!view) return <ReadStatus q={viewQ} what="the guidance block" />
+  if (!view) return <div><h1>{viewQ.err && !viewQ.denied ? 'Guidance unavailable' : 'Guidance'}</h1>
+    <ReadStatus q={viewQ} what="the guidance block" />
+    {viewQ.err && <p>This guidance could not be opened. Choose it from the library.</p>}
+    <Link to="/guidance">Back to guidance</Link></div>
 
   const { block, shownVersion, versions, usedBy } = view
   const viewingOld = shownVersion !== block.latestVersion
@@ -43,16 +46,15 @@ export default function GuidanceBlockPage() {
   return (
     <div>
       <div className="muted small"><Link to="/guidance">Guidance</Link></div>
-      <div className="row">
-        <h1 style={{ marginBottom: 0 }}><code>{block.name}</code></h1>
-        <span className="chip">v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}</span>
+      <div>
+        <h1 style={{ marginBottom: 0 }}>{block.name.split('/').at(-1)!.replaceAll('-', ' ')}</h1>
+        <details><summary>Technical details</summary><span className="chip">v{shownVersion}{viewingOld ? ` (latest is v${block.latestVersion})` : ''}</span>
         <span className="chip" title={sizeTitle(block.bytes)}>{fmtSize(block.bytes)}</span>
         {block.origin === 'stock'
           ? <span className="chip" title={`Ships with ${PRODUCT}; read-only, updates with each release`}>{PRODUCT}</span>
           : <span className="chip pass" title="You authored this · editable">yours</span>}
-      </div>
       <div className="muted small" style={{ marginBottom: 12 }}>
-        tags: {block.tags || '—'} · versions:{' '}
+        <p><code>{block.name}</code></p>tags: {block.tags || '—'} · versions:{' '}
         {versions.map((v) => (
           <button key={v.version} className="subtle"
             onClick={() => setParams(v.version === block.latestVersion ? {} : { version: String(v.version) })}>
@@ -70,11 +72,12 @@ export default function GuidanceBlockPage() {
           ))}
         </div>
       )}
+      </details></div>
       <div className="row" style={{ marginBottom: 12 }}>
         {!editing && !viewingOld && block.origin !== 'stock' &&
           <button disabled={!current} title={current ? undefined : 'Reading the current text first'} onClick={() => setEditing(true)}>Edit (creates v{block.latestVersion + 1})</button>}
         {!viewingOld && block.origin === 'stock' &&
-          <span className="muted small">Ships with {PRODUCT} and updates with each release. To change it, write your own block and use it in a pack instead of this one.</span>}
+          <details className="muted small"><summary>Included with {PRODUCT} · Read-only</summary>To change it, write your own guidance and use it in a pack instead.</details>}
         {viewingOld && <span className="muted small">an older version, read-only</span>}
       </div>
       <StaleNote q={viewQ} />
@@ -95,11 +98,11 @@ export default function GuidanceBlockPage() {
           <p className="muted small">Saving creates a version. Projects update separately.</p>
         </div>
       ) : (
-        <div className="card md" dangerouslySetInnerHTML={{ __html: renderMd(block.bodyMd || '_empty block_') }} />
+        <details className="card"><summary>Read guidance</summary><div className="md" dangerouslySetInnerHTML={{ __html: renderMd(block.bodyMd || '_empty block_') }} /></details>
       )}
 
       {!editing && (view.checks ?? []).length > 0 && (
-        <div className="card">
+        <details className="card"><summary>Checks ({view.checks?.length})</summary>
           <div className="row" style={{ marginBottom: 6 }}>
             <strong>Checks</strong>
             <span className="muted small">checked on every change; versioned with this text</span>
@@ -124,7 +127,7 @@ export default function GuidanceBlockPage() {
               {c.files && c.files.length > 0 && <div className="muted small mono" style={{ marginTop: 2 }}>judged on: {c.files.join(', ')}</div>}
             </div>
           ))}
-        </div>
+        </details>
       )}
     </div>
   )

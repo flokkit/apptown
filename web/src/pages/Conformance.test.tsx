@@ -185,3 +185,18 @@ describe('a project page while its review refreshes', () => {
     }
   }, 5000)
 })
+
+// Starting a fleet check or fix must remain reachable away from Projects.
+it.each(['projects', 'reviews', 'checks', 'remediations', 'ways', 'what-ifs'] as const)('keeps fleet actions available on %s', async tab => {
+  const client = newQueryClient()
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/conformance') ? {
+    lens: { kind: 'current' }, projects: [], reviews: [], summary: { findings: 2, flagged: 0, incompleteProjects: 0 }, byCheck: {}, checkDefs: {}, adjudications: {}, checks: [],
+  } : url.endsWith('/wow') ? { packs: [], blocks: [] } : url.endsWith('/remediations') ? { remediations: [], occupancy: { workers: 2, busy: 0 } } : url.endsWith('/what-ifs') ? { whatIfs: [] } : {}))))
+  const el = document.createElement('div'); const root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Conformance tab={tab} /></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    expect([...el.querySelectorAll('button')].map(b => b.textContent)).toContain('Check now')
+    expect([...el.querySelectorAll('button')].map(b => b.textContent)).toContain('Fix 2 problems')
+  } finally { await act(async () => root.unmount()); client.clear(); vi.unstubAllGlobals() }
+})

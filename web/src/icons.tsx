@@ -71,6 +71,7 @@ export function iconForBinding(b: { name: string; capability: string; provider: 
     if (b.config.baseUrl || b.config.providerDef) return 'gpu'
     return 'model'
   }
+  if (b.capability === 'container-registry') return 'registry'
   if (b.capability === 'registry') {
     const f = String(b.config.format ?? '')
     const m: Record<string, string> = {

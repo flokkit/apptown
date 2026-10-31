@@ -2,6 +2,7 @@ package wow
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/flokkit/apptown/internal/dbtest"
@@ -17,7 +18,7 @@ func TestGuidanceListingCombinesFiltersAndCountsBytes(t *testing.T) {
 		}
 	}
 	rows, err := lib.All(t.Context(), BlockFilter{Query: "café", Tag: "review"})
-	if err != nil || len(rows) != 1 || rows[0].Name != "a/one" || rows[0].Bytes != len("Read café carefully") || rows[0].BodyMD != "" {
+	if err != nil || len(rows) != 1 || rows[0].Name != "a/one" || rows[0].Bytes != len("Read café carefully") || rows[0].BodyMD != "" || rows[0].Summary != "Read café carefully" {
 		t.Fatalf("combined filter and byte count: %+v %v", rows, err)
 	}
 	// The existing LIKE contract includes SQL wildcards; conversion must not
@@ -50,4 +51,19 @@ func TestLastPackCheckPreservesStoredBooleanInterpretation(t *testing.T) {
 	}
 	dbtest.Count(t, db, 1, `SELECT COUNT(*) FROM packs WHERE name='ordinary' AND enabled`)
 	dbtest.Count(t, db, 0, `SELECT COUNT(*) FROM audit_log WHERE kind='pack.enabled'`)
+}
+
+func TestGuidanceSummaryIsBoundedWithoutReturningTheBody(t *testing.T) {
+	t.Parallel()
+	lib := NewLibrary(testDB(t))
+	if _, err := lib.Create(t.Context(), "long/rule", strings.Repeat("word ", 1000), "", "alice"); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := lib.All(t.Context(), BlockFilter{})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("listing: %v %v", rows, err)
+	}
+	if rows[0].BodyMD != "" || len(rows[0].Summary) == 0 || len(rows[0].Summary) > 240 {
+		t.Fatalf("summary not bounded: %+v", rows[0])
+	}
 }

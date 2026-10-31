@@ -97,7 +97,7 @@ describe('what-if panel', () => {
       if (init?.method === 'POST') { posted.push(JSON.parse(String(init.body))); return json({ id: NEW_WHAT_IF }, 202) }
       return json({ whatIf: null, eligible: ['ledger', 'till', 'shop'] })
     })
-    const rubrics = [...el.querySelectorAll('input[type=checkbox]')].find((i) => i.parentElement?.textContent?.includes('Include model rubrics')) as HTMLInputElement
+    const rubrics = [...el.querySelectorAll('input[type=checkbox]')].find((i) => i.parentElement?.textContent?.includes('Include AI reviews')) as HTMLInputElement
     await act(async () => { rubrics.click() })
     expect(el.textContent).toContain('3 projects, up to 6 calls')
     const limit = el.querySelector('input[aria-label="spend limit in dollars"]') as HTMLInputElement
@@ -156,7 +156,7 @@ describe('what-if panel', () => {
     const select = el.querySelector('select[aria-label="add a project not on this pack"]') as HTMLSelectElement
     expect([...select.options].map((o) => o.value)).toEqual(['', 'shop'])
     await act(async () => { select.value = 'shop'; select.dispatchEvent(new Event('change', { bubbles: true })) })
-    const rubrics = [...el.querySelectorAll('input[type=checkbox]')].find((i) => i.parentElement?.textContent?.includes('Include model rubrics')) as HTMLInputElement
+    const rubrics = [...el.querySelectorAll('input[type=checkbox]')].find((i) => i.parentElement?.textContent?.includes('Include AI reviews')) as HTMLInputElement
     await act(async () => { rubrics.click() })
     expect(el.textContent).toContain('2 projects, up to 4 calls')
     const run = button(el, 'Run on')

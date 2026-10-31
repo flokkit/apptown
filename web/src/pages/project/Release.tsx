@@ -11,6 +11,7 @@ import { ReadStatus, StaleNote } from '../../ReadGate'
 // The server's shapes, generated from its Go types (wire.gen.ts).
 export type { ReleasePlan } from '../../wire.gen'
 import type { ReleaseBundleView, ReleaseDetail, ReleasePlan, ReleasePreviewStarted } from '../../wire.gen'
+import { fmtStamp } from '../../format'
 import { PRODUCT } from '../../brand'
 import { ReleaseDefaultPicker } from './settings/ReleaseDefault'
 import type { DeploymentView } from '../../wire.gen'
@@ -60,18 +61,19 @@ function ReleasePage({ slug }: { slug: string }) {
           </div>
         )}
         {plan?.head && (
-          <div className="muted small" style={{ margin: '6px 0' }}>
+          <details className="muted small" style={{ margin: '6px 0' }}><summary>Build details</summary>
             Shipping main as of: “{plan.head.subject}” <code style={{ fontSize: 'var(--fs-xs)' }}>{plan.head.sha.slice(0, 10)}</code>
-          </div>
+          </details>
         )}
         {plan && plan.changesSinceLast.length > 0 && (
           <div style={{ margin: '12px 0' }}>
             <div className="muted small" style={{ marginBottom: 4 }}>
-              New since release #{plan.lastRelease?.number ?? '—'}:
+              New since the last release:
             </div>
-            {plan.changesSinceLast.map((c) => (
+            {plan.changesSinceLast.slice(0, 3).map((c) => (
               <div key={c.id}>• <Link to={`/changes/${c.id}`}>{c.title}</Link></div>
             ))}
+            {plan.changesSinceLast.length > 3 && <details><summary>More changes ({plan.changesSinceLast.length - 3})</summary>{plan.changesSinceLast.slice(3).map(c => <p key={c.id}><Link to={`/changes/${c.id}`}>{c.title}</Link></p>)}</details>}
           </div>
         )}
         {plan && plan.lastRelease && plan.changesSinceLast.length === 0 && (
@@ -81,7 +83,7 @@ function ReleasePage({ slug }: { slug: string }) {
         )}
         {!plan.configured && !choiceOpen && <button onClick={() => setChoiceOpen(true)}>Choose release preference</button>}
         {blocker
-          ? <div className="error" style={{ marginTop: 12 }}>{blocker}</div>
+          ? <div className="error" style={{ marginTop: 12 }}>{blocker} {!plan.configured && <Link to={`/projects/${slug}/settings/deployments`}>Open deployment settings</Link>}</div>
           : (
             <button className="primary btn-door" disabled={busy} onClick={fire} style={{ marginTop: 12 }}>
               {busy ? 'Releasing…' : '🏢 Release it'}
@@ -134,9 +136,9 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
             ? <>Deploying{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>
             : r.state === 'failed'
               ? <>This release attempt{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null} failed. See the log for the failed step.</>
-              : <>Released {new Date(when).toLocaleString()}{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>}
+              : <>Released {fmtStamp(when)}{r.approvedBy ? <> by <strong>{r.approvedBy}</strong></> : null}.</>}
           {r.deployment && r.state !== 'releasing' && (r.state === 'failed' || data.isLive) && (
-            <> <Link to={`/projects/${slug}/settings/deployments#diagnostics-${r.deployment}`}>Diagnostics of {r.deployment}</Link></>
+            <> <Link to={`/projects/${slug}/settings/deployments#diagnostics-${r.deployment}`}>Check this deployment</Link></>
           )}
           {r.origin === 'observed-after-restore' && r.notes && <> {r.notes}. Deploying the release {PRODUCT} last shipped here puts that back.</>}
           {r.state === 'released' && r.notes && r.notes.startsWith('http') && (
@@ -145,7 +147,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
         </div>
         {data.sbomArtifact && (
           <div className="muted small" style={{ margin: '6px 0' }}>
-            <a href={`/api/v1/artifacts/${data.sbomArtifact}`} target="_blank" rel="noreferrer">Bill of materials</a>, recorded at landing.
+            <a href={`/api/v1/artifacts/${data.sbomArtifact}`} target="_blank" rel="noreferrer">List of software components</a>.
           </div>
         )}
         {data.changes.length > 0 && (
@@ -157,8 +159,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
           </div>
         )}
         {data.events.length > 0 && (
-          <div style={{ margin: '14px 0' }}>
-            <div className="muted small" style={{ marginBottom: 4 }}>Log:</div>
+          <details style={{ margin: '14px 0' }}><summary>Release log</summary><div>
             <div style={{ background: 'var(--code-bg)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-xs)' }}>
               {data.events.map((e, i) => (
                 <div key={i} style={{ margin: '2px 0', color: e.text.startsWith('FAILED') ? 'var(--bad)' : undefined }}>
@@ -167,7 +168,7 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
               ))}
               {r.state === 'releasing' && <div className="muted" style={{ margin: '2px 0' }}>…</div>}
             </div>
-          </div>
+          </div></details>
         )}
         {r.state === 'released' && r.externalRef && r.externalRef.includes('/') && (
           <div style={{ marginTop: 14 }}>
@@ -175,10 +176,11 @@ export function ReleasePermalinkPage({ slug, number }: { slug: string; number?: 
           </div>
         )}
         {data.bundle && <BundleFacts bundle={data.bundle} />}
-        <div className="muted small" style={{ marginTop: 14 }} title="The exact commit and image this release ships.">
+        <details style={{ marginTop: 14 }}><summary>Build details</summary><div className="muted small">
           {r.commitSha && <div>commit <code style={{ fontSize: 'var(--fs-xs)' }}>{r.commitSha.slice(0, 12)}</code></div>}
           {r.externalRef && <div>image <code style={{ fontSize: 'var(--fs-xs)', wordBreak: 'break-all' }}>{r.externalRef}</code></div>}
         </div>
+        </details>
         <div style={{ marginTop: 14 }}>
           <Link className="muted small" to={`/projects/${slug}`}>← back to the project</Link>
         </div>
@@ -218,25 +220,32 @@ export function BundleFacts({ bundle }: { bundle: ReleaseBundleView }) {
       <div className="muted small" style={{ marginBottom: 4 }}>What it ships:</div>
       {bundle.byDigest
         ? <div className="small">
-            <span className="chip pass">by digest</span>{' '}
+            <span>Built once; runs on any supported host.</span><details><summary>Compatibility</summary>{' '}
             Images in <code style={{ wordBreak: 'break-all' }}>{bundle.registry}</code>, built for <code>{bundle.platform}</code>.{' '}
             {bundle.platform === APP_PLATFORM
               ? 'Any target that runs this platform can take this release, App Platform included.'
               : `Any target that runs this platform can take it; App Platform runs ${APP_PLATFORM}, so it cannot.`}
-          </div>
+          </details></div>
         : <div className="small">
-            <span className="chip">by image ID</span>{' '}
+            <span>Runs on the server where it was built.</span><details><summary>Compatibility</summary>{' '}
             The images exist only on the Docker daemon that built them, not in a registry. App Platform and Portainer take a
             release by digest. Attach a container registry to the project, then land a change to make one.
-          </div>}
+          </details></div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr)', columnGap: 14, rowGap: 4, marginTop: 8 }}>
         {images.map((i) => (
           <Fragment key={(i.init ? 'init:' : '') + i.n}>
             <span className="muted small">{i.init ? `init ${i.n}` : i.n}</span>
-            <code style={{ fontSize: 'var(--fs-xs)', overflowWrap: 'anywhere' }}>{i.ref}</code>
+            <ImageReference value={i.ref} />
           </Fragment>
         ))}
       </div>
     </div>
   )
+}
+
+function ImageReference({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false)
+  const [error, setError] = useState('')
+  const short = value.includes('sha256:') ? value.split('sha256:')[1].slice(0, 7) : value.slice(0, 7)
+  return <div><button onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied(true); setError('') } catch { setError('Could not copy. Open details to select the image reference.') } }}>{copied ? 'Copied' : `Copy image ${short}`}</button><details><summary>Image details</summary><code style={{ overflowWrap: 'anywhere' }}>{value}</code></details>{error && <p className="error">{error}</p>}</div>
 }

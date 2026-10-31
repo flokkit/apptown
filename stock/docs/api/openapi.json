@@ -3140,6 +3140,9 @@
           "doneRuns": {
             "type": "integer"
           },
+          "hasDeployments": {
+            "type": "boolean"
+          },
           "icon": {
             "type": "string"
           },
@@ -3192,6 +3195,9 @@
               }
             ]
           },
+          "productionUrl": {
+            "type": "string"
+          },
           "requireIndependentApproval": {
             "type": "boolean"
           },
@@ -3232,7 +3238,9 @@
           "lastRunAt",
           "toolchain",
           "prodRunning",
+          "productionUrl",
           "deployed",
+          "hasDeployments",
           "observation",
           "targetName",
           "observationStale"

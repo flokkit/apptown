@@ -138,7 +138,7 @@ describe('Attention surfaces share authorized current evidence', () => {
   it.each(['failed', 'unknown', 'stale', 'known'] as const)('Home quietness includes %s operational coverage even when all other groups are empty', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'no observation' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: mode === 'stale' }] }), {
       '/activity': emptyActivity, '/dashboard': emptyDashboard,
-      '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game' }],
+      '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
       '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
@@ -152,11 +152,11 @@ describe('Attention surfaces share authorized current evidence', () => {
     responses(() => json({ error: 'cannot read operations' }, 503), {
       '/activity': { ...emptyActivity, active },
       '/dashboard': { ...emptyDashboard, pendingApprovals: [{ id: 'approval', changeId: 'change-review', changeNumber: 2, runId: 'run-review', itemTitle: 'Review change', projectSlug: 'game', stepName: 'accept' }] },
-      '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game' }],
+      '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game', productionUrl: 'https://game.example.test', deployed: true, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
       '/projects/game/deployments': [],
     })
     const v = mount(<Dashboard />, '/'); await settled(v.client)
-    expect(v.el.textContent).toContain('host status unknown')
+    expect(v.el.textContent).toContain('server status not available')
     expect(v.el.textContent).not.toContain('Operations')
     expect(v.el.textContent).toContain('Needs you (2)')
     expect(v.el.textContent).toContain('Blocked change')
@@ -165,16 +165,21 @@ describe('Attention surfaces share authorized current evidence', () => {
   })
 })
 
-it('Home shows the deployment display name and keeps unreachable visibly failed', async () => {
+it.each([[true, true], [true, false], [false, true], [false, false]])('Home keeps unreachable visible with production %s on phone %s', async (production, narrow) => {
+ vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
  responses(() => json(known), {
   '/activity': emptyActivity, '/dashboard': emptyDashboard,
-  '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game' }],
+  '/projects?recent=6': [{ id: 'project', slug: 'game', name: 'Game', productionUrl: production ? 'https://game.example.test' : '', deployed: production, hasDeployments: true, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
   '/projects/game/deployments': [{ id: 'preview-id', name: 'preview-machine-id', displayLabel: 'Preview', url: 'https://preview.example.test', kind: 'preview', running: null, observation: 'unreachable', targetName: 'Club host', observationStale: false }],
  })
  const v = mount(<Dashboard />, '/'); await settled(v.client)
- expect(v.el.querySelector('.dash-app')?.textContent).toBe('Preview')
+ if (production) expect(v.el.querySelector('.dash-app')?.getAttribute('href')).toBe('https://game.example.test')
+ else expect(v.el.querySelector('.dash-app')).toBeNull()
+ expect(v.el.querySelector('.dash-projects')?.textContent).not.toContain('Not deployed')
+ expect(v.el.querySelector('.dash-projects')?.textContent).toContain('No changes yet')
  expect(v.el.textContent).not.toContain('preview-machine-id')
  expect(v.el.querySelector('.chip.fail')?.textContent).toContain('unreachable')
+ expect(v.el.querySelectorAll('.dash-projects .chip')).toHaveLength(1)
 })
 
 it('keeps pending attention distinct from a failed read', async () => {

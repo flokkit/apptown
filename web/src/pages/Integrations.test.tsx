@@ -120,6 +120,11 @@ describe('the integrations list', () => {
     const row = (name: string) => [...page.el.querySelectorAll('tr.int-row')].find((r) => r.textContent!.includes(name))!
     expect(row('gitlab').querySelector('.chip')!.className).toContain('pass')
     expect(row('gitlab').textContent).toContain('passed')
+    expect(row('django-check')).toBeUndefined()
+    const collapsed = [...page.el.querySelectorAll('button')].find(b => b.textContent?.startsWith('Scanners ('))!
+    expect(collapsed.getAttribute('aria-expanded')).toBe('false')
+    expect(collapsed.textContent).toContain('Scanners (1) · 1 failed')
+    await act(async () => { [...page.el.querySelectorAll('button')].find(b => b.textContent?.startsWith('Scanners ('))!.click() })
     expect(row('django-check').querySelector('.chip')!.className).toContain('fail')
     expect(row('django-check').textContent).not.toContain('Django deploy checks')
     expect(page.el.querySelector('th')?.textContent).toBe('Service')
@@ -130,11 +135,11 @@ describe('the integrations list', () => {
     expect(row('cache').textContent).toContain('passed')
     expect(row('gitlab').textContent).toContain('5m ago')
     // What names each one, counted; nothing named reads as a dash, not zero.
-    expect(row('django-check').querySelector('.int-usedby')!.textContent).toBe('2 projects · 1 deployment')
-    expect(row('gitlab').querySelector('.int-usedby')!.textContent).toBe('—')
+    expect(row('django-check').querySelector('.int-usedby')).toBeNull()
+    expect(row('gitlab').querySelector('.int-usedby')).toBeNull()
     // A kind the catalogue offers with nothing connected can be connected from its place.
     expect(row('Error reporting (GlitchTip)').textContent).toContain('none')
-    expect(page.text()).toContain('4 connected · 1 failed · 1 unknown')
+    expect(page.text()).toContain('4 connected · 1 need attention · 1 not tested')
     page.done()
   })
 
@@ -225,7 +230,7 @@ describe('one integration', () => {
     page.done()
     const other = await mount('/integrations/gitlab')
     await vi.waitFor(() => expect(other.text()).toContain('Used by'))
-    expect(other.text()).toContain('0 projects · 0 deployments')
+    expect(other.text()).toContain('Old resources may still be kept')
     other.done()
   })
 

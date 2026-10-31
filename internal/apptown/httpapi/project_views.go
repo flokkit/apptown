@@ -113,9 +113,11 @@ func (h ProjectViews) ListProjects(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			observed.Stale = true
 		}
-		out[i].Deployed = ok
-		out[i].ProdRunning = observed.State.Running()
-		out[i].RuntimeObservationView = runtimeObservationView(observed)
+		out[i].Deployed = observed.HasProduction
+		out[i].HasDeployments = ok
+		out[i].ProdRunning = observed.ProductionRunning
+		out[i].ProductionURL = observed.ProductionURL
+		out[i].RuntimeObservationView = runtimeObservationView(observed.RuntimeObservation)
 		repository, err := (project.RepositoryRef{ID: out[i].ID, Slug: out[i].Slug}).Path(h.dataDir)
 		if err != nil {
 			WriteFault(w, err)
@@ -247,10 +249,12 @@ type ProjectRow struct {
 	LastRunAt   stamp.Time `json:"lastRunAt"`
 	Toolchain   []string   `json:"toolchain"`
 	ProdRunning *bool      `json:"prodRunning"`
-	// Deployed says the project has a main (or prod) deployment for the
-	// runtime observation to describe. False: nothing is deployed, so a
-	// page shows no runtime state, never an unknown or a stopped app.
+	// ProductionURL is the main/prod address, separate from the worst observation.
+	ProductionURL string `json:"productionUrl"`
+	// Deployed says the project has a main or prod deployment.
 	Deployed bool `json:"deployed"`
+	// HasDeployments includes previews and other environments described by the observation.
+	HasDeployments bool `json:"hasDeployments"`
 	RuntimeObservationView
 }
 

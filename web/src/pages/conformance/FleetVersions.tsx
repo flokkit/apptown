@@ -15,22 +15,22 @@ export function FleetVersionsTab() {
   const { data } = q
   if (!data) return <ReadStatus q={q} what="the ways of working in use" />
   const packs = data.packs.filter((p) => p.versions.some((v) => v.projects.length > 0) || p.platform)
-  const behind = packs.reduce((n, p) => n + p.versions.filter((v) => v.version !== p.recommended).reduce((m, v) => m + v.projects.length, 0), 0)
+  const behind = [...new Set(packs.flatMap(p => p.versions.filter(v => v.version !== p.recommended).flatMap(v => v.projects)))]
   return (
     <div>
       <StaleNote q={q} />
       <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
-        {behind > 0 ? ` ${behind} project${behind === 1 ? ' is' : 's are'} on a version other than the recommended one.` : ' Every project is on its recommended version.'}
+        {behind.length > 0 ? `Updates available for: ${behind.join(', ')}.` : ' Every project is on its recommended version.'}
       </p>
       <div style={{ overflowX: 'auto' }}>
-        <table>
+        <table className="stack">
           <thead><tr><th>Pack</th><th>Versions and who is on them</th></tr></thead>
           <tbody>
             {packs.map((p) => (
               <GlanceRow name={0} labels={["Pack", "Versions and projects"]} key={p.pack}>
                 <td><b>{p.pack}</b>{p.platform ? <span className="muted small"> · platform</span> : null}<div className="muted small">recommended v{p.recommended}</div></td>
                 <td>
-                  {p.versions.map((v) => (
+                  {p.versions.filter(v => v.projects.length > 0).map((v) => (
                     <div key={v.version} className="small" style={{ marginBottom: 2 }}>
                       <span className={`chip ${v.version === p.recommended ? 'pass' : v.projects.length > 0 ? 'pending' : ''}`}>v{v.version}</span>{' '}
                       <b>{v.projects.length}</b> project{v.projects.length === 1 ? '' : 's'}

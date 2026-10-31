@@ -117,13 +117,13 @@ describe('disabling an account', () => {
       </QueryClientProvider>)
     })
     expect(buttons(el).filter((b) => b.textContent === 'disable')).toHaveLength(1)
-    expect(el.textContent).toContain('disabled')
+    expect(el.textContent).toContain('Disabled (1)')
     await press(el, 'disable')
     expect(sent).toHaveLength(0)
     expect(el.textContent).toContain('Disable kim? They are signed out at once')
     await press(el, 'Yes')
     await vi.waitFor(() => expect(sent).toEqual([{ username: 'kim', disabled: true }]))
-    await press(el, 'enable')
+    await press(el, 'Enable')
     expect(el.textContent).toContain('Enable probe?')
     await press(el, 'Yes')
     await vi.waitFor(() => expect(sent[1]).toEqual({ username: 'probe', disabled: false }))
@@ -167,7 +167,7 @@ describe('disabling an account', () => {
   // A new password, or claiming a name the record has seen, changes only the
   // password: no role is sent, so an administrator through a group gains no
   // direct grant from a reset.
-  it('sets a password without sending a role', async () => {
+  it.each([true, false])('sets a password without sending a role (reset links: %s)', async (invites) => {
     const sent: unknown[] = []
     vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
       sent.push(JSON.parse(String(init?.body)))
@@ -178,9 +178,10 @@ describe('disabling an account', () => {
     const root = createRoot(el)
     await act(async () => {
       root.render(<QueryClientProvider client={newQueryClient()}>
-        <UsersCard users={[account('kim', false, 'admin'), seen]} act={(fn) => { void fn() }} canEdit invites={false} me="bls" />
+        <UsersCard users={[account('kim', false, 'admin'), seen]} act={(fn) => { void fn() }} canEdit invites={invites} me="bls" />
       </QueryClientProvider>)
     })
+    expect([...el.querySelectorAll('details')].find(d => d.querySelector('summary')?.getAttribute('aria-label') === 'Manage kim')?.textContent).toContain('set password')
     const typePassword = async () => act(async () => {
       const input = el.querySelector('input[type=password][placeholder="min 8 characters"]') as HTMLInputElement
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'new-password-1')
@@ -288,6 +289,7 @@ describe('a password reset link', () => {
       </QueryClientProvider>)
     })
     expect(buttons(el).map((b) => b.textContent)).not.toContain('reset password')
+    expect(buttons(el).map((b) => b.textContent)).not.toContain('set password')
     expect(el.textContent).toContain("Password reset links need AppTown's own sign-in (--auth internal); with single sign-on, reset the password in your identity provider.")
     act(() => root.unmount())
   })

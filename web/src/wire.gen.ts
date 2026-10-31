@@ -1344,7 +1344,9 @@ export type ProjectRow = {
   lastRunAt: string
   toolchain: string[]
   prodRunning: boolean | null
+  productionUrl: string
   deployed: boolean
+  hasDeployments: boolean
   observation: RuntimeState
   observationIssue?: string
   observedAt?: string
@@ -2701,6 +2703,7 @@ export type PriorConfirmation = {
 }
 
 export type Summary = {
+  incompleteProjects: number
   projects: number
   byStanding: Record<string, number>
   findings: number
@@ -3203,6 +3206,7 @@ export type Group = {
 export type Block = {
   id: string | null
   name: string
+  summary: string
   tags: string
   latestVersion: number
   bodyMd?: string

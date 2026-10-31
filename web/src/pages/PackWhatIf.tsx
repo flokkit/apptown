@@ -96,7 +96,7 @@ export function WhatIfPanel({ pack, version }: { pack: string; version: number }
           </div>
         )}
         <div style={{ marginTop: 6 }}>
-          <label><input type="checkbox" checked={rubrics} onChange={(e) => setRubrics(e.target.checked)} /> Include model rubrics (they cost money)</label>
+          <label><input type="checkbox" checked={rubrics} onChange={(e) => setRubrics(e.target.checked)} /> Include AI reviews (costs money)</label>
           {rubrics && (
             <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
               <label>Spend limit $<input style={{ width: 70 }} value={limit} onChange={(e) => setLimit(e.target.value)} aria-label="spend limit in dollars" /></label>

@@ -33,15 +33,25 @@ try {
     return { pending, busy, unknown };
   });
   if (!process.env.DESIGN_BASELINE && infraCases.pending.items.some(i => i.key.endsWith('/disk-unassessed'))) throw new Error('unchecked disk probe raised Attention');
-  const seeded = await page.evaluate(async () => {
+  const seeded = await page.evaluate(async (audit) => {
     const request = async (path, body) => {
       const r = await fetch('/api/v1' + path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await r.json();
       if (!r.ok) throw new Error(path + ': ' + r.status + ' ' + JSON.stringify(data));
       return data;
     };
+    for (const username of ['disabled-reader', 'disabled-helper']) {
+      await request('/users', { username, password: 'local-disabled-password', role: 'member' });
+      await request('/users', { username, disabled: true });
+    }
+    for (let n = 1; n <= 21; n++) {
+      await request('/complaints', { text: `Could not open the household calendar (${n})`, why: 'The link did not open.', wish: 'Show a way back.' });
+    }
+    const complaints = await request('/complaints');
+    for (const c of complaints.complaints) await request(`/complaints/${c.id}/answer`, { answer: 'The calendar link has been repaired.' });
+    await request('/projects/club-newsletter/members', { grantee: 'sam', role: 'project-approver' });
     await request('/projects', { slug: 'shared-notes', name: 'Shared Notes', blurb: 'Notes for the household.' });
-    await request('/projects/shared-notes/repo', { defaultBranch: 'main' });
+    if (!audit) await request('/projects/shared-notes/repo', { defaultBranch: 'main' });
     const adr = await request('/projects/club-newsletter/adrs', { title: 'Keep newsletter pages static', tags: 'delivery' });
     const invite = await request('/invites', { username: 'mei', label: 'Mei', role: 'member' });
     const changes = await request('/projects/club-newsletter/changes');
@@ -59,8 +69,10 @@ try {
     const backups = await request('/projects/club-newsletter/deployments/main/backups');
     const operation = await request('/projects/club-newsletter/deployments/main/backups/' + backups.backups[0].id + '/restore', { confirm: 'main' });
     return { delivered: delivered.change.id, review: review.reviewId, adr: adr.id, invite: new URL(invite.link).pathname, failed: failed.change.id, evaluation: evaluation.id, whatif: whatif.id, remediation: remediation.remediation.id, operation: operation.operationId };
-  });
+  }, !!process.env.DESIGN_AUDIT);
+  if (process.env.DESIGN_AUDIT) await page.goto(base + '/?cameraPrepare=1', { waitUntil: 'networkidle' });
   const routes = {
+    'guidance-missing': '/guidance/lang%2Fselection%2Fdjango-fullstack', 'release-record': '/projects/club-newsletter/releases/1',
     home: '/', 'home-search': '/', 'overview-navigation': '/projects/club-newsletter', projects: '/projects', deployments: '/deployments', backups: '/deployments/backups',
     fleet: '/deployments/table', 'deployment-infrastructure': '/deployments/infrastructure', attention: '/attention', updates: '/updates',
     'target-offers': '/integrations/targets', 'release-detail': '/projects/club-newsletter/releases/' + facts.releases.find(r => r.serving).number,
@@ -84,6 +96,7 @@ try {
     'invite-pending': seeded.invite,
     'conformance-project': '/conformance/projects/club-newsletter',
     'janitor-all': '/janitor',
+    'janitor-saved': '/projects/club-newsletter/janitor', 'people-actions': '/people',
     'review': `/conformance/reviews/${seeded.review}`,
     'review-checks': `/conformance/reviews/${seeded.review}/checks`,
     'review-project': `/conformance/reviews/${seeded.review}/projects/club-newsletter`,
@@ -99,31 +112,54 @@ try {
     ['doc', '/docs', /^\/docs\/[^/]+\/[^/]+$/],
   ]) {
     await page.goto(base + path, { waitUntil: 'networkidle' });
+    try { await page.waitForFunction(source => [...document.querySelectorAll('main a[href]')].some(el => new RegExp(source).test(el.getAttribute('href'))), pattern.source); }
+    catch (err) {
+      await mkdir(out, { recursive: true });
+      await page.screenshot({ path: `${out}/discovery-error.png`, fullPage: true });
+      throw new Error(`${screen}: ${await page.locator('body').innerText()} ${err}`);
+    }
     const links = await page.locator('main a[href]').evaluateAll(els => els.map(el => el.getAttribute('href')));
     const detail = links.find(href => pattern.test(href));
     if (detail) routes[screen] = screen === 'target' ? '/infrastructure/design-production' : detail;
     if (screen === 'target') routes['target-unknown'] = '/infrastructure/design-preview';
+    if (!detail) throw new Error(`No detail link for ${screen}`);
   }
   for (const tab of ['work', 'conversation', 'releases', 'history', 'about']) routes['change-' + tab] = `/changes/${process.env.DESIGN_CHANGE}?tab=${tab}`;
   Object.assign(routes, { 'new-project-way': '/projects/_new', 'new-project-repository': '/projects/_new', 'pack-new': '/packs', 'policy-new': '/policies', 'workflow-new': '/workflow-library', 'infrastructure-connection': '/infrastructure/new' });
+  if (process.env.DESIGN_AUDIT) routes['reviews-running'] = '/conformance/reviews?cameraRunning=1';
   const selected = new Set((process.env.DESIGN_PAGES || '').split(',').filter(Boolean));
   for (const name of selected) if (name !== 'login' && !(name in routes)) throw new Error('unknown camera page: ' + name);
   const captures = [];
-  let signedIn = 'sam';
+  let cameraUser = 'sam';
   for (const [screen, path] of Object.entries(routes)) {
     if (selected.size && !selected.has(screen)) continue;
     const username = screen === 'change-non-approver' ? 'tom' : 'sam';
-    if (username !== signedIn) await page.evaluate(async ({ username, password }) => {
-      const r = await fetch('/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-      if (!r.ok) throw new Error('camera login: ' + r.status);
-    }, { username, password: process.env.DESIGN_PASSWORD });
-    signedIn = username;
+    if (username !== cameraUser) {
+      await page.evaluate(async ({ username, password }) => {
+        const r = await fetch('/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+        if (!r.ok) throw new Error('camera login: ' + r.status);
+      }, { username, password: process.env.DESIGN_PASSWORD });
+      cameraUser = username;
+    }
     await mkdir(`${out}/${screen}`, { recursive: true });
     for (const [size, viewport] of Object.entries({ desktop: { width: 1440, height: 1000 }, phone: { width: 390, height: 844 } })) {
       await page.setViewportSize(viewport);
-      for (const theme of ['light', 'dark']) {
+      for (const theme of (process.env.DESIGN_AUDIT ? [size === 'phone' ? 'dark' : 'light'] : ['light', 'dark'])) {
         await page.goto(`${base}${path}${path.includes('?') ? '&' : '?'}theme=${theme}`, { waitUntil: 'networkidle' });
         await page.locator('#root > *').first().waitFor({ state: 'visible' });
+        await page.waitForFunction(() => ![...document.querySelectorAll('main .muted')].some(el => el.textContent === 'Loading…'));
+        if (screen === 'janitor-saved') {
+          const saved = page.locator('main summary').filter({ hasText: /^Saved consent/ });
+          await saved.click();
+          await page.locator('main summary').filter({ hasText: /^Details$/ }).first().click();
+          const history = page.getByRole('button', { name: 'History', exact: true });
+          if (await history.count()) { await history.click(); await page.getByText(/Revision 1:/).waitFor(); }
+        }
+        if (screen === 'people-actions') {
+          const row = page.locator('tr').filter({ has: page.locator('summary[aria-label="Manage sam"]') });
+          if (size === 'phone') await row.locator('.glance-more > details > summary').click();
+          await row.locator('summary[aria-label="Manage sam"]').click();
+        }
         if (screen.startsWith('new-project-')) {
           await page.locator('#project-description').fill('A calendar for the household');
           await page.getByPlaceholder('Suggested from your description').fill('Family Calendar');
@@ -222,6 +258,7 @@ try {
           return ['auto', 'scroll', 'hidden'].includes(style.overflowX) && el.clientWidth > 4 && el.scrollWidth > el.clientWidth + 2;
         }).map(el => ({ tag: el.tagName, class: el.className, text: el.textContent.slice(0, 100) })));
         const headings = await page.getByRole('heading', { level: 1 }).allTextContents();
+        await page.evaluate(() => window.scrollTo(0, 0));
         await page.screenshot({ path: `${out}/${screen}/${size}-${theme}.png`, fullPage: true });
         captures.push({ screen, path, size, theme, words: words.trim().split(/\s+/).filter(Boolean).length, text: words, headings, overflow, clipped });
         await writeFile(`${out}/pages-progress.json`, JSON.stringify(captures, null, 2));
@@ -238,7 +275,7 @@ try {
   await context.clearCookies();
   for (const [size, viewport] of Object.entries(selected.size && !selected.has('login') ? {} : { desktop: { width: 1440, height: 1000 }, phone: { width: 390, height: 844 } })) {
     await page.setViewportSize(viewport);
-    for (const theme of ['light', 'dark']) {
+    for (const theme of (process.env.DESIGN_AUDIT ? [size === 'phone' ? 'dark' : 'light'] : ['light', 'dark'])) {
       await page.goto(`${base}/?theme=${theme}`, { waitUntil: 'networkidle' });
       await page.locator('form').waitFor();
       await mkdir(`${out}/login`, { recursive: true });

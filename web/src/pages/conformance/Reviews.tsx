@@ -1,6 +1,6 @@
-import { useNarrow } from '../../chrome'
 import { PhoneDetails } from '../../GlanceRow'
 import { Status, STATUS_LIGHT } from '../../Status'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -20,7 +20,7 @@ export function isFleetReview(r: { status: string; projects: number; projectsTot
 }
 
 export function ReviewsList() {
-  const narrow = useNarrow()
+  const [limit, setLimit] = useState(10)
   const q = useGet<ConformanceReviewList>('/conformance/reviews')
   const { data } = q
   if (!data) return <ReadStatus q={q} what="the fleet reviews" className="small" />
@@ -35,13 +35,13 @@ export function ReviewsList() {
       <StaleNote q={q} />
       <PhoneDetails>{trend.length > 1 && (
         <div className="card" style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
-          <div className="muted small mb-2">Findings per fleet review, oldest → newest (red findings, amber AI flags; grey = nothing found).</div>
+          <div className="muted small mb-2">Findings per fleet review, oldest → newest (red findings, amber AI flags; grey = no recorded problems).</div>
           <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 40 }}>
             {trend.map((r) => {
               const tot = r.findings + r.flagged
               return (
                 <Link key={r.id} to={`/conformance/reviews/${r.id}`} title={`#${r.number} · ${fmtWhen(r.finishedAt || r.startedAt)} · ${r.findings} findings · ${r.flagged} flagged · ${r.judged}/${r.total} judged`}
-                  style={{ width: 12, height: tot === 0 ? 3 : Math.max(6, (tot / max) * 40), background: r.findings ? 'var(--bad)' : r.flagged ? 'var(--warn)' : 'var(--border-strong)', borderRadius: 2, display: 'block' }} />
+                  style={{ width: 12, height: tot === 0 ? 3 : Math.max(6, (tot / max) * 40), background: r.status === 'error' || r.findings ? 'var(--bad)' : r.flagged ? 'var(--warn)' : 'var(--border-strong)', borderRadius: 2, display: 'block' }} />
               )
             })}
           </div>
@@ -49,30 +49,24 @@ export function ReviewsList() {
       )}
       </PhoneDetails>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        {rows.map((r) => narrow ? <Link key={r.id} to={`/conformance/reviews/${r.id}`} className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-          <div className="host-row"><strong>Review #{r.number}</strong><Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} /><span className="muted small">{r.findings} {r.findings === 1 ? 'finding' : 'findings'}</span></div>
-        </Link> : (
-          <Link key={r.id} to={`/conformance/reviews/${r.id}`} className={`card${r.status === 'queued' || r.status === 'running' ? ' tone-busy' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
-            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>Review #{r.number} <span className="muted small" style={{ fontWeight: 400 }}>· {r.trigger} · {r.actor} · {fmtWhen(r.finishedAt || r.startedAt)}</span></div>
-                <div className="small" style={{ marginTop: 2 }}>
-                  {r.status === 'queued' ? <span className="muted">queued</span> : r.status === 'running' ? <span className="muted">running · {r.projectsDone}/{r.projectsTotal}</span> : <>
-                    {r.projects} projects · <strong style={{ color: r.findings ? 'var(--bad)' : undefined }}>{r.findings} finding{r.findings === 1 ? '' : 's'}</strong> in {r.projectsWithFindings}
-                    {r.flagged ? <> · <span style={{ color: 'var(--warn)' }}>{r.flagged} AI flag{r.flagged === 1 ? '' : 's'}</span></> : null}
-                    {' · '}{r.judged}/{r.total} judged{r.errors ? ` · ${r.errors} errors` : ''}{r.cost ? ` · $${r.cost.toFixed(3)}` : ''}
-                  </>}
-                </div>
-              </div>
-              {r.delta && (
+        {rows.slice(0, limit).map((r) => (
+          <div key={r.id} className={`card${r.status === 'queued' || r.status === 'running' ? ' tone-busy' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
+            <div className="host-row">
+              <Link to={`/conformance/reviews/${r.id}`}><strong>{fmtWhen(r.finishedAt || r.startedAt)}</strong></Link>
+              <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.status === 'error' ? 'This review could not finish. Open the review for details.' : undefined} />
+              <span className="small">{r.status === 'running' ? `${r.projectsDone} of ${r.projectsTotal} apps checked` : [r.status === 'done' ? `${r.findings} problems at this check` : '', r.errors > 0 ? 'Checks could not run' : r.judged < r.total ? 'Not fully checked' : '', r.flagged > 0 ? 'Needs your review' : ''].filter(Boolean).join(' · ')}</span>
+            </div>
+            <details className="small"><summary>Details</summary>Started by {r.actor}.
+              {r.delta && r.delta.comparedProjects > 0 && (
                 <span className="small muted" title={`compared over ${r.delta.comparedProjects} projects with the review before it`}>
                   <span style={{ color: r.delta.fixed ? 'var(--ok)' : undefined }}>{r.delta.fixed} fixed</span> · <span style={{ color: r.delta.new ? 'var(--bad)' : undefined }}>{r.delta.new} new</span>
                 </span>
-              )}
-            </div>
-          </Link>
+              )} <Link to={`/conformance/reviews/${r.id}`}>Open review</Link>
+            </details>
+          </div>
         ))}
       </div>
+      {rows.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more</button>}
       {single > 0 && (
         <div className="muted small mt-3">
           {single} single-project review{single === 1 ? '' : 's'} appear on their project or remediation page.

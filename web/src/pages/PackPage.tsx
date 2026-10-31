@@ -19,7 +19,8 @@ export default function PackPage() {
   const { name = '' } = useParams()
   const q = useGet<PackHistory>(`/packs/${name}`, { kind: 'config' })
   const { run, busy, err: actErr } = useAction(q.reload)
-  const [open, setOpen] = useState<number | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const [open, setOpen] = useState<number | null>(-1)
   const h = q.data
   if (!h) return <ReadStatus q={q} what="the pack" />
   const recommend = (version: number) => run(() => post(`/packs/${name}/recommended`, { version }))
@@ -32,9 +33,9 @@ export default function PackPage() {
         <h1 style={{ marginBottom: 0 }}>{h.name}</h1>
         <OriginChip origin={h.origin} />
         <span className="chip pass" title="New projects get this version; projects on other versions are offered it">recommended v{h.recommended}</span>
-        {h.latest !== h.recommended && <span className="chip" title="The newest version is not recommended yet">newest v{h.latest}</span>}
+        {h.latest !== h.recommended && <span className="chip" title="The newest version is not recommended yet">v{h.latest} is available</span>}
       </div>
-      <p className="small" style={{ margin: '6px 0 12px' }}>{h.description}</p>
+      <details><summary>About this way of working</summary><p>{h.description}</p></details>
       <StaleNote q={q} />
       {actErr && <div className="error">{actErr}</div>}
 
@@ -45,7 +46,7 @@ export default function PackPage() {
       <div className="muted small" style={{ marginBottom: 8 }}>
         Recommended for new projects. Existing projects adopt separately.
       </div>
-      {h.versions.map((v) => (
+      {h.versions.filter((v, i) => showAll || i < 3 || v.version === h.recommended).map((v) => (
         <div key={v.version} className={`card ${v.version === h.recommended ? 'tone-ok' : ''}`} style={{ padding: '8px 12px' }}>
           <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
             <strong>v{v.version}</strong>
@@ -67,6 +68,7 @@ export default function PackPage() {
           {shown === v.version && <WhatIfPanel pack={h.name} version={v.version} />}
         </div>
       ))}
+      {!showAll && h.versions.length > 3 && <button onClick={() => setShowAll(true)}>Show all versions ({h.versions.length})</button>}
     </div>
   )
 }
@@ -82,8 +84,9 @@ function Declaration({ d }: { d: PackSpec }) {
   const own = [...d.guidance.map((g) => `guidance ${g}`), ...d.workflows.map((w) => `workflow ${w}`), ...d.policies.map((p) => `policy ${p.name}`)]
   return (
     <div className="card small" style={{ padding: '8px 12px' }}>
-      <div>{own.length > 0 ? <>Holds: {own.map((o, i) => <span key={o}>{i > 0 ? ', ' : ''}<code>{o}</code></span>)}</> : 'Holds no guidance, workflows or policies.'}</div>
-      {d.toolchain && <div>Toolchain: <code>{d.toolchain}</code></div>}
+      <p>{d.guidance.length} rules · {d.workflows.length} workflows · {d.policies.length} policies</p>
+      <details><summary>Contents</summary><div>{own.length > 0 ? <>Holds: {own.map((o, i) => <span key={o}>{i > 0 ? ', ' : ''}<code>{o}</code></span>)}</> : 'Holds no guidance, workflows or policies.'}</div>
+      {d.toolchain && <div>Toolchain: <code>{d.toolchain}</code></div>}</details>
     </div>
   )
 }

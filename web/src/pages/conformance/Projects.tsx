@@ -3,19 +3,19 @@ import { Status, STATUS_LIGHT } from '../../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { ConformanceView, ProjectStanding } from '../../wire.gen'
-import { fmtWhen } from '../../format'
-import { shortSha, StandingChip, LaneBar } from './parts'
+import { relTime } from '../../format'
+import { StandingChip, LaneBar } from './parts'
 
 // --- Projects (the front page) ---------------------------------------------------------------
 
-function ProjectRow({ p, base }: { p: ProjectStanding; base: string }) {
+function ProjectRow({ p, base, onCheck }: { p: ProjectStanding; base: string; onCheck?: (slug: string) => void }) {
   const narrow = useNarrow()
-  if (narrow) return <Link to={`${base}/projects/${p.slug}`} className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+  if (narrow) return <div className="card"><Link to={`${base}/projects/${p.slug}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
     <div className="host-row"><strong>{p.name || p.slug}</strong><StandingChip label={p.statusLabel} help={p.sentence} /><span className="muted small">{p.total} checks</span></div>
-  </Link>
+  </Link>{onCheck && p.standing === 'conforms-so-far' && <details><summary>Actions</summary><button onClick={() => onCheck(p.slug)}>Check now</button></details>}</div>
   return (
-    <Link to={`${base}/projects/${p.slug}`} className="card" style={{ marginBottom: 0, padding: '10px 14px', textDecoration: 'none', color: 'inherit', display: 'block' }}>
-      <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
+    <div className="card" style={{ marginBottom: 0, padding: '10px 14px', textDecoration: 'none', color: 'inherit', display: 'block' }}>
+      <Link to={`${base}/projects/${p.slug}`} style={{ color: 'inherit', textDecoration: 'none' }}><div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
         <div className="row" style={{ gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
           <span style={{ minWidth: 200 }}>
             <strong style={{ fontSize: 'var(--fs-base)' }}>{p.name || p.slug}</strong>
@@ -23,17 +23,18 @@ function ProjectRow({ p, base }: { p: ProjectStanding; base: string }) {
           </span>
           <StandingChip label={p.statusLabel} help={p.sentence} />
         </div>
-        <LaneBar lanes={p.lanes} total={p.total} />
+        <span className="conformance-extra"><LaneBar lanes={p.lanes} total={p.total} /></span>
       </div>
       <div className="muted small mt-1">
-        <span title={p.adopted.join(', ')}>{p.adopted.length ? `${p.adopted.length} adopted blocks` : 'Nothing adopted'}</span>
-        {p.sha && <> · judged <span className="mono">{shortSha(p.sha)}</span> {fmtWhen(p.judgedAt)}</>}
+        {p.judgedAt ? `Checked ${relTime(p.judgedAt)}` : 'Not checked yet — open to check now'}
       </div>
-    </Link>
+      </Link>
+      {onCheck && p.standing === 'conforms-so-far' && <button onClick={() => onCheck(p.slug)}>Check now</button>}
+    </div>
   )
 }
 
-export function ProjectsList({ view, base }: { view: ConformanceView; base: string }) {
+export function ProjectsList({ view, base, onCheck }: { view: ConformanceView; base: string; onCheck?: (slug: string) => void }) {
   const [showQuiet, setShowQuiet] = useState(false)
   const [q, setQ] = useState('')
   const needle = q.trim().toLowerCase()
@@ -50,7 +51,7 @@ export function ProjectsList({ view, base }: { view: ConformanceView; base: stri
           style={{ maxWidth: 420, marginBottom: 'var(--space-1)' }} />
       )}
       {needle && all.length === 0 && <div className="muted small" style={{ padding: '8px 14px' }}>Nothing matches "{q}".</div>}
-      {loud.map((p) => <ProjectRow key={p.slug} p={p} base={base} />)}
+      {loud.map((p) => <ProjectRow key={p.slug} p={p} base={base} onCheck={onCheck} />)}
       {quiet.length > 0 && (
         <div className="card" style={{ marginBottom: 0, padding: '10px 14px', cursor: 'pointer' }} onClick={() => setShowQuiet(!showQuiet)}>
           <span className="muted small">{showQuiet ? '▾' : '▸'} </span>
@@ -58,7 +59,7 @@ export function ProjectsList({ view, base }: { view: ConformanceView; base: stri
           <span className="small">{quiet.length} project{quiet.length === 1 ? '' : 's'} meet everything they adopted{showQuiet ? ':' : ` · ${quiet.map((p) => p.name || p.slug).join(', ')}`}</span>
         </div>
       )}
-      {showQuiet && quiet.map((p) => <ProjectRow key={p.slug} p={p} base={base} />)}
+      {showQuiet && quiet.map((p) => <ProjectRow key={p.slug} p={p} base={base} onCheck={onCheck} />)}
       {none.length > 0 && <div className="muted small" style={{ padding: '4px 14px' }}>Nothing adopted: {none.map((p) => p.name || p.slug).join(', ')}.</div>}
     </div>
   )

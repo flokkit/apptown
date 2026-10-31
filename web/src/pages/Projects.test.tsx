@@ -54,8 +54,8 @@ async function listing(): Promise<HTMLElement> {
   vi.stubGlobal('fetch', vi.fn(async (url: string) => {
     if (url.includes('/project-cleanups')) return new Response(JSON.stringify({ cleanups: [] }))
     return new Response(JSON.stringify({ projects: [
-      { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '', deployed: false, observation: 'unknown', observationStale: true },
-      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: 'A long description that must stay on one line in both the desktop list and phone cards', icon: '⛵', deployed: true, observation: 'unknown', observationStale: true },
+      { id: '00000000-0001-7000-8000-000000000000', slug: 'plain', name: 'Plain', blurb: '', icon: '', deployed: false, hasDeployments: false, observation: 'unknown', observationStale: true },
+      { id: '00000000-0002-7000-8000-000000000000', slug: 'boat', name: 'Boat', blurb: 'A long description that must stay on one line in both the desktop list and phone cards', icon: '⛵', deployed: false, hasDeployments: true, observation: 'unknown', observationStale: true },
     ], total: 2 }))
   }))
   const client = newQueryClient()
@@ -84,8 +84,9 @@ it('shows only icons projects chose, and leaves finding to the top bar', async (
 it('stamps only the projects that have a deployment', async () => {
   const el = await listing()
   const card = (slug: string) => el.querySelector(`a[href="/projects/${slug}"]`)!.closest('tr')!
-  expect(card('plain').querySelector('.chip')).toBeNull()
-  expect(card('plain').querySelector('.chip')).toBeNull()
+  expect(card('plain').querySelector('.chip')?.textContent).toContain('Not deployed')
+  expect(card('boat').textContent).toContain('No changes yet')
+  expect(card('boat').textContent).not.toContain('Not deployed')
   const stamp = card('boat').querySelector('.chip.unknown')
   expect(stamp?.textContent).toBe('● unknown')
   expect(stamp?.getAttribute('title')).toBe('Not checked yet.')

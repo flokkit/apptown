@@ -9,7 +9,7 @@ import { relTime } from '../format'
 import type { Arm, CheckRow, Complaint, Eval, EvalList, EvalScorecard, EvalStartForm, ProjectRow, Tally } from '../wire.gen'
 import { PageHead } from '../PageHead'
 
-// Evals: is a model profile, or a pack version, better
+// Evals: is an AI setup, or a pack version, better
 // or worse than what projects run now? Finished Changes are re-run in
 // throwaway copies, as their project runs now and with the one thing
 // varied, and a person compares side by side: the work, each check's
@@ -89,15 +89,15 @@ export function EvalStartPage() {
       {form && (
         <>
           <section className="card" style={{ marginBottom: 12 }}>
-            <h3 style={{ marginTop: 0 }}>1. What varies</h3>
+            <h3 style={{ marginTop: 0 }}>1. What to compare</h3>
             <div className="row small" style={{ gap: 12, flexWrap: 'wrap' }}>
               <label><input type="radio" name="varies" checked={varies === 'pack'} onChange={() => { setVaries('pack'); setConfirming(false) }} /> a pack version</label>
-              <label><input type="radio" name="varies" checked={varies === 'model'} onChange={() => { setVaries('model'); setConfirming(false) }} /> a model profile</label>
+              <label><input type="radio" name="varies" checked={varies === 'model'} onChange={() => { setVaries('model'); setConfirming(false) }} /> an AI setup</label>
             </div>
             {varies === 'model' && (
               <label className="small" style={{ display: 'block', marginTop: 6 }}>Compare what projects run now with
                 <select value={profile} onChange={(e) => { setProfile(e.target.value); setConfirming(false) }} style={{ marginLeft: 6 }}>
-                  <option value="">a model profile…</option>
+                  <option value="">an AI setup…</option>
                   {form.profiles.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </label>
@@ -117,7 +117,7 @@ export function EvalStartPage() {
                     </select>
                   </label>
                 )}
-                <div className="muted" style={{ marginTop: 6 }}>The variant adopts this pack version, with the same model. Both arms run the current and proposed checks.</div>
+                <div className="muted" style={{ marginTop: 6 }}>Compare two setups on the same work, using the same AI model. Both runs check the current and proposed rules.</div>
               </div>
             )}
           </section>
@@ -143,7 +143,7 @@ export function EvalStartPage() {
           <section className="card" style={{ marginBottom: 12 }}>
             <h3 style={{ marginTop: 0 }}>3. Budget</h3>
             <label className="small">Budget $ <input type="number" min="0.01" step="0.5" value={budget} onChange={(e) => { setBudget(e.target.value); setConfirming(false) }} style={{ width: 90 }} /></label>
-            <div className="muted small" style={{ marginTop: 6 }}>Includes checks and summaries. Checked before each arm and step; running steps can exceed it. Unknown spend pauses the next arm.</div>
+            <div className="muted small" style={{ marginTop: 6 }}>Includes checks and summaries. Work already running can exceed the budget; missing prices pause further work.</div>
           </section>
           {!confirming && <button disabled={!ready} onClick={() => setConfirming(true)}>Review and start…</button>}
           {confirming && (

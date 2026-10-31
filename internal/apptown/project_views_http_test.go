@@ -260,27 +260,32 @@ spec:
 // deployment nobody has observed yet: both have no observation, but only the
 // second is "status unknown".
 func TestProjectListSaysWhetherAProjectHasADeployment(t *testing.T) {
+	type flags struct {
+		Production bool
+		Any        bool
+	}
 	t.Parallel()
 	a := authzFixture(t)
 	h := a.Handler()
-	deployed := func() map[string]bool {
+	deployed := func() map[string]flags {
 		t.Helper()
 		w := authzCall(h, "boss", "GET", "/api/v1/projects", "")
 		var rows []struct {
-			Slug       string `json:"slug"`
-			Deployed   bool   `json:"deployed"`
-			ObservedAt string `json:"observedAt"`
+			Slug           string `json:"slug"`
+			Deployed       bool   `json:"deployed"`
+			HasDeployments bool   `json:"hasDeployments"`
+			ObservedAt     string `json:"observedAt"`
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &rows); err != nil || w.Code != 200 {
 			t.Fatalf("project list: %d %s %v", w.Code, w.Body.String(), err)
 		}
-		out := map[string]bool{}
+		out := map[string]flags{}
 		for _, r := range rows {
-			out[r.Slug] = r.Deployed
+			out[r.Slug] = flags{r.Deployed, r.HasDeployments}
 		}
 		return out
 	}
-	if got := deployed(); got["game"] {
+	if got := deployed(); got["game"].Production || got["game"].Any {
 		t.Fatalf("a project with no deployment was listed as deployed: %v", got)
 	}
 	p, err := a.Projects.BySlug(context.Background(), "game")
@@ -291,10 +296,16 @@ func TestProjectListSaysWhetherAProjectHasADeployment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "customer", target.ID, (deployment.Attributes{}).WithDefaults()); err != nil {
+		t.Fatal(err)
+	}
+	if got := deployed()["game"]; got.Production || !got.Any {
+		t.Fatalf("a separate environment must not change the production flag: %+v", got)
+	}
 	if _, err := a.Deployment.Deployments.EnsureStanding(t.Context(), p.ID, "main", target.ID, (deployment.Attributes{}).WithDefaults()); err != nil {
 		t.Fatal(err)
 	}
-	if got := deployed(); !got["game"] {
+	if got := deployed(); !got["game"].Production || !got["game"].Any {
 		t.Fatalf("a project with a main deployment was listed as not deployed: %v", got)
 	}
 }

@@ -179,3 +179,26 @@ func TestABrokenCheckReadsAsAnIncompleteReview(t *testing.T) {
 		t.Fatal(sentence)
 	}
 }
+
+func TestFleetIncompleteCountIncludesChecksHiddenByHigherPriorityStanding(t *testing.T) {
+	t.Parallel()
+	summary := SummarizeFleet([]ProjectStanding{
+		{Standing: StandingBroken, Lanes: Lanes{Broken: 1}},
+		{Standing: StandingDoesNot, Lanes: Lanes{Findings: 1, Unassessed: 2}},
+		{Standing: StandingNeedsLook, Lanes: Lanes{Flagged: 1, Unassessed: 1}},
+		{Standing: StandingConforms, Lanes: Lanes{Conforms: 1}},
+	}, 6)
+	body, err := json.Marshal(summary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire struct {
+		IncompleteProjects int `json:"incompleteProjects"`
+	}
+	if err := json.Unmarshal(body, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire.IncompleteProjects != 3 {
+		t.Fatalf("incomplete projects must count lanes regardless of standing: %s", body)
+	}
+}

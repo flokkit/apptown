@@ -17,7 +17,7 @@ describe('the daily usage chart', () => {
 
   // A phone has no hover: the chart's numbers must be on the page, not only
   // in a tooltip, and a person must be able to pick another day.
-  it('spells out the latest used day and moves to another day with the arrow keys', async () => {
+  it('shows daily detail only after selection and supports arrow keys', async () => {
     const totals = { total: 1500, input: 1000, output: 500, cacheRead: 0, costMicros: 0 }
     const report = {
       windowDays: 30, totals, byKind: [], byModel: [], byDay: [], byProject: [], byWorkflow: [],
@@ -36,15 +36,17 @@ describe('the daily usage chart', () => {
         root.render(<QueryClientProvider client={client}><UsageView project="demo" /></QueryClientProvider>)
       })
       await settled(client)
+      expect(el.querySelector('[role=slider]')).toBeNull()
+      await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Details')!.click() })
       const shown = () => el.querySelector('.usage-day')?.textContent ?? ''
       const chart = el.querySelector<HTMLElement>('[role="slider"]')!
-      expect(shown()).toBe(`${label(1)}: 500 tokens · workflow 400, interactive 100`)
-      expect(chart.getAttribute('aria-valuetext')).toBe(shown())
+      expect(shown()).toBe('')
+      expect(chart.getAttribute('aria-valuetext')).toBe(`${label(1)}: 500 tokens · Automated work 400, Chat 100`)
 
       await act(async () => { chart.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })) })
       expect(shown()).toBe(`${label(2)}: no use`)
       await act(async () => { chart.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })) })
-      expect(shown()).toBe(`${label(3)}: 1.0k tokens · workflow 1.0k, interactive 0`)
+      expect(shown()).toBe(`${label(3)}: 1.0k tokens · Automated work 1.0k, Chat 0`)
     } finally {
       act(() => root.unmount())
       client.clear()
@@ -52,7 +54,7 @@ describe('the daily usage chart', () => {
   })
 
   // Spend AppTown could not count is not shown as a complete total.
-  it('says "at least" when some model calls spent an unknown amount', async () => {
+  it('qualifies the price when some calls are unpriced', async () => {
     const report = {
       windowDays: 30, totals: { total: 15, input: 10, output: 5, cacheRead: 0, cacheWrite: 0, costMicros: 40, incomplete: 2 },
       byKind: [], byModel: [], byDay: [], byProject: [], byWorkflow: [], byDayKind: [],
@@ -66,8 +68,8 @@ describe('the daily usage chart', () => {
         root.render(<QueryClientProvider client={client}><UsageView project="demo" /></QueryClientProvider>)
       })
       await settled(client)
-      expect(el.textContent).toContain('at least $')
-      expect(el.textContent).toContain('2 model calls spent an unknown amount')
+      expect(el.querySelector('.stat-card')?.textContent).toContain('Cost in 30 days$0.00')
+      expect(el.textContent).toContain('Some calls not priced.')
     } finally {
       act(() => root.unmount())
       client.clear()

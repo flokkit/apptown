@@ -111,8 +111,8 @@ UPDATE policy_library SET description=$1 WHERE name=$2 AND origin='stock' AND de
 -- name: DeleteLibraryPolicy :execrows
 DELETE FROM policy_library WHERE name=$1;
 -- name: BlocksMatchingMeta :many
--- Lists need the byte count, not every guidance body, which may span megabytes.
-SELECT sqlc.embed(b),octet_length(v.body_md)::bigint AS body_bytes FROM guidance_blocks b
+-- Lists keep a bounded excerpt rather than copying bodies that may span megabytes.
+SELECT sqlc.embed(b),octet_length(v.body_md)::bigint AS body_bytes,left(v.body_md,240)::text AS excerpt FROM guidance_blocks b
 JOIN guidance_block_versions v ON v.block_id=b.id AND v.version=b.latest_version
 WHERE (sqlc.arg(query)::text='' OR b.name LIKE '%'||sqlc.arg(query)||'%' OR v.body_md LIKE '%'||sqlc.arg(query)||'%')
 AND (sqlc.arg(tag)::text='' OR (','||b.tags||',') LIKE '%,'||sqlc.arg(tag)||',%') ORDER BY b.name;

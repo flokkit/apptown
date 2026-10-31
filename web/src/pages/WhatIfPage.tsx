@@ -22,10 +22,10 @@ const REASON_SHORT: Record<string, string> = {
   error: 'could not answer',
   'no-image': 'need an image',
   'no-running-app': 'need the running app',
-  'rubrics-not-included': 'need model rubrics',
+  'rubrics-not-included': 'need an AI review',
   'spend-limit': 'past the spend limit',
   'spend-unknown': 'spend unknown',
-  'judges-a-change': 'judge a change',
+  'judges-a-change': 'checked when a change lands',
   'no-evaluator': 'no evaluator',
   'no-main': 'no main',
   'not-adoptable': 'not adoptable',
@@ -56,7 +56,7 @@ export default function WhatIfPage() {
       <div className="muted small"><Link to="/conformance/what-ifs">What-ifs</Link> · <Link to="/packs">Packs</Link> › <Link to={`/packs/${w.pack}`}>{w.pack}</Link></div>
       <h1 style={{ marginBottom: 4 }}>What-if: {w.pack} v{w.version}</h1>
       <StaleNote q={q} />
-      <div className="row small" style={{ flexWrap: 'wrap', gap: 8 }}>
+      <details><summary>Test details</summary><div className="row small" style={{ flexWrap: 'wrap', gap: 8 }}>
         <State w={w} />
         <span className="muted">{w.requestedBy} · {relTime(w.createdAt)}</span>
         <span className="muted">
@@ -67,6 +67,7 @@ export default function WhatIfPage() {
         {w.advanceWorkflows && <span className="muted">moves each project's other workflows to the newest version</span>}
         {(w.also ?? []).length > 0 && <span className="muted">with, for projects already on them: {alsoWords(w)}</span>}
       </div>
+      </details>
       <Decide w={w} />
       <Summary w={w} />
       <Fleet gaps={w.fleet} projects={w.projects.length} />
@@ -92,7 +93,7 @@ function Decide({ w }: { w: WhatIf }) {
   const why = recommended === undefined ? 'the pack has not been read'
     : recommended === w.version ? `v${w.version} is recommended`
       : holds === undefined ? (meQ.err ? `what you may do could not be read: ${meQ.reason || meQ.err}` : 'reading what you may do…')
-        : !holds ? 'needs standards:manage-packs' : ''
+        : !holds ? 'Ask an administrator to recommend this version' : ''
   return (
     <div className="row" style={{ flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
       {why
@@ -128,8 +129,8 @@ function Fleet({ gaps, projects }: { gaps: WhatIfFleetGap[], projects: number })
   if (gaps.length === 0) return null
   const shown = gaps.slice(0, 8)
   return (
-    <details className="card" style={{ padding: '6px 10px', margin: '8px 0' }} open={gaps[0].projects > 1}>
-      <summary><strong>Could not assess, across projects</strong> <span className="muted small">{gaps.length} check{gaps.length === 1 ? '' : 's'}</span></summary>
+    <details className="card" style={{ padding: '6px 10px', margin: '8px 0' }} >
+      <summary><strong>Checks that could not run</strong> <span className="muted small">{gaps.length} check{gaps.length === 1 ? '' : 's'}</span></summary>
       {shown.map((g, i) => (
         <div key={i} className="small" style={{ marginTop: 6 }}>
           <div>{g.block ? <code style={{ overflowWrap: 'anywhere' }}>{g.block} · {g.check}</code> : <span>the whole project</span>} <strong>{g.projects} of {projects}</strong> <span className="muted">— {g.words}</span></div>
@@ -146,7 +147,7 @@ function ScoreLine({ s }: { s: WhatIfScore }) {
   if (s.checks === 0) return <span className="muted">no checks</span>
   const parts = [`${s.checks} check${s.checks === 1 ? '' : 's'}`, `${s.passed} pass`]
   if (s.failing) parts.push(`${s.failing} fail${s.failing === 1 ? 's' : ''}`)
-  if (s.couldNotAssess) parts.push(`${s.couldNotAssess} could not assess`)
+  if (s.couldNotAssess) parts.push(`${s.couldNotAssess} could not be checked`)
   if (s.noLongerRequired) parts.push(`${s.noLongerRequired} no longer required`)
   if (s.notApplicable) parts.push(`${s.notApplicable} not applicable`)
   return <span>{parts.join(' · ')}</span>
@@ -230,14 +231,14 @@ function Table({ w }: { w: WhatIf }) {
           prepare={inAdvance ? () => askInAdvance(chosen.map((p) => p.projectSlug), asked.current) : undefined}
           onYes={adopt} />
         <label className="small muted" title="Accept now each adoption that turns out to need no code and passes every check; the rest wait for a person">
-          <input type="checkbox" checked={inAdvance} onChange={(e) => { asked.current = {}; setInAdvance(e.target.checked) }} disabled={asking} /> accept in advance if it needs no code
+          <input type="checkbox" checked={inAdvance} onChange={(e) => { asked.current = {}; setInAdvance(e.target.checked) }} disabled={asking} /> Approve now if no code needs changing
         </label>
         {asking && <span className="muted small">asking each project in turn…</span>}
       </div>
       <div style={{ overflowX: 'auto' }}>
-      <table className="small" style={{ width: '100%' }}>
+      <table className="small stack whatif-table" style={{ width: '100%' }}>
         <thead>
-          <tr><th /><th>Project</th><th>Answer</th><th>Score</th><th>New failures</th><th>Could not assess</th><th>Rules</th><th>Commit</th><th>Adoption</th><th /></tr>
+          <tr><th /><th>Project</th><th>Answer</th><th>Score</th><th>Details</th><th>Adoption</th><th /></tr>
         </thead>
         <tbody>
           {w.projects.map((p) => {
@@ -248,27 +249,25 @@ function Table({ w }: { w: WhatIf }) {
             const cannot = !p.candidateDigest ? (p.outcome === 'not-evaluated' || p.outcome === 'not-yet-judged' ? OUTCOME_WORDS[p.outcome] : 'no candidate was assessed') : done && 'changeId' in done ? 'its Change is open' : ''
             return (
               <Fragment key={pid}>
-                <GlanceRow name={1} state={2} summary={p.candidateDigest ? <>{p.newFailures.length} new {p.newFailures.length === 1 ? 'failure' : 'failures'}</> : 'Not assessed yet'} labels={["Select", "Project", "Answer", "Score", "New failures", "Could not assess", "Rules", "Commit", "Adoption", "Actions"]}>
+                <GlanceRow name={1} state={2} summary={p.candidateDigest ? <>{p.newFailures.length} new {p.newFailures.length === 1 ? 'failure' : 'failures'}</> : 'Not assessed yet'} labels={["Select", "Project", "Answer", "Score", "Details", "Adoption", "Actions"]}>
                   <td><input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
                     checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} /></td>
                   <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="chip" style={{ marginLeft: 6 }}>would join</span>}</td>
                   <td><Status word={p.statusLabel} tone={STATUS_LIGHT[p.statusLabel]} help={OUTCOME_WORDS[p.outcome]} /></td>
                   <td><ScoreLine s={p.score} />{p.fixed > 0 && <div className="muted">{p.fixed} fixed</div>}</td>
-                  <td>{p.newFailures.map((c, i) => <div key={i}><Check c={c} />{c.exceptedToday && <span className="muted"> (excepted today)</span>}</div>)}</td>
-                  <td>
-                    {p.notAssessedBy.map((g) => <div key={g.reason} title={`${g.words}. To assess: ${g.remedy}`}>{g.count} {REASON_SHORT[g.reason] ?? g.words}</div>)}
-                    {p.notAssessed.filter((c) => !c.block).map((c, i) => <div key={`whole${i}`}>the project: <span className="muted">{c.why}</span></div>)}
-                  </td>
-                  <td>
-                    {back > 0 && <span className="chip moves-back">moves {back} back</span>}
-                    {p.moves.length - back > 0 && <div className="muted">{p.moves.length - back} forward</div>}
-                  </td>
-                  <td>{p.sha ? <code title={`${p.sha} · adoption revision ${p.adoptionRevision}`}>{p.sha.slice(0, 10)}</code> : ''}</td>
+                  <td><details><summary>Check details</summary>
+                    {p.newFailures.map((c, i) => <div key={i}><Check c={c} />{c.exceptedToday && <span> (exception approved)</span>}</div>)}
+                    {p.notAssessedBy.map(g => <p key={g.reason} title={`${g.words}. To assess: ${g.remedy}`}>{g.count} {REASON_SHORT[g.reason] ?? g.words}. {g.remedy}</p>)}
+                    {p.notAssessed.filter(c => !c.block).map((c, i) => <p key={i}>{c.why}</p>)}
+                    {back > 0 && <p>{back} rules move to an older version</p>}
+                    <Moves moves={p.moves} />
+                    {p.sha && <p>Checked commit: <code>{p.sha}</code></p>}
+                  </details></td>
                   <td><AdoptedCell a={done} /></td>
                   <td>{(rows.length > 0 || p.moves.length > 0) && <button className="subtle" onClick={() => setOpen(open === pid ? null : pid)}>{open === pid ? 'hide' : 'details'}</button>}</td>
                 </GlanceRow>
                 {open === pid && (
-                  <tr><td colSpan={10}><Moves moves={p.moves} />{rows.map((r, i) => <Row key={i} r={r} />)}</td></tr>
+                  <tr><td colSpan={7}><Moves moves={p.moves} />{rows.map((r, i) => <Row key={i} r={r} />)}</td></tr>
                 )}
               </Fragment>
             )

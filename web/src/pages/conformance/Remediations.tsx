@@ -2,6 +2,7 @@ import { PhoneDetails } from '../../GlanceRow'
 import { useNarrow } from '../../chrome'
 import { Status, STATUS_LIGHT } from '../../Status'
 import { Link } from 'react-router-dom'
+import { useHolds } from '../../instancePages'
 import { put } from '../../api'
 import { useAction, useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -29,6 +30,7 @@ export function OccupancyCard({ occ }: { occ: Occupancy }) {
   const narrow = useNarrow()
   const { run, busy, err } = useAction(undefined, { affects: ['/conformance'] })
   const setWorkers = (n: number) => run(() => put('/workers', { kind: 'remediation', count: n }))
+  const mayConfigure = useHolds('identity:manage-auth')
   const cooling = !!occ.cooldownUntil && new Date(occ.cooldownUntil).getTime() > Date.now()
   return (
     <div className={`card${cooling ? ' tone-warn' : ''}`} style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
@@ -36,7 +38,7 @@ export function OccupancyCard({ occ }: { occ: Occupancy }) {
       <PhoneDetails>
       <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
         <div className="small">
-          <strong>{occ.busy} of {occ.workers} remediation worker{occ.workers === 1 ? '' : 's'} busy</strong>
+          <strong>{occ.busy} updates in progress</strong>
           {occ.queued > 0 && <span className="muted"> · {occ.queued} queued</span>}
           {(occ.holding ?? []).length > 0 && (
             <div className="muted" style={{ marginTop: 2 }}>
@@ -45,12 +47,12 @@ export function OccupancyCard({ occ }: { occ: Occupancy }) {
           )}
           {cooling && <div style={{ marginTop: 2, color: 'var(--warn)' }}>Paused until {fmtWhen(occ.cooldownUntil!)}: {occ.cooldownWhy}</div>}
         </div>
-        <span className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
+        {mayConfigure && <details><summary>Processing settings</summary><span className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
           <span className="muted small">workers</span>
           <button className="subtle" disabled={busy || occ.workers <= 0} onClick={() => setWorkers(occ.workers - 1)}>−</button>
           <strong>{occ.workers}</strong>
           <button className="subtle" disabled={busy || occ.workers >= 8} onClick={() => setWorkers(occ.workers + 1)}>+</button>
-        </span>
+        </span></details>}
       </div>
       </PhoneDetails>
       {err && <div className="error small">{err}</div>}

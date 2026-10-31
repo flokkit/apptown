@@ -40,3 +40,15 @@ it('names missing integrations and is quiet when none are missing', async () => 
   expect(text).not.toContain('Required integrations configured')
   expect(text).not.toContain('No integration requirements')
 })
+
+it('keeps a long library short until Show all is requested', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(Array.from({ length: 18 }, (_, i) => pack(`way-${i}`, true))))))
+  const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter><Packs /></MemoryRouter></QueryClientProvider>))
+    await settled(client)
+    expect(el.querySelectorAll('.pack-grid a')).toHaveLength(8)
+    await act(async () => [...el.querySelectorAll('button')].find(b => b.textContent === 'Show all packs (18)')!.click())
+    expect(el.querySelectorAll('.pack-grid a')).toHaveLength(18)
+  } finally { await act(async () => root.unmount()); client.clear() }
+})
