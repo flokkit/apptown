@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { del, post, put } from '../../../api'
-import { grantTitle, subjectLabel } from '../../../parts/grants'
+import { grantTitle, subjectLabel, groupLabel } from '../../../parts/grants'
 import { firstErr, useAction, useGet } from '../../../data'
 import { useHolds, useInstancePages } from '../../../instancePages'
 import type { AuthzExplanation, GroupList, ProjectDetail, ProjectMemberList, RoleCatalog, UserList } from '../../../wire.gen'
@@ -25,7 +25,7 @@ export function MembersTab({ slug }: { slug: string }) {
   const grants = membersQ.data?.roles ?? []
   const open = membersQ.data?.open ?? false
   const roles = (rolesQ.data?.roles ?? []).filter(r => r.scope === 'project' && r.surfaced)
-  const options = [...(usersQ.data?.users ?? []).map(x => x.username), ...(groupsQ.data?.groups ?? []).map(x => `group:${x.name}`)]
+  const options = [...(usersQ.data?.users ?? []).filter(u => !u.disabled).map(x => x.username), ...(groupsQ.data?.groups ?? []).map(x => `group:${x.name}`)]
   const independent = projectQ.data ? projectQ.data.requireIndependentApproval : null
   const canEdit = useHolds('project:manage-members', slug)
   const canConfigure = useHolds('project:configure', slug)
@@ -35,7 +35,7 @@ export function MembersTab({ slug }: { slug: string }) {
   const directoryHidden = directory === false || usersQ.denied || groupsQ.denied
   const err = firstErr(actErr, projectQ.err, membersQ.err, rolesQ.err, usersQ.denied ? '' : usersQ.err, groupsQ.denied ? '' : groupsQ.err)
   const names = (q: { data: { whoCan: string[] } | null; err: string }) =>
-    q.err ? 'unknown (could not be read)' : !q.data ? '…' : q.data.whoCan.length ? q.data.whoCan.join(', ') : 'nobody yet'
+    q.err ? 'unknown (could not be read)' : !q.data ? '…' : q.data.whoCan.length ? q.data.whoCan.map(n => n.startsWith('group:') ? groupLabel(n.slice(6)) : n).join(', ') : 'nobody yet'
   const act = (fn: () => Promise<unknown>) => { void run(fn) }
   return (
     <div className="card" style={{ display: 'grid', gap: 10, marginTop: 10 }}>
@@ -45,7 +45,7 @@ export function MembersTab({ slug }: { slug: string }) {
           onChange={e => act(() => put(`/projects/${slug}/approval-policy`, { requireIndependentApproval: e.target.checked }))} />
         {' '}Require another person to approve the author's change
       </label>
-      <div className="muted small">Administrators may approve their own changes and need not be on the approver list. Each counts as one vote.</div>
+      <div className="muted small">Administrators can approve their own changes. Each approval counts as one vote.</div>
       <b>Members</b>
       <details className="muted small"><summary>Role permissions</summary>
         A <b>contributor</b> opens changes and
@@ -63,24 +63,16 @@ export function MembersTab({ slug }: { slug: string }) {
       )}
       <div style={{ display: 'grid', gap: 6 }}>
         {grants.length === 0 && !open && <span className="muted small">nobody holds a role here yet</span>}
-        {grants.map(g => (
-          <div key={g.id} className="row small" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="chip">{subjectLabel(g)}</span>
-            <span title={[g.reason, g.origin && `origin: ${g.origin}`, `granted by ${g.grantedBy}`].filter(Boolean).join(' · ')}>
-              {grantTitle(g)}
-            </span>
-            <span style={{ flex: 1 }} />
-            {canEdit && (
-              <button className="subtle" aria-label={`remove ${grantTitle(g)} from ${subjectLabel(g)}`}
-                onClick={() => act(() => del(`/authz/grants/${g.id}`))}>×</button>
-            )}
+        {[...new Set(grants.map(g => `${g.subjectType}:${g.subject}`))].map(key => {
+          const held = grants.filter(g => `${g.subjectType}:${g.subject}` === key)
+          return <div key={key} className="row small"><strong>{subjectLabel(held[0])}</strong>
+            <span>{held.map(g => grantTitle(g).replace(/^Project /, '')).join(', ')}</span>
+            {canEdit && <details><summary>Manage roles</summary>{held.map(g => <p key={g.id}>{grantTitle(g)} <button aria-label={`remove ${grantTitle(g)} from ${subjectLabel(g)}`} onClick={() => act(() => del(`/authz/grants/${g.id}`))}>Remove</button></p>)}</details>}
           </div>
-        ))}
+        })}
       </div>
       <div className="muted small">
-        Who can approve here: {names(approveQ)}.
-        Who can land: {names(landQ)}.
-        {' '}<span title="group:all-authenticated-users means everyone signed in">(a group name means any of its members)</span>
+        Approvers: {names(approveQ)}. <details><summary>Who can land changes?</summary>{names(landQ)}</details>
       </div>
       {canEdit && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -90,11 +82,11 @@ export function MembersTab({ slug }: { slug: string }) {
           ) : (
             <select value={subject} onChange={e => setSubject(e.target.value)}>
               <option value="">add…</option>
-              {options.map(o => <option key={o} value={o}>{o}</option>)}
+              {options.map(o => <option key={o} value={o}>{o.startsWith('group:') ? groupLabel(o.slice(6)) : o}</option>)}
             </select>
           )}
           <select value={role} onChange={e => setRole(e.target.value)}>
-            {roles.map(r => <option key={r.name} value={r.name} title={r.description}>{r.title}</option>)}
+            {roles.map(r => <option key={r.name} value={r.name} title={r.description}>{r.title.replace(/^Project /, '')} — {r.description}</option>)}
           </select>
           <button disabled={!subject}
             onClick={() => act(() => post(`/projects/${slug}/members`, { grantee: subject, role }).then(() => setSubject('')))}>

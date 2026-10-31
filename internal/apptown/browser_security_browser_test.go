@@ -28,6 +28,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/flokkit/apptown/internal/access"
 	"github.com/flokkit/apptown/internal/apptown/agentenv"
 	"github.com/flokkit/apptown/internal/apptown/conformance"
 	"github.com/flokkit/apptown/internal/apptown/conversation"
@@ -41,6 +42,7 @@ import (
 	"github.com/flokkit/apptown/internal/console"
 	"github.com/flokkit/apptown/internal/console/consoletest"
 	"github.com/flokkit/apptown/internal/containerresult/containerresulttest"
+	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/execution"
@@ -2471,15 +2473,26 @@ app:
 			}
 		}
 		scene.later(time.Minute)
-		rel, err := a.Deployment.Releases.Start(ctx, deployment.ReleaseDraft{
-			Source: deployment.ReleaseFromBranch, ProjectID: project.ID, DeploymentID: prod.ID,
-			Deployment: "main", Revision: strings.TrimSpace(string(head)), Actor: "sam",
-		}, "local design capture")
+		draft := deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: project.ID, DeploymentID: prod.ID,
+			Deployment: "main", Revision: strings.TrimSpace(string(head)), Actor: "sam"}
+		image := ""
+		if i == 0 && os.Getenv("APPTOWN_DESIGN_AUDIT") != "" {
+			// A disposable daemon-image bundle exercises long image identifiers
+			// without claiming a registry publication or a portable build receipt.
+			image = "sha256:" + strings.Repeat("a", 64)
+			draft.BundleID, err = a.Deployment.Bundles.Cut(ctx, project.ID, draft.Revision,
+				map[string]string{"web": image}, map[string]string{}, []byte("local camera contract"), deployment.BundleOrigin{TargetID: prod.TargetID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			draft.Source = deployment.ReleaseFromBundle
+		}
+		rel, err := a.Deployment.Releases.Start(ctx, draft, "local design capture")
 		if err != nil {
 			t.Fatal(err)
 		}
 		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: prod.ID, TargetID: prod.TargetID,
-			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, Revision: strings.TrimSpace(string(head))}})
+			Key: fmt.Sprintf("design-release-%d", i), Inputs: deployment.Inputs{ReleaseID: rel.ID, BundleID: draft.BundleID, ImageDigest: image, Revision: strings.TrimSpace(string(head))}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -2534,6 +2547,52 @@ app:
 	if err := a.Deployment.ObserveRuntime(ctx); err != nil {
 		t.Fatal(err)
 	}
+	if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" {
+		// Deployment without a workflow run reproduces the activity/state
+		// contradiction. The source commit and deployment are real local records.
+		kitchen, revision, _ := fleetRepo(t, a, "kitchen-calendar", map[string]string{"index.html": "<h1>Kitchen calendar</h1>"})
+		env, err := a.Deployment.Deployments.EnsureStanding(ctx, kitchen, "main", productionHost.ID, deployment.Attributes{Feed: "manual", Audience: "public", DataClass: "production"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		at, _, err := a.Deployment.Outcomes.Admit(ctx, deployment.Start{DeploymentID: env.ID, TargetID: env.TargetID, Key: "camera-no-runs", Inputs: deployment.Inputs{Revision: strings.TrimSpace(revision)}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Outcomes.Complete(ctx, deployment.Completion{Attempt: at, Observed: deploy.Observation{Generation: at.Generation, Rollout: "active", Health: "healthy", URL: "https://calendar.example.test"}}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := a.Deployment.Deployments.ReserveHostPort(ctx, kitchen, env.Name, docker.ByKey(env.ID).App(), 43212); err != nil {
+			t.Fatal(err)
+		}
+		daemon.markStarted(docker.ByKey(env.ID).App())
+		if err := a.Deployment.ObserveRuntime(ctx); err != nil {
+			t.Fatal(err)
+		}
+		// An older saved consent outlives its original workflow declarations.
+		// Supply historical declarations to the real consent owner when creating
+		// it; the page then reads it under today's ordinary eligibility rules.
+		consent := workflow.NewStandingRules(a.DB, workflow.StandingDependencies{
+			Authority: access.Checked{Authority: a.Access, Projects: a.Projects}, Identity: a.Access,
+			Procedures: cameraStandingProcedure{}, Now: a.cfg.clock.Now,
+		})
+		in := workflow.StandingDefinition{Projects: []workflow.StandingProject{{ProjectID: project.ID, Workflow: "design-review"}}, Categories: workflow.StandingCategories{Dependencies: "patch", SecurityFixes: true}, Delivery: "land-only"}
+		person := access.WithCaller(ctx, access.Caller{Verified: true, Principal: access.Principal{ID: testPrincipalOf(t, a.DB, "sam"), Kind: "user", Name: "sam", Via: "session"}})
+		q, err := consent.Preview(person, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := consent.Enable(person, workflow.StandingCommand{Definition: in, ShownDigest: q.Digest}); err != nil {
+			t.Fatal(err)
+		}
+		failed, err := a.conformance.BeginReview(testConformanceContext("sam"), conformance.ReviewRequest{Trigger: "manual"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = failed.Finish(ctx, conformance.Completion{Projects: 2, Errors: 1}, conformance.ReviewError); err != nil {
+			t.Fatal(err)
+		}
+	}
 	// Keep the test daemon's observations fresh during the whole-site walk.
 	observeCtx, cancelObserve := context.WithCancel(ctx)
 	observeDone := make(chan struct{})
@@ -2554,9 +2613,64 @@ app:
 		}
 	}()
 	t.Cleanup(func() { cancelObserve(); <-observeDone })
+	// The local audit also covers installations that cannot run project chats.
+	// Rebuild admission after the tour, whose recorded chats need a local runtime.
+	if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" {
+		a.consoleAdmission = conversation.NewAdmission(a.DB, conversation.AdmissionDependencies{
+			Work: a.Work, Sessions: a.Console, Models: a.modelSelection, Briefing: a.briefing,
+			Harness: piHomeFor(a), Effects: a.changeConsole, Presence: holderPresenceFor(a),
+			NoLocal: true, Now: a.cfg.clock.Now,
+		}, a.cfg.dataDir)
+		rebuildRoutes(a)
+	}
+	scene.call("sam", "GET", "/api/v1/packs", nil)
 	api := a.Handler()
 	proxy := httputil.NewSingleHostReverseProxy(frontend)
+	var prepareCamera sync.Once
+	var prepareCameraErr error
+	var startCameraReview sync.Once
+	var cameraReviewErr error
 	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Finish the fixture's queued checks through their real worker path,
+		// so idle tabs can show their Check/Fix actions before the running stop.
+		if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" && r.URL.Path == "/" && r.URL.Query().Get("cameraPrepare") == "1" {
+			prepareCamera.Do(func() {
+				var reviews []conformance.ReviewSummary
+				reviews, prepareCameraErr = a.conformance.Reviews(testConformanceContext("sam"), 100)
+				if prepareCameraErr != nil {
+					return
+				}
+				for _, review := range reviews {
+					if review.Status != conformance.ReviewQueued {
+						continue
+					}
+					if _, prepareCameraErr = fleetReviewsFor(a).RunReviewJob(ctx, review.ID.String(), nil); prepareCameraErr != nil {
+						return
+					}
+				}
+			})
+			if prepareCameraErr != nil {
+				t.Errorf("camera queued reviews: %v", prepareCameraErr)
+				http.Error(w, "camera preparation failed", 500)
+				return
+			}
+		}
+		// The final camera stop starts an actual review, after the other
+		// tabs have been photographed with their available Check/Fix actions.
+		if os.Getenv("APPTOWN_DESIGN_AUDIT") != "" && r.URL.Path == "/conformance/reviews" && r.URL.Query().Get("cameraRunning") == "1" {
+			startCameraReview.Do(func() {
+				var running *conformance.Execution
+				running, cameraReviewErr = a.conformance.BeginReview(testConformanceContext("sam"), conformance.ReviewRequest{Trigger: "manual"})
+				if cameraReviewErr == nil {
+					cameraReviewErr = running.Progress(ctx, 1, "club-newsletter")
+				}
+			})
+			if cameraReviewErr != nil {
+				t.Errorf("camera running review: %v", cameraReviewErr)
+				http.Error(w, "camera review failed", 500)
+				return
+			}
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			api.ServeHTTP(w, r)
 			return
@@ -2573,7 +2687,7 @@ app:
 	run := (execution.Runner{}).Run(ctx, execution.Local, execution.Request{
 		Argv: []string{"node", "testdata/web-ui.mjs"},
 		Env: []string{"APPTOWN_PLAYWRIGHT_MODULE=" + module, "DESIGN_URL=https://" + a.cfg.publicHost,
-			"DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
+			"DESIGN_AUDIT=" + os.Getenv("APPTOWN_DESIGN_AUDIT"), "DESIGN_PAGES=" + os.Getenv("APPTOWN_DESIGN_PAGES"), "DESIGN_BASELINE=" + os.Getenv("APPTOWN_DESIGN_BASELINE"), "DESIGN_PASSWORD=" + password, "DESIGN_CHANGE=" + approvalChange, "DESIGN_OUT=" + out,
 			"TMPDIR=" + t.TempDir(), "PATH=" + os.Getenv("PATH"), "HOME=" + os.Getenv("HOME")},
 		Timeout: 10 * time.Minute,
 	})
@@ -2581,4 +2695,12 @@ app:
 	if run.RunErr != nil {
 		t.Fatal(fmt.Errorf("web UI camera: %w", run.RunErr))
 	}
+}
+
+// The camera supplies historical declarations only. Consent identity,
+// authority, immutable history and current eligibility still use their owners.
+type cameraStandingProcedure struct{}
+
+func (cameraStandingProcedure) StandingProcedure(context.Context, database.Queryer, ids.ID, string) (workflow.StandingProcedure, error) {
+	return workflow.StandingProcedure{Acceptance: workflow.StandingPurpose{Workflow: "design-review", Version: 1, Step: "accept", Means: "accept small dependency fixes after checks pass"}, Landing: workflow.StandingPurpose{Workflow: "land", Version: 1, Step: "accept", Means: "land the checked update"}}, nil
 }

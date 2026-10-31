@@ -349,9 +349,19 @@ func (s *Service) Runtime(ctx context.Context) ([]RuntimeDeployment, error) {
 	return s.runtimeProjects(ctx, access.CapDeploymentRead, nil)
 }
 
-// ProjectRuntime exposes only main/prod badges for readable requested projects.
-func (s *Service) ProjectRuntime(ctx context.Context, idList []ids.ID) (map[ids.ID]RuntimeObservation, error) {
-	out := make(map[ids.ID]RuntimeObservation)
+// ProjectRuntimeSummary keeps the most urgent deployment observation separate
+// from the production address and its running state.
+type ProjectRuntimeSummary struct {
+	RuntimeObservation
+	ProductionURL     string
+	ProductionRunning *bool
+	HasProduction     bool
+}
+
+// ProjectRuntime exposes the most urgent observation across each readable
+// project's deployments. An unreachable preview cannot hide behind healthy main.
+func (s *Service) ProjectRuntime(ctx context.Context, idList []ids.ID) (map[ids.ID]ProjectRuntimeSummary, error) {
+	out := make(map[ids.ID]ProjectRuntimeSummary)
 	if len(idList) == 0 {
 		return out, ctx.Err()
 	}
@@ -359,12 +369,42 @@ func (s *Service) ProjectRuntime(ctx context.Context, idList []ids.ID) (map[ids.
 	if err != nil {
 		return nil, err
 	}
+	return projectRuntimeSummaries(rows), nil
+}
+
+func projectRuntimeSummaries(rows []RuntimeDeployment) map[ids.ID]ProjectRuntimeSummary {
+	out := make(map[ids.ID]ProjectRuntimeSummary)
+	main := make(map[ids.ID]bool)
 	for _, r := range rows {
-		if r.Name == "main" || (r.Name == "prod" && out[r.ProjectID].ObservedAt.IsZero()) {
-			out[r.ProjectID] = r.Observation
+		summary, exists := out[r.ProjectID]
+		if !exists || runtimeUrgency(r.Observation) > runtimeUrgency(summary.RuntimeObservation) {
+			summary.RuntimeObservation = r.Observation
 		}
+		if r.Name == "main" || (r.Name == "prod" && !main[r.ProjectID]) {
+			summary.HasProduction = true
+			summary.ProductionURL = r.URL
+			summary.ProductionRunning = r.Observation.State.Running()
+			main[r.ProjectID] = r.Name == "main"
+		}
+		out[r.ProjectID] = summary
 	}
-	return out, nil
+	return out
+}
+
+func runtimeUrgency(o RuntimeObservation) int {
+	switch o.State {
+	case RuntimeUnreachable:
+		return 4
+	case RuntimeStopped:
+		return 3
+	case RuntimeUnknown:
+		return 2
+	default:
+		if o.Stale {
+			return 2
+		}
+		return 1
+	}
 }
 
 // RecentReleases is the newest releases of the projects where the verified

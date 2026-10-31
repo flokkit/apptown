@@ -146,15 +146,15 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
             <LaneBar lanes={p.lanes} total={p.total} width={200} />
           </div>
           <div className="muted small mt-1">
-            {p.sha ? <>judged <span className="mono">{shortSha(p.sha)}</span> · {fmtWhen(p.judgedAt)} · </> : null}
+            {p.judgedAt ? <>Checked {fmtWhen(p.judgedAt)} · </> : <>Not checked yet · </>}
             <Link to={`/projects/${slug}`} className="subtle">Open project →</Link>
           </div>
-          <details className="small mt-1"><summary>{p.adopted.length} adopted blocks</summary><div className="muted">{p.adopted.join(', ') || 'None'}</div></details>
+          <details className="small mt-1"><summary>{p.adopted.length} rules</summary><div className="muted">{p.adopted.join(', ') || 'None'}</div></details>
         </div>
         {!readOnly && (
           <span className="row" style={{ gap: 'var(--space-2)' }}>
-            {p.lanes.findings > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix all on this project</button>}
-            <button disabled={busy} onClick={() => onRunOne(slug)}>Re-review this project</button>
+            {p.lanes.findings > 0 && <button disabled={busy} onClick={() => remediation.start('project', slug)}>Fix {p.lanes.findings} problems</button>}
+            <button disabled={busy} onClick={() => onRunOne(slug)}>Check now</button>
           </span>
         )}
       </div>
@@ -163,9 +163,9 @@ export function ProjectPage({ view, slug, readOnly, onRunOne }: {
       <FixedSection slug={slug} />
       <LaneSection {...sectionProps} lane="findings" title="Findings" hint="the app does not meet these" />
       <LaneSection {...sectionProps} lane="broken" title="Couldn't run" hint="the check itself failed to run; the app is not judged" />
-      <LaneSection {...sectionProps} lane="flagged" title="Flagged by AI review" hint="a rubric judged this; confirm before it counts" />
-      <LaneSection {...sectionProps} lane="excepted" title="Excepted" hint="fails, but accepted on the record" />
-      <LaneSection {...sectionProps} lane="unassessed" title="Not yet judged" collapsed />
+      <LaneSection {...sectionProps} lane="flagged" title="Needs your review" hint="Confirm whether these are problems" />
+      <LaneSection {...sectionProps} lane="excepted" title="Approved exceptions" hint="fails, but accepted on the record" />
+      <LaneSection {...sectionProps} lane="unassessed" title="Not checked yet" collapsed />
       <LaneSection {...sectionProps} lane="na" title="Not applicable" hint="checks that apply to nothing this app declares, or that judge one change and run when a change lands; each says why" collapsed />
       <LaneSection {...sectionProps} lane="conforms" title="Conforms" collapsed />
     </div>

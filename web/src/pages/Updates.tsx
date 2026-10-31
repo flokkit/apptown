@@ -5,6 +5,7 @@ import { post } from '../api'
 import { PRODUCT } from '../brand'
 import { useGet } from '../data'
 import { useHolds } from '../instancePages'
+import { fmtStamp, relTime } from '../format'
 import { renderMd } from '../md'
 import type { InstanceUpdateStatus } from '../wire.gen'
 
@@ -51,23 +52,22 @@ function UpdateDetails() {
     {(query.err || error) && <div className="error" role="alert">{error || query.err}</div>}
     <button disabled={checking || data?.state === 'checking'} onClick={() => void check()}>{checking ? 'Checking…' : 'Check for updates'}</button>
     {!data ? <p role="status">Release status is unavailable.</p> : <>
-      <p className="status-strip"><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} help={states[data.state]} /></p>
-      <details><summary>Details</summary>
-      <dl className="facts">
+      <p className="status-strip"><Status word={data.statusLabel} tone={STATUS_LIGHT[data.statusLabel]} text={states[data.state]?.replace(/\.$/, '')} help={data.reason || states[data.state]} /></p>
+      <p className="muted">{data.lastSuccess ? `Checked ${relTime(data.lastSuccess)}` : 'No successful check yet'}</p>
+      <details><summary>Technical details</summary><dl className="facts">
         <dt>Installed build</dt><dd>{data.build} ({data.platform})</dd>
         <dt>Channel</dt><dd>{data.channel}</dd>
-        <dt>Last attempted check</dt><dd>{data.lastAttempt ?? 'Never'}</dd>
-        <dt>Last successful check</dt><dd>{data.lastSuccess ?? 'Never'}</dd>
-      </dl>
-      </details>
-      {data.reason && <p>{data.reason}</p>}
+        <dt>Last attempted check</dt><dd>{data.lastAttempt ? fmtStamp(data.lastAttempt) : 'Never'}</dd>
+        <dt>Last successful check</dt><dd>{data.lastSuccess ? fmtStamp(data.lastSuccess) : 'Never'}</dd>
+      </dl></details>
+
       <p><Link to="/docs/guides/upgrading">Read the upgrade guide</Link></p>
       {data.candidate && <section>
         <h2>{data.candidate.version}</h2>
-        <p>Verified source commit: <code>{data.candidate.commit}</code></p>
+        <details><summary>Build details</summary><p>Verified source commit: <code>{data.candidate.commit}</code></p>
         <p>Archive: <code>{data.candidate.archive.name}</code></p>
-        <p>SHA-256: <code>{data.candidate.archive.sha256}</code></p>
-        {data.state === 'available' && <HowToUpdate version={data.candidate.version} />}
+        <p>SHA-256: <code>{data.candidate.archive.sha256}</code></p></details>
+        {data.state === 'available' && <details><summary>How to update</summary><HowToUpdate version={data.candidate.version} /></details>}
         <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMd(data.candidate.notes) }} />
       </section>}
     </>}

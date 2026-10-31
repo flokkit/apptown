@@ -165,8 +165,8 @@ describe('starting an eval', () => {
     }))
     const r = await render('/evals/new', <EvalStartPage />, '/evals/new')
     try {
-      await r.settle(() => !!r.el.textContent?.includes('a model profile'))
-      const modelRadio = [...r.el.querySelectorAll('input[type=radio]')].find((i) => i.parentElement?.textContent?.includes('a model profile')) as HTMLInputElement
+      await r.settle(() => !!r.el.textContent?.includes('an AI setup'))
+      const modelRadio = [...r.el.querySelectorAll('input[type=radio]')].find((i) => i.parentElement?.textContent?.includes('an AI setup')) as HTMLInputElement
       await act(async () => { modelRadio.click() })
       await r.settle(() => r.el.querySelectorAll('select').length === 2)
       const [profile, project] = [...r.el.querySelectorAll('select')]
@@ -203,8 +203,8 @@ describe('starting an eval', () => {
     }))
     const r = await render('/evals/new', <EvalStartPage />, '/evals/new')
     try {
-      await r.settle(() => !!r.el.textContent?.includes('a model profile'))
-      const modelRadio = [...r.el.querySelectorAll('input[type=radio]')].find((i) => i.parentElement?.textContent?.includes('a model profile')) as HTMLInputElement
+      await r.settle(() => !!r.el.textContent?.includes('an AI setup'))
+      const modelRadio = [...r.el.querySelectorAll('input[type=radio]')].find((i) => i.parentElement?.textContent?.includes('an AI setup')) as HTMLInputElement
       await act(async () => { modelRadio.click() })
       await r.settle(() => r.el.querySelectorAll('select').length === 2)
       const [profile, project] = [...r.el.querySelectorAll('select')]

@@ -1,10 +1,8 @@
-import { GlanceRow } from '../GlanceRow'
 import { PRODUCT } from '../brand'
 import { FormEvent, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GuidanceBlock, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
-import { OriginChip } from '../OriginChip'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import type { GeneratedGuidance } from '../wire.gen'
@@ -82,7 +80,7 @@ export default function GuidanceLibrary() {
   }
 
   const shown = blocks.filter((b) => src === 'all' || (src === 'stock') === (b.origin === 'stock'))
-  const shownBytes = shown.reduce((n, b) => n + (b.bytes ?? 0), 0)
+  const [limit, setLimit] = useState(10)
 
   return (
     <div>
@@ -102,36 +100,24 @@ export default function GuidanceLibrary() {
       <StaleNote q={blocksQ} />
       {blocksQ.data ? <>
       <table className="stack">
-        <thead><tr><th>Block</th><th>Source</th><th>Latest</th><th title="what the block adds to an agent's context">Size</th><th>Tags</th><th>Updated</th></tr></thead>
+        <thead><tr><th>Guidance</th><th>Summary</th></tr></thead>
         <tbody>
-          {shown.map((b) => (
-            <GlanceRow name={0} fact={2} labels={["Block", "Source", "Version", "Size", "Tags", "Updated"]} key={b.id}>
-              <td className="stack-lead"><Link className="tap-open" to={`/guidance/${b.id}`}><code>{b.name}</code></Link></td>
-              <td>
-                <OriginChip origin={b.origin} />
-              </td>
-              <td>v{b.latestVersion}</td>
-              <td className="muted small" title={sizeTitle(b.bytes)}>{fmtSize(b.bytes)}</td>
-              <td className="muted small" data-label="tags">{b.tags}</td>
-              <td className="muted small" data-label="updated">{b.updatedAt.slice(0, 10)}</td>
-            </GlanceRow>
-          ))}
+          {shown.slice(0, limit).map((b) => <tr key={b.id}>
+            <td className="stack-lead"><Link className="tap-open" to={`/guidance/${b.id}`}>{b.name.split('/').at(-1)!.replaceAll('-', ' ')}</Link>{b.origin !== 'stock' && <span className="chip">Custom</span>}</td>
+            <td><details><summary>Summary</summary><p className="guidance-summary">{b.summary || 'No text yet'}</p></details></td>
+          </tr>)}
         </tbody>
       </table>
       {blocks.length === 0 && <div className="muted" style={{ padding: 16 }}>No blocks match.</div>}
-      {shown.length > 0 && (
-        <div className="muted small" style={{ marginTop: 6 }} title={sizeTitle(shownBytes)}>
-          {shown.length} blocks, {fmtSize(shownBytes)} in total.
-        </div>
-      )}
+      {shown.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more ({shown.length - limit})</button>}
       </> : <ReadStatus q={blocksQ} what="the guidance blocks" />}
-      <h2>New block</h2>
+      <details><summary>New guidance</summary>
       <form onSubmit={create} className="row">
         <input placeholder="name, e.g. prose/terse-style" value={name} onChange={(e) => setName(e.target.value)} required style={{ width: 260 }} />
         <input placeholder="tags, comma-separated" value={tags} onChange={(e) => setTags(e.target.value)} />
         <button className="primary" type="submit" disabled={busy}>Create v1</button>
-      </form>
-      <GeneratedGuidance />
+      </form></details>
+      <details><summary>Automatic guidance</summary><GeneratedGuidance /></details>
     </div>
   )
 }

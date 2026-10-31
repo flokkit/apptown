@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
+import { settled } from '../../../settled'
 import { newQueryClient } from '../../../data'
 import { MembersTab } from './Members'
 
@@ -58,4 +59,28 @@ describe('adding a member without AppTown directory', () => {
     expect(asked.some((u) => u.endsWith('/users'))).toBe(Object.keys(instance).length === 0)
     act(() => root.unmount())
   })
+})
+
+it('groups a person’s roles and omits disabled accounts from the picker', async () => {
+ const grant = { subjectType: 'person', subject: 'sam', roleTitle: 'Project owner', role: 'project-owner', id: 'owner' }
+ vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+  const data = url.includes('/authz/me') ? { instance: { 'institution:read-structure': true }, project: { 'project:manage-members': true } }
+   : url.endsWith('/users') ? { users: [{ username: 'sam', disabled: false }, { username: 'disabled-reader', disabled: true }] }
+   : url.endsWith('/groups') ? { groups: [{ name: 'all-authenticated-users' }] }
+   : url.includes('/authz/roles') ? roles
+   : url.includes('/authz/explain') ? { whoCan: ['sam'] }
+   : url.endsWith('/members') ? { roles: [grant, { ...grant, id: 'approver', role: 'project-approver', roleTitle: 'Project approver' }], open: false }
+   : { requireIndependentApproval: false }
+  return new Response(JSON.stringify(data))
+ }))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MembersTab slug="shop" /></QueryClientProvider>))
+  await settled(client)
+  expect(el.querySelectorAll('strong')).toHaveLength(1)
+  expect(el.textContent).toContain('owner, approver')
+  const options = [...el.querySelectorAll('option')].map(o => o.textContent)
+  expect(options).not.toContain('disabled-reader')
+  expect(options).toContain('Everyone signed in')
+ } finally { await act(async () => root.unmount()); client.clear() }
 })

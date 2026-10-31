@@ -93,7 +93,7 @@ spec:
       {err && <div className="error">{err}</div>}
       {msg && <div className="muted small">{msg}</div>}
       <div className="tabs" style={{ marginTop: 4 }}>
-        {([['core', 'Core'], ['extra', 'Extras'], ['system', 'System']] as const).map(([k, label]) => (
+        {([['core', 'Everyday work'], ['extra', 'More workflows'], ['system', `${PRODUCT} administration`]] as const).map(([k, label]) => (
           <button key={k} className={tier === k ? 'active' : ''} onClick={() => setTier(k)}>
             {label} <span className="muted small">{libs.filter((l) => (l.tier ?? 'extra') === k).length}</span>
           </button>
@@ -106,7 +106,7 @@ spec:
             <strong>{l.name}</strong>
             <OriginChip origin={l.origin} />
             <span className="chip">v{l.latestVersion}</span>
-            <span className="muted small">{l.kind}</span>
+
             <span style={{ flex: 1 }} />
             {l.origin !== 'stock' && <>
               <button className="subtle" onClick={() => { setSaveErr(''); setEditor({ yaml: l.yaml }) }}>edit</button>
@@ -129,7 +129,7 @@ spec:
           })()}
           <PhoneDetails>
           <div className="row muted small">
-            stages: {l.stages.map((s) => <span key={s} className="chip">{s}</span>)}
+            <span className="workflow-description">{l.description.split(/(?<=[.!?])\s/)[0]}</span>
             {tier !== 'system' && (
               l.usedBy.length > 0
                 ? <details style={{ display: 'inline-block', margin: 0 }}>
@@ -141,7 +141,7 @@ spec:
                 : <span>not used by any project</span>
             )}
           </div>
-          <details><summary className="muted small">Definition</summary><p>{l.description}</p><pre className="log">{l.yaml}</pre></details>
+          <details><summary className="muted small">Details</summary><p>{l.description}</p><p>{l.kind} · {l.stages.join(' → ')}</p><pre className="log">{l.yaml}</pre></details>
           </PhoneDetails>
         </div>
       ))}

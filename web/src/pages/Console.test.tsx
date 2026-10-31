@@ -45,7 +45,8 @@ describe('a chat says which kind it is from its first paint', () => {
   // while it connects.
   it('a change chat names its change while it connects', () => {
     const html = firstPaint(ON_CHANGE)
-    expect(html).toContain('connecting…')
+    expect(html).not.toContain('connecting…')
+    expect(html).toContain('Loading…')
     expect(html).toContain('Change chat')
     expect(html).toContain('Say what to change.')
     expect(html).not.toContain('Project chat')

@@ -86,7 +86,8 @@
 // [Service.RunObservations] refreshes display-only samples, separately from recovery
 // and Docker health enforcement. Placement and generation are rechecked after I/O.
 // [Service.ProjectRuntime] reads authorized cached observations without contacting
-// providers, and [Service.ObserveContainer] reads them for one deployment: a page
+// providers, showing the most urgent deployment state and a separate production
+// address. [Service.ObserveContainer] reads them for one deployment: a page
 // never waits on a host that does not answer. Missing, replaced or stale observations cannot authorize an action.
 // The subsystem operating guide documents freshness, source limits and shutdown.
 package deployment

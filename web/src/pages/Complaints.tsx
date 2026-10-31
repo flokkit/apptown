@@ -39,6 +39,7 @@ type Tab = 'new' | 'answered' | 'archived'
 export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
   const rowsQ = useGet<ComplaintList>('/complaints')
   const rows = rowsQ.data?.complaints ?? []
+  const [limit, setLimit] = useState(10)
   const [showSteering, setShowSteering] = useState(false)
   const steeringQ = useGet<ComplaintSteeringText>(showSteering ? '/complaints/steering' : null)
   const steering = steeringQ.data
@@ -64,7 +65,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
         {unseen > 0 && <span className="chip pending">{unseen} unread</span>}
         <span style={{ flex: 1 }} />
         <button className="subtle" onClick={toggleSteering}>
-          {showSteering ? 'hide the instructions' : 'what agents are told'}
+          {showSteering ? 'hide the instructions' : 'Instructions for reporting problems'}
         </button>
         {unseen > 0 && <button className="subtle" disabled={busy} onClick={markSeen}>mark all read</button>}
         {canEdit && tab !== 'archived' && older > 0 && (
@@ -100,7 +101,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
         tab === 'archived' ? <div className="muted">Nothing archived. Archived complaints are deleted after ninety days.</div>
         : tab === 'answered' ? <div className="muted">Nothing answered and waiting to be read. Answers stay here until someone archives them.</div>
         : <div className="muted">{rows.length === 0 ? 'No complaints.' : 'No new complaints.'}</div>)}
-      {shown.map((c) => (
+      {shown.slice(0, limit).map((c) => (
         <div key={c.id} className="card" style={{ marginBottom: 8, opacity: c.seen ? 0.65 : 1 }}>
           <div className="row">
             <span className="chip">{c.source}</span>
@@ -133,6 +134,7 @@ export default function Complaints({ tab = 'new' }: { tab?: Tab }) {
           )}
         </div>
       ))}
+      {shown.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more ({shown.length - limit})</button>}
     </div>
   )
 }

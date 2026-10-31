@@ -70,6 +70,10 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
     setPageContext({ crumbs: [{ label: shopId ? `Chat · ${shopName}` : 'Chat' }] })
     return () => setPageContext({})
   }, [shopId, shopName])
+  if (!session && openErr) return <div><h1>Chat is not available here</h1>
+    <p><Link to={`/projects/${slug}`}>Open a change from the project</Link></p>
+    <details><summary>Details</summary><p>{openErr}</p>{appTownInstead && <button onClick={() => void open('apptown')}>Open it on {PRODUCT} instead</button>}</details>
+  </div>
   return (
     <div className={`console ${isWorkshop ? 'console-workshop' : 'console-desk'}`}>
       {/* One row, three zones (layering: story left, escape hatches right):
@@ -85,12 +89,12 @@ function ChatPage({ slug, changeId, forcedSession, kickoff }: { slug: string; ch
           ? <Link className="chip here" to={`/changes/${shopId}`}
               title="What you and the helper change here is saved onto this change.">{shopName}</Link>
           : <span className="chip here" title="This chat answers questions, helps set things up and starts work. Building happens in a change chat; the helper gives you the link.">questions &amp; setup</span>}
-        {(!session || session.mayAct) && status !== 'attached' && (
+        {session?.mayAct && status !== 'attached' && (
           <span className="chip pending">{status === 'connecting' ? 'connecting…' : 'reconnecting…'}</span>
         )}
         <span style={{ flex: 1 }} />
         {session?.mayAct && zoom === 'chat' && <AgentActivity busy={robotBusy} connected={status === 'attached'} />}
-        <button className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
+        <button disabled={!session} className="subtle" onClick={() => setZoomKeep(zoom === 'chat' ? 'terminal' : 'chat')}>
           {zoom === 'chat' ? 'Terminal ▾' : '← back to the chat'}
         </button>
         <details className="head-menu">

@@ -20,8 +20,10 @@ import (
 
 // Block is one row of guidance_blocks, with the shown version's size.
 type Block struct {
-	ID            ids.ID `json:"id"`
-	Name          string `json:"name"`
+	ID   ids.ID `json:"id"`
+	Name string `json:"name"`
+	// Summary is a bounded excerpt of the latest text for library browsing.
+	Summary       string `json:"summary"`
 	Tags          string `json:"tags"`
 	LatestVersion int    `json:"latestVersion"`
 	BodyMD        string `json:"bodyMd,omitempty"`
@@ -117,14 +119,15 @@ func (s *Library) VersionBody(ctx context.Context, blockID ids.ID, version int) 
 	return string(r.BodyMd), err
 }
 
-// All lists blocks by name with their latest version's size, narrowed by
-// the filter.
+// All lists blocks by name with their latest version's size and a bounded
+// excerpt, narrowed by the filter. Complete bodies stay on the detail read.
 func (s *Library) All(ctx context.Context, f BlockFilter) ([]Block, error) {
 	rows, err := wowsql.New(s.db.SQL()).BlocksMatchingMeta(ctx, wowsql.BlocksMatchingMetaParams{Query: f.Query, Tag: f.Tag})
 	out := make([]Block, 0, len(rows))
 	for _, r := range rows {
 		b := blockRecord(r.GuidanceBlock)
 		b.Bytes = int(r.BodyBytes)
+		b.Summary = strings.Join(strings.Fields(r.Excerpt), " ")
 		out = append(out, b)
 	}
 	return out, err

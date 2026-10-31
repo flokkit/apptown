@@ -15,7 +15,7 @@ type Row = Record<string, string | number>
 // Usage is recorded by kind: a workflow step, a chat, or the
 // purpose of one of AppTown's own calls (narrative, conformance-review, …),
 // which reads as written.
-export const LANE_LABEL: Record<string, string> = { step: 'workflow', console: 'interactive' }
+export const LANE_LABEL: Record<string, string> = { step: 'Automated work', console: 'Chat', 'guidance-checklist': 'Rule checks', 'conformance-review': 'Project checks', 'approval-brief': 'Approval summaries', 'pack-assistance': 'Ways of working help', 'what-if': 'Setup comparisons', 'project-description': 'Project descriptions', narrative: 'Summaries' }
 const LANE_COLOR: Record<string, string> = { step: 'var(--accent)', console: 'var(--note)' }
 
 function StatCard({ label, value, sub }: { label: string; value: React.ReactNode; sub?: React.ReactNode }) {
@@ -82,13 +82,13 @@ export function TimingView({ days }: { days: number }) {
         return (
           <div key={wf.workflow} className="card">
             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-              <h3 style={{ margin: 0 }}>{wf.workflow}</h3>
+              <h3 style={{ margin: 0 }}>{wf.workflow === 'land' ? 'Landing a change' : wf.workflow.replaceAll('-', ' ')}</h3>
               <span className="muted small">
                 {wf.runs} run{wf.runs === 1 ? '' : 's'} · a typical run takes {sec(wf.totalMedianMs)} from open to its last step
                 {cost ? ` · ${cost} in agent time` : ''}
               </span>
             </div>
-            {wf.steps.map((s) => {
+            {[...wf.steps].sort((a, b) => (b.waitMedianMs + b.medianMs) - (a.waitMedianMs + a.medianMs)).slice(0, 3).map((s) => {
               const isApproval = s.type === 'approval'
               const waitPct = (s.waitMedianMs / max) * 100
               const tookPct = (s.medianMs / max) * 100
@@ -96,13 +96,13 @@ export function TimingView({ days }: { days: number }) {
                 <div key={s.stage + '/' + s.name} className="bar-row">
                   <div className="bar-row-head">
                     <span className="bar-row-label">
-                      <span className="muted">{s.stage} · </span>{s.name}
+                      {s.name.replaceAll('-', ' ')}
                       {s.reworks > 0 && <span className="muted"> · reworked {s.reworks}×</span>}
                     </span>
                     <span className="muted" style={{ whiteSpace: 'nowrap' }}>
                       {isApproval
                         ? `waited ${sec(s.waitMedianMs)} for a person`
-                        : `waited ${sec(s.waitMedianMs)} · took ${sec(s.medianMs)} (p90 ${sec(s.p90Ms)}, max ${sec(s.maxMs)})`}
+                        : `waited ${sec(s.waitMedianMs)} · took ${sec(s.medianMs)}`}
                       {spend(s.costMicros, s.costIncomplete) && ` · ${spend(s.costMicros, s.costIncomplete)}`}
                     </span>
                   </div>
@@ -192,13 +192,14 @@ function DailyChart({ days, perDay, shownFrom }: { days: string[]; perDay: Map<s
         <span className="muted small">{shownFrom?.slice(5)}</span>
         <span className="muted small">{days[days.length - 1]?.slice(5)}</span>
       </div>
-      <div className="usage-day" aria-live="polite">{detail}</div>
+      <div className="usage-day" aria-live="polite">{picked !== null ? detail : null}</div>
     </div>
   )
 }
 
 export function UsageView({ project }: { project?: string }) {
   const [window, setWindow] = useState(30)
+  const [tab, setTab] = useState<'summary' | 'details' | 'timing'>('summary')
   const q = new URLSearchParams({ window: String(window) })
   if (project) q.set('project', project)
   const uq = useGet<UsageReport>(`/usage?${q}`)
@@ -207,9 +208,8 @@ export function UsageView({ project }: { project?: string }) {
   if (!data) return <ReadStatus q={uq} what="the usage" />
 
   const hasCost = data.totals.costMicros > 0
-  const interactive = Number(data.byKind.find((k) => k.kind === 'console')?.total ?? 0)
-  const workflow = data.totals.total - interactive
-  const cachePct = data.totals.total > 0 ? Math.round((data.totals.cacheRead / data.totals.total) * 100) : 0
+  const chatCost = Number(data.byKind.find((k) => k.kind === 'console')?.costMicros ?? 0)
+  const workCost = data.totals.costMicros - chatCost
 
   // Daily chart: fill every day in the window so gaps are visible.
   const days: string[] = []
@@ -233,21 +233,10 @@ export function UsageView({ project }: { project?: string }) {
     <div>
       <StaleNote q={uq} />
       <div className="row usage-stats" style={{ marginBottom: 14, alignItems: 'stretch' }}>
-        <StatCard label="Tokens" value={fmtTokens(data.totals.total)}
-          sub={<>↑{fmtTokens(data.totals.input)} in · ↓{fmtTokens(data.totals.output)} out</>} />
-        <StatCard label="Cost" value={`${data.totals.incomplete > 0 ? 'at least ' : ''}${hasCost ? fmtCost(data.totals.costMicros) : '$0'}`}
-          sub={data.totals.incomplete > 0
-            ? `${data.totals.incomplete} model ${data.totals.incomplete === 1 ? 'call' : 'calls'} spent an unknown amount`
-            : hasCost ? 'estimated per message' : 'local backends'} />
-        <StatCard label="Agents vs chat"
-          value={
-            <div className="lane-split" title={`workflow ${fmtTokens(workflow)} · interactive ${fmtTokens(interactive)}`}>
-              <div style={{ width: `${data.totals.total ? (workflow / data.totals.total) * 100 : 50}%`, background: LANE_COLOR.step }} />
-              <div style={{ flex: 1, background: LANE_COLOR.console }} />
-            </div>
-          }
-          sub={<><span style={{ color: LANE_COLOR.step }}>■</span> workflow {fmtTokens(workflow)} · <span style={{ color: LANE_COLOR.console }}>■</span> interactive {fmtTokens(interactive)}</>} />
-        <StatCard label="Cache reads" value={`${cachePct}%`} sub={`${fmtTokens(data.totals.cacheRead)} tokens served from cache`} />
+        <StatCard label={`Cost in ${window} days`} value={`$${(data.totals.costMicros / 1e6).toFixed(2)}`}
+          sub={data.totals.incomplete > 0 ? 'Some calls not priced.' : 'Estimated cost'} />
+        <StatCard label="Automated work" value={`$${(workCost / 1e6).toFixed(2)}`} sub="Recorded cost" />
+        <StatCard label="Chat" value={`$${(chatCost / 1e6).toFixed(2)}`} sub="Recorded cost" />
         <span style={{ flex: 1 }} />
         <div className="row" style={{ alignItems: 'flex-start' }}>
           {[7, 30, 90].map((w) => (
@@ -256,11 +245,16 @@ export function UsageView({ project }: { project?: string }) {
         </div>
       </div>
 
+      <div className="tabs" aria-label="Usage views">
+        {(['summary', 'details', 'timing'] as const).filter(t => !project || t !== 'timing').map(t => <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>{t === 'summary' ? 'Summary' : t === 'details' ? 'Details' : 'Time spent'}</button>)}
+      </div>
+      {tab === 'details' && <>
+      <p className="muted small">{fmtTokens(data.totals.total)} tokens · {fmtTokens(data.totals.cacheRead)} from saved responses</p>
       <DailyChart days={days} perDay={perDay} shownFrom={shownDays[0]} />
 
       <div className="row" style={{ alignItems: 'stretch', gap: 12 }}>
         <BarList title="By model" rows={data.byModel} labelKey="model" hasCost={hasCost}
-          mapLabel={(m) => m.length > 42 ? m.slice(0, 20) + '…' + m.slice(-19) : m} />
+          mapLabel={(m) => m.split('/').at(-1)!.replaceAll('-', ' ')} />
         <BarList title={project ? 'By workflow' : 'By project'}
           rows={project ? data.byWorkflow : data.byProject}
           labelKey={project ? 'workflow' : 'project'} hasCost={hasCost} />
@@ -268,7 +262,8 @@ export function UsageView({ project }: { project?: string }) {
           mapLabel={(k) => LANE_LABEL[k] ?? k} />
       </div>
 
-      {!project && (
+      </>}
+      {!project && tab === 'timing' && (
         <div style={{ marginTop: 16 }}>
           <h2 style={{ marginBottom: 4 }}>Where the time goes</h2>
           <div className="muted small" style={{ marginBottom: 10 }}>

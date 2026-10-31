@@ -8,7 +8,9 @@ and the person who enabled it. Changes create new revisions; history is retained
 Automatic processing is not available. Saving consent does not update, accept,
 land or deploy software. No existing approval or imported rule enables it.
 
-The project’s Janitor page previews the exact consent before saving. Full delivery
+The Janitor page shows Coming soon and offers no new consent form. Saved consent
+can be disabled, revised or read with its history under Details. A revision
+previews the exact consent before saving. Full delivery
 requires explicit environments for every selected project, deployment authority
 and promotion consent where required. Nothing selects a default environment on
 the person's behalf. “Accept and land only” explicitly leaves running software

@@ -83,10 +83,10 @@ export const code: CSSProperties = { fontSize: 'var(--fs-xs)', whiteSpace: 'pre-
 // --- small parts ---------------------------------------------------------------------------
 
 export function StandingChip({ label, help }: { label: import('../../wire.gen').CheckLabel; help: string }) {
-  return <Status word={label} tone={STATUS_LIGHT[label]} help={help} />
+  return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not fully checked' : undefined} help={help} />
 }
 export function StateChip({ label, help }: { label: import('../../wire.gen').CheckLabel; help?: string }) {
-  return <Status word={label} tone={STATUS_LIGHT[label]} help={help} />
+  return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not fully checked' : undefined} help={help} />
 }
 
 export function SevDot({ sev }: { sev: string }) {
@@ -123,7 +123,7 @@ export function LensBanner({ view }: { view: ConformanceView }) {
         <div>
           <strong>As of review #{r.number}</strong>
           <span className="muted small"> · {fmtWhen(r.finishedAt || r.startedAt)} · {r.actor} · {r.trigger} · {r.projects} project{r.projects === 1 ? '' : 's'}</span>
-          {d && (
+          {d && d.comparedProjects > 0 && (
             <div className="small" style={{ marginTop: 3 }}>
               Since the review before it, over {d.comparedProjects} project{d.comparedProjects === 1 ? '' : 's'} in both:{' '}
               <span style={{ color: d.fixed ? 'var(--ok)' : undefined, fontWeight: d.fixed ? 600 : 400 }}>{d.fixed} fixed</span>

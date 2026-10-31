@@ -4,7 +4,7 @@ import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { getKey, newQueryClient } from '../data'
-import { ExternalProviderSettings } from './ExternalSignIn'
+import { ExternalProviderSettings, MyExternalSignIn } from './ExternalSignIn'
 import type { ExternalProvider } from '../wire.gen'
 ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
 
@@ -24,4 +24,14 @@ it('retains an edit and refuses saving it after another provider revision replac
   expect(Array.from(el.querySelectorAll('button')).find(b => b.textContent === 'Save disabled configuration')?.disabled).toBe(true)
   expect(fetch.mock.calls.every(call => call.length === 1 || !(call as unknown as [string, RequestInit])[1]?.method)).toBe(true)
   await act(async () => { root.unmount() })
+})
+
+it('leads Your account with the signed-in name rather than only linking controls', async () => {
+ vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(url.endsWith('/auth/me') ? { user: 'sam', role: 'admin', mode: 'internal' } : { bindings: [] }))))
+ const client = newQueryClient(), el = document.createElement('div'), root = createRoot(el)
+ try {
+  await act(async () => root.render(<QueryClientProvider client={client}><MyExternalSignIn /></QueryClientProvider>))
+  await vi.waitFor(() => expect(el.querySelector('strong')?.textContent).toBe('sam'))
+  expect(el.textContent).toContain('sam · Admin')
+ } finally { await act(async () => root.unmount()); client.clear() }
 })

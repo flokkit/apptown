@@ -1,11 +1,11 @@
 import { GlanceRow } from '../GlanceRow'
+import { Status } from '../Status'
 import { RuntimeObservation, RuntimeStatus } from '../runtime'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import { ConnIcon } from '../icons'
 import type { ProjectCleanupList, ProjectPage, ProjectRow } from '../wire.gen'
 
 // Projects: find yours. The big find filters the grid as you type; the
@@ -15,11 +15,7 @@ import type { ProjectCleanupList, ProjectPage, ProjectRow } from '../wire.gen'
 type ProjRow = Omit<ProjectRow, keyof RuntimeObservation> & RuntimeObservation
 type ProjPage = Omit<ProjectPage, 'projects'> & { projects: ProjRow[] }
 
-const TOOL_ICON: Record<string, string> = {
-  go: 'go', rust: 'rust', node: 'node', python: 'pypi', java: 'maven', maven: 'maven',
-}
-
-const rel = (ts: string): string => relTime(ts) || 'nothing shipped yet'
+const rel = (ts: string): string => relTime(ts) || 'No changes yet'
 
 // After a delete (?removed=<slug>): the records are gone at once, and a
 // queued cleanup takes down the app and removes previews, volumes and
@@ -109,13 +105,13 @@ export default function Projects() {
             </div>
           )}
           <table className="stack project-list">
-            <thead><tr><th>Application</th><th>Stack</th><th>Activity</th><th>Updated</th><th>State</th></tr></thead>
-            <tbody>{(byNs.get(ns) ?? []).map((p) => <GlanceRow name={0} state={4} summary={<>{p.activeItems ?? 0} in progress</>} labels={["Application", "Stack", "Activity", "Updated", "State"]} key={p.id}>
+            <thead><tr><th>Application</th><th>Activity</th><th>Updated</th><th>State</th></tr></thead>
+            <tbody>{(byNs.get(ns) ?? []).map((p) => <GlanceRow name={0} state={3} summary={<>{p.activeItems ?? 0} in progress</>} labels={["Application", "Activity", "Updated", "State"]} key={p.id}>
               <td className="stack-lead"><Link className="tap-open" to={`/projects/${p.slug}`}><strong>{p.icon && <span aria-hidden>{p.icon} </span>}{p.name}</strong></Link>{p.blurb && <div className="small muted project-description">{p.blurb}</div>}</td>
-              <td data-label="stack">{(p.toolchain ?? []).map(t => <span key={t} className="chip">{TOOL_ICON[t] && <ConnIcon name={TOOL_ICON[t]} size={11} />} {t}</span>)}</td>
-              <td data-label="activity" className="small">{p.activeItems ?? 0} in progress · {p.doneRuns} shipped</td>
+
+              <td className="project-extra" data-label="activity">{p.activeItems ?? 0} in progress · {p.doneRuns} shipped</td>
               <td data-label="updated" className="muted small">{rel(p.lastRunAt)}</td>
-              <td className="stack-end">{p.deployed !== false ? <RuntimeStatus observation={p} /> : <span className="muted small">Not deployed</span>}</td>
+              <td className="stack-end">{p.hasDeployments !== false ? <RuntimeStatus observation={p} /> : <Status word="none" text="Not deployed" tone="" />}</td>
             </GlanceRow>)}</tbody>
           </table>
         </section>

@@ -7,7 +7,7 @@ export const STATUS_LIGHT = {
 } as const satisfies Record<'low' | 'blocked' | DisplayStatus | RuntimeState | HealthStatus | CheckLabel | ReleaseLabel | UpdateLabel | CopyLabel | JobLabel | TargetLabel | DepartureLabel | ResourceLabel | ProgressLabel | ADRLabel, string>
 
 // The server supplies the word; help stays beside the chip on touch and keyboard.
-export function Status({ word, tone, help }: { word: keyof typeof STATUS_LIGHT; tone: string; help?: string }) {
+export function Status({ word, tone, help, text }: { text?: string; word: keyof typeof STATUS_LIGHT; tone: string; help?: string }) {
   const ref = useRef<HTMLDetailsElement>(null)
   useEffect(() => {
     const closeOutside = (event: PointerEvent) => {
@@ -26,7 +26,7 @@ export function Status({ word, tone, help }: { word: keyof typeof STATUS_LIGHT; 
       document.removeEventListener('keydown', closeOnEscape)
     }
   }, [])
-  const chip = <span className={`chip ${tone}`} title={help} aria-label={help ? `${word}: ${help}` : undefined}><span aria-hidden="true">● </span>{word}</span>
+  const chip = <span className={`chip ${tone}`} title={help} aria-label={help ? `${text ?? word}: ${help}` : undefined}><span aria-hidden="true">● </span>{text ?? word}</span>
   if (!help) return chip
   return <details ref={ref} className="status-help" onClick={(e) => e.stopPropagation()}>
     <summary onClick={(e) => {

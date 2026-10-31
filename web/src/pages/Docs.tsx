@@ -94,8 +94,8 @@ export default function DocsPage() {
           </select>
           <nav className="conn-subnav">
             {manifest.groups.map((group) => (
-              <div key={group.title} className="docs-group" role="group" aria-label={group.title}>
-                <h2 className="docs-group-title">{group.title}</h2>
+              <details key={group.title} className="docs-group" aria-label={group.title} open={group.guides.some(g => section === 'guides' && slug === g.slug)}>
+                <summary className="docs-group-title">{group.title}</summary>
                 {group.guides.map((g) => (
                   <button
                     key={g.slug}
@@ -103,11 +103,11 @@ export default function DocsPage() {
                     onClick={() => nav(`/docs/guides/${g.slug}`)}
                   >{g.title}</button>
                 ))}
-              </div>
+              </details>
             ))}
             {manifest.integrations.length > 0 && (
-              <div className="docs-group" role="group" aria-label="Integrations">
-                <h2 className="docs-group-title">Integrations</h2>
+              <details className="docs-group" aria-label="Integrations">
+                <summary className="docs-group-title">Integrations</summary>
                 {manifest.integrations.map((i) => (
                   <button
                     key={`${i.capability}-${i.provider}`}
@@ -115,7 +115,7 @@ export default function DocsPage() {
                     onClick={() => nav(`/docs/${i.capability}/${i.provider}`)}
                   >{i.title}</button>
                 ))}
-              </div>
+              </details>
             )}
           </nav>
           <div className="docs-body">

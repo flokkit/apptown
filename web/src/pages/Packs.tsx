@@ -1,9 +1,9 @@
-import { PhoneDetails } from '../GlanceRow'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { renderMd } from '../md'
 import { GuidanceBlock, del, post } from '../api'
 import { fmtSize, sizeTitle } from '../format'
+import { Status, STATUS_LIGHT } from '../Status'
 import { OriginChip } from '../OriginChip'
 import { Modal } from '../Modal'
 import { QuietConfirm } from '../QuietConfirm'
@@ -109,6 +109,7 @@ export default function Packs() {
   const [inspecting, setInspecting] = useState<PackView | null>(null)
   const { run, busy, err: actErr } = useAction()
   const [msg, setMsg] = useState('')
+  const [showAll, setShowAll] = useState(false)
 
   const blank = (): Draft => draftFrom('', '', { guidance: [], workflows: [], policies: [] })
   const copyOf = (p: PackView): Draft => draftFrom(`${p.name}-ours`, '', p.declaration)
@@ -141,38 +142,37 @@ export default function Packs() {
       {inspecting && <PackInspect pack={inspecting} onClose={() => setInspecting(null)} />}
 
       <div className="pack-grid">
-        {packs.map((p) => (
+        {(showAll ? packs : packs.slice(0, 8)).map((p) => (
           <div key={p.name} className="card" style={{ margin: 0, opacity: p.enabled === false ? 0.6 : 1 }}>
             <div className="row">
               <Link to={`/packs/${p.name}`}><strong>{p.name}</strong></Link>
-              <OriginChip origin={p.origin} />
+              {p.origin !== 'stock' && <span className="chip">Custom</span>}
               {p.version ? <span className="chip" title="New projects get this version">v{p.version}</span> : null}
-              {p.enabled === false && <span className="chip" title="not offered when a project is made">not offered</span>}
+              <span className="chip">{p.enabled === false ? 'Hidden' : 'Available'}</span>
             </div>
 
             {p.requires.some(r => !r.bound) && (
               <div className="small" style={{ marginTop: 10 }}>
-                <span className="chip pending">Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</span>
+                <Status word="waiting" tone={STATUS_LIGHT.waiting} text="Setup needed" /><details><summary>What needs setting up?</summary>Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</details>
               </div>
             )}
-            <PhoneDetails>
-            <div className="row pack-actions" style={{ marginTop: 10 }}>
+            <details style={{ marginTop: 10 }}><summary>Actions</summary><div className="row pack-actions">
               <button className="subtle" onClick={() => setInspecting(p)}>Contents</button>
               <button className="subtle" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy</button>
               {p.enabled === false
-                ? <button className="subtle" disabled={busy} onClick={() => void setOn(p, true)}>Offer</button>
-                : <button className="subtle" disabled={busy} onClick={() => void setOn(p, false)}>Unlist</button>}
+                ? <button className="subtle" disabled={busy} onClick={() => void setOn(p, true)}>Make available</button>
+                : <button className="subtle" disabled={busy} onClick={() => void setOn(p, false)}>Hide</button>}
               {p.origin !== 'stock' && (
                 <>
                   <button className="subtle" onClick={() => setEditing({ draft: declared(p), existing: true })}>Edit</button>
                   <QuietConfirm label="Delete" ask={`Delete pack "${p.name}"? Projects that applied it keep the versions they applied.`} onYes={() => void remove(p)} />
                 </>
               )}
-            </div>
-            </PhoneDetails>
+            </div></details>
           </div>
         ))}
       </div>
+      {!showAll && packs.length > 8 && <button onClick={() => setShowAll(true)}>Show all packs ({packs.length})</button>}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { GlanceRow } from '../../GlanceRow'
 import { Status, STATUS_LIGHT } from '../../Status'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -12,6 +13,7 @@ import { OUTCOME_ORDER, OUTCOME_WORDS } from '../WhatIfPage'
 // many projects it moves rules back on. Each opens its own page, where
 // adopting from it happens.
 export function WhatIfsList() {
+  const [limit, setLimit] = useState(10)
   const q = useGet<RecentWhatIfs>('/conformance/what-ifs', { poll: 5000 })
   if (!q.data) return <ReadStatus q={q} what="the what-ifs" />
   const list = q.data.whatIfs
@@ -24,22 +26,22 @@ export function WhatIfsList() {
       {list.length === 0 && <div className="muted">No what-ifs yet.</div>}
       {list.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="small" style={{ width: '100%' }}>
+          <table className="small stack" style={{ width: '100%' }}>
             <thead><tr><th>Pack version</th><th>Asked</th><th>State</th><th>Answers</th></tr></thead>
             <tbody>
-              {list.map((w) => {
+              {list.slice(0, limit).map((w) => {
                 const counts: Record<string, number> = {}
                 for (const p of w.projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
                 return (
                   <GlanceRow name={0} state={2} summary={<>{w.projects.length} projects</>} labels={["Pack", "Asked", "State", "Answers"]} key={w.id}>
-                    <td><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <div className="muted">and other workflows to newest</div>}</td>
+                    <td><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <details><summary>Other changes</summary>and other workflows to newest</details>}</td>
                     <td>{w.requestedBy}<div className="muted">{relTime(w.createdAt)}</div></td>
                     <td><Status word={w.statusLabel} tone={STATUS_LIGHT[w.statusLabel]} help={w.detail || w.state} /></td>
                     <td>
-                      <div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>
+                      <details><summary>{w.projects.length} apps · Results</summary><div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>
                         {OUTCOME_ORDER.filter((o) => counts[o]).map((o) => <span key={o}>{counts[o]} <Status word={w.outcomeLabels[o]} tone={STATUS_LIGHT[w.outcomeLabels[o]]} help={OUTCOME_WORDS[o]} /></span>)}
                         {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
-                      </div>
+                      </div></details>
                     </td>
                   </GlanceRow>
                 )
@@ -48,6 +50,7 @@ export function WhatIfsList() {
           </table>
         </div>
       )}
+      {list.length > limit && <button onClick={() => setLimit(n => n + 10)}>Show more</button>}
     </div>
   )
 }

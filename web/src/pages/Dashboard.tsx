@@ -1,17 +1,15 @@
-import { PhoneDetails } from '../GlanceRow'
-import { useNarrow } from '../chrome'
 import { Status, STATUS_LIGHT } from '../Status'
 import { useAttention, attentionState } from '../attention'
 import { PRODUCT } from '../brand'
-import { AppAddress, RuntimeObservation, RuntimeStatus } from '../runtime'
+import { RuntimeObservation, RuntimeStatus } from '../runtime'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Dashboard as DashboardData, post } from '../api'
 import { useAction, useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { relTime } from '../format'
-import { ActiveRunList, ChangeHistoryTable, ChangeRow, RunRow } from '../parts/runActivity'
-import type { DeploymentView, Operation, ProjectRow, SetupState } from '../wire.gen'
+import { ActiveRunList, ChangeRow, RunRow } from '../parts/runActivity'
+import type { Operation, ProjectRow, SetupState } from '../wire.gen'
 import { endedWords } from './DataProtection'
 import { LocalTrialNote } from '../LocalTrialNote'
 
@@ -29,7 +27,7 @@ export type Activity = {
 }
 type Setup = SetupState
 
-const rel = (ts: string): string => relTime(ts) || 'nothing shipped yet'
+const rel = (ts: string): string => relTime(ts) || 'No changes yet'
 
 // First-run onboarding: a fresh AppTown says what
 // it needs instead of sitting silently inert.
@@ -106,7 +104,7 @@ export function homeStatus({ needsYou, running, deployments, operations }: {
   else if (needsYou > 0) parts.push(`${needsYou} needs you`)
   if (running > 0) parts.push(`${running} running`)
   if (operations.count) parts.push(`${operations.count} host issues`)
-  else if (!operations.known) parts.push('host status unknown')
+  else if (!operations.known) parts.push('server status not available')
   if (needsYou === 0 && running === 0 && operations.known && operations.count === 0) parts.unshift('All quiet')
   // An app is live when one of its deployments was seen running on the
   // latest check. One whose status is not current (stale or unknown) and
@@ -150,7 +148,6 @@ export function homeFinished(history: ChangeRow[]): ChangeRow[] {
 }
 
 export default function Dashboard() {
-  const narrow = useNarrow()
   const operationsQ = useAttention()
   const actQ = useGet<Activity>('/activity', { poll: 5000 })
   const dashQ = useGet<DashboardData>('/dashboard', { poll: 5000 })
@@ -237,11 +234,12 @@ export default function Dashboard() {
               <Link to={`/projects/${p.slug}`} className="row tap-open" style={{ textDecoration: 'none', color: 'inherit' }}>
                 {p.icon && <span aria-hidden>{p.icon}</span>}
                 <strong>{p.name}</strong>
-                {narrow && (p.deployed ? <RuntimeStatus observation={p} /> : <span className="muted small">Not deployed</span>)}
               </Link>
               {p.blurb && <div className="muted small project-description">{p.blurb}</div>}
-              <div className="muted small">{p.lastRunAt ? rel(p.lastRunAt) : 'nothing shipped yet'}</div>
-              <HomeDeployments slug={p.slug} />
+              <div className="muted small project-meta">{rel(p.lastRunAt)}</div>
+              <div className="row" style={{ marginTop: 8 }}>{p.hasDeployments === false
+                ? <Status word="none" text="Not deployed" tone="" />
+                : <RuntimeStatus observation={projectsQ.refreshFailed ? { ...p, observation: 'unknown', observationStale: true, observationIssue: projectsQ.reason } : p} />}{p.productionUrl && <a className="dash-app" href={p.productionUrl} target="_blank" rel="noreferrer">Open app ↗</a>}</div>
             </div>
           )
         })}
@@ -252,7 +250,7 @@ export default function Dashboard() {
 
       {finished.length > 0 && <>
         <h2>Recently finished</h2>
-        <ChangeHistoryTable changes={finished} showProject />
+        {finished.slice(0, 10).map(c => <p key={c.changeId}><Link to={`/changes/${c.changeId}`}>{c.project}: {c.statusLabel} {relTime(c.when)}</Link></p>)}
       </>}
       </>}
     </div>
@@ -272,16 +270,4 @@ function EndedOperation({ op }: { op: Operation }) {
       <button className="subtle" disabled={busy} onClick={() => run(() => post(`/operations/${op.id}/dismiss`, {}))}>Put away</button>
     </div>
   )
-}
-
-function HomeDeployments({ slug }: { slug: string }) {
-  const q = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
-  if (q.data?.length === 0) return <StaleNote q={q} />
-  return <><StaleNote q={q} /><PhoneDetails><div className="row" style={{ marginTop: 8, gap: 6 }}>
-    <ReadStatus q={q} what="deployments" />
-    {q.data?.map(d => <span key={d.id} className="row" style={{ gap: 4 }}>
-      <AppAddress className="dash-app" url={d.url} hostOnly={d.hostOnly}>{d.displayLabel}</AppAddress>
-      <RuntimeStatus observation={q.refreshFailed ? { ...d, observation: 'unknown', observationStale: true, observationIssue: q.reason } : d} />
-    </span>)}
-  </div></PhoneDetails></>
 }

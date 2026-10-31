@@ -19,7 +19,7 @@ import { ServiceKindsPanel } from './integrations/ServiceKinds'
 import { TargetsPanel } from './integrations/Targets'
 import { useNow } from '../hooks'
 import {
-  CAP_ORDER, HealthState, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedByCounts, usedFor,
+  CAP_ORDER, HealthState, capabilityMeta, credentialKeys, fmtVal, healthState, specFor, usedFor,
 } from './integrations/kinds'
 
 // Integrations: the outside services this AppTown works with. The list says,
@@ -145,7 +145,7 @@ export const uncheckedWords = (testable: boolean) => testable
 
 function StatusChip({ state, stale, testable }: { state: HealthState; stale: boolean; testable: boolean }) {
   const word = stale ? 'unknown' : state
-  return <Status word={word} tone={STATUS_LIGHT[word]} help={stale ? 'Refresh failed. Last answer shown.' : state === 'unknown' ? uncheckedWords(testable) : undefined} />
+  return <Status word={word} tone={STATUS_LIGHT[word]} text={!stale && state === 'unknown' ? 'Not tested yet' : undefined} help={stale ? 'Refresh failed. Last answer shown.' : state === 'unknown' ? uncheckedWords(testable) : undefined} />
 }
 
 // When AppTown took a reading, by the server's clock; 0 for none.
@@ -156,7 +156,6 @@ function lastChecked(h: IntegrationHealth, now: number): string {
   return at ? ago(at, now) : 'no check'
 }
 
-const kindOf = (b: IntegrationEntry, spec?: ConnectorEntry) => spec?.title ?? `${b.capability} · ${b.provider}`
 
 function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing, focus, onNew, onConnect }: {
   bindings: IntegrationEntry[]
@@ -171,6 +170,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
   onConnect: (spec: ConnectorEntry) => void
 }) {
   const navigate = useNavigate()
+  const [scannersOpen, setScannersOpen] = useState(false)
   useEffect(() => {
     if (focus) document.getElementById(`kind-${focus}`)?.scrollIntoView({ block: 'start' })
   }, [focus])
@@ -196,8 +196,8 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
   const unchecked = states.filter((s) => s === 'unknown').length
   const summary = [
     `${bindings.length} connected`,
-    failing > 0 ? `${failing} failed` : '',
-    unchecked > 0 ? `${unchecked} unknown` : '',
+    failing > 0 ? `${failing} need attention` : '',
+    unchecked > 0 ? `${unchecked} not tested` : '',
   ].filter(Boolean).join(' · ')
 
   return (
@@ -228,7 +228,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
         <section className="int-sheet">
           <table className="int-table stack">
             <thead>
-              <tr><th>Service</th><th>Used by</th><th>Status</th><th>Last checked</th></tr>
+              <tr><th>Service</th><th>Status</th><th>Last checked</th></tr>
             </thead>
             {caps.map((cap) => {
               const rows = byCap.get(cap) ?? []
@@ -237,13 +237,13 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
               return (
                 <tbody key={cap} id={`kind-${cap}`} className={focus === cap ? 'int-focus' : undefined}>
                   <tr className="int-group">
-                    <th colSpan={4}>{meta.title}</th>
+                    <th colSpan={3}>{cap === 'scanner' ? <button className="subtle" aria-expanded={scannersOpen} onClick={() => setScannersOpen(v => !v)}>Scanners ({rows.length}){rows.some(b => healthState(b.health) === 'failed') ? ` · ${rows.filter(b => healthState(b.health) === 'failed').length} failed` : ''}{rows.some(b => healthState(b.health) === 'unknown') ? ` · ${rows.filter(b => healthState(b.health) === 'unknown').length} not tested` : ''} · {scannersOpen ? 'Hide' : 'Show'}</button> : meta.title}</th>
                   </tr>
-                  {rows.map((b) => {
+                  {(cap === 'scanner' && !scannersOpen ? [] : rows).map((b) => {
                     const state = healthState(b.health)
                     const to = `/integrations/${b.name}`
                     return (
-                      <GlanceRow name={0} state={2} fact={3} labels={["Service", "Used by", "State", "Last checked"]} key={b.id} className="int-row" onClick={() => navigate(to)}>
+                      <GlanceRow name={0} state={1} fact={2} labels={["Service", "State", "Last checked"]} key={b.id} className="int-row" onClick={() => navigate(to)}>
                         <td className="stack-lead">
                           <div className="int-who">
                             <ConnIcon name={iconForBinding(b)} size={13} />
@@ -252,9 +252,9 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                             </div>
                           </div>
                         </td>
-                        <td className="int-usedby" data-label="used by">{usedByCounts(b.usedBy) || '—'}</td>
+
                         <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} /></td>
-                        <td className="int-when">{lastChecked(b.health, reading.now)}</td>
+                        <td className="int-when">{state === 'failed' ? <Link to={to}>Fix</Link> : lastChecked(b.health, reading.now)}{state === 'failed' && <details onClick={e => e.stopPropagation()}><summary>Why?</summary>{b.health.detail}</details>}</td>
                       </GlanceRow>
                     )
                   })}
@@ -266,7 +266,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                           <div><span className="int-name">{spare.title}</span></div>
                         </div>
                       </td>
-                      <td className="int-usedby" data-label="used by">—</td>
+
                       <td><Status word="none" tone={STATUS_LIGHT.none} help="No service connected." /></td>
                       <td className="int-open"><button className="subtle" onClick={() => onConnect(spare)}>Connect</button></td>
                     </tr>
@@ -337,24 +337,24 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         <ConnIcon name={iconForBinding(b)} size={22} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <h1>{b.displayLabel || b.name}</h1>
- <DisplayLabelEdit value={b.displayLabel || b.name} machineKey={b.name} path={`/integrations/${b.id}/label`} />
-          <div className="int-sub">{kindOf(b, spec)} · {usedFor(b, spec)}</div>
+          <div className="int-sub">{usedFor(b, spec)}</div>
         </div>
-        {b.managed && <span className="chip" title={`Configured by ${PRODUCT}; it re-syncs with each release.`}>managed by {PRODUCT}</span>}
+
       </div>
 
       <div className={`card tone-${tone} int-state`}>
         <div className="row">
           <StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} />
           <span className="int-lead">
-            {state === 'unknown' ? uncheckedWords(b.testable) : b.health.detail}
+            {state === 'failed' ? 'Check the connection settings, then test again.' : state === 'passed' ? 'Connection test passed.' : ''}
           </span>
         </div>
         <div className="muted int-checked">
           {state === 'unknown' || !at
-            ? (b.testable ? 'Its answer is shown here; nothing is saved.' : 'This kind has no test either.')
+            ? (b.testable ? 'Test the connection to check it now.' : 'No automatic connection test available.')
             : `Checked by ${PRODUCT} ${ago(at, reading.now)} (${clock(at)}).`}
         </div>
+<details><summary>Connection details</summary><p>{b.health.detail}</p></details>
         <StaleNote q={reading.q} />
         {test?.h && testState && (
           <div className={`int-test ${testState === 'failed' ? 'bad' : ''}`}>
@@ -391,6 +391,10 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
 
       {b.usedBy && <UsedBy use={b.usedBy} />}
 
+      {creds.length > 0 && <p>Credential: {creds.every(k => !!fmtVal(b.config[k])) ? 'stored reference' : 'not set'}</p>}
+      <details><summary>Technical details</summary>
+      <DisplayLabelEdit value={b.displayLabel || b.name} machineKey={b.name} path={`/integrations/${b.id}/label`} />
+      {b.managed && <p>Configured by {PRODUCT}.</p>}
       {creds.length > 0 && (
         <section>
           <h2>Credentials</h2>
@@ -436,7 +440,7 @@ function Detail({ b, catalog, reading, current, onEdit, onDocs }: {
         </table>
         <details className="small"><summary>About this connection</summary><p className="muted int-section-note">Each run records the version and configuration hash it used.
           {b.managed ? ` ${PRODUCT} configures this one itself and re-syncs it with each release; clone it to change it.` : ''}</p></details>
-      </section>
+      </section></details>
     </div>
   )
 }
@@ -450,7 +454,7 @@ function UsedBy({ use }: { use: IntegrationUse }) {
     <section>
       <h2>Used by</h2>
       {none ? (
-        <div className="muted">0 projects · 0 deployments</div>
+        <div className="muted">No direct use. Old resources may still be kept on hosting targets.</div>
       ) : <>
         {use.projects.length > 0 && <>
           <div className="int-section-note">Projects that attach it</div>
