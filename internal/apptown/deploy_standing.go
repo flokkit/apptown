@@ -23,6 +23,9 @@ func (a *App) EnsureDeployments(ctx context.Context) {
 	go a.ensureDeploymentsOnce(ctx)
 	// What records name and was made before the installation's mark gets
 	// it, once a boot (deployment.Providers.MarkRecorded).
+	if err := infrastructureChecksFor(a).Request(ctx); err != nil {
+		log.Printf("infrastructure: scheduling checks at startup: %v", err)
+	}
 	if _, err := a.Jobs().Enqueue(ctx, deployment.MarkInstallationJob, "boot", nil, time.Time{}); err != nil {
 		log.Printf("deployments: asking to mark recorded resources: %v", err)
 	}

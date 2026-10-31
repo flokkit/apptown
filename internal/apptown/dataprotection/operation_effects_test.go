@@ -119,7 +119,7 @@ func TestATakeDownAsksAgainBeforeEachLaterEffect(t *testing.T) {
 			}
 			revoke := func() { w.auth.revoke("token:alice") }
 			if when == "after the app is deleted" {
-				w.s.applied = revoke
+				w.s.applied = func(_ ids.ID) { revoke() }
 			} else {
 				w.clusters.atFill = revoke
 			}
@@ -300,7 +300,7 @@ func TestARestoredCopysTakeDownAsksBeforeEachRemoval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.s.applied = func() { w.auth.revoke("token:alice") }
+	w.s.applied = func(_ ids.ID) { w.auth.revoke("token:alice") }
 	withdrawn(t, w.run(op))
 	if deleted := w.api.Snapshot().DeletedClusters; len(deleted) != 0 {
 		t.Fatalf("clusters deleted after authority was withdrawn: %v", deleted)

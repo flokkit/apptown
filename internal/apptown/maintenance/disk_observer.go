@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"errors"
 	"slices"
 	"sync"
 	"time"
@@ -29,66 +28,40 @@ type DiskSnapshot struct {
 	Stale       bool
 }
 
-// DiskObservationQueue schedules the existing maintenance owner's refresh job.
-// It must enqueue work only, not read disks or contact the worker inline.
-// Unfinished requests share one durable job identity, including while running.
-type DiskObservationQueue interface{ RequestDiskObservation(context.Context) error }
-
-// DiskObserver owns cached controller/worker readings. Its snapshot path only
-// queues a refresh; Run performs external reads under the job's lifetime.
+// DiskObserver owns recorded controller/worker readings. Snapshot is passive;
+// Run collects evidence under the periodic job's lifetime.
 type DiskObserver struct {
-	disks     Disks
-	queue     DiskObservationQueue
-	now       func() time.Time
-	mu        sync.Mutex
-	snapshot  DiskSnapshot
-	requested time.Time
+	disks    Disks
+	now      func() time.Time
+	mu       sync.Mutex
+	snapshot DiskSnapshot
 }
 
-func NewDiskObserver(disks Disks, queue DiskObservationQueue, now func() time.Time) *DiskObserver {
-	return &DiskObserver{disks: disks, queue: queue, now: clock.Or(now), snapshot: DiskSnapshot{Unknown: true}}
+func NewDiskObserver(disks Disks, now func() time.Time) *DiskObserver {
+	return &DiskObserver{disks: disks, now: clock.Or(now), snapshot: DiskSnapshot{Unknown: true}}
 }
 
-// Snapshot returns current cached evidence. Failed enqueue attempts are also
-// rate limited; every caller sees the retained evidence as unassessed meanwhile.
+// Snapshot returns the latest recorded evidence and its age.
 func (o *DiskObserver) Snapshot(ctx context.Context) (DiskSnapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return DiskSnapshot{Unknown: true}, err
 	}
 	now := o.now()
 	o.mu.Lock()
-	refresh := o.requested.IsZero() || now.Sub(o.requested) >= time.Minute
-	if refresh {
-		o.requested = now
-	}
 	out := o.copyLocked(now)
 	o.mu.Unlock()
-	if !refresh {
-		return out, nil
-	}
-	var err error
-	if o.queue == nil {
-		err = errors.New("disk observation queue unavailable")
-	} else {
-		err = o.queue.RequestDiskObservation(ctx)
-	}
-	if err != nil {
-		o.mu.Lock()
-		o.snapshot.Unknown = true
-		out = o.copyLocked(now)
-		o.mu.Unlock()
-	}
-	return out, err
+	return out, nil
 }
 
 func (o *DiskObserver) copyLocked(now time.Time) DiskSnapshot {
 	out := o.snapshot
 	out.Disks = slices.Clone(out.Disks)
-	out.Stale = out.ObservedAt.IsZero() || now.Sub(out.ObservedAt) > 2*time.Minute
+	out.Stale = out.ObservedAt.IsZero() || now.Sub(out.ObservedAt) > 12*time.Minute
 	for i := range out.Disks {
 		// Each filesystem keeps its own time. Refreshing a sibling cannot renew it.
 		at := out.Disks[i].Reading.ReadAt
-		out.Disks[i].Stale = out.Disks[i].Stale || at.IsZero() || now.Sub(at) > 2*time.Minute
+		out.Disks[i].Stale = out.Disks[i].Stale || at.IsZero() || now.Sub(at) > 12*time.Minute
+		out.Stale = out.Stale || out.Disks[i].Stale
 	}
 	return out
 }
@@ -107,10 +80,16 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 	now := o.now()
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	o.requested = now
 	o.snapshot.AttemptedAt = now
 	if err := ctx.Err(); err != nil {
 		o.snapshot.Unknown = true
+		for i := range o.snapshot.Disks {
+			o.snapshot.Disks[i].Unknown = true
+			o.snapshot.Disks[i].Stale = true
+		}
+		if len(o.snapshot.Disks) == 0 {
+			o.snapshot.Disks = []DiskObservation{{Controller: true, Unknown: true, Stale: true, Reading: diskspace.Reading{What: "this AppTown's data folder", Path: o.disks.DataDir, Unknown: "The disk check did not finish", ReadAt: now}}}
+		}
 		return err
 	}
 	prior := o.snapshot.Disks
@@ -153,4 +132,21 @@ func (o *DiskObserver) Run(ctx context.Context) error {
 	}
 	o.snapshot = next
 	return nil
+}
+
+// Read returns the latest recorded disks for infrastructure pages.
+func (o *DiskObserver) Read(ctx context.Context) []diskspace.Reading {
+	snapshot, err := o.Snapshot(ctx)
+	if err != nil {
+		return []diskspace.Reading{{Unknown: err.Error()}}
+	}
+	out := make([]diskspace.Reading, 0, len(snapshot.Disks))
+	for _, disk := range snapshot.Disks {
+		reading := disk.Reading
+		if disk.Unknown || disk.Stale {
+			reading.Unknown = "The latest disk check failed or is out of date"
+		}
+		out = append(out, reading)
+	}
+	return out
 }

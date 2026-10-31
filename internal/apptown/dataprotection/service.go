@@ -20,6 +20,7 @@ import (
 	"github.com/flokkit/apptown/internal/clock"
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 // core is what copies, fills and the backup store run on: the deployment
@@ -154,7 +155,7 @@ type Service struct {
 	integrations *integration.Service
 	ops          *operations.Service
 	restored     RestoredCopyDependencies
-	applied      func()
+	applied      func(ids.ID)
 	// dataWork is the deployments a restore or a removal is changing now.
 	dataWork    dataWork
 	natives     sync.Map      // instance → nativeRead: the provider's answer about its backups
@@ -180,7 +181,7 @@ type Dependencies struct {
 	// makes none (restored_copy.go).
 	RestoredCopies RestoredCopyDependencies
 	// Applied is told an effect may have changed what a target holds.
-	Applied func()
+	Applied func(ids.ID)
 }
 
 // New builds data protection over the Starter's records and collaborators

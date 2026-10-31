@@ -350,7 +350,8 @@ export function Unaccounted({ here, onChanged }: { here: TargetInfra; onChanged:
   const failed = !here.live && !!here.error
   return (
     <>
-      {failed && <div className="error small" style={{ marginBottom: 6 }}>The target's inventory could not be read: {here.error}{here.asOf ? ` · showing the inventory read ${fmtStamp(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
+      {here.asOf && <div className="muted small">Inventory read {fmtStamp(here.asOf)}{here.invalidated ? " · before the latest change" : ""}</div>}
+      {failed && <div className="error small" style={{ marginBottom: 6 }}>Inventory is unknown: {here.error}{here.asOf ? ` · showing the inventory read ${fmtStamp(here.asOf)}.` : ' · nothing has been read from it, so what is unaccounted for is not known.'}</div>}
       {here.live || here.asOf
         ? <ResourceTables t={here} onChanged={onChanged} only={(r) => r.record !== 'recorded'} empty={here.live ? 'Nothing unaccounted for.' : `Nothing unaccounted for in the inventory read ${fmtStamp(here.asOf!)}.`} />
         : !failed && <div className="muted small">checking…</div>}

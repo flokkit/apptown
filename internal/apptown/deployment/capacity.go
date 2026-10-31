@@ -3,6 +3,7 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -121,6 +122,8 @@ type TargetCapacity struct {
 	Kind    string `json:"kind"`
 	Elastic bool   `json:"elastic"`
 	// Words is the one sentence the view leads with.
+	Error  string            `json:"error,omitempty"`
+	Stale  bool              `json:"stale"`
 	Words  string            `json:"words"`
 	Memory *ResourceCapacity `json:"memory,omitempty"`
 	CPU    *ResourceCapacity `json:"cpu,omitempty"`
@@ -132,16 +135,13 @@ type TargetCapacity struct {
 	// Estimate the monthly sum of the app components' listed prices.
 	Parts    []ElasticPart `json:"parts,omitempty"`
 	Estimate *Figure       `json:"estimate,omitempty"`
-	ReadAt   time.Time     `json:"readAt"`
+	ReadAt   time.Time     `json:"readAt,omitzero"`
 }
 
-// capacityCache keeps each target's reading briefly (a deployment card
-// asks its host's for every view) and its disk reading longer (the disk
-// read executes df in the standing reader).
+// capacityCache keeps the latest background capacity reading for each target.
 type capacityCache struct {
 	mu   sync.Mutex
 	read map[ids.ID]capacityReading
-	disk map[ids.ID]diskReading
 	// host reads this machine's memory (nil: /proc/meminfo).
 	host func() (hostmem.Memory, error)
 }
@@ -149,21 +149,11 @@ type capacityCache struct {
 type capacityReading struct {
 	revision int64
 	capacity TargetCapacity
+	error    string
 }
 
-type diskReading struct {
-	revision int64
-	at       time.Time
-	disk     DiskCapacity
-}
-
-const (
-	capacityFresh = 30 * time.Second
-	diskFresh     = 5 * time.Minute
-	// Allow the cache lifetime, one observer interval, and a one-minute
-	// scheduling margin for the queued read to finish.
-	diskObservationFresh = diskFresh + time.Minute + time.Minute
-)
+// Two missed five-minute checks plus two minutes for queueing and collection.
+const diskObservationFresh = 12 * time.Minute
 
 // Capacity reads how full target name is; the caller holds the deployment
 // read grant (the target page's).
@@ -172,17 +162,11 @@ func (s *Service) Capacity(ctx context.Context, name string) (TargetCapacity, er
 	if err != nil {
 		return TargetCapacity{}, err
 	}
-	return s.targetCapacity(ctx, t)
+	return s.recordedCapacity(t), nil
 }
 
 func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity, error) {
 	now := s.now()
-	s.capacity.mu.Lock()
-	if c, ok := s.capacity.read[t.ID]; ok && c.revision == t.SettingsRevision && now.Sub(c.capacity.ReadAt) < capacityFresh {
-		s.capacity.mu.Unlock()
-		return c.capacity, nil
-	}
-	s.capacity.mu.Unlock()
 	var out TargetCapacity
 	var err error
 	switch t.Kind {
@@ -196,14 +180,41 @@ func (s *Service) targetCapacity(ctx context.Context, t *Target) (TargetCapacity
 		out = TargetCapacity{Words: "Serves files; no capacity to manage."}
 	}
 	if err != nil {
+		s.capacity.mu.Lock()
+		if s.capacity.read == nil {
+			s.capacity.read = make(map[ids.ID]capacityReading)
+		}
+		prior := s.capacity.read[t.ID]
+		if prior.revision != t.SettingsRevision {
+			prior = capacityReading{revision: t.SettingsRevision}
+		}
+		prior.error = err.Error()
+		s.capacity.read[t.ID] = prior
+		s.capacity.mu.Unlock()
 		return TargetCapacity{}, err
 	}
+	current, err := s.Targets.ByID(ctx, t.ID)
+	if err != nil {
+		return TargetCapacity{}, err
+	}
+	if current.SettingsRevision != t.SettingsRevision {
+		return TargetCapacity{}, errors.New("capacity target changed during observation")
+	}
+
 	out.Target, out.Kind, out.ReadAt = t.Name, t.Kind, now
 	s.capacity.mu.Lock()
 	if s.capacity.read == nil {
 		s.capacity.read = map[ids.ID]capacityReading{}
 	}
-	s.capacity.read[t.ID] = capacityReading{revision: t.SettingsRevision, capacity: out}
+	stored := out
+	why := ""
+	if out.Disk != nil && (!out.Disk.Free.Known || !out.Disk.Total.Known) {
+		why = "The latest disk check could not read the host's disk space."
+		if prior, ok := s.capacity.read[t.ID]; ok && prior.revision == t.SettingsRevision {
+			stored.Disk = prior.capacity.Disk
+		}
+	}
+	s.capacity.read[t.ID] = capacityReading{revision: t.SettingsRevision, capacity: stored, error: why}
 	s.capacity.mu.Unlock()
 	return out, nil
 }
@@ -339,16 +350,9 @@ func overcommit(r *ResourceCapacity) {
 	}
 }
 
-// disk caches the host's disk reading for diskFresh. Each refresh executes df
-// in the daemon's standing reader.
+// disk collects evidence in the daemon's standing reader for a background check.
 func (s *Service) disk(ctx context.Context, target *Target, dk docker.Scope, root string) DiskCapacity {
 	now := s.now()
-	s.capacity.mu.Lock()
-	if r, ok := s.capacity.disk[target.ID]; ok && r.revision == target.SettingsRevision && now.Sub(r.at) < diskFresh {
-		s.capacity.mu.Unlock()
-		return r.disk
-	}
-	s.capacity.mu.Unlock()
 	out := DiskCapacity{Path: root, ReadAt: now}
 	d, err := docker.ReadDisk(ctx, dk, s.env.ToolVersions().Images.DF, root)
 	if err != nil {
@@ -358,12 +362,6 @@ func (s *Service) disk(ctx context.Context, target *Target, dk docker.Scope, roo
 		out.Low, out.Refuses, out.Floor = d.Low(), d.Refuses(), d.Floor()
 		out.Warning = d.Warning()
 	}
-	s.capacity.mu.Lock()
-	if s.capacity.disk == nil {
-		s.capacity.disk = map[ids.ID]diskReading{}
-	}
-	s.capacity.disk[target.ID] = diskReading{revision: target.SettingsRevision, at: now, disk: out}
-	s.capacity.mu.Unlock()
 	return out
 }
 
@@ -586,13 +584,16 @@ func (s *Service) elasticCapacity(ctx context.Context, t *Target) (TargetCapacit
 // HostShare is what a deployment holds of its fixed host: its applied
 // limits and its use against the host's total, and the host's state.
 type HostShare struct {
-	Target        string `json:"target"`
-	Elastic       bool   `json:"elastic"`
-	HostMemory    Figure `json:"hostMemory"`
-	Declared      Figure `json:"declared"` // the sum of its parts' and needs' memory limits; unknown when any has none
-	Used          Figure `json:"used"`
-	Overcommitted bool   `json:"overcommitted"`
-	LowDisk       bool   `json:"lowDisk"`
+	ReadAt        time.Time `json:"readAt,omitzero"`
+	Stale         bool      `json:"stale,omitempty"`
+	Error         string    `json:"error,omitempty"`
+	Target        string    `json:"target"`
+	Elastic       bool      `json:"elastic"`
+	HostMemory    Figure    `json:"hostMemory"`
+	Declared      Figure    `json:"declared"` // the sum of its parts' and needs' memory limits; unknown when any has none
+	Used          Figure    `json:"used"`
+	Overcommitted bool      `json:"overcommitted"`
+	LowDisk       bool      `json:"lowDisk"`
 	// DiskRefuses: the host's last disk reading was below the floor, so a
 	// new deploy there is refused until space is freed.
 	DiskRefuses bool `json:"diskRefuses"`
@@ -608,14 +609,11 @@ func (s *Service) share(ctx context.Context, dep *Deployment, parts []PartResour
 	if err != nil {
 		return nil
 	}
-	c, err := s.targetCapacity(ctx, t)
-	if err != nil {
-		return &HostShare{Target: t.Name, HostMemory: unknownErr(err)}
-	}
+	c := s.recordedCapacity(t)
 	if c.Elastic || c.Memory == nil {
-		return &HostShare{Target: t.Name, Elastic: c.Elastic}
+		return &HostShare{Target: t.Name, Elastic: c.Elastic, ReadAt: c.ReadAt, Stale: c.Stale, Error: c.Error}
 	}
-	out := &HostShare{Target: t.Name, HostMemory: c.Memory.Total, Overcommitted: c.Memory.Overcommitted, LowDisk: c.Disk != nil && c.Disk.Low, DiskRefuses: c.Disk != nil && c.Disk.Refuses}
+	out := &HostShare{ReadAt: c.ReadAt, Stale: c.Stale, Error: c.Error, Target: t.Name, HostMemory: c.Memory.Total, Overcommitted: c.Memory.Overcommitted, LowDisk: c.Disk != nil && c.Disk.Low, DiskRefuses: c.Disk != nil && c.Disk.Refuses}
 	var declared, used float64
 	declaredKnown, usedKnown := applied.Recorded(), len(parts) > 0
 	for _, p := range applied.Parts {
@@ -647,3 +645,16 @@ func (s *Service) share(ctx context.Context, dep *Deployment, parts []PartResour
 // that runs AppTown's own images (a release build's static server): it
 // takes one at its start and keeps it.
 func (s *Service) ToolVersions() toolversions.Snapshot { return s.env.ToolVersions() }
+
+// recordedCapacity never contacts a host or provider, including before the first check.
+func (s *Service) recordedCapacity(t *Target) TargetCapacity {
+	s.capacity.mu.Lock()
+	defer s.capacity.mu.Unlock()
+	if c, ok := s.capacity.read[t.ID]; ok && c.revision == t.SettingsRevision {
+		out := c.capacity
+		out.Error = c.error
+		out.Stale = out.ReadAt.IsZero() || s.now().Sub(out.ReadAt) > diskObservationFresh
+		return out
+	}
+	return TargetCapacity{Target: t.Name, Kind: t.Kind, Words: "Pending first check", Stale: true}
+}

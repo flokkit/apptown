@@ -351,6 +351,10 @@ func TestAnAttachedDockerHostIsNamedAndReachedAsThatHost(t *testing.T) {
 			t.Fatalf("lab target: %+v", target)
 		}
 	}
+	// The background job reaches the attached host; page reads only its evidence.
+	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}).Run(t.Context(), "lab", nil); err != nil {
+		t.Fatal(err)
+	}
 	if w := authzCall(h, "boss", "GET", "/api/v1/infrastructure", ""); w.Code != 200 || strings.Contains(w.Body.String(), "this AppTown") || !strings.Contains(w.Body.String(), `"place":"Docker host · over SSH · 192.0.2.10"`) {
 		t.Fatalf("infrastructure: %d %s", w.Code, w.Body.String())
 	}

@@ -394,7 +394,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 	if cfg.worker != nil {
 		a.disks.Worker = *cfg.worker
 	}
-	a.diskObserver = maintenance.NewDiskObserver(a.disks, diskObservationRequests{db: db}, cfg.clock.Now)
+	a.diskObserver = maintenance.NewDiskObserver(a.disks, cfg.clock.Now)
 	var workerProbe maintenance.WorkerProbe
 	workerIdentity := ""
 	if cfg.worker != nil {
@@ -402,7 +402,7 @@ func New(ctx context.Context, db *database.DB, input Config) (*App, error) {
 		workerIdentity = fmt.Sprintf("%x", sha256.Sum256([]byte(cfg.worker.URL)))
 	}
 	a.workerObserver = maintenance.NewWorkerObserver(workerIdentity, workerProbe, workerObservationRequests{db: db}, cfg.clock.Now)
-	a.capacityObserver = deployment.NewCapacityObserver(a.Deployment, capacityObservationRequests{db: db})
+	a.capacityObserver = deployment.NewCapacityObserver(a.Deployment)
 	a.protectionObserver = dataprotection.NewProtectionObserver(a.DataProtection, protectionObservationRequests{db: db})
 	a.jobs, err = jobs.New(jobs.Options{Tracer: a.telemetry.tracer, Hold: a.newWork.Wait}, db.Pool(), apptownJobKinds(a), jobReporter{}, apptownJobSchedules()...)
 	if err != nil {

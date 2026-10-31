@@ -10,7 +10,7 @@ import { del, post, put } from '../../../api'
 import { QuietConfirm } from '../../../QuietConfirm'
 import { useAction, useGet, useRefresh } from '../../../data'
 import { ReadStatus, StaleNote } from '../../../ReadGate'
-import { fmtBytes, fmtWhen } from '../../../format'
+import { fmtBytes, fmtWhen, fmtStamp } from '../../../format'
 import { AUDIENCES, DATA_CLASSES, OfferedTarget, Retained, capsWords, placeOf, placeWords } from '../../../targets'
 import { ProtectionLines } from '../../DataProtection'
 import { DiagnosticsLines } from './Diagnostics'
@@ -536,6 +536,9 @@ export function ShareLine({ share }: { share?: DeploymentResources['share'] }) {
   if (!share) return null
   if (share.elastic) return <div className="muted">on {share.target}, which grows on demand</div>
   return <div>
+    {!share.readAt && !share.error && <div className="muted small">Waiting for the first host check.</div>}
+    {share.readAt && <div className="muted small">Host read {fmtStamp(share.readAt)}</div>}
+    {(share.error || (share.stale && share.readAt)) && <p className="error small">{share.error || "The host reading is out of date."}</p>}
     {share.overcommitted && <p className="error">Server is short on memory. <Link to={`/infrastructure/${share.target}`}>Review server</Link></p>}
     {share.diskRefuses ? <p className="error">Server is short on disk space. New deployments are blocked.</p>
       : share.lowDisk && <p className="error">Server is low on disk space.</p>}

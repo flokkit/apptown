@@ -78,7 +78,7 @@ func (r *reporter) Log(releaseID ids.ID, format string, args ...any) {
 	r.releases = append(r.releases, releaseID)
 	r.logs = append(r.logs, fmt.Sprintf(format, args...))
 }
-func (r *reporter) Applied() { r.applied++ }
+func (r *reporter) Applied(ids.ID) { r.applied++ }
 
 func fixture(t *testing.T) (deployment.Recoverer, *source, *settlement, *reporter, *int) {
 	t.Helper()

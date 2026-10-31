@@ -67,10 +67,10 @@ func TestLeftoversAreAttributedByLabel(t *testing.T) {
 		{Kind: "volume", Name: stack + "_apptown-data-x", Record: "unrecorded", Stack: stack},
 		{Kind: "container", Name: names.App(), Record: "recorded"},
 	}
-	if _, _, err := h.attributeLeftovers(t.Context(), host, res); err == nil {
+	if _, _, err := checkedLeftovers(t, h, host, res); err == nil {
 		t.Fatal("legacy unverified stack was treated as removable or shared")
 	}
-	out, _, err := h.attributeLeftovers(t.Context(), host, []deploy.Resource{res[0], res[2]})
+	out, _, err := checkedLeftovers(t, h, host, []deploy.Resource{res[0], res[2]})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestALeftoverIsAttributedToTheDeploymentItsOwnerLabelNames(t *testing.T) {
 		{Kind: "volume", Name: "forge-need-env-shop-eu-main-postgres", Record: "unrecorded", Owner: "env-shop-eu-main"},
 		{Kind: "container", Name: "apptown-svc-dep-000000000000-x", Record: "unrecorded", Owner: "dep-000000000000"},
 	}
-	out, _, err := h.attributeLeftovers(t.Context(), host, res)
+	out, _, err := checkedLeftovers(t, h, host, res)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestARecordIsMissingOnlyWhenAnAnswerLacksIt(t *testing.T) {
 		{"an empty host", nil, "", now, deploy.RecordMissing, true, true},
 		{"an old answer under an error", running, "docker ps: ssh refused", now, deploy.RecordRecorded, false, true},
 	} {
-		out, latest, answered := deployment.InventoryAnswer(append([]deploy.Resource{}, recorded...), tc.live, tc.errText, tc.at)
+		out, latest, answered := deployment.InventoryAnswer(append([]deploy.Resource{}, recorded...), tc.live, tc.errText, tc.at, false)
 		if len(out) != 1 || out[0].Record != tc.record || latest != tc.latest || answered != tc.answered {
 			t.Fatalf("%s: %+v latest %v answered %v", tc.name, out, latest, answered)
 		}
@@ -216,7 +216,7 @@ func TestInventoryReconciliationHasOneRowPerConfirmedResource(t *testing.T) {
 		}
 	}
 	// Even without a provider answer, duplicate claims are still one resource.
-	unassessed, latest, answered := deployment.InventoryAnswer(recorded, nil, "unavailable", time.Time{})
+	unassessed, latest, answered := deployment.InventoryAnswer(recorded, nil, "unavailable", time.Time{}, false)
 	if len(unassessed) != 27 || latest || answered {
 		t.Fatalf("unassessed inventory duplicated or confirmed: %d %v %v", len(unassessed), latest, answered)
 	}
@@ -368,5 +368,26 @@ func TestALeftoverIsCalledTornDownOnlyWhenItsDeploymentIsNotThere(t *testing.T) 
 	cancel()
 	if got := h.leftoverReason(failed, host, "gone", "main"); !strings.Contains(got, "could not be read") {
 		t.Fatalf("a failed read: %q", got)
+	}
+}
+
+func checkedLeftovers(t *testing.T, h Infrastructure, target *deployment.Target, resources []deploy.Resource) ([]deploy.Resource, string, error) {
+	t.Helper()
+	shared, err := h.deployment.Inventory.Shared(t.Context(), resources)
+	if err != nil {
+		return nil, "", err
+	}
+	return h.attributeLeftovers(t.Context(), target, resources, shared)
+}
+
+type removalInventory []deploy.Resource
+
+func (i removalInventory) Inventory(context.Context) ([]deploy.Resource, error) { return i, nil }
+
+func TestRemovalWithChangedProviderIdentityAsksToReload(t *testing.T) {
+	t.Parallel()
+	err := (Infrastructure{}).requireUnclaimedResource(t.Context(), removalInventory{{Kind: "container", Name: "app", ID: "new"}}, "container", "app", "old")
+	if err == nil || !strings.Contains(err.Error(), "reload the page") || strings.Contains(err.Error(), "wait") {
+		t.Fatalf("fresh identity refusal: %v", err)
 	}
 }

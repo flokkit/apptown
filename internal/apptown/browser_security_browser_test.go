@@ -2586,7 +2586,7 @@ app:
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, cache: a.inventory}).Run(ctx, target.Name, nil); err != nil {
+	if _, err := (inventoryRefresh{targets: a.targets, providers: a.targetProviders, inventory: a.Deployment.Inventory, cache: a.inventory}).Run(ctx, target.Name, nil); err != nil {
 		t.Fatal(err)
 	}
 

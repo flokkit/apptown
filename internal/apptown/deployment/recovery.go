@@ -23,6 +23,7 @@ type Snapshot struct {
 // It contains no source checkout or capability to create/apply a deployment.
 type RecoveryTarget struct {
 	ReleaseID         ids.ID
+	TargetID          ids.ID
 	DesiredGeneration int64
 	Observer          Observer
 }
@@ -47,7 +48,7 @@ type SettlementStore interface {
 
 type Reporter interface {
 	Log(releaseID ids.ID, format string, args ...any)
-	Applied()
+	Applied(ids.ID)
 }
 
 type RecoveryResult struct {
@@ -139,7 +140,7 @@ func (r Recoverer) Run(ctx context.Context, id ids.ID) (RecoveryResult, error) {
 	if out == Applied {
 		result.Outcome = "recovered"
 		if r.Reporter != nil {
-			r.Reporter.Applied()
+			r.Reporter.Applied(target.TargetID)
 		}
 		logf("live — %s serves generation %d (finished after a restart)", o.URL, at.Generation)
 	}

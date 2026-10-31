@@ -56,13 +56,12 @@ type ProtectionSnapshot struct {
 }
 
 type protectionObservation struct {
-	identity  string
-	requested time.Time
-	snapshot  ProtectionSnapshot
+	identity string
+	snapshot ProtectionSnapshot
 }
 
 // ProtectionObserver calls the real protection owner in a background job. Its
-// read path resolves only current local identity and schedules observation.
+// read path resolves only current local identity and returns recorded evidence.
 // Caller authority must be checked before selecting a deployment for Snapshot.
 type ProtectionObserver struct {
 	mu      sync.Mutex
@@ -117,35 +116,17 @@ func (o *ProtectionObserver) Snapshot(ctx context.Context, id ids.ID) (Protectio
 		e = &protectionObservation{identity: identity, snapshot: ProtectionSnapshot{Unknown: true}}
 		o.entries[id] = e
 	}
-	request := e.requested.IsZero() || now.Sub(e.requested) >= time.Minute
-	if request {
-		e.requested = now
-	}
 	out := protectionSnapshotAt(e.snapshot, now)
 	o.mu.Unlock()
-	if !request {
-		return out, nil
-	}
-	if o.queue == nil {
-		err = errors.New("protection observation queue unavailable")
-	} else {
-		err = o.queue.RequestProtectionObservation(ctx, id, identity)
-	}
-	if err != nil {
-		o.mu.Lock()
-		e.snapshot.Unknown = true
-		out = protectionSnapshotAt(e.snapshot, now)
-		o.mu.Unlock()
-	}
-	return out, err
+	return out, nil
 }
 
 func protectionSnapshotAt(s ProtectionSnapshot, now time.Time) ProtectionSnapshot {
 	s.Items = slices.Clone(s.Items)
-	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 2*time.Minute
+	s.Stale = s.Stale || s.ObservedAt.IsZero() || now.Sub(s.ObservedAt) > 12*time.Minute
 	// A newly collected wrapper cannot renew the provider's own cached read.
 	for _, item := range s.Items {
-		if item.Native && (item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 2*time.Minute) {
+		if item.Native && (item.NativeAt.IsZero() || now.Sub(item.NativeAt) > 12*time.Minute) {
 			s.Stale = true
 		}
 	}
@@ -176,10 +157,13 @@ func (o *ProtectionObserver) Run(ctx context.Context, id ids.ID, identity string
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	e := o.entries[id]
-	if e == nil || e.identity != identity {
-		return err
+	if o.entries == nil {
+		o.entries = make(map[ids.ID]*protectionObservation)
 	}
-	e.requested = now
+	if e == nil || e.identity != identity {
+		e = &protectionObservation{identity: identity}
+		o.entries[id] = e
+	}
 	e.snapshot.AttemptedAt = now
 	if err != nil || protection == nil {
 		e.snapshot.Unknown = true
@@ -256,4 +240,16 @@ func (o *ProtectionObserver) RunJob(ctx context.Context, key string, _ map[strin
 		return nil, jobs.Permanent(errors.New("invalid protection observation identity"))
 	}
 	return nil, o.Run(ctx, id, identity)
+}
+
+// Request admits a periodic background check for the current local identity.
+func (o *ProtectionObserver) Request(ctx context.Context, id ids.ID) error {
+	dep, identity, err := o.resolve(ctx, id)
+	if err != nil {
+		return err
+	}
+	if dep.Kind != deployment.Standing {
+		return nil
+	}
+	return o.queue.RequestProtectionObservation(ctx, id, identity)
 }

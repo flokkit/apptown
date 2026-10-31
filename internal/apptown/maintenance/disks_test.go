@@ -28,15 +28,22 @@ func TestAppTownsDisksAreEachTheirOwnReading(t *testing.T) {
 	dir := t.TempDir()
 	at := time.Date(2026, 10, 17, 1, 0, 0, 0, time.UTC)
 	full := diskspace.Reading{What: "the worker's state folder", Path: "/state", TotalBytes: 100, FreeBytes: 1, Refuses: true, ReadAt: at}
-	got := Disks{DataDir: dir, Worker: workerDisks{readings: []diskspace.Reading{full}}, Now: func() time.Time { return at }}.Read(t.Context())
+	read := func(disks Disks) []diskspace.Reading {
+		observer := NewDiskObserver(disks, func() time.Time { return at })
+		if err := observer.Run(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		return observer.Read(t.Context())
+	}
+	got := read(Disks{DataDir: dir, Worker: workerDisks{readings: []diskspace.Reading{full}}, Now: func() time.Time { return at }})
 	if len(got) != 2 || got[0].Path != dir || got[0].TotalBytes <= 0 || got[0].Refuses || got[0].FloorBytes != 0 || got[0].WarningBytes <= 0 || !got[0].ReadAt.Equal(at) || got[1] != full {
 		t.Fatalf("readings: %+v", got)
 	}
-	down := Disks{DataDir: dir, Worker: workerDisks{err: errors.New("the worker could not be reached")}}.Read(t.Context())
-	if len(down) != 2 || down[1].Unknown != "the worker could not be reached" || down[1].Refuses {
-		t.Fatalf("a worker that did not answer: %+v", down)
+	down := read(Disks{DataDir: dir, Worker: workerDisks{err: errors.New("the worker could not be reached")}})
+	if len(down) != 2 || down[1].Unknown == "" || down[1].Refuses {
+		t.Fatalf("worker failure: %+v", down)
 	}
-	if alone := (Disks{DataDir: dir}).Read(t.Context()); len(alone) != 1 {
-		t.Fatalf("an AppTown with no worker: %+v", alone)
+	if alone := read(Disks{DataDir: dir}); len(alone) != 1 {
+		t.Fatalf("no worker: %+v", alone)
 	}
 }

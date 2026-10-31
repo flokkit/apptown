@@ -568,7 +568,7 @@ func TestBucketTargetCountsMarkedBucketsAndMarksRecordedOnes(t *testing.T) {
 	mark("apptown-leftover-1", testInstallation)
 	mark("apptown-other-1", "inst-other")
 	mark("apptown-unmarked-2", "")
-	w.infra.cache = siblingInventoryCache{}
+	w.infra.cache = collectSiblingInventory(t, w)
 	code, answer := targetCall(t, w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	if code != http.StatusOK {
 		t.Fatalf("inventory: %d %+v", code, answer)

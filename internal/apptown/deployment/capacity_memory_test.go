@@ -31,7 +31,7 @@ func TestRunningContainerWithoutStatsLeavesHostMemoryKnown(t *testing.T) {
 		}
 		return nil, nil, false
 	})
-	c, err := w.s.Capacity(t.Context(), "lab")
+	c, err := backgroundCapacity(t, w.s, "lab")
 	if err != nil {
 		t.Fatal(err)
 	}

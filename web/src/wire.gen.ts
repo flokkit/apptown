@@ -2015,6 +2015,8 @@ export type TargetCapacity = {
   target: string
   kind: string
   elastic: boolean
+  error?: string
+  stale: boolean
   words: string
   memory?: ResourceCapacity | null
   cpu?: ResourceCapacity | null
@@ -2022,7 +2024,7 @@ export type TargetCapacity = {
   tenants?: Tenant[]
   parts?: ElasticPart[]
   estimate?: Figure | null
-  readAt: string
+  readAt?: string
 }
 
 export type TargetCheck = {
@@ -3004,6 +3006,9 @@ export type PartResource = {
 }
 
 export type HostShare = {
+  readAt?: string
+  stale?: boolean
+  error?: string
   target: string
   elastic: boolean
   hostMemory: Figure
@@ -3277,7 +3282,7 @@ export type InfrastructureView = {
   error?: string
   unreported?: boolean
   asOf?: string
-  refreshing: boolean
+  invalidated: boolean
   resources: Resource[]
   shared?: string
 }

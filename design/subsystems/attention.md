@@ -22,9 +22,9 @@ means all clear.
   advisory and do not protect release admission. A deployment-host disk condition
   uses only the disk’s known free and total figures and its own reading time.
   Unread memory or CPU figures leave capacity coverage incomplete without adding
-  a disk condition. The disk cache lasts five minutes. Disk evidence is stale after seven
-  minutes: the cache lifetime plus the one-minute observer interval and a
-  one-minute scheduling margin.
+  a disk condition. Background disk checks run every five minutes. A failed check makes the
+  reading unknown. Successful evidence is stale after twelve minutes: two missed
+  checks plus two minutes for queueing and collection.
 - Worker availability uses the authenticated worker profile protocol. A missing
   agent image does not establish that the worker is unreachable. An unassessable
   response retains earlier unavailable evidence as stale.
@@ -51,23 +51,27 @@ summaries, not provider errors, credentials, logs or storage paths.
 
 ## Observation lifecycle
 
-The read path uses local records and cached owner observations. It queues bounded
-background work on cold or expired reads and returns promptly. Disk, worker,
-capacity and protection jobs coalesce unfinished requests, limit refresh requests
-to once a minute and retain last successful evidence separately from later
-failed attempts. Pending first disk, inventory, app status and backup checks
-contribute unknown coverage without an Attention item. Failed checks and stale
-readings raise conditions; an unstarted check does not. Owners expose attempt
-and observation times so coverage does not depend on time since startup.
-Inventory reuses its existing refresh job and invalidation
-boundary. Deployment runtime uses its existing background observation owner.
+The read path uses local records and recorded owner observations. Inventory,
+capacity, controller/worker disks and protection observations are collected by
+durable jobs every five minutes, including while nobody reads the pages.
+Startup queues the first pass. Readers never request these checks or contact
+providers. After AppTown changes a provider, it queues that target's inventory
+check immediately and marks the old reading as predating the act. An overlapping
+pre-act check cannot renew that evidence or establish newly missing resources.
+Invalidation alone does not create a resources-not-known item.
 
-Owner evidence older than two minutes is stale, except deployment-host disk
-evidence, which has the seven-minute limit above. Stricter owner limits still
-apply. Inner disk and native-backup cache times survive wrapper refreshes.
-Target configuration and deployment identity changes reject late answers for
-older subjects. A fresh successful observation clears only the conditions it
-actually reassesses.
+Failed checks retain the last successful evidence with its own observation time.
+A failed check or evidence older than twelve minutes raises an unknown condition;
+unknown differs from a successful empty reading. Pending first disk, inventory,
+app status and backup checks contribute unknown coverage without an Attention
+item. Owners expose attempt and observation times so coverage does not depend on
+time since startup. Native backup evidence retains its own reading time.
+
+Worker availability still requests bounded background observation from reads;
+age alone creates no worker-unavailable item. Deployment runtime uses its existing
+background observation owner. Target configuration and deployment identity changes
+reject late answers for older subjects. A fresh successful observation clears
+only the conditions it actually reassesses.
 
 The shared web query polls every thirty seconds while visible, stops when signed
 out and uses the existing identity reset and cancellation rules. Last answers

@@ -50,7 +50,7 @@ type Providers struct {
 	secrets      *secret.Service
 	integrations *integration.Service
 	// applied is told an effect may have changed what a target holds.
-	applied      func()
+	applied      func(ids.ID)
 	drivers      map[string]DriverFactory
 	inventories  map[string]InventoryFactory
 	digitalOcean digitalocean.Options
@@ -84,7 +84,7 @@ type ProviderDependencies struct {
 	DatabaseContainer string
 	// Applied is told an effect may have changed what a target holds (the
 	// inventory cache); nil is fine.
-	Applied func()
+	Applied func(ids.ID)
 	// Now is AppTown's clock; nil is the real one.
 	Now func() time.Time
 	// Installation is this installation's id: what it makes at a target
@@ -601,7 +601,7 @@ func (p *Providers) PrepareNeeds(ctx context.Context, d deploy.Driver, t *Target
 		}
 	}
 	if p.applied != nil {
-		p.applied()
+		p.applied(t.ID)
 	}
 	return out, nil
 }

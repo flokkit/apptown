@@ -939,7 +939,7 @@ func (s *Service) takeDownRestored(ctx context.Context, t *tracker, copyID ids.I
 		}
 		deleted = append(deleted, "app "+id)
 		if s.applied != nil {
-			s.applied()
+			s.applied(current.TargetID)
 		}
 	}
 	items, err := s.managedList(ctx, current, target)

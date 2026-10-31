@@ -195,7 +195,7 @@ describe('what is unaccounted for at a target', () => {
   const show = (v: Partial<InfrastructureView>) => {
     const el = document.createElement('div')
     const root = createRoot(el)
-    const here = { target: 'lan', kind: 'docker-host', family: 'docker', origin: 'attached', status: 'ready', facts: '', place: '', vendor: '', live: false, refreshing: false, resources: [], ...v } as InfrastructureView
+    const here = { target: 'lan', kind: 'docker-host', family: 'docker', origin: 'attached', status: 'ready', facts: '', place: '', vendor: '', live: false, invalidated: false, resources: [], ...v } as InfrastructureView
     act(() => root.render(<QueryClientProvider client={newQueryClient()}><MemoryRouter><Unaccounted here={here} onChanged={() => {}} /></MemoryRouter></QueryClientProvider>))
     const text = el.textContent ?? ''
     act(() => root.unmount())

@@ -16,7 +16,6 @@ import (
 	"github.com/flokkit/apptown/internal/apptown/deployment"
 	"github.com/flokkit/apptown/internal/apptown/identity"
 	"github.com/flokkit/apptown/internal/apptown/integration"
-	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/apptown/project"
 	"github.com/flokkit/apptown/internal/apptown/secret"
 	"github.com/flokkit/apptown/internal/database"
@@ -124,7 +123,7 @@ func (w *targetHTTPWorld) setDockerClient(client docker.Client) {
 	w.deployment = deployment.New(context.Background(), w.db, deployment.Dependencies{Groups: w.identity, Authority: access.Checked{Authority: w.identity, Projects: w.projects}, Targets: targets, Deployments: deployments, Hosts: w.hosts, Environment: environment, Providers: w.providers,
 		Projects: w.projects, Declared: targetTestDeclarations{}})
 	w.targets = NewTargets(w.deployment, w.providers, w.projects, w.identity, w.db, nil)
-	w.infra = NewInfrastructure(w.deployment, w.hosts, w.providers, w.projects, w.db, &targetTestInventoryCache{}, nil, false, "", "", nil)
+	w.infra = NewInfrastructure(w.deployment, w.hosts, w.providers, w.projects, w.db, &targetTestInventoryCache{}, false, "", "", nil)
 }
 
 type targetTestInventoryCache struct{}
@@ -135,8 +134,8 @@ func (f targetDockerClientFunc) Run(ctx context.Context, host string, req docker
 	return f(ctx, host, req)
 }
 
-func (*targetTestInventoryCache) Live(context.Context, *jobs.Queue, string, deploy.Inventorier, bool) ([]deploy.Resource, string, time.Time, bool) {
-	return nil, "", time.Time{}, false
+func (*targetTestInventoryCache) Live(context.Context, *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool) {
+	return nil, nil, "", time.Time{}, false
 }
 func (*targetTestInventoryCache) Invalidate() {}
 

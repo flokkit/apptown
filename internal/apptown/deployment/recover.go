@@ -67,6 +67,7 @@ func (s recoverySource) PrepareObservation(ctx context.Context, at Attempt) (Rec
 	if err != nil {
 		return target, fmt.Errorf("reading deployment: %w", err)
 	}
+	target.TargetID = dep.TargetID
 	target.DesiredGeneration = dep.DesiredGeneration
 	target.Observer = recoveryObserver{dep: dep, driver: s.driver, allowed: s.allowed, inputs: inputs}
 	return target, nil
@@ -98,7 +99,7 @@ func (o recoveryObserver) Resume(ctx context.Context, at Attempt, noted map[stri
 
 type recoveryReporter struct {
 	log     func(ids.ID, string, ...any)
-	applied func()
+	applied func(ids.ID)
 }
 
 func (r recoveryReporter) Log(releaseID ids.ID, format string, args ...any) {
@@ -108,9 +109,9 @@ func (r recoveryReporter) Log(releaseID ids.ID, format string, args ...any) {
 	}
 	log.Printf("deployment recovery: "+format, args...)
 }
-func (r recoveryReporter) Applied() {
+func (r recoveryReporter) Applied(targetID ids.ID) {
 	if r.applied != nil {
-		r.applied()
+		r.applied(targetID)
 	}
 }
 

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/flokkit/apptown/internal/apptown/deployment"
-	"github.com/flokkit/apptown/internal/apptown/jobs"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
 	"github.com/flokkit/apptown/internal/deploy/portainer"
@@ -78,7 +77,7 @@ func TestInfrastructureRemovalChecksFreshSharedPlacement(t *testing.T) {
 		}
 	}))
 	observed := []deploy.Resource{{Kind: "volume", Name: sharedName, Stack: stack, Record: deploy.RecordUnrecorded, ObservedDaemonID: "engine-a"}}
-	out, note, err := w.infra.attributeLeftovers(t.Context(), host, observed)
+	out, note, err := checkedLeftovers(t, w.infra, host, observed)
 	if err != nil || len(out) != 0 || !strings.Contains(note, target.Name) || !strings.Contains(note, "shared-app/blue") {
 		t.Fatalf("customer placement: %+v %q %v", out, note, err)
 	}
@@ -122,17 +121,50 @@ func TestInfrastructureRemovalChecksFreshSharedPlacement(t *testing.T) {
 	}
 }
 
-// This cache keeps the HTTP projection on the real provider inventory adapter.
-type siblingInventoryCache struct{}
-
-func (siblingInventoryCache) Live(ctx context.Context, _ *jobs.Queue, _ string, inv deploy.Inventorier, _ bool) ([]deploy.Resource, string, time.Time, bool) {
-	resources, err := inv.Inventory(ctx)
-	if err != nil {
-		return nil, err.Error(), time.Time{}, false
-	}
-	return resources, "", time.Now(), false
+// The fixture collects provider evidence before the page reads it.
+type siblingInventoryCache map[string]struct {
+	items  []deploy.Resource
+	shared []deployment.SharedResource
+	error  string
 }
-func (siblingInventoryCache) Invalidate() {}
+
+func (c siblingInventoryCache) Live(_ context.Context, t *deployment.Target) ([]deploy.Resource, []deployment.SharedResource, string, time.Time, bool) {
+	at := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	if c[t.Name].error != "" {
+		at = time.Time{}
+	}
+	return c[t.Name].items, c[t.Name].shared, c[t.Name].error, at, false
+}
+func collectSiblingInventory(t *testing.T, w *targetHTTPWorld) siblingInventoryCache {
+	t.Helper()
+	targets, err := w.deployment.Targets.All(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := siblingInventoryCache{}
+	for _, target := range targets {
+		inv, err := w.providers.TargetInventory(target)
+		if err != nil {
+			continue
+		}
+		items, err := inv.Inventory(t.Context())
+		var shared []deployment.SharedResource
+		if err == nil {
+			shared, err = w.deployment.Inventory.Shared(t.Context(), items)
+		}
+		why := ""
+		if err != nil {
+			why = err.Error()
+			items = nil
+		}
+		out[target.Name] = struct {
+			items  []deploy.Resource
+			shared []deployment.SharedResource
+			error  string
+		}{items, shared, why}
+	}
+	return out
+}
 
 type siblingStack struct {
 	ID         int64            `json:"Id"`
@@ -152,6 +184,7 @@ type siblingInventoryWorld struct {
 	failList, failOwner, duplicate bool
 	daemon                         string
 	deleted                        []string
+	requests                       int
 }
 
 func newSiblingInventoryWorld(t *testing.T) *siblingInventoryWorld {
@@ -160,6 +193,7 @@ func newSiblingInventoryWorld(t *testing.T) *siblingInventoryWorld {
 	server := httptest.NewServer(http.HandlerFunc(func(out http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
+		f.requests++
 		if f.failOwner && r.Header.Get("X-API-Key") == "key-b" {
 			out.WriteHeader(http.StatusServiceUnavailable)
 			return
@@ -217,7 +251,7 @@ func newSiblingInventoryWorld(t *testing.T) *siblingInventoryWorld {
 		f.stacks = append(f.stacks, siblingStack{ID: int64(i + 7), Name: stack, EndpointID: 3, Env: ours})
 	}
 	f.stacks = append(f.stacks, siblingStack{ID: 9, Name: "ordinary-orphan", EndpointID: 3, Env: ours})
-	f.w.infra.cache = siblingInventoryCache{}
+	f.w.infra.cache = collectSiblingInventory(t, f.w)
 	return f
 }
 
@@ -232,7 +266,11 @@ func (f *siblingInventoryWorld) remove(t *testing.T, name, id string) (int, map[
 
 func TestPortainerSiblingStackIsNotAnInfrastructureOrphan(t *testing.T) {
 	f := newSiblingInventoryWorld(t)
+	before := f.requests
 	code, answer := targetCall(t, f.w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
+	if f.requests != before {
+		t.Fatal("infrastructure page called provider for placement")
+	}
 	if code != http.StatusOK {
 		t.Fatalf("inventory: %d %+v", code, answer)
 	}
@@ -353,6 +391,7 @@ func TestUnverifiedPlacementKeepsOtherInfrastructureVisible(t *testing.T) {
 	if code != http.StatusServiceUnavailable {
 		t.Fatalf("unverified placement removal: %d %+v", code, answer)
 	}
+	f.w.infra.cache = collectSiblingInventory(t, f.w)
 	code, answer = targetCall(t, f.w.infra.Infrastructure, "GET", "/api/v1/infrastructure", "", nil)
 	if code != http.StatusOK {
 		t.Fatalf("one unverified placement hid the fleet: %d %+v", code, answer)

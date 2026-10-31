@@ -167,7 +167,7 @@ func TestEveryJobKindHasOneBudget(t *testing.T) {
 	t.Parallel()
 	// The registration only: no handler runs, so the composition has no
 	// database and no started owners, just what building the table reads.
-	a := &App{Integrations: &integration.Service{}, Usage: &usage.Service{}}
+	a := &App{Deployment: &deployment.Service{}, Integrations: &integration.Service{}, Usage: &usage.Service{}}
 	kinds := apptownJobKinds(a)
 	if len(kinds) != len(jobBudgets) {
 		t.Fatalf("%d kinds, %d budgets", len(kinds), len(jobBudgets))
@@ -312,7 +312,7 @@ func TestConformanceJobsAreInsertedOnTheirQueue(t *testing.T) {
 // schedule; a pass left to the worker's ten-minute default budget.
 func TestPassesRunAloneOnTheirQueuesEveryMinute(t *testing.T) {
 	t.Parallel()
-	a := &App{Integrations: &integration.Service{}, Usage: &usage.Service{}}
+	a := &App{Deployment: &deployment.Service{}, Integrations: &integration.Service{}, Usage: &usage.Service{}}
 	for kind, want := range map[string]struct {
 		queue  string
 		budget time.Duration

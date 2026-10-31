@@ -7,16 +7,14 @@ import (
 	"time"
 )
 
-// InventoryAnswer lays the cached provider answer over the records. latest
-// is whether the latest ask answered; answered whether there is any list
-// to lay over them: the latest, or the last good one under a later error
-// (the page says how old it is). With no answer yet — the first ask still
-// on its way — the records stay as recorded: a record is "missing" only
-// when an answer lacks it. Merging no answer called every record of a live
-// attached host missing (sweep 7).
-func InventoryAnswer(recorded, live []deploy.Resource, errText string, at time.Time) (resources []deploy.Resource, latest, answered bool) {
+// InventoryAnswer lays a cached provider answer over the records. latest says
+// the latest check answered; answered says there is a list to compare, possibly
+// the last good one under a later error. Before the first answer or while the
+// reading predates an act, show records alone: that evidence cannot establish
+// missing or unrecorded resources.
+func InventoryAnswer(recorded, live []deploy.Resource, errText string, at time.Time, invalidated bool) (resources []deploy.Resource, latest, answered bool) {
 	latest = errText == "" && !at.IsZero()
-	if live == nil && !latest {
+	if invalidated || (live == nil && !latest) {
 		return coalesceInventory(inventorySlots(recorded)), false, false
 	}
 	return MergeInventory(recorded, live), latest, true

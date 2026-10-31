@@ -9,6 +9,7 @@ import (
 	"github.com/flokkit/apptown/internal/database"
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy"
+	"github.com/flokkit/apptown/internal/ids"
 )
 
 func TestDeploymentExecutionLostSettlementQueuesObservationWithoutReexecution(t *testing.T) {
@@ -26,7 +27,7 @@ func TestDeploymentExecutionLostSettlementQueuesObservationWithoutReexecution(t 
 			in := deploymentStartFor(dep, fmt.Sprintf("release-%d", releaseID), "selected")
 			in.Inputs.ReleaseID = releaseID
 			notified := 0
-			runner := Runner{Store: store, Applied: func() { notified++ }}
+			runner := Runner{Store: store, Applied: func(_ ids.ID) { notified++ }}
 			executions := 0
 			result, err := runner.Run(context.Background(), in, func(ctx context.Context, at Attempt, checkpoint deploy.Checkpoint) (deploy.Observation, error) {
 				executions++

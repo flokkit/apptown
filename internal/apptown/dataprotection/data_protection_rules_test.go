@@ -573,7 +573,7 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 	q := &protectionObservationRequests{}
 	observer := NewProtectionObserver(w.s.Service, q)
 	cold, err := observer.Snapshot(ctx, dep.ID)
-	if err != nil || !cold.Unknown || q.calls != 1 {
+	if err != nil || !cold.Unknown || q.calls != 0 {
 		t.Fatalf("cold protection: %+v %v", cold, err)
 	}
 	_, identity, err := observer.resolve(ctx, dep.ID)
@@ -584,7 +584,7 @@ func TestTheProvidersBackupsAreNotAskedOnEveryRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	warm, err := observer.Snapshot(ctx, dep.ID)
-	if err != nil || warm.ObservedAt.IsZero() || len(warm.Items) == 0 || !warm.Stale {
+	if err != nil || warm.ObservedAt.IsZero() || len(warm.Items) == 0 || warm.Stale {
 		t.Fatalf("observed protection lost inner age: %+v %v", warm, err)
 	}
 	seen := false
@@ -1076,7 +1076,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	}}
 	for range 3 {
 		got, err := o.Snapshot(t.Context(), dep.ID)
-		if err != nil || !got.Unknown || !got.Stale || !got.AttemptedAt.IsZero() || calls != 0 || q.calls != 1 {
+		if err != nil || !got.Unknown || !got.Stale || !got.AttemptedAt.IsZero() || calls != 0 || q.calls != 0 {
 			t.Fatalf("cold read: %+v %v", got, err)
 		}
 	}
@@ -1088,7 +1088,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatalf("first evidence: %+v %v", got, err)
 	}
 	got.Items[0].Copy = CopyFresh
-	now = now.Add(3 * time.Minute)
+	now = now.Add(13 * time.Minute)
 	if err := o.Run(t.Context(), dep.ID, identity); err != nil {
 		t.Fatal(err)
 	}
@@ -1150,7 +1150,7 @@ func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *
 	go func() { done <- o.Run(ctx, dep.ID, identity) }()
 	<-started
 	got, err := o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() || q.calls != 1 {
+	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() || q.calls != 0 {
 		t.Fatalf("blocked read affected snapshot: %+v %v", got, err)
 	}
 	cancel()

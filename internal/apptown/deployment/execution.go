@@ -113,7 +113,7 @@ func (e *RunError) Unwrap() error {
 // deadline is imposed on builds or provider rollouts.
 type Runner struct {
 	Store   ExecutionStore
-	Applied func()
+	Applied func(ids.ID)
 }
 
 // Run admits the attempt, executes only a newly admitted identity, and records
@@ -181,7 +181,7 @@ func (r Runner) Run(ctx context.Context, in Start, execute Execute) (ExecutionRe
 	}
 	result.Outcome = out
 	if out == Applied && r.Applied != nil {
-		r.Applied()
+		r.Applied(in.TargetID)
 	}
 	return result, nil
 }
