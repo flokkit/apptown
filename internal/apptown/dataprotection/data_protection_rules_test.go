@@ -1076,7 +1076,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 	}}
 	for range 3 {
 		got, err := o.Snapshot(t.Context(), dep.ID)
-		if err != nil || !got.Unknown || !got.Stale || calls != 0 || q.calls != 1 {
+		if err != nil || !got.Unknown || !got.Stale || !got.AttemptedAt.IsZero() || calls != 0 || q.calls != 1 {
 			t.Fatalf("cold read: %+v %v", got, err)
 		}
 	}
@@ -1084,7 +1084,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatal(err)
 	}
 	got, err := o.Snapshot(t.Context(), dep.ID)
-	if err != nil || got.Unknown || got.Stale || len(got.Items) != 1 || got.Items[0].Copy != CopyStale || strings.Contains(got.Items[0].Key, "private") {
+	if err != nil || got.Unknown || got.Stale || got.AttemptedAt != now || len(got.Items) != 1 || got.Items[0].Copy != CopyStale || strings.Contains(got.Items[0].Key, "private") {
 		t.Fatalf("first evidence: %+v %v", got, err)
 	}
 	got.Items[0].Copy = CopyFresh
@@ -1097,11 +1097,12 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatalf("wrapper renewed native evidence or caller changed owner: %+v %v", got, err)
 	}
 	fail = true
+	now = now.Add(time.Minute)
 	if err := o.Run(t.Context(), dep.ID, identity); err == nil {
 		t.Fatal("provider error lost")
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || len(got.Items) != 1 || got.Items[0].Copy != CopyStale {
+	if err != nil || !got.Unknown || got.AttemptedAt != now || len(got.Items) != 1 || got.Items[0].Copy != CopyStale {
 		t.Fatalf("failure erased warning: %+v %v", got, err)
 	}
 	fail = false
@@ -1111,7 +1112,7 @@ func TestProtectionSnapshotsRetainWarningsAndRejectReplacedGenerations(t *testin
 		t.Fatal(err)
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || len(got.Items) != 0 {
+	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() || len(got.Items) != 0 {
 		t.Fatalf("old generation published under replacement: %+v %v", got, err)
 	}
 	replace = false
@@ -1149,7 +1150,7 @@ func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *
 	go func() { done <- o.Run(ctx, dep.ID, identity) }()
 	<-started
 	got, err := o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || q.calls != 1 {
+	if err != nil || !got.Unknown || !got.AttemptedAt.IsZero() || q.calls != 1 {
 		t.Fatalf("blocked read affected snapshot: %+v %v", got, err)
 	}
 	cancel()
@@ -1157,7 +1158,7 @@ func TestProtectionSnapshotsDoNotWaitForProviderAndRefuseCanceledPublication(t *
 		t.Fatalf("cancellation lost: %v", err)
 	}
 	got, err = o.Snapshot(t.Context(), dep.ID)
-	if err != nil || !got.Unknown || !got.ObservedAt.IsZero() {
+	if err != nil || !got.Unknown || !got.ObservedAt.IsZero() || got.AttemptedAt != now {
 		t.Fatalf("canceled result published: %+v %v", got, err)
 	}
 }

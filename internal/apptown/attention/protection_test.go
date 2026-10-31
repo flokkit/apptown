@@ -91,7 +91,7 @@ func TestProtectionSourcePreservesStaleCopiesAndExcludesDisposableRequirements(t
 	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, Name: "Office", DataClass: "production", DesiredGeneration: 3, ObservedGeneration: 2}
 	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{dep}}, Observer: evidence, Now: func() time.Time { return at.Add(time.Minute) }}
 	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
-	if err != nil || len(got.Items) != 2 || !got.Stale || got.ObservedAt != at {
+	if err != nil || len(got.Items) != 3 || !got.Stale || got.ObservedAt != at {
 		t.Fatalf("copy evidence %+v %v", got, err)
 	}
 	for _, item := range got.Items {
@@ -107,5 +107,33 @@ func TestProtectionSourcePreservesStaleCopiesAndExcludesDisposableRequirements(t
 	got, err = source.ProjectSnapshot(t.Context(), idstest.N(2))
 	if err != nil || got.Known || len(got.Items) != 0 {
 		t.Fatalf("nonproduction acquired a backup requirement %+v %v", got, err)
+	}
+}
+
+// A queued production protection check is coverage only. Failed checks and
+// stale completed readings must raise a warning, even with no copy items.
+func TestProtectionFirstCheckAndStaleReading(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name      string
+		reading   dataprotection.ProtectionSnapshot
+		wantItems int
+	}{
+		{"pending", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true}, 0},
+		{"failed", dataprotection.ProtectionSnapshot{Unknown: true, Stale: true, AttemptedAt: at}, 1},
+		{"stale", dataprotection.ProtectionSnapshot{ObservedAt: at, Stale: true}, 1},
+		{"fresh", dataprotection.ProtectionSnapshot{ObservedAt: at}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{{ID: idstest.N(1), Kind: deployment.Standing, DataClass: "production"}}}, Observer: &protectionEvidence{value: tc.reading}, Now: func() time.Time { return at.Add(time.Hour) }}
+			got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
+			if err != nil || got.Known == tc.reading.Unknown || got.Stale != tc.reading.Stale || len(got.Items) != tc.wantItems {
+				t.Fatalf("protection coverage: %+v %v", got, err)
+			}
+			if tc.wantItems > 0 && (!strings.Contains(got.Items[0].Title, "Backups not known") || !got.Items[0].Stale) {
+				t.Fatalf("protection warning: %+v", got.Items)
+			}
+		})
 	}
 }
