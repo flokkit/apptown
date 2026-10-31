@@ -59,12 +59,12 @@ func (s Standing) Label() CheckLabel {
 	}
 }
 
-// FindingsLabel classifies the accepted scan reports. Unread evidence cannot pass.
-func FindingsLabel(actionable, reports int, unread bool) CheckLabel {
+// FindingsLabel classifies the accepted scan reports. Unread or stale evidence cannot pass.
+func FindingsLabel(actionable, reports int, unread, stale bool) CheckLabel {
 	if actionable > 0 {
 		return CheckFailed
 	}
-	if reports == 0 || unread {
+	if reports == 0 || unread || stale {
 		return CheckUnknown
 	}
 	return CheckPassed

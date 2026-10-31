@@ -67,13 +67,13 @@ export function Capacity({ name }: { name: string }) {
   const c = q.data
   return (
     <div className="small">
-      <dl className="capacity-summary">
+      {!c.elastic && <dl className="capacity-summary">
         {c.memory && <><dt>Memory</dt><dd>{c.memory.hostUsed?.known && c.memory.total.known
           ? `${briefBytes(c.memory.hostUsed.value)} used of ${briefBytes(c.memory.total.value)}` : 'not known'}</dd></>}
         {c.disk && <><dt>Disk</dt><dd>{c.disk.free.known && c.disk.total.known
           ? `${briefBytes(c.disk.free.value)} free of ${briefBytes(c.disk.total.value)}` : 'not known'}</dd></>}
         <dt>Apps</dt><dd>{c.tenants ? `${c.tenants.filter(t => t.kind === 'deployment' || t.kind === 'preview').length} running` : 'not known'}</dd>
-      </dl>
+      </dl>}
       {c.memory?.overcommitted && <p className="capacity-warning">Apps may need more memory than this host has.</p>}
       {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
         : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
@@ -104,12 +104,13 @@ export function Capacity({ name }: { name: string }) {
           </tbody>
         </table>
       )}
+      </details>
       {c.estimate && (
         <div style={{ marginTop: 4 }}>
-          <b>{usd(c.estimate.value)}</b> a month, estimated <span className="muted">— {c.estimate.reason}</span>
+          Estimated <b><FigureWords f={c.estimate} format={usd} /></b> a month (databases extra)
+          <details><summary>Estimate details</summary>{c.estimate.reason}</details>
         </div>
       )}
-      </details>
       <StaleNote q={q} inline />
     </div>
   )

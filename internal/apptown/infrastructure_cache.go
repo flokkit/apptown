@@ -177,7 +177,7 @@ func (w inventoryRefresh) Run(ctx context.Context, key string, _ map[string]any)
 	if err := w.storeObserved(key, identity, items, err); err != nil {
 		return nil, err
 	}
-	return map[string]any{"resources": len(items)}, nil
+	return map[string]any{"target": t.DisplayLabel, "resources": len(items)}, nil
 }
 
 func inventoryTargetIdentity(t *deployment.Target) string {

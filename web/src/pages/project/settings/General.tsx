@@ -1,4 +1,3 @@
-import { PRODUCT } from '../../../brand'
 import { RepositoryAttachment } from './RepositoryAttachment'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -230,13 +229,13 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
         <div className="form-grid" style={{ marginTop: 10 }}>
           <FieldRow label="Name"><input value={shown?.name ?? ''} onChange={(e) => edit('name')(e.target.value)} /></FieldRow>
           <FieldRow label="Icon" help="an emoji"><input value={shown?.icon ?? ''} onChange={(e) => edit('icon')(e.target.value)} maxLength={8} style={{ width: 90 }} /></FieldRow>
-          <FieldRow label="One line about it">
+          <FieldRow label={project.blurbSource === 'person' ? 'Description (edited by you)' : 'Description (suggested)'}>
             <div>
               <div className="row" style={{ gap: 8 }}>
                 <input value={shown?.blurb ?? ''} onChange={(e) => edit('blurb')(e.target.value)} maxLength={140} placeholder="a few words" style={{ flex: 1, minWidth: 0 }} />
-                <span className="muted small">{project.blurbSource === 'person' ? 'yours' : 'suggested'}</span>
+
               </div>
-              <div className="muted small">Clear it to let {PRODUCT} suggest a description.</div>
+
             </div>
           </FieldRow>
           <FieldRow label="Group" help="how projects are grouped on the front page">
@@ -274,7 +273,7 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
 
       <RepoCard slug={project.slug} />
 
-      <div className="card">
+      <details className="card"><summary>Import a branch</summary>
         <div className="row">
           <strong>Adopt a branch</strong>
         </div>
@@ -283,10 +282,10 @@ export function GeneralTab({ project, current = true, onChanged }: { project: Pr
             onKeyDown={(e) => e.key === 'Enter' && importBranch()} />
           <button disabled={!branch.trim()} onClick={importBranch}>Adopt as a change</button>
         </div>
-      </div>
+      </details>
       {err && <div className="error">{err}</div>}
 
-      <DangerZone slug={project.slug} />
+      <details className="card tone-bad"><summary>Danger zone</summary><DangerZone slug={project.slug} /></details>
     </div>
   )
 }
@@ -303,7 +302,11 @@ export function RepoCard({ slug }: { slug: string }) {
     <div className="card">
       <StaleNote q={q} />
       <div className="row">
-        <strong>Repository</strong>
+        <strong>Code</strong>
+        <a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>
+      </div>
+      <details><summary>Repository details</summary>
+      <div className="row">
         <span className="chip">{data.repo.defaultBranch}</span>
         <span className="muted small">{data.repo.commits} commits</span>
         {data.repo.webUrl && <a href={data.repo.webUrl} target="_blank" rel="noreferrer">GitLab ↗</a>}
@@ -313,7 +316,7 @@ export function RepoCard({ slug }: { slug: string }) {
         </span>
       </div>
       <div className="row small" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
-        <a className="btn" href={`/api/v1/projects/${slug}/repo/bundle`} download={`${slug}.bundle`}>Download code</a>
+
         <details><summary>Bundle contents</summary><p>The {data.repo.defaultBranch} branch and tags. Import this bundle to start another project.</p></details>
       </div>
       <RepositoryAttachment slug={slug} />
@@ -328,6 +331,7 @@ export function RepoCard({ slug }: { slug: string }) {
           }}>{copied ? 'copied ✓' : 'copy'}</button>
         </div>
       )}
+      </details>
     </div>
   )
 }

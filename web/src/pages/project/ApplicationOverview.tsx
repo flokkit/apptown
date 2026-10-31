@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { GlanceRow, PhoneDetails } from '../../GlanceRow'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
 import { Status, STATUS_LIGHT } from '../../Status'
-import { AppAddress, RuntimeStatus, runtimeDescription } from '../../runtime'
+import { AppAddress, RuntimeStatus } from '../../runtime'
 import { fmtWhen } from '../../format'
 import type { Backup, DeploymentBackups, DeploymentView, ProjectDetail } from '../../wire.gen'
 import type { Release } from '../../api'
@@ -19,14 +20,12 @@ type ActivityEntry = { id: string; when: string; title: string; source: string; 
 export function overviewActivity(data: OverviewData, deployments: DeploymentView[], backups: Backup[], releases: Release[], slug: string): ActivityEntry[] {
   return [
     ...data.history.map(c => ({ id: `change-${c.changeId}`, when: c.when, title: c.title, source: `Change #${c.changeNumber}`, word: c.statusLabel, to: `/changes/${c.changeId}` })),
-    ...deployments.filter(d => d.observedAt).map(d => ({ id: `deployment-${d.id}`, when: d.observedAt!, title: `${d.displayLabel || d.name} checked`, source: d.targetName, word: d.observation, help: runtimeDescription(d), to: `/projects/${slug}/settings/deployments` })),
-    // Filter recorded outcomes so stale failures stay visible with an unknown light.
-    ...backups.filter(b => b.trigger === 'manual' || b.status === 'failed' || b.status === 'partial' || b.status === 'pruned').map(b => ({ id: `backup-${b.id}`, when: b.takenAt, title: `${deployments.find(d => d.name === b.deployment)?.displayLabel || b.deployment} backup`, source: b.trigger, word: b.statusLabel, help: b.error, to: `/projects/${slug}/settings/deployments` })),
-    ...releases.map(r => ({ id: `release-${r.number}`, when: r.releasedAt || r.createdAt, title: `Release #${r.number}`, source: r.deployment, word: r.statusLabel, to: `/projects/${slug}/releases/${r.number}` })),
+    ...releases.map(r => ({ id: `release-${r.number}`, when: r.releasedAt || r.createdAt, title: r.changes?.length === 1 ? `Change ${r.changes[0].number} → Release ${r.number}` : `Release ${r.number}`, source: r.deployment, word: r.statusLabel, to: `/projects/${slug}/releases/${r.number}` })),
   ].sort((a, b) => b.when.localeCompare(a.when))
 }
 
 export function ApplicationOverview({ project }: { project: ProjectDetail }) {
+  const [activityCount, setActivityCount] = useState(10)
   const slug = project.slug
   const activityQ = useGet<OverviewData>(`/projects/${slug}/overview`, { poll: 5000 })
   const deploymentsQ = useGet<DeploymentView[]>(`/projects/${slug}/deployments`, { poll: 5000 })
@@ -63,11 +62,12 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     <section className="application-stream">
       <div className="application-section-head"><h2>Activity</h2></div>
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
-      <table className="activity-ledger"><thead><tr><th>When</th><th>What happened</th><th>Source</th><th>State</th></tr></thead><tbody>{events.map(e => <GlanceRow name={1} state={3} fact={0} labels={["When", "Event", "Source", "State"]} key={e.id}><td>{fmtWhen(e.when)}</td><td><Link to={e.to}>{e.title}</Link></td><td>{e.source}</td><td><Status word={e.word} tone={STATUS_LIGHT[e.word]} help={e.help} /></td></GlanceRow>)}</tbody></table>
+      <table className="activity-ledger"><thead><tr><th>When</th><th>What happened</th><th>Source</th><th>State</th></tr></thead><tbody>{events.slice(0, activityCount).map(e => <GlanceRow name={1} state={3} fact={0} labels={["When", "Event", "Source", "State"]} key={e.id}><td>{fmtWhen(e.when)}</td><td><Link to={e.to}>{e.title}</Link></td><td>{e.source}</td><td><Status word={e.word} tone={STATUS_LIGHT[e.word]} help={e.help} /></td></GlanceRow>)}</tbody></table>
+      {events.length > activityCount && <button onClick={() => setActivityCount(n => n + 10)}>Show 10 more</button>}
       {data && !events.length && <p className="muted">No activity yet.</p>}
     </section>
-    <aside className="application-details" aria-label="Application details">
-      <h2>Application details</h2>
+    <details className="application-details" aria-label="Application details">
+      <summary>Application details</summary>
       {project.originalRequest && <section><h3>Original request</h3><p style={{ whiteSpace: 'pre-wrap' }}>{project.originalRequest}</p></section>}
       <section><h3>Deployments</h3><ReadStatus q={deploymentsQ} what="deployments" /><StaleNote q={deploymentsQ} />
         {deploymentsQ.data && !deployments.length && <p className="muted">No deployments</p>}
@@ -80,7 +80,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
         {backups.slice(0,1).map(b => <div key={b.id}><Status word={b.statusLabel} tone={STATUS_LIGHT[b.statusLabel]} help={b.error} /><p>{b.deployment} · {fmtWhen(b.takenAt)}</p></div>)}
       </section>
       <section><h3>Configuration</h3><Link to={`/projects/${slug}/settings/working`}>Way of working →</Link><p><Link to={`/projects/${slug}/settings`}>Project settings →</Link></p></section>
-    </aside>
+    </details>
     <PastChats slug={slug} />
   </div>
 }

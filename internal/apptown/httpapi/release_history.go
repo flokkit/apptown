@@ -50,8 +50,9 @@ type ReleaseListed struct {
 
 // ReleaseChangeTitle names a Change a release carries.
 type ReleaseChangeTitle struct {
-	ID    ids.ID `json:"id"`
-	Title string `json:"title"`
+	Number int64  `json:"number"`
+	ID     ids.ID `json:"id"`
+	Title  string `json:"title"`
 }
 
 // ListReleases: GET /api/v1/projects/{slug}/releases — newest first,
@@ -110,7 +111,7 @@ func (h ReleaseHistory) ListReleases(w http.ResponseWriter, r *http.Request) {
 		// the Overview after the first intranet release.
 		out[i].Changes = []ReleaseChangeTitle{}
 		for _, change := range contents[out[i].ID] {
-			out[i].Changes = append(out[i].Changes, ReleaseChangeTitle{change.ID, change.Title})
+			out[i].Changes = append(out[i].Changes, ReleaseChangeTitle{Number: change.Number, ID: change.ID, Title: change.Title})
 		}
 	}
 	WriteJSON(w, 200, out)

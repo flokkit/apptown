@@ -10,6 +10,7 @@ import (
 	"github.com/flokkit/apptown/internal/dbtest"
 	"github.com/flokkit/apptown/internal/deploy"
 	"github.com/flokkit/apptown/internal/deploy/docker"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -338,4 +339,35 @@ func TestTierMapObservesBothCustomerPlacementsIndependently(t *testing.T) {
 	if a, b := counts(); a != beforeA || b != beforeB {
 		t.Fatal("a read asked a host")
 	}
+}
+
+func TestDeparturesExplainFailedReleaseAndIdentifyItsRecord(t *testing.T) {
+	t.Parallel()
+	a := authzFixture(t, Config{DockerClient: newFakeDocker()})
+	cut := releasedPreviewFixture(t, a, idstest.N(1), "departure-failure")
+	first, err := a.Deployment.Releases.ByNumber(t.Context(), idstest.N(1), cut.Number)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := a.Deployment.Releases.Start(t.Context(), deployment.ReleaseDraft{Source: deployment.ReleaseFromBranch, ProjectID: first.ProjectID, DeploymentID: first.DeploymentID, Deployment: first.Deployment, Revision: first.CommitSHA, Actor: "owner"}, "next release")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Deployment.Outcomes.FailUnstartedRelease(t.Context(), next.ID, errors.New("Image could not be downloaded")); err != nil {
+		t.Fatal(err)
+	}
+	w := authzCall(a.Handler(), "owner", "GET", "/api/v1/tiers/departures", "")
+	var got httpapi.Departures
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil || w.Code != 200 {
+		t.Fatalf("departures: %s %v", w.Body.String(), err)
+	}
+	for _, d := range got.Departures {
+		if d.State.String() == "failed" {
+			if d.ReleaseNumber != next.Number || !strings.Contains(d.Reason, "Image could not be downloaded") {
+				t.Fatalf("failure lost record or reason: %+v", d)
+			}
+			return
+		}
+	}
+	t.Fatal("failed release missing")
 }

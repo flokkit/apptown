@@ -1105,7 +1105,7 @@ func (q *Queries) RecordSupersededChange(ctx context.Context, arg RecordSupersed
 }
 
 const releaseChangeLabels = `-- name: ReleaseChangeLabels :many
-SELECT rel.id AS release_id,c.id AS change_id,c.title,c.type
+SELECT rel.id AS release_id,c.id AS change_id,c.number,c.title,c.type
 FROM releases rel JOIN release_changes rc ON rc.release_id=rel.id
 JOIN changes c ON c.id=rc.change_id AND c.project_id=rel.project_id
 WHERE rel.project_id=$1 AND rel.id=ANY($2::uuid[]) ORDER BY rel.id,c.id
@@ -1119,6 +1119,7 @@ type ReleaseChangeLabelsParams struct {
 type ReleaseChangeLabelsRow struct {
 	ReleaseID ids.ID
 	ChangeID  ids.ID
+	Number    int64
 	Title     string
 	Type      string
 }
@@ -1139,6 +1140,7 @@ func (q *Queries) ReleaseChangeLabels(ctx context.Context, arg ReleaseChangeLabe
 		if err := rows.Scan(
 			&i.ReleaseID,
 			&i.ChangeID,
+			&i.Number,
 			&i.Title,
 			&i.Type,
 		); err != nil {
@@ -1286,7 +1288,7 @@ func (q *Queries) ShippedChangeBranchesMeta(ctx context.Context, arg ShippedChan
 }
 
 const shippedChangeLabelsMeta = `-- name: ShippedChangeLabelsMeta :many
-SELECT id,title,type FROM changes WHERE project_id=$1 AND state=$2 AND closed_at>$3::timestamptz
+SELECT id,number,title,type FROM changes WHERE project_id=$1 AND state=$2 AND closed_at>$3::timestamptz
 ORDER BY closed_at DESC NULLS LAST,id DESC LIMIT NULLIF($4::integer,0)
 `
 
@@ -1298,9 +1300,10 @@ type ShippedChangeLabelsMetaParams struct {
 }
 
 type ShippedChangeLabelsMetaRow struct {
-	ID    ids.ID
-	Title string
-	Type  string
+	ID     ids.ID
+	Number int64
+	Title  string
+	Type   string
 }
 
 // Label metadata excludes potentially large Change bodies.
@@ -1318,7 +1321,12 @@ func (q *Queries) ShippedChangeLabelsMeta(ctx context.Context, arg ShippedChange
 	var items []ShippedChangeLabelsMetaRow
 	for rows.Next() {
 		var i ShippedChangeLabelsMetaRow
-		if err := rows.Scan(&i.ID, &i.Title, &i.Type); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.Title,
+			&i.Type,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

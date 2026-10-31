@@ -354,3 +354,40 @@ func TestTokenReadFailureCannotReturnMetadataOrRevoke(t *testing.T) {
 		t.Fatalf("retry: %v %v", ok, err)
 	}
 }
+
+// A personal account sees only its own live token metadata, without gaining
+// the administrator's token catalogue or exposing credential material.
+func TestOwnTokensKeepAccountBoundary(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s, boss := tokenCommandFixture(t)
+	if _, err := s.EnsureUser(ctx, "member"); err != nil {
+		t.Fatal(err)
+	}
+	for _, in := range []NewToken{{Name: "boss-cli", Purpose: "cli"}, {Name: "member-cli", User: "member", Purpose: "cli"}, {Name: "old", User: "member", Purpose: "agent"}} {
+		if _, err := s.IssueToken(ctx, in, boss); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.RevokeToken(ctx, "old", boss); err != nil {
+		t.Fatal(err)
+	}
+	member := admittedPrincipal(t, s, "member")
+	member.Credential = HeaderCredential("member")
+	tokens, err := s.OwnTokens(ctx, member)
+	if err != nil || len(tokens) != 1 || tokens[0].Name != "member-cli" {
+		t.Fatalf("own tokens: %+v %v", tokens, err)
+	}
+	if _, err := s.Tokens(ctx, member); err == nil {
+		t.Fatal("personal read granted catalogue access")
+	}
+	for _, pr := range []access.Principal{{}, {Kind: "instrument", Name: "member"}, {Kind: "user", Name: "member"}} {
+		if _, err := s.OwnTokens(ctx, pr); err == nil {
+			t.Fatal("unverified caller read tokens")
+		}
+	}
+	disableStoredAccount(t, s.db, "member")
+	if _, err := s.OwnTokens(ctx, member); err == nil {
+		t.Fatal("disabled account read tokens")
+	}
+}

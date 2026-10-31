@@ -53,7 +53,13 @@ integration-health, check, release, update, copy, job and inventory display labe
 come from their owners too. Backup sets, operations, data coverage, step evidence, remediation and what-if results expose owner labels as well. Runs, evals, deployment readiness, restore checks, managed needs, decisions and suppression expiry also use owner labels. Preview discovery alone reports `unknown`. `running` describes runtime; work uses `working` and
 a release in progress uses `deploying`. Waiting labels name the awaited party only when known; saved changes and queued work use `waiting`.
 The word stays visible. Reasons and check times use a disclosure that opens with
-a tap, click or keyboard. Help opens beside its chip, stays within the viewport and does not resize the table. Only one status help is open at a time; tapping outside or pressing Escape closes it. Static chips are not live regions.
+a tap, click or keyboard. Help opens beside its chip, stays within the viewport and does not resize the table. Only one status help is open at a time; tapping outside or pressing Escape closes it. Static chips are not live regions. A completed backup remains finished when its old
+stored copy is pruned. A guidance/conformance step with unmet blocking rules displays failed even when
+the gate permits existing failures; its recorded gate outcome stays unchanged.
+Checks marked non-gating remain advisory and do not change a passing step’s
+state. An omitted gating flag means blocking. Script and scan steps retain
+their recorded outcome.
+Security results from before a change to main cannot claim main has passed.
 
 The authorization response exposes `actorId` only for a verified person with a
 stable principal UUID. The display user name is not a durable identity. An absent
@@ -140,3 +146,12 @@ needs a guard instead, as the ADR editor has.
 | Editor | Why it is safe enough |
 | --- | --- |
 | Guidance block body and tags | a body save adds a version, so the text it replaced stays readable as the version before; tags are replaced in place |
+
+## Reading at a glance
+
+Operational rows lead with a name, a status light and word, and at most one
+fact on a phone. Commands, identifiers and detailed evidence belong in closed
+disclosures. Backup history, activity, job groups, change events and departures
+start with a bounded selection and offer the next ten records. Successful jobs
+with the same operation and subject collapse; failures and open jobs stay apart.
+The change page keeps its evidence on Work, after the tab navigation.

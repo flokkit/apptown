@@ -18,3 +18,15 @@ export function eventSentence(e: Pick<Event, 'kind' | 'payload'>): string | null
   }
   return null
 }
+
+// Unknown event kinds still have their exact record one tap away.
+export function eventTitle(kind: string): string {
+  const titles: Record<string, string> = {
+    'run.created': 'Work started', 'run.finished': 'Work finished', 'run.done': 'Work finished',
+    'run.abandoned': 'Work stopped', 'step.passed': 'Check passed', 'step.failed': 'Check failed',
+    'step.started': 'Step started', 'step.finished': 'Step finished', 'approval.decided': 'Approval recorded',
+    'main.merged': 'Updated from main', 'main.conflict': 'Needs an update from main',
+    'integration.resolved': 'Connection checked', 'advance.blocked': 'Waiting for a check',
+  }
+  return titles[kind] || 'Activity recorded'
+}

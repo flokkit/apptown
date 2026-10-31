@@ -7,7 +7,7 @@ import { AddsSection, DecisionForm } from '../../DecisionForm'
 import { useAction, useGet } from '../../data'
 import { RunFindings } from './Findings'
 import type { StepProgress } from '../../wire.gen'
-import { testsNote } from './Evidence'
+import { stepTitle, testsNote } from './Evidence'
 import { decisionStatus } from './next'
 import { closingVia, voterWords } from './through'
 import { Screenshots, sameCommitWords } from '../../Screenshots'
@@ -26,7 +26,7 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
   const overridden = step.overrideBy !== ''
   // A check that passed is one line — chip, name, how long — until you ask
   // for more. Only what failed, is running or needs a person opens itself.
-  const quiet = (step.status === 'pass' || overridden) && step.type !== 'workflow/call' && !step.checkReading?.unreadable
+  const quiet = (step.status !== 'running' && !(step.type === 'approval' && step.status === 'pending') || overridden) && step.type !== 'workflow/call' && !step.checkReading?.unreadable
   const [more, setMore] = useState(false)
   useEffect(() => { if (expanded) setMore(true) }, [expanded])
   const showBody = !quiet || more
@@ -41,12 +41,12 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
     <div id={`step-${step.id}`} className="card step-card" style={quiet && !more ? { padding: '8px 12px' } : undefined}>
       <div className="row step-head">
         <Status word={statusLabel} tone={STATUS_LIGHT[statusLabel]} />
-        <strong>{step.name}</strong>
-        <span className="muted small">{step.type}{took && ` · ${took}`}{tests?.plain && ` · ${tests.note}`}</span>
+        <strong>{stepTitle(step)}</strong>
+        <span className="muted small">{took}{tests?.plain && ` · ${tests.note}`}</span>
         {tests && !tests.plain && <span className="chip stale small">{tests.note}</span>}
         <span className="step-acts">
           {quiet && (
-            <button className="subtle" onClick={() => setMore(!more)}>{more ? 'less' : 'details'}</button>
+            <button className="subtle" onClick={() => setMore(!more)}>{more ? 'Hide' : 'Details'}</button>
           )}
           {['script', 'agent/pi', 'preview', 'deploy', 'agent/review', 'scan', 'guidance/conformance'].includes(step.type) && step.status !== 'running' && (
             <button className="subtle" onClick={() => act(() => post(`/steps/${step.id}/run`))}>Re-run</button>
@@ -67,6 +67,7 @@ export function StepCard({ step, onChange, hideApproveForm, expanded, landingMea
         <div className="muted small">Exception by {step.overrideBy}: “{step.overrideReason}”</div>
       )}
 
+      {!showBody && step.status !== 'pass' && ev.reason && <p className="error">{ev.reason}</p>}
       {showBody && <>
       {step.type === 'policy/current' && step.status === 'needs_human' && (
         <div style={{ marginTop: 8 }}>

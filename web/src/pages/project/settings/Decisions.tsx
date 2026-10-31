@@ -19,7 +19,7 @@ export function AdrsTab({ slug }: { slug: string }) {
 
   return (
     <div>
-      <ReadGate q={q} what="this project's decisions">{(adrs) => (
+      <ReadGate q={q} what="this project's decisions">{(adrs) => adrs.length === 0 ? <p className="muted">No decisions recorded yet.</p> : (
       <table>
         <thead><tr><th>#</th><th>Title</th><th>Status</th><th>Tags</th></tr></thead>
         <tbody>

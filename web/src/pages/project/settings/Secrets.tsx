@@ -1,3 +1,4 @@
+import { NewChangeButton } from '../NewChange'
 import { PRODUCT } from '../../../brand'
 import { useState } from 'react'
 import { del, get, put } from '../../../api'
@@ -14,6 +15,7 @@ import { useHolds } from '../../../instancePages'
 // where each one comes from. Values go in and never come back out.
 
 export function SecretsTab({ slug }: { slug: string }) {
+  const [adding, setAdding] = useState(false)
   const q = useGet<ProjectSecrets>(`/projects/${slug}/secrets`)
   const { data, reload } = q
   const { run, err } = useAction(reload)
@@ -44,6 +46,9 @@ export function SecretsTab({ slug }: { slug: string }) {
     return (
       <div>
         <StaleNote q={q} />
+        <p>No secrets yet.</p>
+        <button onClick={() => setAdding(true)}>Add secret</button>
+        {adding && <NewChangeButton slug={slug} request={{ title: 'Add a secret', body: 'Declare the secret this app needs and explain where the app uses it. Ask me for its name and purpose before editing. Keep its value out of the code and this change; I will set the value in Settings after the change lands.' }} external={{ open: true, onClose: () => setAdding(false) }} />}
         <details className="small"><summary>About secrets</summary><p className="muted small" style={{ maxWidth: 640, marginTop: 0 }}>
           This app declares no secrets. When it needs one · a signing key, an API key · it
           commits a <code>secretspec.toml</code> naming the secret (never the value), and this

@@ -1,5 +1,3 @@
-import { PhoneDetails } from '../../../GlanceRow'
-import { useNarrow } from '../../../chrome'
 import { Status, STATUS_LIGHT } from '../../../Status'
 import { DeploymentAddressEdit } from './DeploymentAddress'
 import { ReleaseDefaultPicker } from './ReleaseDefault'
@@ -57,25 +55,24 @@ export function DeploymentsTab({ slug }: { slug: string }) {
       <AddDeployment slug={slug} offered={offered} existing={envs.map((e) => e.name)} onAdded={load} />
 
       {(open.length > 0 || settled.length > 0) && (
-        <div style={{ marginTop: 22 }}>
-          <h3 style={{ marginBottom: 4 }}>Left behind</h3>
+        <details style={{ marginTop: 22 }}>
+          <summary>{open.length > 0 ? `${open.length} old resource${open.length === 1 ? '' : 's'} to review` : `Old resources (${settled.length})`}</summary>
           <p className="muted small" style={{ maxWidth: 720, marginTop: 0 }}>
             Data without a final copy and resources that could not be deleted. Delete them at the provider, then confirm here to free the deployment name.
           </p>
-          <table style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <table className="stack" style={{ fontVariantNumeric: 'tabular-nums' }}>
             <thead><tr><th>What</th><th>From</th><th>Torn down</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {[...open, ...settled].map((r) => <RetainedRow key={r.id} slug={slug} r={r} onChanged={load} />)}
             </tbody>
           </table>
-        </div>
+        </details>
       )}
     </div>
   )
 }
 
 export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: DeploymentView; onChanged: () => void }) {
-  const narrow = useNarrow()
   const nav = useNavigate()
   const { run, busy, err } = useAction()
   // A take-down is done now (DeploymentRemoved), or admitted as an
@@ -109,17 +106,17 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
   const host = e.url.replace(/^https?:\/\//, '').replace(/\/$/, '')
   return (
     <div className="conn-card" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-      {narrow && <div className="host-row"><strong>{e.displayLabel || e.name}</strong><RuntimeStatus observation={e} />
-        <span className="small muted">{e.url ? <AppAddress url={e.url} hostOnly={e.hostOnly}>{host}</AppAddress> : 'No address yet'}</span>
-      </div>}
-      <PhoneDetails>
+      <div className="host-row"><strong>{e.displayLabel || e.name}</strong><RuntimeStatus observation={e} />
+        <DeploymentFact slug={slug} env={e} />
+      </div>
+      <details><summary>Details</summary>
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontWeight: 700 }}>
             {e.displayLabel || e.name}
             {e.protected && <span className="chip overridden" style={{ marginLeft: 8 }} title="reaches partners or the public, or holds production data · deploys need the release grant">protected</span>}
           </div>
-          <DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} />
+          <details><summary>Edit name</summary><DisplayLabelEdit value={e.displayLabel || e.name} machineKey={e.name} path={`/projects/${slug}/deployments/${e.id}/label`} onChanged={onChanged} /></details>
  <div className="muted small">{place}{e.target ? ` (${e.target.displayLabel || e.target.name})` : ''}</div>
         </div>
         <span className="row" style={{ gap: 6 }}>
@@ -133,7 +130,7 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
         {e.generation ? <span className="muted"> · generation {e.generation}</span> : null}
       </div>
       <div className="muted small">
-        fed by {e.feed === 'landing' ? 'every landing' : 'promotion'} · for {e.audience === 'organisation' ? 'the organisation' : `the ${e.audience}`} · {e.data} data
+        {e.feed === 'landing' ? 'Updates on every change' : 'Updates when released'} · {e.audience === 'team' ? 'team only' : e.audience} · {e.data === 'synthetic' ? 'test' : e.data} data
       </div>
       {e.needs && e.needs.length > 0 && (
         <div className="small">
@@ -210,9 +207,18 @@ export function EnvCard({ slug, env: e, onChanged }: { slug: string; env: Deploy
           {torn.orphans.length > 0 ? <> Left at the target: {torn.orphans.join('; ')}.</> : ' Nothing was left behind.'}
         </div>
       )}
-      </PhoneDetails>
+      </details>
     </div>
   )
+}
+
+// A resource warning replaces the address as the row's one fact.
+function DeploymentFact({ slug, env }: { slug: string; env: DeploymentView }) {
+  const q = useGet<DeploymentResources>(env.generation ? `/projects/${slug}/deployments/${env.name}/resources` : null)
+  const share = q.data?.share
+  const warning = share?.diskRefuses ? 'Free disk space before deploying' : share?.lowDisk ? 'Server is low on disk space' : share?.overcommitted ? 'Server is short on memory' : ''
+  return <span className="small muted">{warning && share ? <Link to={`/infrastructure/${share.target}`}>{warning}</Link>
+    : env.url ? <AppAddress url={env.url} hostOnly={env.hostOnly}>Open app</AppAddress> : 'No address yet'}</span>
 }
 
 function AddDeployment({ slug, offered, existing, onAdded }: { slug: string; offered: OfferedTarget[]; existing: string[]; onAdded: () => void }) {
@@ -432,6 +438,10 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
   const clear = async (p: string) => done(await run(() => del<OverrideResult>(`/projects/${slug}/deployments/${name}/resources`, { part: p, reason: 'cleared by hand' })))
   return (
     <div className="small">
+      <ShareLine share={r.share} />
+      <details><summary>Resources</summary>
+      {r.parts.map(p => <p key={p.part || 'app'}>{p.need ? 'Database' : p.part || 'App'}: {p.observed.known ? `uses ${fmtBytes(p.observed.usedBytes)}${p.observed.limitBytes > 0 ? ` of ${fmtBytes(p.observed.limitBytes)}` : ''}` : 'Memory use not available'}</p>)}
+      <details><summary>Limits and settings</summary>
       <div>
         <span className="muted">profile</span>{' '}
         {r.recorded ? <><b>{r.profile}</b> <span className="muted">({howWords[r.how || ''] || r.how})</span></> : <span className="muted">not recorded</span>}
@@ -467,7 +477,6 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
         </tbody>
       </table>
       {r.parts.some((p) => p.suppliedService) && <div className="muted">Workflow service limits are set in the workflow service declaration.</div>}
-      <ShareLine share={r.share} />
       <LimitEventLines r={r} />
       {parts.length > 0 && !open && <button className="link small" onClick={() => setOpen(true)}>Override memory…</button>}
       {open && picked && (
@@ -486,6 +495,7 @@ export function ResourceLines({ slug, name }: { slug: string; name: string }) {
       {said && <div className="muted">{said}</div>}
       {err && <div className="error">{err}</div>}
       <StaleNote q={q} inline />
+      </details></details>
     </div>
   )
 }
@@ -525,21 +535,11 @@ export function LimitEventLines({ r }: { r: DeploymentResources }) {
 export function ShareLine({ share }: { share?: DeploymentResources['share'] }) {
   if (!share) return null
   if (share.elastic) return <div className="muted">on {share.target}, which grows on demand</div>
-  const total = share.hostMemory.known ? share.hostMemory.value : 0
-  const pct = (v: number) => (total > 0 ? ` (${Math.round((v / total) * 100)}%)` : '')
-  return (
-    <div>
-      <span className="muted">holds</span>{' '}
-      {share.declared.known ? <>{fmtBytes(share.declared.value)}{pct(share.declared.value)} declared</> : <span className="muted" title={share.declared.reason}>an unknown share (no limit on every part)</span>}
-      {' '}<span className="muted">of {share.target}'s</span>{' '}
-      {share.hostMemory.known ? fmtBytes(share.hostMemory.value) : <span className="muted" title={share.hostMemory.reason}>unknown memory</span>}
-      {share.used.known && <>; uses {fmtBytes(share.used.value)}</>}
-      {share.overcommitted && <span className="chip pending" style={{ marginLeft: 6 }} title="the limits on this host add up to more than it has">host overcommitted</span>}
-      {share.diskRefuses
-        ? <span className="chip failed" style={{ marginLeft: 6 }} title="the host's disk is below the space new work needs; a deploy reads it again when it starts">host short of disk: deploys refused</span>
-        : share.lowDisk && <span className="chip failed" style={{ marginLeft: 6 }} title="free space is below the host's disk warning threshold">host disk low</span>}
-    </div>
-  )
+  return <div>
+    {share.overcommitted && <p className="error">Server is short on memory. <Link to={`/infrastructure/${share.target}`}>Review server</Link></p>}
+    {share.diskRefuses ? <p className="error">Server is short on disk space. New deployments are blocked.</p>
+      : share.lowDisk && <p className="error">Server is low on disk space.</p>}
+  </div>
 }
 
 // What holds a deployment after AppTown was restored, as a chip and as a

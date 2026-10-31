@@ -168,3 +168,25 @@ func revokeTokenIn(ctx context.Context, tx *database.Tx, name, by string, now ti
 	}
 	return true, nil
 }
+
+// OwnTokens returns only the current person's live token metadata. A coding
+// agent or instrument cannot use this personal-account read.
+func (s *Service) OwnTokens(ctx context.Context, pr access.Principal) ([]Token, error) {
+	channel := access.DelegationOf(pr)
+	if pr.Kind != "user" || pr.ID.IsZero() || (channel.Kind != "full-breadth" && channel.Kind != "cli-token") {
+		return nil, access.ErrPrincipalRequired
+	}
+	current, err := s.stillPrincipal(ctx, pr)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := queries(s.db).LiveAuthTokensForPrincipal(ctx, current.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Token, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, token(accesssql.AuthTokensNamed(row)))
+	}
+	return out, nil
+}

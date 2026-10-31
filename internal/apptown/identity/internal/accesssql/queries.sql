@@ -603,3 +603,6 @@ SELECT count(*)::bigint FROM users u WHERE u.disabled_at IS NULL AND u.password_
 SELECT * FROM external_signin_bindings WHERE id=$1;
 -- name: ExternalBindingsForPrincipal :many
 SELECT * FROM external_signin_bindings WHERE principal_id=$1 ORDER BY created_at,id;
+
+-- name: LiveAuthTokensForPrincipal :many
+SELECT * FROM auth_tokens_named WHERE principal_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC;

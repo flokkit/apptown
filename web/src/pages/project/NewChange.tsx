@@ -10,13 +10,13 @@ import type { CreatedChange } from '../../wire.gen'
 // + For + optional ref, then start it (branch + worktree, off to the
 // cockpit). A workflow is optional — work needs a place to happen before it
 // needs a workflow. Ideas for later belong in the team's ticket tracker.
-export function NewChangeButton({ slug, external }: { slug: string; external?: { open: boolean; onClose: () => void } }) {
+export function NewChangeButton({ slug, external, request }: { slug: string; request?: { title: string; body: string }; external?: { open: boolean; onClose: () => void } }) {
   const nav = useNavigate()
   const [openState, setOpenState] = useState(false)
   const open = external ? external.open : openState
   const setOpen = (v: boolean) => { if (external) { if (!v) external.onClose() } else setOpenState(v) }
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
+  const [title, setTitle] = useState(request?.title ?? '')
+  const [body, setBody] = useState(request?.body ?? '')
   const [ref, setRef] = useState('')
   const [wf, setWf] = useState('')
   const { data: loadedWorkflows } = useGet<Workflow[]>(open ? `/projects/${slug}/workflows` : null)

@@ -2084,6 +2084,43 @@ func (q *Queries) LiveAuthTokenNamesOfUser(ctx context.Context, username string)
 	return items, nil
 }
 
+const liveAuthTokensForPrincipal = `-- name: LiveAuthTokensForPrincipal :many
+SELECT name, principal_id, role, token_hash, created_at, last_used, revoked_at, purpose, username FROM auth_tokens_named WHERE principal_id = $1 AND revoked_at IS NULL ORDER BY created_at DESC
+`
+
+func (q *Queries) LiveAuthTokensForPrincipal(ctx context.Context, principalID ids.ID) ([]AuthTokensNamed, error) {
+	rows, err := q.db.QueryContext(ctx, liveAuthTokensForPrincipal, principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuthTokensNamed
+	for rows.Next() {
+		var i AuthTokensNamed
+		if err := rows.Scan(
+			&i.Name,
+			&i.PrincipalID,
+			&i.Role,
+			&i.TokenHash,
+			&i.CreatedAt,
+			&i.LastUsed,
+			&i.RevokedAt,
+			&i.Purpose,
+			&i.Username,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const liveGrantByIdentity = `-- name: LiveGrantByIdentity :one
 SELECT id, subject_type, subject, role_name, capability, scope_type, scope_id, origin, granted_by, granted_by_principal, granted_by_via, reason, created_at, expires_at, review_at, revoked_at FROM grants_named
 WHERE subject_type = $1 AND subject = $2 AND role_name = $3

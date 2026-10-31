@@ -48,7 +48,7 @@ describe('restoring a backup set', () => {
       const button = (label: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === label)!
       // RB2-02: the known loss is on the set and in the question.
       expect(el.textContent).toContain('object metadata is not in the copy')
-      await act(async () => { button('Restore over main').click() })
+      await act(async () => { button('Restore main from this copy').click() })
       expect(el.textContent).toContain('Not in this set · s3: object metadata is not in the copy.')
       await act(async () => { button('Restore').click() })
       await vi.waitFor(() => expect(el.textContent).toContain('shop/main: restore from the set taken 10-08 01:00 started.'))
@@ -78,7 +78,8 @@ describe('restoring a backup set', () => {
         root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>)
       })
       const latest = [...el.querySelectorAll('table')][0].querySelectorAll('tbody tr')
-      expect(latest[0].textContent).toContain('Restore over main')
+      expect(latest).toHaveLength(2)
+      expect(latest[0].textContent).toContain('Restore main from this copy')
       expect(latest[0].textContent).toContain('backup store')
       expect(latest[1].textContent).toContain('backup store')
       expect(latest[1].textContent).not.toContain('Restore over')
@@ -92,4 +93,27 @@ describe('restoring a backup set', () => {
       client.clear()
     }
   }, 3000)
+  it('history restores final copies into a named deployment and retains partial restores', async () => {
+    const client = newQueryClient()
+    const body = { keep: 7, where: '/b', backups: [
+      set,
+      { ...set, id: DOCKER_SET, trigger: 'take-down' },
+      { ...set, id: CLOUD_SET, status: 'partial' },
+    ] }
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body))))
+    const el = document.createElement('div')
+    const root = createRoot(el)
+    try {
+      await act(async () => {
+        root.render(<QueryClientProvider client={client}><MemoryRouter><BackupsView /></MemoryRouter></QueryClientProvider>)
+      })
+      await vi.waitFor(() => expect(el.querySelectorAll('table')).toHaveLength(2))
+      const rows = el.querySelectorAll('table')[1].querySelectorAll('tbody tr')
+      expect(rows[1].textContent).toContain('Restore …')
+      expect(rows[1].textContent).not.toContain('Restore main from this copy')
+      expect(rows[1].querySelector('input[placeholder="a deployment"]')).toBeTruthy()
+      expect(rows[2].textContent).toContain('Restore main from this copy')
+    } finally { act(() => root.unmount()); client.clear() }
+  })
+
 })

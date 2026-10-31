@@ -67,7 +67,7 @@ describe("a target's capacity", () => {
     })
     expect(html).toContain('Grows on demand')
     expect(html).toContain('$10.00')
-    expect(html).toContain('estimated')
+    expect(html).toContain('Estimate details')
     expect(html).toContain('managed databases are not included')
     expect(html).toContain('db-s-1vcpu-1gb')
   })

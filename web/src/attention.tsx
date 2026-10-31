@@ -21,10 +21,11 @@ export function attentionState(q: Pick<Read<AttentionView>, 'data' | 'refreshFai
 export function AttentionBadge() {
   const q = useAttention()
   const state = attentionState(q)
-  const missing = q.err || q.refreshFailed ? 'unknown' : '…'
+  if (state.count === 0 && state.known) return null
+  const missing = q.err || q.refreshFailed || state.count === 0 ? 'unknown' : '…'
   return <span className="row small">
     <Link to="/attention" aria-label={`Attention: ${state.count ?? missing} conditions${state.known ? '' : ', coverage incomplete'}`}>
-      {state.count === null ? `Attention ${missing}` : <>{state.count}<span className="attention-label"> need attention</span></>}
+      {state.count === null || state.count === 0 ? `Attention ${missing}` : <>{state.count}<span className="attention-label"> need attention</span></>}
     </Link>
     <StaleNote q={q} inline />
   </span>

@@ -144,3 +144,38 @@ func TestCheckReadingRoundTripPreservesDisplayLabelsAndFacts(t *testing.T) {
 		t.Fatalf("display response lost checked facts or label: %+v", check)
 	}
 }
+
+func TestGatePassDoesNotHideUnmetRules(t *testing.T) {
+	s := Step{Type: "guidance/conformance", Status: StatusPass, CheckReading: &CheckReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Check: "keep-data", Verdict: VerdictFail, Preexisting: true}}}}}
+	if got := s.displayLabel(); got != status.DisplayFailed {
+		t.Fatalf("unmet rule: %s", got)
+	}
+	if s.Status != StatusPass {
+		t.Fatal("display changed gate outcome")
+	}
+}
+
+func TestPassingStepOnlyDisplaysUnmetBlockingRules(t *testing.T) {
+	nonGating, gating := false, true
+	for _, tc := range []struct {
+		name, kind string
+		gates      *bool
+		want       status.DisplayStatus
+	}{
+		{"advisory model rule", "guidance/conformance", &nonGating, status.DisplayPassed},
+		{"blocking rule", "guidance/conformance", &gating, status.DisplayFailed},
+		{"default blocking rule", "guidance/conformance", nil, status.DisplayFailed},
+		{"script baseline", "script", nil, status.DisplayPassed},
+		{"scan baseline", "scan", nil, status.DisplayPassed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := Step{Type: tc.kind, Status: StatusPass, CheckReading: &CheckReading{Checks: []checkReceiptView{{CheckReceipt: CheckReceipt{Check: "rule", Verdict: VerdictFail, Gates: tc.gates, Preexisting: true}}}}}
+			if got := s.displayLabel(); got != tc.want {
+				t.Fatalf("got %s, want %s", got, tc.want)
+			}
+			if s.Status != StatusPass {
+				t.Fatal("display changed gate outcome")
+			}
+		})
+	}
+}

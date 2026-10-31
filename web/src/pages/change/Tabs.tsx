@@ -12,7 +12,7 @@ import { fmtStamp } from '../../format'
 import { checkedWords } from '../../runtime'
 import type { RunTrace } from '../../wire.gen'
 import { StepCard } from './Steps'
-import { eventSentence } from './events'
+import { eventSentence, eventTitle } from './events'
 
 // The tabs under a change's evidence: everything a person reads to dig in,
 // none of it needed to know what the change is doing or what to do next.
@@ -47,22 +47,24 @@ export function WorkTab({ view, reload, runId, focusStep, deciding, runHref }: {
     if (focusStep == null || !detail) return
     requestAnimationFrame(() => document.getElementById(`step-${focusStep}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
   }, [focusStep, detail?.run.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [runCount, setRunCount] = useState(10)
   const runs = view.runs ?? []
   return (
     <div>
       {runs.length > 1 && (
         <div className="row ch-runpick" role="navigation" aria-label="runs of this change">
           <span className="muted small">Runs:</span>
-          {runs.map((r) => (
+          {runs.slice(0, runCount).map((r) => (
             <Link key={r.id} to={runHref(r.id!)} className={'ch-runchip' + (r.id === (detail?.run.id ?? view.detail?.run.id) ? ' on' : '')}>
-              run {r.number} · {r.workflowName}{r.role ? ` · ${r.role}` : ''} · {r.statusLabel}
+              {r.role === 'landing' ? 'Landing' : 'Work'} · {r.statusLabel}
             </Link>
           ))}
+        {runs.length > runCount && <button onClick={() => setRunCount(n => n + 10)}>Show 10 more runs</button>}
         </div>
       )}
       {err && <div className="error">The run could not be read: {err}</div>}
       {!detail && !err && (view.detail ? <div className="muted">Reading the run…</div> : <div className="muted">No run has started on this change yet.</div>)}
-      {detail && <RunWork view={view} detail={detail} reload={reload} focusStep={focusStep} deciding={detail.run.id === view.detail?.run.id ? deciding : undefined} />}
+      {detail && <details open={!!focusStep || !!runId}><summary>Step details</summary><RunWork view={view} detail={detail} reload={reload} focusStep={focusStep} deciding={detail.run.id === view.detail?.run.id ? deciding : undefined} /></details>}
     </div>
   )
 }
@@ -78,20 +80,20 @@ function RunWork({ view, detail, reload, focusStep, deciding }: { view: ChangeVi
   return (
     <div>
       <div className="row">
-        <h3 style={{ margin: 0 }}>{running ? 'Current run' : 'Run'}: {run.workflowName}</h3>
+<h3 style={{ margin: 0 }}>{running ? 'Current work' : 'Finished work'}</h3>
         <Status word={running && isLatest ? view.statusLabel : run.statusLabel} tone={STATUS_LIGHT[running && isLatest ? view.statusLabel : run.statusLabel]} />
-        <span className="muted small">run {run.number} · v{run.workflowVersion} · started {fmtStamp(run.createdAt)}</span>
+        <details><summary>Run details</summary>{run.workflowName} · version {run.workflowVersion} · run {run.number} · started {fmtStamp(run.createdAt)}</details>
       </div>
-      <div className="stagebar">
+      <details><summary>Stages</summary><div className="stagebar">
         {detail.stages.map((s, i) => (
           <span key={s} className={'stage' + (i === currentIdx && running ? ' current' : i < currentIdx || run.status === 'done' ? ' past' : '')}>{s}</span>
         ))}
         <span className={'stage' + (run.status === 'done' ? ' past' : '')}>done</span>
-      </div>
+      </div></details>
 
       {running ? (
         <>
-          <h3>Stage “{run.currentStage}”</h3>
+          <h3>Steps</h3>
           {currentSteps.map((s) => <StepCard key={s.id} step={s} head={view.head} onChange={reload} expanded={focusStep === s.id} awaitingDecision={isLatest && view.approval?.viewer === 'yes' && view.approval.stepId === s.id} hideApproveForm={s.id === deciding} landingMeans={landingMeansFor(detail, s)} />)}
           {earlierSteps.length > 0 && (
             <details open={earlierSteps.some((s) => s.id === focusStep)}>
@@ -272,6 +274,7 @@ export function ReleasesTab({ view }: { view: ChangeView }) {
 // Every root run this change had, and the latest run's event log: the
 // order things happened in, as recorded.
 export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runId: string) => string }) {
+  const [count, setCount] = useState(10)
   const runs = view.runs ?? []
   const events = view.detail?.events ?? []
   return (
@@ -282,10 +285,10 @@ export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runI
           <table className="stack">
             <thead><tr><th>Run</th><th>Workflow</th><th>Role</th><th>Result</th><th>Updated</th></tr></thead>
             <tbody>
-              {runs.map((r) => (
+              {runs.slice(0, count).map((r) => (
                 <tr key={r.id}>
                   <td><Link className="tap-open" to={runHref(r.id!)} title={`started ${fmtStamp(r.createdAt)}`}>run {r.number}</Link></td>
-                  <td className="stack-lead">{r.workflowName}</td>
+<td className="stack-lead"><details><summary>Workflow details</summary>{r.workflowName}</details></td>
                   <td className="muted">{r.role ?? ''}</td>
                   <td><Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} /></td>
                   <td className="muted small">{fmtStamp(r.updatedAt)}</td>
@@ -294,22 +297,24 @@ export function HistoryTab({ view, runHref }: { view: ChangeView; runHref: (runI
             </tbody>
           </table>
         )}
+        {runs.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more runs</button>}
       </section>
       <section>
         <h3>Event log{view.detail ? ` of run ${view.detail.run.number}` : ''} ({events.length})</h3>
         {events.length === 0 ? <div className="muted">No events recorded.</div> : (
           <table className="stack event-log">
             <tbody>
-              {events.map((e) => (
+              {[...events].reverse().slice(0, count).map((e) => (
                 <tr key={e.id}>
-                  <td data-label="Time" className="muted small">{e.at.replace('T', ' ').replace('Z', '')}</td>
-                  <td data-label="Event" className="small">{e.kind}</td>
-                  <td data-label="Details" className="muted small">{eventSentence(e) ?? <details><summary>Event data</summary><pre className="event-payload">{JSON.stringify(e.payload, null, 2)}</pre></details>}</td>
+                  <td className="muted small">{fmtStamp(e.at)}</td>
+                  <td className="small">{eventTitle(e.kind)}</td>
+                  <td className="muted small"><details><summary>Details</summary>{eventSentence(e) ?? <pre className="event-payload">{e.kind}{'\n'}{JSON.stringify(e.payload, null, 2)}</pre>}</details></td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
+        {events.length > count && <button onClick={() => setCount(n => n + 10)}>Show 10 more</button>}
       </section>
     </div>
   )

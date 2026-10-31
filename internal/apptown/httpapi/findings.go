@@ -197,7 +197,7 @@ func (h Findings) ProjectFindings(w http.ResponseWriter, r *http.Request) {
 	for _, source := range sources {
 		unread = unread || source.Unreadable != ""
 	}
-	WriteJSON(w, 200, ProjectFindingsView{StatusLabel: conformance.FindingsLabel(total-dispositioned, len(sources), unread), Findings: findings, Sources: sources, Dispositions: dispositions,
+	WriteJSON(w, 200, ProjectFindingsView{StatusLabel: conformance.FindingsLabel(total-dispositioned, len(sources), unread, repoState.Stale != nil && *repoState.Stale), Findings: findings, Sources: sources, Dispositions: dispositions,
 		ProjectSlug: p.Slug, Repo: repoState,
 		Summary: FindingsSummary{Total: total, Dispositioned: dispositioned, Actionable: total - dispositioned, BySeverity: bySev}})
 }

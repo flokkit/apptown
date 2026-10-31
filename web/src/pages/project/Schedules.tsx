@@ -46,7 +46,7 @@ export function cadenceWords(cron: string, next?: string): string {
   return raw
 }
 
-function LastFiring({ s }: { s: ScheduleView }) {
+function LastFiring({ s, slug }: { s: ScheduleView; slug: string }) {
   const last = s.last
   if (s.problem) return <span><span className="muted">last: unknown · </span><span className="chip unknown" title={s.problem}>could not be read</span></span>
   if (!last) return <span className="muted">last: never</span>
@@ -59,7 +59,7 @@ function LastFiring({ s }: { s: ScheduleView }) {
     case 'failed':
       return <span>last: {when} · <span className="chip fail">could not start</span></span>
     default:
-      return <span>last: {when} · <span className="muted">outcome unknown</span></span>
+      return <span>last: {when} · <span className="muted">Result not available</span> · <Link to={`/projects/${slug}/settings/working`}>Check why</Link></span>
   }
 }
 
@@ -89,7 +89,7 @@ export function ScheduleRows({ slug }: { slug: string }) {
             <span className="schedule-name" title={`workflow ${s.source.workflow}, version ${s.source.version}`}>{s.source.workflow}</span>
             <span title={`cron ${s.cron} (${s.timeZone})`}>{cadenceWords(s.cron, s.next)}</span>
             <NextFiring s={s} />
-            <LastFiring s={s} />
+            <LastFiring s={s} slug={slug} />
           </Fragment>
         ))}
       </div>

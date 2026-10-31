@@ -172,7 +172,7 @@ it('keeps choosing a preference separate from a refused release', async () => {
     await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Choose release preference') })
     expect(writes).toEqual([])
     await act(async () => { [...el.querySelectorAll('button')].find(b => b.textContent === 'Choose release preference')!.click() })
-    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('Release preference cleared') })
+    await vi.waitFor(async () => { await settle(); expect(el.textContent).toContain('No default selected') })
     expect(writes).toEqual([])
     await act(async () => {
       const select = el.querySelector('select')!

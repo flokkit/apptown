@@ -25,6 +25,9 @@
 // Deployment's operation. Data protection writes Deployment's
 // tables only through those participants.
 //
+// A pruned backup is finished work whose stored copy has been removed.
+// It is not a stopped job; the record keeps its pruned state.
+//
 // # Starting from a copy
 //
 // A [Starter] is built before Deployment's service and given to it as its
