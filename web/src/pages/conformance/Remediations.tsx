@@ -1,3 +1,5 @@
+import { PhoneDetails } from '../../GlanceRow'
+import { useNarrow } from '../../chrome'
 import { Status, STATUS_LIGHT } from '../../Status'
 import { Link } from 'react-router-dom'
 import { put } from '../../api'
@@ -24,11 +26,14 @@ export function JobBar({ counts = {} }: { counts?: Record<string, number> }) {
 export function OccupancyCard({ occ }: { occ: Occupancy }) {
   // The worker count is shown inside the remediation reads, so a change to
   // it refreshes those as well as /workers.
+  const narrow = useNarrow()
   const { run, busy, err } = useAction(undefined, { affects: ['/conformance'] })
   const setWorkers = (n: number) => run(() => put('/workers', { kind: 'remediation', count: n }))
   const cooling = !!occ.cooldownUntil && new Date(occ.cooldownUntil).getTime() > Date.now()
   return (
     <div className={`card${cooling ? ' tone-warn' : ''}`} style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
+      {narrow && <p>{cooling ? 'Work is paused.' : `${occ.busy} workers busy`}</p>}
+      <PhoneDetails>
       <div className="row" style={{ justifyContent: 'space-between', gap: 'var(--space-3)', alignItems: 'center' }}>
         <div className="small">
           <strong>{occ.busy} of {occ.workers} remediation worker{occ.workers === 1 ? '' : 's'} busy</strong>
@@ -47,12 +52,14 @@ export function OccupancyCard({ occ }: { occ: Occupancy }) {
           <button className="subtle" disabled={busy || occ.workers >= 8} onClick={() => setWorkers(occ.workers + 1)}>+</button>
         </span>
       </div>
+      </PhoneDetails>
       {err && <div className="error small">{err}</div>}
     </div>
   )
 }
 
 export function RemediationsList() {
+  const narrow = useNarrow()
   const q = useGet<RemediationList>('/conformance/remediations', { poll: 5000 })
   const got = q.data
   if (!got) return <ReadStatus q={q} what="the remediations" className="small" />
@@ -65,7 +72,9 @@ export function RemediationsList() {
       <OccupancyCard occ={data.occupancy} />
       {data.remediations.length === 0 && <div className="muted" style={{ padding: '30px 0', textAlign: 'center' }}>No remediations. Choose a check, project or Fix all findings.</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        {data.remediations.map((m) => (
+        {data.remediations.map((m) => narrow ? <Link key={m.id} to={`/conformance/remediations/${m.id}`} className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+          <div className="host-row"><strong>Fix #{m.number}</strong><Status word={m.statusLabel} tone={STATUS_LIGHT[m.statusLabel]} help={m.sentence} /><span className="muted small">{m.counts?.total ?? 0} tasks</span></div>
+        </Link> : (
           <Link key={m.id} to={`/conformance/remediations/${m.id}`} className={`card${m.status === 'running' ? ' tone-busy' : m.status === 'completed_with_stuck' ? ' tone-bad' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
               <div style={{ minWidth: 0 }}>

@@ -1,3 +1,4 @@
+import { GlanceRow } from '../GlanceRow'
 import { Status, STATUS_LIGHT } from '../Status'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -247,7 +248,7 @@ function Table({ w }: { w: WhatIf }) {
             const cannot = !p.candidateDigest ? (p.outcome === 'not-evaluated' || p.outcome === 'not-yet-judged' ? OUTCOME_WORDS[p.outcome] : 'no candidate was assessed') : done && 'changeId' in done ? 'its Change is open' : ''
             return (
               <Fragment key={pid}>
-                <tr>
+                <GlanceRow name={1} state={2} summary={p.candidateDigest ? <>{p.newFailures.length} new {p.newFailures.length === 1 ? 'failure' : 'failures'}</> : 'Not assessed yet'} labels={["Select", "Project", "Answer", "Score", "New failures", "Could not assess", "Rules", "Commit", "Adoption", "Actions"]}>
                   <td><input type="checkbox" aria-label={`adopt on ${p.projectSlug}`} title={cannot || undefined} disabled={!!cannot || asking}
                     checked={ticked.includes(pid)} onChange={(e) => setTicked(e.target.checked ? [...ticked, pid] : ticked.filter((x) => x !== pid))} /></td>
                   <td><Link to={`/conformance/projects/${p.projectSlug}`}>{p.projectSlug}</Link>{p.joins && <span className="chip" style={{ marginLeft: 6 }}>would join</span>}</td>
@@ -265,7 +266,7 @@ function Table({ w }: { w: WhatIf }) {
                   <td>{p.sha ? <code title={`${p.sha} · adoption revision ${p.adoptionRevision}`}>{p.sha.slice(0, 10)}</code> : ''}</td>
                   <td><AdoptedCell a={done} /></td>
                   <td>{(rows.length > 0 || p.moves.length > 0) && <button className="subtle" onClick={() => setOpen(open === pid ? null : pid)}>{open === pid ? 'hide' : 'details'}</button>}</td>
-                </tr>
+                </GlanceRow>
                 {open === pid && (
                   <tr><td colSpan={10}><Moves moves={p.moves} />{rows.map((r, i) => <Row key={i} r={r} />)}</td></tr>
                 )}

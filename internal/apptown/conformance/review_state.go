@@ -76,3 +76,19 @@ func (s ReviewState) MarshalJSON() ([]byte, error) { return reviewStateCodec.JSO
 func (s *ReviewState) UnmarshalJSON(data []byte) error {
 	return reviewStateCodec.ReadJSON(s, data)
 }
+
+// Display describes review work without claiming that its checks passed.
+func (s ReviewState) Display() WhatIfLabel {
+	switch s {
+	case ReviewQueued:
+		return LabelWaiting
+	case ReviewRunning:
+		return LabelWorking
+	case ReviewDone:
+		return LabelFinished
+	case ReviewError:
+		return LabelFailed
+	default:
+		return LabelUnknown
+	}
+}

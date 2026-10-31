@@ -87,12 +87,12 @@ type TargetLabel uint8
 
 const (
 	TargetCheckUnknown TargetLabel = iota + 1
-	TargetCheckPassed
+	TargetWorking
 	TargetCheckFailed
 	TargetCheckStopped
 )
 
-var targetLabelCodec = enum.Set[TargetLabel]{Names: []string{"unknown", "passed", "failed", "stopped"}, Invalid: "invalid-target-label", Err: errors.New("invalid target label"), ScanLabel: "value"}
+var targetLabelCodec = enum.Set[TargetLabel]{Names: []string{"unknown", "working", "failed", "stopped"}, Invalid: "invalid-target-label", Err: errors.New("invalid target label"), ScanLabel: "value"}
 
 func (s TargetLabel) String() string                { return targetLabelCodec.String(s) }
 func (s TargetLabel) Value() (driver.Value, error)  { return targetLabelCodec.Value(s) }
@@ -101,7 +101,7 @@ func (s *TargetLabel) UnmarshalJSON(b []byte) error { return targetLabelCodec.Re
 func (s TargetState) Display() TargetLabel {
 	switch s {
 	case TargetReady:
-		return TargetCheckPassed
+		return TargetWorking
 	case TargetUnreachable:
 		return TargetCheckFailed
 	case TargetRetired:

@@ -1,3 +1,4 @@
+import { GlanceRow } from '../GlanceRow'
 import { Status, STATUS_LIGHT } from '../Status'
 import { DisplayLabelEdit } from '../DisplayLabel'
 import { PRODUCT } from '../brand'
@@ -242,7 +243,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                     const state = healthState(b.health)
                     const to = `/integrations/${b.name}`
                     return (
-                      <tr key={b.id} className="int-row" onClick={() => navigate(to)}>
+                      <GlanceRow name={0} state={2} fact={3} labels={["Service", "Used by", "State", "Last checked"]} key={b.id} className="int-row" onClick={() => navigate(to)}>
                         <td className="stack-lead">
                           <div className="int-who">
                             <ConnIcon name={iconForBinding(b)} size={13} />
@@ -254,7 +255,7 @@ function ListPage({ bindings, catalog, offered, catalogErr, reading, refreshing,
                         <td className="int-usedby" data-label="used by">{usedByCounts(b.usedBy) || '—'}</td>
                         <td><StatusChip state={state} stale={reading.q.refreshFailed} testable={b.testable} /></td>
                         <td className="int-when">{lastChecked(b.health, reading.now)}</td>
-                      </tr>
+                      </GlanceRow>
                     )
                   })}
                   {rows.length === 0 && spare && (

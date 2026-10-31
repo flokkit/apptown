@@ -49,9 +49,17 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		}
 		href := "/infrastructure/" + url.PathEscape(target.Name)
 		disk := reading.Disk
-		if reading.Unknown || readErr != nil || disk == nil || !disk.Free.Known || !disk.Total.Known {
+		// A queued first check is incomplete coverage, not an actionable failure.
+		if reading.AttemptedAt.IsZero() && reading.ObservedAt.IsZero() && disk == nil && readErr == nil {
+			continue
+		}
+		if reading.Unknown || reading.Stale || readErr != nil || disk == nil || !disk.Free.Known || !disk.Total.Known {
 			out.Known = false
-			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Title: "Host disk space could not be assessed", Detail: label + ": no disk reading is available. " + capacityAdmission(target.Kind), Href: href, ObservedAt: reading.ObservedAt, Stale: true})
+			at := reading.ObservedAt
+			if reading.Unknown && !reading.AttemptedAt.IsZero() {
+				at = reading.AttemptedAt
+			}
+			out.Items = append(out.Items, Item{Severity: SeverityWarning, Key: target.ID.String() + "/disk-unassessed", Title: label + ": disk space is unknown", Detail: label + ": check the host’s disk. The latest reading is unavailable or out of date. " + capacityAdmission(target.Kind), Href: href, ObservedAt: at, Stale: true})
 			if disk == nil || !disk.Free.Known || !disk.Total.Known {
 				continue
 			}
@@ -59,10 +67,10 @@ func (c Capacity) Snapshot(ctx context.Context) (Snapshot, error) {
 		if !disk.Low && !disk.Refuses {
 			continue
 		}
-		title := "Host disk space is low"
+		title := label + ": low on disk"
 		detail := fmt.Sprintf("%s: %.1f GiB free of %.1f GiB. Warning below %.1f GiB.", label, disk.Free.Value/(1<<30), disk.Total.Value/(1<<30), float64(disk.Warning)/(1<<30))
 		if disk.Refuses && target.Kind == deployment.KindDockerHost {
-			title = "Host disk space blocks new work"
+			title = label + ": free disk space to start new work"
 			detail += " New releases and previews are refused below the admission threshold."
 		} else {
 			detail += " Free space is below the warning threshold."

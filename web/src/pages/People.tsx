@@ -1,3 +1,4 @@
+import { GlanceRow } from '../GlanceRow'
 import { PRODUCT } from '../brand'
 import { useEffect, useState } from 'react'
 import { HttpError, del, post, put } from '../api'
@@ -322,7 +323,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
         <thead><tr><th>User</th><th>Role</th><th>Password</th><th>Groups</th><th>Last seen</th><th /></tr></thead>
         <tbody>
           {accounts.map(u => (
-            <tr key={u.username}>
+            <GlanceRow name={0} summary={u.role} labels={["Person", "Role", "Password", "Groups", "Last seen", "Actions"]} key={u.username}>
               <td className="stack-lead"><strong>{u.username}</strong>{u.disabled && <> <span className="chip fail">disabled</span></>}</td>
               <td>
                 {canEdit ? (
@@ -366,7 +367,7 @@ export function UsersCard({ users, act, canEdit, invites, sso = false, me = '' }
                     onYes={() => act(() => post('/users', { username: u.username, disabled: true }))} />
                 ))}
               </td>
-            </tr>
+            </GlanceRow>
           ))}
         </tbody>
       </table>

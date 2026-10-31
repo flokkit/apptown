@@ -1,3 +1,4 @@
+import { GlanceRow } from '../../GlanceRow'
 import { Status, STATUS_LIGHT } from '../../Status'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
@@ -30,7 +31,7 @@ export function WhatIfsList() {
                 const counts: Record<string, number> = {}
                 for (const p of w.projects) counts[p.outcome] = (counts[p.outcome] ?? 0) + 1
                 return (
-                  <tr key={w.id}>
+                  <GlanceRow name={0} state={2} summary={<>{w.projects.length} projects</>} labels={["Pack", "Asked", "State", "Answers"]} key={w.id}>
                     <td><Link to={`/conformance/what-ifs/${w.id}`}>{w.pack} v{w.version}</Link>{w.advanceWorkflows && <div className="muted">and other workflows to newest</div>}</td>
                     <td>{w.requestedBy}<div className="muted">{relTime(w.createdAt)}</div></td>
                     <td><Status word={w.statusLabel} tone={STATUS_LIGHT[w.statusLabel]} help={w.detail || w.state} /></td>
@@ -40,7 +41,7 @@ export function WhatIfsList() {
                         {w.movesBackProjects > 0 && <span className="chip moves-back">{w.movesBackProjects} move rules back</span>}
                       </div>
                     </td>
-                  </tr>
+                  </GlanceRow>
                 )
               })}
             </tbody>

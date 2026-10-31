@@ -88,7 +88,7 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 				if r.Record != deploy.RecordMissing {
 					continue
 				}
-				items = append(items, Item{Key: inventoryConditionKey(t.ID, r), Title: "A recorded resource is missing", Detail: label + ": the complete inventory did not contain a recorded " + r.Kind + ".", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt})
+				items = append(items, Item{Key: inventoryConditionKey(t.ID, r), Title: label + ": resource missing", Detail: label + ": the complete inventory did not contain a recorded " + r.Kind + ".", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt})
 			}
 			s.mu.Lock()
 			if s.compared == nil {
@@ -110,7 +110,7 @@ func (s *Inventory) Snapshot(ctx context.Context) (Snapshot, error) {
 		}
 		out.Items = append(out.Items, items...)
 		if unknown && !sample.Unreported {
-			out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Title: "Target inventory could not be assessed", Detail: label + ": current resource presence and target availability could not be confirmed.", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
+			out.Items = append(out.Items, Item{Key: t.ID.String() + "/unassessed", Title: label + ": resources not known", Detail: label + ": current resource presence and target availability could not be confirmed.", Severity: SeverityWarning, Href: href, ObservedAt: sample.ObservedAt, Stale: true})
 		}
 	}
 	s.mu.Lock()

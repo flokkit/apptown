@@ -1,3 +1,4 @@
+import { GlanceRow } from '../../GlanceRow'
 import { PRODUCT } from '../../brand'
 import { useGet } from '../../data'
 import { StaleNote } from '../../ReadGate'
@@ -5,6 +6,8 @@ import { fmtBytes, fmtStamp } from '../../format'
 import type { DiskCapacity, Figure, TargetCapacity, Tenant } from '../../wire.gen'
 import { disk, promised, usedMemory } from './capacitySegments'
 import { CapacityBar, CapacityTable } from './CapacityBars'
+
+const briefBytes = (v: number) => v >= 2 ** 30 ? `${Number((v / 2 ** 30).toFixed(1))} GB` : fmtBytes(v)
 
 type Resource = NonNullable<TargetCapacity['memory']>
 
@@ -35,7 +38,7 @@ function countWords(r: Resource): string {
 function ResourceRow({ label, r, format }: { label: string; r: Resource; format: (v: number) => string }) {
   const p = r.promised.sum
   return (
-    <tr>
+    <GlanceRow name={0} fact={1} labels={["Resource", "Total", "Limits", "Used"]}>
       <td>{label}</td>
       <td><FigureWords f={r.total} format={format} /></td>
       <td>
@@ -47,7 +50,7 @@ function ResourceRow({ label, r, format }: { label: string; r: Resource; format:
       <td>
         {r.inUse ? <><FigureWords f={r.inUse.apptown} format={format} /> <span className="muted">{PRODUCT}</span>{' + '}<FigureWords f={r.inUse.other} format={format} /> <span className="muted">other</span></> : <span className="muted">—</span>}
       </td>
-    </tr>
+    </GlanceRow>
   )
 }
 
@@ -64,6 +67,17 @@ export function Capacity({ name }: { name: string }) {
   const c = q.data
   return (
     <div className="small">
+      <dl className="capacity-summary">
+        {c.memory && <><dt>Memory</dt><dd>{c.memory.hostUsed?.known && c.memory.total.known
+          ? `${briefBytes(c.memory.hostUsed.value)} used of ${briefBytes(c.memory.total.value)}` : 'not known'}</dd></>}
+        {c.disk && <><dt>Disk</dt><dd>{c.disk.free.known && c.disk.total.known
+          ? `${briefBytes(c.disk.free.value)} free of ${briefBytes(c.disk.total.value)}` : 'not known'}</dd></>}
+        <dt>Apps</dt><dd>{c.tenants ? `${c.tenants.filter(t => t.kind === 'deployment' || t.kind === 'preview').length} running` : 'not known'}</dd>
+      </dl>
+      {c.memory?.overcommitted && <p className="capacity-warning">Apps may need more memory than this host has.</p>}
+      {c.disk?.refuses ? <p className="capacity-warning">Free disk space before starting a new release.</p>
+        : c.disk?.low && <p className="capacity-warning">Low on disk. Free some space.</p>}
+      <details className="capacity-details"><summary>Details</summary>
       <div>{c.words} <span className="muted">· read {fmtStamp(c.readAt)}</span></div>
       {c.tenants && c.tenants.length > 0 ? <Bars c={c} /> : c.memory && c.cpu && (
         <table className="small" style={{ marginTop: 4 }}>
@@ -80,12 +94,12 @@ export function Capacity({ name }: { name: string }) {
           <thead><tr><th>deployment</th><th>part</th><th>runs on</th><th>listed per month</th></tr></thead>
           <tbody>
             {(c.parts ?? []).map((p) => (
-              <tr key={`${p.deployment}/${p.part}`}>
+              <GlanceRow name={0} fact={3} labels={["App", "Part", "Size", "Monthly price"]} key={`${p.deployment}/${p.part}`}>
                 <td>{p.deployment}</td>
                 <td>{p.part || 'app'}{p.need ? <span className="muted"> (service)</span> : null}</td>
                 <td>{p.runsOn}</td>
                 <td><FigureWords f={p.usdPerMonth} format={usd} /></td>
-              </tr>
+              </GlanceRow>
             ))}
           </tbody>
         </table>
@@ -95,6 +109,7 @@ export function Capacity({ name }: { name: string }) {
           <b>{usd(c.estimate.value)}</b> a month, estimated <span className="muted">— {c.estimate.reason}</span>
         </div>
       )}
+      </details>
       <StaleNote q={q} inline />
     </div>
   )

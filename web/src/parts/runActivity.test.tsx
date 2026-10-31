@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -72,4 +72,18 @@ it.each(['failed', 'stopped', 'finished'] as const)('does not claim elapsed idle
   el.innerHTML = renderToStaticMarkup(<MemoryRouter><ChangeHistoryTable changes={[row({ state: 'abandoned', statusLabel, tookS: 458640 })]} /></MemoryRouter>)
   expect(el.querySelector('[data-label="took"]')).toBeNull()
   expect(el.textContent).not.toContain('127.4h')
+})
+
+it('puts history source and duration behind Details on a phone', () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true }))
+  try {
+    const el = document.createElement('div')
+    el.innerHTML = renderToStaticMarkup(<MemoryRouter><ChangeHistoryTable changes={[row()]} showProject /></MemoryRouter>)
+    expect(el.querySelector('.glance-name')?.textContent).toContain('Change the page heading')
+    expect(el.querySelector('.glance-state')?.textContent).toContain('landed')
+    expect(el.querySelector('.glance-more')?.textContent).toContain('demo-smoke')
+    el.querySelectorAll('details').forEach(d => d.remove())
+    expect(el.textContent).not.toContain('demo-smoke')
+    expect(el.textContent).not.toContain('2m')
+  } finally { vi.unstubAllGlobals() }
 })

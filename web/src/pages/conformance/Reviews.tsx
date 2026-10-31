@@ -1,3 +1,6 @@
+import { useNarrow } from '../../chrome'
+import { PhoneDetails } from '../../GlanceRow'
+import { Status, STATUS_LIGHT } from '../../Status'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -17,6 +20,7 @@ export function isFleetReview(r: { status: string; projects: number; projectsTot
 }
 
 export function ReviewsList() {
+  const narrow = useNarrow()
   const q = useGet<ConformanceReviewList>('/conformance/reviews')
   const { data } = q
   if (!data) return <ReadStatus q={q} what="the fleet reviews" className="small" />
@@ -29,7 +33,7 @@ export function ReviewsList() {
   return (
     <div>
       <StaleNote q={q} />
-      {trend.length > 1 && (
+      <PhoneDetails>{trend.length > 1 && (
         <div className="card" style={{ marginBottom: 'var(--space-4)', padding: '10px 14px' }}>
           <div className="muted small mb-2">Findings per fleet review, oldest → newest (red findings, amber AI flags; grey = nothing found).</div>
           <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 40 }}>
@@ -43,8 +47,11 @@ export function ReviewsList() {
           </div>
         </div>
       )}
+      </PhoneDetails>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-        {rows.map((r) => (
+        {rows.map((r) => narrow ? <Link key={r.id} to={`/conformance/reviews/${r.id}`} className="card" style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+          <div className="host-row"><strong>Review #{r.number}</strong><Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} /><span className="muted small">{r.findings} {r.findings === 1 ? 'finding' : 'findings'}</span></div>
+        </Link> : (
           <Link key={r.id} to={`/conformance/reviews/${r.id}`} className={`card${r.status === 'queued' || r.status === 'running' ? ' tone-busy' : ''}`} style={{ marginBottom: 0, textDecoration: 'none', color: 'inherit', display: 'block' }}>
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)' }}>
               <div>

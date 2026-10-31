@@ -149,7 +149,7 @@ func readReviewSummaries(ctx context.Context, db database.Queryer, limit int) ([
 	}
 	out := make([]ReviewSummary, 0, len(reviews))
 	for _, r := range reviews {
-		s := ReviewSummary{Review: r}
+		s := ReviewSummary{Review: r, StatusLabel: r.Status.Display()}
 		for _, pvs := range GroupByProject(RecordedObservations(byReview[r.ID])) {
 			ps := SummarizeProject(ids.Nil, "", pvs, adj)
 			s.Findings += ps.Lanes.Findings

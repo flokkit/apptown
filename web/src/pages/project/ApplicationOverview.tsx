@@ -1,3 +1,4 @@
+import { GlanceRow, PhoneDetails } from '../../GlanceRow'
 import { Link } from 'react-router-dom'
 import { useGet } from '../../data'
 import { ReadStatus, StaleNote } from '../../ReadGate'
@@ -47,7 +48,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     </header>
     <div className="application-status">
       {production ? <RuntimeStatus observation={production} /> : deploymentsQ.data ? <span className="muted">No production deployment</span> : <ReadStatus q={deploymentsQ} what="deployments" />}
-      {deployments.filter(d => d !== production && (d.observationStale || d.observation !== 'running')).map(d => <span className="row" key={d.id}><span className="muted">{d.displayLabel || d.name}</span><RuntimeStatus observation={d} /></span>)}
+      <PhoneDetails>{deployments.filter(d => d !== production && (d.observationStale || d.observation !== 'running')).map(d => <span className="row" key={d.id}><span className="muted">{d.displayLabel || d.name}</span><RuntimeStatus observation={d} /></span>)}</PhoneDetails>
       {open !== null && <span className="muted">{open} open change{open === 1 ? '' : 's'}</span>}
       <StaleNote q={[activityQ, deploymentsQ]} />
     </div>
@@ -62,7 +63,7 @@ export function ApplicationOverview({ project }: { project: ProjectDetail }) {
     <section className="application-stream">
       <div className="application-section-head"><h2>Activity</h2></div>
       <ReadStatus q={releasesQ} what="releases" /><StaleNote q={releasesQ} />
-      <table className="activity-ledger"><thead><tr><th>When</th><th>What happened</th><th>Source</th><th>State</th></tr></thead><tbody>{events.map(e => <tr key={e.id}><td>{fmtWhen(e.when)}</td><td><Link to={e.to}>{e.title}</Link></td><td>{e.source}</td><td><Status word={e.word} tone={STATUS_LIGHT[e.word]} help={e.help} /></td></tr>)}</tbody></table>
+      <table className="activity-ledger"><thead><tr><th>When</th><th>What happened</th><th>Source</th><th>State</th></tr></thead><tbody>{events.map(e => <GlanceRow name={1} state={3} fact={0} labels={["When", "Event", "Source", "State"]} key={e.id}><td>{fmtWhen(e.when)}</td><td><Link to={e.to}>{e.title}</Link></td><td>{e.source}</td><td><Status word={e.word} tone={STATUS_LIGHT[e.word]} help={e.help} /></td></GlanceRow>)}</tbody></table>
       {data && !events.length && <p className="muted">No activity yet.</p>}
     </section>
     <aside className="application-details" aria-label="Application details">

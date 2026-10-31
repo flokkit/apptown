@@ -1,3 +1,4 @@
+import { GlanceRow } from '../GlanceRow'
 import { Status, STATUS_LIGHT } from '../Status'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -67,7 +68,7 @@ export function BackupsView() {
         <thead><tr><th>Project</th><th>Deployment</th><th>Kept on</th><th>Latest</th><th>Status</th><th>Contents</th><th>Size</th><th>Trigger</th><th></th></tr></thead>
         <tbody>
           {[...latest.values()].map((b) => (
-            <tr key={b.id}>
+            <GlanceRow name={0} state={4} fact={3} labels={["Project", "Deployment", "Store", "Taken", "State", "Contents", "Size", "Trigger", "Actions"]} key={b.id}>
               <td className="stack-lead"><Link to={`/projects/${b.project}`}>{b.project}</Link></td>
               <td data-label="deployment">{b.deployment}</td>
               <td data-label="store"><KeptOn b={b} /></td>
@@ -86,7 +87,7 @@ export function BackupsView() {
                     <RestoreOver b={b} onYes={() => restore(b)} />
                   </>}
               </td>
-            </tr>
+            </GlanceRow>
           ))}
         </tbody>
       </table>
@@ -95,7 +96,7 @@ export function BackupsView() {
         <thead><tr><th>project</th><th>deployment</th><th>kept on</th><th>taken</th><th>status</th><th>size</th><th>trigger</th><th>by</th><th></th></tr></thead>
         <tbody>
           {data.backups.map((b) => (
-            <tr key={b.id} className={b.status === 'pruned' ? 'muted' : ''}>
+            <GlanceRow name={0} state={4} fact={3} labels={["Project", "Deployment", "Store", "Taken", "State", "Size", "Trigger", "By", "Actions"]} key={b.id} className={b.status === 'pruned' ? 'muted' : ''}>
               <td className="stack-lead">{b.project}</td>
               <td data-label="deployment">{b.deployment}</td>
               <td>{b.status === 'pruned' ? '' : <><KeptOn b={b} /><details className="small"><summary>Location</summary><code>{setPlace(b, data.where)}</code></details></>}</td>
@@ -108,7 +109,7 @@ export function BackupsView() {
                 ? <RestoreInto b={b} busy={busy} onRestore={(into) => restore(b, into)} />
                 : <RestoreOver b={b} onYes={() => restore(b)} />
               )}</td>
-            </tr>
+            </GlanceRow>
           ))}
         </tbody>
       </table>

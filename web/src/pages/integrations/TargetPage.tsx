@@ -1,3 +1,5 @@
+import { useHostStates } from '../../hostState'
+import { GlanceRow } from '../../GlanceRow'
 import { STATUS_LIGHT, Status } from '../../Status'
 import { changedTargetSettings, editTarget, NEEDS_MODES, type TargetSettings as SettingsCommand } from '../../targetCommands'
 import { DisplayLabelEdit } from '../../DisplayLabel'
@@ -55,6 +57,7 @@ const EVENT_WORDS: Record<string, string> = {
 
 export function TargetPage() {
   const { name } = useParams()
+  const hostState = useHostStates()
   const nav = useNavigate()
   const pageQ = useGet<TargetPage>(`/targets/${name}`)
   const load = pageQ.reload
@@ -65,6 +68,7 @@ export function TargetPage() {
 
   if (!data || !data.target) return <ReadStatus q={pageQ} what="the deployment target" />
   const t = data.target
+  const state = hostState(t.name, t.statusLabel)
   const caps = t.capabilities
   const facts: string[] = []
   if (caps.needs?.length) facts.push(`provides ${caps.needs.join(', ')}`)
@@ -97,27 +101,13 @@ export function TargetPage() {
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h1 style={{ margin: 0 }}>{t.displayLabel || t.name}</h1>
- <DisplayLabelEdit value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
-            <div className="muted">{(() => { const place = placeOf(t.kindInfo, t.address); return place.startsWith(t.kindInfo.title) ? place : `${t.kindInfo.title} · ${place}` })()}{domain ? ` · *.${domain}` : ''}</div>
+
+            <div className="muted">{domain ? `*.${domain}` : 'App address not set'}</div>
           </div>
-          <Status word={t.statusLabel} tone={STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}.`} />
+          <Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} help={state.help} />
         </div>
-        <div className="muted small" style={{ marginTop: 6 }}>{facts.join(' · ')} · needs are {t.needsMode}</div>
-        {t.ingress?.rehearsals === true && <div className="small" style={{ marginTop: 6 }}><b>Kept for restore rehearsals.</b> {rehearsalHostMeaning}</div>}
-        {t.copies && <CopyRunnerLine t={t} />}
-        {(concrete.length > 0 || t.provider) && (
-          <div className="small" style={{ marginTop: 6 }}>
-            {concrete.join(' · ')}
-            {t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}
-          </div>
-        )}
-
-
-        {t.kindInfo.environment && !t.providerScope && !retired && <div className="small" style={{ marginTop: 12 }}>Provider endpoint: <b>unknown</b>. Releases are refused until {PRODUCT} reads the endpoint.</div>}
-        {data.registry && <RegistryLine r={data.registry} />}
-
-        {!retired && <button disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
-        {actErr && <div className="error small">{actErr}</div>}
+        {state.summary && <p>{state.summary}</p>}
+        {here?.resources?.some(r => r.record === 'missing') && <p>Check missing resources below.</p>}
 
         {!retired && (
           <>
@@ -126,7 +116,7 @@ export function TargetPage() {
           </>
         )}
 
-        <h3 style={{ margin: '18px 0 6px' }}>Deployments</h3>
+        <details className="target-deployments"><summary>Apps ({t.deployments.length})</summary>
         {t.deployments.length === 0
           ? <div className="muted small">No deployments on this target.</div>
           : (
@@ -136,7 +126,7 @@ export function TargetPage() {
                 {t.deployments.map((e) => {
                   const mine = (here?.resources ?? []).filter((r) => (r.hosts ?? []).some((h) => h.project === e.project && h.deployment === e.name))
                   return (
-                    <tr key={e.project + '/' + e.name}>
+                    <GlanceRow name={0} state={2} labels={["App", "Address", "State", "Audience", "Data", "Resources"]} key={e.project + '/' + e.name}>
                       <td><Link to={`/projects/${e.project}/settings/deployments`}>{e.project}/{e.name}</Link>{e.generation ? <span className="muted"> gen {e.generation}</span> : null}</td>
                       <td>{e.url ? <a href={e.url} target="_blank" rel="noreferrer">{e.url.replace(/^https?:\/\//, '')}</a> : <span className="muted">—</span>}</td>
                       <td><Status word={e.statusLabel} tone={STATUS_LIGHT[e.statusLabel]} help={`Deployment: ${e.readiness}.`} /></td>
@@ -145,12 +135,14 @@ export function TargetPage() {
                       <td>{mine.length === 0
                         ? <span className="muted">{here ? 'nothing found at the target' : '…'}</span>
                         : mine.map((r) => <span key={r.kind + r.name}>{resourceWord(r)} <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.name + (r.record === 'missing' ? ' · recorded, gone from the target' : '')} /></span>)}</td>
-                    </tr>
+                    </GlanceRow>
                   )
                 })}
               </tbody>
             </table>
           )}
+        </details>
+        <details className="target-resources"><summary>Resources</summary>
         {t.retained > 0 && <div className="muted small" style={{ marginTop: 6 }}>{t.retained} retained resource(s) still held at this target; each is marked retained, with its project, under All resources at the target below.</div>}
 
         <h3 style={{ margin: '18px 0 6px' }}>Not accounted for{here?.asOf ? <span className="muted small"> · as of {fmtStamp(here.asOf)}</span> : null}</h3>
@@ -168,6 +160,31 @@ export function TargetPage() {
           </details>
         )}
 
+        </details>
+        <details className="target-settings"><summary>Settings</summary>
+        <DisplayLabelEdit value={t.displayLabel || t.name} machineKey={t.name} path={`/targets/${t.id}/label`} />
+        <div className="muted small">{placeOf(t.kindInfo, t.address)}</div>
+        <div className="muted small" style={{ marginTop: 6 }}>{facts.join(' · ')} · needs are {t.needsMode}</div>
+        {t.ingress?.rehearsals === true && <div className="small" style={{ marginTop: 6 }}><b>Kept for restore rehearsals.</b> {rehearsalHostMeaning}</div>}
+        {t.copies && <CopyRunnerLine t={t} />}
+        {(concrete.length > 0 || t.provider) && (
+          <div className="small" style={{ marginTop: 6 }}>
+            {concrete.join(' · ')}
+            {t.provider && <> · through the <Link to="/integrations">{t.provider}</Link> connection</>}
+          </div>
+        )}
+
+
+        {t.kindInfo.environment && !t.providerScope && !retired && <div className="small" style={{ marginTop: 12 }}>Provider endpoint: <b>unknown</b>. Releases are refused until {PRODUCT} reads the endpoint.</div>}
+        {data.registry && <RegistryLine r={data.registry} />}
+
+        {!retired && <button disabled={busy} onClick={() => void run(async () => { await post(`/targets/${t.name}/check`, {}); await load() })}>Check target</button>}
+        {actErr && <div className="error small">{actErr}</div>}
+        {!retired && !data.builtIn && <EditTarget t={t} current={pageQ.current} onSaved={load} />}
+        {!retired && !data.builtIn && <QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`} onYes={retire} yes="Retire" className="subtle" />}
+        </details>
+
+        <details><summary>Access and history</summary>
         <h3 style={{ margin: '18px 0 6px' }}>Offers</h3>
         {t.offers.length === 0
           ? <div className="muted small">Not offered to anyone, so projects cannot deploy here. Offer it from the <Link to="/integrations/targets">targets list</Link>.</div>
@@ -194,14 +211,8 @@ export function TargetPage() {
             </div>
           )}
 
-        {!retired && !data.builtIn && <EditTarget t={t} current={pageQ.current} onSaved={load} />}
-        {!retired && !data.builtIn && (
-          <div style={{ marginTop: 18 }}>
-            <QuietConfirm label="Retire this target" ask={`Retire ${t.name}? This fails while any deployment uses it; its offers are withdrawn.`}
-              onYes={retire} yes="Retire" className="subtle" title="take this target out of service" />
-          </div>
-        )}
         {data.builtIn && <div className="muted small" style={{ marginTop: 18 }}>This is {PRODUCT}'s own host; it cannot be retired.</div>}
+        </details>
       </div>
     </div>
   )

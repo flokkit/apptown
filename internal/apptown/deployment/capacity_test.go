@@ -752,7 +752,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 	}}
 	for range 3 {
 		got, err := o.Snapshot(t.Context(), &target)
-		if err != nil || !got.Unknown || !got.Stale || q.calls != 1 || reads != 0 {
+		if err != nil || !got.Unknown || !got.Stale || !got.AttemptedAt.IsZero() || q.calls != 1 || reads != 0 {
 			t.Fatalf("snapshot collected provider evidence: %+v %v requests%d reads%d", got, err, q.calls, reads)
 		}
 	}
@@ -760,7 +760,7 @@ func TestCapacitySnapshotsKeepDiskTimeAndRejectReplacedTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := o.Snapshot(t.Context(), &target)
-	if err != nil || got.Unknown || got.Stale || got.Disk == nil || !got.Disk.Low {
+	if err != nil || got.Unknown || got.Stale || got.AttemptedAt != now || got.Disk == nil || !got.Disk.Low {
 		t.Fatalf("fresh: %+v %v", got, err)
 	}
 	got.Disk.Low = false
@@ -844,6 +844,29 @@ func TestCapacityObservationRejectsMalformedJobIdentityBeforeReads(t *testing.T)
 	for _, key := range []string{"", "not-an-id/1", idstest.N(1).String() + "/-1", idstest.N(1).String() + "/x", idstest.N(1).String() + "/1/extra"} {
 		if _, err := o.RunJob(t.Context(), key, nil); err == nil {
 			t.Fatalf("accepted malformed key %q", key)
+		}
+	}
+}
+
+func TestFirstCapacityFailureRecordsAttemptWithoutInventingDiskEvidence(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+	target := Target{ID: idstest.N(55), SettingsRevision: 1}
+	for _, read := range []func(context.Context, *Target) (TargetCapacity, error){
+		func(context.Context, *Target) (TargetCapacity, error) {
+			return TargetCapacity{}, fmt.Errorf("unreachable")
+		},
+		func(context.Context, *Target) (TargetCapacity, error) { return TargetCapacity{ReadAt: now}, nil },
+	} {
+		o := &CapacityObserver{queue: &capacityObservationRequests{}, now: func() time.Time { return now }, target: func(context.Context, ids.ID) (*Target, error) { return &target, nil }, read: read}
+		before, _ := o.Snapshot(t.Context(), &target)
+		if !before.AttemptedAt.IsZero() {
+			t.Fatal("queued check claimed an attempt")
+		}
+		_ = o.Run(t.Context(), target.ID, target.SettingsRevision)
+		after, err := o.Snapshot(t.Context(), &target)
+		if err != nil || after.AttemptedAt != now || !after.Unknown || !after.ObservedAt.IsZero() || after.Disk != nil {
+			t.Fatalf("failed first attempt: %+v %v", after, err)
 		}
 	}
 }

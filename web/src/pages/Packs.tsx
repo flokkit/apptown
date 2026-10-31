@@ -1,3 +1,4 @@
+import { PhoneDetails } from '../GlanceRow'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { renderMd } from '../md'
@@ -154,6 +155,7 @@ export default function Packs() {
                 <span className="chip pending">Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</span>
               </div>
             )}
+            <PhoneDetails>
             <div className="row pack-actions" style={{ marginTop: 10 }}>
               <button className="subtle" onClick={() => setInspecting(p)}>Contents</button>
               <button className="subtle" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy</button>
@@ -167,6 +169,7 @@ export default function Packs() {
                 </>
               )}
             </div>
+            </PhoneDetails>
           </div>
         ))}
       </div>

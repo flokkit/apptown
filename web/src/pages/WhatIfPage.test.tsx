@@ -76,6 +76,22 @@ const button = (el: HTMLElement, text: string) => [...el.querySelectorAll('butto
 describe('the what-if page', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
+  it('keeps phone answers brief without calling an unassessed project clear', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+    const { el, done } = await render(url => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf)
+    try {
+      const rows = [...el.querySelectorAll('tr.glance-row')]
+      expect(rows).toHaveLength(4)
+      expect(rows[0].querySelector('.glance-state')?.textContent).toContain('failed')
+      expect(rows[0].querySelector('.glance-fact')?.textContent).toBe('2 new failures')
+      expect(rows[3].querySelector('.glance-fact')?.textContent).toBe('Not assessed yet')
+      expect(rows[0].querySelector('.glance-more')?.textContent).toContain('0123456789')
+      const firstView = rows[0].cloneNode(true) as HTMLElement
+      firstView.querySelectorAll('details').forEach(d => d.remove())
+      expect(firstView.textContent).not.toContain('0123456789')
+    } finally { done() }
+  })
+
   it('answers per project and says what it could not assess', async () => {
     const { el, done } = await render((url) => url.includes('/authz/me') ? { instance: {} } : url.includes('/packs/team') ? { recommended: 1 } : whatIf)
     const text = el.textContent ?? ''

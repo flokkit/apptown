@@ -405,7 +405,7 @@ func TestAttentionInventoryObservesActualProviderLossFailureAndRecovery(t *testi
 	missing := func(s attention.Snapshot) []attention.Item {
 		var out []attention.Item
 		for _, i := range s.Items {
-			if i.Title == "A recorded resource is missing" {
+			if i.Title == "do-syd: resource missing" {
 				out = append(out, i)
 			}
 		}

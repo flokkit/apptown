@@ -70,3 +70,12 @@ func TestReviewStateOwnsItsRepresentations(t *testing.T) {
 		t.Fatalf("uninitialized state accepted on wire: %v", err)
 	}
 }
+
+func TestReviewDisplayDistinguishesWorkFromCheckResults(t *testing.T) {
+	t.Parallel()
+	for state, want := range map[ReviewState]string{0: "unknown", ReviewQueued: "waiting", ReviewRunning: "working", ReviewDone: "finished", ReviewError: "failed"} {
+		if got := state.Display().String(); got != want {
+			t.Fatalf("%s: %s, want %s", state, got, want)
+		}
+	}
+}

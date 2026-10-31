@@ -66,6 +66,9 @@ func TestProtectionSourceDistinguishesMissingFailedAndUnknownRecovery(t *testing
 				t.Fatalf("recovery conditions %+v", got.Items)
 			}
 			for _, item := range got.Items {
+				if !strings.Contains(item.Title, "Office: ") {
+					t.Fatalf("unnamed condition: %+v", item)
+				}
 				if item.Severity != tc.severity || item.ObservedAt != at || item.Href != "/projects/team-app/settings/deployments" {
 					t.Fatalf("evidence %+v", item)
 				}
@@ -85,13 +88,16 @@ func TestProtectionSourcePreservesStaleCopiesAndExcludesDisposableRequirements(t
 		{Key: "none", Need: "files", Copy: dataprotection.CopyNone},
 		{Key: "disposable", Need: "cache", Copy: dataprotection.CopyDisposable},
 	}}}
-	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, DataClass: "production", DesiredGeneration: 3, ObservedGeneration: 2}
+	dep := &deployment.Deployment{ID: idstest.N(1), Kind: deployment.Standing, Name: "Office", DataClass: "production", DesiredGeneration: 3, ObservedGeneration: 2}
 	source := Protection{Projects: protectionProject{}, Deployments: protectionDeployments{[]*deployment.Deployment{dep}}, Observer: evidence, Now: func() time.Time { return at.Add(time.Minute) }}
 	got, err := source.ProjectSnapshot(t.Context(), idstest.N(2))
 	if err != nil || len(got.Items) != 2 || !got.Stale || got.ObservedAt != at {
 		t.Fatalf("copy evidence %+v %v", got, err)
 	}
 	for _, item := range got.Items {
+		if !strings.Contains(item.Title, "Office: ") {
+			t.Fatalf("unnamed condition: %+v", item)
+		}
 		if !item.Stale || item.Severity != SeverityWarning || !strings.Contains(item.Key, "/2/3/") {
 			t.Fatalf("copy identity %+v", item)
 		}

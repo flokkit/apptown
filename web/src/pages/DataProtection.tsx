@@ -1,3 +1,4 @@
+import { GlanceRow } from '../GlanceRow'
 import { Status, STATUS_LIGHT } from '../Status'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
@@ -315,12 +316,12 @@ export function OperationPage() {
         <thead><tr><th>Step</th><th>Started</th><th>Took</th><th></th></tr></thead>
         <tbody>
           {op.steps.map((st, i) => (
-            <tr key={i}>
+            <GlanceRow name={0} state={3} fact={1} labels={["Step", "Started", "Took", "Details"]} key={i}>
               <td>{st.name}{st.detail && <div className={st.failed ? 'error' : 'muted'}>{st.detail}</div>}</td>
               <td className="muted" style={{ whiteSpace: 'nowrap' }}>{fmtWhen(st.started)}</td>
               <td className="muted">{st.ended ? elapsed(st.started, new Date(st.ended).getTime()) : elapsed(st.started)}{st.bytes ? ` · ${fmtBytes(st.bytes)}` : ''}</td>
               <td>{!st.ended ? <span className="chip running">{old ? 'last read' : 'now'}</span> : st.unknown ? <span className="chip pending">not known</span> : st.failed ? <Status word={"failed"} tone={STATUS_LIGHT["failed"]} /> : <span className="chip pass">done</span>}</td>
-            </tr>
+            </GlanceRow>
           ))}
           {op.steps.length === 0 && <tr><td colSpan={4} className="muted">no step has started yet</td></tr>}
         </tbody>

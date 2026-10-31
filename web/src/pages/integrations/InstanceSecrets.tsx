@@ -1,3 +1,4 @@
+import { PhoneDetails } from '../../GlanceRow'
 import { PRODUCT } from '../../brand'
 import { useState } from 'react'
 import { del, put } from '../../api'
@@ -103,8 +104,9 @@ export function InstanceSecretsPanel() {
             <div key={n} className="row" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--rule-faint)' }}>
               <div style={{ minWidth: 0 }}>
                 <code style={{ overflowWrap: 'anywhere' }}>{n}</code>
-                <div className="muted small">held in {storeWords(stores[n])}</div>
+
               </div>
+              <PhoneDetails><div className="muted small">Stored in {storeWords(stores[n])}</div>
               {stores[n] === 'secrets.env'
                 ? <span className="row small" style={{ gap: 6, flexWrap: 'wrap' }}>
                     <SetSecretNow name={n} held />
@@ -112,6 +114,7 @@ export function InstanceSecretsPanel() {
                       onYes={() => run(() => del<InstanceSecret>(`/secrets/${n}`))} />
                   </span>
                 : <span className="muted small">change it in Infisical</span>}
+              </PhoneDetails>
             </div>
           ))}
         </div>

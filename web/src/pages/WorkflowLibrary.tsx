@@ -1,3 +1,4 @@
+import { PhoneDetails } from '../GlanceRow'
 import { PRODUCT } from '../brand'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -126,6 +127,7 @@ spec:
               </div>
             )
           })()}
+          <PhoneDetails>
           <div className="row muted small">
             stages: {l.stages.map((s) => <span key={s} className="chip">{s}</span>)}
             {tier !== 'system' && (
@@ -139,7 +141,8 @@ spec:
                 : <span>not used by any project</span>
             )}
           </div>
-          <details><summary className="muted small">Details</summary><p>{l.description}</p><pre className="log">{l.yaml}</pre></details>
+          <details><summary className="muted small">Definition</summary><p>{l.description}</p><pre className="log">{l.yaml}</pre></details>
+          </PhoneDetails>
         </div>
       ))}
     </div>

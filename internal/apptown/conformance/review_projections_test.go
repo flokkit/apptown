@@ -200,6 +200,11 @@ func TestSavedReviewsRetrievable(t *testing.T) {
 	if len(list) != 2 || list[0].ID != r2.ID || list[1].ID != r1.ID {
 		t.Fatalf("both reviews should list newest-first: %+v", list)
 	}
+	for _, summary := range list {
+		if summary.StatusLabel != LabelFinished {
+			t.Fatalf("completed review must say finished, not check passed: %+v", summary)
+		}
+	}
 	saved, err := f.service.Review(caller("reader"), r1.ID)
 	if err != nil {
 		t.Fatal(err)

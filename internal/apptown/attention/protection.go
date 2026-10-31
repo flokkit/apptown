@@ -40,6 +40,10 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 	if err != nil {
 		return Snapshot{}, err
 	}
+	projectName := project.Name
+	if projectName == "" {
+		projectName = project.Slug
+	}
 	out := Snapshot{Known: true, ObservedAt: clock.Or(p.Now)()}
 	href := "/projects/" + url.PathEscape(project.Slug) + "/settings/deployments"
 	for _, dep := range deps {
@@ -59,10 +63,10 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 		}
 		base := fmt.Sprintf("%s/%d/%d", dep.ID, dep.ObservedGeneration, dep.DesiredGeneration)
 		add := func(key, title, detail, severity string, at time.Time) {
-			out.Items = append(out.Items, Item{Key: base + "/" + key, Title: title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, Stale: reading.Stale || unknown})
+			out.Items = append(out.Items, Item{Key: base + "/" + key, Title: projectName + " · " + label + ": " + title, Detail: label + ": " + detail, Severity: severity, Href: href, ObservedAt: at, Stale: reading.Stale || unknown})
 		}
 		if unknown && dep.DataClass == "production" {
-			add("unassessed", "Data protection could not be assessed", "Current protection coverage is unavailable.", SeverityWarning, reading.ObservedAt)
+			add("unassessed", "Backups not known", "Current protection coverage is unavailable.", SeverityWarning, reading.ObservedAt)
 		}
 		// Copy cadence and disposable classification come from data protection.
 		// Previews and non-production data acquire no universal backup requirement.
@@ -79,9 +83,9 @@ func (p Protection) ProjectSnapshot(ctx context.Context, id ids.ID) (Snapshot, e
 				if !item.CopyAt.IsZero() {
 					detail += " Last successful copy: " + item.CopyAt.UTC().Format(time.RFC3339) + "."
 				}
-				add(item.Key+"/copy", "A required data copy needs attention", detail, SeverityWarning, reading.ObservedAt)
+				add(item.Key+"/copy", "Check backups", detail, SeverityWarning, reading.ObservedAt)
 			case dataprotection.CopyNone:
-				add(item.Key+"/copy", "A required data copy is missing", item.Need+" has no retained successful copy.", SeverityWarning, reading.ObservedAt)
+				add(item.Key+"/copy", "Backup missing", item.Need+" has no retained successful copy.", SeverityWarning, reading.ObservedAt)
 			default:
 				out.Known = false
 				add(item.Key+"/copy", "A required data copy could not be assessed", item.Need+" has unknown copy coverage.", SeverityWarning, reading.ObservedAt)

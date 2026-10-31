@@ -2346,7 +2346,7 @@ app:
 	if err != nil {
 		t.Fatal(err)
 	}
-	productionHost, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "design-production", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady})
+	productionHost, err := a.Deployment.Targets.Put(ctx, &deployment.Target{Name: "design-production", Kind: deployment.KindDockerHost, Origin: deployment.OriginBuiltIn, Status: deployment.TargetReady, Ingress: map[string]any{"domain": "apps.example.test"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2399,10 +2399,57 @@ app:
 	if _, err := daemon.run("volume", "create", docker.ByKey(prod.ID).DataVolume()); err != nil {
 		t.Fatal(err)
 	}
+	// Many deployments without limits reproduce a busy host. Capacity and
+	// runtime still pass through their owners, using the disposable daemon.
+	captureDeps := []*deployment.Deployment{prod}
+	for i := 1; i < 9; i++ {
+		dep, err := a.Deployment.Deployments.EnsureStanding(ctx, project.ID, fmt.Sprintf("app-%d", i), productionHost.ID, deployment.Attributes{Feed: "manual", Audience: "public", DataClass: "production"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		captureDeps = append(captureDeps, dep)
+		daemon.markStarted(docker.ByKey(dep.ID).App())
+	}
 	daemon.command = func(_ context.Context, host string, req docker.Command) ([]byte, error) {
 		if host != "" {
 			return nil, deploy.Unreachable(errors.New("SSH connection refused by the local test transport"))
 		}
+		if len(req.Args) == 3 && req.Args[0] == "info" && strings.Contains(req.Args[2], "MemTotal") {
+			return []byte("2072321720\t1\t/var/lib/docker\n"), nil // 1.93 GiB host, independent of container usage.
+		}
+		if len(req.Args) == 3 && req.Args[0] == "ps" && req.Args[2] == "--no-trunc" {
+			var names []string
+			for _, dep := range captureDeps {
+				names = append(names, docker.ByKey(dep.ID).App())
+			}
+			for i := 0; i < 10; i++ {
+				names = append(names, fmt.Sprintf("outside-%d", i))
+			}
+			names = append(names, "limited-app")
+			return []byte(strings.Join(names, "\n")), nil
+		}
+		if len(req.Args) > 4 && req.Args[0] == "inspect" && strings.Contains(req.Args[4], "HostConfig.Memory") {
+			var rows []string
+			for _, dep := range captureDeps {
+				rows = append(rows, fmt.Sprintf("/%s\t0\t0\t0\t0\t\tdeployment\t%s", docker.ByKey(dep.ID).App(), dep.ID))
+			}
+			for i := 0; i < 10; i++ {
+				rows = append(rows, fmt.Sprintf("/outside-%d\t0\t0\t0\t0\t\t\t", i))
+			}
+			rows = append(rows, "/limited-app\t4541927916\t0\t0\t0\t\t\t") // 4.23 GiB asked for.
+			return []byte(strings.Join(rows, "\n")), nil
+		}
+		if len(req.Args) > 0 && req.Args[0] == "stats" {
+			var rows []string
+			for _, dep := range captureDeps {
+				rows = append(rows, docker.ByKey(dep.ID).App()+"\t100MiB / 8GiB")
+			}
+			for i := 0; i < 10; i++ {
+				rows = append(rows, fmt.Sprintf("outside-%d\t10MiB / 8GiB", i))
+			}
+			return []byte(strings.Join(rows, "\n")), nil
+		}
+
 		if req.Stdout != nil {
 			_, err := containerresulttest.WriteString(req.Stdout, "disposable local backup data")
 			return nil, err

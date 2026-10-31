@@ -1,3 +1,6 @@
+import { useHostStates } from '../hostState'
+import { useAttention } from '../attention'
+import { GlanceRow } from '../GlanceRow'
 import { STATUS_LIGHT, Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { Link, NavLink, useLocation } from 'react-router-dom'
@@ -5,16 +8,20 @@ import { useGet } from '../data'
 import { ReadStatus, StaleNote } from '../ReadGate'
 import { fmtBytes, relTime } from '../format'
 import { DeletedProjects, useRefreshInfrastructure } from './Infrastructure'
-import { Glyph } from '../parts/Glyph'
-import type { AllBackups, DiskReadings, InfrastructureTargets, Job, JobList, Reading, TargetList } from '../wire.gen'
-import { FAMILY_TITLE, familyRank } from '../targets'
+import type { DiskReadings, InfrastructureTargets, Job, JobList, Reading, TargetList } from '../wire.gen'
+import { familyRank } from '../targets'
 import { PageHead } from '../PageHead'
 
-// Infrastructure: every deployment target, one card each, with its
-// inventory — deployments, resources at the provider, unrecorded resources,
-// backups — and its own page one click in.
+// Infrastructure lists hosts by name, state and one summary. Each host's
+// page keeps its capacity, inventory, settings and backup details.
 
-const JOB_WORDS: Record<string, string> = { backup: 'backup of', inventory: 'inventory of', rebuild: 'rebuild of', 'backup-sweep': 'backup sweep,', 'db-backup': `${PRODUCT}'s own database backup,` }
+const JOB_WORDS: Record<string, string> = {
+  backup: 'Back up apps', inventory: 'Check resources', rebuild: 'Rebuild an app', 'backup-sweep': 'Check backups', 'db-backup': `Back up ${PRODUCT}`,
+  narrative: 'Write a change summary', 'protection-observation': 'Check backups', 'capacity-observation': 'Check host disk',
+  'disk-observation': 'Check storage', operation: 'Copy or restore data', 'remediation-pass': 'Fix findings', 'what-if': 'Compare rules',
+  'eval-pass': 'Compare changes', 'project-description': 'Describe a project', 'workflow-completion': 'Finish a workflow',
+  'workflow-abandonment': 'Stop a workflow', 'conformance-review': 'Review projects',
+}
 const jobReceipt = (j: Job) => {
   if (j.error) return j.error
   const r = j.receipt ?? {}
@@ -29,24 +36,20 @@ const jobReceipt = (j: Job) => {
 
 
 export function InfrastructureHome() {
+  const attention = useAttention()
+  const hostState = useHostStates()
   const tab = useLocation().pathname.endsWith('/jobs') ? 'jobs' : 'targets'
   const infra = useGet<InfrastructureTargets>('/infrastructure', { poll: 30000 })
   const targets = useGet<TargetList>('/targets', { poll: 30000 })
-  const backups = useGet<AllBackups>('/backups', { poll: 60000 })
   const { refresh, refreshing, err: refreshErr } = useRefreshInfrastructure()
   if (!infra.data || !targets.data) return <ReadStatus q={[infra, targets]} what="each deployment target's inventory" />
   const byName = new Map(targets.data.targets.map((t) => [t.name, t]))
   const live = [...infra.data.targets].sort((a, b) => familyRank(a.family) - familyRank(b.family) || a.target.localeCompare(b.target))
-  const latestBackup = (envs: { project: string; name: string }[]) => {
-    const keys = new Set(envs.map((e) => e.project + '/' + e.name))
-    const mine = (backups.data?.backups ?? []).filter((b) => keys.has(b.project + '/' + b.deployment) && b.status !== 'pruned' && b.status !== 'failed')
-    return mine.length ? { latest: mine[0].takenAt, kept: mine.length } : null
-  }
   return (
     <div>
-      <StaleNote q={[infra, targets, backups]} />
-      <PageHead page="infrastructure"
-        actions={tab === 'targets' && <button className="subtle" onClick={refresh} disabled={refreshing}>{refreshing ? 'refreshing…' : 'Refresh all'}</button>} />
+      <StaleNote q={[infra, targets, attention]} />
+      <PageHead page="infrastructure" />
+      {tab === 'targets' && <details className="small"><summary>Options</summary><button className="subtle" onClick={refresh} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh all'}</button></details>}
       {refreshErr && <div className="error">The inventory could not be refreshed: {refreshErr}</div>}
       <div className="tabs" style={{ marginTop: 10 }}>
         <NavLink to="/infrastructure" end className={() => 'tab' + (tab === 'targets' ? ' active' : '')}>Deployment targets</NavLink>
@@ -61,42 +64,13 @@ export function InfrastructureHome() {
           const envs = v?.deployments ?? []
           const unrecorded = res.filter((r) => r.record === 'unrecorded').length
           const missing = res.filter((r) => r.record === 'missing').length
-          const thingWord = t.kind === 'portainer' ? 'stack' : t.kind === 'do-app' ? 'app' : t.kind === 's3-bucket' ? 'bucket' : 'container'
-          const things = res.filter((r) => r.record !== 'missing' && ['container', 'stack', 'app', 'bucket'].includes(r.kind)).length
-          const dataWord = t.kind === 'do-app' ? 'database' : 'data volume'
-          const data = res.filter((r) => r.record !== 'missing' && (r.kind === 'volume' || r.kind === 'database')).length
-          const bk = latestBackup(envs)
-          const offers = v?.offers ?? []
+          const state = hostState(t.target, t.statusLabel)
           return (
             <Link key={t.target} to={`/infrastructure/${t.target}`} className="conn-card infra-card">
-              <div className="infra-head">
-                <div className="infra-glyph" aria-hidden><Glyph kind={t.kind} /></div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="infra-title">{t.target}</div>
-                  <div className="infra-kind">{FAMILY_TITLE[t.family] ?? t.family} · {t.place}{t.domain ? ` · *.${t.domain}` : ''}</div>
-                </div>
-                <Status word={t.statusLabel} tone={STATUS_LIGHT[t.statusLabel]} help={`Target check: ${t.status}.`} />
-              </div>
-              <div className="infra-facts" title={t.facts}>{t.facts}</div>
-              <div className="infra-stats">
-                <div className="infra-stat"><b>{envs.length}</b><span>deployment{envs.length === 1 ? '' : 's'}</span></div>
-                <div className="infra-stat"><b>{things}</b><span>{thingWord}{things === 1 ? '' : 's'}</span></div>
-                <div className="infra-stat"><b>{data}</b><span>{dataWord}{data === 1 ? '' : 's'}</span></div>
-              </div>
-              <div className="infra-attention">
-                {unrecorded > 0 && <span className="chip pending">{unrecorded} unrecorded</span>}
-                {missing > 0 && <span className="chip fail">{missing} missing</span>}
-                {unrecorded === 0 && missing === 0 && t.live && <span className="chip pass">inventory matches records</span>}
-                {/* The host's own state is the chip above; this is the
-                    inventory's. No answer yet is not a failure (sweep 7). */}
-                {t.error
-                  ? <span className="chip fail" title={t.error}>inventory failed</span>
-                  : !t.live && <span className="chip pending">checking…</span>}
-              </div>
-              <div className="infra-foot">
-                <span><small>inventory</small>{t.live ? (t.asOf ? relTime(t.asOf) : 'now') : t.error ? 'no answer' : 'checking…'}</span>
-                <span><small>backups</small>{!backups.data ? (backups.err ? 'could not be read' : 'reading…') : bk ? `${relTime(bk.latest)} · ${bk.kept} kept` : envs.length > 0 ? 'none yet' : 'no state'}</span>
-                <span><small>offered to</small>{offers.length > 0 ? offers.map((o) => o.group === '*' ? 'everyone' : o.group).join(', ') : 'nobody'}</span>
+              <div className="host-row">
+                <strong>{v?.displayLabel || t.target}</strong>
+                <Status word={state.word} tone={state.word === 'working' ? 'pass' : STATUS_LIGHT[state.word]} help={state.help} />
+                <span className="muted small">{state.summary || (missing > 0 ? 'Check missing resources' : unrecorded > 0 ? 'Review resources' : `${envs.length} ${envs.length === 1 ? 'app' : 'apps'}`)}</span>
               </div>
             </Link>
           )
@@ -118,32 +92,30 @@ export function OwnDisks() {
   return (
     <div style={{ marginTop: 16 }}>
       <StaleNote q={q} />
-      <div style={{ overflowX: 'auto' }}>
-      <table className="small" style={{ fontVariantNumeric: 'tabular-nums' }}>
-        <thead><tr><th>Disk</th><th>Free</th><th>Read</th><th>New work</th></tr></thead>
-        <tbody>
-          {q.data.disks.map((d) => (
-            <tr key={d.what + (d.path ?? '')}>
-              <td>{d.what}{d.path && <span className="muted"> · {d.path}</span>}</td>
-              <td style={d.unknown ? undefined : { whiteSpace: 'nowrap' }}>{d.unknown ? <>unknown <span className="muted">— {d.unknown}</span></> : `${fmtBytes(d.freeBytes ?? 0)} of ${fmtBytes(d.totalBytes ?? 0)}`}</td>
-              <td className="muted" style={{ whiteSpace: 'nowrap' }}>{relTime(d.readAt)}</td>
-              <td><DiskChip d={d} /></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="host-disks">
+        {q.data.disks.map(d => <details key={d.what + (d.path ?? '')} className="host-disk">
+          <summary className="host-row">
+            <strong>{d.what.startsWith('this ') ? PRODUCT : d.what.includes('Docker') ? 'Worker apps' : d.what.includes('worker') ? 'Worker storage' : d.what}</strong>
+            <DiskChip d={d} />
+            <span className="muted small">{d.unknown ? 'Disk not known' : d.low ? 'Low on disk' : `${Math.round(100 * (d.freeBytes ?? 0) / (d.totalBytes || 1))}% disk free`}</span>
+          </summary>
+          <div className="small">{d.what}{d.path && <p><code>{d.path}</code></p>}
+            {d.unknown || `${fmtBytes(d.freeBytes ?? 0)} free of ${fmtBytes(d.totalBytes ?? 0)}`} · {relTime(d.readAt)}
+            {d.refuses && <p>New work is blocked. Check the disk and free space.</p>}
+            {d.warningBytes ? <p>Free some space when less than {fmtBytes(d.warningBytes)} is free.</p> : null}
+            {d.floorBytes ? <p>New work stops below {fmtBytes(d.floorBytes)} free.</p> : null}
+          </div>
+        </details>)}
       </div>
     </div>
   )
 }
 
-// DiskChip: refused (below the floor, or not read where the reading admits
-// work), low, not read, or room.
+// DiskChip keeps a blocked disk distinct from an unknown reading or low room.
+
 function DiskChip({ d }: { d: Reading }) {
-  if (d.refuses) return <span className="chip fail">{d.unknown ? 'refused: not read' : `refused: under ${fmtBytes(d.floorBytes ?? 0)} free`}</span>
-  if (d.unknown) return <span className="chip pending">not read</span>
-  if (d.low) return <span className="chip pending">{d.warningBytes ? `low: under ${fmtBytes(d.warningBytes)} free` : 'disk space low'}</span>
-  return <span className="chip pass">room</span>
+  const word = d.refuses ? 'blocked' : d.unknown ? 'unknown' : d.low ? 'low' : 'working'
+  return <Status word={word} tone={d.unknown ? 'unknown' : d.refuses ? 'fail' : d.low ? 'pending' : 'pass'} />
 }
 
 // JobQueue: AppTown's own work (design/subsystems/jobs.md) — open jobs
@@ -165,12 +137,12 @@ function JobQueue() {
               <thead><tr><th>Job</th><th>State</th><th>When</th><th>Outcome</th></tr></thead>
               <tbody>
                 {jobs.data.jobs.map((j) => (
-                  <tr key={j.id}>
-                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? j.kind} <details className="inline-detail"><summary>Key</summary><code className="job-key">{j.key}</code></details></td>
+                  <GlanceRow name={0} state={1} fact={2} labels={["Job", "State", "When", "Outcome"]} key={j.id}>
+                    <td className="stack-lead">{JOB_WORDS[j.kind] ?? 'Background task'}</td>
                     <td className="stack-end"><Status word={j.statusLabel} tone={STATUS_LIGHT[j.statusLabel]} help={j.error || j.state} />{j.attempts > 1 ? <span className="muted"> · attempt {j.attempts}</span> : null}</td>
                     <td className="muted" data-label="when">{relTime(j.finishedAt || j.startedAt || j.createdAt)}</td>
-                    <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}</td>
-                  </tr>
+                    <td data-label="outcome" className={j.error ? 'error' : ''}>{jobReceipt(j)}<details className="inline-detail"><summary>Job key</summary><div>{j.kind}</div><code className="job-key">{j.key}</code></details></td>
+                  </GlanceRow>
                 ))}
               </tbody>
             </table>

@@ -67,7 +67,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     const v = mount(<><AttentionBadge /><AttentionPage /></>); await settled(v.client)
     expect(badge(v.el).getAttribute('aria-label')).toContain('coverage incomplete')
     expect(v.el.textContent).not.toContain('No current conditions need attention')
-    expect(v.el.textContent).toContain(mode === 'failed' ? 'failed' : 'Coverage incomplete')
+    expect(v.el.textContent).toContain(mode === 'failed' ? 'failed' : 'Some checks are still unknown.')
   })
   it('retains conditions across a failed refresh and clears them only after successful recovery', async () => {
     let answer = () => json(warning)
@@ -82,7 +82,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
     expect(v.el.querySelectorAll('article')).toHaveLength(0)
     expect(badge(v.el).getAttribute('aria-label')).toBe('Attention: 0 conditions')
-    expect(v.el.textContent).toContain('0 conditions')
+    expect(v.el.textContent).toContain('0 need attention')
     expect(v.el.textContent).not.toContain('Coverage incomplete')
   })
   it('shows only the condition count in the topbar when host coverage is incomplete', async () => {

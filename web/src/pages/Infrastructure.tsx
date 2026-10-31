@@ -1,3 +1,5 @@
+import { useNarrow } from '../chrome'
+import { GlanceRow, PhoneDetails } from '../GlanceRow'
 import { STATUS_LIGHT, Status } from '../Status'
 import { PRODUCT } from '../brand'
 import { Link } from 'react-router-dom'
@@ -99,11 +101,14 @@ export function DeletedProjects() {
 }
 
 function TargetSection({ t: tIn, refreshing, onChanged }: { t: TargetInfra; refreshing: boolean; onChanged: () => void }) {
+  const narrow = useNarrow()
   const t = { ...tIn, resources: tIn.resources ?? [] }
   const unrecorded = t.resources.filter((r) => r.record === 'unrecorded').length
   const missing = t.resources.filter((r) => r.record === 'missing').length
   return (
     <section style={{ marginBottom: 26 }}>
+      {narrow && <div className="host-row"><strong><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></strong><Status word={t.statusLabel} tone={t.statusLabel === 'working' ? 'pass' : STATUS_LIGHT[t.statusLabel]} /><span className="muted small">{t.resources.length} resources</span></div>}
+      <PhoneDetails>
       <div className="row" style={{ marginBottom: 2 }}>
         <h2 style={{ margin: 0 }}><Link to={`/infrastructure/${t.target}`}>{t.target}</Link></h2>
         <span className="muted">{t.place}{t.domain ? ` · *.${t.domain}` : ''}</span>
@@ -125,6 +130,7 @@ function TargetSection({ t: tIn, refreshing, onChanged }: { t: TargetInfra; refr
       {t.error && !t.live && <div className="error small" style={{ marginBottom: 8 }}>{t.error}{t.asOf ? ' · showing the last inventory read.' : ` · showing ${PRODUCT}'s records only.`}</div>}
       <ResourceTables t={t} onChanged={onChanged} />
       {t.shared && <div className="muted small" style={{ marginTop: 6 }}>{t.shared}</div>}
+      </PhoneDetails>
     </section>
   )
 }
@@ -170,9 +176,10 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
     if (ok) onChanged()
   }
   return (
-    <tr style={r.record === 'missing' ? { opacity: 0.6 } : undefined}>
+    <GlanceRow name={0} state={1} fact={3} labels={["Resource", "State", "Where", "Size", "Apps", "Record"]} style={r.record === 'missing' ? { opacity: 0.6 } : undefined}>
       <td>
         <div style={{ fontWeight: 600 }}>{r.name}</div>
+        <details className="resource-details"><summary>Details</summary>
         {r.url && <a className="small" href={r.url} target="_blank" rel="noreferrer">{host}</a>}
         {r.id && <div className="muted small" title="the provider's id">{r.id}</div>}
         {r.detail && <div className="muted small">{r.detail}</div>}
@@ -183,7 +190,7 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
               onYes={remove} yes="Remove" className="subtle danger" title={`Remove it; ${PRODUCT} has no record of it`} disabled={busy} />
             {err && <div className="error small">{err}</div>}
           </div>
-        )}</td>
+        )}</details></td>
       <td>{r.status ? <Status word={r.statusLabel} tone={STATUS_LIGHT[r.statusLabel]} help={r.status} /> : <span className="muted">—</span>}</td>
       <td className="small">{r.region || <span className="muted">—</span>}</td>
       <td className="small">{[r.version, r.size].filter(Boolean).join(' · ') || <span className="muted">—</span>}</td>
@@ -212,6 +219,6 @@ function ResourceRow({ r, target, onChanged }: { r: Resource; target: string; on
         {r.record === 'missing' && <Status word={"missing"} tone={STATUS_LIGHT["missing"]} help={`in ${PRODUCT}'s records; the provider has no trace of it`} />}
         {r.tags && r.tags.length > 0 && <div className="muted small" title="the provider's tags">{r.tags.join(', ')}</div>}
       </td>
-    </tr>
+    </GlanceRow>
   )
 }

@@ -35,3 +35,23 @@ it('shows both customer placements with their own label, address and observation
     vi.unstubAllGlobals()
   }
 })
+
+it('uses the app observation on phones even when the first tier has no deployments', async () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {} }))
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.endsWith('/tiers') ? { tiers: [{ name: 'preview', title: 'Preview', apps: [] }, { name: 'main', title: 'Production', apps: [{ slug: 'ledger', name: 'Ledger', deploymentLabel: 'Production', running: true, observation: 'running', targetName: 'Kitchen', observationStale: false }] }] }
+      : url.endsWith('/projects') ? [{ slug: 'ledger', name: 'Ledger', deployed: true, observation: 'running', targetName: 'Kitchen', observationStale: false }] : {},
+  ))))
+  const client = newQueryClient()
+  const el = document.createElement('div')
+  const root = createRoot(el)
+  try {
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={['/deployments/table']}><Routes><Route path="/deployments/:gtab" element={<Deployments />} /></Routes></MemoryRouter></QueryClientProvider>))
+    await vi.waitFor(() => expect(el.querySelector('.glance-state .chip.pass')?.textContent).toContain('running'))
+    expect(el.querySelector('.glance-name')?.textContent).toContain('Ledger')
+    expect(el.querySelector('.glance-fact')?.textContent).toContain('1 deployment')
+    expect(el.querySelector('.glance-more details')?.textContent).toContain('Production')
+  } finally {
+    act(() => root.unmount()); client.clear(); vi.unstubAllGlobals()
+  }
+})

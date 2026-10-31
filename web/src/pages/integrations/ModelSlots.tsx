@@ -1,3 +1,4 @@
+import { GlanceRow } from '../../GlanceRow'
 import { useState } from 'react'
 import { put } from '../../api'
 import { fmtTokens as fmtTokensShared } from '../../format'
@@ -90,7 +91,7 @@ export function ModelSlotsPanel() {
         </thead>
         <tbody>
           {data.slots.map((row) => (
-            <tr key={row.slot}>
+            <GlanceRow name={0} summary={row.patterns.standard || 'Not set'} labels={["Purpose", ...profiles, "Spent in 7 days"]} key={row.slot}>
               <td className="kv-key stack-lead" style={{ width: 110, verticalAlign: 'top' }}>
                 {row.slot}
                 {(row.gloss || row.consumers?.length) && <details className="inline-detail small"><summary>Use</summary><p>{row.gloss}</p><p>{(row.consumers ?? []).join(' · ')}</p></details>}
@@ -106,7 +107,7 @@ export function ModelSlotsPanel() {
               <td className="small muted" style={{ verticalAlign: 'top', maxWidth: 260 }}>
                 {row.spend7d && <div>{fmtTokens(row.spend7d.input)} in / {fmtTokens(row.spend7d.output)} out</div>}
               </td>
-            </tr>
+            </GlanceRow>
           ))}
         </tbody>
       </table>
