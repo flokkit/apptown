@@ -13,9 +13,10 @@ const (
 	HealthUnknown HealthStatus = iota + 1
 	HealthPassed
 	HealthFailed
+	HealthNotSetUp
 )
 
-var healthStatusCodec = enum.Set[HealthStatus]{Names: []string{"unknown", "passed", "failed"}, Invalid: "invalid-health-status", Err: errors.New("invalid health status"), ScanLabel: "value"}
+var healthStatusCodec = enum.Set[HealthStatus]{Names: []string{"unknown", "passed", "failed", "not set up"}, Invalid: "invalid-health-status", Err: errors.New("invalid health status"), ScanLabel: "value"}
 
 func (s HealthStatus) String() string                   { return healthStatusCodec.String(s) }
 func (s HealthStatus) Value() (driver.Value, error)     { return healthStatusCodec.Value(s) }
@@ -24,6 +25,10 @@ func (s *HealthStatus) UnmarshalJSON(data []byte) error { return healthStatusCod
 
 // ForDisplay supplies the owner's label even when no check exists.
 func (h Health) ForDisplay() Health {
+	if h.NotSetUp {
+		h.StateLabel = HealthNotSetUp
+		return h
+	}
 	h.StateLabel = HealthUnknown
 	if h.Checked {
 		if h.OK {

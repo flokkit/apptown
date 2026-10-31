@@ -22,7 +22,9 @@ it.each([false, true])('leads with the host name, state and app address while se
   const html = renderToStaticMarkup(<MemoryRouter initialEntries={['/infrastructure/kitchen']}><QueryClientProvider client={client}><Routes><Route path="/infrastructure/:name" element={<TargetPage />} /></Routes></QueryClientProvider></MemoryRouter>)
   const el = document.createElement('div')
   el.innerHTML = html
-  expect(el.querySelector('.target-settings')?.textContent).toContain('HOST_KEY')
+  expect(el.querySelector('.target-settings')?.textContent).toContain('SSH key: secret HOST_KEY')
+  expect(el.querySelector('.target-settings a[href="/integrations/secrets"]')?.textContent).toBe('Edit secret')
+  expect([...el.querySelectorAll('.target-settings summary')].map(s => s.textContent)).not.toContain('Key')
   el.querySelectorAll('details').forEach(d => d.remove())
   // The state light itself is also a disclosure; its summary remains visible.
   const first = el.textContent

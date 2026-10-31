@@ -3,6 +3,7 @@ package apptown
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,9 @@ func TestIntegrationHealthSaysWhetherAndWhenItWasChecked(t *testing.T) {
 		t.Fatalf("a checked kind has no server check time: %+v (%v)", h, err)
 	}
 	health := connectorHealthFor(a)
+	if h := health.Health(t.Context(), integration.CapSCM, "gitlab", nil); h.StateLabel != integration.HealthNotSetUp || h.Checked || h.CheckedAt != "" {
+		t.Fatalf("unconfigured GitLab is not a failed check: %+v", h)
+	}
 	if h := health.Test(t.Context(), "objectstore", "minio", map[string]any{}); h.Checked || h.OK {
 		t.Fatalf("a test of a kind with no check passed: %+v", h)
 	}
@@ -62,6 +66,9 @@ func TestEveryKindSaysTrulyWhetherTestConnectionAsksIt(t *testing.T) {
 	t.Parallel()
 	a := testApp(t)
 	health := connectorHealthFor(a)
+	if h := health.Health(t.Context(), integration.CapSCM, "gitlab", nil); h.StateLabel != integration.HealthNotSetUp || h.Checked || h.CheckedAt != "" {
+		t.Fatalf("unconfigured GitLab is not a failed check: %+v", h)
+	}
 	for _, c := range integration.ConnectorCatalog() {
 		if !health.Testable(c.Capability) {
 			continue
@@ -85,5 +92,17 @@ func TestEveryKindSaysTrulyWhetherTestConnectionAsksIt(t *testing.T) {
 		if e.Name == "openrouter" && (!e.Testable || e.Health.Checked) {
 			t.Fatalf("AI models: testable %v, checked %v", e.Testable, e.Health.Checked)
 		}
+	}
+}
+
+func TestPartialGitLabConfigurationNeedsAttention(t *testing.T) {
+	t.Parallel()
+	a := testApp(t)
+	if err := a.Secrets.SetInstance(t.Context(), "GITLAB_URL", "https://gitlab.invalid", "boss"); err != nil {
+		t.Fatal(err)
+	}
+	h := connectorHealthFor(a).Health(t.Context(), integration.CapSCM, "gitlab", nil)
+	if h.StateLabel != integration.HealthFailed || !h.Checked || !strings.Contains(h.Detail, "GITLAB_TOKEN") {
+		t.Fatalf("partly configured GitLab must fail with the missing setting: %+v", h)
 	}
 }

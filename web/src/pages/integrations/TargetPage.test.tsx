@@ -143,7 +143,7 @@ describe('the registry line', () => {
     const text = show({ registry: 'flokkit', tier: 'basic', included: 5, used: 5, full: true, readAt })
     expect(text).toContain('Container registry flokkit: basic plan, 5 of 5 repositories')
     expect(text).toContain('plan full')
-    expect(text).toContain('read 3')
+    expect(text).toContain(`read ${fmtStamp(readAt)}`)
   })
   it('says room without calling it full', () => {
     const text = show({ registry: 'flokkit', tier: 'basic', included: 5, used: 2, full: false, readAt })

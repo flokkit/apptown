@@ -202,3 +202,11 @@ func TestFleetIncompleteCountIncludesChecksHiddenByHigherPriorityStanding(t *tes
 		t.Fatalf("incomplete projects must count lanes regardless of standing: %s", body)
 	}
 }
+
+func TestFindingSentenceKeepsChecksThatCouldNotRun(t *testing.T) {
+	t.Parallel()
+	standing, sentence := standingFor(Lanes{Findings: 2, Broken: 1}, 0, 3)
+	if standing != StandingDoesNot || !strings.Contains(sentence, "2 findings · 1 couldn't run") {
+		t.Fatalf("mixed result hides failed execution: %s: %s", standing, sentence)
+	}
+}

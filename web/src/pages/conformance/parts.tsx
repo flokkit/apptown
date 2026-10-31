@@ -19,7 +19,7 @@ export type LiveReview = { review: Review; verdicts: WireVerdict[] }
 // --- vocabulary ------------------------------------------------------------------------
 
 export const STANDING: Record<string, { tone: string; style?: CSSProperties }> = {
-  'does-not-conform': { tone: 'fail' },
+  'does-not-conform': { tone: 'pending' },
   'review-broken': { tone: 'error' },
   'needs-a-look': { tone: '', style: { color: 'var(--warn)', background: 'var(--warn-bg)' } },
   'conforms-so-far': { tone: 'pending' },
@@ -28,7 +28,7 @@ export const STANDING: Record<string, { tone: string; style?: CSSProperties }> =
   'nothing-adopted': { tone: 'draft' },
 }
 export const STATE: Record<string, { tone: string; style?: CSSProperties; rank: number }> = {
-  'does-not-conform': { tone: 'fail', rank: 0 },
+  'does-not-conform': { tone: 'pending', rank: 0 },
   error: { tone: 'error', rank: 1 },
   excepted: { tone: 'overridden', rank: 3 },
   stale: { tone: 'pending', rank: 2 },
@@ -41,7 +41,7 @@ export const stateOf = (s: string) => STATE[s] ?? { tone: '', rank: 9 }
 export const EVAL: Record<string, string> = { sh: 'shell check', llm: 'AI rubric', tool: 'scanner', runtime: 'runtime probe' }
 export const SEV: Record<string, string> = { high: 'var(--bad)', medium: 'var(--warn)', low: 'var(--muted)', note: 'var(--note)' }
 export const LANE_COLOR: Record<string, string> = {
-  conforms: 'var(--ok)', excepted: 'var(--note)', flagged: 'var(--warn)', findings: 'var(--bad)',
+  conforms: 'var(--ok)', excepted: 'var(--note)', flagged: 'var(--warn)', findings: 'var(--warn)',
   unassessed: 'var(--border-strong)', broken: 'var(--bad)',
 }
 export const LANE_LABEL: Record<string, string> = {
@@ -82,10 +82,15 @@ export const code: CSSProperties = { fontSize: 'var(--fs-xs)', whiteSpace: 'pre-
 
 // --- small parts ---------------------------------------------------------------------------
 
-export function StandingChip({ label, help }: { label: import('../../wire.gen').CheckLabel; help: string }) {
+export function StandingChip({ label, help, findings, broken = 0 }: { label: import('../../wire.gen').CheckLabel; help: string; findings?: number; broken?: number }) {
+  if (findings !== undefined) return <span className="row" style={{ gap: 4, flexWrap: 'wrap' }}><Status word={label} tone="pending" text={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={help} /><BrokenNote broken={broken} /></span>
   return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not fully checked' : undefined} help={help} />
 }
-export function StateChip({ label, help }: { label: import('../../wire.gen').CheckLabel; help?: string }) {
+export function BrokenNote({ broken }: { broken: number }) {
+  return broken > 0 ? <span className="conformance-broken">· {broken} couldn't run</span> : null
+}
+export function StateChip({ label, help, finding = false, findings = 1 }: { label: import('../../wire.gen').CheckLabel; help?: string; finding?: boolean; findings?: number }) {
+  if (finding) return <Status word={label} tone="pending" text={`${findings} ${findings === 1 ? 'finding' : 'findings'}`} help={help} />
   return <Status word={label} tone={STATUS_LIGHT[label]} text={label === 'excepted' ? 'Exception approved' : label === 'unknown' ? 'Not checked' : undefined} help={help || (label === 'unknown' ? 'This check has no current result. Open the project for details.' : undefined)} />
 }
 
@@ -169,7 +174,7 @@ export function ReviewFeed({ d }: { d: LiveReview }) {
               <span style={{ fontWeight: 600 }}>{v.projectSlug}</span>
               <span className="mono muted" style={{ fontSize: 'var(--fs-xs)' }}> · {v.block}/{v.check}</span>
             </span>
-            <StateChip label={v.statusLabel} help={v.detail} />
+            <StateChip finding={v.state === 'does-not-conform'} label={v.statusLabel} help={v.detail} />
           </div>
         ))}
       </div>

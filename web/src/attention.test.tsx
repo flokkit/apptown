@@ -66,7 +66,7 @@ describe('Attention surfaces share authorized current evidence', () => {
   it.each(['unknown', 'stale', 'failed'] as const)('does not report all-clear for %s empty observations', async mode => {
     responses(() => mode === 'failed' ? json({ error: 'observation read failed' }, 503) : json({ ...known, sources: [{ ...known.sources[0], unknown: mode === 'unknown', stale: mode === 'stale' }] }))
     const v = mount(<><AttentionBadge /><AttentionPage /></>); await settled(v.client)
-    expect(badge(v.el).getAttribute('aria-label')).toBe('Attention unknown')
+    expect(badge(v.el).getAttribute('aria-label')).toBe(mode === 'failed' ? 'Attention unknown' : '0 need attention; 1 not known')
     expect(v.el.textContent).not.toContain('No current conditions need attention')
     expect(v.el.textContent).toContain(mode === 'failed' ? 'failed' : 'Some checks are still unknown.')
   })
@@ -77,7 +77,7 @@ describe('Attention surfaces share authorized current evidence', () => {
     answer = () => json({ error: 'offline' }, 503)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
     expect(v.el.querySelectorAll('article')).toHaveLength(2)
-    expect(badge(v.el).getAttribute('aria-label')).toBe('2 need attention; coverage incomplete')
+    expect(badge(v.el).getAttribute('aria-label')).toBe('2 need attention; 1 not known')
     expect(v.el.textContent).toContain('unknown')
     answer = () => json(known)
     await act(async () => { await v.client.refetchQueries({ queryKey: getKey('/attention') }) }); await settled(v.client)
@@ -85,13 +85,13 @@ describe('Attention surfaces share authorized current evidence', () => {
     expect(badge(v.el)).toBeNull()
     expect(v.el.textContent).not.toContain('Coverage incomplete')
   })
-  it('shows only the condition count in the topbar when host coverage is incomplete', async () => {
+  it('shows known conditions beside incomplete host coverage in the topbar', async () => {
     responses(() => json({ ...warning, sources: [{ ...known.sources[0], unknown: true }] }))
     const v = mount(<AttentionBadge />); await settled(v.client)
-    expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('2 need attention')
-    expect(badge(v.el).querySelector('.attention-compact')?.textContent).toBe('⚠ 2')
+    expect(badge(v.el).querySelector('.attention-words')?.textContent).toBe('2 · 1 not known')
+    expect(badge(v.el).querySelector('.attention-compact')?.textContent).toBe('⚠ 2 · 1 not known')
     expect(badge(v.el).getAttribute('href')).toBe('/attention')
-    expect(badge(v.el).getAttribute('aria-label')).toBe('2 need attention; coverage incomplete')
+    expect(badge(v.el).getAttribute('aria-label')).toBe('2 need attention; 1 not known')
   })
   it('polls the shared visible answer at thirty seconds and makes no signed-out request', async () => {
     vi.useFakeTimers(); focusManager.setFocused(true)
@@ -237,4 +237,11 @@ it('hides the topbar badge when no known condition needs attention', async () =>
  responses(() => json(known))
  const v = mount(<AttentionBadge />); await settled(v.client)
  expect(v.el.querySelector('a')).toBeNull()
+})
+it.each([0, 2])('keeps %s known conditions beside unknown source coverage', async count => {
+ responses(() => json({ items: warning.items.slice(0, count), sources: [...known.sources, { key: 'protection/game', name: 'Data protection', unknown: true, stale: true }] }))
+ const v = mount(<AttentionBadge />); await settled(v.client)
+ expect(badge(v.el).textContent).toContain(`${count} · 1 not known`)
+ expect(badge(v.el).getAttribute('href')).toBe('/attention')
+ expect(badge(v.el).getAttribute('aria-label')).toBe(`${count} need attention; 1 not known`)
 })

@@ -15,6 +15,11 @@ policy or record read must not be presented as a successful evaluation. Fleet
 reads apply project visibility internally; a narrowed query parameter is not an
 authorization grant.
 
+Project standing keeps finding counts and checks that could not run visible
+together. Findings are amber; “N couldn't run” is red in the standing chip and
+summary note, including on phones. Findings retain priority in standing without
+hiding incomplete evaluation.
+
 Use [conformance](conformance.md) for record ownership and [remediation](remediation.md)
 for acting on findings.
 

@@ -156,19 +156,19 @@ export default function Packs() {
                 <Status word="waiting" tone={STATUS_LIGHT.waiting} text="Setup needed" /><details><summary>What needs setting up?</summary>Missing: {p.requires.filter(r => !r.bound).map(r => r.capability).join(', ')}</details>
               </div>
             )}
-            <details style={{ marginTop: 10 }}><summary aria-label={`Actions for ${p.name}`}>⋯</summary><div className="row pack-actions">
-              <button className="subtle" onClick={() => setInspecting(p)}>Contents</button>
-              <button className="subtle" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy</button>
+            <div className="row pack-actions" aria-label={`Actions for ${p.name}`}>
+              <button className="link" onClick={() => setInspecting(p)}>Contents</button>
+              <button className="link" onClick={() => setEditing({ draft: copyOf(p), existing: false })} title="a pack of your own that starts as a copy of this one">Copy</button>
               {p.enabled === false
-                ? <button className="subtle" disabled={busy} onClick={() => void setOn(p, true)}>Make available</button>
-                : <button className="subtle" disabled={busy} onClick={() => void setOn(p, false)}>Hide</button>}
+                ? <button className="link" disabled={busy} onClick={() => void setOn(p, true)}>Make available</button>
+                : <button className="link" disabled={busy} onClick={() => void setOn(p, false)}>Hide</button>}
               {p.origin !== 'stock' && (
                 <>
-                  <button className="subtle" onClick={() => setEditing({ draft: declared(p), existing: true })}>Edit</button>
-                  <QuietConfirm label="Delete" ask={`Delete pack "${p.name}"? Projects that applied it keep the versions they applied.`} onYes={() => void remove(p)} />
+                  <button className="link" onClick={() => setEditing({ draft: declared(p), existing: true })}>Edit</button>
+                  <QuietConfirm className="link danger" label="Delete" ask={`Delete pack "${p.name}"? Projects that applied it keep the versions they applied.`} onYes={() => void remove(p)} />
                 </>
               )}
-            </div></details>
+            </div>
           </div>
         ))}
       </div>

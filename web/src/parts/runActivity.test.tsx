@@ -74,14 +74,14 @@ it.each(['failed', 'stopped', 'finished'] as const)('does not claim elapsed idle
   expect(el.textContent).not.toContain('127.4h')
 })
 
-it('puts history source and duration behind Details on a phone', () => {
+it('keeps history source and duration behind the row on a phone', () => {
   vi.stubGlobal('matchMedia', () => ({ matches: true }))
   try {
     const el = document.createElement('div')
     el.innerHTML = renderToStaticMarkup(<MemoryRouter><ChangeHistoryTable changes={[row()]} showProject /></MemoryRouter>)
     expect(el.querySelector('.glance-name')?.textContent).toContain('Change the page heading')
     expect(el.querySelector('.glance-state')?.textContent).toContain('landed')
-    expect(el.querySelector('.glance-more')?.textContent).toContain('demo-smoke')
+    expect(el.querySelector('tr[aria-expanded]')?.getAttribute('aria-expanded')).toBe('false')
     el.querySelectorAll('details').forEach(d => d.remove())
     expect(el.textContent).not.toContain('demo-smoke')
     expect(el.textContent).not.toContain('2m')

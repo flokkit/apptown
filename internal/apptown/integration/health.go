@@ -2,11 +2,13 @@ package integration
 
 import "time"
 
-// Health is one reading of an integration. Checked says whether AppTown
+// Health is one reading of an integration. NotSetUp distinguishes entirely absent
+// configuration from a failed check. Partial required configuration is a failure. Checked says whether AppTown
 // has a check for the kind and ran it; CheckedAt is the server's time when
-// it did. An unchecked reading is not evidence either way, so OK and Detail
-// are empty: "no check" must never read as "working".
+// it did. A kind with no check has empty OK and Detail; NotSetUp can name
+// what is missing. Neither state is evidence that a connection works.
 type Health struct {
+	NotSetUp   bool         `json:"-"`
 	StateLabel HealthStatus `json:"stateLabel"`
 	OK         bool         `json:"ok"`
 	Detail     string       `json:"detail"`
@@ -16,6 +18,9 @@ type Health struct {
 
 // At is the reading as one AppTown took at the given time.
 func (h Health) At(at time.Time) Health {
+	if h.NotSetUp {
+		return h.ForDisplay()
+	}
 	h.Checked = true
 	h.CheckedAt = at.UTC().Format(time.RFC3339)
 	return h.ForDisplay()

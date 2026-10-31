@@ -96,15 +96,15 @@ it('starts a secret request as a prepared change without asking for its value', 
   client.clear()
 })
 
-it('keeps infrastructure inventory and connection facts behind the target row on desktop too', () => {
+it('shows target facts beside the inventory while resource ids stay in detail', () => {
   const client = newQueryClient()
   client.setQueryData(getKey('/infrastructure'), { targets: [{ target: 'Kitchen', statusLabel: 'working', live: true, facts: 'ssh root@internal-host TOKEN_NAME', resources: [{ kind: 'container', name: 'apptown-dep-raw-id', id: 'raw-provider-id', status: 'running', statusLabel: 'running', record: 'recorded', hosts: [{ project: 'Diary', deployment: 'main' }] }] }] })
   const html = renderToStaticMarkup(<MemoryRouter><QueryClientProvider client={client}><InfrastructureView /></QueryClientProvider></MemoryRouter>)
   expect(firstView(html)).toContain('Kitchen')
   expect(firstView(html)).toContain('working')
-  expect(firstView(html)).not.toContain('TOKEN_NAME')
+  expect(firstView(html)).toContain('ssh root@internal-host TOKEN_NAME')
   expect(firstView(html)).not.toContain('raw-provider-id')
-  expect(firstView(html)).not.toContain('Diary')
+  expect(firstView(html)).toContain('Diary')
   expect(html).toContain('Diary')
   client.clear()
 })

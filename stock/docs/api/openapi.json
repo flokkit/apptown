@@ -3153,6 +3153,9 @@
               "null"
             ]
           },
+          "lastChangeTitle": {
+            "type": "string"
+          },
           "lastRunAt": {
             "anyOf": [
               {
@@ -3236,6 +3239,7 @@
           "adrCount",
           "doneRuns",
           "lastRunAt",
+          "lastChangeTitle",
           "toolchain",
           "prodRunning",
           "productionUrl",

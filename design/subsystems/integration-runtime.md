@@ -9,6 +9,11 @@ GitLab API requests, including registry provisioning, refuse redirects so the
 provider token stays at the configured endpoint. Configure the final GitLab URL;
 even a redirect within the same origin is refused.
 
+GitLab is “not set up” when both `GITLAB_URL` and `GITLAB_TOKEN` are empty.
+If only one is set, its health check fails and names the missing setting.
+Integrations that are not set up have no check time and do not count as connected
+or needing attention.
+
 ## From configuration to runtime
 
 1. An administrator configures a provider binding for a capability. The project

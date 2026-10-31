@@ -1,6 +1,5 @@
-import { GlanceRow } from '../GlanceRow'
 import { Status } from '../Status'
-import { RuntimeObservation, RuntimeStatus } from '../runtime'
+import { AppAddress, RuntimeObservation, RuntimeStatus } from '../runtime'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useGet } from '../data'
@@ -15,7 +14,6 @@ import type { ProjectCleanupList, ProjectPage, ProjectRow } from '../wire.gen'
 type ProjRow = Omit<ProjectRow, keyof RuntimeObservation> & RuntimeObservation
 type ProjPage = Omit<ProjectPage, 'projects'> & { projects: ProjRow[] }
 
-const rel = (ts: string): string => relTime(ts) || 'No changes yet'
 
 // After a delete (?removed=<slug>): the records are gone at once, and a
 // queued cleanup takes down the app and removes previews, volumes and
@@ -105,14 +103,13 @@ export default function Projects() {
             </div>
           )}
           <table className="stack project-list">
-            <thead><tr><th>Application</th><th>Activity</th><th>Updated</th><th>State</th></tr></thead>
-            <tbody>{(byNs.get(ns) ?? []).map((p) => <GlanceRow name={0} state={3} summary={<>{p.activeItems ?? 0} in progress</>} labels={["Application", "Activity", "Updated", "State"]} key={p.id}>
-              <td className="stack-lead"><Link className="tap-open" to={`/projects/${p.slug}`}><strong>{p.icon && <span aria-hidden>{p.icon} </span>}{p.name}</strong></Link>{p.blurb && <div className="small muted project-description">{p.blurb}</div>}</td>
-
-              <td className="project-extra" data-label="activity">{p.activeItems ?? 0} in progress · {p.doneRuns} shipped</td>
-              <td data-label="updated" className="muted small">{rel(p.lastRunAt)}</td>
+            <thead><tr><th>Application</th><th>State</th></tr></thead>
+            <tbody>{(byNs.get(ns) ?? []).map((p) => <tr key={p.id}>
+              <td className="stack-lead"><Link className="tap-open" to={`/projects/${p.slug}`}><span className="project-avatar" aria-hidden>{p.icon || p.name.slice(0, 1).toUpperCase()}</span><strong>{p.name}</strong></Link>{p.prodRunning && p.productionUrl && <AppAddress url={p.productionUrl} className="small project-live">Open app</AppAddress>}
+                <div className="small muted project-summary">{p.activeItems > 0 && <>{p.activeItems} in progress · </>}{p.doneRuns} shipped · {relTime(p.lastRunAt) ? <>Updated {relTime(p.lastRunAt)}</> : 'No changes yet'}{p.lastChangeTitle && <> · {p.lastChangeTitle}</>}</div>
+                {p.blurb && <div className="small muted project-description">{p.blurb}</div>}</td>
               <td className="stack-end">{p.hasDeployments !== false ? <RuntimeStatus observation={p} /> : <Status word="none" text="Not deployed" tone="" />}</td>
-            </GlanceRow>)}</tbody>
+            </tr>)}</tbody>
           </table>
         </section>
       ))}

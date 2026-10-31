@@ -816,7 +816,8 @@ WITH change_counts AS (
 SELECT p.id,COALESCE(c.changes,0)::bigint AS changes,COALESCE(c.active_items,0)::bigint AS active_items,
  COALESCE(r.done_runs,0)::bigint AS done_runs,COALESCE(r.running_runs,0)::bigint AS running_runs,
  COALESCE(r.last_run_at,'epoch'::timestamptz)::timestamptz AS last_run_at,(r.last_run_at IS NOT NULL)::boolean AS has_last_run_at,
- COALESCE(c.open_changes,0)::bigint AS open_changes,COALESCE(c.open_uplifts,0)::bigint AS open_uplifts
+ COALESCE(c.open_changes,0)::bigint AS open_changes,COALESCE(c.open_uplifts,0)::bigint AS open_uplifts,
+ COALESCE((SELECT latest.title FROM changes latest WHERE latest.project_id=p.id ORDER BY latest.created_at DESC,latest.id DESC LIMIT 1),'')::text AS last_change_title
 FROM projects p LEFT JOIN change_counts c ON c.project_id=p.id LEFT JOIN run_counts r ON r.project_id=p.id
 WHERE p.id=ANY($1::uuid[])
 `
@@ -830,15 +831,16 @@ type ProjectActivityReportParams struct {
 }
 
 type ProjectActivityReportRow struct {
-	ID           ids.ID
-	Changes      int64
-	ActiveItems  int64
-	DoneRuns     int64
-	RunningRuns  int64
-	LastRunAt    time.Time
-	HasLastRunAt bool
-	OpenChanges  int64
-	OpenUplifts  int64
+	ID              ids.ID
+	Changes         int64
+	ActiveItems     int64
+	DoneRuns        int64
+	RunningRuns     int64
+	LastRunAt       time.Time
+	HasLastRunAt    bool
+	OpenChanges     int64
+	OpenUplifts     int64
+	LastChangeTitle string
 }
 
 func (q *Queries) ProjectActivityReport(ctx context.Context, arg ProjectActivityReportParams) ([]ProjectActivityReportRow, error) {
@@ -866,6 +868,7 @@ func (q *Queries) ProjectActivityReport(ctx context.Context, arg ProjectActivity
 			&i.HasLastRunAt,
 			&i.OpenChanges,
 			&i.OpenUplifts,
+			&i.LastChangeTitle,
 		); err != nil {
 			return nil, err
 		}

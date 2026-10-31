@@ -1343,6 +1343,7 @@ export type ProjectRow = {
   adrCount: number
   doneRuns: number
   lastRunAt: string
+  lastChangeTitle: string
   toolchain: string[]
   prodRunning: boolean | null
   productionUrl: string
@@ -3332,7 +3333,7 @@ export type ActivityDeployment = {
 
 export type UpdateLabel = "unknown" | "waiting" | "none" | "current" | "available" | "failed"
 
-export type HealthStatus = "unknown" | "passed" | "failed"
+export type HealthStatus = "unknown" | "passed" | "failed" | "not set up"
 
 export type IntegrationEntry = {
   displayLabel: string

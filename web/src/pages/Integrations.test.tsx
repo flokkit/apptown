@@ -287,3 +287,17 @@ describe('one integration', () => {
     page.done()
   })
 })
+
+it.each([false, true])('keeps an unconfigured integration neutral and out of connected and attention counts (phone=%s)', async narrow => {
+  vi.stubGlobal('matchMedia', () => ({ matches: narrow, addEventListener() {}, removeEventListener() {} }))
+  stubAppTown({ 'GET /integrations': json({ integrations: [{ ...gitlab, health: { checked: false, ok: false, detail: 'Set credentials', stateLabel: 'not set up' } }] }), 'GET /integrations/catalog': json({ catalog }) })
+  const page = await mount('/integrations')
+  try {
+    await vi.waitFor(() => expect(page.text()).toContain('not set up'))
+    expect(page.el.querySelector('.int-summary')?.textContent).not.toContain('need attention')
+    expect(page.el.querySelector('.int-summary')?.textContent).toContain('0 connected')
+    expect(page.el.querySelector('tr.int-row')?.textContent).not.toContain('Not tested yet')
+    expect(page.el.querySelector('tr.int-row .chip [aria-hidden]')).toBeNull()
+    expect(page.el.querySelector('tr.int-row .chip.fail')).toBeNull()
+  } finally { page.done(); vi.unstubAllGlobals() }
+})
